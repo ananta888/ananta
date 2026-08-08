@@ -11,12 +11,14 @@ import { throttleTime } from 'rxjs/operators';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { ShareSessionService } from './share-session.service';
 import { SnakeOverlayService } from './snake-overlay.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 
 @Injectable({ providedIn: 'root' })
 export class WebrtcCursorService implements OnDestroy {
   private transport = inject(WebrtcTransportService);
   private share     = inject(ShareSessionService);
   private overlay   = inject(SnakeOverlayService);
+  private controlPlane = inject(PairSessionControlPlaneService);
 
   private mouseX = 0.5;
   private mouseY = 0.5;
@@ -38,6 +40,7 @@ export class WebrtcCursorService implements OnDestroy {
     this.subs.push(
       this.transport.message$.subscribe(msg => {
         if (msg.type !== 'cursor') return;
+        if (!this.rawCursorAllowed()) return;
         const p = msg.payload as { x?: number; y?: number; sender_id?: string } | null;
         if (!p?.sender_id || p.sender_id === this.myId) return;
         this.overlay.setRemoteCursor(
@@ -50,9 +53,9 @@ export class WebrtcCursorService implements OnDestroy {
 
     // Broadcast while overlay is visible AND transport is active
     this.subs.push(
-      combineLatest([this.overlay.visible$, this.transport.mode$])
+      combineLatest([this.overlay.visible$, this.transport.mode$, this.share.state$])
         .subscribe(([visible, mode]) => {
-          if (visible && mode !== 'idle') this.startBroadcast();
+          if (visible && mode !== 'idle' && this.rawCursorAllowed()) this.startBroadcast();
           else this.stopBroadcast();
         }),
     );
@@ -82,11 +85,17 @@ export class WebrtcCursorService implements OnDestroy {
   }
 
   private broadcast(): void {
-    if (this.transport.mode$.value === 'idle') return;
+    if (this.transport.mode$.value === 'idle' || !this.rawCursorAllowed()) return;
     this.transport.send('cursor', {
       sender_id: this.myId,
       x: this.mouseX,
       y: this.mouseY,
     });
+  }
+
+  private rawCursorAllowed(): boolean {
+    const sessionId = this.share.state$.value.session?.id ?? '';
+    if (!sessionId) return false;
+    try { return this.controlPlane.authorityKindForSession(sessionId) === 'hub'; } catch { return false; }
   }
 }

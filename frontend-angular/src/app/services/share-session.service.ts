@@ -11,6 +11,7 @@ import { E2eEncryptionService } from './e2e-encryption.service';
 import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import { PairSecureSequenceService } from './pair-secure-sequence.service';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
 import {
   PairSecurityBootstrapState,
   PairViewSecurityBootstrapService,
@@ -18,6 +19,8 @@ import {
 
 export interface ShareSession {
   id: string;
+  /** Canonical, server-issued peer identity for this exact control plane. */
+  local_peer_id?: string;
   title: string;
   invite_code: string;
   mode: string;
@@ -32,6 +35,7 @@ export interface ShareSession {
   security_epoch?: number | null;
   security_contract_version?: number;
   security_mode?: string;
+  identity_binding_version?: number;
 }
 
 export interface ShareParticipant {
@@ -99,6 +103,7 @@ export class ShareSessionService implements OnDestroy {
   private secureSequences = inject(PairSecureSequenceService);
   private securityBootstrap = inject(PairViewSecurityBootstrapService);
   private controlPlane = inject(PairSessionControlPlaneService);
+  private publicContract = inject(PairPublicSessionContractPolicy);
 
   readonly state$ = new BehaviorSubject<ActiveShareState>({
     session: null, participants: [], messages: [], cursor: '0', role: null,
@@ -115,6 +120,12 @@ export class ShareSessionService implements OnDestroy {
       if (msg.type !== 'chat') return;
       const session = this.state$.value.session;
       if (!session || msg.session_id !== session.id) return;
+      if (this.controlPlane.isPublicSession(session.id)) {
+        try { this.publicContract.assertValid(session); } catch {
+          this.closeUnverifiedStrictTransport();
+          return;
+        }
+      }
       if (session && this.isStrictSession(session)) {
         void this.acceptStrictChatWire(msg.payload).catch(() => undefined);
         return;
@@ -154,7 +165,9 @@ export class ShareSessionService implements OnDestroy {
   canSendChat(): boolean {
     const session = this.state$.value.session;
     if (!session || !this.hasPermission('chat')) return false;
-    if (!this.isStrictSession(session)) return true;
+    if (!this.isStrictSession(session)) {
+      return !this.controlPlane.isPublicSession(session.id);
+    }
     return this.securityState$.value.status === 'ready'
       && !!session.security_epoch
       && this.cryptoPort.ready(session.id, session.security_epoch);
@@ -166,7 +179,8 @@ export class ShareSessionService implements OnDestroy {
   }
 
   get currentUserId(): string {
-    return this.controlPlane.currentPeerId;
+    const sessionId = this.state$.value.session?.id;
+    return sessionId ? this.controlPlane.peerIdForSession(sessionId) : this.controlPlane.currentPeerId;
   }
 
   private get hubUrl(): string {
@@ -227,18 +241,24 @@ export class ShareSessionService implements OnDestroy {
     const normalized = text.trim();
     if (!session || !normalized) return;
     if (!this.hasPermission('chat')) throw new Error('chat_permission_required');
+    const publicSession = this.controlPlane.isPublicSession(session.id);
+    if (publicSession) {
+      this.controlPlane.assertSessionAvailable(session.id);
+      this.publicContract.assertValid(session);
+    }
 
     if (this.isStrictSession(session)) {
       if (!this.canSendChat() || !session.security_epoch) {
         throw new Error('confirmed_pair_binding_required');
       }
+      const senderUserId = this.currentUserId;
       const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now());
       const createdAt = Date.now() / 1000;
       const plaintext: StrictChatPlaintext = {
         version: 1,
         id,
         sessionId: session.id,
-        senderUserId: this.currentUserId,
+        senderUserId,
         text: normalized,
         createdAt,
         visibility: 'room',
@@ -246,7 +266,12 @@ export class ShareSessionService implements OnDestroy {
       const encryptedPayload = await this.cryptoPort.seal(JSON.stringify(plaintext), {
         scopeId: session.id,
         epoch: session.security_epoch,
-        sequence: this.secureSequences.next(session.id, session.security_epoch, 'semantic'),
+        sequence: await this.secureSequences.next(
+          session.id,
+          session.security_epoch,
+          senderUserId,
+          'semantic',
+        ),
         payloadType: 'pair.chat_message',
         trafficClass: 'semantic',
       });
@@ -254,6 +279,10 @@ export class ShareSessionService implements OnDestroy {
       if (this.transport.mode$.value === 'webrtc') {
         this.transport.send('chat', wire);
       } else {
+        if (publicSession) {
+          throw new Error('public_pair_datachannel_required');
+        }
+        this.assertHubPayloadRelayAllowed(session.id);
         const url = this.hubUrl;
         if (!url) throw new Error('hub_unavailable');
         await firstValueFrom(this.core.post(
@@ -263,7 +292,7 @@ export class ShareSessionService implements OnDestroy {
       this.appendMessage({
         id,
         session_id: session.id,
-        sender_id: this.currentUserId,
+        sender_id: senderUserId,
         text: normalized,
         created_at: createdAt,
         visibility: 'room',
@@ -282,6 +311,7 @@ export class ShareSessionService implements OnDestroy {
       return;
     }
 
+    this.assertHubPayloadRelayAllowed(session.id);
     const url = this.hubUrl;
     if (!url) throw new Error('hub_unavailable');
     await firstValueFrom(this.core.post(`${url}/share-sessions/${session.id}/chat/messages`, {
@@ -293,18 +323,22 @@ export class ShareSessionService implements OnDestroy {
   revokeParticipant(participantId: string): void {
     const { session } = this.state$.value;
     if (!session) return;
-    const url = this.hubUrl;
-    this.core.delete(`${url}/share-sessions/${session.id}/participants/${participantId}`, url).subscribe({
-      next: () => this.fetchParticipants(),
-      error: () => {},
-    });
+    try {
+      this.controlPlane.revokeParticipant(session.id, participantId).subscribe({
+        next: () => this.fetchParticipants(),
+        error: () => {},
+      });
+    } catch { /* public authority loss remains local and never falls back */ }
   }
 
   endSession(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    this.controlPlane.end(session.id).subscribe({ error: () => {} });
-    this.clearActiveSession();
+    try {
+      this.controlPlane.end(session.id).subscribe({ error: () => {} });
+    } finally {
+      this.clearActiveSession();
+    }
   }
 
   leaveSession(): void {
@@ -331,25 +365,45 @@ export class ShareSessionService implements OnDestroy {
   private sendHeartbeat(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    this.controlPlane.heartbeat(session.id)
-      .subscribe({ error: () => {} });
+    try {
+      this.controlPlane.heartbeat(session.id)
+        .subscribe({ error: () => {} });
+    } catch {
+      this.closeUnverifiedStrictTransport();
+    }
   }
 
   private fetchParticipants(): void {
     const { session } = this.state$.value;
     if (!session) return;
-    this.controlPlane.participants<{ ok: boolean; participants: ShareParticipant[]; data?: { participants: ShareParticipant[] } }>(session.id).subscribe({
-      next: (r) => {
-        const participants = r?.participants ?? r?.data?.participants;
-        if (participants) this.state$.next({ ...this.state$.value, participants });
-      },
-      error: () => {},
-    });
+    try {
+      this.controlPlane.participants<{ ok: boolean; participants: ShareParticipant[]; data?: { participants: ShareParticipant[] } }>(session.id).subscribe({
+        next: (r) => {
+          const participants = r?.participants ?? r?.data?.participants;
+          if (participants) this.state$.next({ ...this.state$.value, participants });
+        },
+        error: () => {},
+      });
+    } catch {
+      this.closeUnverifiedStrictTransport();
+    }
   }
 
   private fetchMessages(): void {
     const { session, cursor } = this.state$.value;
     if (!session || this.transport.mode$.value === 'webrtc' || this.messagePollInFlight) return;
+    // Public rendezvous sessions have no application-payload relay. An idle
+    // or failed DataChannel must stay closed instead of leaking chat to Hub.
+    if (this.controlPlane.isPublicSession(session.id)) {
+      try {
+        this.controlPlane.assertSessionAvailable(session.id);
+        this.publicContract.assertValid(session);
+      } catch {
+        this.closeUnverifiedStrictTransport();
+      }
+      return;
+    }
+    try { this.assertHubPayloadRelayAllowed(session.id); } catch { return; }
     const url = this.hubUrl;
     if (!url) return;
     this.messagePollInFlight = true;
@@ -379,6 +433,7 @@ export class ShareSessionService implements OnDestroy {
   }
 
   private activateSession(session: ShareSession, role: 'owner' | 'participant'): void {
+    if (this.controlPlane.isPublicSession(session.id)) this.publicContract.assertValid(session);
     this.securityGeneration += 1;
     // A strict session may need several polling cycles before its remote peer
     // is cryptographically bound. Never retain the prior session's transport
@@ -406,6 +461,7 @@ export class ShareSessionService implements OnDestroy {
     this.stopPolling();
     this.transport.close();
     if (sessionId) this.secureSequences.clearScope(sessionId);
+    if (sessionId) this.controlPlane.forgetSession(sessionId);
     this.securityBootstrap.clear();
     this.messagePollInFlight = false;
     this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
@@ -414,6 +470,12 @@ export class ShareSessionService implements OnDestroy {
   private async refreshSecurity(): Promise<void> {
     const session = this.state$.value.session;
     if (!session) return;
+    if (this.controlPlane.isPublicSession(session.id)) {
+      try { this.publicContract.assertValid(session); } catch {
+        this.closeUnverifiedStrictTransport();
+        return;
+      }
+    }
     if (!this.isStrictSession(session)) {
       if (this.securityState$.value.status !== 'legacy') this.securityBootstrap.markLegacy();
       return;
@@ -569,5 +631,12 @@ export class ShareSessionService implements OnDestroy {
     if (!current.session || item.session_id !== current.session.id) return;
     if (current.messages.some((message) => message.id === item.id)) return;
     this.state$.next({ ...current, messages: [...current.messages, item].slice(-200) });
+  }
+
+  private assertHubPayloadRelayAllowed(sessionId: string): void {
+    if (this.controlPlane.isPublicSession(sessionId)) {
+      throw new Error('public_pair_hub_relay_forbidden');
+    }
+    this.controlPlane.assertSessionAvailable(sessionId);
   }
 }

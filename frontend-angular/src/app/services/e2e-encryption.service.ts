@@ -11,6 +11,12 @@ import {
   parseSecureEnvelope,
   secureEnvelopeAad,
 } from './webrtc-secure-envelope';
+import { E2eOutboundNoncePolicy } from './e2e-nonce-policy';
+import {
+  INBOUND_NONCE_REPLAY_STORE,
+  InboundNonceReplayDomain,
+  InboundNonceReplayStorePort,
+} from './e2e-replay.store';
 
 export interface KeyEnvelope {
   publicKeySpkiB64: string;
@@ -39,9 +45,8 @@ export interface SealOptions {
 @Injectable({ providedIn: 'root' })
 export class E2eEncryptionService {
   private readonly store: SecureKeyStorePort = inject(SECURE_KEY_STORE);
-  private readonly outboundNonces = new Map<string, Set<string>>();
-  private readonly inboundNonces = new Map<string, Set<string>>();
-  private readonly maxNoncesPerKeyEpoch = 8192;
+  private readonly replayStore: InboundNonceReplayStorePort = inject(INBOUND_NONCE_REPLAY_STORE);
+  private readonly nonces = new E2eOutboundNoncePolicy();
 
   async ensureLocalKeyPair(): Promise<KeyEnvelope> {
     const peerRebindRequired = this.store.discardLegacyLocalStorageKey();
@@ -57,15 +62,13 @@ export class E2eEncryptionService {
     const generated = await this.generateRecord((previous?.generation ?? 0) + 1);
     // IndexedDB replaces the single current record in one transaction.
     await this.store.replaceCurrent(generated);
-    this.outboundNonces.clear();
-    this.inboundNonces.clear();
+    this.nonces.clear();
     return this.keyEnvelope(generated, true);
   }
 
   async clearAllKeyMaterial(): Promise<void> {
     await this.store.clear();
-    this.outboundNonces.clear();
-    this.inboundNonces.clear();
+    this.nonces.clear();
   }
 
   async seal(
@@ -74,7 +77,8 @@ export class E2eEncryptionService {
     options: SealOptions,
   ): Promise<SecureEnvelopeV1> {
     this.validateContext(context);
-    const nonce = this.uniqueOutboundNonce(context.keyId, context.epoch);
+    const nonceScope = this.nonceScope(context.keyId, context.epoch);
+    const nonce = this.nonces.nextOutbound(nonceScope);
     const envelope: SecureEnvelopeV1 = {
       version: SECURE_ENVELOPE_VERSION,
       scope: { kind: context.scopeKind, id: context.scopeId },
@@ -122,12 +126,11 @@ export class E2eEncryptionService {
     ) {
       throw new SecureEnvelopeError('cipher_context_mismatch');
     }
-    const nonceKey = `${context.keyId}:${context.epoch}`;
-    const seen = this.inboundNonces.get(nonceKey) ?? new Set<string>();
-    if (seen.has(envelope.nonce_b64)) throw new SecureEnvelopeError('nonce_reuse');
+    const nonceDomain = this.inboundNonceDomain(context);
     const key = await this.deriveAesKey(context);
+    let plaintext: ArrayBuffer;
     try {
-      const plaintext = await crypto.subtle.decrypt(
+      plaintext = await crypto.subtle.decrypt(
         {
           name: 'AES-GCM',
           iv: asArrayBuffer(decodeB64(envelope.nonce_b64)),
@@ -137,12 +140,25 @@ export class E2eEncryptionService {
         key,
         asArrayBuffer(decodeB64(envelope.ciphertext_b64)),
       );
-      this.rememberNonce(this.inboundNonces, nonceKey, envelope.nonce_b64);
-      return { envelope, plaintext: new Uint8Array(plaintext) };
     } catch (error) {
       if (error instanceof SecureEnvelopeError) throw error;
+      if (await this.replayStore.hasNonce(nonceDomain, envelope.nonce_b64, Date.now())) {
+        throw new SecureEnvelopeError('nonce_reuse');
+      }
       throw new SecureEnvelopeError('authentication_failed');
     }
+    const nonceClaim = await this.replayStore.claimNonce(
+      nonceDomain,
+      envelope.nonce_b64,
+      envelope.expires_at_ms + 30_000,
+      Date.now(),
+    );
+    if (nonceClaim === 'duplicate') throw new SecureEnvelopeError('nonce_reuse');
+    if (nonceClaim === 'capacity_exceeded') {
+      throw new SecureEnvelopeError('nonce_replay_capacity_exceeded');
+    }
+    if (nonceClaim !== 'claimed') throw new SecureEnvelopeError('nonce_replay_store_invalid_result');
+    return { envelope, plaintext: new Uint8Array(plaintext) };
   }
 
   async confirmationTag(context: PeerCipherContext, transcriptDigest: string): Promise<string> {
@@ -232,9 +248,7 @@ export class E2eEncryptionService {
   }
 
   forgetEpoch(keyId: string, epoch: number): void {
-    const key = `${keyId}:${epoch}`;
-    this.outboundNonces.delete(key);
-    this.inboundNonces.delete(key);
+    this.nonces.forget(this.nonceScope(keyId, epoch));
   }
 
   async fingerprintSpki(publicKeySpkiB64: string): Promise<string> {
@@ -284,26 +298,19 @@ export class E2eEncryptionService {
     return crypto.subtle.deriveBits({ name: 'ECDH', public: peer }, local.keyPair.privateKey, 256);
   }
 
-  private uniqueOutboundNonce(keyId: string, epoch: number): Uint8Array {
-    const key = `${keyId}:${epoch}`;
-    const seen = this.outboundNonces.get(key) ?? new Set<string>();
-    if (seen.size >= this.maxNoncesPerKeyEpoch) throw new SecureEnvelopeError('nonce_budget_exhausted');
-    for (let attempt = 0; attempt < 8; attempt += 1) {
-      const nonce = crypto.getRandomValues(new Uint8Array(12));
-      const encoded = encodeB64(nonce);
-      if (!seen.has(encoded)) {
-        this.rememberNonce(this.outboundNonces, key, encoded);
-        return nonce;
-      }
-    }
-    throw new SecureEnvelopeError('nonce_generation_failed');
+  private nonceScope(keyId: string, epoch: number): string {
+    return `${keyId}\u0000${epoch}`;
   }
 
-  private rememberNonce(target: Map<string, Set<string>>, key: string, nonce: string): void {
-    const seen = target.get(key) ?? new Set<string>();
-    if (seen.size >= this.maxNoncesPerKeyEpoch) throw new SecureEnvelopeError('nonce_budget_exhausted');
-    seen.add(nonce);
-    target.set(key, seen);
+  private inboundNonceDomain(context: PeerCipherContext): InboundNonceReplayDomain {
+    return {
+      scopeKind: context.scopeKind,
+      scopeId: context.scopeId,
+      epoch: context.epoch,
+      keyId: context.keyId,
+      senderId: context.remotePeerId,
+      recipientId: context.localPeerId,
+    };
   }
 
   private validateContext(context: PeerCipherContext): void {

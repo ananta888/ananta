@@ -42,6 +42,10 @@ import {
   WebrtcMediaPublicationService,
 } from '../../services/webrtc-media-publication.service';
 import { WebrtcPeerKeyService } from '../../services/webrtc-peer-key.service';
+import {
+  PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE,
+  PairOrdinaryMediaPolicy,
+} from '../../services/pair-ordinary-media.policy';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
 import {
   ComputeContractIntent,
@@ -144,6 +148,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly sfuVideo = inject(SfuBroadcastVideoRenderFacade);
   private readonly media = inject(WebrtcMediaSessionService);
   private readonly mediaPublications = inject(WebrtcMediaPublicationService);
+  private readonly ordinaryMediaPolicy = inject(PairOrdinaryMediaPolicy);
   private readonly mobileRuntime = inject(MobileRuntimeService);
   private readonly evidenceFlow = inject(PeerEvidenceSyncFacade);
   private readonly consent = inject(SpeechEvidenceConsentFacade);
@@ -494,6 +499,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const flags = this.profile.semantic_media_feature_flags;
     if (!this.hubUrl()) throw new Error('semantic_program_hub_missing');
     if (capability === 'ordinary_media') {
+      this.ordinaryMediaPolicy.assertAllowed(session.id);
       if (this.transport.mode$.value !== 'webrtc') throw new Error('ordinary_media_webrtc_transport_required');
       if (!flags.ordinary_media_publication) throw new Error('ordinary_media_publication_disabled');
       return 'authoritatively_active';
@@ -973,7 +979,9 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const sfuState = typeof this.sfu.currentState === 'function'
       ? this.sfu.currentState()
       : (this.sfu.state$ as unknown as { readonly value?: { readonly status?: string } }).value;
-    return this.transport.mode$.value === 'webrtc'
+    const sessionId = this.shareState.session?.id ?? '';
+    return this.ordinaryMediaPolicy.allows(sessionId)
+      && this.transport.mode$.value === 'webrtc'
       && (['active', 'muted'].includes(this.media.audioState$.value.status)
         || sfuState?.status === 'connected');
   }
@@ -983,6 +991,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const state = this.capabilityStates.get('ordinary_media')?.state;
     return Boolean(
       session && session.revoked_at === null && this.hubOnline()
+      && this.ordinaryMediaPolicy.allows(session.id)
       && this.transport.mode$.value === 'webrtc'
       && this.profile.semantic_media_feature_flags.ordinary_media_publication
       && (!video || this.profile.semantic_media_feature_flags.ordinary_media_publication)
@@ -995,10 +1004,14 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private ordinaryCaptureReason(): string {
+    const session = this.shareState.session;
+    if (!session || session.revoked_at !== null) return 'ordinary_media_session_missing';
+    if (!this.ordinaryMediaPolicy.allows(session.id)) {
+      return PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE;
+    }
     if (!this.profile.semantic_media_feature_flags.ordinary_media_publication) {
       return 'ordinary_media_publication_disabled';
     }
-    if (!this.shareState.session || this.shareState.session.revoked_at !== null) return 'ordinary_media_session_missing';
     if (this.transport.mode$.value !== 'webrtc') return 'ordinary_media_webrtc_transport_required';
     if (!this.hubOnline()) return 'ordinary_media_hub_offline';
     const state = this.capabilityStates.get('ordinary_media')?.state;
@@ -1029,6 +1042,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private async ensureOrdinaryAudio(): Promise<void> {
     if (this.transport.mode$.value !== 'webrtc') return;
+    const sessionId = this.shareState.session?.id ?? '';
+    if (!this.ordinaryMediaPolicy.allows(sessionId)) {
+      this.ordinaryMediaOperationReason = PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE;
+      this.emit();
+      return;
+    }
     if (!['active', 'muted'].includes(this.media.audioState$.value.status)) {
       await this.media.requestMicrophone();
     }

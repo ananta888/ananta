@@ -5,9 +5,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { ShareSession } from './share-session.service';
 import { WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import { canonicalSecurityJson } from './webrtc-secure-envelope';
+import {
+  PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
+  PUBLIC_RENDEZVOUS_SIGNING_PUBLIC_KEY_B64,
+} from './public-ananta-endpoints';
 
 const session: ShareSession = {
   id: 'session-a', title: 'Strict Pair', invite_code: 'invite', mode: 'p2p', transport: 'webrtc',
@@ -23,19 +28,23 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
     const core = {
       get: vi.fn((url: string) => of(url.includes('key-packages') ? response : {
         ok: true,
-        confirmation: { confirmation_tag: 'peer-tag', package_id: 'a'.repeat(64), epoch: 3 },
+        local_peer_id: 'alice',
+        confirmation: confirmation(),
       })),
-      post: vi.fn((_url: string, body: unknown) => { posts.push(body); return of({ ok: true }); }),
+      post: vi.fn((_url: string, body: unknown) => {
+        posts.push(body);
+        return of({ ok: true, local_peer_id: 'alice' });
+      }),
     };
     configure(core, peerKeys);
     const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
 
     await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(true);
-    expect(peerKeys.verifyAndBind).toHaveBeenCalledOnce();
+    expect(peerKeys.verifyAndRefreshBinding).toHaveBeenCalledOnce();
     expect(posts).toEqual([expect.objectContaining({
       recipient_peer_id: 'bob', package_id: 'a'.repeat(64), epoch: 3,
     })]);
-    expect(peerKeys.acceptPeerConfirmation).toHaveBeenCalledWith('peer-tag');
+    expect(peerKeys.acceptPeerConfirmation).toHaveBeenCalledWith(confirmationTag());
     expect(bootstrap.state$.value.status).toBe('ready');
     expect(bootstrap.confirmedRemotePeerId).toBe('bob');
   });
@@ -45,8 +54,9 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
     response.packages = [];
     response.security_contract = null;
     response.security_contract_digest = null;
+    response.local_package_id = null;
     const peerKeys = fakePeerKeys();
-    const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true })) };
+    const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true, local_peer_id: 'alice' })) };
     configure(core, peerKeys);
     const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
 
@@ -60,22 +70,105 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
     const response = await keyPackageResponse();
     response.security_contract.offer.algorithms = ['AES-256-GCM'];
     const peerKeys = fakePeerKeys();
+    const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true, local_peer_id: 'alice' })) };
+    configure(core, peerKeys);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
+    expect(peerKeys.verifyAndRefreshBinding).not.toHaveBeenCalled();
+    expect(core.post).not.toHaveBeenCalled();
+    expect(bootstrap.state$.value).toMatchObject({ status: 'failed', reasonCode: 'algorithm_invalid' });
+  });
+
+  it('rejects a non-self-certifying rendezvous key id for a public session', async () => {
+    const response = await keyPackageResponse();
+    response.packages = [];
+    response.security_contract = null;
+    response.security_contract_digest = null;
+    response.local_package_id = null;
+    response.hub_key_id = 'attacker-controlled-key-id';
+    const peerKeys = fakePeerKeys();
     const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true })) };
     configure(core, peerKeys);
     const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
 
     await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
-    expect(peerKeys.verifyAndBind).not.toHaveBeenCalled();
+    expect(peerKeys.verifyAndRefreshBinding).not.toHaveBeenCalled();
     expect(core.post).not.toHaveBeenCalled();
-    expect(bootstrap.state$.value).toMatchObject({ status: 'failed', reasonCode: 'algorithm_invalid' });
+    expect(bootstrap.state$.value).toMatchObject({
+      status: 'failed', reasonCode: 'public_hub_key_id_invalid',
+    });
+  });
+
+  it('rejects a self-consistent but unpinned alternative rendezvous authority', async () => {
+    const response = await keyPackageResponse();
+    const alternativeKey = String.fromCharCode(...new Uint8Array(32).fill(7));
+    response.hub_public_key_b64 = btoa(alternativeKey);
+    response.hub_key_id = `rv:${(await sha256(alternativeKey)).slice(0, 24)}`;
+    const peerKeys = fakePeerKeys();
+    const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true })) };
+    configure(core, peerKeys);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
+    expect(peerKeys.verifyAndRefreshBinding).not.toHaveBeenCalled();
+    expect(bootstrap.state$.value).toMatchObject({
+      status: 'failed', reasonCode: 'public_hub_authority_untrusted',
+    });
+  });
+
+  it('rejects a confirmation for another package before accepting its tag', async () => {
+    const response = await keyPackageResponse();
+    const peerKeys = fakePeerKeys();
+    const core = {
+      get: vi.fn((url: string) => of(url.includes('key-packages') ? response : {
+        ok: true, local_peer_id: 'alice',
+        confirmation: { ...confirmation(), package_id: 'c'.repeat(64) },
+      })),
+      post: vi.fn(() => of({ ok: true, local_peer_id: 'alice' })),
+    };
+    configure(core, peerKeys);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
+    expect(peerKeys.acceptPeerConfirmation).not.toHaveBeenCalled();
+    expect(bootstrap.state$.value).toMatchObject({
+      status: 'failed', reasonCode: 'key_confirmation_package_mismatch',
+    });
+  });
+
+  it('rejects an expired confirmation before accepting its tag', async () => {
+    const response = await keyPackageResponse();
+    const peerKeys = fakePeerKeys();
+    const core = {
+      get: vi.fn((url: string) => of(url.includes('key-packages') ? response : {
+        ok: true,
+        local_peer_id: 'alice',
+        confirmation: {
+          ...confirmation(), created_at_ms: Date.now() - 600_000, expires_at_ms: Date.now() - 300_000,
+        },
+      })),
+      post: vi.fn(() => of({ ok: true, local_peer_id: 'alice' })),
+    };
+    configure(core, peerKeys);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
+    expect(peerKeys.acceptPeerConfirmation).not.toHaveBeenCalled();
+    expect(bootstrap.state$.value).toMatchObject({ status: 'failed', reasonCode: 'key_confirmation_stale' });
   });
 });
 
-function configure(core: unknown, peerKeys: unknown): void {
+function configure(core: any, peerKeys: unknown): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ providers: [
     { provide: HubApiCoreService, useValue: core },
     { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub' }] } },
+    { provide: PairSessionControlPlaneService, useValue: {
+      securityGet: (_sessionId: string, suffix: string) => core.get(suffix),
+      securityPost: (_sessionId: string, suffix: string, body: unknown) => core.post(suffix, body),
+      isPublicSession: () => true,
+    } },
     { provide: WebrtcPeerKeyService, useValue: peerKeys },
   ] });
 }
@@ -89,7 +182,7 @@ function fakePeerKeys() {
   return {
     currentBinding: null as any,
     clear: vi.fn(), approveFingerprintChange: vi.fn(),
-    verifyAndBind: vi.fn(async function (this: any) { this.currentBinding = binding; return binding; }),
+    verifyAndRefreshBinding: vi.fn(async function (this: any) { this.currentBinding = binding; return binding; }),
     createConfirmation: vi.fn(async () => 'local-tag'),
     acceptPeerConfirmation: vi.fn(async function (this: any) { binding.confirmed = true; }),
   };
@@ -110,10 +203,25 @@ async function keyPackageResponse(): Promise<any> {
       version: 1, negotiation_id: offer.negotiation_id, offer, answer, digest,
       signature: 'b'.repeat(64), signature_algorithm: 'HMAC-SHA256',
     },
-    hub_key_id: 'hub-key',
-    hub_public_key_b64: 'unused-by-mock',
+    hub_key_id: PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
+    hub_public_key_b64: PUBLIC_RENDEZVOUS_SIGNING_PUBLIC_KEY_B64,
+    local_membership_id: 'owner-session-a',
+    local_peer_id: 'alice',
+    local_package_id: 'b'.repeat(64),
     packages: [{ package_id: 'a'.repeat(64), membership_id: 'participant-a' }],
   };
+}
+
+function confirmation() {
+  const now = Date.now();
+  return {
+    confirmation_tag: confirmationTag(), package_id: 'b'.repeat(64), epoch: 3,
+    created_at_ms: now - 1_000, expires_at_ms: now + 240_000,
+  };
+}
+
+function confirmationTag(): string {
+  return btoa('t'.repeat(32));
 }
 
 function proposal(sender: string, recipient: string) {
@@ -121,7 +229,7 @@ function proposal(sender: string, recipient: string) {
     version: 1, negotiation_id: 'neg:0123456789abcdef', scope_kind: 'session', scope_id: 'session-a',
     sender_id: sender, recipient_id: recipient, minimum_mode: 'strict_e2ee', selected_mode: 'strict_e2ee',
     algorithms: ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'], key_epoch: 3,
-    payload_classes: ['bulk', 'control', 'media', 'semantic'], expires_at_ms: Number.MAX_SAFE_INTEGER,
+    payload_classes: ['bulk', 'control', 'semantic'], expires_at_ms: Number.MAX_SAFE_INTEGER,
   };
 }
 

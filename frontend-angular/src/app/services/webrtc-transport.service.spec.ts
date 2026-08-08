@@ -48,7 +48,10 @@ describe('WebrtcTransportService semantic relay', () => {
     sendSemantic: vi.fn(),
   };
   const profile = { current: { transport_order: ['hub_relay'] as string[] } };
-  const controlPlane = { isPublic: false };
+  const controlPlane = {
+    isPublicSession: vi.fn(() => false),
+    assertSessionAvailable: vi.fn(),
+  };
   let service: WebrtcTransportService;
 
   beforeEach(() => {
@@ -58,9 +61,12 @@ describe('WebrtcTransportService semantic relay', () => {
     post.mockReset();
     closeSession.mockReset();
     webrtc.startSession.mockReset();
+    webrtc.sendDc.mockReset();
     webrtc.state$.next('idle');
     profile.current.transport_order = ['hub_relay'];
-    controlPlane.isPublic = false;
+    controlPlane.isPublicSession.mockReset();
+    controlPlane.isPublicSession.mockReturnValue(false);
+    controlPlane.assertSessionAvailable.mockReset();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
@@ -139,7 +145,7 @@ describe('WebrtcTransportService semantic relay', () => {
 
   it('never sends a public Pair session through the local Hub relay', async () => {
     profile.current.transport_order = ['webrtc', 'hub_relay'];
-    controlPlane.isPublic = true;
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
 
     await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
     webrtc.state$.next('failed');
@@ -147,6 +153,52 @@ describe('WebrtcTransportService semantic relay', () => {
     expect(closeSession).toHaveBeenCalledTimes(1);
     expect(service.mode$.value).toBe('idle');
     expect(vi.getTimerCount()).toBe(0);
+    expect(() => service.send('chat', { text: 'legacy-canary' }))
+      .toThrow('pair_transport_not_open');
+    expect(() => service.sendView({ message_id: 'm1', encrypted_payload: 'legacy-canary' }))
+      .toThrow('pair_transport_not_open');
+    vi.advanceTimersByTime(5_000);
+    expect(post).not.toHaveBeenCalled();
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('rejects raw cursor traffic for public Pair while keeping secure sync separate', async () => {
+    profile.current.transport_order = ['webrtc'];
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    const received: unknown[] = [];
+    service.message$.subscribe(message => received.push(message));
+    await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+
+    expect(() => service.send('cursor', { x: 0.5, y: 0.5 }))
+      .toThrow('public_raw_cursor_transport_disabled');
+    webrtc.dcMessage$.next({ type: 'cursor', payload: { sender_id: 'bob', x: 0.2, y: 0.3 } });
+
+    expect(webrtc.sendDc).not.toHaveBeenCalled();
+    expect(received).toEqual([]);
+  });
+
+  it('does not treat idle chat or view sends as Hub relay traffic', () => {
+    expect(() => service.send('chat', { encrypted_payload: 'secret' }))
+      .toThrow('pair_transport_not_open');
+    expect(() => service.sendView({ message_id: 'm1', encrypted_payload: 'secret' }))
+      .toThrow('pair_transport_not_open');
+    expect(post).not.toHaveBeenCalled();
+  });
+
+  it('checks the pinned public authority before every DataChannel send', async () => {
+    profile.current.transport_order = ['webrtc'];
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+    controlPlane.assertSessionAvailable.mockImplementation(() => {
+      throw new Error('public_session_authentication_lost');
+    });
+
+    expect(() => service.send('chat', { encrypted_payload: 'secret' }))
+      .toThrow('public_session_authentication_lost');
+    expect(() => service.sendView({ message_id: 'm1', encrypted_payload: 'secret' }))
+      .toThrow('public_session_authentication_lost');
+    expect(webrtc.sendDc).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
   });
 
   it('posts the exact framed message and settles the send receipt once', async () => {

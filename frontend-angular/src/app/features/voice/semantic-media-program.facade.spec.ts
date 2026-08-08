@@ -25,6 +25,7 @@ import { WebrtcPeerKeyService } from '../../services/webrtc-peer-key.service';
 import { WebrtcMediaSessionService } from '../../services/webrtc-media-session.service';
 import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publication.service';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
+import { PairOrdinaryMediaPolicy } from '../../services/pair-ordinary-media.policy';
 import { SemanticComputeIntentFacade } from '../pair-view/semantic-compute-intent.facade';
 import { SemanticMediaProgramFacade } from './semantic-media-program.facade';
 import { PeerEvidenceSyncFacade } from './peer-evidence-sync.facade';
@@ -134,6 +135,10 @@ describe('SemanticMediaProgramFacade', () => {
     audioState$, requestMicrophone: vi.fn(async () => audioState$.next({ status: 'active', trackId: 'mic' })),
     stopAudio: vi.fn(), setMuted: vi.fn(),
   };
+  const ordinaryMediaPolicy = {
+    allows: vi.fn(() => true),
+    assertAllowed: vi.fn(),
+  };
   const mediaPublications$ = new BehaviorSubject<readonly any[]>([]);
   const mediaPublications = {
     publications$: mediaPublications$,
@@ -165,6 +170,9 @@ describe('SemanticMediaProgramFacade', () => {
     runtimeOnline$.next(true);
     audioState$.next({ status: 'active' });
     mediaPublications$.next([]);
+    ordinaryMediaPolicy.allows.mockReset();
+    ordinaryMediaPolicy.allows.mockReturnValue(true);
+    ordinaryMediaPolicy.assertAllowed.mockReset();
     speechRuntime.settings$.next(DEFAULT_SEMANTIC_SPEECH_SETTINGS);
     qualityState$.next({
       mode: 'semantic_reconstruction', reasonCode: 'quality_healthy', transitioned: false,
@@ -200,6 +208,7 @@ describe('SemanticMediaProgramFacade', () => {
       { provide: SemanticSfuPathCoordinatorService, useValue: sfuCoordinator },
       { provide: WebrtcMediaSessionService, useValue: media },
       { provide: WebrtcMediaPublicationService, useValue: mediaPublications },
+      { provide: PairOrdinaryMediaPolicy, useValue: ordinaryMediaPolicy },
       { provide: SpeechReconciliationApiService, useValue: reconciliationApi },
       { provide: SpeechAdapterRegistryApiService, useValue: adapterApi },
     ] });
@@ -276,6 +285,26 @@ describe('SemanticMediaProgramFacade', () => {
     expect(mediaPublications.stopPublication).toHaveBeenCalledWith('ordinary-camera-3', 'publication_user_stop');
     expect(media.setMuted).toHaveBeenCalledWith(true);
     expect(media.stopAudio).toHaveBeenCalledWith('microphone_user_stop');
+  });
+
+  it('ignores a malicious media feature flag for a public Pair session', async () => {
+    ordinaryMediaPolicy.allows.mockReturnValue(false);
+    ordinaryMediaPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_ordinary_media_e2ee_unavailable');
+    });
+
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-activate',
+    });
+    await facade.startOrdinaryMicrophone();
+    await facade.startOrdinaryVideo('camera');
+
+    expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(false);
+    expect(facade.view$.value.ordinaryMediaVideoCaptureEnabled).toBe(false);
+    expect(facade.view$.value.ordinaryMediaReason)
+      .toBe('public_ordinary_media_e2ee_unavailable');
+    expect(media.requestMicrophone).not.toHaveBeenCalled();
+    expect(mediaPublications.startLocal).not.toHaveBeenCalled();
   });
 
   it('cleans ordinary publications on revoke and session replacement', async () => {

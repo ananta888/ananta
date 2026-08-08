@@ -69,6 +69,7 @@ export class WebrtcTransportService {
   readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
 
   private sessionId = '';
+  private publicSession = false;
   private relayPollHandle: ReturnType<typeof setInterval> | null = null;
   private relayCursor = '';
   private semanticEpoch = 1;
@@ -88,6 +89,9 @@ export class WebrtcTransportService {
     options: SemanticTransportOpenOptions = {},
   ): Promise<void> {
     this.close();
+    // A transport may only open from an explicit create/join/list binding.
+    // Never infer a Hub authority from an otherwise unknown session id.
+    this.controlPlane.assertSessionAvailable(sessionId);
     this.subscriptions = new Subscription();
     this.sessionId = sessionId;
     this.semanticEpoch = this.validEpoch(options.semanticEpoch ?? 1);
@@ -96,6 +100,8 @@ export class WebrtcTransportService {
     }
     const order = this.profiles.current.transport_order;
     const useWebrtc = order[0] === 'webrtc';
+    const publicSession = this.controlPlane.isPublicSession(sessionId);
+    this.publicSession = publicSession;
 
     if (useWebrtc) {
       if (!options.remotePeerId) {
@@ -110,12 +116,13 @@ export class WebrtcTransportService {
       // Monitor for WebRTC failure and fall back
       this.subscriptions.add(this.webrtc.state$.subscribe(state => {
         if (state === 'failed' && this.mode$.value === 'webrtc') {
-          if (this.controlPlane.isPublic) this.close();
+          if (publicSession) this.close();
           else this.fallbackFromDirectToHubRelay();
         }
       }));
       // Relay DataChannel messages
       this.subscriptions.add(this.webrtc.dcMessage$.subscribe(msg => {
+        if (publicSession && msg.type === 'cursor') return;
         this.message$.next({ type: msg.type, session_id: sessionId, payload: msg.payload });
       }));
       this.subscriptions.add(this.webrtc.semanticMessage$.subscribe(message => {
@@ -125,7 +132,7 @@ export class WebrtcTransportService {
       }));
       await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
     } else {
-      if (this.controlPlane.isPublic) {
+      if (publicSession) {
         this.close();
         throw new Error('public_pair_requires_webrtc');
       }
@@ -143,6 +150,7 @@ export class WebrtcTransportService {
     this.semanticRelayPolls.clear();
     this.semanticRelaySeen.clear();
     this.sessionId = '';
+    this.publicSession = false;
     this.mode$.next('idle');
   }
 
@@ -167,11 +175,18 @@ export class WebrtcTransportService {
   }
 
   send(type: string, payload: unknown): void {
+    if (this.publicSession && type === 'cursor') {
+      throw new Error('public_raw_cursor_transport_disabled');
+    }
     if (this.mode$.value === 'webrtc') {
+      this.assertPublicAuthorityAvailable();
       // Route through DataChannel
       this.webrtc.sendDc(type as any, payload as Record<string, unknown>);
-    } else {
+    } else if (this.mode$.value === 'hub_relay') {
+      this.assertHubRelayAllowed();
       this.hubRelaySend({ type, session_id: this.sessionId, payload });
+    } else {
+      throw new Error('pair_transport_not_open');
     }
   }
 
@@ -188,9 +203,13 @@ export class WebrtcTransportService {
       encrypted_payload: envelope.encrypted_payload,
     };
     if (this.mode$.value === 'webrtc') {
+      this.assertPublicAuthorityAvailable();
       this.webrtc.sendDc('view_payload', strictWireEnvelope as unknown as Record<string, unknown>);
-    } else {
+    } else if (this.mode$.value === 'hub_relay') {
+      this.assertHubRelayAllowed();
       this.hubRelayViewPush(strictWireEnvelope);
+    } else {
+      throw new Error('pair_transport_not_open');
     }
   }
 
@@ -201,8 +220,13 @@ export class WebrtcTransportService {
     if (!this.sessionId || message.session_id !== this.sessionId) throw new Error('semantic_session_mismatch');
     if (message.epoch !== this.semanticEpoch) throw new Error('semantic_epoch_mismatch');
     this.enableSemanticTraffic(message.traffic_class);
-    if (this.mode$.value === 'webrtc') return this.webrtc.sendSemantic(message, options);
+    if (this.mode$.value === 'webrtc') {
+      this.assertPublicAuthorityAvailable();
+      return this.webrtc.sendSemantic(message, options);
+    }
     if (this.mode$.value !== 'hub_relay') throw new Error('semantic_transport_not_open');
+
+    this.assertHubRelayAllowed();
 
     const url = this.hubUrl;
     if (!url) throw new Error('semantic_hub_unavailable');
@@ -239,6 +263,7 @@ export class WebrtcTransportService {
   }
 
   private switchToHubRelay(): void {
+    this.assertHubRelayAllowed();
     this.mode$.next('hub_relay');
     this.startRelayPoll();
   }
@@ -264,6 +289,10 @@ export class WebrtcTransportService {
   }
 
   private relayPoll(): void {
+    try { this.assertHubRelayAllowed(); } catch {
+      this.close();
+      return;
+    }
     const url = this.hubUrl;
     if (!url) return;
     this.core.get<{ ok: boolean; messages: TransportMessage[]; cursor: string; view_messages?: RelayEnvelope[]; view_cursor?: string }>(
@@ -286,6 +315,10 @@ export class WebrtcTransportService {
   }
 
   private semanticRelayPoll(trafficClass: SemanticTrafficClass): void {
+    try { this.assertHubRelayAllowed(); } catch {
+      this.close();
+      return;
+    }
     const url = this.hubUrl;
     if (
       !url
@@ -343,6 +376,9 @@ export class WebrtcTransportService {
   }
 
   private acknowledgeSemanticRelay(trafficClass: SemanticTrafficClass, cursor: number): Promise<void> {
+    try { this.assertHubRelayAllowed(); } catch (error) {
+      return Promise.reject(error);
+    }
     const url = this.hubUrl;
     if (!url) return Promise.reject(new Error('semantic_hub_unavailable'));
     return new Promise((resolve, reject) => {
@@ -369,6 +405,7 @@ export class WebrtcTransportService {
   }
 
   private hubRelaySend(msg: TransportMessage): void {
+    this.assertHubRelayAllowed();
     const url = this.hubUrl;
     if (!url) return;
     this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, msg, url)
@@ -382,6 +419,7 @@ export class WebrtcTransportService {
    * encrypted_payload }) and respects _VIEW_PAYLOAD_MAX_BYTES.
    */
   private hubRelayViewPush(envelope: RelayEnvelope): void {
+    this.assertHubRelayAllowed();
     const url = this.hubUrl;
     if (!url) return;
     if (envelope.encrypted_payload.length > 256 * 1024) {
@@ -396,5 +434,19 @@ export class WebrtcTransportService {
   private validEpoch(epoch: number): number {
     if (!Number.isSafeInteger(epoch) || epoch < 1) throw new Error('semantic_epoch_invalid');
     return epoch;
+  }
+
+  private assertHubRelayAllowed(): void {
+    if (!this.sessionId) throw new Error('pair_transport_not_open');
+    if (this.controlPlane.isPublicSession(this.sessionId)) {
+      throw new Error('public_pair_hub_relay_forbidden');
+    }
+    this.controlPlane.assertSessionAvailable(this.sessionId);
+  }
+
+  private assertPublicAuthorityAvailable(): void {
+    if (this.sessionId && this.controlPlane.isPublicSession(this.sessionId)) {
+      this.controlPlane.assertSessionAvailable(this.sessionId);
+    }
   }
 }

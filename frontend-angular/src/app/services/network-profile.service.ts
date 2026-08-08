@@ -13,6 +13,7 @@ import {
 
 export interface NetworkProfile {
   profile_id: string;
+  public_rendezvous?: boolean;
   label: string;
   oidc: {
     issuer: string;
@@ -130,7 +131,20 @@ export function normalizeIceServers(value: unknown): RTCIceServer[] {
   return normalized;
 }
 
-const FALLBACK: NetworkProfile = {
+/** Public Pair traffic has no application-payload Hub relay capability. */
+export function normalizePairTransportOrder(profile: Pick<NetworkProfile, 'profile_id' | 'public_rendezvous' | 'transport_order'>): string[] {
+  if (profile.profile_id === 'public-ananta' || profile.public_rendezvous === true) return ['webrtc'];
+  const order = Array.isArray(profile.transport_order)
+    ? profile.transport_order.filter(item => item === 'webrtc' || item === 'hub_relay')
+    : [];
+  return [...new Set(order)];
+}
+
+const PUBLIC_PROFILE_ID = 'public-ananta';
+const LOCAL_PROFILE_ID = 'local';
+const PROFILE_SELECTION_STORAGE_KEY = 'ananta.network-profile-selection.v1';
+
+const PUBLIC_FALLBACK: NetworkProfile = {
   profile_id: 'public-ananta',
   label: 'Public Ananta (fallback)',
   oidc: {
@@ -143,11 +157,38 @@ const FALLBACK: NetworkProfile = {
     bridge_active: false,
     registration_allowed: false,
   },
-  rendezvous: { base_url: PUBLIC_WEBRTC_BASE_URL, signaling_url: PUBLIC_WEBRTC_SIGNALING_URL, transport_order: ['webrtc', 'hub_relay'] },
+  public_rendezvous: true,
+  rendezvous: { base_url: PUBLIC_WEBRTC_BASE_URL, signaling_url: PUBLIC_WEBRTC_SIGNALING_URL, transport_order: ['webrtc'] },
   ice_servers: [{ urls: PUBLIC_WEBRTC_STUN_URL }],
   require_e2e_payload_encryption: true,
   signaling_url: PUBLIC_WEBRTC_SIGNALING_URL,
-  transport_order: ['webrtc', 'hub_relay'],
+  transport_order: ['webrtc'],
+  semantic_media_feature_flags: { ...SEMANTIC_MEDIA_FEATURE_DEFAULTS },
+  sfu_broadcast_feature_version: 0,
+  sfu_broadcast_feature_available: false,
+  sfu_broadcast_reason_codes: [],
+  warning: '',
+};
+
+const LOCAL_FALLBACK: NetworkProfile = {
+  profile_id: LOCAL_PROFILE_ID,
+  label: 'Local / Private Deployment',
+  oidc: {
+    issuer: '',
+    client_id: '',
+    audience: 'ananta-hub',
+    pkce_required: true,
+    enabled: false,
+    hub_link_enabled: false,
+    bridge_active: false,
+    registration_allowed: false,
+  },
+  public_rendezvous: false,
+  rendezvous: { base_url: '', signaling_url: '', transport_order: ['hub_relay'] },
+  ice_servers: [],
+  require_e2e_payload_encryption: false,
+  signaling_url: '',
+  transport_order: ['hub_relay'],
   semantic_media_feature_flags: { ...SEMANTIC_MEDIA_FEATURE_DEFAULTS },
   sfu_broadcast_feature_version: 0,
   sfu_broadcast_feature_available: false,
@@ -159,27 +200,45 @@ const FALLBACK: NetworkProfile = {
 export class NetworkProfileService {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
+  private publicPairEnabledForWindow = this.readPersistedPublicOptIn();
 
-  readonly profile$ = new BehaviorSubject<NetworkProfile>(FALLBACK);
+  readonly profile$ = new BehaviorSubject<NetworkProfile>(LOCAL_FALLBACK);
 
   private get hubUrl(): string {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  async load(profileId = 'public-ananta'): Promise<void> {
+  /**
+   * Restore the persisted selection, defaulting to the private/local profile.
+   * Passing a logical context remains backward compatible for existing callers,
+   * but cannot activate the public profile without prior user opt-in.
+   */
+  async load(profileId = this.persistedProfileId): Promise<void> {
+    const effectiveProfileId = profileId === PUBLIC_PROFILE_ID && !this.publicPairOptedIn
+      ? LOCAL_PROFILE_ID
+      : profileId;
+    if (effectiveProfileId === PUBLIC_PROFILE_ID) {
+      this.profile$.next(PUBLIC_FALLBACK);
+    } else if (effectiveProfileId === LOCAL_PROFILE_ID) {
+      this.profile$.next(LOCAL_FALLBACK);
+    }
     const url = this.hubUrl;
     if (!url) return;
     try {
       const r = await firstValueFrom(this.core.get<{ ok: boolean; profile: NetworkProfile }>(
-        `${url}/api/network-profiles/${profileId}`, url
+        `${url}/api/network-profiles/${effectiveProfileId}`, url
       ));
-      if (!r?.profile) return;
+      if (!r?.profile || r.profile.profile_id !== effectiveProfileId) return;
+      const transportOrder = normalizePairTransportOrder(r.profile);
+      const semanticMediaFlags = effectiveProfileId === PUBLIC_PROFILE_ID
+        ? { ...SEMANTIC_MEDIA_FEATURE_DEFAULTS }
+        : normalizeSemanticMediaFeatureFlags(r.profile.semantic_media_feature_flags);
       this.profile$.next({
         ...r.profile,
+        rendezvous: { ...r.profile.rendezvous, transport_order: transportOrder },
+        transport_order: transportOrder,
         ice_servers: normalizeIceServers(r.profile.ice_servers),
-        semantic_media_feature_flags: normalizeSemanticMediaFeatureFlags(
-          r.profile.semantic_media_feature_flags
-        ),
+        semantic_media_feature_flags: semanticMediaFlags,
         sfu_broadcast_feature_version: normalizeBroadcastFeatureVersion(
           r.profile.sfu_broadcast_feature_version
         ),
@@ -189,8 +248,53 @@ export class NetworkProfileService {
         ),
       });
     } catch {
-      // The public fallback remains usable when the protected profile
-      // endpoint is unavailable before Hub login.
+      // The explicitly selected fallback remains usable when the protected
+      // profile endpoint is unavailable before Hub login.
+    }
+  }
+
+  /** Persist the user's explicit decision to use the public Pair authority. */
+  async enablePublicPair(): Promise<void> {
+    this.publicPairEnabledForWindow = true;
+    this.persistProfileId(PUBLIC_PROFILE_ID);
+    this.profile$.next(PUBLIC_FALLBACK);
+    await this.load(PUBLIC_PROFILE_ID);
+  }
+
+  /** Return to the private/local authority and remove the public opt-in. */
+  async useLocalProfile(): Promise<void> {
+    this.publicPairEnabledForWindow = false;
+    this.persistProfileId(LOCAL_PROFILE_ID);
+    this.profile$.next(LOCAL_FALLBACK);
+    await this.load(LOCAL_PROFILE_ID);
+  }
+
+  get publicPairOptedIn(): boolean {
+    return this.publicPairEnabledForWindow;
+  }
+
+  private get persistedProfileId(): string {
+    return this.publicPairEnabledForWindow ? PUBLIC_PROFILE_ID : LOCAL_PROFILE_ID;
+  }
+
+  private readPersistedPublicOptIn(): boolean {
+    try {
+      return localStorage.getItem(PROFILE_SELECTION_STORAGE_KEY) === PUBLIC_PROFILE_ID;
+    } catch {
+      return false;
+    }
+  }
+
+  private persistProfileId(profileId: typeof PUBLIC_PROFILE_ID | typeof LOCAL_PROFILE_ID): void {
+    try {
+      if (profileId === PUBLIC_PROFILE_ID) {
+        localStorage.setItem(PROFILE_SELECTION_STORAGE_KEY, profileId);
+      } else {
+        localStorage.removeItem(PROFILE_SELECTION_STORAGE_KEY);
+      }
+    } catch {
+      // Storage can be unavailable in privacy-restricted webviews. The
+      // in-memory selection above remains valid for the current window.
     }
   }
 

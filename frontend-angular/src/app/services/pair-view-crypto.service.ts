@@ -68,7 +68,7 @@ export class PairViewCryptoService implements PairViewCryptoPort {
     let raw: unknown;
     try { raw = JSON.parse(serializedEnvelope); } catch { throw new Error('envelope_json_invalid'); }
     const opened = await this.encryption.open(binding, raw);
-    const replay = this.replay.accept(opened.envelope, {
+    const replay = await this.replay.accept(opened.envelope, {
       scopeId: binding.scopeId,
       epoch: binding.epoch,
       authenticatedSenderId: binding.remotePeerId,

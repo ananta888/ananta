@@ -5,10 +5,18 @@ import { Router } from '@angular/router';
 import { map } from 'rxjs';
 import { AgentDirectoryService } from './agent-directory.service';
 import { NetworkProfileService } from './network-profile.service';
+import {
+  PairPublicAuthorityPolicy,
+  type PublicOidcLoginAuthority,
+} from './pair-public-authority.policy';
 import { UserAuthService } from './user-auth.service';
 import {
+  PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
   PUBLIC_OIDC_CLIENT_ID,
+  PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT,
+  PUBLIC_OIDC_END_SESSION_ENDPOINT,
   PUBLIC_OIDC_ISSUER,
+  PUBLIC_OIDC_TOKEN_ENDPOINT,
 } from './public-ananta-endpoints';
 import {
   OidcPopupCoordinator,
@@ -19,6 +27,7 @@ import {
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
 const SS_NONCE_KEY = 'oidc.nonce';
+const REFRESH_AUTHORITY_KEY = 'ananta.oidc.refresh-authority.v1';
 const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
 const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
 const POPUP_TOKEN_EXCHANGE_TIMEOUT_MS = 45_000;
@@ -68,17 +77,37 @@ interface DeviceAuthResponse {
   interval: number;
 }
 
+interface DeviceFlowAuthorityBinding {
+  readonly tokenEndpoint: string;
+  readonly clientId: string;
+  readonly expiresAtMs: number;
+}
+
+interface RedirectPkceTransaction {
+  readonly verifier: string;
+  readonly state: string;
+  readonly nonce: string;
+  readonly redirectPath: string;
+  readonly linkHub: boolean;
+  readonly issuer: string;
+  readonly clientId: string;
+  readonly tokenEndpoint: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class OidcAuthService implements OnDestroy {
   private userAuth = inject(UserAuthService);
   private dir = inject(AgentDirectoryService);
   private profiles = inject(NetworkProfileService);
+  private publicAuthority = inject(PairPublicAuthorityPolicy);
   private router = inject(Router);
   private popupCoordinator = inject(OidcPopupCoordinator);
 
   private _meta: OidcMeta | null = null;
   private _metaIssuer = '';
   private _sessionNonce = '';
+  private refreshAuthorityBoundForWindow = false;
+  private readonly deviceFlowAuthorities = new Map<string, DeviceFlowAuthorityBinding>();
 
   readonly loggedIn$ = this.userAuth.oidcToken$.pipe(map(t => !!t));
 
@@ -86,11 +115,15 @@ export class OidcAuthService implements OnDestroy {
   get hasNonce(): boolean { return !!this._sessionNonce; }
 
   get issuer(): string {
+    const pinned = this.publicAuthority.oidcLoginAuthority();
+    if (pinned) return pinned.issuer;
     const configured = this.profiles.current?.oidc?.issuer;
     return (typeof configured === 'string' ? configured.trim() : '') || PUBLIC_OIDC_ISSUER;
   }
 
   get clientId(): string {
+    const pinned = this.publicAuthority.oidcLoginAuthority();
+    if (pinned) return pinned.clientId;
     const configured = this.profiles.current?.oidc?.client_id;
     return (typeof configured === 'string' ? configured.trim() : '') || PUBLIC_OIDC_CLIENT_ID;
   }
@@ -125,6 +158,7 @@ export class OidcAuthService implements OnDestroy {
 
   ngOnDestroy(): void {
     window.removeEventListener('storage', this.onStorage);
+    this.deviceFlowAuthorities.clear();
   }
 
   // ── Discovery ────────────────────────────────────────────────────────
@@ -193,19 +227,15 @@ export class OidcAuthService implements OnDestroy {
    * registration form and then has to click "Bei Keycloak anmelden"
    * manually to complete an OIDC login.
    *
-   * Single source of truth: the network profile's `oidc.issuer`. We do
-   * NOT use the public-ananta fallback here — self-registration must be
-   * scoped to the same realm the user is logging in to. The button is
-   * only rendered when the IdentityBridge.showRegistration gate is true,
-   * which itself requires `registration_allowed` to be set by the Hub
-   * (single source of truth on the backend). This service is the dumb
-   * URL-builder; the visibility gate lives elsewhere.
+   * Public Pair registration is pinned to the compile-time OIDC authority;
+   * a mutable Hub profile can never choose the registration host or client.
+   * The visibility gate remains in the IdentityBridge.
    *
    * Returns the empty string when the issuer is missing so callers (and
    * tests) can rely on a falsy result to no-op safely.
    */
   registrationUrl(): string {
-    const issuer = String(this.profiles.current?.oidc?.issuer || '')
+    const issuer = String(this.issuer || '')
       .trim()
       .replace(/\/$/, '');
     if (!issuer) return '';
@@ -218,24 +248,38 @@ export class OidcAuthService implements OnDestroy {
    * (no PKCE state — registration has no callback path).
    */
   registerWithKeycloak(): void {
+    // enablePublicPair changes the in-memory selection synchronously before
+    // refreshing it from the Hub. Registration must retain browser activation.
+    void this.profiles.enablePublicPair();
     const url = this.registrationUrl();
     if (!url) return;
     window.open(url, '_blank');
   }
 
   async startLogin(redirectPath = '/', linkHub = false): Promise<void> {
-    const authEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/auth`;
+    await this.profiles.enablePublicPair();
+    const authority = this.requirePublicOidcAuthority();
+    const authEndpoint = PUBLIC_OIDC_AUTHORIZATION_ENDPOINT;
     const verifier = this.randomB64Url(48);
     const state = this.randomB64Url(16);
     const nonce = this.randomB64Url(16);
     const challenge = await this.sha256B64Url(verifier);
     const redirectUri = `${location.origin}/oidc-callback`;
 
-    sessionStorage.setItem(SS_PKCE_KEY, JSON.stringify({ verifier, state, nonce, redirectPath, linkHub }));
+    sessionStorage.setItem(SS_PKCE_KEY, JSON.stringify({
+      verifier,
+      state,
+      nonce,
+      redirectPath,
+      linkHub,
+      issuer: authority.issuer,
+      clientId: authority.clientId,
+      tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+    } satisfies RedirectPkceTransaction));
     sessionStorage.setItem(SS_NONCE_KEY, nonce);
 
     const params = new URLSearchParams({
-      client_id: this.clientId,
+      client_id: authority.clientId,
       redirect_uri: redirectUri,
       response_type: 'code',
       scope: SCOPES,
@@ -257,21 +301,18 @@ export class OidcAuthService implements OnDestroy {
 
     const stored = sessionStorage.getItem(SS_PKCE_KEY);
     if (!stored) return false;
-    const { verifier, state: storedState, nonce, redirectPath, linkHub } = JSON.parse(stored) as {
-      verifier: string; state: string; nonce: string; redirectPath: string; linkHub?: boolean;
-    };
-    if (state !== storedState) return false;
+    const transaction = parseRedirectPkceTransaction(stored);
+    if (!transaction || state !== transaction.state) return false;
     sessionStorage.removeItem(SS_PKCE_KEY);
 
-    const tokenEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/token`;
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: this.clientId,
+      client_id: transaction.clientId,
       code,
       redirect_uri: `${location.origin}/oidc-callback`,
-      code_verifier: verifier,
+      code_verifier: transaction.verifier,
     });
-    const r = await fetch(tokenEndpoint, {
+    const r = await fetch(transaction.tokenEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -280,16 +321,17 @@ export class OidcAuthService implements OnDestroy {
     const tokens = await r.json();
 
     const idPayload = this._decodeJwt(tokens.id_token);
-    if (idPayload?.nonce !== nonce) return false;
+    if (idPayload?.nonce !== transaction.nonce) return false;
 
-    this._sessionNonce = nonce;
+    this._sessionNonce = transaction.nonce;
     this.userAuth.setOidcAccessToken(tokens.access_token);
     await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
-    if (linkHub) {
+    this.persistPublicRefreshAuthority(tokens.refresh_token);
+    if (transaction.linkHub) {
       await this.linkCurrentHubIdentity(tokens.access_token);
     }
-    await this.tryRestoreLinkedHubSession(tokens.access_token);
-    this.router.navigateByUrl(redirectPath || '/');
+    await this.tryRestoreLinkedHubSession(tokens.access_token, true);
+    this.router.navigateByUrl(transaction.redirectPath || '/');
     return true;
   }
 
@@ -321,7 +363,10 @@ export class OidcAuthService implements OnDestroy {
 
   // ── Popup-PKCE login (browser equivalent of TUI loopback flow) ───────
 
-  async startLoginPopup(issuer = this.issuer, clientId = this.clientId): Promise<void> {
+  async startLoginPopup(_issuer?: string, _clientId?: string): Promise<void> {
+    // Begin the explicit opt-in synchronously, but preserve the click's user
+    // activation by opening the placeholder before awaiting Hub refresh.
+    const publicPairReady = this.profiles.enablePublicPair();
     // Clear sensitive PKCE material left by the pre-coordinator implementation.
     this.removeLocalStorageItem('oidc.pkce.popup');
     const verifier = this.randomB64Url(48);
@@ -332,6 +377,7 @@ export class OidcAuthService implements OnDestroy {
     // the click's user activation while discovery and PKCE are being prepared.
     const popup = window.open('about:blank', `oidc-login-${state}`, LOGIN_POPUP_FEATURES);
     if (!popup) {
+      await publicPairReady;
       throw new OidcPopupLoginError(
         'popup_blocked',
         'Das Keycloak-Anmeldefenster wurde vom Browser blockiert. Bitte Pop-ups für diese Seite erlauben und erneut versuchen.',
@@ -341,18 +387,16 @@ export class OidcAuthService implements OnDestroy {
     let parentSession: OidcPopupParentSession | null = null;
     let callbackReceived = false;
     try {
-      const normalizedIssuer = this.requireProfileIssuer(issuer);
-      const normalizedClientId = String(clientId || '').trim();
-      if (!normalizedClientId) {
-        throw new OidcPopupLoginError(
-          'configuration_missing',
-          'Für das aktive Netzwerkprofil ist kein OIDC-Client konfiguriert.',
-        );
-      }
+      await publicPairReady;
+      const authority = this.requirePublicOidcAuthority();
+      const normalizedIssuer = authority.issuer;
+      const normalizedClientId = authority.clientId;
 
       let meta: OidcMeta;
       try {
-        meta = await this.loadMeta(normalizedIssuer, POPUP_DISCOVERY_TIMEOUT_MS);
+        meta = assertPinnedPublicMetadata(
+          await this.loadMeta(normalizedIssuer, POPUP_DISCOVERY_TIMEOUT_MS),
+        );
       } catch (error) {
         throw new OidcPopupLoginError(
           'issuer_unreachable',
@@ -519,11 +563,12 @@ export class OidcAuthService implements OnDestroy {
     // Persist only after code and nonce validation. The parent is the sole
     // writer; no access or refresh token is sent over the popup transport.
     await this.userAuth.setOidcRefreshToken(refreshToken);
+    this.persistPublicRefreshAuthority(refreshToken);
     this._sessionNonce = input.nonce;
     this.userAuth.setOidcAccessToken(accessToken);
     // Pair/OIDC login is complete here. Optional Hub linking must not delay
     // the popup acknowledgement or turn a healthy Pair login into a timeout.
-    void this.tryRestoreLinkedHubSession(accessToken);
+    void this.tryRestoreLinkedHubSession(accessToken, true);
   }
 
   private isAbortError(error: unknown): boolean {
@@ -592,14 +637,14 @@ export class OidcAuthService implements OnDestroy {
   async refreshFromStorage(): Promise<boolean> {
     const refreshToken = await this.userAuth.getOidcRefreshToken();
     if (!refreshToken) return false;
+    if (!this.hasPinnedPublicRefreshAuthority()) return false;
     try {
-      const tokenEndpoint = `${this.issuer.replace(/\/$/, '')}/protocol/openid-connect/token`;
       const body = new URLSearchParams({
         grant_type: 'refresh_token',
-        client_id: this.clientId,
+        client_id: PUBLIC_OIDC_CLIENT_ID,
         refresh_token: refreshToken,
       });
-      const r = await fetch(tokenEndpoint, {
+      const r = await fetch(PUBLIC_OIDC_TOKEN_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
@@ -607,12 +652,14 @@ export class OidcAuthService implements OnDestroy {
       if (!r.ok) {
         this.userAuth.setOidcAccessToken(null);
         await this.userAuth.setOidcRefreshToken(null);
+        this.clearRefreshAuthority();
         return false;
       }
       const tokens = await r.json();
       this.userAuth.setOidcAccessToken(tokens.access_token);
       await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? refreshToken);
-      await this.tryRestoreLinkedHubSession(tokens.access_token);
+      this.persistPublicRefreshAuthority(tokens.refresh_token ?? refreshToken);
+      await this.tryRestoreLinkedHubSession(tokens.access_token, true);
       return true;
     } catch {
       return false;
@@ -628,9 +675,10 @@ export class OidcAuthService implements OnDestroy {
   async logout(): Promise<void> {
     this.userAuth.setOidcAccessToken(null);
     await this.userAuth.setOidcRefreshToken(null);
+    this.clearRefreshAuthority();
     this._sessionNonce = '';
     try {
-      const meta = await this.loadMeta();
+      const meta = assertPinnedPublicMetadata(await this.loadMeta(PUBLIC_OIDC_ISSUER));
       const params = new URLSearchParams({
         client_id: this.clientId,
         post_logout_redirect_uri: `${location.origin}/login`,
@@ -641,7 +689,20 @@ export class OidcAuthService implements OnDestroy {
     }
   }
 
-  private async tryRestoreLinkedHubSession(oidcAccessToken: string): Promise<void> {
+  private async tryRestoreLinkedHubSession(
+    oidcAccessToken: string,
+    publicTokenFlow = false,
+  ): Promise<void> {
+    // Public Pair tokens are credentials for the pinned rendezvous boundary,
+    // never ambient credentials for a mutable Hub profile. Hub association is
+    // performed only by linkCurrentHubIdentity(), which requires an explicit
+    // user action and an existing Hub token.
+    const tokenIssuer = String(this._decodeJwt(oidcAccessToken)?.iss || '').replace(/\/$/, '');
+    if (
+      publicTokenFlow
+      || this.profiles.current.profile_id === 'public-ananta'
+      || tokenIssuer === PUBLIC_OIDC_ISSUER
+    ) return;
     const oidc = this.profiles.current.oidc;
     const linkEnabled = oidc?.hub_link_enabled === true || oidc?.bridge_active === true;
     const hubUrl = this.hubUrl;
@@ -683,27 +744,37 @@ export class OidcAuthService implements OnDestroy {
   // ── T15: Device Flow ─────────────────────────────────────────────────
 
   async startDeviceFlow(): Promise<DeviceAuthResponse> {
-    const meta = await this.loadMeta();
-    const endpoint = meta.device_authorization_endpoint ??
-      `${this.issuer}/protocol/openid-connect/auth/device`;
-    const body = new URLSearchParams({ client_id: this.clientId, scope: SCOPES });
+    await this.profiles.enablePublicPair();
+    const authority = this.requirePublicOidcAuthority();
+    const meta = assertPinnedPublicMetadata(await this.loadMeta(authority.issuer));
+    const endpoint = meta.device_authorization_endpoint ?? PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT;
+    const body = new URLSearchParams({ client_id: authority.clientId, scope: SCOPES });
     const r = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
     });
     if (!r.ok) throw new Error(`Device flow start failed: ${r.status}`);
-    return r.json() as Promise<DeviceAuthResponse>;
+    const response = validateDeviceAuthResponse(await r.json());
+    this.pruneDeviceFlowAuthorities();
+    this.deviceFlowAuthorities.set(response.device_code, Object.freeze({
+      tokenEndpoint: meta.token_endpoint,
+      clientId: authority.clientId,
+      expiresAtMs: Date.now() + response.expires_in * 1000,
+    }));
+    return response;
   }
 
   async pollDeviceToken(deviceCode: string, intervalSec: number): Promise<boolean> {
-    const meta = await this.loadMeta();
+    this.pruneDeviceFlowAuthorities();
+    const authority = this.deviceFlowAuthorities.get(deviceCode);
+    if (!authority) throw new Error('oidc_device_flow_binding_missing');
     const body = new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-      client_id: this.clientId,
+      client_id: authority.clientId,
       device_code: deviceCode,
     });
-    const r = await fetch(meta.token_endpoint, {
+    const r = await fetch(authority.tokenEndpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: body.toString(),
@@ -711,33 +782,70 @@ export class OidcAuthService implements OnDestroy {
     if (r.status === 400) {
       const err = await r.json();
       if (err.error === 'authorization_pending' || err.error === 'slow_down') return false;
+      this.deviceFlowAuthorities.delete(deviceCode);
       throw new Error(err.error);
     }
-    if (!r.ok) return false;
+    if (!r.ok) {
+      this.deviceFlowAuthorities.delete(deviceCode);
+      return false;
+    }
     const tokens = await r.json();
+    this.deviceFlowAuthorities.delete(deviceCode);
     const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? this.randomB64Url(16);
     this._sessionNonce = nonce;
     this.userAuth.setOidcAccessToken(tokens.access_token);
     await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
-    await this.tryRestoreLinkedHubSession(tokens.access_token);
+    this.persistPublicRefreshAuthority(tokens.refresh_token);
+    await this.tryRestoreLinkedHubSession(tokens.access_token, true);
     return true;
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────
 
-  private requireProfileIssuer(value: string): string {
-    try {
-      return this.normalizeHttpUrl(value, 'OIDC issuer', true);
-    } catch (error) {
-      const missing = !String(value || '').trim();
-      throw new OidcPopupLoginError(
-        'configuration_missing',
-        missing
-          ? 'Für das aktive Netzwerkprofil ist kein OIDC-Issuer konfiguriert.'
-          : 'Der OIDC-Issuer im aktiven Netzwerkprofil ist ungültig.',
-        { cause: error },
-      );
+  private requirePublicOidcAuthority(): PublicOidcLoginAuthority {
+    const authority = this.publicAuthority.oidcLoginAuthority();
+    if (!authority) throw new Error('public_oidc_authority_not_selected');
+    return authority;
+  }
+
+  private pruneDeviceFlowAuthorities(now = Date.now()): void {
+    for (const [deviceCode, authority] of this.deviceFlowAuthorities) {
+      if (authority.expiresAtMs <= now) this.deviceFlowAuthorities.delete(deviceCode);
     }
+  }
+
+  private persistPublicRefreshAuthority(refreshToken: unknown): void {
+    if (typeof refreshToken !== 'string' || !refreshToken) {
+      this.clearRefreshAuthority();
+      return;
+    }
+    this.refreshAuthorityBoundForWindow = true;
+    try {
+      localStorage.setItem(REFRESH_AUTHORITY_KEY, JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+    } catch { /* A reload will require a fresh login. */ }
+  }
+
+  private hasPinnedPublicRefreshAuthority(): boolean {
+    if (this.refreshAuthorityBoundForWindow) return true;
+    try {
+      const value = JSON.parse(localStorage.getItem(REFRESH_AUTHORITY_KEY) || 'null') as Record<string, unknown> | null;
+      const valid = value?.['version'] === 1
+        && value['issuer'] === PUBLIC_OIDC_ISSUER
+        && value['clientId'] === PUBLIC_OIDC_CLIENT_ID
+        && value['tokenEndpoint'] === PUBLIC_OIDC_TOKEN_ENDPOINT;
+      this.refreshAuthorityBoundForWindow = valid;
+      return valid;
+    } catch { return false; }
+  }
+
+  private clearRefreshAuthority(): void {
+    this.refreshAuthorityBoundForWindow = false;
+    try { localStorage.removeItem(REFRESH_AUTHORITY_KEY); } catch { /* already unavailable */ }
   }
 
   private normalizeHttpUrl(value: string, label: string, isIssuer = false): string {
@@ -770,4 +878,63 @@ export class OidcAuthService implements OnDestroy {
   private randomB64UrlSync(bytes: number): string {
     return this.randomB64Url(bytes);
   }
+}
+
+function validateDeviceAuthResponse(value: unknown): DeviceAuthResponse {
+  if (!value || typeof value !== 'object') throw new Error('oidc_device_response_invalid');
+  const response = value as Partial<DeviceAuthResponse>;
+  const bounded = (candidate: unknown, maxLength: number): candidate is string => (
+    typeof candidate === 'string' && candidate.length > 0 && candidate.length <= maxLength
+  );
+  if (
+    !bounded(response.device_code, 2048)
+    || !bounded(response.user_code, 256)
+    || !bounded(response.verification_uri, 2048)
+    || !Number.isSafeInteger(response.expires_in)
+    || Number(response.expires_in) <= 0
+    || Number(response.expires_in) > 86_400
+    || !Number.isSafeInteger(response.interval)
+    || Number(response.interval) <= 0
+    || Number(response.interval) > 300
+  ) throw new Error('oidc_device_response_invalid');
+  return Object.freeze({ ...response }) as DeviceAuthResponse;
+}
+
+function assertPinnedPublicMetadata(meta: OidcMeta): OidcMeta {
+  if (
+    meta.issuer !== PUBLIC_OIDC_ISSUER
+    || meta.authorization_endpoint !== PUBLIC_OIDC_AUTHORIZATION_ENDPOINT
+    || meta.token_endpoint !== PUBLIC_OIDC_TOKEN_ENDPOINT
+    || meta.end_session_endpoint !== PUBLIC_OIDC_END_SESSION_ENDPOINT
+    || (
+      meta.device_authorization_endpoint !== undefined
+      && meta.device_authorization_endpoint !== PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT
+    )
+  ) throw new Error('public_oidc_metadata_untrusted');
+  return meta;
+}
+
+function parseRedirectPkceTransaction(raw: string): RedirectPkceTransaction | null {
+  try {
+    const value = JSON.parse(raw) as Partial<RedirectPkceTransaction>;
+    const opaque = (candidate: unknown, maxLength: number): candidate is string => (
+      typeof candidate === 'string'
+      && /^[A-Za-z0-9_-]+$/.test(candidate)
+      && candidate.length <= maxLength
+    );
+    if (
+      !opaque(value.verifier, 256)
+      || !opaque(value.state, 256)
+      || !opaque(value.nonce, 256)
+      || typeof value.redirectPath !== 'string'
+      || !value.redirectPath.startsWith('/')
+      || value.redirectPath.startsWith('//')
+      || value.redirectPath.length > 2048
+      || typeof value.linkHub !== 'boolean'
+      || value.issuer !== PUBLIC_OIDC_ISSUER
+      || value.clientId !== PUBLIC_OIDC_CLIENT_ID
+      || value.tokenEndpoint !== PUBLIC_OIDC_TOKEN_ENDPOINT
+    ) return null;
+    return value as RedirectPkceTransaction;
+  } catch { return null; }
 }

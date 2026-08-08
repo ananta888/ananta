@@ -41,6 +41,7 @@ function buildLogin(showRegistration: boolean, showOidc = true) {
         useValue: {
           current: { profile_id: 'public-ananta', oidc: { issuer: 'https://kc.example/realms/r', client_id: 'cli', audience: 'aud', pkce_required: false } },
           load: async () => undefined,
+          enablePublicPair: vi.fn().mockResolvedValue(undefined),
         },
       },
       {
@@ -74,6 +75,21 @@ describe('LoginComponent — Self-Registration-Button', () => {
     const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
     const labels = buttons.map((b) => b.textContent.trim());
     expect(labels.some((l) => /registrier|neues konto bei keycloak/i.test(l))).toBe(false);
+  });
+
+  it('aktiviert das öffentliche Profil erst nach bewusstem Klick', async () => {
+    const fixture = buildLogin(false, false);
+    fixture.detectChanges();
+    const enablePublicPair = TestBed.inject(NetworkProfileService).enablePublicPair as ReturnType<typeof vi.fn>;
+    const buttons = Array.from(fixture.nativeElement.querySelectorAll('button')) as HTMLButtonElement[];
+    const optIn = buttons.find((button) => /öffentlichen pair-\/webrtc-zugang aktivieren/i.test(button.textContent));
+
+    expect(optIn).toBeDefined();
+    expect(enablePublicPair).not.toHaveBeenCalled();
+    optIn!.click();
+    await fixture.whenStable();
+
+    expect(enablePublicPair).toHaveBeenCalledOnce();
   });
 
   it('klick auf Registrierungs-Button ruft OidcAuthService.registerWithKeycloak() auf', () => {

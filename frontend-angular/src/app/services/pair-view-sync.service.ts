@@ -374,7 +374,7 @@ export class PairViewSyncService implements OnDestroy {
     const encrypted = await this.cryptoPort.seal(JSON.stringify(delta), {
       scopeId: this.sessionId,
       epoch: this.securityEpoch,
-      sequence: this.nextSecureSequence('semantic'),
+      sequence: await this.nextSecureSequence('semantic'),
       payloadType: 'pair.view_delta',
       trafficClass: 'semantic',
     });
@@ -686,7 +686,7 @@ export class PairViewSyncService implements OnDestroy {
       const encrypted = await this.cryptoPort.seal(JSON.stringify(payload), {
         scopeId: this.sessionId,
         epoch: this.securityEpoch,
-        sequence: this.nextSecureSequence(trafficClass),
+        sequence: await this.nextSecureSequence(trafficClass),
         payloadType,
         trafficClass,
       });
@@ -700,8 +700,13 @@ export class PairViewSyncService implements OnDestroy {
     }
   }
 
-  private nextSecureSequence(trafficClass: 'control' | 'semantic'): number {
-    return this.secureSequences.next(this.sessionId, this.securityEpoch, trafficClass);
+  private nextSecureSequence(trafficClass: 'control' | 'semantic'): Promise<number> {
+    return this.secureSequences.next(
+      this.sessionId,
+      this.securityEpoch,
+      this.ownerUserId,
+      trafficClass,
+    );
   }
 
   private rejectApply(): void {

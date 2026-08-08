@@ -223,6 +223,19 @@ template: `
               }
             </div>
           }
+        } @else {
+          <div class="oidc-divider"><span>Optionaler Pair-/WebRTC-Zugang</span></div>
+          <button
+            type="button"
+            class="secondary btn-full"
+            (click)="enablePublicPair()"
+            [disabled]="loading">
+            Öffentlichen Pair-/WebRTC-Zugang aktivieren
+          </button>
+          <p class="muted mfa-hint">
+            Erst nach dieser bewussten Auswahl werden keycloak.ananta.de und webrtc.ananta.de verwendet.
+            Der Hub-Zugang bleibt davon getrennt.
+          </p>
         }
       </div>
     </div>
@@ -270,6 +283,18 @@ export class LoginComponent implements OnInit {
 
   registerWithKeycloak(): void {
     this.oidc.registerWithKeycloak();
+  }
+
+  async enablePublicPair(): Promise<void> {
+    this.loading = true;
+    this.error = '';
+    try {
+      await this.profiles.enablePublicPair();
+    } catch {
+      this.error = 'Der öffentliche Pair-/WebRTC-Zugang konnte nicht aktiviert werden.';
+    } finally {
+      this.loading = false;
+    }
   }
 
   ngOnInit(): void {

@@ -11,7 +11,7 @@ export interface StrictSecurityProposalV1 {
   selected_mode: 'strict_e2ee';
   algorithms: ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'];
   key_epoch: number;
-  payload_classes: ['bulk', 'control', 'media', 'semantic'];
+  payload_classes: ['bulk', 'control', 'semantic'];
   expires_at_ms: number;
 }
 
@@ -42,12 +42,18 @@ const CONTRACT_FIELDS = [
 ] as const;
 
 /**
- * Validate the Hub-finalized bilateral transcript and independently recompute
+ * Validate the control-plane-finalized bilateral transcript and independently recompute
  * its digest before that digest is accepted by the signed peer-key package.
  */
 export async function validateFinalStrictPairSecurityContract(
   raw: unknown,
-  options: { scopeId: string; epoch: number; remoteMembershipId: string; nowMs?: number },
+  options: {
+    scopeId: string;
+    epoch: number;
+    remoteMembershipId: string;
+    localMembershipId?: string;
+    nowMs?: number;
+  },
 ): Promise<FinalStrictPairSecurityContractV1> {
   const value = closedObject(raw, CONTRACT_FIELDS, 'security_contract_fields_invalid');
   if (value['version'] !== 1 || value['signature_algorithm'] !== 'HMAC-SHA256') {
@@ -59,13 +65,19 @@ export async function validateFinalStrictPairSecurityContract(
   }
   const offer = parseStrictProposal(value['offer'], options);
   const answer = parseStrictProposal(value['answer'], options);
+  const membershipIds = new Set([offer.sender_id, offer.recipient_id]);
   if (
     offer.negotiation_id !== value['negotiation_id']
     || answer.negotiation_id !== value['negotiation_id']
     || offer.sender_id !== answer.recipient_id
     || offer.recipient_id !== answer.sender_id
     || offer.sender_id === offer.recipient_id
-    || ![offer.sender_id, offer.recipient_id].includes(options.remoteMembershipId)
+    || !membershipIds.has(options.remoteMembershipId)
+    || (options.localMembershipId !== undefined && (
+      options.localMembershipId === options.remoteMembershipId
+      || membershipIds.size !== 2
+      || !membershipIds.has(options.localMembershipId)
+    ))
   ) {
     throw new SecurityNegotiationError('negotiation_binding_mismatch');
   }
@@ -110,7 +122,7 @@ function parseStrictProposal(
   if (!exactStringArray(value['algorithms'], ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'])) {
     throw new SecurityNegotiationError('algorithm_invalid');
   }
-  if (!exactStringArray(value['payload_classes'], ['bulk', 'control', 'media', 'semantic'])) {
+  if (!exactStringArray(value['payload_classes'], ['bulk', 'control', 'semantic'])) {
     throw new SecurityNegotiationError('payload_class_invalid');
   }
   return value as unknown as StrictSecurityProposalV1;

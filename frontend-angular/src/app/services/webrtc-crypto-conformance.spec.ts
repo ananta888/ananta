@@ -4,6 +4,10 @@ import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
 import { E2eEncryptionService, PeerCipherContext } from './e2e-encryption.service';
+import {
+  IndexedDbE2eReplayStore,
+  PAIR_REPLAY_WINDOW_STORE,
+} from './e2e-replay.store';
 import { SECURE_KEY_STORE, SecureKeyStorePort, StoredDeviceKeyPair } from './secure-key-store.service';
 import { WebrtcGroupKeyService } from './webrtc-group-key.service';
 import { WebrtcReplayWindowService } from './webrtc-replay-window.service';
@@ -46,8 +50,8 @@ async function evaluate(mutation: string): Promise<string> {
       return await decryptCode(envelope);
     }
     if (mutation === 'wrong_peer' || mutation === 'wrong_epoch') {
-      const replay = new WebrtcReplayWindowService();
-      return replay.accept(envelope, {
+      const replay = replayService();
+      return await replay.accept(envelope, {
         scopeId: envelope.scope.id,
         epoch: mutation === 'wrong_epoch' ? envelope.epoch + 1 : envelope.epoch,
         authenticatedSenderId: envelope.sender_id,
@@ -55,11 +59,11 @@ async function evaluate(mutation: string): Promise<string> {
       }, nowMs);
     }
     if (mutation === 'replay') {
-      const replay = new WebrtcReplayWindowService();
+      const replay = replayService();
       const context = { scopeId: envelope.scope.id, epoch: envelope.epoch,
         authenticatedSenderId: envelope.sender_id, localPeerId: envelope.recipient.id };
-      replay.accept(envelope, context, nowMs);
-      return replay.accept(envelope, context, nowMs);
+      await replay.accept(envelope, context, nowMs);
+      return await replay.accept(envelope, context, nowMs);
     }
     if (mutation === 'nonce_reuse') return nonceReuseCode();
     if (mutation === 'join' || mutation === 'revoke') {
@@ -70,6 +74,15 @@ async function evaluate(mutation: string): Promise<string> {
   } catch (error) {
     return (error as { reasonCode?: string }).reasonCode ?? 'unexpected_error';
   }
+}
+
+function replayService(): WebrtcReplayWindowService {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({ providers: [
+    WebrtcReplayWindowService,
+    { provide: PAIR_REPLAY_WINDOW_STORE, useValue: new IndexedDbE2eReplayStore() },
+  ] });
+  return TestBed.inject(WebrtcReplayWindowService);
 }
 
 class ConformanceKeyStore implements SecureKeyStorePort {

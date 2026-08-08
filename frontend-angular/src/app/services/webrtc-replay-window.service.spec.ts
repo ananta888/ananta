@@ -1,5 +1,7 @@
+import { TestBed } from '@angular/core/testing';
 import { describe, expect, it } from 'vitest';
 
+import { IndexedDbE2eReplayStore, PAIR_REPLAY_WINDOW_STORE } from './e2e-replay.store';
 import { WebrtcReplayWindowService } from './webrtc-replay-window.service';
 import { SecureEnvelopeV1 } from './webrtc-secure-envelope';
 
@@ -15,23 +17,44 @@ function envelope(sequence: number, epoch = 3): SecureEnvelopeV1 {
 }
 
 describe('WebrtcReplayWindowService', () => {
-  it('separates sender/traffic windows and rejects duplicate, old, ahead and epoch mismatch', () => {
-    const service = new WebrtcReplayWindowService();
+  it('separates sender/traffic windows and rejects duplicate, old, ahead and epoch mismatch', async () => {
+    const service = serviceWith(new IndexedDbE2eReplayStore());
     const context = { scopeId: 's1', epoch: 3, authenticatedSenderId: 'alice', localPeerId: 'bob' };
-    expect(service.accept(envelope(1), context)).toBe('ok');
-    expect(service.accept(envelope(1), context)).toBe('sequence_duplicate');
-    expect(service.accept(envelope(5000), context)).toBe('sequence_too_far_ahead');
-    expect(service.accept(envelope(2, 2), context)).toBe('epoch_stale');
-    expect(service.accept(envelope(2, 4), context)).toBe('epoch_future');
-    expect(service.accept(envelope(2), { ...context, authenticatedSenderId: 'mallory' })).toBe('sender_mismatch');
+    expect(await service.accept(envelope(1), context)).toBe('ok');
+    expect(await service.accept(envelope(1), context)).toBe('sequence_duplicate');
+    expect(await service.accept(envelope(5000), context)).toBe('sequence_too_far_ahead');
+    expect(await service.accept(envelope(2, 2), context)).toBe('epoch_stale');
+    expect(await service.accept(envelope(2, 4), context)).toBe('epoch_future');
+    expect(await service.accept(
+      envelope(2), { ...context, authenticatedSenderId: 'mallory' },
+    )).toBe('sender_mismatch');
   });
 
-  it('clears all state for a finished scope idempotently', () => {
-    const service = new WebrtcReplayWindowService();
+  it('does not clear an active epoch when a client merely unbinds', async () => {
+    const store = new IndexedDbE2eReplayStore();
+    const service = serviceWith(store);
     const context = { scopeId: 's1', epoch: 3, authenticatedSenderId: 'alice', localPeerId: 'bob' };
-    expect(service.accept(envelope(1), context)).toBe('ok');
+    expect(await service.accept(envelope(1), context)).toBe('ok');
     service.clearScope('s1');
     service.clearScope('s1');
-    expect(service.accept(envelope(1), context)).toBe('ok');
+    expect(await serviceWith(new IndexedDbE2eReplayStore()).accept(envelope(1), context))
+      .toBe('sequence_duplicate');
+  });
+
+  it('fails closed when persistent replay state is unavailable', async () => {
+    const failed = serviceWith({
+      claimSequence: async () => { throw new Error('indexeddb_unavailable'); },
+    });
+    const context = { scopeId: 's1', epoch: 3, authenticatedSenderId: 'alice', localPeerId: 'bob' };
+    expect(await failed.accept(envelope(1), context)).toBe('replay_store_failed');
   });
 });
+
+function serviceWith(store: { claimSequence: IndexedDbE2eReplayStore['claimSequence'] }): WebrtcReplayWindowService {
+  TestBed.resetTestingModule();
+  TestBed.configureTestingModule({ providers: [
+    WebrtcReplayWindowService,
+    { provide: PAIR_REPLAY_WINDOW_STORE, useValue: store },
+  ] });
+  return TestBed.inject(WebrtcReplayWindowService);
+}

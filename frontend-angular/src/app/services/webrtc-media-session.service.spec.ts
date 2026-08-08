@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, Subject } from 'rxjs';
 import { WEBRTC_MEDIA_DEVICES, WebrtcMediaSessionService } from './webrtc-media-session.service';
 import { PeerState, WebrtcSessionService } from './webrtc-session.service';
+import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
 
 class FakeTrack {
   id: string; kind = 'audio'; label = 'Explicit microphone'; enabled = true; onended: (() => void) | null = null;
@@ -23,9 +24,11 @@ describe('WebrtcMediaSessionService', () => {
   let peer: any;
   let devices: any;
   let dispatchDeviceChange: () => void;
+  const mediaPolicy = { assertAllowed: vi.fn() };
 
   beforeEach(() => {
     tracks = [];
+    mediaPolicy.assertAllowed.mockReset();
     peer = {
       state$: new BehaviorSubject<PeerState>('connected'), sessionStarted$: new Subject<string>(),
       remoteTrack$: new Subject<RTCTrackEvent>(), sender: { track: null }, addMediaTrack: vi.fn((track: MediaStreamTrack) => {
@@ -48,6 +51,7 @@ describe('WebrtcMediaSessionService', () => {
     TestBed.configureTestingModule({ providers: [
       WebrtcMediaSessionService,
       { provide: WebrtcSessionService, useValue: peer },
+      { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaSessionService);
@@ -58,6 +62,20 @@ describe('WebrtcMediaSessionService', () => {
   it('keeps data-channel-only sessions compatible until explicit microphone permission', () => {
     expect(peer.addMediaTrack).not.toHaveBeenCalled();
     expect(service.audioState$.value.status).toBe('idle');
+  });
+
+  it('denies public capture before permission and drops a public remote track', async () => {
+    peer.sessionStarted$.next('public-session');
+    mediaPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_ordinary_media_e2ee_unavailable');
+    });
+
+    await expect(service.requestMicrophone())
+      .rejects.toThrow('public_ordinary_media_e2ee_unavailable');
+    expect(devices.getUserMedia).not.toHaveBeenCalled();
+    const remote = new FakeTrack('public-remote');
+    peer.remoteTrack$.next({ track: remote, streams: [] } as unknown as RTCTrackEvent);
+    expect(remote.stops).toBe(1);
   });
 
   it('adds, mutes, replaces and reconnects audio without disturbing control transport', async () => {

@@ -50,10 +50,10 @@ describe('E2eEncryptionService AEAD', () => {
     await expect(bob.open(bobContext, sealed)).rejects.toThrow('nonce_reuse');
 
     const swapped = { ...sealed, payload_type: 'pair.control' };
-    // A fresh service with the persisted private CryptoKey avoids the replay
-    // short-circuit and reaches the AEAD authentication check.
+    // A reload must not let metadata mutation bypass the durable nonce claim.
     const restartedBob = serviceWith(bobStore);
-    await expect(restartedBob.open(bobContext, swapped)).rejects.toThrow('authentication_failed');
+    await expect(restartedBob.open(bobContext, swapped)).rejects.toThrow('nonce_reuse');
+    await expect(serviceWith(bobStore).open(bobContext, sealed)).rejects.toThrow('nonce_reuse');
     const ciphertext = decodeB64(sealed.ciphertext_b64);
     ciphertext[0] ^= 1;
     const tampered = { ...sealed, nonce_b64: encodeB64(crypto.getRandomValues(new Uint8Array(12))), ciphertext_b64: encodeB64(ciphertext) };
@@ -70,6 +70,38 @@ describe('E2eEncryptionService AEAD', () => {
       context, new TextEncoder().encode('secret'),
       { sequence: 1, payloadType: 'pair.view_delta', trafficClass: 'semantic' },
     )).rejects.toThrow('missing_private_key');
+  });
+
+  it('rejects an authenticated replay through its complete parser grace period', async () => {
+    const alice = serviceWith(new MemoryKeyStore());
+    const alicePublic = await alice.ensureLocalKeyPair();
+    const bob = serviceWith(new MemoryKeyStore());
+    const bobPublic = await bob.ensureLocalKeyPair();
+    const expiresAtMs = Date.now() + 1_000;
+    const common = { scopeKind: 'session' as const, scopeId: 'session-expiry', epoch: 1,
+      keyId: 'key-expiry', contractDigest: 'c'.repeat(64) };
+    const sealed = await alice.seal({
+      ...common, localPeerId: 'alice', remotePeerId: 'bob', peerPublicKeySpkiB64: bobPublic.publicKeySpkiB64,
+    }, new TextEncoder().encode('secret'), {
+      sequence: 1, payloadType: 'semantic_speech', trafficClass: 'semantic', expiresAtMs,
+    });
+    const bobContext: PeerCipherContext = {
+      ...common, localPeerId: 'bob', remotePeerId: 'alice', peerPublicKeySpkiB64: alicePublic.publicKeySpkiB64,
+    };
+    await bob.open(bobContext, sealed);
+    await expect(bob.open(bobContext, sealed)).rejects.toThrow('nonce_reuse');
+    bob.forgetEpoch(common.keyId, common.epoch);
+    await expect(bob.open(bobContext, sealed)).rejects.toThrow('nonce_reuse');
+
+    const dateNow = Date.now;
+    try {
+      Date.now = () => expiresAtMs + 30_000;
+      await expect(bob.open(bobContext, sealed)).rejects.toThrow('nonce_reuse');
+      Date.now = () => expiresAtMs + 30_001;
+      await expect(bob.open(bobContext, sealed)).rejects.toThrow('expired');
+    } finally {
+      Date.now = dateNow;
+    }
   });
 
   it('derives equal purpose-bound adapter material while keeping device keys non-extractable', async () => {

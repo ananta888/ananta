@@ -7,6 +7,7 @@ import {
   WebrtcMediaPublicationService,
 } from './webrtc-media-publication.service';
 import { WebrtcSessionService } from './webrtc-session.service';
+import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
 
 class Track {
   kind = 'video'; id: string; enabled = true; readyState: MediaStreamTrackState = 'live';
@@ -33,8 +34,12 @@ describe('WebrtcMediaPublicationService', () => {
   let service: WebrtcMediaPublicationService;
   let camera: Track[]; let screens: Track[]; let sender: any; let peer: any;
   let dispatchDeviceChange: () => void;
+  const mediaPolicy = { assertAllowed: vi.fn(), allows: vi.fn(() => true) };
   beforeEach(() => {
     camera = []; screens = [];
+    mediaPolicy.assertAllowed.mockReset();
+    mediaPolicy.allows.mockReset();
+    mediaPolicy.allows.mockReturnValue(true);
     sender = { getParameters: () => ({ encodings: [{}] }), setParameters: vi.fn(async () => undefined), replaceTrack: vi.fn() };
     peer = {
       addMediaTrack: vi.fn(() => sender), replaceMediaTrack: vi.fn(async () => undefined), removeMediaSender: vi.fn(),
@@ -50,6 +55,7 @@ describe('WebrtcMediaPublicationService', () => {
     dispatchDeviceChange = () => deviceChange?.();
     TestBed.configureTestingModule({ providers: [
       WebrtcMediaPublicationService, { provide: WebrtcSessionService, useValue: peer },
+      { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaPublicationService);
@@ -68,6 +74,17 @@ describe('WebrtcMediaPublicationService', () => {
     expect(peer.removeMediaSender).toHaveBeenCalledTimes(1);
     expect(service.publications$.value.find(item => item.publicationId === 'screen-publication'))
       .toMatchObject({ status: 'ended', reasonCode: 'user_stop' });
+  });
+
+  it('denies public video before browser capture despite an admitted authorization flag', async () => {
+    mediaPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_ordinary_media_e2ee_unavailable');
+    });
+
+    await expect(service.startLocal(AUTH, PREF, 1000))
+      .rejects.toThrow('public_ordinary_media_e2ee_unavailable');
+    expect(camera).toEqual([]);
+    expect(peer.addMediaTrack).not.toHaveBeenCalled();
   });
 
   it('intersects Hub and user bounds and refuses silent source switches', async () => {

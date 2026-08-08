@@ -2,11 +2,19 @@
 import { TestBed } from '@angular/core/testing';
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { BehaviorSubject } from 'rxjs';
+import { Router } from '@angular/router';
 import { OidcAuthService, OidcPopupLoginError } from './oidc-auth.service';
 import { UserAuthService } from './user-auth.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { NetworkProfileService } from './network-profile.service';
-import { PUBLIC_OIDC_CLIENT_ID, PUBLIC_OIDC_ISSUER } from './public-ananta-endpoints';
+import {
+  PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
+  PUBLIC_OIDC_CLIENT_ID,
+  PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT,
+  PUBLIC_OIDC_END_SESSION_ENDPOINT,
+  PUBLIC_OIDC_ISSUER,
+  PUBLIC_OIDC_TOKEN_ENDPOINT,
+} from './public-ananta-endpoints';
 import {
   OidcPopupCoordinator,
   type OidcPopupParentSession,
@@ -21,7 +29,7 @@ function makeUserAuthStub() {
     setTokens: vi.fn(async () => undefined),
     setOidcAccessToken: vi.fn((token: string | null) => oidcToken$.next(token)),
     setOidcRefreshToken: vi.fn(async (_t: string | null) => undefined),
-    getOidcRefreshToken: async () => null,
+    getOidcRefreshToken: vi.fn(async () => null),
     userPayload: null,
     logout: vi.fn(),
   } as unknown as UserAuthService;
@@ -32,6 +40,7 @@ function makeProfilesStub(overrides: { issuer?: string; clientId?: string; profi
   const clientId = overrides.clientId ?? 'ananta-tui';
   const profileId = overrides.profileId ?? 'public-ananta';
   return {
+    publicPairOptedIn: true,
     current: {
       profile_id: profileId,
       oidc: {
@@ -42,11 +51,20 @@ function makeProfilesStub(overrides: { issuer?: string; clientId?: string; profi
         enabled: true,
       },
     },
+    enablePublicPair: vi.fn(async () => undefined),
   } as unknown as NetworkProfileService;
 }
 
 function makeDirStub() {
   return { list: () => [{ role: 'hub', url: 'http://hub.test' }] } as unknown as AgentDirectoryService;
+}
+
+function unsignedJwt(payload: Record<string, unknown>): string {
+  const encoded = btoa(JSON.stringify(payload))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+  return `header.${encoded}.signature`;
 }
 
 describe('OidcAuthService', () => {
@@ -81,6 +99,7 @@ describe('OidcAuthService', () => {
         { provide: AgentDirectoryService, useFactory: makeDirStub },
         { provide: NetworkProfileService, useValue: profiles },
         { provide: OidcPopupCoordinator, useValue: popupCoordinator },
+        { provide: Router, useValue: { navigateByUrl: vi.fn(), navigate: vi.fn() } },
       ],
     });
     svc = TestBed.inject(OidcAuthService);
@@ -95,6 +114,7 @@ describe('OidcAuthService', () => {
   afterEach(() => {
     localStorage.clear();
     sessionStorage.clear();
+    window.history.replaceState({}, '', '/');
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
@@ -114,9 +134,11 @@ describe('OidcAuthService', () => {
       );
     });
 
-    it('returns empty string when no issuer is configured', () => {
-      buildSvc({ issuer: '' });
-      expect(svc.registrationUrl()).toBe('');
+    it('does not adopt a missing or mutable public-profile issuer', () => {
+      buildSvc({ issuer: 'https://attacker.invalid/realms/phish' });
+      expect(svc.registrationUrl()).toBe(
+        `${PUBLIC_OIDC_ISSUER}/login-actions/registration`,
+      );
     });
   });
 
@@ -130,10 +152,14 @@ describe('OidcAuthService', () => {
       );
     });
 
-    it('is a no-op when no issuer is configured (does not call window.open)', () => {
-      buildSvc({ issuer: '' });
+    it('selects public Pair and ignores a Hub-supplied registration issuer', () => {
+      buildSvc({ issuer: 'https://attacker.invalid/realms/phish' });
       svc.registerWithKeycloak();
-      expect(openSpy).not.toHaveBeenCalled();
+      expect(profiles.enablePublicPair).toHaveBeenCalledOnce();
+      expect(openSpy).toHaveBeenCalledWith(
+        `${PUBLIC_OIDC_ISSUER}/login-actions/registration`,
+        '_blank',
+      );
     });
   });
 
@@ -161,6 +187,98 @@ describe('OidcAuthService', () => {
       expect(userAuth.setTokens).not.toHaveBeenCalled();
       expect(userAuth.setOidcAccessToken).not.toHaveBeenCalled();
     });
+
+    it('never auto-exchanges a public token because mutable Hub link flags are enabled', async () => {
+      buildSvc();
+      profiles.current.profile_id = 'attacker-controlled-profile';
+      Object.assign(profiles.current.oidc, {
+        issuer: 'https://attacker.invalid/realms/phish',
+        hub_link_enabled: true,
+        bridge_active: true,
+      });
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'ananta.oidc.access_token',
+        newValue: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, sub: 'public-user' }),
+      }));
+      await Promise.resolve();
+
+      expect(userAuth.setOidcAccessToken).toHaveBeenCalled();
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('redirect and refresh authority binding', () => {
+    it('keeps callback and refresh on the pinned transaction after a profile switch', async () => {
+      buildSvc();
+      const nonce = 'redirect-nonce';
+      sessionStorage.setItem('oidc.pkce', JSON.stringify({
+        verifier: 'redirect-verifier',
+        state: 'redirect-state',
+        nonce,
+        redirectPath: '/after-login',
+        linkHub: false,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      window.history.replaceState({}, '', '/oidc-callback?code=one-time-code&state=redirect-state');
+      profiles.current.profile_id = 'attacker-controlled-profile';
+      Object.assign(profiles.current.oidc, {
+        issuer: 'https://attacker.invalid/realms/phish',
+        client_id: 'attacker-client',
+        hub_link_enabled: true,
+      });
+      const fetchSpy = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn(async () => ({
+            access_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, sub: 'public-user' }),
+            refresh_token: 'public-refresh-token',
+            id_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, nonce }),
+          })),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn(async () => ({
+            access_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, sub: 'public-user' }),
+            refresh_token: 'rotated-public-refresh-token',
+          })),
+        } as unknown as Response);
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await expect(svc.handleCallback()).resolves.toBe(true);
+      (userAuth.getOidcRefreshToken as ReturnType<typeof vi.fn>)
+        .mockResolvedValue('public-refresh-token');
+      await expect(svc.refreshFromStorage()).resolves.toBe(true);
+
+      expect(fetchSpy).toHaveBeenNthCalledWith(1, PUBLIC_OIDC_TOKEN_ENDPOINT, expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(`client_id=${PUBLIC_OIDC_CLIENT_ID}`),
+      }));
+      expect(fetchSpy).toHaveBeenNthCalledWith(2, PUBLIC_OIDC_TOKEN_ENDPOINT, expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining('refresh_token=public-refresh-token'),
+      }));
+      expect(JSON.stringify(fetchSpy.mock.calls)).not.toContain('attacker.invalid');
+    });
+
+    it('rejects a tampered redirect authority before exchanging the code', async () => {
+      buildSvc();
+      sessionStorage.setItem('oidc.pkce', JSON.stringify({
+        verifier: 'redirect-verifier', state: 'redirect-state', nonce: 'redirect-nonce',
+        redirectPath: '/', linkHub: false, issuer: PUBLIC_OIDC_ISSUER,
+        clientId: 'attacker-client', tokenEndpoint: 'https://attacker.invalid/token',
+      }));
+      window.history.replaceState({}, '', '/oidc-callback?code=one-time-code&state=redirect-state');
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await expect(svc.handleCallback()).resolves.toBe(false);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
   });
 
   describe('startLoginPopup', () => {
@@ -183,8 +301,8 @@ describe('OidcAuthService', () => {
         json: vi.fn(async () => ({
           issuer,
           authorization_endpoint: authorizationEndpoint,
-          token_endpoint: 'https://sso.profile.test/token',
-          end_session_endpoint: 'https://sso.profile.test/logout',
+          token_endpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+          end_session_endpoint: PUBLIC_OIDC_END_SESSION_ENDPOINT,
         })),
       } as unknown as Response;
     }
@@ -197,10 +315,10 @@ describe('OidcAuthService', () => {
       return `header.${payload}.signature`;
     }
 
-    it('opens the placeholder synchronously before discovery and navigates it with profile SSOT values', async () => {
+    it('opens synchronously but pins discovery and client against a malicious Hub profile', async () => {
       buildSvc({
-        issuer: 'https://sso.profile.test/realms/team/',
-        clientId: 'pair-client',
+        issuer: 'https://attacker.invalid/realms/phish',
+        clientId: 'attacker-client',
       });
       const { popup, replace, focus } = popupDouble();
       openSpy.mockReturnValue(popup);
@@ -217,24 +335,28 @@ describe('OidcAuthService', () => {
       expect(openSpy.mock.calls[0][0]).toBe('about:blank');
       expect(String(openSpy.mock.calls[0][1])).toMatch(/^oidc-login-p\./);
       expect(openSpy.mock.calls[0][2]).toBe('width=560,height=680,left=200,top=80');
+      await Promise.resolve();
       expect(fetchSpy).toHaveBeenCalledWith(
-        'https://sso.profile.test/realms/team/.well-known/openid-configuration',
+        `${PUBLIC_OIDC_ISSUER}/.well-known/openid-configuration`,
         expect.objectContaining({ signal: expect.any(AbortSignal) }),
       );
       expect(replace).not.toHaveBeenCalled();
 
       resolveDiscovery(discoveryResponse(
-        'https://sso.profile.test/realms/team',
-        'https://sso.profile.test/realms/team/protocol/openid-connect/auth',
+        PUBLIC_OIDC_ISSUER,
+        PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
       ));
       const error = await login.catch(candidate => candidate);
 
       const authorizationUrl = new URL(String(replace.mock.calls[0][0]));
-      expect(authorizationUrl.origin).toBe('https://sso.profile.test');
-      expect(authorizationUrl.pathname).toBe('/realms/team/protocol/openid-connect/auth');
-      expect(authorizationUrl.searchParams.get('client_id')).toBe('pair-client');
+      expect(authorizationUrl.origin).toBe('https://keycloak.ananta.de');
+      expect(authorizationUrl.pathname).toBe('/realms/ananta/protocol/openid-connect/auth');
+      expect(authorizationUrl.searchParams.get('client_id')).toBe(PUBLIC_OIDC_CLIENT_ID);
       expect(authorizationUrl.searchParams.get('code_challenge_method')).toBe('S256');
       expect(authorizationUrl.searchParams.get('state')).toMatch(/^p\./);
+      expect(JSON.stringify(fetchSpy.mock.calls)).not.toContain('attacker.invalid');
+      expect(String(replace.mock.calls[0][0])).not.toContain('attacker.invalid');
+      expect(profiles.enablePublicPair).toHaveBeenCalledOnce();
       expect(focus).toHaveBeenCalledOnce();
       expect(error).toMatchObject({ code: 'authorization_denied' });
       expect(localStorage.getItem('oidc.pkce.popup')).toBeNull();
@@ -259,8 +381,8 @@ describe('OidcAuthService', () => {
 
       const fetchSpy = vi.fn()
         .mockResolvedValueOnce(discoveryResponse(
-          'https://sso.profile.test/realms/team',
-          'https://sso.profile.test/realms/team/protocol/openid-connect/auth',
+          PUBLIC_OIDC_ISSUER,
+          PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
         ));
       vi.stubGlobal('fetch', fetchSpy);
 
@@ -282,7 +404,7 @@ describe('OidcAuthService', () => {
       await login;
 
       expect(fetchSpy).toHaveBeenNthCalledWith(2,
-        'https://sso.profile.test/token',
+        PUBLIC_OIDC_TOKEN_ENDPOINT,
         expect.objectContaining({
           method: 'POST',
           body: expect.stringContaining('code=one-time-code'),
@@ -326,8 +448,8 @@ describe('OidcAuthService', () => {
       } satisfies OidcPopupParentSession));
       const fetchSpy = vi.fn()
         .mockResolvedValueOnce(discoveryResponse(
-          'https://sso.profile.test/realms/team',
-          'https://sso.profile.test/realms/team/protocol/openid-connect/auth',
+          PUBLIC_OIDC_ISSUER,
+          PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
         ))
         .mockRejectedValueOnce(failure);
       vi.stubGlobal('fetch', fetchSpy);
@@ -365,8 +487,8 @@ describe('OidcAuthService', () => {
       } satisfies OidcPopupParentSession));
       const fetchSpy = vi.fn()
         .mockResolvedValueOnce(discoveryResponse(
-          'https://sso.profile.test/realms/team',
-          'https://sso.profile.test/realms/team/protocol/openid-connect/auth',
+          PUBLIC_OIDC_ISSUER,
+          PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
         ));
       vi.stubGlobal('fetch', fetchSpy);
 
@@ -416,25 +538,32 @@ describe('OidcAuthService', () => {
 
       expect(error).toBeInstanceOf(OidcPopupLoginError);
       expect(error).toMatchObject({ code: 'issuer_unreachable' });
-      expect(String(error.message)).toContain('https://offline.profile.test/realms/team');
+      expect(String(error.message)).toContain(PUBLIC_OIDC_ISSUER);
       expect(close).toHaveBeenCalledOnce();
       expect(localStorage.getItem('oidc.pkce.popup')).toBeNull();
     });
 
-    it('closes the placeholder and explains a missing profile issuer', async () => {
+    it('ignores caller-supplied authority overrides at the public login boundary', async () => {
       buildSvc();
-      const { popup, close } = popupDouble();
+      const { popup, replace } = popupDouble();
       openSpy.mockReturnValue(popup);
-      const fetchSpy = vi.fn();
+      const fetchSpy = vi.fn().mockResolvedValue(discoveryResponse(
+        PUBLIC_OIDC_ISSUER,
+        PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
+      ));
       vi.stubGlobal('fetch', fetchSpy);
 
-      const error = await svc.startLoginPopup('').catch(candidate => candidate);
+      const error = await svc.startLoginPopup(
+        'https://attacker.invalid/realms/phish',
+        'attacker-client',
+      ).catch(candidate => candidate);
 
-      expect(error).toBeInstanceOf(OidcPopupLoginError);
-      expect(error).toMatchObject({ code: 'configuration_missing' });
-      expect(String(error.message)).toContain('kein OIDC-Issuer');
-      expect(close).toHaveBeenCalledOnce();
-      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(error).toMatchObject({ code: 'authorization_denied' });
+      expect(fetchSpy.mock.calls[0][0]).toBe(
+        `${PUBLIC_OIDC_ISSUER}/.well-known/openid-configuration`,
+      );
+      expect(String(replace.mock.calls[0][0])).not.toContain('attacker.invalid');
+      expect(String(replace.mock.calls[0][0])).toContain(`client_id=${PUBLIC_OIDC_CLIENT_ID}`);
     });
 
     it('rejects discovery metadata whose issuer does not match the configured profile', async () => {
@@ -452,31 +581,83 @@ describe('OidcAuthService', () => {
       expect(close).toHaveBeenCalledOnce();
     });
 
-    it('reloads discovery metadata after the network profile issuer changes', async () => {
+    it('keeps cached public discovery pinned when the Hub profile issuer changes', async () => {
       buildSvc({ issuer: 'https://sso.profile.test/realms/one' });
       const first = popupDouble();
       const second = popupDouble();
       openSpy.mockReturnValueOnce(first.popup).mockReturnValueOnce(second.popup);
-      const fetchSpy = vi.fn()
-        .mockResolvedValueOnce(discoveryResponse(
-          'https://sso.profile.test/realms/one',
-          'https://sso.profile.test/realms/one/protocol/openid-connect/auth',
-        ))
-        .mockResolvedValueOnce(discoveryResponse(
-          'https://sso.profile.test/realms/two',
-          'https://sso.profile.test/realms/two/protocol/openid-connect/auth',
-        ));
+      const fetchSpy = vi.fn().mockResolvedValue(discoveryResponse(
+        PUBLIC_OIDC_ISSUER,
+        PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
+      ));
       vi.stubGlobal('fetch', fetchSpy);
 
       await svc.startLoginPopup().catch(() => undefined);
       profiles.current.oidc.issuer = 'https://sso.profile.test/realms/two';
       await svc.startLoginPopup().catch(() => undefined);
 
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(fetchSpy.mock.calls[1][0]).toBe(
-        'https://sso.profile.test/realms/two/.well-known/openid-configuration',
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      expect(fetchSpy.mock.calls[0][0]).toBe(
+        `${PUBLIC_OIDC_ISSUER}/.well-known/openid-configuration`,
       );
-      expect(second.replace.mock.calls[0][0]).toContain('/realms/two/');
+      expect(second.replace.mock.calls[0][0]).toContain('/realms/ananta/');
+      expect(second.replace.mock.calls[0][0]).not.toContain('sso.profile.test');
+    });
+  });
+
+  describe('device flow authority binding', () => {
+    it('polls an exact device code at its pinned endpoint after the profile changes', async () => {
+      buildSvc({
+        issuer: 'https://attacker.invalid/realms/phish',
+        clientId: 'attacker-client',
+      });
+      const tokenEndpoint = PUBLIC_OIDC_TOKEN_ENDPOINT;
+      const deviceEndpoint = PUBLIC_OIDC_DEVICE_AUTHORIZATION_ENDPOINT;
+      const fetchSpy = vi.fn()
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn(async () => ({
+            issuer: PUBLIC_OIDC_ISSUER,
+            authorization_endpoint: PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
+            token_endpoint: tokenEndpoint,
+            end_session_endpoint: PUBLIC_OIDC_END_SESSION_ENDPOINT,
+            device_authorization_endpoint: deviceEndpoint,
+          })),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: vi.fn(async () => ({
+            device_code: 'opaque-device-code',
+            user_code: 'ABCD-EFGH',
+            verification_uri: `${PUBLIC_OIDC_ISSUER}/device`,
+            expires_in: 600,
+            interval: 5,
+          })),
+        } as unknown as Response)
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 400,
+          json: vi.fn(async () => ({ error: 'authorization_pending' })),
+        } as unknown as Response);
+      vi.stubGlobal('fetch', fetchSpy);
+
+      await svc.startDeviceFlow();
+      profiles.current.profile_id = 'attacker-controlled-profile';
+      Object.assign(profiles.current.oidc, {
+        issuer: 'https://attacker.invalid/realms/phish',
+        client_id: 'attacker-client',
+      });
+
+      await expect(svc.pollDeviceToken('opaque-device-code ', 5))
+        .rejects.toThrow('oidc_device_flow_binding_missing');
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      await expect(svc.pollDeviceToken('opaque-device-code', 5)).resolves.toBe(false);
+
+      expect(fetchSpy).toHaveBeenNthCalledWith(3, tokenEndpoint, expect.objectContaining({
+        method: 'POST',
+        body: expect.stringContaining(`client_id=${PUBLIC_OIDC_CLIENT_ID}`),
+      }));
+      expect(JSON.stringify(fetchSpy.mock.calls)).not.toContain('attacker.invalid');
     });
   });
 });

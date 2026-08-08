@@ -1,5 +1,7 @@
 import '@angular/compiler';
 import { getTestBed } from '@angular/core/testing';
+import { IDBFactory, IDBKeyRange as FakeIDBKeyRange } from 'fake-indexeddb';
+import { beforeEach } from 'vitest';
 import {
   BrowserDynamicTestingModule,
   platformBrowserDynamicTesting,
@@ -12,6 +14,22 @@ if (!g.crypto || !g.crypto.subtle) {
   const nodeCrypto = require('node:crypto');
   g.crypto = nodeCrypto.webcrypto;
 }
+
+// Security state which must survive reloads is persisted in IndexedDB. JSDOM
+// does not provide it, so give every unit test an isolated browser database;
+// this prevents identical session ids in separate specs from sharing state.
+beforeEach(() => {
+  Object.defineProperty(globalThis, 'indexedDB', {
+    value: new IDBFactory(),
+    writable: true,
+    configurable: true,
+  });
+  Object.defineProperty(globalThis, 'IDBKeyRange', {
+    value: FakeIDBKeyRange,
+    writable: true,
+    configurable: true,
+  });
+});
 
 // JSDOM provides localStorage, but vitest's per-file module resets can
 // tear it down between test files. The auth services use localStorage

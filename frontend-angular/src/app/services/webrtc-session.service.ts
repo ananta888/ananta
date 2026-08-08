@@ -26,6 +26,8 @@ import { WebrtcChunkReassemblyStore } from './webrtc-chunk-reassembly.store';
 import { WebrtcPrioritySendQueue } from './webrtc-priority-send-queue';
 import { WebrtcSendOperation } from './webrtc-send-operation';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PUBLIC_WEBRTC_STUN_URL } from './public-ananta-endpoints';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
 
@@ -54,6 +56,7 @@ export class WebrtcSessionService {
   private signaling = inject(WebrtcSignalingService);
   private oidc = inject(OidcAuthService);
   private controlPlane = inject(PairSessionControlPlaneService);
+  private mediaPolicy = inject(PairOrdinaryMediaPolicy);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
   readonly dcMessage$ = new Subject<DcMessage>();
@@ -74,26 +77,34 @@ export class WebrtcSessionService {
   private readonly pendingSemanticSends = new Map<string, WebrtcSendOperation>();
   private activeEpoch = 1;
   private isInitiator = false;
-  private signalChain: Promise<void> = Promise.resolve();
-  private signalingSubscription: Subscription | null = null;
+  private releaseSignalingHandler: (() => void) | null = null;
+  private signalingStatusSubscription: Subscription | null = null;
   private sessionGeneration = 0;
+  private localDescriptionPublicationPending = false;
+  private pendingLocalIce: RTCIceCandidateInit[] = [];
 
   async startSession(sessionId: string, isInitiator: boolean, remotePeerId?: string): Promise<void> {
-    if (this.pc || this.signalingSubscription || this.connectionTimeout) this.closeSession();
+    if (this.pc || this.releaseSignalingHandler || this.signalingStatusSubscription || this.connectionTimeout) {
+      this.closeSession();
+    }
     const generation = ++this.sessionGeneration;
     this.sessionId = sessionId;
     this.isInitiator = isInitiator;
     this.activeEpoch = 1;
-    this.signalChain = Promise.resolve();
+    this.localDescriptionPublicationPending = false;
+    this.pendingLocalIce = [];
     this.state$.next('connecting');
     this.sessionStarted$.next(sessionId);
     this.audit('session_start', `initiator=${isInitiator}`);
 
     const profile = this.profiles.current;
-    const iceServers = [...profile.ice_servers];
-    if (this.controlPlane.isPublic) {
+    const publicSession = this.controlPlane.isPublicSession(sessionId);
+    const iceServers = publicSession
+      ? [{ urls: PUBLIC_WEBRTC_STUN_URL }]
+      : [...profile.ice_servers];
+    if (publicSession) {
       try {
-        const credentials = await firstValueFrom(this.controlPlane.turnCredentials());
+        const credentials = await firstValueFrom(this.controlPlane.turnCredentials(sessionId));
         if (credentials?.uris?.length && credentials.username && credentials.password) {
           iceServers.push({
             urls: credentials.uris,
@@ -101,11 +112,20 @@ export class WebrtcSessionService {
             credential: credentials.password,
           });
         }
-      } catch {
+      } catch (error) {
+        if (generation !== this.sessionGeneration || this.sessionId !== sessionId) return;
+        // A missing/changed public identity is an authority loss, not a TURN
+        // outage. It must stop the session instead of continuing on STUN.
+        this.controlPlane.assertSessionAvailable(sessionId);
+        const status = Number((error as { status?: unknown } | null)?.status);
+        if (status === 401 || status === 403) throw error;
         // STUN/direct connectivity remains available when TURN issuance is
         // temporarily unavailable. No application payload falls back to Hub.
       }
     }
+    // TURN issuance is asynchronous. A close/replacement during that await
+    // fences this generation before it can create or wire a stale peer.
+    if (generation !== this.sessionGeneration || this.sessionId !== sessionId) return;
     const config: RTCConfiguration = {
       iceServers,
       iceTransportPolicy: profile.require_e2e_payload_encryption ? 'all' : 'all',
@@ -113,21 +133,25 @@ export class WebrtcSessionService {
 
     const pc = new RTCPeerConnection(config);
     this.pc = pc;
-    this.signalingSubscription = this.signaling.message$.subscribe((msg) => {
+    this.releaseSignalingHandler = this.signaling.bindMessageHandler(async msg => {
       if (!this.isCurrentSession(pc, sessionId, generation) || msg.session_id !== sessionId) return;
-      // SDP and ICE messages are ordered by the Hub queue, but applying them
-      // concurrently can race an ICE candidate ahead of setRemoteDescription.
-      // Serialize the product signal state machine and keep one bad signal
-      // from poisoning all subsequent messages.
-      this.signalChain = this.signalChain
-        .then(() => this.handleSignal(msg, pc, sessionId, generation))
-        .catch(error => {
-          if (this.isCurrentSession(pc, sessionId, generation)) {
-            this.audit('signal_error', error instanceof Error ? error.message : String(error));
-          }
-        });
+      try {
+        await this.handleSignal(msg, pc, sessionId, generation);
+      } catch (error) {
+        if (this.isCurrentSession(pc, sessionId, generation)) {
+          this.audit('signal_error', error instanceof Error ? error.message : String(error));
+          this.terminateSession('failed');
+        }
+        throw error;
+      }
+    });
+    this.signalingStatusSubscription = this.signaling.status$.subscribe(status => {
+      if (status !== 'failed' || !this.isCurrentSession(pc, sessionId, generation)) return;
+      this.audit('signaling_failed');
+      this.terminateSession('failed');
     });
     this.signaling.connect(profile.signaling_url, sessionId, remotePeerId);
+    if (!this.isCurrentSession(pc, sessionId, generation)) return;
     this.wirePeerConnection(pc, isInitiator, sessionId, generation);
 
     this.connectionTimeout = setTimeout(() => {
@@ -141,11 +165,18 @@ export class WebrtcSessionService {
   }
 
   closeSession(): void {
+    this.terminateSession('closed');
+  }
+
+  private terminateSession(finalState: Extract<PeerState, 'failed' | 'closed'>): void {
     const closingSessionId = this.sessionId;
     this.sessionGeneration += 1;
-    this.signalingSubscription?.unsubscribe();
-    this.signalingSubscription = null;
-    this.signalChain = Promise.resolve();
+    this.releaseSignalingHandler?.();
+    this.releaseSignalingHandler = null;
+    this.signalingStatusSubscription?.unsubscribe();
+    this.signalingStatusSubscription = null;
+    this.localDescriptionPublicationPending = false;
+    this.pendingLocalIce = [];
     if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
     this.dc?.close();
     this.pc?.close();
@@ -157,14 +188,17 @@ export class WebrtcSessionService {
     this.sendQueue.cancelContext(closingSessionId);
     this.sendQueue.unbind();
     this.pendingSemanticSends.clear();
-    this.state$.next('closed');
-    this.audit('session_closed');
+    this.state$.next(finalState);
+    this.audit(finalState === 'failed' ? 'session_failed' : 'session_closed');
     this.sessionId = '';
     this.isInitiator = false;
   }
 
   sendDc(type: string, payload: Record<string, unknown> = {}): void {
     if (!this.dc || this.dc.readyState !== 'open') return;
+    if (type === 'cursor' && this.controlPlane.isPublicSession(this.sessionId)) {
+      throw new Error('public_raw_cursor_transport_disabled');
+    }
     const nonce = this.oidc.sessionNonce;
     try {
       const msg = dcMake(type as any, nonce, payload);
@@ -211,6 +245,7 @@ export class WebrtcSessionService {
   }
 
   addMediaTrack(track: MediaStreamTrack, stream: MediaStream): RTCRtpSender {
+    this.mediaPolicy.assertAllowed(this.sessionId);
     if (!this.pc || this.pc.connectionState === 'closed') throw new Error('webrtc_session_not_open');
     const sender = this.pc.addTrack(track, stream);
     void this.negotiateMedia();
@@ -218,6 +253,7 @@ export class WebrtcSessionService {
   }
 
   async replaceMediaTrack(sender: RTCRtpSender, track: MediaStreamTrack | null): Promise<void> {
+    this.mediaPolicy.assertAllowed(this.sessionId);
     if (!this.pc || !this.pc.getSenders().includes(sender)) throw new Error('webrtc_media_sender_stale');
     await sender.replaceTrack(track);
   }
@@ -253,10 +289,13 @@ export class WebrtcSessionService {
   ): void {
     pc.onicecandidate = (evt) => {
       if (!this.isCurrentSession(pc, sessionId, generation) || !evt.candidate) return;
-      this.signaling.send({
-        type: 'ice_candidate',
-        session_id: sessionId,
-        payload: evt.candidate.toJSON(),
+      const candidate = evt.candidate.toJSON();
+      if (this.localDescriptionPublicationPending) {
+        this.pendingLocalIce.push(candidate);
+        return;
+      }
+      void this.signaling.send({
+        type: 'ice_candidate', session_id: sessionId, payload: candidate,
       });
     };
 
@@ -274,7 +313,16 @@ export class WebrtcSessionService {
       }
     };
     pc.ontrack = event => {
-      if (this.isCurrentSession(pc, sessionId, generation)) this.remoteTrack$.next(event);
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      try {
+        this.mediaPolicy.assertAllowed(sessionId);
+      } catch (error) {
+        try { event.track.stop(); } catch { /* Browser receiver owns the track. */ }
+        this.audit('public_media_rejected', error instanceof Error ? error.message : String(error));
+        this.terminateSession('failed');
+        return;
+      }
+      this.remoteTrack$.next(event);
     };
 
     if (isInitiator) {
@@ -283,6 +331,7 @@ export class WebrtcSessionService {
       void this.createOffer(pc, sessionId, generation).catch(error => {
         if (this.isCurrentSession(pc, sessionId, generation)) {
           this.audit('signal_error', error instanceof Error ? error.message : String(error));
+          this.terminateSession('failed');
         }
       });
     } else {
@@ -305,9 +354,7 @@ export class WebrtcSessionService {
     if (!this.isCurrentSession(pc, sessionId, generation)) return;
     const offer = await pc.createOffer();
     if (!this.isCurrentSession(pc, sessionId, generation)) return;
-    await pc.setLocalDescription(offer);
-    if (!this.isCurrentSession(pc, sessionId, generation)) return;
-    this.signaling.send({ type: 'offer', session_id: sessionId, payload: offer });
+    await this.publishLocalDescription('offer', offer, pc, sessionId, generation);
   }
 
   private async negotiateMedia(): Promise<void> {
@@ -334,13 +381,45 @@ export class WebrtcSessionService {
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
       const answer = await pc.createAnswer();
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
-      await pc.setLocalDescription(answer);
-      if (!this.isCurrentSession(pc, sessionId, generation)) return;
-      this.signaling.send({ type: 'answer', session_id: sessionId, payload: answer });
+      await this.publishLocalDescription('answer', answer, pc, sessionId, generation);
     } else if (msg.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
     } else if (msg.type === 'ice_candidate') {
       await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
+    }
+  }
+
+  private async publishLocalDescription(
+    type: 'offer' | 'answer',
+    description: RTCSessionDescriptionInit,
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): Promise<void> {
+    if (this.localDescriptionPublicationPending) {
+      throw new Error('local_description_publication_in_progress');
+    }
+    this.localDescriptionPublicationPending = true;
+    this.pendingLocalIce = [];
+    let published = false;
+    try {
+      await pc.setLocalDescription(description);
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      await this.signaling.send({ type, session_id: sessionId, payload: description });
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      published = true;
+    } finally {
+      const bufferedIce = this.pendingLocalIce;
+      this.pendingLocalIce = [];
+      this.localDescriptionPublicationPending = false;
+      if (published && this.isCurrentSession(pc, sessionId, generation)) {
+        for (const candidate of bufferedIce) {
+          await this.signaling.send({
+            type: 'ice_candidate', session_id: sessionId, payload: candidate,
+          });
+          if (!this.isCurrentSession(pc, sessionId, generation)) return;
+        }
+      }
     }
   }
 
@@ -415,6 +494,10 @@ export class WebrtcSessionService {
       const parsed = dcDecode(raw);
       const msg = dcTryReassembleChunk(parsed, this.chunkReassembler);
       if (!msg) return;
+      if (msg.type === 'cursor' && this.controlPlane.isPublicSession(this.sessionId)) {
+        this.audit('policy_violation', 'public_raw_cursor_transport_disabled');
+        return;
+      }
       if (!ALLOWED_DC_TYPES.has(msg.type)) {
         this.audit('policy_violation', `disallowed_type:${msg.type}`);
         return;

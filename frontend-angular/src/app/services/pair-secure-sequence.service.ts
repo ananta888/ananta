@@ -1,6 +1,16 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 
-import { SecurityTrafficClass } from './webrtc-secure-envelope';
+import {
+  PAIR_SECURE_SEQUENCE_STORE,
+  PairSecureSequenceStorePort,
+} from './pair-secure-sequence.store';
+import {
+  MAX_SECURE_SEQUENCE,
+  SecurityTrafficClass,
+} from './webrtc-secure-envelope';
+
+const IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+const MAX_SECURITY_EPOCH = 2 ** 31 - 1;
 
 /**
  * Allocates one monotonic sequence space per authenticated replay window.
@@ -12,23 +22,39 @@ import { SecurityTrafficClass } from './webrtc-secure-envelope';
  */
 @Injectable({ providedIn: 'root' })
 export class PairSecureSequenceService {
-  private readonly sequences = new Map<string, number>();
+  private readonly store: PairSecureSequenceStorePort = inject(PAIR_SECURE_SEQUENCE_STORE);
 
-  next(scopeId: string, epoch: number, trafficClass: SecurityTrafficClass): number {
-    if (!scopeId || !Number.isSafeInteger(epoch) || epoch < 1) {
+  async next(
+    scopeId: string,
+    epoch: number,
+    senderId: string,
+    trafficClass: SecurityTrafficClass,
+  ): Promise<number> {
+    if (
+      !IDENTIFIER_RE.test(scopeId)
+      || !Number.isSafeInteger(epoch)
+      || epoch < 1
+      || epoch > MAX_SECURITY_EPOCH
+      || !IDENTIFIER_RE.test(senderId)
+      || !['control', 'media', 'semantic', 'bulk'].includes(trafficClass)
+    ) {
       throw new Error('secure_sequence_context_invalid');
     }
-    const key = `${scopeId}\u0000${epoch}\u0000${trafficClass}`;
-    const current = this.sequences.get(key) ?? 0;
-    if (current >= Number.MAX_SAFE_INTEGER) throw new Error('secure_sequence_exhausted');
-    const next = current + 1;
-    this.sequences.set(key, next);
-    return next;
+    const sequence = await this.store.next({ scopeId, epoch, senderId, trafficClass });
+    if (!Number.isSafeInteger(sequence) || sequence < 1 || sequence > MAX_SECURE_SEQUENCE) {
+      throw new Error('secure_sequence_state_invalid');
+    }
+    return sequence;
   }
 
-  clearScope(scopeId: string): void {
-    for (const key of this.sequences.keys()) {
-      if (key.split('\u0000', 1)[0] === scopeId) this.sequences.delete(key);
-    }
+  /**
+   * Compatibility lifecycle hook for view teardown.
+   *
+   * Deliberately does not delete durable counters: unbinding a component or
+   * leaving a still-live session does not retire the peer's replay window.
+   * A new security epoch automatically selects a fresh sequence domain.
+   */
+  clearScope(_scopeId: string): void {
+    // There is no process-local cache to release.
   }
 }

@@ -28,6 +28,7 @@ import {
 import { SemanticDataChannelMessage } from '../services/webrtc-datachannel.service';
 import { WebrtcTransportService } from '../services/webrtc-transport.service';
 import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
+import { PairSessionControlPlaneService } from '../services/pair-session-control-plane.service';
 import { SemanticSpeechQualityControllerService } from '../services/semantic-speech-quality-controller.service';
 import { VoiceApiService } from '../features/voice/voice-api.service';
 import { firstValueFrom } from 'rxjs';
@@ -137,6 +138,12 @@ export interface SemanticMediaPairProductPorts {
   readonly curation: SpeechEvidenceHubCurationFacade;
   readonly transport: WebrtcTransportService;
   readonly signaling: WebrtcSignalingService;
+  /**
+   * The live driver may only reuse sessions that the product control plane
+   * has explicitly bound. Optional keeps stale E2E bootstraps fail-closed with
+   * a useful setup error instead of silently selecting Hub relay signaling.
+   */
+  readonly controlPlane?: Pick<PairSessionControlPlaneService, 'assertSessionAvailable'>;
   readonly voiceApi: VoiceApiService;
   readonly speechQuality: SemanticSpeechQualityControllerService;
   readonly renderOfferPreview: (offer: PeerEvidenceOfferView) => boolean;
@@ -191,7 +198,7 @@ export function installSemanticMediaPairLiveDriver(ports?: SemanticMediaPairProd
   });
 }
 
-async function openDirectProductPath(
+export async function openDirectProductPath(
   fixture: SemanticPeerHubFixture,
   initiator: boolean,
 ): Promise<'webrtc'> {
@@ -200,9 +207,12 @@ async function openDirectProductPath(
   directProductMessages.clear();
   const ports = requireProductPorts();
   const transport = ports.transport;
-  // Select the product Hub-signaling fallback before the initiator emits its
-  // first offer, avoiding any dependency on the public rendezvous service.
-  ports.signaling.fallbackToHubRelay();
+  if (!ports.controlPlane) throw new Error('semantic_peer_direct_pair_binding_setup_required');
+  try {
+    ports.controlPlane.assertSessionAvailable(fixture.sessionId);
+  } catch (error) {
+    throw new Error('semantic_peer_direct_pair_binding_setup_required', { cause: error });
+  }
   await transport.open(fixture.sessionId, initiator, {
     semanticEpoch: fixture.epoch,
     semanticTrafficClasses: ['evidence_bulk', 'transcript'],

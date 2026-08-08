@@ -9,6 +9,7 @@ import { ViewDeltaService } from './view-delta.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
 import { ShareSessionService } from './share-session.service';
 import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
+import { PairSecureSequenceService } from './pair-secure-sequence.service';
 import {
   ControlMessage,
   DEFAULT_PERMISSIONS,
@@ -75,12 +76,17 @@ function setup(extra?: { perms?: PermissionSet | null }) {
   });
   const transport = new FakeTransport();
   const share = new FakeShare();
+  let secureSequence = 0;
   if (extra?.perms !== undefined) share.setPerms(extra.perms);
 
   // Provide fakes for the services that PairViewSync injects.
   TestBed.overrideProvider(WebrtcTransportService, { useValue: transport });
   TestBed.overrideProvider(ShareSessionService, { useValue: share });
   TestBed.overrideProvider(PAIR_VIEW_CRYPTO, { useValue: new FakeCrypto() });
+  TestBed.overrideProvider(PairSecureSequenceService, { useValue: {
+    next: async () => { secureSequence += 1; return secureSequence; },
+    clearScope: () => undefined,
+  } });
 
   const sync = TestBed.runInInjectionContext(() => new PairViewSyncService());
   const view = TestBed.inject(SharedViewStateService);

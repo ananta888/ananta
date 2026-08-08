@@ -1,6 +1,7 @@
 import { Injectable, InjectionToken, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { PeerState, WebrtcSessionService } from './webrtc-session.service';
+import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
 
 export const WEBRTC_MEDIA_DEVICES = new InjectionToken<MediaDevices>('WEBRTC_MEDIA_DEVICES', {
   providedIn: 'root',
@@ -46,6 +47,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
   readonly remoteTrack$ = new Subject<RemoteOrdinaryTrack>();
 
   private readonly peer = inject(WebrtcSessionService);
+  private readonly mediaPolicy = inject(PairOrdinaryMediaPolicy);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private stream?: MediaStream;
   private track?: MediaStreamTrack;
@@ -70,6 +72,12 @@ export class WebrtcMediaSessionService implements OnDestroy {
     this.subscriptions.add(this.peer.state$.subscribe(state => this.onPeerState(state))
     );
     this.subscriptions.add(this.peer.remoteTrack$.subscribe(event => {
+      try {
+        this.mediaPolicy.assertAllowed(this.currentSessionId);
+      } catch {
+        safeStop(event.track);
+        return;
+      }
       const value = Object.freeze({ track: event.track, streams: Object.freeze([...event.streams]) });
       this.registerRemoteTrack(value);
       this.remoteTrack$.next(value);
@@ -79,6 +87,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
 
   /** The only microphone permission entry point; data-only sessions never call it. */
   async requestMicrophone(constraints: MediaTrackConstraints = {}): Promise<void> {
+    this.mediaPolicy.assertAllowed(this.currentSessionId);
     if (this.capturePending) throw new Error('microphone_capture_pending');
     if (this.track || this.sender) throw new Error('microphone_already_active');
     this.capturePending = true;
@@ -120,6 +129,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
   }
 
   async replaceMicrophone(constraints: MediaTrackConstraints = {}): Promise<void> {
+    this.mediaPolicy.assertAllowed(this.currentSessionId);
     if (this.capturePending) throw new Error('microphone_capture_pending');
     if (!this.sender || !this.track) throw new Error('microphone_not_active');
     this.capturePending = true;
@@ -172,6 +182,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
    * or stopping this service's private track reference.
    */
   cloneActiveMicrophoneTrack(): MediaStreamTrack {
+    this.mediaPolicy.assertAllowed(this.currentSessionId);
     if (!this.track || this.track.readyState !== 'live' || this.audioState$.value.status === 'failed') {
       throw new Error('microphone_not_active');
     }
@@ -184,6 +195,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
   }
 
   reconnect(): void {
+    this.mediaPolicy.assertAllowed(this.currentSessionId);
     if (!this.track || !this.sender) throw new Error('microphone_not_active');
     this.peer.restartMediaIce();
   }

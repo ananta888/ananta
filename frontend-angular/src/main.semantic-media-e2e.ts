@@ -12,6 +12,7 @@ import { UserAuthService } from './app/services/user-auth.service';
 import { WebrtcGroupKeyService } from './app/services/webrtc-group-key.service';
 import { WebrtcTransportService } from './app/services/webrtc-transport.service';
 import { WebrtcSignalingService } from './app/services/webrtc-signaling.service';
+import { PairSessionControlPlaneService } from './app/services/pair-session-control-plane.service';
 import { SemanticSpeechQualityControllerService } from './app/services/semantic-speech-quality-controller.service';
 import { VoiceApiService } from './app/features/voice/voice-api.service';
 import { bootstrapAnantaApplication } from './bootstrap-ananta-application';
@@ -23,6 +24,7 @@ bootstrapAnantaApplication()
       curation: application.injector.get(SpeechEvidenceHubCurationFacade),
       transport: application.injector.get(WebrtcTransportService),
       signaling: application.injector.get(WebrtcSignalingService),
+      controlPlane: application.injector.get(PairSessionControlPlaneService),
       voiceApi: application.injector.get(VoiceApiService),
       speechQuality: application.injector.get(SemanticSpeechQualityControllerService),
       renderOfferPreview: createPeerEvidencePreviewObserver(application, application.injector),

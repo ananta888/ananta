@@ -17,7 +17,7 @@ const proposal = (sender: string, recipient: string) => ({
   selected_mode: 'strict_e2ee',
   algorithms: ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'],
   key_epoch: 3,
-  payload_classes: ['bulk', 'control', 'media', 'semantic'],
+  payload_classes: ['bulk', 'control', 'semantic'],
   expires_at_ms: 9_007_199_254_740_991,
 });
 
@@ -42,8 +42,17 @@ describe('final strict Pair security negotiation', () => {
   it('recomputes and accepts the closed bilateral Offer/Answer digest', async () => {
     const value = await fixture();
     await expect(validateFinalStrictPairSecurityContract(value, {
-      scopeId: 'session-a', epoch: 3, remoteMembershipId: 'participant-a', nowMs: 1,
+      scopeId: 'session-a', epoch: 3, remoteMembershipId: 'participant-a',
+      localMembershipId: 'owner-session-a', nowMs: 1,
     })).resolves.toMatchObject({ digest: value.digest, signature_algorithm: 'HMAC-SHA256' });
+  });
+
+  it('rejects a transcript that omits the authenticated local membership', async () => {
+    const value = await fixture();
+    await expect(validateFinalStrictPairSecurityContract(value, {
+      scopeId: 'session-a', epoch: 3, remoteMembershipId: 'participant-a',
+      localMembershipId: 'different-member', nowMs: 1,
+    })).rejects.toMatchObject<Partial<SecurityNegotiationError>>({ reasonCode: 'negotiation_binding_mismatch' });
   });
 
   it('rejects removed E2EE flags, algorithm mutations and unknown fields', async () => {
@@ -58,6 +67,12 @@ describe('final strict Pair security negotiation', () => {
     await expect(validateFinalStrictPairSecurityContract(algorithmMutation, {
       scopeId: 'session-a', epoch: 3, remoteMembershipId: 'participant-a', nowMs: 1,
     })).rejects.toMatchObject<Partial<SecurityNegotiationError>>({ reasonCode: 'algorithm_invalid' });
+
+    const unsupportedMedia = await fixture();
+    unsupportedMedia.offer.payload_classes = ['bulk', 'control', 'media', 'semantic'];
+    await expect(validateFinalStrictPairSecurityContract(unsupportedMedia, {
+      scopeId: 'session-a', epoch: 3, remoteMembershipId: 'participant-a', nowMs: 1,
+    })).rejects.toMatchObject<Partial<SecurityNegotiationError>>({ reasonCode: 'payload_class_invalid' });
 
     const unknown = { ...(await fixture()), e2ee: false };
     await expect(validateFinalStrictPairSecurityContract(unknown, {

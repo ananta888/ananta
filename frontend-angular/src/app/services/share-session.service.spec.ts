@@ -8,6 +8,7 @@ import { HubApiCoreService } from './hub-api-core.service';
 import { NetworkProfileService } from './network-profile.service';
 import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
+import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { ShareSession, ShareSessionService } from './share-session.service';
 import { UserAuthService } from './user-auth.service';
 import { WebrtcTransportService } from './webrtc-transport.service';
@@ -16,11 +17,15 @@ const CANARY = 'PAIR_CHAT_CANARY_BROWSER_ONLY_0123456789';
 
 class FakeCore {
   posts: Array<{ url: string; body: unknown }> = [];
+  gets: string[] = [];
   post<T>(_url: string, body: unknown) {
     this.posts.push({ url: _url, body });
     return of({ ok: true } as T);
   }
-  get<T>() { return of({ ok: true, messages: [], cursor: '0' } as T); }
+  get<T>(url: string) {
+    this.gets.push(url);
+    return of({ ok: true, messages: [], cursor: '0' } as T);
+  }
   delete<T>() { return of({ ok: true } as T); }
 }
 
@@ -55,6 +60,7 @@ const strictSession: ShareSession = {
   permissions: { chat: true, view_tui: true, remote_cursor: false, artifact_share: false, remote_control: false },
   created_at: 1, expires_at: null, revoked_at: null, owner_user_id: 'alice', tenant_id: 'tenant-a',
   security_epoch: 3, security_contract_version: 1, security_mode: 'strict_e2ee',
+  identity_binding_version: 1, permissions_version: 1,
 };
 
 describe('ShareSessionService strict Pair chat', () => {
@@ -63,6 +69,7 @@ describe('ShareSessionService strict Pair chat', () => {
   let cryptoPort: FakeCrypto;
   let securityState: BehaviorSubject<any>;
   let auth: { userPayload: Record<string, string> | null };
+  let publicSession: boolean;
   let service: ShareSessionService;
 
   beforeEach(() => {
@@ -70,6 +77,7 @@ describe('ShareSessionService strict Pair chat', () => {
     transport = new FakeTransport();
     cryptoPort = new FakeCrypto();
     auth = { userPayload: { sub: 'alice' } };
+    publicSession = false;
     securityState = new BehaviorSubject({ status: 'ready', fingerprint: 'f'.repeat(64) });
     TestBed.configureTestingModule({ providers: [
       { provide: HubApiCoreService, useValue: core },
@@ -82,6 +90,12 @@ describe('ShareSessionService strict Pair chat', () => {
       { provide: PairViewSecurityBootstrapService, useValue: {
         state$: securityState, currentEpoch: 3, clear: vi.fn(), markLegacy: vi.fn(),
         ensure: vi.fn(async () => true), approveFingerprintChange: vi.fn(),
+      } },
+      { provide: PairSessionControlPlaneService, useValue: {
+        get currentPeerId() { return String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''); },
+        peerIdForSession: () => String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''),
+        isPublicSession: () => publicSession,
+        assertSessionAvailable: vi.fn(),
       } },
     ] });
     service = TestBed.runInInjectionContext(() => new ShareSessionService());
@@ -122,6 +136,36 @@ describe('ShareSessionService strict Pair chat', () => {
     const body = core.posts[0].body as Record<string, unknown>;
     expect(Object.keys(body).sort()).toEqual(['encrypted_payload', 'id']);
     expect(JSON.stringify(body)).not.toContain(CANARY);
+  });
+
+  it('never falls back to Hub chat for a public strict session', async () => {
+    publicSession = true;
+    transport.mode$.next('idle');
+
+    await expect(service.sendMessage(CANARY)).rejects.toThrow('public_pair_datachannel_required');
+    expect(core.posts).toEqual([]);
+  });
+
+  it('rejects a legacy mutation of a bound public session before chat or fetch reaches Hub', async () => {
+    publicSession = true;
+    transport.mode$.next('hub_relay');
+    const downgraded = {
+      ...strictSession,
+      security_mode: 'legacy',
+      security_contract_version: 0,
+      security_epoch: null,
+    };
+    service.state$.next({
+      session: downgraded, participants: [], messages: [], cursor: '0', role: 'owner',
+    });
+
+    await expect(service.sendMessage(CANARY)).rejects
+      .toThrow('public_pair_security_contract_invalid');
+    (service as unknown as { fetchMessages(): void }).fetchMessages();
+
+    expect(core.posts).toEqual([]);
+    expect(core.gets).toEqual([]);
+    expect(transport.sent).toEqual([]);
   });
 
   it('decrypts and re-authorizes an inbound direct message in the browser', async () => {

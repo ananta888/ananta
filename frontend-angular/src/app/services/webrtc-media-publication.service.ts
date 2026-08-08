@@ -6,6 +6,7 @@ import {
   WebrtcMediaSessionService,
 } from './webrtc-media-session.service';
 import { WebrtcSessionService } from './webrtc-session.service';
+import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
 
 export type MediaPublicationSource = 'camera' | 'screen' | 'remote_video';
 export type MediaPublicationStatus = 'requesting_permission' | 'active' | 'muted' | 'ended' | 'failed';
@@ -59,6 +60,7 @@ interface RemotePublication {
 export class WebrtcMediaPublicationService implements OnDestroy {
   readonly publications$ = new BehaviorSubject<readonly MediaPublicationView[]>(Object.freeze([]));
   private readonly peer = inject(WebrtcSessionService);
+  private readonly mediaPolicy = inject(PairOrdinaryMediaPolicy);
   private readonly mediaSession = inject(WebrtcMediaSessionService);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private readonly local = new Map<string, LocalPublication>();
@@ -87,6 +89,7 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     preference: Readonly<UserMediaPreference>,
     nowMs = Date.now(),
   ): Promise<void> {
+    this.mediaPolicy.assertAllowed(authorization.sessionId);
     validateAuthorization(authorization, preference, nowMs);
     const existing = this.local.get(authorization.publicationId);
     if (existing && existing.authorization.source !== authorization.source) throw new Error('publication_source_switch_denied');
@@ -160,6 +163,7 @@ export class WebrtcMediaPublicationService implements OnDestroy {
       throw new Error('publication_source_switch_denied');
     }
     const authorization = publication.authorization;
+    this.mediaPolicy.assertAllowed(authorization.sessionId);
     validateAuthorization(authorization, preference, nowMs);
     const limits = intersectLimits(authorization, preference);
     const operationId = ++this.operationSerial;
@@ -224,6 +228,10 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   }
 
   registerRemote(publicationId: string, track: MediaStreamTrack, source: 'camera' | 'screen'): void {
+    if (!this.mediaPolicy.allows(this.currentSessionId)) {
+      safeStop(track);
+      return;
+    }
     if (!publicationId || track.kind !== 'video') throw new Error('remote_publication_invalid');
     const current = this.remote.get(publicationId);
     if (current?.track === track) return;

@@ -5,11 +5,17 @@ import { PairSessionControlPlaneService } from './pair-session-control-plane.ser
 import type { ShareSession } from './share-session.service';
 import { SignedPeerKeyPackage, WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import {
+  PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
+  PUBLIC_RENDEZVOUS_SIGNING_PUBLIC_KEY_B64,
+} from './public-ananta-endpoints';
+import {
   FinalStrictPairSecurityContractV1,
   validateFinalStrictPairSecurityContract,
 } from './webrtc-security-negotiation';
 
 const CONFIRMATION_REFRESH_MS = 120_000;
+const CONFIRMATION_MAX_AGE_MS = 5 * 60_000;
+const CLOCK_SKEW_MS = 30_000;
 
 export type PairSecurityBootstrapState =
   | { status: 'idle' | 'legacy' | 'waiting_for_peer' | 'confirming' | 'ready'; fingerprint?: string }
@@ -25,6 +31,20 @@ interface KeyPackageResponse {
   hub_key_id: string;
   hub_public_key_b64: string;
   packages: SignedPeerKeyPackage[];
+  local_membership_id?: string;
+  local_peer_id?: string;
+  /** Local device package addressed to the remote peer (opposite direction). */
+  local_package_id?: string | null;
+}
+
+interface KeyConfirmation {
+  confirmation_tag: string;
+  package_id: string;
+  epoch: number;
+  created_at_ms?: number;
+  expires_at_ms?: number;
+  /** Backward-compatible Hub projection; seconds since epoch. */
+  expires_at?: number;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -100,8 +120,8 @@ export class PairViewSecurityBootstrapService {
         this.controlPlane.securityGet<KeyPackageResponse>(session.id, 'key-packages'),
       );
       if (generation !== this.generation) return false;
-      if (!Array.isArray(response.packages)) throw new Error('key_package_response_invalid');
-      if (response.packages.length > 1) throw new Error('strict_pair_cardinality_exceeded');
+      const publicSession = this.controlPlane.isPublicSession(session.id);
+      validateKeyPackageResponse(response, session, localPeerId, publicSession);
       const peerPackage = response.packages[0];
       this.currentEpoch = response.epoch;
       if (!peerPackage) {
@@ -118,26 +138,24 @@ export class PairViewSecurityBootstrapService {
         scopeId: session.id,
         epoch: response.epoch,
         remoteMembershipId: peerPackage.membership_id,
+        localMembershipId: response.local_membership_id,
       });
       if (generation !== this.generation) return false;
       if (contract.digest !== response.security_contract_digest) {
         throw new Error('security_contract_digest_mismatch');
       }
-      let current = this.peerKeys.currentBinding;
-      if (
-        !current || current.packageId !== peerPackage.package_id
-        || current.scopeId !== session.id || current.epoch !== response.epoch
-      ) {
-        current = await this.peerKeys.verifyAndBind(peerPackage, {
-          hubPublicKeyB64: response.hub_public_key_b64,
-          expectedHubKeyId: response.hub_key_id,
-          expectedTenantId: response.tenant_id,
-          expectedScopeId: session.id,
-          expectedEpoch: response.epoch,
-          localPeerId,
-          contractDigest: contract.digest,
-        });
-        this.lastPackageId = peerPackage.package_id;
+      const priorBinding = this.peerKeys.currentBinding;
+      const current = await this.peerKeys.verifyAndRefreshBinding(peerPackage, {
+        hubPublicKeyB64: response.hub_public_key_b64,
+        expectedHubKeyId: response.hub_key_id,
+        expectedTenantId: response.tenant_id,
+        expectedScopeId: session.id,
+        expectedEpoch: response.epoch,
+        localPeerId,
+        contractDigest: contract.digest,
+      });
+      this.lastPackageId = peerPackage.package_id;
+      if (priorBinding !== current) {
         this.lastConfirmationRefreshAt = 0;
       }
       if (current.confirmed && Date.now() - this.lastConfirmationRefreshAt < CONFIRMATION_REFRESH_MS) {
@@ -152,7 +170,12 @@ export class PairViewSecurityBootstrapService {
         this.state$.next({ status: 'confirming', fingerprint: current.peerFingerprint });
       }
       const confirmationTag = await this.peerKeys.createConfirmation();
-      await firstValueFrom(this.controlPlane.securityPost(
+      const postedConfirmation = await firstValueFrom(this.controlPlane.securityPost<{
+        ok: boolean;
+        local_peer_id?: string;
+        created_at_ms?: number;
+        expires_at_ms?: number;
+      }>(
         session.id, 'key-confirmations',
         {
           recipient_peer_id: current.remotePeerId,
@@ -162,17 +185,29 @@ export class PairViewSecurityBootstrapService {
         },
       ));
       if (generation !== this.generation) return false;
+      if (publicSession && postedConfirmation.local_peer_id !== localPeerId) {
+        throw new Error('public_local_peer_id_mismatch');
+      }
       const confirmation = await firstValueFrom(this.controlPlane.securityGet<{
         ok: boolean;
-        confirmation: null | { confirmation_tag: string; package_id: string; epoch: number };
+        confirmation: null | KeyConfirmation;
+        local_peer_id?: string;
       }>(session.id, `key-confirmations?sender_peer_id=${encodeURIComponent(current.remotePeerId)}`));
       if (generation !== this.generation) return false;
+      if (publicSession && confirmation.local_peer_id !== localPeerId) {
+        throw new Error('public_local_peer_id_mismatch');
+      }
       if (!confirmation.confirmation) {
         this.state$.next({ status: 'confirming', fingerprint: current.peerFingerprint });
         return false;
       }
-      if (confirmation.confirmation.epoch !== current.epoch) throw new Error('epoch_mismatch');
-      await this.peerKeys.acceptPeerConfirmation(confirmation.confirmation.confirmation_tag);
+      const verifiedConfirmation = validateKeyConfirmation(
+        confirmation.confirmation,
+        response.local_package_id,
+        current.epoch,
+        publicSession,
+      );
+      await this.peerKeys.acceptPeerConfirmation(verifiedConfirmation.confirmation_tag);
       this.lastConfirmationRefreshAt = Date.now();
       this.state$.next({ status: 'ready', fingerprint: current.peerFingerprint });
       return true;
@@ -185,5 +220,111 @@ export class PairViewSecurityBootstrapService {
       this.state$.next({ status: 'failed', reasonCode });
       return false;
     }
+  }
+}
+
+function validateKeyPackageResponse(
+  response: KeyPackageResponse,
+  session: ShareSession,
+  localPeerId: string,
+  publicSession: boolean,
+): void {
+  if (!response || typeof response !== 'object' || response.ok !== true) {
+    throw new Error('key_package_response_invalid');
+  }
+  if (!Number.isSafeInteger(response.epoch) || response.epoch < 1) {
+    throw new Error('key_package_epoch_invalid');
+  }
+  if (session.security_epoch && response.epoch < session.security_epoch) {
+    throw new Error('key_package_epoch_stale');
+  }
+  if (!identifier(response.tenant_id) || !Array.isArray(response.packages)) {
+    throw new Error('key_package_response_invalid');
+  }
+  if (publicSession && (
+    response.local_peer_id !== localPeerId
+    || !identifier(response.local_membership_id)
+  )) throw new Error('public_key_package_identity_mismatch');
+  if (publicSession && (
+    !/^rv:[a-f0-9]{24}$/.test(String(response.hub_key_id || ''))
+    || !validEd25519PublicKey(response.hub_public_key_b64)
+  )) {
+    throw new Error('public_hub_key_id_invalid');
+  }
+  if (publicSession && (
+    response.hub_key_id !== PUBLIC_RENDEZVOUS_SIGNING_KEY_ID
+    || response.hub_public_key_b64 !== PUBLIC_RENDEZVOUS_SIGNING_PUBLIC_KEY_B64
+  )) throw new Error('public_hub_authority_untrusted');
+  if (response.packages.length > 1) throw new Error('strict_pair_cardinality_exceeded');
+  if (response.packages.length === 0) {
+    if (response.security_contract !== null || response.security_contract_digest !== null) {
+      throw new Error('unexpected_security_contract');
+    }
+    return;
+  }
+  if (
+    !response.security_contract
+    || !/^[a-f0-9]{64}$/.test(String(response.security_contract_digest || ''))
+    || !identifier(response.hub_key_id)
+    || !validEd25519PublicKey(response.hub_public_key_b64)
+  ) throw new Error('key_package_response_invalid');
+  if (response.local_membership_id !== undefined && !identifier(response.local_membership_id)) {
+    throw new Error('local_membership_id_invalid');
+  }
+  if (publicSession && (
+    !PACKAGE_ID_RE.test(String(response.local_package_id || ''))
+    || response.local_package_id === response.packages[0]?.package_id
+  )) throw new Error('public_local_package_id_invalid');
+}
+
+function validateKeyConfirmation(
+  value: KeyConfirmation,
+  expectedPackageId: string | null | undefined,
+  expectedEpoch: number,
+  requirePackageMatch: boolean,
+  nowMs = Date.now(),
+): KeyConfirmation {
+  if (!value || typeof value !== 'object') throw new Error('key_confirmation_invalid');
+  if (!PACKAGE_ID_RE.test(value.package_id)) throw new Error('key_confirmation_invalid');
+  if (requirePackageMatch && value.package_id !== expectedPackageId) {
+    throw new Error('key_confirmation_package_mismatch');
+  }
+  if (value.epoch !== expectedEpoch) throw new Error('epoch_mismatch');
+  if (typeof value.confirmation_tag !== 'string' || !validBase64(value.confirmation_tag, 32)) {
+    throw new Error('key_confirmation_invalid');
+  }
+  const createdAtMs = value.created_at_ms;
+  const expiresAtMs = value.expires_at_ms
+    ?? (typeof value.expires_at === 'number' ? Math.round(value.expires_at * 1000) : Number.NaN);
+  if (
+    !Number.isSafeInteger(expiresAtMs)
+    || expiresAtMs <= nowMs
+    || expiresAtMs > nowMs + CONFIRMATION_MAX_AGE_MS + CLOCK_SKEW_MS
+  ) throw new Error('key_confirmation_stale');
+  if (createdAtMs !== undefined && (
+    !Number.isSafeInteger(createdAtMs)
+    || createdAtMs > nowMs + CLOCK_SKEW_MS
+    || createdAtMs < nowMs - CONFIRMATION_MAX_AGE_MS
+    || expiresAtMs > createdAtMs + CONFIRMATION_MAX_AGE_MS + CLOCK_SKEW_MS
+  )) throw new Error('key_confirmation_stale');
+  return value;
+}
+
+function identifier(value: unknown): value is string {
+  return typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/.test(value);
+}
+
+const PACKAGE_ID_RE = /^[a-f0-9]{64}$/;
+
+function validEd25519PublicKey(value: unknown): boolean {
+  return typeof value === 'string' && validBase64(value, 32);
+}
+
+function validBase64(value: string, expectedBytes: number): boolean {
+  try {
+    const decoded = atob(value);
+    return decoded.length === expectedBytes && btoa(decoded) === value;
+  } catch {
+    return false;
   }
 }
