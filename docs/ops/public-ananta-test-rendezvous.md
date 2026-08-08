@@ -118,6 +118,14 @@ The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/G
 
 Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-Bearer-Token.
 
+`/signaling` is not currently a WebSocket endpoint. In particular, an OIDC
+nonce is not accepted as a replacement for the required bearer token. Angular
+Share sessions are Hub-owned and use the Hub-authenticated
+`/api/webrtc/sessions/<id>/signal` polling boundary for SDP/ICE; this still
+allows direct WebRTC media and DataChannels. The configured public signaling
+URL remains part of the public-rendezvous contract for compatible clients and
+a future ticket-authenticated native WebSocket adapter.
+
 ## Environment file
 
 Create a root-owned environment file outside the checkout. On the public VM the

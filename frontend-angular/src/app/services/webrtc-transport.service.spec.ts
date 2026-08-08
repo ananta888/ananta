@@ -46,6 +46,7 @@ describe('WebrtcTransportService semantic relay', () => {
     sendDc: vi.fn(),
     sendSemantic: vi.fn(),
   };
+  const profile = { current: { transport_order: ['hub_relay'] as string[] } };
   let service: WebrtcTransportService;
 
   beforeEach(() => {
@@ -54,12 +55,15 @@ describe('WebrtcTransportService semantic relay', () => {
     get.mockReset();
     post.mockReset();
     closeSession.mockReset();
+    webrtc.startSession.mockReset();
+    webrtc.state$.next('idle');
+    profile.current.transport_order = ['hub_relay'];
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         WebrtcTransportService,
         { provide: WebrtcSessionService, useValue: webrtc },
-        { provide: NetworkProfileService, useValue: { current: { transport_order: ['hub_relay'] } } },
+        { provide: NetworkProfileService, useValue: profile },
         { provide: HubApiCoreService, useValue: { request, get, post } },
         {
           provide: AgentDirectoryService,
@@ -73,6 +77,60 @@ describe('WebrtcTransportService semantic relay', () => {
   afterEach(() => {
     service.close();
     vi.useRealTimers();
+  });
+
+  it('fails closed before direct WebRTC when no exact remote peer is bound', async () => {
+    profile.current.transport_order = ['webrtc', 'hub_relay'];
+
+    await expect(service.open('session-1', true, { semanticEpoch: 2 }))
+      .rejects.toThrow('webrtc_remote_peer_required');
+
+    expect(service.mode$.value).toBe('idle');
+    expect(webrtc.startSession).not.toHaveBeenCalled();
+  });
+
+  it('uses an available Hub relay for an explicitly admitted unbound legacy peer', async () => {
+    profile.current.transport_order = ['webrtc', 'hub_relay'];
+
+    await service.open('legacy-session', false, {
+      semanticEpoch: 1,
+      unboundPeerFallback: 'hub_relay',
+    });
+
+    expect(service.mode$.value).toBe('hub_relay');
+    expect(webrtc.startSession).not.toHaveBeenCalled();
+  });
+
+  it('does not invent a legacy relay when the selected profile has none', async () => {
+    profile.current.transport_order = ['webrtc'];
+
+    await expect(service.open('legacy-session', false, {
+      semanticEpoch: 1,
+      unboundPeerFallback: 'hub_relay',
+    })).rejects.toThrow('webrtc_remote_peer_required');
+
+    expect(service.mode$.value).toBe('idle');
+    expect(webrtc.startSession).not.toHaveBeenCalled();
+  });
+
+  it('closes the failed direct peer before exposing Hub-relay mode', async () => {
+    profile.current.transport_order = ['webrtc', 'hub_relay'];
+    const lifecycle: string[] = [];
+    closeSession.mockImplementation(() => {
+      lifecycle.push('peer_closed');
+      webrtc.state$.next('closed');
+    });
+    const modeSubscription = service.mode$.subscribe(mode => {
+      if (mode === 'hub_relay') lifecycle.push('relay_open');
+    });
+
+    await service.open('session-1', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+    webrtc.state$.next('failed');
+
+    expect(lifecycle).toEqual(['peer_closed', 'relay_open']);
+    expect(closeSession).toHaveBeenCalledTimes(1);
+    expect(service.mode$.value).toBe('hub_relay');
+    modeSubscription.unsubscribe();
   });
 
   it('posts the exact framed message and settles the send receipt once', async () => {

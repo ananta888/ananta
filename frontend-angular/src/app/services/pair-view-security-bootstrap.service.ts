@@ -41,6 +41,16 @@ export class PairViewSecurityBootstrapService {
 
   readonly state$ = new BehaviorSubject<PairSecurityBootstrapState>({ status: 'idle' });
 
+  /**
+   * The signaling audience is exposed only after the peer package and the
+   * bidirectional key confirmation have both been verified. Callers must not
+   * derive a signaling recipient from participants or other display data.
+   */
+  get confirmedRemotePeerId(): string {
+    const binding = this.peerKeys.currentBinding;
+    return binding?.confirmed ? binding.remotePeerId : '';
+  }
+
   ensure(session: ShareSession, localPeerId: string): Promise<boolean> {
     const key = `${session.id}:${session.security_epoch ?? 0}:${localPeerId}`;
     if (this.inFlight?.key === key) return this.inFlight.promise;

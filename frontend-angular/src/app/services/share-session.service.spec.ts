@@ -62,17 +62,19 @@ describe('ShareSessionService strict Pair chat', () => {
   let transport: FakeTransport;
   let cryptoPort: FakeCrypto;
   let securityState: BehaviorSubject<any>;
+  let auth: { userPayload: Record<string, string> | null };
   let service: ShareSessionService;
 
   beforeEach(() => {
     core = new FakeCore();
     transport = new FakeTransport();
     cryptoPort = new FakeCrypto();
+    auth = { userPayload: { sub: 'alice' } };
     securityState = new BehaviorSubject({ status: 'ready', fingerprint: 'f'.repeat(64) });
     TestBed.configureTestingModule({ providers: [
       { provide: HubApiCoreService, useValue: core },
       { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub' }] } },
-      { provide: UserAuthService, useValue: { userPayload: { sub: 'alice' } } },
+      { provide: UserAuthService, useValue: auth },
       { provide: WebrtcTransportService, useValue: transport },
       { provide: NetworkProfileService, useValue: { current: { transport_order: ['webrtc', 'hub_relay'] } } },
       { provide: E2eEncryptionService, useValue: { ensureLocalKeyPair: vi.fn() } },
@@ -84,6 +86,17 @@ describe('ShareSessionService strict Pair chat', () => {
     ] });
     service = TestBed.runInInjectionContext(() => new ShareSessionService());
     service.state$.next({ session: strictSession, participants: [], messages: [], cursor: '0', role: 'owner' });
+  });
+
+  it('projects the same subject-or-username peer identity as the Hub', () => {
+    auth.userPayload = { username: 'admin' };
+    expect(service.currentUserId).toBe('admin');
+
+    auth.userPayload = { sub: 'stable-subject', username: 'admin' };
+    expect(service.currentUserId).toBe('stable-subject');
+
+    auth.userPayload = { preferred_username: 'display-only', email: 'display@example.test' };
+    expect(service.currentUserId).toBe('');
   });
 
   it('sends only an opaque closed envelope over the direct DataChannel', async () => {

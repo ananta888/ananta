@@ -4,7 +4,7 @@
  * T23: Audit Logging
  */
 import { Injectable, inject } from '@angular/core';
-import { Subject, BehaviorSubject } from 'rxjs';
+import { Subject, BehaviorSubject, Subscription } from 'rxjs';
 import { NetworkProfileService } from './network-profile.service';
 import { WebrtcSignalingService, SignalMessage } from './webrtc-signaling.service';
 import { OidcAuthService } from './oidc-auth.service';
@@ -73,8 +73,12 @@ export class WebrtcSessionService {
   private activeEpoch = 1;
   private isInitiator = false;
   private signalChain: Promise<void> = Promise.resolve();
+  private signalingSubscription: Subscription | null = null;
+  private sessionGeneration = 0;
 
   async startSession(sessionId: string, isInitiator: boolean, remotePeerId?: string): Promise<void> {
+    if (this.pc || this.signalingSubscription || this.connectionTimeout) this.closeSession();
+    const generation = ++this.sessionGeneration;
     this.sessionId = sessionId;
     this.isInitiator = isInitiator;
     this.activeEpoch = 1;
@@ -89,33 +93,42 @@ export class WebrtcSessionService {
       iceTransportPolicy: profile.require_e2e_payload_encryption ? 'all' : 'all',
     };
 
-    this.pc = new RTCPeerConnection(config);
-    this.wirePeerConnection(isInitiator);
-
-    this.signaling.connect(profile.signaling_url, sessionId, remotePeerId);
-    this.signaling.message$.subscribe((msg) => {
+    const pc = new RTCPeerConnection(config);
+    this.pc = pc;
+    this.signalingSubscription = this.signaling.message$.subscribe((msg) => {
+      if (!this.isCurrentSession(pc, sessionId, generation) || msg.session_id !== sessionId) return;
       // SDP and ICE messages are ordered by the Hub queue, but applying them
       // concurrently can race an ICE candidate ahead of setRemoteDescription.
       // Serialize the product signal state machine and keep one bad signal
       // from poisoning all subsequent messages.
       this.signalChain = this.signalChain
-        .then(() => this.handleSignal(msg))
-        .catch(error => this.audit(
-          'signal_error',
-          error instanceof Error ? error.message : String(error),
-        ));
+        .then(() => this.handleSignal(msg, pc, sessionId, generation))
+        .catch(error => {
+          if (this.isCurrentSession(pc, sessionId, generation)) {
+            this.audit('signal_error', error instanceof Error ? error.message : String(error));
+          }
+        });
     });
+    this.signaling.connect(profile.signaling_url, sessionId, remotePeerId);
+    this.wirePeerConnection(pc, isInitiator, sessionId, generation);
 
     this.connectionTimeout = setTimeout(() => {
-      if (this.state$.value === 'connecting') {
+      if (this.isCurrentSession(pc, sessionId, generation) && this.state$.value === 'connecting') {
         this.audit('ice_failed', 'timeout after 15s');
-        this.signaling.fallbackToHubRelay();
-        this.state$.next('connected');
+        // Signaling already uses the Hub. A connection timeout therefore
+        // means the direct data plane failed and must be surfaced to the
+        // transport coordinator, which owns the explicit Hub-relay fallback.
+        this.state$.next('failed');
       }
     }, 15_000);
   }
 
   closeSession(): void {
+    const closingSessionId = this.sessionId;
+    this.sessionGeneration += 1;
+    this.signalingSubscription?.unsubscribe();
+    this.signalingSubscription = null;
+    this.signalChain = Promise.resolve();
     if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
     this.dc?.close();
     this.pc?.close();
@@ -123,12 +136,14 @@ export class WebrtcSessionService {
     this.pc = null;
     this.signaling.disconnect();
     this.chunkReassembler.clear();
-    this.semanticReassembler.clearContext(this.sessionId);
-    this.sendQueue.cancelContext(this.sessionId);
+    this.semanticReassembler.clearContext(closingSessionId);
+    this.sendQueue.cancelContext(closingSessionId);
     this.sendQueue.unbind();
     this.pendingSemanticSends.clear();
     this.state$.next('closed');
     this.audit('session_closed');
+    this.sessionId = '';
+    this.isInitiator = false;
   }
 
   sendDc(type: string, payload: Record<string, unknown> = {}): void {
@@ -213,19 +228,23 @@ export class WebrtcSessionService {
     });
   }
 
-  private wirePeerConnection(isInitiator: boolean): void {
-    const pc = this.pc!;
-
+  private wirePeerConnection(
+    pc: RTCPeerConnection,
+    isInitiator: boolean,
+    sessionId: string,
+    generation: number,
+  ): void {
     pc.onicecandidate = (evt) => {
-      if (!evt.candidate) return;
+      if (!this.isCurrentSession(pc, sessionId, generation) || !evt.candidate) return;
       this.signaling.send({
         type: 'ice_candidate',
-        session_id: this.sessionId,
+        session_id: sessionId,
         payload: evt.candidate.toJSON(),
       });
     };
 
     pc.onconnectionstatechange = () => {
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
       const s = pc.connectionState;
       this.audit('connection_state', s);
       if (s === 'connected') {
@@ -237,62 +256,110 @@ export class WebrtcSessionService {
         this.audit('connection_failed', s);
       }
     };
-    pc.ontrack = event => this.remoteTrack$.next(event);
+    pc.ontrack = event => {
+      if (this.isCurrentSession(pc, sessionId, generation)) this.remoteTrack$.next(event);
+    };
 
     if (isInitiator) {
       this.dc = pc.createDataChannel('ananta', { ordered: true });
-      this.wireDc(this.dc);
-      void this.createOffer();
+      this.wireDc(this.dc, pc, sessionId, generation);
+      void this.createOffer(pc, sessionId, generation).catch(error => {
+        if (this.isCurrentSession(pc, sessionId, generation)) {
+          this.audit('signal_error', error instanceof Error ? error.message : String(error));
+        }
+      });
     } else {
       pc.ondatachannel = (evt) => {
+        if (!this.isCurrentSession(pc, sessionId, generation)) {
+          evt.channel.close();
+          return;
+        }
         this.dc = evt.channel;
-        this.wireDc(this.dc);
+        this.wireDc(this.dc, pc, sessionId, generation);
       };
     }
   }
 
-  private async createOffer(): Promise<void> {
-    if (!this.pc) return;
-    const offer = await this.pc.createOffer();
-    await this.pc.setLocalDescription(offer);
-    this.signaling.send({ type: 'offer', session_id: this.sessionId, payload: offer });
+  private async createOffer(
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): Promise<void> {
+    if (!this.isCurrentSession(pc, sessionId, generation)) return;
+    const offer = await pc.createOffer();
+    if (!this.isCurrentSession(pc, sessionId, generation)) return;
+    await pc.setLocalDescription(offer);
+    if (!this.isCurrentSession(pc, sessionId, generation)) return;
+    this.signaling.send({ type: 'offer', session_id: sessionId, payload: offer });
   }
 
   private async negotiateMedia(): Promise<void> {
-    if (!this.pc || !this.isInitiator || this.pc.signalingState !== 'stable') return;
+    const pc = this.pc;
+    const sessionId = this.sessionId;
+    const generation = this.sessionGeneration;
+    if (!pc || !this.isInitiator || pc.signalingState !== 'stable') return;
     try {
-      await this.createOffer();
+      await this.createOffer(pc, sessionId, generation);
     } catch (error) {
       this.audit('media_negotiation_failed', error instanceof Error ? error.message : String(error));
     }
   }
 
-  private async handleSignal(msg: SignalMessage): Promise<void> {
-    if (!this.pc) return;
+  private async handleSignal(
+    msg: SignalMessage,
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): Promise<void> {
+    if (!this.isCurrentSession(pc, sessionId, generation)) return;
     if (msg.type === 'offer') {
-      await this.pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
-      const answer = await this.pc.createAnswer();
-      await this.pc.setLocalDescription(answer);
-      this.signaling.send({ type: 'answer', session_id: this.sessionId, payload: answer });
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      const answer = await pc.createAnswer();
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      await pc.setLocalDescription(answer);
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      this.signaling.send({ type: 'answer', session_id: sessionId, payload: answer });
     } else if (msg.type === 'answer') {
-      await this.pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
+      await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
     } else if (msg.type === 'ice_candidate') {
-      await this.pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
+      await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
     }
   }
 
-  private wireDc(dc: RTCDataChannel): void {
+  private wireDc(
+    dc: RTCDataChannel,
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): void {
     this.sendQueue.bind(dc);
-    dc.onbufferedamountlow = () => { this.sendQueue.flush(); };
+    dc.onbufferedamountlow = () => {
+      if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) this.sendQueue.flush();
+    };
     dc.onopen = () => {
+      if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.audit('datachannel_opened');
       this.sendDc('hello', { version: 1 });
     };
     dc.onclose = () => {
+      if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.sendQueue.unbind();
       this.audit('datachannel_closed');
     };
-    dc.onmessage = (evt) => { void this.handleDcMessage(evt.data as string); };
+    dc.onmessage = (evt) => {
+      if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) {
+        void this.handleDcMessage(evt.data as string);
+      }
+    };
+  }
+
+  private isCurrentSession(
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): boolean {
+    return generation === this.sessionGeneration && this.pc === pc && this.sessionId === sessionId;
   }
 
   private async handleDcMessage(raw: string): Promise<void> {

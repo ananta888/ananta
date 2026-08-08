@@ -1,13 +1,18 @@
 /**
- * T18: WebRTC Signaling Client
- * Primary: WebSocket to wss://webrtc.ananta.de/signaling
- * Fallback: HTTP polling via Hub /api/webrtc/sessions/{id}/signal
+ * T18: WebRTC signaling for Hub-owned Share sessions.
+ *
+ * The configured public `/signaling` endpoint currently exposes authenticated
+ * HTTP polling, not an authenticated WebSocket protocol. Browser WebSockets
+ * cannot attach the required OIDC bearer header, and a nonce is not a bearer
+ * credential. Until a ticket-bound native WebSocket adapter exists, Angular
+ * therefore uses the authenticated Hub signaling boundary directly. WebRTC
+ * media and DataChannels remain peer-to-peer; only SDP/ICE signaling is
+ * relayed through the Hub control plane.
  */
 import { Injectable, inject } from '@angular/core';
 import { Subject, BehaviorSubject } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
-import { OidcAuthService } from './oidc-auth.service';
 
 export type SignalType = 'offer' | 'answer' | 'ice_candidate' | 'hangup' | 'hello';
 
@@ -35,124 +40,71 @@ interface HubSignalPollResponse extends HubSignalPollPayload {
 export class WebrtcSignalingService {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
-  private oidc = inject(OidcAuthService);
 
   readonly status$ = new BehaviorSubject<SignalingStatus>('disconnected');
   readonly message$ = new Subject<SignalMessage>();
 
-  private ws: WebSocket | null = null;
   private sessionId = '';
-  private signalingUrl = '';
-  private reconnectHandle: ReturnType<typeof setTimeout> | null = null;
-  private reconnectAttempts = 0;
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private pollCursor = '';
-  private useHubRelay = false;
   private recipientId = '';
 
   private get hubUrl(): string {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
   }
 
-  connect(signalingUrl: string, sessionId: string, recipientId?: string): void {
+  connect(_signalingUrl: string, sessionId: string, recipientId?: string): void {
+    this.stopPoll();
     this.sessionId = sessionId;
-    this.signalingUrl = signalingUrl;
     this.recipientId = normalizePeerId(recipientId);
-    this.reconnectAttempts = 0;
-    this.openWebSocket();
+    this.pollCursor = '';
+    if (!this.recipientId) {
+      // Hub signaling is point-to-point. An unbound session must never turn
+      // into a room-wide/broadcast signal path.
+      this.status$.next('failed');
+      return;
+    }
+    this.fallbackToHubRelay();
   }
 
   disconnect(): void {
-    this.stopReconnect();
     this.stopPoll();
-    if (this.ws) { this.ws.close(); this.ws = null; }
     this.status$.next('disconnected');
   }
 
   /**
-   * Hard disconnect — irreversible: cancels reconnect, kills Hub-Relay poll,
-   * closes WebSocket, clears all peer-connection bindings.
+   * Hard disconnect — irreversible: kills the Hub-signaling poll and clears
+   * all peer-connection bindings.
    * Used by Identity-Registry logout: identity went away, so any WebRTC
    * session it was carrying must die now.
    */
   hardDisconnect(): void {
-    this.stopReconnect();
     this.stopPoll();
-    if (this.ws) {
-      try { this.ws.close(1000, 'identity revoked'); } catch { /* ignore */ }
-      this.ws = null;
-    }
-    this.useHubRelay = false;
     this.pollCursor = '';
     this.sessionId = '';
-    this.signalingUrl = '';
     this.recipientId = '';
-    this.reconnectAttempts = 0;
     this.status$.next('disconnected');
   }
 
   send(msg: SignalMessage): void {
-    const outbound = this.recipientId && !msg.recipient_id
-      ? { ...msg, recipient_id: this.recipientId }
-      : msg;
-    if (this.useHubRelay) {
-      this.hubRelaySend(outbound);
+    if (!this.recipientId) {
+      this.status$.next('failed');
       return;
     }
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(outbound));
-    }
+    // Always replace a caller-provided recipient with the peer selected by
+    // connect(). This prevents stale or forged message-level routing.
+    const outbound = { ...msg, recipient_id: this.recipientId };
+    this.hubRelaySend(outbound);
   }
 
-  // ── WebSocket ────────────────────────────────────────────────────────
-
-  private openWebSocket(): void {
-    this.status$.next('connecting');
-    try {
-      const url = new URL(this.signalingUrl);
-      const nonce = this.oidc.sessionNonce;
-      if (nonce) url.searchParams.set('nonce', nonce);
-      if (this.sessionId) url.searchParams.set('session_id', this.sessionId);
-      this.ws = new WebSocket(url.toString());
-    } catch {
-      this.fallbackToHubRelay();
-      return;
-    }
-
-    this.ws.onopen = () => {
-      this.reconnectAttempts = 0;
-      this.status$.next('connected');
-      this.ws?.send(JSON.stringify({ type: 'hello', session_id: this.sessionId }));
-    };
-
-    this.ws.onmessage = (evt) => {
-      try {
-        const msg = JSON.parse(evt.data as string) as SignalMessage;
-        this.message$.next(msg);
-      } catch { /* ignore malformed */ }
-    };
-
-    this.ws.onerror = () => this.scheduleReconnect();
-    this.ws.onclose = () => {
-      if (this.status$.value !== 'disconnected') this.scheduleReconnect();
-    };
-  }
-
-  private scheduleReconnect(): void {
-    this.reconnectAttempts++;
-    if (this.reconnectAttempts > 5) { this.fallbackToHubRelay(); return; }
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 16000);
-    this.reconnectHandle = setTimeout(() => this.openWebSocket(), delay);
-  }
-
-  private stopReconnect(): void {
-    if (this.reconnectHandle) { clearTimeout(this.reconnectHandle); this.reconnectHandle = null; }
-  }
-
-  // ── Hub-Relay fallback ───────────────────────────────────────────────
+  // ── Authenticated Hub signaling ─────────────────────────────────────
 
   fallbackToHubRelay(): void {
-    this.useHubRelay = true;
+    if (!this.sessionId || !this.recipientId) {
+      this.stopPoll();
+      this.status$.next('failed');
+      return;
+    }
     this.status$.next('connected');
     this.startPoll();
   }
@@ -168,7 +120,7 @@ export class WebrtcSignalingService {
 
   private hubRelayPoll(): void {
     const url = this.hubUrl;
-    if (!url || !this.sessionId) return;
+    if (!url || !this.sessionId || !this.recipientId) return;
     const endpoint = `${url}/api/webrtc/sessions/${this.sessionId}/signal?since=${encodeURIComponent(this.pollCursor)}`;
     this.core.get<HubSignalPollResponse>(endpoint, url)
       .subscribe({
@@ -180,7 +132,7 @@ export class WebrtcSignalingService {
           const payload = r?.data ?? r;
           this.pollCursor = payload?.cursor ?? this.pollCursor;
           for (const sig of payload?.signals ?? []) {
-            if (isSignalMessage(sig, this.sessionId)) this.message$.next(sig);
+            if (isSignalMessage(sig, this.sessionId, this.recipientId)) this.message$.next(sig);
           }
         },
         error: () => {},
@@ -203,11 +155,12 @@ function normalizePeerId(value: string | undefined): string {
   return value;
 }
 
-function isSignalMessage(value: unknown, sessionId: string): value is SignalMessage {
+function isSignalMessage(value: unknown, sessionId: string, remotePeerId: string): value is SignalMessage {
   if (!value || typeof value !== 'object') return false;
   const signal = value as Partial<SignalMessage>;
   return (
     signal.session_id === sessionId
+    && signal.sender_id === remotePeerId
     && ['offer', 'answer', 'ice_candidate', 'hangup', 'hello'].includes(String(signal.type || ''))
     && 'payload' in signal
   );

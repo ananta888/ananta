@@ -37,6 +37,23 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
     })]);
     expect(peerKeys.acceptPeerConfirmation).toHaveBeenCalledWith('peer-tag');
     expect(bootstrap.state$.value.status).toBe('ready');
+    expect(bootstrap.confirmedRemotePeerId).toBe('bob');
+  });
+
+  it('keeps the signaling audience unavailable while waiting for the peer', async () => {
+    const response = await keyPackageResponse();
+    response.packages = [];
+    response.security_contract = null;
+    response.security_contract_digest = null;
+    const peerKeys = fakePeerKeys();
+    const core = { get: vi.fn(() => of(response)), post: vi.fn(() => of({ ok: true })) };
+    configure(core, peerKeys);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    await expect(bootstrap.ensure(session, 'alice')).resolves.toBe(false);
+    expect(bootstrap.state$.value.status).toBe('waiting_for_peer');
+    expect(bootstrap.confirmedRemotePeerId).toBe('');
+    expect(core.post).not.toHaveBeenCalled();
   });
 
   it('fails closed before peer binding when the negotiated algorithm is mutated', async () => {

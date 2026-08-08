@@ -9,6 +9,15 @@ identity. They must not be collapsed into one bearer-token domain.
 | `oidc` | `keycloak.ananta.de` via OIDC/PKCE | Pair Dev and `webrtc.ananta.de` |
 | `signaling` | Derived from `oidc` | WebRTC signaling |
 
+The public native-WebSocket signaling protocol is not implemented yet. The
+Angular client currently creates Hub-owned Share sessions and therefore sends
+their SDP/ICE signaling through the Hub's authenticated
+`/api/webrtc/sessions/<id>/signal` boundary. This fallback does not make a Hub
+token valid at `webrtc.ananta.de` and does not make an OIDC token valid at the
+Hub; the bearer domains remain separate. A future public WebSocket adapter
+must use an explicit, short-lived credential exchange rather than putting an
+OIDC bearer token or nonce into a WebSocket URL.
+
 Workers do not accept a browser's Hub or Keycloak user token as an implicit
 fallback. Browser operations targeting workers flow through the Hub, which
 owns worker credentials and routing.
@@ -26,6 +35,14 @@ session. “Log out all” clears both.
 
 The browser steps, Hub feature flag and ordinary audio/video failure codes are
 documented in [Pair Dev: Audio und Video](user/pair-dev-audio-video.md).
+
+The repository's local HTTPS Nginx edge is deliberately pinned to the public
+`https://keycloak.ananta.de` issuer in its Content Security Policy. Its
+Keycloak client contract admits the development origins
+`http://localhost:4200` and `http://127.0.0.1:4200`, plus the local HTTPS edge
+at `https://localhost` and `https://127.0.0.1`. A deployment that selects a
+different profile issuer must add that exact origin to both the edge CSP and
+the Keycloak client; arbitrary HTTPS origins are not an implicit fallback.
 
 Hub access tokens and refresh tokens use:
 

@@ -40,9 +40,25 @@ def test_webrtc_signal_send_and_poll(client):
     )
     assert join.status_code == 201
 
+    missing_recipient = client.post(
+        f"/api/webrtc/sessions/{session_id}/signal",
+        headers=owner_header,
+        json={"type": "offer", "payload": {"sdp": "v=0"}},
+    )
+    assert missing_recipient.status_code == 400
+    assert missing_recipient.get_json()["error"] == "recipient_id_required"
+
+    unauthorized_recipient = client.post(
+        f"/api/webrtc/sessions/{session_id}/signal",
+        headers=owner_header,
+        json={"recipient_id": "mallory", "type": "offer", "payload": {"sdp": "v=0"}},
+    )
+    assert unauthorized_recipient.status_code == 403
+    assert unauthorized_recipient.get_json()["error"] == "recipient_not_authorized"
+
     sent = client.post(
         f"/api/webrtc/sessions/{session_id}/signal",
-    headers=owner_header,
+        headers=owner_header,
         json={"recipient_id": "alice", "type": "offer", "payload": {"sdp": "v=0"}},
     )
     assert sent.status_code == 201

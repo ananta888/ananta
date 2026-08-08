@@ -165,7 +165,10 @@ export class ShareSessionService implements OnDestroy {
 
   get currentUserId(): string {
     const p = this.userAuth.userPayload;
-    return String(p?.sub || p?.preferred_username || p?.email || '');
+    // Keep the cryptographic peer identifier byte-for-byte aligned with the
+    // Hub's `_current_user_id()` projection. Display-oriented OIDC claims such
+    // as email/preferred_username must not become a different E2EE identity.
+    return String(p?.sub || p?.username || '');
   }
 
   private get hubUrl(): string {
@@ -406,16 +409,23 @@ export class ShareSessionService implements OnDestroy {
 
   private activateSession(session: ShareSession, role: 'owner' | 'participant'): void {
     this.securityGeneration += 1;
+    // A strict session may need several polling cycles before its remote peer
+    // is cryptographically bound. Never retain the prior session's transport
+    // while that verification is pending.
+    this.transport.close();
     this.securityBootstrap.clear();
     this.state$.next({ session, participants: [], messages: [], cursor: '0', role });
     this.startPolling();
-    void this.transport.open(session.id, role === 'owner', {
-      semanticEpoch: session.security_epoch ?? 1,
-    }).catch(() => undefined);
     if (this.isStrictSession(session)) {
       void this.refreshSecurity();
     } else {
       this.securityBootstrap.markLegacy();
+      void this.transport.open(session.id, role === 'owner', {
+        semanticEpoch: session.security_epoch ?? 1,
+        // Legacy sessions have no verified peer-binding contract. They may
+        // use the authenticated Hub relay, but never unbound Direct-WebRTC.
+        unboundPeerFallback: 'hub_relay',
+      }).catch(() => undefined);
     }
   }
 
@@ -444,10 +454,58 @@ export class ShareSessionService implements OnDestroy {
     if (epoch > 0 && epoch !== this.state$.value.session?.security_epoch) {
       const current = this.state$.value;
       if (!current.session) return;
+      // The verified binding is scoped to an exact security epoch. An open
+      // peer connection from the prior epoch must not survive re-keying or a
+      // membership change, even when the canonical user id stays unchanged.
+      this.closeUnverifiedStrictTransport();
       this.transport.setSemanticEpoch(epoch);
       this.state$.next({ ...current, session: { ...current.session, security_epoch: epoch } });
     }
-    if (!ready) return;
+    if (!ready) {
+      // `ensure()` also returns false for peer removal, stale confirmation,
+      // fingerprint changes and verification errors. All of those revoke the
+      // authority under which the direct transport (including media) opened.
+      this.closeUnverifiedStrictTransport();
+      return;
+    }
+    await this.openVerifiedPairTransport(session.id, generation);
+  }
+
+  private closeUnverifiedStrictTransport(): void {
+    this.transport.close();
+  }
+
+  private async openVerifiedPairTransport(sessionId: string, generation: number): Promise<void> {
+    const active = this.state$.value;
+    if (
+      generation !== this.securityGeneration
+      || active.session?.id !== sessionId
+      || !this.isStrictSession(active.session)
+      || !active.role
+      || this.securityState$.value.status !== 'ready'
+      || this.transport.mode$.value !== 'idle'
+    ) return;
+
+    // This value originates exclusively from the verified and confirmed key
+    // binding. There is intentionally no participant-list or broadcast
+    // fallback when the exact peer identity is unavailable.
+    const remotePeerId = this.securityBootstrap.confirmedRemotePeerId;
+    if (!remotePeerId) return;
+
+    try {
+      await this.transport.open(sessionId, active.role === 'owner', {
+        semanticEpoch: active.session.security_epoch ?? 1,
+        remotePeerId,
+      });
+      if (generation !== this.securityGeneration || this.state$.value.session?.id !== sessionId) {
+        this.transport.close();
+      }
+    } catch {
+      // Fail closed and allow a later authenticated bootstrap poll to retry.
+      if (generation === this.securityGeneration && this.state$.value.session?.id === sessionId) {
+        this.transport.close();
+      }
+    }
   }
 
   private async acceptChatPage(session: ShareSession, rawMessages: unknown[], cursor: string): Promise<void> {

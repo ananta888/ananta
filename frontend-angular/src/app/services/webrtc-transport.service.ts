@@ -37,6 +37,7 @@ export interface SemanticTransportOpenOptions {
   semanticEpoch?: number;
   semanticTrafficClasses?: readonly SemanticTrafficClass[];
   remotePeerId?: string;
+  unboundPeerFallback?: 'hub_relay';
 }
 
 interface SemanticRelayStoredMessage extends SemanticDataChannelMessage {
@@ -95,11 +96,19 @@ export class WebrtcTransportService {
     const useWebrtc = order[0] === 'webrtc';
 
     if (useWebrtc) {
+      if (!options.remotePeerId) {
+        if (options.unboundPeerFallback === 'hub_relay' && order.includes('hub_relay')) {
+          this.switchToHubRelay();
+          return;
+        }
+        this.close();
+        throw new Error('webrtc_remote_peer_required');
+      }
       this.mode$.next('webrtc');
       // Monitor for WebRTC failure and fall back
       this.subscriptions.add(this.webrtc.state$.subscribe(state => {
         if (state === 'failed' && this.mode$.value === 'webrtc') {
-          this.switchToHubRelay();
+          this.fallbackFromDirectToHubRelay();
         }
       }));
       // Relay DataChannel messages
@@ -225,6 +234,14 @@ export class WebrtcTransportService {
   private switchToHubRelay(): void {
     this.mode$.next('hub_relay');
     this.startRelayPoll();
+  }
+
+  private fallbackFromDirectToHubRelay(): void {
+    // The peer connection owns media tracks, its signaling poll and DataChannel
+    // queues. Tear that complete direct stack down before exposing relay mode;
+    // otherwise both paths can remain live and dispatch duplicate/stale data.
+    this.webrtc.closeSession();
+    this.switchToHubRelay();
   }
 
   private startRelayPoll(): void {
