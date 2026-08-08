@@ -1,0 +1,1633 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-08-08",
+  "updated_at": "2026-08-08",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "knowledge_hygiene_curated_markdown_wiki_conflict_resolution",
+  "status": "todo",
+  "purpose": "Ananta und CodeCompass um ein selbst gepflegtes, revisionssicheres Curated Wiki, allgemeine Widerspruchs- und Wissensqualitaetspruefungen, einen expliziten Human-Decision-Workflow und ein Knowledge-Health-Dashboard erweitern. Die Loesung baut auf vorhandenen KnowledgeIndex-, SourceCatalog-, Citation-, MemoryTree-, Obsidian-, Approval-, Audit- und CodeCompass-Graph-Vertraegen auf, ohne eine parallele RAG- oder Wahrheitsinfrastruktur einzufuehren.",
+  "goal": "Neue und geaenderte Quellen werden in begrenzten, hub-gesteuerten Knowledge-Hygiene-Runs analysiert. Das System erzeugt belegte Claims und Vorschlaege fuer Themen-, Personen-, Projekt-, Quellen- und Syntheseseiten, erkennt exakte und semantische Duplikate, zeitlich ueberholte Aussagen und moegliche Widersprueche, zeigt beide Seiten mit Provenance und Coverage an und laesst ausschliesslich autorisierte Menschen ueber den Konflikt entscheiden. Entscheidungen koennen eine Quellkorrektur als pruefbares Patch-Artefakt ausloesen; erst nach Re-Ingest und erneuter Pruefung darf ein Konflikt als geloest gelten. Ein Angular-Dashboard zeigt Gesundheit, Trends, offene Entscheidungen und unvollstaendige Abdeckung, ohne aus fehlender Evidenz falsche Sicherheit abzuleiten.",
+  "repository": {
+    "full_name": "ananta888/ananta",
+    "branch": "main",
+    "reviewed_commit": "f31b354d0c9dc12ce6e965467063c367b01bd6a7",
+    "reviewed_commit_message": "fix(pair-dev): route public sessions through rendezvous",
+    "verification_method": "GitHub connector source review",
+    "scope": [
+      "agent/services",
+      "agent/routes",
+      "agent/db_models",
+      "worker/knowledge_hygiene",
+      "worker/retrieval",
+      "rag-helper/rag_helper",
+      "ananta_contracts",
+      "schemas/knowledge_hygiene",
+      "frontend-angular/src/app/features/knowledge-hygiene",
+      "frontend-angular/src/app/features/codecompass-graph",
+      "docs",
+      "tests"
+    ]
+  },
+  "source_review": {
+    "reviewed_at": "2026-08-08",
+    "grounding_status": "verified_repository_snapshot",
+    "reviewed_files": [
+      "AGENTS.md",
+      "README.md",
+      "todos/todo.track.schema.json",
+      "todos/archiv/todo.ananta-obsidian-adapter.json",
+      "todos/archiv/todo.openhuman-inspired-ananta-memory-routing.json",
+      "todos/archiv/todo.rag-verifier.json",
+      "agent/services/wiki_retrieval_index_service.py",
+      "agent/services/knowledge_index_retrieval_service.py",
+      "agent/services/memory_tree_ingestion_service.py",
+      "agent/services/memory_tree_store_service.py",
+      "agent/services/memory_vault_export_service.py",
+      "agent/services/citation_verification_service.py",
+      "agent/services/context_curation_pipeline.py",
+      "agent/services/human_approval_service.py",
+      "agent/services/retrieval_query_builder.py",
+      "worker/retrieval/codecompass_rig_truth_precedence.py",
+      "worker/retrieval/codecompass_context_savings.py",
+      "rag-helper/rag_helper/application/duplicate_detection.py",
+      "rag-helper/rag_helper/extractors/obsidian.py",
+      "docs/openhuman-inspired-memory-routing.md",
+      "docs/architecture/codecompass-context-curation.md",
+      "docs/architecture/source_grounded_answers.md",
+      "docs/worker/retrieval_and_indexing.md",
+      "docs/codecompass-graph-viewer.md",
+      "docs/benchmarks/codecompass-worker-retrieval.md",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+      "frontend-angular/src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.ts",
+      "frontend-angular/src/app/features/codecompass-graph/services/graph-state.service.ts"
+    ],
+    "existing_capabilities_to_reuse": [
+      "Obsidian Markdown, Wikilinks, Tags, Canvas, Privacy-Filter und inkrementelle Manifeste",
+      "KnowledgeIndex und typed multi-source Hybrid-Retrieval mit Provenance, Budgets und Deduplizierung",
+      "SourceCatalog und deterministische Claim-to-Citation-Verifikation",
+      "MemoryTree, Markdown-Vault-Export und policy-gesteuerte Context-Bundles",
+      "Hub-eigene Approval-, Audit-, Task-, Verification- und Artifact-Lifecycle",
+      "CodeCompass 2D/3D-Graph, Domain-Inventar, Detailpanel und revisionsgebundene Projektionen",
+      "Spezielle RIG-vs-RAG-Truth-Precedence fuer Repository-Fragen",
+      "Retrieval-Benchmarks mit Recall, MRR, Token-Schaetzung und Latenz"
+    ],
+    "confirmed_gaps": [
+      "Kein allgemeines, automatisch gepflegtes Curated Wiki mit Themen-, Personen-, Projekt-, Quellen- und Syntheseseiten",
+      "Kein generischer Claim-Store mit zeitlicher Gueltigkeit, Provenance und Aussagebeziehungen",
+      "Keine allgemeine Aussage-gegen-Aussage-Pruefung ueber mehrere Quellen",
+      "Keine semantische Duplikaterkennung fuer Notizen und Wissensclaims",
+      "Kein wissensspezifischer Human-Decision- und Source-Correction-Lifecycle",
+      "Kein zentrales Knowledge-Health-Read-Model fuer Konflikte, Duplikate, Staleness, Orphans, Coverage und offene Entscheidungen",
+      "Keine semantische Navigation von Retrieval-Treffern direkt zu Curated-Wiki- oder CodeCompass-Knoten"
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "architecture_principles": [
+    "Hub owns run creation, source scope, admission, state transitions, policy, decisions, canonical persistence and audit; Workers only analyze exact delegated inputs and return untrusted proposals.",
+    "No Worker-to-Worker orchestration and no Worker-owned follow-up tasks.",
+    "DB, immutable source snapshots, JSONL/Graph artifacts and their hashes remain canonical. Markdown is a disposable, reproducible and human-readable projection, not the sole source of truth.",
+    "Source text and model output are untrusted input. Neither may assign authority, invent source identities, expand scope or decide truth.",
+    "A conflict candidate preserves every relevant claim and source. The system never silently overwrites or deletes a losing claim.",
+    "Only an authenticated and policy-authorized human can classify or resolve a knowledge conflict.",
+    "Source correction is default-read-only. Any write-back requires an explicit adapter capability, exact source revision, preview, approval and audit record.",
+    "Conflict resolution is not complete until the corrected source revision was re-ingested and the conflict was deterministically re-evaluated.",
+    "Incomplete extraction or indexing is surfaced as partial or unknown coverage; absence of evidence is never converted into evidence of absence.",
+    "Reuse existing Retrieval, SourceCatalog, Citation, MemoryTree, Obsidian, Graph, Approval and Artifact ports; add narrow interfaces instead of coupling new logic to routes or UI components.",
+    "Every generated wiki section and health finding carries stable source refs, content hashes, source revision, run id and generator profile.",
+    "All features are additive, feature-gated, tenant- and project-scoped and safe to disable without corrupting source or index state."
+  ],
+  "non_goals": [
+    "Kein autonomes Festlegen, welche widerspruechliche Aussage wahr ist.",
+    "Kein automatisches Ueberschreiben von Obsidian-, Git-, Dokument- oder Benutzerquellen.",
+    "Kein zweiter allgemeiner Vector Store, RAG-Orchestrator oder paralleler SourceCatalog.",
+    "Kein Ersatz der spezialisierten CodeCompass-RIG-vs-RAG-Truth-Precedence.",
+    "Kein globaler Vergleich ueber Projekte, Organisationen oder Tenants ohne explizite Policy.",
+    "Kein Cloud-LLM-Zugriff auf sensible Quellen ohne bestehende Egress- und ContextAccessPolicy-Freigabe.",
+    "Keine Garantie, alle semantischen Widersprueche zu erkennen.",
+    "Keine Gesundheitszahl ohne Coverage-, Revisions- und Aktualitaetsangabe.",
+    "Keine direkte UI-Mutation kanonischer Claims oder Quellen unter Umgehung des Hub-Lifecycle."
+  ],
+  "target_architecture": {
+    "flow": [
+      "Source revision admitted by Hub",
+      "Hub creates KnowledgeHygieneRun bound to exact source/catalog/index revisions",
+      "Worker extracts normalized claim proposals and affected-page proposals from bounded context",
+      "Hub validates schema, provenance, policy, scope, hashes and idempotency keys",
+      "Hub persists versioned claims and computes exact, semantic, temporal and contradiction candidates",
+      "Hub creates or updates conflict records and CuratedWiki page revisions",
+      "Deterministic projector materializes Markdown and CodeCompass graph supplements",
+      "Knowledge Health read model exposes counts, coverage, trends and open decisions",
+      "Authorized human reviews both claims and chooses a decision action",
+      "Optional correction adapter emits a patch artifact or performs approved write-back",
+      "Corrected source revision is re-ingested and re-evaluated",
+      "Hub marks the conflict resolved only when the new evidence supports the decision"
+    ],
+    "ownership": {
+      "hub": [
+        "run state machine",
+        "source and project scope",
+        "claim and conflict admission",
+        "canonical persistence",
+        "policy and authorization",
+        "decision and correction lifecycle",
+        "projection publication",
+        "health read model",
+        "audit and observability"
+      ],
+      "worker": [
+        "claim extraction proposal",
+        "page synthesis proposal",
+        "semantic duplicate proposal",
+        "semantic contradiction proposal",
+        "bounded explanation and evidence mapping"
+      ],
+      "human": [
+        "confirm conflict or false positive",
+        "select scoped or temporal interpretation",
+        "approve source correction",
+        "defer or reopen decision"
+      ]
+    },
+    "canonical_storage": [
+      "immutable SourceSnapshot and SourceCatalog references",
+      "KnowledgeClaim and KnowledgeClaimRevision",
+      "KnowledgeConflict and KnowledgeConflictDecision",
+      "CuratedWikiPage and CuratedWikiPageRevision",
+      "KnowledgeHygieneRun and KnowledgeHealthSnapshot",
+      "Artifact and AuditEvent records"
+    ],
+    "derived_views": [
+      ".ananta/knowledge/wiki/*.md",
+      "curated_wiki retrieval chunks",
+      "CodeCompass graph nodes and edges",
+      "Angular health and conflict projections",
+      "exportable decision and run reports"
+    ]
+  },
+  "domain_contracts": {
+    "wiki_page_types": [
+      "source_summary",
+      "topic",
+      "person",
+      "project",
+      "synthesis"
+    ],
+    "claim_relations": [
+      "supports",
+      "duplicates_exact",
+      "duplicates_semantic",
+      "contradicts_candidate",
+      "supersedes",
+      "narrows_scope",
+      "updates_value",
+      "derived_from"
+    ],
+    "conflict_states": [
+      "detected",
+      "under_review",
+      "confirmed_conflict",
+      "not_a_conflict",
+      "correction_proposed",
+      "correction_approved",
+      "rechecking",
+      "resolved",
+      "deferred",
+      "reopened"
+    ],
+    "decision_actions": [
+      "keep_claim_a",
+      "keep_claim_b",
+      "keep_both_scoped",
+      "keep_both_temporal",
+      "mark_duplicate",
+      "mark_not_a_conflict",
+      "require_source_correction",
+      "defer",
+      "reopen"
+    ],
+    "coverage_states": [
+      "complete",
+      "partial",
+      "unknown",
+      "unavailable"
+    ]
+  },
+  "feature_flags": {
+    "knowledge_hygiene.enabled": false,
+    "knowledge_hygiene.mode": "observe_only",
+    "knowledge_hygiene.auto_run_on_index_completion": false,
+    "knowledge_hygiene.semantic_duplicate_candidates": false,
+    "knowledge_hygiene.semantic_contradiction_candidates": false,
+    "knowledge_hygiene.source_writeback": false,
+    "curated_wiki.enabled": false,
+    "curated_wiki.markdown_projection": false,
+    "curated_wiki.retrieval_source": false,
+    "knowledge_health.dashboard": false
+  },
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Baseline, Domain-Vertraege und Sicherheitsgrenzen",
+      "task_ids": [
+        "KHW-001",
+        "KHW-002",
+        "KHW-003",
+        "KHW-004",
+        "KHW-005",
+        "KHW-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Claim Store und selbst gepflegtes Curated Wiki",
+      "task_ids": [
+        "KHW-007",
+        "KHW-008",
+        "KHW-009",
+        "KHW-010",
+        "KHW-011",
+        "KHW-012",
+        "KHW-013"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Duplikate, Staleness und Widerspruchskandidaten",
+      "task_ids": [
+        "KHW-014",
+        "KHW-015",
+        "KHW-016",
+        "KHW-017",
+        "KHW-018",
+        "KHW-019",
+        "KHW-020",
+        "KHW-021"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Human Decision, Source Correction und Re-Evaluation",
+      "task_ids": [
+        "KHW-022",
+        "KHW-023",
+        "KHW-024",
+        "KHW-025",
+        "KHW-026",
+        "KHW-027",
+        "KHW-028"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Knowledge Health, UI, Graph und Retrieval",
+      "task_ids": [
+        "KHW-029",
+        "KHW-030",
+        "KHW-031",
+        "KHW-032",
+        "KHW-033",
+        "KHW-034",
+        "KHW-035"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Orchestrierung, Tests, Skalierung und Rollout",
+      "task_ids": [
+        "KHW-036",
+        "KHW-037",
+        "KHW-038",
+        "KHW-039",
+        "KHW-040",
+        "KHW-041",
+        "KHW-042"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "KHW-001",
+      "title": "Bestehende Knowledge-, Wiki-, Memory-, Citation- und Approval-Pfade als Baseline dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "analysis",
+      "progress_percent": 0,
+      "depends_on": [],
+      "files_to_create": [
+        "docs/architecture/knowledge-hygiene-baseline.md"
+      ],
+      "description": "Die vorhandenen Source-, Obsidian-, KnowledgeIndex-, MemoryTree-, Curated-Context-, Citation-, Graph-, Approval- und Audit-Flows mit Ownership, Persistenz, Revisionen und Feature-Flags dokumentieren.",
+      "acceptance_criteria": [
+        "Die Baseline trennt aktuelle Implementierung, optionale Features, archivierte Todo-Ziele und echte Luecken.",
+        "Ein Flow zeigt Source -> Snapshot/Index -> Retrieval/Memory -> Worker -> Verification/Artifact.",
+        "Vorhandene Deduplizierung, Freshness, RIG-vs-RAG-Precedence und Citation Verification werden klar von allgemeiner Wissenshygiene abgegrenzt.",
+        "Jeder geplante neue Service verweist auf den bestehenden Port oder begruendet einen neuen schmalen Port.",
+        "Keine Produktivimplementierung beginnt, bevor die Baseline reviewed ist."
+      ]
+    },
+    {
+      "id": "KHW-002",
+      "title": "ADR fuer kanonische Wahrheit, Markdown-Projektion und Authority Boundaries beschliessen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-001"
+      ],
+      "files_to_create": [
+        "docs/decisions/ADR-knowledge-hygiene-curated-wiki-authority.md"
+      ],
+      "description": "Festlegen, dass SourceSnapshots, Claims, Konflikte, Entscheidungen und Revisionen kanonisch sind, waehrend Markdown, Retrieval-Chunks, Graph und UI abgeleitete Projektionen bleiben.",
+      "acceptance_criteria": [
+        "ADR benennt DB/JSONL/Graph/Artifact-Verantwortung und den reproduzierbaren Markdown-Export.",
+        "Hub, Worker und Human Authority sind ohne ueberlappende Mutationsrechte beschrieben.",
+        "Die ADR verbietet autonomes Truth-Deciding und Source-Overwrite durch LLM oder Worker.",
+        "Die bestehende CodeCompass RIG-vs-RAG-Precedence bleibt unveraendert und wird als spezialisierte Policy eingeordnet.",
+        "Rollback und Deaktivierung lassen kanonische Daten und Originalquellen unveraendert."
+      ]
+    },
+    {
+      "id": "KHW-003",
+      "title": "Versionierte Knowledge-Hygiene-Domain-Schemas definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "schema",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-002"
+      ],
+      "files_to_create": [
+        "schemas/knowledge_hygiene/knowledge_claim.v1.json",
+        "schemas/knowledge_hygiene/knowledge_conflict.v1.json",
+        "schemas/knowledge_hygiene/knowledge_conflict_decision.v1.json",
+        "schemas/knowledge_hygiene/curated_wiki_page.v1.json",
+        "schemas/knowledge_hygiene/knowledge_hygiene_run.v1.json",
+        "schemas/knowledge_hygiene/knowledge_health_snapshot.v1.json"
+      ],
+      "description": "Strikte additive Vertraege fuer Claims, Konfliktkandidaten, Entscheidungen, Wiki-Seiten, Runs und Health-Snapshots erstellen.",
+      "acceptance_criteria": [
+        "Jeder Claim besitzt project_id, stable_claim_id, revision, subject, predicate, object/value, qualifiers, temporal scope, source refs, content hashes und extraction profile.",
+        "Konflikte referenzieren mindestens zwei existierende Claim-Revisionen und duerfen Claim-Text nicht als neue Wahrheit duplizieren.",
+        "Entscheidungen enthalten actor, action, reason, expected_conflict_digest, affected_source_refs und Zeitstempel.",
+        "Wiki-Seiten enthalten page_type, stable_page_id, revision, section claims, source refs, conflict refs und projection hash.",
+        "Schemas lehnen unbekannte Authority-, Source- und Lifecycle-Felder fail-closed ab.",
+        "Schema-Tests decken valide und manipulierte Beispiele ab."
+      ]
+    },
+    {
+      "id": "KHW-004",
+      "title": "Generische Evidence-, Temporal- und Truth-Precedence-Policy spezifizieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "policy",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-002",
+        "KHW-003"
+      ],
+      "files_to_create": [
+        "docs/architecture/knowledge-claim-precedence-policy.md",
+        "ananta_contracts/knowledge_claim_precedence.py"
+      ],
+      "description": "Regeln fuer Source Authority, Aktualitaet, Ziel-vs-Ist, zeitliche Gueltigkeit, Scope und unvollstaendige Coverage definieren. Die Policy priorisiert Review und Darstellung, entscheidet aber keine Wahrheit.",
+      "acceptance_criteria": [
+        "Zielwert und Ist-Wert werden bei unterschiedlichem qualifier nicht als automatischer Widerspruch behandelt.",
+        "Aussagen mit nicht ueberlappenden valid_from/valid_to-Zeitraeumen koennen als zeitliche Entwicklung klassifiziert werden.",
+        "Source trust und Freshness beeinflussen severity und review order, niemals automatisch die menschliche Entscheidung.",
+        "partial oder unknown coverage erzeugt keine negative Evidenz.",
+        "Die Policy ist versioniert, erklaerbar und in jedem Finding referenziert.",
+        "Regressionstests sichern die bestehende RIG-vs-RAG-Policy gegen unbeabsichtigte Aenderungen."
+      ]
+    },
+    {
+      "id": "KHW-005",
+      "title": "Threat Model fuer untrusted Sources, Prompt Injection und Knowledge Poisoning erstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-001",
+        "KHW-002"
+      ],
+      "files_to_create": [
+        "docs/security/knowledge-hygiene-threat-model.md"
+      ],
+      "description": "Bedrohungen durch eingebettete Instruktionen, vergiftete Quellen, forged source refs, Cross-Tenant-Leaks, massenhafte Konfliktkandidaten, manipulierte Entscheidungen und Write-back-Rennen analysieren.",
+      "acceptance_criteria": [
+        "Source-Inhalt wird ausschliesslich als Daten behandelt und kann keine Tools, Scopes oder Authority aktivieren.",
+        "Worker-Ausgaben werden schema-, source-, digest-, size- und assignment-gebunden validiert.",
+        "Tenant-, Projekt-, Source- und Sensitivity-Grenzen sind fuer jede Pipeline-Stufe beschrieben.",
+        "Abuse-Limits fuer Claims, Kandidaten, Seitenpatches und LLM-Aufrufe sind definiert.",
+        "Entscheidungs- und Write-back-Endpunkte besitzen CSRF/AuthZ/Replay/Concurrency-Schutz.",
+        "Security-Negativtests sind als Release-Gate festgelegt."
+      ]
+    },
+    {
+      "id": "KHW-006",
+      "title": "Feature-Flags, Betriebsmodi und additive Migrationsstrategie festlegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "config",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-002",
+        "KHW-005"
+      ],
+      "files_to_update": [
+        "agent/config_defaults.py",
+        ".env.example"
+      ],
+      "description": "Default-off Flags und Modi disabled, observe_only, review_required und controlled_writeback definieren.",
+      "acceptance_criteria": [
+        "Alle neuen Flags sind default-off oder observe_only und aendern bestehende Retrieval-Flows nicht.",
+        "Ein Flag kann semantische Kandidaten getrennt von deterministischen Checks aktivieren.",
+        "Source write-back benoetigt ein eigenes Flag und kann nicht durch Request-Payload aktiviert werden.",
+        "Konfig-Diagnostik zeigt effective value, source und policy block reason.",
+        "Migration und Rollback sind ohne Verlust von Originalquellen moeglich."
+      ]
+    },
+    {
+      "id": "KHW-007",
+      "title": "Hub-eigenen versionierten KnowledgeClaimStore implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-003",
+        "KHW-004",
+        "KHW-005"
+      ],
+      "files_to_create": [
+        "agent/db_models/knowledge_hygiene.py",
+        "agent/repositories/knowledge_claim_repository.py",
+        "agent/services/knowledge_claim_store_service.py",
+        "tests/test_knowledge_claim_store_service.py"
+      ],
+      "description": "Claims und immutable Claim-Revisionen projektgebunden, idempotent und provenance-verknuepft persistieren.",
+      "acceptance_criteria": [
+        "Gleicher source revision, locator und normalized claim payload erzeugen dieselbe idempotency identity.",
+        "Eine inhaltliche Aenderung erzeugt eine neue Revision und ueberschreibt keine historische Claim-Version.",
+        "Jeder Claim verweist auf gueltige SourceCatalog/SourceSnapshot-Identitaeten und Content-Hashes.",
+        "Repository-Abfragen erzwingen tenant/project scope und bounded pagination.",
+        "Persistenz und Fallback-Store besitzen dieselben Invarianten oder der Fallback wird explizit nicht unterstuetzt.",
+        "Unit-Tests decken Parallelitaet, Replay, stale revision und Cross-Project-Zugriff ab."
+      ]
+    },
+    {
+      "id": "KHW-008",
+      "title": "Geschlossenen Worker-Vertrag fuer Claim Extraction implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "worker",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-003",
+        "KHW-005"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/claim_extraction_handler.py",
+        "worker/knowledge_hygiene/contracts.py",
+        "prompts/knowledge_hygiene/claim_extraction.j2",
+        "tests/worker/test_knowledge_claim_extraction_handler.py"
+      ],
+      "description": "Ein Worker analysiert nur den assignment-gebundenen Source-Ausschnitt und liefert strukturierte Claim-Proposals mit exakten evidence locators, ohne Tasks, Quellen oder Entscheidungen zu erzeugen.",
+      "acceptance_criteria": [
+        "Input ist an task id, source revision, catalog digest, allowed record selectors, profile und expiry gebunden.",
+        "Output enthaelt nur vorgeschlagene Claims, qualifiers, temporal scope, evidence refs und confidence.",
+        "Unbekannte source refs, erfundene locators und nicht erlaubte Seitenvorschlaege werden verworfen.",
+        "Prompt Injection in Quelltext kann weder Tools noch neue Instructions oder Scopes aktivieren.",
+        "Token-, Claim-, Text- und Laufzeitbudgets sind hart begrenzt.",
+        "Ein deterministischer Fixture-Modus ermoeglicht CI ohne externes LLM."
+      ]
+    },
+    {
+      "id": "KHW-009",
+      "title": "Claim Admission und Normalisierung im Hub implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-007",
+        "KHW-008"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_claim_admission_service.py",
+        "agent/services/knowledge_claim_normalization_service.py",
+        "tests/test_knowledge_claim_admission_service.py"
+      ],
+      "description": "Worker-Proposals gegen die exakte Assignment-, Source-, Policy- und Schema-Bindung validieren, normalisieren und erst danach in Claim-Revisionen ueberfuehren.",
+      "acceptance_criteria": [
+        "Subject, predicate, value type, units, dates, qualifiers und entity refs werden typisiert normalisiert.",
+        "Raw text bleibt als evidence excerpt referenziert, wird aber nicht als kanonische Identitaet verwendet.",
+        "Admission re-hydriert erlaubte Records aus dem kanonischen Index und prueft deren Hashes erneut.",
+        "Replay mit identischem result digest ist idempotent; abweichender digest fuer dieselbe lease scheitert.",
+        "LLM confidence wird als Proposal-Metadatum gespeichert und nicht in Authority umgedeutet.",
+        "Fehler erzeugen klare reason codes und keine partiell sichtbaren Claims."
+      ]
+    },
+    {
+      "id": "KHW-010",
+      "title": "CuratedWikiPage Store und revisionsgebundenes Read Model implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-003",
+        "KHW-007"
+      ],
+      "files_to_create": [
+        "agent/repositories/curated_wiki_repository.py",
+        "agent/services/curated_wiki_page_service.py",
+        "tests/test_curated_wiki_page_service.py"
+      ],
+      "description": "Stabile Seitenidentitaeten und immutable Revisionen fuer source_summary, topic, person, project und synthesis verwalten.",
+      "acceptance_criteria": [
+        "Seitenabschnitte referenzieren Claim-Revisionen statt freie unbelegte Fakten zu kopieren.",
+        "Gleiche Claim-Menge und gleiches synthesis profile erzeugen denselben page content hash.",
+        "Unaufgeloeste Konflikte werden als strukturierte Warning-Referenzen erhalten.",
+        "Alte Seitenrevisionen bleiben lesbar und mit Run, Source- und Conflict-Revision verknuepft.",
+        "Page aliases und Merge-Kandidaten fuehren nicht zu automatischem Identitaetsverlust.",
+        "Read-Model-Abfragen sind project-scoped und cursor-paginiert."
+      ]
+    },
+    {
+      "id": "KHW-011",
+      "title": "Worker-Vertrag fuer betroffene Seiten und Wiki-Synthese-Proposals implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "worker",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-008",
+        "KHW-009",
+        "KHW-010"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/wiki_synthesis_handler.py",
+        "prompts/knowledge_hygiene/wiki_synthesis.j2",
+        "tests/worker/test_curated_wiki_synthesis_handler.py"
+      ],
+      "description": "Aus zugelassenen Claims und dem begrenzten Seitenkatalog Vorschlaege fuer neue oder geaenderte Seitenabschnitte erzeugen.",
+      "acceptance_criteria": [
+        "Worker erhaelt nur betroffene bestehende Seiten und zugelassene Claim-Revisionen, niemals das gesamte Wiki ohne Budget.",
+        "Jeder vorgeschlagene Satz oder Abschnitt verweist auf claim refs und conflict refs.",
+        "Worker darf keine existierende Warnung entfernen und keine Konfliktentscheidung simulieren.",
+        "Nicht belegbare Synthese wird als inference oder unsupported markiert und nicht als verified fact gespeichert.",
+        "Seitentyp und Zielseite werden gegen den Hub-eigenen Seitenkatalog validiert.",
+        "Output-Groesse, Seitenanzahl und Patchanzahl sind begrenzt."
+      ]
+    },
+    {
+      "id": "KHW-012",
+      "title": "Deterministische Markdown-Projektion fuer das Curated Wiki bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "export",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-010",
+        "KHW-011"
+      ],
+      "files_to_create": [
+        "agent/services/curated_wiki_markdown_projection_service.py",
+        "tests/test_curated_wiki_markdown_projection_service.py"
+      ],
+      "files_to_update": [
+        "agent/services/memory_vault_export_service.py"
+      ],
+      "description": "CuratedWiki-Seiten reproduzierbar nach .ananta/knowledge/wiki exportieren, inklusive Frontmatter, Wikilinks, Quellen, Konfliktwarnungen und Revisionen.",
+      "acceptance_criteria": [
+        "Gleiche kanonische Revision erzeugt byte-identisches Markdown.",
+        "Frontmatter enthaelt stable_page_id, page_type, revision, projection_hash, generated_at, run_id und coverage status.",
+        "Jeder Fakt besitzt klickbare source refs; Konflikte zeigen beide Claims und Decision-Status.",
+        "Export schreibt atomar in einen eigenen generierten Ordner und nie in Originalquellen.",
+        "Geheime und ausgeschlossene Inhalte werden vor Projektion policy-konform entfernt oder blockiert.",
+        "Der gesamte Export kann geloescht und aus kanonischem Zustand neu aufgebaut werden."
+      ]
+    },
+    {
+      "id": "KHW-013",
+      "title": "Curated-Wiki-Links und Claims additiv in den CodeCompass-Graph projizieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "graph",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-010",
+        "KHW-012"
+      ],
+      "files_to_create": [
+        "worker/retrieval/curated_wiki_graph_materializer.py",
+        "tests/test_curated_wiki_graph_materializer.py"
+      ],
+      "description": "Page-, Claim-, Source-, Conflict- und Decision-Knoten als revisionsgebundenes Supplement materialisieren, ohne den CodeCompass-Basisgraphen zu veraendern.",
+      "acceptance_criteria": [
+        "Neue Knotentypen und Relationen sind versioniert und renderer-kompatibel.",
+        "Jede Kante besitzt source revision, confidence type und evidence refs.",
+        "Unaufgeloeste Konflikte sind sichtbar und werden nicht als normale supports-Kante dargestellt.",
+        "Supplement-Hash und Basisgraph-Revision werden getrennt und gemeinsam validiert.",
+        "Legacy-Graphen bleiben lesbar und zeigen das Supplement als unavailable statt leer.",
+        "Materialisierung laeuft im Worker; Hub prueft und admitted das Artifact."
+      ]
+    },
+    {
+      "id": "KHW-014",
+      "title": "Exakte Claim- und Seiten-Duplikaterkennung implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "deduplication",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-007",
+        "KHW-009"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_exact_duplicate_service.py",
+        "tests/test_knowledge_exact_duplicate_service.py"
+      ],
+      "description": "Identische und normalisiert identische Claims, Quellenabschnitte und Seiteninhalte deterministisch erkennen.",
+      "acceptance_criteria": [
+        "Exakte Deduplizierung nutzt typed normalized payload plus scope und temporal qualifiers.",
+        "Gleicher Text mit unterschiedlichem Projekt- oder Zeitscope wird nicht faelschlich zusammengefuehrt.",
+        "Duplicate relations behalten alle source refs und Claim-Revisionen.",
+        "Keine Quelle oder Claim-Revision wird automatisch geloescht.",
+        "Dedupe-Ergebnis ist unabhaengig von Eingabereihenfolge.",
+        "Metriken trennen exact duplicate, replay duplicate und source mirror."
+      ]
+    },
+    {
+      "id": "KHW-015",
+      "title": "Semantische Duplikatkandidaten ueber vorhandene Embedding-Ports erzeugen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "deduplication",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-009",
+        "KHW-014"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/semantic_duplicate_handler.py",
+        "agent/services/knowledge_semantic_duplicate_admission_service.py",
+        "tests/test_knowledge_semantic_duplicate_candidates.py"
+      ],
+      "description": "Aehnliche Claims und Seiten als reviewbare Kandidaten finden, vorhandene VectorStore/EmbeddingProvider-Ports nutzen und keinen neuen Index-Stack einfuehren.",
+      "acceptance_criteria": [
+        "Kandidaten sind project-, entity-, language- und optional temporal-scoped.",
+        "Similarity score, provider/model/version, threshold profile und evidence refs werden gespeichert.",
+        "Semantische Aehnlichkeit erzeugt nie automatisches Merge oder Loeschen.",
+        "Local-only Profile funktionieren ohne externe Calls; Cloud-Profile benoetigen Egress-Freigabe.",
+        "Thresholds werden anhand versionierter Fixtures kalibriert und sind nicht im Code verstreut.",
+        "False-positive Samples koennen als Feedback gespeichert werden, ohne das Modell ungeprueft online zu trainieren."
+      ]
+    },
+    {
+      "id": "KHW-016",
+      "title": "Staleness, Supersession und zeitliche Gueltigkeit modellieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-004",
+        "KHW-007"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_temporal_analysis_service.py",
+        "tests/test_knowledge_temporal_analysis_service.py"
+      ],
+      "description": "Claims mit observed_at, effective_at, valid_from, valid_to, superseded_by und source revision zeitlich einordnen.",
+      "acceptance_criteria": [
+        "Neuere Quelle bedeutet nicht automatisch wahrer; zeitliche und fachliche Scopes werden getrennt bewertet.",
+        "Explizite supersedes- oder version-Beziehungen koennen deterministisch erkannt werden.",
+        "Ohne belastbare Zeitinformation lautet der Status unknown statt stale.",
+        "Ziel-, Plan-, Ist- und historische Werte bleiben unterscheidbar.",
+        "Staleness findings enthalten reason code, verglichene Revisionen und policy version.",
+        "Re-Ingest kann stale findings idempotent aktualisieren oder schliessen."
+      ]
+    },
+    {
+      "id": "KHW-017",
+      "title": "Allgemeine Contradiction-Candidate-Pipeline implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-004",
+        "KHW-009",
+        "KHW-014",
+        "KHW-016"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_contradiction_candidate_service.py",
+        "worker/knowledge_hygiene/semantic_contradiction_handler.py",
+        "tests/test_knowledge_contradiction_candidate_service.py"
+      ],
+      "description": "Claims mit gleichem oder verknuepfbarem Subjekt/Praedikat vergleichen und moegliche Widersprueche durch deterministische Regeln plus optionales semantisches Proposal erzeugen.",
+      "acceptance_criteria": [
+        "Pipeline trennt deterministic contradiction, semantic candidate, temporal update, scope difference und insufficient evidence.",
+        "Jeder Kandidat enthaelt beide Claim-Revisionen, source refs, matched entity/predicate, qualifiers und explanation reason codes.",
+        "LLM-Ausgabe darf nur candidate evidence liefern und keinen Konflikt bestaetigen oder entscheiden.",
+        "Vergleiche sind tenant/project-scoped und besitzen harte Candidate- und Pairing-Budgets.",
+        "Ein einzelner neuer Claim loest nur inkrementelle Vergleiche gegen relevante Claim-Buckets aus.",
+        "Kein Kandidat wird erzeugt, wenn Source- oder Claim-Hash nicht mehr zur gebundenen Revision passt."
+      ]
+    },
+    {
+      "id": "KHW-018",
+      "title": "Deterministische Validatoren fuer Zahlen, Negation, Status und Ziel-vs-Ist hinzufuegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "validation",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-004",
+        "KHW-017"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_contradiction_validators.py",
+        "tests/test_knowledge_contradiction_validators.py"
+      ],
+      "description": "Hochpraezise, erklaerbare Checks fuer incompatible numeric values, units, boolean/negation, lifecycle status, dates, versions und goal-vs-actual qualifiers implementieren.",
+      "acceptance_criteria": [
+        "Numerische Vergleiche normalisieren kompatible Einheiten und blocken inkompatible Einheiten.",
+        "Negation wird nur bei gleichem entity/predicate/scope als starker Kandidat gewertet.",
+        "Ziel und Ist sind standardmaessig compatible-but-different, nicht contradiction.",
+        "Versions- und Statusfolgen koennen als Update statt Konflikt klassifiziert werden.",
+        "Jeder Validator besitzt getrennte Fixtures fuer true positive, true negative und ambiguous.",
+        "Validatoren sind reine Funktionen oder schmale Strategien ohne Persistenz- oder Route-Coupling."
+      ]
+    },
+    {
+      "id": "KHW-019",
+      "title": "Conflict Aggregation, Severity und Coverage-aware Findings bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-015",
+        "KHW-017",
+        "KHW-018"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_conflict_aggregation_service.py",
+        "tests/test_knowledge_conflict_aggregation_service.py"
+      ],
+      "description": "Mehrere Candidate-Signale zu stabilen Konfliktidentitaeten aggregieren, severity und review order berechnen und Coverage sichtbar erhalten.",
+      "acceptance_criteria": [
+        "Ein Konflikt wird ueber stable claim identities, scope und policy version idempotent identifiziert.",
+        "Severity beruecksichtigt deterministic evidence, source authority, blast radius, freshness und user impact, entscheidet aber nicht truth.",
+        "Mehrere Seiten koennen auf denselben Konflikt verweisen, ohne doppelte Entscheidungen zu erzeugen.",
+        "partial oder unknown coverage senkt confidence und wird im Finding angezeigt.",
+        "Unvertraegliche Candidate-Typen werden nicht still zusammengefuehrt.",
+        "Aggregation ist deterministisch und erzeugt einen erklaerbaren score breakdown."
+      ]
+    },
+    {
+      "id": "KHW-020",
+      "title": "Versionierte Evaluation-Suite fuer Konflikte, Duplikate und Staleness erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "evaluation",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-014",
+        "KHW-015",
+        "KHW-016",
+        "KHW-017",
+        "KHW-018"
+      ],
+      "files_to_create": [
+        "tests/fixtures/knowledge_hygiene/fixture_manifest.json",
+        "tests/benchmarks/knowledge_hygiene/test_knowledge_hygiene_benchmark.py",
+        "docs/benchmarks/knowledge-hygiene.md"
+      ],
+      "description": "Realistische deutsch- und englischsprachige Fixtures fuer echte Konflikte, zeitliche Updates, Ziel-vs-Ist, semantische Duplikate, nicht-konfligierende Aussagen und Prompt-Injection erstellen.",
+      "acceptance_criteria": [
+        "Fixture enthaelt mindestens numeric, date, version, negation, status, scoped, temporal, duplicate und non-conflict Faelle.",
+        "Benchmark misst precision, recall, F1, false-positive rate, coverage, candidate count, latency, token estimate und provider profile getrennt.",
+        "Deterministische Checks laufen offline und reproduzierbar in CI.",
+        "Optionale reale lokale Modelle werden separat berichtet und nie mit Fake/Hash-Modellen gemittelt.",
+        "High-severity deterministische Findings besitzen ein explizites Mindest-Precision-Gate.",
+        "Benchmark behauptet keine vollstaendige semantische Widerspruchserkennung."
+      ]
+    },
+    {
+      "id": "KHW-021",
+      "title": "Uncertainty-, Coverage- und No-False-Zero-Regeln durchsetzen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "policy",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-004",
+        "KHW-019",
+        "KHW-020"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_hygiene_coverage_service.py",
+        "tests/test_knowledge_hygiene_coverage_service.py"
+      ],
+      "description": "Verhindern, dass unvollstaendige Scans, fehlende Modelle oder begrenzte Candidate-Budgets als null Konflikte oder gesunder Wissensbestand dargestellt werden.",
+      "acceptance_criteria": [
+        "Jeder Run und Health Snapshot enthaelt input totals, processed totals, skipped counts, budget limits und coverage status.",
+        "UI/API unterscheiden zero findings bei complete coverage von unknown findings bei partial/unknown coverage.",
+        "Provider- oder Index-Ausfall fuehrt zu degraded/unavailable statt success mit null.",
+        "Pagination und Sampling werden in der Health-Projektion sichtbar ausgewiesen.",
+        "Coverage kann nur vom Hub aus verifizierten Run- und Source-Daten berechnet werden.",
+        "Negativtests pruefen manipulierte completeness flags aus Worker-Output."
+      ]
+    },
+    {
+      "id": "KHW-022",
+      "title": "Hub-eigenen KnowledgeConflict Lifecycle und Repository implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-003",
+        "KHW-019",
+        "KHW-021"
+      ],
+      "files_to_create": [
+        "agent/repositories/knowledge_conflict_repository.py",
+        "agent/services/knowledge_conflict_lifecycle_service.py",
+        "tests/test_knowledge_conflict_lifecycle_service.py"
+      ],
+      "description": "Konflikte mit expliziter State Machine, immutable revisions, optimistic concurrency und projektgebundener Idempotenz persistieren.",
+      "acceptance_criteria": [
+        "Nur erlaubte Zustandsuebergaenge aus dem Domain Contract sind moeglich.",
+        "Jede Mutation verlangt expected revision oder digest und scheitert bei stale state.",
+        "Claim- oder Source-Aenderung kann einen resolved Konflikt als reopened markieren, aber nicht Historie loeschen.",
+        "Konflikt und Decisions sind getrennte Aggregate mit eindeutiger Ownership.",
+        "Cross-Project- und Cross-Tenant-Referenzen werden fail-closed blockiert.",
+        "Repository- und Service-Tests decken Race, Replay, reopen und archive/read-history ab."
+      ]
+    },
+    {
+      "id": "KHW-023",
+      "title": "Digest-gebundenen Human-Decision-Vertrag und Berechtigungen definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "governance",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-003",
+        "KHW-005",
+        "KHW-022"
+      ],
+      "files_to_create": [
+        "ananta_contracts/knowledge_conflict_decision.py",
+        "docs/security/knowledge-conflict-decision-policy.md",
+        "tests/test_knowledge_conflict_decision_contract.py"
+      ],
+      "description": "Entscheidungsaktionen, Rollenrechte, optionales Vier-Augen-Prinzip, Begruendung, stale-digest-Verhalten und source-correction authority festlegen.",
+      "acceptance_criteria": [
+        "Actor identity stammt ausschliesslich aus authentifizierter Hub-Identity und nie aus Request-Body.",
+        "Decision bindet exact conflict revision/digest und die betrachteten Claim-Revisionen.",
+        "Policy kann fuer hohe severity oder sensible Quellen eine zweite Freigabe verlangen.",
+        "LLM, Worker und automatisierte Background Jobs besitzen keine decide capability.",
+        "Mark not_a_conflict und keep_both erfordern eine nachvollziehbare Begruendung.",
+        "Decision-Vertrag ist getrennt von optionaler Write-back-Approval."
+      ]
+    },
+    {
+      "id": "KHW-024",
+      "title": "Human KnowledgeConflictDecisionService implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-022",
+        "KHW-023"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_conflict_decision_service.py",
+        "tests/test_knowledge_conflict_decision_service.py"
+      ],
+      "description": "Autorisierte Entscheidungen validieren, immutable Decision records erzeugen, Konfliktzustand aktualisieren und Folgeaktionen als Hub-eigene Intents materialisieren.",
+      "acceptance_criteria": [
+        "Decision und Konflikttransition committen atomar oder gar nicht.",
+        "Idempotency key verhindert doppelte Entscheidungen bei Client-Replay.",
+        "Stale conflict digest erzeugt conflict_changed und keine Mutation.",
+        "keep_both_scoped und keep_both_temporal speichern explizite qualifier statt eine Aussage zu loeschen.",
+        "require_source_correction erzeugt nur einen Hub-owned correction intent, noch keinen Write-back.",
+        "AuditEvent enthaelt actor, action, reason, before/after revision und source refs ohne sensible Inhalte zu leaken."
+      ]
+    },
+    {
+      "id": "KHW-025",
+      "title": "Source-Correction-Proposal und Patch-Artefakt-Pipeline bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "workflow",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-024"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_source_correction_service.py",
+        "worker/knowledge_hygiene/source_correction_handler.py",
+        "schemas/knowledge_hygiene/source_correction_proposal.v1.json",
+        "tests/test_knowledge_source_correction_service.py"
+      ],
+      "description": "Aus einer menschlichen Entscheidung einen bounded Correction Proposal mit Zielquelle, erwarteter Revision, Patch, Begruendung und Auswirkungen erzeugen.",
+      "acceptance_criteria": [
+        "Proposal ist an conflict decision, exact source revision/hash und erlaubten locator gebunden.",
+        "Worker liefert nur einen Patch-Vorschlag; Hub prueft Pfad, Format, Umfang und protected regions.",
+        "Originalquelle bleibt bis zu separater Write-back-Approval unveraendert.",
+        "Nicht schreibbare Quellen erhalten ein exportierbares Patch/Instruction-Artifact statt Fehler oder stilles Ueberschreiben.",
+        "Three-way diff und projected claim impact werden als Artifact gespeichert.",
+        "Correction Proposal kann verworfen oder neu erzeugt werden, ohne die Conflict Decision zu verlieren."
+      ]
+    },
+    {
+      "id": "KHW-026",
+      "title": "Explizit freizugebende Source-Write-back-Adapter implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "integration",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-005",
+        "KHW-006",
+        "KHW-023",
+        "KHW-025"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_source_writeback_port.py",
+        "agent/services/obsidian_source_writeback_adapter.py",
+        "tests/test_knowledge_source_writeback_adapters.py"
+      ],
+      "description": "Narrow ports fuer opt-in Write-back implementieren; MVP fuer konfigurierte Obsidian-Vaults, andere Source-Typen liefern nur Patch-Artefakte.",
+      "acceptance_criteria": [
+        "Write-back ist default-disabled und benoetigt Source capability, policy grant, exact digest und separate Approval.",
+        "Adapter schreibt nur in konfigurierte allowed roots und blockiert traversal, symlinks, private/excluded paths und unerwartete Dateitypen.",
+        "Aenderung erfolgt atomar mit Backup/previous revision ref oder scheitert ohne Teilzustand.",
+        "Git/GitHub-, externe und read-only Sources werden im MVP nicht direkt veraendert.",
+        "Write-back Result enthaelt new hash, old hash, actor, decision ref und verification status.",
+        "Concurrent source change fuehrt zu source_revision_changed und verlangt neue Vorschau/Freigabe."
+      ]
+    },
+    {
+      "id": "KHW-027",
+      "title": "Re-Ingest, Re-Evaluation und belegtes Schliessen von Konflikten implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "workflow",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-024",
+        "KHW-025",
+        "KHW-026"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_conflict_recheck_service.py",
+        "tests/test_knowledge_conflict_recheck_service.py"
+      ],
+      "description": "Nach Quellkorrektur oder neuer Source-Revision einen neuen Hub-owned Ingest/Recheck starten und resolved nur bei passender neuer Evidenz setzen.",
+      "acceptance_criteria": [
+        "Recheck bindet decision, correction result, new source revision, new index run und relevant claim set.",
+        "Konflikt bleibt rechecking oder reopened, wenn Correction nicht indexiert, Coverage partial oder Widerspruch weiter vorhanden ist.",
+        "Resolved speichert closure evidence und exact run/claim revisions.",
+        "Eine spaetere widersprechende Revision kann denselben Konflikt deterministisch reopen oder einen neuen scoped Konflikt erzeugen.",
+        "Projection und Health Snapshot wechseln erst nach erfolgreichem Hub-Commit auf den neuen Stand.",
+        "Crash-Recovery und Replay sind idempotent."
+      ]
+    },
+    {
+      "id": "KHW-028",
+      "title": "Decision-, Correction- und Reopen-Historie vollstaendig auditierbar machen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "audit",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-024",
+        "KHW-027"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_hygiene_audit_projection_service.py",
+        "tests/test_knowledge_hygiene_audit_projection.py"
+      ],
+      "description": "Eine autorisierte Timeline aus Findings, Decisions, Approvals, Patches, Write-backs, Re-Ingests und Rechecks bereitstellen.",
+      "acceptance_criteria": [
+        "Timeline ist revisionsgebunden, chronologisch stabil und verweist auf immutable Artifact/Audit IDs.",
+        "Keine UI-Aktion kann historische Decision records aendern oder entfernen.",
+        "Sensitive excerpts werden rollen- und policy-basiert redacted, waehrend Hashes und reason codes sichtbar bleiben.",
+        "Export fuer Audit/Review ist deterministisch und enthaelt Coverage und Policy-Version.",
+        "Reopen zeigt die urspruengliche Entscheidung und die ausloesende neue Evidenz.",
+        "Audit-Read-Zugriffe selbst werden fuer sensible Projekte protokolliert."
+      ]
+    },
+    {
+      "id": "KHW-029",
+      "title": "Knowledge-Hygiene-API mit projektspezifischen Read- und Decision-Endpunkten bereitstellen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "api",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-010",
+        "KHW-022",
+        "KHW-024",
+        "KHW-028"
+      ],
+      "files_to_create": [
+        "agent/routes/knowledge_hygiene.py",
+        "tests/test_knowledge_hygiene_routes.py"
+      ],
+      "description": "Read APIs fuer Runs, Claims, Wiki-Seiten, Konflikte, Decisions, Timeline und Health sowie streng getrennte Decision/Correction Commands bereitstellen.",
+      "acceptance_criteria": [
+        "Listen sind cursor-paginiert, bounded und nach state, severity, source, page, entity und updated_at filterbar.",
+        "Detailantworten enthalten revisions, digests, coverage, both claims, source refs und allowed actions.",
+        "Commands verlangen idempotency key, expected digest und CSRF/AuthZ-Schutz.",
+        "API gibt fuer partial/unknown coverage keine irrefuehrenden Nullwerte aus.",
+        "Routen enthalten keine Detection-, Decision- oder Projection-Businesslogik.",
+        "OpenAPI/API-Spezifikation und Contract-Tests werden aktualisiert."
+      ]
+    },
+    {
+      "id": "KHW-030",
+      "title": "KnowledgeHealthSnapshot und trendfaehiges Read Model implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "backend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-019",
+        "KHW-021",
+        "KHW-022",
+        "KHW-027"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_health_projection_service.py",
+        "agent/repositories/knowledge_health_snapshot_repository.py",
+        "tests/test_knowledge_health_projection_service.py"
+      ],
+      "description": "Revision-bound Health Snapshots mit Konflikten, Duplikaten, Staleness, Orphans, Coverage, offenen Entscheidungen, Sources, Seitenwachstum und Trends erzeugen.",
+      "acceptance_criteria": [
+        "Snapshot enthaelt project/source/index/run revisions und completeness evidence.",
+        "Counts werden nach state, severity, finding type, source type und page type aufgeschluesselt.",
+        "Trends vergleichen nur kompatible scopes und policy/profile versions oder markieren den Bruch.",
+        "Orphan bedeutet klar definiert: keine eingehende/ausgehende Wissensrelation oder keine belegte Source-Referenz.",
+        "Open decision count und oldest unresolved age sind enthalten.",
+        "Snapshot wird atomar aus kanonischem Zustand erzeugt und nicht aus UI-Caches."
+      ]
+    },
+    {
+      "id": "KHW-031",
+      "title": "Angular Knowledge-Health-Dashboard bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-029",
+        "KHW-030"
+      ],
+      "files_to_create": [
+        "frontend-angular/src/app/features/knowledge-hygiene/knowledge-health-dashboard.component.ts",
+        "frontend-angular/src/app/features/knowledge-hygiene/knowledge-health-api.service.ts",
+        "frontend-angular/src/app/features/knowledge-hygiene/knowledge-health.models.ts"
+      ],
+      "description": "Ein kompaktes Dashboard fuer aktuelle Gesundheit, Coverage, Trends und offene Arbeit mit Drill-down bereitstellen.",
+      "acceptance_criteria": [
+        "Dashboard zeigt Konflikte, exakte/semantische Duplikate, stale claims, Orphans, offene Decisions und Run-Fehler getrennt.",
+        "Jede Zahl zeigt scope, as-of revision/time und coverage status.",
+        "Partial/unknown/unavailable wird visuell deutlich von complete-zero unterschieden.",
+        "Filterzustand ist URL-/route-kompatibel und kann auf Conflict Workbench drillen.",
+        "Keine Businessentscheidung oder Quellenmutation findet im Client statt.",
+        "Komponenten nutzen Signals/OnPush und besitzen Accessibility- sowie Functional-Tests."
+      ]
+    },
+    {
+      "id": "KHW-032",
+      "title": "Angular Conflict Workbench fuer menschliche Entscheidungen implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "frontend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-023",
+        "KHW-024",
+        "KHW-025",
+        "KHW-029"
+      ],
+      "files_to_create": [
+        "frontend-angular/src/app/features/knowledge-hygiene/conflict-workbench.component.ts",
+        "frontend-angular/src/app/features/knowledge-hygiene/conflict-decision-dialog.component.ts",
+        "frontend-angular/src/app/features/knowledge-hygiene/source-correction-preview.component.ts"
+      ],
+      "description": "Beide Claims, Quellen, Zeit/Scope, Evidence, Coverage, Policy-Erklaerung, Historie und erlaubte Decision Actions nebeneinander darstellen.",
+      "acceptance_criteria": [
+        "Workbench zeigt niemals nur eine vom Modell bevorzugte Seite.",
+        "Decision Submit bindet den angezeigten exact conflict digest und blockiert bei inzwischen geaendertem Zustand.",
+        "keep_both erfordert Scope- oder Zeitqualifier; not_a_conflict und defer erfordern Begruendung.",
+        "Correction Preview nutzt einen Three-way Diff und zeigt Zielquelle, erwarteten Hash und betroffene Claims/Seiten.",
+        "Write-back besitzt eine separate, deutlich riskantere Approval-Aktion.",
+        "E2E-Tests pruefen stale UI, doppelte Klicks, fehlende Rechte und concurrent source change."
+      ]
+    },
+    {
+      "id": "KHW-033",
+      "title": "Curated-Wiki-Browser mit Markdown-, Quellen- und Revisionsansicht bauen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-010",
+        "KHW-012",
+        "KHW-029"
+      ],
+      "files_to_create": [
+        "frontend-angular/src/app/features/knowledge-hygiene/curated-wiki-browser.component.ts",
+        "frontend-angular/src/app/features/knowledge-hygiene/curated-wiki-page-panel.component.ts"
+      ],
+      "description": "Themen-, Personen-, Projekt-, Quellen- und Syntheseseiten im selben System lesen, Claims und Warnungen aufklappen und Revisionen vergleichen.",
+      "acceptance_criteria": [
+        "Seitenliste ist nach Typ, Tag/Entity, Source, conflict state und updated_at filterbar.",
+        "Jeder Abschnitt zeigt Quellen und Conflict-Warnings mit Link zur Workbench.",
+        "Revision Compare zeigt claim additions/removals, source changes und decision effects.",
+        "Rendered Markdown wird sanitisiert und fuehrt keine eingebetteten Scripts oder Dataview-Queries aus.",
+        "Browser bleibt read-only fuer kanonische Wiki-Seiten; Aenderungen laufen ueber Source/Decision-Flows.",
+        "Leere oder unvollstaendige Seiten zeigen coverage und missing evidence."
+      ]
+    },
+    {
+      "id": "KHW-034",
+      "title": "Knowledge-Health- und Conflict-Signale in den CodeCompass-Graph integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "frontend",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-013",
+        "KHW-029",
+        "KHW-030"
+      ],
+      "files_to_update": [
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-viewer/graph-viewer.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/components/graph-detail-panel/graph-detail-panel.component.ts",
+        "frontend-angular/src/app/features/codecompass-graph/services/graph-visual-projection.service.ts"
+      ],
+      "description": "Conflict-, stale-, duplicate- und orphan-Zustaende als additive, revisionsgebundene Marker und Filter im vorhandenen Graph Viewer anzeigen.",
+      "acceptance_criteria": [
+        "Health-Marker ersetzen nicht Domain-/Relation-Farben, sondern sind ein getrenntes visuelles Signal.",
+        "Klick auf Conflict-Knoten oeffnet die Workbench; Klick auf Wiki-Knoten oeffnet die belegte Seite.",
+        "Graph zeigt Scope/Revision und warnt bei stale oder unvollstaendigem Supplement.",
+        "Filter fuer finding type und state funktionieren in simple, 2D und 3D konsistent.",
+        "Grosse Graphen behalten staged/lossless loading und render limits.",
+        "Visual Regression und Functional Tests pruefen Marker, Legende und Navigation."
+      ]
+    },
+    {
+      "id": "KHW-035",
+      "title": "Curated Wiki als konfliktbewusste Retrieval-Quelle integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "retrieval",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-010",
+        "KHW-012",
+        "KHW-019",
+        "KHW-021"
+      ],
+      "files_to_create": [
+        "agent/services/curated_wiki_retrieval_adapter.py",
+        "tests/test_curated_wiki_retrieval_adapter.py"
+      ],
+      "files_to_update": [
+        "agent/services/retrieval_source_contract.py",
+        "agent/services/retrieval_source_adapters.py",
+        "agent/services/retrieval_query_builder.py"
+      ],
+      "description": "Curated-Wiki-Seiten und Claims additiv abrufbar machen, dabei Synthese klar von Originalquellen trennen und offene Konflikte bis in den Modellkontext erhalten.",
+      "acceptance_criteria": [
+        "Source type curated_wiki oder kompatibles Subtype-Mapping ist versioniert und bricht bestehende source_types nicht.",
+        "Jeder Treffer enthaelt page/claim/source/conflict refs, revision, coverage und projection hash.",
+        "Unaufgeloeste Konflikte werden als warnings und beide Claim-Seiten geliefert, nicht durch Ranking versteckt.",
+        "Original Source Evidence kann fuer kritische Claims gezielt nachgeladen werden.",
+        "Curated Wiki darf bei Repository-Truth-Fragen keine complete RIG-Evidence ueberschreiben.",
+        "Benchmark vergleicht raw source retrieval, curated wiki und hybrid mode getrennt."
+      ]
+    },
+    {
+      "id": "KHW-036",
+      "title": "Hub-owned KnowledgeHygieneRun State Machine und Worker-Dispatch integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "orchestration",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-006",
+        "KHW-008",
+        "KHW-009",
+        "KHW-011",
+        "KHW-017",
+        "KHW-019",
+        "KHW-022"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_hygiene_run_service.py",
+        "agent/services/knowledge_hygiene_worker_dispatch_service.py",
+        "tests/test_knowledge_hygiene_run_service.py"
+      ],
+      "description": "Manuelle und optionale index-completion-triggered Runs mit Phasen extract, admit, compare, synthesize, project und finalize hub-gesteuert ausfuehren.",
+      "acceptance_criteria": [
+        "Run ist an project, source/index revisions, policy hash, profile, budgets und actor gebunden.",
+        "Worker koennen keine Run-Phasen, Folge-Tasks oder finalen Status selbst setzen.",
+        "Jede Phase besitzt idempotency key, lease, retry policy und durable checkpoint.",
+        "Partial failure publiziert keine gemischte Claim/Page/Health Revision als complete.",
+        "Cancel und restart behalten Provenance und verhindern stale Worker-Result-Acceptance.",
+        "Auto-run ist default-off und wird nur vom Hub nach erfolgreicher Index-Admission ausgeloest."
+      ]
+    },
+    {
+      "id": "KHW-037",
+      "title": "Observability, Run Reports und Kosten-/Qualitaetsmetriken ergaenzen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-020",
+        "KHW-021",
+        "KHW-030",
+        "KHW-036"
+      ],
+      "files_to_create": [
+        "agent/services/knowledge_hygiene_metrics_service.py",
+        "docs/operations/knowledge-hygiene-observability.md"
+      ],
+      "description": "Pro Run und Phase Umfang, Coverage, Kandidaten, Decisions, Rechecks, Latenz, Token, Modellprofile, Fehler und Projection-Deltas erfassen.",
+      "acceptance_criteria": [
+        "Metriken enthalten keine Raw Secrets oder ungefilterte sensible Claim-Texte.",
+        "Deterministische und LLM-basierte Kandidaten werden getrennt ausgewiesen.",
+        "Tokenwerte sind als measured oder estimated markiert und nicht vermischt.",
+        "Run Report verbindet source revision, index run, worker executions, claims, conflicts, pages und health snapshot.",
+        "Cardinality ist begrenzt; IDs werden nur in Traces/Artifacts, nicht als unbounded metric labels genutzt.",
+        "Fehler besitzen stabile reason codes und operator actions."
+      ]
+    },
+    {
+      "id": "KHW-038",
+      "title": "End-to-End-Tests fuer Ingest bis menschlich bestaetigte Konfliktloesung bauen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "test",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-027",
+        "KHW-029",
+        "KHW-032",
+        "KHW-035",
+        "KHW-036"
+      ],
+      "files_to_create": [
+        "tests/e2e/test_knowledge_hygiene_full_flow.py",
+        "frontend-angular/tests/knowledge-hygiene-flow.spec.ts",
+        "scripts/run_knowledge_hygiene_evidence.py"
+      ],
+      "description": "Offline-Fixtures durch Source Admission, Claim Extraction, Conflict Detection, Wiki Projection, Human Decision, Patch Preview, Re-Ingest, Recheck, Resolution und Dashboard verfolgen.",
+      "acceptance_criteria": [
+        "E2E beweist, dass drei echte Konflikte erkannt und ein harmloser bestaetigender Claim nicht faelschlich markiert wird.",
+        "Beide Claims und Quellen bleiben vor und nach Decision in Historie sichtbar.",
+        "Konflikt schliesst nicht vor erfolgreichem Re-Ingest/Recheck.",
+        "Stale digest, fehlende Rechte, prompt injection, cross-project refs und source race scheitern fail-closed.",
+        "Feature flags off reproduzieren bestehendes Verhalten ohne neue Calls oder Mutationen.",
+        "Evidence Script erzeugt maschinenlesbare Release-Artefakte mit Hashes und Status."
+      ]
+    },
+    {
+      "id": "KHW-039",
+      "title": "Inkrementelle Skalierung fuer grosse Vaults und Claim-Mengen absichern",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "performance",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-014",
+        "KHW-017",
+        "KHW-030",
+        "KHW-036"
+      ],
+      "files_to_create": [
+        "tests/performance/test_knowledge_hygiene_scale.py",
+        "docs/performance/knowledge-hygiene.md"
+      ],
+      "description": "Ein Szenario mit mindestens 2000 Notizen, 4000 Dateien und vielen Claim-Revisionen ohne quadratische globale Vergleiche testen.",
+      "acceptance_criteria": [
+        "Initial- und inkrementeller Lauf werden getrennt gemessen.",
+        "Neue Claims werden ueber entity/predicate/scope buckets gegen bounded Kandidatenmengen verglichen.",
+        "Kein HTTP-Endpunkt laedt unbounded Claims, Konflikte oder komplette Wiki-Historien.",
+        "Projection und Health Snapshots nutzen revision-bound caches mit klarer Invalidierung.",
+        "SLOs fuer Run-Phasen, Memory, DB queries und UI pagination werden nach Baseline festgelegt und als Gates automatisiert.",
+        "Degraded behavior bei Budgetgrenze setzt coverage partial und verliert keine kanonischen Daten."
+      ]
+    },
+    {
+      "id": "KHW-040",
+      "title": "Stufenweisen Rollout von observe-only bis controlled write-back definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "rollout",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-005",
+        "KHW-006",
+        "KHW-020",
+        "KHW-038",
+        "KHW-039"
+      ],
+      "files_to_create": [
+        "docs/operations/knowledge-hygiene-rollout.md",
+        "docs/operations/knowledge-hygiene-rollback.md"
+      ],
+      "description": "Rollout-Phasen disabled, observe-only, manual review, curated-wiki read, conflict decisions, patch-only und controlled Obsidian write-back mit Exit-/Rollback-Kriterien definieren.",
+      "acceptance_criteria": [
+        "Jede Phase besitzt messbare Entry/Exit-Kriterien fuer Qualitaet, Coverage, Sicherheit und Operator Readiness.",
+        "Semantic candidate stages starten nach deterministischen Checks und eigener Evaluation.",
+        "Write-back wird zuletzt, pro Source und nur nach Backup/Restore-Test aktiviert.",
+        "Rollback stoppt neue Runs/Mutationen und erhaelt Claims, Decisions, Audit und Source-Revisionshistorie.",
+        "Shadow/observe findings beeinflussen weder Retrieval noch UI-Gesundheitsurteil ohne Kennzeichnung.",
+        "Operator kann problematische Provider/Profile gezielt deaktivieren, ohne den gesamten KnowledgeIndex zu verlieren."
+      ]
+    },
+    {
+      "id": "KHW-041",
+      "title": "Produkt-, Operator- und Entwicklerdokumentation verfassen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "documentation",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-029",
+        "KHW-032",
+        "KHW-035",
+        "KHW-037",
+        "KHW-040"
+      ],
+      "files_to_create": [
+        "docs/knowledge-hygiene.md",
+        "docs/operator/knowledge-conflict-workbench.md",
+        "docs/development/knowledge-hygiene-extension-guide.md"
+      ],
+      "description": "Verstaendlich dokumentieren, was Claims, Kandidaten, Konflikte, Decisions, Curated Wiki, Coverage und Health bedeuten und was das System bewusst nicht garantiert.",
+      "acceptance_criteria": [
+        "Produktdoku erklaert, dass KI Konflikte findet, aber Menschen entscheiden.",
+        "Operator-Runbook deckt degraded runs, stuck rechecks, stale decisions, write-back errors und rollback ab.",
+        "Entwicklerguide beschreibt Ports, Schemas, Strategies, Tests und neue Source/Validator-Adapter.",
+        "Doku unterscheidet Ananta Curated Wiki von Wikipedia/WikiRetrievalIndexService.",
+        "Doku erklaert kanonischen Store versus Markdown-Projektion.",
+        "UI-Hilfe verlinkt direkt auf Conflict/Health-Erklaerungen."
+      ]
+    },
+    {
+      "id": "KHW-042",
+      "title": "Release-Gates und finale Track-Abnahme automatisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "release",
+      "progress_percent": 0,
+      "depends_on": [
+        "KHW-020",
+        "KHW-038",
+        "KHW-039",
+        "KHW-040",
+        "KHW-041"
+      ],
+      "files_to_create": [
+        "scripts/run_knowledge_hygiene_release_gate.py",
+        "docs/status/knowledge-hygiene-release-evidence.md"
+      ],
+      "files_to_update": [
+        ".github/workflows/quality-and-docs.yml"
+      ],
+      "description": "Schema-, Contract-, Security-, Quality-, E2E-, Performance-, UI- und Rollout-Nachweise in ein maschinenlesbares Release-Gate zusammenfuehren.",
+      "acceptance_criteria": [
+        "Gate prueft alle Knowledge-Hygiene-Schemas und Todo-Konsistenz.",
+        "Gate prueft deterministic benchmark, optional semantic benchmark getrennt, Security-Negativtests und E2E-Evidence.",
+        "Gate blockt autonome decision/write-back paths, fehlende coverage labels und ungebundene source refs.",
+        "Gate beweist feature-flags-off compatibility und observe-only safety.",
+        "Release Evidence enthaelt Commit, Konfiguration, Provider/Profile, Fixtures, Metriken, bekannte Grenzen und Artifact hashes.",
+        "Track darf erst nach dokumentierter manueller Workbench-Abnahme und automatischem Gate auf done gesetzt werden."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "KHW-001",
+    "KHW-002",
+    "KHW-003",
+    "KHW-004",
+    "KHW-005",
+    "KHW-007",
+    "KHW-008",
+    "KHW-009",
+    "KHW-017",
+    "KHW-019",
+    "KHW-021",
+    "KHW-022",
+    "KHW-023",
+    "KHW-024",
+    "KHW-027",
+    "KHW-029",
+    "KHW-030",
+    "KHW-032",
+    "KHW-035",
+    "KHW-036",
+    "KHW-038",
+    "KHW-040",
+    "KHW-042"
+  ],
+  "tasks_status_summary": {
+    "total": 42,
+    "by_status": {
+      "todo": 42,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 25,
+      "P1": 17,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 11,
+      "high": 16,
+      "critical": 15
+    },
+    "critical_path": {
+      "total": 23,
+      "done": 0,
+      "remaining": 23
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 42,
+    "by_type": {
+      "analysis": 1,
+      "api": 1,
+      "architecture": 1,
+      "audit": 1,
+      "backend": 9,
+      "config": 1,
+      "deduplication": 2,
+      "documentation": 1,
+      "evaluation": 1,
+      "export": 1,
+      "frontend": 4,
+      "governance": 1,
+      "graph": 1,
+      "integration": 1,
+      "observability": 1,
+      "orchestration": 1,
+      "performance": 1,
+      "policy": 2,
+      "release": 1,
+      "retrieval": 1,
+      "rollout": 1,
+      "schema": 1,
+      "security": 1,
+      "test": 1,
+      "validation": 1,
+      "worker": 2,
+      "workflow": 2
+    }
+  },
+  "progress_summary": {
+    "state": "planned",
+    "todo_remaining": 42,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "next_stage": "M1 baseline and ADR",
+    "release_mode": "feature-gated additive rollout",
+    "writeback_default": "disabled",
+    "human_decision_required": true
+  },
+  "summary_notes": [
+    "Die zentrale neue Faehigkeit ist nicht ein weiterer Graph oder Vector Store, sondern ein revisionssicherer Claim-, Konflikt- und Entscheidungs-Lifecycle.",
+    "Das Curated Wiki ist eine belegte, reproduzierbare Sicht auf kanonische Claims und Sources; Originalquellen und Audit-Historie bleiben massgeblich.",
+    "Semantische Modelle liefern Kandidaten. Deterministische Regeln, Source/Evidence-Vertraege und Menschen kontrollieren Admission und Entscheidung.",
+    "Ein Konflikt gilt erst nach korrigierter Source-Revision, Re-Ingest und erfolgreicher Re-Evaluation als geloest.",
+    "Knowledge Health muss immer Coverage, Scope, Revision und Aktualitaet zeigen; null ohne complete coverage ist unzulaessig."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target-outcome",
+      "title": "Zielzustand",
+      "items": [
+        "Automatisch gepflegte, belegte Themen-, Personen-, Projekt-, Quellen- und Syntheseseiten",
+        "Allgemeine Konflikt-, Duplicate-, Staleness- und Orphan-Findings mit Coverage",
+        "Menschlicher, digest-gebundener Decision-Workflow mit unveraenderbarer Historie",
+        "Optionaler, separat freizugebender Source-Correction- und Recheck-Flow",
+        "Knowledge-Health-Dashboard und konfliktbewusste Graph-/Retrieval-Integration"
+      ]
+    },
+    {
+      "summary_id": "safety-boundary",
+      "title": "Nicht verhandelbare Sicherheitsgrenze",
+      "items": [
+        "Kein LLM und kein Worker entscheidet Wahrheit oder schreibt ungefragt Quellen um.",
+        "Keine Aufloesung ohne menschliche Entscheidung und keine Schliessung ohne neue gepruefte Evidenz.",
+        "Keine Gesundheitsbehauptung ohne Scope, Revision und Coverage.",
+        "Keine Parallelarchitektur neben vorhandenen Ananta Retrieval-, Source-, Approval- und Audit-Vertraegen."
+      ]
+    }
+  ]
+}
