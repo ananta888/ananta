@@ -348,8 +348,7 @@ get isAndroidNative(): boolean {
 
   ngOnInit() {
     this.shell.init();
-    this.bridge.initFromUrlParams();
-    this._applyTuiAuthIfPresent();
+    void this.bridge.initFromUrlParams().then(() => this._applyTuiAuthIfPresent());
     void this.bootstrapEmbeddedRuntime();
     this.authSub = this.auth.token$.subscribe((token) => {
       if (token) {

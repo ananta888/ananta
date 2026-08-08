@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any
 
 from client_surfaces.operator_tui.models import FocusPane
 from client_surfaces.operator_tui.windowing.external_window_controller import ExternalWindowController
-from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
 from client_surfaces.operator_tui.windowing.view_models.ai_snake_window_model import build_ai_snake_window_model
 from client_surfaces.operator_tui.windowing.view_models.center_window_model import build_center_window_model
+from client_surfaces.operator_tui.windowing.window_surface import ExternalWindowState
 
 if TYPE_CHECKING:
     from client_surfaces.operator_tui.interactive import InteractiveOperatorTui
@@ -17,11 +17,13 @@ if TYPE_CHECKING:
 
 def ensure_external_window_controller(tui: InteractiveOperatorTui) -> ExternalWindowController:
     if tui._external_window_controller is None:
-        from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
         from client_surfaces.operator_tui.windowing.backends.wslg_webview_backend import WslgWebviewBackend
+        from client_surfaces.operator_tui.windowing.bridge_server import ExternalWindowBridgeServer
+
         tui._external_window_controller = ExternalWindowController(
             surface=WslgWebviewBackend(),
             bridge=ExternalWindowBridgeServer(),
+            auth_context_provider=lambda: _build_auth_context_for_window(tui),
         )
     return tui._external_window_controller
 
@@ -44,13 +46,14 @@ def tick_center_browser(tui: InteractiveOperatorTui) -> None:
         try:
             from client_surfaces.operator_tui.visual.browser.browser_mode_controller import BrowserModeController
             from client_surfaces.operator_tui.visual.browser.center_content_snapshot import CenterContentSnapshot
+
             size = shutil.get_terminal_size((120, 32))
             wide_browser_layout = bool(game.get("center_browser_wide_layout")) or (
                 str(os.environ.get("ANANTA_TUI_BROWSER_WIDE_LAYOUT") or "").strip().lower()
                 in {"1", "true", "yes", "on"}
             )
             if wide_browser_layout:
-                left_w, detail_w = ((12, 18) if size.columns >= 100 else (10, 14))
+                left_w, detail_w = (12, 18) if size.columns >= 100 else (10, 14)
             else:
                 left_w, detail_w = (22, 34)
             center_w = max(20, size.columns - left_w - detail_w - 6)
@@ -60,9 +63,13 @@ def tick_center_browser(tui: InteractiveOperatorTui) -> None:
                 ctrl.enter_url(url, cols=center_w, rows=body_h, allow_remote=True)
             else:
                 snap = CenterContentSnapshot(
-                    content_type="plain_text", title="Browser",
-                    source_text="(kein Inhalt)", html_text="", metadata={},
-                    scroll_position=0, unsupported_reason="",
+                    content_type="plain_text",
+                    title="Browser",
+                    source_text="(kein Inhalt)",
+                    html_text="",
+                    metadata={},
+                    scroll_position=0,
+                    unsupported_reason="",
                 )
                 ctrl.enter_browser_mode(snap, cols=center_w, rows=body_h)
             tui._browser_controller = ctrl
@@ -126,17 +133,18 @@ def tick_external_window(tui: InteractiveOperatorTui) -> None:
         game["center_window_active"] = st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
         game["center_window_view_mode"] = str(game.get("center_window_view_mode") or "simple")
         game["center_window_reason_code"] = (
-            "window_ok" if st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING} else (
-                "window_degraded" if st.state == ExternalWindowState.DEGRADED else (
-                    "window_failed" if st.state == ExternalWindowState.FAILED else "window_inactive"
-                )
+            "window_ok"
+            if st.state in {ExternalWindowState.ACTIVE, ExternalWindowState.STARTING}
+            else (
+                "window_degraded"
+                if st.state == ExternalWindowState.DEGRADED
+                else ("window_failed" if st.state == ExternalWindowState.FAILED else "window_inactive")
             )
         )
         msg = (
             f"center window: {st.state.value} backend={st.backend} bridge={st.bridge_host}:{st.bridge_port}"
             f" dropped={st.dropped_events} rejected={st.rejected_actions} accepted={st.accepted_actions}"
-            f" reason_code={game.get('center_window_reason_code')}"
-            + (f" reason={st.reason}" if st.reason else "")
+            f" reason_code={game.get('center_window_reason_code')}" + (f" reason={st.reason}" if st.reason else "")
         )
         game["_cmd_feedback"] = msg
         game["_cmd_feedback_at"] = time.monotonic()
@@ -186,7 +194,9 @@ def build_external_window_state_payload(tui: InteractiveOperatorTui) -> dict[str
     }
 
 
-def apply_external_window_action(tui: InteractiveOperatorTui, action_id: str, args: dict[str, Any] | None = None) -> None:
+def apply_external_window_action(
+    tui: InteractiveOperatorTui, action_id: str, args: dict[str, Any] | None = None
+) -> None:
     aid = str(action_id or "").strip()
     if not aid:
         return
@@ -236,6 +246,7 @@ def apply_external_window_action(tui: InteractiveOperatorTui, action_id: str, ar
 
 def apply_settings_from_browser(tui: InteractiveOperatorTui) -> None:
     from client_surfaces.operator_tui.config.user_config_manager import load_user_config
+
     _SKIP = frozenset({"chat_input_history", "command_input_history"})
     try:
         fresh = load_user_config()
@@ -245,10 +256,12 @@ def apply_settings_from_browser(tui: InteractiveOperatorTui) -> None:
     for key, value in fresh.items():
         if key not in _SKIP:
             game[key] = value
-    tui._set_state(tui.state.with_updates(
-        header_logo_game=game,
-        status_message="Browser: Einstellungen übernommen",
-    ))
+    tui._set_state(
+        tui.state.with_updates(
+            header_logo_game=game,
+            status_message="Browser: Einstellungen übernommen",
+        )
+    )
 
 
 def _build_auth_context_for_window(tui: InteractiveOperatorTui) -> dict[str, str]:
@@ -258,17 +271,15 @@ def _build_auth_context_for_window(tui: InteractiveOperatorTui) -> dict[str, str
     hub_token = ""
     if hub_url:
         try:
-            hub_raw = (
-                os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or ""
-            ).strip()
+            hub_raw = (os.environ.get("ANANTA_AUTH_TOKEN") or os.environ.get("ANANTA_PASSWORD") or "").strip()
             if not hub_raw:
                 from client_surfaces.operator_tui.app import _load_env_file
+
                 _env = _load_env_file()
-                hub_raw = (
-                    _env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or ""
-                ).strip()
+                hub_raw = (_env.get("ANANTA_AUTH_TOKEN") or _env.get("ANANTA_PASSWORD") or "").strip()
             if hub_raw:
                 from client_surfaces.operator_tui.hub_loader import resolve_token
+
                 hub_token = resolve_token(hub_url, hub_raw)
         except Exception:
             pass

@@ -5,6 +5,7 @@ import pathlib
 import socket
 import subprocess
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode, urlparse
@@ -60,12 +61,18 @@ class NoopWindowSurface:
 
 
 class ExternalWindowController:
-    def __init__(self, *, surface: WindowSurface, bridge: ExternalWindowBridgeServer) -> None:
+    def __init__(
+        self,
+        *,
+        surface: WindowSurface,
+        bridge: ExternalWindowBridgeServer,
+        auth_context_provider: Callable[[], dict[str, str]] | None = None,
+    ) -> None:
         self._surface = surface
         self._bridge = bridge
         self._opened_once = False
         self._current_url = ""
-        self._auth_context: dict[str, str] | None = None
+        self._auth_context_provider = auth_context_provider
         self._fallback_server_proc: subprocess.Popen | None = None  # type: ignore[type-arg]
 
     def _ensure_frontend_reachable(self, angular_base: str) -> None:
@@ -91,28 +98,34 @@ class ExternalWindowController:
                 break
 
     def open(self, *, auth_context: dict[str, str] | None = None) -> ExternalWindowStatus:
-        if auth_context is not None:
-            self._auth_context = auth_context
-        self._bridge.start()
+        if self._bridge.status().running:
+            self.close()
+        context = auth_context
+        if context is None and self._auth_context_provider is not None:
+            context = self._auth_context_provider()
         angular_base = os.environ.get("ANANTA_ANGULAR_URL", "http://127.0.0.1:4200").strip()
+        if angular_base:
+            self._bridge.set_allowed_browser_origin(angular_base)
+        self._bridge.start()
         if angular_base:
             self._ensure_frontend_reachable(angular_base)
             bridge_status = self._bridge.status()
-            params: dict[str, str] = {
-                "bridge": f"http://127.0.0.1:{bridge_status.port}",
-                "token": self._bridge.session_token,
-            }
-            ctx = self._auth_context or {}
-            if ctx.get("hub_url"):
-                params["hub_url"] = ctx["hub_url"]
-            if ctx.get("hub_token"):
-                params["hub_token"] = ctx["hub_token"]
-            if ctx.get("oidc_token"):
-                params["oidc_token"] = ctx["oidc_token"]
-            self._current_url = f"{angular_base.rstrip('/')}?{urlencode(params)}"
+            ctx = context or {}
+            self._bridge.publish_auth_context(
+                {
+                    "hub_url": str(ctx.get("hub_url") or ""),
+                    "hub_token": str(ctx.get("hub_token") or ""),
+                    "oidc_token": str(ctx.get("oidc_token") or ""),
+                }
+            )
+            params = {"bridge": f"http://127.0.0.1:{bridge_status.port}"}
+            public_url = f"{angular_base.rstrip('/')}?{urlencode(params)}"
+            launch_url = f"{public_url}#{urlencode({'ananta_window_token': self._bridge.session_token})}"
+            self._current_url = public_url
         else:
-            self._current_url = self._bridge.window_url()
-        health = self._surface.open_window(url=self._current_url)
+            launch_url = self._bridge.window_url()
+            self._current_url = launch_url
+        health = self._surface.open_window(url=launch_url)
         self._opened_once = True
         return self.status(health_override=health)
 
@@ -127,9 +140,9 @@ class ExternalWindowController:
             self._fallback_server_proc = None
         return self.status(health_override=health)
 
-    def restart(self) -> ExternalWindowStatus:
+    def restart(self, *, auth_context: dict[str, str] | None = None) -> ExternalWindowStatus:
         _ = self.close()
-        return self.open(auth_context=self._auth_context)
+        return self.open(auth_context=auth_context)
 
     def publish_state(self, payload: dict[str, Any]) -> None:
         self._bridge.publish_state(payload)

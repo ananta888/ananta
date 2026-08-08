@@ -14,17 +14,23 @@ import { GlobalErrorHandler } from './app/services/global-error-handler';
 import { provideSfuProjectionSignatureVerifier } from './app/services/sfu-projection-signature-verifier.service';
 import { SourceControlProjectInterceptor } from './app/services/source-control-project.interceptor';
 import { SourceControlHubInterceptor } from './app/services/source-control-hub.interceptor';
+import {
+  prepareWindowBridgeBootstrap,
+  WINDOW_BRIDGE_BOOTSTRAP,
+} from './app/services/window-bridge-bootstrap';
 
 /**
  * Shared application bootstrap. Production and the explicit live-E2E entry use
  * the same providers; only the latter installs browser evidence adapters.
  */
-export function bootstrapAnantaApplication() {
+export async function bootstrapAnantaApplication() {
+  const windowBridgeBootstrap = await prepareWindowBridgeBootstrap();
   return bootstrapApplication(AppComponent, {
     providers: [
       provideRouter(routes),
       provideHttpClient(withInterceptorsFromDi()),
       provideAnimations(),
+      { provide: WINDOW_BRIDGE_BOOTSTRAP, useValue: windowBridgeBootstrap },
       { provide: ErrorHandler, useClass: GlobalErrorHandler },
       { provide: HTTP_INTERCEPTORS, useClass: SourceControlHubInterceptor, multi: true },
       { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },

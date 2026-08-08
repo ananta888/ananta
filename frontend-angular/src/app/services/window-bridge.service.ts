@@ -1,5 +1,7 @@
-import { Injectable, OnDestroy } from '@angular/core';
+import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
+
+import { WINDOW_BRIDGE_BOOTSTRAP } from './window-bridge-bootstrap';
 
 export interface BridgeStatePayload {
   [key: string]: unknown;
@@ -25,6 +27,7 @@ export interface TuiAuthContext {
 
 @Injectable({ providedIn: 'root' })
 export class WindowBridgeService implements OnDestroy {
+  private readonly bootstrap = inject(WINDOW_BRIDGE_BOOTSTRAP, { optional: true });
   private bridgeUrl = '';
   private token = '';
   private pollHandle: ReturnType<typeof setInterval> | null = null;
@@ -45,19 +48,12 @@ export class WindowBridgeService implements OnDestroy {
     return this._tuiAuth;
   }
 
-  initFromUrlParams(): void {
-    const params = new URLSearchParams(window.location.search);
-    const bridge = params.get('bridge');
-    const token = params.get('token');
-    if (!bridge || !token) return;
-    this.bridgeUrl = bridge;
-    this.token = token;
-    this._tuiAuth = {
-      hubUrl: params.get('hub_url') ?? '',
-      hubToken: params.get('hub_token') ?? '',
-      oidcToken: params.get('oidc_token') ?? '',
-    };
-    this.connection$.next({ active: false, bridgeUrl: bridge, lastError: null });
+  async initFromUrlParams(): Promise<void> {
+    if (!this.bootstrap) return;
+    this.bridgeUrl = this.bootstrap.bridgeUrl;
+    this.token = this.bootstrap.windowToken;
+    this._tuiAuth = this.bootstrap.auth;
+    this.connection$.next({ active: false, bridgeUrl: this.bridgeUrl, lastError: null });
     this.startPolling();
   }
 
