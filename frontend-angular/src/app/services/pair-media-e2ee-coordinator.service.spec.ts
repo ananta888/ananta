@@ -25,6 +25,8 @@ interface CoordinatorNode {
   readonly closed: ReturnType<typeof vi.fn>;
   readonly outbound: SemanticDataChannelMessage[];
   readonly sent: SemanticDataChannelMessage[];
+  portOpen: boolean;
+  portOpenError: Error | null;
 }
 
 describe('PairMediaE2eeCoordinatorService', () => {
@@ -65,6 +67,59 @@ describe('PairMediaE2eeCoordinatorService', () => {
       expect(ownerSlot.sendContext).toEqual(guestSlot.receiveContext);
       expect(ownerSlot.sendContext.connectionId).toBe(ownerSlot.receiveContext.connectionId);
     }
+  });
+
+  it('reconciles an already-open consent port without an explicit open event', async () => {
+    const owner = node('peer:owner', 'peer:guest');
+    const guest = node('peer:guest', 'peer:owner');
+    owner.portOpen = true;
+    guest.portOpen = true;
+    connect(owner, guest);
+    owner.coordinator.markTopologyNegotiated('session-a');
+    guest.coordinator.markTopologyNegotiated('session-a');
+    expect(owner.coordinator.canActivate('session-a')).toBe(true);
+
+    const ownerActivation = owner.coordinator.activate('session-a');
+    const guestActivation = guest.coordinator.activate('session-a');
+    await pump(owner, guest);
+
+    await expect(ownerActivation).resolves.toMatchObject({ state: 'ready' });
+    await expect(guestActivation).resolves.toMatchObject({ state: 'ready' });
+    expect(countControl(owner, 'hello')).toBe(1);
+    expect(countControl(guest, 'hello')).toBe(1);
+  });
+
+  it('keeps activation pending while the consent port remains closed', async () => {
+    const owner = node('peer:owner', 'peer:guest');
+    bindSink(owner);
+    owner.coordinator.markTopologyNegotiated('session-a');
+    expect(owner.coordinator.canActivate('session-a')).toBe(false);
+
+    const activation = owner.coordinator.activate('session-a');
+    await settle(4);
+
+    expect(owner.outbound).toEqual([]);
+    expect(owner.coordinator.statusFor('session-a')).toMatchObject({
+      state: 'awaiting-peer', reasonCode: 'public_media_local_activation_pending',
+    });
+
+    owner.coordinator.deactivate('session-a', 'test_cleanup');
+    await expect(activation).resolves.toMatchObject({ state: 'inactive', reasonCode: 'test_cleanup' });
+  });
+
+  it('fails closed when consent-port readiness cannot be read', async () => {
+    const owner = node('peer:owner', 'peer:guest');
+    owner.portOpenError = new Error('public_media_consent_channel_state_failed');
+    bindSink(owner);
+    owner.coordinator.markTopologyNegotiated('session-a');
+
+    const activation = owner.coordinator.activate('session-a');
+
+    await expect(activation).resolves.toMatchObject({
+      state: 'failed', reasonCode: 'public_media_consent_channel_state_failed',
+    });
+    expect(owner.closed).toHaveBeenCalledWith('public_media_consent_channel_state_failed');
+    expect(owner.transforms.prepared).toBe(false);
   });
 
   it('binds the exact v2 frame format into the encrypted bilateral hello', async () => {
@@ -215,6 +270,7 @@ function node(localPeerId: string, remotePeerId: string, expiresAtMs = 2_000_000
   const value: CoordinatorNode = {
     coordinator, transforms, crypto: encryption, binding,
     disabled: vi.fn(), closed: vi.fn(), outbound: [], sent: [],
+    portOpen: false, portOpenError: null,
   };
   activeNode(value);
   return value;
@@ -244,6 +300,10 @@ function bindSink(value: CoordinatorNode): void {
 
 function port(value: CoordinatorNode): PairMediaE2eeTransportPort {
   return {
+    isOpen: () => {
+      if (value.portOpenError) throw value.portOpenError;
+      return value.portOpen;
+    },
     send: async message => { value.outbound.push(message); value.sent.push(message); },
     disableMedia: value.disabled,
     failClosed: value.closed,

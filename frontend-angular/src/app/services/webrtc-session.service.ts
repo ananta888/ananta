@@ -92,6 +92,7 @@ export class WebrtcSessionService {
   private pairMediaTransforms = inject(PairMediaE2eeTransformAdapter);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
+  readonly dataChannelState$ = new BehaviorSubject<RTCDataChannelState | 'absent'>('absent');
   readonly dcMessage$ = new Subject<DcMessage>();
   readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
   readonly remoteTrack$ = new Subject<RTCTrackEvent>();
@@ -141,6 +142,7 @@ export class WebrtcSessionService {
     this.localDescriptionPublicationPending = false;
     this.pendingLocalIce = [];
     this.state$.next('connecting');
+    this.dataChannelState$.next('absent');
     this.sessionStarted$.next(sessionId);
     this.audit('session_start', `initiator=${isInitiator}`);
 
@@ -225,6 +227,8 @@ export class WebrtcSessionService {
             && this.isCurrentSession(preparedPeer, sessionId, generation);
         };
         this.pairMediaE2ee.bindTransport(sessionId, {
+          isOpen: () => matchesPreparedContext()
+            && this.dc?.readyState === 'open',
           send: async message => {
             if (!matchesPreparedContext()) throw new Error('public_media_runtime_superseded');
             const channel = this.dc;
@@ -337,6 +341,7 @@ export class WebrtcSessionService {
     const closingDataChannel = this.dc;
     this.dc = null;
     closingDataChannel?.close();
+    this.dataChannelState$.next('absent');
     this.pc?.close();
     this.pc = null;
     this.signaling.disconnect();
@@ -793,21 +798,28 @@ export class WebrtcSessionService {
     let receiveChain = Promise.resolve();
     let queuedMessages = 0;
     let queuedBytes = 0;
+    let openObserved = false;
     this.sendQueue.bind(dc);
+    this.dataChannelState$.next(dc.readyState);
     dc.onbufferedamountlow = () => {
       if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) this.sendQueue.flush();
     };
-    dc.onopen = () => {
+    const handleOpen = () => {
       if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
+      if (openObserved) return;
+      openObserved = true;
+      this.dataChannelState$.next('open');
       this.audit('datachannel_opened');
       this.sendDc('hello', { version: 1 });
       if (this.pairMediaTransforms.isPrepared(sessionId)) {
         this.pairMediaE2ee.markDataChannelOpen(sessionId);
       }
     };
+    dc.onopen = handleOpen;
     dc.onclose = () => {
       if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.sendQueue.unbind();
+      this.dataChannelState$.next('closed');
       this.audit('datachannel_closed');
       if (this.pairMediaTransforms.isPrepared(sessionId)) {
         this.pairMediaE2ee.fail(sessionId, 'public_media_consent_channel_closed');
@@ -818,6 +830,7 @@ export class WebrtcSessionService {
     dc.onerror = () => {
       if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.audit('datachannel_error');
+      this.dataChannelState$.next(dc.readyState);
       if (this.pairMediaTransforms.isPrepared(sessionId)) {
         this.pairMediaE2ee.fail(sessionId, 'public_media_consent_channel_failed');
       } else if (this.controlPlane.isPublicSession(sessionId)) {
@@ -858,6 +871,10 @@ export class WebrtcSessionService {
         queuedBytes -= incomingBytes;
       });
     };
+    // Some implementations may dispatch `open` before a late answerer has
+    // finished wiring every callback. Reconcile the level state after all
+    // handlers are installed; `openObserved` keeps the edge path idempotent.
+    if (dc.readyState === 'open') queueMicrotask(handleOpen);
   }
 
   private isCurrentSession(

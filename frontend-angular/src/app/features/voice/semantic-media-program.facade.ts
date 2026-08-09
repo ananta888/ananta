@@ -955,7 +955,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       this.setCapability(
         'ordinary_media',
         'degraded',
-        null,
+        current?.requestId ?? null,
         status.reasonCode || this.ordinaryMediaPolicyReason(sessionId),
       );
       return;
