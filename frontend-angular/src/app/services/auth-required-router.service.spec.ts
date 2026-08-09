@@ -7,12 +7,12 @@ import { AuthRefreshCoordinator } from './auth-refresh-coordinator.service';
 import { BehaviorSubject } from 'rxjs';
 
 describe('AuthRequiredRouter — Welle 6 redirect on authRequired', () => {
-  let router: { navigate: ReturnType<typeof vi.fn> };
+  let router: { navigate: ReturnType<typeof vi.fn>; url: string };
   let coordinator: { authRequired$: BehaviorSubject<'hub' | 'oidc' | null> };
 
   beforeEach(() => {
     TestBed.resetTestingModule();
-    router = { navigate: vi.fn() };
+    router = { navigate: vi.fn(), url: '/workspace' };
     coordinator = { authRequired$: new BehaviorSubject<'hub' | 'oidc' | null>(null) };
     TestBed.configureTestingModule({
       providers: [
@@ -35,6 +35,22 @@ describe('AuthRequiredRouter — Welle 6 redirect on authRequired', () => {
     svc.start();
     coordinator.authRequired$.next('hub');
     expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { sphere: 'hub' } });
+  });
+
+  it('does not let an ambient Hub 401 evict an OIDC-only Public Pair route', () => {
+    router.url = '/pair-dev';
+    const svc = TestBed.inject(AuthRequiredRouter);
+    svc.start();
+    coordinator.authRequired$.next('hub');
+    expect(router.navigate).not.toHaveBeenCalled();
+  });
+
+  it('still routes an OIDC failure from Public Pair to the OIDC login', () => {
+    router.url = '/pair-dev';
+    const svc = TestBed.inject(AuthRequiredRouter);
+    svc.start();
+    coordinator.authRequired$.next('oidc');
+    expect(router.navigate).toHaveBeenCalledWith(['/login'], { queryParams: { sphere: 'oidc' } });
   });
 
   it('does NOT navigate on the initial null emission', () => {

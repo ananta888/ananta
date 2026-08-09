@@ -1,5 +1,7 @@
 import { routes } from './app.routes';
 import { adminGuard } from './guards/admin.guard';
+import { authGuard } from './auth.guard';
+import { publicPairGuard } from './guards/public-pair.guard';
 
 function flattenRoutes(items: typeof routes): any[] {
   return items.flatMap((route: any) => [
@@ -9,6 +11,16 @@ function flattenRoutes(items: typeof routes): any[] {
 }
 
 describe('app routes', () => {
+  it('keeps Public Pair outside the Hub-authenticated route tree', () => {
+    const pairRoute = routes.find((route) => route.path === 'pair-dev');
+    const hubShell = routes.find((route) => route.path === '' && route.children);
+
+    expect(pairRoute?.canActivate).toEqual([publicPairGuard]);
+    expect(typeof pairRoute?.loadComponent).toBe('function');
+    expect(hubShell?.canActivate).toEqual([authGuard]);
+    expect(hubShell?.children?.some((route) => route.path === 'pair-dev')).toBe(false);
+  });
+
   it('lazy-loads feature views below the authenticated shell', () => {
     const lazyRoutes = flattenRoutes(routes).filter((route: any) => typeof route.loadComponent === 'function');
     const featureRoutes = lazyRoutes.filter((route: any) => [

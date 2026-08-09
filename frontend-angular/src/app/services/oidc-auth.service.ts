@@ -148,7 +148,7 @@ export class OidcAuthService implements OnDestroy {
   }
 
   get currentUsername(): string {
-    const p = this.userAuth.userPayload;
+    const p = this.userAuth.decodeTokenPayload(this.userAuth.oidcAccessTokenValue);
     return String(p?.preferred_username || p?.email || p?.sub || '');
   }
 

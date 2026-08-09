@@ -18,9 +18,16 @@ export class AuthRequiredRouter {
   start(): void {
     this.coordinator.authRequired$.subscribe((sphere) => {
       if (sphere === null) return;
+      // A failed ambient Hub request must not evict a valid OIDC-only Pair
+      // session from its independently authorized surface.
+      if (sphere === 'hub' && this.publicPairSurfaceActive()) return;
       // We pass the failing sphere as a query param so LoginComponent can
       // pre-select the right mask (OIDC vs Hub-direct).
       void this.router.navigate(['/login'], { queryParams: { sphere } });
     });
+  }
+
+  private publicPairSurfaceActive(): boolean {
+    return this.router.url.split(/[?#]/, 1)[0] === '/pair-dev';
   }
 }

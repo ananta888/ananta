@@ -27,16 +27,21 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
     revokeParticipant: vi.fn(), createSession: vi.fn(), joinSession: vi.fn(),
   };
   const binding = { start: vi.fn() };
+  const core = {
+    get: vi.fn(() => of({})),
+    post: vi.fn(() => of({})),
+    delete: vi.fn(() => of({})),
+  };
   TestBed.configureTestingModule({
     imports: [AiSnakeSharePanelComponent],
     providers: [
       { provide: ShareSessionService, useValue: service },
       { provide: PairViewSessionBindingService, useValue: binding },
       { provide: AgentDirectoryService, useValue: { list: () => [] } },
-      { provide: HubApiCoreService, useValue: { get: () => of({}), post: () => of({}), delete: () => of({}) } },
+      { provide: HubApiCoreService, useValue: core },
     ],
   });
-  return { service, binding };
+  return { service, binding, core };
 }
 
 describe('AiSnakeSharePanelComponent production security host', () => {
@@ -64,5 +69,33 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     const legacy = TestBed.createComponent(AiSnakeSharePanelComponent);
     legacy.detectChanges();
     expect((legacy.nativeElement as HTMLElement).textContent).toContain('Legacy-Modus: nicht Ende-zu-Ende verschlüsselt');
+  });
+
+  it('hides and fences every Hub-backed group operation in public-only mode', () => {
+    const { core } = configure('ready');
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const group = { id: 'group-a', name: 'Hub group' } as never;
+    const member = { id: 'member-a', user_id: 'hub-user' } as never;
+
+    expect((fixture.nativeElement as HTMLElement).textContent).not.toContain('Gruppen');
+
+    component.switchToGroups();
+    component.startCreateGroup();
+    component.newGroupName = 'blocked';
+    component.doCreateGroup();
+    component.openGroup(group);
+    component.newMemberId = 'blocked-user';
+    component.addMember();
+    component.removeMember(member);
+    component.deleteGroup(group);
+    component.createGroupSession(group);
+
+    expect(component.mainTab).toBe('share');
+    expect(core.get).not.toHaveBeenCalled();
+    expect(core.post).not.toHaveBeenCalled();
+    expect(core.delete).not.toHaveBeenCalled();
   });
 });
