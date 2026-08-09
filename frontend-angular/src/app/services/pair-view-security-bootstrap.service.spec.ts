@@ -11,6 +11,7 @@ import {
   PUBLIC_PAIR_MEDIA_GRANTS,
   PUBLIC_PAIR_MEDIA_SLOTS,
 } from './public-pair-media-security-contract';
+import { PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 } from './pair-media-frame-format';
 import { ShareSession } from './share-session.service';
 import { WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import { canonicalSecurityJson } from './webrtc-secure-envelope';
@@ -184,7 +185,9 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
       acceptance.resolve();
       await expect(pending).resolves.toBe(true);
       expect(bootstrap.mediaContractFor(session.id)).toMatchObject({
-        domain: 'ananta.public-pair.media-security-contract.v1',
+        domain: 'ananta.public-pair.media-security-contract.v2',
+        version: 2,
+        frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
         session_id: session.id,
         epoch: 3,
         base_security_contract_digest: response.security_contract_digest,
@@ -252,13 +255,13 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
       expect(bootstrap.mediaContractFor(session.id)).not.toBeNull();
 
       response = await mediaKeyPackageResponse();
-      response.public_media_security_contract_v1 = null;
+      response.public_media_security_contract_v2 = null;
       await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
       expect(bootstrap.mediaContractFor(session.id)).toBeNull();
 
       response = await mediaKeyPackageResponse();
-      response.public_media_security_contract_v1 = {
-        ...response.public_media_security_contract_v1,
+      response.public_media_security_contract_v2 = {
+        ...response.public_media_security_contract_v2,
         session_id: 'attacker-session',
       };
       const bindingCallsBeforeInvalidContract = peerKeys.verifyAndRefreshBinding.mock.calls.length;
@@ -267,6 +270,37 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
       expect(peerKeys.verifyAndRefreshBinding).toHaveBeenCalledTimes(bindingCallsBeforeInvalidContract);
       expect(bootstrap.state$.value).toMatchObject({
         status: 'failed', reasonCode: 'public_media_contract_binding_mismatch',
+      });
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('keeps a legacy v1-only response data-only and rejects simultaneous v1/v2 authority', async () => {
+    let response = await mediaKeyPackageResponse();
+    const peerKeys = fakeMediaPeerKeys();
+    configure(mediaCore(() => response), peerKeys, localMediaFingerprint);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+    const verify = vi.spyOn(crypto.subtle, 'verify').mockResolvedValue(true);
+
+    try {
+      response.public_media_security_contract_v1 = {
+        domain: 'ananta.public-pair.media-security-contract.v1', version: 1,
+      };
+      response.public_media_security_contract_v2 = null;
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+
+      response = await mediaKeyPackageResponse();
+      response.public_media_security_contract_v1 = {
+        domain: 'ananta.public-pair.media-security-contract.v1', version: 1,
+      };
+      const bindingCalls = peerKeys.verifyAndRefreshBinding.mock.calls.length;
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(false);
+      expect(peerKeys.verifyAndRefreshBinding).toHaveBeenCalledTimes(bindingCalls);
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+      expect(bootstrap.state$.value).toMatchObject({
+        status: 'failed', reasonCode: 'public_media_contract_version_mixed',
       });
     } finally {
       verify.mockRestore();
@@ -421,8 +455,8 @@ async function mediaKeyPackageResponse(scopeId = 'session-a', epoch = 3): Promis
     device_key_fingerprint: remoteMediaFingerprint,
   }];
   const unsigned = {
-    domain: 'ananta.public-pair.media-security-contract.v1',
-    version: 1,
+    domain: 'ananta.public-pair.media-security-contract.v2',
+    version: 2,
     session_id: scopeId,
     epoch,
     identity_binding_version: 2,
@@ -431,23 +465,25 @@ async function mediaKeyPackageResponse(scopeId = 'session-a', epoch = 3): Promis
       {
         membership_id: 'owner-session-a', membership_version: 1,
         peer_id: localMediaPeerId, device_key_fingerprint: localMediaFingerprint,
-        public_media_e2ee_version: 1,
+        public_media_e2ee_version: 2,
       },
       {
         membership_id: 'participant-a', membership_version: 1,
         peer_id: remoteMediaPeerId, device_key_fingerprint: remoteMediaFingerprint,
-        public_media_e2ee_version: 1,
+        public_media_e2ee_version: 2,
       },
     ],
     grants: [...PUBLIC_PAIR_MEDIA_GRANTS],
     slots: PUBLIC_PAIR_MEDIA_SLOTS.map(slot => ({ ...slot })),
     transform: 'RTCRtpScriptTransform',
+    frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
     algorithms: { aead: 'AES-256-GCM', kdf: 'HKDF-SHA-256' },
     expires_at_ms: Date.now() + 240_000,
     authority_key_id: PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
   };
   const digest = await sha256(canonicalSecurityJson(unsigned));
-  response.public_media_security_contract_v1 = {
+  response.public_media_security_contract_v1 = null;
+  response.public_media_security_contract_v2 = {
     ...unsigned,
     digest,
     signature_algorithm: 'Ed25519',
@@ -470,6 +506,7 @@ function waitingKeyPackageResponse(epoch: number): any {
     local_package_id: null,
     packages: [],
     public_media_security_contract_v1: null,
+    public_media_security_contract_v2: null,
   };
 }
 

@@ -8,7 +8,7 @@ import { NetworkProfileService } from './network-profile.service';
 import { PairMembershipCapabilityStore } from './pair-membership-capability.store';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PublicPairMediaRuntimeCapabilityService } from './public-pair-media-runtime-capability.service';
-import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V1 } from './public-pair-media-security-contract';
+import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V2 } from './public-pair-media-security-contract';
 import { PUBLIC_OIDC_ISSUER } from './public-ananta-endpoints';
 import { UserAuthService } from './user-auth.service';
 
@@ -187,8 +187,8 @@ describe('PairSessionControlPlaneService', () => {
 
   it('adds the exact immutable media capability advertisement to public create and join', () => {
     publicMediaAdvertisement = Object.freeze({
-      public_media_e2ee_version: 1,
-      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+      public_media_e2ee_version: 2,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V2,
     });
     const service = TestBed.inject(PairSessionControlPlaneService);
 
@@ -196,10 +196,11 @@ describe('PairSessionControlPlaneService', () => {
     service.join({ invite_code: 'INVITE' }).subscribe();
 
     for (const body of requests.map(request => request.body as Record<string, unknown>)) {
-      expect(body['public_media_e2ee_version']).toBe(1);
+      expect(body['public_media_e2ee_version']).toBe(2);
       expect(body['public_media_capabilities']).toEqual({
-        version: 1,
+        version: 2,
         transform: 'RTCRtpScriptTransform',
+        frame_format: 'ananta.public-pair.media-frame.v2',
         grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
       });
       expect(Object.isFrozen(body)).toBe(true);
@@ -444,8 +445,8 @@ describe('PairSessionControlPlaneService', () => {
 
   it('retries an ambiguous create with the same persisted capability and exact wire body', async () => {
     publicMediaAdvertisement = Object.freeze({
-      public_media_e2ee_version: 1,
-      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+      public_media_e2ee_version: 2,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V2,
     });
     const service = TestBed.inject(PairSessionControlPlaneService);
     const core = TestBed.inject(HubApiCoreService);
@@ -466,10 +467,11 @@ describe('PairSessionControlPlaneService', () => {
 
     expect(secondOptions?.body).toEqual(firstOptions?.body);
     expect(secondOptions?.body).toMatchObject({
-      public_media_e2ee_version: 1,
+      public_media_e2ee_version: 2,
       public_media_capabilities: {
-        version: 1,
+        version: 2,
         transform: 'RTCRtpScriptTransform',
+        frame_format: 'ananta.public-pair.media-frame.v2',
         grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
       },
     });

@@ -1,4 +1,11 @@
 import { canonicalSecurityJson } from './webrtc-secure-envelope';
+import {
+  PairMediaCanonicalFrameType,
+  PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
+  readPairMediaEncodedPrefix,
+  restorePairMediaPlaintext,
+  splitPairMediaPlaintext,
+} from './pair-media-frame-format';
 
 export interface PairMediaE2eeFrameContext {
   readonly sessionId: string;
@@ -14,7 +21,7 @@ export interface PairMediaE2eeFrameContext {
 }
 
 const MAGIC = Uint8Array.of(0x41, 0x4e, 0x4d, 0x46); // ANMF
-const VERSION = 1;
+const VERSION = 2;
 const HEADER_BYTES = 20;
 const TAG_BYTES = 16;
 const MAX_FRAME_BYTES = 8 * 1024 * 1024;
@@ -23,8 +30,6 @@ const REPLAY_WINDOW = 2_048n;
 const DIGEST_RE = /^[a-f0-9]{64}$/;
 const IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/;
 const CODEC_RE = /^[a-z0-9][a-z0-9._+-]{0,31}$/;
-
-type FrameType = 'audio' | 'key' | 'delta' | 'empty';
 
 /**
  * Stateful AEAD codec for exactly one direction/slot/connection key.
@@ -47,40 +52,39 @@ export class PairMediaE2eeFrameCipher {
     validateContext(context);
   }
 
-  async seal(key: CryptoKey, plaintext: ArrayBuffer, frameType: string): Promise<ArrayBuffer> {
+  async seal(key: CryptoKey, plaintext: ArrayBuffer): Promise<ArrayBuffer> {
     this.assertContractLive();
     validateKey(key);
     validatePayload(plaintext);
-    const normalizedType = normalizeFrameType(frameType, this.context.kind);
+    const parts = splitPairMediaPlaintext(this.context, plaintext);
     const counter = this.sendCounter + 1n;
     if (counter > MAX_COUNTER) throw new Error('media_e2ee_counter_exhausted');
     // Reserve before the first await. Concurrent callers may leave a gap on
     // encryption failure, but can never reuse a nonce under this key.
     this.sendCounter = counter;
-    const header = encodeHeader(this.context.keyEpoch, counter, normalizedType);
+    const header = encodeHeader(
+      this.context.keyEpoch, counter, parts.frameType, parts.prefix.byteLength,
+    );
     const nonce = nonceFor(this.context.keyEpoch, counter);
     const ciphertext = await crypto.subtle.encrypt(
       {
         name: 'AES-GCM',
         iv: arrayBuffer(nonce),
-        additionalData: arrayBuffer(aad(this.context, header)),
+        additionalData: arrayBuffer(aad(this.context, header, parts.prefix)),
         tagLength: 128,
       },
       key,
-      plaintext,
+      parts.suffix,
     );
     this.assertContractLive();
-    const output = new Uint8Array(HEADER_BYTES + ciphertext.byteLength);
-    output.set(header);
-    output.set(new Uint8Array(ciphertext), HEADER_BYTES);
+    const output = new Uint8Array(parts.prefix.byteLength + HEADER_BYTES + ciphertext.byteLength);
+    output.set(parts.prefix);
+    output.set(header, parts.prefix.byteLength);
+    output.set(new Uint8Array(ciphertext), parts.prefix.byteLength + HEADER_BYTES);
     return output.buffer;
   }
 
-  async open(
-    key: CryptoKey,
-    encoded: ArrayBuffer,
-    expectedFrameType?: string,
-  ): Promise<ArrayBuffer> {
+  async open(key: CryptoKey, encoded: ArrayBuffer): Promise<ArrayBuffer> {
     this.assertContractLive();
     validateKey(key);
     if (
@@ -89,12 +93,15 @@ export class PairMediaE2eeFrameCipher {
       || encoded.byteLength > HEADER_BYTES + TAG_BYTES + MAX_FRAME_BYTES
     ) throw new Error('media_e2ee_frame_size_invalid');
     const frame = new Uint8Array(encoded);
-    const parsed = decodeHeader(frame);
+    const codecPrefix = readPairMediaEncodedPrefix(this.context, frame);
+    const headerOffset = codecPrefix.prefixBytes;
+    const header = frame.slice(headerOffset, headerOffset + HEADER_BYTES);
+    const parsed = decodeHeader(header);
     if (parsed.epoch !== this.context.keyEpoch) throw new Error('media_e2ee_epoch_stale');
-    if (expectedFrameType !== undefined) {
-      const expected = normalizeFrameType(expectedFrameType, this.context.kind);
-      if (parsed.frameType !== expected) throw new Error('media_e2ee_frame_type_mismatch');
-    }
+    if (
+      parsed.frameType !== codecPrefix.frameType
+      || parsed.prefixBytes !== codecPrefix.prefixBytes
+    ) throw new Error('media_e2ee_header_invalid');
     this.assertReplayAdmissible(parsed.counter);
     // TransformStream serializes frames in production, but the primitive is
     // independently safe when multiple callers race the same ciphertext.
@@ -105,11 +112,11 @@ export class PairMediaE2eeFrameCipher {
         {
           name: 'AES-GCM',
           iv: arrayBuffer(nonceFor(parsed.epoch, parsed.counter)),
-          additionalData: arrayBuffer(aad(this.context, frame.slice(0, HEADER_BYTES))),
+          additionalData: arrayBuffer(aad(this.context, header, codecPrefix.prefix)),
           tagLength: 128,
         },
         key,
-        frame.slice(HEADER_BYTES),
+        frame.slice(headerOffset + HEADER_BYTES),
       );
     } catch (error) {
       if (error instanceof Error && error.message.startsWith('media_e2ee_')) throw error;
@@ -119,7 +126,7 @@ export class PairMediaE2eeFrameCipher {
     }
     this.assertContractLive();
     this.claimCounter(parsed.counter);
-    return plaintext;
+    return restorePairMediaPlaintext(this.context, codecPrefix.prefix, plaintext);
   }
 
   clear(): void {
@@ -158,23 +165,33 @@ function replayFloor(highest: bigint): bigint {
   return highest >= REPLAY_WINDOW ? highest - REPLAY_WINDOW + 1n : 1n;
 }
 
-function encodeHeader(epoch: number, counter: bigint, frameType: FrameType): Uint8Array {
+function encodeHeader(
+  epoch: number,
+  counter: bigint,
+  frameType: PairMediaCanonicalFrameType,
+  prefixBytes: number,
+): Uint8Array {
   const header = new Uint8Array(HEADER_BYTES);
   header.set(MAGIC, 0);
   header[4] = VERSION;
   header[5] = frameTypeCode(frameType);
+  header[6] = prefixBytes;
   const view = new DataView(header.buffer);
   view.setUint32(8, epoch);
   view.setBigUint64(12, counter);
   return header;
 }
 
-function decodeHeader(frame: Uint8Array): { epoch: number; counter: bigint; frameType: FrameType } {
+function decodeHeader(frame: Uint8Array): {
+  epoch: number;
+  counter: bigint;
+  frameType: PairMediaCanonicalFrameType;
+  prefixBytes: number;
+} {
   if (
     frame.byteLength < HEADER_BYTES
     || !MAGIC.every((byte, index) => frame[index] === byte)
     || frame[4] !== VERSION
-    || frame[6] !== 0
     || frame[7] !== 0
   ) throw new Error('media_e2ee_header_invalid');
   const frameType = frameTypeFromCode(frame[5]);
@@ -182,7 +199,9 @@ function decodeHeader(frame: Uint8Array): { epoch: number; counter: bigint; fram
   const epoch = view.getUint32(8);
   const counter = view.getBigUint64(12);
   if (epoch < 1 || counter < 1n) throw new Error('media_e2ee_header_invalid');
-  return { epoch, counter, frameType };
+  const prefixBytes = frame[6];
+  if (prefixBytes < 1 || prefixBytes > 10) throw new Error('media_e2ee_header_invalid');
+  return { epoch, counter, frameType, prefixBytes };
 }
 
 function nonceFor(epoch: number, counter: bigint): Uint8Array {
@@ -193,9 +212,13 @@ function nonceFor(epoch: number, counter: bigint): Uint8Array {
   return nonce;
 }
 
-function aad(context: Readonly<PairMediaE2eeFrameContext>, header: Uint8Array): Uint8Array {
+function aad(
+  context: Readonly<PairMediaE2eeFrameContext>,
+  header: Uint8Array,
+  clearPrefix: Uint8Array,
+): Uint8Array {
   return new TextEncoder().encode(canonicalSecurityJson({
-    domain: 'ananta.public-pair.media-frame.v1',
+    domain: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
     session_id: context.sessionId,
     media_contract_digest: context.mediaContractDigest,
     connection_id: context.connectionId,
@@ -207,32 +230,25 @@ function aad(context: Readonly<PairMediaE2eeFrameContext>, header: Uint8Array): 
     key_epoch: context.keyEpoch,
     contract_expires_at_ms: context.contractExpiresAtMs,
     header_hex: [...header].map(byte => byte.toString(16).padStart(2, '0')).join(''),
+    clear_prefix_hex: [...clearPrefix].map(byte => byte.toString(16).padStart(2, '0')).join(''),
   }));
 }
 
-function frameTypeCode(value: FrameType): number {
+function frameTypeCode(value: PairMediaCanonicalFrameType): number {
   switch (value) {
     case 'audio': return 0;
     case 'key': return 1;
     case 'delta': return 2;
-    case 'empty': return 3;
   }
 }
 
-function frameTypeFromCode(value: number): FrameType {
+function frameTypeFromCode(value: number): PairMediaCanonicalFrameType {
   switch (value) {
     case 0: return 'audio';
     case 1: return 'key';
     case 2: return 'delta';
-    case 3: return 'empty';
     default: throw new Error('media_e2ee_header_invalid');
   }
-}
-
-function normalizeFrameType(value: string, kind: 'audio' | 'video'): FrameType {
-  if (kind === 'audio') return 'audio';
-  if (value === 'key' || value === 'delta' || value === 'empty') return value;
-  throw new Error('media_e2ee_frame_type_invalid');
 }
 
 function validateContext(value: Readonly<PairMediaE2eeFrameContext>): void {
@@ -246,6 +262,10 @@ function validateContext(value: Readonly<PairMediaE2eeFrameContext>): void {
     || !IDENTIFIER_RE.test(value.slot)
     || !CODEC_RE.test(value.codec)
     || (value.kind !== 'audio' && value.kind !== 'video')
+    || !(
+      (value.kind === 'audio' && value.codec === 'opus')
+      || (value.kind === 'video' && value.codec === 'vp8')
+    )
     || !Number.isSafeInteger(value.keyEpoch)
     || value.keyEpoch < 1
     || value.keyEpoch > 0xffff_ffff

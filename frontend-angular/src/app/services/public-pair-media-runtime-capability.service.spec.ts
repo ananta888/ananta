@@ -1,5 +1,5 @@
 import {
-  PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+  PUBLIC_PAIR_MEDIA_CAPABILITIES_V2,
 } from './public-pair-media-security-contract';
 import {
   PublicPairMediaRuntimeCapabilityService,
@@ -28,15 +28,21 @@ describe('PublicPairMediaRuntimeCapabilityService', () => {
     RTCRtpTransceiver: { prototype: { setCodecPreferences: () => undefined } },
   });
 
-  it('advertises the exact immutable v1 profile only with the complete standard surface', () => {
+  it('advertises the exact immutable v2 frame profile only with the complete standard surface', () => {
     const service = new PublicPairMediaRuntimeCapabilityService();
     vi.spyOn(service, 'supported').mockReturnValue(true);
 
     expect(service.membershipAdvertisement()).toEqual({
-      public_media_e2ee_version: 1,
-      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+      public_media_e2ee_version: 2,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V2,
     });
     expect(Object.isFrozen(service.membershipAdvertisement())).toBe(true);
+    expect(service.membershipAdvertisement()?.public_media_capabilities).toEqual({
+      version: 2,
+      transform: 'RTCRtpScriptTransform',
+      frame_format: 'ananta.public-pair.media-frame.v2',
+      grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
+    });
   });
 
   it.each([

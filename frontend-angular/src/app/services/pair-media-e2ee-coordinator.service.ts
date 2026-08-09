@@ -8,8 +8,9 @@ import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap
 import {
   PUBLIC_PAIR_MEDIA_GRANTS,
   PUBLIC_PAIR_MEDIA_SLOTS,
-  PublicPairMediaSecurityContractV1,
+  PublicPairMediaSecurityContractV2,
 } from './public-pair-media-security-contract';
+import { PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 } from './pair-media-frame-format';
 import {
   SEMANTIC_DC_VERSION,
   SemanticDataChannelMessage,
@@ -44,27 +45,29 @@ export interface PairMediaE2eeTransportPort {
   failClosed(reasonCode: string): void;
 }
 
-interface MediaHelloV1 {
-  readonly schema: 'ananta.public-pair.media-hello.v1';
+interface MediaHelloV2 {
+  readonly schema: 'ananta.public-pair.media-hello.v2';
   readonly kind: 'hello';
   readonly session_id: string;
   readonly epoch: number;
   readonly sender_id: string;
   readonly recipient_id: string;
   readonly media_contract_digest: string;
+  readonly frame_format: typeof PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2;
   readonly connection_salt_b64: string;
   readonly slots: typeof PUBLIC_PAIR_MEDIA_GRANTS;
   readonly expires_at_ms: number;
 }
 
-interface MediaHelloAckV1 {
-  readonly schema: 'ananta.public-pair.media-hello-ack.v1';
+interface MediaHelloAckV2 {
+  readonly schema: 'ananta.public-pair.media-hello-ack.v2';
   readonly kind: 'hello_ack';
   readonly session_id: string;
   readonly epoch: number;
   readonly sender_id: string;
   readonly recipient_id: string;
   readonly media_contract_digest: string;
+  readonly frame_format: typeof PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2;
   readonly hello_digests: readonly [
     Readonly<{ peer_id: string; digest: string }>,
     Readonly<{ peer_id: string; digest: string }>,
@@ -76,18 +79,18 @@ interface Runtime {
   readonly sessionId: string;
   readonly generation: number;
   readonly adapterGeneration: number;
-  readonly contract: Readonly<PublicPairMediaSecurityContractV1>;
+  readonly contract: Readonly<PublicPairMediaSecurityContractV2>;
   readonly binding: Readonly<VerifiedPeerBinding>;
   port: PairMediaE2eeTransportPort | null;
   dataChannelOpen: boolean;
   topologyReady: boolean;
   localActivated: boolean;
-  localHello: MediaHelloV1 | null;
+  localHello: MediaHelloV2 | null;
   localHelloDigest: string;
-  remoteHello: MediaHelloV1 | null;
+  remoteHello: MediaHelloV2 | null;
   remoteHelloDigest: string;
-  localAck: MediaHelloAckV1 | null;
-  remoteAck: MediaHelloAckV1 | null;
+  localAck: MediaHelloAckV2 | null;
+  remoteAck: MediaHelloAckV2 | null;
   localAckSent: boolean;
   helloSendPromise: Promise<void> | null;
   ackSendPromise: Promise<void> | null;
@@ -136,7 +139,12 @@ export class PairMediaE2eeCoordinatorService {
 
   canActivate(sessionId: string): boolean {
     const contract = this.bootstrap.mediaContractFor(sessionId);
-    if (!contract || contract.expires_at_ms <= Date.now()) return false;
+    if (
+      !contract
+      || contract.version !== 2
+      || contract.frame_format !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
+      || contract.expires_at_ms <= Date.now()
+    ) return false;
     const runtime = this.runtime;
     if (runtime?.sessionId === sessionId && (runtime.failed || runtime.installed)) return false;
     return this.transforms.isPrepared(sessionId, contract.epoch, contract.digest);
@@ -167,7 +175,7 @@ export class PairMediaE2eeCoordinatorService {
       return this.statusFor(sessionId);
     }
     runtime.localActivated = true;
-    this.emit(runtime, 'awaiting-peer');
+    this.emit(runtime, 'awaiting-peer', 'public_media_local_activation_pending');
     void this.maybeSendHello(runtime).catch(error => {
       this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
     });
@@ -293,6 +301,9 @@ export class PairMediaE2eeCoordinatorService {
       ? this.transforms.generationForSession(sessionId) : null;
     if (
       !contract
+      || contract.version !== 2
+      || contract.domain !== 'ananta.public-pair.media-security-contract.v2'
+      || contract.frame_format !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
       || contract.session_id !== sessionId
       || contract.epoch !== binding.epoch
       || contract.expires_at_ms <= Date.now()
@@ -356,13 +367,14 @@ export class PairMediaE2eeCoordinatorService {
       if (expiresAtMs <= Date.now()) throw new Error('public_media_contract_expired');
       const salt = crypto.getRandomValues(new Uint8Array(16));
       const hello = parseHello({
-        schema: 'ananta.public-pair.media-hello.v1',
+        schema: 'ananta.public-pair.media-hello.v2',
         kind: 'hello',
         session_id: runtime.sessionId,
         epoch: runtime.contract.epoch,
         sender_id: runtime.binding.localPeerId,
         recipient_id: runtime.binding.remotePeerId,
         media_contract_digest: runtime.contract.digest,
+        frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
         connection_salt_b64: encodeB64(salt),
         slots: PUBLIC_PAIR_MEDIA_GRANTS,
         expires_at_ms: expiresAtMs,
@@ -373,14 +385,18 @@ export class PairMediaE2eeCoordinatorService {
       // loopback/fast peer may answer before send() resolves.
       runtime.localHello = hello;
       runtime.localHelloDigest = helloDigest;
+      this.emit(runtime, 'awaiting-peer', 'public_media_local_hello_preparing');
       await this.sendControl(runtime, hello);
       this.assertCurrent(runtime);
+      if (!runtime.remoteHello) {
+        this.emit(runtime, 'awaiting-peer', 'public_media_local_hello_sent');
+      }
       await this.maybeSendAck(runtime);
     })().finally(() => { runtime.helloSendPromise = null; });
     return runtime.helloSendPromise;
   }
 
-  private async acceptHello(runtime: Runtime, hello: MediaHelloV1): Promise<void> {
+  private async acceptHello(runtime: Runtime, hello: MediaHelloV2): Promise<void> {
     const digest = await digestCanonical(hello);
     this.assertCurrent(runtime);
     if (runtime.remoteHello && runtime.remoteHelloDigest !== digest) {
@@ -401,6 +417,7 @@ export class PairMediaE2eeCoordinatorService {
     }
     runtime.remoteHello = hello;
     runtime.remoteHelloDigest = digest;
+    this.emit(runtime, 'awaiting-peer', 'public_media_remote_hello_received');
     if (runtime.localActivated) {
       await this.maybeSendHello(runtime);
       await this.maybeSendAck(runtime);
@@ -415,13 +432,14 @@ export class PairMediaE2eeCoordinatorService {
     ) return runtime.ackSendPromise ?? Promise.resolve();
     runtime.ackSendPromise = (async () => {
       const ack = parseAck({
-        schema: 'ananta.public-pair.media-hello-ack.v1',
+        schema: 'ananta.public-pair.media-hello-ack.v2',
         kind: 'hello_ack',
         session_id: runtime.sessionId,
         epoch: runtime.contract.epoch,
         sender_id: runtime.binding.localPeerId,
         recipient_id: runtime.binding.remotePeerId,
         media_contract_digest: runtime.contract.digest,
+        frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
         hello_digests: helloDigestRows(runtime),
         expires_at_ms: Math.min(runtime.contract.expires_at_ms, Date.now() + CONTROL_TTL_MS),
       }, runtime, 'outbound');
@@ -432,12 +450,15 @@ export class PairMediaE2eeCoordinatorService {
       this.assertCurrent(runtime);
       runtime.localAck = ack;
       runtime.localAckSent = true;
+      if (!runtime.remoteAck) {
+        this.emit(runtime, 'awaiting-peer', 'public_media_local_ack_sent');
+      }
       await this.maybeInstall(runtime);
     })().finally(() => { runtime.ackSendPromise = null; });
     return runtime.ackSendPromise;
   }
 
-  private async acceptAck(runtime: Runtime, ack: MediaHelloAckV1): Promise<void> {
+  private async acceptAck(runtime: Runtime, ack: MediaHelloAckV2): Promise<void> {
     this.assertCurrent(runtime);
     if (!runtime.localHello || !runtime.remoteHello) throw new Error('public_media_hello_missing');
     if (canonicalSecurityJson(ack.hello_digests) !== canonicalSecurityJson(helloDigestRows(runtime))) {
@@ -447,6 +468,7 @@ export class PairMediaE2eeCoordinatorService {
       throw new Error('public_media_ack_conflict');
     }
     runtime.remoteAck = ack;
+    this.emit(runtime, 'negotiating', 'public_media_remote_ack_received');
     await this.maybeInstall(runtime);
   }
 
@@ -491,8 +513,8 @@ export class PairMediaE2eeCoordinatorService {
         runtime, connectionId, runtime.binding.remotePeerId, runtime.binding.localPeerId, definition.slot,
       );
       const [sendKey, receiveKey] = await Promise.all([
-        this.encryption.derivePurposeAesKey(runtime.binding, 'public-pair-media-frame', sendBindingId),
-        this.encryption.derivePurposeAesKey(runtime.binding, 'public-pair-media-frame', receiveBindingId),
+        this.encryption.derivePurposeAesKey(runtime.binding, 'public-pair-media-frame-v2', sendBindingId),
+        this.encryption.derivePurposeAesKey(runtime.binding, 'public-pair-media-frame-v2', receiveBindingId),
       ]);
       this.assertCurrent(runtime);
       values.push(Object.freeze({
@@ -558,13 +580,14 @@ export class PairMediaE2eeCoordinatorService {
     runtime.localAckSent = false;
   }
 
-  private async sendControl(runtime: Runtime, control: MediaHelloV1 | MediaHelloAckV1): Promise<void> {
+  private async sendControl(runtime: Runtime, control: MediaHelloV2 | MediaHelloAckV2): Promise<void> {
     this.assertCurrent(runtime);
     if (!runtime.port || !runtime.dataChannelOpen) throw new Error('public_media_transport_not_open');
     const sequence = await this.sequences.next(
       runtime.sessionId, runtime.contract.epoch, runtime.binding.localPeerId, 'media',
     );
     this.assertCurrent(runtime);
+    this.emitControlStage(runtime, control, 'sequence_reserved');
     const envelope = await this.encryption.seal(
       runtime.binding,
       new TextEncoder().encode(canonicalSecurityJson(control)),
@@ -576,6 +599,7 @@ export class PairMediaE2eeCoordinatorService {
       },
     );
     this.assertCurrent(runtime);
+    this.emitControlStage(runtime, control, 'sealed');
     const envelopeBytes = new TextEncoder().encode(canonicalSecurityJson(envelope));
     const message = await validateSemanticDcMessage({
       version: SEMANTIC_DC_VERSION,
@@ -594,14 +618,25 @@ export class PairMediaE2eeCoordinatorService {
       ciphertext: encodeB64(envelopeBytes),
     });
     this.assertCurrent(runtime);
+    this.emitControlStage(runtime, control, 'framed');
     await runtime.port.send(message);
     this.assertCurrent(runtime);
+    this.emitControlStage(runtime, control, 'queued');
+  }
+
+  private emitControlStage(
+    runtime: Runtime,
+    control: MediaHelloV2 | MediaHelloAckV2,
+    stage: 'sequence_reserved' | 'sealed' | 'framed' | 'queued',
+  ): void {
+    const kind = control.kind === 'hello_ack' ? 'ack' : 'hello';
+    this.emit(runtime, 'awaiting-peer', `public_media_local_${kind}_${stage}`);
   }
 
   private async openControl(
     runtime: Runtime,
     raw: SemanticDataChannelMessage,
-  ): Promise<MediaHelloV1 | MediaHelloAckV1> {
+  ): Promise<MediaHelloV2 | MediaHelloAckV2> {
     const message = await validateSemanticDcMessage(raw);
     this.assertCurrent(runtime);
     if (
@@ -779,17 +814,18 @@ function parseHello(
   raw: unknown,
   runtime: Runtime,
   direction: 'inbound' | 'outbound',
-): MediaHelloV1 {
+): MediaHelloV2 {
   const value = closedObject(raw, [
     'schema', 'kind', 'session_id', 'epoch', 'sender_id', 'recipient_id',
-    'media_contract_digest', 'connection_salt_b64', 'slots', 'expires_at_ms',
+    'media_contract_digest', 'frame_format', 'connection_salt_b64', 'slots', 'expires_at_ms',
   ], 'public_media_hello_invalid');
   if (
-    value['schema'] !== 'ananta.public-pair.media-hello.v1'
+    value['schema'] !== 'ananta.public-pair.media-hello.v2'
     || value['kind'] !== 'hello'
     || value['session_id'] !== runtime.sessionId
     || value['epoch'] !== runtime.contract.epoch
     || value['media_contract_digest'] !== runtime.contract.digest
+    || value['frame_format'] !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
     || !exactStrings(value['slots'], PUBLIC_PAIR_MEDIA_GRANTS)
     || !validControlExpiry(value['expires_at_ms'], runtime.contract.expires_at_ms)
   ) throw new Error('public_media_hello_invalid');
@@ -798,24 +834,25 @@ function parseHello(
   if (salt.byteLength !== 16 || encodeB64(salt) !== value['connection_salt_b64']) {
     throw new Error('public_media_hello_invalid');
   }
-  return Object.freeze(value as unknown as MediaHelloV1);
+  return Object.freeze(value as unknown as MediaHelloV2);
 }
 
 function parseAck(
   raw: unknown,
   runtime: Runtime,
   direction: 'inbound' | 'outbound',
-): MediaHelloAckV1 {
+): MediaHelloAckV2 {
   const value = closedObject(raw, [
     'schema', 'kind', 'session_id', 'epoch', 'sender_id', 'recipient_id',
-    'media_contract_digest', 'hello_digests', 'expires_at_ms',
+    'media_contract_digest', 'frame_format', 'hello_digests', 'expires_at_ms',
   ], 'public_media_ack_invalid');
   if (
-    value['schema'] !== 'ananta.public-pair.media-hello-ack.v1'
+    value['schema'] !== 'ananta.public-pair.media-hello-ack.v2'
     || value['kind'] !== 'hello_ack'
     || value['session_id'] !== runtime.sessionId
     || value['epoch'] !== runtime.contract.epoch
     || value['media_contract_digest'] !== runtime.contract.digest
+    || value['frame_format'] !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
     || !validControlExpiry(value['expires_at_ms'], runtime.contract.expires_at_ms)
   ) throw new Error('public_media_ack_invalid');
   validateDirectedPeers(value, runtime, direction);
@@ -831,8 +868,8 @@ function parseAck(
   });
   if (rows[0].peer_id >= rows[1].peer_id) throw new Error('public_media_ack_invalid');
   return Object.freeze({
-    ...(value as unknown as MediaHelloAckV1),
-    hello_digests: Object.freeze(rows) as MediaHelloAckV1['hello_digests'],
+    ...(value as unknown as MediaHelloAckV2),
+    hello_digests: Object.freeze(rows) as MediaHelloAckV2['hello_digests'],
   });
 }
 
@@ -850,13 +887,13 @@ function validateDirectedPeers(
   }
 }
 
-function helloDigestRows(runtime: Runtime): MediaHelloAckV1['hello_digests'] {
+function helloDigestRows(runtime: Runtime): MediaHelloAckV2['hello_digests'] {
   if (!runtime.localHelloDigest || !runtime.remoteHelloDigest) throw new Error('public_media_hello_missing');
   const rows = [
     Object.freeze({ peer_id: runtime.binding.localPeerId, digest: runtime.localHelloDigest }),
     Object.freeze({ peer_id: runtime.binding.remotePeerId, digest: runtime.remoteHelloDigest }),
   ].sort((left, right) => left.peer_id.localeCompare(right.peer_id));
-  return Object.freeze(rows) as unknown as MediaHelloAckV1['hello_digests'];
+  return Object.freeze(rows) as unknown as MediaHelloAckV2['hello_digests'];
 }
 
 function assertFreshHandshake(runtime: Runtime): void {
@@ -883,10 +920,11 @@ async function connectionDigest(runtime: Runtime): Promise<string> {
     .map(hello => ({ peer_id: hello.sender_id, salt_b64: hello.connection_salt_b64 }))
     .sort((left, right) => left.peer_id.localeCompare(right.peer_id));
   return digestCanonical({
-    domain: 'ananta.public-pair.media-connection.v1',
+    domain: 'ananta.public-pair.media-connection.v2',
     session_id: runtime.sessionId,
     epoch: runtime.contract.epoch,
     media_contract_digest: runtime.contract.digest,
+    frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
     salts,
   });
 }
@@ -899,10 +937,11 @@ function frameKeyBindingDigest(
   slot: string,
 ): Promise<string> {
   return digestCanonical({
-    domain: 'ananta.public-pair.media-frame-key-binding.v1',
+    domain: 'ananta.public-pair.media-frame-key-binding.v2',
     session_id: runtime.sessionId,
     epoch: runtime.contract.epoch,
     media_contract_digest: runtime.contract.digest,
+    frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
     connection_id: connectionId,
     sender_id: senderId,
     recipient_id: recipientId,

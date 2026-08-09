@@ -4,6 +4,7 @@ import {
   PublicPairMediaContractError,
   validatePublicPairMediaSecurityContract,
 } from './public-pair-media-security-contract';
+import { PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 } from './pair-media-frame-format';
 import type { FinalStrictPairSecurityContractV1 } from './webrtc-security-negotiation';
 import type { SignedPeerKeyPackage } from './webrtc-peer-key.service';
 import { canonicalSecurityJson, encodeB64 } from './webrtc-secure-envelope';
@@ -28,8 +29,8 @@ async function fixture() {
   const publicBytes = new Uint8Array(await crypto.subtle.exportKey('raw', authority.publicKey));
   const authorityKeyId = `rv:${(await digestBytes(publicBytes)).slice(0, 24)}`;
   const unsigned = {
-    domain: 'ananta.public-pair.media-security-contract.v1',
-    version: 1,
+    domain: 'ananta.public-pair.media-security-contract.v2',
+    version: 2,
     session_id: 'session-a',
     epoch: 3,
     identity_binding_version: 2,
@@ -38,17 +39,18 @@ async function fixture() {
       {
         membership_id: 'member:owner', membership_version: 1,
         peer_id: `peer:${'1'.repeat(64)}`, device_key_fingerprint: LOCAL_FP,
-        public_media_e2ee_version: 1,
+        public_media_e2ee_version: 2,
       },
       {
         membership_id: 'member:guest', membership_version: 1,
         peer_id: `peer:${'2'.repeat(64)}`, device_key_fingerprint: REMOTE_FP,
-        public_media_e2ee_version: 1,
+        public_media_e2ee_version: 2,
       },
     ],
     grants: [...PUBLIC_PAIR_MEDIA_GRANTS],
     slots: PUBLIC_PAIR_MEDIA_SLOTS.map(value => ({ ...value })),
     transform: 'RTCRtpScriptTransform',
+    frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
     algorithms: { aead: 'AES-256-GCM', kdf: 'HKDF-SHA-256' },
     expires_at_ms: NOW + 60_000,
     authority_key_id: authorityKeyId,
@@ -97,6 +99,31 @@ describe('Public Pair media security contract', () => {
     }, options)).rejects.toMatchObject<Partial<PublicPairMediaContractError>>({
       reasonCode: 'public_media_contract_signature_invalid',
     });
+  });
+
+  it('rejects legacy or mixed frame-format authority before signature verification', async () => {
+    const { contract, options } = await fixture();
+    await expect(validatePublicPairMediaSecurityContract({
+      ...contract,
+      domain: 'ananta.public-pair.media-security-contract.v1',
+      version: 1,
+      memberships: contract.memberships.map(member => ({
+        ...member, public_media_e2ee_version: 1,
+      })),
+    }, options)).rejects.toMatchObject<Partial<PublicPairMediaContractError>>({
+      reasonCode: 'public_media_contract_version_invalid',
+    });
+    await expect(validatePublicPairMediaSecurityContract({
+      ...contract, frame_format: 'ananta.public-pair.media-frame.v1',
+    }, options)).rejects.toMatchObject<Partial<PublicPairMediaContractError>>({
+      reasonCode: 'public_media_contract_version_invalid',
+    });
+    const withoutFrameFormat = { ...contract } as Record<string, unknown>;
+    delete withoutFrameFormat['frame_format'];
+    await expect(validatePublicPairMediaSecurityContract(withoutFrameFormat, options))
+      .rejects.toMatchObject<Partial<PublicPairMediaContractError>>({
+        reasonCode: 'public_media_contract_fields_invalid',
+      });
   });
 });
 
