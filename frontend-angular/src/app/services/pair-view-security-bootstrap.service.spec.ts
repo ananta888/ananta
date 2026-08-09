@@ -3,9 +3,14 @@ import { of } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
+import { E2eEncryptionService } from './e2e-encryption.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import {
+  PUBLIC_PAIR_MEDIA_GRANTS,
+  PUBLIC_PAIR_MEDIA_SLOTS,
+} from './public-pair-media-security-contract';
 import { ShareSession } from './share-session.service';
 import { WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import { canonicalSecurityJson } from './webrtc-secure-envelope';
@@ -19,6 +24,10 @@ const session: ShareSession = {
   permissions: { chat: true }, created_at: 1, expires_at: null, revoked_at: null,
   owner_user_id: 'alice', security_epoch: 3, security_contract_version: 1, security_mode: 'strict_e2ee',
 };
+const localMediaPeerId = `peer:${'1'.repeat(64)}`;
+const remoteMediaPeerId = `peer:${'2'.repeat(64)}`;
+const localMediaFingerprint = 'a'.repeat(64);
+const remoteMediaFingerprint = 'b'.repeat(64);
 
 describe('PairViewSecurityBootstrapService production contract seam', () => {
   it('validates the final transcript before binding and confirming the peer', async () => {
@@ -157,9 +166,160 @@ describe('PairViewSecurityBootstrapService production contract seam', () => {
     expect(peerKeys.acceptPeerConfirmation).not.toHaveBeenCalled();
     expect(bootstrap.state$.value).toMatchObject({ status: 'failed', reasonCode: 'key_confirmation_stale' });
   });
+
+  it('exposes a signed media contract only after the exact peer confirmation completes', async () => {
+    const response = await mediaKeyPackageResponse();
+    const acceptance = deferred<void>();
+    const peerKeys = fakeMediaPeerKeys(acceptance.promise);
+    const core = mediaCore(() => response);
+    configure(core, peerKeys, localMediaFingerprint);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+    const verify = vi.spyOn(crypto.subtle, 'verify').mockResolvedValue(true);
+
+    try {
+      const pending = bootstrap.ensure(session, localMediaPeerId);
+      await vi.waitFor(() => expect(peerKeys.acceptPeerConfirmation).toHaveBeenCalledOnce());
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+
+      acceptance.resolve();
+      await expect(pending).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor(session.id)).toMatchObject({
+        domain: 'ananta.public-pair.media-security-contract.v1',
+        session_id: session.id,
+        epoch: 3,
+        base_security_contract_digest: response.security_contract_digest,
+        grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
+      });
+      expect(verify).toHaveBeenCalledWith(
+        'Ed25519', expect.anything(), expect.any(ArrayBuffer), expect.any(ArrayBuffer),
+      );
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('drops a stale media bootstrap when clear wins the local-key await race', async () => {
+    const response = await mediaKeyPackageResponse();
+    const localKey = deferred<{ fingerprint: string }>();
+    const encryption = { ensureLocalKeyPair: vi.fn(() => localKey.promise) };
+    const peerKeys = fakeMediaPeerKeys();
+    configure(mediaCore(() => response), peerKeys, localMediaFingerprint, encryption);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+
+    const pending = bootstrap.ensure(session, localMediaPeerId);
+    await vi.waitFor(() => expect(encryption.ensureLocalKeyPair).toHaveBeenCalledOnce());
+    bootstrap.clear();
+    localKey.resolve({ fingerprint: localMediaFingerprint });
+
+    await expect(pending).resolves.toBe(false);
+    expect(peerKeys.verifyAndRefreshBinding).not.toHaveBeenCalled();
+    expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+    expect(bootstrap.state$.value).toEqual({ status: 'idle' });
+  });
+
+  it('drops a stale media bootstrap when clear wins authority-signature validation', async () => {
+    const response = await mediaKeyPackageResponse();
+    const validation = deferred<boolean>();
+    const peerKeys = fakeMediaPeerKeys();
+    configure(mediaCore(() => response), peerKeys, localMediaFingerprint);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+    const verify = vi.spyOn(crypto.subtle, 'verify').mockImplementation(() => validation.promise);
+
+    try {
+      const pending = bootstrap.ensure(session, localMediaPeerId);
+      await vi.waitFor(() => expect(verify).toHaveBeenCalledOnce());
+      bootstrap.clear();
+      validation.resolve(true);
+
+      await expect(pending).resolves.toBe(false);
+      expect(peerKeys.verifyAndRefreshBinding).not.toHaveBeenCalled();
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+      expect(bootstrap.state$.value).toEqual({ status: 'idle' });
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('does not cache null or invalid media contracts', async () => {
+    let response = await mediaKeyPackageResponse();
+    const peerKeys = fakeMediaPeerKeys();
+    configure(mediaCore(() => response), peerKeys, localMediaFingerprint);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+    const verify = vi.spyOn(crypto.subtle, 'verify').mockResolvedValue(true);
+
+    try {
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor(session.id)).not.toBeNull();
+
+      response = await mediaKeyPackageResponse();
+      response.public_media_security_contract_v1 = null;
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+
+      response = await mediaKeyPackageResponse();
+      response.public_media_security_contract_v1 = {
+        ...response.public_media_security_contract_v1,
+        session_id: 'attacker-session',
+      };
+      const bindingCallsBeforeInvalidContract = peerKeys.verifyAndRefreshBinding.mock.calls.length;
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(false);
+      expect(bootstrap.mediaContractFor(session.id)).toBeNull();
+      expect(peerKeys.verifyAndRefreshBinding).toHaveBeenCalledTimes(bindingCallsBeforeInvalidContract);
+      expect(bootstrap.state$.value).toMatchObject({
+        status: 'failed', reasonCode: 'public_media_contract_binding_mismatch',
+      });
+    } finally {
+      verify.mockRestore();
+    }
+  });
+
+  it('makes cached media authority unavailable on clear, epoch change and session replacement', async () => {
+    let response = await mediaKeyPackageResponse('session-a', 3);
+    const peerKeys = fakeMediaPeerKeys();
+    const core = mediaCore(() => response);
+    configure(core, peerKeys, localMediaFingerprint);
+    const bootstrap = TestBed.inject(PairViewSecurityBootstrapService);
+    const verify = vi.spyOn(crypto.subtle, 'verify').mockResolvedValue(true);
+
+    try {
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor('session-a')).not.toBeNull();
+
+      bootstrap.clear();
+      expect(bootstrap.mediaContractFor('session-a')).toBeNull();
+
+      await expect(bootstrap.ensure(session, localMediaPeerId)).resolves.toBe(true);
+      expect(bootstrap.mediaContractFor('session-a')).not.toBeNull();
+      response = waitingKeyPackageResponse(4);
+      const epochReplacement = bootstrap.ensure({ ...session, security_epoch: 4 }, localMediaPeerId);
+      expect(bootstrap.mediaContractFor('session-a')).toBeNull();
+      await expect(epochReplacement).resolves.toBe(false);
+      expect(bootstrap.mediaContractFor('session-a')).toBeNull();
+
+      response = await mediaKeyPackageResponse('session-a', 4);
+      await expect(bootstrap.ensure({ ...session, security_epoch: 4 }, localMediaPeerId))
+        .resolves.toBe(true);
+      expect(bootstrap.mediaContractFor('session-a')).not.toBeNull();
+      response = waitingKeyPackageResponse(5);
+      const sessionReplacement = bootstrap.ensure(
+        { ...session, id: 'session-b', security_epoch: 5 }, localMediaPeerId,
+      );
+      expect(bootstrap.mediaContractFor('session-a')).toBeNull();
+      await expect(sessionReplacement).resolves.toBe(false);
+      expect(bootstrap.mediaContractFor('session-a')).toBeNull();
+      expect(bootstrap.mediaContractFor('session-b')).toBeNull();
+    } finally {
+      verify.mockRestore();
+    }
+  });
 });
 
-function configure(core: any, peerKeys: unknown): void {
+function configure(
+  core: any,
+  peerKeys: unknown,
+  localFingerprint = localMediaFingerprint,
+  encryption?: unknown,
+): void {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({ providers: [
     { provide: HubApiCoreService, useValue: core },
@@ -170,6 +330,12 @@ function configure(core: any, peerKeys: unknown): void {
       isPublicSession: () => true,
     } },
     { provide: WebrtcPeerKeyService, useValue: peerKeys },
+    {
+      provide: E2eEncryptionService,
+      useValue: encryption ?? {
+        ensureLocalKeyPair: vi.fn(async () => ({ fingerprint: localFingerprint })),
+      },
+    },
   ] });
 }
 
@@ -188,15 +354,140 @@ function fakePeerKeys() {
   };
 }
 
-async function keyPackageResponse(): Promise<any> {
-  const offer: any = proposal('owner-session-a', 'participant-a');
-  const answer: any = proposal('participant-a', 'owner-session-a');
+function fakeMediaPeerKeys(acceptance: Promise<void> = Promise.resolve()) {
+  let binding: any = null;
+  return {
+    get currentBinding() { return binding; },
+    clear: vi.fn(() => { binding = null; }),
+    approveFingerprintChange: vi.fn(),
+    verifyAndRefreshBinding: vi.fn(async (remotePackage: any, options: any) => {
+      if (
+        binding?.packageId === remotePackage.package_id
+        && binding.scopeId === options.expectedScopeId
+        && binding.epoch === options.expectedEpoch
+      ) return binding;
+      binding = {
+        packageId: remotePackage.package_id,
+        scopeKind: 'session',
+        scopeId: options.expectedScopeId,
+        epoch: options.expectedEpoch,
+        localPeerId: options.localPeerId,
+        remotePeerId: remotePackage.peer_id,
+        peerPublicKeySpkiB64: remotePackage.ecdh_public_key_spki_b64 ?? 'spki',
+        keyId: 'media-key-id',
+        contractDigest: options.contractDigest,
+        tenantId: 'tenant-a',
+        deviceId: remotePackage.device_id ?? 'device-b',
+        membershipId: remotePackage.membership_id,
+        membershipVersion: remotePackage.membership_version,
+        peerFingerprint: remotePackage.device_key_fingerprint,
+        transcriptDigest: 'transcript-digest',
+        authorityKeyId: options.expectedHubKeyId,
+        confirmed: false,
+        fingerprintChanged: false,
+      };
+      return binding;
+    }),
+    createConfirmation: vi.fn(async () => 'local-tag'),
+    acceptPeerConfirmation: vi.fn(async () => {
+      await acceptance;
+      if (binding) binding.confirmed = true;
+    }),
+  };
+}
+
+function mediaCore(response: () => any) {
+  return {
+    get: vi.fn((url: string) => {
+      const current = response();
+      return of(url.includes('key-packages') ? current : {
+        ok: true,
+        local_peer_id: localMediaPeerId,
+        confirmation: confirmation(current.epoch, current.local_package_id),
+      });
+    }),
+    post: vi.fn(() => of({ ok: true, local_peer_id: localMediaPeerId })),
+  };
+}
+
+async function mediaKeyPackageResponse(scopeId = 'session-a', epoch = 3): Promise<any> {
+  const response = await keyPackageResponse(scopeId, epoch);
+  response.local_peer_id = localMediaPeerId;
+  response.packages = [{
+    ...response.packages[0],
+    membership_version: 1,
+    peer_id: remoteMediaPeerId,
+    device_id: 'device-b',
+    device_key_fingerprint: remoteMediaFingerprint,
+  }];
+  const unsigned = {
+    domain: 'ananta.public-pair.media-security-contract.v1',
+    version: 1,
+    session_id: scopeId,
+    epoch,
+    identity_binding_version: 2,
+    base_security_contract_digest: response.security_contract_digest,
+    memberships: [
+      {
+        membership_id: 'owner-session-a', membership_version: 1,
+        peer_id: localMediaPeerId, device_key_fingerprint: localMediaFingerprint,
+        public_media_e2ee_version: 1,
+      },
+      {
+        membership_id: 'participant-a', membership_version: 1,
+        peer_id: remoteMediaPeerId, device_key_fingerprint: remoteMediaFingerprint,
+        public_media_e2ee_version: 1,
+      },
+    ],
+    grants: [...PUBLIC_PAIR_MEDIA_GRANTS],
+    slots: PUBLIC_PAIR_MEDIA_SLOTS.map(slot => ({ ...slot })),
+    transform: 'RTCRtpScriptTransform',
+    algorithms: { aead: 'AES-256-GCM', kdf: 'HKDF-SHA-256' },
+    expires_at_ms: Date.now() + 240_000,
+    authority_key_id: PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
+  };
+  const digest = await sha256(canonicalSecurityJson(unsigned));
+  response.public_media_security_contract_v1 = {
+    ...unsigned,
+    digest,
+    signature_algorithm: 'Ed25519',
+    signature_b64: btoa('s'.repeat(64)),
+  };
+  return response;
+}
+
+function waitingKeyPackageResponse(epoch: number): any {
+  return {
+    ok: true,
+    epoch,
+    tenant_id: 'tenant-a',
+    security_contract_digest: null,
+    security_contract: null,
+    hub_key_id: PUBLIC_RENDEZVOUS_SIGNING_KEY_ID,
+    hub_public_key_b64: PUBLIC_RENDEZVOUS_SIGNING_PUBLIC_KEY_B64,
+    local_membership_id: 'owner-session-a',
+    local_peer_id: localMediaPeerId,
+    local_package_id: null,
+    packages: [],
+    public_media_security_contract_v1: null,
+  };
+}
+
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  const promise = new Promise<T>(innerResolve => { resolve = innerResolve; });
+  return { promise, resolve };
+}
+
+async function keyPackageResponse(scopeId = 'session-a', epoch = 3): Promise<any> {
+  const offer: any = proposal('owner-session-a', 'participant-a', scopeId, epoch);
+  const answer: any = proposal('participant-a', 'owner-session-a', scopeId, epoch);
   const digest = await sha256(canonicalSecurityJson({
     domain: 'ananta.webrtc.security-negotiation.v1', offer, answer,
   }));
   return {
     ok: true,
-    epoch: 3,
+    epoch,
     tenant_id: 'tenant-a',
     security_contract_digest: digest,
     security_contract: {
@@ -212,10 +503,10 @@ async function keyPackageResponse(): Promise<any> {
   };
 }
 
-function confirmation() {
+function confirmation(epoch = 3, packageId = 'b'.repeat(64)) {
   const now = Date.now();
   return {
-    confirmation_tag: confirmationTag(), package_id: 'b'.repeat(64), epoch: 3,
+    confirmation_tag: confirmationTag(), package_id: packageId, epoch,
     created_at_ms: now - 1_000, expires_at_ms: now + 240_000,
   };
 }
@@ -224,11 +515,11 @@ function confirmationTag(): string {
   return btoa('t'.repeat(32));
 }
 
-function proposal(sender: string, recipient: string) {
+function proposal(sender: string, recipient: string, scopeId = 'session-a', epoch = 3) {
   return {
-    version: 1, negotiation_id: 'neg:0123456789abcdef', scope_kind: 'session', scope_id: 'session-a',
+    version: 1, negotiation_id: 'neg:0123456789abcdef', scope_kind: 'session', scope_id: scopeId,
     sender_id: sender, recipient_id: recipient, minimum_mode: 'strict_e2ee', selected_mode: 'strict_e2ee',
-    algorithms: ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'], key_epoch: 3,
+    algorithms: ['AES-256-GCM', 'ECDH-P256-HKDF-SHA256'], key_epoch: epoch,
     payload_classes: ['bulk', 'control', 'semantic'], expires_at_ms: Number.MAX_SAFE_INTEGER,
   };
 }

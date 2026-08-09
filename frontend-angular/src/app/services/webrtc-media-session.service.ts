@@ -2,6 +2,8 @@ import { Injectable, InjectionToken, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, Subject, Subscription } from 'rxjs';
 import { PeerState, WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
+import type { PublicPairMediaSlot } from './public-pair-media-security-contract';
 
 export const WEBRTC_MEDIA_DEVICES = new InjectionToken<MediaDevices>('WEBRTC_MEDIA_DEVICES', {
   providedIn: 'root',
@@ -26,6 +28,7 @@ export interface OrdinaryAudioState {
 export interface RemoteOrdinaryTrack {
   readonly track: MediaStreamTrack;
   readonly streams: readonly MediaStream[];
+  readonly slot?: PublicPairMediaSlot | null;
 }
 
 interface RemoteTrackRegistration extends RemoteOrdinaryTrack {
@@ -48,6 +51,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
 
   private readonly peer = inject(WebrtcSessionService);
   private readonly mediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private readonly pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private stream?: MediaStream;
   private track?: MediaStreamTrack;
@@ -78,9 +82,18 @@ export class WebrtcMediaSessionService implements OnDestroy {
         safeStop(event.track);
         return;
       }
-      const value = Object.freeze({ track: event.track, streams: Object.freeze([...event.streams]) });
+      const value = Object.freeze({
+        track: event.track,
+        streams: Object.freeze([...event.streams]),
+        slot: this.peer.publicMediaSlotForReceiver(event.receiver),
+      });
       this.registerRemoteTrack(value);
       this.remoteTrack$.next(value);
+    }));
+    this.subscriptions.add(this.pairMediaE2ee.status$.subscribe(status => {
+      if (status.sessionId !== this.currentSessionId || status.state === 'ready') return;
+      if (this.track || this.sender) this.stopAudio(status.reasonCode || 'public_media_e2ee_not_ready');
+      if (this.remoteTracks.size) this.clearRemoteTracks();
     }));
     this.devices.addEventListener?.('devicechange', this.deviceChangeListener);
   }
@@ -102,7 +115,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
       this.assertCaptureCurrent(generation);
       const track = acquired.getAudioTracks()[0];
       if (!track) throw new Error('microphone_track_missing');
-      const sender = this.peer.addMediaTrack(track, acquired);
+      const sender = await this.peer.attachMediaTrack('microphone-opus', track, acquired);
       this.releaseCurrent();
       this.assertCaptureCurrent(generation);
       this.stream = acquired; this.track = track; this.sender = sender;
@@ -215,7 +228,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
   }
 
   private onPeerState(state: PeerState): void {
-    if (state === 'closed' || state === 'idle') {
+    if (state === 'closed' || state === 'idle' || state === 'failed') {
       this.stopAudio('session_closed');
       this.clearRemoteTracks();
     }
@@ -247,7 +260,7 @@ export class WebrtcMediaSessionService implements OnDestroy {
     this.remoteTrackState.next(Object.freeze(
       [...this.remoteTracks.values()]
         .filter(value => value.track.readyState !== 'ended')
-        .map(value => Object.freeze({ track: value.track, streams: value.streams })),
+        .map(value => Object.freeze({ track: value.track, streams: value.streams, slot: value.slot })),
     ));
   }
 

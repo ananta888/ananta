@@ -26,6 +26,8 @@ import { WebrtcMediaSessionService } from '../../services/webrtc-media-session.s
 import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publication.service';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
 import { PairOrdinaryMediaPolicy } from '../../services/pair-ordinary-media.policy';
+import { PairMediaE2eeCoordinatorService } from '../../services/pair-media-e2ee-coordinator.service';
+import { PairSessionControlPlaneService } from '../../services/pair-session-control-plane.service';
 import { SemanticComputeIntentFacade } from '../pair-view/semantic-compute-intent.facade';
 import { SemanticMediaProgramFacade } from './semantic-media-program.facade';
 import { PeerEvidenceSyncFacade } from './peer-evidence-sync.facade';
@@ -136,8 +138,28 @@ describe('SemanticMediaProgramFacade', () => {
     stopAudio: vi.fn(), setMuted: vi.fn(),
   };
   const ordinaryMediaPolicy = {
+    canActivate: vi.fn(() => true),
+    assertActivationAllowed: vi.fn(),
     allows: vi.fn(() => true),
     assertAllowed: vi.fn(),
+  };
+  const pairMediaE2eeStatus$ = new BehaviorSubject<any>({
+    sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+  });
+  const pairMediaE2ee = {
+    status$: pairMediaE2eeStatus$,
+    statusFor: vi.fn(() => pairMediaE2eeStatus$.value),
+    canActivate: vi.fn(() => true),
+    activate: vi.fn(async () => pairMediaE2eeStatus$.value),
+    deactivate: vi.fn(),
+  };
+  const pairControlPlane = {
+    authorityKindForSession: vi.fn<(sessionId: string) => 'hub' | 'public'>(() => 'hub'),
+  };
+  const directory = {
+    list: vi.fn<() => Array<{ role: string; name: string; url: string }>>(
+      () => [{ role: 'hub', name: 'hub', url: 'http://hub.test' }],
+    ),
   };
   const mediaPublications$ = new BehaviorSubject<readonly any[]>([]);
   const mediaPublications = {
@@ -167,12 +189,26 @@ describe('SemanticMediaProgramFacade', () => {
     shareState$.next({ ...shareState$.value, session });
     profile$.next(profile);
     mode$.next('webrtc');
+    sfuState$.next({ status: 'connected' });
     runtimeOnline$.next(true);
     audioState$.next({ status: 'active' });
     mediaPublications$.next([]);
     ordinaryMediaPolicy.allows.mockReset();
     ordinaryMediaPolicy.allows.mockReturnValue(true);
+    ordinaryMediaPolicy.canActivate.mockReset();
+    ordinaryMediaPolicy.canActivate.mockReturnValue(true);
+    ordinaryMediaPolicy.assertActivationAllowed.mockReset();
     ordinaryMediaPolicy.assertAllowed.mockReset();
+    pairControlPlane.authorityKindForSession.mockReset();
+    pairControlPlane.authorityKindForSession.mockReturnValue('hub');
+    directory.list.mockReset();
+    directory.list.mockReturnValue([{ role: 'hub', name: 'hub', url: 'http://hub.test' }]);
+    pairMediaE2eeStatus$.next({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+    pairMediaE2ee.activate.mockReset();
+    pairMediaE2ee.activate.mockImplementation(async () => pairMediaE2eeStatus$.value);
+    pairMediaE2ee.deactivate.mockReset();
     speechRuntime.settings$.next(DEFAULT_SEMANTIC_SPEECH_SETTINGS);
     qualityState$.next({
       mode: 'semantic_reconstruction', reasonCode: 'quality_healthy', transitioned: false,
@@ -183,7 +219,7 @@ describe('SemanticMediaProgramFacade', () => {
     TestBed.configureTestingModule({ providers: [
       SemanticMediaProgramFacade,
       SemanticReceiverPathService,
-      { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', name: 'hub', url: 'http://hub.test' }] } },
+      { provide: AgentDirectoryService, useValue: directory },
       { provide: NetworkProfileService, useValue: { current: profile, profile$, load: vi.fn(async () => undefined) } },
       { provide: ShareSessionService, useValue: { state$: shareState$, currentUserId: 'alice' } },
       { provide: WebrtcTransportService, useValue: { mode$ } },
@@ -209,6 +245,8 @@ describe('SemanticMediaProgramFacade', () => {
       { provide: WebrtcMediaSessionService, useValue: media },
       { provide: WebrtcMediaPublicationService, useValue: mediaPublications },
       { provide: PairOrdinaryMediaPolicy, useValue: ordinaryMediaPolicy },
+      { provide: PairMediaE2eeCoordinatorService, useValue: pairMediaE2ee },
+      { provide: PairSessionControlPlaneService, useValue: pairControlPlane },
       { provide: SpeechReconciliationApiService, useValue: reconciliationApi },
       { provide: SpeechAdapterRegistryApiService, useValue: adapterApi },
     ] });
@@ -287,10 +325,163 @@ describe('SemanticMediaProgramFacade', () => {
     expect(media.stopAudio).toHaveBeenCalledWith('microphone_user_stop');
   });
 
-  it('ignores a malicious media feature flag for a public Pair session', async () => {
+  it('activates key-bound Public Pair media without a Hub URL or Hub feature flag', async () => {
+    directory.list.mockReturnValue([]);
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    runtimeOnline$.next(false);
+    audioState$.next({ status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null });
+    sfuState$.next({ status: 'disconnected' });
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-ready',
+    });
+
+    expect(pairMediaE2ee.activate).toHaveBeenCalledWith('session-a');
+    expect(facade.view$.value.online).toBe(false);
+    expect(facade.view$.value.ordinaryMediaAuthority).toBe('public');
+    expect(facade.view$.value.ordinaryMediaActivationEnabled).toBe(true);
+    expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(true);
+    expect(facade.view$.value.ordinaryMediaVideoCaptureEnabled).toBe(true);
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media')?.state)
+      .toBe('authoritatively_active');
+
+    await facade.startOrdinaryVideo('camera');
+    expect(media.requestMicrophone).not.toHaveBeenCalled();
+    expect(mediaPublications.startLocal).toHaveBeenCalledWith(
+      expect.objectContaining({ sessionId: 'session-a', source: 'camera', permitted: true }),
+      expect.anything(),
+    );
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media')?.state)
+      .toBe('authoritatively_active');
+
+    await facade.startOrdinaryMicrophone();
+    expect(media.requestMicrophone).toHaveBeenCalled();
+
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'revoke', requestId: 'public-media-revoke',
+    });
+    expect(pairMediaE2ee.deactivate)
+      .toHaveBeenCalledWith('session-a', 'ordinary_media_capability_revoked');
+  });
+
+  it('keeps bilateral Public media activation pending until the peer consents', async () => {
+    directory.list.mockReturnValue([]);
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+    pairMediaE2eeStatus$.next({ sessionId: 'session-a', state: 'inactive' });
     ordinaryMediaPolicy.allows.mockReturnValue(false);
     ordinaryMediaPolicy.assertAllowed.mockImplementation(() => {
-      throw new Error('public_ordinary_media_e2ee_unavailable');
+      throw new Error('public_ordinary_media_e2ee_awaiting_peer');
+    });
+    pairMediaE2ee.activate.mockImplementation(async () => {
+      const awaitingPeer = { sessionId: 'session-a', state: 'awaiting-peer' };
+      pairMediaE2eeStatus$.next(awaitingPeer);
+      return awaitingPeer;
+    });
+
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-await-peer',
+    });
+
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media'))
+      .toMatchObject({ state: 'degraded', reasonCode: 'public_ordinary_media_e2ee_awaiting_peer' });
+    expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(false);
+
+    ordinaryMediaPolicy.allows.mockReturnValue(true);
+    ordinaryMediaPolicy.assertAllowed.mockReset();
+    pairMediaE2eeStatus$.next({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media')?.state)
+      .toBe('authoritatively_active');
+    expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(true);
+  });
+
+  it('does not let a superseded Public activation overwrite an explicit revoke', async () => {
+    directory.list.mockReturnValue([]);
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+    let resolveActivation!: (state: any) => void;
+    pairMediaE2ee.activate.mockReturnValueOnce(new Promise(resolve => { resolveActivation = resolve; }));
+    const activation = facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-cancelled',
+    });
+    await Promise.resolve();
+
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'revoke', requestId: 'public-media-cancelled',
+    });
+    resolveActivation({ sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64) });
+    await activation;
+
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media')?.state)
+      .toBe('revoked');
+    expect(pairMediaE2ee.deactivate)
+      .toHaveBeenCalledWith('session-a', 'ordinary_media_capability_revoked');
+  });
+
+  it.each([
+    ['awaiting-security', 'public_ordinary_media_e2ee_awaiting_security', 'degraded'],
+    ['awaiting-peer', 'public_ordinary_media_e2ee_awaiting_peer', 'degraded'],
+    ['negotiating', 'public_ordinary_media_e2ee_negotiating', 'degraded'],
+    ['failed', 'media_e2ee_worker_failed', 'failed'],
+    ['inactive', 'public_ordinary_media_e2ee_not_ready', 'failed'],
+  ])('cleans Public captures exactly once when ready becomes %s', async (state, reasonCode, expectedState) => {
+    directory.list.mockReturnValue([]);
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-before-failure',
+    });
+    media.stopAudio.mockClear();
+    mediaPublications.stopAll.mockClear();
+    ordinaryMediaPolicy.allows.mockReturnValue(false);
+    ordinaryMediaPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error(reasonCode);
+    });
+
+    const unavailable = { sessionId: 'session-a', state, reasonCode };
+    pairMediaE2eeStatus$.next(unavailable);
+    pairMediaE2eeStatus$.next(unavailable);
+
+    expect(media.stopAudio).toHaveBeenCalledTimes(1);
+    expect(media.stopAudio).toHaveBeenCalledWith(reasonCode);
+    expect(mediaPublications.stopAll).toHaveBeenCalledTimes(1);
+    expect(mediaPublications.stopAll).toHaveBeenCalledWith(reasonCode, true);
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media'))
+      .toMatchObject({ state: expectedState, reasonCode });
+  });
+
+  it('fails Public Pair capture closed when the E2EE coordinator is unavailable', async () => {
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    ordinaryMediaPolicy.allows.mockReturnValue(false);
+    ordinaryMediaPolicy.assertActivationAllowed.mockImplementation(() => {
+      throw new Error('media_e2ee_transform_unsupported');
+    });
+    ordinaryMediaPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('media_e2ee_transform_unsupported');
     });
 
     await facade.handleProgramIntent({
@@ -302,7 +493,8 @@ describe('SemanticMediaProgramFacade', () => {
     expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(false);
     expect(facade.view$.value.ordinaryMediaVideoCaptureEnabled).toBe(false);
     expect(facade.view$.value.ordinaryMediaReason)
-      .toBe('public_ordinary_media_e2ee_unavailable');
+      .toBe('media_e2ee_transform_unsupported');
+    expect(pairMediaE2ee.activate).not.toHaveBeenCalled();
     expect(media.requestMicrophone).not.toHaveBeenCalled();
     expect(mediaPublications.startLocal).not.toHaveBeenCalled();
   });
@@ -316,9 +508,11 @@ describe('SemanticMediaProgramFacade', () => {
     });
     expect(mediaPublications.stopAll).toHaveBeenCalledWith('ordinary_media_capability_revoked');
     expect(media.stopAudio).toHaveBeenCalledWith('ordinary_media_capability_revoked');
+    expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
 
     shareState$.next({ ...shareState$.value, session: { ...session, id: 'session-b' } });
     expect(mediaPublications.stopAll).toHaveBeenCalledWith('ordinary_media_session_ended', true);
+    expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
   });
 
   it('applies pause and ordinary override to transport and ordinary media, not only the panel label', async () => {

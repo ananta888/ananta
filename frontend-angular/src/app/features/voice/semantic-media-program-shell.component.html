@@ -1,6 +1,14 @@
 <section aria-labelledby="semantic-program-title" [attr.data-display-mode]="displayMode">
   <h2 id="semantic-program-title">{{ heading() }}</h2>
-  <p role="status" aria-live="polite">{{ online ? 'Hub erreichbar' : 'Offline – neue Freigaben gesperrt' }}</p>
+  @if (displayMode === 'pair_media' && ordinaryMediaAuthority === 'public') {
+    <p role="status" aria-live="polite">
+      {{ ordinaryMediaActivationEnabled
+        ? 'Public-Pair-Medien können sicher aktiviert werden'
+        : 'Public-Pair-Medien sind noch nicht freigabebereit' }}
+    </p>
+  } @else {
+    <p role="status" aria-live="polite">{{ online ? 'Hub erreichbar' : 'Offline – neue Freigaben gesperrt' }}</p>
+  }
 
   @if (displayMode === 'full') {
     <dl aria-label="Freigabeumfang">
@@ -13,10 +21,18 @@
       <dt>Ordinary-Fallback</dt><dd>{{ scope.ordinaryFallback }}</dd>
     </dl>
   } @else {
-    <p role="note">
-      Der Hub prüft die aktive Pair-Session und die Ordinary-Media-Freigabe. Erst danach fragt der Browser
-      gezielt nach Mikrofon, Kamera oder Bildschirm.
-    </p>
+    @if (ordinaryMediaAuthority === 'public') {
+      <p role="note">
+        Public Pair prüft die bestätigte Gerätebindung und richtet vor der Freigabe den
+        sitzungsgebundenen Medien-E2EE-Pfad ein. Erst danach fragt der Browser gezielt nach
+        Mikrofon, Kamera oder Bildschirm.
+      </p>
+    } @else {
+      <p role="note">
+        Der Hub prüft die aktive Pair-Session und die Ordinary-Media-Freigabe. Erst danach fragt der Browser
+        gezielt nach Mikrofon, Kamera oder Bildschirm.
+      </p>
+    }
   }
 
   <div class="program-grid">
@@ -62,7 +78,7 @@
         }
         <button
           type="button"
-          [disabled]="pending(row) || !online || adapterActivationUnavailable(row.capability)"
+          [disabled]="pending(row) || !activationAvailable(row) || adapterActivationUnavailable(row.capability)"
           (click)="request(row.capability, 'activate')"
           [attr.aria-describedby]="'scope-' + row.capability">
           {{ isSensitive(row.capability) ? 'Einzeln freigeben' : 'Aktivieren' }}
@@ -81,6 +97,8 @@
     <app-webrtc-media-panel
       [captureEnabled]="ordinaryMediaCaptureEnabled"
       [videoCaptureEnabled]="ordinaryMediaVideoCaptureEnabled"
+      [publicPair]="ordinaryMediaAuthority === 'public'"
+      [e2eeProtected]="ordinaryMediaAuthority === 'public' && ordinaryMediaCaptureEnabled && ordinaryMediaVideoCaptureEnabled"
       [captureReason]="ordinaryMediaReason"
       [audioState]="ordinaryAudioState"
       [publications]="ordinaryMediaPublications"

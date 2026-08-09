@@ -164,7 +164,8 @@ describe('VoiceConsoleComponent', () => {
           direction: 'bidirectional', dataClass: 'Transcript', purpose: 'Test', retentionLabel: 'keine',
           trainerLocation: 'lokal', e2eeMode: 'strict_e2ee', ordinaryFallback: 'aktiv',
         },
-        capabilities: [], online: true, hubUrl: 'http://hub.test', computeVisible: false,
+        capabilities: [], online: true, hubUrl: 'http://hub.test',
+        ordinaryMediaAuthority: 'hub', ordinaryMediaActivationEnabled: true, computeVisible: false,
         compute: {
           contract: { contractId: '', revision: 0, status: 'absent', profile: 'off', delayMs: 5_000, roles: {} },
           leases: [], pending: false, errorCode: null,

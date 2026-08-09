@@ -95,6 +95,8 @@ function hostView(): SemanticMediaProgramHostView {
     }],
     online: true,
     hubUrl: 'http://hub.test',
+    ordinaryMediaAuthority: 'hub',
+    ordinaryMediaActivationEnabled: true,
     computeVisible: false,
     compute: {
       contract: { contractId: '', revision: 0, status: 'absent', profile: 'off', delayMs: 5000, roles: {} },

@@ -92,8 +92,12 @@ export class WebrtcPeerKeyService {
   async verifyAndRefreshBinding(
     rawPackage: SignedPeerKeyPackage,
     options: PeerPackageVerificationOptions,
+    isCurrent: () => boolean = () => true,
   ): Promise<Readonly<VerifiedPeerBinding>> {
     const verifiedPackage = await this.verifyPackage(rawPackage, options);
+    // The caller owns the session generation. Check it after every async
+    // verification and immediately before this service may mutate binding.
+    if (!isCurrent()) throw new PeerKeyError('peer_binding_operation_superseded');
     const current = this.binding;
     if (
       !current
