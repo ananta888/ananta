@@ -128,11 +128,14 @@ def test_public_tui_client_explicitly_allows_pair_dev_origins():
         assert setup.count(redirect_uri) == 2
 
 
-def test_local_https_edge_pins_the_supported_public_oidc_issuer():
+def test_local_https_edge_pins_the_supported_public_authorities():
     nginx = NGINX_CONFIG.read_text(encoding="utf-8")
     csp = next(line for line in nginx.splitlines() if "Content-Security-Policy" in line)
 
-    assert "connect-src 'self' https://keycloak.ananta.de ws: wss:;" in csp
+    assert (
+        "connect-src 'self' https://keycloak.ananta.de "
+        "https://webrtc.ananta.de ws: wss:;"
+    ) in csp
     assert "connect-src 'self' https: " not in csp
 
 
