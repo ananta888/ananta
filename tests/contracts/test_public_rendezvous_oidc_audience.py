@@ -79,7 +79,8 @@ def test_public_strict_pair_runbook_is_scoped_to_the_supported_angular_adapter()
 
     assert "strict public Pair flow is currently supported by the Angular Pair-Dev" in documentation
     assert "TUI\ncommands must therefore not be used" in documentation
-    assert "same\nKeycloak account cannot occupy both memberships" in documentation
+    assert "Both computers may\nuse the same Keycloak account" in documentation
+    assert "Existing v1 sessions cannot be upgraded in place" in documentation
 
 
 def test_setup_idempotently_updates_audiences_and_attaches_basic_scope(tmp_path: Path):

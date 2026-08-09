@@ -1,22 +1,37 @@
 # Identity Architecture
 
-Ananta has two independent user identities and one derived signaling
+Ananta has two independent user identities and one device-scoped Pair
 identity. They must not be collapsed into one bearer-token domain.
 
 | Sphere | Authority | Token use |
 |---|---|---|
 | `hub` | Ananta Hub login | Hub APIs; the Hub owns worker authorization and delegation |
 | `oidc` | `keycloak.ananta.de` via OIDC/PKCE | Pair Dev and `webrtc.ananta.de` |
-| `signaling` | Derived from `oidc` | WebRTC signaling |
+| `pair peer` | Derived from verified OIDC `(iss, sub)` plus the verified P-256 device-key fingerprint | E2EE addressing and WebRTC signaling |
 
-The public native-WebSocket signaling protocol is not implemented yet. The
-Angular client currently creates Hub-owned Share sessions and therefore sends
-their SDP/ICE signaling through the Hub's authenticated
-`/api/webrtc/sessions/<id>/signal` boundary. This fallback does not make a Hub
-token valid at `webrtc.ananta.de` and does not make an OIDC token valid at the
-Hub; the bearer domains remain separate. A future public WebSocket adapter
-must use an explicit, short-lived credential exchange rather than putting an
-OIDC bearer token or nonce into a WebSocket URL.
+Public Pair identity binding v2 deliberately separates the Keycloak account
+principal (`oidc:...`) from the device peer (`peer:...`). Two computers may
+therefore use the same Keycloak account in one Pair session, but they must have
+distinct local P-256 keys. Reusing or copying the same private device key is
+rejected as a reflected/self pairing.
+
+The peer id is a selector, not an authenticator. Every v2 create/join attempt
+uses a client-generated 256-bit membership capability that is persisted in
+the browser tab before the request is sent. Follow-up requests carry the exact
+peer id and capability together with the OIDC bearer. The Rendezvous stores
+only domain-separated capability hashes. It never returns the plaintext
+capability in responses, lists, URLs or logs. Existing v1 sessions keep their
+account-scoped peer identifiers and are not silently upgraded; create a new
+session to use same-account device pairing.
+
+The public native-WebSocket signaling protocol is not implemented yet. Public
+Pair sessions use authenticated HTTP polling at `webrtc.ananta.de`; Hub-owned
+sessions use the Hub's `/api/webrtc/sessions/<id>/signal` boundary. Neither
+path falls back to the other authority. A Hub token is not valid at the public
+Rendezvous, and an OIDC token is not valid at the Hub. A future public
+WebSocket adapter must use an explicit, short-lived credential exchange rather
+than putting an OIDC bearer token, peer capability or nonce into a WebSocket
+URL.
 
 Workers do not accept a browser's Hub or Keycloak user token as an implicit
 fallback. Browser operations targeting workers flow through the Hub, which

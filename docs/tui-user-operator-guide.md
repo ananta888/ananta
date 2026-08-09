@@ -115,18 +115,12 @@ Beide sehen sich danach in `:share status`.
 
 ### Gleicher Account auf mehreren Umgebungen
 
-Du kannst dich mit demselben Keycloak-Account auf mehreren Umgebungen anmelden und derselben Session beitreten. Der Account ist die User-Identität; der lokale Device-Key/Fingerprint ist die Teilnehmer-Identität der jeweiligen Umgebung.
-
-Jede Umgebung braucht dafür einen eigenen lokalen Device-Key:
-
-```
-:oidc login
-:share key generate
-:share join <CODE>
-:share status
-```
-
-Wenn zwei Umgebungen aus demselben kopierten Workspace stammen, rotiere den Key in einer Umgebung mit `:share key rotate`, damit sie in `:share status` als getrennte Teilnehmer erscheinen. Private Device-Keys nicht zwischen Umgebungen teilen.
+Der öffentliche Same-Account-/Mehrgerätevertrag wird derzeit vom Angular
+Pair-Dev-Client unterstützt. Der Operator-TUI-Adapter stellt die dafür nötige
+v2-Membership-Capability noch nicht aus und darf diesen Ablauf gegen
+`webrtc.ananta.de` deshalb nicht anbieten. Verwende für diesen Fall Pair Dev
+im Browser. Private Device-Keys dürfen nicht zwischen Umgebungen kopiert
+werden.
 
 ### Sicherheitshinweise
 

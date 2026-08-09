@@ -162,18 +162,12 @@ Die Share-Section (`s` im Navigationsmenü oder `:section share`) zeigt OIDC-Sta
 
 ### Derselbe Account auf mehreren Umgebungen
 
-Ein Keycloak-Account kann parallel aus mehreren TUI-Umgebungen derselben Share-Session beitreten. OIDC identifiziert den User, der lokale Device-Key/Fingerprint identifiziert die konkrete Umgebung. Dadurch erscheinen Laptop, Container oder VM als getrennte Teilnehmer, solange jede Umgebung einen eigenen Device-Key hat.
-
-Für jede Umgebung:
-
-```
-:oidc login
-:share key generate
-:share join <CODE>
-:share status
-```
-
-Wenn eine Umgebung aus einem geklonten Workspace stammt und denselben Device-Key verwendet, rotiere den Key in einer der Umgebungen mit `:share key rotate`. Private Device-Keys sollen nicht zwischen Umgebungen kopiert werden.
+Der öffentliche Same-Account-/Mehrgerätevertrag ist aktuell auf Angular Pair
+Dev begrenzt. Der Operator TUI besitzt noch keinen Adapter für die
+gerätegebundene v2-Membership-Capability und darf deshalb nicht behaupten,
+diesen Ablauf gegen `webrtc.ananta.de` zu unterstützen. Verwende dafür Pair
+Dev im Browser. Private Device-Keys dürfen nicht zwischen Umgebungen kopiert
+werden.
 
 ### Netzwerkprofil
 

@@ -7,7 +7,10 @@ nicht als Worker-Tasks verarbeitet.
 
 ## Voraussetzungen
 
-- Beide Personen sind im Pair-Dev-Bereich mit Keycloak angemeldet.
+- Beide Browser sind im Pair-Dev-Bereich mit Keycloak angemeldet. Sie duerfen
+  denselben Keycloak-Account verwenden, muessen dann aber unterschiedliche
+  lokale P-256-Geraeteschluessel besitzen und eine neu erstellte v2-Session
+  verwenden.
 - Beide Browser sind derselben aktiven, nicht widerrufenen Share-Session
   beigetreten.
 - Das aktive Netzwerkprofil verwendet den Transport `webrtc`; ein

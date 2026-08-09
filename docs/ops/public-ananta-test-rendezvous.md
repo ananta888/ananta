@@ -129,6 +129,17 @@ The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/G
 
 Alle Endpunkte außer `/health` und `/info` erfordern einen gültigen Keycloak-Bearer-Token.
 
+Neue Angular-Clients handeln beim Erstellen und Beitreten explizit
+`identity_binding_version: 2` aus. Sie senden dabei eine vor dem Request im
+Tab gespeicherte 256-Bit-Capability als
+`X-Ananta-Membership-Capability`. Alle späteren mitgliedsbezogenen Requests
+verwenden zusätzlich den vom Server bestätigten `X-Ananta-Peer-Id`.
+`X-Ananta-Device-Id` dient nur der Listen-/Reload-Erkennung und ist kein
+Authentikator. Der Server speichert ausschließlich gebundene Capability-Hashes
+und gibt das Geheimnis niemals zurück. Headerlose Clients und bestehende
+Sessions bleiben auf Identitätsbindung v1; es gibt kein stilles Downgrade oder
+Upgrade zwischen den Verträgen.
+
 Strict-E2EE-Berechtigungen sind an den aktuellen Security-Epoch und dessen
 Schlüsselmaterial gebunden. Der öffentliche Permissions-Endpunkt mutiert daher
 keine Session, solange kein rekey-fähiger Client-Adapter existiert, und liefert
@@ -652,14 +663,28 @@ sudo ss -lun | grep -Eq '(^|[[:space:]])[^[:space:]]*:3478[[:space:]]'
 preflight_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
   -X OPTIONS -H 'Origin: http://localhost:4200' \
   -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: Authorization, X-Ananta-Device-Id, X-Ananta-Peer-Id, X-Ananta-Membership-Capability' \
   https://webrtc.ananta.de/rendezvous/sessions)
 case "$preflight_status" in 200|204) ;; *) echo "unexpected preflight status: $preflight_status" >&2; exit 1 ;; esac
 test "$(curl --silent --dump-header - --output /dev/null \
   -X OPTIONS -H 'Origin: http://localhost:4200' \
   -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: Authorization, X-Ananta-Device-Id, X-Ananta-Peer-Id, X-Ananta-Membership-Capability' \
   https://webrtc.ananta.de/rendezvous/sessions \
   | tr -d '\r' | awk -F ': ' 'tolower($1)=="access-control-allow-origin" { print $2 }')" \
   = 'http://localhost:4200'
+preflight_allowed_headers=$(curl --silent --dump-header - --output /dev/null \
+  -X OPTIONS -H 'Origin: http://localhost:4200' \
+  -H 'Access-Control-Request-Method: GET' \
+  -H 'Access-Control-Request-Headers: Authorization, X-Ananta-Device-Id, X-Ananta-Peer-Id, X-Ananta-Membership-Capability' \
+  https://webrtc.ananta.de/rendezvous/sessions \
+  | tr -d '\r' | awk -F ': ' 'tolower($1)=="access-control-allow-headers" { print tolower($2) }')
+for required_header in authorization x-ananta-device-id x-ananta-peer-id x-ananta-membership-capability; do
+  case ",$preflight_allowed_headers," in
+    *", $required_header,"*|*",$required_header,"*) ;;
+    *) echo "missing CORS header allowance: $required_header" >&2; exit 1 ;;
+  esac
+done
 test -z "$(curl --silent --dump-header - --output /dev/null \
   -X OPTIONS -H 'Origin: https://untrusted.invalid' \
   -H 'Access-Control-Request-Method: GET' \
@@ -884,9 +909,13 @@ commands must therefore not be used against `webrtc.ananta.de` until the TUI
 gets its own strict Pair adapter. The server rejects legacy or downgraded
 sessions rather than silently weakening E2EE.
 
-A public session has exactly two distinct canonical OIDC identities. The same
-Keycloak account cannot occupy both memberships, even when used from different
-devices. Use two different test accounts, one in each Pair-Dev browser.
+A public v2 session has exactly two distinct device peers. Both computers may
+use the same Keycloak account because account authorization and device/E2EE
+addressing are separate. Each browser environment must retain its own local
+P-256 private key and tab-scoped membership capability; copied device keys are
+rejected. Existing v1 sessions cannot be upgraded in place, so create a new
+Pair-Dev session after deploying v2. Two different Keycloak accounts remain
+supported unchanged.
 
 ### Was passiert im Hintergrund
 
