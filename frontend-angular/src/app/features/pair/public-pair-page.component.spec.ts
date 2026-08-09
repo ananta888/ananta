@@ -11,6 +11,7 @@ import { OidcAuthService } from '../../services/oidc-auth.service';
 import { PairViewSessionBindingService } from '../../services/pair-view-session-binding.service';
 import { ShareSessionService } from '../../services/share-session.service';
 import { WebrtcSignalingService } from '../../services/webrtc-signaling.service';
+import { WebrtcSessionService } from '../../services/webrtc-session.service';
 import { SemanticMediaProgramHostComponent } from '../voice/semantic-media-program-host.component';
 import { PublicPairPageComponent } from './public-pair-page.component';
 
@@ -25,7 +26,9 @@ class SemanticMediaProgramHostStubComponent {
 
 describe('PublicPairPageComponent', () => {
   it('renders the direct Pair surface without initializing or exposing Hub group APIs', async () => {
-    const status$ = new BehaviorSubject('disconnected');
+    const signalingStatus$ = new BehaviorSubject('disconnected');
+    const webrtcStatus$ = new BehaviorSubject('idle');
+    const dataChannelStatus$ = new BehaviorSubject('absent');
     const core = {
       get: vi.fn(() => of({})),
       post: vi.fn(() => of({})),
@@ -42,7 +45,11 @@ describe('PublicPairPageComponent', () => {
     await TestBed.configureTestingModule({
       providers: [
         { provide: OidcAuthService, useValue: { currentUsername: 'keycloak-user' } },
-        { provide: WebrtcSignalingService, useValue: { status$ } },
+        { provide: WebrtcSignalingService, useValue: { status$: signalingStatus$ } },
+        {
+          provide: WebrtcSessionService,
+          useValue: { state$: webrtcStatus$, dataChannelState$: dataChannelStatus$ },
+        },
         { provide: ShareSessionService, useValue: share },
         { provide: PairViewSessionBindingService, useValue: { start: vi.fn() } },
         {
@@ -68,8 +75,12 @@ describe('PublicPairPageComponent', () => {
 
     expect(host.querySelector('[data-testid="public-pair-page"]')).not.toBeNull();
     expect(host.querySelector('[data-testid="public-pair-user"]')?.textContent).toContain('keycloak-user');
+    expect(host.querySelector('[data-testid="public-pair-signaling-status"]')?.textContent)
+      .toContain('Signaling: disconnected');
     expect(host.querySelector('[data-testid="public-pair-webrtc-status"]')?.textContent)
-      .toContain('WebRTC: disconnected');
+      .toContain('WebRTC: idle');
+    expect(host.querySelector('[data-testid="public-pair-datachannel-status"]')?.textContent)
+      .toContain('DataChannel: absent');
     expect(panel.publicOnly).toBe(true);
     expect(media.displayMode).toBe('pair_media');
     expect(host.textContent).not.toContain('Gruppen');

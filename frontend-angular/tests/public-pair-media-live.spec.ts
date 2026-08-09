@@ -65,7 +65,7 @@ test.describe('Public Pair media live canary', () => {
 
       await endOwnerSession(ownerPage, owner.sessionId);
       sessionCreated = false;
-      await leaveGuestSession(guestPage);
+      await bestEffortLeaveGuestSession(guestPage);
     } finally {
       if (sessionCreated && ownerPage) await bestEffortEndOwnerSession(ownerPage);
       if (guestPage) await bestEffortLeaveGuestSession(guestPage);
@@ -373,6 +373,10 @@ async function expectPairSecurityReady(page: Page, peerRole: 'owner' | 'guest'):
     page.getByTestId('public-pair-webrtc-status'),
     `${peerRole}_webrtc_not_connected`,
   ).toHaveText(/WebRTC:\s*connected/i);
+  await expect(
+    page.getByTestId('public-pair-datachannel-status'),
+    `${peerRole}_datachannel_not_open`,
+  ).toHaveText(/DataChannel:\s*open/i);
 }
 
 async function activateMediaBilateral(owner: Page, guest: Page): Promise<void> {
@@ -404,9 +408,13 @@ async function mediaActivationDiagnostic(page: Page): Promise<string> {
     .locator('code').textContent().catch(() => 'media_panel_unavailable');
   const pendingCount = await page.getByTestId('public-media-e2ee-pending').count();
   const webrtc = await page.getByTestId('public-pair-webrtc-status').textContent().catch(() => 'missing');
+  const dataChannel = await page.getByTestId('public-pair-datachannel-status')
+    .textContent().catch(() => 'missing');
+  const pageErrors = (PAGE_ERROR_CODES.get(page) ?? []).slice(-4);
   return `cap_${safeStatusCode(capabilityState)}_cap_reason_${safeReasonCode(capabilityReason)}`
     + `_operation_${safeReasonCode(operationReason)}_pending_${pendingCount}`
-    + `_webrtc_${safeStatusCode(webrtc)}`;
+    + `_webrtc_${safeStatusCode(webrtc)}_datachannel_${safeChannelState(dataChannel)}`
+    + `_page_errors_${pageErrors.join('-') || 'none'}`;
 }
 
 async function startBilateralCapture(owner: Page, guest: Page): Promise<void> {
@@ -508,8 +516,13 @@ async function revokeMediaFromOwner(owner: Page, guest: Page): Promise<void> {
   await mediaCapability(owner).getByRole('button', { name: 'Widerrufen', exact: true }).click();
   await Promise.all([owner, guest].map(page => expect(mediaPanel(page)).toHaveCount(0)));
   await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-media-e2ee-ready')).toHaveCount(0)));
+  // Revocation destroys the keyed media PC/worker generation. Session polling
+  // may then reopen the same Pair as data-only; media stays quarantined for
+  // the signed contract digest while chat/view remain usable.
   await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-pair-webrtc-status'))
-    .toHaveText(/WebRTC:\s*(disconnected|failed)/i)));
+    .toHaveText(/WebRTC:\s*connected/i)));
+  await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-pair-datachannel-status'))
+    .toHaveText(/DataChannel:\s*open/i)));
 }
 
 async function endOwnerSession(page: Page, sessionId: string): Promise<void> {
@@ -518,11 +531,6 @@ async function endOwnerSession(page: Page, sessionId: string): Promise<void> {
   page.once('dialog', dialog => void dialog.accept());
   await sharePanel(page).getByRole('button', { name: 'Session beenden', exact: true }).click();
   requireCondition((await response).ok(), 'public_session_cleanup_failed');
-  await expect(sharePanel(page).getByRole('button', { name: /Session erstellen/i })).toBeVisible();
-}
-
-async function leaveGuestSession(page: Page): Promise<void> {
-  await sharePanel(page).getByRole('button', { name: 'Verlassen', exact: true }).click();
   await expect(sharePanel(page).getByRole('button', { name: /Session erstellen/i })).toBeVisible();
 }
 
@@ -569,6 +577,14 @@ function safeStatusCode(value: string | null): string {
   if (normalized.includes('connected')) return 'connected';
   if (normalized.includes('failed')) return 'failed';
   if (normalized.includes('disconnected')) return 'disconnected';
+  return 'unknown';
+}
+
+function safeChannelState(value: string | null): string {
+  const normalized = String(value || '').toLowerCase();
+  for (const state of ['open', 'connecting', 'closing', 'closed', 'absent']) {
+    if (normalized.includes(state)) return state;
+  }
   return 'unknown';
 }
 

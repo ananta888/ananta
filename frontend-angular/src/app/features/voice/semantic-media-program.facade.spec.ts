@@ -409,6 +409,35 @@ describe('SemanticMediaProgramFacade', () => {
     expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(true);
   });
 
+  it('keeps the active Public media request fenced while transient status updates arrive', async () => {
+    directory.list.mockReturnValue([]);
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+    let resolveActivation!: (state: any) => void;
+    pairMediaE2ee.activate.mockReturnValueOnce(new Promise(resolve => { resolveActivation = resolve; }));
+
+    const activation = facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-pending',
+    });
+    await Promise.resolve();
+    pairMediaE2eeStatus$.next({
+      sessionId: 'session-a', state: 'awaiting-peer', reasonCode: 'public_media_local_activation_pending',
+    });
+
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media'))
+      .toMatchObject({ state: 'degraded', requestId: 'public-media-pending' });
+
+    resolveActivation({ sessionId: 'session-a', state: 'awaiting-peer' });
+    await activation;
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media'))
+      .toMatchObject({ state: 'degraded', requestId: null });
+  });
+
   it('does not let a superseded Public activation overwrite an explicit revoke', async () => {
     directory.list.mockReturnValue([]);
     pairControlPlane.authorityKindForSession.mockReturnValue('public');

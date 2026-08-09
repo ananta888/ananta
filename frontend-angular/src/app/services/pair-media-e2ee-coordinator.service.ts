@@ -40,6 +40,8 @@ export interface PublicPairMediaE2eeState {
 
 /** Lower-level port registered by WebrtcSessionService; no reverse DI edge. */
 export interface PairMediaE2eeTransportPort {
+  /** Generation-bound consent-channel readiness; never infer this from signaling. */
+  isOpen(): boolean;
   send(message: SemanticDataChannelMessage): Promise<void>;
   disableMedia(reasonCode: string): void;
   failClosed(reasonCode: string): void;
@@ -146,8 +148,20 @@ export class PairMediaE2eeCoordinatorService {
       || contract.expires_at_ms <= Date.now()
     ) return false;
     const runtime = this.runtime;
-    if (runtime?.sessionId === sessionId && (runtime.failed || runtime.installed)) return false;
-    return this.transforms.isPrepared(sessionId, contract.epoch, contract.digest);
+    if (runtime?.sessionId === sessionId && !runtime.dataChannelOpen) {
+      this.reconcileDataChannelOpen(runtime);
+    }
+    if (
+      !runtime
+      || runtime.sessionId !== sessionId
+      || runtime.failed
+      || runtime.installed
+      || !runtime.topologyReady
+      || !runtime.dataChannelOpen
+    ) return false;
+    return this.transforms.isPrepared(
+      sessionId, contract.epoch, contract.digest, runtime.adapterGeneration,
+    );
   }
 
   async activate(sessionId: string): Promise<PublicPairMediaE2eeState> {
@@ -206,7 +220,7 @@ export class PairMediaE2eeCoordinatorService {
   bindTransport(sessionId: string, port: PairMediaE2eeTransportPort): void {
     const runtime = this.ensureRuntime(sessionId);
     runtime.port = port;
-    if (runtime.localActivated && runtime.dataChannelOpen) {
+    if (runtime.localActivated) {
       void this.maybeSendHello(runtime).catch(error => {
         this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
       });
@@ -234,6 +248,8 @@ export class PairMediaE2eeCoordinatorService {
       void this.maybeSendHello(runtime).catch(error => {
         this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
       });
+    } else {
+      this.emit(runtime, 'inactive');
     }
   }
 
@@ -242,6 +258,7 @@ export class PairMediaE2eeCoordinatorService {
     try {
       this.transforms.validateFinalTopology(sessionId);
       runtime.topologyReady = true;
+      if (!runtime.localActivated) this.emit(runtime, 'inactive');
       void this.maybeInstall(runtime);
     } catch (error) {
       // A peer that could not advertise the optional media extension may
@@ -358,6 +375,7 @@ export class PairMediaE2eeCoordinatorService {
   private async maybeSendHello(runtime: Runtime): Promise<void> {
     this.assertCurrent(runtime);
     this.refreshExpiredPreKeyHandshake(runtime);
+    this.reconcileDataChannelOpen(runtime);
     if (
       runtime.failed || !runtime.localActivated || !runtime.dataChannelOpen || !runtime.port
       || runtime.helloSendPromise || runtime.localHello
@@ -394,6 +412,19 @@ export class PairMediaE2eeCoordinatorService {
       await this.maybeSendAck(runtime);
     })().finally(() => { runtime.helloSendPromise = null; });
     return runtime.helloSendPromise;
+  }
+
+  private reconcileDataChannelOpen(runtime: Runtime): void {
+    if (runtime.dataChannelOpen || !runtime.port || runtime.failed || runtime.poisoned) return;
+    try {
+      runtime.dataChannelOpen = runtime.port.isOpen() === true;
+    } catch (error) {
+      this.failRuntime(
+        runtime,
+        reason(error, 'public_media_consent_channel_state_failed'),
+        true,
+      );
+    }
   }
 
   private async acceptHello(runtime: Runtime, hello: MediaHelloV2): Promise<void> {

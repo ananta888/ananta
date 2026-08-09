@@ -20,6 +20,7 @@ import { WebrtcSessionService } from './webrtc-session.service';
 
 class PublicPeerConnection {
   static instances: PublicPeerConnection[] = [];
+  static nextDataChannelReadyState: RTCDataChannelState = 'connecting';
   connectionState: RTCPeerConnectionState = 'new';
   signalingState: RTCSignalingState = 'stable';
   onicecandidate: ((event: RTCPeerConnectionIceEvent) => void) | null = null;
@@ -38,7 +39,9 @@ class PublicPeerConnection {
     await this.remoteDescriptionGate?.promise;
   });
   readonly addIceCandidate = vi.fn(async () => undefined);
-  readonly createDataChannel = vi.fn(() => dataChannel());
+  readonly createDataChannel = vi.fn(() => Object.assign(dataChannel(), {
+    readyState: PublicPeerConnection.nextDataChannelReadyState,
+  }));
   readonly getTransceivers = vi.fn(() => this.remoteOfferTransceivers as unknown as RTCRtpTransceiver[]);
 
   constructor(readonly configuration?: RTCConfiguration) {
@@ -87,6 +90,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
 
   beforeEach(() => {
     PublicPeerConnection.instances = [];
+    PublicPeerConnection.nextDataChannelReadyState = 'connecting';
     signalHandler = null;
     signaling = {
       status$: new BehaviorSubject('disconnected'),
@@ -138,6 +142,64 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     await signalHandler?.(offer());
     expect(PublicPeerConnection.instances[1].createAnswer).toHaveBeenCalledOnce();
     expect(signaling.send).toHaveBeenCalledWith(expect.objectContaining({ type: 'answer' }));
+  });
+
+  it('reconciles an already-open generation-bound DataChannel exactly once', async () => {
+    PublicPeerConnection.nextDataChannelReadyState = 'open';
+
+    await service.startSession('session-a', true, 'peer:remote');
+    await settle();
+
+    const peer = PublicPeerConnection.instances[0];
+    const channel = peer.createDataChannel.mock.results[0].value as RTCDataChannel;
+    const oldPort = coordinator.port;
+    expect(oldPort?.isOpen()).toBe(true);
+    expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+
+    channel.onopen?.(new Event('open'));
+    expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+
+    await service.startSession('session-a', true, 'peer:remote');
+    expect(oldPort?.isOpen()).toBe(false);
+    expect(coordinator.port?.isOpen()).toBe(true);
+  });
+
+  it('reconciles an already-open answerer DataChannel exactly once', async () => {
+    await service.startSession('session-a', false, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const channel = Object.assign(dataChannel(), { readyState: 'open' as const });
+
+    peer.ondatachannel?.({ channel } as RTCDataChannelEvent);
+    await settle();
+
+    expect(service.dataChannelState$.value).toBe('open');
+    expect(coordinator.port?.isOpen()).toBe(true);
+    expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+
+    channel.onopen?.(new Event('open'));
+    expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('reopens a revoked media contract as data-only with a fresh connection generation', async () => {
+    PublicPeerConnection.nextDataChannelReadyState = 'open';
+    await service.startSession('session-a', true, 'peer:remote');
+    await settle();
+    const mediaPeer = PublicPeerConnection.instances[0];
+    const oldPort = coordinator.port;
+
+    coordinator.deactivate('session-a', 'ordinary_media_capability_revoked');
+    expect(mediaPeer.close).toHaveBeenCalledOnce();
+    expect(oldPort?.isOpen()).toBe(false);
+
+    await service.startSession('session-a', true, 'peer:remote');
+    await settle();
+    const dataOnlyPeer = PublicPeerConnection.instances[1];
+
+    expect(transforms.prepareSession).toHaveBeenCalledTimes(1);
+    expect(dataOnlyPeer.close).not.toHaveBeenCalled();
+    expect(service.state$.value).toBe('connecting');
+    expect(service.dataChannelState$.value).toBe('open');
+    expect(coordinator.port).toBeNull();
   });
 
   it('fences an old same-session prepare continuation and fatal callback from its replacement', async () => {

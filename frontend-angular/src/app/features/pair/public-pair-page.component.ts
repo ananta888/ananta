@@ -4,6 +4,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { AiSnakeSharePanelComponent } from '../../components/ai-snake-share-panel.component';
 import { SemanticMediaProgramHostComponent } from '../voice/semantic-media-program-host.component';
 import { OidcAuthService } from '../../services/oidc-auth.service';
+import { WebrtcSessionService } from '../../services/webrtc-session.service';
 import { WebrtcSignalingService } from '../../services/webrtc-signaling.service';
 
 @Component({
@@ -20,7 +21,9 @@ import { WebrtcSignalingService } from '../../services/webrtc-signaling.service'
         </div>
         <div class="public-pair-status" aria-label="Public-Pair-Verbindungsstatus">
           <span data-testid="public-pair-user">{{ oidc.currentUsername || 'Angemeldet' }}</span>
-          <span data-testid="public-pair-webrtc-status">WebRTC: {{ signaling.status$ | async }}</span>
+          <span data-testid="public-pair-signaling-status">Signaling: {{ signaling.status$ | async }}</span>
+          <span data-testid="public-pair-webrtc-status">WebRTC: {{ webrtc.state$ | async }}</span>
+          <span data-testid="public-pair-datachannel-status">DataChannel: {{ webrtc.dataChannelState$ | async }}</span>
         </div>
       </header>
 
@@ -60,4 +63,5 @@ import { WebrtcSignalingService } from '../../services/webrtc-signaling.service'
 export class PublicPairPageComponent {
   readonly oidc = inject(OidcAuthService);
   readonly signaling = inject(WebrtcSignalingService);
+  readonly webrtc = inject(WebrtcSessionService);
 }
