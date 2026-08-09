@@ -22,10 +22,11 @@ from typing import Any
 
 from pair_security import (
     PUBLIC_MEDIA_E2EE_VERSION,
+    PUBLIC_MEDIA_E2EE_VERSION_V2,
     TENANT_ID,
     PairSecurityAuthority,
     normalize_public_media_advertisement,
-    public_media_capabilities_v1,
+    public_media_capabilities_for_version,
     spki_fingerprint,
 )
 from peer_identity import (
@@ -106,11 +107,11 @@ def _owner_create_request_digest(
         "title": title,
     }
     # Preserve the byte-for-byte v2 digest for pre-media clients and already
-    # persisted idempotency records. The media fields are bound only when the
-    # owner explicitly opts into the closed v1 capability set.
-    if public_media_e2ee_version == PUBLIC_MEDIA_E2EE_VERSION:
+    # persisted idempotency records. Media fields are bound only when the
+    # owner explicitly opts into one complete closed capability set.
+    if public_media_e2ee_version:
         payload["public_media_e2ee_version"] = public_media_e2ee_version
-        payload["public_media_capabilities"] = public_media_capabilities_v1()
+        payload["public_media_capabilities"] = public_media_capabilities_for_version(public_media_e2ee_version)
     material = b"ananta.public-rendezvous.owner-create-request.v2\0" + json.dumps(
         payload,
         sort_keys=True,
@@ -375,11 +376,7 @@ def _row_to_session(row: sqlite3.Row) -> dict[str, Any]:
         "security_contract_version": row["security_contract_version"],
         "identity_binding_version": row["identity_binding_version"],
         "public_media_e2ee_version": row["public_media_e2ee_version"],
-        "public_media_capabilities": (
-            public_media_capabilities_v1()
-            if int(row["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
-            else None
-        ),
+        "public_media_capabilities": public_media_capabilities_for_version(int(row["public_media_e2ee_version"] or 0)),
         "security_mode": row["security_mode"],
         "mode": "p2p",
         "transport": "webrtc",
@@ -425,10 +422,8 @@ def _list_participants(
                 "peer_id": row["peer_id"],
                 "_membership_capability_hash": row["membership_capability_hash"],
                 "public_media_e2ee_version": row["public_media_e2ee_version"],
-                "public_media_capabilities": (
-                    public_media_capabilities_v1()
-                    if int(row["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
-                    else None
+                "public_media_capabilities": public_media_capabilities_for_version(
+                    int(row["public_media_e2ee_version"] or 0)
                 ),
             }
         )
@@ -1066,10 +1061,8 @@ def join_session(
                 "account_id": existing["account_id"] or existing["user_id"],
                 "peer_id": existing["peer_id"] or existing["user_id"],
                 "public_media_e2ee_version": int(existing["public_media_e2ee_version"] or 0),
-                "public_media_capabilities": (
-                    public_media_capabilities_v1()
-                    if int(existing["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
-                    else None
+                "public_media_capabilities": public_media_capabilities_for_version(
+                    int(existing["public_media_e2ee_version"] or 0)
                 ),
             }
             conn.execute("COMMIT")
@@ -1103,9 +1096,7 @@ def join_session(
             "account_id": user_id,
             "peer_id": peer_id,
             "public_media_e2ee_version": normalized_media_version,
-            "public_media_capabilities": (
-                public_media_capabilities_v1() if normalized_media_version == PUBLIC_MEDIA_E2EE_VERSION else None
-            ),
+            "public_media_capabilities": public_media_capabilities_for_version(normalized_media_version),
         }
         if identity_binding_version == 2:
             if not membership_capability:
@@ -1490,17 +1481,18 @@ def _strict_pair_material(
     return members, authority, authority.contract(session, owner, guest)
 
 
-def _public_media_contract_v1(
+def _public_media_contract(
     *,
     session: dict[str, Any],
     members: list[dict[str, Any]],
     authority: PairSecurityAuthority,
     base_contract: dict[str, Any],
+    public_media_e2ee_version: int,
 ) -> dict[str, Any] | None:
-    """Negotiate media only for an exact v2 pair with two v1 adverts."""
+    """Negotiate one media contract only for an exact bilateral advert."""
     if int(session.get("identity_binding_version") or 0) != 2 or len(members) != 2:
         return None
-    if any(int(member.get("public_media_e2ee_version") or 0) != PUBLIC_MEDIA_E2EE_VERSION for member in members):
+    if any(int(member.get("public_media_e2ee_version") or 0) != public_media_e2ee_version for member in members):
         return None
     owner = next(member for member in members if member["owner"])
     guest = next(member for member in members if not member["owner"])
@@ -1509,6 +1501,7 @@ def _public_media_contract_v1(
         owner=owner,
         guest=guest,
         base_security_contract_digest=str(base_contract["digest"]),
+        public_media_e2ee_version=public_media_e2ee_version,
     )
 
 
@@ -1571,6 +1564,7 @@ def get_key_packages(
                 "security_contract_digest": None,
                 "security_contract": None,
                 "public_media_security_contract_v1": None,
+                "public_media_security_contract_v2": None,
                 "hub_key_id": authority.key_id,
                 "hub_public_key_b64": authority.public_key_b64,
                 "packages": [],
@@ -1598,11 +1592,19 @@ def get_key_packages(
             sender_peer_id=remote["peer_id"],
             recipient_peer_id=requester["peer_id"],
         )
-        public_media_contract = _public_media_contract_v1(
+        public_media_contract_v1 = _public_media_contract(
             session=session,
             members=members,
             authority=authority,
             base_contract=contract,
+            public_media_e2ee_version=PUBLIC_MEDIA_E2EE_VERSION,
+        )
+        public_media_contract_v2 = _public_media_contract(
+            session=session,
+            members=members,
+            authority=authority,
+            base_contract=contract,
+            public_media_e2ee_version=PUBLIC_MEDIA_E2EE_VERSION_V2,
         )
         return {
             "ok": True,
@@ -1610,7 +1612,8 @@ def get_key_packages(
             "tenant_id": TENANT_ID,
             "security_contract_digest": contract["digest"],
             "security_contract": contract,
-            "public_media_security_contract_v1": public_media_contract,
+            "public_media_security_contract_v1": public_media_contract_v1,
+            "public_media_security_contract_v2": public_media_contract_v2,
             "hub_key_id": authority.key_id,
             "hub_public_key_b64": authority.public_key_b64,
             "packages": [package],

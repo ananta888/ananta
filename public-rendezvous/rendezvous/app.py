@@ -30,6 +30,7 @@ from typing import Any
 import service as svc
 from flask import Flask, jsonify, request
 from oidc_auth import AuthContext, verify_bearer_token
+from pair_security import SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS
 
 import config as cfg
 
@@ -170,7 +171,7 @@ def info():
             "turn_urls": cfg.TURN_URLS,
             "session_max_minutes": cfg.SESSION_MAX_DURATION_SECONDS // 60,
             "supported_identity_binding_versions": [1, 2],
-            "supported_public_media_e2ee_versions": [1],
+            "supported_public_media_e2ee_versions": list(SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS),
         }
     ), 200
 
