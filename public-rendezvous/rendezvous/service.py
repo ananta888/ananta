@@ -20,7 +20,14 @@ from collections import defaultdict
 from contextlib import contextmanager
 from typing import Any
 
-from pair_security import TENANT_ID, PairSecurityAuthority, spki_fingerprint
+from pair_security import (
+    PUBLIC_MEDIA_E2EE_VERSION,
+    TENANT_ID,
+    PairSecurityAuthority,
+    normalize_public_media_advertisement,
+    public_media_capabilities_v1,
+    spki_fingerprint,
+)
 from peer_identity import (
     canonical_device_peer_id,
     is_canonical_account_id,
@@ -83,6 +90,7 @@ def _owner_create_request_digest(
     title: str,
     permissions: dict[str, bool],
     requested_expires_at: float | None,
+    public_media_e2ee_version: int,
 ) -> str:
     payload = {
         "account_id": account_id,
@@ -97,6 +105,12 @@ def _owner_create_request_digest(
         "subject_hash": subject_hash,
         "title": title,
     }
+    # Preserve the byte-for-byte v2 digest for pre-media clients and already
+    # persisted idempotency records. The media fields are bound only when the
+    # owner explicitly opts into the closed v1 capability set.
+    if public_media_e2ee_version == PUBLIC_MEDIA_E2EE_VERSION:
+        payload["public_media_e2ee_version"] = public_media_e2ee_version
+        payload["public_media_capabilities"] = public_media_capabilities_v1()
     material = b"ananta.public-rendezvous.owner-create-request.v2\0" + json.dumps(
         payload,
         sort_keys=True,
@@ -167,10 +181,12 @@ def _migrate_database(conn: sqlite3.Connection) -> None:
         _add_column(conn, "sessions", "owner_membership_capability_hash TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "sessions", "owner_capability_lookup_hash TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "sessions", "owner_create_request_hash TEXT NOT NULL DEFAULT ''")
+        _add_column(conn, "sessions", "public_media_e2ee_version INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "participants", "public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "account_id TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "peer_id TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "membership_capability_hash TEXT NOT NULL DEFAULT ''")
+        _add_column(conn, "participants", "public_media_e2ee_version INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "signals", "sequence INTEGER NOT NULL DEFAULT 0")
         _add_column(conn, "key_confirmations", "expires_at REAL NOT NULL DEFAULT 0")
         _backfill_v1_identity_columns(conn)
@@ -358,6 +374,12 @@ def _row_to_session(row: sqlite3.Row) -> dict[str, Any]:
         "security_epoch": row["security_epoch"],
         "security_contract_version": row["security_contract_version"],
         "identity_binding_version": row["identity_binding_version"],
+        "public_media_e2ee_version": row["public_media_e2ee_version"],
+        "public_media_capabilities": (
+            public_media_capabilities_v1()
+            if int(row["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
+            else None
+        ),
         "security_mode": row["security_mode"],
         "mode": "p2p",
         "transport": "webrtc",
@@ -377,7 +399,7 @@ def _list_participants(
         SELECT id, session_id, user_id, user_sub_hash, device_id,
                device_fingerprint, public_key_spki_b64, permissions,
                joined_at, last_seen, revoked_at, account_id, peer_id,
-               membership_capability_hash
+               membership_capability_hash, public_media_e2ee_version
         FROM participants
         WHERE session_id = ? {where_clause}
         ORDER BY joined_at ASC
@@ -402,6 +424,12 @@ def _list_participants(
                 "account_id": row["account_id"],
                 "peer_id": row["peer_id"],
                 "_membership_capability_hash": row["membership_capability_hash"],
+                "public_media_e2ee_version": row["public_media_e2ee_version"],
+                "public_media_capabilities": (
+                    public_media_capabilities_v1()
+                    if int(row["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
+                    else None
+                ),
             }
         )
     return out
@@ -526,6 +554,8 @@ def create_session(
     requested_expires_at: float | None = None,
     identity_binding_version: int = 1,
     membership_capability: str = "",
+    public_media_e2ee_version: int | None = None,
+    public_media_capabilities: Any = None,
 ) -> dict[str, Any]:
     _ensure_db_initialized()
     _cleanup_expired()
@@ -538,6 +568,12 @@ def create_session(
         raise ValueError("oidc_identity_required")
     if identity_binding_version not in {1, 2}:
         raise ValueError("identity_binding_version_unsupported")
+    normalized_media_version = normalize_public_media_advertisement(
+        public_media_e2ee_version,
+        public_media_capabilities,
+    )
+    if normalized_media_version and identity_binding_version != 2:
+        raise ValueError("public_media_identity_binding_v2_required")
     membership_capability = str(membership_capability or "").strip()
     if identity_binding_version == 2:
         if not membership_capability:
@@ -598,6 +634,7 @@ def create_session(
             title=normalized_title,
             permissions=perms,
             requested_expires_at=(float(requested_expires_at) if requested_expires_at is not None else None),
+            public_media_e2ee_version=normalized_media_version,
         )
         if identity_binding_version == 2
         else ""
@@ -649,6 +686,7 @@ def create_session(
                                 create_request_hash,
                             )
                             and int(existing.get("identity_binding_version") or 0) == 2
+                            and int(existing.get("public_media_e2ee_version") or 0) == normalized_media_version
                             and secrets.compare_digest(
                                 str(existing.get("_owner_membership_capability_hash") or ""),
                                 expected_hash,
@@ -669,8 +707,9 @@ def create_session(
                         owner_device_id, owner_public_key_spki_b64, security_epoch,
                         security_mode, security_contract_version, identity_binding_version,
                         owner_account_id, owner_peer_id, owner_membership_capability_hash,
-                        owner_capability_lookup_hash, owner_create_request_hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?)
+                        owner_capability_lookup_hash, owner_create_request_hash,
+                        public_media_e2ee_version
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         sid,
@@ -693,6 +732,7 @@ def create_session(
                         capability_hash,
                         capability_lookup_hash,
                         create_request_hash,
+                        normalized_media_version,
                     ),
                 )
                 conn.execute("COMMIT")
@@ -776,6 +816,7 @@ def is_owner_create_recovery(
     account_id: str,
     device_fingerprint: str,
     membership_capability: str,
+    public_media_e2ee_version: int = 0,
 ) -> bool:
     """Recognize a v2 create retry so rate limiting does not orphan it."""
     try:
@@ -790,7 +831,7 @@ def is_owner_create_recovery(
     _ensure_db_initialized()
     with _db() as conn:
         row = conn.execute(
-            """SELECT id, owner_membership_capability_hash
+            """SELECT id, owner_membership_capability_hash, public_media_e2ee_version
                FROM sessions
                WHERE owner_capability_lookup_hash = ?
                  AND owner_account_id = ?
@@ -801,6 +842,8 @@ def is_owner_create_recovery(
             (lookup_hash, account_id, peer_id, _now()),
         ).fetchone()
         if not row:
+            return False
+        if int(row["public_media_e2ee_version"] or 0) != public_media_e2ee_version:
             return False
         expected_hash = membership_capability_digest(
             str(row["id"]),
@@ -820,6 +863,7 @@ def is_join_recovery(
     account_id: str,
     device_fingerprint: str,
     membership_capability: str,
+    public_media_e2ee_version: int = 0,
 ) -> bool:
     """Recognize an already committed v2 join using its original capability."""
     try:
@@ -829,7 +873,8 @@ def is_join_recovery(
     _ensure_db_initialized()
     with _db() as conn:
         row = conn.execute(
-            """SELECT p.session_id, p.membership_capability_hash
+            """SELECT p.session_id, p.membership_capability_hash,
+                      p.public_media_e2ee_version
                FROM participants p
                JOIN sessions s ON s.id = p.session_id
                WHERE s.invite_code = ?
@@ -843,6 +888,8 @@ def is_join_recovery(
             (str(invite_code or "").strip().upper(), _now(), account_id, peer_id),
         ).fetchone()
         if not row:
+            return False
+        if int(row["public_media_e2ee_version"] or 0) != public_media_e2ee_version:
             return False
         try:
             expected_hash = membership_capability_digest(
@@ -871,6 +918,8 @@ def join_session(
     expected_session_id: str = "",
     membership_capability: str = "",
     expected_identity_binding_version: int | None = None,
+    public_media_e2ee_version: int | None = None,
+    public_media_capabilities: Any = None,
 ) -> dict[str, Any]:
     _ensure_db_initialized()
     _cleanup_expired()
@@ -884,6 +933,15 @@ def join_session(
     negotiated_identity_binding_version = (
         1 if expected_identity_binding_version is None else expected_identity_binding_version
     )
+    try:
+        normalized_media_version = normalize_public_media_advertisement(
+            public_media_e2ee_version,
+            public_media_capabilities,
+        )
+    except ValueError as exc:
+        return {"ok": False, "reason": str(exc)}
+    if normalized_media_version and negotiated_identity_binding_version != 2:
+        return {"ok": False, "reason": "public_media_identity_binding_v2_required"}
     if not is_canonical_account_id(user_id) or not user_sub or not oidc_issuer:
         return {"ok": False, "reason": "oidc_identity_required"}
     if not device_id or not device_fingerprint or not public_key_spki_b64:
@@ -950,7 +1008,7 @@ def join_session(
             SELECT id, session_id, user_id, user_sub_hash, device_id,
                    device_fingerprint, public_key_spki_b64, permissions,
                    joined_at, last_seen, revoked_at, account_id, peer_id,
-                   membership_capability_hash
+                   membership_capability_hash, public_media_e2ee_version
             FROM participants
             WHERE session_id = ?
               AND ((? = 2 AND peer_id = ?) OR (? = 1 AND user_id = ? AND device_id = ?))
@@ -990,6 +1048,9 @@ def join_session(
                 ):
                     conn.execute("ROLLBACK")
                     return {"ok": False, "reason": "membership_capability_invalid"}
+            if int(existing["public_media_e2ee_version"] or 0) != normalized_media_version:
+                conn.execute("ROLLBACK")
+                return {"ok": False, "reason": "public_media_capability_conflict"}
             participant = {
                 "id": existing["id"],
                 "session_id": existing["session_id"],
@@ -1004,6 +1065,12 @@ def join_session(
                 "public_key_spki_b64": existing["public_key_spki_b64"],
                 "account_id": existing["account_id"] or existing["user_id"],
                 "peer_id": existing["peer_id"] or existing["user_id"],
+                "public_media_e2ee_version": int(existing["public_media_e2ee_version"] or 0),
+                "public_media_capabilities": (
+                    public_media_capabilities_v1()
+                    if int(existing["public_media_e2ee_version"] or 0) == PUBLIC_MEDIA_E2EE_VERSION
+                    else None
+                ),
             }
             conn.execute("COMMIT")
             return {
@@ -1035,6 +1102,10 @@ def join_session(
             "public_key_spki_b64": public_key_spki_b64,
             "account_id": user_id,
             "peer_id": peer_id,
+            "public_media_e2ee_version": normalized_media_version,
+            "public_media_capabilities": (
+                public_media_capabilities_v1() if normalized_media_version == PUBLIC_MEDIA_E2EE_VERSION else None
+            ),
         }
         if identity_binding_version == 2:
             if not membership_capability:
@@ -1050,8 +1121,9 @@ def join_session(
             INSERT INTO participants (
                 id, session_id, user_id, user_sub_hash, device_id, device_fingerprint,
                 public_key_spki_b64, permissions, joined_at, last_seen, revoked_at,
-                account_id, peer_id, membership_capability_hash
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
+                account_id, peer_id, membership_capability_hash,
+                public_media_e2ee_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)
             """,
             (
                 participant["id"],
@@ -1067,6 +1139,7 @@ def join_session(
                 participant["account_id"],
                 participant["peer_id"],
                 capability_hash,
+                normalized_media_version,
             ),
         )
         conn.execute("UPDATE sessions SET security_epoch = security_epoch + 1 WHERE id = ?", (sid,))
@@ -1156,6 +1229,8 @@ def get_participants(
                 "last_seen": _now(),
                 "last_seen_at": _now(),
                 "revoked_at": session.get("revoked_at"),
+                "public_media_e2ee_version": int(session.get("public_media_e2ee_version") or 0),
+                "public_media_capabilities": session.get("public_media_capabilities"),
             }
         ] + [
             {
@@ -1172,6 +1247,8 @@ def get_participants(
                 "last_seen": p.get("last_seen"),
                 "last_seen_at": p.get("last_seen"),
                 "revoked_at": p.get("revoked_at"),
+                "public_media_e2ee_version": int(p.get("public_media_e2ee_version") or 0),
+                "public_media_capabilities": p.get("public_media_capabilities"),
             }
             for p in _list_participants(conn, session_id, include_revoked=True)
         ]
@@ -1234,6 +1311,7 @@ def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict
         "fingerprint": session["owner_device_fingerprint"],
         "public_key_spki_b64": session["owner_public_key_spki_b64"],
         "_membership_capability_hash": session.get("_owner_membership_capability_hash") or "",
+        "public_media_e2ee_version": int(session.get("public_media_e2ee_version") or 0),
         "owner": True,
     }
     members = [owner]
@@ -1250,6 +1328,7 @@ def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict
                 "fingerprint": participant["device_fingerprint"],
                 "public_key_spki_b64": participant["public_key_spki_b64"],
                 "_membership_capability_hash": participant.get("_membership_capability_hash") or "",
+                "public_media_e2ee_version": int(participant.get("public_media_e2ee_version") or 0),
                 "owner": False,
             }
         )
@@ -1411,6 +1490,28 @@ def _strict_pair_material(
     return members, authority, authority.contract(session, owner, guest)
 
 
+def _public_media_contract_v1(
+    *,
+    session: dict[str, Any],
+    members: list[dict[str, Any]],
+    authority: PairSecurityAuthority,
+    base_contract: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Negotiate media only for an exact v2 pair with two v1 adverts."""
+    if int(session.get("identity_binding_version") or 0) != 2 or len(members) != 2:
+        return None
+    if any(int(member.get("public_media_e2ee_version") or 0) != PUBLIC_MEDIA_E2EE_VERSION for member in members):
+        return None
+    owner = next(member for member in members if member["owner"])
+    guest = next(member for member in members if not member["owner"])
+    return authority.public_media_contract(
+        session=session,
+        owner=owner,
+        guest=guest,
+        base_security_contract_digest=str(base_contract["digest"]),
+    )
+
+
 def _expected_key_package(
     *,
     members: list[dict[str, Any]],
@@ -1469,6 +1570,7 @@ def get_key_packages(
                 "tenant_id": TENANT_ID,
                 "security_contract_digest": None,
                 "security_contract": None,
+                "public_media_security_contract_v1": None,
                 "hub_key_id": authority.key_id,
                 "hub_public_key_b64": authority.public_key_b64,
                 "packages": [],
@@ -1496,12 +1598,19 @@ def get_key_packages(
             sender_peer_id=remote["peer_id"],
             recipient_peer_id=requester["peer_id"],
         )
+        public_media_contract = _public_media_contract_v1(
+            session=session,
+            members=members,
+            authority=authority,
+            base_contract=contract,
+        )
         return {
             "ok": True,
             "epoch": session["security_epoch"],
             "tenant_id": TENANT_ID,
             "security_contract_digest": contract["digest"],
             "security_contract": contract,
+            "public_media_security_contract_v1": public_media_contract,
             "hub_key_id": authority.key_id,
             "hub_public_key_b64": authority.public_key_b64,
             "packages": [package],

@@ -104,6 +104,9 @@ response = client.get('/health', headers={'Origin': 'https://localhost'})
 assert response.status_code == 200
 assert response.get_json() == {'ok': True, 'service': 'ananta-rendezvous'}
 assert response.headers['Access-Control-Allow-Origin'] == 'https://localhost'
+info = client.get('/info')
+assert info.status_code == 200
+assert info.get_json()['supported_public_media_e2ee_versions'] == [1]
 preflight = client.options('/rendezvous/sessions', headers={
     'Origin': 'http://localhost:4200',
     'Access-Control-Request-Method': 'GET',
