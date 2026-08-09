@@ -1,6 +1,7 @@
-import { APP_INITIALIZER, Provider } from '@angular/core';
+import { APP_INITIALIZER, Injector, Provider } from '@angular/core';
 import { IdentityRegistry } from '../services/identity/identity-registry';
 import { NetworkProfileService } from '../services/network-profile.service';
+import { isOidcPopupCallbackLocation } from '../services/oidc-popup-coordinator.service';
 
 /**
  * Restore all identity sources (hub + oidc) from storage at app boot.
@@ -11,8 +12,14 @@ import { NetworkProfileService } from '../services/network-profile.service';
 export const identityRestoreInitializer: Provider = {
   provide: APP_INITIALIZER,
   multi: true,
-  deps: [IdentityRegistry, NetworkProfileService],
-  useFactory: (registry: IdentityRegistry, profiles: NetworkProfileService) => async () => {
+  deps: [Injector],
+  useFactory: (injector: Injector) => async () => {
+    // The popup callback is a transport-only surface. Restoring identities in
+    // this second window could refresh or clear the parent window's shared
+    // OIDC storage before the one-time authorization code is relayed.
+    if (isOidcPopupCallbackLocation()) return;
+    const registry = injector.get(IdentityRegistry);
+    const profiles = injector.get(NetworkProfileService);
     await registry.restoreAllFromStorage();
     await profiles.load();
   },

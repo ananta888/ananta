@@ -1,6 +1,7 @@
 import { InjectionToken } from '@angular/core';
 
 import type { TuiAuthContext } from './window-bridge.service';
+import { allIdentityKeys } from './identity/identity-storage-layout';
 
 export interface WindowBridgeBootstrap {
   readonly bridgeUrl: string;
@@ -12,13 +13,7 @@ export const WINDOW_BRIDGE_BOOTSTRAP = new InjectionToken<WindowBridgeBootstrap 
   'WINDOW_BRIDGE_BOOTSTRAP',
 );
 
-const AUTH_STORAGE_KEYS = Object.freeze([
-  'ananta.user.token',
-  'ananta.user.refresh_token',
-  'ananta.hub.refresh_token',
-  'ananta.oidc.access_token',
-  'ananta.oidc.refresh_token',
-]);
+const AUTH_STORAGE_KEYS = Object.freeze(allIdentityKeys().map((entry) => entry.key));
 const AGENT_DIRECTORY_KEY = 'ananta.agents.v1';
 
 /**

@@ -21,6 +21,7 @@ describe('WindowBridgeService secure bootstrap', () => {
     const bridgeToken = 'a'.repeat(32);
     localStorage.setItem('ananta.user.token', 'stale-hub-token');
     localStorage.setItem('ananta.oidc.access_token', 'stale-oidc-token');
+    localStorage.setItem('ananta.oidc.refresh-authority.v1', 'stale-authority');
     localStorage.setItem('ananta.agents.v1', JSON.stringify([
       { name: 'hub', role: 'hub', url: 'https://stale-hub.invalid', token: 'stale-agent-secret' },
     ]));
@@ -47,6 +48,7 @@ describe('WindowBridgeService secure bootstrap', () => {
 
     expect(localStorage.getItem('ananta.user.token')).toBeNull();
     expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
+    expect(localStorage.getItem('ananta.oidc.refresh-authority.v1')).toBeNull();
     expect(localStorage.getItem('ananta.agents.v1')).not.toContain('stale-agent-secret');
     expect(window.location.href).not.toContain('bridge=');
     expect(window.location.href).not.toContain(bridgeToken);

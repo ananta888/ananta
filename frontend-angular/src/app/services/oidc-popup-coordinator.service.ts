@@ -7,6 +7,24 @@ const CONTROL_MESSAGE_TYPE = 'ananta.oidc.popup.control.v1';
 const CHANNEL_PREFIX = 'ananta.oidc.popup.v1.';
 const CONTROL_STORAGE_PREFIX = 'ananta.oidc.popup.control.v1.';
 
+export function isOidcPopupState(value: string | null | undefined): value is string {
+  return typeof value === 'string'
+    && value.startsWith(POPUP_STATE_PREFIX)
+    && value.length >= POPUP_STATE_PREFIX.length + 20
+    && /^[A-Za-z0-9._-]+$/.test(value);
+}
+
+export function isOidcPopupCallbackSearch(search = location.search): boolean {
+  return isOidcPopupState(new URLSearchParams(search).get('state'));
+}
+
+export function isOidcPopupCallbackLocation(
+  pathname = location.pathname,
+  search = location.search,
+): boolean {
+  return pathname === '/oidc-callback' && isOidcPopupCallbackSearch(search);
+}
+
 export const OIDC_POPUP_CALLBACK_TIMEOUT_MS = new InjectionToken<number>(
   'OIDC_POPUP_CALLBACK_TIMEOUT_MS',
   { providedIn: 'root', factory: () => 5 * 60_000 },
@@ -95,15 +113,11 @@ export class OidcPopupCoordinator {
   }
 
   isPopupState(value: string | null | undefined): value is string {
-    return typeof value === 'string'
-      && value.startsWith(POPUP_STATE_PREFIX)
-      && value.length >= POPUP_STATE_PREFIX.length + 20
-      && /^[A-Za-z0-9._-]+$/.test(value);
+    return isOidcPopupState(value);
   }
 
   isPopupCallback(search = location.search): boolean {
-    const state = new URLSearchParams(search).get('state');
-    return this.isPopupState(state);
+    return isOidcPopupCallbackSearch(search);
   }
 
   beginParentSession(state: string, popup: Window): OidcPopupParentSession {

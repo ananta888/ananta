@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 
 import { UserAuthService } from './user-auth.service';
@@ -177,6 +177,53 @@ describe('UserAuthService — OIDC RT encryption (Task 0.4)', () => {
   it('clears OIDC RT on setOidcRefreshToken(null)', async () => {
     await service.setOidcRefreshToken('oidc-rt');
     await service.setOidcRefreshToken(null);
+    expect(localStorage.getItem('ananta.oidc.refresh_token')).toBeNull();
+  });
+
+  it('commits an OIDC access/refresh pair together', async () => {
+    const before = service.oidcSessionGenerationValue;
+
+    await expect(service.commitOidcSession('oidc-at', 'oidc-rt')).resolves.toEqual({
+      committed: true,
+      refreshTokenPersisted: true,
+    });
+
+    expect(service.oidcAccessTokenValue).toBe('oidc-at');
+    expect(await service.getOidcRefreshToken()).toBe('oidc-rt');
+    expect(service.oidcSessionGenerationValue).toBeGreaterThan(before);
+  });
+
+  it('does not let a stale encrypted refresh overwrite a newer login', async () => {
+    await service.commitOidcSession('old-at', 'old-rt');
+    const oldEncrypted = localStorage.getItem('ananta.oidc.refresh_token');
+    const generation = service.oidcSessionGenerationValue;
+    let releaseEncryption!: (value: string) => void;
+    vi.spyOn(secureStorage, 'encrypt').mockImplementationOnce(() => new Promise((resolve) => {
+      releaseEncryption = resolve;
+    }));
+
+    const staleCommit = service.commitOidcSession('stale-at', 'stale-rt', generation);
+    service.setOidcAccessToken('new-at');
+    releaseEncryption('stale-encrypted-value');
+
+    await expect(staleCommit).resolves.toEqual({
+      committed: false,
+      refreshTokenPersisted: false,
+    });
+    expect(service.oidcAccessTokenValue).toBe('new-at');
+    expect(localStorage.getItem('ananta.oidc.refresh_token')).toBe(oldEncrypted);
+  });
+
+  it('keeps the access token when secure refresh-token storage is unavailable', async () => {
+    await service.commitOidcSession('old-at', 'old-refresh-token');
+    expect(localStorage.getItem('ananta.oidc.refresh_token')).toBeTruthy();
+    vi.spyOn(secureStorage, 'encrypt').mockRejectedValueOnce(new Error('indexeddb unavailable'));
+
+    await expect(service.commitOidcSession('short-lived-at', 'must-not-be-plaintext'))
+      .resolves.toEqual({ committed: true, refreshTokenPersisted: false });
+
+    expect(service.oidcAccessTokenValue).toBe('short-lived-at');
+    expect(localStorage.getItem('ananta.oidc.access_token')).toBe('short-lived-at');
     expect(localStorage.getItem('ananta.oidc.refresh_token')).toBeNull();
   });
 });

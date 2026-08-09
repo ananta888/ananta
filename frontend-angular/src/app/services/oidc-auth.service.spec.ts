@@ -19,20 +19,52 @@ import {
   OidcPopupCoordinator,
   type OidcPopupParentSession,
 } from './oidc-popup-coordinator.service';
+import { OidcRefreshLock } from './oidc-refresh-lock.service';
 
 function makeUserAuthStub() {
   const token$ = new BehaviorSubject<string | null>(null);
   const oidcToken$ = new BehaviorSubject<string | null>(null);
-  return {
+  let oidcRefreshToken: string | null = null;
+  let oidcSessionGeneration = 0;
+  const stub = {
     token$,
     oidcToken$,
     setTokens: vi.fn(async () => undefined),
-    setOidcAccessToken: vi.fn((token: string | null) => oidcToken$.next(token)),
-    setOidcRefreshToken: vi.fn(async (_t: string | null) => undefined),
-    getOidcRefreshToken: vi.fn(async () => null),
+    setOidcAccessToken: vi.fn((token: string | null) => {
+      oidcSessionGeneration += 1;
+      if (token) localStorage.setItem('ananta.oidc.access_token', token);
+      else localStorage.removeItem('ananta.oidc.access_token');
+      oidcToken$.next(token);
+    }),
+    setOidcRefreshToken: vi.fn(async (token: string | null) => {
+      oidcRefreshToken = token;
+    }),
+    getOidcRefreshToken: vi.fn(async () => oidcRefreshToken),
+    commitOidcSession: vi.fn(async (
+      accessToken: string | null,
+      refreshToken: string | null,
+      expectedGeneration?: number,
+      expectedAccessToken?: string | null,
+    ) => {
+      if (
+        (expectedGeneration !== undefined && expectedGeneration !== oidcSessionGeneration)
+        || (expectedAccessToken !== undefined && expectedAccessToken !== oidcToken$.value)
+      ) return { committed: false, refreshTokenPersisted: false };
+      oidcSessionGeneration += 1;
+      oidcRefreshToken = refreshToken;
+      if (accessToken) localStorage.setItem('ananta.oidc.access_token', accessToken);
+      else localStorage.removeItem('ananta.oidc.access_token');
+      oidcToken$.next(accessToken);
+      return { committed: true, refreshTokenPersisted: refreshToken !== null };
+    }),
     userPayload: null,
     logout: vi.fn(),
-  } as unknown as UserAuthService;
+  };
+  Object.defineProperties(stub, {
+    oidcAccessTokenValue: { get: () => oidcToken$.value },
+    oidcSessionGenerationValue: { get: () => oidcSessionGeneration },
+  });
+  return stub as unknown as UserAuthService;
 }
 
 function makeProfilesStub(overrides: { issuer?: string; clientId?: string; profileId?: string } = {}) {
@@ -281,7 +313,11 @@ describe('OidcAuthService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: vi.fn(async () => ({
-            access_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, sub: 'public-user' }),
+            access_token: unsignedJwt({
+              iss: PUBLIC_OIDC_ISSUER,
+              sub: 'public-user',
+              exp: Math.floor(Date.now() / 1000) + 3_600,
+            }),
             refresh_token: 'public-refresh-token',
             id_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, nonce }),
           })),
@@ -289,7 +325,11 @@ describe('OidcAuthService', () => {
         .mockResolvedValueOnce({
           ok: true,
           json: vi.fn(async () => ({
-            access_token: unsignedJwt({ iss: PUBLIC_OIDC_ISSUER, sub: 'public-user' }),
+            access_token: unsignedJwt({
+              iss: PUBLIC_OIDC_ISSUER,
+              sub: 'public-user',
+              exp: Math.floor(Date.now() / 1000) + 3_600,
+            }),
             refresh_token: 'rotated-public-refresh-token',
           })),
         } as unknown as Response);
@@ -324,6 +364,228 @@ describe('OidcAuthService', () => {
 
       await expect(svc.handleCallback()).resolves.toBe(false);
       expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      {
+        label: 'terminal failure',
+        response: { ok: false, status: 400 } as Response,
+      },
+      {
+        label: 'late rotated response',
+        response: {
+          ok: true,
+          json: vi.fn(async () => ({
+            access_token: unsignedJwt({
+              iss: PUBLIC_OIDC_ISSUER,
+              sub: 'old-user',
+              exp: Math.floor(Date.now() / 1000) + 3_600,
+            }),
+            refresh_token: 'rotated-old-refresh-token',
+          })),
+        } as unknown as Response,
+      },
+    ])('does not let an older refresh $label replace a newer login', async ({ response }) => {
+      buildSvc();
+      const oldAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'old-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      const newAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'new-user',
+        exp: Math.floor(Date.now() / 1000) + 7_200,
+      });
+      await userAuth.commitOidcSession(oldAccessToken, 'old-refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      let resolveRefresh!: (value: Response) => void;
+      const fetchSpy = vi.fn(() => new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const staleRefresh = svc.refreshFromStorage();
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+      await userAuth.commitOidcSession(newAccessToken, 'new-refresh-token');
+      resolveRefresh(response);
+
+      await expect(staleRefresh).resolves.toBe(true);
+      expect(userAuth.oidcAccessTokenValue).toBe(newAccessToken);
+      await expect(userAuth.getOidcRefreshToken()).resolves.toBe('new-refresh-token');
+    });
+
+    it('shares one in-flight refresh request', async () => {
+      buildSvc();
+      const accessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'public-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      await userAuth.commitOidcSession(accessToken, 'refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      let resolveRefresh!: (value: Response) => void;
+      const fetchSpy = vi.fn(() => new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      }));
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const first = svc.refreshFromStorage();
+      const second = svc.refreshFromStorage();
+
+      expect(second).toBe(first);
+      await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledOnce());
+      resolveRefresh({
+        ok: true,
+        json: vi.fn(async () => ({
+          access_token: unsignedJwt({
+            iss: PUBLIC_OIDC_ISSUER,
+            sub: 'public-user',
+            exp: Math.floor(Date.now() / 1000) + 7_200,
+          }),
+          refresh_token: 'rotated-refresh-token',
+        })),
+      } as unknown as Response);
+
+      await expect(first).resolves.toBe(true);
+      await expect(second).resolves.toBe(true);
+      expect(fetchSpy).toHaveBeenCalledOnce();
+    });
+
+    it('re-reads shared session state after waiting for the browser refresh lock', async () => {
+      buildSvc();
+      const oldAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'old-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      const newAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'new-user',
+        exp: Math.floor(Date.now() / 1000) + 7_200,
+      });
+      await userAuth.commitOidcSession(oldAccessToken, 'old-refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      let releaseLock!: () => void;
+      vi.spyOn(TestBed.inject(OidcRefreshLock), 'run').mockImplementationOnce(async (operation) => {
+        await new Promise<void>((resolve) => { releaseLock = resolve; });
+        return operation();
+      });
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const staleRefresh = svc.refreshFromStorage();
+      await userAuth.commitOidcSession(newAccessToken, 'new-refresh-token');
+      releaseLock();
+
+      await expect(staleRefresh).resolves.toBe(true);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(userAuth.oidcAccessTokenValue).toBe(newAccessToken);
+      await expect(userAuth.getOidcRefreshToken()).resolves.toBe('new-refresh-token');
+    });
+
+    it('does not start a refresh while a newer login is being committed', async () => {
+      buildSvc();
+      const oldAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'old-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      const newAccessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'new-user',
+        exp: Math.floor(Date.now() / 1000) + 7_200,
+      });
+      await userAuth.commitOidcSession(oldAccessToken, 'old-refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      let releaseLogin!: () => void;
+      (userAuth.commitOidcSession as ReturnType<typeof vi.fn>).mockImplementationOnce(
+        async (accessToken: string | null, refreshToken: string | null) => {
+          await new Promise<void>((resolve) => { releaseLogin = resolve; });
+          userAuth.setOidcAccessToken(accessToken);
+          await userAuth.setOidcRefreshToken(refreshToken);
+          return { committed: true, refreshTokenPersisted: refreshToken !== null };
+        },
+      );
+      const fetchSpy = vi.fn();
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const login = svc.commitAuthenticatedSession(newAccessToken, 'new-refresh-token');
+      await vi.waitFor(() => expect(userAuth.commitOidcSession).toHaveBeenCalledTimes(2));
+      const refresh = svc.refreshFromStorage();
+      await Promise.resolve();
+      expect(fetchSpy).not.toHaveBeenCalled();
+      releaseLogin();
+
+      await expect(login).resolves.toMatchObject({ committed: true });
+      await expect(refresh).resolves.toBe(true);
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(userAuth.oidcAccessTokenValue).toBe(newAccessToken);
+    });
+
+    it('keeps a still-current session after a transient refresh response', async () => {
+      buildSvc();
+      const accessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'public-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      await userAuth.commitOidcSession(accessToken, 'refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 503 } as Response)));
+
+      await expect(svc.refreshFromStorage()).resolves.toBe(false);
+
+      expect(userAuth.oidcAccessTokenValue).toBe(accessToken);
+      await expect(userAuth.getOidcRefreshToken()).resolves.toBe('refresh-token');
+    });
+
+    it('retires refresh capability but keeps a valid access token after terminal rejection', async () => {
+      buildSvc();
+      const accessToken = unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'public-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      await userAuth.commitOidcSession(accessToken, 'invalid-refresh-token');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', JSON.stringify({
+        version: 1,
+        issuer: PUBLIC_OIDC_ISSUER,
+        clientId: PUBLIC_OIDC_CLIENT_ID,
+        tokenEndpoint: PUBLIC_OIDC_TOKEN_ENDPOINT,
+      }));
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 400 } as Response)));
+
+      await expect(svc.refreshFromStorage()).resolves.toBe(false);
+
+      expect(userAuth.oidcAccessTokenValue).toBe(accessToken);
+      await expect(userAuth.getOidcRefreshToken()).resolves.toBeNull();
+      expect(localStorage.getItem('ananta.oidc.refresh-authority.v1')).toBeNull();
     });
   });
 
@@ -415,6 +677,8 @@ describe('OidcAuthService', () => {
       });
       const { popup, replace } = popupDouble();
       openSpy.mockReturnValue(popup);
+      const loginStates: boolean[] = [];
+      const loginSubscription = svc.loggedIn$.subscribe((state) => loginStates.push(state));
 
       let resolveAuthorization!: (value: { kind: 'code'; state: string; code: string }) => void;
       const acknowledge = vi.fn();
@@ -440,7 +704,11 @@ describe('OidcAuthService', () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: vi.fn(async () => ({
-          access_token: 'oidc-access-token',
+          access_token: unsignedJwt({
+            iss: PUBLIC_OIDC_ISSUER,
+            sub: 'public-user',
+            exp: Math.floor(Date.now() / 1000) + 3_600,
+          }),
           refresh_token: 'oidc-refresh-token',
           id_token: idToken(nonce),
         })),
@@ -456,10 +724,14 @@ describe('OidcAuthService', () => {
           body: expect.stringContaining('code=one-time-code'),
         }),
       );
-      expect(userAuth.setOidcRefreshToken).toHaveBeenCalledWith('oidc-refresh-token');
-      expect(userAuth.setOidcAccessToken).toHaveBeenCalledWith('oidc-access-token');
+      expect(userAuth.commitOidcSession).toHaveBeenCalledWith(
+        expect.any(String),
+        'oidc-refresh-token',
+      );
+      expect(loginStates[loginStates.length - 1]).toBe(true);
       expect(acknowledge).toHaveBeenCalledWith({ ok: true });
       expect(dispose).toHaveBeenCalled();
+      loginSubscription.unsubscribe();
     });
 
     it.each([
@@ -509,7 +781,7 @@ describe('OidcAuthService', () => {
       expect(error).toMatchObject({ code: expectedCode });
       expect(String(error.message)).toContain(messageFragment);
       expect(fetchSpy).toHaveBeenCalledTimes(2);
-      expect(userAuth.setOidcAccessToken).not.toHaveBeenCalled();
+      expect(userAuth.commitOidcSession).not.toHaveBeenCalled();
       expect(acknowledge).toHaveBeenCalledWith(expect.objectContaining({
         ok: false,
         errorCode: expectedCode,
@@ -544,7 +816,11 @@ describe('OidcAuthService', () => {
       fetchSpy.mockResolvedValueOnce({
         ok: true,
         json: vi.fn(async () => ({
-          access_token: 'must-not-be-committed',
+          access_token: unsignedJwt({
+            iss: PUBLIC_OIDC_ISSUER,
+            sub: 'public-user',
+            exp: Math.floor(Date.now() / 1000) + 3_600,
+          }),
           id_token: idToken('different-nonce'),
         })),
       } as unknown as Response);
@@ -553,10 +829,51 @@ describe('OidcAuthService', () => {
       const error = await login.catch(candidate => candidate);
 
       expect(error).toMatchObject({ code: 'nonce_mismatch' });
-      expect(userAuth.setOidcAccessToken).not.toHaveBeenCalled();
+      expect(userAuth.commitOidcSession).not.toHaveBeenCalled();
       expect(acknowledge).toHaveBeenCalledWith(expect.objectContaining({
         ok: false,
         errorCode: 'nonce_mismatch',
+      }));
+    });
+
+    it('does not acknowledge a malformed access token as a successful login', async () => {
+      buildSvc();
+      const { popup, replace } = popupDouble();
+      openSpy.mockReturnValue(popup);
+      let resolveAuthorization!: (value: { kind: 'code'; state: string; code: string }) => void;
+      const acknowledge = vi.fn();
+      popupCoordinator.beginParentSession.mockImplementation((state: string) => ({
+        result: new Promise(resolve => { resolveAuthorization = resolve; }),
+        acknowledge,
+        dispose: vi.fn(),
+      } satisfies OidcPopupParentSession));
+      const fetchSpy = vi.fn().mockResolvedValueOnce(discoveryResponse(
+        PUBLIC_OIDC_ISSUER,
+        PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
+      ));
+      vi.stubGlobal('fetch', fetchSpy);
+
+      const login = svc.startLoginPopup();
+      await vi.waitFor(() => expect(replace).toHaveBeenCalledOnce());
+      const authorizationUrl = new URL(String(replace.mock.calls[0][0]));
+      const state = authorizationUrl.searchParams.get('state')!;
+      const nonce = authorizationUrl.searchParams.get('nonce')!;
+      fetchSpy.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn(async () => ({
+          access_token: 'malformed-token',
+          id_token: idToken(nonce),
+        })),
+      } as unknown as Response);
+
+      resolveAuthorization({ kind: 'code', state, code: 'one-time-code' });
+      const error = await login.catch(candidate => candidate);
+
+      expect(error).toMatchObject({ code: 'token_exchange_failed' });
+      expect(userAuth.commitOidcSession).not.toHaveBeenCalled();
+      expect(acknowledge).toHaveBeenCalledWith(expect.objectContaining({
+        ok: false,
+        errorCode: 'token_exchange_failed',
       }));
     });
 

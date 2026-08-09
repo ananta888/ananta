@@ -28,6 +28,7 @@ export const IDENTITY_STORAGE_LAYOUT = {
   oidc: {
     accessToken: { key: 'ananta.oidc.access_token', encryption: 'plaintext', purpose: 'OIDC access token (Keycloak)' } as StorageKey,
     refreshToken: { key: 'ananta.oidc.refresh_token', encryption: 'encrypted', purpose: 'OIDC refresh token' } as StorageKey,
+    refreshAuthority: { key: 'ananta.oidc.refresh-authority.v1', encryption: 'plaintext', purpose: 'Pinned OIDC refresh authority metadata' } as StorageKey,
   },
   legacy: {
     hubRefreshToken: { key: 'ananta.user.refresh_token', encryption: 'plaintext', purpose: 'Legacy Hub RT (pre-encryption), migrated on startup' } as StorageKey,

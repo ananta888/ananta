@@ -29,8 +29,13 @@ describe('identity-storage-layout', () => {
     expect(IDENTITY_STORAGE_LAYOUT.oidc.refreshToken.encryption).toBe('encrypted');
   });
 
-  it('allIdentityKeys returns 5 known keys (hub.at, hub.rt, oidc.at, oidc.rt, legacy)', () => {
-    expect(allIdentityKeys()).toHaveLength(5);
+  it('declares the pinned OIDC refresh authority as identity metadata', () => {
+    expect(IDENTITY_STORAGE_LAYOUT.oidc.refreshAuthority.key)
+      .toBe('ananta.oidc.refresh-authority.v1');
+  });
+
+  it('allIdentityKeys returns 6 known identity and authority keys', () => {
+    expect(allIdentityKeys()).toHaveLength(6);
   });
 
   it('allIdentityKeys includes legacy hub RT key', () => {
@@ -60,6 +65,7 @@ describe('identity-storage-layout', () => {
     localStorage.setItem('ananta.hub.refresh_token', 'b');
     localStorage.setItem('ananta.oidc.access_token', 'c');
     localStorage.setItem('ananta.oidc.refresh_token', 'd');
+    localStorage.setItem('ananta.oidc.refresh-authority.v1', 'authority');
     localStorage.setItem('ananta.user.refresh_token', 'e');
     localStorage.setItem('ananta.some.other', 'f');
 
@@ -69,6 +75,7 @@ describe('identity-storage-layout', () => {
     expect(localStorage.getItem('ananta.hub.refresh_token')).toBeNull();
     expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
     expect(localStorage.getItem('ananta.oidc.refresh_token')).toBeNull();
+    expect(localStorage.getItem('ananta.oidc.refresh-authority.v1')).toBeNull();
     expect(localStorage.getItem('ananta.user.refresh_token')).toBeNull();
     // non-identity keys are preserved
     expect(localStorage.getItem('ananta.some.other')).toBe('f');

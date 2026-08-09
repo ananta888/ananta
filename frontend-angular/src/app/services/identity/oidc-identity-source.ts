@@ -10,6 +10,8 @@ import { IDENTITY_STORAGE_LAYOUT } from './identity-storage-layout';
 import { UserAuthService } from '../user-auth.service';
 import { OidcAuthService } from '../oidc-auth.service';
 
+const OIDC_REFRESH_RETRY_MILLISECONDS = 10_000;
+
 /**
  * OidcIdentitySource — IdentitySource für die OIDC-Sphäre (Keycloak).
  *
@@ -54,8 +56,10 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
 
   async restoreFromStorage(): Promise<void> {
     const at = localStorage.getItem(IDENTITY_STORAGE_LAYOUT.oidc.accessToken.key);
+    const generation = this.auth.oidcSessionGenerationValue;
     if (!at) {
       const rt = await this.auth.getOidcRefreshToken();
+      if (await this.adoptRestoreReplacement(generation, at)) return;
       if (!rt) {
         this._snapshot$.next(buildSnapshot({ status: 'absent' }));
         return;
@@ -66,7 +70,12 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
       await this.refresh();
       return;
     }
+    if (this.auth.oidcAccessTokenValue !== at) {
+      this.auth.setOidcAccessToken(at);
+    }
+    const synchronizedGeneration = this.auth.oidcSessionGenerationValue;
     const rt = await this.auth.getOidcRefreshToken();
+    if (await this.adoptRestoreReplacement(synchronizedGeneration, at)) return;
     const snap = snapshotFromOidcAccessToken(at, rt ?? undefined);
     this._snapshot$.next(snap);
     if (snap.status !== 'ready') {
@@ -80,42 +89,74 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
    * Called by OidcAuthService after a successful PKCE callback or refresh.
    */
   async onAuthenticated(accessToken: string, refreshToken?: string): Promise<void> {
-    this.auth.setOidcAccessToken(accessToken);
-    await this.auth.setOidcRefreshToken(refreshToken ?? null);
-    const snap = snapshotFromOidcAccessToken(accessToken, refreshToken);
+    const commit = await this.oidc.commitAuthenticatedSession(
+      accessToken,
+      refreshToken ?? null,
+    );
+    if (!commit.committed) {
+      await this.adoptCurrentSession();
+      return;
+    }
+    const snap = snapshotFromOidcAccessToken(
+      accessToken,
+      commit.refreshTokenPersisted ? refreshToken : undefined,
+    );
     this._snapshot$.next(snap);
     this.scheduleRefresh();
   }
 
   async refresh(): Promise<void> {
+    const generation = this.auth.oidcSessionGenerationValue;
+    const accessTokenAtStart = this.auth.oidcAccessTokenValue;
     try {
       const refreshed = await this.oidc.refreshFromStorage();
       if (!refreshed) {
-        this.markAccessTokenExpired('oidc refresh failed');
+        if (await this.adoptCurrentSession()) {
+          if (generation !== this.auth.oidcSessionGenerationValue) {
+            this.scheduleRefresh();
+          } else if (this._snapshot$.value.refreshToken) {
+            this.scheduleRefreshRetry();
+          } else {
+            this.scheduleAccessTokenExpiry();
+          }
+          return;
+        }
+        this.markAccessTokenExpired(
+          'oidc refresh failed',
+          generation,
+          accessTokenAtStart,
+        );
         return;
       }
-      const accessToken = this.auth.oidcAccessTokenValue;
-      if (!accessToken) {
-        this._snapshot$.next(buildSnapshot({ status: 'expired', error: 'oidc token missing' }));
-        return;
+      if (await this.adoptCurrentSession()) {
+        this.scheduleRefresh();
+      } else {
+        const invalidGeneration = this.auth.oidcSessionGenerationValue;
+        const invalidAccessToken = this.auth.oidcAccessTokenValue;
+        this.markAccessTokenExpired(
+          'oidc access token invalid after refresh',
+          invalidGeneration,
+          invalidAccessToken,
+        );
       }
-      const refreshToken = await this.auth.getOidcRefreshToken();
-      const snapshot = snapshotFromOidcAccessToken(accessToken, refreshToken ?? undefined);
-      if (snapshot.status !== 'ready') {
-        this.markAccessTokenExpired(snapshot.error ?? 'oidc access token invalid after refresh');
-        return;
-      }
-      this._snapshot$.next(snapshot);
-      this.scheduleRefresh();
     } catch (err: unknown) {
+      if (await this.adoptCurrentSession()) {
+        if (generation !== this.auth.oidcSessionGenerationValue) {
+          this.scheduleRefresh();
+        } else if (this._snapshot$.value.refreshToken) {
+          this.scheduleRefreshRetry();
+        } else {
+          this.scheduleAccessTokenExpiry();
+        }
+        return;
+      }
       const msg = err instanceof Error ? err.message : 'oidc refresh failed';
-      this.markAccessTokenExpired(msg);
+      this.markAccessTokenExpired(msg, generation, accessTokenAtStart);
     }
   }
 
   logout(): void {
-    this.auth.setOidcAccessToken(null);
-    void this.auth.setOidcRefreshToken(null);
+    this.oidc.logoutLocal();
     this._snapshot$.next(buildSnapshot({ status: 'absent' }));
     if (this.refreshTimer) {
       clearTimeout(this.refreshTimer);
@@ -138,11 +179,85 @@ export class OidcIdentitySource implements IdentitySource, OnDestroy {
     }, delayMs);
   }
 
-  private markAccessTokenExpired(error: string): void {
+  private scheduleRefreshRetry(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    const expiresAt = this._snapshot$.value.expiresAt;
+    const untilExpiry = expiresAt === undefined
+      ? OIDC_REFRESH_RETRY_MILLISECONDS
+      : Math.max(0, expiresAt * 1000 - Date.now());
+    const delay = Math.min(OIDC_REFRESH_RETRY_MILLISECONDS, untilExpiry);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      void this.refresh();
+    }, delay);
+  }
+
+  private scheduleAccessTokenExpiry(): void {
+    if (this.refreshTimer) clearTimeout(this.refreshTimer);
+    const snapshot = this._snapshot$.value;
+    const generation = this.auth.oidcSessionGenerationValue;
+    const accessToken = this.auth.oidcAccessTokenValue;
+    if (!snapshot.expiresAt || !accessToken) return;
+    const delayMs = Math.max(0, (snapshot.expiresAt - Date.now() / 1000) * 1000);
+    this.refreshTimer = setTimeout(() => {
+      this.refreshTimer = null;
+      this.markAccessTokenExpired(
+        'oidc access token expired; secure refresh storage unavailable',
+        generation,
+        accessToken,
+      );
+    }, delayMs);
+  }
+
+  private async adoptCurrentSession(): Promise<boolean> {
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const generation = this.auth.oidcSessionGenerationValue;
+      const accessToken = this.auth.oidcAccessTokenValue;
+      if (!accessToken) return false;
+      const refreshToken = await this.auth.getOidcRefreshToken();
+      if (
+        generation !== this.auth.oidcSessionGenerationValue
+        || accessToken !== this.auth.oidcAccessTokenValue
+      ) continue;
+      const snapshot = snapshotFromOidcAccessToken(accessToken, refreshToken ?? undefined);
+      if (snapshot.status !== 'ready') return false;
+      this._snapshot$.next(snapshot);
+      return true;
+    }
+    return false;
+  }
+
+  private async adoptRestoreReplacement(
+    expectedGeneration: number,
+    expectedAccessToken: string | null,
+  ): Promise<boolean> {
+    if (
+      expectedGeneration === this.auth.oidcSessionGenerationValue
+      && expectedAccessToken === localStorage.getItem(
+        IDENTITY_STORAGE_LAYOUT.oidc.accessToken.key,
+      )
+    ) return false;
+    if (await this.adoptCurrentSession()) this.scheduleRefresh();
+    return true;
+  }
+
+  private markAccessTokenExpired(
+    error: string,
+    expectedGeneration: number,
+    expectedAccessToken: string | null,
+  ): void {
     // Never let a stale access token advertise an authenticated browser
     // session. The encrypted refresh token may remain for an explicit retry,
     // but it cannot authorize a request by itself.
-    this.auth.setOidcAccessToken(null);
+    const cleared = this.auth.setOidcAccessTokenIfGeneration(
+      null,
+      expectedGeneration,
+      expectedAccessToken,
+    );
+    if (!cleared) {
+      void this.adoptCurrentSession();
+      return;
+    }
     this._snapshot$.next(buildSnapshot({ status: 'expired', error }));
   }
 

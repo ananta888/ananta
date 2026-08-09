@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 import { OidcIdentitySource } from './oidc-identity-source';
 import { UserAuthService } from '../user-auth.service';
@@ -34,6 +34,11 @@ describe('OidcIdentitySource', () => {
     source = TestBed.inject(OidcIdentitySource);
     oidc = TestBed.inject(OidcAuthService);
     TestBed.inject(SecureTokenStorage)._clearCacheForTesting();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
   describe('sphere', () => {
@@ -104,6 +109,37 @@ describe('OidcIdentitySource', () => {
       expect(source.current.status).toBe('ready');
       expect(source.current.expiresAt).toBe(future);
     });
+
+    it('does not let a stale boot restore overwrite a newer popup login', async () => {
+      const auth = TestBed.inject(UserAuthService);
+      const oldToken = makeJwt({
+        iss: OIDC_ISSUER,
+        sub: 'old-user',
+        exp: Math.floor(Date.now() / 1000) + 1_800,
+      });
+      auth.setOidcAccessToken(oldToken);
+      let resolveOldRefreshToken!: (value: string | null) => void;
+      vi.spyOn(auth, 'getOidcRefreshToken')
+        .mockImplementationOnce(() => new Promise((resolve) => {
+          resolveOldRefreshToken = resolve;
+        }))
+        .mockResolvedValue('new-refresh-token');
+
+      const restore = source.restoreFromStorage();
+      await vi.waitFor(() => expect(auth.getOidcRefreshToken).toHaveBeenCalledOnce());
+      const newToken = makeJwt({
+        iss: OIDC_ISSUER,
+        sub: 'new-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      await source.onAuthenticated(newToken, 'new-refresh-token');
+      resolveOldRefreshToken('old-refresh-token');
+      await restore;
+
+      expect(source.current.status).toBe('ready');
+      expect(source.current.subject).toBe('new-user');
+      expect(auth.oidcAccessTokenValue).toBe(newToken);
+    });
   });
 
   describe('onAuthenticated', () => {
@@ -160,17 +196,85 @@ describe('OidcIdentitySource', () => {
       expect(source.current.status).toBe('expired');
       expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
     });
+
+    it('does not let an older failed refresh clear a newer popup login', async () => {
+      let resolveOldRefresh!: (value: boolean) => void;
+      vi.spyOn(oidc, 'refreshFromStorage').mockImplementation(
+        () => new Promise<boolean>((resolve) => { resolveOldRefresh = resolve; }),
+      );
+
+      const oldRefresh = source.refresh();
+      const future = Math.floor(Date.now() / 1000) + 3_600;
+      const newerToken = makeJwt({ iss: OIDC_ISSUER, sub: 'new-user', exp: future });
+      await source.onAuthenticated(newerToken, 'new-refresh-token');
+      resolveOldRefresh(false);
+      await oldRefresh;
+
+      expect(source.current.status).toBe('ready');
+      expect(source.current.subject).toBe('new-user');
+      expect(TestBed.inject(UserAuthService).oidcAccessTokenValue).toBe(newerToken);
+      await expect(TestBed.inject(UserAuthService).getOidcRefreshToken())
+        .resolves.toBe('new-refresh-token');
+    });
+
+    it('keeps a current session and retries after a transient refresh failure', async () => {
+      const auth = TestBed.inject(UserAuthService);
+      const accessToken = makeJwt({
+        iss: OIDC_ISSUER,
+        sub: 'retry-user',
+        exp: Math.floor(Date.now() / 1000) + 3_600,
+      });
+      await source.onAuthenticated(accessToken, 'refresh-token');
+      vi.spyOn(auth, 'getOidcRefreshToken').mockResolvedValue('refresh-token');
+      vi.spyOn(oidc, 'refreshFromStorage').mockResolvedValue(false);
+      const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+
+      await source.refresh();
+
+      expect(source.current.status).toBe('ready');
+      expect(auth.oidcAccessTokenValue).toBe(accessToken);
+      expect(setTimeoutSpy).toHaveBeenLastCalledWith(expect.any(Function), 10_000);
+    });
+
+    it('keeps an access-token-only login until its real expiry', async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-08T20:00:00.000Z'));
+      const auth = TestBed.inject(UserAuthService);
+      const secureStorage = TestBed.inject(SecureTokenStorage);
+      vi.spyOn(secureStorage, 'encrypt').mockRejectedValueOnce(
+        new Error('secure refresh storage unavailable'),
+      );
+      const accessToken = makeJwt({
+        iss: OIDC_ISSUER,
+        sub: 'access-only-user',
+        exp: Math.floor(Date.now() / 1000) + 120,
+      });
+
+      await source.onAuthenticated(accessToken, 'refresh-token');
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(source.current.status).toBe('ready');
+      expect(source.current.refreshToken).toBeUndefined();
+      expect(auth.oidcAccessTokenValue).toBe(accessToken);
+
+      await vi.advanceTimersByTimeAsync(60_000);
+
+      expect(source.current.status).toBe('expired');
+      expect(auth.oidcAccessTokenValue).toBeNull();
+    });
   });
 
   describe('logout', () => {
     it('clears tokens, emits absent', async () => {
       const future = Math.floor(Date.now() / 1000) + 3600;
       await source.onAuthenticated(makeJwt({ iss: OIDC_ISSUER, sub: 'x', exp: future }), 'rt');
+      localStorage.setItem('ananta.oidc.refresh-authority.v1', 'pinned-authority');
 
       source.logout();
       expect(source.current.status).toBe('absent');
       expect(localStorage.getItem('ananta.oidc.access_token')).toBeNull();
       expect(localStorage.getItem(IDENTITY_STORAGE_LAYOUT.oidc.refreshToken.key)).toBeNull();
+      expect(localStorage.getItem(IDENTITY_STORAGE_LAYOUT.oidc.refreshAuthority.key)).toBeNull();
     });
   });
 });

@@ -9,7 +9,10 @@ import {
   PairPublicAuthorityPolicy,
   type PublicOidcLoginAuthority,
 } from './pair-public-authority.policy';
-import { UserAuthService } from './user-auth.service';
+import {
+  UserAuthService,
+  type OidcSessionCommitResult,
+} from './user-auth.service';
 import {
   PUBLIC_OIDC_AUTHORIZATION_ENDPOINT,
   PUBLIC_OIDC_CLIENT_ID,
@@ -23,12 +26,17 @@ import {
   OidcPopupCoordinatorError,
   type OidcPopupParentSession,
 } from './oidc-popup-coordinator.service';
-import { isJwtAccessTokenCurrent } from './identity/jwt-access-token';
+import {
+  inspectJwtAccessToken,
+  isJwtAccessTokenCurrent,
+} from './identity/jwt-access-token';
+import { IDENTITY_STORAGE_LAYOUT } from './identity/identity-storage-layout';
+import { OidcRefreshLock } from './oidc-refresh-lock.service';
 
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
 const SS_NONCE_KEY = 'oidc.nonce';
-const REFRESH_AUTHORITY_KEY = 'ananta.oidc.refresh-authority.v1';
+const REFRESH_AUTHORITY_KEY = IDENTITY_STORAGE_LAYOUT.oidc.refreshAuthority.key;
 const LOGIN_POPUP_FEATURES = 'width=560,height=680,left=200,top=80';
 const POPUP_DISCOVERY_TIMEOUT_MS = 10_000;
 const POPUP_TOKEN_EXCHANGE_TIMEOUT_MS = 45_000;
@@ -104,12 +112,14 @@ export class OidcAuthService implements OnDestroy {
   private publicAuthority = inject(PairPublicAuthorityPolicy);
   private router = inject(Router);
   private popupCoordinator = inject(OidcPopupCoordinator);
+  private refreshLock = inject(OidcRefreshLock);
 
   private _meta: OidcMeta | null = null;
   private _metaIssuer = '';
   private _sessionNonce = '';
   private refreshAuthorityBoundForWindow = false;
   private readonly deviceFlowAuthorities = new Map<string, DeviceFlowAuthorityBinding>();
+  private refreshInFlight: Promise<boolean> | null = null;
 
   readonly loggedIn$ = this.userAuth.oidcToken$.pipe(
     map((token) => isJwtAccessTokenCurrent(token)),
@@ -327,11 +337,17 @@ export class OidcAuthService implements OnDestroy {
 
     const idPayload = this._decodeJwt(tokens.id_token);
     if (idPayload?.nonce !== transaction.nonce) return false;
+    if (!this.isCurrentPublicAccessToken(tokens.access_token)) return false;
 
     this._sessionNonce = transaction.nonce;
-    this.userAuth.setOidcAccessToken(tokens.access_token);
-    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
-    this.persistPublicRefreshAuthority(tokens.refresh_token);
+    const commit = await this.commitAuthenticatedSession(
+      tokens.access_token,
+      tokens.refresh_token ?? null,
+    );
+    if (!commit.committed) return false;
+    this.persistPublicRefreshAuthority(
+      commit.refreshTokenPersisted ? tokens.refresh_token : null,
+    );
     if (transaction.linkHub) {
       await this.linkCurrentHubIdentity(tokens.access_token);
     }
@@ -556,6 +572,12 @@ export class OidcAuthService implements OnDestroy {
         'Keycloak hat die erforderlichen OIDC-Tokens nicht geliefert.',
       );
     }
+    if (!this.isCurrentPublicAccessToken(accessToken)) {
+      throw new OidcPopupLoginError(
+        'token_exchange_failed',
+        'Keycloak hat kein aktuell gültiges Zugriffstoken geliefert.',
+      );
+    }
 
     const idPayload = this._decodeJwt(idToken);
     if (!idPayload || idPayload.nonce !== input.nonce) {
@@ -567,10 +589,15 @@ export class OidcAuthService implements OnDestroy {
 
     // Persist only after code and nonce validation. The parent is the sole
     // writer; no access or refresh token is sent over the popup transport.
-    await this.userAuth.setOidcRefreshToken(refreshToken);
-    this.persistPublicRefreshAuthority(refreshToken);
+    const commit = await this.commitAuthenticatedSession(accessToken, refreshToken);
+    if (!commit.committed) {
+      throw new OidcPopupLoginError(
+        'token_exchange_failed',
+        'Eine neuere Keycloak-Anmeldung hat diesen Login ersetzt. Bitte den aktuellen Login verwenden.',
+      );
+    }
+    this.persistPublicRefreshAuthority(commit.refreshTokenPersisted ? refreshToken : null);
     this._sessionNonce = input.nonce;
-    this.userAuth.setOidcAccessToken(accessToken);
     // Pair/OIDC login is complete here. Optional Hub linking must not delay
     // the popup acknowledgement or turn a healthy Pair login into a timeout.
     void this.tryRestoreLinkedHubSession(accessToken, true);
@@ -633,14 +660,58 @@ export class OidcAuthService implements OnDestroy {
     try { localStorage.removeItem(key); } catch { /* Cleanup is best-effort. */ }
   }
 
+  commitAuthenticatedSession(
+    accessToken: string,
+    refreshToken: string | null,
+  ): Promise<OidcSessionCommitResult> {
+    return this.refreshLock.run(
+      () => this.userAuth.commitOidcSession(accessToken, refreshToken),
+    );
+  }
+
 // ── T13: Silent token refresh via OIDC token endpoint ────────────────
 
   /**
    * Refresh using the encrypted OIDC RT from storage.
-   * Returns true on success, false on failure (logs nothing — caller decides).
+   * Returns true when this exchange commits or a newer valid session already
+   * won the lock. False means the caller should retain/retry a still-current
+   * access token or expire it at its JWT deadline.
    */
-  async refreshFromStorage(): Promise<boolean> {
+  refreshFromStorage(): Promise<boolean> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    const accessTokenBeforeLock = localStorage.getItem(
+      IDENTITY_STORAGE_LAYOUT.oidc.accessToken.key,
+    );
+    const operation = this.refreshLock.run(
+      () => this.performRefreshFromStorage(accessTokenBeforeLock),
+    );
+    this.refreshInFlight = operation;
+    const clear = () => {
+      if (this.refreshInFlight === operation) this.refreshInFlight = null;
+    };
+    void operation.then(clear, clear);
+    return operation;
+  }
+
+  private async performRefreshFromStorage(
+    accessTokenBeforeLock: string | null,
+  ): Promise<boolean> {
+    const storedAccessToken = localStorage.getItem(
+      IDENTITY_STORAGE_LAYOUT.oidc.accessToken.key,
+    );
+    if (storedAccessToken !== this.userAuth.oidcAccessTokenValue) {
+      this.userAuth.setOidcAccessToken(storedAccessToken);
+    }
+    if (
+      storedAccessToken !== accessTokenBeforeLock
+      && this.isCurrentPublicAccessToken(storedAccessToken)
+    ) return true;
+    const generation = this.userAuth.oidcSessionGenerationValue;
+    const accessTokenAtStart = this.userAuth.oidcAccessTokenValue;
     const refreshToken = await this.userAuth.getOidcRefreshToken();
+    if (this.userAuth.oidcSessionGenerationValue !== generation) {
+      return this.isCurrentPublicAccessToken(this.userAuth.oidcAccessTokenValue);
+    }
     if (!refreshToken) return false;
     if (!this.hasPinnedPublicRefreshAuthority()) return false;
     const controller = new AbortController();
@@ -661,16 +732,43 @@ export class OidcAuthService implements OnDestroy {
         signal: controller.signal,
       });
       if (!r.ok) {
-        this.userAuth.setOidcAccessToken(null);
-        await this.userAuth.setOidcRefreshToken(null);
-        this.clearRefreshAuthority();
+        if (r.status === 400 || r.status === 401) {
+          const retired = await this.userAuth.commitOidcSession(
+            accessTokenAtStart,
+            null,
+            generation,
+            accessTokenAtStart,
+          );
+          if (retired.committed) this.clearRefreshAuthority();
+          if (!retired.committed) {
+            return this.isCurrentPublicAccessToken(this.userAuth.oidcAccessTokenValue);
+          }
+        }
         return false;
       }
-      const tokens = await r.json();
-      this.userAuth.setOidcAccessToken(tokens.access_token);
-      await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? refreshToken);
-      this.persistPublicRefreshAuthority(tokens.refresh_token ?? refreshToken);
-      await this.tryRestoreLinkedHubSession(tokens.access_token, true);
+      const tokens = await r.json() as Record<string, unknown>;
+      const accessToken = typeof tokens['access_token'] === 'string'
+        ? tokens['access_token']
+        : '';
+      const rotatedRefreshToken = typeof tokens['refresh_token'] === 'string'
+        ? tokens['refresh_token']
+        : refreshToken;
+      if (!this.isCurrentPublicAccessToken(accessToken)) {
+        return false;
+      }
+      const commit = await this.userAuth.commitOidcSession(
+        accessToken,
+        rotatedRefreshToken,
+        generation,
+        accessTokenAtStart,
+      );
+      if (!commit.committed) {
+        return this.isCurrentPublicAccessToken(this.userAuth.oidcAccessTokenValue);
+      }
+      this.persistPublicRefreshAuthority(
+        commit.refreshTokenPersisted ? rotatedRefreshToken : null,
+      );
+      await this.tryRestoreLinkedHubSession(accessToken, true);
       return true;
     } catch {
       return false;
@@ -685,11 +783,14 @@ export class OidcAuthService implements OnDestroy {
 
   // ── T14: Keycloak end-session ────────────────────────────────────────
 
-  async logout(): Promise<void> {
-    this.userAuth.setOidcAccessToken(null);
-    await this.userAuth.setOidcRefreshToken(null);
+  logoutLocal(): void {
+    this.userAuth.clearOidcSession();
     this.clearRefreshAuthority();
     this._sessionNonce = '';
+  }
+
+  async logout(): Promise<void> {
+    this.logoutLocal();
     try {
       const meta = assertPinnedPublicMetadata(await this.loadMeta(PUBLIC_OIDC_ISSUER));
       const params = new URLSearchParams({
@@ -804,11 +905,17 @@ export class OidcAuthService implements OnDestroy {
     }
     const tokens = await r.json();
     this.deviceFlowAuthorities.delete(deviceCode);
+    if (!this.isCurrentPublicAccessToken(tokens.access_token)) return false;
     const nonce = sessionStorage.getItem(SS_NONCE_KEY) ?? this.randomB64Url(16);
     this._sessionNonce = nonce;
-    this.userAuth.setOidcAccessToken(tokens.access_token);
-    await this.userAuth.setOidcRefreshToken(tokens.refresh_token ?? null);
-    this.persistPublicRefreshAuthority(tokens.refresh_token);
+    const commit = await this.commitAuthenticatedSession(
+      tokens.access_token,
+      tokens.refresh_token ?? null,
+    );
+    if (!commit.committed) return false;
+    this.persistPublicRefreshAuthority(
+      commit.refreshTokenPersisted ? tokens.refresh_token : null,
+    );
     await this.tryRestoreLinkedHubSession(tokens.access_token, true);
     return true;
   }
@@ -819,6 +926,12 @@ export class OidcAuthService implements OnDestroy {
     const authority = this.publicAuthority.oidcLoginAuthority();
     if (!authority) throw new Error('public_oidc_authority_not_selected');
     return authority;
+  }
+
+  private isCurrentPublicAccessToken(token: unknown): token is string {
+    if (typeof token !== 'string') return false;
+    const inspection = inspectJwtAccessToken(token);
+    return inspection.ok && inspection.issuer === PUBLIC_OIDC_ISSUER;
   }
 
   private pruneDeviceFlowAuthorities(now = Date.now()): void {

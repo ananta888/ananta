@@ -21,6 +21,7 @@ import {
   HubRefreshSupersededError,
   HubRefreshTerminalError,
 } from './hub-refresh-error';
+import { IDENTITY_STORAGE_LAYOUT } from './identity/identity-storage-layout';
 
 const HUB_RT_STORAGE_KEY = 'ananta.hub.refresh_token';
 const OIDC_RT_STORAGE_KEY = 'ananta.oidc.refresh_token';
@@ -30,6 +31,11 @@ export const HUB_REFRESH_TIMEOUT = new InjectionToken<number>('HUB_REFRESH_TIMEO
   providedIn: 'root',
   factory: () => DEFAULT_HUB_REFRESH_TIMEOUT_MILLISECONDS,
 });
+
+export interface OidcSessionCommitResult {
+  readonly committed: boolean;
+  readonly refreshTokenPersisted: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class UserAuthService {
@@ -43,6 +49,7 @@ export class UserAuthService {
     refresh_token?: string;
   }> | null = null;
   private hubSessionGeneration = 0;
+  private oidcSessionGeneration = 0;
 
   private _token = new BehaviorSubject<string | null>(localStorage.getItem('ananta.user.token'));
   token$ = this._token.asObservable();
@@ -65,6 +72,7 @@ export class UserAuthService {
   get token() { return this._token.value; }
   get refreshTokenValue() { return this._refreshToken.value; }
   get oidcAccessTokenValue() { return this._oidcAccessToken.value; }
+  get oidcSessionGenerationValue() { return this.oidcSessionGeneration; }
   get userPayload() { return this._user.value; }
 
   async setTokens(token: string | null, refreshToken?: string | null) {
@@ -115,6 +123,32 @@ export class UserAuthService {
   }
 
   setOidcAccessToken(token: string | null) {
+    this.oidcSessionGeneration += 1;
+    this.writeOidcAccessToken(token);
+  }
+
+  setOidcAccessTokenIfGeneration(
+    token: string | null,
+    expectedGeneration: number,
+    expectedAccessToken: string | null,
+  ): boolean {
+    if (
+      this.oidcSessionGeneration !== expectedGeneration
+      || localStorage.getItem('ananta.oidc.access_token') !== expectedAccessToken
+    ) return false;
+    this.oidcSessionGeneration += 1;
+    this.writeOidcAccessToken(token);
+    return true;
+  }
+
+  clearOidcSession(): void {
+    this.oidcSessionGeneration += 1;
+    localStorage.removeItem(OIDC_RT_STORAGE_KEY);
+    localStorage.removeItem(IDENTITY_STORAGE_LAYOUT.oidc.refreshAuthority.key);
+    this.writeOidcAccessToken(null);
+  }
+
+  private writeOidcAccessToken(token: string | null): void {
     if (token) {
       localStorage.setItem('ananta.oidc.access_token', token);
     } else {
@@ -122,6 +156,66 @@ export class UserAuthService {
     }
 
     this._oidcAccessToken.next(token);
+  }
+
+  /**
+   * Atomically publishes an OIDC access/refresh-token pair after asynchronous
+   * refresh-token encryption. When expectedGeneration is supplied, a newer
+   * login/logout wins and this stale operation has no storage side effects.
+   */
+  async commitOidcSession(
+    accessToken: string | null,
+    refreshToken: string | null,
+    expectedGeneration?: number,
+    expectedAccessToken?: string | null,
+  ): Promise<OidcSessionCommitResult> {
+    const generation = expectedGeneration === undefined
+      ? ++this.oidcSessionGeneration
+      : expectedGeneration;
+    if (!this.ownsOidcSession(generation, expectedAccessToken)) {
+      return { committed: false, refreshTokenPersisted: false };
+    }
+
+    let encryptedRefreshToken: string | null = null;
+    if (refreshToken) {
+      try {
+        encryptedRefreshToken = await this.secureStorage.encrypt(
+          refreshToken,
+          OIDC_RT_STORAGE_KEY,
+        );
+      } catch {
+        // A browser without IndexedDB/WebCrypto can still use the short-lived
+        // access token. Never downgrade the refresh token to plaintext.
+      }
+    }
+    if (!this.ownsOidcSession(generation, expectedAccessToken)) {
+      return { committed: false, refreshTokenPersisted: false };
+    }
+
+    // No await is allowed between the final fence and both storage writes.
+    // This keeps the access/refresh pair consistent within this browser tab.
+    this.oidcSessionGeneration += 1;
+    if (encryptedRefreshToken) {
+      localStorage.setItem(OIDC_RT_STORAGE_KEY, encryptedRefreshToken);
+    } else {
+      localStorage.removeItem(OIDC_RT_STORAGE_KEY);
+    }
+    this.writeOidcAccessToken(accessToken);
+    return {
+      committed: true,
+      refreshTokenPersisted: encryptedRefreshToken !== null,
+    };
+  }
+
+  private ownsOidcSession(
+    expectedGeneration: number,
+    expectedAccessToken?: string | null,
+  ): boolean {
+    return this.oidcSessionGeneration === expectedGeneration
+      && (
+        expectedAccessToken === undefined
+        || localStorage.getItem('ananta.oidc.access_token') === expectedAccessToken
+      );
   }
 
   async setOidcRefreshToken(token: string | null) {
@@ -175,7 +269,7 @@ export class UserAuthService {
 
   logout() {
     this.setTokens(null, null);
-    this.setOidcAccessToken(null);
+    this.clearOidcSession();
   }
 
   logoutHub(): void {

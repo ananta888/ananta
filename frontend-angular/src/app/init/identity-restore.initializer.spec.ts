@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
-import { APP_INITIALIZER } from '@angular/core';
+import { APP_INITIALIZER, Injector } from '@angular/core';
 import { IdentityRegistry } from '../services/identity/identity-registry';
 import { HubIdentitySource } from '../services/identity/hub-identity-source';
 import { OidcIdentitySource } from '../services/identity/oidc-identity-source';
@@ -29,6 +29,8 @@ describe('identityRestoreInitializer', () => {
 
   beforeEach(() => {
     localStorage.clear();
+    profiles.load.mockClear();
+    window.history.replaceState({}, '', '/');
     globalThis.indexedDB = new IDBFactory() as unknown as IDBFactory;
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({
@@ -52,6 +54,10 @@ describe('identityRestoreInitializer', () => {
     TestBed.inject(SecureTokenStorage)._clearCacheForTesting();
   });
 
+  afterEach(() => {
+    window.history.replaceState({}, '', '/');
+  });
+
   it('is registered as a multi APP_INITIALIZER', () => {
     const provider = identityRestoreInitializer as unknown as Record<string, unknown>;
     expect(provider['multi']).toBe(true);
@@ -66,9 +72,9 @@ describe('identityRestoreInitializer', () => {
     }));
 
     const provider = identityRestoreInitializer as unknown as {
-      useFactory: (r: IdentityRegistry, p: NetworkProfileService) => () => Promise<void>;
+      useFactory: (injector: Injector) => () => Promise<void>;
     };
-    const factory = provider.useFactory(registry, profiles as unknown as NetworkProfileService);
+    const factory = provider.useFactory(TestBed.inject(Injector));
     await factory();
 
     expect(hub.current.status).toBe('ready');
@@ -78,11 +84,45 @@ describe('identityRestoreInitializer', () => {
 
   it('factory handles empty storage gracefully', async () => {
     const provider = identityRestoreInitializer as unknown as {
-      useFactory: (r: IdentityRegistry, p: NetworkProfileService) => () => Promise<void>;
+      useFactory: (injector: Injector) => () => Promise<void>;
     };
-    const factory = provider.useFactory(registry, profiles as unknown as NetworkProfileService);
+    const factory = provider.useFactory(TestBed.inject(Injector));
     await factory();
     expect(hub.current.status).toBe('absent');
     expect(oidc.current.status).toBe('absent');
+  });
+
+  it('does not instantiate identity services inside a popup callback window', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/oidc-callback?code=one-time-code&state=p.abcdefghijklmnopqrstuv',
+    );
+    profiles.load.mockClear();
+    const get = vi.fn();
+    const provider = identityRestoreInitializer as unknown as {
+      useFactory: (injector: Injector) => () => Promise<void>;
+    };
+
+    await provider.useFactory({ get } as unknown as Injector)();
+
+    expect(get).not.toHaveBeenCalled();
+  });
+
+  it('does not suppress normal boot solely because a popup-shaped state is present', async () => {
+    window.history.replaceState({}, '', '/?state=p.abcdefghijklmnopqrstuv');
+    const restoreAllFromStorage = vi.fn(async () => undefined);
+    const load = vi.fn(async () => undefined);
+    const get = vi.fn((token: unknown) => token === IdentityRegistry
+      ? { restoreAllFromStorage }
+      : { load });
+    const provider = identityRestoreInitializer as unknown as {
+      useFactory: (injector: Injector) => () => Promise<void>;
+    };
+
+    await provider.useFactory({ get } as unknown as Injector)();
+
+    expect(restoreAllFromStorage).toHaveBeenCalledOnce();
+    expect(load).toHaveBeenCalledOnce();
   });
 });
