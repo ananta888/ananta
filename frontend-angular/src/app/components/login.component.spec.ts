@@ -22,7 +22,11 @@ import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 
-function buildLogin(showRegistration: boolean, showOidc = true) {
+function buildLogin(
+  showRegistration: boolean,
+  showOidc = true,
+  oidcOverrides: Record<string, unknown> = {},
+) {
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({
     imports: [LoginComponent],
@@ -32,7 +36,7 @@ function buildLogin(showRegistration: boolean, showOidc = true) {
       { provide: IdentityBridge, useValue: { showRegistration, showOidcLogin: showOidc, showHubDirectLogin: true, hubLinkEnabled: false } },
       {
         provide: OidcAuthService,
-        useValue: { registerWithKeycloak: vi.fn() },
+        useValue: { registerWithKeycloak: vi.fn(), ...oidcOverrides },
       },
       { provide: UserAuthService, useValue: { token: null, oidcAccessTokenValue: null } },
       { provide: AgentDirectoryService, useValue: { list: () => [], upsert: () => undefined, get: () => undefined } },
@@ -118,6 +122,34 @@ describe('LoginComponent — Self-Registration-Button', () => {
     expect(reg).toBeDefined();
     reg!.click();
     expect(registerWithKeycloak).toHaveBeenCalledTimes(1);
+  });
+
+  it('binds the Keycloak redirect to the dedicated Public Pair route', () => {
+    const startLogin = vi.fn();
+    const fixture = buildLogin(false, true, { startLogin });
+
+    fixture.componentInstance.loginWithKeycloak();
+
+    expect(startLogin).toHaveBeenCalledWith('/pair-dev');
+  });
+
+  it('navigates a completed OIDC device flow to the dedicated Public Pair route', async () => {
+    vi.useFakeTimers();
+    const startDeviceFlow = vi.fn().mockResolvedValue({
+      user_code: 'ABCD-EFGH',
+      verification_uri: 'https://keycloak.example/device',
+      device_code: 'device-code',
+      interval: 0,
+    });
+    const pollDeviceToken = vi.fn().mockResolvedValue(true);
+    const fixture = buildLogin(false, true, { startDeviceFlow, pollDeviceToken });
+    const router = TestBed.inject(Router);
+
+    await fixture.componentInstance.startDeviceFlow();
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    expect(router.navigate).toHaveBeenCalledWith(['/pair-dev']);
+    vi.useRealTimers();
   });
 
   it('verwendet auf Android einen Remote-Hub ohne den Embedded Hub zu starten', async () => {

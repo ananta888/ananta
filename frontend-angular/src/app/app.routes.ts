@@ -18,10 +18,17 @@ import { modelAnalysisRoutes } from './features/model-analysis/model-analysis.ro
 import { PROJECT_ROUTES } from './features/projects/project.routes';
 import { projectContextGuard } from './guards/project-context.guard';
 import { organizationRoutes } from './features/organizations/organization.routes';
+import { publicPairGuard } from './guards/public-pair.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'oidc-callback', component: OidcCallbackComponent },
+  {
+    path: 'pair-dev',
+    canActivate: [publicPairGuard],
+    loadComponent: () => import('./features/pair/public-pair-page.component')
+      .then(m => m.PublicPairPageComponent),
+  },
   {
     path: '',
     canActivate: [authGuard],

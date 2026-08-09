@@ -107,7 +107,7 @@ describe('NetworkProfileService semantic media flags', () => {
     expect(localStorage.getItem('ananta.network-profile-selection.v1')).toBeNull();
   });
 
-  it('keeps public semantic media disabled even when a Hub projection requests it', async () => {
+  it('keeps the pinned public profile independent from mutable Hub projections', async () => {
     const profile = {
       profile_id: 'public-ananta', label: 'Test', oidc: {
         issuer: '', client_id: '', audience: '', pkce_required: true,
@@ -126,17 +126,20 @@ describe('NetworkProfileService semantic media flags', () => {
         peer_evidence_sync: true,
       },
     };
+    const get = vi.fn(() => of({ ok: true, profile }));
     TestBed.configureTestingModule({
       providers: [
         NetworkProfileService,
         { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub' }] } },
-        { provide: HubApiCoreService, useValue: { get: () => of({ ok: true, profile }) } },
+        { provide: HubApiCoreService, useValue: { get } },
       ],
     });
     const service = TestBed.inject(NetworkProfileService);
     await service.enablePublicPair();
     await service.load();
     expect(service.current.semantic_media_feature_flags).toEqual(SEMANTIC_MEDIA_FEATURE_DEFAULTS);
+    expect(service.current.rendezvous?.base_url).toBe('https://webrtc.ananta.de');
+    expect(get).not.toHaveBeenCalled();
   });
 
   it('accepts a dependency-complete semantic media projection for a private profile', async () => {

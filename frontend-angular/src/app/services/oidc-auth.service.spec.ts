@@ -57,6 +57,15 @@ function makeUserAuthStub() {
       oidcToken$.next(accessToken);
       return { committed: true, refreshTokenPersisted: refreshToken !== null };
     }),
+    decodeTokenPayload: vi.fn((token: string | null) => {
+      if (!token) return null;
+      try {
+        const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+        return JSON.parse(atob(payload.padEnd(Math.ceil(payload.length / 4) * 4, '=')));
+      } catch {
+        return null;
+      }
+    }),
     userPayload: null,
     logout: vi.fn(),
   };
@@ -197,6 +206,21 @@ describe('OidcAuthService', () => {
   });
 
   describe('profile configuration', () => {
+    it('derives the displayed username from the OIDC token, never the Hub identity', () => {
+      buildSvc();
+      (userAuth as unknown as { userPayload: unknown }).userPayload = {
+        preferred_username: 'hub-user',
+      };
+      userAuth.setOidcAccessToken(unsignedJwt({
+        iss: PUBLIC_OIDC_ISSUER,
+        sub: 'oidc-subject',
+        preferred_username: 'pair-user',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      }));
+
+      expect(svc.currentUsername).toBe('pair-user');
+    });
+
     it('does not advertise an expired stored token as an active login', () => {
       buildSvc();
       const states: boolean[] = [];

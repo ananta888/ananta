@@ -219,6 +219,9 @@ export class NetworkProfileService {
       : profileId;
     if (effectiveProfileId === PUBLIC_PROFILE_ID) {
       this.profile$.next(PUBLIC_FALLBACK);
+      // The public Pair authority is compile-time pinned and intentionally
+      // independent from Hub authentication or mutable Hub projections.
+      return;
     } else if (effectiveProfileId === LOCAL_PROFILE_ID) {
       this.profile$.next(LOCAL_FALLBACK);
     }

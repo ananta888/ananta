@@ -6,7 +6,7 @@ export const authGuard: CanActivateFn = () => {
   const identities = inject(IdentityRegistry);
   const router = inject(Router);
   
-  if (identities.isAuthenticated) {
+  if (identities.hub.current.status === 'ready') {
     return true;
   }
   

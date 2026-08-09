@@ -306,7 +306,7 @@ export class LoginComponent implements OnInit {
   }
 
   loginWithKeycloak(): void {
-    void this.oidc.startLogin('/');
+    void this.oidc.startLogin('/pair-dev');
   }
 
   async linkIdentities(): Promise<void> {
@@ -347,7 +347,10 @@ export class LoginComponent implements OnInit {
       this.deviceFlowPollHandle = setInterval(async () => {
         try {
           const ok = await this.oidc.pollDeviceToken(data.device_code, data.interval);
-          if (ok) { this.stopDeviceFlow(); this.router.navigate(['/']); }
+          if (ok) {
+            this.stopDeviceFlow();
+            this.router.navigate(['/pair-dev']);
+          }
         } catch (e: any) {
           this.stopDeviceFlow();
           this.deviceFlowError = String(e?.message ?? 'Fehler');

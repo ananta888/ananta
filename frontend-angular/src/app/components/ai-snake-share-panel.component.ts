@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, Input, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ShareSessionService, ShareParticipant } from '../services/share-session.service';
@@ -40,7 +40,9 @@ interface PairGroupMember {
         }
         <div class="main-tabs">
           <button class="main-tab" [class.active]="mainTab === 'share'" (click)="mainTab = 'share'">Sessions</button>
-          <button class="main-tab" [class.active]="mainTab === 'groups'" (click)="switchToGroups()">Gruppen</button>
+          @if (!publicOnly) {
+            <button class="main-tab" [class.active]="mainTab === 'groups'" (click)="switchToGroups()">Gruppen</button>
+          }
         </div>
       </div>
 
@@ -377,6 +379,9 @@ export class AiSnakeSharePanelComponent implements OnInit {
   private dir = inject(AgentDirectoryService);
   private pairBinding = inject(PairViewSessionBindingService);
 
+  /** Removes and fences Hub-backed group operations on the public OIDC-only surface. */
+  @Input() publicOnly = false;
+
   mainTab: MainTab = 'share';
   view: PanelView = 'home';
   activeTab: 'chat' | 'participants' = 'chat';
@@ -425,11 +430,13 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   switchToGroups(): void {
+    if (this.publicOnly) return;
     this.mainTab = 'groups';
     this.loadGroups();
   }
 
   private loadGroups(): void {
+    if (this.publicOnly) return;
     this.groupsLoading = true;
     const url = this.hubUrl;
     this.core.get<{ ok: boolean; groups: PairGroup[] }>(`${url}/pair-groups`, url).subscribe({
@@ -439,6 +446,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   startCreateGroup(): void {
+    if (this.publicOnly) return;
     this.newGroupName = '';
     this.newGroupDesc = '';
     this.gperm_chat = true;
@@ -449,6 +457,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   doCreateGroup(): void {
+    if (this.publicOnly) return;
     if (!this.newGroupName.trim()) { this.groupError = 'Name erforderlich'; return; }
     this.creatingGroup = true;
     this.groupError = '';
@@ -471,6 +480,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   openGroup(g: PairGroup): void {
+    if (this.publicOnly) return;
     this.selectedGroup = g;
     this.groupMembers = [];
     this.newMemberId = '';
@@ -486,6 +496,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   addMember(): void {
+    if (this.publicOnly) return;
     const uid = this.newMemberId.trim();
     if (!uid || !this.selectedGroup) return;
     this.memberError = '';
@@ -503,6 +514,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   removeMember(m: PairGroupMember): void {
+    if (this.publicOnly) return;
     if (!this.selectedGroup) return;
     const url = this.hubUrl;
     this.core.delete(`${url}/pair-groups/${this.selectedGroup.id}/members/${m.user_id}`, url).subscribe({
@@ -512,6 +524,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   deleteGroup(g: PairGroup): void {
+    if (this.publicOnly) return;
     if (!confirm(`Gruppe "${g.name}" löschen?`)) return;
     const url = this.hubUrl;
     this.core.delete(`${url}/pair-groups/${g.id}`, url).subscribe({
@@ -521,6 +534,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   createGroupSession(g: PairGroup): void {
+    if (this.publicOnly) return;
     this.groupSessionInvite = '';
     const url = this.hubUrl;
     this.core.post<{ ok: boolean; session: any; invite_code: string }>(

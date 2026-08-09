@@ -1,11 +1,12 @@
-import { Component, HostListener, OnInit, OnDestroy, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, HostListener, OnInit, OnDestroy, inject, computed, ChangeDetectionStrategy } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink, RouterLinkActive, RouterOutlet, Router } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { NotificationsComponent } from './components/notifications.component';
 import { ToastComponent } from './components/toast.component';
 import { AgentDirectoryService, usesEmbeddedAndroidHub } from './services/agent-directory.service';
 import { UserAuthService } from './services/user-auth.service';
-import { Subscription } from 'rxjs';
+import { Subscription, distinctUntilChanged, map } from 'rxjs';
 import { AsyncPipe } from '@angular/common';
 import { AiAssistantComponent } from './components/ai-assistant.component';
 import { BreadcrumbComponent } from './components/breadcrumb.component';
@@ -20,6 +21,7 @@ import { SecurityStorageBannerComponent } from './components/security-storage-ba
 import { ProjectContextSwitcherComponent } from './components/project-context-switcher.component';
 import type { AppNavItem } from './models/route-metadata';
 import { ProjectContextService } from './services/project-context.service';
+import { IdentityRegistry } from './services/identity/identity-registry';
 
 @Component({
   selector: 'app-root',
@@ -108,7 +110,7 @@ import { ProjectContextService } from './services/project-context.service';
         }
       </div>
     </header>
-    @if (isAndroidNative) {
+    @if (isAndroidNative && headerUser()) {
       <nav
         id="primary-navigation"
         class="android-fullscreen-menu"
@@ -145,7 +147,7 @@ import { ProjectContextService } from './services/project-context.service';
         <div class="mobile-nav-backdrop open" (click)="closeMobileNav()" aria-hidden="true"></div>
       }
     }
-    @if (isAndroidNative) {
+    @if (isAndroidNative && headerUser()) {
       <button
         type="button"
         class="android-edge-toggle"
@@ -317,8 +319,9 @@ export class AppComponent implements OnInit, OnDestroy {
   private pythonRuntime = inject(PythonRuntimeService);
   readonly bridge = inject(WindowBridgeService);
   readonly projectContext = inject(ProjectContextService);
+  private readonly identities = inject(IdentityRegistry);
 
-  private authSub?: Subscription;
+  private readonly subscriptions = new Subscription();
   private touchStartX = 0;
   private touchStartY = 0;
   private trackingOpenSwipe = false;
@@ -327,19 +330,21 @@ export class AppComponent implements OnInit, OnDestroy {
   private readonly swipeTriggerPx = 72;
   private readonly verticalTolerancePx = 44;
 
-  // Signals backing the template so OnPush change-detection stays consistent
-  private readonly _userPayload = signal<unknown>(null);
-  private readonly _isLoggedIn = signal<boolean>(false);
+  // Validated Hub identity and payload remain separate from the OIDC/Pair sphere.
+  private readonly hubIdentity = toSignal(this.identities.hub.snapshot$, {
+    initialValue: this.identities.hub.current,
+  });
   readonly headerUser = computed(() => {
-    const user = this._userPayload();
+    const identity = this.hubIdentity();
+    if (identity.status !== 'ready') return null;
+    const user = this.auth.decodeTokenPayload(identity.token ?? null);
     if (user && typeof user === 'object') {
       const u = user as Record<string, unknown>;
       const sub = String(u['sub'] || u['username'] || u['preferred_username'] || '').trim() || 'angemeldet';
       const role = String(u['role'] || '').trim() || 'user';
       return { sub, role };
     }
-    if (this._isLoggedIn()) return { sub: 'angemeldet', role: 'user' };
-    return null;
+    return { sub: identity.subject || 'angemeldet', role: 'user' };
   });
 
 get isAndroidNative(): boolean {
@@ -350,24 +355,20 @@ get isAndroidNative(): boolean {
     this.shell.init();
     void this.bridge.initFromUrlParams().then(() => this._applyTuiAuthIfPresent());
     void this.bootstrapEmbeddedRuntime();
-    this.authSub = this.auth.token$.subscribe((token) => {
-      if (token) {
+    this.subscriptions.add(this.identities.hub.snapshot$.pipe(
+      map((identity) => identity.status === 'ready'),
+      distinctUntilChanged(),
+    ).subscribe((ready) => {
+      if (ready) {
         this.startEventStream();
       } else {
         this.system.disconnectSystemEvents();
       }
-    });
-    // Keep signals in sync with auth state — fixes NG0100 with OnPush
-    this._userPayload.set(this.auth.userPayload);
-    this._isLoggedIn.set(this.auth.isLoggedIn());
-    this.authSub = this.auth.token$.subscribe(() => {
-      this._userPayload.set(this.auth.userPayload);
-      this._isLoggedIn.set(this.auth.isLoggedIn());
-    });
+    }));
   }
 
   ngOnDestroy() {
-    this.authSub?.unsubscribe();
+    this.subscriptions.unsubscribe();
     this.system.disconnectSystemEvents();
   }
 
@@ -531,7 +532,7 @@ get isAndroidNative(): boolean {
   }
 
   private shouldHandleMobileDrawerSwipe(): boolean {
-    return this.isAndroidNative && this.auth.isLoggedIn() && window.innerWidth <= 900;
+    return this.isAndroidNative && this.headerUser() !== null && window.innerWidth <= 900;
   }
 
   private resetSwipeTracking(): void {
