@@ -27,7 +27,7 @@ Zusaetzlich gilt fuer **Public Pair**:
   Schluesselbestaetigung abgeschlossen haben.
 - Beide Browser muessen den von Ananta verwendeten WebRTC-Encoded-Transform
   unterstuetzen. Fehlt diese Browserfunktion, bleibt Capture geschlossen.
-- Der separate signierte `public_media_security_contract_v1` muss die
+- Der separate signierte `public_media_security_contract_v2` muss die
   Medien-Grants, Publikations-Slots und den E2EE-Transform fuer beide Peers
   bestaetigen. Der bestehende Public-Pair-Basisvertrag bleibt unveraendert auf
   `bulk`, `control` und `semantic` begrenzt. Die Anwendung akzeptiert keine
@@ -52,7 +52,11 @@ Video-Frames werden im sendenden Browser verschluesselt und erst im
 empfangenden Browser wieder entschluesselt. Rendezvous, STUN und TURN erhalten
 keinen Medien-Inhaltsschluessel. Kann der Pfad nicht vollstaendig eingerichtet
 werden oder geht die Sicherheitsbindung verloren, bleiben neue Freigaben
-gesperrt und laufende Public-Pair-Medien werden beendet.
+gesperrt und laufende Public-Pair-Medien werden beendet. Damit Chromium und
+Firefox die VP8-/Opus-Frames weiterhin korrekt paketieren, bleiben nur der
+VP8-Uncompressed-Prefix (10 Byte bei Keyframes, 3 Byte bei Deltaframes) bzw.
+das einzelne Opus-TOC-Byte sichtbar. Diese Bytes sind Bestandteil der
+AES-GCM-Authentifizierung; der restliche Medienframe bleibt verschluesselt.
 
 ## Ablauf in der Oberflaeche
 
