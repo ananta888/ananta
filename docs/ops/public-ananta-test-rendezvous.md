@@ -13,8 +13,9 @@ The public test profile supports early Angular Pair-Dev collaboration tests:
 This infrastructure is provided as a limited free test service by Peter Stuiber/ananta.de. It is not a production service, has no SLA, may be reset, rate-limited or disabled, and must not be used for confidential production workloads.
 
 The strict public adapter always protects supported DataChannel payloads with
-Pair E2EE. Public audio/video is an additive v1 extension for newly created v2
-sessions: both browsers must advertise the exact standard transform capability,
+Pair E2EE. Public audio/video is an additive media-v2 extension for newly
+created v2 sessions: both browsers must advertise the exact standard transform
+capability,
 verify the separately signed media contract and complete bilateral consent
 before DROP-first encoded-media transforms receive keys. Old, asymmetric or
 unsupported clients remain data-only. DTLS-SRTP alone is never represented as
@@ -121,7 +122,7 @@ The rendezvous service (`public-rendezvous/rendezvous/`) is a standalone Flask/G
 | `POST /rendezvous/sessions/join` | Beitreten per Invite-Code ohne bekannte Session-ID |
 | `POST /rendezvous/sessions/<id>/join` | Beitreten per Invite-Code |
 | `GET /rendezvous/sessions/<id>/participants` | Presence für berechtigte Teilnehmer |
-| `GET /rendezvous/sessions/<id>/security/key-packages` | Adressiertes, kurzlebiges Peer-Key-Paket, strikter Basisvertrag und gegebenenfalls separat signierter Media-v1-Vertrag |
+| `GET /rendezvous/sessions/<id>/security/key-packages` | Adressiertes, kurzlebiges Peer-Key-Paket, strikter Basisvertrag und gegebenenfalls separat signierter Media-v2-Vertrag |
 | `GET/POST /rendezvous/sessions/<id>/security/key-confirmations` | Undurchsichtige bilaterale Schlüsselbestätigung |
 | `PATCH /rendezvous/sessions/<id>/permissions` | Fail-closed mit HTTP 409 `permission_update_rekey_required` |
 | `DELETE /rendezvous/sessions/<id>` | Session widerrufen (Owner) |
@@ -154,14 +155,19 @@ uses OIDC-authenticated HTTP polling at the public `/webrtc/sessions/<id>/signal
 boundary. Only SDP/ICE metadata passes through that boundary. Chat, view deltas
 and artifacts use the peer-to-peer encrypted DataChannel path. Ordinary video
 and audio use fixed Opus/VP8 slots only when both v2 memberships negotiated the
-separately authority-signed `public_media_security_contract_v1`, both peers
+separately authority-signed `public_media_security_contract_v2`, both peers
 confirmed it over the Pair-encrypted DataChannel, and standard
 `RTCRtpScriptTransform` workers are installed DROP-first. Missing support,
 one-sided advertisement or any pre-key topology failure leaves the base Pair
 data-only; failures after possible key release close the connection. If direct
 ICE is impossible, the browser may use coturn with short-lived
 credentials; coturn relays encrypted packets and does not receive application
-plaintext. Public sessions never fall back to the local Hub relay.
+plaintext. Media-v2 binds `ananta.public-pair.media-frame.v2`: the VP8
+uncompressed prefix (10 bytes for key frames, 3 for delta frames) and the
+single Opus TOC byte remain clear only so browser packetizers can preserve the
+codec shape; those bytes are authenticated as AES-GCM additional data and the
+remaining frame is encrypted. Public sessions never fall back to the local
+Hub relay.
 
 ## Environment file
 
