@@ -152,6 +152,64 @@ else
   echo "Client '$CLIENT_ID' erstellt (id=$CLIENT_UUID)."
 fi
 
+# ── Built-in Default-Client-Scope 'basic' ────────────────────────────────────
+# Bestehende Realms übernehmen Änderungen am Import-JSON nicht automatisch.
+# Deshalb wird der eingebaute Scope exakt per Name aufgelöst und additiv am
+# Client befestigt. Ein fehlender Built-in-Scope ist eine unerwartete
+# Keycloak-Konfiguration; in diesem Fall darf das Setup nicht erfolgreich
+# weiterlaufen und später unvollständige Zugriffstoken ausstellen.
+find_realm_client_scope_id() {
+  local scope_name="$1"
+  local rows=""
+
+  if ! rows="$(
+    "$KCADM" get client-scopes -r "$REALM" \
+      --fields id,name \
+      --format csv \
+      --noquotes
+  )"; then
+    return 1
+  fi
+
+  find_id_by_exact_csv_value "$scope_name" <<<"$rows"
+}
+
+find_default_client_scope_id() {
+  local scope_name="$1"
+  local rows=""
+
+  if ! rows="$(
+    "$KCADM" get "clients/$CLIENT_UUID/default-client-scopes" -r "$REALM" \
+      --fields id,name \
+      --format csv \
+      --noquotes
+  )"; then
+    return 1
+  fi
+
+  find_id_by_exact_csv_value "$scope_name" <<<"$rows"
+}
+
+BASIC_SCOPE_UUID="$(find_realm_client_scope_id "basic")"
+if [ -z "$BASIC_SCOPE_UUID" ]; then
+  echo "ERROR: Der eingebaute Client-Scope 'basic' fehlt im Realm '$REALM'." >&2
+  exit 1
+fi
+
+CURRENT_BASIC_SCOPE_UUID="$(find_default_client_scope_id "basic")"
+if [ -n "$CURRENT_BASIC_SCOPE_UUID" ]; then
+  if [ "$CURRENT_BASIC_SCOPE_UUID" != "$BASIC_SCOPE_UUID" ]; then
+    echo "ERROR: Der Default-Client-Scope 'basic' verweist auf eine unerwartete ID." >&2
+    exit 1
+  fi
+  echo "Default-Client-Scope 'basic' ist bereits am Client '$CLIENT_ID' gesetzt."
+else
+  echo "Setze Default-Client-Scope 'basic' am Client '$CLIENT_ID'..."
+  "$KCADM" update \
+    "clients/$CLIENT_UUID/default-client-scopes/$BASIC_SCOPE_UUID" \
+    -r "$REALM"
+fi
+
 # ── Additive Access-Token-Audiences ───────────────────────────────────────────
 # ananta-hub bleibt für bestehende Hub-Aufrufer erhalten. Der öffentliche
 # Rendezvous-Dienst akzeptiert ausschließlich die dedizierte Audience.

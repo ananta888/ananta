@@ -15,12 +15,15 @@ CONFIG = ROOT / "public-rendezvous/rendezvous/config.py"
 OPS_DOC = ROOT / "docs/ops/public-ananta-test-rendezvous.md"
 
 
-def _audience_mappers() -> dict[str, dict]:
+def _tui_client() -> dict:
     realm = json.loads(REALM_EXPORT.read_text(encoding="utf-8"))
-    client = next(item for item in realm["clients"] if item["clientId"] == "ananta-tui")
+    return next(item for item in realm["clients"] if item["clientId"] == "ananta-tui")
+
+
+def _audience_mappers() -> dict[str, dict]:
     return {
         mapper["name"]: mapper
-        for mapper in client["protocolMappers"]
+        for mapper in _tui_client()["protocolMappers"]
         if mapper["protocolMapper"] == "oidc-audience-mapper"
     }
 
@@ -39,6 +42,10 @@ def test_realm_import_adds_rendezvous_audience_without_replacing_hub_audience():
         "access.token.claim": "true",
         "id.token.claim": "false",
     }
+
+
+def test_realm_import_assigns_builtin_basic_as_default_client_scope():
+    assert "basic" in _tui_client()["defaultClientScopes"]
 
 
 def test_rendezvous_defaults_to_its_dedicated_audience():
@@ -75,7 +82,7 @@ def test_public_strict_pair_runbook_is_scoped_to_the_supported_angular_adapter()
     assert "same\nKeycloak account cannot occupy both memberships" in documentation
 
 
-def test_setup_creates_then_idempotently_updates_both_audience_mappers(tmp_path: Path):
+def test_setup_idempotently_updates_audiences_and_attaches_basic_scope(tmp_path: Path):
     state_path = tmp_path / "keycloak-state.json"
     log_path = tmp_path / "kcadm-calls.jsonl"
     fake_kcadm = tmp_path / "kcadm"
@@ -94,6 +101,11 @@ state = json.loads(state_path.read_text()) if state_path.exists() else {
     "client": False,
     "role": False,
     "mappers": [],
+    "client_scopes": [{
+        "id": "33333333-3333-3333-3333-333333333333",
+        "name": "basic",
+    }],
+    "default_client_scope_ids": [],
 }
 args = sys.argv[1:]
 
@@ -127,6 +139,28 @@ if args[:2] == ["get", "clients"]:
 if args[:2] == ["create", "clients"]:
     state["client"] = True
     save()
+    raise SystemExit(0)
+if args[:2] == ["get", "client-scopes"]:
+    for item in state["client_scopes"]:
+        print(f'{item["id"]},{item["name"]}')
+    raise SystemExit(0)
+if args[:2] == [
+    "get",
+    "clients/11111111-1111-1111-1111-111111111111/default-client-scopes",
+]:
+    for item in state["client_scopes"]:
+        if item["id"] in state["default_client_scope_ids"]:
+            print(f'{item["id"]},{item["name"]}')
+    raise SystemExit(0)
+if args and args[0] == "update" and args[1].startswith(
+    "clients/11111111-1111-1111-1111-111111111111/default-client-scopes/"
+):
+    scope_id = args[1].rsplit("/", 1)[1]
+    if not any(item["id"] == scope_id for item in state["client_scopes"]):
+        raise SystemExit(65)
+    if scope_id not in state["default_client_scope_ids"]:
+        state["default_client_scope_ids"].append(scope_id)
+        save()
     raise SystemExit(0)
 if args and args[0] == "update" and args[1].startswith("clients/") and "/protocol-mappers/" not in args[1]:
     raise SystemExit(0)
@@ -195,27 +229,86 @@ raise SystemExit(f"unexpected kcadm call: {args}")
         ("ananta-hub-audience", "ananta-hub"),
         ("ananta-rendezvous-audience", "ananta-rendezvous"),
     }
+    assert state["default_client_scope_ids"] == ["33333333-3333-3333-3333-333333333333"]
     assert "Erstelle Audience-Mapper 'ananta-hub-audience'" in first.stdout
     assert "Erstelle Audience-Mapper 'ananta-rendezvous-audience'" in first.stdout
+    assert "Setze Default-Client-Scope 'basic'" in first.stdout
     assert "Aktualisiere Audience-Mapper 'ananta-hub-audience'" in second.stdout
     assert "Aktualisiere Audience-Mapper 'ananta-rendezvous-audience'" in second.stdout
+    assert "Default-Client-Scope 'basic' ist bereits" in second.stdout
 
     calls = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines()]
     mapper_creates = [call for call in calls if call[:1] == ["create"] and call[1].endswith("/protocol-mappers/models")]
     mapper_updates = [call for call in calls if call[:1] == ["update"] and "/protocol-mappers/models/" in call[1]]
     assert len(mapper_creates) == 2
     assert len(mapper_updates) == 2
+    basic_scope_attaches = [call for call in calls if call[:1] == ["update"] and "/default-client-scopes/" in call[1]]
+    assert basic_scope_attaches == [
+        [
+            "update",
+            "clients/11111111-1111-1111-1111-111111111111/default-client-scopes/33333333-3333-3333-3333-333333333333",
+            "-r",
+            "ananta",
+        ]
+    ]
 
     csv_reads = [
         call
         for call in calls
         if call[:1] == ["get"]
-        and (call[1] == "clients" or call[1].endswith("/protocol-mappers/models"))
+        and (
+            call[1] in {"clients", "client-scopes"}
+            or call[1].endswith("/default-client-scopes")
+            or call[1].endswith("/protocol-mappers/models")
+        )
     ]
     assert csv_reads
     assert all("--format" in call and "csv" in call and "--noquotes" in call for call in csv_reads)
     client_reads = [call for call in csv_reads if call[1] == "clients"]
     assert all("clientId=ananta-tui" in call for call in client_reads)
+
+
+def test_setup_fails_closed_when_builtin_basic_scope_is_missing(tmp_path: Path):
+    fake_kcadm = tmp_path / "kcadm"
+    fake_kcadm.write_text(
+        """#!/bin/bash
+set -eu
+
+case "${1:-}:${2:-}" in
+  config:credentials|get:realms/ananta|update:clients/11111111-1111-1111-1111-111111111111)
+    exit 0
+    ;;
+  get:clients)
+    printf 'id,clientId\\n11111111-1111-1111-1111-111111111111,ananta-tui\\n'
+    exit 0
+    ;;
+  get:client-scopes)
+    printf 'id,name\\n'
+    exit 0
+    ;;
+esac
+
+exit 64
+""",
+        encoding="utf-8",
+    )
+    fake_kcadm.chmod(0o700)
+
+    completed = subprocess.run(
+        ["/bin/bash", str(SETUP_SCRIPT)],
+        check=False,
+        capture_output=True,
+        env={
+            "PATH": str(tmp_path),
+            "KCADM": str(fake_kcadm),
+            "KC_URL": "http://keycloak.test.invalid",
+            "KC_BOOTSTRAP_ADMIN_PASSWORD": "test-only-admin-password",
+        },
+        text=True,
+    )
+
+    assert completed.returncode == 1
+    assert "Client-Scope 'basic' fehlt im Realm 'ananta'" in completed.stderr
 
 
 def test_setup_runs_with_only_bash_and_kcadm_available(tmp_path: Path):
@@ -232,7 +325,15 @@ case "${1:-}:${2:-}" in
     printf 'id,clientId\\n11111111-1111-1111-1111-111111111111,ananta-tui\\n'
     exit 0
     ;;
+  get:client-scopes)
+    printf 'id,name\\n33333333-3333-3333-3333-333333333333,basic\\n'
+    exit 0
+    ;;
   update:clients/11111111-1111-1111-1111-111111111111)
+    exit 0
+    ;;
+  get:clients/11111111-1111-1111-1111-111111111111/default-client-scopes)
+    printf 'id,name\\n33333333-3333-3333-3333-333333333333,basic\\n'
     exit 0
     ;;
   get:clients/11111111-1111-1111-1111-111111111111/protocol-mappers/models)

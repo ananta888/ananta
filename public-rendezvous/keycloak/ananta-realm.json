@@ -68,6 +68,7 @@
         "web-origins",
         "profile",
         "roles",
+        "basic",
         "email",
         "openid"
       ],
