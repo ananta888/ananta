@@ -114,6 +114,11 @@ export class WebrtcSignalingService {
       this.status$.next('failed');
       return;
     }
+    if (this.recipientId && this.localPeerId && this.recipientId === this.localPeerId) {
+      this.failureReason$.next('webrtc_peer_identity_must_be_distinct');
+      this.status$.next('failed');
+      return;
+    }
     if (!this.recipientId || !this.localPeerId || !this.messageHandler) {
       // Signaling is point-to-point. An unbound session must never turn
       // into a room-wide/broadcast signal path.

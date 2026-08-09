@@ -29,7 +29,10 @@ export class PairPublicSessionContractPolicy {
     if (session['mode'] !== 'p2p' || session['transport'] !== 'webrtc') {
       throw new Error('public_pair_transport_contract_invalid');
     }
-    if (session['identity_binding_version'] !== 1 || session['permissions_version'] !== 1) {
+    if (
+      (session['identity_binding_version'] !== 1 && session['identity_binding_version'] !== 2)
+      || session['permissions_version'] !== 1
+    ) {
       throw new Error('public_pair_capability_contract_invalid');
     }
     const permissions = exactPublicPermissions(session['permissions']);

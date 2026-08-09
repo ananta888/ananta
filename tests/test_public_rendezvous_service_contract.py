@@ -255,6 +255,349 @@ def test_strict_pair_uses_signed_addressed_packages_and_opaque_confirmations(pub
     assert fetched["confirmation"]["expires_at_ms"] == stored["expires_at_ms"]
 
 
+def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public_service, monkeypatch):
+    account_id = _peer_id("shared-sub")
+    owner_spki, owner_fp = _device_key()
+    guest_spki, guest_fp = _device_key()
+    owner_capability = "A" * 43
+    guest_capability = "B" * 43
+    expires_at = public_service._now() + 600
+    session = public_service.create_session(
+        owner_user_id=account_id,
+        owner_user_sub="shared-sub",
+        owner_device_id="owner-device",
+        owner_device_fingerprint=owner_fp,
+        owner_public_key_spki_b64=owner_spki,
+        oidc_issuer="https://issuer",
+        requested_expires_at=expires_at,
+        identity_binding_version=2,
+        membership_capability=owner_capability,
+    )
+    joined = public_service.join_session(
+        invite_code=session["invite_code"],
+        user_id=account_id,
+        user_sub="shared-sub",
+        device_id="guest-device",
+        device_fingerprint=guest_fp,
+        public_key_spki_b64=guest_spki,
+        oidc_issuer="https://issuer",
+        expected_identity_binding_version=2,
+        membership_capability=guest_capability,
+    )
+
+    owner_peer_id = session["owner_peer_id"]
+    guest_peer_id = joined["participant"]["peer_id"]
+    assert session["identity_binding_version"] == 2
+    assert owner_peer_id.startswith("peer:")
+    assert guest_peer_id.startswith("peer:")
+    assert owner_peer_id != guest_peer_id
+    assert joined["participant"]["account_id"] == account_id
+    assert "membership_capability" not in session
+    assert "membership_capability" not in joined
+
+    unselected = public_service.list_sessions_for_user(requester_user_id=account_id)[0]
+    wrong_device = public_service.list_sessions_for_user(
+        requester_user_id=account_id,
+        requested_device_id="unknown-device",
+    )[0]
+    guest_selected = public_service.list_sessions_for_user(
+        requester_user_id=account_id,
+        requested_device_id="guest-device",
+    )[0]
+    assert unselected["local_peer_id"] is None
+    assert wrong_device["local_peer_id"] is None
+    assert set(unselected["local_peer_ids"]) == {owner_peer_id, guest_peer_id}
+    assert guest_selected["local_peer_id"] == guest_peer_id
+    assert "capability" not in json.dumps(unselected)
+    with public_service._db() as conn:
+        stored_session = conn.execute(
+            """SELECT owner_membership_capability_hash,
+                      owner_capability_lookup_hash,
+                      owner_create_request_hash
+               FROM sessions WHERE id = ?""",
+            (session["id"],),
+        ).fetchone()
+        stored_participant = conn.execute(
+            "SELECT membership_capability_hash FROM participants WHERE session_id = ?",
+            (session["id"],),
+        ).fetchone()
+        raw_rows = (
+            tuple(conn.execute("SELECT * FROM sessions WHERE id = ?", (session["id"],)).fetchone()),
+            tuple(
+                conn.execute(
+                    "SELECT * FROM participants WHERE session_id = ?",
+                    (session["id"],),
+                ).fetchone()
+            ),
+        )
+    stored_hashes = [*stored_session, stored_participant[0]]
+    assert all(len(value) == 64 and all(char in "0123456789abcdef" for char in value) for value in stored_hashes)
+    assert owner_capability not in repr(stored_hashes)
+    assert guest_capability not in repr(stored_hashes)
+    assert owner_capability not in repr(raw_rows)
+    assert guest_capability not in repr(raw_rows)
+
+    owner_packages = public_service.get_key_packages(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=owner_peer_id,
+        membership_capability=owner_capability,
+    )
+    guest_packages = public_service.get_key_packages(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=guest_peer_id,
+        membership_capability=guest_capability,
+    )
+    forged_owner = public_service.get_key_packages(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=owner_peer_id,
+        membership_capability=guest_capability,
+    )
+    assert owner_packages["packages"][0]["peer_id"] == guest_peer_id
+    assert guest_packages["packages"][0]["peer_id"] == owner_peer_id
+    assert forged_owner == {"ok": False, "reason": "membership_capability_invalid"}
+
+    confirmation_tag = base64.b64encode(b"v" * 32).decode("ascii")
+    confirmed = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=owner_peer_id,
+        recipient_peer_id=guest_peer_id,
+        package_id=owner_packages["packages"][0]["package_id"],
+        epoch=2,
+        confirmation_tag=confirmation_tag,
+        sender_account_id=account_id,
+        membership_capability=owner_capability,
+    )
+    fetched_confirmation = public_service.get_key_confirmation(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=guest_peer_id,
+        sender_peer_id=owner_peer_id,
+        membership_capability=guest_capability,
+    )
+    forged_confirmation = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=owner_peer_id,
+        recipient_peer_id=guest_peer_id,
+        package_id=owner_packages["packages"][0]["package_id"],
+        epoch=2,
+        confirmation_tag=confirmation_tag,
+        sender_account_id=account_id,
+        membership_capability=guest_capability,
+    )
+    assert confirmed["ok"] is True
+    assert fetched_confirmation["confirmation"]["confirmation_tag"] == confirmation_tag
+    assert forged_confirmation == {"ok": False, "reason": "membership_capability_invalid"}
+
+    pushed = public_service.push_signal(
+        session_id=session["id"],
+        sender_id=owner_peer_id,
+        recipient_id=guest_peer_id,
+        signal_type="offer",
+        payload={"sdp": "opaque"},
+        sender_account_id=account_id,
+        membership_capability=owner_capability,
+    )
+    polled = public_service.poll_signals(
+        session_id=session["id"],
+        user_id=account_id,
+        requester_peer_id=guest_peer_id,
+        membership_capability=guest_capability,
+    )
+    reflected = public_service.push_signal(
+        session_id=session["id"],
+        sender_id=owner_peer_id,
+        recipient_id=owner_peer_id,
+        signal_type="offer",
+        payload={},
+        sender_account_id=account_id,
+        membership_capability=owner_capability,
+    )
+    assert pushed["ok"] is True
+    assert polled["local_peer_id"] == guest_peer_id
+    assert polled["signals"][0]["sender_id"] == owner_peer_id
+    assert reflected == {"ok": False, "reason": "recipient_not_authorized"}
+
+    monkeypatch.setattr(public_service.cfg, "TURN_SHARED_SECRET", "turn-only-test-secret")
+    monkeypatch.setattr(public_service.cfg, "TURN_URLS", ["turn:relay.example:3478"])
+    owner_turn = public_service.issue_turn_credentials(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=owner_peer_id,
+        membership_capability=owner_capability,
+    )
+    guest_turn = public_service.issue_turn_credentials(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=guest_peer_id,
+        membership_capability=guest_capability,
+    )
+    assert owner_turn["credentials"]["local_peer_id"] == owner_peer_id
+    assert guest_turn["credentials"]["local_peer_id"] == guest_peer_id
+    assert owner_turn["credentials"]["username"] != guest_turn["credentials"]["username"]
+
+
+def test_v2_create_and_join_retries_require_the_original_capability(public_service):
+    account_id = _peer_id("shared-sub")
+    owner_spki, owner_fp = _device_key()
+    guest_spki, guest_fp = _device_key()
+    owner_capability = "C" * 43
+    guest_capability = "D" * 43
+    create_kwargs = {
+        "owner_user_id": account_id,
+        "owner_user_sub": "shared-sub",
+        "owner_device_id": "owner-device",
+        "owner_device_fingerprint": owner_fp,
+        "owner_public_key_spki_b64": owner_spki,
+        "oidc_issuer": "https://issuer",
+        "title": "Recoverable pair",
+        "identity_binding_version": 2,
+        "membership_capability": owner_capability,
+    }
+    created = public_service.create_session(**create_kwargs)
+    recovered = public_service.create_session(**create_kwargs)
+    assert recovered["id"] == created["id"]
+    assert recovered["_idempotent"] is True
+    with pytest.raises(ValueError, match="membership_capability_conflict"):
+        public_service.create_session(**{**create_kwargs, "title": "Changed request"})
+
+    join_kwargs = {
+        "invite_code": created["invite_code"],
+        "user_id": account_id,
+        "user_sub": "shared-sub",
+        "device_id": "guest-device",
+        "device_fingerprint": guest_fp,
+        "public_key_spki_b64": guest_spki,
+        "oidc_issuer": "https://issuer",
+        "expected_identity_binding_version": 2,
+        "membership_capability": guest_capability,
+    }
+    joined = public_service.join_session(**join_kwargs)
+    recovered_join = public_service.join_session(**join_kwargs)
+    missing_capability = public_service.join_session(**{**join_kwargs, "membership_capability": ""})
+    wrong_capability = public_service.join_session(**{**join_kwargs, "membership_capability": "E" * 43})
+    changed_device_label = public_service.join_session(**{**join_kwargs, "device_id": "changed-device-label"})
+    assert joined["ok"] is True
+    assert recovered_join["idempotent"] is True
+    assert missing_capability == {"ok": False, "reason": "membership_capability_required"}
+    assert wrong_capability == {"ok": False, "reason": "membership_capability_invalid"}
+    assert changed_device_label == {"ok": False, "reason": "device_identity_conflict"}
+
+    revoked = public_service.revoke_session(
+        session_id=created["id"],
+        actor_user_id=account_id,
+        actor_peer_id=created["owner_peer_id"],
+        membership_capability=owner_capability,
+    )
+    assert revoked["ok"] is True
+    assert (
+        public_service.is_owner_create_recovery(
+            account_id=account_id,
+            device_fingerprint=owner_fp,
+            membership_capability=owner_capability,
+        )
+        is False
+    )
+    with pytest.raises(ValueError, match="membership_capability_retired"):
+        public_service.create_session(**create_kwargs)
+
+
+def test_v2_rejects_cloned_device_key_and_version_downgrade(public_service):
+    account_id = _peer_id("shared-sub")
+    owner_spki, owner_fp = _device_key()
+    session = public_service.create_session(
+        owner_user_id=account_id,
+        owner_user_sub="shared-sub",
+        owner_device_id="owner-device",
+        owner_device_fingerprint=owner_fp,
+        owner_public_key_spki_b64=owner_spki,
+        oidc_issuer="https://issuer",
+        requested_expires_at=public_service._now() + 600,
+        identity_binding_version=2,
+        membership_capability="F" * 43,
+    )
+    cloned_key = public_service.join_session(
+        invite_code=session["invite_code"],
+        user_id=account_id,
+        user_sub="shared-sub",
+        device_id="different-label",
+        device_fingerprint=owner_fp,
+        public_key_spki_b64=owner_spki,
+        oidc_issuer="https://issuer",
+        expected_identity_binding_version=2,
+        membership_capability="G" * 43,
+    )
+    downgraded = public_service.join_session(
+        invite_code=session["invite_code"],
+        user_id=account_id,
+        user_sub="shared-sub",
+        device_id="different-label",
+        device_fingerprint=owner_fp,
+        public_key_spki_b64=owner_spki,
+        oidc_issuer="https://issuer",
+        expected_identity_binding_version=1,
+    )
+    assert cloned_key == {"ok": False, "reason": "device_key_must_be_distinct"}
+    assert downgraded == {"ok": False, "reason": "identity_binding_version_mismatch"}
+
+
+def test_v2_join_requires_explicit_identity_binding_negotiation(public_service):
+    account_id = _peer_id("shared-sub")
+    owner_spki, owner_fp = _device_key()
+    guest_spki, guest_fp = _device_key()
+    session = public_service.create_session(
+        owner_user_id=account_id,
+        owner_user_sub="shared-sub",
+        owner_device_id="owner-device",
+        owner_device_fingerprint=owner_fp,
+        owner_public_key_spki_b64=owner_spki,
+        oidc_issuer="https://issuer",
+        requested_expires_at=public_service._now() + 600,
+        identity_binding_version=2,
+        membership_capability="H" * 43,
+    )
+    join_kwargs = {
+        "invite_code": session["invite_code"],
+        "user_id": account_id,
+        "user_sub": "shared-sub",
+        "device_id": "guest-device",
+        "device_fingerprint": guest_fp,
+        "public_key_spki_b64": guest_spki,
+        "oidc_issuer": "https://issuer",
+        "membership_capability": "I" * 43,
+    }
+
+    unnegotiated = public_service.join_session(**join_kwargs)
+    negotiated = public_service.join_session(
+        **join_kwargs,
+        expected_identity_binding_version=2,
+    )
+
+    assert unnegotiated == {"ok": False, "reason": "identity_binding_version_mismatch"}
+    assert negotiated["ok"] is True
+    assert negotiated["session"]["identity_binding_version"] == 2
+
+
+def test_v1_join_without_identity_binding_version_remains_compatible(public_service):
+    session = _create_session(public_service, subject="owner-sub")
+    guest_spki, guest_fp = _device_key()
+
+    joined = public_service.join_session(
+        invite_code=session["invite_code"],
+        user_id=_peer_id("guest-sub"),
+        user_sub="guest-sub",
+        device_id="guest-device",
+        device_fingerprint=guest_fp,
+        public_key_spki_b64=guest_spki,
+        oidc_issuer="https://issuer",
+    )
+
+    assert joined["ok"] is True
+    assert joined["session"]["identity_binding_version"] == 1
+
+
 def test_confirmation_is_bound_to_direction_package_and_is_immutable(public_service):
     session, owner_packages, guest_packages = _joined_session(public_service)
     owner_id = _peer_id("owner-sub")
@@ -673,6 +1016,50 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
     assert service.is_authorized_participant("legacy-session", "legacy-owner") is False
 
 
+def test_pre_v2_strict_session_is_backfilled_as_account_scoped_v1(public_service, monkeypatch, tmp_path):
+    database = tmp_path / "pre-v2-strict-rendezvous.db"
+    _create_legacy_database(database)
+    owner_id = _peer_id("legacy-owner-sub")
+    owner_spki, owner_fp = _device_key()
+    with sqlite3.connect(database) as conn:
+        conn.executescript(
+            """
+            ALTER TABLE sessions ADD COLUMN owner_device_id TEXT NOT NULL DEFAULT 'owner-device';
+            ALTER TABLE sessions ADD COLUMN owner_public_key_spki_b64 TEXT NOT NULL DEFAULT '';
+            ALTER TABLE sessions ADD COLUMN security_epoch INTEGER NOT NULL DEFAULT 1;
+            ALTER TABLE sessions ADD COLUMN security_mode TEXT NOT NULL DEFAULT 'legacy';
+            ALTER TABLE sessions ADD COLUMN security_contract_version INTEGER NOT NULL DEFAULT 0;
+            ALTER TABLE participants ADD COLUMN public_key_spki_b64 TEXT NOT NULL DEFAULT '';
+            """
+        )
+        conn.execute(
+            """UPDATE sessions
+               SET owner_user_id = ?, owner_device_fingerprint = ?,
+                   owner_public_key_spki_b64 = ?, security_mode = 'strict_e2ee',
+                   security_contract_version = 1
+               WHERE id = 'legacy-session'""",
+            (owner_id, owner_fp, owner_spki),
+        )
+
+    with sqlite3.connect(database, isolation_level=None) as conn:
+        conn.row_factory = sqlite3.Row
+        public_service._migrate_database(conn)
+        migrated = conn.execute(
+            """SELECT identity_binding_version, owner_account_id, owner_peer_id
+               FROM sessions WHERE id = 'legacy-session'"""
+        ).fetchone()
+
+    assert tuple(migrated) == (1, owner_id, owner_id)
+    monkeypatch.setattr(public_service.cfg, "RENDEZVOUS_DB_PATH", str(database))
+    packages = public_service.get_key_packages(
+        session_id="legacy-session",
+        requester_user_id=owner_id,
+    )
+    assert packages["ok"] is True
+    assert packages["local_peer_id"] == owner_id
+    assert packages["packages"] == []
+
+
 def test_migration_rolls_back_schema_and_cursor_changes_together(public_service, monkeypatch, tmp_path):
     database = tmp_path / "rollback-rendezvous.db"
     _create_legacy_database(database)
@@ -898,6 +1285,433 @@ def test_http_create_binds_actual_issuer_and_returns_local_peer_id(monkeypatch, 
     assert unchanged["security_epoch"] == payload["session"]["security_epoch"]
     assert oversized.status_code == 413
     assert oversized.get_json() == {"error": "request_too_large"}
+
+
+def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch, tmp_path):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / "http-v2-rendezvous.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service", "oidc_auth", "app"):
+        sys.modules.pop(module_name, None)
+    public_app = importlib.import_module("app")
+    context = public_app.AuthContext(
+        sub="shared-sub",
+        username="shared-account",
+        issuer="https://issuer",
+        raw={},
+    )
+    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
+    monkeypatch.setattr(public_app.cfg, "RATE_CREATE_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 10)
+    monkeypatch.setattr(public_app.cfg, "RATE_MEMBERSHIP_PROBE_LIMIT", 20)
+    monkeypatch.setattr(public_app.cfg, "RATE_SIGNAL_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_SIGNAL_POLL_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_TURN_CREDENTIAL_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "TURN_SHARED_SECRET", "turn-only-test-secret")
+    monkeypatch.setattr(public_app.cfg, "TURN_URLS", ["turn:relay.example:3478"])
+    monkeypatch.setattr(public_app.cfg, "CORS_ALLOWED_ORIGINS", {"https://app.example"})
+    owner_spki, owner_fp = _device_key()
+    guest_spki, guest_fp = _device_key()
+    owner_capability = "H" * 43
+    guest_capability = "I" * 43
+    expires_at = public_app.svc._now() + 600
+    client = public_app.app.test_client()
+    auth = {"Authorization": "Bearer shared"}
+    owner_headers = {
+        **auth,
+        "X-Ananta-Membership-Capability": owner_capability,
+        "Origin": "https://app.example",
+    }
+    create_body = {
+        "title": "Shared account pair",
+        "security_mode": "strict_e2ee",
+        "security_contract_version": 1,
+        "identity_binding_version": 2,
+        "mode": "p2p",
+        "transport": "webrtc",
+        "expires_at": expires_at,
+        "owner_device_id": "owner-device",
+        "owner_device_fingerprint": owner_fp,
+        "public_key_spki_b64": owner_spki,
+    }
+
+    created = client.post("/rendezvous/sessions", headers=owner_headers, json=create_body)
+    recovered_create = client.post(
+        "/rendezvous/sessions",
+        headers=owner_headers,
+        json=create_body,
+    )
+    created_payload = created.get_json()
+    session_id = created_payload["session"]["id"]
+    invite_code = created_payload["session"]["invite_code"]
+    owner_peer_id = created_payload["local_peer_id"]
+    assert created.status_code == 201
+    assert recovered_create.status_code == 200
+    assert recovered_create.get_json()["session"]["id"] == session_id
+    assert created.headers["Cache-Control"] == "no-store"
+    assert "X-Ananta-Membership-Capability" in created.headers["Access-Control-Allow-Headers"]
+    assert "capability" not in json.dumps(created_payload)
+
+    join_body = {
+        "invite_code": invite_code,
+        "minimum_security_mode": "strict_e2ee",
+        "identity_binding_version": 2,
+        "device_id": "guest-device",
+        "device_fingerprint": guest_fp,
+        "public_key_spki_b64": guest_spki,
+    }
+    guest_capability_header = {"X-Ananta-Membership-Capability": guest_capability}
+    joined = client.post(
+        "/rendezvous/sessions/join",
+        headers={**auth, **guest_capability_header},
+        json=join_body,
+    )
+    recovered_join = client.post(
+        "/rendezvous/sessions/join",
+        headers={**auth, **guest_capability_header},
+        json=join_body,
+    )
+    joined_payload = joined.get_json()
+    guest_peer_id = joined_payload["local_peer_id"]
+    assert joined.status_code == 201
+    assert recovered_join.status_code == 200
+    assert joined.headers["Cache-Control"] == "no-store"
+    assert guest_peer_id != owner_peer_id
+    assert "capability" not in json.dumps(joined_payload)
+
+    guest_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": guest_peer_id,
+        **guest_capability_header,
+    }
+    forged_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": owner_peer_id,
+        **guest_capability_header,
+    }
+    participants = client.get(
+        f"/rendezvous/sessions/{session_id}/participants",
+        headers=guest_headers,
+    )
+    forged = client.get(
+        f"/rendezvous/sessions/{session_id}/security/key-packages",
+        headers=forged_headers,
+    )
+    assert participants.status_code == 200
+    assert participants.get_json()["local_peer_id"] == guest_peer_id
+    assert (forged.status_code, forged.get_json()) == (
+        403,
+        {"error": "membership_capability_invalid"},
+    )
+
+    owner_bound_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": owner_peer_id,
+        "X-Ananta-Membership-Capability": owner_capability,
+    }
+    owner_signal = client.post(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=owner_bound_headers,
+        json={
+            "type": "offer",
+            "sender_id": owner_peer_id,
+            "recipient_id": guest_peer_id,
+            "payload": {"sdp": "opaque-owner"},
+        },
+    )
+    guest_signal = client.post(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=guest_headers,
+        json={
+            "type": "answer",
+            "sender_id": guest_peer_id,
+            "recipient_id": owner_peer_id,
+            "payload": {"sdp": "opaque-guest"},
+        },
+    )
+    owner_signal_limited = client.post(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=owner_bound_headers,
+        json={
+            "type": "offer",
+            "sender_id": owner_peer_id,
+            "recipient_id": guest_peer_id,
+            "payload": {"sdp": "second-owner-offer"},
+        },
+    )
+    assert owner_signal.status_code == 201
+    assert guest_signal.status_code == 201
+    assert (owner_signal_limited.status_code, owner_signal_limited.get_json()) == (
+        429,
+        {"error": "rate_limited"},
+    )
+
+    owner_poll = client.get(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=owner_bound_headers,
+    )
+    guest_poll = client.get(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=guest_headers,
+    )
+    owner_poll_limited = client.get(
+        f"/webrtc/sessions/{session_id}/signal",
+        headers=owner_bound_headers,
+    )
+    owner_turn = client.get(
+        f"/rendezvous/turn-credentials?session_id={session_id}",
+        headers=owner_bound_headers,
+    )
+    guest_turn = client.get(
+        f"/rendezvous/turn-credentials?session_id={session_id}",
+        headers=guest_headers,
+    )
+    owner_turn_limited = client.get(
+        f"/rendezvous/turn-credentials?session_id={session_id}",
+        headers=owner_bound_headers,
+    )
+    assert owner_poll.status_code == 200
+    assert guest_poll.status_code == 200
+    assert (owner_poll_limited.status_code, owner_poll_limited.get_json()) == (
+        429,
+        {"error": "rate_limited"},
+    )
+    assert owner_turn.status_code == 200
+    assert guest_turn.status_code == 200
+    assert (owner_turn_limited.status_code, owner_turn_limited.get_json()) == (
+        429,
+        {"error": "rate_limited"},
+    )
+    assert owner_turn.get_json()["data"]["username"] != guest_turn.get_json()["data"]["username"]
+
+    legacy_spki, legacy_fp = _device_key()
+    legacy_session = public_app.svc.create_session(
+        owner_user_id=context.account_id,
+        owner_user_sub=context.sub,
+        owner_device_id="legacy-device",
+        owner_device_fingerprint=legacy_fp,
+        owner_public_key_spki_b64=legacy_spki,
+        oidc_issuer=context.issuer,
+        title="Legacy v1 pair",
+        identity_binding_version=1,
+    )
+    legacy_list = client.get("/rendezvous/sessions", headers=auth)
+    guest_list = client.get(
+        "/rendezvous/sessions",
+        headers={**auth, "X-Ananta-Device-Id": "guest-device"},
+    )
+    legacy_payload = legacy_list.get_json()
+    assert [item["id"] for item in legacy_payload["data"]["items"]] == [legacy_session["id"]]
+    assert legacy_payload["local_peer_id"] == context.account_id
+    assert legacy_payload["data"]["local_peer_id"] == context.account_id
+    v2_item = next(item for item in guest_list.get_json()["data"]["items"] if item["identity_binding_version"] == 2)
+    assert v2_item["local_peer_id"] == guest_peer_id
+    assert "capability" not in json.dumps(guest_list.get_json())
+
+
+def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / "create-recovery-probe.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service", "oidc_auth", "app"):
+        sys.modules.pop(module_name, None)
+    public_app = importlib.import_module("app")
+    context = public_app.AuthContext(
+        sub="probe-sub",
+        username="probe-account",
+        issuer="https://issuer",
+        raw={},
+    )
+    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
+    monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_CREATE_LIMIT", 10)
+    lookup_calls = []
+    create_calls = []
+
+    def lookup(**kwargs):
+        lookup_calls.append(kwargs)
+        return False
+
+    def create(**kwargs):
+        create_calls.append(kwargs)
+        return {
+            "id": "00000000-0000-0000-0000-000000000001",
+            "owner_peer_id": "peer:" + "1" * 64,
+            "identity_binding_version": 2,
+        }
+
+    monkeypatch.setattr(public_app.svc, "is_owner_create_recovery", lookup)
+    monkeypatch.setattr(public_app.svc, "create_session", create)
+    owner_spki, owner_fp = _device_key()
+    body = {
+        "identity_binding_version": 2,
+        "owner_device_id": "probe-device",
+        "owner_device_fingerprint": owner_fp,
+        "public_key_spki_b64": owner_spki,
+    }
+    client = public_app.app.test_client()
+
+    first = client.post(
+        "/rendezvous/sessions",
+        headers={
+            "Authorization": "Bearer probe",
+            "X-Ananta-Membership-Capability": "J" * 43,
+        },
+        json=body,
+    )
+    limited = client.post(
+        "/rendezvous/sessions",
+        headers={
+            "Authorization": "Bearer probe",
+            "X-Ananta-Membership-Capability": "K" * 43,
+        },
+        json=body,
+    )
+
+    assert first.status_code == 201
+    assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+    assert [call["membership_capability"] for call in lookup_calls] == ["J" * 43]
+    assert len(create_calls) == 1
+
+
+def test_join_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / "join-recovery-probe.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service", "oidc_auth", "app"):
+        sys.modules.pop(module_name, None)
+    public_app = importlib.import_module("app")
+    context = public_app.AuthContext(
+        sub="probe-sub",
+        username="probe-account",
+        issuer="https://issuer",
+        raw={},
+    )
+    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
+    monkeypatch.setattr(public_app.cfg, "RATE_RECOVERY_PROBE_LIMIT", 1)
+    monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 10)
+    lookup_calls = []
+    join_calls = []
+
+    def lookup(**kwargs):
+        lookup_calls.append(kwargs)
+        return False
+
+    def join(**kwargs):
+        join_calls.append(kwargs)
+        return {"ok": False, "reason": "invalid_invite_code"}
+
+    monkeypatch.setattr(public_app.svc, "is_join_recovery", lookup)
+    monkeypatch.setattr(public_app.svc, "join_session", join)
+    guest_spki, guest_fp = _device_key()
+    body = {
+        "invite_code": "AAAA-BBBB",
+        "identity_binding_version": 2,
+        "device_id": "probe-device",
+        "device_fingerprint": guest_fp,
+        "public_key_spki_b64": guest_spki,
+    }
+    client = public_app.app.test_client()
+
+    first = client.post(
+        "/rendezvous/sessions/join",
+        headers={
+            "Authorization": "Bearer probe",
+            "X-Ananta-Membership-Capability": "L" * 43,
+        },
+        json=body,
+    )
+    limited = client.post(
+        "/rendezvous/sessions/join",
+        headers={
+            "Authorization": "Bearer probe",
+            "X-Ananta-Membership-Capability": "M" * 43,
+        },
+        json=body,
+    )
+
+    assert (first.status_code, first.get_json()) == (400, {"error": "invalid_invite_code"})
+    assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+    assert [call["membership_capability"] for call in lookup_calls] == ["L" * 43]
+    assert len(join_calls) == 1
+
+
+@pytest.mark.parametrize("endpoint", ("turn", "signal_push", "signal_poll"))
+def test_membership_probe_is_rate_limited_before_resolver(monkeypatch, tmp_path, endpoint):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / f"{endpoint}-membership-probe.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service", "oidc_auth", "app"):
+        sys.modules.pop(module_name, None)
+    public_app = importlib.import_module("app")
+    context = public_app.AuthContext(
+        sub="probe-sub",
+        username="probe-account",
+        issuer="https://issuer",
+        raw={},
+    )
+    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
+    monkeypatch.setattr(public_app.cfg, "RATE_MEMBERSHIP_PROBE_LIMIT", 1)
+    resolver_calls = []
+
+    def resolve(**kwargs):
+        resolver_calls.append(kwargs)
+        return {"ok": False, "reason": "membership_capability_invalid"}
+
+    monkeypatch.setattr(public_app.svc, "authenticate_session_membership", resolve)
+    session_id = "00000000-0000-0000-0000-000000000002"
+    client = public_app.app.test_client()
+
+    def probe(capability: str, peer_digit: str):
+        headers = {
+            "Authorization": "Bearer probe",
+            "X-Ananta-Peer-Id": "peer:" + peer_digit * 64,
+            "X-Ananta-Membership-Capability": capability,
+        }
+        if endpoint == "turn":
+            return client.get(
+                f"/rendezvous/turn-credentials?session_id={session_id}",
+                headers=headers,
+            )
+        if endpoint == "signal_push":
+            return client.post(
+                f"/webrtc/sessions/{session_id}/signal",
+                headers=headers,
+                json={
+                    "type": "offer",
+                    "recipient_id": "peer:" + "3" * 64,
+                    "payload": {"sdp": "opaque"},
+                },
+            )
+        return client.get(f"/webrtc/sessions/{session_id}/signal", headers=headers)
+
+    first = probe("N" * 43, "1")
+    limited = probe("O" * 43, "2")
+
+    assert (first.status_code, first.get_json()) == (
+        403,
+        {"error": "membership_capability_invalid"},
+    )
+    assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+    assert len(resolver_calls) == 1
+    assert resolver_calls[0]["account_id"] == context.account_id
 
 
 def test_join_rate_limit_uses_authenticated_peer_and_ignores_spoofed_xff(monkeypatch, tmp_path):

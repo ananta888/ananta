@@ -98,6 +98,15 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     expect(signalPoll).not.toHaveBeenCalled();
   });
 
+  it('fails closed when the verified remote peer reflects the local device peer id', () => {
+    service.connect('', 'session-1', 'peer-a');
+
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('webrtc_peer_identity_must_be_distinct');
+    expect(signalPoll).not.toHaveBeenCalled();
+    expect(signalSend).not.toHaveBeenCalled();
+  });
+
   it('deduplicates public signals and requires their id and addressed recipient', async () => {
     controlPlane.isPublicSession.mockReturnValue(true);
     const accepted = {

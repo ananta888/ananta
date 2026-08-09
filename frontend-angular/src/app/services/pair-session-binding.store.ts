@@ -7,6 +7,9 @@ export interface PairSessionBinding {
   readonly kind: PairControlPlaneKind;
   readonly baseUrl: string;
   readonly localPeerId: string;
+  readonly identityBindingVersion?: 1 | 2;
+  /** V2 proof; never serialize this binding to localStorage or a URL. */
+  readonly membershipCapability?: string;
   readonly oidcIssuer?: string;
   readonly oidcSubject?: string;
   readonly profileId?: string;
@@ -23,11 +26,18 @@ export interface PairSessionBinding {
 export class PairSessionBindingStore {
   private readonly bindings = new Map<string, Readonly<PairSessionBinding>>();
 
+  assertCompatible(candidate: PairSessionBinding): void {
+    const existing = this.bindings.get(candidate.sessionId);
+    if (existing && !sameBinding(existing, candidate)) {
+      throw new Error('pair_control_plane_binding_conflict');
+    }
+  }
+
   bind(candidate: PairSessionBinding): Readonly<PairSessionBinding> {
     const binding = Object.freeze({ ...candidate });
     const existing = this.bindings.get(binding.sessionId);
     if (existing) {
-      if (!sameBinding(existing, binding)) throw new Error('pair_control_plane_binding_conflict');
+      this.assertCompatible(binding);
       return existing;
     }
     this.bindings.set(binding.sessionId, binding);
@@ -58,6 +68,8 @@ function sameBinding(left: PairSessionBinding, right: PairSessionBinding): boole
     && left.kind === right.kind
     && left.baseUrl === right.baseUrl
     && left.localPeerId === right.localPeerId
+    && left.identityBindingVersion === right.identityBindingVersion
+    && left.membershipCapability === right.membershipCapability
     && left.oidcIssuer === right.oidcIssuer
     && left.oidcSubject === right.oidcSubject
     && left.profileId === right.profileId;

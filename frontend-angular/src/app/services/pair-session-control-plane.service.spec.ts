@@ -1,10 +1,11 @@
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom, of } from 'rxjs';
+import { firstValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiCoreService } from './hub-api-core.service';
 import { NetworkProfileService } from './network-profile.service';
+import { PairMembershipCapabilityStore } from './pair-membership-capability.store';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PUBLIC_OIDC_ISSUER } from './public-ananta-endpoints';
 import { UserAuthService } from './user-auth.service';
@@ -13,6 +14,17 @@ describe('PairSessionControlPlaneService', () => {
   const posts: Array<{ url: string; body: Record<string, unknown>; token?: string }> = [];
   const gets: Array<{ url: string; token?: string; useRetry?: boolean }> = [];
   const deletes: Array<{ url: string; token?: string }> = [];
+  const requests: Array<{
+    method: string;
+    url: string;
+    body?: unknown;
+    token?: string;
+    headers?: Record<string, string>;
+  }> = [];
+  const ownerPeerId = `peer:${'a'.repeat(64)}`;
+  const joinerPeerId = `peer:${'b'.repeat(64)}`;
+  const listedPeerId = `peer:${'c'.repeat(64)}`;
+  const legacyPeerId = `oidc:${'d'.repeat(64)}`;
   const oidcToken = jwt({
     iss: PUBLIC_OIDC_ISSUER,
     sub: 'raw-oidc-sub',
@@ -29,13 +41,16 @@ describe('PairSessionControlPlaneService', () => {
     posts.length = 0;
     gets.length = 0;
     deletes.length = 0;
+    requests.length = 0;
     auth.oidcAccessTokenValue = oidcToken;
     profile.current = publicProfile();
     profile.publicPairOptedIn = true;
-    createdResponse = publicSession('created-session');
-    joinedResponse = publicSession('joined-session');
-    listedResponses = [publicSession('listed-session')];
+    createdResponse = publicSession('created-session', ownerPeerId);
+    joinedResponse = publicSession('joined-session', joinerPeerId);
+    listedResponses = [publicSession('listed-session', listedPeerId)];
     localStorage.clear();
+    localStorage.setItem('ananta.pair-device-id.v1', 'device-a');
+    sessionStorage.clear();
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       PairSessionControlPlaneService,
@@ -43,11 +58,56 @@ describe('PairSessionControlPlaneService', () => {
       { provide: NetworkProfileService, useValue: profile },
       { provide: UserAuthService, useValue: auth },
       { provide: HubApiCoreService, useValue: {
+        retryCount: 2,
+        request: vi.fn((
+          method: string,
+          url: string,
+          _base: string,
+          options: { body?: unknown; token?: string; headers?: Record<string, string> } = {},
+        ) => {
+          requests.push({ method, url, ...options });
+          if (method === 'POST' && url.endsWith('/rendezvous/sessions')) {
+            return of({ ok: true, local_peer_id: ownerPeerId, session: createdResponse });
+          }
+          if (method === 'POST' && url.endsWith('/rendezvous/sessions/join')) {
+            return of({ ok: true, local_peer_id: joinerPeerId, session: joinedResponse });
+          }
+          if (method === 'GET' && url.endsWith('/rendezvous/sessions')) {
+            return of({
+              ok: true,
+              local_peer_id: legacyPeerId,
+              data: { items: listedResponses, local_peer_id: legacyPeerId },
+            });
+          }
+          if (url.includes('/rendezvous/turn-credentials?')) {
+            return of({
+              ok: true,
+              session_id: 'created-session',
+              local_peer_id: ownerPeerId,
+              data: {
+                username: 'expiry:peer', password: 'credential', ttl: 3600,
+                uris: ['turn:webrtc.ananta.de:3478'],
+                session_id: 'created-session',
+                local_peer_id: ownerPeerId,
+              },
+            });
+          }
+          if (method === 'GET' && url.includes('/participants')) {
+            const localPeerId = url.includes('/legacy-session/') ? legacyPeerId : ownerPeerId;
+            return of({
+              ok: true,
+              local_peer_id: localPeerId,
+              data: { participants: [], local_peer_id: localPeerId },
+            });
+          }
+          if (method === 'DELETE') return of({ ok: true, local_peer_id: ownerPeerId });
+          return of({ ok: true, local_peer_id: ownerPeerId, data: { signals: [], cursor: '7' } });
+        }),
         post: vi.fn((url: string, body: Record<string, unknown>, _base: string, token?: string) => {
           posts.push({ url, body, token });
           return of({
             ok: true,
-            local_peer_id: 'oidc:canonical-peer',
+            local_peer_id: legacyPeerId,
             session: url.endsWith('/join') ? joinedResponse : createdResponse,
           });
         }),
@@ -56,7 +116,7 @@ describe('PairSessionControlPlaneService', () => {
           if (url.endsWith('/rendezvous/sessions')) {
             return of({
               ok: true,
-              local_peer_id: 'oidc:canonical-peer',
+              local_peer_id: legacyPeerId,
               data: { items: listedResponses },
             });
           }
@@ -64,12 +124,12 @@ describe('PairSessionControlPlaneService', () => {
             return of({
               ok: true,
               session_id: 'created-session',
-              local_peer_id: 'oidc:canonical-peer',
+              local_peer_id: legacyPeerId,
               data: {
                 username: 'expiry:peer', password: 'credential', ttl: 3600,
                 uris: ['turn:webrtc.ananta.de:3478'],
                 session_id: 'created-session',
-                local_peer_id: 'oidc:canonical-peer',
+                local_peer_id: legacyPeerId,
               },
             });
           }
@@ -83,7 +143,7 @@ describe('PairSessionControlPlaneService', () => {
     ] });
   });
 
-  it('pins public create/join calls and uses only the canonical server peer id', () => {
+  it('negotiates v2 and binds two device peers under the same OIDC account', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({
       title: 'Pair', permissions: { chat: true }, public_key_fingerprint: 'fingerprint',
@@ -94,26 +154,45 @@ describe('PairSessionControlPlaneService', () => {
     }).subscribe();
 
     expect(service.currentPeerId).toBe('hub-user');
-    expect(service.peerIdForSession('created-session')).toBe('oidc:canonical-peer');
-    expect(service.peerIdForSession('joined-session')).toBe('oidc:canonical-peer');
-    expect(posts.map(item => item.url)).toEqual([
+    expect(service.peerIdForSession('created-session')).toBe(ownerPeerId);
+    expect(service.peerIdForSession('joined-session')).toBe(joinerPeerId);
+    expect(requests.map(item => item.url)).toEqual([
       'https://webrtc.ananta.de/rendezvous/sessions',
       'https://webrtc.ananta.de/rendezvous/sessions/join',
     ]);
-    expect(posts.every(item => item.token === oidcToken)).toBe(true);
+    expect(requests.every(item => item.token === oidcToken)).toBe(true);
+    expect(requests.map(item => item.body)).toEqual([
+      expect.objectContaining({
+        identity_binding_version: 2,
+        owner_device_id: 'device-a',
+      }),
+      expect.objectContaining({
+        identity_binding_version: 2,
+        device_id: 'device-a',
+      }),
+    ]);
+    expect(requests.map(item => item.headers)).toEqual([
+      { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
+      { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
+    ]);
   });
 
   it('restores public bindings only from an explicit authenticated list response', () => {
+    seedBoundCapability('listed-session', listedPeerId);
     const service = TestBed.inject(PairSessionControlPlaneService);
     let sessions: readonly unknown[] = [];
     service.list().subscribe(items => { sessions = items; });
 
     expect(sessions).toEqual([
-      expect.objectContaining({ id: 'listed-session', local_peer_id: 'oidc:canonical-peer' }),
+      expect.objectContaining({ id: 'listed-session', local_peer_id: listedPeerId }),
     ]);
     expect(service.isPublicSession('listed-session')).toBe(true);
-    expect(service.peerIdForSession('listed-session')).toBe('oidc:canonical-peer');
+    expect(service.peerIdForSession('listed-session')).toBe(listedPeerId);
     expect(() => service.participants('unknown-session')).toThrow('pair_control_plane_binding_missing');
+    expect(requests[0]).toMatchObject({
+      method: 'GET',
+      headers: { 'X-Ananta-Device-Id': 'device-a' },
+    });
   });
 
   it('never sends a bearer token to an attacker-modified public profile origin', () => {
@@ -227,17 +306,20 @@ describe('PairSessionControlPlaneService', () => {
   it('does not fall back to Hub after a bound public session loses its token', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
+    requests.length = 0;
     auth.oidcAccessTokenValue = null;
 
     expect(() => service.participants('created-session')).toThrow('public_session_authentication_lost');
     expect(() => service.end('created-session')).toThrow('public_session_authentication_lost');
     expect(gets).toEqual([]);
     expect(deletes).toEqual([]);
+    expect(requests).toEqual([]);
   });
 
   it('rejects a valid replacement token for another OIDC subject', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
+    requests.length = 0;
     auth.oidcAccessTokenValue = jwt({
       iss: PUBLIC_OIDC_ISSUER,
       sub: 'another-account',
@@ -246,60 +328,263 @@ describe('PairSessionControlPlaneService', () => {
 
     expect(() => service.participants('created-session')).toThrow('public_session_identity_changed');
     expect(gets).toEqual([]);
+    expect(requests).toEqual([]);
   });
 
   it('uses cursor signaling without implicit GET retries and deduces authority from the binding', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
+    requests.length = 0;
     service.signalPoll('created-session', '6').subscribe();
     service.signalSend('created-session', {
       type: 'offer', recipient_id: 'oidc:peer-b', payload: { sdp: 'v=0' },
     }).subscribe();
 
-    expect(gets).toEqual([{
+    expect(requests[0]).toMatchObject({
+      method: 'GET',
       url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal?since=6',
       token: oidcToken,
-      useRetry: false,
-    }]);
-    expect(posts.at(-1)).toMatchObject({
-      url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal', token: oidcToken,
+      headers: {
+        'X-Ananta-Peer-Id': ownerPeerId,
+        'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      },
+    });
+    expect(requests[1]).toMatchObject({
+      method: 'POST',
+      url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal',
+      token: oidcToken,
+      headers: {
+        'X-Ananta-Peer-Id': ownerPeerId,
+        'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      },
     });
   });
 
   it('requests TURN credentials through the exact bound public session', async () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
-    gets.length = 0;
+    requests.length = 0;
 
     await expect(firstValueFrom(service.turnCredentials('created-session'))).resolves.toEqual({
       username: 'expiry:peer', password: 'credential', ttl: 3600,
       uris: ['turn:webrtc.ananta.de:3478'],
     });
-    expect(gets).toEqual([{
+    expect(requests).toEqual([expect.objectContaining({
+      method: 'GET',
       url: 'https://webrtc.ananta.de/rendezvous/turn-credentials?session_id=created-session',
       token: oidcToken,
-      useRetry: false,
-    }]);
+      headers: expect.objectContaining({ 'X-Ananta-Peer-Id': ownerPeerId }),
+    })]);
   });
 
   it('rejects TURN credentials whose response is not bound to the exact session and peer', async () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
     const core = TestBed.inject(HubApiCoreService);
-    vi.mocked(core.get).mockReturnValueOnce(of({
+    vi.mocked(core.request).mockReturnValueOnce(of({
       ok: true,
       session_id: 'attacker-session',
-      local_peer_id: 'oidc:canonical-peer',
+      local_peer_id: ownerPeerId,
       data: {
         username: 'expiry:peer', password: 'credential', ttl: 600,
         uris: ['turn:webrtc.ananta.de:3478'],
         session_id: 'created-session',
-        local_peer_id: 'oidc:canonical-peer',
+        local_peer_id: ownerPeerId,
       },
     }));
 
     await expect(firstValueFrom(service.turnCredentials('created-session')))
       .rejects.toThrow('public_turn_credentials_binding_mismatch');
+  });
+
+  it('retries an ambiguous create with the same persisted capability and exact wire body', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({ status: 0 })));
+    const expiresAt = Date.now() / 1000 + 60;
+
+    await expect(firstValueFrom(service.create({
+      title: 'Pair', permissions: { chat: true }, public_key_fingerprint: 'fingerprint',
+      expires_at: expiresAt,
+    }))).rejects.toMatchObject({ status: 0 });
+    const firstOptions = vi.mocked(core.request).mock.calls[0][3];
+
+    await expect(firstValueFrom(service.create({
+      title: 'Pair', permissions: { chat: true }, public_key_fingerprint: 'fingerprint',
+      expires_at: Date.now() / 1000 + 60,
+    }))).resolves.toMatchObject({ id: 'created-session', local_peer_id: ownerPeerId });
+    const secondOptions = vi.mocked(core.request).mock.calls[1][3];
+
+    expect(secondOptions?.body).toEqual(firstOptions?.body);
+    expect(secondOptions?.headers?.['X-Ananta-Membership-Capability'])
+      .toBe(firstOptions?.headers?.['X-Ananta-Membership-Capability']);
+    expect(JSON.stringify(firstOptions?.body)).not.toContain(
+      String(firstOptions?.headers?.['X-Ananta-Membership-Capability']),
+    );
+  });
+
+  it('makes no network request when pending capability persistence is unavailable', () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('denied');
+    });
+    try {
+      expect(() => service.create({ title: 'Pair' }))
+        .toThrow('public_membership_capability_storage_unavailable');
+      expect(core.request).not.toHaveBeenCalled();
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
+  it('does not reuse pending proof for changed intent or another OIDC subject', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({ status: 503 })));
+    const original = {
+      title: 'Pair', permissions: { chat: true }, public_key_fingerprint: 'fingerprint',
+    };
+    await expect(firstValueFrom(service.create(original))).rejects.toMatchObject({ status: 503 });
+    const callCount = vi.mocked(core.request).mock.calls.length;
+
+    expect(() => service.create({ ...original, title: 'Changed' }))
+      .toThrow('public_pair_pending_attempt_conflict');
+    expect(vi.mocked(core.request).mock.calls).toHaveLength(callCount);
+
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      sub: 'another-account',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    expect(() => service.create(original)).toThrow('public_pair_pending_attempt_conflict');
+    expect(vi.mocked(core.request).mock.calls).toHaveLength(callCount);
+  });
+
+  it('retires a definitely rejected join so a corrected invite can start a new attempt', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({
+      status: 400,
+      error: { error: 'invalid_invite_code' },
+    })));
+
+    await expect(firstValueFrom(service.join({ invite_code: 'WRONG' })))
+      .rejects.toMatchObject({ status: 400 });
+    await expect(firstValueFrom(service.join({ invite_code: 'CORRECT' })))
+      .resolves.toMatchObject({ id: 'joined-session', local_peer_id: joinerPeerId });
+  });
+
+  it('retains a lost-response attempt through 401 and recovers after same-subject reauthentication', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request)
+      .mockReturnValueOnce(throwError(() => ({ status: 0 })))
+      .mockReturnValueOnce(throwError(() => ({
+        status: 401,
+        error: { error: 'unauthorized' },
+      })));
+    const body = { title: 'Pair', permissions: { chat: true } };
+
+    await expect(firstValueFrom(service.create(body))).rejects.toMatchObject({ status: 0 });
+    await expect(firstValueFrom(service.create(body))).rejects.toMatchObject({ status: 401 });
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      sub: 'raw-oidc-sub',
+      exp: Math.floor(Date.now() / 1000) + 7200,
+    });
+    await expect(firstValueFrom(service.create(body)))
+      .resolves.toMatchObject({ id: 'created-session', local_peer_id: ownerPeerId });
+
+    const options = vi.mocked(core.request).mock.calls.map(call => call[3]);
+    expect(options[1]?.body).toEqual(options[0]?.body);
+    expect(options[2]?.body).toEqual(options[0]?.body);
+    expect(options[1]?.headers?.['X-Ananta-Membership-Capability'])
+      .toBe(options[0]?.headers?.['X-Ananta-Membership-Capability']);
+    expect(options[2]?.headers?.['X-Ananta-Membership-Capability'])
+      .toBe(options[0]?.headers?.['X-Ananta-Membership-Capability']);
+  });
+
+  it('retains pending proof after a committed-looking invalid response until explicit discard', async () => {
+    createdResponse = publicSession('created-session', legacyPeerId, 1);
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    await expect(firstValueFrom(service.create({ title: 'Pair' })))
+      .rejects.toThrow('public_local_peer_id_mismatch');
+    expect(Object.keys(sessionStorage).some(key => key.includes('.pending.v2.create'))).toBe(true);
+
+    service.discardPendingPublicMutation('create');
+    expect(Object.keys(sessionStorage).some(key => key.includes('.pending.v2.create'))).toBe(false);
+  });
+
+  it('skips v2 discovery metadata that has no matching local capability', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    await expect(firstValueFrom(service.list())).resolves.toEqual([]);
+    expect(() => service.peerIdForSession('listed-session'))
+      .toThrow('pair_control_plane_binding_missing');
+  });
+
+  it('restores a legacy v1 binding without a capability and never adds a v2 secret header', async () => {
+    listedResponses = [publicSession('legacy-session', legacyPeerId, 1)];
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await expect(firstValueFrom(service.list())).resolves.toEqual([
+      expect.objectContaining({ id: 'legacy-session', local_peer_id: legacyPeerId }),
+    ]);
+    requests.length = 0;
+
+    await firstValueFrom(service.participants('legacy-session'));
+    expect(requests[0].headers).toEqual({ 'X-Ananta-Peer-Id': legacyPeerId });
+  });
+
+  it('rejects a bound response for another device peer', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(of({
+      ok: true,
+      local_peer_id: joinerPeerId,
+      data: { participants: [], local_peer_id: joinerPeerId },
+    }));
+
+    await expect(firstValueFrom(service.participants('created-session')))
+      .rejects.toThrow('public_local_peer_id_mismatch');
+  });
+
+  it('rejects a capability leaked inside a bound response payload', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(of({
+      ok: true,
+      local_peer_id: ownerPeerId,
+      data: {
+        participants: [],
+        local_peer_id: ownerPeerId,
+        membership_capability: 'X'.repeat(43),
+      },
+    }));
+
+    await expect(firstValueFrom(service.participants('created-session')))
+      .rejects.toThrow('public_membership_capability_exposed');
+  });
+
+  it('keeps capability on local leave and retires it only after confirmed end', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const capabilities = TestBed.inject(PairMembershipCapabilityStore);
+    const capability = capabilities.require('created-session', ownerPeerId, capabilityScope());
+
+    service.forgetSession('created-session');
+    expect(capabilities.require('created-session', ownerPeerId, capabilityScope())).toBe(capability);
+    listedResponses = [publicSession('created-session', ownerPeerId)];
+    await firstValueFrom(service.list());
+    await firstValueFrom(service.end('created-session'));
+
+    expect(() => capabilities.require('created-session', ownerPeerId, capabilityScope()))
+      .toThrow('public_membership_capability_missing');
+    expect(() => service.peerIdForSession('created-session'))
+      .toThrow('pair_control_plane_binding_missing');
   });
 });
 
@@ -319,7 +604,31 @@ function publicProfile() {
   };
 }
 
-function publicSession(id: string): Record<string, unknown> {
+function seedBoundCapability(sessionId: string, localPeerId: string): void {
+  const store = TestBed.inject(PairMembershipCapabilityStore);
+  const scope = {
+    kind: 'create' as const,
+    baseUrl: 'https://webrtc.ananta.de',
+    oidcIssuer: PUBLIC_OIDC_ISSUER,
+    oidcSubject: 'raw-oidc-sub',
+  };
+  const pending = store.begin(scope, { restore: sessionId });
+  store.promote(scope, sessionId, localPeerId, pending.capability);
+}
+
+function capabilityScope() {
+  return {
+    baseUrl: 'https://webrtc.ananta.de',
+    oidcIssuer: PUBLIC_OIDC_ISSUER,
+    oidcSubject: 'raw-oidc-sub',
+  };
+}
+
+function publicSession(
+  id: string,
+  localPeerId = `peer:${'a'.repeat(64)}`,
+  identityBindingVersion: 1 | 2 = 2,
+): Record<string, unknown> {
   const permissions = {
     chat: true,
     view_tui: true,
@@ -331,12 +640,14 @@ function publicSession(id: string): Record<string, unknown> {
     id,
     security_mode: 'strict_e2ee',
     security_contract_version: 1,
-    identity_binding_version: 1,
+    identity_binding_version: identityBindingVersion,
     permissions_version: 1,
     mode: 'p2p',
     transport: 'webrtc',
     permissions,
     allowed_permissions: { ...permissions },
+    local_peer_id: localPeerId,
+    ...(identityBindingVersion === 2 ? { local_peer_ids: [localPeerId] } : {}),
   };
 }
 

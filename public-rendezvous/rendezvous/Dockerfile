@@ -8,7 +8,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY config.py oidc_auth.py pair_security.py service.py app.py ./
+COPY config.py oidc_auth.py pair_security.py peer_identity.py service.py app.py ./
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \

@@ -58,7 +58,9 @@ def add_cors_headers(response):
     if origin and origin in cfg.CORS_ALLOWED_ORIGINS:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Vary"] = "Origin"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+        response.headers["Access-Control-Allow-Headers"] = (
+            "Authorization, Content-Type, X-Ananta-Peer-Id, X-Ananta-Device-Id, X-Ananta-Membership-Capability"
+        )
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
         response.headers["Access-Control-Max-Age"] = "600"
     return response
@@ -94,7 +96,60 @@ def _closed_json_body(allowed_fields: set[str]):
 def _session_for_local_peer(session: Any, peer_id: str) -> Any:
     if not isinstance(session, dict):
         return session
-    return {**session, "local_peer_id": peer_id}
+    return {
+        **{key: value for key, value in session.items() if not key.startswith("_")},
+        "local_peer_id": peer_id,
+    }
+
+
+def _requested_peer_id() -> str:
+    return str(request.headers.get("X-Ananta-Peer-Id") or "").strip()
+
+
+def _requested_device_id() -> str:
+    return str(request.headers.get("X-Ananta-Device-Id") or "").strip()
+
+
+def _membership_capability() -> str:
+    return str(request.headers.get("X-Ananta-Membership-Capability") or "").strip()
+
+
+def _selected_peer_id(account_id: str) -> str:
+    """Select a claimed peer; domain services authenticate it before use."""
+    return _requested_peer_id() or account_id
+
+
+def _recovery_probe_allowed(account_id: str) -> bool:
+    """Bound idempotency lookups to the authenticated account."""
+    return svc._rate_check(
+        "recovery_probe",
+        account_id,
+        cfg.RATE_RECOVERY_PROBE_LIMIT,
+        cfg.RATE_RECOVERY_PROBE_WINDOW,
+    )
+
+
+def _membership_probe_allowed(account_id: str) -> bool:
+    """Bound membership resolution before trusting a client peer selector."""
+    return svc._rate_check(
+        "membership_probe",
+        account_id,
+        cfg.RATE_MEMBERSHIP_PROBE_LIMIT,
+        cfg.RATE_MEMBERSHIP_PROBE_WINDOW,
+    )
+
+
+def _member_error_status(reason: str, *, default: int = 409) -> int:
+    if reason in {
+        "forbidden",
+        "local_peer_id_required",
+        "membership_capability_required",
+        "membership_capability_invalid",
+    }:
+        return 403
+    if reason == "session_not_found":
+        return 404
+    return default
 
 
 # --- Health / Info ---
@@ -114,6 +169,7 @@ def info():
             "turn_realm": cfg.TURN_REALM,
             "turn_urls": cfg.TURN_URLS,
             "session_max_minutes": cfg.SESSION_MAX_DURATION_SECONDS // 60,
+            "supported_identity_binding_versions": [1, 2],
         }
     ), 200
 
@@ -126,8 +182,6 @@ def create_session():
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    if not svc._rate_check("create", ctx.peer_id, cfg.RATE_CREATE_LIMIT, cfg.RATE_CREATE_WINDOW):
-        return jsonify({"error": "rate_limited"}), 429
     body, body_error = _closed_json_body(
         {
             "title",
@@ -143,6 +197,7 @@ def create_session():
             "expires_at",
             "owner_device_id",
             "owner_device_fingerprint",
+            "identity_binding_version",
         }
     )
     if body_error:
@@ -155,11 +210,35 @@ def create_session():
         or body.get("transport") not in {None, "webrtc"}
     ):
         return jsonify({"error": "strict_e2ee_required"}), 400
+    identity_binding_version = body.get("identity_binding_version", 1)
+    if (
+        isinstance(identity_binding_version, bool)
+        or not isinstance(identity_binding_version, int)
+        or identity_binding_version not in {1, 2}
+    ):
+        return jsonify({"error": "identity_binding_version_unsupported"}), 400
     device_fp = str(body.get("owner_device_fingerprint") or "").strip()
     device_id = str(body.get("owner_device_id") or "").strip()
     public_key = str(body.get("public_key_spki_b64") or "").strip()
     if not device_id or not device_fp or not public_key:
         return jsonify({"error": "device_identity_required"}), 400
+    membership_capability = _membership_capability()
+    is_recovery = False
+    if identity_binding_version == 2:
+        if not _recovery_probe_allowed(ctx.account_id):
+            return jsonify({"error": "rate_limited"}), 429
+        is_recovery = svc.is_owner_create_recovery(
+            account_id=ctx.account_id,
+            device_fingerprint=device_fp,
+            membership_capability=membership_capability,
+        )
+    if not is_recovery and not svc._rate_check(
+        "create",
+        ctx.account_id,
+        cfg.RATE_CREATE_LIMIT,
+        cfg.RATE_CREATE_WINDOW,
+    ):
+        return jsonify({"error": "rate_limited"}), 429
     requested_expires_at = body.get("expires_at")
     if requested_expires_at is not None and (
         isinstance(requested_expires_at, bool)
@@ -178,19 +257,25 @@ def create_session():
             allowed_permissions=body.get("allowed_permissions") or body.get("permissions"),
             title=str(body.get("title") or "Rendezvous Session"),
             requested_expires_at=requested_expires_at,
+            identity_binding_version=identity_binding_version,
+            membership_capability=membership_capability,
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
-    local_session = _session_for_local_peer(session, ctx.peer_id)
-    log.info("session_created id=%s owner_peer=%s", session["id"], ctx.peer_id)
-    return jsonify(
+    idempotent = bool(session.pop("_idempotent", False))
+    local_peer_id = str(session.get("owner_peer_id") or "") if identity_binding_version == 2 else ctx.account_id
+    local_session = _session_for_local_peer(session, local_peer_id)
+    log.info("session_created id=%s identity_binding_version=%d", session["id"], identity_binding_version)
+    response = jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
+            "local_peer_id": local_peer_id,
             "session": local_session,
             "data": local_session,
         }
-    ), 201
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200 if idempotent else 201
 
 
 @app.get("/rendezvous/sessions")
@@ -198,15 +283,22 @@ def list_sessions():
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    sessions = [
-        _session_for_local_peer(session, ctx.peer_id)
-        for session in svc.list_sessions_for_user(requester_user_id=ctx.peer_id)
-    ]
+    requested_peer_id = _requested_peer_id()
+    sessions = svc.list_sessions_for_user(
+        requester_user_id=ctx.account_id,
+        requested_peer_id=requested_peer_id,
+        requested_device_id=_requested_device_id(),
+    )
+    if not requested_peer_id and not _requested_device_id():
+        sessions = [session for session in sessions if int(session.get("identity_binding_version") or 0) == 1]
+    # Backward-compatible page-level v1 identity. V2 clients must use each
+    # item's exact selector-bound local_peer_id instead.
+    local_peer_id = requested_peer_id or ctx.account_id
     return jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
-            "data": {"items": sessions, "local_peer_id": ctx.peer_id},
+            "local_peer_id": local_peer_id,
+            "data": {"items": sessions, "local_peer_id": local_peer_id},
         }
     ), 200
 
@@ -225,11 +317,6 @@ def _join_session_by_invite(*, expected_session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    # Join is OIDC-authenticated before rate limiting. The canonical peer ID
-    # avoids a shared Caddy bridge-IP bucket and cannot be changed through an
-    # untrusted X-Forwarded-For header.
-    if not svc._rate_check("join_peer", ctx.peer_id, cfg.RATE_JOIN_LIMIT, cfg.RATE_JOIN_WINDOW):
-        return jsonify({"error": "rate_limited"}), 429
     body, body_error = _closed_json_body(
         {
             "invite_code",
@@ -238,6 +325,7 @@ def _join_session_by_invite(*, expected_session_id: str):
             "public_key_fingerprint",
             "device_id",
             "device_fingerprint",
+            "identity_binding_version",
         }
     )
     if body_error:
@@ -245,7 +333,33 @@ def _join_session_by_invite(*, expected_session_id: str):
     assert body is not None
     if body.get("minimum_security_mode") not in {None, "strict_e2ee"}:
         return jsonify({"error": "strict_e2ee_required"}), 400
+    expected_identity_binding_version = body.get("identity_binding_version")
+    if expected_identity_binding_version is not None and (
+        isinstance(expected_identity_binding_version, bool)
+        or not isinstance(expected_identity_binding_version, int)
+        or expected_identity_binding_version not in {1, 2}
+    ):
+        return jsonify({"error": "identity_binding_version_unsupported"}), 400
     invite_code = str(body.get("invite_code") or "").strip()
+    membership_capability = _membership_capability()
+    is_recovery = False
+    if expected_identity_binding_version == 2:
+        if not _recovery_probe_allowed(ctx.account_id):
+            return jsonify({"error": "rate_limited"}), 429
+        is_recovery = svc.is_join_recovery(
+            invite_code=invite_code,
+            account_id=ctx.account_id,
+            device_fingerprint=str(body.get("device_fingerprint") or "").strip(),
+            membership_capability=membership_capability,
+        )
+    # OIDC account identity, never forwarding headers, owns the abuse bucket.
+    if not is_recovery and not svc._rate_check(
+        "join_peer",
+        ctx.account_id,
+        cfg.RATE_JOIN_LIMIT,
+        cfg.RATE_JOIN_WINDOW,
+    ):
+        return jsonify({"error": "rate_limited"}), 429
     if not invite_code:
         return jsonify({"error": "invite_code_required"}), 400
     result = svc.join_session(
@@ -257,6 +371,8 @@ def _join_session_by_invite(*, expected_session_id: str):
         public_key_spki_b64=str(body.get("public_key_spki_b64") or "").strip(),
         oidc_issuer=ctx.issuer,
         expected_session_id=expected_session_id,
+        membership_capability=membership_capability,
+        expected_identity_binding_version=expected_identity_binding_version,
     )
     if not result.get("ok"):
         reason = result["reason"]
@@ -269,17 +385,25 @@ def _join_session_by_invite(*, expected_session_id: str):
         )
         return jsonify({"error": reason}), status
     session_label = expected_session_id or "invite"
-    local_session = _session_for_local_peer(result.get("session"), ctx.peer_id)
-    log.info("participant_joined session=%s peer=%s", session_label, ctx.peer_id)
-    return jsonify(
+    participant = result.get("participant") or {}
+    local_peer_id = str(participant.get("peer_id") or participant.get("user_id") or "")
+    local_session = _session_for_local_peer(result.get("session"), local_peer_id)
+    log.info(
+        "participant_joined session=%s identity_binding_version=%s",
+        session_label,
+        local_session.get("identity_binding_version"),
+    )
+    response = jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
-            "participant": result.get("participant"),
+            "local_peer_id": local_peer_id,
+            "participant": participant,
             "session": local_session,
             "data": local_session,
         }
-    ), 201 if not result.get("idempotent") else 200
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response, 201 if not result.get("idempotent") else 200
 
 
 @app.get("/rendezvous/sessions/<session_id>/participants")
@@ -287,17 +411,33 @@ def list_participants(session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    result = svc.get_participants(session_id=session_id, requester_user_id=ctx.peer_id)
+    requested_peer_id = _requested_peer_id()
+    capability = _membership_capability()
+    result = svc.get_participants(
+        session_id=session_id,
+        requester_user_id=ctx.account_id,
+        requester_peer_id=requested_peer_id,
+        membership_capability=capability,
+    )
     if not result.get("ok"):
         reason = result["reason"]
-        status = 403 if reason == "forbidden" else 404 if reason == "session_not_found" else 409
+        status = _member_error_status(reason)
         return jsonify({"error": reason}), status
-    svc.touch_participant(session_id=session_id, user_id=ctx.peer_id)
+    touched = svc.touch_participant(
+        session_id=session_id,
+        user_id=ctx.account_id,
+        requester_peer_id=requested_peer_id,
+        membership_capability=capability,
+    )
+    if not touched.get("ok"):
+        reason = str(touched.get("reason") or "forbidden")
+        return jsonify({"error": reason}), _member_error_status(reason)
+    local_peer_id = str(result["local_peer_id"])
     return jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
-            "data": {"participants": result["participants"], "local_peer_id": ctx.peer_id},
+            "local_peer_id": local_peer_id,
+            "data": {"participants": result["participants"], "local_peer_id": local_peer_id},
         }
     ), 200
 
@@ -307,12 +447,17 @@ def key_packages(session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    result = svc.get_key_packages(session_id=session_id, requester_user_id=ctx.peer_id)
+    result = svc.get_key_packages(
+        session_id=session_id,
+        requester_user_id=ctx.account_id,
+        requester_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
+    )
     if not result.get("ok"):
         reason = result["reason"]
-        status = 404 if reason == "session_not_found" else 403 if reason == "forbidden" else 409
+        status = _member_error_status(reason)
         return jsonify({"error": reason}), status
-    return jsonify({**result, "local_peer_id": ctx.peer_id}), 200
+    return jsonify(result), 200
 
 
 @app.post("/rendezvous/sessions/<session_id>/security/key-confirmations")
@@ -336,16 +481,19 @@ def put_key_confirmation(session_id: str):
         return jsonify({"error": "epoch_invalid"}), 400
     result = svc.put_key_confirmation(
         session_id=session_id,
-        sender_peer_id=ctx.peer_id,
+        sender_peer_id=_selected_peer_id(ctx.account_id),
         recipient_peer_id=str(body.get("recipient_peer_id") or "").strip(),
         package_id=str(body.get("package_id") or "").strip(),
         epoch=epoch,
         confirmation_tag=str(body.get("confirmation_tag") or "").strip(),
+        sender_account_id=ctx.account_id,
+        membership_capability=_membership_capability(),
     )
     if not result.get("ok"):
         reason = result["reason"]
-        return jsonify({"error": reason}), 403 if reason == "forbidden" else 409
-    return jsonify({**result, "local_peer_id": ctx.peer_id}), 200 if result.get("idempotent") else 201
+        return jsonify({"error": reason}), _member_error_status(reason)
+    local_peer_id = _selected_peer_id(ctx.account_id)
+    return jsonify({**result, "local_peer_id": local_peer_id}), 200 if result.get("idempotent") else 201
 
 
 @app.get("/rendezvous/sessions/<session_id>/security/key-confirmations")
@@ -356,14 +504,16 @@ def get_key_confirmation(session_id: str):
     sender_peer_id = str(request.args.get("sender_peer_id") or "").strip()
     result = svc.get_key_confirmation(
         session_id=session_id,
-        requester_user_id=ctx.peer_id,
+        requester_user_id=ctx.account_id,
         sender_peer_id=sender_peer_id,
+        requester_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
     )
     if not result.get("ok"):
         reason = result["reason"]
-        status = 403 if reason == "forbidden" else 404 if reason == "session_not_found" else 409
+        status = _member_error_status(reason)
         return jsonify({"error": reason}), status
-    return jsonify({**result, "local_peer_id": ctx.peer_id}), 200
+    return jsonify({**result, "local_peer_id": _selected_peer_id(ctx.account_id)}), 200
 
 
 @app.patch("/rendezvous/sessions/<session_id>/permissions")
@@ -380,19 +530,22 @@ def update_permissions(session_id: str):
         return jsonify({"error": "permissions_required"}), 400
     result = svc.update_session_permissions(
         session_id=session_id,
-        actor_user_id=ctx.peer_id,
+        actor_user_id=ctx.account_id,
         permissions=permissions,
+        actor_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
     )
     if not result.get("ok"):
         reason = result["reason"]
         if reason == "permission_update_rekey_required":
             return jsonify({"error": reason, "reason_code": reason}), 409
-        return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
-    local_session = _session_for_local_peer(result.get("session"), ctx.peer_id)
+        return jsonify({"error": reason}), _member_error_status(reason, default=404)
+    local_peer_id = _selected_peer_id(ctx.account_id)
+    local_session = _session_for_local_peer(result.get("session"), local_peer_id)
     return jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
+            "local_peer_id": local_peer_id,
             "data": local_session,
         }
     ), 200
@@ -403,12 +556,17 @@ def revoke_session(session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    result = svc.revoke_session(session_id=session_id, actor_user_id=ctx.peer_id)
+    result = svc.revoke_session(
+        session_id=session_id,
+        actor_user_id=ctx.account_id,
+        actor_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
+    )
     if not result.get("ok"):
         reason = result["reason"]
-        return jsonify({"error": reason}), 403 if reason == "forbidden" else 404
-    log.info("session_revoked id=%s actor_peer=%s", session_id, ctx.peer_id)
-    return jsonify({"ok": True, "local_peer_id": ctx.peer_id}), 200
+        return jsonify({"error": reason}), _member_error_status(reason, default=404)
+    log.info("session_revoked id=%s", session_id)
+    return jsonify({"ok": True, "local_peer_id": result["local_peer_id"]}), 200
 
 
 @app.get("/rendezvous/turn-credentials")
@@ -424,26 +582,47 @@ def turn_credentials():
         session_id = str(uuid.UUID(raw_session_id))
     except (AttributeError, ValueError):
         return jsonify({"error": "session_id_invalid"}), 400
+    if not _membership_probe_allowed(ctx.account_id):
+        return jsonify({"error": "rate_limited"}), 429
+    requested_peer_id = _requested_peer_id()
+    membership_capability = _membership_capability()
+    membership = svc.authenticate_session_membership(
+        session_id=session_id,
+        account_id=ctx.account_id,
+        requested_peer_id=requested_peer_id,
+        membership_capability=membership_capability,
+    )
+    if not membership.get("ok"):
+        reason = str(membership.get("reason") or "forbidden")
+        return jsonify({"error": reason}), _member_error_status(
+            reason,
+            default=_TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409),
+        )
     if not svc._rate_check(
         "turn_credentials",
-        ctx.peer_id,
+        str(membership["local_peer_id"]),
         cfg.RATE_TURN_CREDENTIAL_LIMIT,
         cfg.RATE_TURN_CREDENTIAL_WINDOW,
     ):
         return jsonify({"error": "rate_limited"}), 429
     result = svc.issue_turn_credentials(
         session_id=session_id,
-        requester_user_id=ctx.peer_id,
+        requester_user_id=ctx.account_id,
+        requester_peer_id=requested_peer_id,
+        membership_capability=membership_capability,
     )
     if not result.get("ok"):
         reason = str(result.get("reason") or "turn_credentials_unavailable")
-        status = _TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409)
+        status = _member_error_status(
+            reason,
+            default=_TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409),
+        )
         return jsonify({"error": reason}), status
     response = jsonify(
         {
             "ok": True,
             "session_id": session_id,
-            "local_peer_id": ctx.peer_id,
+            "local_peer_id": result["credentials"]["local_peer_id"],
             "data": result["credentials"],
         }
     )
@@ -459,8 +638,6 @@ def push_signal(session_id: str):
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    if not svc._rate_check("signal", ctx.peer_id, cfg.RATE_SIGNAL_LIMIT, cfg.RATE_SIGNAL_WINDOW):
-        return jsonify({"error": "rate_limited"}), 429
     raw = request.get_data(as_text=False)
     if len(raw) > svc._MAX_SIGNAL_BYTES:
         return jsonify({"error": "signal_too_large"}), 413
@@ -478,26 +655,57 @@ def push_signal(session_id: str):
     assert body is not None
     declared_session = str(body.get("session_id") or "").strip()
     declared_sender = str(body.get("sender_id") or "").strip()
+    if not _membership_probe_allowed(ctx.account_id):
+        return jsonify({"error": "rate_limited"}), 429
+    requested_peer_id = _requested_peer_id()
+    membership_capability = _membership_capability()
+    membership = svc.authenticate_session_membership(
+        session_id=session_id,
+        account_id=ctx.account_id,
+        requested_peer_id=requested_peer_id,
+        membership_capability=membership_capability,
+        require_pair=True,
+    )
+    if not membership.get("ok"):
+        reason = str(membership.get("reason") or "forbidden")
+        return jsonify({"error": reason}), _member_error_status(reason)
+    selected_peer_id = str(membership["local_peer_id"])
     if declared_session and declared_session != session_id:
         return jsonify({"error": "signal_session_mismatch"}), 400
-    if declared_sender and declared_sender != ctx.peer_id:
+    if declared_sender and declared_sender != selected_peer_id:
         return jsonify({"error": "signal_sender_mismatch"}), 403
     recipient_id = str(body.get("recipient_id") or "").strip()
     if not recipient_id:
         return jsonify({"error": "recipient_id_required"}), 400
+    if not svc._rate_check("signal", selected_peer_id, cfg.RATE_SIGNAL_LIMIT, cfg.RATE_SIGNAL_WINDOW):
+        return jsonify({"error": "rate_limited"}), 429
     signal_type = str(body.get("type") or "").strip()
     result = svc.push_signal(
         session_id=session_id,
-        sender_id=ctx.peer_id,
+        sender_id=selected_peer_id,
         recipient_id=recipient_id,
         signal_type=signal_type,
         payload=body.get("payload"),
+        sender_account_id=ctx.account_id,
+        membership_capability=membership_capability,
     )
     if not result.get("ok"):
         reason = result["reason"]
-        status = 403 if "forbidden" in reason else 400 if reason.startswith("invalid_signal") else 409
+        status = (
+            _member_error_status(reason)
+            if reason
+            in {
+                "forbidden",
+                "local_peer_id_required",
+                "membership_capability_required",
+                "membership_capability_invalid",
+            }
+            else 400
+            if reason.startswith("invalid_signal")
+            else 409
+        )
         return jsonify({"error": reason}), status
-    return jsonify({**result, "local_peer_id": ctx.peer_id}), 201
+    return jsonify({**result, "local_peer_id": selected_peer_id}), 201
 
 
 @app.get("/webrtc/sessions/<session_id>/signal")
@@ -514,23 +722,43 @@ def poll_signals(session_id: str):
     since = int(raw_since) if raw_since else 0
     if since > svc._MAX_SIGNAL_CURSOR:
         return jsonify({"error": "signal_cursor_invalid"}), 400
+    if not _membership_probe_allowed(ctx.account_id):
+        return jsonify({"error": "rate_limited"}), 429
+    requested_peer_id = _requested_peer_id()
+    membership_capability = _membership_capability()
+    membership = svc.authenticate_session_membership(
+        session_id=session_id,
+        account_id=ctx.account_id,
+        requested_peer_id=requested_peer_id,
+        membership_capability=membership_capability,
+        require_pair=True,
+    )
+    if not membership.get("ok"):
+        reason = str(membership.get("reason") or "forbidden")
+        return jsonify({"error": reason}), _member_error_status(reason)
     if not svc._rate_check(
         "signal_poll",
-        ctx.peer_id,
+        str(membership["local_peer_id"]),
         cfg.RATE_SIGNAL_POLL_LIMIT,
         cfg.RATE_SIGNAL_POLL_WINDOW,
     ):
         return jsonify({"error": "rate_limited"}), 429
-    result = svc.poll_signals(session_id=session_id, user_id=ctx.peer_id, since=since)
+    result = svc.poll_signals(
+        session_id=session_id,
+        user_id=ctx.account_id,
+        since=since,
+        requester_peer_id=requested_peer_id,
+        membership_capability=membership_capability,
+    )
     if not result.get("ok"):
         reason = str(result.get("reason") or "forbidden")
-        status = 400 if reason == "signal_cursor_invalid" else 403 if reason == "forbidden" else 409
+        status = 400 if reason == "signal_cursor_invalid" else _member_error_status(reason)
         return jsonify({"error": reason}), status
     data = {key: value for key, value in result.items() if key != "ok"}
     return jsonify(
         {
             "ok": True,
-            "local_peer_id": ctx.peer_id,
+            "local_peer_id": result["local_peer_id"],
             "data": data,
         }
     ), 200

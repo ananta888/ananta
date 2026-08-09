@@ -72,18 +72,24 @@ class AuthContext:
     raw: dict[str, Any]
 
     @property
-    def peer_id(self) -> str:
-        """Return the stable, non-display identity used for authorization.
+    def account_id(self) -> str:
+        """Return the stable, non-display account authorization principal.
 
         Usernames and email addresses are mutable Keycloak display claims.  A
-        public rendezvous membership is therefore bound to the verified OIDC
-        issuer and subject pair instead.
+        public rendezvous account is therefore bound to the verified OIDC
+        issuer and subject pair instead. Device-scoped Pair peer IDs are
+        derived separately after a device key has been verified.
         """
-        return canonical_peer_id(self.issuer, self.sub)
+        return canonical_account_id(self.issuer, self.sub)
+
+    @property
+    def peer_id(self) -> str:
+        """Backward-compatible alias for the v1 account-scoped peer ID."""
+        return self.account_id
 
 
-def canonical_peer_id(issuer: str, subject: str) -> str:
-    """Derive an opaque peer identifier from a verified ``(iss, sub)`` pair."""
+def canonical_account_id(issuer: str, subject: str) -> str:
+    """Derive an opaque account identifier from a verified ``(iss, sub)`` pair."""
     normalized_issuer = str(issuer or "").strip().rstrip("/")
     normalized_subject = str(subject or "").strip()
     if not normalized_issuer or not normalized_subject:
@@ -95,6 +101,11 @@ def canonical_peer_id(issuer: str, subject: str) -> str:
         + normalized_subject.encode("utf-8")
     )
     return "oidc:" + hashlib.sha256(material).hexdigest()
+
+
+def canonical_peer_id(issuer: str, subject: str) -> str:
+    """Backward-compatible name for the v1 account-scoped identifier."""
+    return canonical_account_id(issuer, subject)
 
 
 def verify_bearer_token(authorization_header: str) -> AuthContext:

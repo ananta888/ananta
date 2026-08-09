@@ -205,4 +205,4 @@ def test_public_rendezvous_requires_independent_signing_secret_and_exact_origins
     assert dockerfile.startswith(f"FROM {RENDEZVOUS_PYTHON_BASE}\n")
     assert "ARG ANANTA_REVISION=unknown" in dockerfile
     assert 'LABEL org.opencontainers.image.revision="${ANANTA_REVISION}"' in dockerfile
-    assert "COPY config.py oidc_auth.py pair_security.py service.py app.py ./" in dockerfile
+    assert "COPY config.py oidc_auth.py pair_security.py peer_identity.py service.py app.py ./" in dockerfile

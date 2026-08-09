@@ -30,6 +30,10 @@ def _dockerfile_copy_sources() -> tuple[str, ...]:
     return tuple(sources)
 
 
+def test_clean_image_packages_device_peer_identity_module():
+    assert "peer_identity.py" in _dockerfile_copy_sources()
+
+
 def _isolated_runtime_tree(target: Path) -> None:
     for relative_source in _dockerfile_copy_sources():
         source = SERVICE_DIR / relative_source
@@ -103,9 +107,23 @@ assert response.headers['Access-Control-Allow-Origin'] == 'https://localhost'
 preflight = client.options('/rendezvous/sessions', headers={
     'Origin': 'http://localhost:4200',
     'Access-Control-Request-Method': 'GET',
+    'Access-Control-Request-Headers': (
+        'Authorization, X-Ananta-Device-Id, X-Ananta-Peer-Id, '
+        'X-Ananta-Membership-Capability'
+    ),
 })
 assert preflight.status_code in {200, 204}
 assert preflight.headers['Access-Control-Allow-Origin'] == 'http://localhost:4200'
+allowed_headers = {
+    value.strip().lower()
+    for value in preflight.headers['Access-Control-Allow-Headers'].split(',')
+}
+assert {
+    'authorization',
+    'x-ananta-device-id',
+    'x-ananta-peer-id',
+    'x-ananta-membership-capability',
+} <= allowed_headers
 denied = client.options('/rendezvous/sessions', headers={
     'Origin': 'https://untrusted.invalid',
     'Access-Control-Request-Method': 'GET',
