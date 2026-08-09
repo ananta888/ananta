@@ -2,8 +2,8 @@
 
 The service authenticates membership and device public keys.  It never sees
 the derived ECDH secret or encrypted application payloads. Public audio/video
-remains disabled unless both peers negotiate the separately signed media-v1
-contract and enforce it through browser encoded-media transforms.
+remains disabled unless both peers negotiate one exact, separately signed
+media contract and enforce it through browser encoded-media transforms.
 """
 
 from __future__ import annotations
@@ -21,7 +21,13 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 TENANT_ID = "public-ananta"
 PUBLIC_MEDIA_E2EE_VERSION = 1
+PUBLIC_MEDIA_E2EE_VERSION_V2 = 2
+SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS = (
+    PUBLIC_MEDIA_E2EE_VERSION,
+    PUBLIC_MEDIA_E2EE_VERSION_V2,
+)
 PUBLIC_MEDIA_TRANSFORM = "RTCRtpScriptTransform"
+PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 = "ananta.public-pair.media-frame.v2"
 PUBLIC_MEDIA_GRANTS = (
     "microphone-opus",
     "camera-vp8",
@@ -43,37 +49,69 @@ def public_media_capabilities_v1() -> dict[str, Any]:
     }
 
 
+def public_media_capabilities_v2() -> dict[str, Any]:
+    """Return the one closed capability advertisement supported by v2."""
+    return {
+        "version": PUBLIC_MEDIA_E2EE_VERSION_V2,
+        "transform": PUBLIC_MEDIA_TRANSFORM,
+        "frame_format": PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
+        "grants": list(PUBLIC_MEDIA_GRANTS),
+    }
+
+
+def public_media_capabilities_for_version(version: int) -> dict[str, Any] | None:
+    """Project a persisted media version back to its immutable capability."""
+    if type(version) is not int:
+        return None
+    if version == PUBLIC_MEDIA_E2EE_VERSION:
+        return public_media_capabilities_v1()
+    if version == PUBLIC_MEDIA_E2EE_VERSION_V2:
+        return public_media_capabilities_v2()
+    return None
+
+
 def normalize_public_media_advertisement(version: Any, capabilities: Any) -> int:
     """Validate an optional, fail-closed Public Pair media advertisement.
 
-    Version zero is the backward-compatible data-only state. Version one is
-    accepted only together with the complete closed capability object, so a
-    partial or future-shaped request can never accidentally broaden a grant.
+    Version zero is the backward-compatible data-only state. Media versions
+    are accepted only with their complete closed capability object, so a
+    partial, mixed, or future-shaped request can never broaden a grant or
+    silently select a wire-incompatible framing format.
     """
     normalized_version = 0 if version is None else version
     if (
         isinstance(normalized_version, bool)
         or not isinstance(normalized_version, int)
-        or normalized_version not in {0, PUBLIC_MEDIA_E2EE_VERSION}
+        or normalized_version not in {0, *SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS}
     ):
         raise ValueError("public_media_e2ee_version_unsupported")
     if normalized_version == 0:
         if capabilities is not None:
             raise ValueError("public_media_capabilities_without_version")
         return 0
+    expected = public_media_capabilities_for_version(normalized_version)
+    if expected is None:
+        raise ValueError("public_media_e2ee_version_unsupported")
+    if not isinstance(capabilities, dict) or set(capabilities) != set(expected):
+        raise ValueError("public_media_capabilities_invalid")
     if (
-        not isinstance(capabilities, dict)
-        or set(capabilities) != {"version", "transform", "grants"}
-        or type(capabilities.get("version")) is not int
-        or capabilities.get("version") != PUBLIC_MEDIA_E2EE_VERSION
+        type(capabilities.get("version")) is not int
+        or capabilities.get("version") != normalized_version
         or type(capabilities.get("transform")) is not str
         or capabilities.get("transform") != PUBLIC_MEDIA_TRANSFORM
         or not isinstance(capabilities.get("grants"), list)
         or any(type(grant) is not str for grant in capabilities["grants"])
         or capabilities["grants"] != list(PUBLIC_MEDIA_GRANTS)
+        or (
+            normalized_version == PUBLIC_MEDIA_E2EE_VERSION_V2
+            and (
+                type(capabilities.get("frame_format")) is not str
+                or capabilities.get("frame_format") != PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
+            )
+        )
     ):
         raise ValueError("public_media_capabilities_invalid")
-    return PUBLIC_MEDIA_E2EE_VERSION
+    return normalized_version
 
 
 def canonical(value: Any) -> bytes:
@@ -170,11 +208,17 @@ class PairSecurityAuthority:
         owner: dict[str, Any],
         guest: dict[str, Any],
         base_security_contract_digest: str,
+        public_media_e2ee_version: int = PUBLIC_MEDIA_E2EE_VERSION,
     ) -> dict[str, Any]:
         """Issue the stable, separately signed Public Pair media contract."""
+        if (
+            type(public_media_e2ee_version) is not int
+            or public_media_e2ee_version not in SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS
+        ):
+            raise ValueError("public_media_e2ee_version_unsupported")
         unsigned = {
-            "domain": "ananta.public-pair.media-security-contract.v1",
-            "version": PUBLIC_MEDIA_E2EE_VERSION,
+            "domain": f"ananta.public-pair.media-security-contract.v{public_media_e2ee_version}",
+            "version": public_media_e2ee_version,
             "session_id": session["id"],
             "epoch": int(session["security_epoch"]),
             "identity_binding_version": 2,
@@ -199,6 +243,8 @@ class PairSecurityAuthority:
             "expires_at_ms": int(float(session["expires_at"]) * 1000),
             "authority_key_id": self.key_id,
         }
+        if public_media_e2ee_version == PUBLIC_MEDIA_E2EE_VERSION_V2:
+            unsigned["frame_format"] = PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
         digest = hashlib.sha256(canonical(unsigned)).hexdigest()
         signed = {
             **unsigned,
