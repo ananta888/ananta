@@ -308,7 +308,8 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     assert wrong_device["local_peer_id"] is None
     assert set(unselected["local_peer_ids"]) == {owner_peer_id, guest_peer_id}
     assert guest_selected["local_peer_id"] == guest_peer_id
-    assert "capability" not in json.dumps(unselected)
+    assert owner_capability not in json.dumps(unselected)
+    assert guest_capability not in json.dumps(unselected)
     with public_service._db() as conn:
         stored_session = conn.execute(
             """SELECT owner_membership_capability_hash,
@@ -502,6 +503,228 @@ def test_v2_create_and_join_retries_require_the_original_capability(public_servi
     )
     with pytest.raises(ValueError, match="membership_capability_retired"):
         public_service.create_session(**create_kwargs)
+
+
+def test_public_media_v1_requires_the_exact_closed_capability_advertisement(public_service):
+    base_kwargs = {
+        "subject": "media-owner-sub",
+        "identity_binding_version": 2,
+        "membership_capability": "M" * 43,
+    }
+    exact = _public_media_capabilities_v1()
+
+    session = _create_session(
+        public_service,
+        **base_kwargs,
+        public_media_e2ee_version=1,
+        public_media_capabilities=exact,
+    )
+
+    assert session["public_media_e2ee_version"] == 1
+    assert session["public_media_capabilities"] == exact
+    with pytest.raises(ValueError, match="public_media_capabilities_without_version"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "N" * 43},
+            public_media_capabilities=exact,
+        )
+    with pytest.raises(ValueError, match="public_media_capabilities_invalid"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "P" * 43},
+            public_media_e2ee_version=1,
+            public_media_capabilities={**exact, "grants": list(reversed(exact["grants"]))},
+        )
+    with pytest.raises(ValueError, match="public_media_capabilities_invalid"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "Q" * 43},
+            public_media_e2ee_version=1,
+            public_media_capabilities={**exact, "future": True},
+        )
+    with pytest.raises(ValueError, match="public_media_capabilities_invalid"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "T" * 43},
+            public_media_e2ee_version=1,
+            public_media_capabilities={**exact, "version": True},
+        )
+    with pytest.raises(ValueError, match="public_media_capabilities_invalid"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "V" * 43},
+            public_media_e2ee_version=1,
+            public_media_capabilities={
+                **exact,
+                "grants": ["microphone-opus", "camera-vp8", "camera-vp8"],
+            },
+        )
+    with pytest.raises(ValueError, match="public_media_e2ee_version_unsupported"):
+        _create_session(
+            public_service,
+            **{**base_kwargs, "membership_capability": "U" * 43},
+            public_media_e2ee_version=True,
+            public_media_capabilities=exact,
+        )
+    with pytest.raises(ValueError, match="public_media_identity_binding_v2_required"):
+        _create_session(
+            public_service,
+            subject="media-v1-owner-sub",
+            public_media_e2ee_version=1,
+            public_media_capabilities=exact,
+        )
+
+
+def test_public_media_v1_contract_is_stable_exact_and_ed25519_signed(public_service):
+    pair = _public_media_pair(public_service, owner_media_version=1, guest_media_version=1)
+    owner_response = pair["owner_packages"]
+    guest_response = pair["guest_packages"]
+    contract = owner_response["public_media_security_contract_v1"]
+
+    assert contract == guest_response["public_media_security_contract_v1"]
+    repeated = public_service.get_key_packages(
+        session_id=pair["session"]["id"],
+        requester_user_id=pair["account_id"],
+        requester_peer_id=pair["owner_peer_id"],
+        membership_capability=pair["owner_capability"],
+    )
+    assert repeated["public_media_security_contract_v1"] == contract
+    assert set(contract) == {
+        "domain",
+        "version",
+        "session_id",
+        "epoch",
+        "identity_binding_version",
+        "base_security_contract_digest",
+        "memberships",
+        "grants",
+        "slots",
+        "transform",
+        "algorithms",
+        "expires_at_ms",
+        "authority_key_id",
+        "digest",
+        "signature_algorithm",
+        "signature_b64",
+    }
+    assert contract["domain"] == "ananta.public-pair.media-security-contract.v1"
+    assert contract["version"] == 1
+    assert contract["session_id"] == pair["session"]["id"]
+    assert contract["epoch"] == 2
+    assert contract["identity_binding_version"] == 2
+    assert contract["base_security_contract_digest"] == owner_response["security_contract_digest"]
+    assert [member["peer_id"] for member in contract["memberships"]] == [
+        pair["owner_peer_id"],
+        pair["guest_peer_id"],
+    ]
+    assert all(
+        set(member)
+        == {
+            "membership_id",
+            "membership_version",
+            "peer_id",
+            "device_key_fingerprint",
+            "public_media_e2ee_version",
+        }
+        for member in contract["memberships"]
+    )
+    assert all(member["public_media_e2ee_version"] == 1 for member in contract["memberships"])
+    assert contract["grants"] == ["microphone-opus", "camera-vp8", "screen-vp8"]
+    assert contract["slots"] == [
+        {"slot": "microphone-opus", "kind": "audio", "codec": "opus"},
+        {"slot": "camera-vp8", "kind": "video", "codec": "vp8"},
+        {"slot": "screen-vp8", "kind": "video", "codec": "vp8"},
+    ]
+    assert contract["transform"] == "RTCRtpScriptTransform"
+    assert contract["algorithms"] == {"aead": "AES-256-GCM", "kdf": "HKDF-SHA-256"}
+    assert contract["expires_at_ms"] == int(pair["session"]["expires_at"] * 1000)
+    assert contract["authority_key_id"] == owner_response["hub_key_id"]
+    _verify_public_media_contract(contract, owner_response["hub_public_key_b64"])
+
+    from cryptography.exceptions import InvalidSignature
+
+    tampered_contracts = []
+    for path, value in (
+        (("base_security_contract_digest",), "0" * 64),
+        (("epoch",), contract["epoch"] + 1),
+        (("memberships", 0, "peer_id"), pair["guest_peer_id"]),
+        (("memberships", 1, "device_key_fingerprint"), pair["owner_fingerprint"]),
+        (("slots", 0, "codec"), "pcmu"),
+    ):
+        tampered = json.loads(json.dumps(contract))
+        cursor = tampered
+        for key in path[:-1]:
+            cursor = cursor[key]
+        cursor[path[-1]] = value
+        tampered_contracts.append(tampered)
+
+    for tampered in tampered_contracts:
+        with pytest.raises(InvalidSignature):
+            _verify_public_media_contract(tampered, owner_response["hub_public_key_b64"], check_digest=False)
+        with pytest.raises(AssertionError):
+            _verify_public_media_contract(tampered, owner_response["hub_public_key_b64"])
+
+
+@pytest.mark.parametrize(("owner_version", "guest_version"), [(1, 0), (0, 1), (0, 0)])
+def test_public_media_contract_is_null_unless_both_v2_members_advertise_v1(
+    public_service,
+    owner_version,
+    guest_version,
+):
+    pair = _public_media_pair(
+        public_service,
+        owner_media_version=owner_version,
+        guest_media_version=guest_version,
+    )
+
+    assert pair["owner_packages"]["public_media_security_contract_v1"] is None
+    assert pair["guest_packages"]["public_media_security_contract_v1"] is None
+
+
+def test_public_media_version_is_bound_to_create_and_join_idempotency(public_service):
+    pair = _public_media_pair(public_service, owner_media_version=1, guest_media_version=1)
+    exact = _public_media_capabilities_v1()
+
+    recovered_owner = public_service.create_session(**pair["create_kwargs"])
+    recovered_guest = public_service.join_session(**pair["join_kwargs"])
+    assert recovered_owner["_idempotent"] is True
+    assert recovered_guest["idempotent"] is True
+    with pytest.raises(ValueError, match="membership_capability_conflict"):
+        public_service.create_session(
+            **{
+                **pair["create_kwargs"],
+                "public_media_e2ee_version": 0,
+                "public_media_capabilities": None,
+            }
+        )
+    conflicting_join = public_service.join_session(
+        **{
+            **pair["join_kwargs"],
+            "public_media_e2ee_version": 0,
+            "public_media_capabilities": None,
+        }
+    )
+    assert conflicting_join == {"ok": False, "reason": "public_media_capability_conflict"}
+    assert (
+        public_service.is_owner_create_recovery(
+            account_id=pair["account_id"],
+            device_fingerprint=pair["owner_fingerprint"],
+            membership_capability=pair["owner_capability"],
+            public_media_e2ee_version=0,
+        )
+        is False
+    )
+    assert (
+        public_service.is_join_recovery(
+            invite_code=pair["session"]["invite_code"],
+            account_id=pair["account_id"],
+            device_fingerprint=pair["guest_fingerprint"],
+            membership_capability=pair["guest_capability"],
+            public_media_e2ee_version=0,
+        )
+        is False
+    )
+    assert exact == pair["create_kwargs"]["public_media_capabilities"]
 
 
 def test_v2_rejects_cloned_device_key_and_version_downgrade(public_service):
@@ -999,6 +1222,10 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
                          'legacy-guest', 'offer', '{}', 4)"""
         )
         session_columns = {row[1] for row in conn.execute("PRAGMA table_info(sessions)")}
+        participant_info = {row[1]: row for row in conn.execute("PRAGMA table_info(participants)")}
+        session_media_default = conn.execute(
+            "SELECT public_media_e2ee_version FROM sessions WHERE id = 'legacy-session'"
+        ).fetchone()[0]
         migrated_signal_rows = conn.execute(
             "SELECT sequence FROM signals WHERE id IN ('signal-a', 'signal-b') ORDER BY sent_at, rowid"
         ).fetchall()
@@ -1009,6 +1236,10 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
         confirmation_expiry = conn.execute("SELECT expires_at FROM key_confirmations").fetchone()[0]
 
     assert "identity_binding_version" in session_columns
+    assert "public_media_e2ee_version" in session_columns
+    assert "public_media_e2ee_version" in participant_info
+    assert session_media_default == 0
+    assert participant_info["public_media_e2ee_version"][4] == "0"
     assert migrated_signal_rows == [(1,), (2,)]
     assert rollback_signal_rows == [(0,), (0,)]
     assert "idx_signals_recipient_sequence" not in signal_indexes
@@ -1074,9 +1305,12 @@ def test_migration_rolls_back_schema_and_cursor_changes_together(public_service,
             public_service._migrate_database(conn)
         assert conn.in_transaction is False
         session_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(sessions)")}
+        participant_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(participants)")}
         signal_columns = {str(row["name"]) for row in conn.execute("PRAGMA table_info(signals)")}
 
     assert "identity_binding_version" not in session_columns
+    assert "public_media_e2ee_version" not in session_columns
+    assert "public_media_e2ee_version" not in participant_columns
     assert "sequence" not in signal_columns
 
 
@@ -1319,6 +1553,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     guest_spki, guest_fp = _device_key()
     owner_capability = "H" * 43
     guest_capability = "I" * 43
+    media_capabilities = _public_media_capabilities_v1()
     expires_at = public_app.svc._now() + 600
     client = public_app.app.test_client()
     auth = {"Authorization": "Bearer shared"}
@@ -1338,8 +1573,27 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         "owner_device_id": "owner-device",
         "owner_device_fingerprint": owner_fp,
         "public_key_spki_b64": owner_spki,
+        "public_media_e2ee_version": 1,
+        "public_media_capabilities": media_capabilities,
     }
 
+    info = client.get("/info")
+    missing_media_capabilities = client.post(
+        "/rendezvous/sessions",
+        headers=owner_headers,
+        json={key: value for key, value in create_body.items() if key != "public_media_capabilities"},
+    )
+    reordered_media_grants = client.post(
+        "/rendezvous/sessions",
+        headers=owner_headers,
+        json={
+            **create_body,
+            "public_media_capabilities": {
+                **media_capabilities,
+                "grants": list(reversed(media_capabilities["grants"])),
+            },
+        },
+    )
     created = client.post("/rendezvous/sessions", headers=owner_headers, json=create_body)
     recovered_create = client.post(
         "/rendezvous/sessions",
@@ -1351,11 +1605,20 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     invite_code = created_payload["session"]["invite_code"]
     owner_peer_id = created_payload["local_peer_id"]
     assert created.status_code == 201
+    assert info.get_json()["supported_public_media_e2ee_versions"] == [1]
+    assert (missing_media_capabilities.status_code, missing_media_capabilities.get_json()) == (
+        400,
+        {"error": "public_media_capabilities_invalid"},
+    )
+    assert (reordered_media_grants.status_code, reordered_media_grants.get_json()) == (
+        400,
+        {"error": "public_media_capabilities_invalid"},
+    )
     assert recovered_create.status_code == 200
     assert recovered_create.get_json()["session"]["id"] == session_id
     assert created.headers["Cache-Control"] == "no-store"
     assert "X-Ananta-Membership-Capability" in created.headers["Access-Control-Allow-Headers"]
-    assert "capability" not in json.dumps(created_payload)
+    assert owner_capability not in json.dumps(created_payload)
 
     join_body = {
         "invite_code": invite_code,
@@ -1364,6 +1627,8 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         "device_id": "guest-device",
         "device_fingerprint": guest_fp,
         "public_key_spki_b64": guest_spki,
+        "public_media_e2ee_version": 1,
+        "public_media_capabilities": media_capabilities,
     }
     guest_capability_header = {"X-Ananta-Membership-Capability": guest_capability}
     joined = client.post(
@@ -1382,7 +1647,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     assert recovered_join.status_code == 200
     assert joined.headers["Cache-Control"] == "no-store"
     assert guest_peer_id != owner_peer_id
-    assert "capability" not in json.dumps(joined_payload)
+    assert guest_capability not in json.dumps(joined_payload)
 
     guest_headers = {
         **auth,
@@ -1414,6 +1679,14 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         "X-Ananta-Peer-Id": owner_peer_id,
         "X-Ananta-Membership-Capability": owner_capability,
     }
+    owner_packages = client.get(
+        f"/rendezvous/sessions/{session_id}/security/key-packages",
+        headers=owner_bound_headers,
+    )
+    assert owner_packages.status_code == 200
+    media_contract = owner_packages.get_json()["public_media_security_contract_v1"]
+    assert media_contract["base_security_contract_digest"] == owner_packages.get_json()["security_contract_digest"]
+    _verify_public_media_contract(media_contract, owner_packages.get_json()["hub_public_key_b64"])
     owner_signal = client.post(
         f"/webrtc/sessions/{session_id}/signal",
         headers=owner_bound_headers,
@@ -1511,7 +1784,8 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     assert legacy_payload["data"]["local_peer_id"] == context.account_id
     v2_item = next(item for item in guest_list.get_json()["data"]["items"] if item["identity_binding_version"] == 2)
     assert v2_item["local_peer_id"] == guest_peer_id
-    assert "capability" not in json.dumps(guest_list.get_json())
+    assert owner_capability not in json.dumps(guest_list.get_json())
+    assert guest_capability not in json.dumps(guest_list.get_json())
 
 
 def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path):
@@ -2073,6 +2347,104 @@ def _device_key() -> tuple[str, str]:
         )
     )
     return base64.b64encode(raw).decode("ascii"), hashlib.sha256(raw).hexdigest()
+
+
+def _public_media_capabilities_v1() -> dict:
+    return {
+        "version": 1,
+        "transform": "RTCRtpScriptTransform",
+        "grants": ["microphone-opus", "camera-vp8", "screen-vp8"],
+    }
+
+
+def _public_media_pair(public_service, *, owner_media_version: int, guest_media_version: int) -> dict:
+    subject = f"media-pair-{owner_media_version}-{guest_media_version}"
+    account_id = _peer_id(subject)
+    owner_spki, owner_fp = _device_key()
+    guest_spki, guest_fp = _device_key()
+    owner_capability = "R" * 43
+    guest_capability = "S" * 43
+    exact = _public_media_capabilities_v1()
+    create_kwargs = {
+        "owner_user_id": account_id,
+        "owner_user_sub": subject,
+        "owner_device_id": "media-owner-device",
+        "owner_device_fingerprint": owner_fp,
+        "owner_public_key_spki_b64": owner_spki,
+        "oidc_issuer": "https://issuer",
+        "identity_binding_version": 2,
+        "membership_capability": owner_capability,
+        "public_media_e2ee_version": owner_media_version,
+        "public_media_capabilities": exact if owner_media_version == 1 else None,
+    }
+    session = public_service.create_session(**create_kwargs)
+    join_kwargs = {
+        "invite_code": session["invite_code"],
+        "user_id": account_id,
+        "user_sub": subject,
+        "device_id": "media-guest-device",
+        "device_fingerprint": guest_fp,
+        "public_key_spki_b64": guest_spki,
+        "oidc_issuer": "https://issuer",
+        "expected_identity_binding_version": 2,
+        "membership_capability": guest_capability,
+        "public_media_e2ee_version": guest_media_version,
+        "public_media_capabilities": exact if guest_media_version == 1 else None,
+    }
+    joined = public_service.join_session(**join_kwargs)
+    assert joined["ok"] is True
+    owner_peer_id = session["owner_peer_id"]
+    guest_peer_id = joined["participant"]["peer_id"]
+    owner_packages = public_service.get_key_packages(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=owner_peer_id,
+        membership_capability=owner_capability,
+    )
+    guest_packages = public_service.get_key_packages(
+        session_id=session["id"],
+        requester_user_id=account_id,
+        requester_peer_id=guest_peer_id,
+        membership_capability=guest_capability,
+    )
+    return {
+        "account_id": account_id,
+        "session": session,
+        "joined": joined,
+        "owner_peer_id": owner_peer_id,
+        "guest_peer_id": guest_peer_id,
+        "owner_fingerprint": owner_fp,
+        "guest_fingerprint": guest_fp,
+        "owner_capability": owner_capability,
+        "guest_capability": guest_capability,
+        "create_kwargs": create_kwargs,
+        "join_kwargs": join_kwargs,
+        "owner_packages": owner_packages,
+        "guest_packages": guest_packages,
+    }
+
+
+def _verify_public_media_contract(contract: dict, public_key_b64: str, *, check_digest: bool = True) -> None:
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    signed = dict(contract)
+    signature = base64.b64decode(signed.pop("signature_b64"), validate=True)
+    digest_projection = dict(signed)
+    digest_projection.pop("digest")
+    digest_projection.pop("signature_algorithm")
+    expected_digest = hashlib.sha256(
+        json.dumps(
+            digest_projection,
+            sort_keys=True,
+            separators=(",", ":"),
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+    if check_digest:
+        assert signed["digest"] == expected_digest
+    canonical = json.dumps(signed, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    public_key = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64, validate=True))
+    public_key.verify(signature, canonical)
 
 
 def _verify_package_signature(response: dict) -> None:

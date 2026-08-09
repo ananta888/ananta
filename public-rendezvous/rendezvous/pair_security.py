@@ -2,8 +2,8 @@
 
 The service authenticates membership and device public keys.  It never sees
 the derived ECDH secret or encrypted application payloads. Public audio/video
-publication remains disabled until the Pair key is wired to browser media
-insertable-stream transforms.
+remains disabled unless both peers negotiate the separately signed media-v1
+contract and enforce it through browser encoded-media transforms.
 """
 
 from __future__ import annotations
@@ -20,6 +20,60 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 TENANT_ID = "public-ananta"
+PUBLIC_MEDIA_E2EE_VERSION = 1
+PUBLIC_MEDIA_TRANSFORM = "RTCRtpScriptTransform"
+PUBLIC_MEDIA_GRANTS = (
+    "microphone-opus",
+    "camera-vp8",
+    "screen-vp8",
+)
+PUBLIC_MEDIA_SLOTS = (
+    {"slot": "microphone-opus", "kind": "audio", "codec": "opus"},
+    {"slot": "camera-vp8", "kind": "video", "codec": "vp8"},
+    {"slot": "screen-vp8", "kind": "video", "codec": "vp8"},
+)
+
+
+def public_media_capabilities_v1() -> dict[str, Any]:
+    """Return the one closed capability advertisement supported by v1."""
+    return {
+        "version": PUBLIC_MEDIA_E2EE_VERSION,
+        "transform": PUBLIC_MEDIA_TRANSFORM,
+        "grants": list(PUBLIC_MEDIA_GRANTS),
+    }
+
+
+def normalize_public_media_advertisement(version: Any, capabilities: Any) -> int:
+    """Validate an optional, fail-closed Public Pair media advertisement.
+
+    Version zero is the backward-compatible data-only state. Version one is
+    accepted only together with the complete closed capability object, so a
+    partial or future-shaped request can never accidentally broaden a grant.
+    """
+    normalized_version = 0 if version is None else version
+    if (
+        isinstance(normalized_version, bool)
+        or not isinstance(normalized_version, int)
+        or normalized_version not in {0, PUBLIC_MEDIA_E2EE_VERSION}
+    ):
+        raise ValueError("public_media_e2ee_version_unsupported")
+    if normalized_version == 0:
+        if capabilities is not None:
+            raise ValueError("public_media_capabilities_without_version")
+        return 0
+    if (
+        not isinstance(capabilities, dict)
+        or set(capabilities) != {"version", "transform", "grants"}
+        or type(capabilities.get("version")) is not int
+        or capabilities.get("version") != PUBLIC_MEDIA_E2EE_VERSION
+        or type(capabilities.get("transform")) is not str
+        or capabilities.get("transform") != PUBLIC_MEDIA_TRANSFORM
+        or not isinstance(capabilities.get("grants"), list)
+        or any(type(grant) is not str for grant in capabilities["grants"])
+        or capabilities["grants"] != list(PUBLIC_MEDIA_GRANTS)
+    ):
+        raise ValueError("public_media_capabilities_invalid")
+    return PUBLIC_MEDIA_E2EE_VERSION
 
 
 def canonical(value: Any) -> bytes:
@@ -107,6 +161,53 @@ class PairSecurityAuthority:
             "digest": digest,
             "signature": signature,
             "signature_algorithm": "HMAC-SHA256",
+        }
+
+    def public_media_contract(
+        self,
+        *,
+        session: dict[str, Any],
+        owner: dict[str, Any],
+        guest: dict[str, Any],
+        base_security_contract_digest: str,
+    ) -> dict[str, Any]:
+        """Issue the stable, separately signed Public Pair media contract."""
+        unsigned = {
+            "domain": "ananta.public-pair.media-security-contract.v1",
+            "version": PUBLIC_MEDIA_E2EE_VERSION,
+            "session_id": session["id"],
+            "epoch": int(session["security_epoch"]),
+            "identity_binding_version": 2,
+            "base_security_contract_digest": base_security_contract_digest,
+            "memberships": [
+                {
+                    "membership_id": member["membership_id"],
+                    "membership_version": int(member["membership_version"]),
+                    "peer_id": member["peer_id"],
+                    "device_key_fingerprint": member["fingerprint"],
+                    "public_media_e2ee_version": int(member["public_media_e2ee_version"]),
+                }
+                for member in (owner, guest)
+            ],
+            "grants": list(PUBLIC_MEDIA_GRANTS),
+            "slots": [dict(slot) for slot in PUBLIC_MEDIA_SLOTS],
+            "transform": PUBLIC_MEDIA_TRANSFORM,
+            "algorithms": {
+                "aead": "AES-256-GCM",
+                "kdf": "HKDF-SHA-256",
+            },
+            "expires_at_ms": int(float(session["expires_at"]) * 1000),
+            "authority_key_id": self.key_id,
+        }
+        digest = hashlib.sha256(canonical(unsigned)).hexdigest()
+        signed = {
+            **unsigned,
+            "digest": digest,
+            "signature_algorithm": "Ed25519",
+        }
+        return {
+            **signed,
+            "signature_b64": base64.b64encode(self._private_key.sign(canonical(signed))).decode("ascii"),
         }
 
     def key_package(

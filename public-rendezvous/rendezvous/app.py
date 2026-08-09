@@ -170,6 +170,7 @@ def info():
             "turn_urls": cfg.TURN_URLS,
             "session_max_minutes": cfg.SESSION_MAX_DURATION_SECONDS // 60,
             "supported_identity_binding_versions": [1, 2],
+            "supported_public_media_e2ee_versions": [1],
         }
     ), 200
 
@@ -198,6 +199,8 @@ def create_session():
             "owner_device_id",
             "owner_device_fingerprint",
             "identity_binding_version",
+            "public_media_e2ee_version",
+            "public_media_capabilities",
         }
     )
     if body_error:
@@ -217,6 +220,15 @@ def create_session():
         or identity_binding_version not in {1, 2}
     ):
         return jsonify({"error": "identity_binding_version_unsupported"}), 400
+    try:
+        public_media_e2ee_version = svc.normalize_public_media_advertisement(
+            body.get("public_media_e2ee_version"),
+            body.get("public_media_capabilities"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if public_media_e2ee_version and identity_binding_version != 2:
+        return jsonify({"error": "public_media_identity_binding_v2_required"}), 400
     device_fp = str(body.get("owner_device_fingerprint") or "").strip()
     device_id = str(body.get("owner_device_id") or "").strip()
     public_key = str(body.get("public_key_spki_b64") or "").strip()
@@ -231,6 +243,7 @@ def create_session():
             account_id=ctx.account_id,
             device_fingerprint=device_fp,
             membership_capability=membership_capability,
+            public_media_e2ee_version=public_media_e2ee_version,
         )
     if not is_recovery and not svc._rate_check(
         "create",
@@ -259,6 +272,8 @@ def create_session():
             requested_expires_at=requested_expires_at,
             identity_binding_version=identity_binding_version,
             membership_capability=membership_capability,
+            public_media_e2ee_version=public_media_e2ee_version,
+            public_media_capabilities=body.get("public_media_capabilities"),
         )
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
@@ -326,6 +341,8 @@ def _join_session_by_invite(*, expected_session_id: str):
             "device_id",
             "device_fingerprint",
             "identity_binding_version",
+            "public_media_e2ee_version",
+            "public_media_capabilities",
         }
     )
     if body_error:
@@ -340,6 +357,15 @@ def _join_session_by_invite(*, expected_session_id: str):
         or expected_identity_binding_version not in {1, 2}
     ):
         return jsonify({"error": "identity_binding_version_unsupported"}), 400
+    try:
+        public_media_e2ee_version = svc.normalize_public_media_advertisement(
+            body.get("public_media_e2ee_version"),
+            body.get("public_media_capabilities"),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    if public_media_e2ee_version and expected_identity_binding_version != 2:
+        return jsonify({"error": "public_media_identity_binding_v2_required"}), 400
     invite_code = str(body.get("invite_code") or "").strip()
     membership_capability = _membership_capability()
     is_recovery = False
@@ -351,6 +377,7 @@ def _join_session_by_invite(*, expected_session_id: str):
             account_id=ctx.account_id,
             device_fingerprint=str(body.get("device_fingerprint") or "").strip(),
             membership_capability=membership_capability,
+            public_media_e2ee_version=public_media_e2ee_version,
         )
     # OIDC account identity, never forwarding headers, owns the abuse bucket.
     if not is_recovery and not svc._rate_check(
@@ -373,6 +400,8 @@ def _join_session_by_invite(*, expected_session_id: str):
         expected_session_id=expected_session_id,
         membership_capability=membership_capability,
         expected_identity_binding_version=expected_identity_binding_version,
+        public_media_e2ee_version=public_media_e2ee_version,
+        public_media_capabilities=body.get("public_media_capabilities"),
     )
     if not result.get("ok"):
         reason = result["reason"]
