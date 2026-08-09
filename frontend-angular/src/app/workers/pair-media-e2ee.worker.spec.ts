@@ -100,6 +100,59 @@ describe('pair media E2EE worker', () => {
       harness.restore();
     }
   });
+
+  it('drops an empty codec callback without poisoning any keyed slot', async () => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+
+      harness.controllers.get(ids[0])?.enqueue({ data: new ArrayBuffer(0), type: 'audio' });
+      await settle(8);
+
+      expect(harness.output.get(ids[0])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
+
+  it('decrypts VP8 from its authenticated prefix when the receiver metadata is reclassified', async () => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      const entries = await installEntries(ids);
+      // Camera send/receive use the same exact direction key only in this
+      // loopback harness. Production installs inverse peer directions.
+      entries[3] = { ...entries[3], key: entries[2].key, context: entries[2].context };
+      harness.message({ version: 1, type: 'install-keys', sessionId: 'session-a', entries });
+      await settle(6);
+
+      const plaintext = Uint8Array.of(
+        0x10, 0x00, 0x00, 0x9d, 0x01, 0x2a, 0x80, 0x02, 0xe0, 0x01, 0xaa, 0xbb,
+      ).buffer;
+      harness.controllers.get(ids[2])?.enqueue({ data: plaintext.slice(0), type: 'key' });
+      await waitForOutput(harness, ids[2]);
+      const encrypted = harness.output.get(ids[2])?.[0];
+      expect(encrypted).toBeDefined();
+
+      harness.controllers.get(ids[3])?.enqueue({
+        data: encrypted.data.slice(0),
+        // Firefox can report delta here even when Chromium sent a key frame.
+        type: 'delta',
+      });
+      await waitForOutput(harness, ids[3]);
+
+      expect(harness.output.get(ids[3])?.[0]?.data).toEqual(plaintext);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
 });
 
 async function createHarness(): Promise<WorkerHarness> {
@@ -169,6 +222,13 @@ async function installEntries(ids: readonly string[]): Promise<any[]> {
 
 async function settle(turns = 3): Promise<void> {
   for (let index = 0; index < turns; index += 1) await Promise.resolve();
+}
+
+async function waitForOutput(harness: WorkerHarness, transformId: string): Promise<void> {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    if (harness.output.get(transformId)?.length) return;
+    await new Promise(resolve => setTimeout(resolve, 0));
+  }
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {

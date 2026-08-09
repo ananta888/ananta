@@ -1,6 +1,7 @@
 import type { FinalStrictPairSecurityContractV1 } from './webrtc-security-negotiation';
 import type { SignedPeerKeyPackage } from './webrtc-peer-key.service';
 import { canonicalSecurityJson, decodeB64 } from './webrtc-secure-envelope';
+import { PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 } from './pair-media-frame-format';
 
 export const PUBLIC_PAIR_MEDIA_GRANTS = Object.freeze([
   'microphone-opus',
@@ -19,31 +20,33 @@ export type PublicPairMediaSlot = typeof PUBLIC_PAIR_MEDIA_SLOTS[number]['slot']
 export type PublicPairMediaKind = typeof PUBLIC_PAIR_MEDIA_SLOTS[number]['kind'];
 export type PublicPairMediaCodec = typeof PUBLIC_PAIR_MEDIA_SLOTS[number]['codec'];
 
-export const PUBLIC_PAIR_MEDIA_CAPABILITIES_V1 = Object.freeze({
-  version: 1 as const,
+export const PUBLIC_PAIR_MEDIA_CAPABILITIES_V2 = Object.freeze({
+  version: 2 as const,
   transform: 'RTCRtpScriptTransform' as const,
+  frame_format: PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2,
   grants: PUBLIC_PAIR_MEDIA_GRANTS,
 });
 
-export interface PublicPairMediaMembershipV1 {
+export interface PublicPairMediaMembershipV2 {
   readonly membership_id: string;
   readonly membership_version: number;
   readonly peer_id: string;
   readonly device_key_fingerprint: string;
-  readonly public_media_e2ee_version: 1;
+  readonly public_media_e2ee_version: 2;
 }
 
-export interface PublicPairMediaSecurityContractV1 {
-  readonly domain: 'ananta.public-pair.media-security-contract.v1';
-  readonly version: 1;
+export interface PublicPairMediaSecurityContractV2 {
+  readonly domain: 'ananta.public-pair.media-security-contract.v2';
+  readonly version: 2;
   readonly session_id: string;
   readonly epoch: number;
   readonly identity_binding_version: 2;
   readonly base_security_contract_digest: string;
-  readonly memberships: readonly [PublicPairMediaMembershipV1, PublicPairMediaMembershipV1];
+  readonly memberships: readonly [PublicPairMediaMembershipV2, PublicPairMediaMembershipV2];
   readonly grants: typeof PUBLIC_PAIR_MEDIA_GRANTS;
   readonly slots: typeof PUBLIC_PAIR_MEDIA_SLOTS;
   readonly transform: 'RTCRtpScriptTransform';
+  readonly frame_format: typeof PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2;
   readonly algorithms: Readonly<{ aead: 'AES-256-GCM'; kdf: 'HKDF-SHA-256' }>;
   readonly expires_at_ms: number;
   readonly authority_key_id: string;
@@ -72,7 +75,7 @@ export class PublicPairMediaContractError extends Error {
 const CONTRACT_FIELDS = [
   'domain', 'version', 'session_id', 'epoch', 'identity_binding_version',
   'base_security_contract_digest', 'memberships', 'grants', 'slots', 'transform',
-  'algorithms', 'expires_at_ms', 'authority_key_id', 'digest',
+  'frame_format', 'algorithms', 'expires_at_ms', 'authority_key_id', 'digest',
   'signature_algorithm', 'signature_b64',
 ] as const;
 const MEMBERSHIP_FIELDS = [
@@ -85,20 +88,21 @@ const IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/;
 const DEVICE_PEER_RE = /^peer:[a-f0-9]{64}$/;
 
 /**
- * Validate the separately signed Public Pair media grant. The base Pair v1
+ * Validate the separately signed Public Pair media-v2 grant. The base Pair v1
  * contract deliberately remains data-only; this authority-signed object is
  * the sole additive authorization for encoded audio/video frames.
  */
 export async function validatePublicPairMediaSecurityContract(
   raw: unknown,
   options: PublicPairMediaContractValidationOptions,
-): Promise<PublicPairMediaSecurityContractV1> {
+): Promise<PublicPairMediaSecurityContractV2> {
   const value = closedObject(raw, CONTRACT_FIELDS, 'public_media_contract_fields_invalid');
   if (
-    value['domain'] !== 'ananta.public-pair.media-security-contract.v1'
-    || value['version'] !== 1
+    value['domain'] !== 'ananta.public-pair.media-security-contract.v2'
+    || value['version'] !== 2
     || value['identity_binding_version'] !== 2
     || value['transform'] !== 'RTCRtpScriptTransform'
+    || value['frame_format'] !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
     || value['signature_algorithm'] !== 'Ed25519'
   ) throw new PublicPairMediaContractError('public_media_contract_version_invalid');
   if (
@@ -144,7 +148,7 @@ export async function validatePublicPairMediaSecurityContract(
   }
   await verifyAuthoritySignature(value, options);
   return Object.freeze({
-    ...(value as unknown as PublicPairMediaSecurityContractV1),
+    ...(value as unknown as PublicPairMediaSecurityContractV2),
     memberships,
     grants: PUBLIC_PAIR_MEDIA_GRANTS,
     slots: PUBLIC_PAIR_MEDIA_SLOTS,
@@ -155,7 +159,7 @@ export async function validatePublicPairMediaSecurityContract(
 function validateMemberships(
   raw: unknown,
   options: PublicPairMediaContractValidationOptions,
-): readonly [PublicPairMediaMembershipV1, PublicPairMediaMembershipV1] {
+): readonly [PublicPairMediaMembershipV2, PublicPairMediaMembershipV2] {
   if (!Array.isArray(raw) || raw.length !== 2) {
     throw new PublicPairMediaContractError('public_media_contract_memberships_invalid');
   }
@@ -169,10 +173,10 @@ function validateMemberships(
       || !DIGEST_RE.test(String(value['device_key_fingerprint'] ?? ''))
       || !Number.isSafeInteger(value['membership_version'])
       || (value['membership_version'] as number) < 1
-      || value['public_media_e2ee_version'] !== 1
+      || value['public_media_e2ee_version'] !== 2
     ) throw new PublicPairMediaContractError('public_media_contract_memberships_invalid');
-    return Object.freeze(value as unknown as PublicPairMediaMembershipV1);
-  }) as [PublicPairMediaMembershipV1, PublicPairMediaMembershipV1];
+    return Object.freeze(value as unknown as PublicPairMediaMembershipV2);
+  }) as [PublicPairMediaMembershipV2, PublicPairMediaMembershipV2];
   const expectedMembershipOrder = [
     options.baseContract.offer.sender_id,
     options.baseContract.offer.recipient_id,

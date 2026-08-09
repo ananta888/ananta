@@ -10,7 +10,7 @@ import { PairSecureSequenceService } from './pair-secure-sequence.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
 import {
   PUBLIC_PAIR_MEDIA_SLOTS,
-  PublicPairMediaSecurityContractV1,
+  PublicPairMediaSecurityContractV2,
 } from './public-pair-media-security-contract';
 import { SemanticDataChannelMessage } from './webrtc-datachannel.service';
 import { VerifiedPeerBinding, WebrtcPeerKeyService } from './webrtc-peer-key.service';
@@ -65,6 +65,23 @@ describe('PairMediaE2eeCoordinatorService', () => {
       expect(ownerSlot.sendContext).toEqual(guestSlot.receiveContext);
       expect(ownerSlot.sendContext.connectionId).toBe(ownerSlot.receiveContext.connectionId);
     }
+  });
+
+  it('binds the exact v2 frame format into the encrypted bilateral hello', async () => {
+    const owner = node('peer:owner', 'peer:guest');
+    bindSink(owner);
+    prepareNegotiation(owner);
+
+    void owner.coordinator.activate('session-a');
+    await settle(6);
+
+    const hello = decodeControl(owner.outbound[0]);
+    expect(hello).toMatchObject({
+      schema: 'ananta.public-pair.media-hello.v2',
+      kind: 'hello',
+      frame_format: 'ananta.public-pair.media-frame.v2',
+      media_contract_digest: 'a'.repeat(64),
+    });
   });
 
   it('returns genuine failure immediately but resolves deactivate as inactive', async () => {
@@ -320,15 +337,25 @@ class TransparentEncryption {
   }
 }
 
-function contract(expiresAtMs: number): PublicPairMediaSecurityContractV1 {
+function contract(expiresAtMs: number): PublicPairMediaSecurityContractV2 {
   return {
+    domain: 'ananta.public-pair.media-security-contract.v2', version: 2,
     session_id: 'session-a', epoch: 7, digest: 'a'.repeat(64), expires_at_ms: expiresAtMs,
     transform: 'RTCRtpScriptTransform',
-  } as PublicPairMediaSecurityContractV1;
+    frame_format: 'ananta.public-pair.media-frame.v2',
+  } as PublicPairMediaSecurityContractV2;
 }
 
 function countControl(value: CoordinatorNode, kind: 'hello' | 'hello_ack'): number {
   return value.sent.filter(message => message.message_id.includes(`pair-media-${kind}-`)).length;
+}
+
+function decodeControl(message: SemanticDataChannelMessage | undefined): Record<string, unknown> {
+  if (!message) throw new Error('test_control_message_missing');
+  const envelope = JSON.parse(new TextDecoder().decode(decodeB64(message.ciphertext))) as {
+    ciphertext_b64: string;
+  };
+  return JSON.parse(new TextDecoder().decode(decodeB64(envelope.ciphertext_b64))) as Record<string, unknown>;
 }
 
 async function settle(turns = 3): Promise<void> {

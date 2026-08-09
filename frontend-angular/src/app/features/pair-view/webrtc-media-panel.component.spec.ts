@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { TestBed } from '@angular/core/testing';
 
 import { WebrtcMediaPanelComponent } from './webrtc-media-panel.component';
 
@@ -18,5 +19,18 @@ describe('WebrtcMediaPanelComponent Public Pair reasons', () => {
   it('keeps unknown codes visible under a Pair-authority fallback label', () => {
     expect(new WebrtcMediaPanelComponent().reasonLabel('media_e2ee_future_failure'))
       .toBe('Medienstatus der Pair-Autorität oder des Browsers:');
+  });
+
+  it('keeps the latest capture outcome observable while capture remains enabled', () => {
+    TestBed.configureTestingModule({ imports: [WebrtcMediaPanelComponent] });
+    const fixture = TestBed.createComponent(WebrtcMediaPanelComponent);
+    fixture.componentRef.setInput('captureEnabled', true);
+    fixture.componentRef.setInput('videoCaptureEnabled', true);
+    fixture.componentRef.setInput('captureReason', 'screen_active');
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="ordinary-media-operation-status"]')?.textContent)
+      .toContain('screen_active');
   });
 });

@@ -25,6 +25,9 @@ import { WebrtcRemoteVideoComponent } from './webrtc-remote-video.component';
       @if (!captureEnabled || !videoCaptureEnabled) {
         <p role="note">{{ reasonLabel(captureReason) }} <code>{{ captureReason }}</code></p>
       }
+      <p class="notice" role="status" data-testid="ordinary-media-operation-status">
+        Letzter Medienstatus: <code>{{ captureReason }}</code>
+      </p>
       <article data-source="microphone" [attr.data-status]="audioState.status">
         <strong>Mikrofon</strong>
         <span>{{ statusLabel(audioState.status) }}</span>

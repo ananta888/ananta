@@ -4,7 +4,7 @@ import { BehaviorSubject, firstValueFrom } from 'rxjs';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { E2eEncryptionService } from './e2e-encryption.service';
 import {
-  PublicPairMediaSecurityContractV1,
+  PublicPairMediaSecurityContractV2,
   validatePublicPairMediaSecurityContract,
 } from './public-pair-media-security-contract';
 import type { ShareSession } from './share-session.service';
@@ -40,8 +40,10 @@ interface KeyPackageResponse {
   local_peer_id?: string;
   /** Local device package addressed to the remote peer (opposite direction). */
   local_package_id?: string | null;
-  /** Present only when both Public Pair memberships advertised exact v1 media support. */
-  public_media_security_contract_v1?: PublicPairMediaSecurityContractV1 | null;
+  /** Legacy media-v1 projection is deliberately never an execution authority. */
+  public_media_security_contract_v1?: unknown;
+  /** Present only when both Public Pair memberships advertised exact v2 media support. */
+  public_media_security_contract_v2?: PublicPairMediaSecurityContractV2 | null;
 }
 
 interface KeyConfirmation {
@@ -64,7 +66,7 @@ export class PairViewSecurityBootstrapService {
   private lastConfirmationRefreshAt = 0;
   private generation = 0;
   private activeBootstrapKey = '';
-  private readonly mediaContracts = new Map<string, PublicPairMediaSecurityContractV1>();
+  private readonly mediaContracts = new Map<string, PublicPairMediaSecurityContractV2>();
   currentEpoch = 0;
 
   readonly state$ = new BehaviorSubject<PairSecurityBootstrapState>({ status: 'idle' });
@@ -80,7 +82,7 @@ export class PairViewSecurityBootstrapService {
   }
 
   /** Returns only a currently verified, authority-signed media extension. */
-  mediaContractFor(sessionId: string): Readonly<PublicPairMediaSecurityContractV1> | null {
+  mediaContractFor(sessionId: string): Readonly<PublicPairMediaSecurityContractV2> | null {
     const contract = this.mediaContracts.get(sessionId);
     const binding = this.peerKeys.currentBinding;
     return contract
@@ -180,15 +182,18 @@ export class PairViewSecurityBootstrapService {
       if (contract.digest !== response.security_contract_digest) {
         throw new Error('security_contract_digest_mismatch');
       }
-      let mediaContract: PublicPairMediaSecurityContractV1 | null = null;
-      if (response.public_media_security_contract_v1 != null) {
+      let mediaContract: PublicPairMediaSecurityContractV2 | null = null;
+      if (response.public_media_security_contract_v2 != null) {
+        if (response.public_media_security_contract_v1 != null) {
+          throw new Error('public_media_contract_version_mixed');
+        }
         if (!publicSession || !response.local_membership_id) {
           throw new Error('public_media_contract_authority_invalid');
         }
         const localDevice = await this.encryption.ensureLocalKeyPair();
         if (generation !== this.generation) return false;
         mediaContract = await validatePublicPairMediaSecurityContract(
-          response.public_media_security_contract_v1,
+          response.public_media_security_contract_v2,
           {
             sessionId: session.id,
             epoch: response.epoch,
@@ -290,7 +295,7 @@ export class PairViewSecurityBootstrapService {
 
   private replaceMediaContract(
     sessionId: string,
-    contract: PublicPairMediaSecurityContractV1 | null,
+    contract: PublicPairMediaSecurityContractV2 | null,
   ): void {
     if (contract) this.mediaContracts.set(sessionId, contract);
     else this.mediaContracts.delete(sessionId);

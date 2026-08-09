@@ -1,9 +1,10 @@
 import { Injectable, InjectionToken, inject } from '@angular/core';
 
 import type { PairMediaE2eeFrameContext } from './pair-media-e2ee-frame-codec';
+import { PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2 } from './pair-media-frame-format';
 import {
   PUBLIC_PAIR_MEDIA_SLOTS,
-  PublicPairMediaSecurityContractV1,
+  PublicPairMediaSecurityContractV2,
   PublicPairMediaSlot,
 } from './public-pair-media-security-contract';
 
@@ -90,15 +91,18 @@ export class PairMediaE2eeTransformAdapter {
   async prepareSession(
     peer: RTCPeerConnection,
     sessionId: string,
-    contract: Readonly<PublicPairMediaSecurityContractV1>,
+    contract: Readonly<PublicPairMediaSecurityContractV2>,
     onFatal: (reasonCode: string) => void,
     role: 'offerer' | 'answerer' = 'offerer',
   ): Promise<number> {
     if (
       !sessionId
+      || contract.version !== 2
+      || contract.domain !== 'ananta.public-pair.media-security-contract.v2'
       || contract.session_id !== sessionId
       || contract.expires_at_ms <= Date.now()
       || contract.transform !== 'RTCRtpScriptTransform'
+      || contract.frame_format !== PUBLIC_PAIR_MEDIA_FRAME_FORMAT_V2
     ) throw new Error('public_media_contract_not_ready');
     if (
       this.active?.sessionId === sessionId

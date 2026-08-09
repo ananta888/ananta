@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
 
-import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V1 } from './public-pair-media-security-contract';
+import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V2 } from './public-pair-media-security-contract';
 
-export interface PublicPairMediaMembershipAdvertisementV1 {
-  readonly public_media_e2ee_version: 1;
-  readonly public_media_capabilities: typeof PUBLIC_PAIR_MEDIA_CAPABILITIES_V1;
+export interface PublicPairMediaMembershipAdvertisementV2 {
+  readonly public_media_e2ee_version: 2;
+  readonly public_media_capabilities: typeof PUBLIC_PAIR_MEDIA_CAPABILITIES_V2;
 }
 
 /** Runtime surface required by the standards-only first Public Pair slice. */
@@ -30,11 +30,11 @@ export class PublicPairMediaRuntimeCapabilityService {
     return supportsPublicPairMediaRuntime(globalThis as EncodedTransformRuntime);
   }
 
-  membershipAdvertisement(): PublicPairMediaMembershipAdvertisementV1 | null {
+  membershipAdvertisement(): PublicPairMediaMembershipAdvertisementV2 | null {
     if (!this.supported()) return null;
     return Object.freeze({
-      public_media_e2ee_version: 1,
-      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+      public_media_e2ee_version: 2,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V2,
     });
   }
 }

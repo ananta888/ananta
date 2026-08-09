@@ -8,7 +8,7 @@ import { PairMediaE2eeTransformAdapter } from './pair-media-e2ee-transform.adapt
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
-import { PublicPairMediaSecurityContractV1 } from './public-pair-media-security-contract';
+import { PublicPairMediaSecurityContractV2 } from './public-pair-media-security-contract';
 import { WebrtcChunkReassemblyStore } from './webrtc-chunk-reassembly.store';
 import {
   SEMANTIC_DC_VERSION,
@@ -312,13 +312,17 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     const channel = dataChannel();
     peer.ondatachannel?.({ channel } as RTCDataChannelEvent);
     const helloGate = deferred<void>();
+    const helloEntered = deferred<void>();
+    const ackEntered = deferred<void>();
     const seen: string[] = [];
     coordinator.acceptSemantic.mockImplementationOnce(async message => {
       seen.push(message.message_id);
+      helloEntered.resolve(undefined);
       await helloGate.promise;
       return true;
     }).mockImplementationOnce(async message => {
       seen.push(message.message_id);
+      ackEntered.resolve(undefined);
       return true;
     });
     const [hello, ack] = await Promise.all([
@@ -328,11 +332,11 @@ describe('WebrtcSessionService Public media lifecycle', () => {
 
     channel.onmessage?.({ data: hello } as MessageEvent);
     channel.onmessage?.({ data: ack } as MessageEvent);
-    await settleCrypto();
+    await helloEntered.promise;
     expect(seen).toEqual(['pair-media-hello-test']);
 
     helloGate.resolve(undefined);
-    await settleCrypto(4);
+    await ackEntered.promise;
     expect(seen).toEqual(['pair-media-hello-test', 'pair-media-hello_ack-test']);
   });
 
@@ -545,11 +549,13 @@ class CoordinatorMock {
   statusFor(sessionId: string): any { return { sessionId, state: 'inactive' }; }
 }
 
-function contract(): PublicPairMediaSecurityContractV1 {
+function contract(): PublicPairMediaSecurityContractV2 {
   return {
+    domain: 'ananta.public-pair.media-security-contract.v2', version: 2,
     session_id: 'session-a', epoch: 7, digest: 'a'.repeat(64),
     expires_at_ms: Date.now() + 60_000, transform: 'RTCRtpScriptTransform',
-  } as PublicPairMediaSecurityContractV1;
+    frame_format: 'ananta.public-pair.media-frame.v2',
+  } as PublicPairMediaSecurityContractV2;
 }
 
 function offer(): SignalMessage {

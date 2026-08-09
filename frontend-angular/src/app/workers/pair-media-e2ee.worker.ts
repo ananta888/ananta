@@ -70,13 +70,15 @@ workerScope.onrtctransform = event => {
       // DROP-first: not one encoded byte leaves the transform before a
       // direction/slot/connection key is installed and acknowledged.
       if (!state.key || !state.cipher || state.failed) return;
+      // Codec DTX/empty callbacks contain no media byte and cannot carry the
+      // authenticated clear codec prefix required by frame-format v2.
+      if (frame.data.byteLength === 0) return;
       try {
         const key = state.key;
         const cipher = state.cipher;
-        const frameType = frame.type ?? (cipher.context.kind === 'audio' ? 'audio' : 'delta');
         const transformed = state.operation === 'encrypt'
-          ? await cipher.seal(key, copyBuffer(frame.data), frameType)
-          : await cipher.open(key, copyBuffer(frame.data), frameType);
+          ? await cipher.seal(key, copyBuffer(frame.data))
+          : await cipher.open(key, copyBuffer(frame.data));
         // Another slot can poison the worker while WebCrypto is in flight.
         // Recheck the global and exact local generation before publication.
         if (poisoned || state.failed || state.key !== key || state.cipher !== cipher) return;

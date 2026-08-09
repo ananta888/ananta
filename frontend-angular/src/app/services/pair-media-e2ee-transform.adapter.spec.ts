@@ -7,7 +7,7 @@ import {
 } from './pair-media-e2ee-transform.adapter';
 import {
   PUBLIC_PAIR_MEDIA_SLOTS,
-  PublicPairMediaSecurityContractV1,
+  PublicPairMediaSecurityContractV2,
 } from './public-pair-media-security-contract';
 
 class FakeWorker {
@@ -281,11 +281,13 @@ describe('PairMediaE2eeTransformAdapter', () => {
   });
 });
 
-function contract(): PublicPairMediaSecurityContractV1 {
+function contract(): PublicPairMediaSecurityContractV2 {
   return {
+    domain: 'ananta.public-pair.media-security-contract.v2', version: 2,
     session_id: 'session-a', epoch: 7, digest: 'a'.repeat(64),
     expires_at_ms: 2_000_000_000_000, transform: 'RTCRtpScriptTransform',
-  } as PublicPairMediaSecurityContractV1;
+    frame_format: 'ananta.public-pair.media-frame.v2',
+  } as PublicPairMediaSecurityContractV2;
 }
 
 async function keySets(): Promise<readonly PublicPairMediaSlotKeySet[]> {
