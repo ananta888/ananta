@@ -2,6 +2,11 @@ import { Injectable, inject } from '@angular/core';
 import { BehaviorSubject, firstValueFrom } from 'rxjs';
 
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { E2eEncryptionService } from './e2e-encryption.service';
+import {
+  PublicPairMediaSecurityContractV1,
+  validatePublicPairMediaSecurityContract,
+} from './public-pair-media-security-contract';
 import type { ShareSession } from './share-session.service';
 import { SignedPeerKeyPackage, WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import {
@@ -35,6 +40,8 @@ interface KeyPackageResponse {
   local_peer_id?: string;
   /** Local device package addressed to the remote peer (opposite direction). */
   local_package_id?: string | null;
+  /** Present only when both Public Pair memberships advertised exact v1 media support. */
+  public_media_security_contract_v1?: PublicPairMediaSecurityContractV1 | null;
 }
 
 interface KeyConfirmation {
@@ -51,10 +58,13 @@ interface KeyConfirmation {
 export class PairViewSecurityBootstrapService {
   private readonly controlPlane = inject(PairSessionControlPlaneService);
   private readonly peerKeys = inject(WebrtcPeerKeyService);
+  private readonly encryption = inject(E2eEncryptionService);
   private inFlight: { key: string; promise: Promise<boolean> } | null = null;
   private lastPackageId = '';
   private lastConfirmationRefreshAt = 0;
   private generation = 0;
+  private activeBootstrapKey = '';
+  private readonly mediaContracts = new Map<string, PublicPairMediaSecurityContractV1>();
   currentEpoch = 0;
 
   readonly state$ = new BehaviorSubject<PairSecurityBootstrapState>({ status: 'idle' });
@@ -69,9 +79,30 @@ export class PairViewSecurityBootstrapService {
     return binding?.confirmed ? binding.remotePeerId : '';
   }
 
+  /** Returns only a currently verified, authority-signed media extension. */
+  mediaContractFor(sessionId: string): Readonly<PublicPairMediaSecurityContractV1> | null {
+    const contract = this.mediaContracts.get(sessionId);
+    const binding = this.peerKeys.currentBinding;
+    return contract
+      && binding?.confirmed
+      && binding.scopeId === sessionId
+      && binding.epoch === contract.epoch
+      ? contract : null;
+  }
+
   ensure(session: ShareSession, localPeerId: string): Promise<boolean> {
     const key = `${session.id}:${session.security_epoch ?? 0}:${localPeerId}`;
     if (this.inFlight?.key === key) return this.inFlight.promise;
+    if (this.activeBootstrapKey && this.activeBootstrapKey !== key) {
+      // An old same-session epoch must not remain available while its
+      // replacement is being verified asynchronously.
+      this.mediaContracts.clear();
+      this.peerKeys.clear();
+      this.currentEpoch = 0;
+      this.lastPackageId = '';
+      this.lastConfirmationRefreshAt = 0;
+    }
+    this.activeBootstrapKey = key;
     const generation = ++this.generation;
     const promise = this.run(session, localPeerId, generation).finally(() => {
       if (this.inFlight?.promise === promise) this.inFlight = null;
@@ -91,6 +122,8 @@ export class PairViewSecurityBootstrapService {
     this.lastPackageId = '';
     this.lastConfirmationRefreshAt = 0;
     this.currentEpoch = 0;
+    this.activeBootstrapKey = '';
+    this.mediaContracts.clear();
     this.peerKeys.clear();
     this.state$.next({ status: 'legacy' });
   }
@@ -101,6 +134,8 @@ export class PairViewSecurityBootstrapService {
     this.lastPackageId = '';
     this.lastConfirmationRefreshAt = 0;
     this.currentEpoch = 0;
+    this.activeBootstrapKey = '';
+    this.mediaContracts.clear();
     this.peerKeys.clear();
     this.state$.next({ status: 'idle' });
   }
@@ -128,6 +163,7 @@ export class PairViewSecurityBootstrapService {
         this.lastPackageId = '';
         this.lastConfirmationRefreshAt = 0;
         this.peerKeys.clear();
+        this.mediaContracts.delete(session.id);
         this.state$.next({ status: 'waiting_for_peer' });
         return false;
       }
@@ -144,6 +180,30 @@ export class PairViewSecurityBootstrapService {
       if (contract.digest !== response.security_contract_digest) {
         throw new Error('security_contract_digest_mismatch');
       }
+      let mediaContract: PublicPairMediaSecurityContractV1 | null = null;
+      if (response.public_media_security_contract_v1 != null) {
+        if (!publicSession || !response.local_membership_id) {
+          throw new Error('public_media_contract_authority_invalid');
+        }
+        const localDevice = await this.encryption.ensureLocalKeyPair();
+        if (generation !== this.generation) return false;
+        mediaContract = await validatePublicPairMediaSecurityContract(
+          response.public_media_security_contract_v1,
+          {
+            sessionId: session.id,
+            epoch: response.epoch,
+            localPeerId,
+            localMembershipId: response.local_membership_id,
+            localDeviceFingerprint: localDevice.fingerprint,
+            remotePackage: peerPackage,
+            baseContract: contract,
+            authorityKeyId: response.hub_key_id,
+            authorityPublicKeyB64: response.hub_public_key_b64,
+          },
+        );
+        if (generation !== this.generation) return false;
+      }
+      if (generation !== this.generation) return false;
       const priorBinding = this.peerKeys.currentBinding;
       const current = await this.peerKeys.verifyAndRefreshBinding(peerPackage, {
         hubPublicKeyB64: response.hub_public_key_b64,
@@ -153,12 +213,14 @@ export class PairViewSecurityBootstrapService {
         expectedEpoch: response.epoch,
         localPeerId,
         contractDigest: contract.digest,
-      });
+      }, () => generation === this.generation);
+      if (generation !== this.generation) return false;
       this.lastPackageId = peerPackage.package_id;
       if (priorBinding !== current) {
         this.lastConfirmationRefreshAt = 0;
       }
       if (current.confirmed && Date.now() - this.lastConfirmationRefreshAt < CONFIRMATION_REFRESH_MS) {
+        this.replaceMediaContract(session.id, mediaContract);
         this.state$.next({ status: 'ready', fingerprint: current.peerFingerprint });
         return true;
       }
@@ -207,8 +269,11 @@ export class PairViewSecurityBootstrapService {
         current.epoch,
         publicSession,
       );
+      if (generation !== this.generation) return false;
       await this.peerKeys.acceptPeerConfirmation(verifiedConfirmation.confirmation_tag);
+      if (generation !== this.generation) return false;
       this.lastConfirmationRefreshAt = Date.now();
+      this.replaceMediaContract(session.id, mediaContract);
       this.state$.next({ status: 'ready', fingerprint: current.peerFingerprint });
       return true;
     } catch (error) {
@@ -217,9 +282,18 @@ export class PairViewSecurityBootstrapService {
       const reasonCode = typeof responseCode === 'string'
         ? responseCode
         : error instanceof Error ? error.message : 'security_bootstrap_failed';
+      this.mediaContracts.delete(session.id);
       this.state$.next({ status: 'failed', reasonCode });
       return false;
     }
+  }
+
+  private replaceMediaContract(
+    sessionId: string,
+    contract: PublicPairMediaSecurityContractV1 | null,
+  ): void {
+    if (contract) this.mediaContracts.set(sessionId, contract);
+    else this.mediaContracts.delete(sessionId);
   }
 }
 

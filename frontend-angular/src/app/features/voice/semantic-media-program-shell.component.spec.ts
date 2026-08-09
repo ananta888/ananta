@@ -162,6 +162,51 @@ describe("SemanticMediaProgramShellComponent", () => {
     ).toContain("Offline");
   });
 
+  it("routes Public Pair ordinary-media activation without treating Hub offline as authority loss", () => {
+    const emitted: any[] = [];
+    fixture.componentInstance.intent.subscribe(value => emitted.push(value));
+    fixture.componentRef.setInput("displayMode", "pair_media");
+    fixture.componentRef.setInput("online", false);
+    fixture.componentRef.setInput("ordinaryMediaAuthority", "public");
+    fixture.componentRef.setInput("ordinaryMediaActivationEnabled", true);
+    fixture.componentRef.setInput("capabilities", [{
+      capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
+      state: "revoked", requestId: null,
+    }]);
+    fixture.detectChanges();
+
+    const activate = fixture.nativeElement.querySelector('[data-capability="ordinary_media"] button') as HTMLButtonElement;
+    expect(activate.disabled).toBe(false);
+    activate.click();
+    expect(emitted).toEqual([expect.objectContaining({
+      capability: "ordinary_media", desired: "activate",
+    })]);
+    expect(fixture.componentInstance.capabilities[0].state).toBe("sent_to_authority");
+    expect(fixture.nativeElement.textContent).toContain("Public-Pair-Medien können sicher aktiviert werden");
+
+    fixture.componentRef.setInput("capabilities", [{
+      capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
+      state: "degraded", requestId: null,
+      reasonCode: "public_ordinary_media_e2ee_awaiting_peer",
+    }]);
+    fixture.componentRef.setInput("ordinaryMediaCaptureEnabled", false);
+    fixture.componentRef.setInput("ordinaryMediaVideoCaptureEnabled", false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Capture bleibt gesperrt");
+
+    fixture.componentRef.setInput("capabilities", [{
+      capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
+      state: "authoritatively_active", requestId: null,
+    }]);
+    fixture.componentRef.setInput("ordinaryMediaCaptureEnabled", true);
+    fixture.componentRef.setInput("ordinaryMediaVideoCaptureEnabled", true);
+    fixture.detectChanges();
+    const panel = fixture.debugElement.query(By.directive(WebrtcMediaPanelComponent));
+    expect((panel.componentInstance as WebrtcMediaPanelComponent).publicPair).toBe(true);
+    expect((panel.componentInstance as WebrtcMediaPanelComponent).e2eeProtected).toBe(true);
+    expect(panel.nativeElement.textContent).toContain("sitzungs- und verbindungsgebundenen Schlüsseln");
+  });
+
   it("mounts reconciliation only after the Hub capability becomes authoritative", () => {
     capabilities.push({
       capability: "speech_reconciliation",

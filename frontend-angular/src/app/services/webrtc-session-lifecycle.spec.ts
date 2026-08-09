@@ -225,7 +225,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     expect(() => service.addMediaTrack(
       { kind: 'audio' } as MediaStreamTrack,
       {} as MediaStream,
-    )).toThrow('public_ordinary_media_e2ee_unavailable');
+    )).toThrow('public_media_contract_missing');
     peer.ontrack?.({ track: remoteTrack, streams: [] } as unknown as RTCTrackEvent);
 
     expect(remoteTrack.stop).toHaveBeenCalledOnce();
@@ -233,7 +233,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     expect(service.state$.value).toBe('failed');
     expect(service.auditLog).toContainEqual(expect.objectContaining({
       type: 'public_media_rejected',
-      detail: 'public_ordinary_media_e2ee_unavailable',
+      detail: 'public_media_contract_missing',
     }));
   });
 

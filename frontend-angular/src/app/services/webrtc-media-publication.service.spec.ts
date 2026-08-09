@@ -8,6 +8,7 @@ import {
 } from './webrtc-media-publication.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
 
 class Track {
   kind = 'video'; id: string; enabled = true; readyState: MediaStreamTrackState = 'live';
@@ -35,6 +36,7 @@ describe('WebrtcMediaPublicationService', () => {
   let camera: Track[]; let screens: Track[]; let sender: any; let peer: any;
   let dispatchDeviceChange: () => void;
   const mediaPolicy = { assertAllowed: vi.fn(), allows: vi.fn(() => true) };
+  const mediaE2eeStatus = new BehaviorSubject({ sessionId: '', state: 'inactive' as const });
   beforeEach(() => {
     camera = []; screens = [];
     mediaPolicy.assertAllowed.mockReset();
@@ -43,6 +45,7 @@ describe('WebrtcMediaPublicationService', () => {
     sender = { getParameters: () => ({ encodings: [{}] }), setParameters: vi.fn(async () => undefined), replaceTrack: vi.fn() };
     peer = {
       addMediaTrack: vi.fn(() => sender), replaceMediaTrack: vi.fn(async () => undefined), removeMediaSender: vi.fn(),
+      attachMediaTrack: vi.fn(async () => sender), publicMediaSlotForReceiver: vi.fn(() => null),
       sessionStarted$: new Subject<string>(), state$: new BehaviorSubject('active'), remoteTrack$: new Subject<any>(),
     };
     let deviceChange: (() => void) | undefined;
@@ -56,6 +59,7 @@ describe('WebrtcMediaPublicationService', () => {
     TestBed.configureTestingModule({ providers: [
       WebrtcMediaPublicationService, { provide: WebrtcSessionService, useValue: peer },
       { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
+      { provide: PairMediaE2eeCoordinatorService, useValue: { status$: mediaE2eeStatus } },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaPublicationService);
@@ -84,7 +88,7 @@ describe('WebrtcMediaPublicationService', () => {
     await expect(service.startLocal(AUTH, PREF, 1000))
       .rejects.toThrow('public_ordinary_media_e2ee_unavailable');
     expect(camera).toEqual([]);
-    expect(peer.addMediaTrack).not.toHaveBeenCalled();
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
   });
 
   it('intersects Hub and user bounds and refuses silent source switches', async () => {
@@ -112,7 +116,7 @@ describe('WebrtcMediaPublicationService', () => {
     devices.getUserMedia.mockResolvedValueOnce(new Stream(oversized));
     await expect(service.startLocal(AUTH, PREF, 1000)).rejects.toThrow('browser_capture_exceeds_policy');
     expect(oversized.stops).toBeGreaterThan(0);
-    expect(peer.addMediaTrack).not.toHaveBeenCalled();
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
   });
 
   it('cancels a pending permission result and never attaches its late track', async () => {
@@ -126,7 +130,7 @@ describe('WebrtcMediaPublicationService', () => {
     resolveCapture(new Stream(late));
     await expect(start).rejects.toThrow('publication_operation_superseded');
     expect(late.stops).toBeGreaterThan(0);
-    expect(peer.addMediaTrack).not.toHaveBeenCalled();
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
     expect(service.publications$.value[0]).toMatchObject({ status: 'ended', reasonCode: 'publication_user_stop' });
   });
 

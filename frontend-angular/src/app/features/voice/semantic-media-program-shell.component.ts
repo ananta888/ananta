@@ -43,6 +43,7 @@ import { WebrtcMediaPanelComponent } from '../pair-view/webrtc-media-panel.compo
 export type SemanticProgramState =
   | 'locally_desired'
   | 'sent_to_hub'
+  | 'sent_to_authority'
   | 'authoritatively_active'
   | 'pausing'
   | 'revoked'
@@ -51,6 +52,7 @@ export type SemanticProgramState =
   | 'failed';
 
 export type SemanticMediaProgramDisplayMode = 'full' | 'pair_media';
+export type OrdinaryMediaAuthorityKind = 'hub' | 'public' | 'unbound';
 
 export type SemanticProgramCapability =
   | 'ordinary_media'
@@ -146,6 +148,8 @@ export class SemanticMediaProgramShellComponent {
   @Input({ required: true }) scope!: SemanticProgramScopeView;
   @Input() online = true;
   @Input() hubUrl = '';
+  @Input() ordinaryMediaAuthority: OrdinaryMediaAuthorityKind = 'unbound';
+  @Input() ordinaryMediaActivationEnabled = false;
   @Input() computeVisible = false;
   @Input() computeContract: ComputeContractView = {
     contractId: '', revision: 0, status: 'absent', profile: 'off', delayMs: 5_000, roles: {},
@@ -252,11 +256,15 @@ export class SemanticMediaProgramShellComponent {
 
   request(capability: SemanticProgramCapability, desired: SemanticProgramIntent['desired']): void {
     const row = this.capabilityRows.find(item => item.capability === capability);
-    if (!row || row.requestId || (!this.online && desired === 'activate')) return;
+    if (!row || row.requestId || (!this.activationAvailable(row) && desired === 'activate')) return;
     const requestId = `semantic-program-request-${++this.serial}`;
     row.state = desired === 'activate' ? 'locally_desired' : 'pausing';
     row.requestId = requestId;
-    if (this.online) row.state = 'sent_to_hub';
+    if (this.activationAvailable(row)) {
+      row.state = capability === 'ordinary_media' && this.ordinaryMediaAuthority === 'public'
+        ? 'sent_to_authority'
+        : 'sent_to_hub';
+    }
     else row.state = 'failed';
     const selected = capability === 'adapter_activation'
       ? this.adapterRows.find(value => this.adapterKey(value) === this.selectedAdapterKey)
@@ -278,7 +286,7 @@ export class SemanticMediaProgramShellComponent {
   applyHubState(
     capability: SemanticProgramCapability,
     requestId: string,
-    state: Exclude<SemanticProgramState, 'locally_desired' | 'sent_to_hub'>,
+    state: Exclude<SemanticProgramState, 'locally_desired' | 'sent_to_hub' | 'sent_to_authority'>,
   ): boolean {
     const row = this.capabilityRows.find(item => item.capability === capability);
     if (!row || row.requestId !== requestId) return false;
@@ -293,6 +301,10 @@ export class SemanticMediaProgramShellComponent {
 
   pending(row: SemanticProgramCapabilityView): boolean {
     return row.requestId !== null;
+  }
+
+  activationAvailable(row: Pick<SemanticProgramCapabilityView, 'capability'>): boolean {
+    return row.capability === 'ordinary_media' ? this.ordinaryMediaActivationEnabled : this.online;
   }
 
   adapterActivationUnavailable(capability: SemanticProgramCapability): boolean {

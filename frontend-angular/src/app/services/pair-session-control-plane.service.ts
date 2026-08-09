@@ -13,6 +13,7 @@ import {
 } from './pair-membership-capability.store';
 import { PairPublicAuthorityPolicy } from './pair-public-authority.policy';
 import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
+import { PublicPairMediaRuntimeCapabilityService } from './public-pair-media-runtime-capability.service';
 import {
   PairControlPlaneKind,
   PairSessionBinding,
@@ -117,6 +118,7 @@ export class PairSessionControlPlaneService {
   private readonly capabilities = inject(PairMembershipCapabilityStore);
   private readonly publicAuthority = inject(PairPublicAuthorityPolicy);
   private readonly publicContract = inject(PairPublicSessionContractPolicy);
+  private readonly publicMediaRuntime = inject(PublicPairMediaRuntimeCapabilityService);
 
   /** Compatibility/read-model property for a not-yet-created session. */
   get isPublic(): boolean {
@@ -172,6 +174,7 @@ export class PairSessionControlPlaneService {
       owner_device_fingerprint: body['public_key_fingerprint'],
       allowed_permissions: body['permissions'],
       identity_binding_version: 2,
+      ...(this.publicMediaRuntime.membershipAdvertisement() ?? {}),
     };
     return this.publicV2Mutation<T>('create', authority, '/rendezvous/sessions', publicBody);
   }
@@ -188,6 +191,7 @@ export class PairSessionControlPlaneService {
       device_id: this.deviceId,
       device_fingerprint: body['public_key_fingerprint'],
       identity_binding_version: 2,
+      ...(this.publicMediaRuntime.membershipAdvertisement() ?? {}),
     });
   }
 

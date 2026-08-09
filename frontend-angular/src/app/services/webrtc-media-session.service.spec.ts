@@ -3,6 +3,7 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { WEBRTC_MEDIA_DEVICES, WebrtcMediaSessionService } from './webrtc-media-session.service';
 import { PeerState, WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
 
 class FakeTrack {
   id: string; kind = 'audio'; label = 'Explicit microphone'; enabled = true; onended: (() => void) | null = null;
@@ -25,6 +26,7 @@ describe('WebrtcMediaSessionService', () => {
   let devices: any;
   let dispatchDeviceChange: () => void;
   const mediaPolicy = { assertAllowed: vi.fn() };
+  const mediaE2eeStatus = new BehaviorSubject({ sessionId: '', state: 'inactive' as const });
 
   beforeEach(() => {
     tracks = [];
@@ -34,6 +36,10 @@ describe('WebrtcMediaSessionService', () => {
       remoteTrack$: new Subject<RTCTrackEvent>(), sender: { track: null }, addMediaTrack: vi.fn((track: MediaStreamTrack) => {
         peer.sender.track = track; return peer.sender;
       }),
+      attachMediaTrack: vi.fn(async (_slot: string, track: MediaStreamTrack) => {
+        peer.sender.track = track; return peer.sender;
+      }),
+      publicMediaSlotForReceiver: vi.fn(() => null),
       replaceMediaTrack: vi.fn(async (sender: any, track: MediaStreamTrack | null) => { sender.track = track; }),
       removeMediaSender: vi.fn(), restartMediaIce: vi.fn(),
     };
@@ -52,6 +58,7 @@ describe('WebrtcMediaSessionService', () => {
       WebrtcMediaSessionService,
       { provide: WebrtcSessionService, useValue: peer },
       { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
+      { provide: PairMediaE2eeCoordinatorService, useValue: { status$: mediaE2eeStatus } },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaSessionService);
@@ -60,7 +67,7 @@ describe('WebrtcMediaSessionService', () => {
   afterEach(() => service.ngOnDestroy());
 
   it('keeps data-channel-only sessions compatible until explicit microphone permission', () => {
-    expect(peer.addMediaTrack).not.toHaveBeenCalled();
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
     expect(service.audioState$.value.status).toBe('idle');
   });
 
@@ -80,7 +87,7 @@ describe('WebrtcMediaSessionService', () => {
 
   it('adds, mutes, replaces and reconnects audio without disturbing control transport', async () => {
     await service.requestMicrophone();
-    expect(peer.addMediaTrack).toHaveBeenCalledTimes(1);
+    expect(peer.attachMediaTrack).toHaveBeenCalledTimes(1);
     service.setMuted(true);
     expect(tracks[0].enabled).toBe(false);
     await service.replaceMicrophone({ deviceId: 'second' });
@@ -144,7 +151,7 @@ describe('WebrtcMediaSessionService', () => {
     resolveCapture(new FakeStream(lateTrack));
     await expect(pending).rejects.toThrow('microphone_capture_superseded');
     expect(lateTrack.stops).toBeGreaterThan(0);
-    expect(peer.addMediaTrack).not.toHaveBeenCalled();
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
     expect(service.audioState$.value).toMatchObject({ status: 'idle', reasonCode: 'microphone_user_stop' });
   });
 

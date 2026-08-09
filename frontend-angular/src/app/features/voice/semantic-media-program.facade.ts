@@ -28,6 +28,7 @@ import {
 } from '../../services/semantic-speech-quality-controller.service';
 import { SemanticSfuPathCoordinatorService } from '../../services/semantic-sfu-path-coordinator.service';
 import { ShareSession, ShareSessionService, ActiveShareState } from '../../services/share-session.service';
+import { PairSessionControlPlaneService } from '../../services/pair-session-control-plane.service';
 import {
   SpeechEvidenceConsentDocument,
   SpeechEvidenceConsentReadModel,
@@ -46,6 +47,10 @@ import {
   PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE,
   PairOrdinaryMediaPolicy,
 } from '../../services/pair-ordinary-media.policy';
+import {
+  PairMediaE2eeCoordinatorService,
+  type PublicPairMediaE2eeState,
+} from '../../services/pair-media-e2ee-coordinator.service';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
 import {
   ComputeContractIntent,
@@ -67,6 +72,7 @@ import {
   SemanticProgramCapability,
   SemanticProgramCapabilityView,
   SemanticProgramIntent,
+  OrdinaryMediaAuthorityKind,
   SemanticProgramScopeView,
   SemanticProgramState,
   SpeechAdapterActivationOption,
@@ -82,6 +88,8 @@ export interface SemanticMediaProgramHostView {
   readonly capabilities: readonly SemanticProgramCapabilityView[];
   readonly online: boolean;
   readonly hubUrl: string;
+  readonly ordinaryMediaAuthority: OrdinaryMediaAuthorityKind;
+  readonly ordinaryMediaActivationEnabled: boolean;
   readonly computeVisible: boolean;
   readonly compute: SemanticComputePanelState;
   readonly receiverPaths: readonly SemanticReceiverPathView[];
@@ -135,6 +143,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly directory = inject(AgentDirectoryService);
   private readonly profiles = inject(NetworkProfileService);
   private readonly shares = inject(ShareSessionService);
+  private readonly pairControlPlane = inject(PairSessionControlPlaneService);
   private readonly transport = inject(WebrtcTransportService);
   private readonly peerKeys = inject(WebrtcPeerKeyService);
   private readonly speech = inject(SemanticSpeechTransportService);
@@ -149,6 +158,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly media = inject(WebrtcMediaSessionService);
   private readonly mediaPublications = inject(WebrtcMediaPublicationService);
   private readonly ordinaryMediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private readonly pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
   private readonly mobileRuntime = inject(MobileRuntimeService);
   private readonly evidenceFlow = inject(PeerEvidenceSyncFacade);
   private readonly consent = inject(SpeechEvidenceConsentFacade);
@@ -182,14 +192,19 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private speechAdapterGeneration = 0;
   private activeSpeechAdapter: SpeechAdapterMetadata | null = null;
   private speechAdapterValidationTimer: ReturnType<typeof setTimeout> | null = null;
+  private publicMediaReadySessionId = '';
+  private publicMediaFailureCleanupSessionId = '';
 
   readonly view$ = new BehaviorSubject<SemanticMediaProgramHostView>(this.buildView());
 
   constructor() {
     this.subscriptions.add(this.shares.state$.subscribe(state => {
       const previousSessionId = this.shareState.session?.id ?? '';
+      const previousAuthority = this.ordinaryMediaAuthority();
       this.shareState = state;
-      if (previousSessionId && previousSessionId !== (state.session?.id ?? '')) this.stopSessionScopedState();
+      if (previousSessionId && previousSessionId !== (state.session?.id ?? '')) {
+        this.stopSessionScopedState(previousSessionId, previousAuthority === 'public');
+      }
       this.syncContext();
       this.emit();
     }));
@@ -214,6 +229,9 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       const latestReason = [...publications].reverse().find(value => value.local && value.reasonCode)?.reasonCode;
       if (latestReason) this.ordinaryMediaOperationReason = latestReason;
       this.emit();
+    }));
+    this.subscriptions.add(this.pairMediaE2ee.status$.subscribe(status => {
+      this.reconcilePublicMediaStatus(status);
     }));
     this.subscriptions.add(this.speechRuntime.settings$.subscribe(settings => {
       this.speechSettings = settings;
@@ -282,13 +300,32 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   async handleProgramIntent(intent: SemanticProgramIntent): Promise<void> {
+    const intentSessionId = this.shareState.session?.id ?? '';
     const current = this.capability(intent.capability);
     if (current.requestId && current.requestId !== intent.requestId) return;
-    if (intent.desired === 'activate' && !this.hubOnline()) {
-      this.setCapability(intent.capability, 'failed', null);
+    const activationAvailable = intent.capability === 'ordinary_media'
+      ? this.ordinaryMediaActivationAvailable()
+      : this.hubOnline();
+    if (intent.desired === 'activate' && !activationAvailable) {
+      this.setCapability(
+        intent.capability,
+        'failed',
+        null,
+        intent.capability === 'ordinary_media'
+          ? this.ordinaryCaptureReason()
+          : 'semantic_program_hub_offline',
+      );
       return;
     }
-    this.setCapability(intent.capability, intent.desired === 'activate' ? 'sent_to_hub' : 'pausing', intent.requestId);
+    this.setCapability(
+      intent.capability,
+      intent.desired === 'activate'
+        ? intent.capability === 'ordinary_media' && this.ordinaryMediaAuthority() === 'public'
+          ? 'sent_to_authority'
+          : 'sent_to_hub'
+        : 'pausing',
+      intent.requestId,
+    );
     if (intent.desired !== 'activate') {
       this.deactivate(intent.capability, intent.desired === 'revoke' ? 'revoked' : 'pausing');
       this.setCapability(intent.capability, intent.desired === 'revoke' ? 'revoked' : 'revoked', null);
@@ -296,8 +333,23 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     }
     try {
       const activatedState = await this.activate(intent);
-      this.setCapability(intent.capability, activatedState, null);
+      if (
+        (this.shareState.session?.id ?? '') !== intentSessionId
+        || this.capability(intent.capability).requestId !== intent.requestId
+      ) return;
+      this.setCapability(
+        intent.capability,
+        activatedState,
+        null,
+        intent.capability === 'ordinary_media' && activatedState === 'degraded'
+          ? this.ordinaryCaptureReason()
+          : null,
+      );
     } catch (error) {
+      if (
+        (this.shareState.session?.id ?? '') !== intentSessionId
+        || this.capability(intent.capability).requestId !== intent.requestId
+      ) return;
       const reasonCode = reason(error, 'semantic_program_activation_failed');
       if (intent.capability === 'adapter_activation') {
         this.clearSpeechAdapterActivation(reasonCode);
@@ -486,7 +538,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopSessionScopedState();
+    this.stopSessionScopedState(
+      this.shareState.session?.id ?? '',
+      this.ordinaryMediaAuthority() === 'public',
+    );
     this.subscriptions.unsubscribe();
     this.view$.complete();
   }
@@ -497,13 +552,40 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const capability = intent.capability;
     const session = this.requireSession();
     const flags = this.profile.semantic_media_feature_flags;
-    if (!this.hubUrl()) throw new Error('semantic_program_hub_missing');
     if (capability === 'ordinary_media') {
-      this.ordinaryMediaPolicy.assertAllowed(session.id);
       if (this.transport.mode$.value !== 'webrtc') throw new Error('ordinary_media_webrtc_transport_required');
-      if (!flags.ordinary_media_publication) throw new Error('ordinary_media_publication_disabled');
+      const authority = this.ordinaryMediaAuthority();
+      if (authority === 'unbound') throw new Error('ordinary_media_session_binding_missing');
+      if (authority === 'hub' && !flags.ordinary_media_publication) {
+        throw new Error('ordinary_media_publication_disabled');
+      }
+      if (authority === 'public') {
+        this.ordinaryMediaPolicy.assertActivationAllowed(session.id);
+        const status = await this.pairMediaE2ee.activate(session.id);
+        if (this.shareState.session?.id !== session.id || this.ordinaryMediaAuthority() !== 'public') {
+          this.pairMediaE2ee.deactivate(session.id, 'ordinary_media_activation_stale');
+          throw new Error('ordinary_media_activation_stale');
+        }
+        if (status.sessionId !== session.id) {
+          this.pairMediaE2ee.deactivate(session.id, 'public_ordinary_media_e2ee_context_mismatch');
+          throw new Error('public_ordinary_media_e2ee_context_mismatch');
+        }
+        if (status.state === 'awaiting-peer' || status.state === 'negotiating') {
+          this.ordinaryMediaOperationReason = this.ordinaryMediaPolicyReason(session.id)
+            || PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE;
+          return 'degraded';
+        }
+        if (status.state !== 'ready') {
+          throw new Error(status.reasonCode || this.ordinaryMediaPolicyReason(session.id)
+            || PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE);
+        }
+        this.publicMediaReadySessionId = session.id;
+        this.publicMediaFailureCleanupSessionId = '';
+      }
+      this.ordinaryMediaPolicy.assertAllowed(session.id);
       return 'authoritatively_active';
     }
+    if (!this.hubUrl()) throw new Error('semantic_program_hub_missing');
     if (capability === 'live_speech') {
       if (!flags.semantic_speech_runtime) throw new Error('semantic_speech_disabled');
       await this.startSpeech();
@@ -579,6 +661,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private deactivate(capability: SemanticProgramCapability, _state: SemanticProgramState): void {
     if (capability === 'ordinary_media') {
+      const sessionId = this.shareState.session?.id ?? '';
+      if (sessionId && this.ordinaryMediaAuthority() === 'public') {
+        this.publicMediaReadySessionId = '';
+        this.publicMediaFailureCleanupSessionId = '';
+        this.pairMediaE2ee.deactivate(sessionId, 'ordinary_media_capability_revoked');
+      }
       this.media.stopAudio('ordinary_media_capability_revoked');
       this.mediaPublications.stopAll('ordinary_media_capability_revoked');
       void this.sfuCoordinator.stop('sfu_ordinary_media_revoked');
@@ -649,7 +737,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     });
   }
 
-  private stopSessionScopedState(): void {
+  private stopSessionScopedState(sessionId = '', deactivatePublicMedia = false): void {
+    if (sessionId && deactivatePublicMedia) {
+      this.publicMediaReadySessionId = '';
+      this.publicMediaFailureCleanupSessionId = '';
+      this.pairMediaE2ee.deactivate(sessionId, 'ordinary_media_session_ended');
+    }
     this.stopSpeech('semantic_speech_session_ended');
     this.speech.stop();
     this.evidenceFlow.clear();
@@ -724,7 +817,19 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const state: SemanticProgramState = capability === 'ordinary_media'
       && session
       && this.ordinaryMediaActive() ? 'authoritatively_active' : 'revoked';
-    return Object.freeze({ capability, label: LABELS[capability], sensitive: SENSITIVE.has(capability), state, requestId: null });
+    const activationReason = capability === 'ordinary_media'
+      && this.ordinaryMediaAuthority() === 'public'
+      && !this.ordinaryMediaActivationAvailable()
+      ? this.ordinaryMediaActivationReason()
+      : null;
+    return Object.freeze({
+      capability,
+      label: LABELS[capability],
+      sensitive: SENSITIVE.has(capability),
+      state,
+      requestId: null,
+      ...(activationReason ? { reasonCode: activationReason } : {}),
+    });
   }
 
   private buildView(): SemanticMediaProgramHostView {
@@ -734,6 +839,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       capabilities: Object.freeze((Object.keys(LABELS) as SemanticProgramCapability[]).map(value => this.capability(value))),
       online: this.hubOnline(),
       hubUrl: this.hubUrl(),
+      ordinaryMediaAuthority: this.ordinaryMediaAuthority(),
+      ordinaryMediaActivationEnabled: this.ordinaryMediaActivationAvailable(),
       computeVisible: Boolean(session && this.shares.currentUserId && (session.security_epoch ?? 0) > 0),
       compute: this.computeState,
       receiverPaths: this.receiverRows,
@@ -765,6 +872,96 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private emit(): void { this.view$.next(this.buildView()); }
 
   private hubOnline(): boolean { return Boolean(this.hubUrl()) && this.runtimeOnline; }
+
+  private ordinaryMediaAuthority(): OrdinaryMediaAuthorityKind {
+    const sessionId = this.shareState.session?.id ?? '';
+    if (!sessionId) return 'unbound';
+    try { return this.pairControlPlane.authorityKindForSession(sessionId); } catch { return 'unbound'; }
+  }
+
+  private ordinaryMediaActivationAvailable(): boolean {
+    const session = this.shareState.session;
+    if (
+      !session
+      || session.revoked_at !== null
+      || (session.expires_at ?? Number.MAX_SAFE_INTEGER) * 1_000 <= Date.now()
+    ) return false;
+    const authority = this.ordinaryMediaAuthority();
+    return authority === 'public'
+      ? this.ordinaryMediaPolicy.canActivate(session.id)
+      : authority === 'hub' && this.hubOnline();
+  }
+
+  private ordinaryMediaActivationReason(): string {
+    const session = this.shareState.session;
+    if (
+      !session
+      || session.revoked_at !== null
+      || (session.expires_at ?? Number.MAX_SAFE_INTEGER) * 1_000 <= Date.now()
+    ) return 'ordinary_media_session_missing';
+    try {
+      this.ordinaryMediaPolicy.assertActivationAllowed(session.id);
+      return 'ordinary_media_activation_required';
+    } catch (error) {
+      return reason(error, PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE);
+    }
+  }
+
+  private reconcilePublicMediaStatus(status: PublicPairMediaE2eeState): void {
+    const sessionId = this.shareState.session?.id ?? '';
+    const current = this.capabilityStates.get('ordinary_media');
+    if (!sessionId || status.sessionId !== sessionId || this.ordinaryMediaAuthority() !== 'public') {
+      this.emit();
+      return;
+    }
+    if (status.state === 'ready') {
+      this.publicMediaReadySessionId = sessionId;
+      this.publicMediaFailureCleanupSessionId = '';
+      if (
+        !current
+        || current.state === 'sent_to_authority'
+        || current.state === 'degraded'
+        || current.state === 'authoritatively_active'
+      ) {
+        this.setCapability('ordinary_media', 'authoritatively_active', null);
+        return;
+      }
+    }
+    if (
+      status.state !== 'ready'
+      && this.publicMediaReadySessionId === sessionId
+      && current?.state !== 'revoked'
+    ) {
+      const failureReason = status.reasonCode || this.ordinaryMediaPolicyReason(sessionId)
+        || PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE;
+      if (this.publicMediaFailureCleanupSessionId !== sessionId) {
+        this.publicMediaFailureCleanupSessionId = sessionId;
+        this.media.stopAudio(failureReason);
+        this.mediaPublications.stopAll(failureReason, true);
+      }
+      this.publicMediaReadySessionId = '';
+      this.setCapability(
+        'ordinary_media',
+        status.state === 'failed' || status.state === 'inactive' ? 'failed' : 'degraded',
+        null,
+        failureReason,
+      );
+      return;
+    }
+    if (
+      (status.state === 'awaiting-peer' || status.state === 'negotiating' || status.state === 'awaiting-security')
+      && (current?.state === 'sent_to_authority' || current?.state === 'authoritatively_active')
+    ) {
+      this.setCapability(
+        'ordinary_media',
+        'degraded',
+        null,
+        status.reasonCode || this.ordinaryMediaPolicyReason(sessionId),
+      );
+      return;
+    }
+    this.emit();
+  }
 
   private reconciliationContextKey(): string {
     const session = this.shareState.session;
@@ -982,19 +1179,23 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const sessionId = this.shareState.session?.id ?? '';
     return this.ordinaryMediaPolicy.allows(sessionId)
       && this.transport.mode$.value === 'webrtc'
-      && (['active', 'muted'].includes(this.media.audioState$.value.status)
+      && (this.ordinaryMediaAuthority() === 'public'
+        || ['active', 'muted'].includes(this.media.audioState$.value.status)
         || sfuState?.status === 'connected');
   }
 
   private ordinaryCaptureAllowed(video: boolean): boolean {
     const session = this.shareState.session;
     const state = this.capabilityStates.get('ordinary_media')?.state;
+    const authority = this.ordinaryMediaAuthority();
+    const profileEnabled = authority === 'public'
+      || this.profile.semantic_media_feature_flags.ordinary_media_publication;
     return Boolean(
-      session && session.revoked_at === null && this.hubOnline()
+      session && session.revoked_at === null && this.ordinaryMediaActivationAvailable()
       && this.ordinaryMediaPolicy.allows(session.id)
       && this.transport.mode$.value === 'webrtc'
-      && this.profile.semantic_media_feature_flags.ordinary_media_publication
-      && (!video || this.profile.semantic_media_feature_flags.ordinary_media_publication)
+      && profileEnabled
+      && (!video || profileEnabled)
       && (state === 'authoritatively_active' || state === 'degraded'),
     );
   }
@@ -1005,18 +1206,35 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private ordinaryCaptureReason(): string {
     const session = this.shareState.session;
-    if (!session || session.revoked_at !== null) return 'ordinary_media_session_missing';
-    if (!this.ordinaryMediaPolicy.allows(session.id)) {
-      return PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE;
-    }
-    if (!this.profile.semantic_media_feature_flags.ordinary_media_publication) {
+    if (
+      !session
+      || session.revoked_at !== null
+      || (session.expires_at ?? Number.MAX_SAFE_INTEGER) * 1_000 <= Date.now()
+    ) return 'ordinary_media_session_missing';
+    const policyReason = this.ordinaryMediaPolicyReason(session.id);
+    if (policyReason) return policyReason;
+    const authority = this.ordinaryMediaAuthority();
+    if (authority === 'hub' && !this.profile.semantic_media_feature_flags.ordinary_media_publication) {
       return 'ordinary_media_publication_disabled';
     }
     if (this.transport.mode$.value !== 'webrtc') return 'ordinary_media_webrtc_transport_required';
-    if (!this.hubOnline()) return 'ordinary_media_hub_offline';
+    if (!this.ordinaryMediaActivationAvailable()) {
+      return authority === 'public'
+        ? this.ordinaryMediaActivationReason()
+        : 'ordinary_media_hub_offline';
+    }
     const state = this.capabilityStates.get('ordinary_media')?.state;
     if (state !== 'authoritatively_active' && state !== 'degraded') return 'ordinary_media_activation_required';
     return this.ordinaryMediaOperationReason;
+  }
+
+  private ordinaryMediaPolicyReason(sessionId: string): string | null {
+    try {
+      this.ordinaryMediaPolicy.assertAllowed(sessionId);
+      return null;
+    } catch (error) {
+      return reason(error, PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE);
+    }
   }
 
   private mediaPublicationAuthorization(source: 'camera' | 'screen'): MediaPublicationAuthorization {

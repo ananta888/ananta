@@ -7,6 +7,8 @@ import { HubApiCoreService } from './hub-api-core.service';
 import { NetworkProfileService } from './network-profile.service';
 import { PairMembershipCapabilityStore } from './pair-membership-capability.store';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { PublicPairMediaRuntimeCapabilityService } from './public-pair-media-runtime-capability.service';
+import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V1 } from './public-pair-media-security-contract';
 import { PUBLIC_OIDC_ISSUER } from './public-ananta-endpoints';
 import { UserAuthService } from './user-auth.service';
 
@@ -36,6 +38,7 @@ describe('PairSessionControlPlaneService', () => {
   let createdResponse: Record<string, unknown>;
   let joinedResponse: Record<string, unknown>;
   let listedResponses: Array<Record<string, unknown>>;
+  let publicMediaAdvertisement: Record<string, unknown> | null;
 
   beforeEach(() => {
     posts.length = 0;
@@ -48,6 +51,7 @@ describe('PairSessionControlPlaneService', () => {
     createdResponse = publicSession('created-session', ownerPeerId);
     joinedResponse = publicSession('joined-session', joinerPeerId);
     listedResponses = [publicSession('listed-session', listedPeerId)];
+    publicMediaAdvertisement = null;
     localStorage.clear();
     localStorage.setItem('ananta.pair-device-id.v1', 'device-a');
     sessionStorage.clear();
@@ -57,6 +61,10 @@ describe('PairSessionControlPlaneService', () => {
       { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://127.0.0.1:5000' }] } },
       { provide: NetworkProfileService, useValue: profile },
       { provide: UserAuthService, useValue: auth },
+      {
+        provide: PublicPairMediaRuntimeCapabilityService,
+        useValue: { membershipAdvertisement: () => publicMediaAdvertisement },
+      },
       { provide: HubApiCoreService, useValue: {
         retryCount: 2,
         request: vi.fn((
@@ -175,6 +183,43 @@ describe('PairSessionControlPlaneService', () => {
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
     ]);
+  });
+
+  it('adds the exact immutable media capability advertisement to public create and join', () => {
+    publicMediaAdvertisement = Object.freeze({
+      public_media_e2ee_version: 1,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+    });
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    service.create({ title: 'Pair', permissions: { chat: true } }).subscribe();
+    service.join({ invite_code: 'INVITE' }).subscribe();
+
+    for (const body of requests.map(request => request.body as Record<string, unknown>)) {
+      expect(body['public_media_e2ee_version']).toBe(1);
+      expect(body['public_media_capabilities']).toEqual({
+        version: 1,
+        transform: 'RTCRtpScriptTransform',
+        grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
+      });
+      expect(Object.isFrozen(body)).toBe(true);
+      expect(Object.isFrozen(body['public_media_capabilities'])).toBe(true);
+      expect(Object.isFrozen(
+        (body['public_media_capabilities'] as { grants: readonly string[] }).grants,
+      )).toBe(true);
+    }
+  });
+
+  it('omits both media capability fields when the standards-only runtime is unavailable', () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    service.create({ title: 'Pair' }).subscribe();
+    service.join({ invite_code: 'INVITE' }).subscribe();
+
+    for (const body of requests.map(request => request.body as Record<string, unknown>)) {
+      expect(body).not.toHaveProperty('public_media_e2ee_version');
+      expect(body).not.toHaveProperty('public_media_capabilities');
+    }
   });
 
   it('restores public bindings only from an explicit authenticated list response', () => {
@@ -398,6 +443,10 @@ describe('PairSessionControlPlaneService', () => {
   });
 
   it('retries an ambiguous create with the same persisted capability and exact wire body', async () => {
+    publicMediaAdvertisement = Object.freeze({
+      public_media_e2ee_version: 1,
+      public_media_capabilities: PUBLIC_PAIR_MEDIA_CAPABILITIES_V1,
+    });
     const service = TestBed.inject(PairSessionControlPlaneService);
     const core = TestBed.inject(HubApiCoreService);
     vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({ status: 0 })));
@@ -416,6 +465,14 @@ describe('PairSessionControlPlaneService', () => {
     const secondOptions = vi.mocked(core.request).mock.calls[1][3];
 
     expect(secondOptions?.body).toEqual(firstOptions?.body);
+    expect(secondOptions?.body).toMatchObject({
+      public_media_e2ee_version: 1,
+      public_media_capabilities: {
+        version: 1,
+        transform: 'RTCRtpScriptTransform',
+        grants: ['microphone-opus', 'camera-vp8', 'screen-vp8'],
+      },
+    });
     expect(secondOptions?.headers?.['X-Ananta-Membership-Capability'])
       .toBe(firstOptions?.headers?.['X-Ananta-Membership-Capability']);
     expect(JSON.stringify(firstOptions?.body)).not.toContain(

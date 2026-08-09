@@ -7,6 +7,7 @@ import {
 } from './webrtc-media-session.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
 
 export type MediaPublicationSource = 'camera' | 'screen' | 'remote_video';
 export type MediaPublicationStatus = 'requesting_permission' | 'active' | 'muted' | 'ended' | 'failed';
@@ -61,6 +62,7 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   readonly publications$ = new BehaviorSubject<readonly MediaPublicationView[]>(Object.freeze([]));
   private readonly peer = inject(WebrtcSessionService);
   private readonly mediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private readonly pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
   private readonly mediaSession = inject(WebrtcMediaSessionService);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private readonly local = new Map<string, LocalPublication>();
@@ -78,7 +80,13 @@ export class WebrtcMediaPublicationService implements OnDestroy {
       this.currentSessionId = sessionId;
     }));
     this.subscriptions.add(this.peer.state$.subscribe(state => {
-      if (state === 'closed' || state === 'idle') this.stopAll('session_closed');
+      if (state === 'closed' || state === 'idle' || state === 'failed') this.stopAll('session_closed');
+    }));
+    this.subscriptions.add(this.pairMediaE2ee.status$.subscribe(status => {
+      if (status.sessionId !== this.currentSessionId || status.state === 'ready') return;
+      if (this.local.size || this.remote.size) {
+        this.stopAll(status.reasonCode || 'public_media_e2ee_not_ready');
+      }
     }));
     this.subscriptions.add(this.mediaSession.remoteTracks$.subscribe(tracks => this.reconcileRemoteTracks(tracks)));
     this.devices.addEventListener?.('devicechange', this.deviceChangeListener);
@@ -118,7 +126,11 @@ export class WebrtcMediaPublicationService implements OnDestroy {
       const track = stream.getVideoTracks()[0];
       if (!track) throw new Error('video_track_missing');
       validateTrackSettings(track, limits);
-      sender = this.peer.addMediaTrack(track, stream);
+      sender = await this.peer.attachMediaTrack(
+        authorization.source === 'camera' ? 'camera-vp8' : 'screen-vp8',
+        track,
+        stream,
+      );
       await applyBitrate(sender, limits.bitrate);
       this.assertOperation(authorization.publicationId, operationId);
       publication.view = Object.freeze({
@@ -353,9 +365,13 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     const activePublicationIds = new Set<string>();
     for (const value of tracks) {
       if (value.track.kind !== 'video' || value.track.readyState === 'ended') continue;
-      const publicationId = `remote-${value.track.id}`;
+      const publicSlot = value.slot === 'camera-vp8' || value.slot === 'screen-vp8'
+        ? value.slot : null;
+      const publicationId = publicSlot ? `remote-${publicSlot}` : `remote-${value.track.id}`;
       activePublicationIds.add(publicationId);
-      const source = value.track.getSettings().displaySurface ? 'screen' : 'camera';
+      const source = publicSlot === 'screen-vp8'
+        ? 'screen' : publicSlot === 'camera-vp8'
+          ? 'camera' : value.track.getSettings().displaySurface ? 'screen' : 'camera';
       this.registerRemote(publicationId, value.track, source);
     }
     for (const [publicationId, publication] of this.remote) {

@@ -27,9 +27,15 @@ import { WebrtcPrioritySendQueue } from './webrtc-priority-send-queue';
 import { WebrtcSendOperation } from './webrtc-send-operation';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
+import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
+import { PairMediaE2eeTransformAdapter } from './pair-media-e2ee-transform.adapter';
+import type { PublicPairMediaSlot } from './public-pair-media-security-contract';
 import { PUBLIC_WEBRTC_STUN_URL } from './public-ananta-endpoints';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
+type PublicSdpPhase = 'none' | 'awaiting-offer' | 'processing-offer'
+  | 'awaiting-answer' | 'processing-answer' | 'established';
 
 export interface OrdinaryMediaStatsSnapshot {
   readonly connection: RTCPeerConnectionState;
@@ -42,12 +48,36 @@ const ALLOWED_DC_TYPES = new Set([
 const RATE_LIMIT_WINDOW_MS = 1000;
 const RATE_LIMIT_MAX = 300;
 const RATE_LIMIT_BYTES = 4 * 1024 * 1024;
+const DC_RECEIVE_QUEUE_MAX = 128;
+const DC_RECEIVE_QUEUE_BYTES = 4 * 1024 * 1024;
 
 interface AuditEvent {
   ts: number;
   type: string;
   session_id: string;
   detail?: string;
+}
+
+interface ActivePublicMediaContext {
+  readonly sessionId: string;
+  readonly peer: RTCPeerConnection;
+  readonly sessionGeneration: number;
+  readonly adapterGeneration: number;
+  readonly contractDigest: string;
+}
+
+interface DataChannelReceiveContext {
+  readonly peer: RTCPeerConnection;
+  readonly channel: RTCDataChannel;
+  readonly sessionId: string;
+  readonly sessionGeneration: number;
+}
+
+interface SemanticSendContext {
+  readonly peer: RTCPeerConnection | null;
+  readonly sessionId: string;
+  readonly sessionGeneration: number;
+  readonly channel?: RTCDataChannel;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -57,6 +87,9 @@ export class WebrtcSessionService {
   private oidc = inject(OidcAuthService);
   private controlPlane = inject(PairSessionControlPlaneService);
   private mediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private securityBootstrap = inject(PairViewSecurityBootstrapService);
+  private pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
+  private pairMediaTransforms = inject(PairMediaE2eeTransformAdapter);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
   readonly dcMessage$ = new Subject<DcMessage>();
@@ -77,11 +110,25 @@ export class WebrtcSessionService {
   private readonly pendingSemanticSends = new Map<string, WebrtcSendOperation>();
   private activeEpoch = 1;
   private isInitiator = false;
+  private publicSdpPhase: PublicSdpPhase = 'none';
   private releaseSignalingHandler: (() => void) | null = null;
   private signalingStatusSubscription: Subscription | null = null;
   private sessionGeneration = 0;
   private localDescriptionPublicationPending = false;
   private pendingLocalIce: RTCIceCandidateInit[] = [];
+  private readonly pendingPublicMediaTracks = new Map<PublicPairMediaSlot, RTCTrackEvent>();
+  private readonly disabledPublicMediaContracts = new Map<string, string>();
+  private activePublicMediaContext: ActivePublicMediaContext | null = null;
+  private readonly pairMediaStatusSubscription = this.pairMediaE2ee.status$.subscribe(status => {
+    if (!this.sessionId || status.sessionId !== this.sessionId) return;
+    if (status.state === 'ready') {
+      this.releasePendingPublicMediaTracks();
+      return;
+    }
+    if (status.state === 'failed') {
+      this.stopPendingPublicMediaTracks();
+    }
+  });
 
   async startSession(sessionId: string, isInitiator: boolean, remotePeerId?: string): Promise<void> {
     if (this.pc || this.releaseSignalingHandler || this.signalingStatusSubscription || this.connectionTimeout) {
@@ -99,6 +146,9 @@ export class WebrtcSessionService {
 
     const profile = this.profiles.current;
     const publicSession = this.controlPlane.isPublicSession(sessionId);
+    this.publicSdpPhase = publicSession
+      ? isInitiator ? 'awaiting-answer' : 'awaiting-offer'
+      : 'none';
     const iceServers = publicSession
       ? [{ urls: PUBLIC_WEBRTC_STUN_URL }]
       : [...profile.ice_servers];
@@ -131,8 +181,107 @@ export class WebrtcSessionService {
       iceTransportPolicy: profile.require_e2e_payload_encryption ? 'all' : 'all',
     };
 
-    const pc = new RTCPeerConnection(config);
+    let pc = new RTCPeerConnection(config);
     this.pc = pc;
+    const publicMediaContract = publicSession
+      ? this.securityBootstrap.mediaContractFor(sessionId) : null;
+    if (publicMediaContract
+        && this.disabledPublicMediaContracts.get(sessionId) !== publicMediaContract.digest) {
+      let adapterGeneration: number | null = null;
+      try {
+        adapterGeneration = await this.pairMediaTransforms.prepareSession(
+          pc,
+          sessionId,
+          publicMediaContract,
+          reasonCode => {
+            const context = this.activePublicMediaContext;
+            if (
+              adapterGeneration === null
+              || !context
+              || context.peer !== pc
+              || context.sessionId !== sessionId
+              || context.sessionGeneration !== generation
+              || context.adapterGeneration !== adapterGeneration
+              || !this.isCurrentSession(pc, sessionId, generation)
+            ) return;
+            this.pairMediaE2ee.failMediaExtension(sessionId, reasonCode);
+          },
+          isInitiator ? 'offerer' : 'answerer',
+        );
+        if (!this.isCurrentSession(pc, sessionId, generation)) {
+          this.pairMediaTransforms.releaseSession(sessionId, adapterGeneration);
+          pc.close();
+          return;
+        }
+        const preparedPeer = pc;
+        const preparedAdapterGeneration = adapterGeneration;
+        const matchesPreparedContext = (): boolean => {
+          const context = this.activePublicMediaContext;
+          return !!context
+            && context.peer === preparedPeer
+            && context.sessionId === sessionId
+            && context.sessionGeneration === generation
+            && context.adapterGeneration === preparedAdapterGeneration
+            && this.isCurrentSession(preparedPeer, sessionId, generation);
+        };
+        this.pairMediaE2ee.bindTransport(sessionId, {
+          send: async message => {
+            if (!matchesPreparedContext()) throw new Error('public_media_runtime_superseded');
+            const channel = this.dc;
+            if (!channel) throw new Error('public_media_consent_channel_unavailable');
+            const sendContext: SemanticSendContext = Object.freeze({
+              peer: preparedPeer,
+              sessionId,
+              sessionGeneration: generation,
+              channel,
+            });
+            await this.sendSemanticWithContext(message, {}, sendContext);
+            if (!matchesPreparedContext()) throw new Error('public_media_runtime_superseded');
+          },
+          disableMedia: reasonCode => {
+            if (!matchesPreparedContext()) return;
+            this.audit('public_media_disabled', reasonCode);
+            this.disabledPublicMediaContracts.set(sessionId, publicMediaContract.digest);
+            this.activePublicMediaContext = null;
+            this.pairMediaTransforms.releaseSession(sessionId, preparedAdapterGeneration);
+            this.stopPendingPublicMediaTracks();
+          },
+          failClosed: reasonCode => {
+            if (!matchesPreparedContext()) return;
+            this.audit('public_media_fail_closed', reasonCode);
+            this.disabledPublicMediaContracts.set(sessionId, publicMediaContract.digest);
+            this.terminateSession('failed');
+          },
+        });
+        this.activePublicMediaContext = Object.freeze({
+          sessionId,
+          peer: preparedPeer,
+          sessionGeneration: generation,
+          adapterGeneration: preparedAdapterGeneration,
+          contractDigest: publicMediaContract.digest,
+        });
+      } catch (error) {
+        if (!this.isCurrentSession(pc, sessionId, generation)) {
+          if (adapterGeneration !== null) {
+            this.pairMediaTransforms.releaseSession(sessionId, adapterGeneration);
+          }
+          pc.close();
+          return;
+        }
+        this.audit('public_media_prepare_failed', error instanceof Error ? error.message : String(error));
+        this.disabledPublicMediaContracts.set(sessionId, publicMediaContract.digest);
+        this.pairMediaTransforms.releaseSession(sessionId, adapterGeneration ?? undefined);
+        pc.close();
+        // The optional extension failed before any media could leave DROP
+        // mode. Recreate a clean data-only PC so base Pair chat/view remains.
+        pc = new RTCPeerConnection(config);
+        this.pc = pc;
+        this.pairMediaE2ee.fail(
+          sessionId,
+          error instanceof Error ? error.message : 'public_media_transform_prepare_failed',
+        );
+      }
+    }
     this.releaseSignalingHandler = this.signaling.bindMessageHandler(async msg => {
       if (!this.isCurrentSession(pc, sessionId, generation) || msg.session_id !== sessionId) return;
       try {
@@ -159,7 +308,11 @@ export class WebrtcSessionService {
         this.audit('ice_failed', 'timeout after 15s');
         // The transport coordinator decides whether a local legacy session
         // may use Hub relay. Public sessions fail closed after direct/TURN ICE.
-        this.state$.next('failed');
+        if (this.pairMediaTransforms.isPrepared(sessionId)) {
+          this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_timeout');
+        } else {
+          this.state$.next('failed');
+        }
       }
     }, 15_000);
   }
@@ -170,6 +323,8 @@ export class WebrtcSessionService {
 
   private terminateSession(finalState: Extract<PeerState, 'failed' | 'closed'>): void {
     const closingSessionId = this.sessionId;
+    const mediaContext = this.activePublicMediaContext;
+    this.activePublicMediaContext = null;
     this.sessionGeneration += 1;
     this.releaseSignalingHandler?.();
     this.releaseSignalingHandler = null;
@@ -177,10 +332,12 @@ export class WebrtcSessionService {
     this.signalingStatusSubscription = null;
     this.localDescriptionPublicationPending = false;
     this.pendingLocalIce = [];
+    this.stopPendingPublicMediaTracks();
     if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
-    this.dc?.close();
-    this.pc?.close();
+    const closingDataChannel = this.dc;
     this.dc = null;
+    closingDataChannel?.close();
+    this.pc?.close();
     this.pc = null;
     this.signaling.disconnect();
     this.chunkReassembler.clear();
@@ -188,10 +345,21 @@ export class WebrtcSessionService {
     this.sendQueue.cancelContext(closingSessionId);
     this.sendQueue.unbind();
     this.pendingSemanticSends.clear();
+    if (closingSessionId) {
+      if (mediaContext?.sessionId === closingSessionId) {
+        this.pairMediaTransforms.releaseSession(closingSessionId, mediaContext.adapterGeneration);
+      } else {
+        // Covers cancellation while prepareSession is still awaiting worker
+        // ACKs. This is the current generation and cannot target a replacement.
+        this.pairMediaTransforms.releaseSession(closingSessionId);
+      }
+    }
+    if (closingSessionId) this.pairMediaE2ee.unbindTransport(closingSessionId, `public_media_session_${finalState}`);
     this.state$.next(finalState);
     this.audit(finalState === 'failed' ? 'session_failed' : 'session_closed');
     this.sessionId = '';
     this.isInitiator = false;
+    this.publicSdpPhase = 'none';
   }
 
   sendDc(type: string, payload: Record<string, unknown> = {}): void {
@@ -218,9 +386,26 @@ export class WebrtcSessionService {
     message: SemanticDataChannelMessage,
     options: { signal?: AbortSignal; deadlineMs?: number } = {},
   ): Promise<WebrtcSendOperation> {
-    if (message.session_id !== this.sessionId) throw new Error('semantic_session_mismatch');
-    this.acceptEpoch(message.epoch);
+    const context: SemanticSendContext = Object.freeze({
+      peer: this.pc,
+      sessionId: this.sessionId,
+      sessionGeneration: this.sessionGeneration,
+    });
+    return this.sendSemanticWithContext(message, options, context);
+  }
+
+  private async sendSemanticWithContext(
+    message: SemanticDataChannelMessage,
+    options: { signal?: AbortSignal; deadlineMs?: number },
+    context: SemanticSendContext,
+  ): Promise<WebrtcSendOperation> {
+    this.assertSemanticSendContext(message, context);
     const encoded = await semanticDcEncodePackets(message);
+    // Encoding hashes payloads asynchronously. A same-session replacement
+    // must win before any epoch, pending-operation, or singleton queue state
+    // can be changed by the old continuation.
+    this.assertSemanticSendContext(message, context);
+    this.acceptEpoch(message.epoch, context.sessionId);
     const deadline = Math.min(options.deadlineMs ?? Date.now() + 30_000, message.expires_at_ms);
     const operation = new WebrtcSendOperation(
       message.session_id,
@@ -230,7 +415,11 @@ export class WebrtcSessionService {
       options.signal,
     );
     this.pendingSemanticSends.set(encoded.digest, operation);
-    void operation.result.then(() => this.pendingSemanticSends.delete(encoded.digest));
+    void operation.result.then(() => {
+      if (this.pendingSemanticSends.get(encoded.digest) === operation) {
+        this.pendingSemanticSends.delete(encoded.digest);
+      }
+    });
     for (const packet of encoded.packets) {
       if (!this.sendQueue.enqueue(message.traffic_class, packet, message.expires_at_ms, operation)) {
         operation.cancel();
@@ -247,25 +436,70 @@ export class WebrtcSessionService {
   addMediaTrack(track: MediaStreamTrack, stream: MediaStream): RTCRtpSender {
     this.mediaPolicy.assertAllowed(this.sessionId);
     if (!this.pc || this.pc.connectionState === 'closed') throw new Error('webrtc_session_not_open');
+    if (this.controlPlane.isPublicSession(this.sessionId)) {
+      throw new Error('public_media_slot_required');
+    }
     const sender = this.pc.addTrack(track, stream);
     void this.negotiateMedia();
     return sender;
   }
 
+  async attachMediaTrack(
+    slot: PublicPairMediaSlot,
+    track: MediaStreamTrack,
+    stream: MediaStream,
+  ): Promise<RTCRtpSender> {
+    this.mediaPolicy.assertAllowed(this.sessionId);
+    if (!this.pc || this.pc.connectionState === 'closed') throw new Error('webrtc_session_not_open');
+    if (!this.controlPlane.isPublicSession(this.sessionId)) {
+      const sender = this.pc.addTrack(track, stream);
+      void this.negotiateMedia();
+      return sender;
+    }
+    const status = this.pairMediaE2ee.statusFor(this.sessionId);
+    if (status.state !== 'ready' || !this.pairMediaTransforms.isKeyed(
+      this.sessionId,
+      this.securityBootstrap.mediaContractFor(this.sessionId)?.epoch,
+      status.contractDigest,
+    )) throw new Error(status.reasonCode || 'public_media_e2ee_not_ready');
+    const sender = this.pairMediaTransforms.senderForSlot(this.sessionId, slot);
+    const expectedKind = slot === 'microphone-opus' ? 'audio' : 'video';
+    if (track.kind !== expectedKind) throw new Error('public_media_track_kind_invalid');
+    await sender.replaceTrack(track);
+    return sender;
+  }
+
+  publicMediaSlotForReceiver(receiver: RTCRtpReceiver): PublicPairMediaSlot | null {
+    return this.pairMediaTransforms.slotForReceiver(this.sessionId, receiver);
+  }
+
   async replaceMediaTrack(sender: RTCRtpSender, track: MediaStreamTrack | null): Promise<void> {
     this.mediaPolicy.assertAllowed(this.sessionId);
     if (!this.pc || !this.pc.getSenders().includes(sender)) throw new Error('webrtc_media_sender_stale');
+    if (this.controlPlane.isPublicSession(this.sessionId)
+        && this.pairMediaE2ee.statusFor(this.sessionId).state !== 'ready') {
+      throw new Error('public_media_e2ee_not_ready');
+    }
     await sender.replaceTrack(track);
   }
 
   removeMediaSender(sender: RTCRtpSender): void {
     if (!this.pc || !this.pc.getSenders().includes(sender)) return;
+    if (this.controlPlane.isPublicSession(this.sessionId)) {
+      void sender.replaceTrack(null).catch(() => undefined);
+      return;
+    }
     this.pc.removeTrack(sender);
     void this.negotiateMedia();
   }
 
   restartMediaIce(): void {
     if (!this.pc || this.pc.connectionState === 'closed') throw new Error('webrtc_session_not_open');
+    if (this.controlPlane.isPublicSession(this.sessionId)) {
+      const sessionId = this.sessionId;
+      this.pairMediaE2ee.deactivate(sessionId, 'public_media_fresh_connection_required');
+      throw new Error('public_media_fresh_connection_required');
+    }
     this.pc.restartIce();
     void this.negotiateMedia();
   }
@@ -308,12 +542,61 @@ export class WebrtcSessionService {
         this.state$.next('connected');
       }
       if (s === 'failed' || s === 'disconnected') {
-        this.state$.next('failed');
         this.audit('connection_failed', s);
+        if (this.pairMediaTransforms.isPrepared(sessionId)) {
+          this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_lost');
+          return;
+        }
+        this.state$.next('failed');
       }
     };
     pc.ontrack = event => {
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      const isPublicSession = this.controlPlane.isPublicSession(sessionId);
+      const currentMediaContract = isPublicSession
+        ? this.securityBootstrap.mediaContractFor(sessionId) : null;
+      if (
+        isPublicSession
+        && currentMediaContract
+        && this.disabledPublicMediaContracts.get(sessionId) === currentMediaContract.digest
+      ) {
+        // The remote SDP may still contain rejected/muted media m-lines after
+        // either peer downgraded the optional extension. Never route those
+        // browser events through the ordinary-media policy or render them.
+        try { event.track.stop(); } catch { /* Browser receiver owns the track. */ }
+        this.audit('public_media_track_ignored', 'public_media_extension_disabled');
+        return;
+      }
+      if (isPublicSession && this.pairMediaTransforms.isPrepared(sessionId)) {
+        let slot = this.pairMediaTransforms.slotForReceiver(sessionId, event.receiver);
+        const adapterGeneration = this.activePublicMediaContext?.adapterGeneration;
+        if (!slot && this.pairMediaTransforms.isAwaitingRemoteTopology(sessionId, adapterGeneration)) {
+          try {
+            if (adapterGeneration === undefined) throw new Error('public_media_topology_invalid');
+            slot = this.pairMediaTransforms.stageRemoteOfferTrack(
+              sessionId, event.transceiver, event.receiver, adapterGeneration,
+            );
+          } catch {
+            try { event.track.stop(); } catch { /* Browser receiver owns the track. */ }
+            this.pairMediaE2ee.failMediaExtension(sessionId, 'public_media_remote_slot_invalid');
+            return;
+          }
+        }
+        if (!slot || this.pendingPublicMediaTracks.has(slot)) {
+          try { event.track.stop(); } catch { /* Browser receiver owns the track. */ }
+          this.audit('public_media_rejected', 'public_media_remote_slot_invalid');
+          this.pairMediaE2ee.failMediaExtension(sessionId, 'public_media_remote_slot_invalid');
+          return;
+        }
+        if (this.pairMediaE2ee.statusFor(sessionId).state === 'ready') {
+          this.remoteTrack$.next(event);
+        } else {
+          // The receiver transform is already DROP-first. Hold the browser
+          // track event until hello/ack, exact topology, and worker key ACK.
+          this.pendingPublicMediaTracks.set(slot, event);
+        }
+        return;
+      }
       try {
         this.mediaPolicy.assertAllowed(sessionId);
       } catch (error) {
@@ -361,7 +644,8 @@ export class WebrtcSessionService {
     const pc = this.pc;
     const sessionId = this.sessionId;
     const generation = this.sessionGeneration;
-    if (!pc || !this.isInitiator || pc.signalingState !== 'stable') return;
+    if (!pc || !this.isInitiator || pc.signalingState !== 'stable'
+        || this.controlPlane.isPublicSession(sessionId)) return;
     try {
       await this.createOffer(pc, sessionId, generation);
     } catch (error) {
@@ -376,14 +660,83 @@ export class WebrtcSessionService {
     generation: number,
   ): Promise<void> {
     if (!this.isCurrentSession(pc, sessionId, generation)) return;
+    if (this.controlPlane.isPublicSession(sessionId)) {
+      const expected = msg.type === 'offer'
+        ? !this.isInitiator && this.publicSdpPhase === 'awaiting-offer'
+        : msg.type === 'answer'
+          ? this.isInitiator && this.publicSdpPhase === 'awaiting-answer'
+          : true;
+      if (!expected) {
+        this.audit('public_sdp_rejected', `unexpected_${msg.type}:${this.publicSdpPhase}`);
+        if (this.pairMediaTransforms.isPrepared(sessionId)) {
+          this.pairMediaE2ee.fail(sessionId, 'public_media_unexpected_sdp');
+        }
+        if (this.isCurrentSession(pc, sessionId, generation)) this.terminateSession('failed');
+        return;
+      }
+      if (msg.type === 'offer') this.publicSdpPhase = 'processing-offer';
+      if (msg.type === 'answer') this.publicSdpPhase = 'processing-answer';
+    }
     if (msg.type === 'offer') {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      const disabledContract = this.securityBootstrap.mediaContractFor(sessionId);
+      if (
+        this.controlPlane.isPublicSession(sessionId)
+        && disabledContract
+        && this.disabledPublicMediaContracts.get(sessionId) === disabledContract.digest
+      ) {
+        this.rejectOfferedPublicMedia(pc);
+      }
+      const mediaContext = this.activePublicMediaContext;
+      if (
+        this.isActivePublicMediaContext(mediaContext, pc, sessionId, generation)
+        && this.pairMediaTransforms.isAwaitingRemoteTopology(
+          sessionId, mediaContext.adapterGeneration,
+        )
+      ) {
+        try {
+          await this.pairMediaTransforms.bindRemoteOfferTopology(
+            sessionId, mediaContext.adapterGeneration,
+          );
+          if (!this.isCurrentSession(pc, sessionId, generation)) return;
+        } catch (error) {
+          this.audit('public_media_topology_disabled', error instanceof Error ? error.message : String(error));
+          this.pairMediaE2ee.failMediaExtension(
+            sessionId,
+            error instanceof Error ? error.message : 'public_media_topology_invalid',
+          );
+        }
+      }
       const answer = await pc.createAnswer();
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
       await this.publishLocalDescription('answer', answer, pc, sessionId, generation);
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      const currentMediaContext = this.activePublicMediaContext;
+      if (
+        this.isActivePublicMediaContext(currentMediaContext, pc, sessionId, generation)
+        && this.pairMediaTransforms.isPrepared(
+          sessionId, undefined, currentMediaContext.contractDigest,
+          currentMediaContext.adapterGeneration,
+        )
+      ) {
+        this.pairMediaE2ee.markTopologyNegotiated(sessionId);
+      }
+      if (this.controlPlane.isPublicSession(sessionId)) this.publicSdpPhase = 'established';
     } else if (msg.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      const currentMediaContext = this.activePublicMediaContext;
+      if (
+        this.isActivePublicMediaContext(currentMediaContext, pc, sessionId, generation)
+        && this.pairMediaTransforms.isPrepared(
+          sessionId, undefined, currentMediaContext.contractDigest,
+          currentMediaContext.adapterGeneration,
+        )
+      ) {
+        this.pairMediaE2ee.markTopologyNegotiated(sessionId);
+      }
+      if (this.controlPlane.isPublicSession(sessionId)) this.publicSdpPhase = 'established';
     } else if (msg.type === 'ice_candidate') {
       await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
     }
@@ -409,15 +762,17 @@ export class WebrtcSessionService {
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
       published = true;
     } finally {
-      const bufferedIce = this.pendingLocalIce;
-      this.pendingLocalIce = [];
-      this.localDescriptionPublicationPending = false;
-      if (published && this.isCurrentSession(pc, sessionId, generation)) {
-        for (const candidate of bufferedIce) {
-          await this.signaling.send({
-            type: 'ice_candidate', session_id: sessionId, payload: candidate,
-          });
-          if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      if (this.isCurrentSession(pc, sessionId, generation)) {
+        const bufferedIce = this.pendingLocalIce;
+        this.pendingLocalIce = [];
+        this.localDescriptionPublicationPending = false;
+        if (published) {
+          for (const candidate of bufferedIce) {
+            await this.signaling.send({
+              type: 'ice_candidate', session_id: sessionId, payload: candidate,
+            });
+            if (!this.isCurrentSession(pc, sessionId, generation)) return;
+          }
         }
       }
     }
@@ -429,6 +784,15 @@ export class WebrtcSessionService {
     sessionId: string,
     generation: number,
   ): void {
+    const receiveContext: DataChannelReceiveContext = Object.freeze({
+      peer: pc,
+      channel: dc,
+      sessionId,
+      sessionGeneration: generation,
+    });
+    let receiveChain = Promise.resolve();
+    let queuedMessages = 0;
+    let queuedBytes = 0;
     this.sendQueue.bind(dc);
     dc.onbufferedamountlow = () => {
       if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) this.sendQueue.flush();
@@ -437,16 +801,62 @@ export class WebrtcSessionService {
       if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.audit('datachannel_opened');
       this.sendDc('hello', { version: 1 });
+      if (this.pairMediaTransforms.isPrepared(sessionId)) {
+        this.pairMediaE2ee.markDataChannelOpen(sessionId);
+      }
     };
     dc.onclose = () => {
       if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
       this.sendQueue.unbind();
       this.audit('datachannel_closed');
+      if (this.pairMediaTransforms.isPrepared(sessionId)) {
+        this.pairMediaE2ee.fail(sessionId, 'public_media_consent_channel_closed');
+      } else if (this.controlPlane.isPublicSession(sessionId)) {
+        this.terminateSession('failed');
+      }
+    };
+    dc.onerror = () => {
+      if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
+      this.audit('datachannel_error');
+      if (this.pairMediaTransforms.isPrepared(sessionId)) {
+        this.pairMediaE2ee.fail(sessionId, 'public_media_consent_channel_failed');
+      } else if (this.controlPlane.isPublicSession(sessionId)) {
+        this.terminateSession('failed');
+      }
     };
     dc.onmessage = (evt) => {
-      if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) {
-        void this.handleDcMessage(evt.data as string);
+      if (!this.isCurrentSession(pc, sessionId, generation) || this.dc !== dc) return;
+      const raw = evt.data as string;
+      const incomingBytes = this.dcMessageBytes(raw);
+      if (!this.admitDcMessage(raw, incomingBytes, Date.now())) return;
+      if (
+        queuedMessages >= DC_RECEIVE_QUEUE_MAX
+        || queuedBytes + incomingBytes > DC_RECEIVE_QUEUE_BYTES
+      ) {
+        this.audit('policy_violation', 'datachannel_receive_queue_overflow');
+        if (this.controlPlane.isPublicSession(sessionId)) {
+          if (this.pairMediaTransforms.isPrepared(sessionId)) {
+            this.pairMediaE2ee.fail(sessionId, 'public_datachannel_receive_queue_overflow');
+          }
+          if (this.isCurrentSession(pc, sessionId, generation)) this.terminateSession('failed');
+        }
+        return;
       }
+      queuedMessages += 1;
+      queuedBytes += incomingBytes;
+      receiveChain = receiveChain.then(async () => {
+        if (!this.isCurrentDataChannel(receiveContext)) return;
+        await this.handleDcMessage(raw, receiveContext);
+      }).catch(error => {
+        // Keep the ordered queue usable after one decoder failure. Security
+        // failures close the current generation through the coordinator.
+        if (this.isCurrentSession(pc, sessionId, generation) && this.dc === dc) {
+          this.audit('decode_error', String(error));
+        }
+      }).finally(() => {
+        queuedMessages -= 1;
+        queuedBytes -= incomingBytes;
+      });
     };
   }
 
@@ -458,43 +868,88 @@ export class WebrtcSessionService {
     return generation === this.sessionGeneration && this.pc === pc && this.sessionId === sessionId;
   }
 
-  private async handleDcMessage(raw: string): Promise<void> {
-    const now = Date.now();
-    this.rateTs = this.rateTs.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-    this.rateBytes = this.rateBytes.filter(row => now - row.ts < RATE_LIMIT_WINDOW_MS);
-    const incomingBytes = typeof raw === 'string' ? new TextEncoder().encode(raw).byteLength : RATE_LIMIT_BYTES + 1;
-    const windowBytes = this.rateBytes.reduce((sum, row) => sum + row.bytes, 0);
-    if (this.rateTs.length >= RATE_LIMIT_MAX || windowBytes + incomingBytes > RATE_LIMIT_BYTES) {
-      this.audit('policy_violation', 'rate_limit_exceeded');
-      return;
-    }
-    this.rateTs.push(now);
-    this.rateBytes.push({ ts: now, bytes: incomingBytes });
+  private isCurrentDataChannel(context: DataChannelReceiveContext): boolean {
+    return this.isCurrentSession(
+      context.peer, context.sessionId, context.sessionGeneration,
+    ) && this.dc === context.channel;
+  }
 
+  private assertSemanticSendContext(
+    message: SemanticDataChannelMessage,
+    context: SemanticSendContext,
+  ): void {
+    const current = context.sessionGeneration === this.sessionGeneration
+      && context.peer === this.pc
+      && context.sessionId === this.sessionId
+      && message.session_id === context.sessionId
+      && (context.channel === undefined || context.channel === this.dc);
+    if (!current) throw new Error('semantic_send_context_superseded');
+  }
+
+  private isActivePublicMediaContext(
+    context: ActivePublicMediaContext | null,
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): context is ActivePublicMediaContext {
+    return !!context
+      && context.peer === pc
+      && context.sessionId === sessionId
+      && context.sessionGeneration === generation
+      && this.isCurrentSession(pc, sessionId, generation);
+  }
+
+  private rejectOfferedPublicMedia(pc: RTCPeerConnection): void {
+    for (const transceiver of pc.getTransceivers()) {
+      try { transceiver.direction = 'inactive'; } catch { /* Rejected/closed m-line is already safe. */ }
+      void transceiver.sender.replaceTrack(null).catch(() => undefined);
+    }
+  }
+
+  private async handleDcMessage(
+    raw: string,
+    context: DataChannelReceiveContext,
+  ): Promise<void> {
     try {
       if (raw.startsWith('ANANTA-DC1 ')) {
         const semantic = await semanticDcDecode(raw);
-        this.acceptEpoch(semantic.epoch);
-        if (semantic.expires_at_ms <= now) throw new SemanticDataChannelError('expired');
+        if (!this.isCurrentDataChannel(context)) return;
+        this.assertSemanticSession(semantic.session_id, context);
+        this.acceptEpoch(semantic.epoch, context.sessionId);
+        if (semantic.expires_at_ms <= Date.now()) throw new SemanticDataChannelError('expired');
+        if (!this.isCurrentDataChannel(context)) return;
+        const accepted = await this.pairMediaE2ee.acceptSemantic(semantic);
+        if (!this.isCurrentDataChannel(context)) return;
+        if (accepted) return;
         this.semanticMessage$.next(semantic);
         return;
       }
       if (raw.startsWith('ANANTA-DCCHUNK1 ')) {
         const chunk = semanticDcDecodeChunk(raw);
-        this.acceptEpoch(chunk.epoch);
-        const result = await this.semanticReassembler.accept(chunk, now);
+        if (!this.isCurrentDataChannel(context)) return;
+        this.assertSemanticSession(chunk.session_id, context);
+        this.acceptEpoch(chunk.epoch, context.sessionId);
+        const result = await this.semanticReassembler.accept(chunk, Date.now());
+        if (!this.isCurrentDataChannel(context)) return;
         if (result.status === 'rejected') throw new SemanticDataChannelError(result.reason);
         if (result.status !== 'complete') return;
         const frame = new TextDecoder('utf-8', { fatal: true }).decode(result.value);
         const semantic = await semanticDcDecode(frame);
-        if (semantic.expires_at_ms <= now) throw new SemanticDataChannelError('expired');
+        if (!this.isCurrentDataChannel(context)) return;
+        this.assertSemanticSession(semantic.session_id, context);
+        if (semantic.epoch !== chunk.epoch) throw new SemanticDataChannelError('chunk_context_mismatch');
+        if (semantic.expires_at_ms <= Date.now()) throw new SemanticDataChannelError('expired');
+        const accepted = await this.pairMediaE2ee.acceptSemantic(semantic);
+        if (!this.isCurrentDataChannel(context)) return;
+        if (accepted) return;
         this.semanticMessage$.next(semantic);
         return;
       }
       const parsed = dcDecode(raw);
       const msg = dcTryReassembleChunk(parsed, this.chunkReassembler);
       if (!msg) return;
-      if (msg.type === 'cursor' && this.controlPlane.isPublicSession(this.sessionId)) {
+      if (!this.isCurrentDataChannel(context)) return;
+      if (msg.type === 'cursor' && this.controlPlane.isPublicSession(context.sessionId)) {
         this.audit('policy_violation', 'public_raw_cursor_transport_disabled');
         return;
       }
@@ -502,20 +957,69 @@ export class WebrtcSessionService {
         this.audit('policy_violation', `disallowed_type:${msg.type}`);
         return;
       }
-      if (msg.type === 'ping') { this.sendDc('pong'); return; }
+      if (msg.type === 'ping') {
+        if (this.isCurrentDataChannel(context)) this.sendDc('pong');
+        return;
+      }
+      if (!this.isCurrentDataChannel(context)) return;
       this.dcMessage$.next(msg);
     } catch (e) {
-      this.audit('decode_error', String(e));
+      if (this.isCurrentDataChannel(context)) this.audit('decode_error', String(e));
     }
   }
 
-  private acceptEpoch(epoch: number): void {
+  private assertSemanticSession(
+    semanticSessionId: string,
+    context: DataChannelReceiveContext,
+  ): void {
+    if (semanticSessionId !== context.sessionId) {
+      throw new SemanticDataChannelError('semantic_session_mismatch');
+    }
+  }
+
+  private admitDcMessage(raw: unknown, incomingBytes: number, now: number): raw is string {
+    this.rateTs = this.rateTs.filter(timestamp => now - timestamp < RATE_LIMIT_WINDOW_MS);
+    this.rateBytes = this.rateBytes.filter(row => now - row.ts < RATE_LIMIT_WINDOW_MS);
+    const windowBytes = this.rateBytes.reduce((sum, row) => sum + row.bytes, 0);
+    if (this.rateTs.length >= RATE_LIMIT_MAX || windowBytes + incomingBytes > RATE_LIMIT_BYTES) {
+      this.audit('policy_violation', 'rate_limit_exceeded');
+      return false;
+    }
+    this.rateTs.push(now);
+    this.rateBytes.push({ ts: now, bytes: incomingBytes });
+    return typeof raw === 'string';
+  }
+
+  private dcMessageBytes(raw: unknown): number {
+    return typeof raw === 'string'
+      ? new TextEncoder().encode(raw).byteLength
+      : RATE_LIMIT_BYTES + 1;
+  }
+
+  private acceptEpoch(epoch: number, sessionId = this.sessionId): void {
     if (!Number.isSafeInteger(epoch) || epoch < this.activeEpoch) throw new Error('stale_semantic_epoch');
     if (epoch === this.activeEpoch) return;
     const prior = this.activeEpoch;
     this.activeEpoch = epoch;
-    this.semanticReassembler.clearContext(this.sessionId, prior);
-    this.sendQueue.cancelContext(this.sessionId, prior);
+    this.semanticReassembler.clearContext(sessionId, prior);
+    this.sendQueue.cancelContext(sessionId, prior);
+  }
+
+  private releasePendingPublicMediaTracks(): void {
+    if (!this.sessionId || this.pairMediaE2ee.statusFor(this.sessionId).state !== 'ready') return;
+    for (const definition of ['microphone-opus', 'camera-vp8', 'screen-vp8'] as const) {
+      const event = this.pendingPublicMediaTracks.get(definition);
+      if (!event) continue;
+      this.pendingPublicMediaTracks.delete(definition);
+      this.remoteTrack$.next(event);
+    }
+  }
+
+  private stopPendingPublicMediaTracks(): void {
+    for (const event of this.pendingPublicMediaTracks.values()) {
+      try { event.track.stop(); } catch { /* Deterministic local cleanup. */ }
+    }
+    this.pendingPublicMediaTracks.clear();
   }
 
   private audit(type: string, detail?: string): void {
