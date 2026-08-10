@@ -166,6 +166,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
   });
 
   it('reconciles an already-open answerer DataChannel exactly once', async () => {
+    vi.useFakeTimers();
     await service.startSession('session-a', false, 'peer:remote');
     const peer = PublicPeerConnection.instances[0];
     const channel = Object.assign(dataChannel(), { readyState: 'open' as const });
@@ -174,11 +175,73 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     await settle();
 
     expect(service.dataChannelState$.value).toBe('open');
+    expect(service.state$.value).toBe('connected');
     expect(coordinator.port?.isOpen()).toBe(true);
     expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
 
     channel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
     expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+    expect(peer.close).not.toHaveBeenCalled();
+  });
+
+  it('treats a generation-bound DataChannel open as initial transport success', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const channel = peer.createDataChannel.mock.results[0].value as RTCDataChannel;
+
+    Object.assign(channel, { readyState: 'open' as const });
+    channel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(peer.connectionState).toBe('new');
+    expect(service.state$.value).toBe('connected');
+    expect(coordinator.fail).not.toHaveBeenCalled();
+    expect(peer.close).not.toHaveBeenCalled();
+    expect(service.auditLog).toContainEqual(expect.objectContaining({
+      type: 'connection_ready', session_id: 'session-a', detail: 'datachannel',
+    }));
+    expect(service.auditLog).not.toContainEqual(expect.objectContaining({
+      type: 'ice_failed', session_id: 'session-a',
+    }));
+  });
+
+  it('still fails closed when neither the peer nor its DataChannel becomes ready', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_timeout',
+    );
+    expect(peer.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
+  });
+
+  it('does not let a stale DataChannel open clear a replacement connection deadline', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const stalePeer = PublicPeerConnection.instances[0];
+    const staleChannel = stalePeer.createDataChannel.mock.results[0].value as RTCDataChannel;
+
+    await service.startSession('session-a', true, 'peer:remote');
+    const replacement = PublicPeerConnection.instances[1];
+    Object.assign(staleChannel, { readyState: 'open' as const });
+    staleChannel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_timeout',
+    );
+    expect(replacement.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
   });
 
   it('reopens a revoked media contract as data-only with a fresh connection generation', async () => {
@@ -198,7 +261,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
 
     expect(transforms.prepareSession).toHaveBeenCalledTimes(1);
     expect(dataOnlyPeer.close).not.toHaveBeenCalled();
-    expect(service.state$.value).toBe('connecting');
+    expect(service.state$.value).toBe('connected');
     expect(service.dataChannelState$.value).toBe('open');
     expect(coordinator.port).toBeNull();
   });

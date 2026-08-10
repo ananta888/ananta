@@ -829,6 +829,19 @@ export class WebrtcSessionService {
       if (this.pairMediaTransforms.isPrepared(sessionId)) {
         this.pairMediaE2ee.markDataChannelOpen(sessionId);
       }
+      // `RTCDataChannel.open` is a level signal that its underlying SCTP/
+      // DTLS/ICE data transport is established and usable. Some browsers can
+      // leave the aggregate RTCPeerConnection state in `connecting` while
+      // that application transport is already live. Do not let the initial
+      // connection deadline tear down that exact, generation-bound session.
+      if (this.state$.value === 'connecting') {
+        if (this.connectionTimeout) {
+          clearTimeout(this.connectionTimeout);
+          this.connectionTimeout = null;
+        }
+        this.audit('connection_ready', 'datachannel');
+        this.state$.next('connected');
+      }
     };
     dc.onopen = handleOpen;
     dc.onclose = () => {
