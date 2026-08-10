@@ -93,6 +93,7 @@ const PEER_ID_HEADER = 'X-Ananta-Peer-Id';
 const DEVICE_ID_HEADER = 'X-Ananta-Device-Id';
 const MEMBERSHIP_CAPABILITY_HEADER = 'X-Ananta-Membership-Capability';
 const DEFINITIVE_PRE_COMMIT_ERRORS = new Set([
+  'device_key_must_be_distinct',
   'device_identity_invalid',
   'device_identity_required',
   'device_key_substitution',
@@ -101,6 +102,7 @@ const DEFINITIVE_PRE_COMMIT_ERRORS = new Set([
   'invite_code_required',
   'invalid_invite_code',
   'json_object_required',
+  'peer_identity_must_be_distinct',
   'request_fields_not_allowed',
   'session_expiry_invalid',
   'strict_e2ee_required',

@@ -25,6 +25,7 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
     sendMessage: vi.fn(async () => undefined), approveFingerprintChange: vi.fn(),
     participantStatus: () => 'online', endSession: vi.fn(), leaveSession: vi.fn(),
     revokeParticipant: vi.fn(), createSession: vi.fn(), joinSession: vi.fn(),
+    discardPendingJoinAttempt: vi.fn(),
   };
   const binding = { start: vi.fn() };
   const core = {
@@ -97,5 +98,88 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     expect(core.get).not.toHaveBeenCalled();
     expect(core.post).not.toHaveBeenCalled();
     expect(core.delete).not.toHaveBeenCalled();
+  });
+
+  it('discards only a conflicted pending join after explicit confirmation', async () => {
+    const { service } = configure('ready');
+    service.isActive = false;
+    service.state$.next({
+      session: null, participants: [], messages: [], cursor: '0', role: null,
+    });
+    const pendingCapability = 'C'.repeat(43);
+    const previousBody = 'previous-private-request-body';
+    const bearerToken = 'private-oidc-bearer-token';
+    service.joinSession.mockRejectedValueOnce(Object.assign(
+      new Error('public_pair_pending_attempt_conflict'),
+      { pendingCapability, previousBody, bearerToken },
+    ));
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    const component = fixture.componentInstance;
+    component.view = 'join';
+    component.joinCode = 'CURRENT42';
+    fixture.detectChanges();
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    await component.doJoin();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const renderedText = host.textContent ?? '';
+    expect(renderedText).toContain('früherer Beitrittsversuch');
+    expect(renderedText).not.toContain('public_pair_pending_attempt_conflict');
+    expect(renderedText).not.toContain(pendingCapability);
+    expect(renderedText).not.toContain(previousBody);
+    expect(renderedText).not.toContain(bearerToken);
+    expect(log).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    expect(component.joinCode).toBe('CURRENT42');
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    const recovery = host.querySelector<HTMLButtonElement>('[data-testid="discard-pending-join"]');
+    expect(recovery).not.toBeNull();
+
+    recovery?.click();
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(service.discardPendingJoinAttempt).not.toHaveBeenCalled();
+    expect(component.pendingJoinRecoveryAvailable).toBe(true);
+    expect(component.joinCode).toBe('CURRENT42');
+
+    recovery?.click();
+    expect(confirm).toHaveBeenCalledTimes(2);
+    expect(service.discardPendingJoinAttempt).toHaveBeenCalledOnce();
+    expect(component.pendingJoinRecoveryAvailable).toBe(false);
+    expect(component.joinCode).toBe('CURRENT42');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="discard-pending-join"]')).toBeNull();
+    expect(log).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    expect(consoleError).not.toHaveBeenCalled();
+    confirm.mockRestore();
+    log.mockRestore();
+    warn.mockRestore();
+    consoleError.mockRestore();
+  });
+
+  it('does not offer or run recovery for an unknown join failure', async () => {
+    const { service } = configure('ready');
+    service.isActive = false;
+    service.state$.next({
+      session: null, participants: [], messages: [], cursor: '0', role: null,
+    });
+    service.joinSession.mockRejectedValueOnce(new Error('unknown_pending_state'));
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentInstance.view = 'join';
+    fixture.componentInstance.joinCode = 'CURRENT42';
+    fixture.detectChanges();
+
+    await fixture.componentInstance.doJoin();
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="discard-pending-join"]')).toBeNull();
+    expect(service.discardPendingJoinAttempt).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.joinCode).toBe('CURRENT42');
   });
 });

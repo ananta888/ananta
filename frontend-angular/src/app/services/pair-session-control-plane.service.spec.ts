@@ -549,12 +549,16 @@ describe('PairSessionControlPlaneService', () => {
     expect(vi.mocked(core.request).mock.calls).toHaveLength(callCount);
   });
 
-  it('retires a definitely rejected join so a corrected invite can start a new attempt', async () => {
+  it.each([
+    'invalid_invite_code',
+    'peer_identity_must_be_distinct',
+    'device_key_must_be_distinct',
+  ])('retires the definitive 400 %s so a corrected join can start', async (reason) => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     const core = TestBed.inject(HubApiCoreService);
     vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({
       status: 400,
-      error: { error: 'invalid_invite_code' },
+      error: { error: reason },
     })));
 
     await expect(firstValueFrom(service.join({ invite_code: 'WRONG' })))
@@ -562,6 +566,34 @@ describe('PairSessionControlPlaneService', () => {
     await expect(firstValueFrom(service.join({ invite_code: 'CORRECT' })))
       .resolves.toMatchObject({ id: 'joined-session', local_peer_id: joinerPeerId });
   });
+
+  it.each([0, 401, 409, 500, 503])(
+    'retains an unresolved join across HTTP status %s and reuses its exact proof',
+    async (status) => {
+      const service = TestBed.inject(PairSessionControlPlaneService);
+      const core = TestBed.inject(HubApiCoreService);
+      vi.mocked(core.request).mockReturnValueOnce(throwError(() => ({
+        status,
+        error: { error: 'peer_identity_must_be_distinct' },
+      })));
+
+      await expect(firstValueFrom(service.join({ invite_code: 'ORIGINAL' })))
+        .rejects.toMatchObject({ status });
+      const failedOptions = vi.mocked(core.request).mock.calls[0][3];
+      const callCount = vi.mocked(core.request).mock.calls.length;
+
+      expect(() => service.join({ invite_code: 'CHANGED' }))
+        .toThrow('public_pair_pending_attempt_conflict');
+      expect(vi.mocked(core.request).mock.calls).toHaveLength(callCount);
+
+      await expect(firstValueFrom(service.join({ invite_code: 'ORIGINAL' })))
+        .resolves.toMatchObject({ id: 'joined-session', local_peer_id: joinerPeerId });
+      const retryOptions = vi.mocked(core.request).mock.calls[1][3];
+      expect(retryOptions?.body).toEqual(failedOptions?.body);
+      expect(retryOptions?.headers?.['X-Ananta-Membership-Capability'])
+        .toBe(failedOptions?.headers?.['X-Ananta-Membership-Capability']);
+    },
+  );
 
   it('retains a lost-response attempt through 401 and recovers after same-subject reauthentication', async () => {
     const service = TestBed.inject(PairSessionControlPlaneService);

@@ -236,6 +236,14 @@ export class ShareSessionService implements OnDestroy {
     return session;
   }
 
+  /**
+   * Abandons only the unresolved public join mutation. This deliberately does
+   * not expose pending request data or the membership capability to the UI.
+   */
+  discardPendingJoinAttempt(): void {
+    this.controlPlane.discardPendingPublicMutation('join');
+  }
+
   async sendMessage(text: string): Promise<void> {
     const { session } = this.state$.value;
     const normalized = text.trim();

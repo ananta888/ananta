@@ -7,7 +7,10 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { ChatMessageComponent } from './chat-message.component';
 import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
 import { PairSecurityBootstrapState } from '../services/pair-view-security-bootstrap.service';
-import { pairSessionErrorMessage } from '../services/pair-session-error-message';
+import {
+  pairSessionErrorCode,
+  pairSessionErrorMessage,
+} from '../services/pair-session-error-message';
 
 type PanelView = 'home' | 'create' | 'join' | 'active';
 type MainTab = 'share' | 'groups';
@@ -179,7 +182,15 @@ interface PairGroupMember {
               </button>
               <button class="share-btn" (click)="view = 'home'">Abbrechen</button>
             </div>
-            @if (joinError) { <div class="share-error">{{ joinError }}</div> }
+            @if (joinError) { <div class="share-error" role="alert">{{ joinError }}</div> }
+            @if (pendingJoinRecoveryAvailable) {
+              <button
+                type="button"
+                class="share-btn danger"
+                data-testid="discard-pending-join"
+                (click)="discardPendingJoinAttempt()"
+              >Früheren Beitrittsversuch verwerfen</button>
+            }
           </div>
         }
       }
@@ -400,6 +411,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   joining = false;
   joinError = '';
   allowLegacyJoin = false;
+  pendingJoinRecoveryAvailable = false;
 
   chatInput = '';
   chatError = '';
@@ -566,14 +578,28 @@ export class AiSnakeSharePanelComponent implements OnInit {
     if (!this.joinCode.trim()) return;
     this.joining = true;
     this.joinError = '';
+    this.pendingJoinRecoveryAvailable = false;
     try {
       await this.svc.joinSession(this.joinCode.trim(), { allowLegacy: this.allowLegacyJoin });
       this.activeTab = 'chat';
     } catch (e: unknown) {
       this.joinError = pairSessionErrorMessage(e, 'Beitreten fehlgeschlagen');
+      this.pendingJoinRecoveryAvailable = pairSessionErrorCode(e)
+        === 'public_pair_pending_attempt_conflict';
     } finally {
       this.joining = false;
     }
+  }
+
+  discardPendingJoinAttempt(): void {
+    if (!this.pendingJoinRecoveryAvailable) return;
+    if (!confirm(
+      'Nur fortfahren, wenn der frühere Beitrittsversuch sicher nicht erfolgreich war. '
+      + 'Gespeicherten Versuch lokal verwerfen?',
+    )) return;
+    this.svc.discardPendingJoinAttempt();
+    this.pendingJoinRecoveryAvailable = false;
+    this.joinError = '';
   }
 
   async sendMsg(): Promise<void> {

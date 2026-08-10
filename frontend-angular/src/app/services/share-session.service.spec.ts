@@ -70,6 +70,13 @@ describe('ShareSessionService strict Pair chat', () => {
   let securityState: BehaviorSubject<any>;
   let auth: { userPayload: Record<string, string> | null };
   let publicSession: boolean;
+  let controlPlane: {
+    readonly currentPeerId: string;
+    peerIdForSession: () => string;
+    isPublicSession: () => boolean;
+    assertSessionAvailable: ReturnType<typeof vi.fn>;
+    discardPendingPublicMutation: ReturnType<typeof vi.fn>;
+  };
   let service: ShareSessionService;
 
   beforeEach(() => {
@@ -79,6 +86,15 @@ describe('ShareSessionService strict Pair chat', () => {
     auth = { userPayload: { sub: 'alice' } };
     publicSession = false;
     securityState = new BehaviorSubject({ status: 'ready', fingerprint: 'f'.repeat(64) });
+    controlPlane = {
+      get currentPeerId() {
+        return String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || '');
+      },
+      peerIdForSession: () => String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''),
+      isPublicSession: () => publicSession,
+      assertSessionAvailable: vi.fn(),
+      discardPendingPublicMutation: vi.fn(),
+    };
     TestBed.configureTestingModule({ providers: [
       { provide: HubApiCoreService, useValue: core },
       { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub' }] } },
@@ -91,12 +107,7 @@ describe('ShareSessionService strict Pair chat', () => {
         state$: securityState, currentEpoch: 3, clear: vi.fn(), markLegacy: vi.fn(),
         ensure: vi.fn(async () => true), approveFingerprintChange: vi.fn(),
       } },
-      { provide: PairSessionControlPlaneService, useValue: {
-        get currentPeerId() { return String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''); },
-        peerIdForSession: () => String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''),
-        isPublicSession: () => publicSession,
-        assertSessionAvailable: vi.fn(),
-      } },
+      { provide: PairSessionControlPlaneService, useValue: controlPlane },
     ] });
     service = TestBed.runInInjectionContext(() => new ShareSessionService());
     service.state$.next({ session: strictSession, participants: [], messages: [], cursor: '0', role: 'owner' });
@@ -111,6 +122,13 @@ describe('ShareSessionService strict Pair chat', () => {
 
     auth.userPayload = { preferred_username: 'display-only', email: 'display@example.test' };
     expect(service.currentUserId).toBe('');
+  });
+
+  it('exposes only a narrow pending-join discard operation to UI consumers', () => {
+    service.discardPendingJoinAttempt();
+
+    expect(controlPlane.discardPendingPublicMutation).toHaveBeenCalledOnce();
+    expect(controlPlane.discardPendingPublicMutation).toHaveBeenCalledWith('join');
   });
 
   it('sends only an opaque closed envelope over the direct DataChannel', async () => {

@@ -13,13 +13,22 @@ const PUBLIC_PAIR_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.free
     'Das öffentliche WebRTC-Profil stimmt nicht mit der sicheren Konfiguration überein.',
   public_session_profile_changed:
     'Das Netzwerkprofil wurde während der Session geändert. Bitte eine neue Session erstellen.',
+  public_pair_pending_attempt_conflict:
+    'Ein früherer Beitrittsversuch ist noch ungeklärt. Verwirf ihn nur, wenn er sicher nicht erfolgreich war.',
+  peer_identity_must_be_distinct:
+    'Ein Gerät kann nicht mit sich selbst verbunden werden. Verwende auf dem zweiten Rechner dessen eigene Geräteidentität.',
+  device_key_must_be_distinct:
+    'Beide Pair-Teilnehmer verwenden denselben Geräteschlüssel. Nutze auf dem zweiten Rechner ein eigenes Browserprofil.',
 });
 
+export function pairSessionErrorCode(error: unknown): string {
+  const serverCode = (error as { error?: { error?: unknown } } | null)?.error?.error;
+  if (typeof serverCode === 'string') return serverCode;
+  if (error instanceof Error) return error.message;
+  return typeof error === 'string' ? error : '';
+}
+
 export function pairSessionErrorMessage(error: unknown, fallback: string): string {
-  const code = error instanceof Error
-    ? error.message
-    : typeof error === 'string'
-      ? error
-      : '';
+  const code = pairSessionErrorCode(error);
   return PUBLIC_PAIR_ERROR_MESSAGES[code] ?? (code || fallback);
 }
