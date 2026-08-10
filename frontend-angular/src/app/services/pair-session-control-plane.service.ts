@@ -79,6 +79,12 @@ interface RequestAuthority {
   readonly profileId?: string;
 }
 
+/** Secret-free projection of the immutable authority selected for a Pair session. */
+export interface PairSessionAuthorityRoute {
+  readonly kind: PairControlPlaneKind;
+  readonly baseUrl: string;
+}
+
 type PublicResponsePurpose = 'v2-mutation' | 'list';
 
 const DEVICE_PEER_ID_RE = /^peer:[a-f0-9]{64}$/;
@@ -141,7 +147,13 @@ export class PairSessionControlPlaneService {
 
   /** Exact authority lookup for policies that must reject an unbound session. */
   authorityKindForSession(sessionId: string): PairControlPlaneKind {
-    return this.bindings.require(sessionId).kind;
+    return this.authorityRouteForSession(sessionId).kind;
+  }
+
+  /** Exact, immutable operation route without membership capability or identity claims. */
+  authorityRouteForSession(sessionId: string): Readonly<PairSessionAuthorityRoute> {
+    const binding = this.bindings.require(sessionId);
+    return Object.freeze({ kind: binding.kind, baseUrl: binding.baseUrl });
   }
 
   peerIdForSession(sessionId: string): string {

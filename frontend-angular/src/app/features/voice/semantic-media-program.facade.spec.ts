@@ -153,8 +153,16 @@ describe('SemanticMediaProgramFacade', () => {
     activate: vi.fn(async () => pairMediaE2eeStatus$.value),
     deactivate: vi.fn(),
   };
+  let boundHubUrl = 'http://hub.test';
   const pairControlPlane = {
     authorityKindForSession: vi.fn<(sessionId: string) => 'hub' | 'public'>(() => 'hub'),
+    authorityRouteForSession: vi.fn((sessionId: string) => {
+      const kind = pairControlPlane.authorityKindForSession(sessionId);
+      return {
+        kind,
+        baseUrl: kind === 'hub' ? boundHubUrl : 'https://webrtc.ananta.de',
+      };
+    }),
   };
   const directory = {
     list: vi.fn<() => Array<{ role: string; name: string; url: string }>>(
@@ -201,6 +209,7 @@ describe('SemanticMediaProgramFacade', () => {
     ordinaryMediaPolicy.assertAllowed.mockReset();
     pairControlPlane.authorityKindForSession.mockReset();
     pairControlPlane.authorityKindForSession.mockReturnValue('hub');
+    boundHubUrl = 'http://hub.test';
     directory.list.mockReset();
     directory.list.mockReturnValue([{ role: 'hub', name: 'hub', url: 'http://hub.test' }]);
     pairMediaE2eeStatus$.next({
@@ -265,6 +274,35 @@ describe('SemanticMediaProgramFacade', () => {
     ]);
     expect(facade.view$.value.capabilities.find(row => row.capability === 'ordinary_media')?.state)
       .toBe('authoritatively_active');
+    expect(sfuCoordinator.bind).toHaveBeenCalledWith(expect.objectContaining({
+      hubUrl: 'http://hub.test',
+      sessionId: 'session-a',
+      featureEnabled: true,
+    }));
+  });
+
+  it('pins every Hub media path to the session authority instead of a changed directory Hub', () => {
+    directory.list.mockReturnValue([{ role: 'hub', name: 'hub-b', url: 'http://hub-b.test' }]);
+    profile$.next({ ...profile, label: 'Directory changed after binding' });
+
+    expect(directory.list()).toEqual([
+      { role: 'hub', name: 'hub-b', url: 'http://hub-b.test' },
+    ]);
+    expect(facade.view$.value.hubUrl).toBe('http://hub.test');
+    expect(sfuCoordinator.bind).toHaveBeenLastCalledWith(expect.objectContaining({
+      hubUrl: 'http://hub.test', sessionId: 'session-a',
+    }));
+    expect(compute.bind).toHaveBeenCalledWith(expect.objectContaining({ hubUrl: 'http://hub.test' }));
+    expect(consent.bind).toHaveBeenLastCalledWith(expect.objectContaining({ hubUrl: 'http://hub.test' }));
+    expect(evidenceFlow.bind).toHaveBeenLastCalledWith(expect.objectContaining({ hubUrl: 'http://hub.test' }));
+    expect(adapterApi.list).toHaveBeenCalledWith('http://hub.test', 'session-a', expect.any(String));
+    expect([
+      ...sfuCoordinator.bind.mock.calls,
+      ...compute.bind.mock.calls,
+      ...consent.bind.mock.calls,
+      ...evidenceFlow.bind.mock.calls,
+      ...adapterApi.list.mock.calls,
+    ].flat()).not.toContain('http://hub-b.test');
   });
 
   it('starts and stops semantic speech only with the confirmed Hub-bound peer context', async () => {
@@ -286,6 +324,39 @@ describe('SemanticMediaProgramFacade', () => {
     expect(speech.stop).toHaveBeenCalled();
     expect(speechProducer.stop).toHaveBeenCalled();
     expect(facade.view$.value.speechTransportState).toBe('stopped');
+  });
+
+  it('does not resume a delayed Hub speech start after switching to a Public session', async () => {
+    audioState$.next({ status: 'stopped' });
+    speech.start.mockClear();
+    speechRuntime.start.mockClear();
+    speechProducer.start.mockClear();
+    pairControlPlane.authorityKindForSession.mockImplementation(
+      (sessionId: string) => sessionId === 'session-a' ? 'hub' : 'public',
+    );
+    let resolveMicrophone!: () => void;
+    media.requestMicrophone.mockImplementationOnce(
+      () => new Promise<void>(resolve => { resolveMicrophone = resolve; }),
+    );
+
+    const activation = facade.handleProgramIntent({
+      capability: 'live_speech', desired: 'activate', requestId: 'delayed-hub-speech',
+    });
+    await Promise.resolve();
+    expect(media.requestMicrophone).toHaveBeenCalled();
+
+    shareState$.next({
+      ...shareState$.value,
+      session: { ...session, id: 'session-public', security_epoch: 4 },
+    });
+    resolveMicrophone();
+    await activation;
+
+    expect(speech.start).not.toHaveBeenCalled();
+    expect(speechRuntime.start).not.toHaveBeenCalled();
+    expect(speechProducer.start).not.toHaveBeenCalled();
+    expect(media.stopAudio).toHaveBeenCalledWith('ordinary_media_session_ended');
+    expect(facade.view$.value.ordinaryMediaAuthority).toBe('public');
   });
 
   it('executes explicit microphone, camera, screen, replace and stop intents through production ports', async () => {
@@ -325,18 +396,31 @@ describe('SemanticMediaProgramFacade', () => {
     expect(media.stopAudio).toHaveBeenCalledWith('microphone_user_stop');
   });
 
-  it('activates key-bound Public Pair media without a Hub URL or Hub feature flag', async () => {
-    directory.list.mockReturnValue([]);
+  it('keeps key-bound Public Pair media off Hub paths despite a configured Hub and stale flags', async () => {
     pairControlPlane.authorityKindForSession.mockReturnValue('public');
-    runtimeOnline$.next(false);
+    sfuCoordinator.bind.mockClear();
+    sfuCoordinator.stop.mockClear();
+    compute.bind.mockClear();
+    consent.bind.mockClear();
+    evidenceFlow.bind.mockClear();
+    adapterApi.list.mockClear();
     audioState$.next({ status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null });
-    sfuState$.next({ status: 'disconnected' });
     profile$.next({
       ...profile,
       profile_id: 'public-ananta',
       public_rendezvous: true,
+      // A stale global profile flag must never override the session binding.
       semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
     });
+
+    expect(directory.list()).toEqual([
+      { role: 'hub', name: 'hub', url: 'http://hub.test' },
+    ]);
+    expect(sfuCoordinator.bind).toHaveBeenLastCalledWith(null);
+    expect(compute.bind).toHaveBeenLastCalledWith(null);
+    expect(consent.bind).toHaveBeenLastCalledWith(null);
+    expect(evidenceFlow.bind).toHaveBeenLastCalledWith(null);
+    expect(adapterApi.list).not.toHaveBeenCalled();
 
     await facade.handleProgramIntent({
       capability: 'ordinary_media', desired: 'activate', requestId: 'public-media-ready',
@@ -344,7 +428,12 @@ describe('SemanticMediaProgramFacade', () => {
 
     expect(pairMediaE2ee.activate).toHaveBeenCalledWith('session-a');
     expect(facade.view$.value.online).toBe(false);
+    expect(facade.view$.value.hubUrl).toBe('');
     expect(facade.view$.value.ordinaryMediaAuthority).toBe('public');
+    expect(facade.view$.value.computeVisible).toBe(false);
+    expect(facade.view$.value.receiverPaths).toEqual([
+      expect.objectContaining({ receiverId: 'bob', effectivePath: 'ordinary' }),
+    ]);
     expect(facade.view$.value.ordinaryMediaActivationEnabled).toBe(true);
     expect(facade.view$.value.ordinaryMediaCaptureEnabled).toBe(true);
     expect(facade.view$.value.ordinaryMediaVideoCaptureEnabled).toBe(true);
@@ -368,6 +457,53 @@ describe('SemanticMediaProgramFacade', () => {
     });
     expect(pairMediaE2ee.deactivate)
       .toHaveBeenCalledWith('session-a', 'ordinary_media_capability_revoked');
+    expect(sfuCoordinator.stop).not.toHaveBeenCalled();
+  });
+
+  it('fails Public Pair Hub-only operations closed while a Hub remains configured', async () => {
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    sfuCoordinator.bind.mockClear();
+    sfuCoordinator.switchReceiver.mockClear();
+    sfuCoordinator.stop.mockClear();
+    compute.bind.mockClear();
+    compute.handleIntent.mockClear();
+    compute.requestSuggestion.mockClear();
+    speech.start.mockClear();
+    adapterApi.list.mockClear();
+    profile$.next({
+      ...profile,
+      profile_id: 'public-ananta',
+      public_rendezvous: true,
+      semantic_media_feature_flags: { ...flags, ordinary_media_publication: false },
+    });
+
+    await facade.handleReceiverPathIntent({ receiverId: 'bob', preference: 'sfu' });
+    facade.handleComputeIntent({ kind: 'profile', expectedRevision: 0, value: 'balanced' });
+    facade.requestComputeSuggestion();
+    await facade.handleProgramIntent({
+      capability: 'live_speech', desired: 'activate', requestId: 'public-live-speech',
+    });
+    await facade.handleProgramIntent({
+      capability: 'ordinary_media', desired: 'revoke', requestId: 'public-ordinary-revoke',
+    });
+
+    expect(sfuCoordinator.bind).toHaveBeenLastCalledWith(null);
+    expect(sfuCoordinator.switchReceiver).not.toHaveBeenCalled();
+    expect(sfuCoordinator.stop).not.toHaveBeenCalled();
+    expect(compute.bind).toHaveBeenLastCalledWith(null);
+    expect(compute.handleIntent).not.toHaveBeenCalled();
+    expect(compute.requestSuggestion).not.toHaveBeenCalled();
+    expect(speech.start).not.toHaveBeenCalled();
+    expect(adapterApi.list).not.toHaveBeenCalled();
+    expect(facade.view$.value.capabilities.find(row => row.capability === 'live_speech'))
+      .toMatchObject({ state: 'failed', reasonCode: 'semantic_program_hub_authority_required' });
+    expect(facade.view$.value.receiverPaths).toEqual([
+      expect.objectContaining({
+        receiverId: 'bob',
+        effectivePath: 'ordinary',
+        reasonCode: 'semantic_media_hub_authority_required',
+      }),
+    ]);
   });
 
   it('keeps bilateral Public media activation pending until the peer consents', async () => {
@@ -537,6 +673,7 @@ describe('SemanticMediaProgramFacade', () => {
     });
     expect(mediaPublications.stopAll).toHaveBeenCalledWith('ordinary_media_capability_revoked');
     expect(media.stopAudio).toHaveBeenCalledWith('ordinary_media_capability_revoked');
+    expect(sfuCoordinator.stop).toHaveBeenCalledWith('sfu_ordinary_media_revoked');
     expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
 
     shareState$.next({ ...shareState$.value, session: { ...session, id: 'session-b' } });

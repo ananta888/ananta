@@ -1,7 +1,6 @@
 import { Injectable, OnDestroy, inject } from '@angular/core';
 import { BehaviorSubject, firstValueFrom, forkJoin, Subscription, take, timeout } from 'rxjs';
 
-import { AgentDirectoryService } from '../../services/agent-directory.service';
 import {
   SFU_TRANSPORT_PROJECTION,
   type SfuTransportProjectionPort,
@@ -138,9 +137,22 @@ const EMPTY_CONSENT: SpeechEvidenceConsentPanelState = Object.freeze({
   errorCode: 'speech_consent_context_missing',
 });
 
+interface BoundSemanticMediaAuthorityRoute {
+  readonly sessionId: string;
+  readonly kind: OrdinaryMediaAuthorityKind;
+  readonly baseUrl: string;
+}
+
+interface SpeechActivationFence {
+  readonly sessionId: string;
+  readonly securityEpoch: number;
+  readonly authorityBaseUrl: string;
+  readonly contextGeneration: number;
+  readonly activationGeneration: number;
+}
+
 @Injectable()
 export class SemanticMediaProgramFacade implements OnDestroy {
-  private readonly directory = inject(AgentDirectoryService);
   private readonly profiles = inject(NetworkProfileService);
   private readonly shares = inject(ShareSessionService);
   private readonly pairControlPlane = inject(PairSessionControlPlaneService);
@@ -194,14 +206,21 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private speechAdapterValidationTimer: ReturnType<typeof setTimeout> | null = null;
   private publicMediaReadySessionId = '';
   private publicMediaFailureCleanupSessionId = '';
+  private authorityContextGeneration = 0;
+  private speechActivationGeneration = 0;
 
   readonly view$ = new BehaviorSubject<SemanticMediaProgramHostView>(this.buildView());
 
   constructor() {
     this.subscriptions.add(this.shares.state$.subscribe(state => {
       const previousSessionId = this.shareState.session?.id ?? '';
-      const previousAuthority = this.ordinaryMediaAuthority();
+      const previousEpoch = this.shareState.session?.security_epoch ?? 0;
+      const previousAuthority = this.boundAuthority();
       this.shareState = state;
+      if (
+        previousSessionId !== (state.session?.id ?? '')
+        || previousEpoch !== (state.session?.security_epoch ?? 0)
+      ) this.authorityContextGeneration += 1;
       if (previousSessionId && previousSessionId !== (state.session?.id ?? '')) {
         this.stopSessionScopedState(previousSessionId, previousAuthority === 'public');
       }
@@ -303,9 +322,18 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const intentSessionId = this.shareState.session?.id ?? '';
     const current = this.capability(intent.capability);
     if (current.requestId && current.requestId !== intent.requestId) return;
+    if (intent.capability !== 'ordinary_media' && !this.hasHubAuthority()) {
+      this.setCapability(
+        intent.capability,
+        'failed',
+        null,
+        'semantic_program_hub_authority_required',
+      );
+      return;
+    }
     const activationAvailable = intent.capability === 'ordinary_media'
       ? this.ordinaryMediaActivationAvailable()
-      : this.hubOnline();
+      : this.hubOperationsAvailable();
     if (intent.desired === 'activate' && !activationAvailable) {
       this.setCapability(
         intent.capability,
@@ -313,14 +341,14 @@ export class SemanticMediaProgramFacade implements OnDestroy {
         null,
         intent.capability === 'ordinary_media'
           ? this.ordinaryCaptureReason()
-          : 'semantic_program_hub_offline',
+          : this.hubOperationUnavailableReason(),
       );
       return;
     }
     this.setCapability(
       intent.capability,
       intent.desired === 'activate'
-        ? intent.capability === 'ordinary_media' && this.ordinaryMediaAuthority() === 'public'
+        ? intent.capability === 'ordinary_media' && this.boundAuthority() === 'public'
           ? 'sent_to_authority'
           : 'sent_to_hub'
         : 'pausing',
@@ -366,16 +394,26 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   async startSpeech(): Promise<void> {
     if (this.speechState === 'starting' || this.speechState === 'active') return;
     if (this.speechSettings.paused || this.speechSettings.ordinaryAudioOverride) return;
+    if (!this.hasHubAuthority()) {
+      this.speechState = 'failed';
+      this.speechReason = 'semantic_program_hub_authority_required';
+      this.emit();
+      return;
+    }
     this.speechState = 'starting';
     this.speechReason = 'semantic_speech_starting';
+    const activationGeneration = ++this.speechActivationGeneration;
     this.emit();
     try {
+      this.requireHubOperationAuthority();
       const binding = this.peerKeys.requireBinding(true);
       const session = this.requireSession();
+      const fence = this.speechActivationFence(session, activationGeneration);
       if (binding.scopeId !== session.id || !this.profile.semantic_media_feature_flags.semantic_speech_runtime) {
         throw new Error('semantic_speech_hub_context_missing');
       }
-      await this.ensureOrdinaryAudio();
+      await this.ensureOrdinaryAudio(fence);
+      this.assertSpeechActivationFence(fence);
       this.speech.start({
         sessionId: binding.scopeId,
         epoch: binding.epoch,
@@ -387,10 +425,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       const runtimeContext = this.speechRuntimeContext(binding, session);
       this.speechRuntime.start(runtimeContext);
       await this.speechProducer.start({ ...runtimeContext, profileId: 'default' });
+      this.assertSpeechActivationFence(fence);
       this.speechState = 'active';
       this.speechReason = 'semantic_speech_transport_active';
       this.setCapability('live_speech', 'authoritatively_active', null);
     } catch (error) {
+      if (activationGeneration !== this.speechActivationGeneration) return;
       void this.speechProducer.stop('semantic_speech_start_failed');
       this.speech.stop();
       this.speechRuntime.stop('semantic_speech_start_failed');
@@ -401,6 +441,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   stopSpeech(reasonCode = 'semantic_speech_user_stop'): void {
+    this.speechActivationGeneration += 1;
     if (this.speechState === 'stopped') {
       void this.speechProducer.stop(reasonCode);
       this.speechRuntime.stop(reasonCode);
@@ -420,6 +461,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   handleSpeechSettings(settings: SemanticSpeechPanelSettings): void {
+    if (!this.hasHubAuthority()) return;
     const previous = this.speechSettings;
     this.speechRuntime.applySettings(settings);
     this.speechProducer.applySettings(settings);
@@ -438,13 +480,27 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   handleComputeIntent(intent: ComputeContractIntent): void {
+    if (!this.hasHubAuthority()) return;
     if (intent.kind === 'activate' && !this.hubOnline()) return;
     void this.compute.handleIntent(intent);
   }
 
-  requestComputeSuggestion(): void { void this.compute.requestSuggestion(); }
+  requestComputeSuggestion(): void {
+    if (!this.hasHubAuthority()) return;
+    void this.compute.requestSuggestion();
+  }
 
   async handleReceiverPathIntent(intent: SemanticReceiverPathIntent): Promise<void> {
+    if (!this.hasHubAuthority()) {
+      this.receiverPaths.setOperationState(
+        intent.receiverId,
+        false,
+        'semantic_media_hub_authority_required',
+      );
+      this.syncReceiverPaths();
+      this.emit();
+      return;
+    }
     this.receiverPaths.request(intent.receiverId, intent.preference);
     this.receiverPaths.setOperationState(intent.receiverId, true, 'receiver_path_hub_confirmation_required');
     try {
@@ -523,24 +579,39 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   handleEvidenceConsentIntent(intent: SpeechEvidenceConsentIntent): void {
+    if (!this.hasHubAuthority()) return;
     void this.consent.handle(intent);
   }
 
-  handleEvidencePropose(intent: PeerEvidenceProposalIntent): void { void this.evidenceFlow.propose(intent); }
-  handleEvidenceAccept(dataClasses: readonly string[]): void { void this.evidenceFlow.accept(dataClasses); }
-  pauseEvidence(): void { this.evidenceFlow.pause(); }
-  resumeEvidence(): void { void this.evidenceFlow.resume(); }
-  rejectEvidence(): void { void this.evidenceFlow.reject(); }
-  revokeEvidence(): void { void this.evidenceFlow.revoke(); }
-  requestEvidenceCuration(): void { void this.evidenceFlow.requestHubCuration(); }
+  handleEvidencePropose(intent: PeerEvidenceProposalIntent): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.propose(intent);
+  }
+  handleEvidenceAccept(dataClasses: readonly string[]): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.accept(dataClasses);
+  }
+  pauseEvidence(): void {
+    if (this.hasHubAuthority()) this.evidenceFlow.pause();
+  }
+  resumeEvidence(): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.resume();
+  }
+  rejectEvidence(): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.reject();
+  }
+  revokeEvidence(): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.revoke();
+  }
+  requestEvidenceCuration(): void {
+    if (this.hasHubAuthority()) void this.evidenceFlow.requestHubCuration();
+  }
   handleEvidenceLocalOverride(value: { regionId: string; candidateId: string }): void {
-    this.evidenceFlow.localOverride(value.regionId, value.candidateId);
+    if (this.hasHubAuthority()) this.evidenceFlow.localOverride(value.regionId, value.candidateId);
   }
 
   ngOnDestroy(): void {
     this.stopSessionScopedState(
       this.shareState.session?.id ?? '',
-      this.ordinaryMediaAuthority() === 'public',
+      this.boundAuthority() === 'public',
     );
     this.subscriptions.unsubscribe();
     this.view$.complete();
@@ -554,7 +625,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const flags = this.profile.semantic_media_feature_flags;
     if (capability === 'ordinary_media') {
       if (this.transport.mode$.value !== 'webrtc') throw new Error('ordinary_media_webrtc_transport_required');
-      const authority = this.ordinaryMediaAuthority();
+      const authority = this.boundAuthority();
       if (authority === 'unbound') throw new Error('ordinary_media_session_binding_missing');
       if (authority === 'hub' && !flags.ordinary_media_publication) {
         throw new Error('ordinary_media_publication_disabled');
@@ -562,7 +633,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       if (authority === 'public') {
         this.ordinaryMediaPolicy.assertActivationAllowed(session.id);
         const status = await this.pairMediaE2ee.activate(session.id);
-        if (this.shareState.session?.id !== session.id || this.ordinaryMediaAuthority() !== 'public') {
+        if (this.shareState.session?.id !== session.id || this.boundAuthority() !== 'public') {
           this.pairMediaE2ee.deactivate(session.id, 'ordinary_media_activation_stale');
           throw new Error('ordinary_media_activation_stale');
         }
@@ -585,6 +656,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       this.ordinaryMediaPolicy.assertAllowed(session.id);
       return 'authoritatively_active';
     }
+    this.requireHubOperationAuthority();
     if (!this.hubUrl()) throw new Error('semantic_program_hub_missing');
     if (capability === 'live_speech') {
       if (!flags.semantic_speech_runtime) throw new Error('semantic_speech_disabled');
@@ -662,14 +734,15 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private deactivate(capability: SemanticProgramCapability, _state: SemanticProgramState): void {
     if (capability === 'ordinary_media') {
       const sessionId = this.shareState.session?.id ?? '';
-      if (sessionId && this.ordinaryMediaAuthority() === 'public') {
+      const authority = this.boundAuthority();
+      if (sessionId && authority === 'public') {
         this.publicMediaReadySessionId = '';
         this.publicMediaFailureCleanupSessionId = '';
         this.pairMediaE2ee.deactivate(sessionId, 'ordinary_media_capability_revoked');
       }
       this.media.stopAudio('ordinary_media_capability_revoked');
       this.mediaPublications.stopAll('ordinary_media_capability_revoked');
-      void this.sfuCoordinator.stop('sfu_ordinary_media_revoked');
+      if (authority === 'hub') void this.sfuCoordinator.stop('sfu_ordinary_media_revoked');
     }
     if (capability === 'live_speech') this.stopSpeech('semantic_speech_capability_revoked');
     if (capability === 'evidence_text' || capability === 'raw_audio') {
@@ -681,17 +754,20 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private syncContext(): void {
     const session = this.shareState.session;
+    const authority = this.boundAuthority();
+    const hubAuthority = authority === 'hub';
     this.syncReceiverPaths();
     const senderId = this.shares.currentUserId;
     const hubUrl = this.hubUrl();
     const epoch = session?.security_epoch ?? 0;
-    const key = session && senderId && hubUrl && epoch > 0 ? `${session.id}\x1f${epoch}\x1f${senderId}` : '';
+    const hubContextAvailable = Boolean(hubAuthority && session && senderId && hubUrl && epoch > 0);
+    const key = hubContextAvailable ? `${session!.id}\x1f${epoch}\x1f${senderId}` : '';
     const binding = this.peerKeys.currentBinding;
     const participants = this.shareState.participants
       .filter(participant => !participant.revoked_at && participant.user_id !== senderId)
       .map(participant => participant.user_id);
     const pairContextValid = Boolean(
-      session && senderId && hubUrl && epoch > 0 && binding?.confirmed
+      hubAuthority && session && senderId && hubUrl && epoch > 0 && binding?.confirmed
       && binding.scopeId === session!.id && binding.epoch === epoch
       && binding.localPeerId === senderId && participants.includes(binding.remotePeerId),
     );
@@ -705,10 +781,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     } : null);
     this.syncEvidenceContext();
     this.refreshSpeechAdapters();
-    this.sfuCoordinator.bind(session && senderId && hubUrl && epoch > 0 ? {
+    this.sfuCoordinator.bind(hubContextAvailable ? {
       hubUrl,
-      tenantId: String(session.tenant_id || binding?.tenantId || ''),
-      sessionId: session.id,
+      tenantId: String(session!.tenant_id || binding?.tenantId || ''),
+      sessionId: session!.id,
       membershipEpoch: epoch,
       localPeerId: senderId,
       remotePeerIds: Object.freeze(participants),
@@ -726,14 +802,15 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private syncReceiverPaths(): void {
+    const hubAuthority = this.hasHubAuthority();
     const participants = this.shareState.participants
       .filter(participant => !participant.revoked_at && participant.user_id !== this.shares.currentUserId)
       .map(participant => ({ receiverId: participant.user_id, label: participant.user_id }));
     this.receiverPaths.setReceivers(participants);
     this.receiverPaths.setHubState({
-      sfuConnected: this.sfu.currentState().status === 'connected',
-      sfuAuthorizedReceiverIds: this.sfu.authorizedSubscriberIds(),
-      sfuFeatureEnabled: this.profile.semantic_media_feature_flags.semantic_media_sfu,
+      sfuConnected: hubAuthority && this.sfu.currentState().status === 'connected',
+      sfuAuthorizedReceiverIds: hubAuthority ? this.sfu.authorizedSubscriberIds() : new Set<string>(),
+      sfuFeatureEnabled: hubAuthority && this.profile.semantic_media_feature_flags.semantic_media_sfu,
     });
   }
 
@@ -818,7 +895,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       && session
       && this.ordinaryMediaActive() ? 'authoritatively_active' : 'revoked';
     const activationReason = capability === 'ordinary_media'
-      && this.ordinaryMediaAuthority() === 'public'
+      && this.boundAuthority() === 'public'
       && !this.ordinaryMediaActivationAvailable()
       ? this.ordinaryMediaActivationReason()
       : null;
@@ -834,14 +911,18 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private buildView(): SemanticMediaProgramHostView {
     const session = this.shareState.session;
+    const authority = this.boundAuthority();
+    const hubAuthority = authority === 'hub';
     return Object.freeze({
       scope: scopeFor(session),
       capabilities: Object.freeze((Object.keys(LABELS) as SemanticProgramCapability[]).map(value => this.capability(value))),
-      online: this.hubOnline(),
-      hubUrl: this.hubUrl(),
-      ordinaryMediaAuthority: this.ordinaryMediaAuthority(),
+      online: this.hubOperationsAvailable(),
+      hubUrl: hubAuthority ? this.hubUrl() : '',
+      ordinaryMediaAuthority: authority,
       ordinaryMediaActivationEnabled: this.ordinaryMediaActivationAvailable(),
-      computeVisible: Boolean(session && this.shares.currentUserId && (session.security_epoch ?? 0) > 0),
+      computeVisible: Boolean(
+        hubAuthority && session && this.shares.currentUserId && (session.security_epoch ?? 0) > 0
+      ),
       compute: this.computeState,
       receiverPaths: this.receiverRows,
       ordinaryMediaCaptureEnabled: this.ordinaryCaptureAllowed(false),
@@ -849,7 +930,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       ordinaryMediaReason: this.ordinaryCaptureReason(),
       ordinaryAudioState: this.ordinaryAudioState,
       ordinaryMediaPublications: this.ordinaryPublications,
-      sfuRemoteVideos: this.sfuRemoteVideos,
+      sfuRemoteVideos: hubAuthority ? this.sfuRemoteVideos : Object.freeze([]),
       speechTransportState: this.speechState,
       speechTransportReason: this.speechReason,
       speechTransportCanStart: this.canStartSpeech(),
@@ -873,10 +954,69 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private hubOnline(): boolean { return Boolean(this.hubUrl()) && this.runtimeOnline; }
 
-  private ordinaryMediaAuthority(): OrdinaryMediaAuthorityKind {
+  /** Exact session binding is the sole router between Public and Hub media operations. */
+  private boundAuthorityRoute(): BoundSemanticMediaAuthorityRoute {
     const sessionId = this.shareState.session?.id ?? '';
-    if (!sessionId) return 'unbound';
-    try { return this.pairControlPlane.authorityKindForSession(sessionId); } catch { return 'unbound'; }
+    if (!sessionId) return Object.freeze({ sessionId: '', kind: 'unbound', baseUrl: '' });
+    try {
+      const route = this.pairControlPlane.authorityRouteForSession(sessionId);
+      const baseUrl = String(route.baseUrl || '').trim().replace(/\/+$/, '');
+      if (route.kind === 'hub' && !baseUrl) throw new Error('semantic_program_hub_missing');
+      return Object.freeze({
+        sessionId,
+        kind: route.kind,
+        baseUrl: route.kind === 'hub' ? baseUrl : '',
+      });
+    } catch {
+      return Object.freeze({ sessionId, kind: 'unbound', baseUrl: '' });
+    }
+  }
+
+  private boundAuthority(): OrdinaryMediaAuthorityKind { return this.boundAuthorityRoute().kind; }
+
+  private hasHubAuthority(): boolean { return this.boundAuthority() === 'hub'; }
+
+  private hubOperationsAvailable(): boolean { return this.hasHubAuthority() && this.hubOnline(); }
+
+  private hubOperationUnavailableReason(): string {
+    return this.hasHubAuthority()
+      ? 'semantic_program_hub_offline'
+      : 'semantic_program_hub_authority_required';
+  }
+
+  private requireHubOperationAuthority(): void {
+    this.requireSession();
+    if (!this.hasHubAuthority()) throw new Error('semantic_program_hub_authority_required');
+  }
+
+  private speechActivationFence(
+    session: ShareSession,
+    activationGeneration: number,
+  ): SpeechActivationFence {
+    const authority = this.boundAuthorityRoute();
+    if (authority.kind !== 'hub' || !authority.baseUrl) {
+      throw new Error('semantic_program_hub_authority_required');
+    }
+    return Object.freeze({
+      sessionId: session.id,
+      securityEpoch: session.security_epoch ?? 0,
+      authorityBaseUrl: authority.baseUrl,
+      contextGeneration: this.authorityContextGeneration,
+      activationGeneration,
+    });
+  }
+
+  private assertSpeechActivationFence(fence: SpeechActivationFence): void {
+    const session = this.shareState.session;
+    const authority = this.boundAuthorityRoute();
+    if (
+      fence.activationGeneration !== this.speechActivationGeneration
+      || fence.contextGeneration !== this.authorityContextGeneration
+      || session?.id !== fence.sessionId
+      || (session.security_epoch ?? 0) !== fence.securityEpoch
+      || authority.kind !== 'hub'
+      || authority.baseUrl !== fence.authorityBaseUrl
+    ) throw new Error('semantic_speech_activation_stale');
   }
 
   private ordinaryMediaActivationAvailable(): boolean {
@@ -886,7 +1026,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       || session.revoked_at !== null
       || (session.expires_at ?? Number.MAX_SAFE_INTEGER) * 1_000 <= Date.now()
     ) return false;
-    const authority = this.ordinaryMediaAuthority();
+    const authority = this.boundAuthority();
     return authority === 'public'
       ? this.ordinaryMediaPolicy.canActivate(session.id)
       : authority === 'hub' && this.hubOnline();
@@ -910,7 +1050,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private reconcilePublicMediaStatus(status: PublicPairMediaE2eeState): void {
     const sessionId = this.shareState.session?.id ?? '';
     const current = this.capabilityStates.get('ordinary_media');
-    if (!sessionId || status.sessionId !== sessionId || this.ordinaryMediaAuthority() !== 'public') {
+    if (!sessionId || status.sessionId !== sessionId || this.boundAuthority() !== 'public') {
       this.emit();
       return;
     }
@@ -964,6 +1104,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private reconciliationContextKey(): string {
+    if (!this.hasHubAuthority()) return '';
     const session = this.shareState.session;
     const localPeerId = this.shares.currentUserId;
     const hubUrl = this.hubUrl();
@@ -997,7 +1138,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private refreshSpeechAdapters(): void {
     const session = this.shareState.session;
     const hubUrl = this.hubUrl();
-    const contextKey = session && hubUrl && this.profile.semantic_media_feature_flags.speech_adapter_routing
+    const contextKey = this.hasHubAuthority()
+      && session && hubUrl && this.profile.semantic_media_feature_flags.speech_adapter_routing
       ? `${hubUrl}\x1f${session.id}\x1f${session.security_epoch ?? 0}`
       : '';
     if (contextKey === this.speechAdapterContextKey) return;
@@ -1065,6 +1207,13 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private async validateActiveSpeechAdapter(): Promise<void> {
     const expected = this.activeSpeechAdapter;
     if (!expected) return;
+    if (!this.hasHubAuthority()) {
+      this.clearSpeechAdapterActivation('speech_adapter_hub_authority_lost');
+      this.setCapability(
+        'adapter_activation', 'revoked', null, 'speech_adapter_hub_authority_lost',
+      );
+      return;
+    }
     try {
       const current = await firstValueFrom(
         this.speechAdaptersApi.get(this.hubUrl(), expected.adapter_id, expected.pair_id, expected.direction).pipe(
@@ -1165,7 +1314,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
 
   private canStartSpeech(): boolean {
     if (
-      !this.shareState.session || !this.profile.semantic_media_feature_flags.semantic_speech_runtime
+      !this.hasHubAuthority()
+      || !this.shareState.session || !this.profile.semantic_media_feature_flags.semantic_speech_runtime
       || this.speechSettings.paused || this.speechSettings.ordinaryAudioOverride
     ) return false;
     const binding = this.peerKeys.currentBinding;
@@ -1179,7 +1329,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const sessionId = this.shareState.session?.id ?? '';
     return this.ordinaryMediaPolicy.allows(sessionId)
       && this.transport.mode$.value === 'webrtc'
-      && (this.ordinaryMediaAuthority() === 'public'
+      && (this.boundAuthority() === 'public'
         || ['active', 'muted'].includes(this.media.audioState$.value.status)
         || sfuState?.status === 'connected');
   }
@@ -1187,7 +1337,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private ordinaryCaptureAllowed(video: boolean): boolean {
     const session = this.shareState.session;
     const state = this.capabilityStates.get('ordinary_media')?.state;
-    const authority = this.ordinaryMediaAuthority();
+    const authority = this.boundAuthority();
     const profileEnabled = authority === 'public'
       || this.profile.semantic_media_feature_flags.ordinary_media_publication;
     return Boolean(
@@ -1213,7 +1363,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     ) return 'ordinary_media_session_missing';
     const policyReason = this.ordinaryMediaPolicyReason(session.id);
     if (policyReason) return policyReason;
-    const authority = this.ordinaryMediaAuthority();
+    const authority = this.boundAuthority();
     if (authority === 'hub' && !this.profile.semantic_media_feature_flags.ordinary_media_publication) {
       return 'ordinary_media_publication_disabled';
     }
@@ -1258,7 +1408,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     });
   }
 
-  private async ensureOrdinaryAudio(): Promise<void> {
+  private async ensureOrdinaryAudio(fence?: SpeechActivationFence): Promise<void> {
     if (this.transport.mode$.value !== 'webrtc') return;
     const sessionId = this.shareState.session?.id ?? '';
     if (!this.ordinaryMediaPolicy.allows(sessionId)) {
@@ -1269,6 +1419,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     if (!['active', 'muted'].includes(this.media.audioState$.value.status)) {
       await this.media.requestMicrophone();
     }
+    if (fence) this.assertSpeechActivationFence(fence);
     this.setCapability('ordinary_media', 'authoritatively_active', null);
   }
 
@@ -1300,7 +1451,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const remoteActive = binding && this.shareState.participants.some(participant =>
       participant.user_id === binding.remotePeerId && participant.revoked_at === null);
     if (
-      !session
+      !this.hasHubAuthority()
+      || !session
       || !binding?.confirmed
       || !remoteActive
       || binding.scopeId !== session.id
@@ -1326,7 +1478,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private syncSpeechRuntimeBinding(): void {
-    if (this.speechState !== 'active') return;
+    if (this.speechState !== 'active' || !this.hasHubAuthority()) return;
     const session = this.shareState.session;
     const binding = this.peerKeys.currentBinding;
     if (!session || !binding?.confirmed || binding.scopeId !== session.id) return;
@@ -1373,9 +1525,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   private hubUrl(): string {
-    const hub = this.directory.list().find(value => value.role === 'hub')
-      ?? this.directory.list().find(value => value.name === 'hub');
-    return String(hub?.url || '').trim().replace(/\/+$/, '');
+    const authority = this.boundAuthorityRoute();
+    return authority.kind === 'hub' ? authority.baseUrl : '';
   }
 }
 

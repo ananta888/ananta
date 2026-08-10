@@ -34,7 +34,14 @@ describe('PairSessionControlPlaneService', () => {
     exp: Math.floor(Date.now() / 1000) + 3600,
   });
   const auth = { oidcAccessTokenValue: oidcToken as string | null, userPayload: { sub: 'hub-user' } };
-  const profile = { current: publicProfile(), publicPairOptedIn: true };
+  const profile = {
+    current: publicProfile(),
+    profile$: of(publicProfile()),
+    publicPairOptedIn: true,
+  };
+  const directory = {
+    list: vi.fn(() => [{ role: 'hub', url: 'http://127.0.0.1:5000' }]),
+  };
   let createdResponse: Record<string, unknown>;
   let joinedResponse: Record<string, unknown>;
   let listedResponses: Array<Record<string, unknown>>;
@@ -48,6 +55,8 @@ describe('PairSessionControlPlaneService', () => {
     auth.oidcAccessTokenValue = oidcToken;
     profile.current = publicProfile();
     profile.publicPairOptedIn = true;
+    directory.list.mockReset();
+    directory.list.mockReturnValue([{ role: 'hub', url: 'http://127.0.0.1:5000' }]);
     createdResponse = publicSession('created-session', ownerPeerId);
     joinedResponse = publicSession('joined-session', joinerPeerId);
     listedResponses = [publicSession('listed-session', listedPeerId)];
@@ -58,7 +67,7 @@ describe('PairSessionControlPlaneService', () => {
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       PairSessionControlPlaneService,
-      { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://127.0.0.1:5000' }] } },
+      { provide: AgentDirectoryService, useValue: directory },
       { provide: NetworkProfileService, useValue: profile },
       { provide: UserAuthService, useValue: auth },
       {
@@ -164,6 +173,10 @@ describe('PairSessionControlPlaneService', () => {
     expect(service.currentPeerId).toBe('hub-user');
     expect(service.peerIdForSession('created-session')).toBe(ownerPeerId);
     expect(service.peerIdForSession('joined-session')).toBe(joinerPeerId);
+    const route = service.authorityRouteForSession('created-session');
+    expect(route).toEqual({ kind: 'public', baseUrl: 'https://webrtc.ananta.de' });
+    expect(Object.isFrozen(route)).toBe(true);
+    expect(Object.keys(route)).toEqual(['kind', 'baseUrl']);
     expect(requests.map(item => item.url)).toEqual([
       'https://webrtc.ananta.de/rendezvous/sessions',
       'https://webrtc.ananta.de/rendezvous/sessions/join',
@@ -268,6 +281,22 @@ describe('PairSessionControlPlaneService', () => {
       url: 'http://127.0.0.1:5000/share-sessions',
       token: undefined,
     })]);
+  });
+
+  it('projects the immutable bound Hub route after the directory changes', () => {
+    profile.current = {
+      ...publicProfile(),
+      profile_id: 'hub-profile',
+      public_rendezvous: false,
+    };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    service.create({ title: 'Hub Pair' }).subscribe();
+
+    directory.list.mockReturnValue([{ role: 'hub', url: 'http://hub-b.test' }]);
+
+    expect(service.authorityRouteForSession('created-session')).toEqual({
+      kind: 'hub', baseUrl: 'http://127.0.0.1:5000',
+    });
   });
 
   it('rejects a downgraded public create response without creating a binding', async () => {
