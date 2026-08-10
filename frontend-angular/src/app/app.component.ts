@@ -45,6 +45,12 @@ import { IdentityRegistry } from './services/identity/identity-registry';
               aria-label="Menue oeffnen">☰</button>
           }
           <img src="/assets/ananta.svg" alt="Ananta" class="app-logo" />
+          <a
+            routerLink="/pair-dev"
+            class="public-pair-link"
+            data-testid="public-pair-nav-link">
+            Public Pair Dev
+          </a>
           @if (headerUser()) { <app-breadcrumb /> }
         </div>
         <!-- Mitte: Nav-Gruppen -->
@@ -194,6 +200,14 @@ import { IdentityRegistry } from './services/identity/identity-registry';
       flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: 5px; flex-shrink: 0;
     }
     .app-logo { height: 28px; width: 28px; object-fit: contain; flex-shrink: 0; border-radius: 4px; }
+    .public-pair-link {
+      flex: 0 0 auto; padding: 4px 7px; border: 1px solid var(--border); border-radius: 6px;
+      color: var(--fg); background: var(--card-bg); font-size: 11px; font-weight: 600;
+      line-height: 1.2; text-decoration: none; white-space: nowrap;
+    }
+    .public-pair-link:hover, .public-pair-link:focus-visible {
+      border-color: var(--accent); color: var(--accent);
+    }
     .app-hspace { flex: 1; }
     .app-hbtn { padding: 3px 7px !important; font-size: 11px !important; white-space: nowrap; }
     .app-header-user { font-size: 11px; color: var(--muted); white-space: nowrap; }

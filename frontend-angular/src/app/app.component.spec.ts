@@ -117,6 +117,7 @@ describe('AppComponent Hub shell trust boundary', () => {
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
 
+    expect(host.querySelector('[data-testid="public-pair-nav-link"]')?.textContent).toContain('Public Pair Dev');
     expect(host.querySelector('#primary-navigation')).toBeNull();
     expect(host.querySelector('[data-testid="assistant-feature-root"]')).toBeNull();
 
