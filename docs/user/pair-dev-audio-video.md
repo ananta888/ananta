@@ -60,14 +60,18 @@ AES-GCM-Authentifizierung; der restliche Medienframe bleibt verschluesselt.
 
 ## Ablauf in der Oberflaeche
 
-1. Im AI-Snake-Fenster `Pair Dev` oeffnen und mit Keycloak anmelden.
+1. Im Hauptmenue `Public Pair Dev` oeffnen (Route `/pair-dev`) und mit
+   Keycloak anmelden. Der aeltere AI-Snake-Drawer-Tab ist nicht diese Seite.
 2. Eine Share-Session erstellen oder ihr beitreten und warten, bis die
    WebRTC-Verbindung steht.
-3. Im Medienbereich **auf beiden Rechnern bzw. Browsern** `Ordinary
-   Audio/Video` aktivieren. Bei Public Pair bestaetigen beide Seiten damit den
-   schluesselgebundenen Medien-E2EE-Pfad; bei einer privaten Session wird die
-   Hub-Freigabe geprueft. Solange nur eine Seite aktiviert hat, bleibt der
-   Status erwartungsgemaess bei `awaiting-peer`.
+3. Bei **Public Pair** unter `Meine Medienfreigabe` die Gueltigkeit waehlen:
+   `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf`, `15 Minuten` oder
+   `1 Stunde`. Danach `Einwilligen und Medien aktivieren` auswaehlen. Diese
+   Einwilligung gilt ausschliesslich fuer die Uebertragung des eigenen
+   Mikrofons, der eigenen Kamera und des eigenen Bildschirms. Beide Personen
+   entscheiden unabhaengig voneinander; der Empfang der Medien des
+   Gegenuebers wird dadurch nicht ausgeschaltet. Bei einer privaten
+   Hub-Session bleibt stattdessen die bestehende Hub-Freigabe massgeblich.
 4. `Mikrofon freigeben`, `Kamera freigeben` oder `Bildschirm freigeben`
    bewusst anklicken und die Browserabfrage bestaetigen.
 5. Empfangene Audiospuren erscheinen im Remote-Audio-Player. Empfangene
@@ -77,11 +81,25 @@ AES-GCM-Authentifizierung; der restliche Medienframe bleibt verschluesselt.
 `Mikrofon freigeben` verwenden; Browser- oder Systemton der Bildschirmquelle
 wird noch nicht mitgesendet.
 
-Das Oeffnen oder Aktivieren des Pair-Dev-Medienbereichs fordert noch keine
-Browserrechte an.
+Das Oeffnen des Pair-Dev-Medienbereichs und auch
+`Einwilligen und Medien aktivieren` fordern noch keine Browserrechte an und
+starten keine Aufnahme. Erst der separate Klick auf eine konkrete Quelle
+oeffnet den Browserdialog.
 Stummschalten, Stoppen und Wechseln einer lokalen Quelle bleiben explizite
-Benutzeraktionen. Das Verlassen bzw. Widerrufen der Session beendet die
-sessiongebundenen lokalen Publikationen.
+Benutzeraktionen. `Eigene Freigabe deaktivieren` und das zeitliche Ablaufen
+der Einwilligung beenden nur die eigenen lokalen Publikationen. Die
+WebRTC-Verbindung, der Chat und empfangene Medien des Gegenuebers bleiben
+verbunden. Dieselbe Person kann ihre Freigabe danach in derselben
+Pair-Sitzung erneut aktivieren; eine Neuanmeldung oder ein Neuladen ist dafuer
+nicht erforderlich.
+
+Die Auswahl `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf` ist keine
+kontoweite oder geraeteuebergreifende Dauereinwilligung. Sie ist an den aktuellen Browser-Tab,
+die exakte Pair-Session, deren Sicherheitsepoche, den signierten Medienvertrag
+und das konkrete Gegenueber gebunden. Ein anderer Tab, eine neue Session, ein
+gewechseltes Gegenueber oder ein neuer Medienvertrag uebernehmen die
+Einwilligung nicht. Eine zeitlich begrenzte Freigabe endet spaetestens mit der
+Pair-Session bzw. mit dem Medienvertrag.
 
 ## Fehler einordnen
 
@@ -94,8 +112,8 @@ sessiongebundenen lokalen Publikationen.
 | `ordinary_media_session_missing` | Es besteht keine aktive Share-Session. |
 | `public_ordinary_media_e2ee_not_ready` | Die bestaetigte Pair-Sicherheitsbindung oder der Medien-E2EE-Pfad ist noch nicht bereit. |
 | `public_ordinary_media_e2ee_awaiting_security` | Die gegenseitige Pair-Schluesselbestaetigung ist noch nicht abgeschlossen. |
-| `public_ordinary_media_e2ee_awaiting_peer` | Das Gegenueber muss `Ordinary Audio/Video` ebenfalls aktivieren. |
-| `public_ordinary_media_e2ee_negotiating` | Beide Browser haben zugestimmt und richten die Transforms gerade ein. |
+| `public_ordinary_media_e2ee_awaiting_peer` | Die Browser handeln den technischen Medien-E2EE-Pfad noch aus. Dies ist keine fehlende Publikationseinwilligung des Gegenuebers. |
+| `public_ordinary_media_e2ee_negotiating` | Die Browser richten die schluesselgebundenen Medientransforms ein; dabei startet noch keine Aufnahme. |
 | `public_ordinary_media_e2ee_unavailable` | Der sichere Public-Medienpfad ist in diesem Browser nicht verfuegbar. |
 | `media_e2ee_transform_unsupported` | Der Browser stellt keinen unterstuetzten WebRTC-Encoded-Transform bereit. |
 | `public_media_runtime_unsupported` | Der Browser unterstuetzt den standardisierten `RTCRtpScriptTransform`-Pfad nicht vollstaendig. |
@@ -103,8 +121,10 @@ sessiongebundenen lokalen Publikationen.
 | `public_media_contract_missing` | Fuer diese Session wurde kein separater signierter Medienvertrag ausgehandelt; mit zwei aktualisierten Browsern eine neue Session erstellen. |
 | `public_media_contract_expired` | Der Public-Medienvertrag ist abgelaufen; eine neue Pair-Session erstellen. |
 | `public_media_transform_not_prepared` | Der WebRTC-Pfad bzw. seine festen E2EE-Medienslots sind noch nicht vorbereitet. |
-| `public_media_peer_consent_pending` | Das Gegenueber muss `Ordinary Audio/Video` ebenfalls aktivieren. |
-| `public_media_peer_activation_pending` | Das Gegenueber muss `Ordinary Audio/Video` ebenfalls aktivieren. |
+| `public_media_peer_consent_pending` | Ein aelterer Client wartet noch auf die technische Medien-Aushandlung. Beide Browser aktualisieren; eine separate Empfangseinwilligung ist nicht erforderlich. |
+| `public_media_peer_activation_pending` | Ein aelterer Client wartet noch auf die technische Medien-Aushandlung. Beide Browser aktualisieren; die eigene Publikation bleibt separat steuerbar. |
+| `public_media_publication_consent_required` | Die lokale Uebertragung ist nicht freigegeben. Unter `Meine Medienfreigabe` eine Dauer waehlen und einwilligen. |
+| `public_media_publication_consent_expired` | Die lokale Einwilligung ist abgelaufen. Sie kann in derselben Pair-Session erneut erteilt werden. |
 | `public_media_transport_closed` | Die direkte WebRTC-Verbindung wurde geschlossen. Fuer Public-Medien eine neue Pair-Session erstellen und auf beiden Seiten erneut aktivieren. |
 | `public_media_fresh_connection_required` | Ein ICE-/Netzwerk-Neustart darf die alten Medienschluessel nicht wiederverwenden. Eine neue Pair-Session erstellen. |
 | `media_e2ee_transform_install_failed` | Der schluesselgebundene Sender- oder Empfaenger-Transform konnte nicht installiert werden. |

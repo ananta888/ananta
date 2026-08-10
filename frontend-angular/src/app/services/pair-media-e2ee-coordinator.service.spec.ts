@@ -39,19 +39,22 @@ describe('PairMediaE2eeCoordinatorService', () => {
     vi.useRealTimers();
   });
 
-  it('completes bilateral owner/guest consent and derives inverse keys for all fixed slots', async () => {
+  it('prepares bilateral E2EE without capture consent and derives inverse keys for all fixed slots', async () => {
     const owner = node('peer:owner', 'peer:guest');
     const guest = node('peer:guest', 'peer:owner');
     connect(owner, guest);
     prepareNegotiation(owner);
     prepareNegotiation(guest);
 
-    const ownerActivation = owner.coordinator.activate('session-a');
-    const guestActivation = guest.coordinator.activate('session-a');
     await pump(owner, guest);
 
-    await expect(ownerActivation).resolves.toMatchObject({ state: 'ready' });
-    await expect(guestActivation).resolves.toMatchObject({ state: 'ready' });
+    expect(owner.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
+    expect(guest.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
+    expect(owner.coordinator.publicationContextFor('session-a')).toEqual({
+      sessionId: 'session-a', securityEpoch: 7, contractDigest: 'a'.repeat(64),
+      adapterGeneration: 1, localPeerId: 'peer:owner', remotePeerId: 'peer:guest',
+      maxExpiresAtMs: 2_000_000_000_000,
+    });
     const ownerKeys = owner.transforms.installed[0];
     const guestKeys = guest.transforms.installed[0];
     expect(ownerKeys.map(value => value.slot)).toEqual(PUBLIC_PAIR_MEDIA_SLOTS.map(value => value.slot));
@@ -79,12 +82,10 @@ describe('PairMediaE2eeCoordinatorService', () => {
     guest.coordinator.markTopologyNegotiated('session-a');
     expect(owner.coordinator.canActivate('session-a')).toBe(true);
 
-    const ownerActivation = owner.coordinator.activate('session-a');
-    const guestActivation = guest.coordinator.activate('session-a');
     await pump(owner, guest);
 
-    await expect(ownerActivation).resolves.toMatchObject({ state: 'ready' });
-    await expect(guestActivation).resolves.toMatchObject({ state: 'ready' });
+    expect(owner.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
+    expect(guest.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
     expect(countControl(owner, 'hello')).toBe(1);
     expect(countControl(guest, 'hello')).toBe(1);
   });
@@ -99,8 +100,9 @@ describe('PairMediaE2eeCoordinatorService', () => {
     await settle(4);
 
     expect(owner.outbound).toEqual([]);
+    expect(owner.coordinator.publicationContextFor('session-a')).toBeNull();
     expect(owner.coordinator.statusFor('session-a')).toMatchObject({
-      state: 'awaiting-peer', reasonCode: 'public_media_local_activation_pending',
+      state: 'awaiting-peer', reasonCode: 'public_media_technical_preparation_pending',
     });
 
     owner.coordinator.deactivate('session-a', 'test_cleanup');
@@ -111,11 +113,8 @@ describe('PairMediaE2eeCoordinatorService', () => {
     const owner = node('peer:owner', 'peer:guest');
     owner.portOpenError = new Error('public_media_consent_channel_state_failed');
     bindSink(owner);
-    owner.coordinator.markTopologyNegotiated('session-a');
-
-    const activation = owner.coordinator.activate('session-a');
-
-    await expect(activation).resolves.toMatchObject({
+    await settle();
+    expect(owner.coordinator.statusFor('session-a')).toMatchObject({
       state: 'failed', reasonCode: 'public_media_consent_channel_state_failed',
     });
     expect(owner.closed).toHaveBeenCalledWith('public_media_consent_channel_state_failed');
@@ -159,24 +158,22 @@ describe('PairMediaE2eeCoordinatorService', () => {
     });
   });
 
-  it('refreshes expired pre-key hellos when the second peer consents after the control TTL', async () => {
+  it('refreshes expired pre-key hellos when the second peer becomes technically ready after the control TTL', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(1_000_000);
     const owner = node('peer:owner', 'peer:guest', 2_000_000);
     const guest = node('peer:guest', 'peer:owner', 2_000_000);
     connect(owner, guest);
     prepareNegotiation(owner);
-    prepareNegotiation(guest);
-    void owner.coordinator.activate('session-a');
     await pump(owner, guest);
     expect(countControl(owner, 'hello')).toBe(1);
     expect(owner.coordinator.statusFor('session-a').state).not.toBe('ready');
 
     await vi.advanceTimersByTimeAsync(31_000);
-    const guestActivation = guest.coordinator.activate('session-a');
+    prepareNegotiation(guest);
     await pump(owner, guest);
 
-    await expect(guestActivation).resolves.toMatchObject({ state: 'ready' });
+    expect(guest.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
     expect(owner.coordinator.statusFor('session-a').state).toBe('ready');
     expect(countControl(owner, 'hello')).toBe(2);
   });
@@ -351,6 +348,9 @@ class CoordinatorTransforms {
   installEntered: { resolve(value: void): void } | null = null;
   isPrepared(_session: string, _epoch?: number, _digest?: string, generation?: number): boolean {
     return this.prepared && (generation === undefined || generation === this.generation);
+  }
+  isKeyed(session: string, epoch?: number, digest?: string, generation?: number): boolean {
+    return this.installed.length > 0 && this.isPrepared(session, epoch, digest, generation);
   }
   generationForSession(): number | null { return this.prepared ? this.generation : null; }
   validateFinalTopology(): void { if (this.topologyError) throw this.topologyError; }

@@ -2,9 +2,9 @@
   <h2 id="semantic-program-title">{{ heading() }}</h2>
   @if (displayMode === 'pair_media' && ordinaryMediaAuthority === 'public') {
     <p role="status" aria-live="polite">
-      {{ ordinaryMediaActivationEnabled
-        ? 'Public-Pair-Medien können sicher aktiviert werden'
-        : 'Public-Pair-Medien sind noch nicht freigabebereit' }}
+      {{ ordinaryMediaE2eeReady
+        ? 'Der verschlüsselte Public-Pair-Medienpfad ist bereit'
+        : 'Der verschlüsselte Public-Pair-Medienpfad ist noch nicht bereit' }}
     </p>
   } @else {
     <p role="status" aria-live="polite">{{ online ? 'Hub erreichbar' : 'Offline – neue Freigaben gesperrt' }}</p>
@@ -35,8 +35,15 @@
     }
   }
 
+  @if (publicPublicationConsentVisible()) {
+    <app-public-pair-media-publication-consent-panel
+      [state]="ordinaryMediaPublicationConsent"
+      (grant)="ordinaryMediaPublicationConsentGrant.emit($event)"
+      (revoke)="ordinaryMediaPublicationConsentRevoke.emit()" />
+  }
+
   <div class="program-grid">
-    @for (row of displayedCapabilities(); track row.capability) {
+    @for (row of programCapabilities(); track row.capability) {
       <article [class.sensitive]="isSensitive(row.capability)" [attr.data-capability]="row.capability">
         <h3>{{ row.label }}</h3>
         <p>Status: <strong>{{ row.state }}</strong></p>
@@ -93,12 +100,12 @@
     }
   </div>
 
-  @if (ordinaryMediaVisible()) {
+  @if (ordinaryMediaPanelVisible()) {
     <app-webrtc-media-panel
       [captureEnabled]="ordinaryMediaCaptureEnabled"
       [videoCaptureEnabled]="ordinaryMediaVideoCaptureEnabled"
       [publicPair]="ordinaryMediaAuthority === 'public'"
-      [e2eeProtected]="ordinaryMediaAuthority === 'public' && ordinaryMediaCaptureEnabled && ordinaryMediaVideoCaptureEnabled"
+      [e2eeProtected]="ordinaryMediaAuthority === 'public' && ordinaryMediaE2eeReady"
       [captureReason]="ordinaryMediaReason"
       [audioState]="ordinaryAudioState"
       [publications]="ordinaryMediaPublications"

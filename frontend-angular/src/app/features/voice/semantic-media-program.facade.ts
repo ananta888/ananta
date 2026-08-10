@@ -49,7 +49,13 @@ import {
 import {
   PairMediaE2eeCoordinatorService,
   type PublicPairMediaE2eeState,
+  type PublicPairMediaPublicationContext,
 } from '../../services/pair-media-e2ee-coordinator.service';
+import {
+  PublicPairMediaPublicationConsentService,
+  type PublicPairMediaPublicationConsentState,
+  type PublicPairMediaPublicationConsentTerm,
+} from '../../services/public-pair-media-publication-consent.service';
 import { WebrtcTransportService } from '../../services/webrtc-transport.service';
 import {
   ComputeContractIntent,
@@ -94,7 +100,9 @@ export interface SemanticMediaProgramHostView {
   readonly receiverPaths: readonly SemanticReceiverPathView[];
   readonly ordinaryMediaCaptureEnabled: boolean;
   readonly ordinaryMediaVideoCaptureEnabled: boolean;
+  readonly ordinaryMediaE2eeReady: boolean;
   readonly ordinaryMediaReason: string;
+  readonly ordinaryMediaPublicationConsent: PublicPairMediaPublicationConsentState;
   readonly ordinaryAudioState: OrdinaryAudioState;
   readonly ordinaryMediaPublications: readonly MediaPublicationView[];
   readonly sfuRemoteVideos: readonly SfuRemoteVideoView[];
@@ -171,6 +179,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private readonly mediaPublications = inject(WebrtcMediaPublicationService);
   private readonly ordinaryMediaPolicy = inject(PairOrdinaryMediaPolicy);
   private readonly pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
+  private readonly publicationConsent = inject(PublicPairMediaPublicationConsentService);
   private readonly mobileRuntime = inject(MobileRuntimeService);
   private readonly evidenceFlow = inject(PeerEvidenceSyncFacade);
   private readonly consent = inject(SpeechEvidenceConsentFacade);
@@ -185,6 +194,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private ordinaryPublications: readonly MediaPublicationView[] = this.mediaPublications.publications$.value;
   private sfuRemoteVideos: readonly SfuRemoteVideoView[] = Object.freeze([]);
   private ordinaryMediaOperationReason = 'ordinary_media_not_started';
+  private publicationConsentState = this.publicationConsent.snapshot();
   private speechState: SemanticSpeechTransportState = 'stopped';
   private speechReason = 'semantic_speech_not_started';
   private speechSettings: SemanticSpeechPanelSettings = DEFAULT_SEMANTIC_SPEECH_SETTINGS;
@@ -250,7 +260,13 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       this.emit();
     }));
     this.subscriptions.add(this.pairMediaE2ee.status$.subscribe(status => {
+      this.syncPublicationConsentBinding();
       this.reconcilePublicMediaStatus(status);
+    }));
+    this.subscriptions.add(this.publicationConsent.state$.subscribe(state => {
+      this.publicationConsentState = state;
+      this.projectPublicPublicationConsent();
+      this.emit();
     }));
     this.subscriptions.add(this.speechRuntime.settings$.subscribe(settings => {
       this.speechSettings = settings;
@@ -322,6 +338,14 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const intentSessionId = this.shareState.session?.id ?? '';
     const current = this.capability(intent.capability);
     if (current.requestId && current.requestId !== intent.requestId) return;
+    if (intent.capability === 'ordinary_media' && this.boundAuthority() === 'public') {
+      if (intent.desired === 'activate') {
+        await this.grantOrdinaryMediaPublicationConsent({ kind: 'session' });
+      } else {
+        await this.revokeOrdinaryMediaPublicationConsent();
+      }
+      return;
+    }
     if (intent.capability !== 'ordinary_media' && !this.hasHubAuthority()) {
       this.setCapability(
         intent.capability,
@@ -389,6 +413,36 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       }
       this.emit();
     }
+  }
+
+  async grantOrdinaryMediaPublicationConsent(
+    term: PublicPairMediaPublicationConsentTerm,
+  ): Promise<void> {
+    if (this.boundAuthority() !== 'public') return;
+    this.syncPublicationConsentBinding();
+    try {
+      this.publicationConsentState = await this.publicationConsent.grant(term);
+    } catch (error) {
+      this.ordinaryMediaOperationReason = reason(error, 'public_media_publication_consent_grant_failed');
+    }
+    this.projectPublicPublicationConsent();
+    this.emit();
+  }
+
+  async revokeOrdinaryMediaPublicationConsent(): Promise<void> {
+    if (this.boundAuthority() !== 'public') return;
+    try {
+      this.publicationConsentState = await this.publicationConsent.revoke(
+        'public_media_publication_consent_revoked',
+      );
+    } catch (error) {
+      this.ordinaryMediaOperationReason = reason(error, 'public_media_publication_consent_revoke_failed');
+    }
+    // Publication consent is intentionally independent of the keyed media
+    // transport. The consent service and media owners close only local
+    // outbound slots; remote rendering, DataChannel and Pair login survive.
+    this.projectPublicPublicationConsent();
+    this.emit();
   }
 
   async startSpeech(): Promise<void> {
@@ -756,6 +810,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const session = this.shareState.session;
     const authority = this.boundAuthority();
     const hubAuthority = authority === 'hub';
+    this.syncPublicationConsentBinding();
     this.syncReceiverPaths();
     const senderId = this.shares.currentUserId;
     const hubUrl = this.hubUrl();
@@ -828,6 +883,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     this.sfuVideo.clear();
     this.media.stopAudio('ordinary_media_session_ended');
     this.mediaPublications.stopAll('ordinary_media_session_ended', true);
+    this.publicationConsent.bind(null);
     this.compute.bind(null);
     this.computeContextKey = '';
     this.clearReconciliationAuthorization();
@@ -927,7 +983,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       receiverPaths: this.receiverRows,
       ordinaryMediaCaptureEnabled: this.ordinaryCaptureAllowed(false),
       ordinaryMediaVideoCaptureEnabled: this.ordinaryCaptureAllowed(true),
+      ordinaryMediaE2eeReady: authority === 'public'
+        && Boolean(session?.id) && this.ordinaryMediaPolicy.allows(session!.id),
       ordinaryMediaReason: this.ordinaryCaptureReason(),
+      ordinaryMediaPublicationConsent: this.publicationConsentState,
       ordinaryAudioState: this.ordinaryAudioState,
       ordinaryMediaPublications: this.ordinaryPublications,
       sfuRemoteVideos: hubAuthority ? this.sfuRemoteVideos : Object.freeze([]),
@@ -1047,6 +1106,67 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     }
   }
 
+  private syncPublicationConsentBinding(): void {
+    const session = this.shareState.session;
+    if (!session || this.boundAuthority() !== 'public') {
+      this.publicationConsent.bind(null);
+      this.publicationConsentState = this.publicationConsent.snapshot();
+      return;
+    }
+    let context: PublicPairMediaPublicationContext | null = null;
+    try {
+      context = this.pairMediaE2ee.publicationContextFor(session.id);
+    } catch {
+      context = null;
+    }
+    this.publicationConsent.bind(context);
+    this.publicationConsentState = this.publicationConsent.snapshot();
+  }
+
+  private publicPublicationConsentGranted(sessionId: string): boolean {
+    const value = this.publicationConsentState;
+    return value.status === 'granted'
+      && value.binding?.sessionId === sessionId
+      && value.binding.securityEpoch === (this.shareState.session?.security_epoch ?? 0)
+      && value.expiresAtMs !== null
+      && value.expiresAtMs > Date.now();
+  }
+
+  private projectPublicPublicationConsent(): void {
+    const sessionId = this.shareState.session?.id ?? '';
+    if (!sessionId || this.boundAuthority() !== 'public') return;
+    const consent = this.publicationConsentState;
+    if (consent.status === 'granted') {
+      const ready = this.ordinaryMediaPolicy.allows(sessionId);
+      if (ready) {
+        this.publicMediaReadySessionId = sessionId;
+        this.publicMediaFailureCleanupSessionId = '';
+      }
+      this.setCapability(
+        'ordinary_media',
+        ready ? 'authoritatively_active' : 'degraded',
+        null,
+        ready ? null : 'public_media_technical_preparation_pending',
+      );
+      return;
+    }
+    if (consent.status === 'granting') {
+      this.setCapability('ordinary_media', 'sent_to_authority', null);
+      return;
+    }
+    if (consent.status === 'revoking') {
+      this.setCapability('ordinary_media', 'pausing', null);
+      return;
+    }
+    const state: SemanticProgramState = consent.status === 'expired'
+      ? 'expired' : consent.status === 'failed' ? 'failed' : 'revoked';
+    const reasonCode = consent.reasonCode
+      || (consent.status === 'expired'
+        ? 'public_media_publication_consent_expired'
+        : 'public_media_publication_consent_required');
+    this.setCapability('ordinary_media', state, null, reasonCode);
+  }
+
   private reconcilePublicMediaStatus(status: PublicPairMediaE2eeState): void {
     const sessionId = this.shareState.session?.id ?? '';
     const current = this.capabilityStates.get('ordinary_media');
@@ -1057,6 +1177,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     if (status.state === 'ready') {
       this.publicMediaReadySessionId = sessionId;
       this.publicMediaFailureCleanupSessionId = '';
+      if (this.publicationConsentState.status !== 'granted') {
+        this.projectPublicPublicationConsent();
+        return;
+      }
       if (
         !current
         || current.state === 'sent_to_authority'
@@ -1346,6 +1470,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       && this.transport.mode$.value === 'webrtc'
       && profileEnabled
       && (!video || profileEnabled)
+      && (authority !== 'public' || this.publicPublicationConsentGranted(session.id))
       && (state === 'authoritatively_active' || state === 'degraded'),
     );
   }
@@ -1373,6 +1498,12 @@ export class SemanticMediaProgramFacade implements OnDestroy {
         ? this.ordinaryMediaActivationReason()
         : 'ordinary_media_hub_offline';
     }
+    if (authority === 'public' && !this.publicPublicationConsentGranted(session.id)) {
+      return this.publicationConsentState.reasonCode
+        || (this.publicationConsentState.status === 'expired'
+          ? 'public_media_publication_consent_expired'
+          : 'public_media_publication_consent_required');
+    }
     const state = this.capabilityStates.get('ordinary_media')?.state;
     if (state !== 'authoritatively_active' && state !== 'degraded') return 'ordinary_media_activation_required';
     return this.ordinaryMediaOperationReason;
@@ -1392,6 +1523,9 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     const session = this.requireSession();
     const nowMs = Date.now();
     const sessionExpiryMs = session.expires_at === null ? nowMs + 8 * 60 * 60 * 1_000 : session.expires_at * 1_000;
+    const publicationExpiryMs = this.boundAuthority() === 'public'
+      ? this.publicationConsentState.expiresAtMs ?? nowMs
+      : nowMs + 8 * 60 * 60 * 1_000;
     const limits = source === 'camera'
       ? { width: 1280, height: 720, fps: 30, bitrate: 1_500_000 }
       : { width: 1920, height: 1080, fps: 20, bitrate: 3_000_000 };
@@ -1400,7 +1534,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       sessionId: session.id,
       source,
       permitted: true,
-      expiresAtMs: Math.min(sessionExpiryMs, nowMs + 8 * 60 * 60 * 1_000),
+      expiresAtMs: Math.min(sessionExpiryMs, publicationExpiryMs, nowMs + 8 * 60 * 60 * 1_000),
       maxWidth: limits.width,
       maxHeight: limits.height,
       maxFramesPerSecond: limits.fps,

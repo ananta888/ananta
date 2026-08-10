@@ -38,7 +38,14 @@ import { DEFAULT_SEMANTIC_SPEECH_SETTINGS } from '../../services/semantic-speech
 import { SemanticSpeechQualityMode } from '../../services/semantic-speech-quality-controller.service';
 import { OrdinaryAudioState } from '../../services/webrtc-media-session.service';
 import { MediaPublicationView } from '../../services/webrtc-media-publication.service';
+import {
+  PublicPairMediaPublicationConsentState,
+  PublicPairMediaPublicationConsentTerm,
+} from '../../services/public-pair-media-publication-consent.service';
 import { WebrtcMediaPanelComponent } from '../pair-view/webrtc-media-panel.component';
+import {
+  PublicPairMediaPublicationConsentPanelComponent,
+} from './public-pair-media-publication-consent-panel.component';
 
 export type SemanticProgramState =
   | 'locally_desired'
@@ -114,6 +121,15 @@ const SENSITIVE = new Set<SemanticProgramCapability>([
   'raw_audio', 'training', 'speech_reconciliation', 'adapter_activation', 'export',
 ]);
 
+const EMPTY_PUBLICATION_CONSENT: PublicPairMediaPublicationConsentState = Object.freeze({
+  status: 'unbound',
+  binding: null,
+  revision: 0,
+  term: null,
+  slots: Object.freeze([]),
+  expiresAtMs: null,
+});
+
 @Component({
   selector: 'app-semantic-media-program-shell',
   standalone: true,
@@ -128,6 +144,7 @@ const SENSITIVE = new Set<SemanticProgramCapability>([
     SpeechReconciliationPanelComponent,
     SemanticDebugHostComponent,
     WebrtcMediaPanelComponent,
+    PublicPairMediaPublicationConsentPanelComponent,
   ],
   templateUrl: './semantic-media-program-shell.component.html',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -164,7 +181,9 @@ export class SemanticMediaProgramShellComponent {
   @Input() receiverPaths: readonly SemanticReceiverPathView[] = [];
   @Input() ordinaryMediaCaptureEnabled = false;
   @Input() ordinaryMediaVideoCaptureEnabled = false;
+  @Input() ordinaryMediaE2eeReady = false;
   @Input() ordinaryMediaReason = 'ordinary_media_activation_required';
+  @Input() ordinaryMediaPublicationConsent: PublicPairMediaPublicationConsentState = EMPTY_PUBLICATION_CONSENT;
   @Input() ordinaryAudioState: OrdinaryAudioState = {
     status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null,
   };
@@ -219,6 +238,9 @@ export class SemanticMediaProgramShellComponent {
   @Output() readonly ordinaryVideoStop = new EventEmitter<string>();
   @Output() readonly ordinaryVideoReplace = new EventEmitter<string>();
   @Output() readonly ordinaryVideoMute = new EventEmitter<Readonly<{ publicationId: string; muted: boolean }>>();
+  @Output() readonly ordinaryMediaPublicationConsentGrant =
+    new EventEmitter<PublicPairMediaPublicationConsentTerm>();
+  @Output() readonly ordinaryMediaPublicationConsentRevoke = new EventEmitter<void>();
   @Output() readonly speechStart = new EventEmitter<void>();
   @Output() readonly speechStop = new EventEmitter<void>();
   @Output() readonly speechSettingsChange = new EventEmitter<SemanticSpeechPanelSettings>();
@@ -248,6 +270,12 @@ export class SemanticMediaProgramShellComponent {
     return this.displayMode === 'pair_media'
       ? this.capabilityRows.filter(row => row.capability === 'ordinary_media')
       : this.capabilityRows;
+  }
+
+  programCapabilities(): readonly SemanticProgramCapabilityView[] {
+    return this.publicPublicationConsentVisible()
+      ? this.displayedCapabilities().filter(row => row.capability !== 'ordinary_media')
+      : this.displayedCapabilities();
   }
 
   heading(): string {
@@ -333,6 +361,14 @@ export class SemanticMediaProgramShellComponent {
   ordinaryMediaVisible(): boolean {
     return this.capabilityRows.some(row => row.capability === 'ordinary_media'
       && (row.state === 'authoritatively_active' || row.state === 'degraded'));
+  }
+
+  publicPublicationConsentVisible(): boolean {
+    return this.displayMode === 'pair_media' && this.ordinaryMediaAuthority === 'public';
+  }
+
+  ordinaryMediaPanelVisible(): boolean {
+    return this.publicPublicationConsentVisible() || this.ordinaryMediaVisible();
   }
 
   speechReconciliationVisible(): boolean {

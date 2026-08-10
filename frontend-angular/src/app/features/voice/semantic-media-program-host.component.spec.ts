@@ -33,6 +33,8 @@ describe('SemanticMediaProgramHostComponent ordinary media wiring', () => {
       startOrdinaryMicrophone: vi.fn(), stopOrdinaryMicrophone: vi.fn(), setOrdinaryMicrophoneMuted: vi.fn(),
       startOrdinaryVideo: vi.fn(), stopOrdinaryVideo: vi.fn(), replaceOrdinaryVideo: vi.fn(),
       setOrdinaryVideoMuted: vi.fn(),
+      grantOrdinaryMediaPublicationConsent: vi.fn(),
+      revokeOrdinaryMediaPublicationConsent: vi.fn(),
     };
     await TestBed.configureTestingModule({
       imports: [SemanticMediaProgramHostComponent],
@@ -80,6 +82,32 @@ describe('SemanticMediaProgramHostComponent ordinary media wiring', () => {
     expect(facade.startOrdinaryVideo).toHaveBeenCalledWith('screen');
     expect(facade.replaceOrdinaryVideo).toHaveBeenCalledWith('ordinary-camera-3');
     expect(facade.stopOrdinaryVideo).toHaveBeenCalledWith('ordinary-camera-3');
+
+    facade.startOrdinaryMicrophone.mockClear();
+    facade.startOrdinaryVideo.mockClear();
+    view$.next({
+      ...hostView(),
+      ordinaryMediaAuthority: 'public',
+      ordinaryMediaCaptureEnabled: false,
+      ordinaryMediaVideoCaptureEnabled: false,
+      ordinaryMediaPublicationConsent: publicationConsent('inactive'),
+    });
+    fixture.componentRef.setInput('displayMode', 'pair_media');
+    fixture.detectChanges();
+    click('Einwilligen und Medien aktivieren');
+    expect(facade.grantOrdinaryMediaPublicationConsent).toHaveBeenCalledWith({ kind: 'session' });
+    expect(facade.startOrdinaryMicrophone).not.toHaveBeenCalled();
+    expect(facade.startOrdinaryVideo).not.toHaveBeenCalled();
+
+    view$.next({
+      ...hostView(),
+      ordinaryMediaAuthority: 'public',
+      ordinaryMediaE2eeReady: true,
+      ordinaryMediaPublicationConsent: publicationConsent('granted'),
+    });
+    fixture.detectChanges();
+    click('Eigene Freigabe deaktivieren');
+    expect(facade.revokeOrdinaryMediaPublicationConsent).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -105,7 +133,9 @@ function hostView(): SemanticMediaProgramHostView {
     receiverPaths: [],
     ordinaryMediaCaptureEnabled: true,
     ordinaryMediaVideoCaptureEnabled: true,
+    ordinaryMediaE2eeReady: false,
     ordinaryMediaReason: 'ordinary_media_ready',
+    ordinaryMediaPublicationConsent: publicationConsent('unbound'),
     ordinaryAudioState: { status: 'idle', trackId: null, deviceLabelVisible: false, reasonCode: null },
     ordinaryMediaPublications: [],
     sfuRemoteVideos: [],
@@ -123,4 +153,19 @@ function hostView(): SemanticMediaProgramHostView {
     evidenceOffer: null, evidenceSync: null, evidenceAvailableReason: 'none',
     evidenceConsent: { bound: false, signerIds: [], consent: null, pending: false, errorCode: 'missing' },
   };
+}
+
+function publicationConsent(status: 'unbound' | 'inactive' | 'granted') {
+  const binding = status === 'unbound' ? null : {
+    sessionId: 'session-a', securityEpoch: 3, contractDigest: 'a'.repeat(64), adapterGeneration: 7,
+    localPeerId: 'alice', remotePeerId: 'bob', maxExpiresAtMs: Date.now() + 3_600_000,
+  };
+  return {
+    status,
+    binding,
+    revision: 1,
+    term: status === 'granted' ? { kind: 'session' as const } : null,
+    slots: [],
+    expiresAtMs: status === 'granted' ? Date.now() + 3_600_000 : null,
+  } as const;
 }

@@ -27,6 +27,7 @@ import { WebrtcPrioritySendQueue } from './webrtc-priority-send-queue';
 import { WebrtcSendOperation } from './webrtc-send-operation';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaPublicationPolicy } from './pair-media-publication.policy';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
 import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
 import { PairMediaE2eeTransformAdapter } from './pair-media-e2ee-transform.adapter';
@@ -81,6 +82,14 @@ interface SemanticSendContext {
   readonly channel?: RTCDataChannel;
 }
 
+interface MediaSenderOperation {
+  readonly revision: number;
+  readonly track: MediaStreamTrack | null;
+  readonly sessionId: string;
+  readonly sessionGeneration: number;
+  readonly peer: RTCPeerConnection;
+}
+
 @Injectable({ providedIn: 'root' })
 export class WebrtcSessionService {
   private profiles = inject(NetworkProfileService);
@@ -88,6 +97,7 @@ export class WebrtcSessionService {
   private oidc = inject(OidcAuthService);
   private controlPlane = inject(PairSessionControlPlaneService);
   private mediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private publicationPolicy = inject(PairMediaPublicationPolicy);
   private securityBootstrap = inject(PairViewSecurityBootstrapService);
   private pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
   private pairMediaTransforms = inject(PairMediaE2eeTransformAdapter);
@@ -112,6 +122,8 @@ export class WebrtcSessionService {
   private readonly sendQueue = new WebrtcPrioritySendQueue();
   private readonly pendingSemanticSends = new Map<string, WebrtcSendOperation>();
   private activeEpoch = 1;
+  private mediaSenderOperationSerial = 0;
+  private readonly mediaSenderOperations = new WeakMap<RTCRtpSender, MediaSenderOperation>();
   private isInitiator = false;
   private publicSdpPhase: PublicSdpPhase = 'none';
   private releaseSignalingHandler: (() => void) | null = null;
@@ -461,23 +473,51 @@ export class WebrtcSessionService {
     track: MediaStreamTrack,
     stream: MediaStream,
   ): Promise<RTCRtpSender> {
-    this.mediaPolicy.assertAllowed(this.sessionId);
-    if (!this.pc || this.pc.connectionState === 'closed') throw new Error('webrtc_session_not_open');
-    if (!this.controlPlane.isPublicSession(this.sessionId)) {
-      const sender = this.pc.addTrack(track, stream);
+    const sessionId = this.sessionId;
+    const generation = this.sessionGeneration;
+    const peer = this.pc;
+    this.publicationPolicy.assertAllowed(sessionId, slot);
+    if (!peer || peer.connectionState === 'closed') throw new Error('webrtc_session_not_open');
+    if (!this.controlPlane.isPublicSession(sessionId)) {
+      const sender = peer.addTrack(track, stream);
       void this.negotiateMedia();
       return sender;
     }
-    const status = this.pairMediaE2ee.statusFor(this.sessionId);
+    const status = this.pairMediaE2ee.statusFor(sessionId);
     if (status.state !== 'ready' || !this.pairMediaTransforms.isKeyed(
-      this.sessionId,
-      this.securityBootstrap.mediaContractFor(this.sessionId)?.epoch,
+      sessionId,
+      this.securityBootstrap.mediaContractFor(sessionId)?.epoch,
       status.contractDigest,
     )) throw new Error(status.reasonCode || 'public_media_e2ee_not_ready');
-    const sender = this.pairMediaTransforms.senderForSlot(this.sessionId, slot);
+    const sender = this.pairMediaTransforms.senderForSlot(sessionId, slot);
     const expectedKind = slot === 'microphone-opus' ? 'audio' : 'video';
     if (track.kind !== expectedKind) throw new Error('public_media_track_kind_invalid');
-    await sender.replaceTrack(track);
+    const previousTrack = this.initialAttachPredecessor(
+      sender, sessionId, generation, peer,
+    );
+    const senderOperation = this.beginMediaSenderOperation(
+      sender, track, sessionId, generation, peer,
+    );
+    let nativeReplaceApplied = false;
+    try {
+      await sender.replaceTrack(track);
+      nativeReplaceApplied = true;
+      this.assertMediaSenderOperationCurrent(sender, senderOperation);
+      if (!this.isCurrentSession(peer, sessionId, generation)) {
+        throw new Error('webrtc_media_session_superseded');
+      }
+      this.publicationPolicy.assertAllowed(sessionId, slot);
+      this.assertMediaSenderOperationCurrent(sender, senderOperation);
+    } catch (error) {
+      if (nativeReplaceApplied) {
+        await this.failMediaSenderOperation(sender, senderOperation);
+      } else {
+        await this.preservePreviousTrackAfterRejectedReplacement(
+          sender, senderOperation, previousTrack,
+        );
+      }
+      throw error;
+    }
     return sender;
   }
 
@@ -486,19 +526,82 @@ export class WebrtcSessionService {
   }
 
   async replaceMediaTrack(sender: RTCRtpSender, track: MediaStreamTrack | null): Promise<void> {
-    this.mediaPolicy.assertAllowed(this.sessionId);
-    if (!this.pc || !this.pc.getSenders().includes(sender)) throw new Error('webrtc_media_sender_stale');
-    if (this.controlPlane.isPublicSession(this.sessionId)
-        && this.pairMediaE2ee.statusFor(this.sessionId).state !== 'ready') {
-      throw new Error('public_media_e2ee_not_ready');
+    const sessionId = this.sessionId;
+    const publicSession = this.controlPlane.isPublicSession(sessionId);
+    if (!publicSession && track !== null) {
+      // Keep the established Hub contract intact. Hub senders are not fixed
+      // Public slots and therefore do not participate in Public reconciliation.
+      this.mediaPolicy.assertAllowed(sessionId);
+      if (!this.pc || !this.pc.getSenders().includes(sender)) {
+        throw new Error('webrtc_media_sender_stale');
+      }
+      await sender.replaceTrack(track);
+      return;
     }
-    await sender.replaceTrack(track);
+    const peer = this.pc;
+    if (!peer || !peer.getSenders().includes(sender)) throw new Error('webrtc_media_sender_stale');
+    if (!publicSession) {
+      // Hub cleanup has historically remained possible after policy loss.
+      // It is not a fixed-slot operation and needs no Public reconciliation.
+      await sender.replaceTrack(null);
+      return;
+    }
+    const generation = this.sessionGeneration;
+    // Detaching a sender is cleanup and must remain possible after authority,
+    // consent or E2EE readiness has already been lost.
+    if (track === null) {
+      const senderOperation = this.beginMediaSenderOperation(
+        sender, null, sessionId, generation, peer,
+      );
+      try {
+        await sender.replaceTrack(null);
+      } catch (error) {
+        if (!this.isMediaSenderOperationCurrent(sender, senderOperation)) {
+          await this.reconcileLatestMediaSenderOperation(sender, senderOperation);
+          throw error;
+        }
+        this.failPublicMediaSenderReconciliation(sender, senderOperation);
+      }
+      if (!this.isMediaSenderOperationCurrent(sender, senderOperation)) {
+        await this.reconcileLatestMediaSenderOperation(sender, senderOperation);
+      }
+      return;
+    }
+    const slot = this.pairMediaTransforms.slotForSender(sessionId, sender);
+    if (!slot) throw new Error('public_media_slot_invalid');
+    this.publicationPolicy.assertAllowed(sessionId, slot);
+    const previousTrack = sender.track;
+    const senderOperation = this.beginMediaSenderOperation(
+      sender, track, sessionId, generation, peer,
+    );
+    let nativeReplaceApplied = false;
+    try {
+      await sender.replaceTrack(track);
+      nativeReplaceApplied = true;
+      this.assertMediaSenderOperationCurrent(sender, senderOperation);
+      if (!this.isCurrentSession(peer, sessionId, generation)) {
+        throw new Error('webrtc_media_session_superseded');
+      }
+      this.publicationPolicy.assertAllowed(sessionId, slot);
+      this.assertMediaSenderOperationCurrent(sender, senderOperation);
+    } catch (error) {
+      if (nativeReplaceApplied) {
+        await this.failMediaSenderOperation(sender, senderOperation);
+      } else {
+        await this.preservePreviousTrackAfterRejectedReplacement(
+          sender, senderOperation, previousTrack,
+        );
+      }
+      throw error;
+    }
   }
 
   removeMediaSender(sender: RTCRtpSender): void {
     if (!this.pc || !this.pc.getSenders().includes(sender)) return;
     if (this.controlPlane.isPublicSession(this.sessionId)) {
-      void sender.replaceTrack(null).catch(() => undefined);
+      // Public callers detach through replaceMediaTrack immediately before
+      // removal. Fixed transceivers stay installed; a second unfenced null
+      // mutation could otherwise overtake a regrant.
       return;
     }
     this.pc.removeTrack(sender);
@@ -525,6 +628,175 @@ export class WebrtcSessionService {
       connection: peer.connectionState,
       stats: await peer.getStats(),
     });
+  }
+
+  private beginMediaSenderOperation(
+    sender: RTCRtpSender,
+    track: MediaStreamTrack | null,
+    sessionId: string,
+    sessionGeneration: number,
+    peer: RTCPeerConnection,
+  ): MediaSenderOperation {
+    this.mediaSenderOperationSerial += 1;
+    if (!Number.isSafeInteger(this.mediaSenderOperationSerial)) {
+      throw new Error('webrtc_media_sender_operation_exhausted');
+    }
+    const operation = Object.freeze({
+      revision: this.mediaSenderOperationSerial,
+      track,
+      sessionId,
+      sessionGeneration,
+      peer,
+    });
+    this.mediaSenderOperations.set(sender, operation);
+    return operation;
+  }
+
+  private isMediaSenderOperationCurrent(
+    sender: RTCRtpSender,
+    operation: MediaSenderOperation,
+  ): boolean {
+    return this.mediaSenderOperations.get(sender) === operation;
+  }
+
+  private assertMediaSenderOperationCurrent(
+    sender: RTCRtpSender,
+    operation: MediaSenderOperation,
+  ): void {
+    if (!this.isMediaSenderOperationCurrent(sender, operation)) {
+      throw new Error('webrtc_media_sender_operation_superseded');
+    }
+  }
+
+  private async failMediaSenderOperation(
+    sender: RTCRtpSender,
+    operation: MediaSenderOperation,
+  ): Promise<void> {
+    if (!this.isMediaSenderOperationCurrent(sender, operation)) {
+      await this.reconcileLatestMediaSenderOperation(sender, operation);
+      return;
+    }
+    const detach = this.beginMediaSenderOperation(
+      sender,
+      null,
+      operation.sessionId,
+      operation.sessionGeneration,
+      operation.peer,
+    );
+    try {
+      await sender.replaceTrack(null);
+    } catch {
+      if (!this.isMediaSenderOperationCurrent(sender, detach)) {
+        await this.reconcileLatestMediaSenderOperation(sender, detach);
+        return;
+      }
+      this.failPublicMediaSenderReconciliation(sender, detach);
+    }
+    if (!this.isMediaSenderOperationCurrent(sender, detach)) {
+      await this.reconcileLatestMediaSenderOperation(sender, detach);
+    }
+  }
+
+  private async preservePreviousTrackAfterRejectedReplacement(
+    sender: RTCRtpSender,
+    operation: MediaSenderOperation,
+    previousTrack: MediaStreamTrack | null,
+  ): Promise<void> {
+    if (!this.isMediaSenderOperationCurrent(sender, operation)) {
+      await this.reconcileLatestMediaSenderOperation(sender, operation);
+      return;
+    }
+    const preserved = this.beginMediaSenderOperation(
+      sender,
+      previousTrack,
+      operation.sessionId,
+      operation.sessionGeneration,
+      operation.peer,
+    );
+    // A rejected native replace must retain its previous track. If the
+    // platform mutated anyway, the sender state is no longer trustworthy.
+    if (sender.track !== previousTrack) {
+      this.failPublicMediaSenderReconciliation(sender, preserved);
+    }
+  }
+
+  private initialAttachPredecessor(
+    sender: RTCRtpSender,
+    sessionId: string,
+    sessionGeneration: number,
+    peer: RTCPeerConnection,
+  ): null {
+    const desired = this.mediaSenderOperations.get(sender);
+    if (!desired) {
+      if (sender.track === null) return null;
+      this.failPublicMediaSenderContext(
+        sender, sessionId, sessionGeneration, peer,
+      );
+    }
+    if (
+      desired.sessionId === sessionId
+      && desired.sessionGeneration === sessionGeneration
+      && desired.peer === peer
+      && desired.track === null
+    ) return null;
+    this.failPublicMediaSenderContext(
+      sender, sessionId, sessionGeneration, peer,
+    );
+  }
+
+  private async reconcileLatestMediaSenderOperation(
+    sender: RTCRtpSender,
+    stale: MediaSenderOperation,
+  ): Promise<void> {
+    let observed = this.mediaSenderOperations.get(sender);
+    // A very small bounded loop handles another operation crossing the
+    // reconciliation await without creating an independent retry loop.
+    for (let attempt = 0; attempt < 3 && observed && observed !== stale; attempt += 1) {
+      const target = observed;
+      try {
+        await sender.replaceTrack(target.track);
+      } catch {
+        observed = this.mediaSenderOperations.get(sender);
+        if (observed !== target) continue;
+        this.failPublicMediaSenderReconciliation(sender, target);
+      }
+      observed = this.mediaSenderOperations.get(sender);
+      if (observed === target) return;
+    }
+    const latest = this.mediaSenderOperations.get(sender);
+    this.failPublicMediaSenderReconciliation(
+      sender,
+      latest && latest !== stale ? latest : stale,
+    );
+  }
+
+  private failPublicMediaSenderReconciliation(
+    sender: RTCRtpSender,
+    operation: MediaSenderOperation,
+  ): never {
+    return this.failPublicMediaSenderContext(
+      sender,
+      operation.sessionId,
+      operation.sessionGeneration,
+      operation.peer,
+    );
+  }
+
+  private failPublicMediaSenderContext(
+    sender: RTCRtpSender,
+    sessionId: string,
+    sessionGeneration: number,
+    peer: RTCPeerConnection,
+  ): never {
+    const reasonCode = 'public_media_sender_reconciliation_failed';
+    if (
+      this.isCurrentSession(peer, sessionId, sessionGeneration)
+      && peer.getSenders().includes(sender)
+    ) {
+      this.audit('public_media_fail_closed', reasonCode);
+      this.pairMediaE2ee.fail(sessionId, reasonCode);
+    }
+    throw new Error(reasonCode);
   }
 
   private wirePeerConnection(

@@ -16,6 +16,13 @@ export interface PublicPairMediaSlotKeySet {
   readonly receiveContext: PairMediaE2eeFrameContext;
 }
 
+export interface PublicPairMediaOutboundPublicationGate {
+  readonly revision: number;
+  readonly enabled: boolean;
+  readonly slots: readonly PublicPairMediaSlot[];
+  readonly expiresAtMs: number;
+}
+
 export type PairMediaE2eeWorkerFactory = () => Worker;
 
 export const PAIR_MEDIA_E2EE_WORKER_FACTORY = new InjectionToken<PairMediaE2eeWorkerFactory>(
@@ -54,6 +61,7 @@ interface AdapterState {
   everInstalled: boolean;
   failed: boolean;
   remoteTopologyFinalized: boolean;
+  publicationGateTail: Promise<void>;
 }
 
 interface Deferred<T> {
@@ -126,6 +134,7 @@ export class PairMediaE2eeTransformAdapter {
       peer, worker, pending, receiverSlots, slots, slotReadiness, onFatal, role,
       keyed: false, everInstalled: false, failed: false,
       remoteTopologyFinalized: role === 'offerer',
+      publicationGateTail: Promise.resolve(),
     };
     this.active = state;
     worker.onmessage = event => this.handleWorkerMessage(state, event.data);
@@ -289,6 +298,46 @@ export class PairMediaE2eeTransformAdapter {
     state.worker.postMessage({ version: 1, type: 'clear-keys', sessionId });
   }
 
+  async setOutboundPublicationGate(
+    sessionId: string,
+    adapterGeneration: number,
+    gate: Readonly<PublicPairMediaOutboundPublicationGate>,
+  ): Promise<void> {
+    const state = this.requireState(sessionId, adapterGeneration);
+    if (!state.keyed) throw new Error('public_media_transform_not_keyed');
+    const normalized = normalizePublicationGate(gate, state.contractExpiresAtMs, true);
+    const operation = state.publicationGateTail.then(async () => {
+      if (this.active !== state || state.failed || !state.keyed) {
+        throw new Error('public_media_transform_not_keyed');
+      }
+      assertPublicationGateLive(normalized);
+      const pendingKey = publicationGatePendingKey(sessionId, normalized);
+      const acknowledged = this.expect(state, pendingKey);
+      try {
+        state.worker.postMessage({
+          version: 1,
+          type: 'set-publication-gate',
+          sessionId,
+          gate: normalized,
+        });
+      } catch {
+        this.fail(state, 'media_e2ee_worker_failed');
+      }
+      await acknowledged;
+      if (
+        this.active !== state
+        || state.failed
+        || !state.keyed
+        || state.generation !== adapterGeneration
+      ) throw new Error('media_e2ee_worker_failed');
+    });
+    // Serialize revisions so an async ACK cannot let a later gate overtake an
+    // earlier one. Keep the tail observed; the returned operation still
+    // preserves the exact failure for its caller.
+    state.publicationGateTail = operation.catch(() => undefined);
+    return operation;
+  }
+
   releaseSession(sessionId?: string, generation?: number): void {
     const state = this.active;
     if (
@@ -320,6 +369,15 @@ export class PairMediaE2eeTransformAdapter {
   slotForReceiver(sessionId: string, receiver: RTCRtpReceiver): PublicPairMediaSlot | null {
     const state = this.active;
     return state?.sessionId === sessionId ? state.receiverSlots.get(receiver) ?? null : null;
+  }
+
+  slotForSender(sessionId: string, sender: RTCRtpSender): PublicPairMediaSlot | null {
+    const state = this.active;
+    if (!state || state.failed || state.sessionId !== sessionId) return null;
+    for (const [slot, value] of state.slots) {
+      if (value.transceiver.sender === sender) return slot;
+    }
+    return null;
   }
 
   validateFinalTopology(sessionId: string): void {
@@ -365,6 +423,28 @@ export class PairMediaE2eeTransformAdapter {
         return;
       }
       this.resolve(state, `installed:${state.sessionId}`);
+      return;
+    }
+    if (message['type'] === 'publication-gate-set') {
+      let gate: PublicPairMediaOutboundPublicationGate;
+      try {
+        if (
+          !hasExactFields(message, ['version', 'type', 'sessionId', 'gate'])
+          || message['sessionId'] !== state.sessionId
+        ) {
+          throw new Error('media_e2ee_publication_gate_ack_invalid');
+        }
+        gate = normalizePublicationGate(message['gate'], state.contractExpiresAtMs, false);
+      } catch {
+        this.fail(state, 'media_e2ee_publication_gate_ack_invalid');
+        return;
+      }
+      const pendingKey = publicationGatePendingKey(state.sessionId, gate);
+      if (!state.pending.has(pendingKey)) {
+        this.fail(state, 'media_e2ee_publication_gate_ack_invalid');
+        return;
+      }
+      this.resolve(state, pendingKey);
       return;
     }
     if (message['type'] !== 'keys-cleared') this.fail(state, 'media_e2ee_worker_message_invalid');
@@ -493,6 +573,66 @@ function validateSlotContext(
   if (context.slot !== slot || context.kind !== kind || context.codec !== codec) {
     throw new Error('media_e2ee_key_set_invalid');
   }
+}
+
+function normalizePublicationGate(
+  raw: unknown,
+  contractExpiresAtMs: number,
+  requireLive: boolean,
+): PublicPairMediaOutboundPublicationGate {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    throw new Error('public_media_publication_gate_invalid');
+  }
+  const value = raw as Record<string, unknown>;
+  const fields = ['revision', 'enabled', 'slots', 'expiresAtMs'];
+  const keys = Object.keys(value);
+  const slots = value['slots'];
+  const allowedSlots = new Set<string>(PUBLIC_PAIR_MEDIA_SLOTS.map(definition => definition.slot));
+  if (
+    keys.length !== fields.length
+    || fields.some(field => !(field in value))
+    || !Number.isSafeInteger(value['revision'])
+    || (value['revision'] as number) < 1
+    || typeof value['enabled'] !== 'boolean'
+    || !Number.isSafeInteger(value['expiresAtMs'])
+    || (value['expiresAtMs'] as number) < 0
+    || (value['expiresAtMs'] as number) > contractExpiresAtMs
+    || !Array.isArray(slots)
+    || slots.length > PUBLIC_PAIR_MEDIA_SLOTS.length
+    || new Set(slots).size !== slots.length
+    || slots.some(slot => typeof slot !== 'string' || !allowedSlots.has(slot))
+  ) throw new Error('public_media_publication_gate_invalid');
+  const gate = Object.freeze({
+    revision: value['revision'] as number,
+    enabled: value['enabled'] as boolean,
+    slots: Object.freeze([...(slots as PublicPairMediaSlot[])]),
+    expiresAtMs: value['expiresAtMs'] as number,
+  });
+  if (requireLive) assertPublicationGateLive(gate);
+  return gate;
+}
+
+function assertPublicationGateLive(gate: Readonly<PublicPairMediaOutboundPublicationGate>): void {
+  if (gate.enabled && gate.expiresAtMs <= Date.now()) {
+    throw new Error('public_media_publication_gate_expired');
+  }
+}
+
+function publicationGatePendingKey(
+  sessionId: string,
+  gate: Readonly<PublicPairMediaOutboundPublicationGate>,
+): string {
+  return `publication-gate:${sessionId}:${JSON.stringify({
+    revision: gate.revision,
+    enabled: gate.enabled,
+    slots: gate.slots,
+    expiresAtMs: gate.expiresAtMs,
+  })}`;
+}
+
+function hasExactFields(value: Readonly<Record<string, unknown>>, fields: readonly string[]): boolean {
+  const keys = Object.keys(value);
+  return keys.length === fields.length && fields.every(field => field in value);
 }
 
 function deferredReason(value: unknown): string {

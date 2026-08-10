@@ -9,6 +9,7 @@ import { AgentDirectoryService } from "../../services/agent-directory.service";
 import { SpeechReconciliationApiService } from "../../services/speech-reconciliation-api.service";
 import { LivekitSfuTransportService } from "../../services/livekit-sfu-transport.service";
 import { WebrtcMediaSessionService } from "../../services/webrtc-media-session.service";
+import { PublicPairMediaPublicationConsentState } from "../../services/public-pair-media-publication-consent.service";
 
 import {
   SemanticMediaProgramShellComponent,
@@ -17,6 +18,9 @@ import {
 import { SpeechReconciliationPanelComponent } from "./speech-reconciliation-panel.component";
 import { SemanticRemoteAudioComponent } from "./semantic-remote-audio.component";
 import { WebrtcMediaPanelComponent } from "../pair-view/webrtc-media-panel.component";
+import {
+  PublicPairMediaPublicationConsentPanelComponent,
+} from "./public-pair-media-publication-consent-panel.component";
 
 beforeAll(async () => {
   await ɵresolveComponentResources((resource) => {
@@ -25,6 +29,23 @@ beforeAll(async () => {
     return readFile(path.resolve(process.cwd(), "src/app/features", directory, file), "utf8");
   });
 });
+
+function publicationConsentState(
+  patch: Partial<PublicPairMediaPublicationConsentState> = {},
+): PublicPairMediaPublicationConsentState {
+  return {
+    status: "inactive",
+    binding: {
+      sessionId: "session-a", securityEpoch: 3, contractDigest: "a".repeat(64), adapterGeneration: 7,
+      localPeerId: "alice", remotePeerId: "bob", maxExpiresAtMs: Date.now() + 3_600_000,
+    },
+    revision: 0,
+    term: null,
+    slots: [],
+    expiresAtMs: null,
+    ...patch,
+  };
+}
 
 describe("SemanticMediaProgramShellComponent", () => {
   let fixture: ComponentFixture<SemanticMediaProgramShellComponent>;
@@ -162,42 +183,50 @@ describe("SemanticMediaProgramShellComponent", () => {
     ).toContain("Offline");
   });
 
-  it("routes Public Pair ordinary-media activation without treating Hub offline as authority loss", () => {
-    const emitted: any[] = [];
-    fixture.componentInstance.intent.subscribe(value => emitted.push(value));
+  it("replaces generic Public media actions with independent, duration-bound publication consent", () => {
+    const grants: any[] = [];
+    let revokes = 0;
+    fixture.componentInstance.ordinaryMediaPublicationConsentGrant.subscribe(value => grants.push(value));
+    fixture.componentInstance.ordinaryMediaPublicationConsentRevoke.subscribe(() => { revokes += 1; });
     fixture.componentRef.setInput("displayMode", "pair_media");
     fixture.componentRef.setInput("online", false);
     fixture.componentRef.setInput("ordinaryMediaAuthority", "public");
-    fixture.componentRef.setInput("ordinaryMediaActivationEnabled", true);
+    fixture.componentRef.setInput("ordinaryMediaE2eeReady", true);
+    fixture.componentRef.setInput("ordinaryMediaPublicationConsent", publicationConsentState());
     fixture.componentRef.setInput("capabilities", [{
       capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
       state: "revoked", requestId: null,
     }]);
     fixture.detectChanges();
 
-    const activate = fixture.nativeElement.querySelector('[data-capability="ordinary_media"] button') as HTMLButtonElement;
-    expect(activate.disabled).toBe(false);
-    activate.click();
-    expect(emitted).toEqual([expect.objectContaining({
-      capability: "ordinary_media", desired: "activate",
-    })]);
-    expect(fixture.componentInstance.capabilities[0].state).toBe("sent_to_authority");
-    expect(fixture.nativeElement.textContent).toContain("Public-Pair-Medien können sicher aktiviert werden");
+    const consentPanel = fixture.debugElement.query(
+      By.directive(PublicPairMediaPublicationConsentPanelComponent),
+    );
+    expect(consentPanel).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain("Meine Medienfreigabe");
+    expect(fixture.nativeElement.textContent)
+      .toContain("Der verschlüsselte Public-Pair-Medienpfad ist bereit");
+    expect(fixture.nativeElement.textContent).not.toContain("Pausieren");
+    expect(fixture.nativeElement.textContent).not.toContain("Widerrufen");
+    (consentPanel.componentInstance as PublicPairMediaPublicationConsentPanelComponent)
+      .grant.emit({ kind: "timed", durationMs: 900_000 });
+    (consentPanel.componentInstance as PublicPairMediaPublicationConsentPanelComponent).revoke.emit();
+    expect(grants).toEqual([{ kind: "timed", durationMs: 900_000 }]);
+    expect(revokes).toBe(1);
 
-    fixture.componentRef.setInput("capabilities", [{
-      capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
-      state: "degraded", requestId: null,
-      reasonCode: "public_ordinary_media_e2ee_awaiting_peer",
-    }]);
-    fixture.componentRef.setInput("ordinaryMediaCaptureEnabled", false);
-    fixture.componentRef.setInput("ordinaryMediaVideoCaptureEnabled", false);
-    fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain("Capture bleibt gesperrt");
+    const disabledMedia = fixture.debugElement.query(By.directive(WebrtcMediaPanelComponent));
+    expect(disabledMedia).not.toBeNull();
+    expect((disabledMedia.componentInstance as WebrtcMediaPanelComponent).e2eeProtected).toBe(true);
+    expect([...disabledMedia.nativeElement.querySelectorAll("button")]
+      .every((button: HTMLButtonElement) => button.disabled)).toBe(true);
 
     fixture.componentRef.setInput("capabilities", [{
       capability: "ordinary_media", label: "Ordinary Audio/Video", sensitive: false,
       state: "authoritatively_active", requestId: null,
     }]);
+    fixture.componentRef.setInput("ordinaryMediaPublicationConsent", publicationConsentState({
+      status: "granted", term: { kind: "session" }, expiresAtMs: Date.now() + 60_000,
+    }));
     fixture.componentRef.setInput("ordinaryMediaCaptureEnabled", true);
     fixture.componentRef.setInput("ordinaryMediaVideoCaptureEnabled", true);
     fixture.detectChanges();
@@ -205,6 +234,12 @@ describe("SemanticMediaProgramShellComponent", () => {
     expect((panel.componentInstance as WebrtcMediaPanelComponent).publicPair).toBe(true);
     expect((panel.componentInstance as WebrtcMediaPanelComponent).e2eeProtected).toBe(true);
     expect(panel.nativeElement.textContent).toContain("sitzungs- und verbindungsgebundenen Schlüsseln");
+
+    fixture.componentRef.setInput("ordinaryMediaE2eeReady", false);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent)
+      .toContain("Der verschlüsselte Public-Pair-Medienpfad ist noch nicht bereit");
+    expect(fixture.nativeElement.textContent).not.toContain("wird vorbereitet");
   });
 
   it("mounts reconciliation only after the Hub capability becomes authoritative", () => {

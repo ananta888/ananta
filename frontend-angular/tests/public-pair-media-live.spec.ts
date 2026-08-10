@@ -57,11 +57,11 @@ test.describe('Public Pair media live canary', () => {
         expectPairSecurityReady(ownerPage, 'owner'),
         expectPairSecurityReady(guestPage, 'guest'),
       ]);
-      await activateMediaBilateral(ownerPage, guestPage);
+      await grantMediaPublicationBilateral(ownerPage, guestPage);
       await startBilateralCapture(ownerPage, guestPage);
       await expectBilateralReception(ownerPage, guestPage);
 
-      await revokeMediaFromOwner(ownerPage, guestPage);
+      await revokeAndRegrantOwnerPublication(ownerPage, guestPage);
 
       await endOwnerSession(ownerPage, owner.sessionId);
       sessionCreated = false;
@@ -379,11 +379,7 @@ async function expectPairSecurityReady(page: Page, peerRole: 'owner' | 'guest'):
   ).toHaveText(/DataChannel:\s*open/i);
 }
 
-async function activateMediaBilateral(owner: Page, guest: Page): Promise<void> {
-  const buttons = [owner, guest].map(page => mediaCapability(page)
-    .getByRole('button', { name: 'Aktivieren', exact: true }));
-  await Promise.all(buttons.map(button => expect(button).toBeEnabled()));
-  await Promise.all(buttons.map(button => button.click()));
+async function grantMediaPublicationBilateral(owner: Page, guest: Page): Promise<void> {
   const peers = [
     ['owner', owner],
     ['guest', guest],
@@ -397,12 +393,20 @@ async function activateMediaBilateral(owner: Page, guest: Page): Promise<void> {
     )));
     throw new Error(`public_media_activation_failed_${diagnostics.join('_')}`);
   }
+  const buttons = peers.map(([, page]) => publicationConsent(page)
+    .getByRole('button', { name: 'Einwilligen und Medien aktivieren', exact: true }));
+  await Promise.all(buttons.map(button => expect(button).toBeEnabled()));
+  await Promise.all(buttons.map(button => button.click()));
+  await Promise.all(peers.map(([, page]) => expect(publicationConsent(page)
+    .getByTestId('public-pair-publication-consent-status'))
+    .toContainText('Eigene Medien sind freigegeben bis')));
 }
 
 async function mediaActivationDiagnostic(page: Page): Promise<string> {
-  const capabilityState = await mediaCapability(page).locator('p').filter({ hasText: 'Status:' })
-    .locator('strong').textContent().catch(() => 'missing');
-  const capabilityReason = await mediaCapability(page).locator('p[role="status"] code')
+  const capabilityState = await publicationConsent(page)
+    .getByTestId('public-pair-publication-consent-status')
+    .textContent().catch(() => 'missing');
+  const capabilityReason = await publicationConsent(page).locator('code')
     .textContent().catch(() => 'missing');
   const operationReason = await mediaPanel(page).getByTestId('ordinary-media-operation-status')
     .locator('code').textContent().catch(() => 'media_panel_unavailable');
@@ -490,9 +494,10 @@ async function remoteVideoDiagnostic(page: Page): Promise<string> {
     .catch(() => [] as string[]);
   const reason = await mediaPanel(page).getByTestId('ordinary-media-operation-status')
     .locator('code').textContent().catch(() => 'media_panel_unavailable');
-  const capabilityState = await mediaCapability(page).locator('p').filter({ hasText: 'Status:' })
-    .locator('strong').textContent().catch(() => 'missing');
-  const capabilityReason = await mediaCapability(page).locator('p[role="status"] code')
+  const capabilityState = await publicationConsent(page)
+    .getByTestId('public-pair-publication-consent-status')
+    .textContent().catch(() => 'missing');
+  const capabilityReason = await publicationConsent(page).locator('code')
     .textContent().catch(() => 'missing');
   const readyCount = await page.getByTestId('public-media-e2ee-ready').count();
   const webrtc = await page.getByTestId('public-pair-webrtc-status').textContent().catch(() => 'missing');
@@ -512,17 +517,31 @@ async function remoteAudioDiagnostic(page: Page): Promise<string> {
   return `audio_${state}`;
 }
 
-async function revokeMediaFromOwner(owner: Page, guest: Page): Promise<void> {
-  await mediaCapability(owner).getByRole('button', { name: 'Widerrufen', exact: true }).click();
-  await Promise.all([owner, guest].map(page => expect(mediaPanel(page)).toHaveCount(0)));
-  await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-media-e2ee-ready')).toHaveCount(0)));
-  // Revocation destroys the keyed media PC/worker generation. Session polling
-  // may then reopen the same Pair as data-only; media stays quarantined for
-  // the signed contract digest while chat/view remain usable.
+async function revokeAndRegrantOwnerPublication(owner: Page, guest: Page): Promise<void> {
+  await publicationConsent(owner)
+    .getByRole('button', { name: 'Eigene Freigabe deaktivieren', exact: true }).click();
+  await expect(publicationConsent(owner).getByTestId('public-pair-publication-consent-status'))
+    .toContainText('Eigene Medien sind deaktiviert');
+  await expect(mediaPanel(owner).locator('article[data-source="microphone"]'))
+    .toHaveAttribute('data-status', 'idle');
+  await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-media-e2ee-ready')).toBeVisible()));
   await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-pair-webrtc-status'))
     .toHaveText(/WebRTC:\s*connected/i)));
   await Promise.all([owner, guest].map(page => expect(page.getByTestId('public-pair-datachannel-status'))
     .toHaveText(/DataChannel:\s*open/i)));
+
+  const grant = publicationConsent(owner)
+    .getByRole('button', { name: 'Einwilligen und Medien aktivieren', exact: true });
+  await expect(grant).toBeEnabled();
+  await grant.click();
+  await expect(publicationConsent(owner).getByTestId('public-pair-publication-consent-status'))
+    .toContainText('Eigene Medien sind freigegeben bis');
+  await mediaPanel(owner).getByRole('button', { name: 'Mikrofon freigeben' }).click();
+  await expect(mediaPanel(owner).locator('article[data-source="microphone"]'))
+    .toHaveAttribute('data-status', 'active');
+  await mediaPanel(owner).getByRole('button', { name: 'Kamera freigeben' }).click();
+  await expect(mediaPanel(owner).locator('article[data-source="camera"]'))
+    .toHaveAttribute('data-status', 'active');
 }
 
 async function endOwnerSession(page: Page, sessionId: string): Promise<void> {
@@ -552,8 +571,8 @@ function sharePanel(page: Page) {
   return page.locator('app-public-pair-page app-ai-snake-share-panel');
 }
 
-function mediaCapability(page: Page) {
-  return page.locator('app-public-pair-page [data-capability="ordinary_media"]');
+function publicationConsent(page: Page) {
+  return page.getByTestId('public-pair-publication-consent');
 }
 
 function mediaPanel(page: Page) {
