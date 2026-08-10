@@ -127,6 +127,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
 
   afterEach(() => {
     service.closeSession();
+    vi.useRealTimers();
     TestBed.resetTestingModule();
   });
 
@@ -200,6 +201,83 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     expect(service.state$.value).toBe('connecting');
     expect(service.dataChannelState$.value).toBe('open');
     expect(coordinator.port).toBeNull();
+  });
+
+  it('keeps the keyed Public connection when a transient disconnect recovers within five seconds', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    peer.connectionState = 'connected';
+    peer.onconnectionstatechange?.();
+    peer.connectionState = 'disconnected';
+    peer.onconnectionstatechange?.();
+
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+
+    peer.connectionState = 'connecting';
+    peer.onconnectionstatechange?.();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+
+    peer.connectionState = 'connected';
+    peer.onconnectionstatechange?.();
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(coordinator.fail).not.toHaveBeenCalled();
+    expect(peer.close).not.toHaveBeenCalled();
+    expect(transforms.releaseSession).not.toHaveBeenCalled();
+    expect(service.state$.value).toBe('connected');
+  });
+
+  it('fails closed with the stable Public reason after a persistent disconnect', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    peer.connectionState = 'connected';
+    peer.onconnectionstatechange?.();
+    peer.connectionState = 'disconnected';
+    peer.onconnectionstatechange?.();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_lost',
+    );
+    expect(peer.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
+  });
+
+  it('fails a keyed Public connection immediately when the browser reports failed', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    peer.connectionState = 'failed';
+    peer.onconnectionstatechange?.();
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_lost',
+    );
+    expect(peer.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
+  });
+
+  it('does not let a stale disconnect timer close a replacement generation', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const stalePeer = PublicPeerConnection.instances[0];
+    stalePeer.connectionState = 'disconnected';
+    stalePeer.onconnectionstatechange?.();
+
+    await service.startSession('session-a', true, 'peer:remote');
+    const replacement = PublicPeerConnection.instances[1];
+    await vi.advanceTimersByTimeAsync(5_000);
+
+    expect(stalePeer.close).toHaveBeenCalledOnce();
+    expect(replacement.close).not.toHaveBeenCalled();
+    expect(coordinator.fail).not.toHaveBeenCalled();
   });
 
   it('fences an old same-session prepare continuation and fatal callback from its replacement', async () => {

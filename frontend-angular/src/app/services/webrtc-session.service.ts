@@ -50,6 +50,7 @@ const RATE_LIMIT_MAX = 300;
 const RATE_LIMIT_BYTES = 4 * 1024 * 1024;
 const DC_RECEIVE_QUEUE_MAX = 128;
 const DC_RECEIVE_QUEUE_BYTES = 4 * 1024 * 1024;
+const PEER_CONNECTION_DISCONNECT_GRACE_MS = 5_000;
 
 interface AuditEvent {
   ts: number;
@@ -105,6 +106,7 @@ export class WebrtcSessionService {
   private rateTs: number[] = [];
   private rateBytes: Array<{ ts: number; bytes: number }> = [];
   private connectionTimeout: ReturnType<typeof setTimeout> | null = null;
+  private disconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly chunkReassembler = new DcLegacyChunkReassembler();
   private readonly semanticReassembler = inject(WebrtcChunkReassemblyStore);
   private readonly sendQueue = new WebrtcPrioritySendQueue();
@@ -132,9 +134,13 @@ export class WebrtcSessionService {
   });
 
   async startSession(sessionId: string, isInitiator: boolean, remotePeerId?: string): Promise<void> {
-    if (this.pc || this.releaseSignalingHandler || this.signalingStatusSubscription || this.connectionTimeout) {
+    if (
+      this.pc || this.releaseSignalingHandler || this.signalingStatusSubscription
+      || this.connectionTimeout || this.disconnectTimeout
+    ) {
       this.closeSession();
     }
+    this.clearDisconnectTimeout();
     const generation = ++this.sessionGeneration;
     this.sessionId = sessionId;
     this.isInitiator = isInitiator;
@@ -338,6 +344,7 @@ export class WebrtcSessionService {
     this.pendingLocalIce = [];
     this.stopPendingPublicMediaTracks();
     if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
+    this.clearDisconnectTimeout();
     const closingDataChannel = this.dc;
     this.dc = null;
     closingDataChannel?.close();
@@ -543,16 +550,24 @@ export class WebrtcSessionService {
       const s = pc.connectionState;
       this.audit('connection_state', s);
       if (s === 'connected') {
+        this.clearDisconnectTimeout();
         if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
         this.state$.next('connected');
+        return;
       }
-      if (s === 'failed' || s === 'disconnected') {
+      if (s === 'failed') {
+        this.clearDisconnectTimeout();
         this.audit('connection_failed', s);
         if (this.pairMediaTransforms.isPrepared(sessionId)) {
           this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_lost');
           return;
         }
         this.state$.next('failed');
+        return;
+      }
+      if (s === 'disconnected') {
+        this.audit('connection_interrupted', s);
+        this.armDisconnectTimeout(pc, sessionId, generation);
       }
     };
     pc.ontrack = event => {
@@ -1037,6 +1052,31 @@ export class WebrtcSessionService {
       try { event.track.stop(); } catch { /* Deterministic local cleanup. */ }
     }
     this.pendingPublicMediaTracks.clear();
+  }
+
+  private armDisconnectTimeout(
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): void {
+    if (this.disconnectTimeout !== null) return;
+    const timeout = setTimeout(() => {
+      if (this.disconnectTimeout !== timeout) return;
+      this.disconnectTimeout = null;
+      if (!this.isCurrentSession(pc, sessionId, generation) || pc.connectionState !== 'disconnected') return;
+      this.audit('connection_failed', pc.connectionState);
+      if (this.pairMediaTransforms.isPrepared(sessionId)) {
+        this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_lost');
+        return;
+      }
+      this.state$.next('failed');
+    }, PEER_CONNECTION_DISCONNECT_GRACE_MS);
+    this.disconnectTimeout = timeout;
+  }
+
+  private clearDisconnectTimeout(): void {
+    if (this.disconnectTimeout !== null) clearTimeout(this.disconnectTimeout);
+    this.disconnectTimeout = null;
   }
 
   private audit(type: string, detail?: string): void {
