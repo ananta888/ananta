@@ -1345,6 +1345,146 @@ def touch_participant(
         return {"ok": True, "local_peer_id": member["peer_id"]}
 
 
+def leave_session(
+    *,
+    session_id: str,
+    actor_user_id: str,
+    actor_peer_id: str = "",
+    membership_capability: str = "",
+) -> dict[str, Any]:
+    """Revoke only the authenticated guest membership of a strict Pair session.
+
+    The owner has a separate, stronger operation (``revoke_session``). A
+    repeated request from the exact retired guest capability is successful so
+    a lost HTTP response cannot leave the browser unsure whether it may forget
+    its local membership authority.
+    """
+    _ensure_db_initialized()
+    now = _now()
+    with _db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        session = _get_session_by_id(conn, session_id)
+        if not session:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "session_not_found"}
+        if session.get("revoked_at") is not None:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "session_revoked"}
+        if float(session.get("expires_at") or 0) <= now:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "session_expired"}
+
+        try:
+            actor = _resolve_authenticated_membership(
+                conn,
+                session,
+                account_id=actor_user_id,
+                requested_peer_id=actor_peer_id,
+                membership_capability=membership_capability,
+            )
+        except ValueError as exc:
+            retired_peer_id = _retired_guest_peer_for_capability(
+                conn,
+                session,
+                account_id=actor_user_id,
+                requested_peer_id=actor_peer_id,
+                membership_capability=membership_capability,
+            )
+            if retired_peer_id:
+                conn.execute("COMMIT")
+                return {
+                    "ok": True,
+                    "local_peer_id": retired_peer_id,
+                    "idempotent": True,
+                }
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": str(exc)}
+
+        if actor["owner"]:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "owner_must_end_session"}
+
+        participant_id = str(actor["membership_id"]).removeprefix("member:")
+        updated = conn.execute(
+            """UPDATE participants SET revoked_at = ?
+               WHERE id = ? AND session_id = ? AND revoked_at IS NULL""",
+            (now, participant_id, session_id),
+        )
+        if updated.rowcount != 1:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "membership_state_conflict"}
+
+        # Membership removal invalidates every key and signaling artifact of
+        # the former pair. The next guest starts from a fresh security epoch
+        # and cannot consume SDP/ICE retained for the departed device.
+        conn.execute(
+            "UPDATE sessions SET security_epoch = security_epoch + 1 WHERE id = ?",
+            (session_id,),
+        )
+        conn.execute("DELETE FROM key_confirmations WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM signals WHERE session_id = ?", (session_id,))
+        conn.execute("COMMIT")
+        return {
+            "ok": True,
+            "local_peer_id": actor["peer_id"],
+            "idempotent": False,
+        }
+
+
+def _retired_guest_peer_for_capability(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    *,
+    account_id: str,
+    requested_peer_id: str,
+    membership_capability: str,
+) -> str:
+    """Resolve only an exact, already-revoked guest for DELETE idempotency."""
+    identity_binding_version = int(session.get("identity_binding_version") or 0)
+    if (
+        session.get("security_mode") != "strict_e2ee"
+        or int(session.get("security_contract_version") or 0) != 1
+    ):
+        return ""
+    requested_peer_id = str(requested_peer_id or "").strip()
+    if identity_binding_version == 2:
+        if not requested_peer_id or not is_membership_capability(membership_capability):
+            return ""
+        rows = conn.execute(
+            """SELECT peer_id, membership_capability_hash
+               FROM participants
+               WHERE session_id = ? AND account_id = ? AND peer_id = ?
+                 AND revoked_at IS NOT NULL""",
+            (session["id"], account_id, requested_peer_id),
+        ).fetchall()
+        expected_hash = membership_capability_digest(
+            str(session["id"]),
+            account_id,
+            requested_peer_id,
+            membership_capability,
+        )
+        for row in rows:
+            if secrets.compare_digest(
+                str(row["membership_capability_hash"] or ""),
+                expected_hash,
+            ):
+                return str(row["peer_id"])
+        return ""
+
+    # Identity-binding v1 predates membership capabilities. Its canonical
+    # account id is also the peer id, so the authenticated account is the
+    # complete idempotency boundary.
+    if identity_binding_version != 1 or (requested_peer_id and requested_peer_id != account_id):
+        return ""
+    row = conn.execute(
+        """SELECT user_id FROM participants
+           WHERE session_id = ? AND user_id = ? AND revoked_at IS NOT NULL
+           ORDER BY revoked_at DESC LIMIT 1""",
+        (session["id"], account_id),
+    ).fetchone()
+    return str(row["user_id"]) if row else ""
+
+
 def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict[str, Any]]:
     identity_binding_version = int(session.get("identity_binding_version") or 0)
     owner_account_id = str(session.get("owner_account_id") or session.get("owner_user_id") or "")
@@ -1908,6 +2048,8 @@ def revoke_session(
             "UPDATE sessions SET revoked_at = ?, invite_code = '' WHERE id = ?",
             (_now(), session_id),
         )
+        conn.execute("DELETE FROM key_confirmations WHERE session_id = ?", (session_id,))
+        conn.execute("DELETE FROM signals WHERE session_id = ?", (session_id,))
         conn.execute("COMMIT")
     return {"ok": True, "local_peer_id": actor["peer_id"]}
 

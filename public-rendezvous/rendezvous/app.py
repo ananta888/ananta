@@ -11,6 +11,7 @@ Endpunkte:
   GET  /rendezvous/sessions/<id>/security/key-packages
   GET/POST /rendezvous/sessions/<id>/security/key-confirmations
   PATCH /rendezvous/sessions/<id>/permissions
+  DELETE /rendezvous/sessions/<id>/membership
   DELETE /rendezvous/sessions/<id>
   GET  /rendezvous/turn-credentials?session_id=<id>
   POST /webrtc/sessions/<id>/signal
@@ -612,6 +613,37 @@ def revoke_session(session_id: str):
     return jsonify({"ok": True, "local_peer_id": result["local_peer_id"]}), 200
 
 
+@app.delete("/rendezvous/sessions/<session_id>/membership")
+def leave_session(session_id: str):
+    """Retire the caller's exact guest membership; owners end the session."""
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    result = svc.leave_session(
+        session_id=session_id,
+        actor_user_id=ctx.account_id,
+        actor_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
+    )
+    if not result.get("ok"):
+        reason = str(result.get("reason") or "forbidden")
+        return jsonify({"error": reason}), _member_error_status(reason)
+    response = jsonify(
+        {
+            "ok": True,
+            "local_peer_id": result["local_peer_id"],
+            "idempotent": bool(result.get("idempotent")),
+        }
+    )
+    log.info(
+        "participant_left session=%s idempotent=%s",
+        session_id,
+        bool(result.get("idempotent")),
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
+
+
 @app.get("/rendezvous/turn-credentials")
 def turn_credentials():
     ctx = _require_auth()
@@ -643,7 +675,11 @@ def turn_credentials():
         )
     if limited := _rate_limit_guard(
         "turn_credentials",
-        str(membership["local_peer_id"]),
+        # A retired session must not transfer its exhausted TURN budget to a
+        # replacement session on the same device. Both values are canonical
+        # server-resolved identifiers; the raw tuple is hashed by the limiter
+        # and never contains the membership capability or bearer token.
+        f"{session_id}\0{membership['local_peer_id']}",
         cfg.RATE_TURN_CREDENTIAL_LIMIT,
         cfg.RATE_TURN_CREDENTIAL_WINDOW,
     ):

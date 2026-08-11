@@ -440,6 +440,199 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     assert owner_turn["credentials"]["username"] != guest_turn["credentials"]["username"]
 
 
+def test_v2_guest_leave_is_exact_idempotent_and_rekeys_cleanly(public_service):
+    pair = _public_media_pair(
+        public_service,
+        owner_media_version=2,
+        guest_media_version=2,
+    )
+    session_id = pair["session"]["id"]
+    initial_epoch = pair["joined"]["session"]["security_epoch"]
+    confirmation_tag = base64.b64encode(b"l" * 32).decode("ascii")
+    confirmed = public_service.put_key_confirmation(
+        session_id=session_id,
+        sender_peer_id=pair["owner_peer_id"],
+        recipient_peer_id=pair["guest_peer_id"],
+        package_id=pair["owner_packages"]["packages"][0]["package_id"],
+        epoch=initial_epoch,
+        confirmation_tag=confirmation_tag,
+        sender_account_id=pair["account_id"],
+        membership_capability=pair["owner_capability"],
+    )
+    signaled = public_service.push_signal(
+        session_id=session_id,
+        sender_id=pair["owner_peer_id"],
+        recipient_id=pair["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "retired-pair-offer"},
+        sender_account_id=pair["account_id"],
+        membership_capability=pair["owner_capability"],
+    )
+    owner_attempt = public_service.leave_session(
+        session_id=session_id,
+        actor_user_id=pair["account_id"],
+        actor_peer_id=pair["owner_peer_id"],
+        membership_capability=pair["owner_capability"],
+    )
+    forged_attempt = public_service.leave_session(
+        session_id=session_id,
+        actor_user_id=pair["account_id"],
+        actor_peer_id=pair["guest_peer_id"],
+        membership_capability="Z" * 43,
+    )
+    left = public_service.leave_session(
+        session_id=session_id,
+        actor_user_id=pair["account_id"],
+        actor_peer_id=pair["guest_peer_id"],
+        membership_capability=pair["guest_capability"],
+    )
+    repeated = public_service.leave_session(
+        session_id=session_id,
+        actor_user_id=pair["account_id"],
+        actor_peer_id=pair["guest_peer_id"],
+        membership_capability=pair["guest_capability"],
+    )
+
+    with public_service._db() as conn:
+        stored_epoch = conn.execute(
+            "SELECT security_epoch FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()[0]
+        participant_rows = conn.execute(
+            "SELECT revoked_at FROM participants WHERE session_id = ?",
+            (session_id,),
+        ).fetchall()
+        signal_count = conn.execute(
+            "SELECT COUNT(1) FROM signals WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()[0]
+        confirmation_count = conn.execute(
+            "SELECT COUNT(1) FROM key_confirmations WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()[0]
+    owner_packages = public_service.get_key_packages(
+        session_id=session_id,
+        requester_user_id=pair["account_id"],
+        requester_peer_id=pair["owner_peer_id"],
+        membership_capability=pair["owner_capability"],
+    )
+
+    assert confirmed["ok"] is True
+    assert signaled["ok"] is True
+    assert owner_attempt == {"ok": False, "reason": "owner_must_end_session"}
+    assert forged_attempt == {"ok": False, "reason": "membership_capability_invalid"}
+    assert left == {
+        "ok": True,
+        "local_peer_id": pair["guest_peer_id"],
+        "idempotent": False,
+    }
+    assert repeated == {
+        "ok": True,
+        "local_peer_id": pair["guest_peer_id"],
+        "idempotent": True,
+    }
+    assert stored_epoch == initial_epoch + 1
+    assert len(participant_rows) == 1 and participant_rows[0][0] is not None
+    assert signal_count == 0
+    assert confirmation_count == 0
+    assert owner_packages["epoch"] == initial_epoch + 1
+    assert owner_packages["packages"] == []
+
+
+def test_owner_end_removes_retained_pair_security_artifacts(public_service):
+    pair = _public_media_pair(
+        public_service,
+        owner_media_version=2,
+        guest_media_version=2,
+    )
+    session_id = pair["session"]["id"]
+    epoch = pair["joined"]["session"]["security_epoch"]
+    public_service.put_key_confirmation(
+        session_id=session_id,
+        sender_peer_id=pair["owner_peer_id"],
+        recipient_peer_id=pair["guest_peer_id"],
+        package_id=pair["owner_packages"]["packages"][0]["package_id"],
+        epoch=epoch,
+        confirmation_tag=base64.b64encode(b"e" * 32).decode("ascii"),
+        sender_account_id=pair["account_id"],
+        membership_capability=pair["owner_capability"],
+    )
+    public_service.push_signal(
+        session_id=session_id,
+        sender_id=pair["owner_peer_id"],
+        recipient_id=pair["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "ending-pair-offer"},
+        sender_account_id=pair["account_id"],
+        membership_capability=pair["owner_capability"],
+    )
+
+    ended = public_service.revoke_session(
+        session_id=session_id,
+        actor_user_id=pair["account_id"],
+        actor_peer_id=pair["owner_peer_id"],
+        membership_capability=pair["owner_capability"],
+    )
+
+    with public_service._db() as conn:
+        signal_count = conn.execute(
+            "SELECT COUNT(1) FROM signals WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()[0]
+        confirmation_count = conn.execute(
+            "SELECT COUNT(1) FROM key_confirmations WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()[0]
+    assert ended["ok"] is True
+    assert signal_count == 0
+    assert confirmation_count == 0
+
+
+def test_parallel_guest_leave_revokes_once_and_returns_idempotently(public_service):
+    pair = _public_media_pair(
+        public_service,
+        owner_media_version=2,
+        guest_media_version=2,
+    )
+    session_id = pair["session"]["id"]
+    initial_epoch = pair["joined"]["session"]["security_epoch"]
+    ready = threading.Barrier(3)
+    results: list[dict] = []
+    failures: list[BaseException] = []
+
+    def leave() -> None:
+        try:
+            ready.wait(timeout=5)
+            results.append(public_service.leave_session(
+                session_id=session_id,
+                actor_user_id=pair["account_id"],
+                actor_peer_id=pair["guest_peer_id"],
+                membership_capability=pair["guest_capability"],
+            ))
+        except BaseException as exc:  # pragma: no cover - asserted by parent thread
+            failures.append(exc)
+
+    first = threading.Thread(target=leave)
+    second = threading.Thread(target=leave)
+    first.start()
+    second.start()
+    ready.wait(timeout=5)
+    first.join(timeout=5)
+    second.join(timeout=5)
+
+    with public_service._db() as conn:
+        stored_epoch = conn.execute(
+            "SELECT security_epoch FROM sessions WHERE id = ?",
+            (session_id,),
+        ).fetchone()[0]
+    assert first.is_alive() is False
+    assert second.is_alive() is False
+    assert failures == []
+    assert sorted(result["idempotent"] for result in results) == [False, True]
+    assert {result["local_peer_id"] for result in results} == {pair["guest_peer_id"]}
+    assert stored_epoch == initial_epoch + 1
+
+
 def test_v2_create_and_join_retries_require_the_original_capability(public_service):
     account_id = _peer_id("shared-sub")
     owner_spki, owner_fp = _device_key()
@@ -1665,6 +1858,81 @@ def test_http_create_binds_actual_issuer_and_returns_local_peer_id(monkeypatch, 
     assert oversized.get_json() == {"error": "request_too_large"}
 
 
+def test_http_guest_leave_requires_exact_membership_and_is_idempotent(monkeypatch, tmp_path):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / "http-leave-rendezvous.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service", "oidc_auth", "app"):
+        sys.modules.pop(module_name, None)
+    public_app = importlib.import_module("app")
+    pair = _public_media_pair(
+        public_app.svc,
+        owner_media_version=2,
+        guest_media_version=2,
+    )
+    # _public_media_pair derives its own deterministic subject; use an auth
+    # context for that exact account before exercising the HTTP boundary.
+    context = public_app.AuthContext(
+        sub="media-pair-2-2",
+        username="shared-account",
+        issuer="https://issuer",
+        raw={},
+    )
+    monkeypatch.setattr(public_app, "verify_bearer_token", lambda _header: context)
+    path = f"/rendezvous/sessions/{pair['session']['id']}/membership"
+    auth = {"Authorization": "Bearer test"}
+    owner_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": pair["owner_peer_id"],
+        "X-Ananta-Membership-Capability": pair["owner_capability"],
+    }
+    guest_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": pair["guest_peer_id"],
+        "X-Ananta-Membership-Capability": pair["guest_capability"],
+    }
+    forged_headers = {
+        **guest_headers,
+        "X-Ananta-Membership-Capability": "Z" * 43,
+    }
+    client = public_app.app.test_client()
+
+    owner_attempt = client.delete(path, headers=owner_headers)
+    forged_attempt = client.delete(path, headers=forged_headers)
+    left = client.delete(path, headers=guest_headers)
+    repeated = client.delete(path, headers=guest_headers)
+
+    assert (owner_attempt.status_code, owner_attempt.get_json()) == (
+        409,
+        {"error": "owner_must_end_session"},
+    )
+    assert (forged_attempt.status_code, forged_attempt.get_json()) == (
+        403,
+        {"error": "membership_capability_invalid"},
+    )
+    assert (left.status_code, left.get_json()) == (
+        200,
+        {
+            "ok": True,
+            "local_peer_id": pair["guest_peer_id"],
+            "idempotent": False,
+        },
+    )
+    assert (repeated.status_code, repeated.get_json()) == (
+        200,
+        {
+            "ok": True,
+            "local_peer_id": pair["guest_peer_id"],
+            "idempotent": True,
+        },
+    )
+    assert left.headers["Cache-Control"] == "no-store"
+
+
 def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch, tmp_path):
     service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
     monkeypatch.syspath_prepend(str(service_dir))
@@ -2335,6 +2603,20 @@ def test_turn_credentials_http_contract_is_session_bound_and_rate_limited(monkey
     )
     assert first.status_code == 200
     assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+
+    ended = client.delete(
+        f"/rendezvous/sessions/{session['id']}",
+        headers=owner_headers,
+    )
+    replacement, _, _ = _joined_session(public_app.svc)
+    replacement_first = client.get(
+        f"/rendezvous/turn-credentials?session_id={replacement['id']}",
+        headers=owner_headers,
+    )
+
+    assert ended.status_code == 200
+    assert replacement_first.status_code == 200
+    assert replacement_first.get_json()["session_id"] == replacement["id"]
 
 
 def test_signal_poll_http_cursor_is_sqlite_safe_and_rate_limited(monkeypatch, tmp_path):
