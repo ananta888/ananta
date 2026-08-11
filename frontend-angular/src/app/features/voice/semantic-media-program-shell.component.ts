@@ -167,6 +167,7 @@ export class SemanticMediaProgramShellComponent {
   @Input() hubUrl = '';
   @Input() ordinaryMediaAuthority: OrdinaryMediaAuthorityKind = 'unbound';
   @Input() ordinaryMediaActivationEnabled = false;
+  @Input() ordinaryMediaPublicationPreparationPending = false;
   @Input() computeVisible = false;
   @Input() computeContract: ComputeContractView = {
     contractId: '', revision: 0, status: 'absent', profile: 'off', delayMs: 5_000, roles: {},

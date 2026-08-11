@@ -242,6 +242,50 @@ describe("SemanticMediaProgramShellComponent", () => {
     expect(fixture.nativeElement.textContent).not.toContain("wird vorbereitet");
   });
 
+  it("forwards the Public preparation matrix and bound-failure reset without widening consent", () => {
+    let revokes = 0;
+    fixture.componentInstance.ordinaryMediaPublicationConsentRevoke.subscribe(() => { revokes += 1; });
+    fixture.componentRef.setInput("displayMode", "pair_media");
+    fixture.componentRef.setInput("ordinaryMediaAuthority", "public");
+    fixture.componentRef.setInput("ordinaryMediaActivationEnabled", true);
+    fixture.componentRef.setInput("ordinaryMediaPublicationPreparationPending", false);
+    fixture.componentRef.setInput("ordinaryMediaPublicationConsent", publicationConsentState({
+      status: "unbound", binding: null,
+    }));
+    fixture.detectChanges();
+
+    let consentPanel = fixture.debugElement.query(
+      By.directive(PublicPairMediaPublicationConsentPanelComponent),
+    ).componentInstance as PublicPairMediaPublicationConsentPanelComponent;
+    expect(consentPanel.technicalPreparationAvailable).toBe(true);
+    expect(consentPanel.technicalPreparationPending).toBe(false);
+    expect((fixture.nativeElement.querySelector(
+      '[data-testid="public-pair-publication-consent"] button',
+    ) as HTMLButtonElement).disabled).toBe(false);
+
+    fixture.componentRef.setInput("ordinaryMediaPublicationPreparationPending", true);
+    fixture.detectChanges();
+    consentPanel = fixture.debugElement.query(
+      By.directive(PublicPairMediaPublicationConsentPanelComponent),
+    ).componentInstance as PublicPairMediaPublicationConsentPanelComponent;
+    expect(consentPanel.technicalPreparationPending).toBe(true);
+    expect((fixture.nativeElement.querySelector(
+      '[data-testid="public-pair-publication-consent"] button',
+    ) as HTMLButtonElement).disabled).toBe(true);
+    expect(fixture.nativeElement.textContent).toContain("wird vorbereitet");
+
+    fixture.componentRef.setInput("ordinaryMediaPublicationPreparationPending", false);
+    fixture.componentRef.setInput("ordinaryMediaPublicationConsent", publicationConsentState({
+      status: "failed", reasonCode: "public_media_publication_consent_gate_failed",
+    }));
+    fixture.detectChanges();
+    const reset = [...fixture.nativeElement.querySelectorAll("button")]
+      .find((button: HTMLButtonElement) => button.textContent?.includes("Sicher zurücksetzen")) as HTMLButtonElement;
+    expect(reset).toBeDefined();
+    reset.click();
+    expect(revokes).toBe(1);
+  });
+
   it("mounts reconciliation only after the Hub capability becomes authoritative", () => {
     capabilities.push({
       capability: "speech_reconciliation",

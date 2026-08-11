@@ -103,6 +103,7 @@ export interface SemanticMediaProgramHostView {
   readonly ordinaryMediaE2eeReady: boolean;
   readonly ordinaryMediaReason: string;
   readonly ordinaryMediaPublicationConsent: PublicPairMediaPublicationConsentState;
+  readonly ordinaryMediaPublicationPreparationPending: boolean;
   readonly ordinaryAudioState: OrdinaryAudioState;
   readonly ordinaryMediaPublications: readonly MediaPublicationView[];
   readonly sfuRemoteVideos: readonly SfuRemoteVideoView[];
@@ -195,6 +196,8 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   private sfuRemoteVideos: readonly SfuRemoteVideoView[] = Object.freeze([]);
   private ordinaryMediaOperationReason = 'ordinary_media_not_started';
   private publicationConsentState = this.publicationConsent.snapshot();
+  private publicationConsentPreparationGeneration = 0;
+  private publicationConsentPreparationPending = false;
   private speechState: SemanticSpeechTransportState = 'stopped';
   private speechReason = 'semantic_speech_not_started';
   private speechSettings: SemanticSpeechPanelSettings = DEFAULT_SEMANTIC_SPEECH_SETTINGS;
@@ -227,10 +230,14 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       const previousEpoch = this.shareState.session?.security_epoch ?? 0;
       const previousAuthority = this.boundAuthority();
       this.shareState = state;
-      if (
+      const authorityContextChanged = (
         previousSessionId !== (state.session?.id ?? '')
         || previousEpoch !== (state.session?.security_epoch ?? 0)
-      ) this.authorityContextGeneration += 1;
+      );
+      if (authorityContextChanged) {
+        this.authorityContextGeneration += 1;
+        this.cancelPublicationConsentPreparation();
+      }
       if (previousSessionId && previousSessionId !== (state.session?.id ?? '')) {
         this.stopSessionScopedState(previousSessionId, previousAuthority === 'public');
       }
@@ -418,12 +425,63 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   async grantOrdinaryMediaPublicationConsent(
     term: PublicPairMediaPublicationConsentTerm,
   ): Promise<void> {
-    if (this.boundAuthority() !== 'public') return;
-    this.syncPublicationConsentBinding();
+    const session = this.shareState.session;
+    if (
+      this.boundAuthority() !== 'public'
+      || !session
+      || this.publicationConsentPreparationPending
+    ) return;
+    const preparationGeneration = ++this.publicationConsentPreparationGeneration;
+    const fence = Object.freeze({
+      sessionId: session.id,
+      securityEpoch: session.security_epoch ?? 0,
+      contextGeneration: this.authorityContextGeneration,
+      preparationGeneration,
+    });
+    this.publicationConsentPreparationPending = true;
+    this.ordinaryMediaOperationReason = 'public_media_technical_preparation_pending';
+    this.emit();
     try {
-      this.publicationConsentState = await this.publicationConsent.grant(term);
+      this.syncPublicationConsentBinding();
+      let binding = this.publicationConsent.snapshot().binding;
+      if (!binding) {
+        this.ordinaryMediaPolicy.assertActivationAllowed(session.id);
+        const status = await this.pairMediaE2ee.activate(session.id);
+        this.assertPublicationConsentPreparationCurrent(fence);
+        if (status.sessionId !== session.id || status.state !== 'ready') {
+          throw new Error(
+            status.reasonCode
+              || this.ordinaryMediaPolicyReason(session.id)
+              || PUBLIC_ORDINARY_MEDIA_E2EE_UNAVAILABLE,
+          );
+        }
+        this.syncPublicationConsentBinding();
+        binding = this.publicationConsent.snapshot().binding;
+        if (
+          !binding
+          || binding.sessionId !== session.id
+          || binding.securityEpoch !== fence.securityEpoch
+          || binding.contractDigest !== status.contractDigest
+        ) throw new Error('public_media_publication_consent_context_mismatch');
+      }
+      this.assertPublicationConsentPreparationCurrent(fence);
+      const granted = await this.publicationConsent.grant(term);
+      this.assertPublicationConsentPreparationCurrent(fence);
+      if (
+        granted.binding?.sessionId !== fence.sessionId
+        || granted.binding.securityEpoch !== fence.securityEpoch
+      ) throw new Error('public_media_publication_consent_context_mismatch');
+      this.publicationConsentState = granted;
     } catch (error) {
-      this.ordinaryMediaOperationReason = reason(error, 'public_media_publication_consent_grant_failed');
+      if (this.isPublicationConsentPreparationCurrent(fence)) {
+        this.ordinaryMediaOperationReason = reason(
+          error, 'public_media_publication_consent_grant_failed',
+        );
+      }
+    } finally {
+      if (preparationGeneration === this.publicationConsentPreparationGeneration) {
+        this.publicationConsentPreparationPending = false;
+      }
     }
     this.projectPublicPublicationConsent();
     this.emit();
@@ -987,6 +1045,7 @@ export class SemanticMediaProgramFacade implements OnDestroy {
         && Boolean(session?.id) && this.ordinaryMediaPolicy.allows(session!.id),
       ordinaryMediaReason: this.ordinaryCaptureReason(),
       ordinaryMediaPublicationConsent: this.publicationConsentState,
+      ordinaryMediaPublicationPreparationPending: this.publicationConsentPreparationPending,
       ordinaryAudioState: this.ordinaryAudioState,
       ordinaryMediaPublications: this.ordinaryPublications,
       sfuRemoteVideos: hubAuthority ? this.sfuRemoteVideos : Object.freeze([]),
@@ -1121,6 +1180,36 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     }
     this.publicationConsent.bind(context);
     this.publicationConsentState = this.publicationConsent.snapshot();
+  }
+
+  private isPublicationConsentPreparationCurrent(fence: Readonly<{
+    sessionId: string;
+    securityEpoch: number;
+    contextGeneration: number;
+    preparationGeneration: number;
+  }>): boolean {
+    const session = this.shareState.session;
+    return fence.preparationGeneration === this.publicationConsentPreparationGeneration
+      && fence.contextGeneration === this.authorityContextGeneration
+      && session?.id === fence.sessionId
+      && (session.security_epoch ?? 0) === fence.securityEpoch
+      && this.boundAuthority() === 'public';
+  }
+
+  private assertPublicationConsentPreparationCurrent(fence: Readonly<{
+    sessionId: string;
+    securityEpoch: number;
+    contextGeneration: number;
+    preparationGeneration: number;
+  }>): void {
+    if (!this.isPublicationConsentPreparationCurrent(fence)) {
+      throw new Error('public_media_publication_consent_context_changed');
+    }
+  }
+
+  private cancelPublicationConsentPreparation(): void {
+    this.publicationConsentPreparationGeneration += 1;
+    this.publicationConsentPreparationPending = false;
   }
 
   private publicPublicationConsentGranted(sessionId: string): boolean {

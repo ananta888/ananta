@@ -38,6 +38,44 @@ describe('PublicPairMediaPublicationConsentPanelComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Browserfreigabe wird angefragt');
   });
 
+  it('allows an unbound grant only while technical preparation is available and idle', () => {
+    const grants: unknown[] = [];
+    fixture.componentInstance.grant.subscribe(term => grants.push(term));
+    fixture.componentRef.setInput('state', state({ status: 'unbound', binding: null }));
+    fixture.componentRef.setInput('technicalPreparationAvailable', false);
+    fixture.detectChanges();
+
+    let button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.textContent).toContain('Einwilligen');
+    expect(button.disabled).toBe(true);
+
+    fixture.componentRef.setInput('technicalPreparationAvailable', true);
+    fixture.detectChanges();
+    button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(grants).toEqual([{ kind: 'session' }]);
+
+    fixture.componentRef.setInput('technicalPreparationPending', true);
+    fixture.detectChanges();
+    button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+    expect(fixture.nativeElement.querySelector('[role="status"]').textContent)
+      .toContain('wird vorbereitet');
+    expect((fixture.nativeElement.querySelector('fieldset') as HTMLFieldSetElement).disabled).toBe(true);
+  });
+
+  it.each(['inactive', 'revoked', 'expired'] as const)(
+    'keeps a bound %s grant actionable independently of preparation availability',
+    status => {
+      fixture.componentRef.setInput('state', state({ status }));
+      fixture.componentRef.setInput('technicalPreparationAvailable', false);
+      fixture.detectChanges();
+
+      expect((fixture.nativeElement.querySelector('button') as HTMLButtonElement).disabled).toBe(false);
+    },
+  );
+
   it('shows a concrete expiry and offers reversible deactivation in the same card', () => {
     const expiresAtMs = Date.UTC(2026, 7, 10, 12, 30);
     const revokes: unknown[] = [];
@@ -58,15 +96,36 @@ describe('PublicPairMediaPublicationConsentPanelComponent', () => {
     expect(revokes).toHaveLength(1);
   });
 
-  it('keeps actionable failure and expiry states announced', () => {
+  it('offers only an ACK-backed safe reset for a bound failure', () => {
+    const revokes: unknown[] = [];
+    fixture.componentInstance.revoke.subscribe(value => revokes.push(value));
     fixture.componentRef.setInput('state', state({
       status: 'failed', reasonCode: 'public_media_publication_consent_gate_failed',
     }));
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('[role="alert"]').textContent)
       .toContain('ausgehende Medienpfad');
-    expect((fixture.nativeElement.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
+    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.textContent).toContain('Sicher zurücksetzen');
+    expect(button.disabled).toBe(false);
+    button.click();
+    expect(revokes).toHaveLength(1);
+  });
 
+  it('never exposes reset or direct regrant for an unbound failure', () => {
+    fixture.componentRef.setInput('state', state({
+      status: 'failed', binding: null, reasonCode: 'public_media_publication_consent_gate_failed',
+    }));
+    fixture.componentRef.setInput('technicalPreparationAvailable', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector('button') as HTMLButtonElement;
+    expect(button.textContent).toContain('Einwilligen');
+    expect(button.textContent).not.toContain('zurücksetzen');
+    expect(button.disabled).toBe(true);
+  });
+
+  it('keeps expiry announced and directly regrantable while still bound', () => {
     fixture.componentRef.setInput('state', state({
       status: 'expired', reasonCode: 'public_media_publication_consent_expired',
     }));

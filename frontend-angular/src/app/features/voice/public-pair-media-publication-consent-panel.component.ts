@@ -83,6 +83,15 @@ type ConsentTermSelection = 'session' | '15m' | '60m';
           (click)="revoke.emit()">
           Eigene Freigabe deaktivieren
         </button>
+      } @else if (resetRequired()) {
+        <button
+          type="button"
+          [disabled]="pending()"
+          aria-pressed="false"
+          aria-describedby="public-pair-publication-consent-scope public-pair-publication-consent-status"
+          (click)="revoke.emit()">
+          Sicher zurücksetzen
+        </button>
       } @else {
         <button
           type="button"
@@ -108,6 +117,8 @@ type ConsentTermSelection = 'session' | '15m' | '60m';
 })
 export class PublicPairMediaPublicationConsentPanelComponent implements OnChanges {
   @Input({ required: true }) state!: PublicPairMediaPublicationConsentState;
+  @Input() technicalPreparationAvailable = false;
+  @Input() technicalPreparationPending = false;
   @Output() readonly grant = new EventEmitter<PublicPairMediaPublicationConsentTerm>();
   @Output() readonly revoke = new EventEmitter<void>();
 
@@ -139,16 +150,35 @@ export class PublicPairMediaPublicationConsentPanelComponent implements OnChange
     return this.state.status === 'granted' || this.state.status === 'revoking';
   }
 
+  resetRequired(): boolean {
+    return this.state.status === 'failed' && this.state.binding !== null;
+  }
+
   selectionLocked(): boolean {
-    return this.pending() || this.state.status === 'granted';
+    return this.pending()
+      || this.preparationPending()
+      || this.state.status === 'granted'
+      || this.resetRequired();
   }
 
   canGrant(): boolean {
-    return this.state.binding !== null
-      && ['inactive', 'revoked', 'expired'].includes(this.state.status);
+    if (this.pending() || this.resetRequired()) return false;
+    if (this.state.binding !== null) {
+      return ['inactive', 'revoked', 'expired'].includes(this.state.status);
+    }
+    return this.state.status === 'unbound'
+      && this.technicalPreparationAvailable
+      && !this.preparationPending();
+  }
+
+  preparationPending(): boolean {
+    return this.state.status === 'unbound' && this.technicalPreparationPending;
   }
 
   statusLabel(): string {
+    if (this.preparationPending()) {
+      return 'Der verschlüsselte Medienpfad wird vorbereitet. Eigene Medien bleiben gesperrt.';
+    }
     switch (this.state.status) {
       case 'unbound': return 'Noch keine gültige Public-Pair-Medienbindung.';
       case 'inactive': return 'Eigene Medien sind nicht freigegeben.';

@@ -49,6 +49,7 @@ import { WebrtcMediaPublicationService } from '../../services/webrtc-media-publi
         [hubUrl]="view.hubUrl"
         [ordinaryMediaAuthority]="view.ordinaryMediaAuthority"
         [ordinaryMediaActivationEnabled]="view.ordinaryMediaActivationEnabled"
+        [ordinaryMediaPublicationPreparationPending]="view.ordinaryMediaPublicationPreparationPending"
         [computeVisible]="view.computeVisible"
         [computeContract]="view.compute.contract"
         [computeLocalMeasurement]="view.compute.localMeasurement"

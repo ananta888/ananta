@@ -38,6 +38,8 @@
   @if (publicPublicationConsentVisible()) {
     <app-public-pair-media-publication-consent-panel
       [state]="ordinaryMediaPublicationConsent"
+      [technicalPreparationAvailable]="ordinaryMediaActivationEnabled"
+      [technicalPreparationPending]="ordinaryMediaPublicationPreparationPending"
       (grant)="ordinaryMediaPublicationConsentGrant.emit($event)"
       (revoke)="ordinaryMediaPublicationConsentRevoke.emit()" />
   }

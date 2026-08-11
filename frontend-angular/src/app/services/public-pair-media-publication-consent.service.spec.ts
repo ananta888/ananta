@@ -164,6 +164,37 @@ describe('PublicPairMediaPublicationConsentService', () => {
     expect(service.allows('session-a', 'microphone-opus')).toBe(false);
   });
 
+  it('requires an acknowledged disable reset before retrying a bound failed grant', async () => {
+    transforms.setOutboundPublicationGate.mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new Error('media_e2ee_worker_ack_timeout'));
+    service.bind(BINDING);
+    await settle();
+
+    await expect(service.grant({ kind: 'session' })).resolves.toMatchObject({
+      status: 'failed', revision: 3, reasonCode: 'media_e2ee_worker_ack_timeout',
+    });
+    await expect(service.grant({ kind: 'session' }))
+      .rejects.toThrow('media_e2ee_worker_ack_timeout');
+
+    await expect(service.revoke('public_media_publication_consent_reset'))
+      .resolves.toMatchObject({
+        status: 'revoked', revision: 4,
+        reasonCode: 'public_media_publication_consent_reset',
+      });
+    await expect(service.grant({ kind: 'timed', durationMs: 900_000 }))
+      .resolves.toMatchObject({ status: 'granted', revision: 5 });
+
+    expect(transforms.setOutboundPublicationGate.mock.calls.map(([, , gate]) => ({
+      revision: gate.revision, enabled: gate.enabled,
+    }))).toEqual([
+      { revision: 1, enabled: false },
+      { revision: 2, enabled: true },
+      { revision: 3, enabled: false },
+      { revision: 4, enabled: false },
+      { revision: 5, enabled: true },
+    ]);
+  });
+
   it('rejects malformed terms and mismatched session checks without widening the grant', async () => {
     service.bind(BINDING);
     await settle();
