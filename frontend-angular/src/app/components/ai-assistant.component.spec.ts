@@ -91,17 +91,26 @@ describe('AiAssistantComponent', () => {
     expect(cmp.configPanelOpen).toBe(false);
     expect(cmp.sharePanelOpen).toBe(false);
     expect(store['ananta.ai-snake.panel-open.v1']).toBe('false');
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('chat'));
   });
 
-  it('routes legacy Pair tab requests to Pair Dev without persisting an embedded Pair tab', () => {
+  it.each(['pair', 'mode', 'deprecated'])('migrates a persisted legacy %s tab to chat', legacyTab => {
+    store['ananta.ai-snake.panel-tab.v1'] = JSON.stringify(legacyTab);
     const cmp = createComponent();
-    const navigate = vi.fn().mockResolvedValue(true);
-    cmp['router'] = { navigate };
 
-    cmp.openSnakeChatPanelTab('pair');
+    cmp['restoreDockState']();
 
-    expect(navigate).toHaveBeenCalledWith(['/pair-dev']);
-    expect(store['ananta.ai-snake.panel-tab.v1']).toBeUndefined();
+    expect(cmp.snakeChatPanelTab).toBe('chat');
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('chat'));
+  });
+
+  it('restores every supported panel tab, including process', () => {
+    store['ananta.ai-snake.panel-tab.v1'] = JSON.stringify('process');
+    const cmp = createComponent();
+
+    cmp['restoreDockState']();
+
+    expect(cmp.snakeChatPanelTab).toBe('process');
   });
 
   it('builds assistant request context from runtime context', () => {

@@ -19,6 +19,7 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
 import { VpNavigationService } from '../features/visual-process/vp-navigation.service';
+import { AiSnakePanelTab } from './ai-snake-panel-tab';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
@@ -39,20 +40,6 @@ import { VpNavigationService } from '../features/visual-process/vp-navigation.se
         <div class="settings-shell">
           <app-ai-snake-config-panel />
         </div>
-      } @else if (tab === 'pair') {
-        <section class="pair-route-handoff" aria-labelledby="pair-dev-handoff-title">
-          <div id="pair-dev-handoff-title" class="title">Pair Dev</div>
-          <p class="muted">
-            Chat, Medienfreigaben und Einwilligungen werden gemeinsam auf der eigenen Pair-Dev-Seite verwaltet.
-          </p>
-          <button
-            type="button"
-            class="pair-route-button"
-            (click)="openPairDev()"
-            aria-label="Pair Dev in der Hauptansicht öffnen">
-            Pair Dev öffnen
-          </button>
-        </section>
       } @else if (tab === 'sessions') {
         <div class="settings-shell">
           <app-chat-sessions-panel />
@@ -63,18 +50,6 @@ import { VpNavigationService } from '../features/visual-process/vp-navigation.se
         </div>
       } @else if (tab === 'process') {
         <app-ai-snake-process-panel />
-      } @else if (tab === 'deprecated') {
-        <div class="mode-shell">
-          <div class="mode-group">
-            <div class="title">Deprecated Ansicht</div>
-            <div class="muted">Altansicht bleibt verfuegbar. Bitte neue Tabs unten nutzen.</div>
-          </div>
-          <div class="mode-group">
-            <button (click)="setTab('chat')">Zur neuen Chat-Ansicht</button>
-            <button (click)="setTab('settings')">Zur neuen Einstellungen-Ansicht</button>
-            <button type="button" (click)="openPairDev()">Pair Dev öffnen</button>
-          </div>
-        </div>
       } @else if (tab === 'login') {
         <div class="connect">
           @if (oidc.loggedIn$ | async) {
@@ -354,11 +329,6 @@ import { VpNavigationService } from '../features/visual-process/vp-navigation.se
     input, select, button { background: #0f1c30; border: 1px solid #1a2d4a; color: #c8d8f8; padding: 5px 7px; font-family: inherit; font-size: 12px; }
     button { cursor: pointer; }
     .body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-    .mode-shell { flex: 1; min-height: 0; padding: 10px; display: grid; gap: 10px; align-content: start; }
-    .mode-group { display: grid; gap: 6px; }
-    .mode-tabs { display: flex; gap: 6px; }
-    .mode-tabs button { border: 1px solid #1a2d4a; color: #6b8ab8; background: transparent; }
-    .mode-tabs button.active { color: #7fffd4; border-color: #7fffd4; background: #102238; }
     .settings-shell { flex: 1; min-height: 0; overflow: hidden; }
     .trace-shell { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
     /* ── Chat-Switcher ── */
@@ -477,10 +447,6 @@ import { VpNavigationService } from '../features/visual-process/vp-navigation.se
     .login-status.ok { color: #7fffd4; }
     .login-status.off { color: #4a6a9a; }
     .login-dot { font-size: 10px; }
-    .pair-route-handoff { flex: 1; min-height: 0; padding: 18px; display: grid; gap: 10px; align-content: start; }
-    .pair-route-handoff p { margin: 0; max-width: 52ch; line-height: 1.5; }
-    .pair-route-button { justify-self: start; color: #7fffd4; border-color: #2a4070; }
-    .pair-route-button:hover { border-color: #7fffd4; background: #102238; }
     .bottom-tabs {
       margin-top: auto;
       border-top: 1px solid #1a2d4a;
@@ -539,8 +505,8 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
    *  Persisted in localStorage so reconnects keep the same session. Defaults to 'ananta-settings'. */
   private _snakeSessionId: string = this.loadSnakeSession();
 
-  @Input() tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'chat';
-  @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
+  @Input() tab: AiSnakePanelTab = 'chat';
+  @Output() tabChange = new EventEmitter<AiSnakePanelTab>();
   @Output() pairDevRequested = new EventEmitter<void>();
 
   get keycloakIssuer(): string {
@@ -820,7 +786,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
     return result;
   }
 
-  setTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+  setTab(tab: AiSnakePanelTab): void {
     this.tab = tab;
     this.tabChange.emit(tab);
   }

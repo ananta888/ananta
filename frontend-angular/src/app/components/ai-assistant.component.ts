@@ -8,6 +8,7 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
+import { AiSnakePanelTab, isAiSnakePanelTab } from './ai-snake-panel-tab';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { AgentApiService } from '../services/agent-api.service';
@@ -45,7 +46,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   configPanelOpen = false;
   sharePanelOpen = false;
   snakeChatPanelOpen = false; // initialised in restoreDockState()
-  snakeChatPanelTab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'login';
+  snakeChatPanelTab: AiSnakePanelTab = 'login';
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -593,10 +594,15 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     const storedOpen = localStorage.getItem('ananta.ai-snake.panel-open.v1');
     if (storedOpen === 'false') localStorage.removeItem('ananta.ai-snake.panel-open.v1');
     this.snakeChatPanelOpen = this.storage.restoreBoolean('ananta.ai-snake.panel-open.v1', true);
-    const savedTab = this.storage.restoreJson<string>('ananta.ai-snake.panel-tab.v1', '');
-    const validTabs = ['chat', 'sessions', 'trace', 'login', 'pair', 'settings'];
-    if (savedTab && validTabs.includes(savedTab)) {
-      this.snakeChatPanelTab = savedTab as typeof this.snakeChatPanelTab;
+    const panelTabStorageKey = 'ananta.ai-snake.panel-tab.v1';
+    const savedTab = this.storage.restoreJson<string>(panelTabStorageKey, '');
+    if (savedTab && !isAiSnakePanelTab(savedTab)) {
+      this.snakeChatPanelTab = 'chat';
+      this.storage.persistJson(panelTabStorageKey, 'chat');
+      return;
+    }
+    if (isAiSnakePanelTab(savedTab)) {
+      this.snakeChatPanelTab = savedTab;
     }
   }
 
@@ -838,20 +844,12 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
 
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
-  onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
-    if (tab === 'pair') {
-      this.openPairDev();
-      return;
-    }
+  onSnakeChatTabChange(tab: AiSnakePanelTab): void {
     this.snakeChatPanelTab = tab;
     this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
   }
 
-  openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
-    if (tab === 'pair') {
-      this.openPairDev();
-      return;
-    }
+  openSnakeChatPanelTab(tab: AiSnakePanelTab): void {
     this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
@@ -860,6 +858,8 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   }
 
   openPairDev(): void {
+    this.snakeChatPanelTab = 'chat';
+    this.storage.persistJson('ananta.ai-snake.panel-tab.v1', 'chat');
     this.snakeChatPanelOpen = false;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', false);
     this.configPanelOpen = false;

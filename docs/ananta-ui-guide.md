@@ -76,7 +76,6 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
   - `assistant.snake-chat-btn` — 💬 Snake Chat
   - `assistant.tab-ai-snake` — AI-Snake
   - `assistant.tab-chat` — Chat
-  - `assistant.tab-mode` — Modus
   - `assistant.tab-pair-dev` — Pair Dev
   - `assistant.tab-settings` — Einstellungen
 
