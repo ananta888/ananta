@@ -255,6 +255,14 @@ incompatible and shared-secret authentication overrides static users.
 
 `RENDEZVOUS_DB_PATH` points to the shared SQLite file used by all Gunicorn workers. Keep this path on a persistent Docker volume so session lists stay consistent across workers and restarts.
 
+Rate-limit buckets use the same SQLite database so both Gunicorn workers make
+one consistent admission decision. Subjects are stored only as domain-separated
+SHA-256 bucket keys. Every HTTP 429 preserves the stable
+`{"error":"rate_limited"}` body and adds `Retry-After` plus
+`Cache-Control: no-store`; CORS exposes `Retry-After` to the Angular client. Public-v2
+Create/Join retries once with the same idempotency capability, while signaling
+polling pauses for the advertised interval instead of continuing to poll.
+
 ## Pre-built Keycloak image
 
 Keycloak is augmented once in an image built away from the memory-constrained

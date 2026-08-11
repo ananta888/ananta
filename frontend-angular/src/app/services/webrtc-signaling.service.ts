@@ -28,6 +28,7 @@ import {
   SIGNAL_SESSION_RECREATION_REQUIRED,
   WebrtcSignalSessionGuard,
 } from './webrtc-signal-session.guard';
+import { rateLimitRetryAfterMs } from './http-rate-limit';
 
 export type SignalType = 'offer' | 'answer' | 'ice_candidate' | 'hangup' | 'hello';
 
@@ -72,6 +73,7 @@ export class WebrtcSignalingService {
   private sessionId = '';
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private pollRequest: Subscription | null = null;
+  private pollBackoffUntilMs = 0;
   private pollCursor = '';
   private recipientId = '';
   private localPeerId = '';
@@ -102,6 +104,7 @@ export class WebrtcSignalingService {
     this.sessionId = sessionId;
     this.recipientId = normalizePeerId(recipientId);
     this.pollCursor = '';
+    this.pollBackoffUntilMs = 0;
     this.seenSignalIds.clear();
     this.checkpointContext = null;
     try {
@@ -238,6 +241,7 @@ export class WebrtcSignalingService {
       || !this.localPeerId
       || this.pollRequest
       || this.deliveryInFlight
+      || Date.now() < this.pollBackoffUntilMs
     ) return;
     const sessionId = this.sessionId;
     const remotePeerId = this.recipientId;
@@ -254,6 +258,7 @@ export class WebrtcSignalingService {
     const subscription = request.pipe(finalize(() => { this.pollRequest = null; })).subscribe({
       next: r => {
         if (!this.isCurrentConnection(sessionId, remotePeerId, generation)) return;
+        this.pollBackoffUntilMs = 0;
         this.deliveryInFlight = true;
         void this.applyPollResponse(
           r,
@@ -332,6 +337,11 @@ export class WebrtcSignalingService {
       return;
     }
     const status = Number((error as { status?: unknown } | null)?.status);
+    const retryAfterMs = rateLimitRetryAfterMs(error);
+    if (retryAfterMs !== null) {
+      this.pollBackoffUntilMs = Math.max(this.pollBackoffUntilMs, Date.now() + retryAfterMs);
+      return;
+    }
     // A bad/ahead cursor means the retained SDP/ICE sequence cannot be
     // reconstructed. Network/5xx failures keep the current cursor and retry.
     if (status === 400 || status === 401 || status === 403 || status === 409) {

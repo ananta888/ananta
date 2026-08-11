@@ -1,3 +1,5 @@
+import { rateLimitMessage } from './http-rate-limit';
+
 const PUBLIC_PAIR_ERROR_MESSAGES: Readonly<Record<string, string>> = Object.freeze({
   public_session_authentication_required:
     'Bitte zuerst im Login-Tab bei Keycloak anmelden.',
@@ -29,6 +31,8 @@ export function pairSessionErrorCode(error: unknown): string {
 }
 
 export function pairSessionErrorMessage(error: unknown, fallback: string): string {
+  const limited = rateLimitMessage(error);
+  if (limited) return limited;
   const code = pairSessionErrorCode(error);
   return PUBLIC_PAIR_ERROR_MESSAGES[code] ?? (code || fallback);
 }

@@ -185,6 +185,25 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     expect(signalPoll.mock.calls).toEqual([['session-1', ''], ['session-1', '']]);
   });
 
+  it('honors Retry-After without hammering the signaling endpoint', () => {
+    vi.setSystemTime(new Date('2026-08-11T08:00:00Z'));
+    signalPoll.mockReturnValueOnce(throwError(() => ({
+      status: 429,
+      headers: { get: (name: string) => name === 'Retry-After' ? '5' : null },
+    })));
+    service.connect('', 'session-1', 'peer-b');
+
+    (service as unknown as { pollSignals(): void }).pollSignals();
+    expect(signalPoll).toHaveBeenCalledTimes(1);
+    expect(service.status$.value).toBe('connected');
+
+    vi.setSystemTime(new Date('2026-08-11T08:00:05Z'));
+    signalPoll.mockReturnValueOnce(of({ ok: true, data: { signals: [], cursor: '1' } }));
+    (service as unknown as { pollSignals(): void }).pollSignals();
+
+    expect(signalPoll.mock.calls).toEqual([['session-1', ''], ['session-1', '']]);
+  });
+
   it('fails closed when the signaling queue rejects an outbound signal', async () => {
     service.connect('', 'session-1', 'peer-b');
     signalSend.mockReturnValue(throwError(() => ({ status: 429, error: { error: 'queue_full' } })));

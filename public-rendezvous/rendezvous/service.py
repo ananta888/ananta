@@ -16,7 +16,6 @@ import sqlite3
 import threading
 import time
 import uuid
-from collections import defaultdict
 from contextlib import contextmanager
 from typing import Any
 
@@ -51,7 +50,6 @@ _sessions: dict[str, dict[str, Any]] = {}
 _participants: dict[str, list[dict[str, Any]]] = {}
 _invite_codes: dict[str, str] = {}
 
-_rate_buckets: dict[str, list[float]] = defaultdict(list)
 _last_cleanup: float = 0.0
 
 _KEY_CONFIRMATION_TTL_SECONDS = 5 * 60
@@ -273,6 +271,12 @@ def _create_base_schema(conn: sqlite3.Connection) -> None:
                owner_capability_lookup_hash TEXT PRIMARY KEY,
                retired_at REAL NOT NULL
            )""",
+        """CREATE TABLE IF NOT EXISTS rate_limit_events (
+               bucket_key TEXT NOT NULL,
+               observed_at REAL NOT NULL
+           )""",
+        "CREATE INDEX IF NOT EXISTS idx_rate_limit_bucket ON rate_limit_events(bucket_key, observed_at)",
+        "CREATE INDEX IF NOT EXISTS idx_rate_limit_expiry ON rate_limit_events(observed_at)",
     )
     for statement in statements:
         conn.execute(statement)
@@ -460,18 +464,54 @@ def _get_session_by_id(conn: sqlite3.Connection, session_id: str) -> dict[str, A
 # --- Rate limiting ---
 
 
-def _rate_check(namespace: str, subject: str, limit: int, window: int) -> bool:
+def _rate_check_with_retry(
+    namespace: str,
+    subject: str,
+    limit: int,
+    window: int,
+) -> tuple[bool, int]:
+    """Consume one bucket slot or return the minimum whole-second backoff."""
     if limit <= 0:
-        return True
-    key = f"{namespace}:{subject}"
+        return True, 0
+    _ensure_db_initialized()
+    key = hashlib.sha256(
+        b"ananta.public-rendezvous.rate-limit.v1\0"
+        + namespace.encode("utf-8")
+        + b"\0"
+        + subject.encode("utf-8")
+    ).hexdigest()
     now = _now()
-    with _lock:
-        bucket = _rate_buckets[key]
-        bucket[:] = [t for t in bucket if now - t < window]
-        if len(bucket) >= limit:
-            return False
-        bucket.append(now)
-    return True
+    with _db() as conn:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            conn.execute(
+                "DELETE FROM rate_limit_events WHERE bucket_key = ? AND observed_at <= ?",
+                (key, now - window),
+            )
+            rows = conn.execute(
+                "SELECT observed_at FROM rate_limit_events WHERE bucket_key = ? ORDER BY observed_at",
+                (key,),
+            ).fetchall()
+            if len(rows) >= limit:
+                retry_after = max(1, math.ceil(window - (now - float(rows[0]["observed_at"]))))
+                conn.execute("COMMIT")
+                return False, retry_after
+            conn.execute(
+                "INSERT INTO rate_limit_events(bucket_key, observed_at) VALUES (?, ?)",
+                (key, now),
+            )
+            conn.execute("COMMIT")
+        except BaseException:
+            if conn.in_transaction:
+                conn.execute("ROLLBACK")
+            raise
+    return True, 0
+
+
+def _rate_check(namespace: str, subject: str, limit: int, window: int) -> bool:
+    """Compatibility facade for callers that do not expose HTTP backoff metadata."""
+    allowed, _retry_after = _rate_check_with_retry(namespace, subject, limit, window)
+    return allowed
 
 
 # --- Cleanup ---
@@ -500,6 +540,19 @@ def _cleanup_expired() -> None:
                  AND (revoked_at IS NOT NULL OR expires_at <= ?)""",
             (now, now),
         )
+        max_rate_window = max(
+            cfg.RATE_JOIN_WINDOW,
+            cfg.RATE_CREATE_WINDOW,
+            cfg.RATE_RECOVERY_PROBE_WINDOW,
+            cfg.RATE_MEMBERSHIP_PROBE_WINDOW,
+            cfg.RATE_SIGNAL_WINDOW,
+            cfg.RATE_SIGNAL_POLL_WINDOW,
+            cfg.RATE_TURN_CREDENTIAL_WINDOW,
+        )
+        conn.execute(
+            "DELETE FROM rate_limit_events WHERE observed_at <= ?",
+            (now - max_rate_window,),
+        )
         deleted = conn.execute(
             """
             DELETE FROM sessions
@@ -524,13 +577,20 @@ def reset_state_for_tests() -> None:
         conn.execute("DELETE FROM participants")
         conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM retired_owner_capabilities")
+        conn.execute("DELETE FROM rate_limit_events")
         conn.execute("COMMIT")
     with _lock:
-        _rate_buckets.clear()
         _sessions.clear()
         _participants.clear()
         _invite_codes.clear()
     _last_cleanup = 0.0
+
+
+def reset_rate_limits_for_tests() -> None:
+    """Clear only shared limiter state between contract-test phases."""
+    _ensure_db_initialized()
+    with _db() as conn:
+        conn.execute("DELETE FROM rate_limit_events")
 
 
 # --- Session operations ---

@@ -15,6 +15,17 @@ describe('pairSessionErrorMessage', () => {
     expect(pairSessionErrorMessage({}, 'Fallback')).toBe('Fallback');
   });
 
+  it('renders rate limits as an automatic retry instead of a raw API error', () => {
+    const error = {
+      status: 429,
+      error: { error: 'rate_limited' },
+      headers: { get: () => '6' },
+    };
+    expect(pairSessionErrorMessage(error, 'Fallback')).toBe(
+      'Der Pair-Server ist ausgelastet. Automatischer neuer Versuch in 6 Sekunden.',
+    );
+  });
+
   it.each([
     ['public_pair_pending_attempt_conflict', 'früherer Beitrittsversuch'],
     ['peer_identity_must_be_distinct', 'nicht mit sich selbst'],

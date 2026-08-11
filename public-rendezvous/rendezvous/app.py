@@ -28,7 +28,7 @@ import uuid
 from typing import Any
 
 import service as svc
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from oidc_auth import AuthContext, verify_bearer_token
 from pair_security import SUPPORTED_PUBLIC_MEDIA_E2EE_VERSIONS
 
@@ -63,6 +63,7 @@ def add_cors_headers(response):
             "Authorization, Content-Type, X-Ananta-Peer-Id, X-Ananta-Device-Id, X-Ananta-Membership-Capability"
         )
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Expose-Headers"] = "Retry-After"
         response.headers["Access-Control-Max-Age"] = "600"
     return response
 
@@ -120,9 +121,25 @@ def _selected_peer_id(account_id: str) -> str:
     return _requested_peer_id() or account_id
 
 
-def _recovery_probe_allowed(account_id: str) -> bool:
+def _rate_limit_guard(
+    namespace: str,
+    subject: str,
+    limit: int,
+    window: int,
+) -> tuple[Response, int] | None:
+    """Return a standards-compatible 429 response, or ``None`` when allowed."""
+    allowed, retry_after = svc._rate_check_with_retry(namespace, subject, limit, window)
+    if allowed:
+        return None
+    response = jsonify({"error": "rate_limited"})
+    response.headers["Retry-After"] = str(retry_after)
+    response.headers["Cache-Control"] = "no-store"
+    return response, 429
+
+
+def _recovery_probe_limit(account_id: str) -> tuple[Response, int] | None:
     """Bound idempotency lookups to the authenticated account."""
-    return svc._rate_check(
+    return _rate_limit_guard(
         "recovery_probe",
         account_id,
         cfg.RATE_RECOVERY_PROBE_LIMIT,
@@ -130,9 +147,9 @@ def _recovery_probe_allowed(account_id: str) -> bool:
     )
 
 
-def _membership_probe_allowed(account_id: str) -> bool:
+def _membership_probe_limit(account_id: str) -> tuple[Response, int] | None:
     """Bound membership resolution before trusting a client peer selector."""
-    return svc._rate_check(
+    return _rate_limit_guard(
         "membership_probe",
         account_id,
         cfg.RATE_MEMBERSHIP_PROBE_LIMIT,
@@ -238,21 +255,19 @@ def create_session():
     membership_capability = _membership_capability()
     is_recovery = False
     if identity_binding_version == 2:
-        if not _recovery_probe_allowed(ctx.account_id):
-            return jsonify({"error": "rate_limited"}), 429
+        if limited := _recovery_probe_limit(ctx.account_id):
+            return limited
         is_recovery = svc.is_owner_create_recovery(
             account_id=ctx.account_id,
             device_fingerprint=device_fp,
             membership_capability=membership_capability,
             public_media_e2ee_version=public_media_e2ee_version,
         )
-    if not is_recovery and not svc._rate_check(
-        "create",
-        ctx.account_id,
-        cfg.RATE_CREATE_LIMIT,
-        cfg.RATE_CREATE_WINDOW,
-    ):
-        return jsonify({"error": "rate_limited"}), 429
+    if not is_recovery:
+        if limited := _rate_limit_guard(
+            "create", ctx.account_id, cfg.RATE_CREATE_LIMIT, cfg.RATE_CREATE_WINDOW,
+        ):
+            return limited
     requested_expires_at = body.get("expires_at")
     if requested_expires_at is not None and (
         isinstance(requested_expires_at, bool)
@@ -371,8 +386,8 @@ def _join_session_by_invite(*, expected_session_id: str):
     membership_capability = _membership_capability()
     is_recovery = False
     if expected_identity_binding_version == 2:
-        if not _recovery_probe_allowed(ctx.account_id):
-            return jsonify({"error": "rate_limited"}), 429
+        if limited := _recovery_probe_limit(ctx.account_id):
+            return limited
         is_recovery = svc.is_join_recovery(
             invite_code=invite_code,
             account_id=ctx.account_id,
@@ -381,13 +396,11 @@ def _join_session_by_invite(*, expected_session_id: str):
             public_media_e2ee_version=public_media_e2ee_version,
         )
     # OIDC account identity, never forwarding headers, owns the abuse bucket.
-    if not is_recovery and not svc._rate_check(
-        "join_peer",
-        ctx.account_id,
-        cfg.RATE_JOIN_LIMIT,
-        cfg.RATE_JOIN_WINDOW,
-    ):
-        return jsonify({"error": "rate_limited"}), 429
+    if not is_recovery:
+        if limited := _rate_limit_guard(
+            "join_peer", ctx.account_id, cfg.RATE_JOIN_LIMIT, cfg.RATE_JOIN_WINDOW,
+        ):
+            return limited
     if not invite_code:
         return jsonify({"error": "invite_code_required"}), 400
     result = svc.join_session(
@@ -612,8 +625,8 @@ def turn_credentials():
         session_id = str(uuid.UUID(raw_session_id))
     except (AttributeError, ValueError):
         return jsonify({"error": "session_id_invalid"}), 400
-    if not _membership_probe_allowed(ctx.account_id):
-        return jsonify({"error": "rate_limited"}), 429
+    if limited := _membership_probe_limit(ctx.account_id):
+        return limited
     requested_peer_id = _requested_peer_id()
     membership_capability = _membership_capability()
     membership = svc.authenticate_session_membership(
@@ -628,13 +641,13 @@ def turn_credentials():
             reason,
             default=_TURN_CREDENTIAL_ERROR_STATUS.get(reason, 409),
         )
-    if not svc._rate_check(
+    if limited := _rate_limit_guard(
         "turn_credentials",
         str(membership["local_peer_id"]),
         cfg.RATE_TURN_CREDENTIAL_LIMIT,
         cfg.RATE_TURN_CREDENTIAL_WINDOW,
     ):
-        return jsonify({"error": "rate_limited"}), 429
+        return limited
     result = svc.issue_turn_credentials(
         session_id=session_id,
         requester_user_id=ctx.account_id,
@@ -685,8 +698,8 @@ def push_signal(session_id: str):
     assert body is not None
     declared_session = str(body.get("session_id") or "").strip()
     declared_sender = str(body.get("sender_id") or "").strip()
-    if not _membership_probe_allowed(ctx.account_id):
-        return jsonify({"error": "rate_limited"}), 429
+    if limited := _membership_probe_limit(ctx.account_id):
+        return limited
     requested_peer_id = _requested_peer_id()
     membership_capability = _membership_capability()
     membership = svc.authenticate_session_membership(
@@ -707,8 +720,10 @@ def push_signal(session_id: str):
     recipient_id = str(body.get("recipient_id") or "").strip()
     if not recipient_id:
         return jsonify({"error": "recipient_id_required"}), 400
-    if not svc._rate_check("signal", selected_peer_id, cfg.RATE_SIGNAL_LIMIT, cfg.RATE_SIGNAL_WINDOW):
-        return jsonify({"error": "rate_limited"}), 429
+    if limited := _rate_limit_guard(
+        "signal", selected_peer_id, cfg.RATE_SIGNAL_LIMIT, cfg.RATE_SIGNAL_WINDOW,
+    ):
+        return limited
     signal_type = str(body.get("type") or "").strip()
     result = svc.push_signal(
         session_id=session_id,
@@ -752,8 +767,8 @@ def poll_signals(session_id: str):
     since = int(raw_since) if raw_since else 0
     if since > svc._MAX_SIGNAL_CURSOR:
         return jsonify({"error": "signal_cursor_invalid"}), 400
-    if not _membership_probe_allowed(ctx.account_id):
-        return jsonify({"error": "rate_limited"}), 429
+    if limited := _membership_probe_limit(ctx.account_id):
+        return limited
     requested_peer_id = _requested_peer_id()
     membership_capability = _membership_capability()
     membership = svc.authenticate_session_membership(
@@ -766,13 +781,13 @@ def poll_signals(session_id: str):
     if not membership.get("ok"):
         reason = str(membership.get("reason") or "forbidden")
         return jsonify({"error": reason}), _member_error_status(reason)
-    if not svc._rate_check(
+    if limited := _rate_limit_guard(
         "signal_poll",
         str(membership["local_peer_id"]),
         cfg.RATE_SIGNAL_POLL_LIMIT,
         cfg.RATE_SIGNAL_POLL_WINDOW,
     ):
-        return jsonify({"error": "rate_limited"}), 429
+        return limited
     result = svc.poll_signals(
         session_id=session_id,
         user_id=ctx.account_id,

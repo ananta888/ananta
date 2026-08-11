@@ -1838,6 +1838,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         **auth,
         "X-Ananta-Peer-Id": owner_peer_id,
         "X-Ananta-Membership-Capability": owner_capability,
+        "Origin": "https://app.example",
     }
     owner_packages = client.get(
         f"/rendezvous/sessions/{session_id}/security/key-packages",
@@ -1883,6 +1884,8 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         429,
         {"error": "rate_limited"},
     )
+    assert owner_signal_limited.headers["Retry-After"].isdigit()
+    assert owner_signal_limited.headers["Access-Control-Expose-Headers"] == "Retry-After"
 
     owner_poll = client.get(
         f"/webrtc/sessions/{session_id}/signal",
@@ -2013,8 +2016,33 @@ def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_pa
 
     assert first.status_code == 201
     assert (limited.status_code, limited.get_json()) == (429, {"error": "rate_limited"})
+    assert limited.headers["Retry-After"].isdigit()
+    assert 1 <= int(limited.headers["Retry-After"]) <= 60
+    assert limited.headers["Cache-Control"] == "no-store"
     assert [call["membership_capability"] for call in lookup_calls] == ["J" * 43]
     assert len(create_calls) == 1
+
+
+def test_rate_limit_bucket_is_shared_across_service_process_state(monkeypatch, tmp_path):
+    service_dir = Path(__file__).resolve().parents[1] / "public-rendezvous" / "rendezvous"
+    monkeypatch.syspath_prepend(str(service_dir))
+    monkeypatch.setenv("RENDEZVOUS_DB_PATH", str(tmp_path / "shared-rate-limit.db"))
+    monkeypatch.setenv(
+        "RENDEZVOUS_SECURITY_SIGNING_SECRET",
+        "test-only-public-rendezvous-signing-secret-32-bytes",
+    )
+    for module_name in ("config", "peer_identity", "service"):
+        sys.modules.pop(module_name, None)
+    first_service = importlib.import_module("service")
+
+    assert first_service._rate_check_with_retry("join", "account", 1, 60) == (True, 0)
+
+    sys.modules.pop("service", None)
+    second_service = importlib.import_module("service")
+    allowed, retry_after = second_service._rate_check_with_retry("join", "account", 1, 60)
+
+    assert allowed is False
+    assert 1 <= retry_after <= 60
 
 
 def test_join_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path):
@@ -2179,8 +2207,7 @@ def test_join_rate_limit_uses_authenticated_peer_and_ignores_spoofed_xff(monkeyp
         lambda header: contexts[header.removeprefix("Bearer ")],
     )
     monkeypatch.setattr(public_app.cfg, "RATE_JOIN_LIMIT", 1)
-    with public_app.svc._lock:
-        public_app.svc._rate_buckets.clear()
+    public_app.svc.reset_rate_limits_for_tests()
     client = public_app.app.test_client()
 
     def join(subject: str, spoofed_ip: str):
@@ -2297,8 +2324,7 @@ def test_turn_credentials_http_contract_is_session_bound_and_rate_limited(monkey
 
     monkeypatch.setattr(public_app.cfg, "TURN_SHARED_SECRET", "independent-turn-test-secret")
     monkeypatch.setattr(public_app.cfg, "RATE_TURN_CREDENTIAL_LIMIT", 1)
-    with public_app.svc._lock:
-        public_app.svc._rate_buckets.clear()
+    public_app.svc.reset_rate_limits_for_tests()
     first = client.get(
         f"/rendezvous/turn-credentials?session_id={session['id']}",
         headers=owner_headers,
@@ -2371,8 +2397,7 @@ def test_signal_poll_http_cursor_is_sqlite_safe_and_rate_limited(monkeypatch, tm
     )
 
     monkeypatch.setattr(public_app.cfg, "RATE_SIGNAL_POLL_LIMIT", 1)
-    with public_app.svc._lock:
-        public_app.svc._rate_buckets.clear()
+    public_app.svc.reset_rate_limits_for_tests()
     first = client.get(path, headers=headers, query_string={"since": "0"})
     limited = client.get(path, headers=headers, query_string={"since": "0"})
     assert first.status_code == 200

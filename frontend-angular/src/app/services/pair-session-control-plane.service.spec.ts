@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom, of, throwError } from 'rxjs';
+import { defer, firstValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
@@ -196,6 +196,39 @@ describe('PairSessionControlPlaneService', () => {
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
     ]);
+  });
+
+  it('automatically resumes an idempotent public join after Retry-After', async () => {
+    vi.useFakeTimers();
+    try {
+      const core = TestBed.inject(HubApiCoreService);
+      const request = vi.mocked(core.request);
+      let attempts = 0;
+      request.mockImplementationOnce(() => defer(() => {
+        attempts += 1;
+        return attempts === 1
+          ? throwError(() => ({
+            status: 429,
+            error: { error: 'rate_limited' },
+            headers: { get: (name: string) => name === 'Retry-After' ? '2' : null },
+          }))
+          : of({ ok: true, local_peer_id: joinerPeerId, session: joinedResponse });
+      }));
+      const service = TestBed.inject(PairSessionControlPlaneService);
+      const result = firstValueFrom(service.join<Record<string, unknown>>({
+        invite_code: 'INVITE',
+        public_key_fingerprint: 'fingerprint',
+        public_key_spki_b64: 'spki',
+      }));
+
+      await vi.advanceTimersByTimeAsync(2_000);
+
+      await expect(result).resolves.toMatchObject({ id: 'joined-session' });
+      expect(request).toHaveBeenCalledTimes(1);
+      expect(attempts).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('adds the exact immutable media capability advertisement to public create and join', () => {

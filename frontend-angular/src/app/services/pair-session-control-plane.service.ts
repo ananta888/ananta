@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of, retry, tap, throwError } from 'rxjs';
+import { Observable, catchError, map, of, retry, tap, throwError, timer } from 'rxjs';
 
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiCoreService } from './hub-api-core.service';
@@ -20,6 +20,7 @@ import {
   PairSessionBindingStore,
 } from './pair-session-binding.store';
 import { UserAuthService } from './user-auth.service';
+import { rateLimitRetryAfterMs } from './http-rate-limit';
 
 interface ApiEnvelope<T> {
   readonly ok?: boolean;
@@ -365,6 +366,13 @@ export class PairSessionControlPlaneService {
       token: authority.token,
       headers: { [MEMBERSHIP_CAPABILITY_HEADER]: pending.capability },
     }).pipe(
+      retry({
+        count: 1,
+        delay: error => {
+          const retryAfterMs = rateLimitRetryAfterMs(error);
+          return retryAfterMs === null ? throwError(() => error) : timer(retryAfterMs);
+        },
+      }),
       map(response => this.prepareResponse(response, authority, 'v2-mutation', pending.capability)),
       map(prepared => this.commitV2MutationBinding(prepared, scope)),
       catchError(error => {
