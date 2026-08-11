@@ -90,6 +90,28 @@ describe('PairMediaE2eeCoordinatorService', () => {
     expect(countControl(guest, 'hello')).toBe(1);
   });
 
+  it('arms bilateral preparation when activation admission observes a missed late open edge', async () => {
+    const owner = node('peer:owner', 'peer:guest');
+    const guest = node('peer:guest', 'peer:owner');
+    connect(owner, guest);
+    owner.coordinator.markTopologyNegotiated('session-a');
+    guest.coordinator.markTopologyNegotiated('session-a');
+    expect(owner.outbound).toEqual([]);
+    expect(guest.outbound).toEqual([]);
+
+    owner.portOpen = true;
+    guest.portOpen = true;
+    expect(owner.coordinator.canActivate('session-a')).toBe(true);
+    expect(guest.coordinator.canActivate('session-a')).toBe(true);
+
+    await pump(owner, guest);
+
+    expect(owner.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
+    expect(guest.coordinator.statusFor('session-a')).toMatchObject({ state: 'ready' });
+    expect(countControl(owner, 'hello')).toBe(1);
+    expect(countControl(guest, 'hello')).toBe(1);
+  });
+
   it('keeps activation pending while the consent port remains closed', async () => {
     const owner = node('peer:owner', 'peer:guest');
     bindSink(owner);

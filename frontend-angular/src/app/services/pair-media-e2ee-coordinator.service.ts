@@ -161,6 +161,10 @@ export class PairMediaE2eeCoordinatorService {
     const runtime = this.runtime;
     if (runtime?.sessionId === sessionId && !runtime.dataChannelOpen) {
       this.reconcileDataChannelOpen(runtime);
+      // The DataChannel open edge can precede or escape its browser callback.
+      // A successful level reconciliation must drive the same eager preparation
+      // transition as markDataChannelOpen(); otherwise no hello is ever sent.
+      this.armTechnicalPreparation(runtime);
     }
     if (
       !runtime
