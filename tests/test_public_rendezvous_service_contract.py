@@ -1158,11 +1158,16 @@ def test_v1_join_without_identity_binding_version_remains_compatible(public_serv
     assert joined["session"]["identity_binding_version"] == 1
 
 
-def test_confirmation_is_bound_to_direction_package_and_is_immutable(public_service):
+def test_confirmation_refresh_renews_only_the_authenticated_immutable_binding(
+    public_service,
+    monkeypatch,
+):
     session, owner_packages, guest_packages = _joined_session(public_service)
     owner_id = _peer_id("owner-sub")
     guest_id = _peer_id("guest-sub")
     tag = base64.b64encode(b"a" * 32).decode("ascii")
+    now = public_service._now()
+    monkeypatch.setattr(public_service, "_now", lambda: now)
 
     wrong_direction = public_service.put_key_confirmation(
         session_id=session["id"],
@@ -1180,6 +1185,8 @@ def test_confirmation_is_bound_to_direction_package_and_is_immutable(public_serv
         epoch=2,
         confirmation_tag=tag,
     )
+    renewal_now = now + 120
+    monkeypatch.setattr(public_service, "_now", lambda: renewal_now)
     idempotent = public_service.put_key_confirmation(
         session_id=session["id"],
         sender_peer_id=owner_id,
@@ -1200,8 +1207,115 @@ def test_confirmation_is_bound_to_direction_package_and_is_immutable(public_serv
     assert wrong_direction == {"ok": False, "reason": "key_package_binding_mismatch"}
     assert stored["ok"] is True
     assert idempotent["idempotent"] is True
-    assert idempotent["expires_at_ms"] == stored["expires_at_ms"]
+    assert idempotent["created_at_ms"] == int(renewal_now * 1000)
+    assert idempotent["expires_at_ms"] == int((renewal_now + 300) * 1000)
+    assert idempotent["expires_at_ms"] > stored["expires_at_ms"]
     assert conflict == {"ok": False, "reason": "key_confirmation_conflict"}
+    fetched = public_service.get_key_confirmation(
+        session_id=session["id"],
+        requester_user_id=guest_id,
+        sender_peer_id=owner_id,
+    )
+    assert fetched["confirmation"]["created_at_ms"] == idempotent["created_at_ms"]
+    assert fetched["confirmation"]["expires_at_ms"] == idempotent["expires_at_ms"]
+    assert fetched["confirmation"]["confirmation_tag"] == tag
+
+
+def test_confirmation_refresh_prevents_the_bilateral_expiry_race(public_service, monkeypatch):
+    session, owner_packages, guest_packages = _joined_session(public_service)
+    owner_id = _peer_id("owner-sub")
+    guest_id = _peer_id("guest-sub")
+    now = public_service._now()
+    monkeypatch.setattr(public_service, "_now", lambda: now)
+
+    directions = (
+        (owner_id, guest_id, owner_packages["packages"][0]["package_id"], b"o" * 32),
+        (guest_id, owner_id, guest_packages["packages"][0]["package_id"], b"g" * 32),
+    )
+    for sender_id, recipient_id, package_id, raw_tag in directions:
+        stored = public_service.put_key_confirmation(
+            session_id=session["id"],
+            sender_peer_id=sender_id,
+            recipient_peer_id=recipient_id,
+            package_id=package_id,
+            epoch=2,
+            confirmation_tag=base64.b64encode(raw_tag).decode("ascii"),
+        )
+        assert stored["ok"] is True
+
+    # Each browser refreshes its own direction before the original five-minute
+    # lease expires.  When one browser checks just beyond that old boundary,
+    # the opposite direction must still be present instead of transiently null.
+    for refresh_offset in (120, 240):
+        refresh_now = now + refresh_offset
+        monkeypatch.setattr(public_service, "_now", lambda: refresh_now)
+        for sender_id, recipient_id, package_id, raw_tag in directions:
+            renewed = public_service.put_key_confirmation(
+                session_id=session["id"],
+                sender_peer_id=sender_id,
+                recipient_peer_id=recipient_id,
+                package_id=package_id,
+                epoch=2,
+                confirmation_tag=base64.b64encode(raw_tag).decode("ascii"),
+            )
+            assert renewed["idempotent"] is True
+            assert renewed["expires_at_ms"] == int((refresh_now + 300) * 1000)
+
+    # At the next refresh, peer A renews first and immediately reads peer B,
+    # matching the live ordering that used to return confirmation:null.
+    refresh_now = now + 360
+    monkeypatch.setattr(public_service, "_now", lambda: refresh_now)
+    sender_id, recipient_id, package_id, raw_tag = directions[0]
+    renewed = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=sender_id,
+        recipient_peer_id=recipient_id,
+        package_id=package_id,
+        epoch=2,
+        confirmation_tag=base64.b64encode(raw_tag).decode("ascii"),
+    )
+    assert renewed["expires_at_ms"] == int((refresh_now + 300) * 1000)
+    fetched = public_service.get_key_confirmation(
+        session_id=session["id"],
+        requester_user_id=owner_id,
+        sender_peer_id=guest_id,
+    )
+    assert fetched["ok"] is True
+    assert fetched["confirmation"] is not None
+    assert fetched["confirmation"]["expires_at_ms"] == int((now + 540) * 1000)
+
+
+def test_confirmation_refresh_never_exceeds_session_expiry(public_service, monkeypatch):
+    session, owner_packages, _ = _joined_session(public_service)
+    owner_id = _peer_id("owner-sub")
+    guest_id = _peer_id("guest-sub")
+    tag = base64.b64encode(b"s" * 32).decode("ascii")
+    session_expires_at = float(session["expires_at"])
+    initial_now = session_expires_at - 120
+    monkeypatch.setattr(public_service, "_now", lambda: initial_now)
+    stored = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=owner_id,
+        recipient_peer_id=guest_id,
+        package_id=owner_packages["packages"][0]["package_id"],
+        epoch=2,
+        confirmation_tag=tag,
+    )
+    assert stored["expires_at_ms"] == int(session_expires_at * 1000)
+
+    renewal_now = initial_now + 60
+    monkeypatch.setattr(public_service, "_now", lambda: renewal_now)
+    renewed = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=owner_id,
+        recipient_peer_id=guest_id,
+        package_id=owner_packages["packages"][0]["package_id"],
+        epoch=2,
+        confirmation_tag=tag,
+    )
+    assert renewed["idempotent"] is True
+    assert renewed["created_at_ms"] == int(renewal_now * 1000)
+    assert renewed["expires_at_ms"] == int(session_expires_at * 1000)
 
 
 def test_confirmation_expires_after_five_minutes(public_service, monkeypatch):

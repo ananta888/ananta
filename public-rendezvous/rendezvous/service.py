@@ -1850,7 +1850,8 @@ def put_key_confirmation(
         if not session:
             conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_not_found"}
-        if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+        now = _now()
+        if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= now:
             conn.execute("ROLLBACK")
             return {"ok": False, "reason": "session_inactive"}
         try:
@@ -1882,7 +1883,6 @@ def put_key_confirmation(
             conn.execute("ROLLBACK")
             return {"ok": False, "reason": "key_package_binding_mismatch"}
 
-        now = _now()
         existing = conn.execute(
             """SELECT package_id, confirmation_tag, created_at, expires_at
                FROM key_confirmations
@@ -1896,12 +1896,45 @@ def put_key_confirmation(
             ):
                 conn.execute("ROLLBACK")
                 return {"ok": False, "reason": "key_confirmation_conflict"}
+            # A confirmation is a short-lived liveness lease over an immutable
+            # direction/package/tag binding.  Both peers refresh that lease
+            # before its five-minute deadline.  Returning the original expiry
+            # here made every refresh a no-op, so the first peer crossing the
+            # deadline observed the other direction as absent and tore down an
+            # otherwise healthy E2EE transport.  Renew only after the caller's
+            # membership and exact confirmation binding were re-authenticated
+            # above; changed material remains a fail-closed conflict.
+            renewed_expires_at = min(
+                float(session["expires_at"]),
+                now + _KEY_CONFIRMATION_TTL_SECONDS,
+            )
+            conn.execute(
+                """UPDATE key_confirmations
+                   SET created_at = ?, expires_at = ?
+                   WHERE session_id = ? AND epoch = ?
+                     AND sender_peer_id = ? AND recipient_peer_id = ?""",
+                (
+                    now,
+                    renewed_expires_at,
+                    session_id,
+                    epoch,
+                    sender_peer_id,
+                    recipient_peer_id,
+                ),
+            )
             conn.execute("COMMIT")
+            log.info(
+                "pair_key_confirmation_renewed session=%s epoch=%d direction=%s expires_at=%d",
+                session_id,
+                epoch,
+                hashlib.sha256(f"{sender_peer_id}>{recipient_peer_id}".encode()).hexdigest()[:12],
+                int(renewed_expires_at),
+            )
             return {
                 "ok": True,
                 "idempotent": True,
-                "created_at_ms": int(float(existing["created_at"]) * 1000),
-                "expires_at_ms": int(float(existing["expires_at"]) * 1000),
+                "created_at_ms": int(now * 1000),
+                "expires_at_ms": int(renewed_expires_at * 1000),
             }
         if existing:
             conn.execute(
