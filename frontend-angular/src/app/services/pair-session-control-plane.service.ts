@@ -1,5 +1,19 @@
+import { HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of, retry, tap, throwError, timer } from 'rxjs';
+import {
+  Observable,
+  TimeoutError,
+  catchError,
+  defer,
+  firstValueFrom,
+  from,
+  map,
+  of,
+  retry,
+  tap,
+  throwError,
+  timer,
+} from 'rxjs';
 
 import { AgentDirectoryService } from './agent-directory.service';
 import { HubApiCoreService } from './hub-api-core.service';
@@ -21,6 +35,14 @@ import {
 } from './pair-session-binding.store';
 import { UserAuthService } from './user-auth.service';
 import { rateLimitRetryAfterMs } from './http-rate-limit';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
+import {
+  PublicTurnCredentialCacheKey,
+  PublicTurnCredentialCacheService,
+  PublicTurnCredentials,
+  MAX_PUBLIC_TURN_CREDENTIAL_TTL_SECONDS,
+} from './public-turn-credential-cache.service';
+import { terminalPairSessionReason } from './pair-session-terminal-error';
 
 interface ApiEnvelope<T> {
   readonly ok?: boolean;
@@ -38,13 +60,6 @@ interface TurnCredentialPayload {
   readonly uris?: unknown;
   readonly session_id?: unknown;
   readonly local_peer_id?: unknown;
-}
-
-interface BoundTurnCredentials {
-  readonly username: string;
-  readonly password: string;
-  readonly ttl: number;
-  readonly uris: string[];
 }
 
 interface SessionListPayload<T> {
@@ -128,6 +143,7 @@ export class PairSessionControlPlaneService {
   private readonly publicAuthority = inject(PairPublicAuthorityPolicy);
   private readonly publicContract = inject(PairPublicSessionContractPolicy);
   private readonly publicMediaRuntime = inject(PublicPairMediaRuntimeCapabilityService);
+  private readonly turnCredentialCache = inject(PublicTurnCredentialCacheService);
 
   /** Compatibility/read-model property for a not-yet-created session. */
   get isPublic(): boolean {
@@ -168,7 +184,15 @@ export class PairSessionControlPlaneService {
   }
 
   forgetSession(sessionId: string): void {
+    this.turnCredentialCache.invalidateSession(sessionId);
     this.bindings.forget(sessionId);
+  }
+
+  /** Retires all local authority for a session proven terminal by its server. */
+  retireSession(sessionId: string): void {
+    const binding = this.bindings.get(sessionId);
+    if (binding) this.retireMembership(binding);
+    else this.turnCredentialCache.invalidateSession(sessionId);
   }
 
   /** Explicitly abandons an unresolved mutation after user confirmation. */
@@ -257,7 +281,12 @@ export class PairSessionControlPlaneService {
     const path = binding.kind === 'public'
       ? `/rendezvous/sessions/${encodeURIComponent(sessionId)}/participants`
       : `/share-sessions/${encodeURIComponent(sessionId)}/participants`;
-    return this.boundGet<T>(binding, path);
+    return this.boundGet<T>(
+      binding,
+      path,
+      binding.kind !== 'public',
+      binding.kind === 'public' ? locallyHandledPairRequestContext() : undefined,
+    );
   }
 
   heartbeat(sessionId: string): Observable<unknown> {
@@ -278,11 +307,20 @@ export class PairSessionControlPlaneService {
       : `/share-sessions/${encodeURIComponent(sessionId)}`;
     const authority = this.authorityForBinding(binding);
     if (binding.kind === 'public') {
-      return this.publicBoundRequest<unknown>('DELETE', binding, path).pipe(
-        tap(() => this.retireMembership(binding)),
-      );
+      return this.publicRetirementRequest(binding, path);
     }
     return this.core.delete(`${authority.baseUrl}${path}`, authority.baseUrl, authority.token);
+  }
+
+  /**
+   * Removes the exact authenticated public participant membership. Hub Pair
+   * sessions keep their established local-only participant leave behavior.
+   */
+  leave(sessionId: string): Observable<unknown> {
+    const binding = this.bindings.require(sessionId);
+    if (binding.kind !== 'public') return of({ ok: true });
+    const path = `/rendezvous/sessions/${encodeURIComponent(sessionId)}/membership`;
+    return this.publicRetirementRequest(binding, path);
   }
 
   revokeParticipant(sessionId: string, participantId: string): Observable<unknown> {
@@ -300,13 +338,23 @@ export class PairSessionControlPlaneService {
   securityGet<T>(sessionId: string, suffix: string): Observable<T> {
     const binding = this.bindings.require(sessionId);
     const root = binding.kind === 'public' ? '/rendezvous/sessions' : '/share-sessions';
-    return this.boundGet<T>(binding, `${root}/${encodeURIComponent(sessionId)}/security/${suffix}`);
+    return this.boundGet<T>(
+      binding,
+      `${root}/${encodeURIComponent(sessionId)}/security/${suffix}`,
+      binding.kind !== 'public',
+      binding.kind === 'public' ? locallyHandledPairRequestContext() : undefined,
+    );
   }
 
   securityPost<T>(sessionId: string, suffix: string, body: unknown): Observable<T> {
     const binding = this.bindings.require(sessionId);
     const root = binding.kind === 'public' ? '/rendezvous/sessions' : '/share-sessions';
-    return this.boundPost<T>(binding, `${root}/${encodeURIComponent(sessionId)}/security/${suffix}`, body);
+    const path = `${root}/${encodeURIComponent(sessionId)}/security/${suffix}`;
+    return binding.kind === 'public'
+      ? this.publicBoundRequest<T>(
+        'POST', binding, path, body, false, locallyHandledPairRequestContext(),
+      )
+      : this.boundPost<T>(binding, path, body);
   }
 
   signalPoll<T>(sessionId: string, cursor: string): Observable<T> {
@@ -316,33 +364,67 @@ export class PairSessionControlPlaneService {
       : `/api/webrtc/sessions/${encodeURIComponent(sessionId)}/signal?since=${encodeURIComponent(cursor)}`;
     // Signaling polls are cursor based and must not be retried underneath the
     // caller; a retried response can race a later cursor and duplicate SDP/ICE.
-    return this.boundGet<T>(binding, path, false);
+    return this.boundGet<T>(
+      binding,
+      path,
+      false,
+      binding.kind === 'public' ? locallyHandledPairRequestContext() : undefined,
+    );
   }
 
   signalSend<T>(sessionId: string, body: unknown): Observable<T> {
     const binding = this.bindings.require(sessionId);
     const root = binding.kind === 'public' ? 'webrtc' : 'api/webrtc';
-    return this.boundPost<T>(binding, `/${root}/sessions/${encodeURIComponent(sessionId)}/signal`, body);
+    const path = `/${root}/sessions/${encodeURIComponent(sessionId)}/signal`;
+    return binding.kind === 'public'
+      ? this.publicBoundRequest<T>(
+        'POST', binding, path, body, false, locallyHandledPairRequestContext(),
+      )
+      : this.boundPost<T>(binding, path, body);
   }
 
-  turnCredentials(sessionId: string): Observable<BoundTurnCredentials | null> {
-    const binding = this.bindings.require(sessionId);
-    if (binding.kind !== 'public') return of(null);
-    return this.boundGet<ApiEnvelope<TurnCredentialPayload>>(
-      binding,
-      `/rendezvous/turn-credentials?session_id=${encodeURIComponent(sessionId)}`,
-      false,
-    ).pipe(map(response => validateBoundTurnCredentials(response, binding)));
+  turnCredentials(sessionId: string): Observable<PublicTurnCredentials | null> {
+    return defer(() => {
+      const binding = this.bindings.require(sessionId);
+      if (binding.kind !== 'public') return of(null);
+      let cacheKey: PublicTurnCredentialCacheKey;
+      try {
+        const authority = this.authorityForBinding(binding);
+        cacheKey = turnCredentialCacheKey(binding, authority);
+      } catch (error) {
+        this.turnCredentialCache.invalidateSession(sessionId);
+        return throwError(() => error);
+      }
+      return from(this.turnCredentialCache.get(cacheKey, async () => (
+        firstValueFrom(this.publicBoundRequest<ApiEnvelope<TurnCredentialPayload>>(
+          'GET',
+          binding,
+          `/rendezvous/turn-credentials?session_id=${encodeURIComponent(sessionId)}`,
+          undefined,
+          false,
+          new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true),
+        ).pipe(map(response => validateBoundTurnCredentials(response, binding))))
+      )));
+    }).pipe(catchError(error => {
+      const status = Number((error as { status?: unknown } | null)?.status);
+      if (status === 401 || status === 403) this.turnCredentialCache.invalidateSession(sessionId);
+      return throwError(() => error);
+    }));
   }
 
-  private boundGet<T>(binding: PairSessionBinding, path: string, useRetry = true): Observable<T> {
+  private boundGet<T>(
+    binding: PairSessionBinding,
+    path: string,
+    useRetry = true,
+    context?: HttpContext,
+  ): Observable<T> {
     const authority = this.authorityForBinding(binding);
     if (binding.kind === 'hub') {
       return this.core.get<T>(
         `${authority.baseUrl}${path}`, authority.baseUrl, authority.token, useRetry,
       );
     }
-    return this.publicBoundRequest<T>('GET', binding, path, undefined, useRetry);
+    return this.publicBoundRequest<T>('GET', binding, path, undefined, useRetry, context);
   }
 
   private boundPost<T>(binding: PairSessionBinding, path: string, body: unknown): Observable<T> {
@@ -365,6 +447,7 @@ export class PairSessionControlPlaneService {
       body: pending.body,
       token: authority.token,
       headers: { [MEMBERSHIP_CAPABILITY_HEADER]: pending.capability },
+      context: locallyHandledPairRequestContext(),
     }).pipe(
       retry({
         count: 1,
@@ -391,6 +474,7 @@ export class PairSessionControlPlaneService {
     path: string,
     body?: unknown,
     useRetry = false,
+    context?: HttpContext,
   ): Observable<T> {
     const authority = this.authorityForBinding(binding);
     const headers: Record<string, string> = { [PEER_ID_HEADER]: binding.localPeerId };
@@ -407,6 +491,7 @@ export class PairSessionControlPlaneService {
       body,
       token: authority.token,
       headers,
+      context,
     });
     const withRetry = useRetry ? request.pipe(retry(this.core.retryCount)) : request;
     return withRetry.pipe(map(response => validatePublicBoundResponse(response, binding)));
@@ -523,14 +608,61 @@ export class PairSessionControlPlaneService {
   }
 
   private retireMembership(binding: PairSessionBinding): void {
+    this.turnCredentialCache.invalidateSession(binding.sessionId);
     this.bindings.forget(binding.sessionId);
     if (binding.identityBindingVersion === 2) {
-      this.capabilities.forget(
-        binding.sessionId,
-        binding.localPeerId,
-        membershipAuthorityScope(binding),
-      );
+      try {
+        this.capabilities.forget(
+          binding.sessionId,
+          binding.localPeerId,
+          membershipAuthorityScope(binding),
+        );
+      } catch {
+        // Server retirement remains authoritative even when restricted
+        // browser storage cannot be scrubbed. The in-memory binding is gone,
+        // so the stale proof cannot authorize another request in this run.
+      }
     }
+  }
+
+  private retireTerminalMembership(
+    binding: PairSessionBinding,
+    error: unknown,
+  ): Observable<never> {
+    if (terminalPairSessionReason(error)) this.retireMembership(binding);
+    return throwError(() => error);
+  }
+
+  private publicRetirementRequest(
+    binding: PairSessionBinding,
+    path: string,
+  ): Observable<unknown> {
+    return this.publicBoundRequest<unknown>(
+      'DELETE',
+      binding,
+      path,
+      undefined,
+      false,
+      new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true),
+    ).pipe(
+      // End and exact-membership leave are idempotent. Retry once, in order,
+      // only when the server cannot yet have given a definitive rejection.
+      retry({
+        count: 1,
+        delay: error => {
+          const retryAfterMs = rateLimitRetryAfterMs(error);
+          if (retryAfterMs !== null) return timer(retryAfterMs);
+          const status = Number((error as { status?: unknown } | null)?.status);
+          const timedOut = error instanceof TimeoutError
+            || (error as { name?: unknown } | null)?.name === 'TimeoutError';
+          return timedOut || status === 0 || status === 408 || (status >= 500 && status <= 599)
+            ? timer(250)
+            : throwError(() => error);
+        },
+      }),
+      tap(() => this.retireMembership(binding)),
+      catchError(error => this.retireTerminalMembership(binding, error)),
+    );
   }
 
   private authorityForNewSession(): RequestAuthority {
@@ -568,7 +700,7 @@ export class PairSessionControlPlaneService {
 function validateBoundTurnCredentials(
   response: ApiEnvelope<TurnCredentialPayload>,
   binding: PairSessionBinding,
-): BoundTurnCredentials {
+): PublicTurnCredentials {
   const data = response?.data;
   if (response?.ok !== true || !data || typeof data !== 'object') {
     throw new Error('public_turn_credentials_response_invalid');
@@ -588,8 +720,9 @@ function validateBoundTurnCredentials(
     || typeof data.password !== 'string'
     || !data.password
     || typeof data.ttl !== 'number'
-    || !Number.isFinite(data.ttl)
+    || !Number.isSafeInteger(data.ttl)
     || data.ttl <= 0
+    || data.ttl > MAX_PUBLIC_TURN_CREDENTIAL_TTL_SECONDS
     || uris.length === 0
     || uris.some(uri => typeof uri !== 'string' || !/^turns?:/i.test(uri))
   ) {
@@ -601,6 +734,36 @@ function validateBoundTurnCredentials(
     ttl: data.ttl,
     uris: uris as string[],
   };
+}
+
+function locallyHandledPairRequestContext(): HttpContext {
+  return new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true);
+}
+
+function turnCredentialCacheKey(
+  binding: PairSessionBinding,
+  authority: RequestAuthority,
+): PublicTurnCredentialCacheKey {
+  if (
+    binding.kind !== 'public'
+    || authority.kind !== 'public'
+    || (binding.identityBindingVersion !== 1 && binding.identityBindingVersion !== 2)
+  ) throw new Error('public_turn_cache_key_invalid');
+  // The identity authority contains no bearer/capability secret. Including it
+  // prevents a cached credential from surviving an account/profile change
+  // that happens to retain the same public session and device peer id.
+  const identityAuthority = JSON.stringify([
+    binding.oidcIssuer || '',
+    binding.oidcSubject || '',
+    binding.profileId || '',
+  ]);
+  return Object.freeze({
+    authorityBaseUrl: authority.baseUrl,
+    sessionId: binding.sessionId,
+    localPeerId: binding.localPeerId,
+    identityBindingVersion: binding.identityBindingVersion,
+    identityAuthority,
+  });
 }
 
 function validatePublicBoundResponse<T>(response: T, binding: PairSessionBinding): T {

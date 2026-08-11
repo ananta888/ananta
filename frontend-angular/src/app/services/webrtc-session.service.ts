@@ -33,6 +33,11 @@ import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.s
 import { PairMediaE2eeTransformAdapter } from './pair-media-e2ee-transform.adapter';
 import type { PublicPairMediaSlot } from './public-pair-media-security-contract';
 import { PUBLIC_WEBRTC_STUN_URL } from './public-ananta-endpoints';
+import { SIGNAL_SESSION_RECREATION_REQUIRED } from './webrtc-signal-session.guard';
+import {
+  isTerminalPairSessionReason,
+  terminalPairSessionReason,
+} from './pair-session-terminal-error';
 
 export type PeerState = 'idle' | 'connecting' | 'connected' | 'failed' | 'closed';
 type PublicSdpPhase = 'none' | 'awaiting-offer' | 'processing-offer'
@@ -52,6 +57,7 @@ const RATE_LIMIT_BYTES = 4 * 1024 * 1024;
 const DC_RECEIVE_QUEUE_MAX = 128;
 const DC_RECEIVE_QUEUE_BYTES = 4 * 1024 * 1024;
 const PEER_CONNECTION_DISCONNECT_GRACE_MS = 5_000;
+const REMOTE_ICE_BUFFER_MAX = 256;
 
 interface AuditEvent {
   ts: number;
@@ -103,6 +109,7 @@ export class WebrtcSessionService {
   private pairMediaTransforms = inject(PairMediaE2eeTransformAdapter);
 
   readonly state$ = new BehaviorSubject<PeerState>('idle');
+  readonly failureReason$ = new BehaviorSubject<string | null>(null);
   readonly dataChannelState$ = new BehaviorSubject<RTCDataChannelState | 'absent'>('absent');
   readonly dcMessage$ = new Subject<DcMessage>();
   readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
@@ -131,6 +138,8 @@ export class WebrtcSessionService {
   private sessionGeneration = 0;
   private localDescriptionPublicationPending = false;
   private pendingLocalIce: RTCIceCandidateInit[] = [];
+  private remoteDescriptionApplied = false;
+  private pendingRemoteIce: RTCIceCandidateInit[] = [];
   private readonly pendingPublicMediaTracks = new Map<PublicPairMediaSlot, RTCTrackEvent>();
   private readonly disabledPublicMediaContracts = new Map<string, string>();
   private activePublicMediaContext: ActivePublicMediaContext | null = null;
@@ -159,6 +168,9 @@ export class WebrtcSessionService {
     this.activeEpoch = 1;
     this.localDescriptionPublicationPending = false;
     this.pendingLocalIce = [];
+    this.remoteDescriptionApplied = false;
+    this.pendingRemoteIce = [];
+    this.failureReason$.next(null);
     this.state$.next('connecting');
     this.dataChannelState$.next('absent');
     this.sessionStarted$.next(sessionId);
@@ -166,6 +178,19 @@ export class WebrtcSessionService {
 
     const profile = this.profiles.current;
     const publicSession = this.controlPlane.isPublicSession(sessionId);
+    if (publicSession) {
+      try {
+        // This check must precede TURN issuance: a signaling generation whose
+        // retained sequence cannot safely be reused must not consume another
+        // short-lived credential on every UI security refresh.
+        this.controlPlane.assertSessionAvailable(sessionId);
+        this.signaling.assertSessionReusable(sessionId);
+      } catch (error) {
+        const reasonCode = errorReasonCode(error, 'public_session_unavailable');
+        this.terminateSession('failed', reasonCode);
+        throw error;
+      }
+    }
     this.publicSdpPhase = publicSession
       ? isInitiator ? 'awaiting-answer' : 'awaiting-offer'
       : 'none';
@@ -177,18 +202,30 @@ export class WebrtcSessionService {
         const credentials = await firstValueFrom(this.controlPlane.turnCredentials(sessionId));
         if (credentials?.uris?.length && credentials.username && credentials.password) {
           iceServers.push({
-            urls: credentials.uris,
+            urls: [...credentials.uris],
             username: credentials.username,
             credential: credentials.password,
           });
         }
       } catch (error) {
         if (generation !== this.sessionGeneration || this.sessionId !== sessionId) return;
+        const terminalReason = terminalPairSessionReason(error);
+        if (terminalReason) {
+          this.terminateSession('failed', terminalReason);
+          throw error;
+        }
         // A missing/changed public identity is an authority loss, not a TURN
         // outage. It must stop the session instead of continuing on STUN.
         this.controlPlane.assertSessionAvailable(sessionId);
         const status = Number((error as { status?: unknown } | null)?.status);
-        if (status === 401 || status === 403) throw error;
+        if (status === 401 || status === 403) {
+          // A server-rejected authority must not become a two-second
+          // TURN/reopen loop. Preserve the control-plane binding for an
+          // explicit End/Leave retry, but quarantine this signaling session.
+          this.signaling.markSessionRecreationRequired(sessionId);
+          this.terminateSession('failed', SIGNAL_SESSION_RECREATION_REQUIRED);
+          throw error;
+        }
         // STUN/direct connectivity remains available when TURN issuance is
         // temporarily unavailable. No application payload falls back to Hub.
       }
@@ -311,7 +348,17 @@ export class WebrtcSessionService {
       } catch (error) {
         if (this.isCurrentSession(pc, sessionId, generation)) {
           this.audit('signal_error', error instanceof Error ? error.message : String(error));
-          this.terminateSession('failed');
+          const publicFailure = this.controlPlane.isPublicSession(sessionId);
+          if (publicFailure) this.signaling.markSessionRecreationRequired(sessionId);
+          // Public apply failures are latched by WebrtcSignalingService while
+          // its generation is still current. Keep that connection alive until
+          // the rejected handler reaches the signaling owner; its failed state
+          // then drives the single teardown below.
+          if (!publicFailure) {
+            this.terminateSession(
+              'failed', errorReasonCode(error, 'webrtc_signal_apply_failed'),
+            );
+          }
         }
         throw error;
       }
@@ -319,7 +366,13 @@ export class WebrtcSessionService {
     this.signalingStatusSubscription = this.signaling.status$.subscribe(status => {
       if (status !== 'failed' || !this.isCurrentSession(pc, sessionId, generation)) return;
       this.audit('signaling_failed');
-      this.terminateSession('failed');
+      const signalingReason = this.signaling.failureReason$.value;
+      const reasonCode = isTerminalPairSessionReason(signalingReason)
+        ? signalingReason
+        : this.signaling.isSessionRecreationRequired(sessionId)
+          ? SIGNAL_SESSION_RECREATION_REQUIRED
+          : signalingReason || 'webrtc_signaling_failed';
+      this.terminateSession('failed', reasonCode);
     });
     this.signaling.connect(profile.signaling_url, sessionId, remotePeerId);
     if (!this.isCurrentSession(pc, sessionId, generation)) return;
@@ -333,6 +386,7 @@ export class WebrtcSessionService {
         if (this.pairMediaTransforms.isPrepared(sessionId)) {
           this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_timeout');
         } else {
+          this.failureReason$.next('webrtc_peer_connection_timeout');
           this.state$.next('failed');
         }
       }
@@ -343,7 +397,23 @@ export class WebrtcSessionService {
     this.terminateSession('closed');
   }
 
-  private terminateSession(finalState: Extract<PeerState, 'failed' | 'closed'>): void {
+  /** Clears same-session replay state only after confirmed server retirement. */
+  retireSession(sessionId: string): void {
+    if (this.sessionId === sessionId) this.terminateSession('closed');
+    this.signaling.retireSession(sessionId);
+    if (this.failureReason$.value === SIGNAL_SESSION_RECREATION_REQUIRED) {
+      this.failureReason$.next(null);
+    }
+  }
+
+  isSessionRecreationRequired(sessionId: string): boolean {
+    return this.signaling.isSessionRecreationRequired(sessionId);
+  }
+
+  private terminateSession(
+    finalState: Extract<PeerState, 'failed' | 'closed'>,
+    reasonCode?: string,
+  ): void {
     const closingSessionId = this.sessionId;
     const mediaContext = this.activePublicMediaContext;
     this.activePublicMediaContext = null;
@@ -354,6 +424,8 @@ export class WebrtcSessionService {
     this.signalingStatusSubscription = null;
     this.localDescriptionPublicationPending = false;
     this.pendingLocalIce = [];
+    this.remoteDescriptionApplied = false;
+    this.pendingRemoteIce = [];
     this.stopPendingPublicMediaTracks();
     if (this.connectionTimeout) { clearTimeout(this.connectionTimeout); this.connectionTimeout = null; }
     this.clearDisconnectTimeout();
@@ -379,8 +451,14 @@ export class WebrtcSessionService {
       }
     }
     if (closingSessionId) this.pairMediaE2ee.unbindTransport(closingSessionId, `public_media_session_${finalState}`);
+    if (finalState === 'failed') {
+      this.failureReason$.next(reasonCode || this.failureReason$.value || 'webrtc_session_failed');
+    }
     this.state$.next(finalState);
-    this.audit(finalState === 'failed' ? 'session_failed' : 'session_closed');
+    this.audit(
+      finalState === 'failed' ? 'session_failed' : 'session_closed',
+      finalState === 'failed' ? this.failureReason$.value || undefined : undefined,
+    );
     this.sessionId = '';
     this.isInitiator = false;
     this.publicSdpPhase = 'none';
@@ -834,6 +912,7 @@ export class WebrtcSessionService {
           this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_lost');
           return;
         }
+        this.failureReason$.next('webrtc_peer_connection_failed');
         this.state$.next('failed');
         return;
       }
@@ -906,7 +985,13 @@ export class WebrtcSessionService {
       void this.createOffer(pc, sessionId, generation).catch(error => {
         if (this.isCurrentSession(pc, sessionId, generation)) {
           this.audit('signal_error', error instanceof Error ? error.message : String(error));
-          this.terminateSession('failed');
+          const publicFailure = this.controlPlane.isPublicSession(sessionId);
+          this.terminateSession(
+            'failed',
+            publicFailure && this.signaling.isSessionRecreationRequired(sessionId)
+              ? SIGNAL_SESSION_RECREATION_REQUIRED
+              : errorReasonCode(error, 'webrtc_signal_send_failed'),
+          );
         }
       });
     } else {
@@ -960,17 +1045,22 @@ export class WebrtcSessionService {
           : true;
       if (!expected) {
         this.audit('public_sdp_rejected', `unexpected_${msg.type}:${this.publicSdpPhase}`);
+        // Latch before media fail callbacks: the E2EE coordinator is allowed
+        // to synchronously close signaling as part of fail-closed teardown.
+        this.signaling.markSessionRecreationRequired(sessionId);
         if (this.pairMediaTransforms.isPrepared(sessionId)) {
           this.pairMediaE2ee.fail(sessionId, 'public_media_unexpected_sdp');
         }
-        if (this.isCurrentSession(pc, sessionId, generation)) this.terminateSession('failed');
-        return;
+        throw new Error('public_media_unexpected_sdp');
       }
       if (msg.type === 'offer') this.publicSdpPhase = 'processing-offer';
       if (msg.type === 'answer') this.publicSdpPhase = 'processing-answer';
     }
     if (msg.type === 'offer') {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      this.remoteDescriptionApplied = true;
+      await this.flushRemoteIce(pc, sessionId, generation);
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
       const disabledContract = this.securityBootstrap.mediaContractFor(sessionId);
       if (
@@ -1018,6 +1108,9 @@ export class WebrtcSessionService {
     } else if (msg.type === 'answer') {
       await pc.setRemoteDescription(new RTCSessionDescription(msg.payload as RTCSessionDescriptionInit));
       if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      this.remoteDescriptionApplied = true;
+      await this.flushRemoteIce(pc, sessionId, generation);
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
       const currentMediaContext = this.activePublicMediaContext;
       if (
         this.isActivePublicMediaContext(currentMediaContext, pc, sessionId, generation)
@@ -1030,8 +1123,31 @@ export class WebrtcSessionService {
       }
       if (this.controlPlane.isPublicSession(sessionId)) this.publicSdpPhase = 'established';
     } else if (msg.type === 'ice_candidate') {
-      await pc.addIceCandidate(new RTCIceCandidate(msg.payload as RTCIceCandidateInit));
+      const candidate = msg.payload as RTCIceCandidateInit;
+      if (!this.remoteDescriptionApplied) {
+        if (this.pendingRemoteIce.length >= REMOTE_ICE_BUFFER_MAX) {
+          throw new Error('webrtc_remote_ice_buffer_overflow');
+        }
+        this.pendingRemoteIce.push(candidate);
+        this.audit('remote_ice_buffered', `count=${this.pendingRemoteIce.length}`);
+        return;
+      }
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
     }
+  }
+
+  private async flushRemoteIce(
+    pc: RTCPeerConnection,
+    sessionId: string,
+    generation: number,
+  ): Promise<void> {
+    const buffered = this.pendingRemoteIce;
+    this.pendingRemoteIce = [];
+    for (const candidate of buffered) {
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    }
+    if (buffered.length > 0) this.audit('remote_ice_flushed', `count=${buffered.length}`);
   }
 
   private async publishLocalDescription(
@@ -1354,6 +1470,7 @@ export class WebrtcSessionService {
         this.pairMediaE2ee.fail(sessionId, 'public_media_peer_connection_lost');
         return;
       }
+      this.failureReason$.next('webrtc_peer_connection_lost');
       this.state$.next('failed');
     }, PEER_CONNECTION_DISCONNECT_GRACE_MS);
     this.disconnectTimeout = timeout;
@@ -1373,4 +1490,8 @@ export class WebrtcSessionService {
     // in the console and trip the auth interceptor's refresh logic.
     // If a future Hub version exposes such an endpoint, wire it up here.
   }
+}
+
+function errorReasonCode(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }

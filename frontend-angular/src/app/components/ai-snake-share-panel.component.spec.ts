@@ -45,6 +45,13 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
   return { service, binding, core };
 }
 
+function deferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+  const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+  return { promise, resolve, reject };
+}
+
 describe('AiSnakeSharePanelComponent production security host', () => {
   it('boots the Pair binding and exposes confirmed E2EE in the reachable Share UI', () => {
     const { binding } = configure('ready');
@@ -182,4 +189,83 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     expect(service.discardPendingJoinAttempt).not.toHaveBeenCalled();
     expect(fixture.componentInstance.joinCode).toBe('CURRENT42');
   });
+
+  it('serializes owner end and leaves a failed terminal action retryable', async () => {
+    const { service } = configure('ready');
+    const pending = deferred<void>();
+    service.endSession.mockReturnValueOnce(pending.promise);
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.detectChanges();
+
+    const endButton = fixture.nativeElement.querySelector<HTMLButtonElement>(
+      '[data-testid="end-pair-session"]',
+    );
+    expect(endButton).not.toBeNull();
+    endButton?.click();
+    endButton?.click();
+    fixture.changeDetectorRef.detectChanges();
+    expect(service.endSession).toHaveBeenCalledOnce();
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(endButton).toHaveProperty('disabled', true);
+
+    pending.reject(new Error('pair_session_end_retry_required'));
+    await pending.promise.catch(() => undefined);
+    await Promise.resolve();
+    fixture.changeDetectorRef.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('[data-testid="pair-session-action-error"]')?.textContent)
+      .toContain('pair_session_end_retry_required');
+    expect(fixture.nativeElement.querySelector('[data-testid="end-pair-session"]'))
+      .toHaveProperty('disabled', false);
+
+    service.endSession.mockResolvedValueOnce(undefined);
+    await fixture.componentInstance.doEnd();
+    expect(service.endSession).toHaveBeenCalledTimes(2);
+    expect(fixture.componentInstance.sessionActionError).toBe('');
+    confirm.mockRestore();
+  });
+
+  it('awaits the authenticated participant leave operation and renders its local error', async () => {
+    const { service } = configure('ready');
+    service.state$.next({ ...service.state$.value, role: 'participant' });
+    service.leaveSession.mockRejectedValueOnce(new Error('pair_session_leave_retry_required'));
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.detectChanges();
+
+    await fixture.componentInstance.doLeave();
+    fixture.detectChanges();
+
+    expect(service.leaveSession).toHaveBeenCalledOnce();
+    expect(fixture.nativeElement.querySelector('[data-testid="pair-session-action-error"]')?.textContent)
+      .toContain('pair_session_leave_retry_required');
+    expect(fixture.nativeElement.querySelector('[data-testid="leave-pair-session"]'))
+      .toHaveProperty('disabled', false);
+  });
+
+  it.each(['create', 'join'] as const)(
+    'returns from the %s sub-view to show a terminal session-action failure',
+    async view => {
+      const { service } = configure('ready');
+      const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+      service.endSession.mockImplementationOnce(async () => {
+        service.isActive = false;
+        service.state$.next({
+          session: null, participants: [], messages: [], cursor: '0', role: null,
+        });
+        throw new Error('membership_capability_retired');
+      });
+      const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+      fixture.componentInstance.view = view;
+      fixture.detectChanges();
+
+      await fixture.componentInstance.doEnd();
+      fixture.changeDetectorRef.detectChanges();
+
+      expect(fixture.componentInstance.view).toBe('home');
+      expect(fixture.nativeElement.querySelector('[data-testid="pair-session-action-error"]')?.textContent)
+        .toContain('membership_capability_retired');
+      confirm.mockRestore();
+    },
+  );
 });

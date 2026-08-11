@@ -1,5 +1,6 @@
+import { HttpContext } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { defer, firstValueFrom, of, throwError } from 'rxjs';
+import { TimeoutError, defer, firstValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
@@ -11,6 +12,7 @@ import { PublicPairMediaRuntimeCapabilityService } from './public-pair-media-run
 import { PUBLIC_PAIR_MEDIA_CAPABILITIES_V2 } from './public-pair-media-security-contract';
 import { PUBLIC_OIDC_ISSUER } from './public-ananta-endpoints';
 import { UserAuthService } from './user-auth.service';
+import { SUPPRESS_GLOBAL_ERROR_NOTIFICATION } from './error-request-context';
 
 describe('PairSessionControlPlaneService', () => {
   const posts: Array<{ url: string; body: Record<string, unknown>; token?: string }> = [];
@@ -22,6 +24,7 @@ describe('PairSessionControlPlaneService', () => {
     body?: unknown;
     token?: string;
     headers?: Record<string, string>;
+    context?: HttpContext;
   }> = [];
   const ownerPeerId = `peer:${'a'.repeat(64)}`;
   const joinerPeerId = `peer:${'b'.repeat(64)}`;
@@ -80,7 +83,12 @@ describe('PairSessionControlPlaneService', () => {
           method: string,
           url: string,
           _base: string,
-          options: { body?: unknown; token?: string; headers?: Record<string, string> } = {},
+          options: {
+            body?: unknown;
+            token?: string;
+            headers?: Record<string, string>;
+            context?: HttpContext;
+          } = {},
         ) => {
           requests.push({ method, url, ...options });
           if (method === 'POST' && url.endsWith('/rendezvous/sessions')) {
@@ -466,6 +474,8 @@ describe('PairSessionControlPlaneService', () => {
         'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       },
     });
+    expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+    expect(requests[1].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
   });
 
   it('requests TURN credentials through the exact bound public session', async () => {
@@ -483,6 +493,39 @@ describe('PairSessionControlPlaneService', () => {
       token: oidcToken,
       headers: expect.objectContaining({ 'X-Ananta-Peer-Id': ownerPeerId }),
     })]);
+    expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+  });
+
+  it('coalesces and caches TURN credentials for one exact immutable binding', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    requests.length = 0;
+
+    const [first, second] = await Promise.all([
+      firstValueFrom(service.turnCredentials('created-session')),
+      firstValueFrom(service.turnCredentials('created-session')),
+    ]);
+    const third = await firstValueFrom(service.turnCredentials('created-session'));
+
+    expect(first).toEqual(second);
+    expect(third).toEqual(first);
+    expect(requests.filter(request => request.url.includes('/turn-credentials?')))
+      .toHaveLength(1);
+  });
+
+  it('invalidates TURN credentials when a local session binding is forgotten', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    requests.length = 0;
+    await firstValueFrom(service.turnCredentials('created-session'));
+
+    service.forgetSession('created-session');
+    listedResponses = [publicSession('created-session', ownerPeerId)];
+    await firstValueFrom(service.list());
+    await firstValueFrom(service.turnCredentials('created-session'));
+
+    expect(requests.filter(request => request.url.includes('/turn-credentials?')))
+      .toHaveLength(2);
   });
 
   it('rejects TURN credentials whose response is not bound to the exact session and peer', async () => {
@@ -688,6 +731,31 @@ describe('PairSessionControlPlaneService', () => {
 
     await firstValueFrom(service.participants('legacy-session'));
     expect(requests[0].headers).toEqual({ 'X-Ananta-Peer-Id': legacyPeerId });
+    expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+  });
+
+  it('does not amplify caller-owned public read failures with an implicit HTTP retry', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    const terminal = { status: 404, error: { error: 'session_not_found' } };
+    let participantAttempts = 0;
+    vi.mocked(core.request).mockReturnValueOnce(defer(() => {
+      participantAttempts += 1;
+      return throwError(() => terminal);
+    }));
+
+    await expect(firstValueFrom(service.participants('created-session'))).rejects.toBe(terminal);
+    expect(participantAttempts).toBe(1);
+
+    let securityAttempts = 0;
+    vi.mocked(core.request).mockReturnValueOnce(defer(() => {
+      securityAttempts += 1;
+      return throwError(() => terminal);
+    }));
+    await expect(firstValueFrom(service.securityGet('created-session', 'contract')))
+      .rejects.toBe(terminal);
+    expect(securityAttempts).toBe(1);
   });
 
   it('rejects a bound response for another device peer', async () => {
@@ -736,6 +804,75 @@ describe('PairSessionControlPlaneService', () => {
 
     expect(() => capabilities.require('created-session', ownerPeerId, capabilityScope()))
       .toThrow('public_membership_capability_missing');
+    expect(() => service.peerIdForSession('created-session'))
+      .toThrow('pair_control_plane_binding_missing');
+  });
+
+  it('leaves only the exact authenticated public membership and retires its local proof', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    requests.length = 0;
+
+    await firstValueFrom(service.leave('created-session'));
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0]).toMatchObject({
+      method: 'DELETE',
+      url: 'https://webrtc.ananta.de/rendezvous/sessions/created-session/membership',
+      headers: {
+        'X-Ananta-Peer-Id': ownerPeerId,
+      },
+    });
+    expect(requests[0].headers?.['X-Ananta-Membership-Capability'])
+      .toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(() => service.peerIdForSession('created-session'))
+      .toThrow('pair_control_plane_binding_missing');
+  });
+
+  it('retries one ambiguous public membership leave sequentially', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    let attempts = 0;
+    vi.mocked(core.request).mockReturnValueOnce(defer(() => {
+      attempts += 1;
+      return attempts === 1
+        ? throwError(() => ({ status: 0 }))
+        : of({ ok: true, local_peer_id: ownerPeerId, idempotent: true });
+    }));
+
+    await firstValueFrom(service.leave('created-session'));
+
+    expect(attempts).toBe(2);
+    expect(() => service.peerIdForSession('created-session'))
+      .toThrow('pair_control_plane_binding_missing');
+  });
+
+  it('retries one RxJS timeout for an idempotent public membership leave', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    let attempts = 0;
+    vi.mocked(core.request).mockReturnValueOnce(defer(() => {
+      attempts += 1;
+      return attempts === 1
+        ? throwError(() => new TimeoutError())
+        : of({ ok: true, local_peer_id: ownerPeerId, idempotent: true });
+    }));
+
+    await firstValueFrom(service.leave('created-session'));
+
+    expect(attempts).toBe(2);
+  });
+
+  it('retires unusable local authority but still surfaces a forbidden leave', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    const core = TestBed.inject(HubApiCoreService);
+    const forbidden = { status: 403, error: { error: 'forbidden' } };
+    vi.mocked(core.request).mockReturnValueOnce(throwError(() => forbidden));
+
+    await expect(firstValueFrom(service.leave('created-session'))).rejects.toBe(forbidden);
     expect(() => service.peerIdForSession('created-session'))
       .toThrow('pair_control_plane_binding_missing');
   });

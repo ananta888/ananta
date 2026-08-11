@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { BehaviorSubject, Subject, of } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { NetworkProfileService } from './network-profile.service';
@@ -93,8 +93,13 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
   let signaling: {
     message$: Subject<SignalMessage>;
     status$: BehaviorSubject<'disconnected' | 'connecting' | 'connected' | 'failed'>;
+    failureReason$: BehaviorSubject<string | null>;
     connect: ReturnType<typeof vi.fn>;
     disconnect: ReturnType<typeof vi.fn>;
+    assertSessionReusable: ReturnType<typeof vi.fn>;
+    isSessionRecreationRequired: ReturnType<typeof vi.fn>;
+    markSessionRecreationRequired: ReturnType<typeof vi.fn>;
+    retireSession: ReturnType<typeof vi.fn>;
     send: ReturnType<typeof vi.fn>;
     fallbackToHubRelay: ReturnType<typeof vi.fn>;
     bindMessageHandler: ReturnType<typeof vi.fn>;
@@ -129,8 +134,13 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     signaling = {
       message$: new Subject<SignalMessage>(),
       status$: new BehaviorSubject<'disconnected' | 'connecting' | 'connected' | 'failed'>('disconnected'),
+      failureReason$: new BehaviorSubject<string | null>(null),
       connect: vi.fn(),
       disconnect: vi.fn(),
+      assertSessionReusable: vi.fn(),
+      isSessionRecreationRequired: vi.fn(() => false),
+      markSessionRecreationRequired: vi.fn(),
+      retireSession: vi.fn(),
       send: vi.fn(),
       fallbackToHubRelay: vi.fn(),
       bindMessageHandler: vi.fn((handler: (message: Readonly<SignalMessage>) => Promise<void>) => {
@@ -142,6 +152,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     };
     controlPlane.isPublicSession.mockReset();
     controlPlane.isPublicSession.mockReturnValue(false);
+    controlPlane.turnCredentials.mockReset();
     controlPlane.turnCredentials.mockReturnValue(of(null));
     controlPlane.assertSessionAvailable.mockReset();
     TestBed.resetTestingModule();
@@ -195,6 +206,19 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     }));
   });
 
+  it('preserves an explicit server-terminal signaling reason over a local latch', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.startSession('public-session', false, 'bob');
+    signaling.failureReason$.next('session_expired');
+    signaling.isSessionRecreationRequired.mockReturnValue(true);
+
+    signaling.status$.next('failed');
+
+    expect(service.state$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('session_expired');
+    expect(FakePeerConnection.instances[0].close).toHaveBeenCalledOnce();
+  });
+
   it('adds short-lived TURN credentials to STUN for public ICE fallback', async () => {
     controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
     controlPlane.turnCredentials.mockReturnValue(of({
@@ -214,6 +238,134 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
       urls: 'stun:hub-profile.invalid:3478',
     });
     expect(controlPlane.turnCredentials).toHaveBeenCalledWith('public-session');
+  });
+
+  it('rejects a terminal public signaling generation before requesting TURN', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    signaling.assertSessionReusable.mockImplementation(() => {
+      throw new Error('public_signaling_session_recreation_required');
+    });
+
+    await expect(service.startSession('public-session', false, 'bob'))
+      .rejects.toThrow('public_signaling_session_recreation_required');
+
+    expect(controlPlane.turnCredentials).not.toHaveBeenCalled();
+    expect(FakePeerConnection.instances).toEqual([]);
+    expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+  });
+
+  it.each([
+    [404, 'session_not_found'],
+    [409, 'session_inactive'],
+  ])('does not allocate a peer after terminal TURN HTTP %s (%s)', async (status, reasonCode) => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    const terminalError = { status, error: { error: reasonCode } };
+    controlPlane.turnCredentials.mockReturnValue(throwError(() => terminalError));
+
+    await expect(service.startSession('public-session', false, 'bob'))
+      .rejects.toBe(terminalError);
+
+    expect(FakePeerConnection.instances).toEqual([]);
+    expect(signaling.bindMessageHandler).not.toHaveBeenCalled();
+    expect(signaling.connect).not.toHaveBeenCalled();
+    expect(service.failureReason$.value).toBe(reasonCode);
+  });
+
+  it.each([401, 403])(
+    'quarantines a generic TURN authority rejection (HTTP %s) before peer allocation',
+    async status => {
+      controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+      const authorityError = { status, error: { error: 'oidc_token_rejected' } };
+      controlPlane.turnCredentials.mockReturnValue(throwError(() => authorityError));
+
+      await expect(service.startSession('public-session', false, 'bob'))
+        .rejects.toBe(authorityError);
+
+      expect(signaling.markSessionRecreationRequired).toHaveBeenCalledOnce();
+      expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session');
+      expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+      expect(FakePeerConnection.instances).toEqual([]);
+      expect(signaling.bindMessageHandler).not.toHaveBeenCalled();
+      expect(signaling.connect).not.toHaveBeenCalled();
+      expect(controlPlane.turnCredentials).toHaveBeenCalledOnce();
+    },
+  );
+
+  it.each([429, 503])('retains STUN fallback for transient TURN HTTP %s', async status => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    controlPlane.turnCredentials.mockReturnValue(throwError(() => ({
+      status,
+      error: { error: status === 429 ? 'rate_limited' : 'turn_unavailable' },
+      headers: { get: () => status === 429 ? '5' : null },
+    })));
+
+    await expect(service.startSession('public-session', false, 'bob')).resolves.toBeUndefined();
+
+    expect(FakePeerConnection.instances).toHaveLength(1);
+    expect(FakePeerConnection.instances[0].configuration?.iceServers).toEqual([
+      { urls: PUBLIC_WEBRTC_STUN_URL },
+    ]);
+    expect(signaling.connect).toHaveBeenCalledWith('', 'public-session', 'bob');
+  });
+
+  it('buffers retained remote ICE until the matching remote description is applied', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.startSession('public-session', false, 'bob');
+    const peer = FakePeerConnection.instances[0];
+
+    await signalHandler?.({
+      id: 'signal-1', type: 'ice_candidate', session_id: 'public-session',
+      sender_id: 'bob', recipient_id: 'alice', payload: { candidate: 'candidate:retained' },
+    });
+    expect(peer.addIceCandidate).not.toHaveBeenCalled();
+
+    await signalHandler?.({
+      id: 'signal-2', type: 'offer', session_id: 'public-session',
+      sender_id: 'bob', recipient_id: 'alice', payload: { type: 'offer', sdp: 'offer-sdp' },
+    });
+
+    expect(peer.setRemoteDescription).toHaveBeenCalledOnce();
+    expect(peer.addIceCandidate).toHaveBeenCalledOnce();
+    expect(peer.addIceCandidate.mock.calls[0][0]).toMatchObject({
+      init: { candidate: 'candidate:retained' },
+    });
+    expect(service.auditLog).toContainEqual(expect.objectContaining({
+      type: 'remote_ice_flushed', session_id: 'public-session', detail: 'count=1',
+    }));
+  });
+
+  it('does not carry buffered remote ICE into a replacement generation', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId.startsWith('public-'));
+    await service.startSession('public-one', false, 'bob');
+    await signalHandler?.({
+      id: 'signal-1', type: 'ice_candidate', session_id: 'public-one',
+      sender_id: 'bob', recipient_id: 'alice', payload: { candidate: 'candidate:old' },
+    });
+
+    service.closeSession();
+    await service.startSession('public-two', false, 'carol');
+    const replacement = FakePeerConnection.instances[1];
+    await signalHandler?.({
+      id: 'signal-2', type: 'offer', session_id: 'public-two',
+      sender_id: 'carol', recipient_id: 'alice', payload: { type: 'offer', sdp: 'new' },
+    });
+
+    expect(replacement.addIceCandidate).not.toHaveBeenCalled();
+  });
+
+  it('bounds remote ICE retained before SDP', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.startSession('public-session', false, 'bob');
+    const candidate = (index: number): SignalMessage => ({
+      id: `signal-${index}`, type: 'ice_candidate', session_id: 'public-session',
+      sender_id: 'bob', recipient_id: 'alice', payload: { candidate: `candidate:${index}` },
+    });
+
+    for (let index = 0; index < 256; index += 1) await signalHandler?.(candidate(index));
+    await expect(signalHandler?.(candidate(256)))
+      .rejects.toThrow('webrtc_remote_ice_buffer_overflow');
+    expect(FakePeerConnection.instances[0].addIceCandidate).not.toHaveBeenCalled();
+    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session');
   });
 
   it('rejects local and remote ordinary tracks for a public Pair session', async () => {
@@ -268,6 +420,15 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
 
     expect(FakePeerConnection.instances).toEqual([]);
     expect(signaling.connect).not.toHaveBeenCalled();
+  });
+
+  it('retires exact-session signaling metadata after confirmed teardown', async () => {
+    await service.startSession('session-retired', false, 'bob');
+
+    service.retireSession('session-retired');
+
+    expect(signaling.retireSession).toHaveBeenCalledWith('session-retired');
+    expect(service.state$.value).toBe('closed');
   });
 
   it('handles each signal exactly once after closing and starting another session', async () => {

@@ -54,10 +54,30 @@ export class WebrtcSignalCheckpointStore {
       for (const key of keys) sessionStorage.removeItem(key);
     } catch { /* no persistent storage to clear */ }
   }
+
+  /** Removes ACK metadata for one server-confirmed retired session only. */
+  clearSession(sessionId: string): void {
+    const prefix = checkpointSessionPrefix(sessionId);
+    for (const key of this.memory.keys()) {
+      if (key.startsWith(prefix)) this.memory.delete(key);
+    }
+    try {
+      const keys: string[] = [];
+      for (let index = 0; index < sessionStorage.length; index += 1) {
+        const key = sessionStorage.key(index);
+        if (key?.startsWith(prefix)) keys.push(key);
+      }
+      for (const key of keys) sessionStorage.removeItem(key);
+    } catch { /* no persistent storage to clear */ }
+  }
 }
 
 function checkpointKey(context: WebrtcSignalCheckpointContext): string {
-  return `${STORAGE_PREFIX}${encodeURIComponent(context.sessionId)}.${encodeURIComponent(context.localPeerId)}.${encodeURIComponent(context.remotePeerId)}`;
+  return `${checkpointSessionPrefix(context.sessionId)}${encodeURIComponent(context.localPeerId)}.${encodeURIComponent(context.remotePeerId)}`;
+}
+
+function checkpointSessionPrefix(sessionId: string): string {
+  return `${STORAGE_PREFIX}${encodeURIComponent(sessionId)}.`;
 }
 
 function parseCheckpoint(raw: string | null): WebrtcSignalCheckpoint | null {

@@ -1,5 +1,5 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Subscription, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, firstValueFrom } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
@@ -16,6 +16,11 @@ import {
   PairSecurityBootstrapState,
   PairViewSecurityBootstrapService,
 } from './pair-view-security-bootstrap.service';
+import {
+  isIdempotentPairSessionRetirementReason,
+  isTerminalPairSessionReason,
+  terminalPairSessionReason,
+} from './pair-session-terminal-error';
 
 export interface ShareSession {
   id: string;
@@ -111,12 +116,18 @@ export class ShareSessionService implements OnDestroy {
   readonly securityState$ = this.securityBootstrap.state$;
 
   private pollHandle: ReturnType<typeof setInterval> | null = null;
-  private readonly subscriptions = new Subscription();
+  private readonly lifetimeSubscriptions = new Subscription();
+  private sessionRequests = new Subscription();
   private messagePollInFlight = false;
-  private securityGeneration = 0;
+  private sessionGeneration = 0;
+  private transportTerminalSessionId = '';
+  private retirementOperation: Readonly<{
+    sessionId: string;
+    promise: Promise<void>;
+  }> | null = null;
 
   constructor() {
-    this.subscriptions.add(this.transport.message$.subscribe((msg) => {
+    this.lifetimeSubscriptions.add(this.transport.message$.subscribe((msg) => {
       if (msg.type !== 'chat') return;
       const session = this.state$.value.session;
       if (!session || msg.session_id !== session.id) return;
@@ -127,12 +138,29 @@ export class ShareSessionService implements OnDestroy {
         }
       }
       if (session && this.isStrictSession(session)) {
-        void this.acceptStrictChatWire(msg.payload).catch(() => undefined);
+        void this.acceptStrictChatWire(
+          msg.payload,
+          session.id,
+          this.sessionGeneration,
+        ).catch(() => undefined);
         return;
       }
       const item = this.parseLegacyChat(msg.payload);
       if (item) this.appendMessage(item);
     }));
+    const terminalFailures = this.transport.terminalFailure$;
+    if (terminalFailures) {
+      this.lifetimeSubscriptions.add(terminalFailures.subscribe(failure => {
+        if (!failure) return;
+        const active = this.state$.value.session;
+        if (active?.id !== failure.sessionId) return;
+        if (failure.kind === 'server_terminal') {
+          this.terminateRemoteSession(active.id, this.sessionGeneration);
+        } else {
+          this.quiesceActiveTransport(active.id, this.sessionGeneration);
+        }
+      }));
+    }
   }
 
   get isActive(): boolean { return !!this.state$.value.session; }
@@ -331,26 +359,108 @@ export class ShareSessionService implements OnDestroy {
   revokeParticipant(participantId: string): void {
     const { session } = this.state$.value;
     if (!session) return;
+    const generation = this.sessionGeneration;
+    const requestScope = this.sessionRequests;
     try {
-      this.controlPlane.revokeParticipant(session.id, participantId).subscribe({
+      const request = this.controlPlane.revokeParticipant(session.id, participantId).subscribe({
         next: () => this.fetchParticipants(),
-        error: () => {},
+        error: error => this.handleSessionRequestError(error, session.id, generation),
       });
+      this.trackSessionRequest(requestScope, request);
     } catch { /* public authority loss remains local and never falls back */ }
   }
 
-  endSession(): void {
+  endSession(): Promise<void> {
     const { session } = this.state$.value;
-    if (!session) return;
-    try {
-      this.controlPlane.end(session.id).subscribe({ error: () => {} });
-    } finally {
+    if (!session) return Promise.resolve();
+    return this.runRetirementOnce(session.id, () => this.endActiveSession(session));
+  }
+
+  leaveSession(): Promise<void> {
+    const { session, role } = this.state$.value;
+    if (!session) return Promise.resolve();
+    if (role === 'owner') return this.endSession();
+    if (role !== 'participant' || !this.controlPlane.isPublicSession(session.id)) {
       this.clearActiveSession();
+      return Promise.resolve();
+    }
+    return this.runRetirementOnce(session.id, () => this.leaveActiveMembership(session));
+  }
+
+  private async endActiveSession(session: ShareSession): Promise<void> {
+    let request: Observable<unknown>;
+    try {
+      // Construct the authenticated request while the immutable binding is
+      // still present, then quiesce every background continuation before the
+      // bounded idempotent mutation leaves the browser.
+      request = this.controlPlane.end(session.id);
+    } catch (error) {
+      this.quiesceActiveTransport(session.id, this.sessionGeneration);
+      throw error;
+    }
+    const retirementGeneration = this.quiesceActiveTransport(
+      session.id,
+      this.sessionGeneration,
+    );
+    try {
+      await firstValueFrom(request);
+      this.completeSessionRetirement(session.id, retirementGeneration);
+    } catch (error) {
+      const terminalReason = terminalPairSessionReason(error);
+      if (terminalReason) {
+        this.completeSessionRetirement(session.id, retirementGeneration);
+      }
+      if (isIdempotentPairSessionRetirementReason(terminalReason)) {
+        return;
+      }
+      throw error;
     }
   }
 
-  leaveSession(): void {
-    this.clearActiveSession();
+  private async leaveActiveMembership(session: ShareSession): Promise<void> {
+    let request: Observable<unknown>;
+    try {
+      request = this.controlPlane.leave(session.id);
+    } catch (error) {
+      this.quiesceActiveTransport(session.id, this.sessionGeneration);
+      throw error;
+    }
+    const retirementGeneration = this.quiesceActiveTransport(
+      session.id,
+      this.sessionGeneration,
+    );
+    try {
+      await firstValueFrom(request);
+      this.completeSessionRetirement(session.id, retirementGeneration);
+    } catch (error) {
+      const terminalReason = terminalPairSessionReason(error);
+      if (terminalReason) {
+        this.completeSessionRetirement(session.id, retirementGeneration);
+      }
+      if (isIdempotentPairSessionRetirementReason(terminalReason)) {
+        return;
+      }
+      throw error;
+    }
+  }
+
+  private runRetirementOnce(sessionId: string, operation: () => Promise<void>): Promise<void> {
+    if (this.retirementOperation?.sessionId === sessionId) {
+      return this.retirementOperation.promise;
+    }
+    const pending = operation();
+    let tracked: Promise<void>;
+    tracked = pending.then(
+      () => {
+        if (this.retirementOperation?.promise === tracked) this.retirementOperation = null;
+      },
+      error => {
+        if (this.retirementOperation?.promise === tracked) this.retirementOperation = null;
+        throw error;
+      },
+    );
+    this.retirementOperation = Object.freeze({ sessionId, promise: tracked });
+    return tracked;
   }
 
   private startPolling(): void {
@@ -367,15 +477,21 @@ export class ShareSessionService implements OnDestroy {
     this.fetchParticipants();
     this.fetchMessages();
     this.sendHeartbeat();
-    void this.refreshSecurity();
+    if (this.state$.value.session?.id !== this.transportTerminalSessionId) {
+      void this.refreshSecurity();
+    }
   }
 
   private sendHeartbeat(): void {
     const { session } = this.state$.value;
     if (!session) return;
+    const generation = this.sessionGeneration;
+    const requestScope = this.sessionRequests;
     try {
-      this.controlPlane.heartbeat(session.id)
-        .subscribe({ error: () => {} });
+      const request = this.controlPlane.heartbeat(session.id).subscribe({
+        error: error => this.handleSessionRequestError(error, session.id, generation),
+      });
+      this.trackSessionRequest(requestScope, request);
     } catch {
       this.closeUnverifiedStrictTransport();
     }
@@ -384,14 +500,18 @@ export class ShareSessionService implements OnDestroy {
   private fetchParticipants(): void {
     const { session } = this.state$.value;
     if (!session) return;
+    const generation = this.sessionGeneration;
+    const requestScope = this.sessionRequests;
     try {
-      this.controlPlane.participants<{ ok: boolean; participants: ShareParticipant[]; data?: { participants: ShareParticipant[] } }>(session.id).subscribe({
+      const request = this.controlPlane.participants<{ ok: boolean; participants: ShareParticipant[]; data?: { participants: ShareParticipant[] } }>(session.id).subscribe({
         next: (r) => {
+          if (!this.isCurrentSession(session.id, generation)) return;
           const participants = r?.participants ?? r?.data?.participants;
           if (participants) this.state$.next({ ...this.state$.value, participants });
         },
-        error: () => {},
+        error: error => this.handleSessionRequestError(error, session.id, generation),
       });
+      this.trackSessionRequest(requestScope, request);
     } catch {
       this.closeUnverifiedStrictTransport();
     }
@@ -414,16 +534,25 @@ export class ShareSessionService implements OnDestroy {
     try { this.assertHubPayloadRelayAllowed(session.id); } catch { return; }
     const url = this.hubUrl;
     if (!url) return;
+    const generation = this.sessionGeneration;
+    const requestScope = this.sessionRequests;
     this.messagePollInFlight = true;
-    this.core.get<{ ok: boolean; messages: unknown[]; cursor: string }>(
+    const request = this.core.get<{ ok: boolean; messages: unknown[]; cursor: string }>(
       `${url}/share-sessions/${session.id}/chat/messages?since=${cursor}`, url,
     ).subscribe({
       next: (r) => {
-        void this.acceptChatPage(session, r?.messages ?? [], r?.cursor ?? cursor)
-          .finally(() => { this.messagePollInFlight = false; });
+        if (!this.isCurrentSession(session.id, generation)) return;
+        void this.acceptChatPage(session, r?.messages ?? [], r?.cursor ?? cursor, generation)
+          .finally(() => {
+            if (this.isCurrentSession(session.id, generation)) this.messagePollInFlight = false;
+          });
       },
-      error: () => { this.messagePollInFlight = false; },
+      error: error => {
+        if (this.isCurrentSession(session.id, generation)) this.messagePollInFlight = false;
+        this.handleSessionRequestError(error, session.id, generation);
+      },
     });
+    this.trackSessionRequest(requestScope, request);
   }
 
   participantStatus(p: ShareParticipant): string {
@@ -434,20 +563,30 @@ export class ShareSessionService implements OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.sessionGeneration += 1;
     this.stopPolling();
-    this.subscriptions.unsubscribe();
+    this.sessionRequests.unsubscribe();
+    this.lifetimeSubscriptions.unsubscribe();
     this.transport.close();
     this.securityBootstrap.clear();
   }
 
   private activateSession(session: ShareSession, role: 'owner' | 'participant'): void {
     if (this.controlPlane.isPublicSession(session.id)) this.publicContract.assertValid(session);
-    this.securityGeneration += 1;
+    const priorSessionId = this.state$.value.session?.id ?? '';
+    this.sessionGeneration += 1;
+    this.transportTerminalSessionId = '';
+    this.stopPolling();
+    this.resetSessionRequestScope();
     // A strict session may need several polling cycles before its remote peer
     // is cryptographically bound. Never retain the prior session's transport
     // while that verification is pending.
     this.transport.close();
     this.securityBootstrap.clear();
+    if (priorSessionId && priorSessionId !== session.id) {
+      this.secureSequences.clearScope(priorSessionId);
+      this.controlPlane.forgetSession(priorSessionId);
+    }
     this.state$.next({ session, participants: [], messages: [], cursor: '0', role });
     this.startPolling();
     if (this.isStrictSession(session)) {
@@ -463,21 +602,34 @@ export class ShareSessionService implements OnDestroy {
     }
   }
 
-  private clearActiveSession(): void {
+  private clearActiveSession(retireSession = false): void {
     const sessionId = this.state$.value.session?.id ?? '';
-    this.securityGeneration += 1;
+    this.sessionGeneration += 1;
+    this.transportTerminalSessionId = '';
     this.stopPolling();
-    this.transport.close();
-    if (sessionId) this.secureSequences.clearScope(sessionId);
-    if (sessionId) this.controlPlane.forgetSession(sessionId);
-    this.securityBootstrap.clear();
+    this.resetSessionRequestScope();
     this.messagePollInFlight = false;
     this.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    try {
+      if (retireSession && sessionId) this.transport.retireSession(sessionId);
+      else this.transport.close();
+    } catch { /* continue clearing every independent local authority */ }
+    if (sessionId) {
+      try { this.secureSequences.clearScope(sessionId); } catch { /* best-effort local cleanup */ }
+    }
+    if (sessionId) {
+      try {
+        if (retireSession) this.controlPlane.retireSession(sessionId);
+        else this.controlPlane.forgetSession(sessionId);
+      } catch { /* state and transport teardown remain terminal */ }
+    }
+    this.securityBootstrap.clear();
   }
 
   private async refreshSecurity(): Promise<void> {
     const session = this.state$.value.session;
     if (!session) return;
+    if (session.id === this.transportTerminalSessionId) return;
     if (this.controlPlane.isPublicSession(session.id)) {
       try { this.publicContract.assertValid(session); } catch {
         this.closeUnverifiedStrictTransport();
@@ -488,9 +640,25 @@ export class ShareSessionService implements OnDestroy {
       if (this.securityState$.value.status !== 'legacy') this.securityBootstrap.markLegacy();
       return;
     }
-    const generation = this.securityGeneration;
-    const ready = await this.securityBootstrap.ensure(session, this.currentUserId);
-    if (generation !== this.securityGeneration || this.state$.value.session?.id !== session.id) return;
+    const generation = this.sessionGeneration;
+    let ready: boolean;
+    try {
+      ready = await this.securityBootstrap.ensure(session, this.currentUserId);
+    } catch (error) {
+      if (this.handleSessionRequestError(error, session.id, generation)) return;
+      this.closeUnverifiedStrictTransport();
+      return;
+    }
+    if (!this.isCurrentSession(session.id, generation)) return;
+    const securityState = this.securityState$.value;
+    if (
+      !ready
+      && securityState.status === 'failed'
+      && isTerminalPairSessionReason(securityState.reasonCode)
+    ) {
+      this.terminateRemoteSession(session.id, generation);
+      return;
+    }
     const epoch = this.securityBootstrap.currentEpoch;
     if (epoch > 0 && epoch !== this.state$.value.session?.security_epoch) {
       const current = this.state$.value;
@@ -519,13 +687,18 @@ export class ShareSessionService implements OnDestroy {
   private async openVerifiedPairTransport(sessionId: string, generation: number): Promise<void> {
     const active = this.state$.value;
     if (
-      generation !== this.securityGeneration
+      generation !== this.sessionGeneration
       || active.session?.id !== sessionId
       || !this.isStrictSession(active.session)
       || !active.role
       || this.securityState$.value.status !== 'ready'
       || this.transport.mode$.value !== 'idle'
     ) return;
+
+    if (this.transport.isSessionRecreationRequired?.(sessionId)) {
+      this.quiesceActiveTransport(sessionId, generation);
+      return;
+    }
 
     // This value originates exclusively from the verified and confirmed key
     // binding. There is intentionally no participant-list or broadcast
@@ -538,43 +711,132 @@ export class ShareSessionService implements OnDestroy {
         semanticEpoch: active.session.security_epoch ?? 1,
         remotePeerId,
       });
-      if (generation !== this.securityGeneration || this.state$.value.session?.id !== sessionId) {
-        this.transport.close();
-      }
-    } catch {
+      // The transport owns its own generation fence. A late completion must
+      // not touch either a replacement session or a locally quiesced session.
+      if (!this.isCurrentSession(sessionId, generation)) return;
+    } catch (error) {
+      if (this.handleSessionRequestError(error, sessionId, generation)) return;
       // Fail closed and allow a later authenticated bootstrap poll to retry.
-      if (generation === this.securityGeneration && this.state$.value.session?.id === sessionId) {
+      if (this.isCurrentSession(sessionId, generation)) {
         this.transport.close();
       }
     }
   }
 
-  private async acceptChatPage(session: ShareSession, rawMessages: unknown[], cursor: string): Promise<void> {
-    if (this.state$.value.session?.id !== session.id) return;
+  private handleSessionRequestError(
+    error: unknown,
+    sessionId: string,
+    generation: number,
+  ): boolean {
+    if (!terminalPairSessionReason(error)) return false;
+    this.terminateRemoteSession(sessionId, generation);
+    return true;
+  }
+
+  private terminateRemoteSession(sessionId: string, generation: number): void {
+    if (!this.isCurrentSession(sessionId, generation)) return;
+    this.clearActiveSession(true);
+  }
+
+  private quiesceActiveTransport(sessionId: string, generation: number): number | null {
+    if (!this.isCurrentSession(sessionId, generation)) return null;
+    // A poisoned local signaling generation does not prove that the server
+    // session or membership ended. Preserve its authority so the owner can
+    // still End and a participant can still Leave, while preventing any
+    // background transport reopen (and therefore further TURN issuance).
+    if (this.transportTerminalSessionId === sessionId) return this.sessionGeneration;
+    this.sessionGeneration += 1;
+    this.transportTerminalSessionId = sessionId;
+    this.stopPolling();
+    this.resetSessionRequestScope();
+    this.messagePollInFlight = false;
+    this.transport.close();
+    this.securityBootstrap.clear();
+    return this.sessionGeneration;
+  }
+
+  private completeSessionRetirement(sessionId: string, generation: number | null): void {
+    if (generation !== null && this.isCurrentSession(sessionId, generation)) {
+      this.clearActiveSession(true);
+      return;
+    }
+    // The mutation belonged to an older session generation. Its control-plane
+    // request already retired the captured authority. Clean only artifacts
+    // whose session id cannot alias the replacement now shown in the UI.
+    const replacement = this.state$.value.session;
+    // A null state means another definitive path already performed the full
+    // teardown. Repeating exact-session retirement is unnecessary and could
+    // make "exactly once" lifecycle observers fire twice.
+    if (!replacement || replacement.id === sessionId) return;
+    try { this.transport.retireSession(sessionId); } catch { /* replacement remains authoritative */ }
+    try { this.secureSequences.clearScope(sessionId); } catch { /* best-effort stale-scope cleanup */ }
+  }
+
+  private isCurrentSession(sessionId: string, generation: number): boolean {
+    return generation === this.sessionGeneration
+      && this.state$.value.session?.id === sessionId;
+  }
+
+  private resetSessionRequestScope(): void {
+    this.sessionRequests.unsubscribe();
+    this.sessionRequests = new Subscription();
+  }
+
+  private trackSessionRequest(scope: Subscription, request: Subscription): void {
+    if (scope.closed || scope !== this.sessionRequests) {
+      request.unsubscribe();
+      return;
+    }
+    scope.add(request);
+  }
+
+  private async acceptChatPage(
+    session: ShareSession,
+    rawMessages: unknown[],
+    cursor: string,
+    generation: number,
+  ): Promise<void> {
+    if (!this.isCurrentSession(session.id, generation)) return;
     if (this.isStrictSession(session)) {
       for (const raw of rawMessages) {
-        try { await this.acceptStrictChatWire(raw); } catch { /* reject and advance the opaque relay cursor */ }
+        if (!this.isCurrentSession(session.id, generation)) return;
+        try {
+          await this.acceptStrictChatWire(raw, session.id, generation);
+        } catch { /* reject and advance the opaque relay cursor */ }
       }
     } else {
       for (const raw of rawMessages) {
+        if (!this.isCurrentSession(session.id, generation)) return;
         const item = this.parseLegacyChat(raw);
         if (item) this.appendMessage(item);
       }
     }
-    if (this.state$.value.session?.id === session.id) {
+    if (this.isCurrentSession(session.id, generation)) {
       this.state$.next({ ...this.state$.value, cursor });
     }
   }
 
-  private async acceptStrictChatWire(raw: unknown): Promise<void> {
+  private async acceptStrictChatWire(
+    raw: unknown,
+    expectedSessionId: string,
+    generation: number,
+  ): Promise<void> {
     const wire = this.parseStrictChatWire(raw);
     const session = this.state$.value.session;
-    if (!wire || !session || !this.isStrictSession(session) || !session.security_epoch) return;
+    if (
+      !wire
+      || !session
+      || session.id !== expectedSessionId
+      || !this.isCurrentSession(expectedSessionId, generation)
+      || !this.isStrictSession(session)
+      || !session.security_epoch
+    ) return;
     if (!this.hasPermission('chat') || !this.cryptoPort.ready(session.id, session.security_epoch)) return;
     const opened = await this.cryptoPort.open(wire.encrypted_payload, {
       scopeId: session.id,
       epoch: session.security_epoch,
     });
+    if (!this.isCurrentSession(expectedSessionId, generation)) return;
     if (opened.payloadType !== 'pair.chat_message') return;
     let rawPlaintext: unknown;
     try { rawPlaintext = JSON.parse(opened.plaintext); } catch { return; }

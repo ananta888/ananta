@@ -20,8 +20,27 @@ import {
 } from './webrtc-datachannel.service';
 import { WebrtcSendOperation } from './webrtc-send-operation';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import { SIGNAL_SESSION_RECREATION_REQUIRED } from './webrtc-signal-session.guard';
+import {
+  isTerminalPairSessionReason,
+  terminalPairSessionReason,
+} from './pair-session-terminal-error';
+import type { PairSessionTerminalReason } from './pair-session-terminal-error';
 
 export type TransportMode = 'webrtc' | 'hub_relay' | 'idle';
+
+export type TransportTerminalFailure = Readonly<
+  | {
+    readonly kind: 'local_recreation_required';
+    readonly sessionId: string;
+    readonly reasonCode: typeof SIGNAL_SESSION_RECREATION_REQUIRED;
+  }
+  | {
+    readonly kind: 'server_terminal';
+    readonly sessionId: string;
+    readonly reasonCode: PairSessionTerminalReason;
+  }
+>;
 
 /**
  * Generic transport message used by the existing chat path.
@@ -65,6 +84,7 @@ export class WebrtcTransportService {
   private controlPlane = inject(PairSessionControlPlaneService);
 
   readonly mode$ = new BehaviorSubject<TransportMode>('idle');
+  readonly terminalFailure$ = new BehaviorSubject<TransportTerminalFailure | null>(null);
   readonly message$ = new Subject<TransportMessage>();
   readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
 
@@ -77,6 +97,7 @@ export class WebrtcTransportService {
   private readonly semanticRelayCursors = new Map<SemanticTrafficClass, number>();
   private readonly semanticRelayPolls = new Set<SemanticTrafficClass>();
   private readonly semanticRelaySeen = new Map<SemanticTrafficClass, Set<string>>();
+  private readonly terminalSessions = new Set<string>();
   private subscriptions = new Subscription();
 
   private get hubUrl(): string {
@@ -92,15 +113,20 @@ export class WebrtcTransportService {
     // A transport may only open from an explicit create/join/list binding.
     // Never infer a Hub authority from an otherwise unknown session id.
     this.controlPlane.assertSessionAvailable(sessionId);
+    const order = this.profiles.current.transport_order;
+    const useWebrtc = order[0] === 'webrtc';
+    const publicSession = this.controlPlane.isPublicSession(sessionId);
+    if (publicSession && this.webrtc.isSessionRecreationRequired(sessionId)) {
+      this.latchSessionRecreationRequired(sessionId);
+      throw new Error(SIGNAL_SESSION_RECREATION_REQUIRED);
+    }
+
     this.subscriptions = new Subscription();
     this.sessionId = sessionId;
     this.semanticEpoch = this.validEpoch(options.semanticEpoch ?? 1);
     for (const trafficClass of options.semanticTrafficClasses ?? []) {
       this.enableSemanticTraffic(trafficClass);
     }
-    const order = this.profiles.current.transport_order;
-    const useWebrtc = order[0] === 'webrtc';
-    const publicSession = this.controlPlane.isPublicSession(sessionId);
     this.publicSession = publicSession;
 
     if (useWebrtc) {
@@ -116,7 +142,15 @@ export class WebrtcTransportService {
       // Monitor for WebRTC failure and fall back
       this.subscriptions.add(this.webrtc.state$.subscribe(state => {
         if (state === 'failed' && this.mode$.value === 'webrtc') {
-          if (publicSession) this.close();
+          if (publicSession) {
+            const failureReason = this.webrtc.failureReason$.value;
+            if (isTerminalPairSessionReason(failureReason)) {
+              this.emitServerTerminal(sessionId, failureReason);
+            } else if (this.webrtc.isSessionRecreationRequired(sessionId)) {
+              this.latchSessionRecreationRequired(sessionId);
+            }
+            this.close();
+          }
           else this.fallbackFromDirectToHubRelay();
         }
       }));
@@ -130,7 +164,27 @@ export class WebrtcTransportService {
           this.semanticMessage$.next(message);
         }
       }));
-      await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
+      try {
+        await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
+      } catch (error) {
+        const terminalReason = terminalPairSessionReason(error);
+        const reasonCode = errorReasonCode(error);
+        const serverTerminalReason = terminalReason
+          || (isTerminalPairSessionReason(reasonCode) ? reasonCode : null);
+        if (
+          publicSession
+          && serverTerminalReason
+        ) this.emitServerTerminal(sessionId, serverTerminalReason);
+        else if (
+          publicSession
+          && (
+            this.webrtc.isSessionRecreationRequired(sessionId)
+            || reasonCode === SIGNAL_SESSION_RECREATION_REQUIRED
+          )
+        ) this.latchSessionRecreationRequired(sessionId);
+        this.close();
+        throw error;
+      }
     } else {
       if (publicSession) {
         this.close();
@@ -152,6 +206,21 @@ export class WebrtcTransportService {
     this.sessionId = '';
     this.publicSession = false;
     this.mode$.next('idle');
+  }
+
+  /** Final teardown after the control plane confirmed that the session ended. */
+  retireSession(sessionId: string): void {
+    if (this.sessionId === sessionId) this.close();
+    this.webrtc.retireSession(sessionId);
+    this.terminalSessions.delete(sessionId);
+    if (this.terminalFailure$.value?.sessionId === sessionId) {
+      this.terminalFailure$.next(null);
+    }
+  }
+
+  isSessionRecreationRequired(sessionId: string): boolean {
+    return this.terminalSessions.has(sessionId)
+      || this.webrtc.isSessionRecreationRequired(sessionId);
   }
 
   setSemanticEpoch(epoch: number): void {
@@ -449,4 +518,35 @@ export class WebrtcTransportService {
       this.controlPlane.assertSessionAvailable(this.sessionId);
     }
   }
+
+  private latchSessionRecreationRequired(sessionId: string): void {
+    if (this.terminalSessions.has(sessionId)) return;
+    this.terminalSessions.add(sessionId);
+    this.terminalFailure$.next(Object.freeze({
+      kind: 'local_recreation_required',
+      sessionId,
+      reasonCode: SIGNAL_SESSION_RECREATION_REQUIRED,
+    }));
+  }
+
+  private emitServerTerminal(
+    sessionId: string,
+    reasonCode: PairSessionTerminalReason,
+  ): void {
+    const current = this.terminalFailure$.value;
+    if (
+      current?.kind === 'server_terminal'
+      && current.sessionId === sessionId
+      && current.reasonCode === reasonCode
+    ) return;
+    this.terminalFailure$.next(Object.freeze({
+      kind: 'server_terminal',
+      sessionId,
+      reasonCode,
+    }));
+  }
+}
+
+function errorReasonCode(error: unknown): string {
+  return error instanceof Error ? error.message : '';
 }

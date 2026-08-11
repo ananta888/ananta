@@ -185,6 +185,35 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     expect(signalPoll.mock.calls).toEqual([['session-1', ''], ['session-1', '']]);
   });
 
+  it('propagates an explicit terminal poll rejection without a recreation latch', () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalPoll.mockReturnValueOnce(throwError(() => ({
+      status: 404,
+      error: { error: 'session_not_found' },
+    })));
+
+    service.connect('', 'session-1', 'peer-b');
+
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('session_not_found');
+    expect(service.isSessionRecreationRequired('session-1')).toBe(false);
+    expect((service as unknown as { pollHandle: unknown }).pollHandle).toBeNull();
+  });
+
+  it('latches an unclassified definitive public poll rejection for recreation', () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalPoll.mockReturnValueOnce(throwError(() => ({
+      status: 404,
+      error: { error: 'unexpected_public_rejection' },
+    })));
+
+    service.connect('', 'session-1', 'peer-b');
+
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+    expect(service.isSessionRecreationRequired('session-1')).toBe(true);
+  });
+
   it('honors Retry-After without hammering the signaling endpoint', () => {
     vi.setSystemTime(new Date('2026-08-11T08:00:00Z'));
     signalPoll.mockReturnValueOnce(throwError(() => ({
@@ -206,7 +235,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
 
   it('fails closed when the signaling queue rejects an outbound signal', async () => {
     service.connect('', 'session-1', 'peer-b');
-    signalSend.mockReturnValue(throwError(() => ({ status: 429, error: { error: 'queue_full' } })));
+    signalSend.mockReturnValue(throwError(() => ({ status: 503, error: { error: 'queue_unavailable' } })));
 
     await expect(service.send({
       type: 'offer', session_id: 'session-1', payload: { sdp: 'v=0' },
@@ -214,6 +243,79 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
 
     expect(service.status$.value).toBe('failed');
     expect((service as unknown as { pollHandle: unknown }).pollHandle).toBeNull();
+  });
+
+  it('propagates an explicit terminal send rejection without a recreation latch', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    service.connect('', 'session-1', 'peer-b');
+    signalSend.mockReturnValue(throwError(() => ({
+      status: 403,
+      error: { reason_code: 'membership_capability_retired' },
+    })));
+
+    await expect(service.send({
+      type: 'offer', session_id: 'session-1', payload: { sdp: 'v=0' },
+    })).rejects.toBeTruthy();
+    await settleAsyncWork();
+
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('membership_capability_retired');
+    expect(service.isSessionRecreationRequired('session-1')).toBe(false);
+  });
+
+  it('retries the exact public signal after Retry-After without letting queued ICE overtake it', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalSend
+      .mockReturnValueOnce(throwError(() => ({
+        status: 429,
+        headers: { get: (name: string) => name === 'Retry-After' ? '2' : null },
+      })))
+      .mockReturnValue(of({ ok: true }));
+    service.connect('', 'session-1', 'peer-b');
+
+    const offer = service.send({
+      type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'v=0' },
+    });
+    const earlyIce = service.send({
+      type: 'ice_candidate', session_id: 'session-1', payload: { candidate: 'candidate:1' },
+    });
+    await settleAsyncWork();
+
+    expect(signalSend.mock.calls.map(([, message]) => message.type)).toEqual(['offer']);
+    await vi.advanceTimersByTimeAsync(1_999);
+    expect(signalSend).toHaveBeenCalledTimes(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await offer;
+    await earlyIce;
+
+    expect(signalSend.mock.calls.map(([, message]) => message.type))
+      .toEqual(['offer', 'offer', 'ice_candidate']);
+    expect(signalSend.mock.calls[1]?.[1]).toEqual(signalSend.mock.calls[0]?.[1]);
+    expect(service.status$.value).toBe('connected');
+  });
+
+  it('cancels a rate-limited public write without blocking a same-session reconnect', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalSend.mockReturnValueOnce(throwError(() => ({
+      status: 429,
+      headers: { get: (name: string) => name === 'Retry-After' ? '5' : null },
+    })));
+    service.connect('', 'session-1', 'peer-b');
+    const staleWrite = service.send({
+      type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'old' },
+    }).catch(error => error as Error);
+    await settleAsyncWork();
+
+    service.disconnect();
+    expect(() => service.assertSessionReusable('session-1')).not.toThrow();
+    service.connect('', 'session-1', 'peer-b');
+    expect(service.status$.value).toBe('connected');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect((await staleWrite).message).toBe('webrtc_signal_outbox_stale');
+    expect(signalSend).toHaveBeenCalledTimes(1);
+    expect(service.failureReason$.value).toBeNull();
   });
 
   it('serializes early ICE behind the server ACK of its delayed offer', async () => {
@@ -262,7 +364,13 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     expect((service as unknown as { pollCursor: string }).pollCursor).toBe('');
     expect(signalPoll.mock.calls).toEqual([['session-1', '']]);
     expect(service.status$.value).toBe('failed');
-    expect(vi.getTimerCount()).toBe(0);
+    expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+    expect((service as unknown as { pollHandle: unknown }).pollHandle).toBeNull();
+
+    service.connect('', 'session-1', 'peer-b');
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+    expect(signalPoll.mock.calls).toEqual([['session-1', '']]);
   });
 
   it('resumes a same-peer session from its applied cursor without replaying old SDP', async () => {
@@ -316,6 +424,8 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     await Promise.resolve();
 
     service.disconnect();
+    expect(() => service.assertSessionReusable('session-1'))
+      .toThrow('public_signaling_session_recreation_required');
     service.connect('', 'session-1', 'peer-b');
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
@@ -328,6 +438,12 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'new' },
     })).rejects.toThrow('webrtc_signal_context_invalid');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
+
+    service.retireSession('session-1');
+    expect(service.isSessionRecreationRequired('session-1')).toBe(false);
+    service.bindMessageHandler(async () => undefined);
+    service.connect('', 'session-1', 'peer-b');
+    expect(service.status$.value).toBe('connected');
   });
 
   it('stops public signaling when its immutable authority disappears', async () => {

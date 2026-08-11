@@ -98,7 +98,12 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     signalHandler = null;
     signaling = {
       status$: new BehaviorSubject('disconnected'),
+      failureReason$: new BehaviorSubject(null),
       connect: vi.fn(), disconnect: vi.fn(), send: vi.fn(async () => undefined),
+      assertSessionReusable: vi.fn(),
+      isSessionRecreationRequired: vi.fn(() => false),
+      markSessionRecreationRequired: vi.fn(),
+      retireSession: vi.fn(),
       bindMessageHandler: vi.fn((handler: (message: SignalMessage) => Promise<void>) => {
         signalHandler = handler;
         return () => { if (signalHandler === handler) signalHandler = null; };
@@ -940,7 +945,8 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     await service.startSession('session-a', false, 'peer:remote');
     const answerer = PublicPeerConnection.instances[0];
 
-    await signalHandler?.({ ...offer(), type: 'answer' });
+    await expect(signalHandler?.({ ...offer(), type: 'answer' }))
+      .rejects.toThrow('public_media_unexpected_sdp');
     expect(answerer.close).toHaveBeenCalledOnce();
     expect(service.state$.value).toBe('failed');
 
@@ -948,7 +954,9 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     const replacement = PublicPeerConnection.instances[1];
     await signalHandler?.(offer());
     expect(replacement.close).not.toHaveBeenCalled();
-    await signalHandler?.(offer());
+    await expect(signalHandler?.(offer())).rejects.toThrow('public_media_unexpected_sdp');
+    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('session-a');
+    signaling.status$.next('failed');
     expect(replacement.close).toHaveBeenCalledOnce();
     expect(service.auditLog).toContainEqual(expect.objectContaining({
       type: 'public_sdp_rejected', detail: 'unexpected_offer:established',

@@ -131,6 +131,11 @@ interface PairGroupMember {
           <div class="share-actions">
             <button class="share-btn primary" (click)="view = 'create'">+ Session erstellen</button>
             <button class="share-btn" (click)="view = 'join'">Code eingeben</button>
+            @if (sessionActionError) {
+              <div class="share-error" data-testid="pair-session-action-error" role="alert">
+                {{ sessionActionError }}
+              </div>
+            }
           </div>
         }
 
@@ -283,9 +288,24 @@ interface PairGroupMember {
           <!-- End / Leave -->
           <div class="share-footer">
             @if (state.role === 'owner') {
-              <button class="share-btn danger" (click)="doEnd()">Session beenden</button>
+              <button
+                class="share-btn danger"
+                data-testid="end-pair-session"
+                (click)="doEnd()"
+                [disabled]="sessionActionPending"
+              >{{ sessionActionPending ? 'Beende…' : 'Session beenden' }}</button>
             } @else {
-              <button class="share-btn" (click)="svc.leaveSession()">Verlassen</button>
+              <button
+                class="share-btn"
+                data-testid="leave-pair-session"
+                (click)="doLeave()"
+                [disabled]="sessionActionPending"
+              >{{ sessionActionPending ? 'Verlasse…' : 'Verlassen' }}</button>
+            }
+            @if (sessionActionError) {
+              <div class="share-error" data-testid="pair-session-action-error" role="alert">
+                {{ sessionActionError }}
+              </div>
             }
           </div>
         }
@@ -415,6 +435,8 @@ export class AiSnakeSharePanelComponent implements OnInit {
 
   chatInput = '';
   chatError = '';
+  sessionActionPending = false;
+  sessionActionError = '';
 
   // Groups
   groupView: 'list' | 'create' | 'detail' = 'list';
@@ -614,10 +636,21 @@ export class AiSnakeSharePanelComponent implements OnInit {
     }
   }
 
-  doEnd(): void {
+  async doEnd(): Promise<void> {
+    if (this.sessionActionPending) return;
     if (!confirm('Session wirklich beenden? Alle Teilnehmer werden getrennt.')) return;
-    this.svc.endSession();
-    this.view = 'home';
+    await this.runSessionAction(
+      () => this.svc.endSession(),
+      'Session konnte nicht sicher beendet werden',
+    );
+  }
+
+  async doLeave(): Promise<void> {
+    if (this.sessionActionPending) return;
+    await this.runSessionAction(
+      () => this.svc.leaveSession(),
+      'Session konnte nicht sicher verlassen werden',
+    );
   }
 
   revoke(p: ShareParticipant): void {
@@ -628,6 +661,28 @@ export class AiSnakeSharePanelComponent implements OnInit {
   canChat(state: any): boolean {
     const permitted = state?.role === 'owner' || !!state?.session?.permissions?.chat;
     return permitted && this.svc.canSendChat();
+  }
+
+  private async runSessionAction(
+    action: () => Promise<void>,
+    fallbackMessage: string,
+  ): Promise<void> {
+    if (this.sessionActionPending) return;
+    this.sessionActionPending = true;
+    this.sessionActionError = '';
+    try {
+      await action();
+      this.view = 'home';
+    } catch (error) {
+      this.sessionActionError = pairSessionErrorMessage(error, fallbackMessage);
+      // A definitive server rejection may retire the local session before the
+      // awaited action rejects. Return to the only inactive view that renders
+      // the contextual failure instead of leaving it hidden behind the former
+      // create/join sub-view.
+      if (!this.svc.isActive) this.view = 'home';
+    } finally {
+      this.sessionActionPending = false;
+    }
   }
 
   securityLabel(state: PairSecurityBootstrapState): string {

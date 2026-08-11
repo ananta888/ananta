@@ -11,6 +11,11 @@ describe('HTTP rate-limit contract', () => {
 
   it('falls back safely when an older server omits Retry-After', () => {
     expect(rateLimitRetryAfterMs({ status: 429 }, 4_000)).toBe(4_000);
-    expect(rateLimitMessage({ status: 429 })).toContain('10 Sekunden');
+    expect(rateLimitMessage({ status: 429 })).toContain('in 10 Sekunden erneut versuchen');
+  });
+
+  it('honours server windows longer than the current one-minute defaults', () => {
+    const headers = { get: vi.fn(() => '120') };
+    expect(rateLimitRetryAfterMs({ status: 429, headers })).toBe(120_000);
   });
 });

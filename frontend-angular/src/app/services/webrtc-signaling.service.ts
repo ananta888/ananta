@@ -17,6 +17,7 @@ import {
   Subscription,
   finalize,
   firstValueFrom,
+  timer,
 } from 'rxjs';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { WebrtcSignalOutbox } from './webrtc-signal-outbox';
@@ -29,6 +30,7 @@ import {
   WebrtcSignalSessionGuard,
 } from './webrtc-signal-session.guard';
 import { rateLimitRetryAfterMs } from './http-rate-limit';
+import { terminalPairSessionReason } from './pair-session-terminal-error';
 
 export type SignalType = 'offer' | 'answer' | 'ice_candidate' | 'hangup' | 'hello';
 
@@ -83,6 +85,12 @@ export class WebrtcSignalingService {
   private deliveryInFlight = false;
   private connectionGeneration = 0;
   private checkpointContext: WebrtcSignalCheckpointContext | null = null;
+  private outboundWriteSerial = 0;
+  private activeOutboundWrite: Readonly<{
+    sessionId: string;
+    generation: number;
+    serial: number;
+  }> | null = null;
 
   /** Installs the single awaitable SDP/ICE consumer for the active peer. */
   bindMessageHandler(handler: SignalMessageHandler): () => void {
@@ -94,6 +102,46 @@ export class WebrtcSignalingService {
       active = false;
       if (this.messageHandler === handler) this.messageHandler = null;
     };
+  }
+
+  /** Fails before TURN/peer allocation when a public signaling scope is terminal. */
+  assertSessionReusable(sessionId: string): void {
+    if (this.isPublicSession(sessionId)) this.sessionGuard.assertReusable(sessionId);
+  }
+
+  isSessionRecreationRequired(sessionId: string): boolean {
+    return this.isPublicSession(sessionId) && this.sessionGuard.isBlocked(sessionId);
+  }
+
+  /** Latches a public replay/apply failure before another owner tears transport down. */
+  markSessionRecreationRequired(sessionId: string): void {
+    if (!this.isPublicSession(sessionId)) return;
+    this.sessionGuard.block(sessionId);
+    if (this.sessionId === sessionId) {
+      this.failureReason$.next(SIGNAL_SESSION_RECREATION_REQUIRED);
+    }
+  }
+
+  /** Clears terminal signaling metadata only when the owning session retires. */
+  retireSession(sessionId: string): void {
+    if (this.sessionId === sessionId) {
+      this.connectionGeneration += 1;
+      this.stopPoll();
+      this.outbox.reset();
+      this.pollCursor = '';
+      this.pollBackoffUntilMs = 0;
+      this.sessionId = '';
+      this.recipientId = '';
+      this.localPeerId = '';
+      this.seenSignalIds.clear();
+      this.messageHandler = null;
+      this.checkpointContext = null;
+      this.activeOutboundWrite = null;
+      this.failureReason$.next(null);
+      this.status$.next('disconnected');
+    }
+    this.checkpoints.clearSession(sessionId);
+    this.sessionGuard.clear(sessionId);
   }
 
   connect(_signalingUrl: string, sessionId: string, recipientId?: string): void {
@@ -196,7 +244,13 @@ export class WebrtcSignalingService {
     // connect(). This prevents stale or forged message-level routing.
     const outbound = { ...msg, recipient_id: this.recipientId };
     const generation = this.connectionGeneration;
-    const operation = this.outbox.enqueue(() => this.sendAuthenticatedSignal(sessionId, outbound));
+    const remotePeerId = this.recipientId;
+    const operation = this.outbox.enqueue(() => this.sendAuthenticatedSignal(
+      sessionId,
+      remotePeerId,
+      generation,
+      outbound,
+    ));
     // Product callers may intentionally fire-and-forget ICE events. Attach the
     // terminal handler here so a rejected HTTP write is never unobserved.
     void operation.catch(error => this.handleSendFailure(sessionId, generation, error));
@@ -269,7 +323,14 @@ export class WebrtcSignalingService {
           generation,
         ).catch(() => {
           if (this.isCurrentConnection(sessionId, remotePeerId, generation)) {
-            this.failClosed(sessionId, generation, 'webrtc_signal_apply_failed');
+            if (publicSession) this.markSessionRecreationRequired(sessionId);
+            this.failClosed(
+              sessionId,
+              generation,
+              publicSession
+                ? SIGNAL_SESSION_RECREATION_REQUIRED
+                : 'webrtc_signal_apply_failed',
+            );
           }
         }).finally(() => {
           if (generation === this.connectionGeneration) this.deliveryInFlight = false;
@@ -322,18 +383,43 @@ export class WebrtcSignalingService {
     this.saveCheckpoint();
   }
 
-  private async sendAuthenticatedSignal(sessionId: string, msg: SignalMessage): Promise<void> {
-    const response = await firstValueFrom(
-      this.controlPlane.signalSend<SignalSendResponse>(sessionId, msg),
-    );
-    if (response?.ok !== true) throw new Error('webrtc_signal_send_response_invalid');
+  private async sendAuthenticatedSignal(
+    sessionId: string,
+    remotePeerId: string,
+    generation: number,
+    msg: SignalMessage,
+  ): Promise<void> {
+    while (this.isCurrentConnection(sessionId, remotePeerId, generation)) {
+      const serial = ++this.outboundWriteSerial;
+      this.activeOutboundWrite = Object.freeze({ sessionId, generation, serial });
+      try {
+        const response = await firstValueFrom(
+          this.controlPlane.signalSend<SignalSendResponse>(sessionId, msg),
+        );
+        if (response?.ok !== true) throw new Error('webrtc_signal_send_response_invalid');
+        return;
+      } catch (error) {
+        const retryAfterMs = this.isPublicSession(sessionId)
+          ? rateLimitRetryAfterMs(error)
+          : null;
+        if (retryAfterMs === null) throw error;
+        // Public signaling rate limits are evaluated before the server writes
+        // the signal. The exact message can therefore be retried without
+        // treating the outcome as ambiguous or advancing the serialized
+        // outbox. A disconnect/replacement fences the delayed retry below.
+        this.clearActiveOutboundWrite(serial);
+        await firstValueFrom(timer(retryAfterMs));
+      } finally {
+        this.clearActiveOutboundWrite(serial);
+      }
+    }
+    throw new Error('webrtc_signal_outbox_stale');
   }
 
   private handlePollError(sessionId: string, generation: number, error: unknown): void {
-    try {
-      this.controlPlane.assertSessionAvailable(sessionId);
-    } catch {
-      this.failClosed(sessionId, generation, 'webrtc_signal_authority_lost');
+    const terminalReason = terminalPairSessionReason(error);
+    if (terminalReason) {
+      this.failClosed(sessionId, generation, terminalReason, false);
       return;
     }
     const status = Number((error as { status?: unknown } | null)?.status);
@@ -342,11 +428,26 @@ export class WebrtcSignalingService {
       this.pollBackoffUntilMs = Math.max(this.pollBackoffUntilMs, Date.now() + retryAfterMs);
       return;
     }
-    // A bad/ahead cursor means the retained SDP/ICE sequence cannot be
-    // reconstructed. Network/5xx failures keep the current cursor and retry.
-    if (status === 400 || status === 401 || status === 403 || status === 409) {
-      this.failClosed(sessionId, generation, 'webrtc_signal_poll_rejected');
+    // A definitive but unclassified 4xx means the retained public signaling
+    // sequence cannot be trusted. It requires a new session, but must not be
+    // confused with a server-proven terminal membership above.
+    if (status === 400 || status === 401 || status === 403 || status === 404 || status === 409) {
+      if (this.isPublicSession(sessionId)) {
+        this.markSessionRecreationRequired(sessionId);
+        this.failClosed(sessionId, generation, SIGNAL_SESSION_RECREATION_REQUIRED);
+      } else {
+        this.failClosed(sessionId, generation, 'webrtc_signal_poll_rejected');
+      }
+      return;
     }
+    try {
+      this.controlPlane.assertSessionAvailable(sessionId);
+    } catch {
+      this.failClosed(sessionId, generation, 'webrtc_signal_authority_lost');
+      return;
+    }
+    // Network/5xx failures keep the current cursor and retry unless the local
+    // immutable authority vanished while the request was in flight.
   }
 
   private failIfAuthorityLost(sessionId: string, generation = this.connectionGeneration): void {
@@ -359,9 +460,18 @@ export class WebrtcSignalingService {
     sessionId: string,
     generation = this.connectionGeneration,
     reason = 'webrtc_signaling_failed',
+    blockAmbiguousWrite = true,
   ): void {
     if (this.sessionId !== sessionId || generation !== this.connectionGeneration) return;
-    this.blockCurrentSessionIfWriteOutcomeIsAmbiguous();
+    if (blockAmbiguousWrite) {
+      this.blockCurrentSessionIfWriteOutcomeIsAmbiguous();
+    } else {
+      // A server-proven terminal membership supersedes local replay
+      // ambiguity. Do not let the teardown disconnect relatch it as a local
+      // recreation failure while the terminal event propagates to Share.
+      this.activeOutboundWrite = null;
+      this.sessionGuard.clear(sessionId);
+    }
     this.connectionGeneration += 1;
     this.stopPoll();
     this.outbox.reset();
@@ -370,6 +480,14 @@ export class WebrtcSignalingService {
   }
 
   private handleSendFailure(sessionId: string, generation: number, error: unknown): void {
+    const terminalReason = terminalPairSessionReason(error);
+    if (terminalReason) {
+      const currentGeneration = this.sessionId === sessionId
+        ? this.connectionGeneration
+        : generation;
+      this.failClosed(sessionId, currentGeneration, terminalReason, false);
+      return;
+    }
     const staleBeforeStart = errorReason(error) === 'webrtc_signal_outbox_stale'
       && !this.sessionGuard.isBlocked(sessionId);
     if (staleBeforeStart) return;
@@ -387,9 +505,20 @@ export class WebrtcSignalingService {
   }
 
   private blockCurrentSessionIfWriteOutcomeIsAmbiguous(): void {
-    if (!this.sessionId || !this.outbox.hasInFlightWrite || !this.isPublicSession(this.sessionId)) return;
+    const write = this.activeOutboundWrite;
+    if (
+      !this.sessionId
+      || !write
+      || write.sessionId !== this.sessionId
+      || write.generation !== this.connectionGeneration
+      || !this.isPublicSession(this.sessionId)
+    ) return;
     this.sessionGuard.block(this.sessionId);
     this.failureReason$.next(SIGNAL_SESSION_RECREATION_REQUIRED);
+  }
+
+  private clearActiveOutboundWrite(serial: number): void {
+    if (this.activeOutboundWrite?.serial === serial) this.activeOutboundWrite = null;
   }
 
   private isPublicSession(sessionId: string): boolean {

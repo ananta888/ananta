@@ -132,9 +132,24 @@ interface CreateFormState {
         }
       </div>
 
+      <div
+        class="error"
+        role="alert"
+        data-testid="pair-session-action-error"
+        [hidden]="!error()"
+      >{{ error() }}</div>
+
       <div class="end-row">
-        <button type="button" class="danger" (click)="onEnd()" [disabled]="busy()">
-          {{ role() === 'owner' ? 'Session beenden' : 'Session verlassen' }}
+        <button
+          type="button"
+          class="danger"
+          (click)="onEnd()"
+          [disabled]="busy()"
+          [attr.aria-busy]="busy()"
+        >
+          {{ busy()
+            ? (role() === 'owner' ? 'Session wird beendet…' : 'Session wird verlassen…')
+            : (role() === 'owner' ? 'Session beenden' : 'Session verlassen') }}
         </button>
       </div>
     }
@@ -297,14 +312,40 @@ export class PairViewSyncPanelComponent implements OnInit, OnDestroy {
     if (session) void this.securityBootstrap.ensure(session, this.share.currentUserId);
   }
 
-  onEnd(): void {
-    if (this.role() === 'owner') {
-      this.share.endSession();
-    } else {
-      this.share.leaveSession();
+  async onEnd(): Promise<void> {
+    if (this.busy()) return;
+    const targetSessionId = this.activeSession()?.id;
+    if (!targetSessionId) return;
+    const targetRole = this.role();
+    this.busy.set(true);
+    this.error.set('');
+    try {
+      if (targetRole === 'owner') await this.share.endSession();
+      else await this.share.leaveSession();
+      const replacement = this.activeSession();
+      if (replacement && replacement.id !== targetSessionId) return;
+      this.sync.unbindSession();
+      this.securityBootstrap.clear();
+    } catch (error) {
+      const current = this.activeSession();
+      if (!current || current.id === targetSessionId) {
+        this.error.set(pairSessionErrorMessage(
+          error,
+          targetRole === 'owner'
+            ? 'Session konnte nicht sicher beendet werden'
+            : 'Session konnte nicht sicher verlassen werden',
+        ));
+        if (!current) {
+          // A definitive authority rejection can retire the local session
+          // while still surfacing the unproven mutation as an error. Unbind
+          // only that now-absent target; never a replacement session.
+          this.sync.unbindSession();
+          this.securityBootstrap.clear();
+        }
+      }
+    } finally {
+      this.busy.set(false);
     }
-    this.sync.unbindSession();
-    this.securityBootstrap.clear();
   }
 
   ngOnDestroy(): void {

@@ -1,5 +1,8 @@
 const DEFAULT_RETRY_AFTER_MS = 10_000;
-const MAX_RETRY_AFTER_MS = 60_000;
+// Respect operational windows above the current 60-second defaults. A finite
+// ceiling still prevents a malformed trusted response from parking a browser
+// task indefinitely.
+const MAX_RETRY_AFTER_MS = 24 * 60 * 60 * 1_000;
 
 interface HttpRateLimitError {
   readonly status?: unknown;
@@ -29,5 +32,5 @@ export function rateLimitMessage(error: unknown): string | null {
   const delayMs = rateLimitRetryAfterMs(error);
   if (delayMs === null) return null;
   const seconds = Math.max(1, Math.ceil(delayMs / 1_000));
-  return `Der Pair-Server ist ausgelastet. Automatischer neuer Versuch in ${seconds} Sekunden.`;
+  return `Der Pair-Server ist ausgelastet. Bitte in ${seconds} Sekunden erneut versuchen.`;
 }

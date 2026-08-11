@@ -27,6 +27,12 @@ export class WebrtcSignalSessionGuard {
     } catch { /* no persistent storage is available */ }
     return false;
   }
+
+  /** Clears the latch only after the owning control plane retired the session. */
+  clear(sessionId: string): void {
+    this.blockedSessions.delete(sessionId);
+    try { sessionStorage.removeItem(storageKey(sessionId)); } catch { /* memory is already clear */ }
+  }
 }
 
 function storageKey(sessionId: string): string {
