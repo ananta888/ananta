@@ -38,6 +38,17 @@ export interface PublicPairMediaE2eeState {
   readonly contractDigest?: string;
 }
 
+/** Secret-free context for an exact local publication-consent generation. */
+export interface PublicPairMediaPublicationContext {
+  readonly sessionId: string;
+  readonly securityEpoch: number;
+  readonly contractDigest: string;
+  readonly adapterGeneration: number;
+  readonly localPeerId: string;
+  readonly remotePeerId: string;
+  readonly maxExpiresAtMs: number;
+}
+
 /** Lower-level port registered by WebrtcSessionService; no reverse DI edge. */
 export interface PairMediaE2eeTransportPort {
   /** Generation-bound consent-channel readiness; never infer this from signaling. */
@@ -86,7 +97,7 @@ interface Runtime {
   port: PairMediaE2eeTransportPort | null;
   dataChannelOpen: boolean;
   topologyReady: boolean;
-  localActivated: boolean;
+  preparationArmed: boolean;
   localHello: MediaHelloV2 | null;
   localHelloDigest: string;
   remoteHello: MediaHelloV2 | null;
@@ -150,6 +161,10 @@ export class PairMediaE2eeCoordinatorService {
     const runtime = this.runtime;
     if (runtime?.sessionId === sessionId && !runtime.dataChannelOpen) {
       this.reconcileDataChannelOpen(runtime);
+      // The DataChannel open edge can precede or escape its browser callback.
+      // A successful level reconciliation must drive the same eager preparation
+      // transition as markDataChannelOpen(); otherwise no hello is ever sent.
+      this.armTechnicalPreparation(runtime);
     }
     if (
       !runtime
@@ -162,6 +177,33 @@ export class PairMediaE2eeCoordinatorService {
     return this.transforms.isPrepared(
       sessionId, contract.epoch, contract.digest, runtime.adapterGeneration,
     );
+  }
+
+  publicationContextFor(sessionId: string): PublicPairMediaPublicationContext | null {
+    const runtime = this.runtime;
+    if (
+      !runtime
+      || runtime.sessionId !== sessionId
+      || runtime.failed
+      || runtime.poisoned
+      || !runtime.installed
+      || runtime.contract.expires_at_ms <= Date.now()
+      || !this.transforms.isKeyed(
+        sessionId,
+        runtime.contract.epoch,
+        runtime.contract.digest,
+        runtime.adapterGeneration,
+      )
+    ) return null;
+    return Object.freeze({
+      sessionId,
+      securityEpoch: runtime.contract.epoch,
+      contractDigest: runtime.contract.digest,
+      adapterGeneration: runtime.adapterGeneration,
+      localPeerId: runtime.binding.localPeerId,
+      remotePeerId: runtime.binding.remotePeerId,
+      maxExpiresAtMs: runtime.contract.expires_at_ms,
+    });
   }
 
   async activate(sessionId: string): Promise<PublicPairMediaE2eeState> {
@@ -188,14 +230,11 @@ export class PairMediaE2eeCoordinatorService {
       this.failRuntime(runtime, reason(error, 'public_media_control_refresh_failed'), true);
       return this.statusFor(sessionId);
     }
-    runtime.localActivated = true;
-    this.emit(runtime, 'awaiting-peer', 'public_media_local_activation_pending');
-    void this.maybeSendHello(runtime).catch(error => {
-      this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
-    });
+    this.armTechnicalPreparation(runtime, true);
     return this.waitForActivation(runtime);
   }
 
+  /** Terminal technical teardown; local publication consent must not call this. */
   deactivate(sessionId: string, reasonCode = 'public_media_deactivated'): void {
     const runtime = this.runtime;
     if (!runtime || runtime.sessionId !== sessionId) {
@@ -207,7 +246,7 @@ export class PairMediaE2eeCoordinatorService {
     runtime.poisoned = true;
     runtime.port = null;
     runtime.dataChannelOpen = false;
-    runtime.localActivated = false;
+    runtime.preparationArmed = false;
     runtime.failed = false;
     this.transforms.releaseSession(sessionId, runtime.adapterGeneration);
     this.runtime = null;
@@ -220,11 +259,8 @@ export class PairMediaE2eeCoordinatorService {
   bindTransport(sessionId: string, port: PairMediaE2eeTransportPort): void {
     const runtime = this.ensureRuntime(sessionId);
     runtime.port = port;
-    if (runtime.localActivated) {
-      void this.maybeSendHello(runtime).catch(error => {
-        this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
-      });
-    }
+    this.reconcileDataChannelOpen(runtime);
+    this.armTechnicalPreparation(runtime);
   }
 
   unbindTransport(sessionId: string, reasonCode = 'public_media_transport_closed'): void {
@@ -244,13 +280,7 @@ export class PairMediaE2eeCoordinatorService {
   markDataChannelOpen(sessionId: string): void {
     const runtime = this.ensureRuntime(sessionId);
     runtime.dataChannelOpen = true;
-    if (runtime.localActivated) {
-      void this.maybeSendHello(runtime).catch(error => {
-        this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
-      });
-    } else {
-      this.emit(runtime, 'inactive');
-    }
+    this.armTechnicalPreparation(runtime);
   }
 
   markTopologyNegotiated(sessionId: string): void {
@@ -258,7 +288,7 @@ export class PairMediaE2eeCoordinatorService {
     try {
       this.transforms.validateFinalTopology(sessionId);
       runtime.topologyReady = true;
-      if (!runtime.localActivated) this.emit(runtime, 'inactive');
+      this.armTechnicalPreparation(runtime);
       void this.maybeInstall(runtime);
     } catch (error) {
       // A peer that could not advertise the optional media extension may
@@ -348,7 +378,7 @@ export class PairMediaE2eeCoordinatorService {
       port: null,
       dataChannelOpen: false,
       topologyReady: false,
-      localActivated: false,
+      preparationArmed: false,
       localHello: null,
       localHelloDigest: '',
       remoteHello: null,
@@ -372,12 +402,29 @@ export class PairMediaE2eeCoordinatorService {
     return runtime;
   }
 
+  private armTechnicalPreparation(runtime: Runtime, explicit = false): void {
+    if (
+      this.runtime !== runtime
+      || runtime.failed
+      || runtime.poisoned
+      || runtime.installed
+      || (!explicit && (!runtime.dataChannelOpen || !runtime.topologyReady))
+    ) return;
+    if (!runtime.preparationArmed) {
+      runtime.preparationArmed = true;
+      this.emit(runtime, 'awaiting-peer', 'public_media_technical_preparation_pending');
+    }
+    void this.maybeSendHello(runtime).catch(error => {
+      this.failRuntime(runtime, reason(error, 'public_media_hello_send_failed'), true);
+    });
+  }
+
   private async maybeSendHello(runtime: Runtime): Promise<void> {
     this.assertCurrent(runtime);
     this.refreshExpiredPreKeyHandshake(runtime);
     this.reconcileDataChannelOpen(runtime);
     if (
-      runtime.failed || !runtime.localActivated || !runtime.dataChannelOpen || !runtime.port
+      runtime.failed || !runtime.preparationArmed || !runtime.dataChannelOpen || !runtime.port
       || runtime.helloSendPromise || runtime.localHello
     ) return runtime.helloSendPromise ?? Promise.resolve();
     runtime.helloSendPromise = (async () => {
@@ -449,7 +496,7 @@ export class PairMediaE2eeCoordinatorService {
     runtime.remoteHello = hello;
     runtime.remoteHelloDigest = digest;
     this.emit(runtime, 'awaiting-peer', 'public_media_remote_hello_received');
-    if (runtime.localActivated) {
+    if (runtime.preparationArmed) {
       await this.maybeSendHello(runtime);
       await this.maybeSendAck(runtime);
     }
@@ -458,7 +505,7 @@ export class PairMediaE2eeCoordinatorService {
   private async maybeSendAck(runtime: Runtime): Promise<void> {
     this.assertCurrent(runtime);
     if (
-      runtime.failed || !runtime.localActivated || !runtime.localHello || !runtime.remoteHello
+      runtime.failed || !runtime.preparationArmed || !runtime.localHello || !runtime.remoteHello
       || runtime.localAckSent || runtime.ackSendPromise
     ) return runtime.ackSendPromise ?? Promise.resolve();
     runtime.ackSendPromise = (async () => {
@@ -799,7 +846,7 @@ export class PairMediaE2eeCoordinatorService {
     runtime.poisoned = true;
     runtime.port = null;
     runtime.dataChannelOpen = false;
-    runtime.localActivated = false;
+    runtime.preparationArmed = false;
     this.clearExpiry(runtime);
     if (releaseWorker) this.transforms.releaseSession(runtime.sessionId, runtime.adapterGeneration);
     if (!terminateTransport) {

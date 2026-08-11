@@ -8,7 +8,9 @@ import {
 } from './webrtc-media-publication.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaPublicationPolicy } from './pair-media-publication.policy';
 import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
+import { PublicPairMediaPublicationConsentService } from './public-pair-media-publication-consent.service';
 
 class Track {
   kind = 'video'; id: string; enabled = true; readyState: MediaStreamTrackState = 'live';
@@ -36,16 +38,31 @@ describe('WebrtcMediaPublicationService', () => {
   let camera: Track[]; let screens: Track[]; let sender: any; let peer: any;
   let dispatchDeviceChange: () => void;
   const mediaPolicy = { assertAllowed: vi.fn(), allows: vi.fn(() => true) };
+  const publicationPolicy = { assertAllowed: vi.fn() };
   const mediaE2eeStatus = new BehaviorSubject({ sessionId: '', state: 'inactive' as const });
+  const publicationConsentState = new BehaviorSubject<any>({ status: 'unbound', binding: null });
   beforeEach(() => {
     camera = []; screens = [];
     mediaPolicy.assertAllowed.mockReset();
     mediaPolicy.allows.mockReset();
     mediaPolicy.allows.mockReturnValue(true);
-    sender = { getParameters: () => ({ encodings: [{}] }), setParameters: vi.fn(async () => undefined), replaceTrack: vi.fn() };
+    publicationPolicy.assertAllowed.mockReset();
+    publicationConsentState.next({ status: 'unbound', binding: null });
+    sender = {
+      track: null,
+      getParameters: () => ({ encodings: [{}] }),
+      setParameters: vi.fn(async () => undefined),
+      replaceTrack: vi.fn(),
+    };
     peer = {
-      addMediaTrack: vi.fn(() => sender), replaceMediaTrack: vi.fn(async () => undefined), removeMediaSender: vi.fn(),
-      attachMediaTrack: vi.fn(async () => sender), publicMediaSlotForReceiver: vi.fn(() => null),
+      addMediaTrack: vi.fn(() => sender),
+      replaceMediaTrack: vi.fn(async (target: any, track: MediaStreamTrack | null) => { target.track = track; }),
+      removeMediaSender: vi.fn(),
+      attachMediaTrack: vi.fn(async (_slot: string, track: MediaStreamTrack) => {
+        sender.track = track;
+        return sender;
+      }),
+      publicMediaSlotForReceiver: vi.fn(() => null),
       sessionStarted$: new Subject<string>(), state$: new BehaviorSubject('active'), remoteTrack$: new Subject<any>(),
     };
     let deviceChange: (() => void) | undefined;
@@ -59,7 +76,9 @@ describe('WebrtcMediaPublicationService', () => {
     TestBed.configureTestingModule({ providers: [
       WebrtcMediaPublicationService, { provide: WebrtcSessionService, useValue: peer },
       { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
+      { provide: PairMediaPublicationPolicy, useValue: publicationPolicy },
       { provide: PairMediaE2eeCoordinatorService, useValue: { status$: mediaE2eeStatus } },
+      { provide: PublicPairMediaPublicationConsentService, useValue: { state$: publicationConsentState } },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaPublicationService);
@@ -81,7 +100,7 @@ describe('WebrtcMediaPublicationService', () => {
   });
 
   it('denies public video before browser capture despite an admitted authorization flag', async () => {
-    mediaPolicy.assertAllowed.mockImplementation(() => {
+    publicationPolicy.assertAllowed.mockImplementation(() => {
       throw new Error('public_ordinary_media_e2ee_unavailable');
     });
 
@@ -110,6 +129,25 @@ describe('WebrtcMediaPublicationService', () => {
     expect(service.publications$.value[0]).toMatchObject({ status: 'ended', reasonCode: 'browser_capture_ended' });
   });
 
+  it('keeps the previous publication owner when its native replacement rejects', async () => {
+    await service.startLocal(AUTH, PREF, 1000);
+    const oldTrack = camera[0] as unknown as MediaStreamTrack;
+    peer.replaceMediaTrack.mockImplementationOnce(async () => {
+      throw new Error('native_replace_failed');
+    });
+
+    await expect(service.replaceLocal(AUTH.publicationId, 'camera', PREF, 1000))
+      .rejects.toThrow('native_replace_failed');
+
+    expect(sender.track).toBe(oldTrack);
+    expect(peer.replaceMediaTrack).toHaveBeenCalledOnce();
+    expect(peer.replaceMediaTrack).not.toHaveBeenCalledWith(sender, null);
+    expect(camera[0].stops).toBe(0);
+    expect(camera[1].stops).toBeGreaterThan(0);
+    expect(service.publications$.value.find(item => item.publicationId === AUTH.publicationId))
+      .toMatchObject({ status: 'active', trackId: oldTrack.id, reasonCode: 'publication_replace_failed' });
+  });
+
   it('rejects browser settings beyond policy and releases the denied capture', async () => {
     const devices = TestBed.inject(WEBRTC_MEDIA_DEVICES) as any;
     const oversized = new Track('oversized', 1920, 1080);
@@ -132,6 +170,231 @@ describe('WebrtcMediaPublicationService', () => {
     expect(late.stops).toBeGreaterThan(0);
     expect(peer.attachMediaTrack).not.toHaveBeenCalled();
     expect(service.publications$.value[0]).toMatchObject({ status: 'ended', reasonCode: 'publication_user_stop' });
+  });
+
+  it('cancels pending capture on consent revoke before attaching its late track', async () => {
+    peer.sessionStarted$.next('session');
+    let resolveCapture!: (stream: Stream) => void;
+    const devices = TestBed.inject(WEBRTC_MEDIA_DEVICES) as any;
+    devices.getUserMedia.mockReturnValueOnce(new Promise<Stream>(resolve => { resolveCapture = resolve; }));
+
+    const start = service.startLocal(AUTH, PREF, 1000);
+    publicationConsentState.next({
+      status: 'revoking',
+      binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    const late = new Track('late-after-revoke');
+    resolveCapture(new Stream(late));
+
+    await expect(start).rejects.toThrow('publication_operation_superseded');
+    expect(late.stops).toBeGreaterThan(0);
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
+  });
+
+  it('owns a screen across deferred attach and fences its stale continuation after regrant', async () => {
+    peer.sessionStarted$.next('session');
+    const screenAuth: MediaPublicationAuthorization = {
+      ...AUTH, publicationId: 'screen-publication', source: 'screen',
+    };
+    const attach = deferred<any>();
+    peer.attachMediaTrack.mockImplementationOnce(async (_slot: string, track: MediaStreamTrack) => {
+      sender.track = track;
+      return attach.promise;
+    });
+
+    const staleStart = service.startLocal(screenAuth, PREF, 1000);
+    await settle();
+    const staleTrack = screens[0];
+
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(staleTrack.enabled).toBe(false);
+    expect(staleTrack.stops).toBeGreaterThan(0);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'session' } });
+    const regrantedAttach = deferred<any>();
+    peer.attachMediaTrack.mockImplementationOnce(async (_slot: string, track: MediaStreamTrack) => {
+      sender.track = track;
+      return regrantedAttach.promise;
+    });
+    const regrantedStart = service.startLocal(screenAuth, PREF, 1000);
+    await settle();
+    const regrantedTrack = screens[1];
+    attach.resolve(sender);
+
+    await expect(staleStart).rejects.toThrow('publication_operation_superseded');
+    await expect(service.startLocal(screenAuth, PREF, 1000))
+      .rejects.toThrow('publication_operation_pending');
+    regrantedAttach.resolve(sender);
+    await regrantedStart;
+    expect(sender.track).toBe(regrantedTrack);
+    expect(service.publications$.value.find(item => item.publicationId === screenAuth.publicationId))
+      .toMatchObject({ status: 'active', trackId: regrantedTrack.id });
+  });
+
+  it('owns a camera while bitrate application is deferred and stops it immediately on revoke', async () => {
+    peer.sessionStarted$.next('session');
+    const bitrate = deferred<void>();
+    sender.setParameters.mockImplementationOnce(async () => bitrate.promise);
+
+    const staleStart = service.startLocal(AUTH, PREF, 1000);
+    await settle();
+    const staleTrack = camera[0];
+    expect(sender.setParameters).toHaveBeenCalledOnce();
+
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(staleTrack.enabled).toBe(false);
+    expect(staleTrack.stops).toBeGreaterThan(0);
+    expect(peer.replaceMediaTrack).toHaveBeenCalledWith(sender, null);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'session' } });
+    await service.startLocal(AUTH, PREF, 1000);
+    const regrantedTrack = camera[1];
+    bitrate.resolve(undefined);
+
+    await expect(staleStart).rejects.toThrow('publication_operation_superseded');
+    expect(sender.track).toBe(regrantedTrack);
+  });
+
+  it('owns a replacement camera across deferred replace and cannot commit it after revoke', async () => {
+    peer.sessionStarted$.next('session');
+    await service.startLocal(AUTH, PREF, 1000);
+    const replace = deferred<void>();
+    peer.replaceMediaTrack.mockImplementationOnce(async (target: any, track: MediaStreamTrack | null) => {
+      target.track = track;
+      await replace.promise;
+    });
+
+    const staleReplace = service.replaceLocal(AUTH.publicationId, 'camera', PREF, 1000);
+    await settle();
+    const oldTrack = camera[0];
+    const replacement = camera[1];
+
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(oldTrack.enabled).toBe(false);
+    expect(replacement.enabled).toBe(false);
+    expect(oldTrack.stops).toBeGreaterThan(0);
+    expect(replacement.stops).toBeGreaterThan(0);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'session' } });
+    await service.startLocal(AUTH, PREF, 1000);
+    const regrantedTrack = camera[2];
+    replace.resolve(undefined);
+
+    await expect(staleReplace).rejects.toThrow('publication_operation_superseded');
+    expect(sender.track).toBe(regrantedTrack);
+    expect(service.publications$.value.find(item => item.publicationId === AUTH.publicationId))
+      .toMatchObject({ status: 'active', trackId: regrantedTrack.id });
+  });
+
+  it('never rolls an old camera back after revoke crosses a rejected bitrate await', async () => {
+    peer.sessionStarted$.next('session');
+    await service.startLocal(AUTH, PREF, 1000);
+    const oldTrack = camera[0] as unknown as MediaStreamTrack;
+    const bitrate = deferred<void>();
+    sender.setParameters.mockImplementationOnce(async () => bitrate.promise);
+
+    const staleReplace = service.replaceLocal(AUTH.publicationId, 'camera', PREF, 1000);
+    await settle();
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    const nullCallsBeforeRejection = peer.replaceMediaTrack.mock.calls
+      .filter(([, track]: [unknown, MediaStreamTrack | null]) => track === null).length;
+    const rejected = expect(staleReplace).rejects.toThrow('bitrate_apply_failed');
+
+    bitrate.reject(new Error('bitrate_apply_failed'));
+    await rejected;
+
+    expect(peer.replaceMediaTrack.mock.calls.some(
+      ([, track]: [unknown, MediaStreamTrack | null]) => track === oldTrack,
+    )).toBe(false);
+    expect(peer.replaceMediaTrack.mock.calls
+      .filter(([, track]: [unknown, MediaStreamTrack | null]) => track === null).length)
+      .toBeGreaterThan(nullCallsBeforeRejection);
+    expect(sender.track).toBeNull();
+  });
+
+  it('re-detaches a stopped source when a deferred bitrate rollback resumes late', async () => {
+    await service.startLocal(AUTH, PREF, 1000);
+    const oldTrack = camera[0] as unknown as MediaStreamTrack;
+    const rollback = deferred<void>();
+    sender.setParameters.mockRejectedValueOnce(new Error('bitrate_apply_failed'));
+    peer.replaceMediaTrack.mockImplementation(async (target: any, track: MediaStreamTrack | null) => {
+      if (track === oldTrack) {
+        await rollback.promise;
+        target.track = track;
+        return;
+      }
+      target.track = track;
+    });
+
+    const staleReplace = service.replaceLocal(AUTH.publicationId, 'camera', PREF, 1000);
+    await settle();
+    expect(peer.replaceMediaTrack.mock.calls.some(
+      ([, track]: [unknown, MediaStreamTrack | null]) => track === oldTrack,
+    )).toBe(true);
+
+    service.stopPublication(AUTH.publicationId, 'publication_user_stop');
+    expect(sender.track).toBeNull();
+    expect(camera[0].stops).toBeGreaterThan(0);
+    expect(camera[1].stops).toBeGreaterThan(0);
+    const rejected = expect(staleReplace).rejects.toThrow('bitrate_apply_failed');
+    rollback.resolve(undefined);
+    await rejected;
+
+    expect(sender.track).toBeNull();
+    expect(peer.replaceMediaTrack.mock.calls.at(-1)?.[1]).toBeNull();
+    expect(service.publications$.value.find(item => item.publicationId === AUTH.publicationId))
+      .toMatchObject({ status: 'ended', reasonCode: 'publication_user_stop' });
+  });
+
+  it('stops only local publications on revoke, preserves remote reception and reuses the peer on regrant', async () => {
+    peer.sessionStarted$.next('session');
+    await service.startLocal(AUTH, PREF, 1000);
+    const remote = new Track('remote-preserved');
+    service.registerRemote('remote-preserved', remote as unknown as MediaStreamTrack, 'camera');
+
+    publicationConsentState.next({
+      status: 'revoking',
+      binding: { sessionId: 'session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+
+    expect(service.publications$.value.find(item => item.publicationId === AUTH.publicationId))
+      .toMatchObject({ status: 'ended', reasonCode: 'public_media_publication_consent_revoked' });
+    expect(camera[0].enabled).toBe(false);
+    expect(service.publications$.value.find(item => item.publicationId === 'remote-preserved'))
+      .toMatchObject({ status: 'active' });
+    expect(remote.stops).toBe(0);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'session' } });
+    await service.startLocal(AUTH, PREF, 1000);
+    expect(peer.attachMediaTrack).toHaveBeenCalledTimes(2);
+    expect(service.publications$.value.find(item => item.publicationId === 'remote-preserved'))
+      .toMatchObject({ status: 'active' });
+  });
+
+  it('keeps a muted camera disabled when publication consent denies unmute', async () => {
+    await service.startLocal(AUTH, PREF, 1000);
+    service.setMuted(AUTH.publicationId, true);
+    publicationPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_media_publication_consent_revoked');
+    });
+
+    expect(() => service.setMuted(AUTH.publicationId, false))
+      .toThrow('public_media_publication_consent_revoked');
+    expect(camera[0].enabled).toBe(false);
   });
 
   it('cleans up device loss, remote ended and session destruction deterministically', async () => {
@@ -161,3 +424,18 @@ describe('WebrtcMediaPublicationService', () => {
     expect(service.remoteVideoTrack('remote-remote-render')).toBeNull();
   });
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+  reject(reason: unknown): void;
+} {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: unknown) => void;
+  const promise = new Promise<T>((accept, deny) => { resolve = accept; reject = deny; });
+  return { promise, resolve, reject };
+}
+
+async function settle(turns = 5): Promise<void> {
+  for (let index = 0; index < turns; index += 1) await Promise.resolve();
+}

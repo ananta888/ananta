@@ -6,7 +6,10 @@ import { WebrtcMediaPanelComponent } from './webrtc-media-panel.component';
 describe('WebrtcMediaPanelComponent Public Pair reasons', () => {
   it.each([
     ['public_ordinary_media_e2ee_not_ready', 'noch nicht bereit'],
-    ['public_ordinary_media_e2ee_awaiting_peer', 'ebenfalls aktivieren'],
+    ['public_ordinary_media_e2ee_awaiting_peer', 'technische Bestätigung'],
+    ['public_media_technical_preparation_pending', 'technisch vorbereitet'],
+    ['public_media_publication_consent_required', 'Einwilligung erforderlich'],
+    ['public_media_publication_consent_expired', 'abgelaufen'],
     ['media_e2ee_transform_unsupported', 'unterstützt den benötigten Medien-E2EE-Pfad nicht'],
     ['public_media_runtime_unsupported', 'standardisierten Public-Medien-E2EE-Pfad'],
     ['public_media_fresh_connection_required', 'neuen Pair-Session'],

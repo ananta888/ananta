@@ -3,6 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import {
   PAIR_MEDIA_E2EE_WORKER_FACTORY,
   PairMediaE2eeTransformAdapter,
+  PublicPairMediaOutboundPublicationGate,
   PublicPairMediaSlotKeySet,
 } from './pair-media-e2ee-transform.adapter';
 import {
@@ -17,6 +18,8 @@ class FakeWorker {
   readonly messages: unknown[] = [];
   terminated = false;
   acknowledgeInstall = true;
+  acknowledgePublicationGate = true;
+  throwOnPublicationGate = false;
 
   postMessage(message: any): void {
     this.messages.push(message);
@@ -26,6 +29,15 @@ class FakeWorker {
         type: 'keys-installed',
         sessionId: message.sessionId,
         transformIds: message.entries.map((entry: any) => entry.transformId),
+      }));
+    }
+    if (message?.type === 'set-publication-gate' && this.acknowledgePublicationGate) {
+      if (this.throwOnPublicationGate) throw new Error('worker post failed');
+      queueMicrotask(() => this.emit({
+        version: 1,
+        type: 'publication-gate-set',
+        sessionId: message.sessionId,
+        gate: message.gate,
       }));
     }
   }
@@ -160,6 +172,8 @@ describe('PairMediaE2eeTransformAdapter', () => {
       .toEqual(['audio/opus', 'video/VP8', 'video/VP8']);
     for (const [index, definition] of PUBLIC_PAIR_MEDIA_SLOTS.entries()) {
       expect(adapter.senderForSlot('session-a', definition.slot)).toBe(peer.transceivers[index].sender);
+      expect(adapter.slotForSender('session-a', peer.transceivers[index].sender))
+        .toBe(definition.slot);
       expect(adapter.slotForReceiver('session-a', peer.transceivers[index].receiver))
         .toBe(definition.slot);
     }
@@ -217,6 +231,8 @@ describe('PairMediaE2eeTransformAdapter', () => {
     expect(adapter.isAwaitingRemoteTopology('session-a', generation)).toBe(false);
     for (const [index, definition] of PUBLIC_PAIR_MEDIA_SLOTS.entries()) {
       expect(adapter.senderForSlot('session-a', definition.slot)).toBe(peer.transceivers[index].sender);
+      expect(adapter.slotForSender('session-a', peer.transceivers[index].sender))
+        .toBe(definition.slot);
       expect(adapter.slotForReceiver('session-a', peer.transceivers[index].receiver))
         .toBe(definition.slot);
     }
@@ -279,7 +295,114 @@ describe('PairMediaE2eeTransformAdapter', () => {
     expect(() => adapter.senderForSlot('session-a', 'camera-vp8'))
       .toThrow('public_media_transform_not_prepared');
   });
+
+  it('requires the exact keyed adapter generation and acknowledges an exact publication gate', async () => {
+    const peer = new FakePeerConnection();
+    const generation = await adapter.prepareSession(
+      peer as unknown as RTCPeerConnection, 'session-a', contract(), vi.fn(),
+    );
+    const enabled = publicationGate(1, true, ['microphone-opus', 'screen-vp8']);
+
+    await expect(adapter.setOutboundPublicationGate('session-a', generation, enabled))
+      .rejects.toThrow('public_media_transform_not_keyed');
+
+    await adapter.installKeys('session-a', await keySets(), generation);
+    await expect(adapter.setOutboundPublicationGate('session-a', generation, enabled))
+      .resolves.toBeUndefined();
+
+    expect(workers[0].messages).toContainEqual({
+      version: 1,
+      type: 'set-publication-gate',
+      sessionId: 'session-a',
+      gate: enabled,
+    });
+    expect(adapter.isKeyed('session-a', undefined, undefined, generation)).toBe(true);
+    expect(adapter.slotForSender('other-session', peer.transceivers[0].sender)).toBeNull();
+    expect(adapter.slotForSender(
+      'session-a', { replaceTrack: vi.fn() } as unknown as RTCRtpSender,
+    )).toBeNull();
+
+    const replacementGeneration = await adapter.prepareSession(
+      new FakePeerConnection() as unknown as RTCPeerConnection,
+      'session-a', contract(), vi.fn(),
+    );
+    expect(replacementGeneration).toBeGreaterThan(generation);
+    await expect(adapter.setOutboundPublicationGate('session-a', generation, enabled))
+      .rejects.toThrow('public_media_transform_not_prepared');
+    expect(adapter.slotForSender('session-a', peer.transceivers[0].sender)).toBeNull();
+  });
+
+  it('fails the complete adapter when a publication-gate ACK does not echo the exact gate', async () => {
+    const fatal = vi.fn();
+    const generation = await adapter.prepareSession(
+      new FakePeerConnection() as unknown as RTCPeerConnection, 'session-a', contract(), fatal,
+    );
+    await adapter.installKeys('session-a', await keySets(), generation);
+    workers[0].acknowledgePublicationGate = false;
+    const setting = adapter.setOutboundPublicationGate(
+      'session-a', generation, publicationGate(1, true, ['microphone-opus']),
+    );
+    await Promise.resolve();
+
+    workers[0].emit({
+      version: 1,
+      type: 'publication-gate-set',
+      sessionId: 'session-a',
+      gate: publicationGate(1, true, ['camera-vp8']),
+    });
+
+    await expect(setting).rejects.toThrow('media_e2ee_publication_gate_ack_invalid');
+    expect(workers[0].terminated).toBe(true);
+    expect(adapter.isPrepared('session-a')).toBe(false);
+    expect(fatal).toHaveBeenCalledWith('media_e2ee_publication_gate_ack_invalid');
+  });
+
+  it('fails closed when the publication-gate worker ACK times out', async () => {
+    vi.useFakeTimers();
+    const fatal = vi.fn();
+    const generation = await adapter.prepareSession(
+      new FakePeerConnection() as unknown as RTCPeerConnection, 'session-a', contract(), fatal,
+    );
+    await adapter.installKeys('session-a', await keySets(), generation);
+    workers[0].acknowledgePublicationGate = false;
+    const setting = adapter.setOutboundPublicationGate(
+      'session-a', generation, publicationGate(1, false, [], 0),
+    );
+    const rejection = expect(setting).rejects.toThrow('media_e2ee_worker_ack_timeout');
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await rejection;
+    expect(workers[0].terminated).toBe(true);
+    expect(adapter.isPrepared('session-a')).toBe(false);
+    expect(fatal).toHaveBeenCalledWith('media_e2ee_worker_ack_timeout');
+  });
+
+  it('fails closed immediately when posting a publication gate to the worker throws', async () => {
+    const fatal = vi.fn();
+    const generation = await adapter.prepareSession(
+      new FakePeerConnection() as unknown as RTCPeerConnection, 'session-a', contract(), fatal,
+    );
+    await adapter.installKeys('session-a', await keySets(), generation);
+    workers[0].throwOnPublicationGate = true;
+
+    await expect(adapter.setOutboundPublicationGate(
+      'session-a', generation, publicationGate(1, true, ['microphone-opus']),
+    )).rejects.toThrow('media_e2ee_worker_failed');
+
+    expect(workers[0].terminated).toBe(true);
+    expect(adapter.isPrepared('session-a')).toBe(false);
+    expect(fatal).toHaveBeenCalledWith('media_e2ee_worker_failed');
+  });
 });
+
+function publicationGate(
+  revision: number,
+  enabled: boolean,
+  slots: readonly PublicPairMediaOutboundPublicationGate['slots'][number][],
+  expiresAtMs = 2_000_000_000_000,
+): PublicPairMediaOutboundPublicationGate {
+  return Object.freeze({ revision, enabled, slots: Object.freeze([...slots]), expiresAtMs });
+}
 
 function contract(): PublicPairMediaSecurityContractV2 {
   return {

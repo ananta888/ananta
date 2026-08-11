@@ -7,7 +7,9 @@ import {
 } from './webrtc-media-session.service';
 import { WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaPublicationPolicy } from './pair-media-publication.policy';
 import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
+import { PublicPairMediaPublicationConsentService } from './public-pair-media-publication-consent.service';
 
 export type MediaPublicationSource = 'camera' | 'screen' | 'remote_video';
 export type MediaPublicationStatus = 'requesting_permission' | 'active' | 'muted' | 'ended' | 'failed';
@@ -48,7 +50,19 @@ interface LocalPublication {
   stream?: MediaStream;
   track?: MediaStreamTrack;
   sender?: RTCRtpSender;
+  pending?: PendingLocalCapture;
   expiresHandle?: ReturnType<typeof setTimeout>;
+}
+
+interface PendingLocalCapture {
+  readonly operationId: number;
+  readonly stream: MediaStream;
+  readonly track: MediaStreamTrack;
+  readonly rollbackTrack?: MediaStreamTrack;
+  sender?: RTCRtpSender;
+  cancelled: boolean;
+  released: boolean;
+  senderDetached: boolean;
 }
 
 interface RemotePublication {
@@ -62,7 +76,9 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   readonly publications$ = new BehaviorSubject<readonly MediaPublicationView[]>(Object.freeze([]));
   private readonly peer = inject(WebrtcSessionService);
   private readonly mediaPolicy = inject(PairOrdinaryMediaPolicy);
+  private readonly publicationPolicy = inject(PairMediaPublicationPolicy);
   private readonly pairMediaE2ee = inject(PairMediaE2eeCoordinatorService);
+  private readonly publicationConsent = inject(PublicPairMediaPublicationConsentService);
   private readonly mediaSession = inject(WebrtcMediaSessionService);
   private readonly devices = inject(WEBRTC_MEDIA_DEVICES);
   private readonly local = new Map<string, LocalPublication>();
@@ -88,6 +104,15 @@ export class WebrtcMediaPublicationService implements OnDestroy {
         this.stopAll(status.reasonCode || 'public_media_e2ee_not_ready');
       }
     }));
+    this.subscriptions.add(this.publicationConsent.state$.subscribe(consent => {
+      if (consent.binding?.sessionId !== this.currentSessionId || consent.status === 'granted') return;
+      if ([...this.local.values()].some(publication => publication.pending || publication.track || publication.sender
+          || publication.view.status === 'requesting_permission')) {
+        this.stopLocalPublications(
+          consent.reasonCode || 'public_media_publication_consent_not_granted',
+        );
+      }
+    }));
     this.subscriptions.add(this.mediaSession.remoteTracks$.subscribe(tracks => this.reconcileRemoteTracks(tracks)));
     this.devices.addEventListener?.('devicechange', this.deviceChangeListener);
   }
@@ -97,10 +122,12 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     preference: Readonly<UserMediaPreference>,
     nowMs = Date.now(),
   ): Promise<void> {
-    this.mediaPolicy.assertAllowed(authorization.sessionId);
+    const slot = publicationSlot(authorization.source);
+    this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
     validateAuthorization(authorization, preference, nowMs);
     const existing = this.local.get(authorization.publicationId);
     if (existing && existing.authorization.source !== authorization.source) throw new Error('publication_source_switch_denied');
+    if (existing?.pending) throw new Error('publication_operation_pending');
     if (existing?.sender && existing.track) {
       existing.authorization = Object.freeze({ ...authorization });
       await this.replaceLocal(authorization.publicationId, authorization.source, preference, nowMs);
@@ -120,19 +147,27 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     const limits = intersectLimits(authorization, preference);
     let stream: MediaStream | undefined;
     let sender: RTCRtpSender | undefined;
+    let pending: PendingLocalCapture | undefined;
     try {
       stream = await capture(this.devices, authorization.source, limits);
       this.assertOperation(authorization.publicationId, operationId);
+      this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
       const track = stream.getVideoTracks()[0];
       if (!track) throw new Error('video_track_missing');
       validateTrackSettings(track, limits);
+      pending = this.beginPendingCapture(publication, operationId, stream, track);
       sender = await this.peer.attachMediaTrack(
         authorization.source === 'camera' ? 'camera-vp8' : 'screen-vp8',
         track,
         stream,
       );
+      pending.sender = sender;
+      if (pending.cancelled) this.detachPendingSender(pending, true);
+      this.assertPendingCaptureCurrent(publication, pending);
       await applyBitrate(sender, limits.bitrate);
-      this.assertOperation(authorization.publicationId, operationId);
+      this.assertPendingCaptureCurrent(publication, pending);
+      this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
+      this.commitPendingCapture(publication, pending);
       publication.view = Object.freeze({
         publicationId: authorization.publicationId, source: authorization.source,
         status: track.enabled ? 'active' : 'muted', local: true,
@@ -145,13 +180,18 @@ export class WebrtcMediaPublicationService implements OnDestroy {
       this.armExpiry(publication, nowMs);
       stream = undefined;
       sender = undefined;
+      pending = undefined;
       this.emit();
     } catch (error) {
-      if (sender) {
-        void this.peer.replaceMediaTrack(sender, null).catch(() => undefined);
-        this.peer.removeMediaSender(sender);
+      if (pending) this.releasePendingCapture(publication, pending, true, pending.cancelled);
+      else {
+        disableOwnedTrack(undefined, stream);
+        if (sender) {
+          void this.peer.replaceMediaTrack(sender, null).catch(() => undefined);
+          this.peer.removeMediaSender(sender);
+        }
+        stopStream(stream);
       }
-      stopStream(stream);
       const current = this.local.get(authorization.publicationId);
       if (current?.operationId === operationId) {
         current.view = Object.freeze({
@@ -174,8 +214,10 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     if (!publication || publication.authorization.source !== source || !publication.sender || !publication.track) {
       throw new Error('publication_source_switch_denied');
     }
+    if (publication.pending) throw new Error('publication_operation_pending');
     const authorization = publication.authorization;
-    this.mediaPolicy.assertAllowed(authorization.sessionId);
+    const slot = publicationSlot(source);
+    this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
     validateAuthorization(authorization, preference, nowMs);
     const limits = intersectLimits(authorization, preference);
     const operationId = ++this.operationSerial;
@@ -185,23 +227,44 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     publication.view = Object.freeze({ ...publication.view, status: 'requesting_permission', reasonCode: null });
     this.emit();
     let stream: MediaStream | undefined;
+    let pending: PendingLocalCapture | undefined;
     let senderReplaced = false;
     try {
       stream = await capture(this.devices, source, limits);
       this.assertOperation(publicationId, operationId);
+      this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
       const track = stream.getVideoTracks()[0];
       if (!track) throw new Error('video_track_missing');
       validateTrackSettings(track, limits);
+      pending = this.beginPendingCapture(
+        publication, operationId, stream, track, publication.sender, oldTrack,
+      );
       await this.peer.replaceMediaTrack(publication.sender, track);
       senderReplaced = true;
+      this.assertPendingCaptureCurrent(publication, pending);
       try {
         await applyBitrate(publication.sender, limits.bitrate);
       } catch (error) {
-        await this.peer.replaceMediaTrack(publication.sender, oldTrack).catch(() => undefined);
-        senderReplaced = false;
+        if (this.isPendingCaptureCurrent(publication, pending)) {
+          try {
+            await this.peer.replaceMediaTrack(publication.sender, oldTrack);
+            this.assertPendingCaptureCurrent(publication, pending);
+            senderReplaced = false;
+          } catch {
+            if (!this.isPendingCaptureCurrent(publication, pending)) {
+              this.detachPendingSender(pending, true);
+            }
+          }
+        } else {
+          // A revoke can cross the bitrate await. Never resurrect oldTrack;
+          // reinforce the detach after the stale continuation resumes.
+          this.detachPendingSender(pending, true);
+        }
         throw error;
       }
-      this.assertOperation(publicationId, operationId);
+      this.assertPendingCaptureCurrent(publication, pending);
+      this.publicationPolicy.assertAllowed(authorization.sessionId, slot);
+      this.commitPendingCapture(publication, pending);
       detachTrackHandlers(oldTrack);
       stopOwnedTrack(oldTrack, oldStream);
       publication.track = track;
@@ -212,9 +275,14 @@ export class WebrtcMediaPublicationService implements OnDestroy {
       wireLocalTrack(track, publicationId, this);
       this.armExpiry(publication, nowMs);
       stream = undefined;
+      pending = undefined;
       this.emit();
     } catch (error) {
-      stopStream(stream);
+      if (pending) {
+        this.releasePendingCapture(
+          publication, pending, senderReplaced || pending.cancelled, pending.cancelled,
+        );
+      } else stopStream(stream);
       const current = this.local.get(publicationId);
       if (current?.operationId === operationId) {
         if (senderReplaced) {
@@ -234,6 +302,12 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   setMuted(publicationId: string, muted: boolean): void {
     const publication = this.local.get(publicationId);
     if (!publication?.track) return;
+    if (!muted) {
+      this.publicationPolicy.assertAllowed(
+        publication.authorization.sessionId,
+        publicationSlot(publication.authorization.source),
+      );
+    }
     publication.track.enabled = !muted;
     publication.view = Object.freeze({ ...publication.view, status: muted ? 'muted' : 'active', reasonCode: null });
     this.emit();
@@ -279,8 +353,11 @@ export class WebrtcMediaPublicationService implements OnDestroy {
   stopPublication(publicationId: string, reasonCode = 'user_stop'): void {
     const publication = this.local.get(publicationId);
     if (publication) {
-      publication.operationId = ++this.operationSerial;
+      const stoppedOperationId = ++this.operationSerial;
       this.clearExpiry(publication);
+      this.cancelPendingCapture(publication);
+      publication.operationId = stoppedOperationId;
+      disableOwnedTrack(publication.track, publication.stream);
       if (publication.sender) {
         void this.peer.replaceMediaTrack(publication.sender, null).catch(() => undefined);
         this.peer.removeMediaSender(publication.sender);
@@ -314,6 +391,15 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     }
   }
 
+  /** Stops only tracks captured and published by this browser. */
+  stopLocalPublications(reasonCode = 'user_stop', clear = false): void {
+    for (const id of [...this.local.keys()]) this.stopPublication(id, reasonCode);
+    if (clear) {
+      this.local.clear();
+      this.emit();
+    }
+  }
+
   ngOnDestroy(): void {
     this.devices.removeEventListener?.('devicechange', this.deviceChangeListener);
     this.stopAll('service_destroyed', true);
@@ -325,6 +411,115 @@ export class WebrtcMediaPublicationService implements OnDestroy {
     if (this.local.get(publicationId)?.operationId !== operationId) {
       throw new Error('publication_operation_superseded');
     }
+  }
+
+  private beginPendingCapture(
+    publication: LocalPublication,
+    operationId: number,
+    stream: MediaStream,
+    track: MediaStreamTrack,
+    sender?: RTCRtpSender,
+    rollbackTrack?: MediaStreamTrack,
+  ): PendingLocalCapture {
+    this.assertOperation(publication.authorization.publicationId, operationId);
+    if (publication.pending) throw new Error('publication_operation_pending');
+    const pending: PendingLocalCapture = {
+      operationId, stream, track, sender, rollbackTrack,
+      cancelled: false, released: false, senderDetached: false,
+    };
+    publication.pending = pending;
+    return pending;
+  }
+
+  private isPendingCaptureCurrent(
+    publication: LocalPublication,
+    pending: PendingLocalCapture,
+  ): boolean {
+    return !pending.cancelled
+      && !pending.released
+      && publication.pending === pending
+      && publication.operationId === pending.operationId
+      && this.local.get(publication.authorization.publicationId) === publication;
+  }
+
+  private assertPendingCaptureCurrent(
+    publication: LocalPublication,
+    pending: PendingLocalCapture,
+  ): void {
+    if (!this.isPendingCaptureCurrent(publication, pending)) {
+      throw new Error('publication_operation_superseded');
+    }
+  }
+
+  private commitPendingCapture(publication: LocalPublication, pending: PendingLocalCapture): void {
+    this.assertPendingCaptureCurrent(publication, pending);
+    publication.pending = undefined;
+  }
+
+  private cancelPendingCapture(publication: LocalPublication): void {
+    const pending = publication.pending;
+    if (!pending) return;
+    pending.cancelled = true;
+    this.releasePendingCapture(publication, pending, true, true);
+  }
+
+  private releasePendingCapture(
+    publication: LocalPublication,
+    pending: PendingLocalCapture,
+    detachSender: boolean,
+    forceDetach = false,
+  ): void {
+    if (publication.pending === pending) publication.pending = undefined;
+    if (!pending.released) {
+      pending.released = true;
+      disableOwnedTrack(pending.track, pending.stream);
+      stopOwnedTrack(pending.track, pending.stream);
+    }
+    if (detachSender) this.detachPendingSender(pending, forceDetach);
+  }
+
+  private detachPendingSender(pending: PendingLocalCapture, force = false): void {
+    if (!pending.sender || (pending.senderDetached && !force)) return;
+    const newerTrack = this.newerOwnedTrackForSender(pending.sender, pending.operationId);
+    if (newerTrack) {
+      // If a stale browser continuation overwrote the fixed sender after a
+      // regrant, restore the newer service-owned track instead of detaching it.
+      if (pending.sender.track !== newerTrack) {
+        void this.peer.replaceMediaTrack(pending.sender, newerTrack).catch(() => undefined);
+      }
+      return;
+    }
+    const senderTrack = pending.sender.track;
+    if (!force && senderTrack && senderTrack !== pending.track) return;
+    if (force && senderTrack && senderTrack !== pending.track && senderTrack !== pending.rollbackTrack) return;
+    pending.senderDetached = true;
+    void this.peer.replaceMediaTrack(pending.sender, null).catch(() => undefined);
+    this.peer.removeMediaSender(pending.sender);
+  }
+
+  private newerOwnedTrackForSender(
+    sender: RTCRtpSender,
+    operationId: number,
+  ): MediaStreamTrack | null {
+    let newest: { operationId: number; track: MediaStreamTrack } | null = null;
+    for (const publication of this.local.values()) {
+      if (
+        publication.operationId > operationId
+        && publication.sender === sender
+        && publication.track
+        && (!newest || publication.operationId > newest.operationId)
+      ) newest = { operationId: publication.operationId, track: publication.track };
+      const pending = publication.pending;
+      if (
+        pending
+        && pending.operationId > operationId
+        && (pending.sender === sender || sender.track === pending.track)
+        && !pending.cancelled
+        && !pending.released
+        && (!newest || pending.operationId > newest.operationId)
+      ) newest = { operationId: pending.operationId, track: pending.track };
+    }
+    return newest?.track ?? null;
   }
 
   private armExpiry(publication: LocalPublication, nowMs: number): void {
@@ -481,6 +676,10 @@ function captureLabel(source: 'camera' | 'screen'): string {
   return source === 'camera' ? 'Kamera' : 'Bildschirm';
 }
 
+function publicationSlot(source: 'camera' | 'screen'): 'camera-vp8' | 'screen-vp8' {
+  return source === 'camera' ? 'camera-vp8' : 'screen-vp8';
+}
+
 function publicationFailureReason(error: unknown): string {
   if (typeof DOMException === 'function' && error instanceof DOMException && error.name === 'NotAllowedError') {
     return 'publication_permission_denied';
@@ -550,8 +749,19 @@ function listenToRemoteTrack(
 }
 
 function safeStop(track: MediaStreamTrack | undefined): void { try { track?.stop(); } catch { /* cleanup */ } }
-function stopStream(stream: MediaStream | undefined): void { for (const track of stream?.getTracks() ?? []) safeStop(track); }
+function stopStream(stream: MediaStream | undefined): void {
+  for (const track of stream?.getTracks() ?? []) {
+    track.enabled = false;
+    safeStop(track);
+  }
+}
 function stopOwnedTrack(track: MediaStreamTrack | undefined, stream: MediaStream | undefined): void {
+  disableOwnedTrack(track, stream);
   if (stream) stopStream(stream);
   else safeStop(track);
+}
+function disableOwnedTrack(track: MediaStreamTrack | undefined, stream: MediaStream | undefined): void {
+  if (stream) {
+    for (const ownedTrack of stream.getTracks()) ownedTrack.enabled = false;
+  } else if (track) track.enabled = false;
 }

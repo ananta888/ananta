@@ -3,7 +3,9 @@ import { BehaviorSubject, Subject } from 'rxjs';
 import { WEBRTC_MEDIA_DEVICES, WebrtcMediaSessionService } from './webrtc-media-session.service';
 import { PeerState, WebrtcSessionService } from './webrtc-session.service';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaPublicationPolicy } from './pair-media-publication.policy';
 import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
+import { PublicPairMediaPublicationConsentService } from './public-pair-media-publication-consent.service';
 
 class FakeTrack {
   id: string; kind = 'audio'; label = 'Explicit microphone'; enabled = true; onended: (() => void) | null = null;
@@ -26,11 +28,15 @@ describe('WebrtcMediaSessionService', () => {
   let devices: any;
   let dispatchDeviceChange: () => void;
   const mediaPolicy = { assertAllowed: vi.fn() };
+  const publicationPolicy = { assertAllowed: vi.fn() };
   const mediaE2eeStatus = new BehaviorSubject({ sessionId: '', state: 'inactive' as const });
+  const publicationConsentState = new BehaviorSubject<any>({ status: 'unbound', binding: null });
 
   beforeEach(() => {
     tracks = [];
     mediaPolicy.assertAllowed.mockReset();
+    publicationPolicy.assertAllowed.mockReset();
+    publicationConsentState.next({ status: 'unbound', binding: null });
     peer = {
       state$: new BehaviorSubject<PeerState>('connected'), sessionStarted$: new Subject<string>(),
       remoteTrack$: new Subject<RTCTrackEvent>(), sender: { track: null }, addMediaTrack: vi.fn((track: MediaStreamTrack) => {
@@ -58,7 +64,9 @@ describe('WebrtcMediaSessionService', () => {
       WebrtcMediaSessionService,
       { provide: WebrtcSessionService, useValue: peer },
       { provide: PairOrdinaryMediaPolicy, useValue: mediaPolicy },
+      { provide: PairMediaPublicationPolicy, useValue: publicationPolicy },
       { provide: PairMediaE2eeCoordinatorService, useValue: { status$: mediaE2eeStatus } },
+      { provide: PublicPairMediaPublicationConsentService, useValue: { state$: publicationConsentState } },
       { provide: WEBRTC_MEDIA_DEVICES, useValue: devices },
     ] });
     service = TestBed.inject(WebrtcMediaSessionService);
@@ -73,6 +81,9 @@ describe('WebrtcMediaSessionService', () => {
 
   it('denies public capture before permission and drops a public remote track', async () => {
     peer.sessionStarted$.next('public-session');
+    publicationPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_ordinary_media_e2ee_unavailable');
+    });
     mediaPolicy.assertAllowed.mockImplementation(() => {
       throw new Error('public_ordinary_media_e2ee_unavailable');
     });
@@ -155,6 +166,136 @@ describe('WebrtcMediaSessionService', () => {
     expect(service.audioState$.value).toMatchObject({ status: 'idle', reasonCode: 'microphone_user_stop' });
   });
 
+  it('invalidates a pending permission prompt when local publication consent is revoked', async () => {
+    peer.sessionStarted$.next('public-session');
+    let resolveCapture!: (stream: FakeStream) => void;
+    devices.getUserMedia.mockReturnValueOnce(new Promise<FakeStream>(resolve => { resolveCapture = resolve; }));
+
+    const pending = service.requestMicrophone();
+    publicationConsentState.next({
+      status: 'revoking',
+      binding: { sessionId: 'public-session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    const lateTrack = new FakeTrack('consent-revoked-track');
+    resolveCapture(new FakeStream(lateTrack));
+
+    await expect(pending).rejects.toThrow('microphone_capture_superseded');
+    expect(lateTrack.stops).toBeGreaterThan(0);
+    expect(peer.attachMediaTrack).not.toHaveBeenCalled();
+    expect(service.audioState$.value).toMatchObject({
+      status: 'idle', reasonCode: 'public_media_publication_consent_revoked',
+    });
+  });
+
+  it('detaches active audio on revoke and rejects unmute without fresh consent', async () => {
+    peer.sessionStarted$.next('public-session');
+    await service.requestMicrophone();
+    service.setMuted(true);
+    publicationPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_media_publication_consent_revoked');
+    });
+
+    expect(() => service.setMuted(false)).toThrow('public_media_publication_consent_revoked');
+    expect(tracks[0].enabled).toBe(false);
+
+    publicationConsentState.next({
+      status: 'revoking',
+      binding: { sessionId: 'public-session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(peer.replaceMediaTrack).toHaveBeenCalledWith(peer.sender, null);
+    expect(peer.removeMediaSender).toHaveBeenCalledWith(peer.sender);
+    expect(tracks[0].stops).toBeGreaterThan(0);
+  });
+
+  it('disables an active local microphone synchronously before revoke cleanup completes', async () => {
+    peer.sessionStarted$.next('public-session');
+    await service.requestMicrophone();
+    expect(tracks[0].enabled).toBe(true);
+
+    publicationConsentState.next({
+      status: 'revoking',
+      binding: { sessionId: 'public-session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+
+    expect(tracks[0].enabled).toBe(false);
+    expect(tracks[0].stops).toBeGreaterThan(0);
+  });
+
+  it('owns a microphone across deferred attach, releases it on revoke and fences the stale finally', async () => {
+    peer.sessionStarted$.next('public-session');
+    const attach = deferred<any>();
+    peer.attachMediaTrack.mockImplementationOnce(async (_slot: string, track: MediaStreamTrack) => {
+      peer.sender.track = track;
+      return attach.promise;
+    });
+
+    const staleStart = service.requestMicrophone();
+    await settle();
+    const staleTrack = tracks[0];
+    expect(peer.attachMediaTrack).toHaveBeenCalledOnce();
+
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'public-session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(staleTrack.enabled).toBe(false);
+    expect(staleTrack.stops).toBeGreaterThan(0);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'public-session' } });
+    const regrantedAttach = deferred<any>();
+    peer.attachMediaTrack.mockImplementationOnce(async (_slot: string, track: MediaStreamTrack) => {
+      peer.sender.track = track;
+      return regrantedAttach.promise;
+    });
+    const regrantedStart = service.requestMicrophone();
+    await settle();
+    const regrantedTrack = tracks[1];
+
+    attach.resolve(peer.sender);
+    await expect(staleStart).rejects.toThrow('microphone_capture_superseded');
+    await expect(service.requestMicrophone()).rejects.toThrow('microphone_capture_pending');
+    regrantedAttach.resolve(peer.sender);
+    await regrantedStart;
+    expect(peer.sender.track).toBe(regrantedTrack);
+    expect(service.audioState$.value).toMatchObject({ status: 'active', trackId: regrantedTrack.id });
+  });
+
+  it('owns a replacement microphone across deferred replace and cannot commit it after revoke', async () => {
+    peer.sessionStarted$.next('public-session');
+    await service.requestMicrophone();
+    const replace = deferred<void>();
+    peer.replaceMediaTrack.mockImplementationOnce(async (target: any, track: MediaStreamTrack | null) => {
+      target.track = track;
+      await replace.promise;
+    });
+
+    const staleReplace = service.replaceMicrophone({ deviceId: 'replacement' });
+    await settle();
+    const oldTrack = tracks[0];
+    const replacement = tracks[1];
+
+    publicationConsentState.next({
+      status: 'revoking', binding: { sessionId: 'public-session' },
+      reasonCode: 'public_media_publication_consent_revoked',
+    });
+    expect(oldTrack.enabled).toBe(false);
+    expect(replacement.enabled).toBe(false);
+    expect(oldTrack.stops).toBeGreaterThan(0);
+    expect(replacement.stops).toBeGreaterThan(0);
+
+    publicationConsentState.next({ status: 'granted', binding: { sessionId: 'public-session' } });
+    await service.requestMicrophone();
+    const regrantedTrack = tracks[2];
+    replace.resolve(undefined);
+
+    await expect(staleReplace).rejects.toThrow('microphone_capture_superseded');
+    expect(peer.sender.track).toBe(regrantedTrack);
+    expect(service.audioState$.value).toMatchObject({ status: 'active', trackId: regrantedTrack.id });
+  });
+
   it('stops a lost microphone on device change and unregisters the listener on destroy', async () => {
     await service.requestMicrophone();
     tracks[0].readyState = 'ended';
@@ -166,3 +307,17 @@ describe('WebrtcMediaSessionService', () => {
     expect(devices.removeEventListener).toHaveBeenCalledWith('devicechange', expect.any(Function));
   });
 });
+
+function deferred<T>(): {
+  promise: Promise<T>;
+  resolve(value: T): void;
+} {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>(accept => { resolve = accept; });
+  return { promise, resolve };
+}
+
+async function settle(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+}

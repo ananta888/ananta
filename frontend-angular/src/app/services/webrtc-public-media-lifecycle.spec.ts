@@ -6,6 +6,7 @@ import { OidcAuthService } from './oidc-auth.service';
 import { PairMediaE2eeCoordinatorService } from './pair-media-e2ee-coordinator.service';
 import { PairMediaE2eeTransformAdapter } from './pair-media-e2ee-transform.adapter';
 import { PairOrdinaryMediaPolicy } from './pair-ordinary-media.policy';
+import { PairMediaPublicationPolicy } from './pair-media-publication.policy';
 import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
 import { PairViewSecurityBootstrapService } from './pair-view-security-bootstrap.service';
 import { PublicPairMediaSecurityContractV2 } from './public-pair-media-security-contract';
@@ -43,6 +44,8 @@ class PublicPeerConnection {
     readyState: PublicPeerConnection.nextDataChannelReadyState,
   }));
   readonly getTransceivers = vi.fn(() => this.remoteOfferTransceivers as unknown as RTCRtpTransceiver[]);
+  readonly mediaSenders: RTCRtpSender[] = [];
+  readonly getSenders = vi.fn(() => this.mediaSenders);
 
   constructor(readonly configuration?: RTCConfiguration) {
     PublicPeerConnection.instances.push(this);
@@ -75,6 +78,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
   let transforms: TransformMock;
   let coordinator: CoordinatorMock;
   let bootstrap: { mediaContractFor: ReturnType<typeof vi.fn> };
+  let publicationPolicy: { assertAllowed: ReturnType<typeof vi.fn> };
 
   beforeAll(() => {
     runtime.RTCPeerConnection = PublicPeerConnection as unknown as typeof RTCPeerConnection;
@@ -102,6 +106,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     };
     transforms = new TransformMock();
     coordinator = new CoordinatorMock();
+    publicationPolicy = { assertAllowed: vi.fn() };
     bootstrap = { mediaContractFor: vi.fn(() => contract()) };
     TestBed.configureTestingModule({ providers: [
       WebrtcSessionService,
@@ -117,6 +122,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
       { provide: PairOrdinaryMediaPolicy, useValue: {
         assertAllowed: vi.fn(() => { throw new Error('raw_public_media_forbidden'); }),
       } },
+      { provide: PairMediaPublicationPolicy, useValue: publicationPolicy },
       { provide: PairViewSecurityBootstrapService, useValue: bootstrap },
       { provide: PairMediaE2eeCoordinatorService, useValue: coordinator },
       { provide: PairMediaE2eeTransformAdapter, useValue: transforms },
@@ -166,6 +172,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
   });
 
   it('reconciles an already-open answerer DataChannel exactly once', async () => {
+    vi.useFakeTimers();
     await service.startSession('session-a', false, 'peer:remote');
     const peer = PublicPeerConnection.instances[0];
     const channel = Object.assign(dataChannel(), { readyState: 'open' as const });
@@ -174,11 +181,73 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     await settle();
 
     expect(service.dataChannelState$.value).toBe('open');
+    expect(service.state$.value).toBe('connected');
     expect(coordinator.port?.isOpen()).toBe(true);
     expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
 
     channel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
     expect(coordinator.markDataChannelOpen).toHaveBeenCalledTimes(1);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+    expect(peer.close).not.toHaveBeenCalled();
+  });
+
+  it('treats a generation-bound DataChannel open as initial transport success', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const channel = peer.createDataChannel.mock.results[0].value as RTCDataChannel;
+
+    Object.assign(channel, { readyState: 'open' as const });
+    channel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(peer.connectionState).toBe('new');
+    expect(service.state$.value).toBe('connected');
+    expect(coordinator.fail).not.toHaveBeenCalled();
+    expect(peer.close).not.toHaveBeenCalled();
+    expect(service.auditLog).toContainEqual(expect.objectContaining({
+      type: 'connection_ready', session_id: 'session-a', detail: 'datachannel',
+    }));
+    expect(service.auditLog).not.toContainEqual(expect.objectContaining({
+      type: 'ice_failed', session_id: 'session-a',
+    }));
+  });
+
+  it('still fails closed when neither the peer nor its DataChannel becomes ready', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_timeout',
+    );
+    expect(peer.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
+  });
+
+  it('does not let a stale DataChannel open clear a replacement connection deadline', async () => {
+    vi.useFakeTimers();
+    await service.startSession('session-a', true, 'peer:remote');
+    const stalePeer = PublicPeerConnection.instances[0];
+    const staleChannel = stalePeer.createDataChannel.mock.results[0].value as RTCDataChannel;
+
+    await service.startSession('session-a', true, 'peer:remote');
+    const replacement = PublicPeerConnection.instances[1];
+    Object.assign(staleChannel, { readyState: 'open' as const });
+    staleChannel.onopen?.(new Event('open'));
+    await vi.advanceTimersByTimeAsync(15_000);
+
+    expect(coordinator.fail).toHaveBeenCalledOnce();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_peer_connection_timeout',
+    );
+    expect(replacement.close).toHaveBeenCalledOnce();
+    expect(service.state$.value).toBe('failed');
   });
 
   it('reopens a revoked media contract as data-only with a fresh connection generation', async () => {
@@ -198,7 +267,7 @@ describe('WebrtcSessionService Public media lifecycle', () => {
 
     expect(transforms.prepareSession).toHaveBeenCalledTimes(1);
     expect(dataOnlyPeer.close).not.toHaveBeenCalled();
-    expect(service.state$.value).toBe('connecting');
+    expect(service.state$.value).toBe('connected');
     expect(service.dataChannelState$.value).toBe('open');
     expect(coordinator.port).toBeNull();
   });
@@ -362,6 +431,496 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     );
     expect(peer.close).toHaveBeenCalledOnce();
     expect(service.state$.value).toBe('failed');
+  });
+
+  it('detaches a Public sender when consent is lost across the final replace boundary', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const sender = {
+      replaceTrack: vi.fn(async () => undefined),
+    } as unknown as RTCRtpSender;
+    const track = { kind: 'video' } as MediaStreamTrack;
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    publicationPolicy.assertAllowed
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => { throw new Error('public_media_publication_consent_revoked'); });
+
+    await expect(service.replaceMediaTrack(sender, track))
+      .rejects.toThrow('public_media_publication_consent_revoked');
+    expect(sender.replaceTrack).toHaveBeenNthCalledWith(1, track);
+    expect(sender.replaceTrack).toHaveBeenNthCalledWith(2, null);
+  });
+
+  it('fails Public media closed when post-policy cleanup cannot detach the current sender', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const sender = {
+      replaceTrack: vi.fn()
+        .mockResolvedValueOnce(undefined)
+        .mockRejectedValueOnce(new Error('native_detach_failed')),
+    } as unknown as RTCRtpSender;
+    const track = { kind: 'video' } as MediaStreamTrack;
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    publicationPolicy.assertAllowed
+      .mockImplementationOnce(() => undefined)
+      .mockImplementationOnce(() => { throw new Error('public_media_publication_consent_revoked'); });
+
+    await expect(service.replaceMediaTrack(sender, track))
+      .rejects.toThrow('public_media_sender_reconciliation_failed');
+    expect(sender.replaceTrack).toHaveBeenNthCalledWith(1, track);
+    expect(sender.replaceTrack).toHaveBeenNthCalledWith(2, null);
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+  });
+
+  it('preserves the previous sender owner when a current native replace rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const oldTrack = { kind: 'video' } as MediaStreamTrack;
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    const sender = {
+      track: oldTrack,
+      replaceTrack: vi.fn(async () => { throw new Error('native_replace_failed'); }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    await expect(service.replaceMediaTrack(sender, newTrack))
+      .rejects.toThrow('native_replace_failed');
+
+    expect(sender.track).toBe(oldTrack);
+    expect(sender.replaceTrack).toHaveBeenCalledOnce();
+    expect(sender.replaceTrack).toHaveBeenCalledWith(newTrack);
+    expect(sender.replaceTrack).not.toHaveBeenCalledWith(null);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+  });
+
+  it('does not issue a redundant null write when an initial native attach rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const track = { kind: 'video' } as MediaStreamTrack;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async () => { throw new Error('native_attach_failed'); }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+
+    await expect(service.attachMediaTrack('camera-vp8', track, {} as MediaStream))
+      .rejects.toThrow('native_attach_failed');
+
+    expect(sender.track).toBeNull();
+    expect(sender.replaceTrack).toHaveBeenCalledOnce();
+    expect(sender.replaceTrack).toHaveBeenCalledWith(track);
+    expect(sender.replaceTrack).not.toHaveBeenCalledWith(null);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+  });
+
+  it('fails closed before writing to an unowned preoccupied Public sender', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const occupiedTrack = { kind: 'video' } as MediaStreamTrack;
+    const requestedTrack = { kind: 'video' } as MediaStreamTrack;
+    const sender = {
+      track: occupiedTrack,
+      replaceTrack: vi.fn(async () => undefined),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+
+    await expect(service.attachMediaTrack('camera-vp8', requestedTrack, {} as MediaStream))
+      .rejects.toThrow('public_media_sender_reconciliation_failed');
+
+    expect(sender.track).toBe(occupiedTrack);
+    expect(sender.replaceTrack).not.toHaveBeenCalled();
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+  });
+
+  it('fails closed before overwriting an existing non-null desired owner through attach', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const activeTrack = { kind: 'video' } as MediaStreamTrack;
+    const conflictingTrack = { kind: 'video' } as MediaStreamTrack;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => { sender.track = track; }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+    await service.attachMediaTrack('camera-vp8', activeTrack, {} as MediaStream);
+
+    await expect(service.attachMediaTrack('camera-vp8', conflictingTrack, {} as MediaStream))
+      .rejects.toThrow('public_media_sender_reconciliation_failed');
+
+    expect(sender.track).toBe(activeTrack);
+    expect(sender.replaceTrack).toHaveBeenCalledOnce();
+    expect(sender.replaceTrack).toHaveBeenCalledWith(activeTrack);
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+  });
+
+  it('allows immediate reattach behind an exact pending null owner', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const detachGate = deferred<void>();
+    const oldTrack = { kind: 'video' } as MediaStreamTrack;
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let nativeTail = Promise.resolve();
+    const sender = {
+      track: oldTrack as MediaStreamTrack | null,
+      replaceTrack: vi.fn((track: MediaStreamTrack | null) => {
+        const mutation = nativeTail.then(async () => {
+          if (track === null) await detachGate.promise;
+          sender.track = track;
+        });
+        nativeTail = mutation.catch(() => undefined);
+        return mutation;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+
+    const detaching = service.replaceMediaTrack(sender, null);
+    await settle();
+    const attaching = service.attachMediaTrack('camera-vp8', newTrack, {} as MediaStream);
+    await settle();
+    expect(sender.track).toBe(oldTrack);
+    detachGate.resolve(undefined);
+
+    await expect(detaching).resolves.toBeUndefined();
+    await expect(attaching).resolves.toBe(sender);
+    expect(sender.track).toBe(newTrack);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newTrack);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when a rejected initial attach partially mutates its sender', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const track = { kind: 'video' } as MediaStreamTrack;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (replacement: MediaStreamTrack | null) => {
+        sender.track = replacement;
+        throw new Error('native_attach_failed_after_mutation');
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+
+    await expect(service.attachMediaTrack('camera-vp8', track, {} as MediaStream))
+      .rejects.toThrow('public_media_sender_reconciliation_failed');
+
+    expect(sender.track).toBe(track);
+    expect(sender.replaceTrack).toHaveBeenCalledOnce();
+    expect(sender.replaceTrack).not.toHaveBeenCalledWith(null);
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+  });
+
+  it('keeps the newest sender owner when an overtaken native replace rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const staleReplace = deferred<void>();
+    const oldTrack = { kind: 'video' } as MediaStreamTrack;
+    const rejectedTrack = { kind: 'video' } as MediaStreamTrack;
+    const newestTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: oldTrack,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await staleReplace.promise;
+          throw new Error('stale_replace_failed');
+        }
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    const stale = service.replaceMediaTrack(sender, rejectedTrack);
+    await settle();
+    await service.replaceMediaTrack(sender, newestTrack);
+    staleReplace.resolve(undefined);
+
+    await expect(stale).rejects.toThrow('stale_replace_failed');
+    expect(sender.track).toBe(newestTrack);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newestTrack);
+    expect(sender.replaceTrack).not.toHaveBeenCalledWith(null);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+  });
+
+  it('always permits sender detachment after publication policy loss', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const sender = {
+      replaceTrack: vi.fn(async () => undefined),
+    } as unknown as RTCRtpSender;
+    peer.mediaSenders.push(sender);
+    publicationPolicy.assertAllowed.mockImplementation(() => {
+      throw new Error('public_media_publication_consent_revoked');
+    });
+
+    await expect(service.replaceMediaTrack(sender, null)).resolves.toBeUndefined();
+    expect(sender.replaceTrack).toHaveBeenCalledWith(null);
+    expect(publicationPolicy.assertAllowed).not.toHaveBeenCalled();
+  });
+
+  it('fails Public media closed when a current direct detach rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const sender = {
+      replaceTrack: vi.fn(async () => { throw new Error('native_detach_failed'); }),
+    } as unknown as RTCRtpSender;
+    PublicPeerConnection.instances[0].mediaSenders.push(sender);
+
+    await expect(service.replaceMediaTrack(sender, null))
+      .rejects.toThrow('public_media_sender_reconciliation_failed');
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+  });
+
+  it('reconciles the newest Public track when an overtaken direct detach rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const staleDetach = deferred<void>();
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await staleDetach.promise;
+          throw new Error('stale_detach_failed');
+        }
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    const detaching = service.replaceMediaTrack(sender, null);
+    await settle();
+    await service.replaceMediaTrack(sender, newTrack);
+    staleDetach.resolve(undefined);
+
+    await expect(detaching).rejects.toThrow('stale_detach_failed');
+    expect(sender.track).toBe(newTrack);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newTrack);
+    expect(coordinator.fail).not.toHaveBeenCalled();
+  });
+
+  it('keeps Hub sender detachment available after technical policy loss', async () => {
+    const controlPlane = TestBed.inject(PairSessionControlPlaneService);
+    vi.spyOn(controlPlane, 'isPublicSession').mockReturnValue(false);
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const sender = {
+      track: { kind: 'audio' } as MediaStreamTrack,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => { sender.track = track; }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    peer.mediaSenders.push(sender);
+    const technicalPolicy = TestBed.inject(PairOrdinaryMediaPolicy);
+
+    await expect(service.replaceMediaTrack(sender, null)).resolves.toBeUndefined();
+
+    expect(technicalPolicy.assertAllowed).not.toHaveBeenCalled();
+    expect(sender.replaceTrack).toHaveBeenCalledOnce();
+    expect(sender.replaceTrack).toHaveBeenCalledWith(null);
+    expect(sender.track).toBeNull();
+  });
+
+  it('does not let a late failed attach detach a newer fixed-sender publication', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const oldAttach = deferred<void>();
+    const oldTrack = { kind: 'video' } as MediaStreamTrack;
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await oldAttach.promise;
+          throw new Error('stale_attach_failed');
+        }
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+    transforms.isKeyed.mockReturnValue(true);
+    vi.spyOn(coordinator, 'statusFor').mockReturnValue({
+      sessionId: 'session-a', state: 'ready', contractDigest: 'a'.repeat(64),
+    });
+    const stream = {} as MediaStream;
+
+    const stale = service.attachMediaTrack('camera-vp8', oldTrack, stream);
+    await settle();
+    // Revoke cleanup owns the next null operation; regrant then publishes a
+    // newer desired track before the old browser promise rejects.
+    await service.replaceMediaTrack(sender, null);
+    await expect(service.attachMediaTrack('camera-vp8', newTrack, stream))
+      .resolves.toBe(sender);
+    const nullCallsBeforeStaleFailure = sender.replaceTrack.mock.calls
+      .filter(([track]) => track === null).length;
+    oldAttach.resolve(undefined);
+    await expect(stale).rejects.toThrow('stale_attach_failed');
+
+    expect(sender.track).toBe(newTrack);
+    expect(sender.replaceTrack.mock.calls.filter(([track]) => track === null))
+      .toHaveLength(nullCallsBeforeStaleFailure);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newTrack);
+  });
+
+  it('reconciles a late null completion to the latest desired sender track', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const staleDetach = deferred<void>();
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await staleDetach.promise;
+          sender.track = null;
+          return;
+        }
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    const detaching = service.replaceMediaTrack(sender, null);
+    await settle();
+    await service.replaceMediaTrack(sender, newTrack);
+    expect(sender.track).toBe(newTrack);
+    staleDetach.resolve(undefined);
+    await detaching;
+
+    expect(sender.track).toBe(newTrack);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newTrack);
+  });
+
+  it('fails Public media closed when restoring the latest desired sender track rejects', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const staleDetach = deferred<void>();
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await staleDetach.promise;
+          sender.track = null;
+          return;
+        }
+        if (senderMutation === 3) throw new Error('native_restore_failed');
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    const detaching = service.replaceMediaTrack(sender, null);
+    await settle();
+    await service.replaceMediaTrack(sender, newTrack);
+    staleDetach.resolve(undefined);
+
+    await expect(detaching).rejects.toThrow('public_media_sender_reconciliation_failed');
+    expect(coordinator.fail).toHaveBeenCalledWith(
+      'session-a', 'public_media_sender_reconciliation_failed',
+    );
+    expect(sender.track).toBeNull();
+  });
+
+  it('does not append null when an old non-null replace rejects after detach and regrant', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const staleReplace = deferred<void>();
+    const oldTrack = { kind: 'video' } as MediaStreamTrack;
+    const newTrack = { kind: 'video' } as MediaStreamTrack;
+    let senderMutation = 0;
+    const sender = {
+      track: null as MediaStreamTrack | null,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => {
+        senderMutation += 1;
+        if (senderMutation === 1) {
+          await staleReplace.promise;
+          throw new Error('stale_replace_failed');
+        }
+        sender.track = track;
+      }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+    transforms.publicationSender = sender;
+
+    const stale = service.replaceMediaTrack(sender, oldTrack);
+    await settle();
+    await service.replaceMediaTrack(sender, null);
+    await service.replaceMediaTrack(sender, newTrack);
+    const nullCallsBeforeStaleFailure = sender.replaceTrack.mock.calls
+      .filter(([track]) => track === null).length;
+    staleReplace.resolve(undefined);
+
+    await expect(stale).rejects.toThrow('stale_replace_failed');
+    expect(sender.track).toBe(newTrack);
+    expect(sender.replaceTrack.mock.calls.filter(([track]) => track === null))
+      .toHaveLength(nullCallsBeforeStaleFailure);
+    expect(sender.replaceTrack.mock.calls.at(-1)?.[0]).toBe(newTrack);
+  });
+
+  it('writes native null exactly once when Public detach is followed by sender removal', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const sender = {
+      track: { kind: 'video' } as MediaStreamTrack,
+      replaceTrack: vi.fn(async (track: MediaStreamTrack | null) => { sender.track = track; }),
+    } as unknown as RTCRtpSender & { track: MediaStreamTrack | null };
+    const peer = PublicPeerConnection.instances[0];
+    peer.mediaSenders.push(sender);
+
+    await service.replaceMediaTrack(sender, null);
+    service.removeMediaSender(sender);
+
+    expect(sender.replaceTrack).toHaveBeenCalledTimes(1);
+    expect(sender.replaceTrack).toHaveBeenCalledWith(null);
+    expect(sender.track).toBeNull();
   });
 
   it('fails a data-only Public Pair when its semantic DataChannel closes', async () => {
@@ -631,6 +1190,7 @@ class TransformMock {
   activeGeneration: number | null = null;
   latestFatal: ((reason: string) => void) | null = null;
   readonly receiver = {} as RTCRtpReceiver;
+  publicationSender: RTCRtpSender | null = null;
   private readonly stagedReceivers = new WeakSet<RTCRtpReceiver>();
   readonly prepareSession = vi.fn(async (
     _peer: RTCPeerConnection,
@@ -663,6 +1223,13 @@ class TransformMock {
   readonly slotForReceiver = vi.fn((_session: string, receiver: RTCRtpReceiver) => (
     this.stagedReceivers.has(receiver) ? 'microphone-opus' : null
   ));
+  readonly slotForSender = vi.fn((_session: string, sender: RTCRtpSender) => (
+    sender === this.publicationSender ? 'camera-vp8' : null
+  ));
+  readonly senderForSlot = vi.fn(() => {
+    if (!this.publicationSender) throw new Error('public_media_slot_invalid');
+    return this.publicationSender;
+  });
   readonly validateFinalTopology = vi.fn();
 }
 

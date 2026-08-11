@@ -1,4 +1,7 @@
-import { PUBLIC_PAIR_MEDIA_SLOTS } from '../services/public-pair-media-security-contract';
+import {
+  PUBLIC_PAIR_MEDIA_SLOTS,
+  PublicPairMediaSlot,
+} from '../services/public-pair-media-security-contract';
 
 interface WorkerHarness {
   readonly posted: any[];
@@ -10,7 +13,10 @@ interface WorkerHarness {
 }
 
 describe('pair media E2EE worker', () => {
-  afterEach(() => vi.resetModules());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.resetModules();
+  });
 
   it('keeps every transform DROP-first when the final install entry is invalid', async () => {
     const harness = await createHarness();
@@ -57,6 +63,246 @@ describe('pair media E2EE worker', () => {
     }
   });
 
+  it('starts outbound closed and publishes only the explicitly enabled slots', async () => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await settle(6);
+      expect(harness.output.get(ids[0])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+
+      setPublicationGate(harness, 1, true, ['microphone-opus']);
+      await settle();
+      expect(harness.posted).toContainEqual({
+        version: 1,
+        type: 'publication-gate-set',
+        sessionId: 'session-a',
+        gate: {
+          revision: 1,
+          enabled: true,
+          slots: ['microphone-opus'],
+          expiresAtMs: 2_000_000_000_000,
+        },
+      });
+
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(4, 5, 6).buffer, type: 'audio',
+      });
+      harness.controllers.get(ids[2])?.enqueue({
+        data: Uint8Array.of(1, 0, 0, 7).buffer, type: 'delta',
+      });
+      await waitForOutput(harness, ids[0]);
+      await settle(6);
+
+      expect(harness.output.get(ids[0])).toHaveLength(1);
+      expect(harness.output.get(ids[2])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
+
+  it('hard-expires outbound publication without reporting a transform fatal', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+      setPublicationGate(harness, 1, true, ['microphone-opus'], 1_000_100);
+      await settle();
+
+      vi.setSystemTime(1_000_100);
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await settle(8);
+
+      expect(harness.output.get(ids[0])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
+
+  it('drops an outbound frame when consent is revoked during WebCrypto', async () => {
+    const harness = await createHarness();
+    const encryption = deferred<ArrayBuffer>();
+    const encryptSpy = vi.spyOn(crypto.subtle, 'encrypt')
+      .mockImplementationOnce(async () => encryption.promise);
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+      setPublicationGate(harness, 1, true, ['microphone-opus']);
+      await settle();
+
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await settle(5);
+      expect(encryptSpy).toHaveBeenCalledOnce();
+
+      setPublicationGate(harness, 2, false, [], 0);
+      encryption.resolve(new Uint8Array(16).buffer);
+      await settle(10);
+
+      expect(harness.output.get(ids[0])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      encryptSpy.mockRestore();
+      harness.restore();
+    }
+  });
+
+  it('silently drops when publication and its contract expire during WebCrypto', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000_000);
+    const harness = await createHarness();
+    const encryption = deferred<ArrayBuffer>();
+    const encryptSpy = vi.spyOn(crypto.subtle, 'encrypt')
+      .mockImplementationOnce(async () => encryption.promise);
+    try {
+      const ids = installTransforms(harness);
+      const entries = (await installEntries(ids)).map(entry => ({
+        ...entry,
+        context: { ...entry.context, contractExpiresAtMs: 1_000_100 },
+      }));
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a', entries,
+      });
+      await settle(6);
+      setPublicationGate(harness, 1, true, ['microphone-opus'], 1_000_100);
+
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await settle(5);
+      expect(encryptSpy).toHaveBeenCalledOnce();
+
+      vi.setSystemTime(1_000_100);
+      encryption.resolve(new Uint8Array(16).buffer);
+      await settle(10);
+
+      expect(harness.output.get(ids[0])).toEqual([]);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      encryptSpy.mockRestore();
+      harness.restore();
+    }
+  });
+
+  it('preserves outbound counters across revoke and higher-revision regrant', async () => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+
+      setPublicationGate(harness, 1, true, ['microphone-opus']);
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await waitForOutput(harness, ids[0]);
+      expect(opusCounter(harness.output.get(ids[0])?.[0]?.data)).toBe(1n);
+
+      setPublicationGate(harness, 2, false, [], 0);
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(4, 5, 6).buffer, type: 'audio',
+      });
+      await settle(6);
+      expect(harness.output.get(ids[0])).toHaveLength(1);
+
+      setPublicationGate(harness, 3, true, ['microphone-opus']);
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(7, 8, 9).buffer, type: 'audio',
+      });
+      await waitForOutputCount(harness, ids[0], 2);
+
+      expect(opusCounter(harness.output.get(ids[0])?.[1]?.data)).toBe(2n);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
+
+  it('idempotently acknowledges an identical publication revision', async () => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+      setPublicationGate(harness, 1, true, ['camera-vp8']);
+      setPublicationGate(harness, 1, true, ['camera-vp8']);
+      await settle();
+
+      expect(harness.posted.filter(message => message.type === 'publication-gate-set'))
+        .toHaveLength(2);
+      expect(harness.posted.some(message => message.type === 'fatal')).toBe(false);
+    } finally {
+      harness.restore();
+    }
+  });
+
+  it.each([
+    {
+      name: 'a stale revision',
+      initial: { revision: 2, enabled: true, slots: ['microphone-opus'] as PublicPairMediaSlot[] },
+      next: { revision: 1, enabled: false, slots: [] as PublicPairMediaSlot[] },
+      reasonCode: 'media_e2ee_publication_gate_stale',
+    },
+    {
+      name: 'conflicting content at the same revision',
+      initial: { revision: 1, enabled: true, slots: ['microphone-opus'] as PublicPairMediaSlot[] },
+      next: { revision: 1, enabled: true, slots: ['camera-vp8'] as PublicPairMediaSlot[] },
+      reasonCode: 'media_e2ee_publication_gate_conflict',
+    },
+  ])('poisons every transform for $name', async ({ initial, next, reasonCode }) => {
+    const harness = await createHarness();
+    try {
+      const ids = installTransforms(harness);
+      harness.message({
+        version: 1, type: 'install-keys', sessionId: 'session-a',
+        entries: await installEntries(ids),
+      });
+      await settle(6);
+      setPublicationGate(harness, initial.revision, initial.enabled, initial.slots);
+      setPublicationGate(harness, next.revision, next.enabled, next.slots);
+      await settle();
+
+      expect(harness.posted).toContainEqual(expect.objectContaining({ type: 'fatal', reasonCode }));
+      harness.controllers.get(ids[0])?.enqueue({
+        data: Uint8Array.of(1, 2, 3).buffer, type: 'audio',
+      });
+      await settle(6);
+      expect(harness.output.get(ids[0])).toEqual([]);
+    } finally {
+      harness.restore();
+    }
+  });
+
   it('poisons every keyed slot before reporting one transform authentication fatal', async () => {
     const harness = await createHarness();
     const encryptGate = deferred<void>();
@@ -71,6 +317,8 @@ describe('pair media E2EE worker', () => {
         version: 1, type: 'install-keys', sessionId: 'session-a',
         entries: await installEntries(ids),
       });
+      await settle();
+      setPublicationGate(harness, 1, true, ['microphone-opus']);
       await settle();
 
       harness.controllers.get(ids[0])?.enqueue({
@@ -131,6 +379,8 @@ describe('pair media E2EE worker', () => {
       entries[3] = { ...entries[3], key: entries[2].key, context: entries[2].context };
       harness.message({ version: 1, type: 'install-keys', sessionId: 'session-a', entries });
       await settle(6);
+      setPublicationGate(harness, 1, true, ['camera-vp8']);
+      await settle();
 
       const plaintext = Uint8Array.of(
         0x10, 0x00, 0x00, 0x9d, 0x01, 0x2a, 0x80, 0x02, 0xe0, 0x01, 0xaa, 0xbb,
@@ -225,10 +475,38 @@ async function settle(turns = 3): Promise<void> {
 }
 
 async function waitForOutput(harness: WorkerHarness, transformId: string): Promise<void> {
+  await waitForOutputCount(harness, transformId, 1);
+}
+
+async function waitForOutputCount(
+  harness: WorkerHarness,
+  transformId: string,
+  count: number,
+): Promise<void> {
   for (let attempt = 0; attempt < 20; attempt += 1) {
-    if (harness.output.get(transformId)?.length) return;
+    if ((harness.output.get(transformId)?.length ?? 0) >= count) return;
     await new Promise(resolve => setTimeout(resolve, 0));
   }
+}
+
+function setPublicationGate(
+  harness: WorkerHarness,
+  revision: number,
+  enabled: boolean,
+  slots: readonly PublicPairMediaSlot[],
+  expiresAtMs = 2_000_000_000_000,
+): void {
+  harness.message({
+    version: 1,
+    type: 'set-publication-gate',
+    sessionId: 'session-a',
+    gate: { revision, enabled, slots, expiresAtMs },
+  });
+}
+
+function opusCounter(frame: ArrayBuffer | undefined): bigint {
+  if (!frame) throw new Error('encrypted Opus frame missing');
+  return new DataView(frame).getBigUint64(13);
 }
 
 function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
