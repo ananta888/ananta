@@ -76,6 +76,34 @@ describe('AiAssistantComponent', () => {
     expect(restored.minimized).toBe(false);
   });
 
+  it('opens Pair Dev on its canonical route and closes assistant overlays', () => {
+    const cmp = createComponent();
+    const navigate = vi.fn().mockResolvedValue(true);
+    cmp['router'] = { navigate };
+    cmp.snakeChatPanelOpen = true;
+    cmp.configPanelOpen = true;
+    cmp.sharePanelOpen = true;
+
+    cmp.openPairDev();
+
+    expect(navigate).toHaveBeenCalledWith(['/pair-dev']);
+    expect(cmp.snakeChatPanelOpen).toBe(false);
+    expect(cmp.configPanelOpen).toBe(false);
+    expect(cmp.sharePanelOpen).toBe(false);
+    expect(store['ananta.ai-snake.panel-open.v1']).toBe('false');
+  });
+
+  it('routes legacy Pair tab requests to Pair Dev without persisting an embedded Pair tab', () => {
+    const cmp = createComponent();
+    const navigate = vi.fn().mockResolvedValue(true);
+    cmp['router'] = { navigate };
+
+    cmp.openSnakeChatPanelTab('pair');
+
+    expect(navigate).toHaveBeenCalledWith(['/pair-dev']);
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBeUndefined();
+  });
+
   it('builds assistant request context from runtime context', () => {
     const cmp = createComponent();
     const ctx = cmp['buildAssistantRequestContext']();

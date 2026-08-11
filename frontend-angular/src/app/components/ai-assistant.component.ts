@@ -839,16 +839,32 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
   onSnakeChatTabChange(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+    if (tab === 'pair') {
+      this.openPairDev();
+      return;
+    }
     this.snakeChatPanelTab = tab;
     this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
   }
 
   openSnakeChatPanelTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
+    if (tab === 'pair') {
+      this.openPairDev();
+      return;
+    }
     this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
     this.configPanelOpen = false;
     this.sharePanelOpen = false;
+  }
+
+  openPairDev(): void {
+    this.snakeChatPanelOpen = false;
+    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', false);
+    this.configPanelOpen = false;
+    this.sharePanelOpen = false;
+    void this.router.navigate(['/pair-dev']);
   }
 
   toggleSnakeCanvas(): void {

@@ -8,9 +8,7 @@ import { IdentityBridge } from '../services/identity/identity-bridge';
 import {
   PUBLIC_WEBRTC_BASE_URL,
 } from '../services/public-ananta-endpoints';
-import { WebrtcSignalingService } from '../services/webrtc-signaling.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
-import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeTraceViewerComponent } from './ai-snake-trace-viewer.component';
 import { ChatSessionsPanelComponent } from './chat-sessions-panel.component';
 import { ChatSessionsService, ChatSession } from '../services/chat-sessions.service';
@@ -21,12 +19,11 @@ import { VisualSnakeLogComponent } from './visual-snake-log.component';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeProcessPanelComponent } from './ai-snake-process-panel.component';
 import { VpNavigationService } from '../features/visual-process/vp-navigation.service';
-import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-media-program-host.component';
 
 @Component({
   selector: 'app-ai-snake-chat-panel',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent, SemanticMediaProgramHostComponent ],
+  imports: [CommonModule, AsyncPipe, FormsModule, AiSnakeConfigPanelComponent, AiSnakeTraceViewerComponent, ChatSessionsPanelComponent, ChatMessageComponent, VisualSnakeLogComponent, AiSnakeProcessPanelComponent],
   template: `
     <div class="snake-chat-panel">
       <div class="head">
@@ -43,23 +40,19 @@ import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-me
           <app-ai-snake-config-panel />
         </div>
       } @else if (tab === 'pair') {
-        @if (oidc.loggedIn$ | async) {
-          <div class="pair-header">
-            <span class="pair-user">{{ oidc.currentUsername }}</span>
-            <span class="pair-sig-status" [class.on]="(signaling.status$ | async) === 'connected'">
-              WebRTC: {{ signaling.status$ | async }}
-            </span>
-          </div>
-          <div class="settings-shell">
-            <app-ai-snake-share-panel />
-            <app-semantic-media-program-host displayMode="pair_media" />
-          </div>
-        } @else {
-          <div class="connect">
-            <div class="muted">Pair Dev erfordert Keycloak-Login.</div>
-            <button (click)="setTab('login')">Zum Login</button>
-          </div>
-        }
+        <section class="pair-route-handoff" aria-labelledby="pair-dev-handoff-title">
+          <div id="pair-dev-handoff-title" class="title">Pair Dev</div>
+          <p class="muted">
+            Chat, Medienfreigaben und Einwilligungen werden gemeinsam auf der eigenen Pair-Dev-Seite verwaltet.
+          </p>
+          <button
+            type="button"
+            class="pair-route-button"
+            (click)="openPairDev()"
+            aria-label="Pair Dev in der Hauptansicht öffnen">
+            Pair Dev öffnen
+          </button>
+        </section>
       } @else if (tab === 'sessions') {
         <div class="settings-shell">
           <app-chat-sessions-panel />
@@ -79,7 +72,7 @@ import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-me
           <div class="mode-group">
             <button (click)="setTab('chat')">Zur neuen Chat-Ansicht</button>
             <button (click)="setTab('settings')">Zur neuen Einstellungen-Ansicht</button>
-            <button (click)="setTab('pair')">Zu Pair Development</button>
+            <button type="button" (click)="openPairDev()">Pair Dev öffnen</button>
           </div>
         </div>
       } @else if (tab === 'login') {
@@ -338,7 +331,7 @@ import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-me
         <button [class.active]="tab==='process'" (click)="setTab('process')" data-waypoint="snake.tab-process">Prozess</button>
         <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn" data-waypoint="snake.tab-trace">Trace</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
-        <button [class.active]="tab==='pair'" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
+        <button type="button" (click)="openPairDev()" data-waypoint="snake.tab-pair" aria-label="Pair Dev in der Hauptansicht öffnen">Pair Dev</button>
         <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstell.</button>
         <button class="explain-btn"
                 [class.active]="(overlayService.regionMode$ | async)"
@@ -484,10 +477,10 @@ import { SemanticMediaProgramHostComponent } from '../features/voice/semantic-me
     .login-status.ok { color: #7fffd4; }
     .login-status.off { color: #4a6a9a; }
     .login-dot { font-size: 10px; }
-    .pair-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; border-bottom: 1px solid #1a2d4a; font-size: 11px; background: #0d1828; flex-shrink: 0; }
-    .pair-user { color: #7fffd4; }
-    .pair-sig-status { color: #4a6a9a; }
-    .pair-sig-status.on { color: #7fffd4; }
+    .pair-route-handoff { flex: 1; min-height: 0; padding: 18px; display: grid; gap: 10px; align-content: start; }
+    .pair-route-handoff p { margin: 0; max-width: 52ch; line-height: 1.5; }
+    .pair-route-button { justify-self: start; color: #7fffd4; border-color: #2a4070; }
+    .pair-route-button:hover { border-color: #7fffd4; background: #102238; }
     .bottom-tabs {
       margin-top: auto;
       border-top: 1px solid #1a2d4a;
@@ -515,7 +508,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   readonly svc = inject(AiSnakeChatService);
   readonly oidc = inject(OidcAuthService);
   private readonly bridge = inject(IdentityBridge);
-  readonly signaling = inject(WebrtcSignalingService);
   readonly sessions = inject(ChatSessionsService);
   readonly history = inject(ChatHistoryService);
   readonly overlayService = inject(SnakeOverlayService);
@@ -549,6 +541,7 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   @Input() tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated' = 'chat';
   @Output() tabChange = new EventEmitter<'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'>();
+  @Output() pairDevRequested = new EventEmitter<void>();
 
   get keycloakIssuer(): string {
     return this.oidc.issuer;
@@ -830,6 +823,10 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   setTab(tab: 'chat' | 'sessions' | 'process' | 'trace' | 'login' | 'pair' | 'settings' | 'deprecated'): void {
     this.tab = tab;
     this.tabChange.emit(tab);
+  }
+
+  openPairDev(): void {
+    this.pairDevRequested.emit();
   }
 
   private restoreRuntimeEndpoints(): void {
