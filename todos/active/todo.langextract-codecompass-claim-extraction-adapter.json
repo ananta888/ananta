@@ -1,0 +1,796 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-08-11",
+  "updated_at": "2026-08-11",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "langextract_codecompass_claim_extraction_adapter",
+  "status": "todo",
+  "purpose": "Google LangExtract als optionale, provider-neutrale Worker-Strategie fuer source-grounded Claim-Extraktion in Ananta integrieren. LangExtract ergaenzt rag-helper und CodeCompass fuer semantische Fliesstext-Extraktion, ersetzt aber weder deterministische Parser, Indexierung, Retrieval, Graphen noch Anantas Source-, Policy-, Validierungs- und Admission-Grenzen.",
+  "goal": "Ein Hub-gesteuerter Worker kann aus exakt gebundenen Textausschnitten strukturierte Claim-Proposals mit geprueften Text-Spans erzeugen. LangExtract bleibt hinter einem Ananta-eigenen Port austauschbar; alle Ergebnisse werden erneut schema-, source-, digest-, scope- und policy-gebunden validiert. Erst der Hub darf zugelassene Proposals in kanonische Claim-Revisionen ueberfuehren und fuer CodeCompass-Graph, Curated Wiki oder Retrieval projizieren.",
+  "repository": {
+    "full_name": "ananta888/ananta",
+    "branch": "main",
+    "reviewed_commit": "0fc29e18377584193b7c479cb32da87ebc676e18",
+    "verification_method": "GitHub connector source review and google/langextract upstream README review",
+    "scope": [
+      "worker/knowledge_hygiene",
+      "worker/retrieval",
+      "agent/services",
+      "ananta_contracts",
+      "schemas/knowledge_hygiene",
+      "config/knowledge_hygiene",
+      "docs",
+      "tests",
+      "scripts"
+    ]
+  },
+  "upstream": {
+    "repository": "google/langextract",
+    "license": "Apache-2.0",
+    "reviewed_reference": "main README, reviewed 2026-08-11",
+    "capability_boundary": [
+      "LLM-based structured extraction from unstructured text",
+      "exact source span grounding through character intervals",
+      "long-document chunking, parallel processing and multiple extraction passes",
+      "Gemini, OpenAI, Ollama and custom provider mechanisms",
+      "interactive HTML visualization for review"
+    ],
+    "explicit_limits": [
+      "not OCR or PDF layout extraction",
+      "not a vector store, retriever or CodeCompass replacement",
+      "not a deterministic source-code/build graph parser",
+      "grounded span does not prove factual truth",
+      "provider behavior and schema guarantees differ",
+      "interactive HTML is review tooling, not canonical Ananta state"
+    ]
+  },
+  "source_review": {
+    "reviewed_files": [
+      "AGENTS.md",
+      "todos/todo.track.schema.json",
+      "todos/active/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json",
+      "docs/system-komponenten.md",
+      "docs/codecompass.md",
+      "docs/architecture/codecompass-file-type-support.md",
+      "rag-helper/rag_helper/extractors/structured_support.py",
+      "ananta_contracts/structured_output.py",
+      "agent/services/citation_verification_service.py",
+      "worker/retrieval/knowledge_index_job_handler.py",
+      "worker/retrieval/codecompass_retriever.py",
+      "ananta_codecompass/repository_intelligence_query.py"
+    ],
+    "existing_capabilities_to_reuse": [
+      "rag-helper deterministic file, symbol, relation and provenance extraction",
+      "CodeCompass FTS, vector, symbol, dependency and repository intelligence retrieval",
+      "Hub-owned KnowledgeIndex job, source revision and artifact lifecycle",
+      "StructuredOutputService JSON Schema and Pydantic validation",
+      "SourceCatalog and CitationVerificationService authority checks",
+      "Knowledge-Hygiene KHW-008 worker contract and KHW-009 Hub admission plan"
+    ],
+    "confirmed_gap": "A general LLM-based, long-document, exact-span-grounded Claim Extraction implementation for KHW-008 is planned but not yet present.",
+    "integration_decision": "Complement CodeCompass through an optional ClaimExtractionPort adapter; do not replace rag-helper, CodeCompass, StructuredOutputService, CitationVerificationService or Hub admission."
+  },
+  "architecture_principles": [
+    "Hub owns orchestration, profile selection, source scope, policy, admission, persistence and canonical lifecycle.",
+    "Workers only execute exact delegated extraction and return untrusted bounded proposals.",
+    "LangExtract is infrastructure behind a narrow port and never becomes a domain authority.",
+    "No worker-to-worker orchestration, hidden URL retrieval, autonomous retry loop or source write-back.",
+    "Grounding proves only that extraction text maps to the delegated source span; it does not prove truth.",
+    "Every accepted claim retains authoritative source ref, revision, range, content hash, assignment, profile, provider and model provenance.",
+    "Partial processing remains partial coverage; missing extraction is never negative evidence.",
+    "All changes are additive, default-off, testable and reversible."
+  ],
+  "non_goals": [
+    "No replacement of rag-helper, CodeCompass, ananta_codecompass, FTS, embeddings or graph retrieval.",
+    "No OCR, PDF layout analysis, image understanding or active document rendering.",
+    "No automatic truth decision, contradiction resolution, Wiki authority or source correction.",
+    "No second SourceCatalog, vector store, Claim Store or workflow orchestrator.",
+    "No cloud egress for sensitive content without existing policy authorization.",
+    "No assumption that LangExtract HTML visualization is safe or canonical Ananta UI."
+  ],
+  "feature_flags": {
+    "knowledge_hygiene.langextract.enabled": false,
+    "knowledge_hygiene.langextract.mode": "disabled",
+    "knowledge_hygiene.langextract.cloud_providers": false,
+    "knowledge_hygiene.langextract.ollama": false,
+    "knowledge_hygiene.langextract.multi_pass": false,
+    "knowledge_hygiene.langextract.shadow_benchmark": false
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Baseline, Architektur und Sicherheitsgrenzen",
+      "task_ids": [
+        "LXCC-001",
+        "LXCC-002",
+        "LXCC-003",
+        "LXCC-004",
+        "LXCC-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Vertraege, Profile und Adapter",
+      "task_ids": [
+        "LXCC-006",
+        "LXCC-007",
+        "LXCC-008",
+        "LXCC-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Worker-Integration, Validierung und Admission",
+      "task_ids": [
+        "LXCC-010",
+        "LXCC-011",
+        "LXCC-012",
+        "LXCC-013",
+        "LXCC-014"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Benchmarks, Security, Rollout und Release",
+      "task_ids": [
+        "LXCC-015",
+        "LXCC-016",
+        "LXCC-017",
+        "LXCC-018",
+        "LXCC-019",
+        "LXCC-020"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "LXCC-001",
+      "title": "Ist-Stand und Ueberlappung von LangExtract, rag-helper und CodeCompass dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "analysis",
+      "progress_percent": 0,
+      "depends_on": [],
+      "files_to_create": [
+        "docs/architecture/langextract-codecompass-baseline.md"
+      ],
+      "description": "Die produktiven CodeCompass-, rag-helper-, StructuredOutput-, Citation-, SourceCatalog- und Knowledge-Hygiene-Pfade gegen LangExtract 1.x abgrenzen.",
+      "acceptance_criteria": [
+        "Die Analyse trennt deterministische Datei-/Codeextraktion, semantische LLM-Extraktion, Indexierung, Retrieval und Claim Admission.",
+        "Sie belegt, dass LangExtract weder rag-helper noch FTS, Vector Retrieval, Symbolgraph, Repository Intelligence Graph oder CodeCompass Runtime ersetzt.",
+        "Sie benennt den konkreten Nutzen fuer KHW-008 und grenzt Wiki-Synthese, Konfliktentscheidung und OCR als Nicht-Ersatzbereiche ab.",
+        "Bewertete Ananta-Dateien, LangExtract-Version, Upstream-Commit und bekannte Provider-Grenzen werden revisionsfest dokumentiert."
+      ]
+    },
+    {
+      "id": "LXCC-002",
+      "title": "ADR fuer einen optionalen LangExtract-Adapter beschliessen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-001"
+      ],
+      "files_to_create": [
+        "docs/decisions/ADR-langextract-optional-claim-extraction-adapter.md"
+      ],
+      "description": "LangExtract als austauschbare Worker-Infrastruktur hinter einem Ananta-eigenen ClaimExtractionPort einordnen.",
+      "acceptance_criteria": [
+        "Die ADR legt die Pipeline Source Text -> optionaler LangExtract Adapter -> Claim Proposal -> Hub Admission -> CodeCompass Projektionen fest.",
+        "Hub bleibt Eigentuemer von Assignment, Source Authority, Policy, Admission, Persistenz und Orchestrierung.",
+        "Worker und LangExtract duerfen keine Source IDs, Tasks, Entscheidungen, Wiki-Wahrheiten oder Folgeauftraege erzeugen.",
+        "Adapter, eigener Prompt-Provider und deterministische Extraktoren bleiben substituierbar und koennen pro Profil deaktiviert werden.",
+        "Die Entscheidung schuetzt SRP, OCP, LSP, ISP und DIP durch kleine Ports und getrennte Provider-Adapter."
+      ]
+    },
+    {
+      "id": "LXCC-003",
+      "title": "Lizenz-, Supply-Chain- und Versionsstrategie festlegen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "dependency",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-001"
+      ],
+      "files_to_create": [
+        "docs/dependencies/langextract.md"
+      ],
+      "files_to_update": [
+        "requirements.txt"
+      ],
+      "description": "Apache-2.0-Kompatibilitaet, transitive Abhaengigkeiten, reproduzierbare Installation und Upstream-Lifecycle pruefen.",
+      "acceptance_criteria": [
+        "LangExtract wird auf eine gepruefte Version und Hashes gepinnt; Floating Main ist verboten.",
+        "Lizenz, Notice-Pflichten, optionale Provider-Extras und Python-Kompatibilitaet sind dokumentiert.",
+        "SBOM-, Vulnerability- und Dependency-Review sind Bestandteil des Release-Gates.",
+        "LangExtract bleibt ein optionales Extra; deaktivierte Installation bricht bestehende CodeCompass- und rag-helper-Flows nicht."
+      ]
+    },
+    {
+      "id": "LXCC-004",
+      "title": "Evaluationskorpus und messbare Baseline definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "evaluation",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-001"
+      ],
+      "files_to_create": [
+        "tests/fixtures/langextract_claims/manifest.json",
+        "docs/benchmarks/langextract-claim-extraction-plan.md"
+      ],
+      "description": "Ein kleines, revisionsfestes Korpus fuer technische Dokumentation, Vertrage, Notizen und lange Fliesstexte mit Gold-Claims und exakten Evidence-Spans definieren.",
+      "acceptance_criteria": [
+        "Fixtures enthalten kurze und lange Dokumente, Tabellen-als-Text, widerspruechliche Aussagen, zeitliche Qualifier, Duplikate und Prompt-Injection-Beispiele.",
+        "Gold-Daten unterscheiden explizite Claims, zulaessige Inferenz, ungrounded Output und nicht extrahierbare Inhalte.",
+        "Metriken umfassen Claim Precision/Recall/F1, Span Accuracy, Schema Validity, Duplicate Rate, Hallucination Rate, Coverage, Latenz, Tokens und Kosten.",
+        "Keine sensiblen oder urheberrechtlich problematischen Live-Dokumente werden als Fixture eingecheckt."
+      ]
+    },
+    {
+      "id": "LXCC-005",
+      "title": "Threat Model fuer LLM-basierte Dokumentextraktion erweitern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-002"
+      ],
+      "files_to_create": [
+        "docs/security/langextract-claim-extraction-threat-model.md"
+      ],
+      "description": "Prompt Injection, Knowledge Poisoning, Span-Faelschung, Schema-Manipulation, Datenabfluss, Ressourcenmissbrauch und Provider-Egress modellieren.",
+      "acceptance_criteria": [
+        "Quelltext und LangExtract-Ausgabe bleiben untrusted data und koennen weder Tools noch Scopes oder Authority aktivieren.",
+        "Grounding bedeutet nur auffindbarer Text-Span und wird nicht als Faktizitaet oder Wahrheit behandelt.",
+        "Cross-Tenant-, Cross-Project-, stale revision-, forged locator- und oversized output-Angriffe sind beschrieben.",
+        "Cloud-Provider-Aufrufe benoetigen bestehende Egress- und ContextAccessPolicy-Freigaben; lokale Provider erweitern keine Rechte.",
+        "Abuse-Limits fuer Dokumentgroesse, Chunks, Durchlaeufe, Worker, Claims, Attribute und Laufzeit sind festgelegt."
+      ]
+    },
+    {
+      "id": "LXCC-006",
+      "title": "Provider-neutralen ClaimExtractionPort und Ergebnisvertrag definieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-002"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/claim_extraction_port.py",
+        "ananta_contracts/claim_extraction.py",
+        "schemas/knowledge_hygiene/claim_extraction_result.v1.json"
+      ],
+      "description": "Einen kleinen Ananta-eigenen Port definieren, hinter dem LangExtract und alternative Extraktoren austauschbar bleiben.",
+      "acceptance_criteria": [
+        "Input ist an task, tenant, project, source revision, content digest, erlaubte Records, Profil, Budgets und Ablaufzeit gebunden.",
+        "Output enthaelt ausschliesslich Claim-Proposals, Qualifier, temporalen Scope, Evidence-Locator, Modellmetadaten, Confidence und Coverage.",
+        "Der Vertrag erlaubt keine erfundenen Source IDs, Authority-Felder, Tasks, Entscheidungen, Schreibaktionen oder freien Tool Calls.",
+        "Unbekannte Felder und inkompatible Vertragsversionen scheitern fail-closed.",
+        "Contract-Tests beweisen Substituierbarkeit eines LangExtract-, nativen LLM- und Fixture-Adapters."
+      ]
+    },
+    {
+      "id": "LXCC-007",
+      "title": "LangExtract-Ausgabe auf Ananta Claim-Proposals abbilden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "mapping",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-006",
+        "LXCC-005"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/langextract_result_mapper.py",
+        "tests/worker/test_langextract_result_mapper.py"
+      ],
+      "description": "Extraction-Klassen, Attribute und char intervals ohne Authority-Aufwertung in den Ananta-Vertrag ueberfuehren.",
+      "acceptance_criteria": [
+        "char_interval wird gegen den exakten delegierten Text geprueft und deterministisch in line_start, line_end und optionale Spalten umgerechnet.",
+        "Evidence-Hash wird aus autoritativem Source-Pfad/Ref, Revision, Range und Originaltext neu berechnet, nicht aus Modellmetadaten uebernommen.",
+        "Extrakionen ohne auffindbaren Span werden ungrounded markiert oder verworfen und nie als verified Claim zugelassen.",
+        "Attribute werden ueber Allowlist und Typregeln auf subject, predicate, value, qualifiers und temporal scope projiziert.",
+        "Mehrdeutige oder ueberlappende Spans erzeugen Diagnostik statt stiller Korrektur."
+      ]
+    },
+    {
+      "id": "LXCC-008",
+      "title": "Extraction-Profile fuer Gemini, OpenAI, Ollama und Fixture-Modus definieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "config",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-006",
+        "LXCC-003"
+      ],
+      "files_to_create": [
+        "config/knowledge_hygiene/langextract_profiles.v1.json",
+        "schemas/knowledge_hygiene/langextract_profiles.v1.json"
+      ],
+      "files_to_update": [
+        "agent/config_defaults.py",
+        ".env.example"
+      ],
+      "description": "Provider-, Modell-, Prompt-, Beispiel-, Schema-, Chunking- und Budgeteinstellungen versioniert und policy-gesteuert konfigurieren.",
+      "acceptance_criteria": [
+        "Profile besitzen stabile IDs und Digests fuer Provider, Modellversion, Prompt, Few-Shot-Beispiele, Output-Schema und Laufparameter.",
+        "Cloud-Profile sind default-off und koennen nicht durch Dokumentinhalt oder Request-Payload aktiviert werden.",
+        "Ollama-Einschraenkungen bei schema-constrained output werden explizit ausgewiesen und durch Anantas Nachvalidierung kompensiert.",
+        "Secrets stehen nur in bestehenden Secret-Providern und niemals in Profilen, Logs, Artefakten oder Todo-Fixtures.",
+        "Unbekannte Provider, Modelle und Parameter scheitern vor dem Worker-Aufruf."
+      ]
+    },
+    {
+      "id": "LXCC-009",
+      "title": "LangExtract-Provider-Adapter im Worker implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "worker",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-006",
+        "LXCC-007",
+        "LXCC-008"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/langextract_adapter.py",
+        "tests/worker/test_langextract_adapter.py"
+      ],
+      "description": "LangExtract hinter dem ClaimExtractionPort kapseln, ohne dessen Providerobjekte in Domain- oder Hub-Code durchzureichen.",
+      "acceptance_criteria": [
+        "Der Adapter besitzt nur Extraktion und Mapping; Orchestrierung, Admission, Persistenz und Wahrheitseinstufung bleiben ausserhalb.",
+        "Abbruch, Timeout, Rate Limit, Provider-Fehler und ungueltiges Ergebnis liefern stabile reason codes und keine partiellen Claims.",
+        "Netzwerkzugriff ist je Profil und Assignment explizit; URL-Dereferenzierung aus Dokumentinhalt ist verboten.",
+        "Provider-Abhaengigkeiten werden lazy geladen, sodass Ananta ohne LangExtract unveraendert startet.",
+        "Unit-Tests verwenden Fakes und benoetigen weder API-Key noch Netzwerk."
+      ]
+    },
+    {
+      "id": "LXCC-010",
+      "title": "LangExtract in den geschlossenen KHW-008 Claim-Extraction-Handler integrieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "integration",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-009",
+        "LXCC-005"
+      ],
+      "files_to_update": [
+        "worker/knowledge_hygiene/claim_extraction_handler.py",
+        "worker/knowledge_hygiene/contracts.py",
+        "tests/worker/test_knowledge_claim_extraction_handler.py"
+      ],
+      "description": "LangExtract als optionale Strategie des bestehenden Knowledge-Hygiene-Workers verdrahten, ohne einen parallelen Workflow zu schaffen.",
+      "acceptance_criteria": [
+        "Nur der Hub waehlt ein zugelassenes Extraction-Profil und delegiert den exakt gebundenen Source-Ausschnitt.",
+        "Der Worker kann keine Folge-Tasks oder Worker-Aufrufe erzeugen und gibt nur den versionierten Ergebnisvertrag zurueck.",
+        "Feature Flag aus oder fehlendes optionales Package reproduziert den bestehenden nativen/Fixture-Pfad.",
+        "KHW-008-Akzeptanzkriterien bleiben vollstaendig erhalten und werden nicht durch LangExtract-Grounding abgeschwaecht.",
+        "Integrations-Tests decken Replay, stale lease, falsche Source-Revision und Provider-Wechsel ab."
+      ]
+    },
+    {
+      "id": "LXCC-011",
+      "title": "Lange Dokumente mit begrenztem Chunking und mehreren Durchlaeufen absichern",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "scaling",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-009",
+        "LXCC-004"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/langextract_execution_policy.py",
+        "tests/worker/test_langextract_long_document_policy.py"
+      ],
+      "description": "LangExtract-Chunking, Parallelitaet und extraction passes unter Hub-eigenen Maximalbudgets reproduzierbar begrenzen.",
+      "acceptance_criteria": [
+        "Chunk-Grenzen referenzieren immer Offsets im originalen normalisierten Source-Text und bleiben ueber Retries stabil.",
+        "max_char_buffer, max_workers und extraction_passes werden durch Hub-Ceilings begrenzt und koennen nicht erweitert werden.",
+        "Ueberlappende Chunk-Ergebnisse werden anhand Source-Span und normalisierter Semantik deterministisch dedupliziert.",
+        "Budgetabbruch liefert coverage=partial mit bearbeiteten und fehlenden Bereichen statt falscher Vollstaendigkeit.",
+        "Parallelitaet veraendert nicht die kanonische Ergebnisreihenfolge oder Idempotenzidentitaet."
+      ]
+    },
+    {
+      "id": "LXCC-012",
+      "title": "StructuredOutputService als zusaetzliche Fail-Closed-Grenze anwenden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "validation",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-007",
+        "LXCC-009"
+      ],
+      "files_to_create": [
+        "tests/worker/test_langextract_structured_output_boundary.py"
+      ],
+      "files_to_update": [
+        "worker/knowledge_hygiene/langextract_adapter.py"
+      ],
+      "description": "LangExtract-Ergebnisse unabhaengig von dessen Provider-Schema erneut mit Anantas JSON-Schema/Pydantic-Vertraegen pruefen.",
+      "acceptance_criteria": [
+        "Provider-Erfolg ersetzt niemals Anantas StructuredOutputService-Validierung.",
+        "Format-Repair entfernt hoechstens zulaessige Darstellungshuelle und erfindet keine Felder oder Evidence.",
+        "Schema-, Groessen-, Tiefen-, Referenz- und unbekannte-Felder-Fehler verhindern Claim Admission.",
+        "Validierungs-Audit enthaelt Content- und Schema-Digests, aber keine ungefilterten sensiblen Inhalte.",
+        "Tests decken manipulierte Attribute, externe Schema-Refs, JSON-Fences, Oversize und verschachtelte Payloads ab."
+      ]
+    },
+    {
+      "id": "LXCC-013",
+      "title": "SourceCatalog-, Citation- und Claim-Admission-Pruefungen anbinden",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-010",
+        "LXCC-012"
+      ],
+      "files_to_update": [
+        "agent/services/knowledge_claim_admission_service.py",
+        "agent/services/citation_verification_service.py",
+        "tests/test_knowledge_claim_admission_service.py"
+      ],
+      "description": "LangExtract-Proposals nur nach erneuter Hub-Pruefung autoritativer Sources und Evidence in kanonische Claims ueberfuehren.",
+      "acceptance_criteria": [
+        "Der Hub re-hydriert Source und Ausschnitt aus dem autoritativen Katalog und vergleicht Revision, Digest, Range und Text-Hash.",
+        "Nur bereits zugelassene SRC-/SourceCatalog-Identitaeten koennen als Citation oder Evidence erscheinen.",
+        "LLM Confidence, Extraction-Klasse und LangExtract-Grounding werden nie in Source Authority umgedeutet.",
+        "Unbekannte, fremde, stale, ausgeschlossene oder policy-blockierte Sources scheitern ohne partielle Persistenz.",
+        "Admission bleibt idempotent fuer identisches Assignment und Result-Digest."
+      ]
+    },
+    {
+      "id": "LXCC-014",
+      "title": "Deterministischen Offline-Fixture-Adapter fuer CI bereitstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "test",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-006",
+        "LXCC-004"
+      ],
+      "files_to_create": [
+        "worker/knowledge_hygiene/fixture_claim_extraction_adapter.py",
+        "tests/worker/test_fixture_claim_extraction_adapter.py"
+      ],
+      "description": "Den gesamten Vertrag ohne LangExtract, Netzwerk oder externes Modell reproduzierbar testen.",
+      "acceptance_criteria": [
+        "Fixture-Adapter implementiert denselben ClaimExtractionPort ohne produktive Sonderfaelle.",
+        "Gleicher Input und Profil-Digest erzeugen byte-stabile Ergebnisse.",
+        "Fixtures koennen grounded, ungrounded, invalid, partial und provider-failure Ergebnisse darstellen.",
+        "CI-Nachweise sind nicht mit realen Provider-Qualitaetsbenchmarks gleichzusetzen und werden getrennt markiert."
+      ]
+    },
+    {
+      "id": "LXCC-015",
+      "title": "Qualitaetsbenchmark gegen nativen KHW-008-Prompt ausfuehren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "benchmark",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-010",
+        "LXCC-011",
+        "LXCC-013",
+        "LXCC-014"
+      ],
+      "files_to_create": [
+        "scripts/run_langextract_claim_benchmark.py",
+        "docs/benchmarks/langextract-claim-extraction-results.md"
+      ],
+      "description": "LangExtract, nativen strukturierten LLM-Aufruf und deterministische Baseline auf demselben Korpus vergleichen.",
+      "acceptance_criteria": [
+        "Vergleich nutzt identische Dokumente, Claims, Provider/Modelle, Budgets und Bewertungsregeln.",
+        "Ergebnisse weisen Precision, Recall, F1, Span Accuracy, Hallucination, Schemafehler, Deduplizierung und Coverage getrennt aus.",
+        "Mehrere Durchlaeufe messen Varianz; ein einzelner guter Lauf gilt nicht als Nachweis.",
+        "Go/No-Go-Schwellen werden vor dem finalen Benchmark festgelegt.",
+        "Provider- und Modellresultate werden nicht pauschal auf andere Profile uebertragen."
+      ]
+    },
+    {
+      "id": "LXCC-016",
+      "title": "Latenz-, Ressourcen- und Kostenbenchmark fuer lange Dokumente erstellen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "performance",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-011",
+        "LXCC-015"
+      ],
+      "files_to_create": [
+        "tests/performance/test_langextract_claim_extraction_scale.py",
+        "docs/performance/langextract-claim-extraction.md"
+      ],
+      "description": "Chunkgroesse, Parallelitaet, Durchlaeufe, Dokumentlaenge, lokales Modell und Cloud-Provider gegen Ananta-Budgets messen.",
+      "acceptance_criteria": [
+        "Cold/Warm-Lauf, kurze/lange Quelle, ein/mehrere Durchlaeufe und lokale/Cloud-Profile werden getrennt gemessen.",
+        "Token und Kosten sind als measured oder estimated markiert und enthalten Modell- und Preiszeitpunkt.",
+        "SLOs fuer Laufzeit, Speicher, Claims pro Dokument und maximale Kosten werden nach Baseline festgelegt.",
+        "Budgetueberschreitung endet kontrolliert mit partial coverage und ohne unbounded Retry oder Worker-Fanout."
+      ]
+    },
+    {
+      "id": "LXCC-017",
+      "title": "Adversarial- und Security-Tests automatisieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-005",
+        "LXCC-013",
+        "LXCC-014"
+      ],
+      "files_to_create": [
+        "tests/security/test_langextract_adversarial_sources.py",
+        "scripts/run_langextract_security_gate.py"
+      ],
+      "description": "Die Trust-Boundaries mit manipulierten Dokumenten und Ergebnissen als Release-Blocker pruefen.",
+      "acceptance_criteria": [
+        "Tests decken Prompt Injection, gefaelschte Source IDs, manipulierte Offsets, Unicode-Tricks, Chunk-Grenzangriffe und Claim-Flooding ab.",
+        "Cross-Tenant-, Cross-Project-, stale revision-, expired assignment- und Egress-Policy-Verstoesse scheitern fail-closed.",
+        "Private Keys, Tokens und secret-bearing Konfigurationswerte erscheinen nicht in Claims, Logs oder Benchmark-Artefakten.",
+        "Security-Gate laeuft ohne Cloud-Credentials und blockiert bei jeder verletzten Authority- oder Evidence-Invariante."
+      ]
+    },
+    {
+      "id": "LXCC-018",
+      "title": "Observability und provenance-sichere Run-Metriken integrieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "observability",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-010",
+        "LXCC-011"
+      ],
+      "files_to_create": [
+        "docs/operations/langextract-observability.md"
+      ],
+      "files_to_update": [
+        "agent/services/knowledge_hygiene_metrics_service.py"
+      ],
+      "description": "Provider-, Modell-, Profil-, Chunk-, Pass-, Coverage-, Qualitaets- und Fehlerdaten content-arm erfassen.",
+      "acceptance_criteria": [
+        "Metriken unterscheiden Provider-Aufruf, LangExtract-Parsing, Mapping, Ananta-Validierung und Hub-Admission.",
+        "Run Report bindet Source-Revision, Assignment, Profil-Digest, Modellversion, LangExtract-Version und Ergebnis-Digest.",
+        "Raw Source-Text, Secrets und ungefilterte Attribute werden nicht als Logs oder unbounded Labels gespeichert.",
+        "Stabile reason codes erlauben Diagnose von Rate Limit, Timeout, Schemafehler, ungrounded Span, Budgetabbruch und Admission-Block."
+      ]
+    },
+    {
+      "id": "LXCC-019",
+      "title": "Feature-gesteuerten Rollout und Rollback dokumentieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "rollout",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-015",
+        "LXCC-016",
+        "LXCC-017",
+        "LXCC-018"
+      ],
+      "files_to_create": [
+        "docs/operations/langextract-rollout.md",
+        "docs/operations/langextract-rollback.md"
+      ],
+      "description": "Von disabled ueber shadow benchmark und observe-only bis zu review-required Claim Admission stufenweise ausrollen.",
+      "acceptance_criteria": [
+        "LangExtract ist standardmaessig deaktiviert und wird zuerst nur im Shadow-Modus ohne kanonische Writes ausgefuehrt.",
+        "Jede Phase besitzt messbare Quality-, Security-, Coverage-, Kosten- und Operator-Exitkriterien.",
+        "Rollback deaktiviert neue LangExtract-Aufrufe, behaelt Audit und vorhandene Claim-Revisionen und stellt den vorherigen Extraktor wieder her.",
+        "Cloud- und Ollama-Profile koennen einzeln deaktiviert werden, ohne CodeCompass oder KnowledgeIndex abzuschalten.",
+        "Kein Rollout-Modus erlaubt automatische Konfliktentscheidung oder Source Write-back."
+      ]
+    },
+    {
+      "id": "LXCC-020",
+      "title": "Release-Gate und Knowledge-Hygiene-Track-Verknuepfung abschliessen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "release",
+      "progress_percent": 0,
+      "depends_on": [
+        "LXCC-003",
+        "LXCC-015",
+        "LXCC-016",
+        "LXCC-017",
+        "LXCC-019"
+      ],
+      "files_to_create": [
+        "scripts/run_langextract_release_gate.py",
+        "docs/status/langextract-codecompass-release-evidence.md"
+      ],
+      "files_to_update": [
+        ".github/workflows/quality-and-docs.yml",
+        "todos/active/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json"
+      ],
+      "description": "Schema-, Contract-, Offline-, Quality-, Performance-, Security-, Rollout- und Dependency-Nachweise zusammenfuehren und KHW-008 explizit verknuepfen.",
+      "acceptance_criteria": [
+        "Gate prueft Todo-Schema, Vertragsversionen, optionale Dependency, Unit/Integration/Security-Tests und Benchmark-Artefakte.",
+        "KHW-008 verweist auf diesen Track als optionale Implementierungsstrategie, ohne seine bestehenden Sicherheitskriterien zu ersetzen.",
+        "Release Evidence enthaelt Commit, LangExtract-Version, Provider/Profile, Fixtures, Schwellen, Metriken, bekannte Grenzen und Artefakt-Hashes.",
+        "Feature-Flags-off-Kompatibilitaet und vollstaendige Deinstallierbarkeit des optionalen Pakets sind nachgewiesen.",
+        "Track darf nur nach dokumentiertem Go/No-Go und automatischem Gate auf done gesetzt werden."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "LXCC-001",
+    "LXCC-002",
+    "LXCC-005",
+    "LXCC-006",
+    "LXCC-007",
+    "LXCC-009",
+    "LXCC-010",
+    "LXCC-012",
+    "LXCC-013",
+    "LXCC-015",
+    "LXCC-017",
+    "LXCC-019",
+    "LXCC-020"
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 20,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 15,
+      "P1": 5,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 5,
+      "high": 9,
+      "critical": 6
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "analysis": 1,
+      "architecture": 1,
+      "benchmark": 1,
+      "config": 1,
+      "contract": 1,
+      "dependency": 1,
+      "evaluation": 1,
+      "integration": 1,
+      "mapping": 1,
+      "observability": 1,
+      "performance": 1,
+      "release": 1,
+      "rollout": 1,
+      "scaling": 1,
+      "security": 3,
+      "test": 1,
+      "validation": 1,
+      "worker": 1
+    }
+  },
+  "progress_summary": {
+    "state": "planned",
+    "todo_remaining": 20,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "execution_stage_summary": {
+    "current_stage": "planning",
+    "next_stage": "M1 baseline and ADR",
+    "rollout_mode": "disabled then shadow benchmark then observe_only then review_required",
+    "dependency_mode": "optional pinned package",
+    "canonical_write_owner": "hub only"
+  },
+  "summary_notes": [
+    "LangExtract reduziert voraussichtlich Eigenentwicklung im KHW-008-Worker, ersetzt aber nicht dessen Vertrag, Sicherheitsgrenzen oder Hub Admission.",
+    "Der wichtigste Mehrwert sind exakte Text-Spans und die vorhandene Long-Document-Strategie.",
+    "Anantas StructuredOutput-, SourceCatalog-, Citation- und Claim-Admission-Pruefungen bleiben zwingend.",
+    "Ein Go/No-Go erfolgt erst nach Vergleich mit dem nativen strukturierten LLM-Pfad auf identischen Fixtures und Budgets."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "target-outcome",
+      "title": "Zielzustand",
+      "items": [
+        "Optionaler LangExtractClaimExtractionAdapter hinter einem provider-neutralen Ananta-Port",
+        "Source-grounded Claim-Proposals mit geprueften Offsets, Ranges, Hashes und Coverage",
+        "Austauschbare Gemini-, OpenAI-, Ollama-, native und Offline-Fixture-Strategien",
+        "Messbarer Qualitaets-, Sicherheits-, Performance- und Kostenvergleich",
+        "Default-off Rollout ohne Regression fuer rag-helper und CodeCompass"
+      ]
+    },
+    {
+      "summary_id": "safety-boundary",
+      "title": "Nicht verhandelbare Grenze",
+      "items": [
+        "LangExtract und Worker besitzen keine Source Authority und entscheiden keine Wahrheit.",
+        "Nur der Hub darf Claims nach erneuter Source-, Schema-, Policy- und Digest-Pruefung zulassen.",
+        "Grounded Spans sind Evidence-Locator, keine Faktizitaetsgarantie.",
+        "Kein paralleler Index-, Retrieval-, Graph- oder Orchestrierungsstack."
+      ]
+    }
+  ]
+}
