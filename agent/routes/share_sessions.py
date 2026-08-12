@@ -183,7 +183,6 @@ def _strict_pair_authorizer(
     ]
     member_by_peer = {str(item.get("peer_id") or ""): item for item in memberships}
     active_peers = set(member_by_peer)
-    owner_id = str(session_item.get("owner_user_id") or "")
 
     def authorize(secure: SecureEnvelopeV1) -> None:
         if secure.sender_id not in active_peers or secure.recipient.id not in active_peers:
@@ -193,8 +192,6 @@ def _strict_pair_authorizer(
             session_id, session_item.get("permissions"), required_permission
         ):
             raise ShareViewSecurityError("payload_permission_required", status_code=403)
-        if secure.payload_type == "pair.view_delta" and secure.sender_id != owner_id:
-            raise ShareViewSecurityError("view_owner_required", status_code=403)
         now = time.time()
         forward = _peer_key_repository.get_confirmation(
             scope_id=session_id,
@@ -972,6 +969,7 @@ def push_view_payload(session_id: str):
         return jsonify({"error": "session_not_active"}), 403
     if not _is_active_participant(session_id=session_id, user_id=user_id, session_item=session_item):
         return jsonify({"error": "not_a_participant"}), 403
+    session_owner_user_id = str(session_item.get("owner_user_id") or "")
     if not _rate_limiter.allow_request(
         namespace=_VIEW_FRAME_RATE["namespace"],
         subject=f"{user_id}:{session_id}",
@@ -1033,11 +1031,12 @@ def push_view_payload(session_id: str):
             status = 413 if exc.reason_code in {"relay_envelope_too_large", "relay_item_invalid"} else 429
             return jsonify({"error": exc.reason_code}), status
         if secure.payload_type == "pair.view_delta" and session_id not in _view_started_audited:
-            audit_view_started(session_id=session_id, owner_user_id=user_id)
+            audit_view_started(session_id=session_id, owner_user_id=session_owner_user_id)
             _view_started_audited.add(session_id)
         audit_view_delta_sent(
             session_id=session_id,
-            owner_user_id=user_id,
+            owner_user_id=session_owner_user_id,
+            sender_user_id=user_id,
             kind=secure.payload_type,
             new_hash="",
             policy_hash=secure.aad.contract_digest,
@@ -1086,7 +1085,8 @@ def push_view_payload(session_id: str):
         return jsonify({"error": exc.reason_code}), status
     audit_view_delta_sent(
         session_id=session_id,
-        owner_user_id=user_id,
+        owner_user_id=session_owner_user_id,
+        sender_user_id=user_id,
         kind=str(entry["kind"]),
         new_hash=str(entry["new_hash"]),
         policy_hash=str(entry["base_hash"] or entry["new_hash"] or ""),

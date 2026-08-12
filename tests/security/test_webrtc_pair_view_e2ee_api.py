@@ -182,6 +182,152 @@ def test_strict_session_packages_confirmation_and_replay_gate(client, admin_auth
     assert duplicate.status_code == 409
     assert duplicate.get_json()["error"] == "sequence_duplicate"
 
+    participant_delta = SecureEnvelopeV1(
+        version=1,
+        scope=EnvelopeScope("session", session_id),
+        sender_id="alice",
+        recipient=EnvelopeRecipient("peer", owner_id),
+        epoch=2,
+        sequence=1,
+        key_id="pair-key-1",
+        payload_type="pair.view_delta",
+        expires_at_ms=now_ms + 60_000,
+        nonce_b64=base64.b64encode(b"a" * 12).decode(),
+        aad=AuthenticatedMetadata("semantic", "json", package_data["security_contract_digest"]),
+        ciphertext_b64="",
+    )
+    sealed_participant_delta = seal_secure_envelope(
+        key=b"k" * 32,
+        plaintext=b'{"kind":"snapshot","route":"/goals"}',
+        envelope=participant_delta,
+    )
+    participant_delta_sent = client.post(
+        f"/share-sessions/{session_id}/view/push",
+        headers=alice_headers,
+        json={
+            "message_id": "participant-view-1",
+            "encrypted_payload": json.dumps(sealed_participant_delta.to_dict()),
+        },
+    )
+    assert participant_delta_sent.status_code == 200
+
+    snapshot_request = SecureEnvelopeV1(
+        version=1,
+        scope=EnvelopeScope("session", session_id),
+        sender_id="alice",
+        recipient=EnvelopeRecipient("peer", owner_id),
+        epoch=2,
+        sequence=1,
+        key_id="pair-key-1",
+        payload_type="pair.snapshot_request",
+        expires_at_ms=now_ms + 60_000,
+        nonce_b64=base64.b64encode(b"r" * 12).decode(),
+        aad=AuthenticatedMetadata("control", "json", package_data["security_contract_digest"]),
+        ciphertext_b64="",
+    )
+    sealed_snapshot_request = seal_secure_envelope(
+        key=b"k" * 32,
+        plaintext=b'{"reason":"base_hash_mismatch"}',
+        envelope=snapshot_request,
+    )
+    snapshot_request_sent = client.post(
+        f"/share-sessions/{session_id}/view/push",
+        headers=alice_headers,
+        json={
+            "message_id": "participant-snapshot-request-1",
+            "encrypted_payload": json.dumps(sealed_snapshot_request.to_dict()),
+        },
+    )
+    assert snapshot_request_sent.status_code == 200
+
+    def post_participant_payload(
+        *,
+        message_id: str,
+        payload_type: str,
+        traffic_class: str,
+        sequence: int,
+        nonce_byte: bytes,
+    ):
+        candidate = SecureEnvelopeV1(
+            version=1,
+            scope=EnvelopeScope("session", session_id),
+            sender_id="alice",
+            recipient=EnvelopeRecipient("peer", owner_id),
+            epoch=2,
+            sequence=sequence,
+            key_id="pair-key-1",
+            payload_type=payload_type,
+            expires_at_ms=now_ms + 60_000,
+            nonce_b64=base64.b64encode(nonce_byte * 12).decode(),
+            aad=AuthenticatedMetadata(
+                traffic_class,
+                "json",
+                package_data["security_contract_digest"],
+            ),
+            ciphertext_b64="",
+        )
+        sealed_candidate = seal_secure_envelope(
+            key=b"k" * 32,
+            plaintext=b'{"denied":true}',
+            envelope=candidate,
+        )
+        return client.post(
+            f"/share-sessions/{session_id}/view/push",
+            headers=alice_headers,
+            json={
+                "message_id": message_id,
+                "encrypted_payload": json.dumps(sealed_candidate.to_dict()),
+            },
+        )
+
+    denied_control = post_participant_payload(
+        message_id="participant-control-denied",
+        payload_type="pair.control",
+        traffic_class="control",
+        sequence=2,
+        nonce_byte=b"c",
+    )
+    assert denied_control.status_code == 403
+    assert denied_control.get_json()["error"] == "payload_permission_required"
+
+    denied_artifact = post_participant_payload(
+        message_id="participant-artifact-denied",
+        payload_type="pair.artifact_ref",
+        traffic_class="semantic",
+        sequence=2,
+        nonce_byte=b"f",
+    )
+    assert denied_artifact.status_code == 403
+    assert denied_artifact.get_json()["error"] == "payload_permission_required"
+
+    wrong_view_traffic = post_participant_payload(
+        message_id="participant-view-wrong-traffic",
+        payload_type="pair.view_delta",
+        traffic_class="control",
+        sequence=3,
+        nonce_byte=b"w",
+    )
+    assert wrong_view_traffic.status_code == 403
+    assert wrong_view_traffic.get_json()["error"] == "traffic_class_mismatch"
+
+    owner_view = client.get(f"/share-sessions/{session_id}/view/poll", headers=admin_auth_header)
+    assert owner_view.status_code == 200
+    relayed_view = owner_view.get_json()["view_messages"]
+    assert [item["message_id"] for item in relayed_view] == [
+        "participant-view-1",
+        "participant-snapshot-request-1",
+    ]
+    assert all(set(item) == {"message_id", "encrypted_payload"} for item in relayed_view)
+    assert "goals" not in json.dumps(relayed_view)
+
+    oversized = client.post(
+        f"/share-sessions/{session_id}/view/push",
+        headers=alice_headers,
+        json={"message_id": "oversized", "encrypted_payload": "x" * (256 * 1024 + 1)},
+    )
+    assert oversized.status_code == 413
+    assert oversized.get_json()["error"] == "payload_too_large"
+
     canary = "STRICT_CHAT_CANARY_MUST_NEVER_REACH_HUB_OR_RELAY"
     chat_pending = SecureEnvelopeV1(
         version=1,

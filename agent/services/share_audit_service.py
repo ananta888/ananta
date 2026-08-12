@@ -137,14 +137,17 @@ def audit_view_delta_sent(
     *,
     session_id: str,
     owner_user_id: str,
+    sender_user_id: str | None = None,
     kind: str,
     new_hash: str,
     policy_hash: str,
 ) -> None:
-    """Nur Hash-Metadaten – kein Screenshot-Klartext."""
+    """Nur Hash-Metadaten und getrennte Rollen-Digests – kein View-Klartext."""
+    effective_sender_user_id = sender_user_id or owner_user_id
     log_audit("share.view_delta_sent", {
         "scope_digest": _digest("session", session_id),
         "owner_digest": _digest("user", owner_user_id),
+        "sender_digest": _digest("user", effective_sender_user_id),
         "kind": kind,
         "new_hash": new_hash,
         "policy_hash": policy_hash,

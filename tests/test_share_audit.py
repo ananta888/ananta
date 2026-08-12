@@ -37,6 +37,7 @@ def test_share_audit_emits_expected_event_names(monkeypatch):
     audit.audit_view_delta_sent(
         session_id="s1",
         owner_user_id="user-a",
+        sender_user_id="user-b",
         kind="delta",
         new_hash="h1",
         policy_hash="p1",
@@ -76,6 +77,48 @@ def test_share_audit_payload_has_no_chat_or_view_cleartext(monkeypatch):
     assert "hello" not in payload_text.lower()
     assert "ciphertext" not in payload_text.lower()
     assert "screen" not in payload_text.lower()
+    assert captured[-1][1]["sender_digest"] == captured[-1][1]["owner_digest"]
+
+
+def test_view_delta_audit_distinguishes_owner_and_participant_sender_without_raw_ids(monkeypatch):
+    captured: list[tuple[str, dict]] = []
+    monkeypatch.setattr(audit, "log_audit", lambda name, payload: captured.append((name, payload)))
+
+    audit.audit_session_created(
+        session_id="bilateral-session-private",
+        owner_user_id="canonical-owner-private",
+        owner_device_id="owner-device-private",
+        mode="relay",
+        transport="hub_relay",
+        permissions={"view_tui": True},
+    )
+    audit.audit_participant_joined(
+        session_id="bilateral-session-private",
+        participant_id="participant-membership-private",
+        user_id="participant-sender-private",
+        device_id="participant-device-private",
+        public_key_fingerprint="participant-fingerprint-private",
+        permissions={"view_tui": True},
+    )
+    audit.audit_view_delta_sent(
+        session_id="bilateral-session-private",
+        owner_user_id="canonical-owner-private",
+        sender_user_id="participant-sender-private",
+        kind="pair.view_delta",
+        new_hash="",
+        policy_hash="contract-hash",
+    )
+
+    created_payload = captured[0][1]
+    participant_payload = captured[1][1]
+    delta_payload = captured[2][1]
+    assert delta_payload["owner_digest"] == created_payload["owner_digest"]
+    assert delta_payload["sender_digest"] == participant_payload["user_digest"]
+    assert delta_payload["sender_digest"] != delta_payload["owner_digest"]
+    serialized = str(delta_payload)
+    assert "canonical-owner-private" not in serialized
+    assert "participant-sender-private" not in serialized
+    assert "bilateral-session-private" not in serialized
 
 
 def test_share_audit_pseudonymizes_scope_identity_fingerprint_and_permission_details(monkeypatch):
