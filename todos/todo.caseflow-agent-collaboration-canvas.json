@@ -1,0 +1,356 @@
+{
+  "version": "1.0",
+  "owner": "Peter Stuiber",
+  "track": "caseflow-agent-collaboration-canvas",
+  "id": "todo.caseflow-agent-collaboration-canvas",
+  "title": "CaseFlow Agent Collaboration Canvas mit Rollen, Beziehungen, Runtime und Trace",
+  "created": "2026-08-12",
+  "updated": "2026-08-12",
+  "project": "Ananta",
+  "status": "todo",
+  "priority": "high",
+  "purpose": "Eine einfache Angular-Komponente unter CaseFlow bereitstellen, mit der Nutzer Agenten/Rollen grafisch definieren, ihre Beziehungen nachvollziehen und laufende Kommunikation samt technischer Telemetrie und eigentlichem Agenten-Chat untersuchen können. Die Umsetzung soll die vorhandene Ananta-Architektur wiederverwenden und keinen zweiten Workflow-, Agenten- oder Trace-Stack einführen.",
+  "goal": "CaseFlow erhält einen verständlichen Agent Collaboration Canvas. Agenten erscheinen als Rollen-Knoten mit Icon, Persönlichkeit, Context und bestehenden Skill-/Model-/Policy-Bindings. Gerichtete Aufrufe werden als Pfeile dargestellt, bidirektionale Kommunikation als Pfeile in beide Richtungen. Während eines Runs wird ausschließlich die tatsächlich aktive Kommunikation dezent animiert. Klick auf eine Verbindung öffnet technische Telemetrie und den fachlichen Agenten-Chat; Klick auf einen Agenten öffnet Konfiguration sowie Runtime-, Parent-/Child- und Trace-Sicht.",
+  "source_code_alignment": {
+    "reviewed_repository": "ananta888/ananta",
+    "reviewed_branch": "main",
+    "existing_reusable_parts": [
+      {
+        "area": "CaseFlow Studio",
+        "files": [
+          "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio.component.ts",
+          "frontend-angular/src/app/features/caseflow/scenario/caseflow-scenario.models.ts"
+        ],
+        "notes": [
+          "CaseFlow Studio existiert bereits und bindet den VisualProcessEditor im embedded-edit Modus ein.",
+          "CaseFlow kompiliert deklarative UI-Metadaten aus einem vorhandenen VisualProcessGraph und soll Eigentümer der vereinfachten Collaboration-Ansicht sein.",
+          "Der bestehende Full Process Designer bleibt die technische Detailansicht; der neue Canvas ist eine vereinfachte rollenorientierte Projektion desselben Graphen."
+        ]
+      },
+      {
+        "area": "Visual Process Graph und Runtime",
+        "files": [
+          "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+        ],
+        "notes": [
+          "VpStep besitzt bereits id, label, kind, role, agent_skill_profile_id, metadata, run_state und position.",
+          "VpEdge besitzt bereits source, target, condition und label und ist die kanonische Grundlage für gerichtete Agentenbeziehungen.",
+          "VpGraph besitzt steps, edges, metadata und extensions und kann UI-spezifische CaseFlow-Metadaten aufnehmen, ohne das Runtime-Modell zu duplizieren.",
+          "VpRuntimeOverlay/VpRuntimeStepOverlay liefern bereits Status, current_step_ids, Laufzeit, Modellprofil und Fehlerdaten für die Runtime-Visualisierung.",
+          "Workflow Status und Workflow Events können über den bestehenden VisualProcessApiService geladen werden."
+        ]
+      },
+      {
+        "area": "Skill Profiles und Model Routing",
+        "files": [
+          "agent/visual_process/skill_profiles.py",
+          "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts"
+        ],
+        "notes": [
+          "Agentenrollen sollen vorhandene Skill Profiles nutzen und nicht als eigener Agententyp implementiert werden.",
+          "Modelprofile, Fallback-Gruppen, Required Capabilities, Tool Calling, Cloud Policy und Kostenlimits werden aus bestehendem Model Routing wiederverwendet.",
+          "Persönlichkeit und Context sind deklarative Agent-Metadaten/Bindings und dürfen die vorhandenen Routing- und Policy-Schichten nicht umgehen."
+        ]
+      },
+      {
+        "area": "Trace",
+        "files": [
+          "worker/core/trace.py",
+          "worker/core/trace_v2.py",
+          "worker/core/trace_bundle.py",
+          "agent/pipeline_trace.py",
+          "agent/services/task_engine_trace.py",
+          "frontend-angular/src/app/services/ai-snake-trace.service.ts",
+          "frontend-angular/src/app/components/ai-snake-trace-viewer.component.ts"
+        ],
+        "notes": [
+          "Keinen neuen Trace-Mechanismus bauen.",
+          "Bestehende Trace-IDs, AgentRun-IDs und Events auf Node- und Edge-Ansichten projizieren.",
+          "Für eine Verbindung muss sowohl die technische Telemetrie als auch die fachliche Nachrichtendarstellung aus denselben zugrunde liegenden Run-/Trace-Daten ableitbar sein."
+        ]
+      }
+    ],
+    "explicit_non_goals": [
+      "Kein zweiter Workflow-Editor neben Visual Process.",
+      "Keine zweite Agenten-Runtime.",
+      "Keine parallele Trace-/Telemetry-Infrastruktur.",
+      "Keine eigenständige Chat-Historie, die von den echten Run-/Trace-Daten abweicht.",
+      "Keine grellen oder permanent pulsierenden Animationen.",
+      "Keine riesige Angular-Monolith-Komponente; Canvas, Inspector und Trace Viewer bleiben getrennte Komponenten."
+    ]
+  },
+  "architecture": {
+    "canonical_model": "VisualProcessGraph",
+    "ui_projection": "CaseFlow Agent Collaboration Canvas",
+    "node_mapping": "Ein rollenfähiger VpStep wird als AgentNode dargestellt.",
+    "edge_mapping": "Ein VpEdge source->target wird als gerichtete Kommunikations-/Aufrufbeziehung dargestellt.",
+    "bidirectional_mapping": "Existieren A->B und B->A, rendert die UI eine logisch gekoppelte bidirektionale Beziehung, ohne die zwei kanonischen Edges im Graphen zu verlieren.",
+    "runtime_mapping": "Workflow-/Runtime-/Trace-Ereignisse markieren aktive Nodes und Edges, ohne den gespeicherten Graphen zu verändern.",
+    "metadata_extension": "UI-spezifische Rollen- und Darstellungsdaten werden versioniert unter graph.extensions['ananta.caseflow.agent-canvas'] bzw. Step-Metadata gespeichert."
+  },
+  "role_catalog_v1": {
+    "software": ["architect", "developer", "frontend", "backend", "devops", "tester", "security", "reviewer", "product_owner", "scrum_master"],
+    "creative": ["artist", "designer", "ux", "writer", "video", "audio"],
+    "business": ["marketing", "sales", "finance", "legal", "hr", "business_analyst", "researcher", "project_manager"],
+    "generic": ["lead", "specialist", "critic", "approver", "observer", "custom"],
+    "requirements": [
+      "Jede Rolle besitzt ein neutrales, konsistentes Icon aus der bereits genutzten UI-Icon-Library.",
+      "Rolle ist nur ein Preset für Label, Icon und optionale Defaults; sie begrenzt nicht die Fähigkeiten des Agenten.",
+      "Custom-Rollen müssen Name und Icon frei wählen können."
+    ]
+  },
+  "agent_configuration": {
+    "fields": [
+      "name",
+      "role",
+      "icon",
+      "description",
+      "personality/system-instruction binding",
+      "context sources/context profile",
+      "agent_skill_profile_id",
+      "model routing profile/role",
+      "tools/capabilities",
+      "policy hints",
+      "human gate",
+      "optional critic/benchmark configuration"
+    ],
+    "principles": [
+      "Bestehende Skill-, Context-, Model- und Policy-Services referenzieren statt Daten zu kopieren.",
+      "Der Inspector zeigt einfache Felder zuerst und technische Details in einem Advanced-Bereich.",
+      "Konfiguration und Runtime-Daten sind visuell klar getrennt."
+    ]
+  },
+  "interaction_design": {
+    "canvas": [
+      "Agenten als kompakte Cards/Nodes mit Icon, Rollenname, frei wählbarem Namen und Runtime-Status.",
+      "Drag-and-drop Positionierung; Position wird in VpStep.position gespeichert.",
+      "Directed Edge mit Pfeilspitze am aufgerufenen Child.",
+      "Bei A->B und B->A Pfeilspitzen in beide Richtungen oder zwei sauber getrennte parallele Richtungen darstellen.",
+      "Optional Edge-Label für Zweck/Message-Type/Condition.",
+      "Zoom, Pan, Fit-to-view und Reset Layout unterstützen."
+    ],
+    "runtime_animation": [
+      "Nur aktive Kommunikation animieren.",
+      "Subtile Bewegung entlang der Linie oder leichte Helligkeitsänderung; keine Neonfarben und kein aggressives Blinken.",
+      "prefers-reduced-motion respektieren.",
+      "Running, awaiting approval, success und error zusätzlich am Node anzeigen."
+    ],
+    "edge_click": [
+      "Rechten Inspector oder Drawer öffnen.",
+      "Tab 'Kommunikation': tatsächliche Nachrichten zwischen Source und Target chronologisch darstellen.",
+      "Tab 'Telemetrie': trace_id, run_id, agent_run_id, Zeit, Dauer, Status, Modell/Provider, Token/Kosten soweit vorhanden, Tool Calls, Fehler und relevante Event-/Span-Daten anzeigen.",
+      "Einzelne Kommunikationsrunde muss auf die zugrunde liegende Telemetrie zurückverlinkbar sein."
+    ],
+    "node_click": [
+      "Im Edit-Modus: Agent-Konfiguration öffnen.",
+      "Im Run-Modus: Übersicht, aktueller Status, letzte Aktivität, Model/Provider, Parent- und Child-Beziehungen anzeigen.",
+      "Tabs 'Konfiguration', 'Runtime', 'Kommunikation', 'Trace'.",
+      "Kommunikation kann auf einen Parent/Child gefiltert werden.",
+      "Trace zeigt alle zum Agenten gehörenden Run-/Trace-Ereignisse, nicht nur die aktuell ausgewählte Kante."
+    ]
+  },
+  "gauntlet_support": {
+    "status": "design_for_extension",
+    "requirements": [
+      "Lead-Agent kann mehrere Child-Agenten fan-out aufrufen.",
+      "Builder/Critic-Beziehungen sind normale Nodes/Edges und benötigen keinen Sonder-Runtime-Typ.",
+      "Critic-Preset kann Persönlichkeit, read-only Evidence Context und Benchmark-Referenz vorkonfigurieren.",
+      "Loop/Retry bleibt über vorhandene Edge Condition und LoopPolicy modelliert.",
+      "Die UI darf Loop-Kanten visuell kennzeichnen und Iterationszahl im Runtime-Modus anzeigen."
+    ]
+  },
+  "proposed_files": [
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node.component.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge.component.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-inspector.component.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-trace.component.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.models.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.mapper.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime.service.ts",
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-role-catalog.ts"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Graph Projection und Rollen",
+      "task_ids": ["CAC-001", "CAC-002", "CAC-003"]
+    },
+    {
+      "id": "M2",
+      "title": "Canvas Editing",
+      "task_ids": ["CAC-004", "CAC-005", "CAC-006"]
+    },
+    {
+      "id": "M3",
+      "title": "Runtime und Trace",
+      "task_ids": ["CAC-007", "CAC-008", "CAC-009", "CAC-010"]
+    },
+    {
+      "id": "M4",
+      "title": "Integration und Qualität",
+      "task_ids": ["CAC-011", "CAC-012", "CAC-013"]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CAC-001",
+      "title": "CaseFlow Agent Canvas Contract definieren",
+      "status": "todo",
+      "priority": "critical",
+      "description": "Versionierte UI-Projektion für Rollen, Icons und Inspector-Hints definieren, ohne VpGraph/VpStep/VpEdge zu duplizieren.",
+      "acceptance_criteria": [
+        "Persistierte Runtime-Wahrheit bleibt VpGraph.",
+        "Unbekannte Extension-Felder brechen ältere Clients nicht.",
+        "Roundtrip Graph -> Canvas -> Graph verliert keine Edges oder Step-Metadaten."
+      ]
+    },
+    {
+      "id": "CAC-002",
+      "title": "Rollen- und Icon-Katalog implementieren",
+      "status": "todo",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Software-, Creative-, Business- und Generic-Rollen verfügbar.",
+        "Custom Role möglich.",
+        "Icons sind konsistent und nicht an Runtime-Fähigkeiten gekoppelt."
+      ]
+    },
+    {
+      "id": "CAC-003",
+      "title": "Agent-Konfiguration auf bestehende Ananta-Bindings mappen",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Skill Profile wird über agent_skill_profile_id referenziert.",
+        "Model Routing nutzt vorhandene Profile/Rollen/Fallbacks.",
+        "Personality und Context werden referenziert bzw. als deklarative Metadaten gespeichert, nicht als parallele Runtime-Konfiguration."
+      ]
+    },
+    {
+      "id": "CAC-004",
+      "title": "Agent Canvas Angular-Komponente bauen",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "CaseFlow-Menü führt zur neuen Ansicht.",
+        "Nodes sind verschiebbar und Positionen persistent.",
+        "Zoom/Pan/Fit-to-view funktionieren.",
+        "Komponente bleibt unabhängig vom vollständigen VisualProcessEditor nutzbar."
+      ]
+    },
+    {
+      "id": "CAC-005",
+      "title": "Gerichtete und bidirektionale Agentenbeziehungen darstellen",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "A->B zeigt Pfeil bei B.",
+        "A->B plus B->A ist eindeutig bidirektional sichtbar.",
+        "Edge-Klick selektiert exakt die technische Richtung bzw. bietet bei gekoppelter Darstellung beide Richtungen an.",
+        "Loop-Kanten bleiben erkennbar."
+      ]
+    },
+    {
+      "id": "CAC-006",
+      "title": "Node Inspector für Konfiguration erstellen",
+      "status": "todo",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Rolle, Icon, Personality, Context, Skill Profile und Model Routing editierbar bzw. auswählbar.",
+        "Parent-/Child-Beziehungen sichtbar.",
+        "Advanced-Konfiguration klappt technische Felder gezielt auf."
+      ]
+    },
+    {
+      "id": "CAC-007",
+      "title": "Runtime Overlay auf Agent Canvas projizieren",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "current_step_ids und Step-Status werden ohne Graphmutation angezeigt.",
+        "Running/Awaiting Approval/Success/Error sind am Node erkennbar.",
+        "Runtime-Ansicht kann aktualisiert werden, ohne Layout oder Auswahl zu verlieren."
+      ]
+    },
+    {
+      "id": "CAC-008",
+      "title": "Aktive Kommunikationskante dezent animieren",
+      "status": "todo",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Nur tatsächlich aktive Edge wird animiert.",
+        "Animation ist subtil und theme-kompatibel.",
+        "prefers-reduced-motion deaktiviert Bewegung zuverlässig."
+      ]
+    },
+    {
+      "id": "CAC-009",
+      "title": "Edge Inspector mit Chat- und Telemetrie-Ansicht bauen",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Kommunikations-Tab zeigt Source->Target-Nachrichten chronologisch.",
+        "Telemetry-Tab zeigt technische Trace-/Run-Daten.",
+        "Keine zweite Trace-Persistenz wird eingeführt.",
+        "Nachricht und technische Trace-Daten sind korrelierbar."
+      ]
+    },
+    {
+      "id": "CAC-010",
+      "title": "Node Runtime/Trace Inspector bauen",
+      "status": "todo",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Alle Kommunikation des Agenten mit Parents und Childs filterbar.",
+        "Agentbezogene Trace-Ereignisse und Runtime-Metriken sichtbar.",
+        "Letzter Fehler und aktuelle Aktivität sind ohne Wechsel in den Full Process Designer sichtbar."
+      ]
+    },
+    {
+      "id": "CAC-011",
+      "title": "CaseFlow Studio und Menü integrieren",
+      "status": "todo",
+      "priority": "high",
+      "acceptance_criteria": [
+        "Canvas ist über CaseFlow direkt erreichbar.",
+        "Bestehende CaseFlow-Szenarien und VisualProcessGraph-IDs werden weiterverwendet.",
+        "Wechsel zwischen einfacher Agentenansicht und vollständigem Prozesseditor ist möglich."
+      ]
+    },
+    {
+      "id": "CAC-012",
+      "title": "Gauntlet/Builder-Critic Presets ergänzen",
+      "status": "todo",
+      "priority": "medium",
+      "acceptance_criteria": [
+        "Lead, Builder und Critic können aus Rollenpresets angelegt werden.",
+        "Fan-out und Feedback-Loops werden mit normalen VpEdges abgebildet.",
+        "Critic kann Benchmark/Context-Bindings erhalten, ohne Sonder-Runtime."
+      ]
+    },
+    {
+      "id": "CAC-013",
+      "title": "Tests für Mapping, Interaction und Runtime Trace ergänzen",
+      "status": "todo",
+      "priority": "critical",
+      "acceptance_criteria": [
+        "Mapper Roundtrip getestet.",
+        "Gerichtete/bidirektionale Edge-Darstellung getestet.",
+        "Node-/Edge-Auswahl und Inspector getestet.",
+        "Runtime-Status und aktive Edge getestet.",
+        "Trace-Korrelation getestet.",
+        "Reduced Motion getestet."
+      ]
+    }
+  ],
+  "definition_of_done": [
+    "Ein Nutzer kann im CaseFlow einen kleinen Multi-Agent-Flow visuell erstellen, ohne den vollständigen technischen Prozesseditor verstehen zu müssen.",
+    "Die resultierende Struktur ist weiterhin ein normaler Ananta VisualProcessGraph.",
+    "Agenten können bestehende Skill-, Personality-/Context-, Model- und Policy-Bindings verwenden.",
+    "Gerichtete und bidirektionale Kommunikation ist visuell eindeutig.",
+    "Während eines Runs sind aktive Agenten und Kommunikationswege subtil sichtbar.",
+    "Klick auf Agent oder Verbindung führt von der verständlichen Oberfläche bis zur tatsächlichen technischen Trace-Evidenz.",
+    "Keine neue Workflow-, Agenten-, Chat- oder Trace-Infrastruktur wurde parallel eingeführt."
+  ]
+}
