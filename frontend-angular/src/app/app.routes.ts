@@ -19,7 +19,6 @@ import { PROJECT_ROUTES } from './features/projects/project.routes';
 import { projectContextGuard } from './guards/project-context.guard';
 import { organizationRoutes } from './features/organizations/organization.routes';
 import { publicPairGuard } from './guards/public-pair.guard';
-import { publicPairActiveSessionGuard } from './guards/public-pair-active-session.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
@@ -27,7 +26,6 @@ export const routes: Routes = [
   {
     path: 'pair-dev',
     canActivate: [publicPairGuard],
-    canDeactivate: [publicPairActiveSessionGuard],
     loadComponent: () => import('./features/pair/public-pair-page.component')
       .then(m => m.PublicPairPageComponent),
   },

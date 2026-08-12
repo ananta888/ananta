@@ -18,6 +18,7 @@ describe('AiAssistantComponent', () => {
     cmp['domain'] = new AiAssistantDomainService();
     cmp['storage'] = new AiAssistantStorageService();
     cmp['router'] = { url: '/pair-dev', navigate: vi.fn().mockResolvedValue(true) };
+    cmp['shares'] = { hasPublicPairRuntime: false };
     cmp['dockStateStorageKey'] = 'ananta.ai-assistant.minimized.v1';
     cmp['dockHiddenStorageKey'] = 'ananta.ai-assistant.hidden.v1';
     cmp['historyStorageKey'] = 'ananta.ai-assistant.history.v1';
@@ -114,6 +115,20 @@ describe('AiAssistantComponent', () => {
     expect(cmp['router'].navigate).toHaveBeenCalledWith(['/pair-dev']);
     expect(cmp.pairDevMounted).toBe(false);
     expect(cmp.snakeChatPanelTab).not.toBe('pair');
+  });
+
+  it('opens an already mounted Pair runtime without navigating away from the current page', () => {
+    const cmp = createComponent();
+    cmp.openPairDev();
+    cmp['router'].url = '/workspace';
+    cmp.openSnakeChatPanelTab('chat');
+
+    cmp.openPairDev();
+
+    expect(cmp['router'].navigate).not.toHaveBeenCalled();
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.snakeChatPanelOpen).toBe(true);
   });
 
   it.each(['mode', 'deprecated'])('migrates a persisted legacy %s tab to chat', legacyTab => {
@@ -250,6 +265,85 @@ describe('AiAssistantComponent', () => {
     expect(open).toHaveBeenCalledOnce();
     expect(cmp.minimized).toBe(true);
     expect(cmp.hidden).toBe(true);
+  });
+
+  it('keeps the Pair runtime mounted when an active Public Pair leaves the route', () => {
+    const cmp = createComponent();
+    cmp['shares'].hasPublicPairRuntime = true;
+    cmp['pairRouteActive'] = false;
+
+    cmp['handlePairRouteNavigation']('/pair-dev');
+    const mountedPanelTab = cmp.snakeChatPanelTab;
+    cmp['handlePairRouteNavigation']('/workspace');
+
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe(mountedPanelTab);
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+  });
+
+  it('unmounts a dormant Pair owner after leaving the route without a session', () => {
+    const cmp = createComponent();
+    cmp['pairRouteActive'] = false;
+
+    cmp['handlePairRouteNavigation']('/pair-dev');
+    cmp['handlePairRouteNavigation']('/workspace');
+
+    expect(cmp.pairDevMounted).toBe(false);
+    expect(cmp.snakeChatPanelTab).toBe('chat');
+    expect(cmp.snakeChatPanelOpen).toBe(false);
+  });
+
+  it('unmounts the exact Pair owner after explicit retirement outside the route', () => {
+    const cmp = createComponent();
+    cmp['shares'].hasPublicPairRuntime = true;
+    cmp['pairRouteActive'] = false;
+    cmp['handlePairRouteNavigation']('/pair-dev');
+    cmp['handlePairRouteNavigation']('/workspace');
+    expect(cmp.pairDevMounted).toBe(true);
+
+    cmp['shares'].hasPublicPairRuntime = false;
+    cmp['reconcileEmbeddedPairOwner']();
+
+    expect(cmp.pairDevMounted).toBe(false);
+    expect(cmp.snakeChatPanelTab).toBe('chat');
+  });
+
+  it('background-mounts a Public Pair owner outside the route without changing dock or tab state', () => {
+    const cmp = createComponent();
+    cmp['pairRouteActive'] = false;
+    cmp['shares'].hasPublicPairRuntime = true;
+    cmp.hidden = true;
+    cmp.minimized = true;
+    cmp.snakeChatPanelTab = 'settings';
+    cmp.snakeChatPanelOpen = false;
+    cmp.configPanelOpen = true;
+    const mount = vi.fn(() => { cmp.pairDevMounted = true; });
+    cmp['mountEmbeddedPairOwnerInBackground'] = mount;
+
+    cmp['reconcileEmbeddedPairOwner']();
+    cmp['reconcileEmbeddedPairOwner']();
+
+    expect(mount).toHaveBeenCalledOnce();
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.hidden).toBe(true);
+    expect(cmp.minimized).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe('settings');
+    expect(cmp.snakeChatPanelOpen).toBe(false);
+    expect(cmp.configPanelOpen).toBe(true);
+    expect(cmp['router'].navigate).not.toHaveBeenCalled();
+  });
+
+  it('does not background-mount the Pair owner for Hub sharing', () => {
+    const cmp = createComponent();
+    cmp['pairRouteActive'] = false;
+    cmp['shares'].hasPublicPairRuntime = false;
+    const mount = vi.fn();
+    cmp['mountEmbeddedPairOwnerInBackground'] = mount;
+
+    cmp['reconcileEmbeddedPairOwner']();
+
+    expect(mount).not.toHaveBeenCalled();
+    expect(cmp.pairDevMounted).toBe(false);
   });
 
   it('restores every supported panel tab, including process', () => {

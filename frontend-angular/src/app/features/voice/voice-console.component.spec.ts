@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { Subject, of, throwError } from 'rxjs';
+import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import {
@@ -22,6 +22,7 @@ import { SemanticMediaProgramHostComponent } from './semantic-media-program-host
 import { VOICE_LONG_RUN_RECOVERY, VoiceLongRunRecoveryMetadata } from './voice-long-run-recovery';
 import { VOICE_LONG_RUN_SPOOL } from './voice-long-run-spool';
 import { VoiceLongRunTimelineSegment } from './voice-long-run-timeline';
+import { ShareSessionService } from '../../services/share-session.service';
 
 beforeAll(async () => {
   await ɵresolveComponentResources((resource) => {
@@ -87,9 +88,23 @@ describe('VoiceConsoleComponent', () => {
     allowProfile: vi.fn(async () => Date.now() || 1),
     stats: vi.fn(async () => ({ segments: 0, bytes: 0, maxSegments: 5, maxBytes: 24 * 1024 * 1024 })),
   };
+  const shareState = new BehaviorSubject({
+    session: null as { id: string } | null,
+    participants: [],
+    messages: [],
+    cursor: '0',
+    role: null as 'owner' | 'participant' | null,
+  });
+  const publicPairRuntimeState = new BehaviorSubject<
+    'idle' | 'public_pending' | 'hub_pending' | 'unknown_pending' | 'public' | 'unknown'
+  >('idle');
 
   beforeEach(() => {
     vi.clearAllMocks();
+    publicPairRuntimeState.next('idle');
+    shareState.next({
+      session: null, participants: [], messages: [], cursor: '0', role: null,
+    });
     capturePrepared = false;
     recoveryValue = null;
     api.getCapabilities.mockReturnValue(of({
@@ -222,6 +237,17 @@ describe('VoiceConsoleComponent', () => {
         { provide: VOICE_BATCH_RECORDING, useValue: batch },
         { provide: VOICE_LONG_RUN_SPOOL, useValue: spool },
         { provide: VOICE_LONG_RUN_RECOVERY, useValue: recovery },
+        {
+          provide: ShareSessionService,
+          useValue: {
+            state$: shareState,
+            publicPairRuntimeState$: publicPairRuntimeState,
+            get hasPublicPairRuntime() {
+              return ['public_pending', 'unknown_pending', 'public', 'unknown']
+                .includes(publicPairRuntimeState.value);
+            },
+          },
+        },
       ],
     });
   });
@@ -242,6 +268,65 @@ describe('VoiceConsoleComponent', () => {
     expect(fixture.componentInstance.selectedCorrectorModel).toBe('gemma-3-4b-it');
     expect((fixture.nativeElement as HTMLElement).querySelector('a[href="/settings?section=voice"]')).toBeTruthy();
     expect((fixture.nativeElement as HTMLElement).querySelector('[data-testid="semantic-media-program"]')).toBeTruthy();
+  });
+
+  it('does not mount a competing media owner while Public Pair media persists', () => {
+    publicPairRuntimeState.next('public');
+    shareState.next({
+      session: { id: 'public-session-a' },
+      participants: [], messages: [], cursor: '0', role: 'owner',
+    });
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="semantic-media-program"]')).toBeNull();
+    expect(host.querySelector('[data-testid="pair-media-owner-handoff"]')?.textContent)
+      .toContain('AI-Snake-Tab „Medien“');
+  });
+
+  it('also suppresses a competing owner when active authority cannot be proven', () => {
+    publicPairRuntimeState.next('unknown');
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="semantic-media-program"]')).toBeNull();
+  });
+
+  it('releases the Voice media owner before a pending Pair membership becomes active', () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[data-testid="semantic-media-program"]')).not.toBeNull();
+
+    publicPairRuntimeState.next('public_pending');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="semantic-media-program"]')).toBeNull();
+
+    shareState.next({
+      session: { id: 'public-session-a' },
+      participants: [], messages: [], cursor: '0', role: 'owner',
+    });
+    publicPairRuntimeState.next('public');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="semantic-media-program"]')).toBeNull();
+  });
+
+  it('keeps the exact Voice media owner mounted during a Hub membership mutation', () => {
+    const fixture = TestBed.createComponent(VoiceConsoleComponent);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const mediaOwner = host.querySelector('[data-testid="semantic-media-program"]');
+    expect(mediaOwner).not.toBeNull();
+
+    publicPairRuntimeState.next('hub_pending');
+    fixture.detectChanges();
+
+    expect(host.querySelector('[data-testid="semantic-media-program"]')).toBe(mediaOwner);
+    expect(host.querySelector('[data-testid="pair-media-owner-handoff"]')).toBeNull();
   });
 
   it('warns about the lower-accuracy Vosk-only long-run path without blocking capture', async () => {

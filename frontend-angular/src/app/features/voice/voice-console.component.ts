@@ -6,6 +6,7 @@ import {
   OnInit,
   inject,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { firstValueFrom, forkJoin } from 'rxjs';
@@ -57,6 +58,7 @@ import { VoiceRuntimeStatusComponent } from './voice-runtime-status.component';
 import { SemanticMediaProgramHostComponent } from './semantic-media-program-host.component';
 import { VoiceTranscriptionResultComponent } from './voice-transcription-result.component';
 import { configurationFields, valueAtPath, voiceError, voiceMutationKey } from './voice-ui.helpers';
+import { ShareSessionService } from '../../services/share-session.service';
 
 type VoiceConsoleTab = 'live' | 'long' | 'batch';
 type VoiceConfigurationTarget = 'profile' | 'session';
@@ -92,6 +94,10 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   private readonly longRun = inject(VoiceLongRunController);
   private readonly batchRecorder: VoiceBatchRecordingPort = inject(VOICE_BATCH_RECORDING);
   private readonly cdr = inject(ChangeDetectorRef);
+  private readonly shares = inject(ShareSessionService);
+  private readonly publicPairRuntimeState = toSignal(this.shares.publicPairRuntimeState$, {
+    initialValue: this.shares.publicPairRuntimeState$.value,
+  });
   private destroyed = false;
   private liveOperationGeneration = 0;
   private batchOperationGeneration = 0;
@@ -162,6 +168,12 @@ export class VoiceConsoleComponent implements OnInit, OnDestroy {
   errorCode = '';
   errorMessage = '';
   successMessage = '';
+
+  /** A Public Pair has one app-scoped media owner in AI Snake; never mount a competing owner here. */
+  standaloneSemanticMediaAvailable(): boolean {
+    this.publicPairRuntimeState();
+    return !this.shares.hasPublicPairRuntime;
+  }
 
   ngOnInit(): void {
     void this.refreshCaptureCapabilities();

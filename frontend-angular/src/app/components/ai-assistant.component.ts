@@ -28,6 +28,7 @@ import { AgentApiService } from '../services/agent-api.service';
 import { HubApiService } from '../services/hub-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
+import { ShareSessionService } from '../services/share-session.service';
 import { AiAssistantControlsComponent } from './ai-assistant-controls.component';
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
 import { AiAssistantMessageListComponent } from './ai-assistant-message-list.component';
@@ -53,6 +54,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private hubApi = inject(HubApiService);
   private ns = inject(NotificationService);
   private auth = inject(UserAuthService);
+  private shares = inject(ShareSessionService);
   private domain = inject(AiAssistantDomainService);
   private storage = inject(AiAssistantStorageService);
   private router = inject(Router);
@@ -152,6 +154,9 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
         if (!this.pairOnly) this.refreshRuntimeContext();
         this.handlePairRouteNavigation(event.urlAfterRedirects);
       });
+    this.shares.publicPairRuntimeState$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.reconcileEmbeddedPairOwner());
   }
 
   private initializeHubRuntime(): void {
@@ -943,6 +948,10 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   }
 
   openPairDev(surface: 'pair' | 'media' = 'pair'): void {
+    if (this.pairDevMounted) {
+      this.openEmbeddedPairDev(surface);
+      return;
+    }
     if (!this.isPairDevRoute(this.router.url)) {
       void this.router.navigate(['/pair-dev']);
       return;
@@ -976,10 +985,24 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private handlePairRouteNavigation(url: string): void {
     const nextPairRouteActive = this.isPairDevRoute(url);
     const enteredPairRoute = nextPairRouteActive && !this.pairRouteActive;
-    const leftPairRoute = !nextPairRouteActive && this.pairRouteActive;
     this.pairRouteActive = nextPairRouteActive;
     if (enteredPairRoute) this.openEmbeddedPairDev();
-    if (leftPairRoute) this.unmountEmbeddedPairDev();
+    this.reconcileEmbeddedPairOwner();
+  }
+
+  private reconcileEmbeddedPairOwner(): void {
+    if (this.shares.hasPublicPairRuntime) {
+      if (!this.pairDevMounted) this.mountEmbeddedPairOwnerInBackground();
+      return;
+    }
+    if (!this.pairRouteActive) this.unmountEmbeddedPairDev();
+  }
+
+  private mountEmbeddedPairOwnerInBackground(): void {
+    if (this.pairDevMounted) return;
+    // Mount only the resource owner. The user's dock visibility, size, active
+    // tab and overlays remain untouched until Pair Dev is explicitly opened.
+    this.pairDevMounted = true;
   }
 
   private isPairDevRoute(url: string): boolean {

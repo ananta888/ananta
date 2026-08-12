@@ -448,5 +448,11 @@
       [hideTranscriptionInput]="true" />
   }
 
-  <app-semantic-media-program-host data-testid="semantic-media-program" />
+  @if (standaloneSemanticMediaAvailable()) {
+    <app-semantic-media-program-host data-testid="semantic-media-program" />
+  } @else {
+    <p class="muted" data-testid="pair-media-owner-handoff">
+      Die aktive Public-Pair-Medienfreigabe läuft im AI-Snake-Tab „Medien“ weiter.
+    </p>
+  }
 </main>
