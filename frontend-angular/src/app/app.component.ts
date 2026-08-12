@@ -167,8 +167,10 @@ import { IdentityRegistry } from './services/identity/identity-registry';
     <main id="main-content" [class.main-flush]="isFullscreenRoute" tabindex="-1">
       <router-outlet />
     </main>
-    @if (headerUser()) {
-      <app-ai-assistant data-testid="assistant-feature-root" />
+    @if (headerUser() || isPublicPairRoute) {
+      <app-ai-assistant
+        data-testid="assistant-feature-root"
+        [pairOnly]="!headerUser() && isPublicPairRoute" />
     }
     @if ((snakeOverlay.visible$ | async) && headerUser()) {
       <app-snake-overlay />
@@ -416,6 +418,10 @@ get isAndroidNative(): boolean {
 
   get isFullscreenRoute(): boolean {
     return this.shell.routeUrl().startsWith('/codehug');
+  }
+
+  get isPublicPairRoute(): boolean {
+    return this.shell.routeUrl().split(/[?#]/, 1)[0] === '/pair-dev';
   }
 
   onNavClick(event: Event) {

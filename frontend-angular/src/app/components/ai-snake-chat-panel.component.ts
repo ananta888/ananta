@@ -306,7 +306,7 @@ import { AiSnakePanelTab } from './ai-snake-panel-tab';
         <button [class.active]="tab==='process'" (click)="setTab('process')" data-waypoint="snake.tab-process">Prozess</button>
         <button [class.active]="tab==='trace'" (click)="setTab('trace')" class="trace-tab-btn" data-waypoint="snake.tab-trace">Trace</button>
         <button [class.active]="tab==='login'" (click)="setTab('login')" data-waypoint="snake.tab-ai-snake">AI-Snake</button>
-        <button type="button" (click)="openPairDev()" data-waypoint="snake.tab-pair" aria-label="Pair Dev in der Hauptansicht öffnen">Pair Dev</button>
+        <button [class.active]="tab==='pair'" type="button" (click)="setTab('pair')" data-waypoint="snake.tab-pair">Pair Dev</button>
         <button [class.active]="tab==='settings'" (click)="setTab('settings')" data-waypoint="snake.tab-settings">Einstell.</button>
         <button class="explain-btn"
                 [class.active]="(overlayService.regionMode$ | async)"
@@ -507,7 +507,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
 
   @Input() tab: AiSnakePanelTab = 'chat';
   @Output() tabChange = new EventEmitter<AiSnakePanelTab>();
-  @Output() pairDevRequested = new EventEmitter<void>();
 
   get keycloakIssuer(): string {
     return this.oidc.issuer;
@@ -789,10 +788,6 @@ export class AiSnakeChatPanelComponent implements OnInit, OnDestroy {
   setTab(tab: AiSnakePanelTab): void {
     this.tab = tab;
     this.tabChange.emit(tab);
-  }
-
-  openPairDev(): void {
-    this.pairDevRequested.emit();
   }
 
   private restoreRuntimeEndpoints(): void {

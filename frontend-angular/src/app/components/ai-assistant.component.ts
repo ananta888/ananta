@@ -1,4 +1,16 @@
-import { ChangeDetectorRef, Component, ElementRef, NgZone, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  DestroyRef,
+  ElementRef,
+  Input,
+  NgZone,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { NavigationEnd, Router } from '@angular/router';
 import { filter, forkJoin } from 'rxjs';
@@ -8,6 +20,7 @@ import { SnakeOverlayService } from '../services/snake-overlay.service';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
+import { AiSnakePairDevPanelComponent } from './ai-snake-pair-dev-panel.component';
 import { AiSnakePanelTab, isAiSnakePanelTab } from './ai-snake-panel-tab';
 
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -24,7 +37,14 @@ import { AssistantRuntimeContext, ChatMessage, ChatThread, CliBackend, ContextSo
 @Component({
   standalone: true,
   selector: 'app-ai-assistant',
-  imports: [AiAssistantMessageListComponent, AiAssistantControlsComponent, AiSnakeConfigPanelComponent, AiSnakeSharePanelComponent, AiSnakeChatPanelComponent],
+  imports: [
+    AiAssistantMessageListComponent,
+    AiAssistantControlsComponent,
+    AiSnakeConfigPanelComponent,
+    AiSnakeSharePanelComponent,
+    AiSnakeChatPanelComponent,
+    AiSnakePairDevPanelComponent,
+  ],
   templateUrl: './ai-assistant.component.html'
 })
 export class AiAssistantComponent implements OnInit, OnDestroy {
@@ -38,8 +58,41 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private router = inject(Router);
   private zone = inject(NgZone);
   private cdr = inject(ChangeDetectorRef);
+  private destroyRef = inject(DestroyRef);
   readonly bridge = inject(WindowBridgeService);
   readonly snakeOverlay = inject(SnakeOverlayService);
+
+  private pairOnlyValue = false;
+  private initialized = false;
+  private hubRuntimeInitialized = false;
+  private pairRouteActive = false;
+
+  @Input()
+  set pairOnly(value: boolean) {
+    this.pairOnlyValue = value;
+    if (value) {
+      this.configPanelOpen = false;
+      this.sharePanelOpen = false;
+      if (this.pairDevMounted
+        && this.snakeChatPanelTab !== 'pair'
+        && this.snakeChatPanelTab !== 'media') {
+        this.snakeChatPanelTab = 'pair';
+        this.snakeChatPanelOpen = true;
+      }
+    }
+    if (this.initialized && !value) this.initializeHubRuntime();
+  }
+
+  get pairOnly(): boolean {
+    return this.pairOnlyValue;
+  }
+
+  get snakeChatPanelVisible(): boolean {
+    return !this.pairOnly
+      && this.snakeChatPanelOpen
+      && this.snakeChatPanelTab !== 'pair'
+      && this.snakeChatPanelTab !== 'media';
+  }
 
   @ViewChild('snakeCanvas') private snakeCanvasRef?: ElementRef<HTMLCanvasElement>;
   snakeVisible = false;
@@ -47,6 +100,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   sharePanelOpen = false;
   snakeChatPanelOpen = false; // initialised in restoreDockState()
   snakeChatPanelTab: AiSnakePanelTab = 'login';
+  pairDevMounted = false;
   private snakeDrawHandle: number | null = null;
 
   minimized = true;
@@ -85,12 +139,26 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     this.restoreThreads();
     this.restoreDockState();
     this.ensureThreadSelection();
-    this.loadCliBackend();
     this.restorePendingPlan();
-    this.refreshRuntimeContext();
+    this.initialized = true;
+    this.initializeHubRuntime();
+    this.handlePairRouteNavigation(this.router.url);
     this.router.events
-      .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
-      .subscribe(() => this.refreshRuntimeContext());
+      .pipe(
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(event => {
+        if (!this.pairOnly) this.refreshRuntimeContext();
+        this.handlePairRouteNavigation(event.urlAfterRedirects);
+      });
+  }
+
+  private initializeHubRuntime(): void {
+    if (this.pairOnly || this.hubRuntimeInitialized) return;
+    this.hubRuntimeInitialized = true;
+    this.loadCliBackend();
+    this.refreshRuntimeContext();
   }
 
   toggleMinimize() {
@@ -602,6 +670,11 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       return;
     }
     if (isAiSnakePanelTab(savedTab)) {
+      if ((savedTab === 'pair' || savedTab === 'media') && !this.isPairDevRoute(this.router.url)) {
+        this.snakeChatPanelTab = 'chat';
+        this.storage.persistJson(panelTabStorageKey, 'chat');
+        return;
+      }
       this.snakeChatPanelTab = savedTab;
     }
   }
@@ -826,6 +899,10 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   }
 
   toggleSharePanel(): void {
+    if (this.pairDevMounted) {
+      this.openEmbeddedPairDev();
+      return;
+    }
     this.sharePanelOpen = !this.sharePanelOpen;
     if (this.sharePanelOpen) {
       this.configPanelOpen = false;
@@ -845,11 +922,19 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   toggleRegionMode(): void { this.snakeOverlay.toggleRegionMode(); }
 
   onSnakeChatTabChange(tab: AiSnakePanelTab): void {
+    if (tab === 'pair' || tab === 'media') {
+      this.openPairDev(tab);
+      return;
+    }
     this.snakeChatPanelTab = tab;
     this.storage.persistJson('ananta.ai-snake.panel-tab.v1', tab);
   }
 
   openSnakeChatPanelTab(tab: AiSnakePanelTab): void {
+    if (tab === 'pair' || tab === 'media') {
+      this.openPairDev(tab);
+      return;
+    }
     this.onSnakeChatTabChange(tab);
     this.snakeChatPanelOpen = true;
     this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
@@ -857,14 +942,48 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     this.sharePanelOpen = false;
   }
 
-  openPairDev(): void {
-    this.snakeChatPanelTab = 'chat';
-    this.storage.persistJson('ananta.ai-snake.panel-tab.v1', 'chat');
-    this.snakeChatPanelOpen = false;
-    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', false);
+  openPairDev(surface: 'pair' | 'media' = 'pair'): void {
+    if (!this.isPairDevRoute(this.router.url)) {
+      void this.router.navigate(['/pair-dev']);
+      return;
+    }
+    this.openEmbeddedPairDev(surface);
+  }
+
+  private openEmbeddedPairDev(surface: 'pair' | 'media' = 'pair'): void {
+    this.pairDevMounted = true;
+    this.hidden = false;
+    this.minimized = false;
+    this.persistDockVisibility();
+    this.persistDockState();
+    this.snakeChatPanelTab = surface;
+    this.snakeChatPanelOpen = true;
+    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', true);
+    this.storage.persistJson('ananta.ai-snake.panel-tab.v1', surface);
     this.configPanelOpen = false;
     this.sharePanelOpen = false;
-    void this.router.navigate(['/pair-dev']);
+  }
+
+  private unmountEmbeddedPairDev(): void {
+    this.pairDevMounted = false;
+    if (this.snakeChatPanelTab !== 'pair' && this.snakeChatPanelTab !== 'media') return;
+    this.snakeChatPanelTab = 'chat';
+    this.snakeChatPanelOpen = false;
+    this.storage.persistBoolean('ananta.ai-snake.panel-open.v1', false);
+    this.storage.persistJson('ananta.ai-snake.panel-tab.v1', 'chat');
+  }
+
+  private handlePairRouteNavigation(url: string): void {
+    const nextPairRouteActive = this.isPairDevRoute(url);
+    const enteredPairRoute = nextPairRouteActive && !this.pairRouteActive;
+    const leftPairRoute = !nextPairRouteActive && this.pairRouteActive;
+    this.pairRouteActive = nextPairRouteActive;
+    if (enteredPairRoute) this.openEmbeddedPairDev();
+    if (leftPairRoute) this.unmountEmbeddedPairDev();
+  }
+
+  private isPairDevRoute(url: string): boolean {
+    return url.split(/[?#]/, 1)[0] === '/pair-dev';
   }
 
   toggleSnakeCanvas(): void {

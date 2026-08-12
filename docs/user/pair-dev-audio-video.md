@@ -60,11 +60,14 @@ AES-GCM-Authentifizierung; der restliche Medienframe bleibt verschluesselt.
 
 ## Ablauf in der Oberflaeche
 
-1. Im Hauptmenue `Public Pair Dev` oeffnen (Route `/pair-dev`) und mit
-   Keycloak anmelden. Der aeltere AI-Snake-Drawer-Tab ist nicht diese Seite.
+1. Im Hauptmenue `Public Pair Dev` oeffnen (Route `/pair-dev`). Dadurch wird
+   der kompakte Pair-Dev-Modus im AI-Snake-Fenster rechts unten geoeffnet.
+   Der Tab `Pair Dev` zeigt Session, Pair-Chat und Teilnehmer. Dort mit
+   Keycloak anmelden.
 2. Eine Share-Session erstellen oder ihr beitreten und warten, bis die
    WebRTC-Verbindung steht.
-3. Bei **Public Pair** unter `Meine Medienfreigabe` die Gueltigkeit waehlen:
+3. In der unteren Leiste `Medien` oeffnen. Bei **Public Pair** unter
+   `Meine Medienfreigabe` die Gueltigkeit waehlen:
    `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf`, `15 Minuten` oder
    `1 Stunde`. Danach `Einwilligen und Medien aktivieren` auswaehlen. Diese
    Einwilligung gilt ausschliesslich fuer die Uebertragung des eigenen
@@ -92,6 +95,15 @@ WebRTC-Verbindung, der Chat und empfangene Medien des Gegenuebers bleiben
 verbunden. Dieselbe Person kann ihre Freigabe danach in derselben
 Pair-Sitzung erneut aktivieren; eine Neuanmeldung oder ein Neuladen ist dafuer
 nicht erforderlich.
+
+Das AI-Snake-Fenster darf mit `v` minimiert oder mit `x` ausgeblendet werden.
+Die eingebettete Pair-Session und bereits freigegebene Medien laufen dabei
+weiter; ueber den `AI Snake`-Starter wird dieselbe laufende Oberflaeche wieder
+eingeblendet. `Session beenden`, `Verlassen` und `Eigene Freigabe
+deaktivieren` bleiben dagegen ausdrueckliche Beendigungsaktionen.
+Beim Wechsel auf eine andere Seite fragt die Oberflaeche zuerst nach und
+beendet beziehungsweise verlaesst eine aktive Pair-Session autoritativ, bevor
+der Pair-Owner abgebaut wird.
 
 Die Auswahl `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf` ist keine
 kontoweite oder geraeteuebergreifende Dauereinwilligung. Sie ist an den aktuellen Browser-Tab,

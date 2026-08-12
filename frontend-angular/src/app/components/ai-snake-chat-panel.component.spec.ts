@@ -1,24 +1,22 @@
-import { EventEmitter } from '@angular/core';
-
 import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
 import { isAiSnakePanelTab } from './ai-snake-panel-tab';
 
 describe('AiSnakeChatPanelComponent', () => {
-  it('delegates Pair Dev navigation instead of owning a media runtime', () => {
+  it('emits Pair as a navigation intent without owning its runtime', () => {
     const component = Object.create(AiSnakeChatPanelComponent.prototype) as AiSnakeChatPanelComponent;
-    component.pairDevRequested = new EventEmitter<void>();
-    const requested = vi.fn();
-    component.pairDevRequested.subscribe(requested);
+    component.tabChange = { emit: vi.fn() } as never;
 
-    component.openPairDev();
+    component.setTab('pair');
 
-    expect(requested).toHaveBeenCalledOnce();
+    expect(component.tab).toBe('pair');
+    expect(component.tabChange.emit).toHaveBeenCalledWith('pair');
   });
 
-  it('rejects removed legacy tabs from the panel state contract', () => {
-    expect(isAiSnakePanelTab('pair')).toBe(false);
+  it('keeps Pair in the panel contract while rejecting removed legacy tabs', () => {
+    expect(isAiSnakePanelTab('pair')).toBe(true);
     expect(isAiSnakePanelTab('mode')).toBe(false);
     expect(isAiSnakePanelTab('deprecated')).toBe(false);
     expect(isAiSnakePanelTab('process')).toBe(true);
+    expect(isAiSnakePanelTab('media')).toBe(true);
   });
 });

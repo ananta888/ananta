@@ -76,7 +76,8 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
   - `assistant.snake-chat-btn` — 💬 Snake Chat
   - `assistant.tab-ai-snake` — AI-Snake
   - `assistant.tab-chat` — Chat
-  - `assistant.tab-pair-dev` — Pair Dev
+  - `assistant.tab-pair-dev` — eingebettetes Pair Dev
+  - `assistant.tab-pair-media` — Mediensteuerung der eingebetteten Pair-Session
   - `assistant.tab-settings` — Einstellungen
 
 **cc.**
@@ -101,7 +102,7 @@ Diese Bezeichner identifizieren konkrete Schaltflächen/Bereiche in der Oberflä
   - `snake.tab-ai-snake` — AI-Snake
   - `snake.tab-chat` — Chat
   - `snake.tab-explain` — 🔲 Erklären
-  - `snake.tab-pair` — Pair Dev
+  - `snake.tab-pair` — eingebettetes Pair Dev
   - `snake.tab-sessions` — Sessions
   - `snake.tab-settings` — Einstell.
   - `snake.tab-trace` — Trace

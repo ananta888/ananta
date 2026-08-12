@@ -1,17 +1,25 @@
-    @if (hidden) {
-      <button
-        type="button"
-        class="assistant-launcher"
-        data-testid="assistant-dock-launcher"
-        (click)="showDock()">
-        AI Snake
-      </button>
-    } @else {
-      <div class="ai-assistant-container" data-testid="assistant-dock" [class.minimized]="minimized" [attr.data-state]="minimized ? 'minimized' : 'expanded'">
+    <button
+      type="button"
+      class="assistant-launcher"
+      data-testid="assistant-dock-launcher"
+      [hidden]="!hidden"
+      (click)="showDock()">
+      AI Snake{{ pairDevMounted ? ' · Pair Dev geöffnet' : '' }}
+    </button>
+    <div
+      class="ai-assistant-container"
+      data-testid="assistant-dock"
+      [hidden]="hidden"
+      [attr.inert]="hidden ? '' : null"
+      [class.minimized]="minimized"
+      [attr.data-state]="minimized ? 'minimized' : 'expanded'">
         <div class="header" data-testid="assistant-dock-header" (click)="toggleMinimize()">
           <span class="header-title">
             <span class="bridge-dot" [class.online]="snakeBridgeActive" title="{{ snakeBridgeActive ? 'Bridge verbunden' : 'Bridge offline' }}">●</span>
             AI Snake
+            @if (pairDevMounted) {
+              <span class="pair-background-badge">Pair Dev bleibt geöffnet</span>
+            }
           </span>
           <div class="controls">
             <button
@@ -25,97 +33,142 @@
               type="button"
               (click)="hideDock(); $event.stopPropagation()"
               class="control-btn"
-              aria-label="Assistant ausblenden">
+              [attr.aria-label]="pairDevMounted ? 'Assistant ausblenden; Pair Dev bleibt geöffnet' : 'Assistant ausblenden'">
               x
             </button>
           </div>
         </div>
       
-        @if (!minimized) {
-          @if (configPanelOpen) {
+        <div
+          class="assistant-body"
+          [hidden]="minimized"
+          [attr.inert]="minimized ? '' : null"
+          [attr.aria-hidden]="minimized">
+          <div class="assistant-workspace">
+          @if (!pairOnly && configPanelOpen) {
             <div class="overlay-panel">
               <app-ai-snake-config-panel />
             </div>
           }
-          @if (sharePanelOpen) {
+          @if (!pairOnly && sharePanelOpen) {
             <div class="overlay-panel">
               <app-ai-snake-share-panel />
             </div>
           }
-          @if (snakeChatPanelOpen) {
-            <div class="overlay-panel">
-              <app-ai-snake-chat-panel
-                [tab]="snakeChatPanelTab"
-                (tabChange)="onSnakeChatTabChange($event)"
-                (pairDevRequested)="openPairDev()" />
+          @if (pairDevMounted) {
+            <div
+              class="overlay-panel"
+              data-testid="assistant-pair-dev-panel"
+              [hidden]="!snakeChatPanelOpen || (snakeChatPanelTab !== 'pair' && snakeChatPanelTab !== 'media')"
+              [attr.inert]="!snakeChatPanelOpen || (snakeChatPanelTab !== 'pair' && snakeChatPanelTab !== 'media') ? '' : null"
+              [attr.aria-hidden]="!snakeChatPanelOpen || (snakeChatPanelTab !== 'pair' && snakeChatPanelTab !== 'media')">
+              <app-ai-snake-pair-dev-panel
+                [surface]="snakeChatPanelTab === 'media' ? 'media' : 'session'" />
             </div>
           }
-          <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
-            @if (snakeVisible) {
-              <div class="snake-panel">
-                <canvas #snakeCanvas class="snake-canvas"></canvas>
-                <div class="snake-status-bar">
-                  <span class="snake-status-dot" [class.active]="snakeBridgeActive">■</span>
-                  {{ snakeStatusText }}
+          @if (snakeChatPanelVisible) {
+            <div
+              class="overlay-panel"
+              data-testid="assistant-snake-chat-panel">
+              <app-ai-snake-chat-panel
+                [tab]="snakeChatPanelTab"
+                (tabChange)="onSnakeChatTabChange($event)" />
+            </div>
+          }
+          @if (!pairOnly) {
+            <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
+              @if (snakeVisible) {
+                <div class="snake-panel">
+                  <canvas #snakeCanvas class="snake-canvas"></canvas>
+                  <div class="snake-status-bar">
+                    <span class="snake-status-dot" [class.active]="snakeBridgeActive">■</span>
+                    {{ snakeStatusText }}
+                  </div>
                 </div>
-              </div>
-            }
-            <app-ai-assistant-message-list
-              [chatHistory]="chatHistory"
-              [busy]="busy"
-              (previewSource)="previewSource($event)"
-              (copySourcePath)="copySourcePath($event)"
-              (executeSgpt)="executeSgpt($event)"
-              (confirmAction)="confirmAction($event)"
-              (cancelAction)="cancelAction($event)">
-            </app-ai-assistant-message-list>
-            <app-ai-assistant-controls
-              [busy]="busy"
-              [chatInput]="chatInput"
-              [useHybridContext]="useHybridContext"
-              [cliBackend]="cliBackend"
-              [availableCliBackends]="availableCliBackends"
-              [selectedCliRuntime]="selectedCliRuntime()"
-              [lastFailedRequest]="lastFailedRequest"
-              [runtimeContext]="runtimeContext"
-              [quickActions]="quickActions()"
-              (chatInputChange)="chatInput = $event"
-              (useHybridContextChange)="useHybridContext = $event"
-              (send)="sendChat()"
-              (retryLast)="retryLastFailed()"
-              (refreshContext)="refreshRuntimeContext()"
-              (quickAction)="runQuickAction($event)"
-              (cliBackendChange)="setCliBackend($event)">
-            </app-ai-assistant-controls>
+              }
+              <app-ai-assistant-message-list
+                [chatHistory]="chatHistory"
+                [busy]="busy"
+                (previewSource)="previewSource($event)"
+                (copySourcePath)="copySourcePath($event)"
+                (executeSgpt)="executeSgpt($event)"
+                (confirmAction)="confirmAction($event)"
+                (cancelAction)="cancelAction($event)">
+              </app-ai-assistant-message-list>
+              <app-ai-assistant-controls
+                [busy]="busy"
+                [chatInput]="chatInput"
+                [useHybridContext]="useHybridContext"
+                [cliBackend]="cliBackend"
+                [availableCliBackends]="availableCliBackends"
+                [selectedCliRuntime]="selectedCliRuntime()"
+                [lastFailedRequest]="lastFailedRequest"
+                [runtimeContext]="runtimeContext"
+                [quickActions]="quickActions()"
+                (chatInputChange)="chatInput = $event"
+                (useHybridContextChange)="useHybridContext = $event"
+                (send)="sendChat()"
+                (retryLast)="retryLastFailed()"
+                (refreshContext)="refreshRuntimeContext()"
+                (quickAction)="runQuickAction($event)"
+                (cliBackendChange)="setCliBackend($event)">
+              </app-ai-assistant-controls>
+            </div>
+          }
           </div>
           <div class="dock-footer" data-testid="assistant-dock-footer">
             <div class="dock-footer-actions">
-              <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
-                Chats {{ threadSwitcherOpen ? 'schliessen' : 'anzeigen' }}
-              </button>
-              <button type="button" class="mini-footer-btn primary" (click)="createThread()">
-                + Neuer Chat
-              </button>
-              <button type="button" class="mini-footer-btn snake-btn" (click)="toggleSnakeCanvas()" [class.active]="snakeVisible" title="{{ snakeVisible ? 'Snake ausblenden' : 'Snake anzeigen' }}">
-                ◈ Snake
-              </button>
-              <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
-                ⇄ Share
-              </button>
-              <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat" data-waypoint="assistant.snake-chat-btn">
-                💬 Snake Chat
-              </button>
-              <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')" data-waypoint="assistant.tab-chat">Chat</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')" data-waypoint="assistant.tab-ai-snake">AI-Snake</button>
-                <button type="button" class="snake-chat-tab" (click)="openPairDev()" aria-label="Pair Dev in der Hauptansicht öffnen" data-waypoint="assistant.tab-pair-dev">Pair Dev</button>
-                <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')" data-waypoint="assistant.tab-settings">Einstellungen</button>
-              </div>
-              <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
-                ⚙
-              </button>
+              @if (!pairOnly) {
+                <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
+                  Chats {{ threadSwitcherOpen ? 'schliessen' : 'anzeigen' }}
+                </button>
+                <button type="button" class="mini-footer-btn primary" (click)="createThread()">
+                  + Neuer Chat
+                </button>
+                <button type="button" class="mini-footer-btn snake-btn" (click)="toggleSnakeCanvas()" [class.active]="snakeVisible" title="{{ snakeVisible ? 'Snake ausblenden' : 'Snake anzeigen' }}">
+                  ◈ Snake
+                </button>
+                <button type="button" class="mini-footer-btn share-btn" (click)="toggleSharePanel()" [class.active]="sharePanelOpen" title="Session Sharing">
+                  ⇄ Share
+                </button>
+                <button type="button" class="mini-footer-btn snake-chat-btn" (click)="toggleSnakeChatPanel()" [class.active]="snakeChatPanelOpen" title="AI-Snake Chat" data-waypoint="assistant.snake-chat-btn">
+                  💬 Snake Chat
+                </button>
+                <div class="snake-chat-tabs" aria-label="AI-Snake Chat Tabs">
+                  <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'chat'" (click)="openSnakeChatPanelTab('chat')" data-waypoint="assistant.tab-chat">Chat</button>
+                  <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'login'" (click)="openSnakeChatPanelTab('login')" data-waypoint="assistant.tab-ai-snake">AI-Snake</button>
+                  <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'" (click)="openPairDev()" aria-label="Pair Dev im AI-Snake-Fenster öffnen" data-waypoint="assistant.tab-pair-dev">Pair Dev</button>
+                  @if (pairDevMounted) {
+                    <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'media'" (click)="openPairDev('media')" aria-label="Pair-Medien steuern" data-waypoint="assistant.tab-pair-media">Medien</button>
+                  }
+                  <button type="button" class="snake-chat-tab" [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'settings'" (click)="openSnakeChatPanelTab('settings')" data-waypoint="assistant.tab-settings">Einstellungen</button>
+                </div>
+                <button type="button" class="mini-footer-btn config-btn" (click)="toggleConfigPanel()" [class.active]="configPanelOpen" title="AI-Snake Konfiguration">
+                  ⚙
+                </button>
+              }
+              @if (pairOnly) {
+                <button
+                  type="button"
+                  class="snake-chat-tab pair-dev-tab"
+                  [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'pair'"
+                  (click)="openPairDev()"
+                  aria-label="Pair Dev im AI-Snake-Fenster öffnen"
+                  data-waypoint="assistant.tab-pair-dev">
+                  Pair Dev
+                </button>
+                <button
+                  type="button"
+                  class="snake-chat-tab pair-dev-tab"
+                  [class.active]="snakeChatPanelOpen && snakeChatPanelTab === 'media'"
+                  (click)="openPairDev('media')"
+                  aria-label="Pair-Medien steuern"
+                  data-waypoint="assistant.tab-pair-media">
+                  Medien
+                </button>
+              }
             </div>
-            @if (threadSwitcherOpen) {
+            @if (!pairOnly && threadSwitcherOpen) {
               <div class="thread-switcher">
                 @for (thread of chatThreads; track thread.id) {
                   <button
@@ -129,9 +182,8 @@
               </div>
             }
           </div>
-        }
+        </div>
       </div>
-    }
 
     <style>
       :host { font-family: ui-monospace, Menlo, Consolas, monospace; }
@@ -143,6 +195,10 @@
         font-family: ui-monospace, Menlo, Consolas, monospace;
         letter-spacing: 0.03em;
       }
+      .assistant-launcher[hidden],
+      .ai-assistant-container[hidden],
+      .assistant-body[hidden],
+      .overlay-panel[hidden] { display: none !important; }
       .assistant-launcher:hover { background: #122040; border-color: #7fffd4; }
       .ai-assistant-container {
         position: fixed; bottom: 0; right: 20px; width: min(760px, 94vw);
@@ -153,6 +209,11 @@
         height: 580px; max-height: 82dvh;
       }
       .ai-assistant-container.minimized { height: 38px; }
+      .assistant-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+      .assistant-workspace {
+        position: relative; flex: 1 1 auto; min-height: 0;
+        display: flex; flex-direction: column;
+      }
       .header {
         background: #0d1828; color: #c8d8f8; padding: 7px 12px;
         border-radius: 6px 6px 0 0; border-bottom: 1px solid #1a2d4a;
@@ -160,6 +221,7 @@
         align-items: center; font-size: 13px; font-weight: 600; flex-shrink: 0;
       }
       .header-title { display: flex; align-items: center; gap: 7px; letter-spacing: 0.04em; }
+      .pair-background-badge { color: #7fffd4; font-size: 10px; font-weight: 500; }
       .bridge-dot { font-size: 10px; color: #2a4070; transition: color 0.3s; }
       .bridge-dot.online { color: #7fffd4; }
       .controls { display: flex; gap: 4px; }
@@ -224,7 +286,7 @@
       .region-btn.active { color: #7fffd4; border-color: #7fffd4; background: #0a2a1a; animation: pulse-region 1s ease-in-out infinite; }
       @keyframes pulse-region { 0%,100% { box-shadow: 0 0 0 0 rgba(127,255,212,0.4); } 50% { box-shadow: 0 0 0 4px rgba(127,255,212,0); } }
       .overlay-panel {
-        position: absolute; inset: 38px 0 0 0; z-index: 10;
+        position: absolute; inset: 0; z-index: 10;
         display: flex; flex-direction: column; overflow: hidden;
       }
       .content.hidden { display: none; }

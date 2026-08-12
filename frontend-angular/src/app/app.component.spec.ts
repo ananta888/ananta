@@ -24,6 +24,7 @@ function configureShell(native = false) {
   const hubSnapshot = new BehaviorSubject<IdentitySnapshot>({ status: 'absent' });
   const hubUser = new BehaviorSubject<Record<string, unknown> | null>(null);
   const rawHubToken = new BehaviorSubject<string | null>(null);
+  const routeUrl = signal('/');
   const hubAgent = { name: 'hub', role: 'hub', url: 'https://hub.example.test' };
   const ensureSystemEvents = vi.fn();
   const disconnectSystemEvents = vi.fn();
@@ -62,7 +63,7 @@ function configureShell(native = false) {
           mobileNavOpen: signal(false),
           darkMode: signal(false),
           mode: signal<'simple' | 'advanced'>('simple'),
-          routeUrl: signal('/'),
+          routeUrl,
           navGroups: () => [{ label: 'Hub', items: [{ path: '/hub', label: 'Hub only' }] }],
           toggleMobileNav: vi.fn(),
           closeMobileNav: vi.fn(),
@@ -100,6 +101,7 @@ function configureShell(native = false) {
     hubSnapshot,
     hubUser,
     rawHubToken,
+    routeUrl,
     ensureSystemEvents,
     disconnectSystemEvents,
   };
@@ -145,6 +147,37 @@ describe('AppComponent Hub shell trust boundary', () => {
     expect(host.querySelector('#primary-navigation')).toBeNull();
     expect(host.querySelector('[data-testid="assistant-feature-root"]')).toBeNull();
     expect(host.querySelector('.app-hright')).toBeNull();
+  });
+
+  it('keeps the AI-Snake Pair surface available on the public Pair route without Hub identity', () => {
+    const state = configureShell();
+    state.routeUrl.set('/pair-dev');
+    const fixture = TestBed.createComponent(AppComponent);
+
+    fixture.detectChanges();
+
+    const assistant = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="assistant-feature-root"]');
+    expect(assistant).not.toBeNull();
+    expect((assistant as HTMLElement & { pairOnly?: boolean }).pairOnly).toBe(true);
+  });
+
+  it('restores the full AI-Snake tabs on Pair Dev when Hub identity is ready', () => {
+    const state = configureShell();
+    state.routeUrl.set('/pair-dev');
+    state.rawHubToken.next('raw-hub-token');
+    state.hubUser.next({ sub: 'hub-user', role: 'admin' });
+    state.hubSnapshot.next({
+      status: 'ready', token: 'raw-hub-token', subject: 'hub-user', issuer: 'hub',
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+
+    fixture.detectChanges();
+
+    const assistant = (fixture.nativeElement as HTMLElement)
+      .querySelector('[data-testid="assistant-feature-root"]');
+    expect(assistant).not.toBeNull();
+    expect((assistant as HTMLElement & { pairOnly?: boolean }).pairOnly).toBe(false);
   });
 
   it('does not render Android Hub navigation for an expired raw Hub token', () => {

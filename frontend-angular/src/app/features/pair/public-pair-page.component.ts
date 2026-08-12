@@ -1,16 +1,8 @@
-import { AsyncPipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-
-import { AiSnakeSharePanelComponent } from '../../components/ai-snake-share-panel.component';
-import { SemanticMediaProgramHostComponent } from '../voice/semantic-media-program-host.component';
-import { OidcAuthService } from '../../services/oidc-auth.service';
-import { WebrtcSessionService } from '../../services/webrtc-session.service';
-import { WebrtcSignalingService } from '../../services/webrtc-signaling.service';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 @Component({
   selector: 'app-public-pair-page',
   standalone: true,
-  imports: [AsyncPipe, AiSnakeSharePanelComponent, SemanticMediaProgramHostComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="public-pair-page" data-testid="public-pair-page" aria-labelledby="public-pair-title">
@@ -19,19 +11,15 @@ import { WebrtcSignalingService } from '../../services/webrtc-signaling.service'
           <h1 id="public-pair-title">Public Pair Dev</h1>
           <p>Direkte, Ende-zu-Ende-verschlüsselte Pair-Session</p>
         </div>
-        <div class="public-pair-status" aria-label="Public-Pair-Verbindungsstatus">
-          <span data-testid="public-pair-user">{{ oidc.currentUsername || 'Angemeldet' }}</span>
-          <span data-testid="public-pair-signaling-status">Signaling: {{ signaling.status$ | async }}</span>
-          <span data-testid="public-pair-webrtc-status">WebRTC: {{ webrtc.state$ | async }}</span>
-          <span data-testid="public-pair-datachannel-status">DataChannel: {{ webrtc.dataChannelState$ | async }}</span>
-        </div>
       </header>
 
-      <section class="public-pair-session" aria-label="Session Sharing">
-        <app-ai-snake-share-panel [publicOnly]="true" />
-      </section>
-      <section class="public-pair-media" aria-label="Audio und Video">
-        <app-semantic-media-program-host displayMode="pair_media" />
+      <section class="public-pair-drawer-handoff" data-testid="public-pair-drawer-handoff">
+        <h2>Pair Dev läuft im AI-Snake-Fenster</h2>
+        <p>
+          Session und Pair-Chat sind rechts unten im Tab „Pair Dev“ geöffnet.
+          Kamera-, Bildschirm- und Audiosteuerung liegt getrennt im Tab „Medien“.
+          Minimieren oder Ausblenden lässt eine aktive Session und Medienfreigaben weiterlaufen.
+        </p>
       </section>
     </section>
   `,
@@ -41,27 +29,16 @@ import { WebrtcSignalingService } from '../../services/webrtc-signaling.service'
       box-sizing: border-box; max-width: 1080px; margin: 0 auto; padding: 20px;
       color: var(--fg); font-family: ui-monospace, Menlo, Consolas, monospace;
     }
-    .public-pair-header {
-      display: flex; align-items: flex-start; justify-content: space-between; gap: 20px;
-      margin-bottom: 18px; padding: 16px; border: 1px solid var(--border);
+    .public-pair-header, .public-pair-drawer-handoff {
+      padding: 16px; border: 1px solid var(--border);
       border-radius: 8px; background: var(--card-bg);
     }
-    h1 { margin: 0 0 4px; font-size: 20px; }
-    p { margin: 0; color: var(--muted); font-size: 12px; }
-    .public-pair-status { display: grid; gap: 4px; text-align: right; color: var(--muted); font-size: 12px; }
-    .public-pair-session, .public-pair-media {
-      margin-top: 14px; padding: 12px; border: 1px solid var(--border);
-      border-radius: 8px; background: var(--card-bg);
-    }
-    @media (max-width: 640px) {
-      .public-pair-page { padding: 10px; }
-      .public-pair-header { flex-direction: column; }
-      .public-pair-status { text-align: left; }
-    }
+    .public-pair-drawer-handoff { margin-top: 14px; }
+    h1, h2 { margin: 0 0 6px; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 16px; }
+    p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    @media (max-width: 640px) { .public-pair-page { padding: 10px; } }
   `],
 })
-export class PublicPairPageComponent {
-  readonly oidc = inject(OidcAuthService);
-  readonly signaling = inject(WebrtcSignalingService);
-  readonly webrtc = inject(WebrtcSessionService);
-}
+export class PublicPairPageComponent {}

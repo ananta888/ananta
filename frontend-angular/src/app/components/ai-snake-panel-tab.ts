@@ -4,6 +4,8 @@ export const AI_SNAKE_PANEL_TABS = [
   'process',
   'trace',
   'login',
+  'pair',
+  'media',
   'settings',
 ] as const;
 

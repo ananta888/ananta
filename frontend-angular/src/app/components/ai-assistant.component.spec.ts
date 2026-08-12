@@ -17,7 +17,15 @@ describe('AiAssistantComponent', () => {
     const cmp = Object.create(AiAssistantComponent.prototype) as AiAssistantComponent & { [key: string]: any };
     cmp['domain'] = new AiAssistantDomainService();
     cmp['storage'] = new AiAssistantStorageService();
+    cmp['router'] = { url: '/pair-dev', navigate: vi.fn().mockResolvedValue(true) };
+    cmp['dockStateStorageKey'] = 'ananta.ai-assistant.minimized.v1';
+    cmp['dockHiddenStorageKey'] = 'ananta.ai-assistant.hidden.v1';
     cmp['historyStorageKey'] = 'ananta.ai-assistant.history.v1';
+    cmp.snakeChatPanelTab = 'login';
+    cmp.snakeChatPanelOpen = false;
+    cmp.pairDevMounted = false;
+    cmp.configPanelOpen = false;
+    cmp.sharePanelOpen = false;
     cmp.runtimeContext = {
       route: '/settings',
       selectedAgentName: 'hub',
@@ -76,25 +84,39 @@ describe('AiAssistantComponent', () => {
     expect(restored.minimized).toBe(false);
   });
 
-  it('opens Pair Dev on its canonical route and closes assistant overlays', () => {
+  it('opens Pair Dev inside the assistant and expands the stable dock', () => {
     const cmp = createComponent();
-    const navigate = vi.fn().mockResolvedValue(true);
-    cmp['router'] = { navigate };
-    cmp.snakeChatPanelOpen = true;
+    cmp.hidden = true;
+    cmp.minimized = true;
+    cmp.snakeChatPanelOpen = false;
     cmp.configPanelOpen = true;
     cmp.sharePanelOpen = true;
 
     cmp.openPairDev();
 
-    expect(navigate).toHaveBeenCalledWith(['/pair-dev']);
-    expect(cmp.snakeChatPanelOpen).toBe(false);
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+    expect(cmp.hidden).toBe(false);
+    expect(cmp.minimized).toBe(false);
     expect(cmp.configPanelOpen).toBe(false);
     expect(cmp.sharePanelOpen).toBe(false);
-    expect(store['ananta.ai-snake.panel-open.v1']).toBe('false');
-    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('chat'));
+    expect(store['ananta.ai-snake.panel-open.v1']).toBe('true');
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('pair'));
   });
 
-  it.each(['pair', 'mode', 'deprecated'])('migrates a persisted legacy %s tab to chat', legacyTab => {
+  it('uses the guarded Pair Dev route before mounting the embedded runtime', () => {
+    const cmp = createComponent();
+    cmp['router'].url = '/workspace';
+
+    cmp.openPairDev();
+
+    expect(cmp['router'].navigate).toHaveBeenCalledWith(['/pair-dev']);
+    expect(cmp.pairDevMounted).toBe(false);
+    expect(cmp.snakeChatPanelTab).not.toBe('pair');
+  });
+
+  it.each(['mode', 'deprecated'])('migrates a persisted legacy %s tab to chat', legacyTab => {
     store['ananta.ai-snake.panel-tab.v1'] = JSON.stringify(legacyTab);
     const cmp = createComponent();
 
@@ -102,6 +124,132 @@ describe('AiAssistantComponent', () => {
 
     expect(cmp.snakeChatPanelTab).toBe('chat');
     expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('chat'));
+  });
+
+  it('restores the embedded Pair tab', () => {
+    store['ananta.ai-snake.panel-tab.v1'] = JSON.stringify('pair');
+    const cmp = createComponent();
+
+    cmp['restoreDockState']();
+
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.pairDevMounted).toBe(false);
+
+    cmp['openEmbeddedPairDev']();
+    expect(cmp.pairDevMounted).toBe(true);
+  });
+
+  it('migrates a persisted Pair tab outside the guarded Pair route', () => {
+    store['ananta.ai-snake.panel-tab.v1'] = JSON.stringify('pair');
+    const cmp = createComponent();
+    cmp['router'].url = '/workspace';
+
+    cmp['restoreDockState']();
+
+    expect(cmp.snakeChatPanelTab).toBe('chat');
+    expect(cmp.pairDevMounted).toBe(false);
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('chat'));
+  });
+
+  it('keeps Pair selected while the assistant is minimized or hidden', () => {
+    const cmp = createComponent();
+    cmp.hidden = false;
+    cmp.minimized = false;
+    cmp.openPairDev();
+
+    cmp.toggleMinimize();
+    cmp.hideDock();
+
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+    expect(cmp.minimized).toBe(true);
+    expect(cmp.hidden).toBe(true);
+  });
+
+  it('keeps the Pair runtime mounted when another assistant tab is shown', () => {
+    const cmp = createComponent();
+    cmp.openPairDev();
+
+    cmp.openSnakeChatPanelTab('chat');
+
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe('chat');
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+  });
+
+  it('does not mount Hub UI-sync while the Public Pair or media tab is visible', () => {
+    const cmp = createComponent();
+    cmp['pairOnlyValue'] = false;
+    cmp.snakeChatPanelOpen = true;
+
+    cmp.snakeChatPanelTab = 'pair';
+    expect(cmp.snakeChatPanelVisible).toBe(false);
+
+    cmp.snakeChatPanelTab = 'media';
+    expect(cmp.snakeChatPanelVisible).toBe(false);
+
+    cmp.snakeChatPanelTab = 'chat';
+    expect(cmp.snakeChatPanelVisible).toBe(true);
+  });
+
+  it('returns to Pair and closes Hub overlays when validated Hub identity is lost', () => {
+    const cmp = createComponent();
+    cmp.pairDevMounted = true;
+    cmp.snakeChatPanelOpen = true;
+    cmp.snakeChatPanelTab = 'settings';
+    cmp.configPanelOpen = true;
+    cmp.sharePanelOpen = true;
+
+    cmp.pairOnly = true;
+
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+    expect(cmp.configPanelOpen).toBe(false);
+    expect(cmp.sharePanelOpen).toBe(false);
+    expect(cmp.snakeChatPanelVisible).toBe(false);
+  });
+
+  it('switches to media controls without replacing the mounted Pair runtime', () => {
+    const cmp = createComponent();
+    cmp.openPairDev();
+
+    cmp.openPairDev('media');
+
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe('media');
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+    expect(store['ananta.ai-snake.panel-tab.v1']).toBe(JSON.stringify('media'));
+  });
+
+  it('uses the historic Share footer action to return to the compact Pair surface', () => {
+    const cmp = createComponent();
+    cmp.openPairDev('media');
+
+    cmp.toggleSharePanel();
+
+    expect(cmp.pairDevMounted).toBe(true);
+    expect(cmp.snakeChatPanelTab).toBe('pair');
+    expect(cmp.snakeChatPanelOpen).toBe(true);
+    expect(cmp.sharePanelOpen).toBe(false);
+  });
+
+  it('opens Pair only on route entry and does not reopen it for query changes', () => {
+    const cmp = createComponent();
+    cmp['pairRouteActive'] = false;
+    const open = vi.fn(() => {
+      cmp.pairDevMounted = true;
+    });
+    cmp['openEmbeddedPairDev'] = open;
+
+    cmp['handlePairRouteNavigation']('/pair-dev');
+    cmp.minimized = true;
+    cmp.hidden = true;
+    cmp['handlePairRouteNavigation']('/pair-dev?source=header');
+
+    expect(open).toHaveBeenCalledOnce();
+    expect(cmp.minimized).toBe(true);
+    expect(cmp.hidden).toBe(true);
   });
 
   it('restores every supported panel tab, including process', () => {
