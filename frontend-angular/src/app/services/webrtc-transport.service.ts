@@ -29,6 +29,13 @@ import type { PairSessionTerminalReason } from './pair-session-terminal-error';
 
 export type TransportMode = 'webrtc' | 'hub_relay' | 'idle';
 
+export interface ViewTransportState {
+  readonly sessionId: string;
+  readonly semanticEpoch: number;
+  readonly generation: number;
+  readonly ready: boolean;
+}
+
 export type TransportTerminalFailure = Readonly<
   | {
     readonly kind: 'local_recreation_required';
@@ -85,6 +92,12 @@ export class WebrtcTransportService {
 
   readonly mode$ = new BehaviorSubject<TransportMode>('idle');
   readonly terminalFailure$ = new BehaviorSubject<TransportTerminalFailure | null>(null);
+  readonly viewTransportState$ = new BehaviorSubject<ViewTransportState>(Object.freeze({
+    sessionId: '',
+    semanticEpoch: 0,
+    generation: 0,
+    ready: false,
+  }));
   readonly message$ = new Subject<TransportMessage>();
   readonly semanticMessage$ = new Subject<SemanticDataChannelMessage>();
 
@@ -99,6 +112,7 @@ export class WebrtcTransportService {
   private readonly semanticRelaySeen = new Map<SemanticTrafficClass, Set<string>>();
   private readonly terminalSessions = new Set<string>();
   private subscriptions = new Subscription();
+  private viewTransportGeneration = 0;
 
   private get hubUrl(): string {
     return this.dir.list().find(a => a.role === 'hub')?.url ?? '';
@@ -124,6 +138,8 @@ export class WebrtcTransportService {
     this.subscriptions = new Subscription();
     this.sessionId = sessionId;
     this.semanticEpoch = this.validEpoch(options.semanticEpoch ?? 1);
+    const viewTransportGeneration = ++this.viewTransportGeneration;
+    this.publishViewTransportState(false, viewTransportGeneration);
     for (const trafficClass of options.semanticTrafficClasses ?? []) {
       this.enableSemanticTraffic(trafficClass);
     }
@@ -163,6 +179,13 @@ export class WebrtcTransportService {
         if (message.session_id === this.sessionId && message.epoch === this.semanticEpoch) {
           this.semanticMessage$.next(message);
         }
+      }));
+      this.subscriptions.add(this.webrtc.dataChannelState$.subscribe(state => {
+        if (
+          this.sessionId === sessionId
+          && this.mode$.value === 'webrtc'
+          && this.viewTransportGeneration === viewTransportGeneration
+        ) this.publishViewTransportState(state === 'open', viewTransportGeneration);
       }));
       try {
         await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
@@ -206,6 +229,8 @@ export class WebrtcTransportService {
     this.sessionId = '';
     this.publicSession = false;
     this.mode$.next('idle');
+    this.viewTransportGeneration += 1;
+    this.publishViewTransportState(false, this.viewTransportGeneration);
   }
 
   /** Final teardown after the control plane confirmed that the session ended. */
@@ -229,6 +254,10 @@ export class WebrtcTransportService {
     this.semanticEpoch = next;
     this.semanticRelayCursors.clear();
     this.semanticRelaySeen.clear();
+    this.publishViewTransportState(
+      this.viewTransportState$.value.ready,
+      this.viewTransportGeneration,
+    );
   }
 
   enableSemanticTraffic(trafficClass: SemanticTrafficClass): void {
@@ -266,17 +295,20 @@ export class WebrtcTransportService {
    * RelayEnvelope shape otherwise. The existing chat send()
    * path is unchanged; this is a separate code path.
    */
-  sendView(envelope: RelayEnvelope): void {
+  sendView(envelope: RelayEnvelope): boolean {
     const strictWireEnvelope: RelayEnvelope = {
       message_id: envelope.message_id,
       encrypted_payload: envelope.encrypted_payload,
     };
     if (this.mode$.value === 'webrtc') {
       this.assertPublicAuthorityAvailable();
-      this.webrtc.sendDc('view_payload', strictWireEnvelope as unknown as Record<string, unknown>);
+      return this.webrtc.sendDc(
+        'view_payload',
+        strictWireEnvelope as unknown as Record<string, unknown>,
+      );
     } else if (this.mode$.value === 'hub_relay') {
       this.assertHubRelayAllowed();
-      this.hubRelayViewPush(strictWireEnvelope);
+      return this.hubRelayViewPush(strictWireEnvelope);
     } else {
       throw new Error('pair_transport_not_open');
     }
@@ -334,6 +366,7 @@ export class WebrtcTransportService {
   private switchToHubRelay(): void {
     this.assertHubRelayAllowed();
     this.mode$.next('hub_relay');
+    this.publishViewTransportState(true, this.viewTransportGeneration);
     this.startRelayPoll();
   }
 
@@ -487,17 +520,39 @@ export class WebrtcTransportService {
    * ({ message_id, kind, base_hash, new_hash, width, height,
    * encrypted_payload }) and respects _VIEW_PAYLOAD_MAX_BYTES.
    */
-  private hubRelayViewPush(envelope: RelayEnvelope): void {
+  private hubRelayViewPush(envelope: RelayEnvelope): boolean {
     this.assertHubRelayAllowed();
     const url = this.hubUrl;
-    if (!url) return;
+    if (!url) return false;
     if (envelope.encrypted_payload.length > 256 * 1024) {
       // The backend rejects payloads over _VIEW_PAYLOAD_MAX_BYTES.
       // We never send a payload that large; this is a safety net.
-      return;
+      return false;
     }
-    this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, envelope, url)
-      .subscribe({ error: () => {} });
+    try {
+      this.core.post(`${url}/share-sessions/${this.sessionId}/view/push`, envelope, url)
+        .subscribe({ error: () => {} });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private publishViewTransportState(ready: boolean, generation: number): void {
+    const next: ViewTransportState = Object.freeze({
+      sessionId: this.sessionId,
+      semanticEpoch: this.sessionId ? this.semanticEpoch : 0,
+      generation,
+      ready: Boolean(this.sessionId) && ready,
+    });
+    const current = this.viewTransportState$.value;
+    if (
+      current.sessionId === next.sessionId
+      && current.semanticEpoch === next.semanticEpoch
+      && current.generation === next.generation
+      && current.ready === next.ready
+    ) return;
+    this.viewTransportState$.next(next);
   }
 
   private validEpoch(epoch: number): number {

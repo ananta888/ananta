@@ -220,6 +220,21 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     }));
   });
 
+  it('accepts a compact view send only after the DataChannel queue is available', async () => {
+    await service.startSession('session-a', true, 'peer:remote');
+    const peer = PublicPeerConnection.instances[0];
+    const channel = peer.createDataChannel.mock.results[0].value as RTCDataChannel;
+
+    expect(service.sendDc('view_payload', { encrypted_payload: 'sealed' })).toBe(false);
+    expect(channel.send).not.toHaveBeenCalled();
+
+    Object.assign(channel, { readyState: 'open' as const });
+    channel.onopen?.(new Event('open'));
+
+    expect(service.sendDc('view_payload', { encrypted_payload: 'sealed' })).toBe(true);
+    expect(channel.send).toHaveBeenCalled();
+  });
+
   it('still fails closed when neither the peer nor its DataChannel becomes ready', async () => {
     vi.useFakeTimers();
     await service.startSession('session-a', true, 'peer:remote');

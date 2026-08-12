@@ -41,6 +41,7 @@ describe('WebrtcTransportService semantic relay', () => {
   const recreationRequired = new Set<string>();
   const webrtc = {
     state$: new BehaviorSubject('idle'),
+    dataChannelState$: new BehaviorSubject<RTCDataChannelState | 'absent'>('absent'),
     failureReason$: new BehaviorSubject<string | null>(null),
     dcMessage$: new Subject(),
     semanticMessage$: new Subject(),
@@ -70,7 +71,9 @@ describe('WebrtcTransportService semantic relay', () => {
     webrtc.retireSession.mockClear();
     webrtc.isSessionRecreationRequired.mockClear();
     webrtc.sendDc.mockReset();
+    webrtc.sendDc.mockReturnValue(false);
     webrtc.state$.next('idle');
+    webrtc.dataChannelState$.next('absent');
     profile.current.transport_order = ['hub_relay'];
     controlPlane.isPublicSession.mockReset();
     controlPlane.isPublicSession.mockReturnValue(false);
@@ -263,6 +266,50 @@ describe('WebrtcTransportService semantic relay', () => {
 
     expect(webrtc.sendDc).not.toHaveBeenCalled();
     expect(received).toEqual([]);
+  });
+
+  it('reports exact DataChannel readiness and only accepts actually queued view payloads', async () => {
+    profile.current.transport_order = ['webrtc'];
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+
+    await service.open('public-session', true, {
+      semanticEpoch: 2,
+      remotePeerId: 'bob',
+    });
+
+    expect(service.viewTransportState$.value).toMatchObject({
+      sessionId: 'public-session',
+      semanticEpoch: 2,
+      ready: false,
+    });
+    expect(service.sendView({ message_id: 'before-open', encrypted_payload: 'sealed' })).toBe(false);
+
+    webrtc.sendDc.mockReturnValue(true);
+    webrtc.dataChannelState$.next('open');
+
+    expect(service.viewTransportState$.value).toMatchObject({
+      sessionId: 'public-session',
+      semanticEpoch: 2,
+      ready: true,
+    });
+    expect(service.sendView({ message_id: 'after-open', encrypted_payload: 'sealed' })).toBe(true);
+
+    const openGeneration = service.viewTransportState$.value.generation;
+    service.setSemanticEpoch(3);
+    expect(service.viewTransportState$.value).toEqual({
+      sessionId: 'public-session',
+      semanticEpoch: 3,
+      generation: openGeneration,
+      ready: true,
+    });
+
+    service.close();
+    expect(service.viewTransportState$.value).toMatchObject({
+      sessionId: '',
+      semanticEpoch: 0,
+      ready: false,
+    });
+    expect(service.viewTransportState$.value.generation).toBeGreaterThan(openGeneration);
   });
 
   it('does not treat idle chat or view sends as Hub relay traffic', () => {

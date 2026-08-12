@@ -464,8 +464,8 @@ export class WebrtcSessionService {
     this.publicSdpPhase = 'none';
   }
 
-  sendDc(type: string, payload: Record<string, unknown> = {}): void {
-    if (!this.dc || this.dc.readyState !== 'open') return;
+  sendDc(type: string, payload: Record<string, unknown> = {}): boolean {
+    if (!this.dc || this.dc.readyState !== 'open') return false;
     if (type === 'cursor' && this.controlPlane.isPublicSession(this.sessionId)) {
       throw new Error('public_raw_cursor_transport_disabled');
     }
@@ -476,11 +476,18 @@ export class WebrtcSessionService {
       const trafficClass = type === 'artifact' ? 'evidence_bulk'
         : type === 'chat' || type === 'cursor' ? 'transcript'
           : type === 'view_payload' ? 'visual_semantic' : 'control';
+      let accepted = true;
       for (const part of chunks) {
-        this.sendQueue.enqueue(trafficClass, dcEncode(part), Date.now() + 60_000);
+        accepted = this.sendQueue.enqueue(
+          trafficClass,
+          dcEncode(part),
+          Date.now() + 60_000,
+        ) && accepted;
       }
+      return accepted;
     } catch {
       this.audit('send_error', `type=${type}`);
+      return false;
     }
   }
 
