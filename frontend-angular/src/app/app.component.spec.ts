@@ -18,6 +18,8 @@ import { SnakeOverlayService } from './services/snake-overlay.service';
 import { SystemFacade } from './features/system/system.facade';
 import { UserAuthService } from './services/user-auth.service';
 import { WindowBridgeService } from './services/window-bridge.service';
+import { ShareSessionService } from './services/share-session.service';
+import { PairCompactAppSyncService } from './services/pair-compact-app-sync.service';
 
 function configureShell(native = false) {
   TestBed.resetTestingModule();
@@ -25,9 +27,18 @@ function configureShell(native = false) {
   const hubUser = new BehaviorSubject<Record<string, unknown> | null>(null);
   const rawHubToken = new BehaviorSubject<string | null>(null);
   const routeUrl = signal('/');
+  const shareState = new BehaviorSubject({
+    session: null as { id: string } | null,
+    participants: [],
+    messages: [],
+    cursor: '0',
+    role: null,
+  });
+  const publicPairRuntimeState = new BehaviorSubject<'idle' | 'public' | 'unknown'>('idle');
   const hubAgent = { name: 'hub', role: 'hub', url: 'https://hub.example.test' };
   const ensureSystemEvents = vi.fn();
   const disconnectSystemEvents = vi.fn();
+  const compactPairStart = vi.fn();
   const auth = {
     token$: rawHubToken.asObservable(),
     user$: hubUser.asObservable(),
@@ -91,6 +102,15 @@ function configureShell(native = false) {
           },
         },
       },
+      {
+        provide: ShareSessionService,
+        useValue: {
+          state$: shareState,
+          publicPairRuntimeState$: publicPairRuntimeState,
+          get hasPublicPairRuntime() { return publicPairRuntimeState.value !== 'idle'; },
+        },
+      },
+      { provide: PairCompactAppSyncService, useValue: { start: compactPairStart } },
     ],
   });
   TestBed.overrideComponent(AppComponent, {
@@ -104,6 +124,9 @@ function configureShell(native = false) {
     routeUrl,
     ensureSystemEvents,
     disconnectSystemEvents,
+    shareState,
+    publicPairRuntimeState,
+    compactPairStart,
   };
 }
 
@@ -118,6 +141,7 @@ describe('AppComponent Hub shell trust boundary', () => {
     const fixture = TestBed.createComponent(AppComponent);
     fixture.detectChanges();
     const host = fixture.nativeElement as HTMLElement;
+    expect(state.compactPairStart).toHaveBeenCalledOnce();
 
     expect(host.querySelector('[data-testid="public-pair-nav-link"]')?.textContent).toContain('Public Pair Dev');
     expect(host.querySelector('#primary-navigation')).toBeNull();
@@ -178,6 +202,33 @@ describe('AppComponent Hub shell trust boundary', () => {
       .querySelector('[data-testid="assistant-feature-root"]');
     expect(assistant).not.toBeNull();
     expect((assistant as HTMLElement & { pairOnly?: boolean }).pairOnly).toBe(false);
+  });
+
+  it('keeps the Pair owner mounted after OIDC-only route navigation without exposing Hub UI', () => {
+    const state = configureShell();
+    state.routeUrl.set('/workspace');
+    state.publicPairRuntimeState.next('public');
+    state.shareState.next({
+      ...state.shareState.value,
+      session: { id: 'public-session-a' },
+      role: 'participant',
+    });
+    const fixture = TestBed.createComponent(AppComponent);
+
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const assistant = host.querySelector('[data-testid="assistant-feature-root"]');
+    expect(assistant).not.toBeNull();
+    expect((assistant as HTMLElement & { pairOnly?: boolean }).pairOnly).toBe(true);
+    expect(host.querySelector('app-snake-overlay')).toBeNull();
+    expect(host.querySelector('app-pair-remote-snake-overlay')).not.toBeNull();
+
+    state.shareState.next({ ...state.shareState.value, session: null, role: null });
+    state.publicPairRuntimeState.next('idle');
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="assistant-feature-root"]')).toBeNull();
+    expect(host.querySelector('app-pair-remote-snake-overlay')).toBeNull();
   });
 
   it('does not render Android Hub navigation for an expired raw Hub token', () => {

@@ -16,7 +16,7 @@
 import { describe, expect, it } from 'vitest';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Subject } from 'rxjs';
+import { BehaviorSubject, Subject } from 'rxjs';
 
 import { PairViewSyncService, PeerCursor } from './pair-view-sync.service';
 import { SharedViewStateService } from './shared-view-state.service';
@@ -35,11 +35,14 @@ import {
 } from './pair-view-sync.types';
 
 class FakeTransport {
+  viewTransportState$ = new BehaviorSubject({
+    sessionId: 'sess-A', semanticEpoch: 1, generation: 1, ready: false,
+  });
   message$ = new Subject<{ type: string; session_id: string; payload: unknown }>();
   sent: Array<{ type: string; payload: unknown }> = [];
   sentView: RelayEnvelope[] = [];
   send(type: string, payload: unknown): void { this.sent.push({ type, payload }); }
-  sendView(e: RelayEnvelope): void { this.sentView.push(e); }
+  sendView(e: RelayEnvelope): boolean { this.sentView.push(e); return true; }
   emitView(env: RelayEnvelope, sessionId: string): void {
     this.message$.next({ type: 'view_payload', session_id: sessionId, payload: env });
   }
@@ -76,7 +79,16 @@ class FakeCrypto implements PairViewCryptoPort {
 }
 
 class FakeShare {
-  perms: PermissionSet | null = { ...DEFAULT_PERMISSIONS, remote_control: false, remote_cursor: true };
+  perms: PermissionSet | null = {
+    ...DEFAULT_PERMISSIONS,
+    view_tui: true,
+    remote_control: false,
+    remote_cursor: true,
+  };
+  readonly state$ = new BehaviorSubject<any>({
+    session: { id: 'sess-A', security_epoch: 1 }, role: 'owner', participants: [], messages: [], cursor: '0',
+  });
+  readonly currentUserId = 'owner-1';
   currentPermissions(): PermissionSet | null { return this.perms; }
   setPerms(p: PermissionSet | null): void { this.perms = p; }
 }
@@ -111,7 +123,9 @@ function envFor(delta: ViewStateDelta): RelayEnvelope {
 function makeDelta(sessionId: string, senderUserId: string, seq: number, baseHash: string, newHash: string, kind: ViewStateDelta['kind'] = 'delta'): ViewStateDelta {
   return {
     version: PAIR_VIEW_SYNC_VERSION, sessionId, senderUserId, seq,
-    baseHash, newHash, kind, ops: [], createdAt: Date.now(), payload: null,
+    baseHash, newHash, kind,
+    ops: kind === 'delta' ? [{ op: 'set', path: 'activeTab', value: `peer-tab-${seq}` }] : [],
+    createdAt: Date.now(), payload: null,
   };
 }
 
@@ -119,6 +133,7 @@ describe('PairViewSyncService (T14 reconnect)', () => {
   it('rejects view-payloads with a stale session id', async () => {
     const { transport, sync, view } = setup();
     sync.bindSession('sess-A', 'owner-1', 1);
+    sync.setLocalCompactSharing('sess-A', 1, { view: true, cursor: false });
     await new Promise((resolve) => setTimeout(resolve, 0));
     const initial = transport.sentView[0];
     const state = view.current;
@@ -153,17 +168,17 @@ describe('PairViewSyncService (T14 reconnect)', () => {
     // First, emit a valid cursor so peer-cursor map is populated
     transport.emitCursorMessage({
       userId: 'partner-A', userLabel: 'P',
-      cursor: { line: null, column: null, x: 10, y: 20 },
+      cursor: { line: null, column: null, nx: 0.1, ny: 0.2 },
       lastSeenAt: Date.now(),
     }, 'sess-A');
     // Now a stale-session cursor
     transport.emitCursorMessage({
       userId: 'partner-A', userLabel: 'P',
-      cursor: { line: null, column: null, x: 99, y: 99 },
+      cursor: { line: null, column: null, nx: 0.9, ny: 0.9 },
       lastSeenAt: Date.now(),
     }, 'sess-Z');
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const found = emitted.find((c) => c.cursor.x === 99 && c.cursor.y === 99);
+    const found = emitted.find((c) => c.cursor.nx === 0.9 && c.cursor.ny === 0.9);
     expect(found).toBeUndefined();
     sub.unsubscribe();
     sync.unbindSession();
@@ -176,7 +191,7 @@ describe('PairViewSyncService (T14 reconnect)', () => {
     const sub = sync.peerCursors$.subscribe((m) => { emits.push(m); });
     transport.emitCursorMessage({
       userId: 'partner-A', userLabel: 'P',
-      cursor: { line: null, column: null, x: 11, y: 22 },
+      cursor: { line: null, column: null, nx: 0.11, ny: 0.22 },
       lastSeenAt: Date.now(),
     }, 'sess-A');
     // Re-bind -> a different session
@@ -197,33 +212,59 @@ describe('PairViewSyncService (T14 reconnect)', () => {
     view.updatePartial({ activeTab: 'first' });
     sync.unbindSession();
     sync.bindSession('sess-B', 'owner-2', 1);
+    sync.setLocalCompactSharing('sess-B', 1, { view: true, cursor: false });
     await new Promise((resolve) => setTimeout(resolve, 0));
-    const initial = transport.sentView[transport.sentView.length - 1];
-    const state = view.current;
-    const d = makeDelta('sess-B', 'partner-y', 1, initial.new_hash, state.viewHash);
+    const peerState: SharedViewState = {
+      ...view.current,
+      sessionId: 'sess-B', ownerUserId: 'partner-y', seq: 1,
+      activeTab: 'partner-ready',
+    };
+    const { viewHash: _previousHash, ...hashable } = peerState;
+    peerState.viewHash = view.hashOf(hashable);
+    const snapshot = TestBed.inject(ViewDeltaService).createSnapshot(peerState);
     // Should accept
     const before = (sync as any).stats.appliesAccepted;
-    transport.emitView(envFor(d), 'sess-B');
+    transport.emitView(envFor(snapshot), 'sess-B');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const after = (sync as any).stats.appliesAccepted;
     expect(after).toBeGreaterThanOrEqual(before + 1);
     sync.unbindSession();
   });
 
-  it('throttles snapshot-requests: only one snapshot_request is emitted per baseHash mismatch', async () => {
+  it('coalesces mismatches from one authenticated sender regardless of attacker-controlled baseHash', async () => {
     const { transport, sync, view } = setup();
     sync.bindSession('sess-A', 'owner-1', 1);
     await new Promise((resolve) => setTimeout(resolve, 0));
     const state = view.current;
-    const d = makeDelta('sess-A', 'partner-x', 200, 'wrong-hash-zzzz', state.viewHash);
+    const deltas = [
+      makeDelta('sess-A', 'partner-x', 200, 'wrong-hash-a', state.viewHash),
+      makeDelta('sess-A', 'partner-x', 201, 'wrong-hash-b', state.viewHash),
+      makeDelta('sess-A', 'partner-x', 202, 'wrong-hash-c', state.viewHash),
+    ];
     const before = transport.sentView.filter((entry) => entry.kind === 'control').length;
-    transport.emitView(envFor(d), 'sess-A');
-    transport.emitView(envFor(d), 'sess-A');
-    transport.emitView(envFor(d), 'sess-A');
+    for (const delta of deltas) transport.emitView(envFor(delta), 'sess-A');
     await new Promise((resolve) => setTimeout(resolve, 0));
     const after = transport.sentView.filter((entry) => entry.kind === 'control').length;
-    // 3 mismatch, 3 requests (we don't dedupe these, but they must not loop)
-    expect(after - before).toBe(3);
+    expect(after - before).toBe(1);
+
+    const peerState: SharedViewState = {
+      ...view.current,
+      sessionId: 'sess-A', ownerUserId: 'partner-x', seq: 203,
+      activeTab: 'peer-baseline',
+    };
+    const { viewHash: _oldHash, ...hashable } = peerState;
+    peerState.viewHash = view.hashOf(hashable);
+    const snapshot = TestBed.inject(ViewDeltaService).createSnapshot(peerState);
+    transport.emitView(envFor(snapshot), 'sess-A');
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    const nextMismatch = makeDelta(
+      'sess-A', 'partner-x', 204, 'different-wrong-hash', peerState.viewHash,
+    );
+    transport.emitView(envFor(nextMismatch), 'sess-A');
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const afterValidSnapshot = transport.sentView.filter((entry) => entry.kind === 'control').length;
+    expect(afterValidSnapshot - before).toBe(2);
     sync.unbindSession();
   });
 });

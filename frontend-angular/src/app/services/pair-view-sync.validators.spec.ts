@@ -15,6 +15,10 @@ import {
   isViewStateDelta,
 } from './pair-view-sync.validators';
 import { DEFAULT_PERMISSIONS, PAIR_VIEW_SYNC_VERSION } from './pair-view-sync.types';
+import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
+import { SharedViewStateService } from './shared-view-state.service';
+import { ViewDeltaService } from './view-delta.service';
 
 const basePerms = DEFAULT_PERMISSIONS;
 
@@ -40,6 +44,7 @@ describe('pair-view-sync.validators', () => {
     expect(isScrollPos({ x: 1.5, y: -2.5 })).toBe(true);
     expect(isScrollPos({ x: NaN, y: 0 })).toBe(false);
     expect(isScrollPos({ x: 0 })).toBe(false);
+    expect(isScrollPos({ x: 0, y: 0, privateText: 'must-not-pass' })).toBe(false);
   });
 
   it('isCursorPos allows nulls and non-negative ints', () => {
@@ -47,12 +52,16 @@ describe('pair-view-sync.validators', () => {
     expect(isCursorPos({ line: 0, column: 0 })).toBe(true);
     expect(isCursorPos({ line: -1, column: 0 })).toBe(false);
     expect(isCursorPos({ line: 0.5, column: 0 })).toBe(false);
+    expect(isCursorPos({ line: null, column: null, nx: 0.25, ny: 0.75 })).toBe(true);
+    expect(isCursorPos({ line: null, column: null, nx: 1.25, ny: 0.75 })).toBe(false);
+    expect(isCursorPos({ line: null, column: null, nx: 0.25 })).toBe(false);
   });
 
   it('isSelectionPos rejects start > end', () => {
     expect(isSelectionPos({ start: null, end: null })).toBe(true);
     expect(isSelectionPos({ start: 0, end: 10 })).toBe(true);
     expect(isSelectionPos({ start: 10, end: 0 })).toBe(false);
+    expect(isSelectionPos({ start: 0, end: 10, value: 'must-not-pass' })).toBe(false);
   });
 
   it('isActiveSurface accepts the documented union', () => {
@@ -64,7 +73,11 @@ describe('pair-view-sync.validators', () => {
 
   it('isDeltaOp requires whitelisted path and op type', () => {
     expect(isDeltaOp({ op: 'set', path: 'route', value: '/chat' })).toBe(true);
-    expect(isDeltaOp({ op: 'unset', path: 'route' })).toBe(true);
+    expect(isDeltaOp({ op: 'unset', path: 'route' })).toBe(false);
+    expect(isDeltaOp({ op: 'unset', path: 'activeArtifactId' })).toBe(true);
+    expect(isDeltaOp({
+      op: 'set', path: 'cursor', value: { line: null, column: null, nx: 0.5, ny: 0.5 },
+    })).toBe(false);
     expect(isDeltaOp({ op: 'set', path: 'constructor', value: 1 })).toBe(false); // prototype guard
     expect(isDeltaOp({ op: 'foo', path: 'route' })).toBe(false);
   });
@@ -80,12 +93,20 @@ describe('pair-view-sync.validators', () => {
   });
 
   it('isViewStateDelta accepts a snapshot envelope', () => {
-    const x = {
-      version: PAIR_VIEW_SYNC_VERSION,
-      sessionId: 's', senderUserId: 'u', seq: 1, baseHash: 'h', newHash: 'h',
-      kind: 'snapshot' as const, ops: [], createdAt: Date.now(),
-    };
-    expect(isViewStateDelta(x)).toBe(true);
+    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    const view = TestBed.runInInjectionContext(() => new SharedViewStateService());
+    view.bindToSession('s', 'u');
+    const deltas = TestBed.runInInjectionContext(() => new ViewDeltaService(view));
+    const snapshot = deltas.createSnapshot(view.current);
+    expect(isViewStateDelta(snapshot)).toBe(true);
+    expect(isViewStateDelta({ ...snapshot, ops: snapshot.ops.slice(1) })).toBe(false);
+    expect(isViewStateDelta({
+      ...snapshot,
+      ops: [...snapshot.ops, {
+        op: 'set', path: 'cursor', value: { line: null, column: null, nx: 0.5, ny: 0.5 },
+      }],
+    })).toBe(false);
+    expect(isViewStateDelta({ ...snapshot, extra: 'secret' })).toBe(false);
   });
 
   it('isCursorDelta and isScrollDelta enforce the shape', () => {

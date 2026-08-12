@@ -6,6 +6,7 @@ import { HubApiCoreService } from '../services/hub-api-core.service';
 import { AgentDirectoryService } from '../services/agent-directory.service';
 import { ChatMessageComponent } from './chat-message.component';
 import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
+import { PairViewSyncService } from '../services/pair-view-sync.service';
 import { PairSecurityBootstrapState } from '../services/pair-view-security-bootstrap.service';
 import {
   pairSessionErrorCode,
@@ -129,6 +130,23 @@ interface PairGroupMember {
         <!-- Home: Aktionen -->
         @if (view === 'home') {
           <div class="share-actions">
+            @if (publicOnly) {
+              <button
+                type="button"
+                class="share-btn primary quick-share"
+                data-testid="quick-compact-pair-share"
+                (click)="doQuickCompactShare()"
+                [disabled]="creating">
+                {{ creating ? 'Starte…' : '⚡ Ananta-App schnell teilen' }}
+              </button>
+              <div class="quick-share-note">
+                Teilt E2EE nur internen Seitenpfad, Bereich, Scrollposition und Maus als farbige Snake –
+                keine Bildschirmpixel, Kamera, Formularwerte oder URL-Parameter.
+              </div>
+              @if (createError) {
+                <div class="share-error" role="alert">{{ createError }}</div>
+              }
+            }
             <button class="share-btn primary" (click)="view = 'create'">+ Session erstellen</button>
             <button class="share-btn" (click)="view = 'join'">Code eingeben</button>
             @if (sessionActionError) {
@@ -228,6 +246,47 @@ interface PairGroupMember {
               </div>
             }
           </div>
+
+          @if (pairSync.remoteViews$ | async; as peerViews) {
+            <div class="compact-peer-state" data-testid="compact-pair-peer-state">
+              <strong>Kompakt geteilt</strong>
+              @if (!peerViews.size) {
+                <span>Warte auf authentifizierten Seitenstatus…</span>
+              }
+              @for (entry of remoteViewEntries(peerViews); track entry.senderId) {
+                <span>{{ entry.label }} · {{ entry.route }} · {{ entry.surface }}</span>
+              }
+              <small>Nur Ansicht; kein automatisches Folgen oder Fernsteuern.</small>
+            </div>
+          }
+
+          @if (state.session?.security_epoch) {
+            <div class="compact-share-consent" data-testid="compact-share-consent">
+              <strong>Meine kompakte Freigabe</strong>
+              <span>Gilt nur fuer diese Session und Sicherheitsepoche.</span>
+              <div class="compact-share-actions">
+                @if (pairSync.isLocalCompactSharingPending) {
+                  <button type="button" class="share-btn sm" data-testid="cancel-pending-compact-share"
+                    (click)="cancelPendingCompactShare(state.session!.id)">
+                    Ausstehende Schnellfreigabe widerrufen
+                  </button>
+                } @else {
+                  @if (state.session?.permissions?.['view_tui']) {
+                    <button type="button" class="share-btn sm" data-testid="toggle-own-compact-view"
+                      (click)="toggleOwnCompactView(state.session!.id, state.session!.security_epoch!)">
+                      {{ pairSync.isLocalViewSharingEnabled ? 'Eigene Ansicht nicht mehr teilen' : 'Eigene Ansicht teilen' }}
+                    </button>
+                  }
+                  @if (state.session?.permissions?.['remote_cursor']) {
+                    <button type="button" class="share-btn sm" data-testid="toggle-own-compact-cursor"
+                      (click)="toggleOwnCompactCursor(state.session!.id, state.session!.security_epoch!)">
+                      {{ pairSync.isLocalCursorSharingEnabled ? 'Eigene Maus nicht mehr teilen' : 'Eigene Maus teilen' }}
+                    </button>
+                  }
+                }
+              </div>
+            </div>
+          }
 
           <!-- Tabs -->
           <div class="share-tabs">
@@ -340,6 +399,8 @@ interface PairGroupMember {
     .share-badge.owner { color: #fbbf24; border-color: #7a5a10; }
     .share-badge.participant { color: #a8c7ff; border-color: #2a4070; }
     .share-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 10px; }
+    .quick-share { font-weight: 700; }
+    .quick-share-note { color: #7f9bbd; font-size: 10px; line-height: 1.4; }
     .share-btn {
       border: 1px solid #1a2d4a; border-radius: 3px; padding: 6px 10px; background: transparent;
       color: #6b8ab8; cursor: pointer; font-size: 12px; font-family: inherit; text-align: left;
@@ -364,6 +425,12 @@ interface PairGroupMember {
     .share-error { color: #fb7185; font-size: 11px; }
     .share-session-info { padding: 8px 10px; border-bottom: 1px solid #1a2d4a; }
     .share-session-title { font-weight: 600; color: #a8c7ff; margin-bottom: 4px; }
+    .compact-peer-state { display: flex; flex-direction: column; gap: 3px; padding: 6px 10px; border-bottom: 1px solid #1a2d4a; color: #8fb2d9; font-size: 10px; }
+    .compact-peer-state strong { color: #7fffd4; }
+    .compact-peer-state small { color: #607a9a; }
+    .compact-share-consent { display: flex; flex-direction: column; gap: 5px; padding: 6px 10px; border-bottom: 1px solid #1a2d4a; color: #8fb2d9; font-size: 10px; }
+    .compact-share-consent strong { color: #a8c7ff; }
+    .compact-share-actions { display: flex; gap: 6px; flex-wrap: wrap; }
     .security-line { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; padding: 5px 6px; border: 1px solid #2a4070; color: #a8c7ff; }
     .security-line.ready { color: #7fffd4; border-color: #1a4a2a; }
     .security-line.warning { color: #fbbf24; border-color: #7a5a10; }
@@ -409,6 +476,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
   private core = inject(HubApiCoreService);
   private dir = inject(AgentDirectoryService);
   private pairBinding = inject(PairViewSessionBindingService);
+  readonly pairSync = inject(PairViewSyncService);
 
   /** Removes and fences Hub-backed group operations on the public OIDC-only surface. */
   @Input() publicOnly = false;
@@ -598,6 +666,27 @@ export class AiSnakeSharePanelComponent implements OnInit {
     }
   }
 
+  async doQuickCompactShare(): Promise<void> {
+    if (!this.publicOnly || this.creating || this.svc.isActive) return;
+    this.creating = true;
+    this.createError = '';
+    try {
+      const session = await this.svc.createSession('Ananta-App gemeinsam ansehen', {
+        chat: true,
+        view_tui: true,
+        remote_cursor: true,
+        artifact_share: false,
+        remote_control: false,
+      }, 3600, { expectedAuthority: 'public' });
+      if (session?.id) this.pairSync.armLocalCompactSharingOnFirstPeerReady(session.id);
+      this.activeTab = 'chat';
+    } catch (error: unknown) {
+      this.createError = pairSessionErrorMessage(error, 'Schnellteilen fehlgeschlagen');
+    } finally {
+      this.creating = false;
+    }
+  }
+
   async doJoin(): Promise<void> {
     if (!this.joinCode.trim()) return;
     this.joining = true;
@@ -716,8 +805,43 @@ export class AiSnakeSharePanelComponent implements OnInit {
     return Object.entries(perms ?? {}).map(([key, val]) => ({ key, val }));
   }
 
+  remoteViewEntries(views: ReadonlyMap<string, import('../services/pair-view-sync.types').RemoteViewProjection>): Array<{
+    senderId: string; label: string; route: string; surface: string;
+  }> {
+    return Array.from(views.values()).map(projection => ({
+      senderId: projection.senderUserId,
+      label: compactPeerViewLabel(projection.senderUserId),
+      route: projection.state.route,
+      surface: projection.state.activeSurface,
+    }));
+  }
+
+  toggleOwnCompactView(sessionId: string, securityEpoch: number): void {
+    this.pairSync.setLocalCompactSharing(sessionId, securityEpoch, {
+      view: !this.pairSync.isLocalViewSharingEnabled,
+      cursor: this.pairSync.isLocalCursorSharingEnabled,
+    });
+  }
+
+  toggleOwnCompactCursor(sessionId: string, securityEpoch: number): void {
+    this.pairSync.setLocalCompactSharing(sessionId, securityEpoch, {
+      view: this.pairSync.isLocalViewSharingEnabled,
+      cursor: !this.pairSync.isLocalCursorSharingEnabled,
+    });
+  }
+
+  cancelPendingCompactShare(sessionId: string): void {
+    this.pairSync.cancelPendingLocalCompactSharing(sessionId);
+  }
+
   async copyCode(code: string): Promise<void> {
     if (!code) return;
     await navigator.clipboard.writeText(code).catch(() => {});
   }
+}
+
+function compactPeerViewLabel(peerId: string): string {
+  let hash = 0;
+  for (let index = 0; index < peerId.length; index += 1) hash = (Math.imul(hash, 31) + peerId.charCodeAt(index)) >>> 0;
+  return `Peer-${hash.toString(16).padStart(8, '0').slice(0, 6)}`;
 }

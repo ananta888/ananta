@@ -7,6 +7,7 @@ import { AgentDirectoryService } from '../services/agent-directory.service';
 import { HubApiCoreService } from '../services/hub-api-core.service';
 import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
 import { ShareSessionService } from '../services/share-session.service';
+import { PairViewSyncService } from '../services/pair-view-sync.service';
 
 function configure(status: 'ready' | 'confirming' | 'legacy') {
   TestBed.resetTestingModule();
@@ -24,10 +25,19 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
     canSendChat: () => securityState$.value.status === 'ready' || securityState$.value.status === 'legacy',
     sendMessage: vi.fn(async () => undefined), approveFingerprintChange: vi.fn(),
     participantStatus: () => 'online', endSession: vi.fn(), leaveSession: vi.fn(),
-    revokeParticipant: vi.fn(), createSession: vi.fn(), joinSession: vi.fn(),
+    revokeParticipant: vi.fn(), createSession: vi.fn(async () => ({ id: 'session-new', security_epoch: 4 })), joinSession: vi.fn(),
     discardPendingJoinAttempt: vi.fn(),
   };
   const binding = { start: vi.fn() };
+  const pairSync = {
+    remoteViews$: new BehaviorSubject(new Map()),
+    isLocalViewSharingEnabled: false,
+    isLocalCursorSharingEnabled: false,
+    isLocalCompactSharingPending: false,
+    setLocalCompactSharing: vi.fn(() => true),
+    armLocalCompactSharingOnFirstPeerReady: vi.fn(() => true),
+    cancelPendingLocalCompactSharing: vi.fn(() => true),
+  };
   const core = {
     get: vi.fn(() => of({})),
     post: vi.fn(() => of({})),
@@ -38,11 +48,12 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
     providers: [
       { provide: ShareSessionService, useValue: service },
       { provide: PairViewSessionBindingService, useValue: binding },
+      { provide: PairViewSyncService, useValue: pairSync },
       { provide: AgentDirectoryService, useValue: { list: () => [] } },
       { provide: HubApiCoreService, useValue: core },
     ],
   });
-  return { service, binding, core };
+  return { service, binding, core, pairSync };
 }
 
 function deferred<T>() {
@@ -108,7 +119,7 @@ describe('AiSnakeSharePanelComponent production security host', () => {
   });
 
   it('pins create and join mutations to the Public authority in public-only mode', async () => {
-    const { service } = configure('ready');
+    const { service, pairSync } = configure('ready');
     service.isActive = false;
     service.state$.next({
       session: null, participants: [], messages: [], cursor: '0', role: null,
@@ -132,6 +143,99 @@ describe('AiSnakeSharePanelComponent production security host', () => {
       allowLegacy: false,
       expectedAuthority: 'public',
     });
+  });
+
+  it('creates the pixel-free compact Public share with one click', async () => {
+    const { service, pairSync } = configure('ready');
+    service.isActive = false;
+    service.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]');
+    expect(button).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('keine Bildschirmpixel');
+    button?.click();
+    await fixture.whenStable();
+
+    expect(service.createSession).toHaveBeenCalledWith(
+      'Ananta-App gemeinsam ansehen',
+      {
+        chat: true,
+        view_tui: true,
+        remote_cursor: true,
+        artifact_share: false,
+        remote_control: false,
+      },
+      3600,
+      { expectedAuthority: 'public' },
+    );
+    expect(pairSync.armLocalCompactSharingOnFirstPeerReady).toHaveBeenCalledWith('session-new');
+    expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+  });
+
+  it('shows and revokes the pending one-shot compact-share intent', () => {
+    const { service, pairSync } = configure('ready');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: 1,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+    });
+    pairSync.isLocalCompactSharingPending = true;
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.detectChanges();
+
+    const cancel = fixture.nativeElement.querySelector<HTMLButtonElement>(
+      '[data-testid="cancel-pending-compact-share"]',
+    );
+    expect(cancel?.textContent).toContain('widerrufen');
+    cancel?.click();
+    expect(pairSync.cancelPendingLocalCompactSharing).toHaveBeenCalledWith('session-a');
+    expect(fixture.nativeElement.querySelector('[data-testid="toggle-own-compact-view"]')).toBeNull();
+  });
+
+  it('shows only authenticated remote compact page projections', () => {
+    const { pairSync } = configure('ready');
+    pairSync.remoteViews$.next(new Map([['peer-secret-id', {
+      senderUserId: 'peer-secret-id',
+      receivedAt: Date.now(),
+      state: { route: '/workspace', activeSurface: 'unknown' },
+    }]]));
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.detectChanges();
+    const text = fixture.nativeElement.querySelector('[data-testid="compact-pair-peer-state"]')?.textContent ?? '';
+    expect(text).toContain('/workspace');
+    expect(text).toContain('kein automatisches Folgen');
+    expect(text).not.toContain('peer-secret-id');
+  });
+
+  it('keeps manual/joined compact sharing off until each local toggle is used', () => {
+    const { service, pairSync } = configure('ready');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: 7,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+      role: 'participant',
+    });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.detectChanges();
+
+    expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+    fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="toggle-own-compact-view"]')?.click();
+    expect(pairSync.setLocalCompactSharing).toHaveBeenCalledWith(
+      'session-a', 7, { view: true, cursor: false },
+    );
+    fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="toggle-own-compact-cursor"]')?.click();
+    expect(pairSync.setLocalCompactSharing).toHaveBeenLastCalledWith(
+      'session-a', 7, { view: false, cursor: true },
+    );
   });
 
   it('discards only a conflicted pending join after explicit confirmation', async () => {

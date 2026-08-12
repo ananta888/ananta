@@ -44,11 +44,11 @@ const ALLOWED_DELTA_PATHS: ReadonlySet<string> = new Set<string>([
   'activeFilePath',
   'activeSymbolId',
   'scroll',
-  'cursor',
   'selection',
   'zoom',
   'collapsedSections',
 ]);
+const SNAPSHOT_PATHS = Object.freeze(Array.from(ALLOWED_DELTA_PATHS));
 
 const ALLOWED_OP_TYPES: ReadonlySet<DeltaOp['op']> = new Set<DeltaOp['op']>([
   'set',
@@ -60,7 +60,6 @@ const ALLOWED_OP_TYPES: ReadonlySet<DeltaOp['op']> = new Set<DeltaOp['op']>([
 const ALLOWED_DELTA_KINDS: ReadonlySet<DeltaKind> = new Set<DeltaKind>([
   'snapshot',
   'delta',
-  'cursor',
   'selection',
   'scroll',
   'control',
@@ -83,7 +82,7 @@ function isFiniteNumber(x: unknown): x is number {
 }
 
 function isNonNegativeInt(x: unknown): x is number {
-  return isFiniteNumber(x) && Number.isInteger(x) && x >= 0;
+  return isFiniteNumber(x) && Number.isSafeInteger(x) && x >= 0;
 }
 
 function isHash(x: unknown): x is string {
@@ -126,21 +125,36 @@ export function isPermissionSet(x: unknown): x is Readonly<Record<PermissionKey,
 
 export function isScrollPos(x: unknown): x is { x: number; y: number } {
   if (!isObject(x)) return false;
+  if (Object.keys(x).length !== 2 || !('x' in x) || !('y' in x)) return false;
   return isFiniteNumber(x['x']) && isFiniteNumber(x['y']);
 }
 
 export function isCursorPos(x: unknown): x is { line: number | null; column: number | null } {
   if (!isObject(x)) return false;
+  const keys = Object.keys(x);
+  if (keys.some(key => !['line', 'column', 'x', 'y', 'nx', 'ny'].includes(key))) return false;
   const line = x['line'];
   const col = x['column'];
-  return (
+  if (!(
     (line === null || isNonNegativeInt(line)) &&
     (col === null || isNonNegativeInt(col))
+  )) return false;
+  const hasX = 'x' in x;
+  const hasY = 'y' in x;
+  if (hasX !== hasY) return false;
+  if (hasX && (!isFiniteNumber(x['x']) || !isFiniteNumber(x['y']) || Math.abs(x['x']) > 1_000_000 || Math.abs(x['y']) > 1_000_000)) return false;
+  const hasNx = 'nx' in x;
+  const hasNy = 'ny' in x;
+  if (hasNx !== hasNy) return false;
+  return !hasNx || (
+    isFiniteNumber(x['nx']) && x['nx'] >= 0 && x['nx'] <= 1 &&
+    isFiniteNumber(x['ny']) && x['ny'] >= 0 && x['ny'] <= 1
   );
 }
 
 export function isSelectionPos(x: unknown): x is { start: number | null; end: number | null } {
   if (!isObject(x)) return false;
+  if (Object.keys(x).length !== 2 || !('start' in x) || !('end' in x)) return false;
   const start = x['start'];
   const end = x['end'];
   if (start !== null && !isNonNegativeInt(start)) return false;
@@ -167,13 +181,60 @@ export function isDeltaOp(x: unknown): x is DeltaOp {
   if (!isEnumValue(x['op'], ALLOWED_OP_TYPES)) return false;
   const path = x['path'];
   if (!isString(path) || !ALLOWED_DELTA_PATHS.has(path)) return false;
-  if (x['op'] === 'unset') return true;
+  if (x['op'] === 'unset') return nullableDeltaPath(path);
   // 'set' / 'append' / 'remove' all carry a value
-  return 'value' in x;
+  if (!('value' in x)) return false;
+  if (x['op'] === 'append' || x['op'] === 'remove') {
+    return path === 'collapsedSections' && boundedString(x['value'], 128);
+  }
+  return validDeltaValue(path, x['value']);
+}
+
+function nullableDeltaPath(path: string): boolean {
+  return ['activeArtifactId', 'activeArtifactHash', 'activeFilePath', 'activeSymbolId', 'zoom'].includes(path);
+}
+
+function boundedString(value: unknown, max: number): value is string {
+  return isString(value) && value.length <= max;
+}
+
+function isCompactRoute(value: unknown): value is string {
+  return boundedString(value, 512)
+    && value.startsWith('/')
+    && !value.startsWith('//')
+    && !value.includes('?')
+    && !value.includes('#')
+    && !value.includes('\\');
+}
+
+function validDeltaValue(path: string, value: unknown): boolean {
+  switch (path) {
+    case 'route': return isCompactRoute(value);
+    case 'queryParams': return isObject(value) && Object.keys(value).length === 0;
+    case 'activeSurface': return isActiveSurface(value);
+    case 'activeTab':
+    case 'activePanel': return boundedString(value, 128);
+    case 'activeArtifactId':
+    case 'activeArtifactHash':
+    case 'activeFilePath':
+    case 'activeSymbolId': return value === null || boundedString(value, 512);
+    case 'scroll': return isScrollPos(value) && Math.abs(value.x) <= 10_000_000 && Math.abs(value.y) <= 10_000_000;
+    case 'selection': return isSelectionPos(value);
+    case 'zoom': return value === null || (isFiniteNumber(value) && value >= 0.1 && value <= 10);
+    case 'collapsedSections':
+      return Array.isArray(value)
+        && value.length <= 256
+        && value.every(item => boundedString(item, 128));
+    default: return false;
+  }
 }
 
 export function isViewStateDelta(x: unknown): x is ViewStateDelta {
   if (!isObject(x)) return false;
+  const keys = Object.keys(x);
+  const requiredKeys = ['version', 'sessionId', 'senderUserId', 'seq', 'baseHash', 'newHash', 'kind', 'ops', 'createdAt'];
+  if (requiredKeys.some(key => !(key in x))) return false;
+  if (keys.some(key => ![...requiredKeys, 'payload'].includes(key))) return false;
   if (x['version'] !== PAIR_VIEW_SYNC_VERSION) return false;
   if (!isSessionId(x['sessionId'])) return false;
   if (!isUserId(x['senderUserId'])) return false;
@@ -188,7 +249,34 @@ export function isViewStateDelta(x: unknown): x is ViewStateDelta {
   for (const op of ops) {
     if (!isDeltaOp(op)) return false;
   }
-  return true;
+  const kind = x['kind'];
+  const payload = x['payload'];
+  if (kind === 'snapshot') {
+    if (payload !== undefined && payload !== null) return false;
+    if (ops.length !== SNAPSHOT_PATHS.length) return false;
+    const paths = new Set<string>();
+    for (const op of ops) {
+      if (op.op !== 'set' || paths.has(op.path)) return false;
+      paths.add(op.path);
+    }
+    return SNAPSHOT_PATHS.every(path => paths.has(path));
+  }
+  if (kind === 'delta') {
+    return ops.length > 0 && (payload === undefined || payload === null);
+  }
+  if (kind === 'scroll') {
+    return ops.length === 1
+      && ops[0].op === 'set' && ops[0].path === 'scroll'
+      && isScrollPos(payload)
+      && JSON.stringify(ops[0].value) === JSON.stringify(payload);
+  }
+  if (kind === 'selection') {
+    return ops.length === 1
+      && ops[0].op === 'set' && ops[0].path === 'selection'
+      && isSelectionPos(payload)
+      && JSON.stringify(ops[0].value) === JSON.stringify(payload);
+  }
+  return false;
 }
 
 export function isCursorDelta(x: unknown): x is CursorDelta {

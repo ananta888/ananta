@@ -10,6 +10,10 @@ import {
 import { TestBed } from '@angular/core/testing';
 import { Router, ActivatedRoute } from '@angular/router';
 import { provideRouter } from '@angular/router';
+import { Component } from '@angular/core';
+
+@Component({ standalone: true, template: '' })
+class EmptyRouteComponent {}
 
 function emptyState(): SharedViewState {
   return {
@@ -39,7 +43,7 @@ function emptyState(): SharedViewState {
 describe('SharedViewStateService', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
-      providers: [provideRouter([])],
+      providers: [provideRouter([{ path: '**', component: EmptyRouteComponent }])],
     });
   });
 
@@ -83,6 +87,16 @@ describe('SharedViewStateService', () => {
     const b = svc.hashOf(emptyState());
     expect(a).toBe(b);
   });
+
+  it('initialises route capture once and strips query parameters and fragments', async () => {
+    const svc = TestBed.runInInjectionContext(() => new SharedViewStateService());
+    const router = TestBed.inject(Router);
+    svc.init();
+    svc.init();
+    await router.navigateByUrl('/dashboard?code=oauth-secret&projectId=private#fragment');
+    expect(svc.current.route).toBe('/dashboard');
+    expect(svc.current.queryParams).toEqual({});
+  });
 });
 
 describe('ViewDeltaService', () => {
@@ -99,13 +113,15 @@ describe('ViewDeltaService', () => {
     expect(d.kind).toBe('scroll');
   });
 
-  it('classifies a cursor-only change as kind=cursor', () => {
+  it('never includes a cursor-only change in the compact view delta', () => {
     const view = TestBed.runInInjectionContext(() => new SharedViewStateService());
     const delta = TestBed.runInInjectionContext(() => new ViewDeltaService(view));
     const a: SharedViewState = { ...emptyState(), cursor: { line: 1, column: 0 }, viewHash: 'aaa' };
     const b: SharedViewState = { ...a, seq: a.seq + 1, cursor: { line: 2, column: 0 }, viewHash: 'bbb', createdAt: a.createdAt + 1 };
     const d = delta.createDelta(a, b);
-    expect(d.kind).toBe('cursor');
+    expect(d.kind).toBe('delta');
+    expect(d.ops).toEqual([]);
+    expect(d.payload).toBeNull();
   });
 
   it('classifies a route/tab change as kind=delta with op set', () => {
@@ -141,13 +157,16 @@ describe('ViewDeltaService', () => {
     expect(delta.requiresSnapshotRequest(d, local)).toBe(true);
   });
 
-  it('createSnapshot carries no ops and is a snapshot', () => {
+  it('createSnapshot carries every compact field and is self-contained', () => {
     const view = TestBed.runInInjectionContext(() => new SharedViewStateService());
     const delta = TestBed.runInInjectionContext(() => new ViewDeltaService(view));
     const s = emptyState();
     const d = delta.createSnapshot(s);
     expect(d.kind).toBe('snapshot');
-    expect(d.ops).toEqual([]);
+    expect(d.ops).toHaveLength(13);
+    expect(d.ops).toContainEqual({ op: 'set', path: 'route', value: '/chat' });
+    expect(d.ops.some(op => op.path === 'cursor')).toBe(false);
+    expect(new Set(d.ops.map(op => op.path)).size).toBe(d.ops.length);
     expect(d.baseHash).toBe(s.viewHash);
     expect(d.newHash).toBe(s.viewHash);
   });

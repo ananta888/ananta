@@ -3,6 +3,7 @@ import { Subscription } from 'rxjs';
 
 import { PairViewSyncService } from './pair-view-sync.service';
 import { ShareSessionService } from './share-session.service';
+import { SharedViewStateService } from './shared-view-state.service';
 
 /**
  * Binds the reachable Share session lifecycle to the existing Pair-View port.
@@ -14,6 +15,7 @@ import { ShareSessionService } from './share-session.service';
 export class PairViewSessionBindingService implements OnDestroy {
   private readonly share = inject(ShareSessionService);
   private readonly sync = inject(PairViewSyncService);
+  private readonly view = inject(SharedViewStateService);
   private readonly subscriptions = new Subscription();
   private started = false;
   private boundSessionId = '';
@@ -21,6 +23,7 @@ export class PairViewSessionBindingService implements OnDestroy {
   start(): void {
     if (this.started) return;
     this.started = true;
+    this.view.init();
     this.subscriptions.add(this.share.state$.subscribe(state => {
       const session = state.session;
       if (!session || !this.share.isStrictSession(session)) {

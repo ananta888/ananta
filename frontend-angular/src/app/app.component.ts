@@ -22,12 +22,15 @@ import { ProjectContextSwitcherComponent } from './components/project-context-sw
 import type { AppNavItem } from './models/route-metadata';
 import { ProjectContextService } from './services/project-context.service';
 import { IdentityRegistry } from './services/identity/identity-registry';
+import { ShareSessionService } from './services/share-session.service';
+import { PairCompactAppSyncService } from './services/pair-compact-app-sync.service';
+import { PairRemoteSnakeOverlayComponent } from './components/pair-remote-snake-overlay.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, SecurityStorageBannerComponent, ProjectContextSwitcherComponent],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, NotificationsComponent, ToastComponent, AsyncPipe, AiAssistantComponent, BreadcrumbComponent, SnakeOverlayComponent, PairRemoteSnakeOverlayComponent, SecurityStorageBannerComponent, ProjectContextSwitcherComponent],
   template: `
     <a class="skip-link" href="#main-content">Zum Inhalt springen</a>
     <app-security-storage-banner />
@@ -167,13 +170,16 @@ import { IdentityRegistry } from './services/identity/identity-registry';
     <main id="main-content" [class.main-flush]="isFullscreenRoute" tabindex="-1">
       <router-outlet />
     </main>
-    @if (headerUser() || isPublicPairRoute) {
+    @if (headerUser() || isPublicPairRoute || publicPairRuntimePresent()) {
       <app-ai-assistant
         data-testid="assistant-feature-root"
-        [pairOnly]="!headerUser() && isPublicPairRoute" />
+        [pairOnly]="!headerUser() && (isPublicPairRoute || publicPairRuntimePresent())" />
     }
     @if ((snakeOverlay.visible$ | async) && headerUser()) {
       <app-snake-overlay />
+    }
+    @if (publicPairRuntimeState() === 'public') {
+      <app-pair-remote-snake-overlay />
     }
   `,
   styles: [`
@@ -336,6 +342,8 @@ export class AppComponent implements OnInit, OnDestroy {
   readonly bridge = inject(WindowBridgeService);
   readonly projectContext = inject(ProjectContextService);
   private readonly identities = inject(IdentityRegistry);
+  private readonly shares = inject(ShareSessionService);
+  private readonly compactPairSync = inject(PairCompactAppSyncService);
 
   private readonly subscriptions = new Subscription();
   private touchStartX = 0;
@@ -362,6 +370,13 @@ export class AppComponent implements OnInit, OnDestroy {
     }
     return { sub: identity.subject || 'angemeldet', role: 'user' };
   });
+  readonly publicPairRuntimeState = toSignal(this.shares.publicPairRuntimeState$, {
+    initialValue: this.shares.publicPairRuntimeState$.value,
+  });
+  readonly publicPairRuntimePresent = computed(() => {
+    this.publicPairRuntimeState();
+    return this.shares.hasPublicPairRuntime;
+  });
 
 get isAndroidNative(): boolean {
     return this.mobile.isNative && Capacitor.getPlatform() === 'android';
@@ -369,6 +384,7 @@ get isAndroidNative(): boolean {
 
   ngOnInit() {
     this.shell.init();
+    this.compactPairSync.start();
     void this.bridge.initFromUrlParams().then(() => this._applyTuiAuthIfPresent());
     void this.bootstrapEmbeddedRuntime();
     this.subscriptions.add(this.identities.hub.snapshot$.pipe(

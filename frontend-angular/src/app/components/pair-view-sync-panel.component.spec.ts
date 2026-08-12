@@ -57,8 +57,8 @@ describe('PairViewSyncPanelComponent', () => {
     const fixture = TestBed.createComponent(PairViewSyncPanelComponent);
     const cmp = fixture.componentInstance;
     expect(cmp.form.selected.chat).toBe(true);
-    expect(cmp.form.selected.view_tui).toBe(true);
-    expect(cmp.form.selected.artifact_share).toBe(true);
+    expect(cmp.form.selected.view_tui).toBe(false);
+    expect(cmp.form.selected.artifact_share).toBe(false);
     expect(cmp.form.selected.remote_control).toBe(false);
     expect(cmp.form.selected.remote_cursor).toBe(false);
   });

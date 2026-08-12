@@ -31,9 +31,9 @@ export const ALL_PERMISSIONS: readonly PermissionKey[] = [
 
 export const DEFAULT_PERMISSIONS: PermissionSet = Object.freeze({
   chat: true,
-  view_tui: true,
+  view_tui: false,
   remote_cursor: false,
-  artifact_share: true,
+  artifact_share: false,
   remote_control: false,
 });
 
@@ -90,8 +90,12 @@ export interface ArtifactRef {
 export interface CursorPos {
   line: number | null;
   column: number | null;
+  /** Legacy viewport pixels; retained for API compatibility. */
   x?: number;
   y?: number;
+  /** Compact-app pointer position, normalised to the sender viewport. */
+  nx?: number;
+  ny?: number;
 }
 
 export interface SelectionPos {
@@ -131,6 +135,13 @@ export interface SharedViewState {
   collapsedSections: readonly string[];
   viewHash: string;
   createdAt: number;
+}
+
+/** Authenticated peer read-model. It is never written into local UI state. */
+export interface RemoteViewProjection {
+  readonly senderUserId: string;
+  readonly state: SharedViewState;
+  readonly receivedAt: number;
 }
 
 export type DeltaKind = 'snapshot' | 'delta' | 'cursor' | 'selection' | 'scroll' | 'control';

@@ -66,6 +66,24 @@ AES-GCM-Authentifizierung; der restliche Medienframe bleibt verschluesselt.
    Keycloak anmelden.
 2. Eine Share-Session erstellen oder ihr beitreten und warten, bis die
    WebRTC-Verbindung steht.
+
+Fuer eine besonders schnelle Zusammenarbeit kann der Owner stattdessen
+`Ananta-App schnell teilen` waehlen. Dieser eine Klick erstellt eine auf eine
+Stunde begrenzte E2EE-Session fuer Pair-Chat, internen Ananta-Seitenpfad,
+Bereich, numerische Scrollposition und Mauspositionen. Die Maus jedes
+Gegenuebers erscheint als farbige Pair-Snake.
+Dabei werden keine Bildschirmpixel, Kamera, Mikrofon, Formularwerte oder
+URL-Parameter uebertragen. Der Peer-Seitenstatus ist eine reine Anzeige;
+Ananta wechselt nicht automatisch die lokale Seite und erlaubt dadurch keine
+Fernsteuerung. Die Medienfunktionen im Tab `Medien` bleiben davon unabhaengig.
+Der Schnellteilen-Klick merkt beim Ersteller einmalig die lokale Freigabe fuer
+diese Session vor. Sie wird erst bei der ersten bestaetigten Peer-Bindung fuer
+deren exakte Sicherheitsepoche aktiv und kann bereits vorher mit `Ausstehende
+Schnellfreigabe widerrufen` zurueckgenommen werden. Ein spaeterer Rekey
+uebernimmt sie nicht. Beitretende Personen entscheiden unter `Meine kompakte
+Freigabe` separat mit `Eigene Ansicht teilen` und `Eigene Maus teilen`; beide
+Schalter lassen sich ohne Neuladen sofort widerrufen und gelten nur fuer die
+aktuelle Session und Sicherheitsepoche.
 3. In der unteren Leiste `Medien` oeffnen. Bei **Public Pair** unter
    `Meine Medienfreigabe` die Gueltigkeit waehlen:
    `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf`, `15 Minuten` oder
@@ -101,9 +119,10 @@ Die eingebettete Pair-Session und bereits freigegebene Medien laufen dabei
 weiter; ueber den `AI Snake`-Starter wird dieselbe laufende Oberflaeche wieder
 eingeblendet. `Session beenden`, `Verlassen` und `Eigene Freigabe
 deaktivieren` bleiben dagegen ausdrueckliche Beendigungsaktionen.
-Beim Wechsel auf eine andere Seite fragt die Oberflaeche zuerst nach und
-beendet beziehungsweise verlaesst eine aktive Pair-Session autoritativ, bevor
-der Pair-Owner abgebaut wird.
+Auch ein normaler Wechsel auf eine andere Ananta-Seite beendet die aktive
+Pair-Session nicht. Der Pair-Owner bleibt im App-Shell erhalten, damit Chat,
+kompakter App-Sync und bereits freigegebene Medien weiterlaufen. Erst
+`Session beenden` beziehungsweise `Verlassen` beendet die Teilnahme.
 
 Die Auswahl `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf` ist keine
 kontoweite oder geraeteuebergreifende Dauereinwilligung. Sie ist an den aktuellen Browser-Tab,

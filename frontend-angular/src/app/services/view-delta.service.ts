@@ -2,7 +2,7 @@
  * T04: ViewDeltaService — produces snapshots and minimal deltas.
  *
  * The contract is "small payload wins": for the four common
- * change kinds (route/tab, scroll, cursor, selection, artifact)
+ * change kinds (route/tab, scroll, selection, artifact)
  * the service emits a lightweight, kind-tagged delta. Only
  * truly composite state changes (multiple fields at once, or
  * unknown) go through the full `ops` path.
@@ -17,7 +17,6 @@ import { Injectable, inject } from '@angular/core';
 
 import { SharedViewStateService } from './shared-view-state.service';
 import {
-  CursorPos,
   DeltaKind,
   DeltaOp,
   PAIR_VIEW_SYNC_VERSION,
@@ -28,7 +27,6 @@ import {
 } from './pair-view-sync.types';
 
 const SCROLL_FIELDS: ReadonlyArray<keyof SharedViewState> = ['scroll'];
-const CURSOR_FIELDS: ReadonlyArray<keyof SharedViewState> = ['cursor'];
 const SELECTION_FIELDS: ReadonlyArray<keyof SharedViewState> = ['selection'];
 const ARTIFACT_FIELDS: ReadonlyArray<keyof SharedViewState> = [
   'activeArtifactId',
@@ -42,6 +40,15 @@ const ROUTE_FIELDS: ReadonlyArray<keyof SharedViewState> = [
   'activeSurface',
   'activeTab',
   'activePanel',
+];
+
+const COMPACT_SYNC_FIELDS: ReadonlyArray<keyof SharedViewState> = [
+  ...ROUTE_FIELDS,
+  ...ARTIFACT_FIELDS,
+  'scroll',
+  'selection',
+  'zoom',
+  'collapsedSections',
 ];
 
 @Injectable({ providedIn: 'root' })
@@ -59,7 +66,9 @@ export class ViewDeltaService {
       baseHash: state.viewHash,
       newHash: state.viewHash,
       kind: 'snapshot',
-      ops: [],
+      // A snapshot must be self-contained. Earlier snapshots carried only a
+      // hash, which could never reconstruct the peer's compact page state.
+      ops: COMPACT_SYNC_FIELDS.map(path => ({ op: 'set' as const, path, value: state[path] })),
       createdAt: state.createdAt,
     };
   }
@@ -90,7 +99,6 @@ export class ViewDeltaService {
   /** True when only the listed fields changed since `previous`. */
   private classify(previous: SharedViewState, current: SharedViewState): DeltaKind {
     if (this.changedOnly(previous, current, SCROLL_FIELDS)) return 'scroll';
-    if (this.changedOnly(previous, current, CURSOR_FIELDS)) return 'cursor';
     if (this.changedOnly(previous, current, SELECTION_FIELDS)) return 'selection';
     // Route/tab/artifact are all "composite" — they go through
     // 'delta' with a real op set.
@@ -103,9 +111,8 @@ export class ViewDeltaService {
     fields: ReadonlyArray<keyof SharedViewState>,
   ): boolean {
     if (previous.viewHash === current.viewHash) return false;
-    for (const f of fields) {
-      if (!this.shallowEqual(previous[f], current[f])) return true;
-    }
+    const targetChanged = fields.some(f => !this.shallowEqual(previous[f], current[f]));
+    if (!targetChanged) return false;
     // any other field changing disqualifies
     for (const f of Object.keys(previous) as ReadonlyArray<keyof SharedViewState>) {
       if (fields.includes(f)) continue;
@@ -144,7 +151,7 @@ export class ViewDeltaService {
     const fields: ReadonlyArray<keyof SharedViewState> = [
       'route', 'queryParams', 'activeSurface', 'activeTab', 'activePanel',
       'activeArtifactId', 'activeArtifactHash', 'activeFilePath', 'activeSymbolId',
-      'scroll', 'cursor', 'selection', 'zoom', 'collapsedSections',
+      'scroll', 'selection', 'zoom', 'collapsedSections',
     ];
     for (const f of fields) {
       if (this.shallowEqual(previous[f], current[f])) continue;
@@ -157,8 +164,7 @@ export class ViewDeltaService {
     return ops;
   }
 
-  private payloadFor(kind: DeltaKind, current: SharedViewState): CursorPos | SelectionPos | ScrollPos | null {
-    if (kind === 'cursor') return current.cursor;
+  private payloadFor(kind: DeltaKind, current: SharedViewState): SelectionPos | ScrollPos | null {
     if (kind === 'selection') return current.selection;
     if (kind === 'scroll') return current.scroll;
     return null;
@@ -170,7 +176,7 @@ export class ViewDeltaService {
    * caller decides whether to commit.
    */
   applyDelta(base: SharedViewState, delta: ViewStateDelta): SharedViewState {
-    if (delta.kind === 'snapshot' || (delta.kind === 'delta' && delta.ops.length === 0)) {
+    if (delta.kind === 'delta' && delta.ops.length === 0) {
       return { ...base, viewHash: delta.newHash, seq: delta.seq, createdAt: delta.createdAt };
     }
     const next: SharedViewState = { ...base, seq: delta.seq, createdAt: delta.createdAt };

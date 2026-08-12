@@ -4,10 +4,10 @@
  * The service exposes a single `state$` Observable of
  * SharedViewState. Sources of updates:
  *
- *   - Router NavigationEnd events: route, queryParams, derived surface
+ *   - Router NavigationEnd events: internal path and derived surface; query
+ *     parameters and fragments are deliberately discarded
  *   - Components calling `updatePartial(partial)`: artifact/file/symbol,
  *     scroll (debounced per surface), cursor, selection, collapsedSections
- *   - AppShellStateService for high-level mode/area (light signal bridge)
  *
  * Hash contract: the viewHash is computed from a stable
  * serialisation of the state (sorted keys, no whitespace) using
@@ -18,7 +18,6 @@ import { Injectable, inject } from '@angular/core';
 import { ActivatedRoute, NavigationEnd, Router } from '@angular/router';
 import { BehaviorSubject, Observable, filter } from 'rxjs';
 
-import { AppShellStateService } from './app-shell-state.service';
 import {
   ActiveSurface,
   PAIR_VIEW_SYNC_VERSION,
@@ -102,7 +101,6 @@ function emptyState(): Omit<SharedViewState, 'viewHash' | 'createdAt' | 'ownerUs
 export class SharedViewStateService {
   private router = inject(Router);
   private activatedRoute = inject(ActivatedRoute);
-  private shell = inject(AppShellStateService);
 
   private readonly userContext: PairViewUserContext = {
     sessionId: '',
@@ -111,6 +109,7 @@ export class SharedViewStateService {
 
   private readonly _state$ = new BehaviorSubject<SharedViewState>(this.buildInitial());
   readonly state$: Observable<SharedViewState> = this._state$.asObservable();
+  private initialized = false;
 
   /** Last-known state, useful for tests and for snapshot requests. */
   get current(): SharedViewState {
@@ -149,6 +148,8 @@ export class SharedViewStateService {
   }
 
   init(): void {
+    if (this.initialized) return;
+    this.initialized = true;
     this.router.events
       .pipe(filter((e): e is NavigationEnd => e instanceof NavigationEnd))
       .subscribe(() => this.onNavigationEnd());
@@ -157,22 +158,22 @@ export class SharedViewStateService {
 
   /** Compute viewHash from a candidate state without publishing it. */
   hashOf(state: Omit<SharedViewState, 'viewHash'>): string {
-    return djb2(stableStringify(state));
+    const { seq: _seq, createdAt: _createdAt, ...stableState } = state;
+    return djb2(stableStringify(stableState));
   }
 
   private onNavigationEnd(): void {
     let current = this.activatedRoute.root;
     while (current.firstChild) current = current.firstChild;
-    const url = this.router.url || '/';
-    const params: Record<string, string> = {};
-    for (const [k, v] of Object.entries(current.snapshot.queryParams)) {
-      if (typeof v === 'string') params[k] = v;
-    }
+    // Compact Pair sharing intentionally sends only the internal path. Query
+    // parameters and fragments can contain OAuth state, filters or other
+    // private values and are never part of the view-sync read model.
+    const url = compactInternalPath(this.router.url || '/');
     const area = (current.snapshot.data['area'] as string | undefined) || '';
     const surface = routeToSurface(url);
     this.updatePartial({
       route: url,
-      queryParams: params,
+      queryParams: {},
       activeSurface: surface,
       activePanel: area,
     });
@@ -206,15 +207,22 @@ export class SharedViewStateService {
     // previous hash and short-circuit the change). The result
     // becomes the new viewHash; the sender's `newHash` is
     // verified by `requiresSnapshotRequest` before we get here.
+    const current = this._state$.value;
     const { viewHash: _vh, ...rest } = next;
     const hash = this.hashOf(rest as Omit<SharedViewState, 'viewHash'>);
-    if (hash === _vh && next.seq > 0) return;
+    if (hash === current.viewHash && next.seq > 0) return;
     const out: SharedViewState = {
       ...next,
       viewHash: hash,
-      seq: next.seq + 1,
+      seq: current.seq + 1,
       createdAt: Date.now(),
     };
     this._state$.next(out);
   }
+}
+
+function compactInternalPath(rawUrl: string): string {
+  const path = rawUrl.split(/[?#]/, 1)[0] || '/';
+  if (!path.startsWith('/') || path.startsWith('//') || path.includes('\\')) return '/';
+  return path.slice(0, 512);
 }

@@ -1,138 +1,121 @@
-# Pair-Dev View-Sync — Architecture & Wiring
+# Pair Dev Compact App Sync
 
-## Goal
+## Ziel
 
-Allow two users to work together on the same UI without
-screen-sharing. Instead of streaming the rendered output, the
-Owner and Participant share a minimal **view-state delta**:
-which route they're on, which tab is active, which artifact is
-open, where the cursor sits, and (when explicitly granted)
-control over each other's navigation.
+Compact App Sync teilt die Ananta-Angular-Oberflaeche ohne Bildschirmstream.
+Es uebertraegt kleine, typisierte Zustandsdeltas und Mauspositionen innerhalb
+einer bestehenden Pair-Session. Kamera, Mikrofon und Bildschirmfreigabe sind
+getrennte Medienfunktionen und werden dadurch weder gestartet noch benoetigt.
 
-## Why not screen-sharing?
+## Sicherheits- und Datenfluss
 
-| Concern | Screen-sharing | View-state delta |
-|---|---|---|
-| Bandwidth | Many MB/s, varies with content | < 1 KB/change |
-| Privacy | Renders everything, including chrome | Only the documented fields |
-| Latency | Round-trip through the streaming server | Direct or one-hop via Hub |
-| Works on low-bandwidth | No | Yes (Deltas < 1 KB) |
-| Requires a session record | Yes | Yes (uses existing `share-sessions`) |
-
-## Wire contract
-
-The data flow is:
-
-```
-Local UI events
-    ↓
-SharedViewStateService (captures: route, tab, panel, artifact, scroll, cursor)
-    ↓ debounce / throttle
-ViewDeltaService (computes minimal delta, hashes)
-    ↓ encrypts payload
-PairViewSyncService (sends over WebRTC DataChannel OR Hub Relay)
-    ↓
-WebrtcTransportService (relay-aware: /view/push on Hub, DataChannel on P2P)
-    ↓
-hub_relay_backend: agent/routes/share_sessions.py::push_view_payload
-   or
-webrtc_datachannel_backend (no server hop)
-
-On the receiver side the bytes flow in reverse through
-the same services. Incoming envelopes are validated by
-pair-view-sync.validators and applied to local state via
-the receiver's SharedViewStateService.updatePartial().
+```text
+Angular Router / explizite Komponentenfelder
+  -> SharedViewStateService (sanitisierte lokale Projektion)
+  -> ViewDeltaService (vollstaendiger Snapshot oder minimales Delta)
+  -> PairViewSyncService (Permission-Pruefung + E2EE)
+  -> WebRTC DataChannel / erlaubter privater Hub-Relay
+  -> authentifizierter Sender
+  -> Validator
+  -> separates RemoteViewProjection-Read-Model
 ```
 
-### Field contract (v1)
+Eingehender Zustand wird niemals in den lokalen `SharedViewStateService`
+zurueckgeschrieben. Damit gibt es weder Echo-Schleifen noch implizite
+Navigation. Ein Peer kann lokales Folgen oder Fernsteuerung nicht einschalten.
+Solange keine explizite Freigabeoberflaeche fuer Remote Control existiert,
+werden Steuerungsanfragen fail-closed abgelehnt.
 
-Synced fields (`shared-view-state.service.ts`):
+Public Pair verwendet ausschliesslich den bestaetigten Strict-E2EE-Pfad der
+konkreten Session/Sicherheitsepoche. Beim direkten WebRTC-DataChannel pruefen
+beide Clients Payload-Typ, Traffic-Klasse, Einwilligung und Senderbindung; der
+Rendezvous-Dienst sieht diese App-Nachrichten nicht. Beim optionalen privaten
+Hub-Relay prueft der Server zusaetzlich die verschluesselten Metadaten,
+Mitgliedschaft und Berechtigungen, aber nie den Klartext. Async-Ausgaben werden
+an Session, Epoche und Sender gebunden; ein spaeter Abschluss aus einer alten
+Session darf nicht in einen neuen Transport gelangen.
 
-- `route`, `queryParams`, `activeSurface`, `activeTab`, `activePanel`
-- `activeArtifactId`, `activeArtifactHash`, `activeFilePath`, `activeSymbolId`
-- `scroll`, `cursor`, `selection`, `zoom`
-- `collapsedSections`
+`pair.view_delta` und die dazugehoerige `pair.snapshot_request` duerfen in
+beide Richtungen fliessen. Die Clients erzwingen diese Grenzen auf dem direkten
+DataChannel. Wird der private Relay verwendet, akzeptiert auch er sie nur von
+einem authentifizierten, aktiven Mitglied an ein anderes aktives Mitglied
+derselben Strict-E2EE-Session mit aktueller Epoche, gueltiger Sequenz,
+bestaetigter gegenseitiger Schluesselbindung, passender Traffic-Klasse und
+`view_tui`.
+Artefakt-, Steuerungs- und Cursor-Payloads behalten ihre jeweils getrennten
+Berechtigungen.
 
-Out of scope (deliberately): chat text (uses existing chat path),
-artifacts content (uses existing artifact API), task state (uses
-existing task stream), LLM tokens (private by design).
+## Kompakter Vertrag
 
-### Permission keys
+`view_tui` erlaubt folgende begrenzte Felder:
 
-| UI label        | Backend key   | Default | Requires explicit grant |
-|-----------------|---------------|---------|--------------------------|
-| Chat            | `chat`        | true    | no                       |
-| TUI-Ansicht     | `view_tui`    | true    | no                       |
-| Remote-Cursor   | `cursor`      | false   | no                       |
-| Steuerung       | `control`     | false   | **yes**                  |
-| Artefakte sehen | `artifact_view` | true  | no                       |
-| Annotationen    | `annotation`   | false  | **yes**                  |
+- interner Pfad ohne Query-Parameter oder Fragment
+- `activeSurface`, Tab und Panel
+- numerische Viewport-Scrollposition sowie explizit angebundene kompakte
+  Auswahl-, Zoom- und Einklappzustände
+- keine Cursorposition: Maus-/Cursorwerte laufen ausschliesslich als eigener
+  `pair.cursor`-Payload unter `remote_cursor` und lokaler Maus-Einwilligung
 
-## Control default-deny (T12)
+Nicht uebertragen werden DOM, Texteingaben/Formularwerte, URL-Parameter,
+Browser-Tabs oder gerenderte Pixel. Artefakt-ID, Hash, Dateipfad und Symbol-ID
+werden ohne zusaetzliches `artifact_share` vor Hash/Diff/E2EE auf `null`
+redigiert. Artefaktinhalt ist nie Bestandteil dieses Protokolls.
 
-A control grant is **never** implied by view_tui, cursor, or
-artifact_view. The handshake is:
+Snapshots enthalten genau einmal jedes erlaubte Feld. Deltas akzeptieren nur
+pfadspezifisch validierte Werte. Hashes ignorieren volatile Sequenz- und
+Zeitfelder. Empfaenger halten pro authentifiziertem Sender eine eigene
+Baseline; bei Luecken wird ein neuer Snapshot angefordert.
 
-1. Partner sends a `control` message with `kind='request'`.
-2. Owner's `PairViewSyncService` checks `share.currentPermissions().control`.
-3. If `true`, the service generates an opaque grant_token and
-   sends a `control` message with `kind='grant'`.
-4. The Partner can now issue control actions.
-5. Either side sends `kind='revoke'` to invalidate the grant.
+## Berechtigungen
 
-The grant_token is session-scoped, never persisted, and
-verified against the local `controlGrantToken` field. The
-backend enforces the same default-deny via the share-session
-permissions dict.
+| Backend-Key | Bedeutung | Schnellteilen |
+|---|---|---:|
+| `chat` | Pair-Chat | `true` |
+| `view_tui` | kompakter Seitenzustand | `true` |
+| `remote_cursor` | E2EE-Mausposition / Pair-Snake | `true` |
+| `artifact_share` | Artefakt-Referenzen zusaetzlich erlauben | `false` |
+| `remote_control` | explizite Fernsteuerung | `false` |
 
-## Transport selection
+Der Button `Ananta-App schnell teilen` erstellt eine auf eine Stunde
+begrenzte Public-Pair-Session mit genau diesen Werten. Er ruft weder
+`getDisplayMedia` noch `getUserMedia` auf. Beim Ersteller merkt sich der Klick
+ein einmaliges, nur im RAM gehaltenes Intent fuer diese Session. Erst die erste
+bestaetigte Peer-Bindung aktiviert Ansicht und Maus fuer deren exakte Epoche;
+ein spaeterer Rekey uebernimmt diese Einwilligung nicht. Das ausstehende Intent
+kann bereits vorher widerrufen werden. Beitretende oder manuell erstellte
+Sessions starten mit beiden lokalen Freigaben aus; jeder Teilnehmer kann
+`Eigene Ansicht teilen` und `Eigene Maus teilen` unabhaengig aktivieren und
+sofort wieder widerrufen.
 
-`WebrtcTransportService.mode$` is either `'webrtc'` or
-`'hub_relay'`. View-sync envelopes use the same transport
-selection logic as chat:
+## Darstellung
 
-- `webrtc`: `WebrtcSessionService.sendDc('view_payload', envelope)`
-  → no server hop, low latency, requires successful WebRTC
-  signalling.
-- `hub_relay`: `POST /share-sessions/{id}/view/push` with
-  the backend-compatible `RelayEnvelope` body. The Hub Relay
-  keeps the last 10 messages per session and serves them via
-  `GET /view/poll?since=…`.
+`PairRemoteSnakeOverlayComponent` konsumiert nur authentifizierte
+`peerCursors$`. Es hat absichtlich keine Hub-, AI-Snake-, Guide-, SSE-,
+DOM-Snapshot- oder Raw-WebRTC-Abhaengigkeit. Jede Peer-ID bekommt
+deterministisch eine Farbe; nur ein gekuerztes, nicht sensibles Hash-Label wird
+angezeigt. Die Mauswerte werden beim Empfaenger auf dessen Viewport skaliert.
 
-The Hub Relay response now carries `view_messages` (flat
-list of RelayEnvelopes) and `view_cursor` (last message_id)
-in addition to the legacy `data.frames` shape.
+Die aktive Pair-Oberflaeche zeigt das `RemoteViewProjection` als reine
+Seitenstatus-Anzeige. Es gibt keine automatische lokale Navigation.
 
-## Service layout
+## Datenbudget
 
-```
-pair-view-sync.types.ts        — type contracts
-permission-labels.ts           — UI label ↔ backend key
-pair-view-sync.validators.ts   — type guards (path-whitelist, prototype guard)
-shared-view-state.service.ts   — captures UI state, computes viewHash
-view-delta.service.ts          — diffs states, applies deltas
-pair-view-sync.service.ts      — send debounce + apply; control handshake
-pair-view-sync-panel.component — UI dialog
-```
+Pointer-Ereignisse werden normalisiert, auf hoechstens 20 E2EE-Nachrichten pro
+Sekunde begrenzt und nach dem Latest-Wins-Prinzip zusammengefasst. Seitenstatus
+wird 80 ms entprellt und auf hoechstens 5 Deltas pro Sekunde begrenzt; langsame
+Verschluesselung wird seriell abgearbeitet und behaelt nur den neuesten
+ausstehenden Zustand. Ein echter Standardsnapshot bleibt im fokussierten
+Vertragstest unter 8 KiB. Unabhaengig davon gilt fuer jede direkte eingehende
+DataChannel-Nachricht ein harter 64-KiB-Pre-Crypto-Grenzwert.
 
-## What is NOT in scope (yet)
+## Komponenten
 
-- Cursor shadow rendering (the cursor payload is captured and
-  forwarded, but the rendering layer is left to a future
-  presence service).
-- Live presence cursors for the snake/AI-room.
-- Editing artifacts live (annotation is one-way).
-- Multi-participant (n>2) view-sync.
-- Auth/identity of the receiver (current: any joined participant
-  with `view_tui=true`).
+- `PairCompactAppSyncService`: idempotente Root-Aktivierung und Pointer-Capture
+- `PairViewSessionBindingService`: bindet Share-Lifecycle an den Sync-Port
+- `SharedViewStateService`: sanitisierte lokale Zustandsquelle
+- `ViewDeltaService`: Snapshot/Delta-Erzeugung und pure Anwendung
+- `PairViewSyncService`: E2EE-Senden, Validierung, Remote-Projektion, Cursor
+- `PairRemoteSnakeOverlayComponent`: schlanker Public-Pair-Renderer
 
-## Failure modes & how the contract handles them
-
-| Failure | Symptom | Behaviour |
-|---|---|---|
-| `baseHash` mismatch on delta | Two clients raced; deltas out of order | Receiver requests snapshot via `snapshot_request` |
-| Encrypted payload too large (>256 KB) | Snapshot bigger than _VIEW_PAYLOAD_MAX_BYTES | Sender drops; receiver stays on previous state |
-| Path not in whitelist | Malicious/old client | Validators reject; `appliesRejected++` |
-| Control request without permission | User toggled `control=false` | `controlDenied++`; no grant issued |
-| WebRTC drops mid-session | Both clients fall back to Hub Relay | `mode$` switches; same envelopes travel over relay |
-| Unbind/rebind sequence | Receiver re-applies same delta | viewHash dedup; seq counter advances |
+Die Hub-Worker-Architektur bleibt unveraendert: Der Hub autorisiert und
+vermittelt; Worker erhalten weder UI-Zustand noch Maus- oder Mediendaten.

@@ -3,7 +3,20 @@ import { Injectable, InjectionToken, inject } from '@angular/core';
 import { E2eEncryptionService } from './e2e-encryption.service';
 import { WebrtcPeerKeyService } from './webrtc-peer-key.service';
 import { WebrtcReplayWindowService } from './webrtc-replay-window.service';
-import { SecurityTrafficClass } from './webrtc-secure-envelope';
+import {
+  SecureEnvelopeError,
+  SecurityTrafficClass,
+  parseSecureEnvelope,
+} from './webrtc-secure-envelope';
+
+const PAIR_VIEW_TRAFFIC: Readonly<Record<string, SecurityTrafficClass>> = Object.freeze({
+  'pair.chat_message': 'semantic',
+  'pair.view_delta': 'semantic',
+  'pair.artifact_ref': 'semantic',
+  'pair.cursor': 'control',
+  'pair.control': 'control',
+  'pair.snapshot_request': 'control',
+});
 
 export interface OpenedPairViewPayload {
   plaintext: string;
@@ -41,6 +54,9 @@ export class PairViewCryptoService implements PairViewCryptoPort {
     plaintext: string,
     options: { scopeId: string; epoch: number; sequence: number; payloadType: string; trafficClass: SecurityTrafficClass },
   ): Promise<string> {
+    const expectedTraffic = PAIR_VIEW_TRAFFIC[options.payloadType];
+    if (!expectedTraffic) throw new SecureEnvelopeError('payload_type_not_authorized');
+    if (options.trafficClass !== expectedTraffic) throw new SecureEnvelopeError('traffic_class_mismatch');
     const binding = this.peerKeys.requireBinding(true);
     if (binding.scopeId !== options.scopeId || binding.epoch !== options.epoch) {
       throw new Error('security_epoch_not_ready');
@@ -67,7 +83,16 @@ export class PairViewCryptoService implements PairViewCryptoPort {
     }
     let raw: unknown;
     try { raw = JSON.parse(serializedEnvelope); } catch { throw new Error('envelope_json_invalid'); }
-    const opened = await this.encryption.open(binding, raw);
+    // Reject an unknown Pair payload or cross-traffic-class envelope before
+    // AEAD opens it. E2eEncryptionService claims the nonce after decrypting,
+    // so this fence must precede open() to keep invalid traffic out of both
+    // nonce and sequence replay domains.
+    const envelope = parseSecureEnvelope(raw);
+    const expectedTraffic = PAIR_VIEW_TRAFFIC[envelope.payload_type];
+    if (!expectedTraffic) throw new SecureEnvelopeError('payload_type_not_authorized');
+    if (envelope.aad.content_encoding !== 'json') throw new SecureEnvelopeError('content_encoding_mismatch');
+    if (envelope.aad.traffic_class !== expectedTraffic) throw new SecureEnvelopeError('traffic_class_mismatch');
+    const opened = await this.encryption.open(binding, envelope);
     const replay = await this.replay.accept(opened.envelope, {
       scopeId: binding.scopeId,
       epoch: binding.epoch,
