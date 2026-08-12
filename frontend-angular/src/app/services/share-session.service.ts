@@ -14,6 +14,7 @@ import {
   PairSessionControlPlaneService,
   PairSessionMutationOptions,
 } from './pair-session-control-plane.service';
+import type { PairControlPlaneKind } from './pair-session-binding.store';
 import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
 import {
   PairSecurityBootstrapState,
@@ -99,6 +100,17 @@ export interface ActiveShareState {
   role: 'owner' | 'participant' | null;
 }
 
+type PendingMembershipAuthority = PairControlPlaneKind | 'unknown';
+
+export type PublicPairRuntimeState =
+  | 'idle'
+  | 'public_pending'
+  | 'hub_pending'
+  | 'unknown_pending'
+  | 'public'
+  | 'hub'
+  | 'unknown';
+
 @Injectable({ providedIn: 'root' })
 export class ShareSessionService implements OnDestroy {
   private core = inject(HubApiCoreService);
@@ -116,6 +128,7 @@ export class ShareSessionService implements OnDestroy {
   readonly state$ = new BehaviorSubject<ActiveShareState>({
     session: null, participants: [], messages: [], cursor: '0', role: null,
   });
+  readonly publicPairRuntimeState$ = new BehaviorSubject<PublicPairRuntimeState>('idle');
   readonly securityState$ = this.securityBootstrap.state$;
 
   private pollHandle: ReturnType<typeof setInterval> | null = null;
@@ -132,9 +145,11 @@ export class ShareSessionService implements OnDestroy {
   private activeMembershipMutation: Readonly<{
     serial: number;
     kind: 'create' | 'join';
+    authority: PendingMembershipAuthority;
   }> | null = null;
 
   constructor() {
+    this.lifetimeSubscriptions.add(this.state$.subscribe(() => this.publishPublicPairRuntimeState()));
     this.lifetimeSubscriptions.add(combineLatest([
       this.userAuth.oidcToken$,
       this.profiles.profile$,
@@ -176,6 +191,14 @@ export class ShareSessionService implements OnDestroy {
   }
 
   get isActive(): boolean { return !!this.state$.value.session; }
+  /** Fail-closed owner projection: an unbound active session may still own Public Pair resources. */
+  get hasPublicPairRuntime(): boolean {
+    const state = this.publicPairRuntimeState$.value;
+    return state === 'public_pending'
+      || state === 'unknown_pending'
+      || state === 'public'
+      || state === 'unknown';
+  }
   get sessionMutationPending(): boolean { return this.activeMembershipMutation !== null; }
 
   /**
@@ -239,7 +262,9 @@ export class ShareSessionService implements OnDestroy {
     expiresInSeconds: number | null,
     options: PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
-    return this.runMembershipMutation('create', async () => {
+    const authority = this.pinMembershipAuthority(options.expectedAuthority);
+    return this.runMembershipMutation('create', authority, async () => {
+      const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
       const transport = this.preferredTransport();
       const body = {
@@ -254,7 +279,9 @@ export class ShareSessionService implements OnDestroy {
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
       };
-      const session = await firstValueFrom(this.controlPlane.create<ShareSession>(body, options));
+      const session = await firstValueFrom(this.controlPlane.create<ShareSession>(body, {
+        expectedAuthority,
+      }));
       if (!session?.id) throw new Error('no session in response');
       this.activateValidatedSession(session, 'owner');
       return session;
@@ -265,14 +292,16 @@ export class ShareSessionService implements OnDestroy {
     inviteCode: string,
     options: { allowLegacy?: boolean } & PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
-    return this.runMembershipMutation('join', async () => {
+    const authority = this.pinMembershipAuthority(options.expectedAuthority);
+    return this.runMembershipMutation('join', authority, async () => {
+      const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
       const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
         invite_code: inviteCode,
         minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
         public_key_spki_b64: deviceKey.publicKeySpkiB64,
         public_key_fingerprint: deviceKey.fingerprint,
-      }, { expectedAuthority: options.expectedAuthority }));
+      }, { expectedAuthority }));
       if (!session?.id) throw new Error('join failed');
       this.activateValidatedSession(session, 'participant', options.allowLegacy === true);
       return session;
@@ -584,22 +613,67 @@ export class ShareSessionService implements OnDestroy {
     this.lifetimeSubscriptions.unsubscribe();
     this.transport.close();
     this.securityBootstrap.clear();
+    this.publicPairRuntimeState$.complete();
   }
 
   private async runMembershipMutation<T>(
     kind: 'create' | 'join',
+    authority: PendingMembershipAuthority,
     operation: () => Promise<T>,
   ): Promise<T> {
     if (this.activeMembershipMutation) throw new Error('pair_session_mutation_in_progress');
-    const mutation = Object.freeze({ serial: ++this.membershipMutationSerial, kind });
+    const mutation = Object.freeze({
+      serial: ++this.membershipMutationSerial,
+      kind,
+      authority,
+    });
     this.activeMembershipMutation = mutation;
+    this.publishPublicPairRuntimeState();
     try {
       return await operation();
     } finally {
       if (this.activeMembershipMutation?.serial === mutation.serial) {
         this.activeMembershipMutation = null;
+        this.publishPublicPairRuntimeState();
       }
     }
+  }
+
+  private publishPublicPairRuntimeState(): void {
+    let next: PublicPairRuntimeState;
+    if (this.activeMembershipMutation) {
+      next = `${this.activeMembershipMutation.authority}_pending`;
+    } else {
+      const sessionId = this.state$.value.session?.id ?? '';
+      if (!sessionId) {
+        next = 'idle';
+      } else {
+        try {
+          next = this.controlPlane.authorityKindForSession(sessionId);
+        } catch {
+          next = 'unknown';
+        }
+      }
+    }
+    if (next !== this.publicPairRuntimeState$.value) this.publicPairRuntimeState$.next(next);
+  }
+
+  private pinMembershipAuthority(
+    expectedAuthority?: PairControlPlaneKind,
+  ): PendingMembershipAuthority {
+    if (expectedAuthority) return expectedAuthority;
+    try {
+      return this.controlPlane.isPublic ? 'public' : 'hub';
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  private requirePinnedMembershipAuthority(
+    authority: PendingMembershipAuthority,
+  ): PairControlPlaneKind {
+    if (authority === 'unknown') throw new Error('pair_session_authority_unavailable');
+    return authority;
   }
 
   private activateValidatedSession(

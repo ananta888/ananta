@@ -73,10 +73,15 @@ describe('ShareSessionService strict Pair chat', () => {
     oidcToken$: BehaviorSubject<string | null>;
   };
   let publicSession: boolean;
+  let newSessionPublic: boolean;
   let controlPlane: {
+    readonly isPublic: boolean;
     readonly currentPeerId: string;
     peerIdForSession: () => string;
     isPublicSession: () => boolean;
+    authorityKindForSession: () => 'public' | 'hub';
+    create: ReturnType<typeof vi.fn>;
+    join: ReturnType<typeof vi.fn>;
     assertSessionAvailable: ReturnType<typeof vi.fn>;
     discardPendingPublicMutation: ReturnType<typeof vi.fn>;
   };
@@ -91,13 +96,18 @@ describe('ShareSessionService strict Pair chat', () => {
       oidcToken$: new BehaviorSubject<string | null>('oidc-token'),
     };
     publicSession = false;
+    newSessionPublic = false;
     securityState = new BehaviorSubject({ status: 'ready', fingerprint: 'f'.repeat(64) });
     controlPlane = {
+      get isPublic() { return newSessionPublic; },
       get currentPeerId() {
         return String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || '');
       },
       peerIdForSession: () => String(auth.userPayload?.['sub'] || auth.userPayload?.['username'] || ''),
       isPublicSession: () => publicSession,
+      authorityKindForSession: () => publicSession ? 'public' : 'hub',
+      create: vi.fn(),
+      join: vi.fn(),
       assertSessionAvailable: vi.fn(),
       discardPendingPublicMutation: vi.fn(),
     };
@@ -110,7 +120,11 @@ describe('ShareSessionService strict Pair chat', () => {
         current: { transport_order: ['webrtc', 'hub_relay'] },
         profile$: of({ transport_order: ['webrtc', 'hub_relay'] }),
       } },
-      { provide: E2eEncryptionService, useValue: { ensureLocalKeyPair: vi.fn() } },
+      { provide: E2eEncryptionService, useValue: {
+        ensureLocalKeyPair: vi.fn(async () => ({
+          publicKeySpkiB64: 'public-key', fingerprint: 'device-fingerprint',
+        })),
+      } },
       { provide: PAIR_VIEW_CRYPTO, useValue: cryptoPort },
       { provide: PairViewSecurityBootstrapService, useValue: {
         state$: securityState, currentEpoch: 3, clear: vi.fn(), markLegacy: vi.fn(),
@@ -131,6 +145,93 @@ describe('ShareSessionService strict Pair chat', () => {
 
     auth.userPayload = { preferred_username: 'display-only', email: 'display@example.test' };
     expect(service.currentUserId).toBe('');
+  });
+
+  it('projects active Public Pair authority without treating Hub sharing as Public Pair', () => {
+    expect(service.publicPairRuntimeState$.value).toBe('hub');
+    expect(service.hasPublicPairRuntime).toBe(false);
+
+    publicSession = true;
+    service.state$.next({ ...service.state$.value });
+    expect(service.publicPairRuntimeState$.value).toBe('public');
+    expect(service.hasPublicPairRuntime).toBe(true);
+
+    service.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    expect(service.publicPairRuntimeState$.value).toBe('idle');
+    expect(service.hasPublicPairRuntime).toBe(false);
+  });
+
+  it('fails closed when an active session has no provable authority binding', () => {
+    controlPlane.authorityKindForSession = () => { throw new Error('binding_missing'); };
+    service.state$.next({ ...service.state$.value });
+
+    expect(service.publicPairRuntimeState$.value).toBe('unknown');
+    expect(service.hasPublicPairRuntime).toBe(true);
+  });
+
+  it('publishes pending ownership before membership activation can race another media owner', async () => {
+    service.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    let complete!: () => void;
+    const operation = new Promise<void>(resolve => { complete = resolve; });
+
+    const result = (service as unknown as {
+      runMembershipMutation<T>(
+        kind: 'create' | 'join',
+        authority: 'public' | 'hub' | 'unknown',
+        operation: () => Promise<T>,
+      ): Promise<T>;
+    }).runMembershipMutation('create', 'public', () => operation);
+
+    expect(service.publicPairRuntimeState$.value).toBe('public_pending');
+    expect(service.hasPublicPairRuntime).toBe(true);
+
+    complete();
+    await result;
+    expect(service.publicPairRuntimeState$.value).toBe('idle');
+    expect(service.hasPublicPairRuntime).toBe(false);
+  });
+
+  it('pins an implicit Hub create before its first await and never exposes Public ownership', async () => {
+    service.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    const response = new Subject<ShareSession>();
+    controlPlane.create.mockReturnValueOnce(response);
+    newSessionPublic = false;
+
+    const pending = service.createSession('Hub Share', { chat: true }, null);
+    const rejection = expect(pending).rejects.toThrow('test_stop');
+    expect(service.publicPairRuntimeState$.value).toBe('hub_pending');
+    expect(service.hasPublicPairRuntime).toBe(false);
+
+    newSessionPublic = true;
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(controlPlane.create).toHaveBeenCalledWith(expect.any(Object), {
+      expectedAuthority: 'hub',
+    });
+    response.error(new Error('test_stop'));
+    await rejection;
+    expect(service.publicPairRuntimeState$.value).toBe('idle');
+  });
+
+  it('pins an explicit Public join even when the ambient authority says Hub', async () => {
+    service.state$.next({ session: null, participants: [], messages: [], cursor: '0', role: null });
+    const response = new Subject<ShareSession>();
+    controlPlane.join.mockReturnValueOnce(response);
+    newSessionPublic = false;
+
+    const pending = service.joinSession('invite-public', { expectedAuthority: 'public' });
+    const rejection = expect(pending).rejects.toThrow('test_stop');
+    expect(service.publicPairRuntimeState$.value).toBe('public_pending');
+    expect(service.hasPublicPairRuntime).toBe(true);
+
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(controlPlane.join).toHaveBeenCalledWith(expect.objectContaining({
+      invite_code: 'invite-public',
+    }), { expectedAuthority: 'public' });
+    response.error(new Error('test_stop'));
+    await rejection;
+    expect(service.publicPairRuntimeState$.value).toBe('idle');
   });
 
   it('exposes only a narrow pending-join discard operation to UI consumers', () => {

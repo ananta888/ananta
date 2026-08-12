@@ -67,8 +67,12 @@ class TerminalControlPlane {
   readonly revokeParticipant = vi.fn(() => of({ ok: true }));
 
   get currentPeerId(): string { return 'peer:local'; }
+  get isPublic(): boolean { return this.publicSession; }
   peerIdForSession(): string { return 'peer:local'; }
   isPublicSession(): boolean { return this.publicSession; }
+  authorityKindForSession(): 'public' | 'hub' {
+    return this.publicSession ? 'public' : 'hub';
+  }
   participants(): Observable<{ ok: boolean; participants: ShareParticipant[] }> {
     this.participantsCalls();
     return this.participantsRequest.asObservable();
@@ -164,7 +168,11 @@ describe('ShareSessionService terminal session lifecycle', () => {
 
     const pending = service.createSession('Pending Pair', { chat: true }, null);
     expect(service.sessionMutationPending).toBe(true);
+    expect(service.publicPairRuntimeState$.value).toBe('public_pending');
     await Promise.resolve();
+    expect(controlPlane.create).toHaveBeenCalledWith(expect.any(Object), {
+      expectedAuthority: 'public',
+    });
     response.next({ ...SESSION });
     response.complete();
 
