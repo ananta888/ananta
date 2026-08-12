@@ -101,6 +101,11 @@ export interface PairSessionAuthorityRoute {
   readonly baseUrl: string;
 }
 
+export interface PairSessionMutationOptions {
+  /** Fail closed instead of falling back to another control plane. */
+  readonly expectedAuthority?: PairControlPlaneKind;
+}
+
 type PublicResponsePurpose = 'v2-mutation' | 'list';
 
 const DEVICE_PEER_ID_RE = /^peer:[a-f0-9]{64}$/;
@@ -188,6 +193,14 @@ export class PairSessionControlPlaneService {
     this.bindings.forget(sessionId);
   }
 
+  /**
+   * Drops an unactivated response binding while retaining a v2 capability for
+   * exact-authority recovery of a mutation that may already have committed.
+   */
+  abandonSessionActivation(sessionId: string): void {
+    this.forgetSession(sessionId);
+  }
+
   /** Retires all local authority for a session proven terminal by its server. */
   retireSession(sessionId: string): void {
     const binding = this.bindings.get(sessionId);
@@ -200,8 +213,11 @@ export class PairSessionControlPlaneService {
     this.capabilities.clearPending(kind);
   }
 
-  create<T>(body: Record<string, unknown>): Observable<T> {
-    const authority = this.authorityForNewSession();
+  create<T>(
+    body: Record<string, unknown>,
+    options: PairSessionMutationOptions = {},
+  ): Observable<T> {
+    const authority = this.authorityForNewSession(options.expectedAuthority);
     if (authority.kind === 'hub') {
       return this.core.post<ApiEnvelope<T>>(
         `${authority.baseUrl}/share-sessions`, body, authority.baseUrl,
@@ -218,8 +234,11 @@ export class PairSessionControlPlaneService {
     return this.publicV2Mutation<T>('create', authority, '/rendezvous/sessions', publicBody);
   }
 
-  join<T>(body: Record<string, unknown>): Observable<T> {
-    const authority = this.authorityForNewSession();
+  join<T>(
+    body: Record<string, unknown>,
+    options: PairSessionMutationOptions = {},
+  ): Observable<T> {
+    const authority = this.authorityForNewSession(options.expectedAuthority);
     if (authority.kind === 'hub') {
       return this.core.post<ApiEnvelope<T>>(
         `${authority.baseUrl}/share-sessions/join-by-code`, body, authority.baseUrl,
@@ -594,6 +613,12 @@ export class PairSessionControlPlaneService {
     prepared: PreparedSession<T>,
     scope: PairMembershipAttemptScope,
   ): T {
+    if (prepared.binding.kind === 'public') {
+      // The HTTP request captured an authority before awaiting the server.
+      // Revalidate the exact identity/profile at commit time so a concurrent
+      // logout or account switch cannot activate the stale membership.
+      this.publicAuthority.require(prepared.binding);
+    }
     this.bindings.assertCompatible(prepared.binding);
     const promoted = this.capabilities.promote(
       scope,
@@ -665,17 +690,23 @@ export class PairSessionControlPlaneService {
     );
   }
 
-  private authorityForNewSession(): RequestAuthority {
+  private authorityForNewSession(expectedAuthority?: PairControlPlaneKind): RequestAuthority {
     const publicAuthority = this.publicAuthority.forNewSession();
     if (publicAuthority) {
-      return {
+      const authority: RequestAuthority = {
         kind: 'public',
         ...publicAuthority,
       };
+      assertExpectedAuthority(authority, expectedAuthority);
+      return authority;
     }
     const baseUrl = this.hubBaseUrl;
     if (!baseUrl) throw new Error('hub_unavailable');
-    return { kind: 'hub', baseUrl, profileId: this.profiles.current.profile_id };
+    const authority: RequestAuthority = {
+      kind: 'hub', baseUrl, profileId: this.profiles.current.profile_id,
+    };
+    assertExpectedAuthority(authority, expectedAuthority);
+    return authority;
   }
 
   private authorityForBinding(binding: PairSessionBinding): RequestAuthority {
@@ -840,6 +871,16 @@ function requirePendingCapability(value: unknown): string {
     throw new Error('public_membership_capability_pending_missing');
   }
   return value;
+}
+
+function assertExpectedAuthority(
+  authority: Pick<RequestAuthority, 'kind'>,
+  expectedAuthority?: PairControlPlaneKind,
+): void {
+  if (!expectedAuthority || authority.kind === expectedAuthority) return;
+  throw new Error(expectedAuthority === 'public'
+    ? 'public_pair_authority_required'
+    : 'hub_pair_authority_required');
 }
 
 function membershipAttemptScope(

@@ -107,6 +107,33 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     expect(core.delete).not.toHaveBeenCalled();
   });
 
+  it('pins create and join mutations to the Public authority in public-only mode', async () => {
+    const { service } = configure('ready');
+    service.isActive = false;
+    service.state$.next({
+      session: null, participants: [], messages: [], cursor: '0', role: null,
+    });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    const component = fixture.componentInstance;
+    component.createTitle = 'Public Pair';
+    component.joinCode = 'PUBLIC42';
+
+    await component.doCreate();
+    await component.doJoin();
+
+    expect(service.createSession).toHaveBeenCalledWith(
+      'Public Pair',
+      expect.any(Object),
+      expect.any(Number),
+      { expectedAuthority: 'public' },
+    );
+    expect(service.joinSession).toHaveBeenCalledWith('PUBLIC42', {
+      allowLegacy: false,
+      expectedAuthority: 'public',
+    });
+  });
+
   it('discards only a conflicted pending join after explicit confirmation', async () => {
     const { service } = configure('ready');
     service.isActive = false;

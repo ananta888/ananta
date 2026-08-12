@@ -68,7 +68,10 @@ describe('ShareSessionService strict Pair chat', () => {
   let transport: FakeTransport;
   let cryptoPort: FakeCrypto;
   let securityState: BehaviorSubject<any>;
-  let auth: { userPayload: Record<string, string> | null };
+  let auth: {
+    userPayload: Record<string, string> | null;
+    oidcToken$: BehaviorSubject<string | null>;
+  };
   let publicSession: boolean;
   let controlPlane: {
     readonly currentPeerId: string;
@@ -83,7 +86,10 @@ describe('ShareSessionService strict Pair chat', () => {
     core = new FakeCore();
     transport = new FakeTransport();
     cryptoPort = new FakeCrypto();
-    auth = { userPayload: { sub: 'alice' } };
+    auth = {
+      userPayload: { sub: 'alice' },
+      oidcToken$: new BehaviorSubject<string | null>('oidc-token'),
+    };
     publicSession = false;
     securityState = new BehaviorSubject({ status: 'ready', fingerprint: 'f'.repeat(64) });
     controlPlane = {
@@ -100,7 +106,10 @@ describe('ShareSessionService strict Pair chat', () => {
       { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: 'http://hub' }] } },
       { provide: UserAuthService, useValue: auth },
       { provide: WebrtcTransportService, useValue: transport },
-      { provide: NetworkProfileService, useValue: { current: { transport_order: ['webrtc', 'hub_relay'] } } },
+      { provide: NetworkProfileService, useValue: {
+        current: { transport_order: ['webrtc', 'hub_relay'] },
+        profile$: of({ transport_order: ['webrtc', 'hub_relay'] }),
+      } },
       { provide: E2eEncryptionService, useValue: { ensureLocalKeyPair: vi.fn() } },
       { provide: PAIR_VIEW_CRYPTO, useValue: cryptoPort },
       { provide: PairViewSecurityBootstrapService, useValue: {

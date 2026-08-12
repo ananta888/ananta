@@ -46,6 +46,7 @@ class TerminalControlPlane {
   readonly participantsCalls = vi.fn();
   readonly forgetSession = vi.fn();
   readonly retireSession = vi.fn();
+  readonly abandonSessionActivation = vi.fn();
   readonly end = vi.fn(() => {
     const request = new Subject<unknown>();
     this.endRequests.push(request);
@@ -110,19 +111,29 @@ describe('ShareSessionService terminal session lifecycle', () => {
   let transport: TerminalTransport;
   let bootstrap: TerminalBootstrap;
   let service: ShareSessionService;
+  let oidcToken$: BehaviorSubject<string | null>;
+  let profile$: BehaviorSubject<{ profile_id: string; transport_order: string[] }>;
 
   beforeEach(() => {
     vi.useFakeTimers();
     controlPlane = new TerminalControlPlane();
     transport = new TerminalTransport();
     bootstrap = new TerminalBootstrap();
+    oidcToken$ = new BehaviorSubject<string | null>('oidc-token-a');
+    profile$ = new BehaviorSubject({ profile_id: 'public-ananta', transport_order: ['webrtc'] });
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       { provide: HubApiCoreService, useValue: { get: vi.fn(), post: vi.fn() } },
       { provide: AgentDirectoryService, useValue: { list: () => [] } },
-      { provide: UserAuthService, useValue: { userPayload: { sub: 'owner' } } },
+      {
+        provide: UserAuthService,
+        useValue: { userPayload: { sub: 'owner' }, oidcToken$: oidcToken$.asObservable() },
+      },
       { provide: WebrtcTransportService, useValue: transport },
-      { provide: NetworkProfileService, useValue: { current: { transport_order: ['webrtc'] } } },
+      {
+        provide: NetworkProfileService,
+        useValue: { current: profile$.value, profile$: profile$.asObservable() },
+      },
       { provide: E2eEncryptionService, useValue: {
         ensureLocalKeyPair: vi.fn(async () => ({
           publicKeySpkiB64: 'public-key', fingerprint: 'fingerprint',
@@ -145,6 +156,61 @@ describe('ShareSessionService terminal session lifecycle', () => {
     service.ngOnDestroy();
     vi.useRealTimers();
     TestBed.resetTestingModule();
+  });
+
+  it('exposes a create or join as pending before the first awaited dependency resolves', async () => {
+    const response = new Subject<ShareSession>();
+    controlPlane.create.mockReturnValueOnce(response);
+
+    const pending = service.createSession('Pending Pair', { chat: true }, null);
+    expect(service.sessionMutationPending).toBe(true);
+    await Promise.resolve();
+    response.next({ ...SESSION });
+    response.complete();
+
+    await pending;
+    expect(service.sessionMutationPending).toBe(false);
+    expect(service.isActive).toBe(true);
+  });
+
+  it('abandons a committed response binding that is no longer activatable', async () => {
+    controlPlane.assertSessionAvailable.mockImplementationOnce(() => {
+      throw new Error('public_session_identity_changed');
+    });
+
+    await expect(service.createSession('Stale Pair', { chat: true }, null))
+      .rejects.toThrow('public_session_identity_changed');
+
+    expect(controlPlane.abandonSessionActivation).toHaveBeenCalledWith('session-a');
+    expect(service.isActive).toBe(false);
+    expect(service.sessionMutationPending).toBe(false);
+  });
+
+  it('clears a Public session locally when its exact pinned authority is lost', async () => {
+    await service.createSession('Authority loss', { chat: true }, null);
+    controlPlane.assertSessionAvailable.mockImplementation(() => {
+      throw new Error('public_session_identity_binding_mismatch');
+    });
+
+    oidcToken$.next('oidc-token-b');
+
+    expect(service.isActive).toBe(false);
+    expect(transport.retireSession).toHaveBeenCalledWith('session-a');
+    expect(controlPlane.retireSession).toHaveBeenCalledWith('session-a');
+  });
+
+  it('does not clear a Hub-bound session for Public authority loss', async () => {
+    controlPlane.publicSession = false;
+    await service.createSession('Hub session', { chat: true }, null);
+    controlPlane.assertSessionAvailable.mockImplementation(() => {
+      throw new Error('public_session_binding_required');
+    });
+
+    profile$.next({ profile_id: 'local', transport_order: ['webrtc'] });
+
+    expect(service.isActive).toBe(true);
+    expect(transport.retireSession).not.toHaveBeenCalled();
+    expect(controlPlane.retireSession).not.toHaveBeenCalled();
   });
 
   it.each([

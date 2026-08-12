@@ -587,7 +587,9 @@ export class AiSnakeSharePanelComponent implements OnInit {
     try {
       await this.svc.createSession(this.createTitle.trim(), {
         chat: this.perm_chat, view_tui: this.perm_view, remote_cursor: this.perm_cursor,
-      }, Number(this.expiresIn) || null);
+      }, Number(this.expiresIn) || null, {
+        expectedAuthority: this.publicOnly ? 'public' : undefined,
+      });
       this.activeTab = 'chat';
     } catch (e: unknown) {
       this.createError = pairSessionErrorMessage(e, 'Erstellen fehlgeschlagen');
@@ -602,7 +604,10 @@ export class AiSnakeSharePanelComponent implements OnInit {
     this.joinError = '';
     this.pendingJoinRecoveryAvailable = false;
     try {
-      await this.svc.joinSession(this.joinCode.trim(), { allowLegacy: this.allowLegacyJoin });
+      await this.svc.joinSession(this.joinCode.trim(), {
+        allowLegacy: this.allowLegacyJoin,
+        expectedAuthority: this.publicOnly ? 'public' : undefined,
+      });
       this.activeTab = 'chat';
     } catch (e: unknown) {
       this.joinError = pairSessionErrorMessage(e, 'Beitreten fehlgeschlagen');

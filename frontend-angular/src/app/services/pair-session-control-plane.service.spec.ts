@@ -1,6 +1,6 @@
 import { HttpContext } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
-import { TimeoutError, defer, firstValueFrom, of, throwError } from 'rxjs';
+import { Subject, TimeoutError, defer, firstValueFrom, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
@@ -204,6 +204,29 @@ describe('PairSessionControlPlaneService', () => {
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
       { 'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/) },
     ]);
+  });
+
+  it('rejects a Public create response after the OIDC identity changes in flight', async () => {
+    const core = TestBed.inject(HubApiCoreService);
+    const response = new Subject<Record<string, unknown>>();
+    vi.mocked(core.request).mockReturnValueOnce(response);
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const pending = firstValueFrom(service.create({
+      title: 'Pair', permissions: { chat: true }, public_key_fingerprint: 'fingerprint',
+      public_key_spki_b64: 'spki',
+    }));
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      sub: 'replacement-subject',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+
+    response.next({ ok: true, local_peer_id: ownerPeerId, session: createdResponse });
+    response.complete();
+
+    await expect(pending).rejects.toThrow('public_session_identity_changed');
+    expect(() => service.peerIdForSession('created-session'))
+      .toThrow('pair_control_plane_binding_missing');
   });
 
   it('automatically resumes an idempotent public join after Retry-After', async () => {
@@ -417,6 +440,20 @@ describe('PairSessionControlPlaneService', () => {
 
     expect(posts[0].url).toBe('http://127.0.0.1:5000/share-sessions');
     expect(posts[0].token).toBeUndefined();
+  });
+
+  it('never falls back to Hub when the caller requires Public Pair', () => {
+    profile.current = {
+      ...publicProfile(), profile_id: 'local', public_rendezvous: false,
+      oidc: { ...publicProfile().oidc, issuer: '' },
+      rendezvous: { ...publicProfile().rendezvous, base_url: '', signaling_url: '' },
+    };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    expect(() => service.create({ title: 'Public only' }, { expectedAuthority: 'public' }))
+      .toThrow('public_pair_authority_required');
+    expect(posts).toEqual([]);
+    expect(requests).toEqual([]);
   });
 
   it('does not fall back to Hub after a bound public session loses its token', () => {

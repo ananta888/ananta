@@ -1,5 +1,5 @@
 import { Injectable, inject, OnDestroy } from '@angular/core';
-import { BehaviorSubject, Observable, Subscription, firstValueFrom } from 'rxjs';
+import { BehaviorSubject, Observable, Subscription, combineLatest, firstValueFrom } from 'rxjs';
 import { HubApiCoreService } from './hub-api-core.service';
 import { AgentDirectoryService } from './agent-directory.service';
 import { UserAuthService } from './user-auth.service';
@@ -10,7 +10,10 @@ import { hasPermission, normalizePermissions, permissionsFromUiSelection } from 
 import { E2eEncryptionService } from './e2e-encryption.service';
 import { PAIR_VIEW_CRYPTO, PairViewCryptoPort } from './pair-view-crypto.service';
 import { PairSecureSequenceService } from './pair-secure-sequence.service';
-import { PairSessionControlPlaneService } from './pair-session-control-plane.service';
+import {
+  PairSessionControlPlaneService,
+  PairSessionMutationOptions,
+} from './pair-session-control-plane.service';
 import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
 import {
   PairSecurityBootstrapState,
@@ -125,8 +128,17 @@ export class ShareSessionService implements OnDestroy {
     sessionId: string;
     promise: Promise<void>;
   }> | null = null;
+  private membershipMutationSerial = 0;
+  private activeMembershipMutation: Readonly<{
+    serial: number;
+    kind: 'create' | 'join';
+  }> | null = null;
 
   constructor() {
+    this.lifetimeSubscriptions.add(combineLatest([
+      this.userAuth.oidcToken$,
+      this.profiles.profile$,
+    ]).subscribe(() => this.reconcileActivePublicAuthority()));
     this.lifetimeSubscriptions.add(this.transport.message$.subscribe((msg) => {
       if (msg.type !== 'chat') return;
       const session = this.state$.value.session;
@@ -164,6 +176,7 @@ export class ShareSessionService implements OnDestroy {
   }
 
   get isActive(): boolean { return !!this.state$.value.session; }
+  get sessionMutationPending(): boolean { return this.activeMembershipMutation !== null; }
 
   /**
    * Permissions of the currently active session, normalised
@@ -224,10 +237,12 @@ export class ShareSessionService implements OnDestroy {
     title: string,
     permissions: Partial<Record<PermissionKey, boolean>>,
     expiresInSeconds: number | null,
+    options: PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
-    const deviceKey = await this.e2ee.ensureLocalKeyPair();
-    const transport = this.preferredTransport();
-    const body = {
+    return this.runMembershipMutation('create', async () => {
+      const deviceKey = await this.e2ee.ensureLocalKeyPair();
+      const transport = this.preferredTransport();
+      const body = {
         title,
         permissions: permissionsFromUiSelection(permissions),
         permissions_version: 1,
@@ -238,30 +253,30 @@ export class ShareSessionService implements OnDestroy {
         mode: transport === 'webrtc' ? 'p2p' : 'relay',
         transport,
         expires_at: expiresInSeconds ? Date.now() / 1000 + expiresInSeconds : null,
-    };
-    const session = await firstValueFrom(this.controlPlane.create<ShareSession>(body));
-    if (!session?.id) throw new Error('no session in response');
-    this.activateSession(session, 'owner');
-    return session;
+      };
+      const session = await firstValueFrom(this.controlPlane.create<ShareSession>(body, options));
+      if (!session?.id) throw new Error('no session in response');
+      this.activateValidatedSession(session, 'owner');
+      return session;
+    });
   }
 
   async joinSession(
     inviteCode: string,
-    options: { allowLegacy?: boolean } = {},
+    options: { allowLegacy?: boolean } & PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
-    const deviceKey = await this.e2ee.ensureLocalKeyPair();
-    const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
-      invite_code: inviteCode,
-      minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
-      public_key_spki_b64: deviceKey.publicKeySpkiB64,
-      public_key_fingerprint: deviceKey.fingerprint,
-    }));
-    if (!session?.id) throw new Error('join failed');
-    if (!this.isStrictSession(session) && options.allowLegacy !== true) {
-      throw new Error('legacy_session_requires_explicit_approval');
-    }
-    this.activateSession(session, 'participant');
-    return session;
+    return this.runMembershipMutation('join', async () => {
+      const deviceKey = await this.e2ee.ensureLocalKeyPair();
+      const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
+        invite_code: inviteCode,
+        minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
+        public_key_spki_b64: deviceKey.publicKeySpkiB64,
+        public_key_fingerprint: deviceKey.fingerprint,
+      }, { expectedAuthority: options.expectedAuthority }));
+      if (!session?.id) throw new Error('join failed');
+      this.activateValidatedSession(session, 'participant', options.allowLegacy === true);
+      return session;
+    });
   }
 
   /**
@@ -571,6 +586,40 @@ export class ShareSessionService implements OnDestroy {
     this.securityBootstrap.clear();
   }
 
+  private async runMembershipMutation<T>(
+    kind: 'create' | 'join',
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    if (this.activeMembershipMutation) throw new Error('pair_session_mutation_in_progress');
+    const mutation = Object.freeze({ serial: ++this.membershipMutationSerial, kind });
+    this.activeMembershipMutation = mutation;
+    try {
+      return await operation();
+    } finally {
+      if (this.activeMembershipMutation?.serial === mutation.serial) {
+        this.activeMembershipMutation = null;
+      }
+    }
+  }
+
+  private activateValidatedSession(
+    session: ShareSession,
+    role: 'owner' | 'participant',
+    allowLegacy = false,
+  ): void {
+    try {
+      this.controlPlane.assertSessionAvailable(session.id);
+      if (role === 'participant' && !this.isStrictSession(session) && !allowLegacy) {
+        throw new Error('legacy_session_requires_explicit_approval');
+      }
+      if (this.controlPlane.isPublicSession(session.id)) this.publicContract.assertValid(session);
+    } catch (error) {
+      this.controlPlane.abandonSessionActivation(session.id);
+      throw error;
+    }
+    this.activateSession(session, role);
+  }
+
   private activateSession(session: ShareSession, role: 'owner' | 'participant'): void {
     if (this.controlPlane.isPublicSession(session.id)) this.publicContract.assertValid(session);
     const priorSessionId = this.state$.value.session?.id ?? '';
@@ -736,6 +785,16 @@ export class ShareSessionService implements OnDestroy {
   private terminateRemoteSession(sessionId: string, generation: number): void {
     if (!this.isCurrentSession(sessionId, generation)) return;
     this.clearActiveSession(true);
+  }
+
+  private reconcileActivePublicAuthority(): void {
+    const sessionId = this.state$.value.session?.id ?? '';
+    if (!sessionId || !this.controlPlane.isPublicSession(sessionId)) return;
+    try {
+      this.controlPlane.assertSessionAvailable(sessionId);
+    } catch {
+      this.clearActiveSession(true);
+    }
   }
 
   private quiesceActiveTransport(sessionId: string, generation: number): number | null {

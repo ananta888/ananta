@@ -109,14 +109,20 @@ describe('ShareSessionService verified direct-transport lifecycle', () => {
   let core: LifecycleCore;
   let transport: LifecycleTransport;
   let bootstrap: LifecycleBootstrap;
-  let auth: { userPayload: Record<string, string> };
+  let auth: {
+    userPayload: Record<string, string>;
+    oidcToken$: BehaviorSubject<string | null>;
+  };
   let service: ShareSessionService;
 
   beforeEach(() => {
     core = new LifecycleCore();
     transport = new LifecycleTransport();
     bootstrap = new LifecycleBootstrap();
-    auth = { userPayload: { sub: 'alice' } };
+    auth = {
+      userPayload: { sub: 'alice' },
+      oidcToken$: new BehaviorSubject<string | null>('oidc-token'),
+    };
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       { provide: HubApiCoreService, useValue: core },
@@ -127,6 +133,7 @@ describe('ShareSessionService verified direct-transport lifecycle', () => {
       { provide: WebrtcTransportService, useValue: transport },
       { provide: NetworkProfileService, useValue: {
         current: { transport_order: ['webrtc', 'hub_relay'] },
+        profile$: of({ transport_order: ['webrtc', 'hub_relay'] }),
       } },
       { provide: E2eEncryptionService, useValue: {
         ensureLocalKeyPair: vi.fn(async () => ({

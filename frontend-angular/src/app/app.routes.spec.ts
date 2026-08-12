@@ -2,6 +2,7 @@ import { routes } from './app.routes';
 import { adminGuard } from './guards/admin.guard';
 import { authGuard } from './auth.guard';
 import { publicPairGuard } from './guards/public-pair.guard';
+import { publicPairActiveSessionGuard } from './guards/public-pair-active-session.guard';
 
 function flattenRoutes(items: typeof routes): any[] {
   return items.flatMap((route: any) => [
@@ -16,6 +17,7 @@ describe('app routes', () => {
     const hubShell = routes.find((route) => route.path === '' && route.children);
 
     expect(pairRoute?.canActivate).toEqual([publicPairGuard]);
+    expect(pairRoute?.canDeactivate).toEqual([publicPairActiveSessionGuard]);
     expect(typeof pairRoute?.loadComponent).toBe('function');
     expect(hubShell?.canActivate).toEqual([authGuard]);
     expect(hubShell?.children?.some((route) => route.path === 'pair-dev')).toBe(false);
