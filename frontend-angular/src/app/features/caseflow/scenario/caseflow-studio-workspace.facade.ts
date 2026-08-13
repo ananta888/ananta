@@ -8,12 +8,19 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
-import { Subject, catchError, map, of, switchMap } from 'rxjs';
+import { Subject, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 
 import {
   CaseFlowAgentBindingCatalogReadModel,
   CaseFlowAgentBindingCatalogService,
 } from '../agent-canvas/caseflow-agent-binding-catalog.service';
+import {
+  BUILDER_CRITIC_GAUNTLET_EDGE_IDS,
+  BUILDER_CRITIC_GAUNTLET_PRESET_ID,
+  BUILDER_CRITIC_GAUNTLET_STEP_IDS,
+  CaseFlowAgentPresetResult,
+  applyBuilderCriticGauntletPreset,
+} from '../agent-canvas/caseflow-agent-preset.commands';
 import { projectAgentCanvas } from '../agent-canvas/caseflow-agent-canvas.mapper';
 import {
   SavedGraphSummary,
@@ -78,6 +85,7 @@ implements OnDestroy, VpEditorPersistencePort {
   readonly loadingGraphs = signal(true);
   readonly loadingGraph = signal(false);
   readonly busy = signal(false);
+  readonly presetBusy = signal(false);
   readonly view = signal<CaseFlowStudioView>('agents');
   readonly requestedGraphId = signal('');
   readonly scenarioId = signal('');
@@ -87,6 +95,7 @@ implements OnDestroy, VpEditorPersistencePort {
   readonly hasError = signal(false);
   readonly saveConflict = signal(false);
   readonly catalogReadModel = signal<CaseFlowAgentBindingCatalogReadModel | null>(null);
+  readonly gauntletContextSourceId = signal('');
 
   private readonly loadedGraphId = signal('');
   private readonly savedDraftFingerprint = signal(draftFingerprint(EMPTY_DRAFT));
@@ -110,9 +119,27 @@ implements OnDestroy, VpEditorPersistencePort {
     const projection = this.agentProjection();
     return projection.ok && projection.value.nodes.length > 0;
   });
+  readonly gauntletContextSourceIds = computed<readonly string[]>(() => {
+    const readModel = this.catalogReadModel();
+    return readModel?.availability.context_source.state === 'ready'
+      ? readModel.catalog.context_resource_ids.context_source
+      : [];
+  });
+  readonly canApplyBuilderCriticGauntlet = computed(() => {
+    const contextSourceId = this.gauntletContextSourceId();
+    return this.graphLoaded()
+      && !this.loadingGraph()
+      && !this.busy()
+      && !this.presetBusy()
+      && this.requestedGraphId() === this.loadedGraphId()
+      && contextSourceId.length > 0
+      && this.gauntletContextSourceIds().includes(contextSourceId);
+  });
 
   private readonly graphLoads = new Subject<GraphLoadRequest | null>();
   private connected = false;
+  private presetRequestGeneration = 0;
+  private catalogRequestGeneration = 0;
   private pendingGraphId = '';
   private lastRouteSelection: StudioRouteSelection = {
     graphId: '',
@@ -136,9 +163,13 @@ implements OnDestroy, VpEditorPersistencePort {
 
     this.refreshGraphList();
 
+    const catalogGeneration = ++this.catalogRequestGeneration;
     this.bindingCatalog.load().pipe(
       takeUntilDestroyed(this.destroyRef),
-    ).subscribe(readModel => this.catalogReadModel.set(readModel));
+    ).subscribe(readModel => {
+      if (catalogGeneration !== this.catalogRequestGeneration) return;
+      this.acceptCatalogReadModel(readModel);
+    });
 
     this.route.queryParamMap.pipe(
       map(params => routeSelection(params)),
@@ -148,6 +179,11 @@ implements OnDestroy, VpEditorPersistencePort {
 
   selectGraph(graphId: string): boolean {
     const currentId = this.loadedGraphId();
+    if (this.presetBusy() && graphId !== currentId) {
+      this.hasError.set(true);
+      this.message.set('Workflowwechsel ist während der Preset-Prüfung gesperrt.');
+      return false;
+    }
     if (this.dirty() && currentId && graphId !== currentId) {
       this.rejectDirtyGraphSwitch();
       return false;
@@ -178,6 +214,115 @@ implements OnDestroy, VpEditorPersistencePort {
     this.draft.update(current => ({ ...current, ...patch }));
     this.preview.set(null);
     this.message.set('');
+  }
+
+  selectGauntletContextSource(contextSourceId: string): void {
+    const normalized = typeof contextSourceId === 'string'
+      ? contextSourceId
+      : '';
+    this.gauntletContextSourceId.set(
+      this.gauntletContextSourceIds().includes(normalized) ? normalized : '',
+    );
+    this.message.set('');
+  }
+
+  applyBuilderCriticGauntlet(): void {
+    if (this.presetBusy() || this.busy()) return;
+    const graphId = this.loadedGraphId();
+    const contextSourceId = this.gauntletContextSourceId();
+    if (!graphId
+      || this.graph().id !== graphId
+      || this.loadingGraph()
+      || this.requestedGraphId() !== graphId) {
+      this.hasError.set(true);
+      this.message.set('Warte, bis der ausgewählte Workflow vollständig geladen ist.');
+      return;
+    }
+    if (!this.gauntletContextSourceIds().includes(contextSourceId)) {
+      this.hasError.set(true);
+      this.message.set('Wähle eine aktuell autorisierte Kontextquelle aus dem Hub-Katalog.');
+      return;
+    }
+
+    const generation = ++this.presetRequestGeneration;
+    const catalogGeneration = ++this.catalogRequestGeneration;
+    const revision = this.editorState.revision();
+    this.presetBusy.set(true);
+    this.hasError.set(false);
+    this.message.set('Builder/Critic-Preset und Berechtigungen werden geprüft …');
+
+    forkJoin({
+      preset: this.api.getPreset(BUILDER_CRITIC_GAUNTLET_PRESET_ID),
+      catalog: this.bindingCatalog.load(),
+    }).pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+      next: ({ preset, catalog }) => {
+        if (!this.isCurrentPresetRequest(
+          generation,
+          graphId,
+          revision,
+          contextSourceId,
+          catalogGeneration,
+        )) {
+          this.finishPresetRequest(generation);
+          this.hasError.set(true);
+          this.message.set('Preset-Anfrage wurde verworfen, weil sich der lokale Draft geändert hat.');
+          return;
+        }
+
+        this.acceptCatalogReadModel(catalog);
+        const authorizedContextIds = catalog.availability.context_source.state === 'ready'
+          ? catalog.catalog.context_resource_ids.context_source
+          : [];
+        const presetId = readGraphIdentity(preset);
+        if (presetId !== BUILDER_CRITIC_GAUNTLET_PRESET_ID
+          || !authorizedContextIds.includes(contextSourceId)) {
+          this.finishPresetRequest(generation);
+          this.gauntletContextSourceId.set(
+            authorizedContextIds.includes(contextSourceId) ? contextSourceId : '',
+          );
+          this.hasError.set(true);
+          this.message.set(presetId !== BUILDER_CRITIC_GAUNTLET_PRESET_ID
+            ? 'Der Hub lieferte ein abweichendes Preset; der Graph blieb unverändert.'
+            : 'Die Kontextfreigabe ist nicht mehr aktuell; der Graph blieb unverändert.');
+          return;
+        }
+
+        let result: CaseFlowAgentPresetResult | null = null;
+        const changed = this.editorState.execute(
+          'Builder/Critic Gauntlet anwenden',
+          current => {
+            result = applyBuilderCriticGauntletPreset(current, preset, {
+              selected_step_ids: BUILDER_CRITIC_GAUNTLET_STEP_IDS,
+              selected_edge_ids: BUILDER_CRITIC_GAUNTLET_EDGE_IDS,
+              critic_benchmark_context_binding: {
+                resource_type: 'context_source',
+                resource_id: contextSourceId,
+              },
+            }, catalog.catalog);
+            return result.ok ? result.value : current;
+          },
+        );
+        this.finishPresetRequest(generation);
+        if (!result || !result.ok || !changed) {
+          this.hasError.set(true);
+          this.message.set(result && !result.ok
+            ? `Preset konnte nicht angewendet werden: ${result.issues[0]?.message ?? 'ungültige Auswahl'}`
+            : 'Preset hat keine Änderung am aktuellen Graph erzeugt.');
+          return;
+        }
+        this.preview.set(null);
+        this.hasError.set(false);
+        this.message.set('Builder/Critic Gauntlet wurde als ein rückgängig machbarer Schritt eingefügt.');
+      },
+      error: () => {
+        if (generation !== this.presetRequestGeneration) return;
+        this.finishPresetRequest(generation);
+        this.catalogReadModel.set(null);
+        this.gauntletContextSourceId.set('');
+        this.hasError.set(true);
+        this.message.set('Preset oder aktueller Berechtigungskatalog konnte nicht geladen werden.');
+      },
+    });
   }
 
   selectEntity(id: string | null): void {
@@ -228,7 +373,7 @@ implements OnDestroy, VpEditorPersistencePort {
 
   publish(): void {
     const current = this.currentGraphOrReportError();
-    if (!current || this.busy()) return;
+    if (!current || this.busy() || this.presetBusy()) return;
     const scenario = this.registry.compileFromGraph(current, this.draft());
     const submittedDraftFingerprint = draftFingerprint(this.draft());
     const graphToPublish = this.registry.withScenario(current, scenario);
@@ -296,6 +441,12 @@ implements OnDestroy, VpEditorPersistencePort {
 
   private acceptRouteSelection(selection: StudioRouteSelection): void {
     const currentId = this.loadedGraphId();
+    if (this.presetBusy() && currentId && selection.graphId !== currentId) {
+      this.hasError.set(true);
+      this.message.set('Workflowwechsel ist während der Preset-Prüfung gesperrt.');
+      this.syncCanonicalRoute(true, true);
+      return;
+    }
     if (
       this.dirty()
       && currentId
@@ -442,6 +593,39 @@ implements OnDestroy, VpEditorPersistencePort {
       : readErrorMessage(error) || fallback);
   }
 
+  private isCurrentPresetRequest(
+    generation: number,
+    graphId: string,
+    revision: number,
+    contextSourceId: string,
+    catalogGeneration: number,
+  ): boolean {
+    return generation === this.presetRequestGeneration
+      && this.presetBusy()
+      && this.loadedGraphId() === graphId
+      && this.requestedGraphId() === graphId
+      && !this.loadingGraph()
+      && this.graph().id === graphId
+      && this.editorState.revision() === revision
+      && this.gauntletContextSourceId() === contextSourceId
+      && this.catalogRequestGeneration === catalogGeneration;
+  }
+
+  private finishPresetRequest(generation: number): void {
+    if (generation === this.presetRequestGeneration) this.presetBusy.set(false);
+  }
+
+  private acceptCatalogReadModel(readModel: CaseFlowAgentBindingCatalogReadModel): void {
+    this.catalogReadModel.set(readModel);
+    const selected = this.gauntletContextSourceId();
+    const authorized = readModel.availability.context_source.state === 'ready'
+      ? readModel.catalog.context_resource_ids.context_source
+      : [];
+    if (selected && !authorized.includes(selected)) {
+      this.gauntletContextSourceId.set('');
+    }
+  }
+
   private refreshGraphList(): void {
     this.api.listSavedGraphs().pipe(
       catchError(() => of([] as SavedGraphSummary[])),
@@ -526,4 +710,12 @@ function readErrorMessage(error: unknown): string {
   if (!payload || typeof payload !== 'object') return '';
   const message = (payload as Record<string, unknown>)['message'];
   return typeof message === 'string' ? message : '';
+}
+
+function readGraphIdentity(value: unknown): string | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const id = (value as Record<string, unknown>)['id'];
+  return typeof id === 'string' && id.length > 0 && id.trim() === id
+    ? id
+    : null;
 }

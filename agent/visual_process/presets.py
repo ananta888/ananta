@@ -8,11 +8,11 @@ from agent.visual_process.models import (
     ArtifactRef,
     LoopPolicy,
     StepIOContract,
+    StepPosition,
     TransitionCondition,
     VisualProcessEdge,
     VisualProcessGraph,
     VisualProcessStep,
-    StepPosition,
 )
 
 
@@ -166,6 +166,88 @@ def preset_deploy_pipeline() -> VisualProcessGraph:
 
 
 # ── ML / AI presets ───────────────────────────────────────────────────────────
+
+def preset_builder_critic_gauntlet() -> VisualProcessGraph:
+    """Lead fan-out with a Builder/Critic feedback loop (CAC-012).
+
+    The preset deliberately declares only a logical binding slot. The
+    authenticated CaseFlow binding catalog must supply and authorize the
+    concrete read-only benchmark/evidence context before the Critic is added
+    to another graph.
+    """
+    return VisualProcessGraph(
+        id="preset-builder-critic-gauntlet",
+        name="Builder/Critic Gauntlet",
+        description=(
+            "Lead delegates to Builder and Critic; the Critic can send bounded "
+            "feedback to the Builder."
+        ),
+        tags=["agents", "builder-critic", "gauntlet", "review"],
+        metadata={
+            "ananta.caseflow.agent-preset": {
+                "schema": "ananta.caseflow.agent-preset/v1",
+                "binding_slots": [
+                    {
+                        "slot": "critic_benchmark_context",
+                        "step_id": "gauntlet-critic",
+                        "resource_type": "context_source",
+                        "required": True,
+                        "access": "read_only",
+                    }
+                ],
+            }
+        },
+        extensions={
+            "ananta.caseflow.agent-canvas": {
+                "schema": "ananta.caseflow.agent-canvas/v1",
+                "nodes": {
+                    "gauntlet-lead": {"icon": "star"},
+                    "gauntlet-builder": {"icon": "code"},
+                    "gauntlet-critic": {"icon": "rule"},
+                },
+            }
+        },
+        steps=[
+            _step(
+                "gauntlet-lead", "Lead", "plan_only", "lead", x=0, y=120
+            ),
+            _step(
+                "gauntlet-builder",
+                "Builder",
+                "patch_propose",
+                "developer",
+                x=260,
+                y=0,
+            ),
+            _step(
+                "gauntlet-critic",
+                "Critic",
+                "review",
+                "critic",
+                x=260,
+                y=240,
+                policy_hints=["read_only"],
+            ),
+        ],
+        edges=[
+            _edge("gauntlet-lead-builder", "gauntlet-lead", "gauntlet-builder"),
+            _edge("gauntlet-lead-critic", "gauntlet-lead", "gauntlet-critic"),
+            _edge(
+                "gauntlet-builder-critic",
+                "gauntlet-builder",
+                "gauntlet-critic",
+                kind="on_success",
+            ),
+            _back_edge(
+                "gauntlet-critic-builder-feedback",
+                "gauntlet-critic",
+                "gauntlet-builder",
+                max_iter=3,
+                label="revise from critic feedback",
+            ),
+        ],
+    )
+
 
 def preset_rag_pipeline() -> VisualProcessGraph:
     """query_rewrite → rag_retrieve → rerank → summarize (VPPRE-001)."""
@@ -457,6 +539,7 @@ def _load() -> None:
     for fn in [
         preset_code_review_pipeline, preset_tdd_loop,
         preset_research_and_report, preset_deploy_pipeline,
+        preset_builder_critic_gauntlet,
         preset_rag_pipeline, preset_knowledge_index_pipeline,
         preset_self_improving_agent, preset_self_improving_planner,
         preset_evolution_pipeline,

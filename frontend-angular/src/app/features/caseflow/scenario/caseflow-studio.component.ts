@@ -57,7 +57,7 @@ import {
           <select
             [ngModel]="workspace.selectedGraphId()"
             (ngModelChange)="workspace.selectGraph($event)"
-            [disabled]="workspace.dirty() || workspace.loadingGraph()"
+            [disabled]="workspace.dirty() || workspace.loadingGraph() || workspace.presetBusy()"
             aria-describedby="graph-switch-status"
           >
             <option value="">Bitte auswählen …</option>
@@ -131,6 +131,42 @@ import {
               subtitle="Die verständliche Ansicht projiziert den kanonischen VisualProcessGraph ohne eigene Persistenz."
               variant="technical"
             >
+              <div class="preset-tool" aria-labelledby="gauntlet-preset-title">
+                <div>
+                  <strong id="gauntlet-preset-title">Builder/Critic Gauntlet</strong>
+                  <p class="muted">
+                    Fügt Lead, Builder, Critic und die begrenzte Feedback-Schleife ein. Die Critic-Kontextquelle wird frisch gegen den Hub-Katalog geprüft.
+                  </p>
+                </div>
+                <label class="field">
+                  <span>Autorisierte Benchmark-Kontextquelle</span>
+                  <select
+                    data-gauntlet-context-source
+                    [ngModel]="workspace.gauntletContextSourceId()"
+                    (ngModelChange)="workspace.selectGauntletContextSource($event)"
+                    [disabled]="workspace.presetBusy() || workspace.busy() || !workspace.gauntletContextSourceIds().length"
+                  >
+                    <option value="">Bitte auswählen …</option>
+                    @for (contextSourceId of workspace.gauntletContextSourceIds(); track contextSourceId) {
+                      <option [value]="contextSourceId">{{ contextSourceId }}</option>
+                    }
+                  </select>
+                </label>
+                <button
+                  type="button"
+                  class="secondary"
+                  data-apply-gauntlet-preset
+                  (click)="workspace.applyBuilderCriticGauntlet()"
+                  [disabled]="!workspace.canApplyBuilderCriticGauntlet()"
+                >
+                  @if (workspace.presetBusy()) { Preset wird geprüft … } @else { Gauntlet einfügen }
+                </button>
+                @if (!workspace.gauntletContextSourceIds().length) {
+                  <p class="muted" role="status">
+                    Keine aktuell autorisierte Kontextquelle verfügbar.
+                  </p>
+                }
+              </div>
               <app-caseflow-agent-canvas
                 [graph]="workspace.graph()"
                 [selectedId]="workspace.selectedId()"
@@ -205,7 +241,7 @@ import {
             <button type="button" class="secondary" (click)="workspace.generatePreview()" [disabled]="workspace.busy()">
               UI aus aktuellem Workflow erzeugen
             </button>
-            <button type="button" class="primary" (click)="workspace.publish()" [disabled]="workspace.busy() || !workspace.preview()">
+            <button type="button" class="primary" (click)="workspace.publish()" [disabled]="workspace.busy() || workspace.presetBusy() || !workspace.preview()">
               CaseFlow veröffentlichen
             </button>
           </div>
@@ -247,6 +283,8 @@ import {
     .studio-tabs button[aria-selected='true'] { border-bottom: 3px solid currentColor; font-weight: 700; }
     .studio-tabs button:focus-visible { outline: 3px solid var(--focus-color, #38bdf8); outline-offset: 2px; }
     .studio-panel { min-width: 0; }
+    .preset-tool { display: grid; gap: .75rem; margin-bottom: 1rem; padding: 1rem; border: 1px solid var(--border-color, #334155); border-radius: .5rem; }
+    .preset-tool > button { justify-self: start; }
     .empty-state { display: grid; justify-items: start; gap: .5rem; padding: 1rem; }
     .muted { min-height: 1.2em; opacity: .75; }
     .error { color: var(--danger-color, #d33); }

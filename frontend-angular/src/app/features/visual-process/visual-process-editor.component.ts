@@ -36,6 +36,7 @@ import { VpNodePaletteComponent } from './vp-node-palette.component';
 import { VpResourceOptionProvider } from './vp-resource-option-provider';
 import { VpAssistantPatchPreview } from './vp-assistant-api.service';
 import { VpWorkflowPatchPreviewComponent } from './vp-workflow-patch-preview.component';
+import { validateVpPresetDirectLoad } from './vp-preset-load.policy';
 import {
   DatasetSummary,
   TrainingBaseModel,
@@ -101,6 +102,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   readonly assistant = inject(VpAssistantBridgeService);
   private subs = new Subscription();
   private suppressNextAssistantSelection = false;
+  private presetLoadGeneration = 0;
+  private policyRefreshGeneration = 0;
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
   readonly NODE_W = NODE_W;
@@ -336,6 +339,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   ngOnDestroy(): void {
+    this.presetLoadGeneration += 1;
+    this.policyRefreshGeneration += 1;
     this.subs.unsubscribe();
     this.workflowRunner.destroy();
     if (!this.graphStateHosted) this.editorState.destroy();
@@ -550,13 +555,31 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       return;
     }
     this.loadPresetMenu = false;
+    const generation = ++this.presetLoadGeneration;
+    this.policyRefreshGeneration += 1;
+    const revision = this.editorState.revision();
     this.subs.add(this.api.getPreset(id).subscribe({
-      next: g => {
-        this.editorState.initialize(g);
-        this.statusMsg.set(`Preset "${g.name}" geladen`);
-        setTimeout(() => this.refreshPolicyHints(true), 300);
+      next: response => {
+        if (generation !== this.presetLoadGeneration
+          || revision !== this.editorState.revision()) return;
+        const result = validateVpPresetDirectLoad(id, response);
+        if (result.ok === false) {
+          const catalogBound = result.issues.some(issue =>
+            issue.code === 'catalog_application_required');
+          this.statusMsg.set(catalogBound
+            ? 'Dieses Preset benötigt autorisierte Katalog-Bindings und muss im CaseFlow Studio angewendet werden.'
+            : 'Preset-Antwort wurde verworfen; der aktuelle Graph bleibt unverändert.');
+          return;
+        }
+        this.editorState.initialize(result.value);
+        this.statusMsg.set(`Preset "${result.value.name}" geladen`);
+        this.schedulePolicyHintsRefresh(true);
       },
-      error: () => this.statusMsg.set('Preset konnte nicht geladen werden'),
+      error: () => {
+        if (generation !== this.presetLoadGeneration
+          || revision !== this.editorState.revision()) return;
+        this.statusMsg.set('Preset konnte nicht geladen werden');
+      },
     }));
   }
 
@@ -571,7 +594,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
         this.editorState.initialize(g);
         this.saveConflict.set(false);
         this.statusMsg.set(`"${g.name}" geladen`);
-        setTimeout(() => this.refreshPolicyHints(true), 300);
+        this.schedulePolicyHintsRefresh(true);
       },
       error: () => this.statusMsg.set('Graph konnte nicht geladen werden'),
     }));
@@ -634,13 +657,38 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   runDryRun(): void { this.workflowRunner.dryRun(this.graph()); }
   saveAsBlueprintFromDryRun(): void { this.workflowRunner.saveAsBlueprint(this.graph()); }
   refreshPolicyHints(preserveCleanBaseline = false): void {
+    const generation = ++this.policyRefreshGeneration;
+    this.requestPolicyHints(preserveCleanBaseline, generation);
+  }
+
+  private requestPolicyHints(
+    preserveCleanBaseline: boolean,
+    generation: number,
+  ): void {
+    const graphId = this.graph().id;
+    const revision = this.editorState.revision();
     const wasClean = !this.isDirty();
     this.workflowRunner.refreshPolicyHints(this.graph(), perStep => {
+      if (generation !== this.policyRefreshGeneration
+        || graphId !== this.graph().id
+        || revision !== this.editorState.revision()) return;
       this.editorState.mutate('Policy-Hinweise aktualisieren', graph => {
         for (const step of graph.steps) step.policy_hints = perStep[step.id] ?? step.policy_hints;
       }, { recordHistory: false });
       if (preserveCleanBaseline && wasClean) this.editorState.markSaved();
     });
+  }
+
+  private schedulePolicyHintsRefresh(preserveCleanBaseline: boolean): void {
+    const generation = ++this.policyRefreshGeneration;
+    const graphId = this.graph().id;
+    const revision = this.editorState.revision();
+    setTimeout(() => {
+      if (generation !== this.policyRefreshGeneration
+        || graphId !== this.graph().id
+        || revision !== this.editorState.revision()) return;
+      this.requestPolicyHints(preserveCleanBaseline, generation);
+    }, 300);
   }
   startWorkflow(): void { this.workflowRunner.start(this.graph); }
   cancelWorkflow(): void { this.workflowRunner.cancel(); }
@@ -665,7 +713,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
           this.editorState.replaceGraph(result.graph, { markDirty: true, validation: result.validation });
           const warns = result.warnings?.length ? ` (${result.warnings.join(', ')})` : '';
           this.statusMsg.set(`BPMN importiert: ${result.graph.steps.length} Schritte${warns}`);
-          setTimeout(() => this.refreshPolicyHints(true), 300);
+          this.schedulePolicyHintsRefresh(true);
         },
         error: (err) => this.statusMsg.set(`BPMN-Import-Fehler: ${err?.error?.detail ?? 'ungültige Datei'}`),
       }));

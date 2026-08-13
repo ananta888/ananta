@@ -1,7 +1,7 @@
 import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
-import { vi, describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { Subject, of, throwError } from 'rxjs';
 
 import { VisualProcessEditorComponent } from './visual-process-editor.component';
@@ -18,6 +18,10 @@ import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
 import { VP_NODE_REGISTRY_VERSION } from './vp-node-definition-registry.service';
 import { GENERATED_VISUAL_PROCESS_NODE_DEFINITIONS } from './vp-node-definitions.generated';
+import {
+  VP_CATALOG_BOUND_PRESET_METADATA_KEY,
+  VP_CATALOG_BOUND_PRESET_SCHEMA_V1,
+} from './vp-preset-load.policy';
 
 beforeAll(async () => {
   await ɵresolveComponentResources(resource =>
@@ -51,6 +55,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     listNodeDefinitions: ReturnType<typeof vi.fn>;
     listSavedGraphs: ReturnType<typeof vi.fn>;
     listModelProfiles: ReturnType<typeof vi.fn>;
+    getPreset: ReturnType<typeof vi.fn>;
     saveGraph: ReturnType<typeof vi.fn>;
     loadSavedGraph: ReturnType<typeof vi.fn>;
     policySummary: ReturnType<typeof vi.fn>;
@@ -66,6 +71,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       listNodeDefinitions: vi.fn().mockReturnValue(of({ schema: 'ananta.visual_process.node_definition_registry.v1', definitions: [] })),
       listSavedGraphs: vi.fn().mockReturnValue(of([])),
       listModelProfiles: vi.fn().mockReturnValue(of({ profiles: [], fallback_groups: {}, status: 'ok' })),
+      getPreset: vi.fn().mockReturnValue(of(emptyGraph())),
       saveGraph: vi.fn().mockReturnValue(of({ id: 'g', version: '1', definition_revision: 1, base_graph_hash: 'a'.repeat(64), saved: true })),
       loadSavedGraph: vi.fn().mockReturnValue(of(emptyGraph())),
       policySummary: vi.fn().mockReturnValue(of({ summary: {}, per_step: {} })),
@@ -89,6 +95,8 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       ],
     }).compileComponents();
   });
+
+  afterEach(() => vi.useRealTimers());
 
   it('mounts and initializes with an empty graph signal', () => {
     const fixture = TestBed.createComponent(VisualProcessEditorComponent);
@@ -152,6 +160,187 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     expect(api.listTaskKinds).toHaveBeenCalledTimes(1);
     expect(api.listNodeDefinitions).toHaveBeenCalledTimes(1);
     expect(api.listSavedGraphs).toHaveBeenCalledTimes(1);
+  });
+
+  it('loads an ordinary preset through the guarded standalone path', () => {
+    const preset = {
+      ...emptyGraph(), id: 'preset-plain', name: 'Plain preset',
+    };
+    api.getPreset.mockReturnValueOnce(of(preset));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+
+    fixture.componentInstance.loadPreset('preset-plain');
+
+    expect(fixture.componentInstance.graph()).toMatchObject({
+      id: 'preset-plain', name: 'Plain preset',
+    });
+    expect(fixture.componentInstance.statusMsg()).toContain('geladen');
+  });
+
+  it.each([
+    ['catalog-bound preset', () => ({
+      ...emptyGraph(),
+      id: 'preset-bound',
+      name: 'Catalog bound',
+      metadata: {
+        [VP_CATALOG_BOUND_PRESET_METADATA_KEY]: {
+          schema: VP_CATALOG_BOUND_PRESET_SCHEMA_V1,
+          binding_slots: [{
+            slot: 'critic_benchmark_context',
+            step_id: 'gauntlet-critic',
+            resource_type: 'context_source',
+            access: 'read_only',
+            required: true,
+          }],
+        },
+      },
+    }), 'CaseFlow Studio'],
+    ['mismatched preset identity', () => ({
+      ...emptyGraph(), id: 'wrong-preset', name: 'Wrong',
+    }), 'verworfen'],
+    ['runtime-bearing response', () => ({
+      ...emptyGraph(),
+      id: 'preset-bound',
+      name: 'Runtime payload',
+      runtime_overlay: { current_step_ids: ['runtime-step'] },
+    }), 'verworfen'],
+    ['malformed response', () => ({ id: 'preset-bound' }), 'verworfen'],
+  ])('preserves graph and history for a rejected %s', (_label, response, message) => {
+    api.getPreset.mockReturnValueOnce(of(response()));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.addStep('review');
+    const before = structuredClone(component.graph());
+    expect(component.canUndo()).toBe(true);
+
+    component.loadPreset('preset-bound');
+
+    expect(component.graph()).toEqual(before);
+    expect(component.canUndo()).toBe(true);
+    expect(component.statusMsg()).toContain(message);
+    component.undo();
+    expect(component.graph().steps).toHaveLength(0);
+  });
+
+  it('fences out-of-order preset responses behind the newest request generation', () => {
+    const first = new Subject<VpGraph>();
+    const second = new Subject<VpGraph>();
+    api.getPreset
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.loadPreset('preset-first');
+    component.loadPreset('preset-second');
+    second.next({
+      ...emptyGraph(), id: 'preset-second', name: 'Second',
+    });
+    component.addStep('review');
+    const statusAfterNewerResponse = component.statusMsg();
+    first.next({
+      ...emptyGraph(), id: 'preset-first', name: 'First',
+    });
+
+    expect(component.graph()).toMatchObject({ id: 'preset-second', name: 'Second' });
+    expect(component.graph().steps).toHaveLength(1);
+    expect(component.canUndo()).toBe(true);
+    expect(component.statusMsg()).toBe(statusAfterNewerResponse);
+    component.undo();
+    expect(component.graph()).toMatchObject({ id: 'preset-second', name: 'Second' });
+    expect(component.graph().steps).toHaveLength(0);
+  });
+
+  it('preserves edits made while the current preset request is in flight', () => {
+    const response = new Subject<VpGraph>();
+    api.getPreset.mockReturnValueOnce(response);
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.loadPreset('preset-late');
+    component.addStep('review');
+    const graphAfterEdit = structuredClone(component.graph());
+    const statusAfterEdit = component.statusMsg();
+    response.next({
+      ...emptyGraph(), id: 'preset-late', name: 'Late response',
+    });
+
+    expect(component.graph()).toEqual(graphAfterEdit);
+    expect(component.canUndo()).toBe(true);
+    expect(component.statusMsg()).toBe(statusAfterEdit);
+  });
+
+  it('fences an automatic policy response from an older loaded preset', () => {
+    vi.useFakeTimers();
+    const policyResponse = new Subject<{
+      summary: Record<string, unknown>;
+      per_step: Record<string, string[]>;
+    }>();
+    const preset = (id: string, name: string): VpGraph => ({
+      ...emptyGraph(), id, name, steps: [step('shared-step', 'review')],
+    });
+    api.getPreset
+      .mockReturnValueOnce(of(preset('preset-first', 'First')))
+      .mockReturnValueOnce(of(preset('preset-second', 'Second')));
+    api.policySummary.mockReturnValueOnce(policyResponse);
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.loadPreset('preset-first');
+    vi.advanceTimersByTime(300);
+    expect(api.policySummary).toHaveBeenCalledOnce();
+    component.loadPreset('preset-second');
+    component.addStep('review');
+    const graphAfterNewerEdit = structuredClone(component.graph());
+
+    policyResponse.next({
+      summary: {}, per_step: { 'shared-step': ['stale-policy-hint'] },
+    });
+
+    expect(component.graph()).toEqual(graphAfterNewerEdit);
+    expect(component.graph().id).toBe('preset-second');
+    expect(component.graph().steps[0].policy_hints).toEqual([]);
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
+  });
+
+  it('lets a newer preset intent win when the old policy returns first', () => {
+    vi.useFakeTimers();
+    const oldPolicy = new Subject<{
+      summary: Record<string, unknown>;
+      per_step: Record<string, string[]>;
+    }>();
+    const newerPreset = new Subject<VpGraph>();
+    const preset = (id: string, name: string): VpGraph => ({
+      ...emptyGraph(), id, name, steps: [step('shared-step', 'review')],
+    });
+    api.getPreset
+      .mockReturnValueOnce(of(preset('preset-first', 'First')))
+      .mockReturnValueOnce(newerPreset);
+    api.policySummary.mockReturnValueOnce(oldPolicy);
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+
+    component.loadPreset('preset-first');
+    vi.advanceTimersByTime(300);
+    component.loadPreset('preset-second');
+    oldPolicy.next({
+      summary: {}, per_step: { 'shared-step': ['stale-policy-hint'] },
+    });
+    newerPreset.next(preset('preset-second', 'Second'));
+
+    expect(component.graph()).toMatchObject({
+      id: 'preset-second', name: 'Second',
+    });
+    expect(component.graph().steps[0].policy_hints).toEqual([]);
+    expect(component.isDirty()).toBe(false);
+    expect(component.canUndo()).toBe(false);
   });
 
   it('uses a matching Hub registry without mixing it with fallback definitions', () => {

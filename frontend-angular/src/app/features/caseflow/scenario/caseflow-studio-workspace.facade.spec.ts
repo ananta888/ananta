@@ -4,8 +4,12 @@ import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+  CaseFlowAgentBindingCatalogReadModel,
   CaseFlowAgentBindingCatalogService,
 } from '../agent-canvas/caseflow-agent-binding-catalog.service';
+import {
+  BUILDER_CRITIC_GAUNTLET_PRESET_ID,
+} from '../agent-canvas/caseflow-agent-preset.commands';
 import {
   GraphSaveResult,
   VisualProcessApiService,
@@ -47,7 +51,9 @@ describe('CaseFlowStudioWorkspaceFacade', () => {
     listSavedGraphs: ReturnType<typeof vi.fn>;
     loadSavedGraph: ReturnType<typeof vi.fn>;
     saveGraph: ReturnType<typeof vi.fn>;
+    getPreset: ReturnType<typeof vi.fn>;
   };
+  let bindingCatalog: { load: ReturnType<typeof vi.fn> };
   let router: { navigate: ReturnType<typeof vi.fn> };
   let workspace: CaseFlowStudioWorkspaceFacade;
 
@@ -70,7 +76,9 @@ describe('CaseFlowStudioWorkspaceFacade', () => {
         return request;
       }),
       saveGraph: vi.fn(() => saveResult),
+      getPreset: vi.fn(() => of(gauntletPreset())),
     };
+    bindingCatalog = { load: vi.fn(() => of(catalogReadModel(['context-a']))) };
     router = { navigate: vi.fn().mockResolvedValue(true) };
 
     TestBed.configureTestingModule({
@@ -83,7 +91,7 @@ describe('CaseFlowStudioWorkspaceFacade', () => {
         { provide: VisualProcessApiService, useValue: api },
         {
           provide: CaseFlowAgentBindingCatalogService,
-          useValue: { load: () => of(null) },
+          useValue: bindingCatalog,
         },
       ],
     });
@@ -344,4 +352,226 @@ describe('CaseFlowStudioWorkspaceFacade', () => {
     expect(workspace.saveConflict()).toBe(false);
     expect(workspace.dirty()).toBe(true);
   });
+
+  it('applies the fully authorized Gauntlet as exactly one undoable graph command', () => {
+    workspace.connect();
+    loadRequests.get('graph-a')!.next({
+      ...graph('graph-a', 'Graph A'),
+      metadata: { unrelated: { identity: 'preserved' } },
+    });
+    workspace.generatePreview();
+    expect(workspace.preview()).not.toBeNull();
+    workspace.selectGauntletContextSource('context-a');
+    const execute = vi.spyOn(workspace.editorState, 'execute');
+
+    workspace.applyBuilderCriticGauntlet();
+
+    expect(api.getPreset).toHaveBeenCalledOnce();
+    expect(api.getPreset).toHaveBeenCalledWith(BUILDER_CRITIC_GAUNTLET_PRESET_ID);
+    expect(bindingCatalog.load).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledOnce();
+    expect(workspace.graph()).toMatchObject({
+      id: 'graph-a',
+      name: 'Graph A',
+      metadata: { unrelated: { identity: 'preserved' } },
+    });
+    expect(workspace.graph().steps.map(step => step.id)).toEqual([
+      'graph-a-agent',
+      'gauntlet-lead',
+      'gauntlet-builder',
+      'gauntlet-critic',
+    ]);
+    expect(workspace.graph().edges.map(edge => edge.id)).toEqual([
+      'gauntlet-lead-builder',
+      'gauntlet-lead-critic',
+      'gauntlet-builder-critic',
+      'gauntlet-critic-builder-feedback',
+    ]);
+    expect(workspace.graph().steps.find(step => step.id === 'gauntlet-critic')
+      ?.metadata?.['ananta.caseflow.agent-bindings']).toMatchObject({
+        context_bindings: [{
+          resource_type: 'context_source', resource_id: 'context-a',
+        }],
+      });
+    expect(workspace.preview()).toBeNull();
+    expect(workspace.graphDirty()).toBe(true);
+    expect(workspace.editorState.canUndo()).toBe(true);
+    expect(workspace.editorState.undo()).toBe(true);
+    expect(workspace.graph().steps.map(step => step.id)).toEqual(['graph-a-agent']);
+    expect(workspace.editorState.canUndo()).toBe(false);
+  });
+
+  it('fences double clicks, publishing, graph switches and a stale local revision', () => {
+    const presetResult = new Subject<VpGraph>();
+    const freshCatalog = new Subject<CaseFlowAgentBindingCatalogReadModel>();
+    api.getPreset.mockReturnValueOnce(presetResult);
+    bindingCatalog.load
+      .mockReturnValueOnce(of(catalogReadModel(['context-a'])))
+      .mockReturnValueOnce(freshCatalog);
+    workspace.connect();
+    loadRequests.get('graph-a')!.next(graph('graph-a', 'Graph A'));
+    workspace.generatePreview();
+    workspace.selectGauntletContextSource('context-a');
+
+    workspace.applyBuilderCriticGauntlet();
+    workspace.applyBuilderCriticGauntlet();
+    workspace.publish();
+
+    expect(workspace.presetBusy()).toBe(true);
+    expect(api.getPreset).toHaveBeenCalledOnce();
+    expect(api.saveGraph).not.toHaveBeenCalled();
+    expect(workspace.selectGraph('graph-b')).toBe(false);
+    expect(router.navigate).not.toHaveBeenCalledWith([], expect.objectContaining({
+      queryParams: expect.objectContaining({ graph: 'graph-b' }),
+    }));
+
+    workspace.editorState.mutate('late edit', draft => {
+      draft.description = 'must survive';
+    });
+    presetResult.next(gauntletPreset());
+    presetResult.complete();
+    freshCatalog.next(catalogReadModel(['context-a']));
+    freshCatalog.complete();
+
+    expect(workspace.presetBusy()).toBe(false);
+    expect(workspace.graph()).toMatchObject({
+      id: 'graph-a', description: 'must survive',
+    });
+    expect(workspace.graph().steps.map(step => step.id)).toEqual(['graph-a-agent']);
+    expect(workspace.message()).toContain('lokale Draft geändert');
+  });
+
+  it('does not start a preset request while a newer routed graph is still loading', () => {
+    workspace.connect();
+    loadRequests.get('graph-a')!.next(graph('graph-a', 'Graph A'));
+    workspace.selectGauntletContextSource('context-a');
+    queryParams.next(convertToParamMap({
+      graph: 'graph-b', scenario_id: 'scenario-b', view: 'agents',
+    }));
+
+    expect(workspace.loadingGraph()).toBe(true);
+    expect(workspace.requestedGraphId()).toBe('graph-b');
+    expect(workspace.canApplyBuilderCriticGauntlet()).toBe(false);
+    workspace.applyBuilderCriticGauntlet();
+
+    expect(api.getPreset).not.toHaveBeenCalled();
+    expect(bindingCatalog.load).toHaveBeenCalledOnce();
+    expect(workspace.graph()).toMatchObject({ id: 'graph-a', name: 'Graph A' });
+    expect(workspace.graph().steps.map(step => step.id)).toEqual(['graph-a-agent']);
+    expect(workspace.presetBusy()).toBe(false);
+  });
+
+  it.each([
+    ['revoked context', gauntletPreset(), catalogReadModel([])],
+    ['degraded context catalog', gauntletPreset(), catalogReadModel(
+      [], 'degraded', 'catalog_request_failed',
+    )],
+    ['wrong preset response', { ...gauntletPreset(), id: 'wrong-preset' }, catalogReadModel(['context-a'])],
+    ['null preset response', null, catalogReadModel(['context-a'])],
+    ['malformed preset response', {
+      id: BUILDER_CRITIC_GAUNTLET_PRESET_ID,
+    }, catalogReadModel(['context-a'])],
+  ])('fails closed without history or preview mutation for a %s', (
+    _label,
+    preset,
+    freshCatalog,
+  ) => {
+    bindingCatalog.load
+      .mockReturnValueOnce(of(catalogReadModel(['context-a'])))
+      .mockReturnValueOnce(of(freshCatalog));
+    api.getPreset.mockReturnValueOnce(of(preset));
+    workspace.connect();
+    loadRequests.get('graph-a')!.next(graph('graph-a', 'Graph A'));
+    workspace.generatePreview();
+    const preview = workspace.preview();
+    workspace.selectGauntletContextSource('context-a');
+
+    workspace.applyBuilderCriticGauntlet();
+
+    expect(workspace.graph().steps.map(step => step.id)).toEqual(['graph-a-agent']);
+    expect(workspace.editorState.canUndo()).toBe(false);
+    expect(workspace.preview()).toBe(preview);
+    expect(workspace.hasError()).toBe(true);
+    expect(workspace.presetBusy()).toBe(false);
+  });
 });
+
+function catalogReadModel(
+  contextIds: readonly string[],
+  contextState: 'ready' | 'degraded' = 'ready',
+  contextReason: 'catalog_loaded' | 'catalog_request_failed' = 'catalog_loaded',
+): CaseFlowAgentBindingCatalogReadModel {
+  const loaded = { state: 'ready', reason_code: 'catalog_loaded' } as const;
+  return {
+    state: contextState,
+    catalog: {
+      skill_profile_ids: [],
+      personality_resource_ids: { agent_profile: [], instruction_layer: [] },
+      context_resource_ids: { context_profile: [], context_source: contextIds },
+      model_profile_ids: [], model_role_ids: [], fallback_group_ids: [],
+    },
+    availability: {
+      skill_profile: loaded,
+      agent_profile: loaded,
+      instruction_layer: loaded,
+      context_profile: loaded,
+      context_source: { state: contextState, reason_code: contextReason },
+      model_profile: loaded,
+      model_role: loaded,
+      fallback_group: loaded,
+    },
+  };
+}
+
+function gauntletPreset(): VpGraph {
+  const presetStep = (
+    id: string,
+    label: string,
+    role: string,
+    kind: string,
+  ) => ({
+    id, label, role, kind,
+    io: { inputs: [], outputs: [] },
+    position: { x: 0, y: 0 },
+    policy_hints: role === 'critic' ? ['read_only'] : [],
+    gate: false,
+  });
+  return {
+    id: BUILDER_CRITIC_GAUNTLET_PRESET_ID,
+    name: 'Builder/Critic Gauntlet',
+    description: '', version: '1', tags: [],
+    metadata: {
+      'ananta.caseflow.agent-preset': {
+        schema: 'ananta.caseflow.agent-preset/v1',
+        binding_slots: [{
+          slot: 'critic_benchmark_context', step_id: 'gauntlet-critic',
+          resource_type: 'context_source', required: true, access: 'read_only',
+        }],
+      },
+    },
+    extensions: {
+      'ananta.caseflow.agent-canvas': {
+        schema: 'ananta.caseflow.agent-canvas/v1',
+        nodes: {
+          'gauntlet-lead': { icon: 'star' },
+          'gauntlet-builder': { icon: 'code' },
+          'gauntlet-critic': { icon: 'rule' },
+        },
+      },
+    },
+    steps: [
+      presetStep('gauntlet-lead', 'Lead', 'lead', 'plan_only'),
+      presetStep('gauntlet-builder', 'Builder', 'developer', 'patch_propose'),
+      presetStep('gauntlet-critic', 'Critic', 'critic', 'review'),
+    ],
+    edges: [
+      { id: 'gauntlet-lead-builder', source: 'gauntlet-lead', target: 'gauntlet-builder', condition: { kind: 'always' } },
+      { id: 'gauntlet-lead-critic', source: 'gauntlet-lead', target: 'gauntlet-critic', condition: { kind: 'always' } },
+      { id: 'gauntlet-builder-critic', source: 'gauntlet-builder', target: 'gauntlet-critic', condition: { kind: 'on_success' } },
+      {
+        id: 'gauntlet-critic-builder-feedback', source: 'gauntlet-critic', target: 'gauntlet-builder',
+        condition: { kind: 'back_edge', loop_policy: { kind: 'fixed', max_iterations: 3 } },
+      },
+    ],
+  };
+}

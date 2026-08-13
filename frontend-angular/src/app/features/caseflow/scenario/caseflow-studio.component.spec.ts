@@ -7,7 +7,10 @@ import { resolve } from 'node:path';
 import { BehaviorSubject, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { CaseFlowAgentBindingCatalogService } from '../agent-canvas/caseflow-agent-binding-catalog.service';
+import {
+  CaseFlowAgentBindingCatalogReadModel,
+  CaseFlowAgentBindingCatalogService,
+} from '../agent-canvas/caseflow-agent-binding-catalog.service';
 import { CaseFlowAgentCanvasComponent } from '../agent-canvas/caseflow-agent-canvas.component';
 import {
   VisualProcessApiService,
@@ -57,6 +60,7 @@ describe('CaseFlowStudioComponent', () => {
   let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
   let api: Record<string, ReturnType<typeof vi.fn>>;
   let router: { navigate: ReturnType<typeof vi.fn> };
+  let bindingCatalog: { load: ReturnType<typeof vi.fn> };
 
   afterEach(() => vi.restoreAllMocks());
 
@@ -74,6 +78,7 @@ describe('CaseFlowStudioComponent', () => {
         base_graph_hash: 'b'.repeat(64), saved: true,
       })),
       listPresets: vi.fn(() => of([])),
+      getPreset: vi.fn(() => of({})),
       listSkillProfiles: vi.fn(() => of([])),
       listTaskKinds: vi.fn(() => of([])),
       listNodeDefinitions: vi.fn(() => of({
@@ -84,6 +89,9 @@ describe('CaseFlowStudioComponent', () => {
       dryRun: vi.fn(() => of({})),
     };
     router = { navigate: vi.fn().mockResolvedValue(true) };
+    bindingCatalog = {
+      load: vi.fn(() => of(catalogReadModel(['context-alpha', 'context-beta']))),
+    };
 
     await TestBed.configureTestingModule({
       imports: [CaseFlowStudioComponent],
@@ -93,7 +101,7 @@ describe('CaseFlowStudioComponent', () => {
         { provide: VisualProcessApiService, useValue: api },
         {
           provide: CaseFlowAgentBindingCatalogService,
-          useValue: { load: () => of(null) },
+          useValue: bindingCatalog,
         },
         {
           provide: VpModelTrainingOptionsService,
@@ -231,6 +239,33 @@ describe('CaseFlowStudioComponent', () => {
       .querySelector('[data-step-id="builder"]')).toBeNull();
   });
 
+  it('offers only authorized Hub context IDs for the Agent-tab Gauntlet action', () => {
+    const fixture = TestBed.createComponent(CaseFlowStudioComponent);
+    fixture.detectChanges();
+    const html = fixture.nativeElement as HTMLElement;
+    const contextSelect = html.querySelector<HTMLSelectElement>(
+      '[data-gauntlet-context-source]',
+    )!;
+    const applyButton = html.querySelector<HTMLButtonElement>(
+      '[data-apply-gauntlet-preset]',
+    )!;
+
+    expect([...contextSelect.options].map(option => option.value)).toEqual([
+      '', 'context-alpha', 'context-beta',
+    ]);
+    expect(contextSelect.tagName).toBe('SELECT');
+    expect(applyButton.disabled).toBe(true);
+
+    fixture.componentInstance.workspace.selectGauntletContextSource('context-alpha');
+    fixture.detectChanges();
+    expect(applyButton.disabled).toBe(false);
+
+    fixture.componentInstance.workspace.selectGauntletContextSource('caller-injected');
+    fixture.detectChanges();
+    expect(fixture.componentInstance.workspace.gauntletContextSourceId()).toBe('');
+    expect(applyButton.disabled).toBe(true);
+  });
+
   it('confirms only dirty route exits and protects dirty browser unloads', () => {
     const fixture = TestBed.createComponent(CaseFlowStudioComponent);
     fixture.detectChanges();
@@ -261,3 +296,28 @@ describe('CaseFlowStudioComponent', () => {
     expect(html.querySelector('[role="alert"]')?.textContent).toMatch(/geladen|Graph-ID/);
   });
 });
+
+function catalogReadModel(
+  contextIds: readonly string[],
+): CaseFlowAgentBindingCatalogReadModel {
+  const loaded = { state: 'ready', reason_code: 'catalog_loaded' } as const;
+  return {
+    state: 'ready',
+    catalog: {
+      skill_profile_ids: [],
+      personality_resource_ids: { agent_profile: [], instruction_layer: [] },
+      context_resource_ids: { context_profile: [], context_source: contextIds },
+      model_profile_ids: [], model_role_ids: [], fallback_group_ids: [],
+    },
+    availability: {
+      skill_profile: loaded,
+      agent_profile: loaded,
+      instruction_layer: loaded,
+      context_profile: loaded,
+      context_source: loaded,
+      model_profile: loaded,
+      model_role: loaded,
+      fallback_group: loaded,
+    },
+  };
+}
