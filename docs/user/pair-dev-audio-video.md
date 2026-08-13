@@ -84,6 +84,33 @@ uebernimmt sie nicht. Beitretende Personen entscheiden unter `Meine kompakte
 Freigabe` separat mit `Eigene Ansicht teilen` und `Eigene Maus teilen`; beide
 Schalter lassen sich ohne Neuladen sofort widerrufen und gelten nur fuer die
 aktuelle Session und Sicherheitsepoche.
+
+Der Schnellteilen-Schalter bleibt auch waehrend einer laufenden Session oben
+im Pair-Bereich erreichbar. Besitzt die aktive Session bereits die Rechte
+`view_tui` und `remote_cursor`, schaltet er die eigene kompakte Ansicht und
+Maus fuer genau diese Session ein oder aus. Fehlen diese unveraenderlichen
+Sessionrechte, lautet die Aktion `Neue Schnellteilen-Session`: Die bisherige
+Mitgliedschaft wird fuer dieses Keycloak-Konto und Geraet serverseitig geparkt
+und eine passende neue Session erstellt. Sie wird dabei weder beendet noch
+verlassen; ihre bisherige Transport-Epoche wird ungueltig.
+
+Unter `Sessions verwalten` listet Ananta die im aktuellen Browser-Tab sicher
+wiederverbindbaren eigenen und beigetretenen Pair-Sessions. `Wechseln` haelt
+fuer dasselbe Konto und Geraet immer nur eine WebRTC-/E2EE-Verbindung aktiv;
+alle anderen Eintraege bleiben serverseitig geparkt. Beim Wechsel werden
+Kamera, Bildschirm, Mikrofon sowie lokale
+Ansicht-/Maus-Einwilligungen nicht auf das neue Gegenueber uebertragen. Sie
+muessen dort erneut bewusst aktiviert werden. `Session beenden` und
+`Verlassen` bleiben davon getrennte, ausdruecklich destruktive Aktionen.
+
+Keycloak bestaetigt beim Laden der Liste das angemeldete Konto. Die eigentliche
+Mitgliedschaftssuche, Presence, Geraetebindung, Signalisierung und beidseitige
+Schluesselbestaetigung fuehrt `webrtc.ananta.de` aus. Keycloak selbst ist kein
+oeffentliches Teilnehmerverzeichnis. Eine neue Person wird weiterhin mit dem
+Einladungscode autorisiert; danach erscheint die gemeinsame Session bei beiden
+angemeldeten Konten in deren Liste. Unterschiedliche Gegenueber verwenden
+getrennte bilaterale Sessions.
+
 3. In der unteren Leiste `Medien` oeffnen. Bei **Public Pair** unter
    `Meine Medienfreigabe` die Gueltigkeit waehlen:
    `Bis zum Ende dieser Pair-Sitzung oder bis zum Widerruf`, `15 Minuten` oder

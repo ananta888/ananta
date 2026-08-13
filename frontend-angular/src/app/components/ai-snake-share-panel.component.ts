@@ -8,12 +8,13 @@ import { ChatMessageComponent } from './chat-message.component';
 import { PairViewSessionBindingService } from '../services/pair-view-session-binding.service';
 import { PairViewSyncService } from '../services/pair-view-sync.service';
 import { PairSecurityBootstrapState } from '../services/pair-view-security-bootstrap.service';
+import { PairSessionCatalogComponent } from './pair-session-catalog.component';
 import {
   pairSessionErrorCode,
   pairSessionErrorMessage,
 } from '../services/pair-session-error-message';
 
-type PanelView = 'home' | 'create' | 'join' | 'active';
+type PanelView = 'home' | 'create' | 'join' | 'catalog';
 type MainTab = 'share' | 'groups';
 
 interface PairGroup {
@@ -34,7 +35,7 @@ interface PairGroupMember {
 @Component({
   selector: 'app-ai-snake-share-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule, ChatMessageComponent],
+  imports: [CommonModule, FormsModule, ChatMessageComponent, PairSessionCatalogComponent],
   template: `
     <div class="share-panel">
       <div class="share-header">
@@ -126,39 +127,73 @@ interface PairGroupMember {
       <!-- ── SESSIONS-TAB ── -->
       @if (mainTab === 'share') {
 
-      @if (!svc.isActive) {
-        <!-- Home: Aktionen -->
-        @if (view === 'home') {
-          <div class="share-actions">
-            @if (publicOnly) {
-              <button
-                type="button"
-                class="share-btn primary quick-share"
-                data-testid="quick-compact-pair-share"
-                (click)="doQuickCompactShare()"
-                [disabled]="creating">
-                {{ creating ? 'Starte…' : '⚡ Ananta-App schnell teilen' }}
-              </button>
-              <div class="quick-share-note">
-                Teilt E2EE nur internen Seitenpfad, Bereich, Scrollposition und Maus als farbige Snake –
-                keine Bildschirmpixel, Kamera, Formularwerte oder URL-Parameter.
-              </div>
-              @if (createError) {
-                <div class="share-error" role="alert">{{ createError }}</div>
-              }
-            }
-            <button class="share-btn primary" (click)="view = 'create'">+ Session erstellen</button>
-            <button class="share-btn" (click)="view = 'join'">Code eingeben</button>
-            @if (sessionActionError) {
-              <div class="share-error" data-testid="pair-session-action-error" role="alert">
-                {{ sessionActionError }}
-              </div>
+      @if (publicOnly) {
+        <div class="pair-session-toolbar" data-testid="pair-session-toolbar">
+          <button
+            type="button"
+            class="share-btn primary quick-share"
+            data-testid="quick-compact-pair-share"
+            (click)="doQuickCompactShare()"
+            [attr.title]="quickCompactShareTitle() || null"
+            [disabled]="quickCompactShareDisabled()">
+            {{ quickCompactShareLabel() }}
+          </button>
+          <div class="pair-session-toolbar-secondary">
+            <button type="button" class="share-btn sm" data-testid="manage-pair-sessions"
+              [class.selected]="view === 'catalog'" (click)="toggleCatalog()"
+              [disabled]="creating || joining || sessionActionPending || svc.sessionMutationPending">
+              Sessions verwalten
+            </button>
+            <button type="button" class="share-btn sm" data-testid="create-pair-session"
+              [class.selected]="view === 'create'" (click)="openCreate()"
+              [disabled]="creating || joining || sessionActionPending || svc.sessionMutationPending">
+              + Neue Session
+            </button>
+            <button type="button" class="share-btn sm" data-testid="join-pair-session"
+              [class.selected]="view === 'join'" (click)="openJoin()"
+              [disabled]="creating || joining || sessionActionPending || svc.sessionMutationPending">
+              Code eingeben
+            </button>
+          </div>
+          <div class="quick-share-note">
+            Teilt E2EE nur internen Seitenpfad, Bereich, Scrollposition und Maus als farbige Snake –
+            keine Bildschirmpixel, Kamera, Formularwerte oder URL-Parameter.
+            @if (svc.isActive && !activeSessionSupportsCompactShare()) {
+              <span data-testid="quick-share-parks-current">
+                Die aktuelle Session hat diese Rechte nicht und bleibt beim Erstellen der neuen Schnellteilen-Session geparkt.
+              </span>
             }
           </div>
-        }
+          @if (createError && view === 'home') {
+            <div class="share-error" role="alert">{{ createError }}</div>
+          }
+          @if (sessionActionError && !svc.isActive) {
+            <div class="share-error" data-testid="pair-session-action-error" role="alert">
+              {{ sessionActionError }}
+            </div>
+          }
+        </div>
+      }
 
-        <!-- Create session -->
-        @if (view === 'create') {
+      @if (!svc.isActive && view === 'home' && !publicOnly) {
+        <!-- Legacy/Hub Home: Aktionen -->
+        <div class="share-actions">
+          <button class="share-btn primary" (click)="view = 'create'">+ Session erstellen</button>
+          <button class="share-btn" (click)="view = 'join'">Code eingeben</button>
+          @if (sessionActionError) {
+            <div class="share-error" data-testid="pair-session-action-error" role="alert">
+              {{ sessionActionError }}
+            </div>
+          }
+        </div>
+      }
+
+      @if (publicOnly && view === 'catalog') {
+        <app-pair-session-catalog (switched)="onSessionSwitched()" />
+      }
+
+      @if ((!svc.isActive || publicOnly) && view === 'create') {
+          <!-- Create session -->
           <div class="share-form">
             <div class="share-form-title">Neue Session</div>
             <label class="share-label">Titel
@@ -182,14 +217,14 @@ interface PairGroupMember {
               <button class="share-btn primary" (click)="doCreate()" [disabled]="creating">
                 {{ creating ? 'Erstelle...' : 'Erstellen' }}
               </button>
-              <button class="share-btn" (click)="view = 'home'">Abbrechen</button>
+              <button class="share-btn" (click)="closeSubView()">Abbrechen</button>
             </div>
             @if (createError) { <div class="share-error">{{ createError }}</div> }
           </div>
-        }
+      }
 
-        <!-- Join session -->
-        @if (view === 'join') {
+      @if ((!svc.isActive || publicOnly) && view === 'join') {
+          <!-- Join session -->
           <div class="share-form">
             <div class="share-form-title">Session beitreten</div>
             <label class="share-label">Invite-Code
@@ -203,7 +238,7 @@ interface PairGroupMember {
               <button class="share-btn primary" (click)="doJoin()" [disabled]="joining || !joinCode.trim()">
                 {{ joining ? 'Verbinde...' : 'Beitreten' }}
               </button>
-              <button class="share-btn" (click)="view = 'home'">Abbrechen</button>
+              <button class="share-btn" (click)="closeSubView()">Abbrechen</button>
             </div>
             @if (joinError) { <div class="share-error" role="alert">{{ joinError }}</div> }
             @if (pendingJoinRecoveryAvailable) {
@@ -215,10 +250,9 @@ interface PairGroupMember {
               >Früheren Beitrittsversuch verwerfen</button>
             }
           </div>
-        }
       }
 
-      @if (svc.isActive) {
+      @if (svc.isActive && view === 'home') {
         <!-- Active session -->
         @let state = svc.state$ | async;
         @if (state) {
@@ -226,8 +260,10 @@ interface PairGroupMember {
             <div class="share-session-title">{{ state.session?.title }}</div>
             <div class="share-meta">
               <span class="share-badge {{ state.role }}">{{ state.role === 'owner' ? 'Eigentümer' : 'Teilnehmer' }}</span>
-              <span class="share-meta-code">Code: <strong>{{ state.session?.invite_code }}</strong></span>
-              <button class="share-copy-btn" (click)="copyCode(state.session?.invite_code ?? '')">⎘</button>
+              @if (state.session?.invite_code) {
+                <span class="share-meta-code">Code: <strong>{{ state.session?.invite_code }}</strong></span>
+                <button class="share-copy-btn" (click)="copyCode(state.session?.invite_code ?? '')">⎘</button>
+              }
             </div>
             @if (svc.securityState$ | async; as security) {
               <div class="security-line" data-testid="share-security-status"
@@ -399,6 +435,10 @@ interface PairGroupMember {
     .share-badge.owner { color: #fbbf24; border-color: #7a5a10; }
     .share-badge.participant { color: #a8c7ff; border-color: #2a4070; }
     .share-actions { display: flex; flex-direction: column; gap: 8px; padding: 12px 10px; }
+    .pair-session-toolbar { display: grid; gap: 6px; padding: 8px 10px; border-bottom: 1px solid #1a2d4a; }
+    .pair-session-toolbar-secondary { display: flex; flex-wrap: wrap; gap: 5px; }
+    .pair-session-toolbar-secondary .share-btn { flex: 1 1 auto; text-align: center; }
+    .share-btn.selected { border-color: #7fffd4; color: #7fffd4; background: #102238; }
     .quick-share { font-weight: 700; }
     .quick-share-note { color: #7f9bbd; font-size: 10px; line-height: 1.4; }
     .share-btn {
@@ -658,6 +698,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
       }, Number(this.expiresIn) || null, {
         expectedAuthority: this.publicOnly ? 'public' : undefined,
       });
+      this.view = 'home';
       this.activeTab = 'chat';
     } catch (e: unknown) {
       this.createError = pairSessionErrorMessage(e, 'Erstellen fehlgeschlagen');
@@ -667,24 +708,55 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   async doQuickCompactShare(): Promise<void> {
-    if (!this.publicOnly || this.creating || this.svc.isActive) return;
-    this.creating = true;
-    this.createError = '';
-    try {
-      const session = await this.svc.createSession('Ananta-App gemeinsam ansehen', {
-        chat: true,
-        view_tui: true,
-        remote_cursor: true,
-        artifact_share: false,
-        remote_control: false,
-      }, 3600, { expectedAuthority: 'public' });
-      if (session?.id) this.pairSync.armLocalCompactSharingOnFirstPeerReady(session.id);
-      this.activeTab = 'chat';
-    } catch (error: unknown) {
-      this.createError = pairSessionErrorMessage(error, 'Schnellteilen fehlgeschlagen');
-    } finally {
-      this.creating = false;
+    if (
+      !this.publicOnly
+      || this.creating
+      || this.joining
+      || this.sessionActionPending
+      || this.svc.sessionMutationPending
+    ) return;
+    const active = this.svc.state$.value;
+    const session = active.session;
+    if (session) {
+      this.createError = '';
+      if (this.pairSync.isLocalCompactSharingPending) {
+        if (!this.pairSync.cancelPendingLocalCompactSharing(session.id)) {
+          this.createError = 'Ausstehende Schnellfreigabe konnte nicht widerrufen werden';
+        }
+        return;
+      }
+      if (this.pairSync.isLocalViewSharingEnabled || this.pairSync.isLocalCursorSharingEnabled) {
+        if (!session.security_epoch || !this.pairSync.setLocalCompactSharing(
+          session.id,
+          session.security_epoch,
+          { view: false, cursor: false },
+        )) this.createError = 'Schnellfreigabe konnte nicht beendet werden';
+        return;
+      }
+      if (!this.activeSessionSupportsCompactShare()) {
+        await this.createQuickCompactSession();
+        return;
+      }
+      if (
+        active.role === 'owner'
+        && (!session.security_epoch || this.svc.securityState$.value.status !== 'ready')
+      ) {
+        if (!this.pairSync.armLocalCompactSharingOnFirstPeerReady(session.id)) {
+          this.createError = 'Schnellfreigabe konnte nicht sicher vorgemerkt werden';
+        }
+        return;
+      }
+      if (!session.security_epoch) {
+        this.createError = 'Schnellfreigabe wartet auf die bestätigte Sicherheitsepoche';
+        return;
+      }
+      if (!this.pairSync.setLocalCompactSharing(session.id, session.security_epoch!, {
+        view: true,
+        cursor: true,
+      })) this.createError = 'Schnellfreigabe konnte nicht aktiviert werden';
+      return;
     }
+    await this.createQuickCompactSession();
   }
 
   async doJoin(): Promise<void> {
@@ -697,6 +769,7 @@ export class AiSnakeSharePanelComponent implements OnInit {
         allowLegacy: this.allowLegacyJoin,
         expectedAuthority: this.publicOnly ? 'public' : undefined,
       });
+      this.view = 'home';
       this.activeTab = 'chat';
     } catch (e: unknown) {
       this.joinError = pairSessionErrorMessage(e, 'Beitreten fehlgeschlagen');
@@ -716,6 +789,106 @@ export class AiSnakeSharePanelComponent implements OnInit {
     this.svc.discardPendingJoinAttempt();
     this.pendingJoinRecoveryAvailable = false;
     this.joinError = '';
+  }
+
+  toggleCatalog(): void {
+    if (
+      !this.publicOnly
+      || this.creating
+      || this.joining
+      || this.sessionActionPending
+      || this.svc.sessionMutationPending
+    ) return;
+    this.createError = '';
+    this.joinError = '';
+    this.view = this.view === 'catalog' ? 'home' : 'catalog';
+  }
+
+  openCreate(): void {
+    if (this.creating || this.joining || this.sessionActionPending || this.svc.sessionMutationPending) return;
+    this.createError = '';
+    this.joinError = '';
+    this.view = this.view === 'create' ? 'home' : 'create';
+  }
+
+  openJoin(): void {
+    if (this.creating || this.joining || this.sessionActionPending || this.svc.sessionMutationPending) return;
+    this.createError = '';
+    this.joinError = '';
+    this.view = this.view === 'join' ? 'home' : 'join';
+  }
+
+  closeSubView(): void {
+    this.createError = '';
+    this.joinError = '';
+    this.view = 'home';
+  }
+
+  onSessionSwitched(): void {
+    this.createError = '';
+    this.joinError = '';
+    this.sessionActionError = '';
+    this.activeTab = 'chat';
+    this.view = 'home';
+  }
+
+  quickCompactShareLabel(): string {
+    if (this.creating) return 'Starte…';
+    if (!this.svc.isActive) return '⚡ Ananta-App schnell teilen';
+    if (this.pairSync.isLocalCompactSharingPending) return '⚡ Schnellteilen abbrechen';
+    if (this.pairSync.isLocalViewSharingEnabled || this.pairSync.isLocalCursorSharingEnabled) {
+      return '⚡ Ananta-App nicht mehr teilen';
+    }
+    if (!this.activeSessionSupportsCompactShare()) return '⚡ Neue Schnellteilen-Session';
+    return '⚡ Ananta-App schnell teilen';
+  }
+
+  quickCompactShareDisabled(): boolean {
+    if (this.creating || this.joining || this.sessionActionPending || this.svc.sessionMutationPending) return true;
+    if (!this.svc.isActive) return false;
+    if (
+      this.pairSync.isLocalCompactSharingPending
+      || this.pairSync.isLocalViewSharingEnabled
+      || this.pairSync.isLocalCursorSharingEnabled
+    ) return false;
+    if (
+      this.activeSessionSupportsCompactShare()
+      && this.svc.state$.value.role === 'participant'
+      && !this.svc.state$.value.session?.security_epoch
+    ) return true;
+    return false;
+  }
+
+  quickCompactShareTitle(): string {
+    if (!this.svc.isActive || this.activeSessionSupportsCompactShare()) return '';
+    return 'Erstellt eine Schnellteilen-Session; die aktuelle Session bleibt geparkt erhalten.';
+  }
+
+  activeSessionSupportsCompactShare(): boolean {
+    const session = this.svc.state$.value.session;
+    return session?.permissions?.['view_tui'] === true
+      && session.permissions?.['remote_cursor'] === true;
+  }
+
+  private async createQuickCompactSession(): Promise<void> {
+    this.creating = true;
+    this.createError = '';
+    try {
+      const session = await this.svc.createSession('Ananta-App gemeinsam ansehen', {
+        chat: true,
+        view_tui: true,
+        remote_cursor: true,
+        artifact_share: false,
+        remote_control: false,
+      }, 3600, { expectedAuthority: 'public' });
+      if (session?.id) this.pairSync.armLocalCompactSharingOnFirstPeerReady(session.id);
+      this.view = 'home';
+      this.activeTab = 'chat';
+    } catch (error: unknown) {
+      this.createError = pairSessionErrorMessage(error, 'Schnellteilen fehlgeschlagen');
+    } finally {
+      this.creating = false;
+    }
   }
 
   async sendMsg(): Promise<void> {

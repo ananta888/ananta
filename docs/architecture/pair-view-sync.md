@@ -87,6 +87,19 @@ Sessions starten mit beiden lokalen Freigaben aus; jeder Teilnehmer kann
 `Eigene Ansicht teilen` und `Eigene Maus teilen` unabhaengig aktivieren und
 sofort wieder widerrufen.
 
+Der UI-Einstieg bleibt in einer aktiven Session sichtbar. Fuer eine Session mit
+beiden erforderlichen Rechten ist er ein lokaler Consent-Schalter. Andernfalls
+erstellt er eine neue Quick-Session und parkt die vorherige Mitgliedschaft
+serverautoritativ fuer das kanonische Konto/Geraet. Der Session-Katalog wird
+OIDC-authentifiziert und mit den tablokalen Mitgliedschaftsnachweisen ueber den Rendezvous-Dienst
+geladen; Keycloak liefert nur die Kontoidentitaet und niemals eine im Browser
+auflistbare Benutzerverwaltung. Pro kanonischem Konto/Geraet ist genau eine
+Session-Runtime aktiv. Ein Katalogwechsel parkt die vorige Runtime atomar,
+schliesst ihren Transport ohne End-/Leave-Mutation, verwirft ihre alte
+Transport-Epoche und verbindet die ausgewaehlte Session erst nach erneuter
+Vertrags-, Geraete- und Epochenpruefung. Alle lokalen View-/Cursor-Consents
+werden dabei zurueckgesetzt.
+
 ## Darstellung
 
 `PairRemoteSnakeOverlayComponent` konsumiert nur authentifizierte

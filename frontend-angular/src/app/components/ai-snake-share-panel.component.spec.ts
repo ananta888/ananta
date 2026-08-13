@@ -21,11 +21,12 @@ function configure(status: 'ready' | 'confirming' | 'legacy') {
     participants: [], messages: [], cursor: '0', role: 'owner',
   });
   const service = {
-    state$, securityState$, isActive: true, currentUserId: 'alice',
+    state$, securityState$, isActive: true, sessionMutationPending: false, currentUserId: 'alice',
     canSendChat: () => securityState$.value.status === 'ready' || securityState$.value.status === 'legacy',
     sendMessage: vi.fn(async () => undefined), approveFingerprintChange: vi.fn(),
     participantStatus: () => 'online', endSession: vi.fn(), leaveSession: vi.fn(),
     revokeParticipant: vi.fn(), createSession: vi.fn(async () => ({ id: 'session-new', security_epoch: 4 })), joinSession: vi.fn(),
+    listSessions: vi.fn(async () => []), switchToSession: vi.fn(async () => undefined),
     discardPendingJoinAttempt: vi.fn(),
   };
   const binding = { start: vi.fn() };
@@ -173,6 +174,168 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     );
     expect(pairSync.armLocalCompactSharingOnFirstPeerReady).toHaveBeenCalledWith('session-new');
     expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+  });
+
+  it('toggles compact sharing on the active eligible session without creating another one', async () => {
+    const { service, pairSync } = configure('ready');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: 7,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+    });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]');
+    expect(button?.textContent).toContain('Ananta-App schnell teilen');
+    button?.click();
+    await fixture.whenStable();
+
+    expect(pairSync.setLocalCompactSharing).toHaveBeenCalledWith(
+      'session-a', 7, { view: true, cursor: true },
+    );
+    expect(service.createSession).not.toHaveBeenCalled();
+    expect(service.endSession).not.toHaveBeenCalled();
+    expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
+  it('uses the same active button to stop sharing', async () => {
+    const { service, pairSync } = configure('ready');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: 7,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+    });
+    pairSync.isLocalViewSharingEnabled = true;
+    pairSync.isLocalCursorSharingEnabled = true;
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]');
+    expect(button?.textContent).toContain('nicht mehr teilen');
+    button?.click();
+    await fixture.whenStable();
+    expect(pairSync.setLocalCompactSharing).toHaveBeenCalledWith(
+      'session-a', 7, { view: false, cursor: false },
+    );
+    expect(service.createSession).not.toHaveBeenCalled();
+  });
+
+  it('uses the same active button to revoke a pending first-peer intent', () => {
+    const { service, pairSync } = configure('confirming');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: 7,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+    });
+    pairSync.isLocalCompactSharingPending = true;
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const button = fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]');
+    expect(button?.textContent).toContain('abbrechen');
+    button?.click();
+
+    expect(pairSync.cancelPendingLocalCompactSharing).toHaveBeenCalledWith('session-a');
+    expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+    expect(service.createSession).not.toHaveBeenCalled();
+  });
+
+  it('arms the active owner session before its first peer establishes the final epoch', async () => {
+    const { service, pairSync } = configure('confirming');
+    service.state$.next({
+      ...service.state$.value,
+      session: {
+        ...service.state$.value.session,
+        security_epoch: null,
+        permissions: { chat: true, view_tui: true, remote_cursor: true },
+      },
+      role: 'owner',
+    });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    fixture.nativeElement.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]')?.click();
+    await fixture.whenStable();
+
+    expect(pairSync.armLocalCompactSharingOnFirstPeerReady).toHaveBeenCalledWith('session-a');
+    expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+    expect(service.createSession).not.toHaveBeenCalled();
+  });
+
+  it('creates a new quick-share session while preserving an active session without compact permissions', async () => {
+    const { service, pairSync } = configure('ready');
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const button = host.querySelector<HTMLButtonElement>('[data-testid="quick-compact-pair-share"]');
+    expect(button?.disabled).toBe(false);
+    expect(button?.textContent).toContain('Neue Schnellteilen-Session');
+    expect(host.querySelector('[data-testid="quick-share-parks-current"]')?.textContent).toContain('geparkt');
+
+    button?.click();
+    await fixture.whenStable();
+
+    expect(service.createSession).toHaveBeenCalledWith(
+      'Ananta-App gemeinsam ansehen',
+      expect.objectContaining({ view_tui: true, remote_cursor: true }),
+      3600,
+      { expectedAuthority: 'public' },
+    );
+    expect(pairSync.armLocalCompactSharingOnFirstPeerReady).toHaveBeenCalledWith('session-new');
+    expect(service.endSession).not.toHaveBeenCalled();
+    expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps create, join and the session catalogue reachable while a session is active', () => {
+    const { service } = configure('ready');
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+
+    expect(host.querySelector('[data-testid="manage-pair-sessions"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="create-pair-session"]')).not.toBeNull();
+    expect(host.querySelector('[data-testid="join-pair-session"]')).not.toBeNull();
+
+    host.querySelector<HTMLButtonElement>('[data-testid="manage-pair-sessions"]')?.click();
+    fixture.detectChanges();
+    expect(host.querySelector('[data-testid="pair-session-catalog"]')).not.toBeNull();
+    expect(service.endSession).not.toHaveBeenCalled();
+    expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
+  it('fences toolbar methods while a create, join or switch mutation owns the session state', async () => {
+    const { service, pairSync } = configure('ready');
+    service.sessionMutationPending = true;
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    const component = fixture.componentInstance;
+
+    component.toggleCatalog();
+    component.openCreate();
+    component.openJoin();
+    await component.doQuickCompactShare();
+
+    expect(component.view).toBe('home');
+    expect(service.createSession).not.toHaveBeenCalled();
+    expect(pairSync.setLocalCompactSharing).not.toHaveBeenCalled();
+    expect(pairSync.armLocalCompactSharingOnFirstPeerReady).not.toHaveBeenCalled();
   });
 
   it('shows and revokes the pending one-shot compact-share intent', () => {
