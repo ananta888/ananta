@@ -8,7 +8,7 @@
   "created_at": "2026-08-12",
   "updated_at": "2026-08-13",
   "project": "Ananta",
-  "status": "todo",
+  "status": "in_progress",
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -249,7 +249,7 @@
     {
       "id": "M1",
       "title": "Graph Projection und Rollen",
-      "status": "todo",
+      "status": "done",
       "task_ids": [
         "CAC-001",
         "CAC-002",
@@ -269,7 +269,7 @@
     {
       "id": "M3",
       "title": "Runtime und Trace",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "CAC-007A",
         "CAC-007",
@@ -293,7 +293,7 @@
     {
       "id": "CAC-001",
       "title": "CaseFlow Agent Canvas Contract definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -306,12 +306,15 @@
         "Roundtrip-Tests mit gerichteten, bidirektionalen und Loop-Edges belegen Graph -> Canvas -> Graph ohne Verlust von Edges, Step-Metadaten oder unbekannten Extensions.",
         "Ein Contract-Test weist VpGraph als einzige persistierte Graph- und Runtime-Wahrheit aus; die Canvas-Projektion bleibt rein ableitbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 160193251. Versioned presentation and binding contracts, lossless canonical-graph projection, unknown-field preservation, and 18 focused frontend tests."
+      ]
     },
     {
       "id": "CAC-002",
       "title": "Rollen- und Icon-Katalog implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -324,12 +327,15 @@
         "Eine Custom-Rolle akzeptiert einen nichtleeren Namen und ausschließlich Icons aus der vorhandenen Icon-Allowlist; ungültige Eingaben liefern einen Validierungsfehler.",
         "Tests belegen, dass ein Rollen- oder Icon-Wechsel agent_skill_profile_id, Model-Routing, Tools und Policies nicht verändert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 160193251. Exact 30-role catalog, persisted icon allowlist, custom-role validation, and immutable role/icon commands."
+      ]
     },
     {
       "id": "CAC-003",
       "title": "Agent-Konfiguration auf bestehende Ananta-Bindings mappen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -343,7 +349,10 @@
         "Unbekannte oder nicht erlaubte Binding-Referenzen werden vor dem Speichern sichtbar und fail-closed abgelehnt.",
         "Ein Graph-Roundtrip bewahrt alle nicht vom Agent-Inspector verwalteten Step-Felder unverändert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 160193251. Existing skill/model references and declarative personality/context bindings are catalog-validated fail-closed without copied runtime configuration."
+      ]
     },
     {
       "id": "CAC-004",
@@ -410,7 +419,7 @@
     {
       "id": "CAC-007A",
       "title": "Hub-eigenes Read Model für gerichtete Edge-/Trace-Korrelation implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -428,7 +437,10 @@
         "Nachrichten und Telemetrie werden größenbegrenzt, deterministisch sortiert und nach bestehender Zugriffspolicy redigiert; es entsteht keine zweite Chat- oder Trace-Persistenz.",
         "Fokussierte Service- und API-Contract-Tests prüfen Richtung, Redaction, Größenlimit, deterministische Reihenfolge und fehlende Evidenz."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 9523f6947. Hub-authorized workflow/run projection with canonical dependency/back-edge identity, bounded deterministic redacted evidence, strict topology and direct-request fences, and 17 focused backend tests."
+      ]
     },
     {
       "id": "CAC-007",
@@ -594,13 +606,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 14,
+      "todo": 10,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 28.6,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -614,15 +626,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 4,
+      "remaining": 9
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -631,30 +643,30 @@
       "contract": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 11,
+          "todo": 9,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 18.2
       },
       "test": {
         "total": 1,
@@ -675,20 +687,20 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 0.0,
-    "remaining_weight": 26.75,
+    "done_weight": 7.5,
+    "remaining_weight": 19.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 0.0
+    "weighted_percent": 28.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "M1": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M2": {
         "total_tasks": 3,
@@ -700,11 +712,11 @@
       },
       "M3": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 20.0,
+        "weighted_percent": 15.8,
+        "status": "in_progress"
       },
       "M4": {
         "total_tasks": 3,
@@ -718,21 +730,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 14,
+    "todo_remaining": 10,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "done": 4,
+    "count_based_percent": 28.6,
+    "weighted_percent": 28.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T18:52:25.060978Z",
+    "generated_at": "2026-08-13T19:51:15.048291Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "834a5c80a460aa503e3b309223a8d7659ccea179e7468c9724023f026cb70aca",
+    "source_hash": "a36524511cb32db65ea65bb62d574b5dd1f9d6ea560a0a32b6ff317218897891",
     "is_stale": false
   }
 }
