@@ -1,6 +1,6 @@
 import {
   Component, OnInit, OnDestroy, OnChanges, Input, SimpleChanges, inject,
-  signal, computed, HostListener, ViewChild, ElementRef, effect,
+  signal, computed, HostListener, ViewChild, ElementRef, effect, InjectionToken,
 } from '@angular/core';
 
 import { FormsModule } from '@angular/forms';
@@ -18,7 +18,15 @@ import { VpImportExportService } from './vp-import-export.service';
 import { VpStepInspectorComponent } from './vp-step-inspector.component';
 import { VpWorkflowRunnerService } from './vp-workflow-runner.service';
 import { VisualProcessCanvasComponent } from './visual-process-canvas.component';
-import { VpEditorStateFacade } from './vp-editor-state.facade';
+import {
+  VP_EDITOR_HISTORY_LIMIT,
+  VpEditorStateFacade,
+} from './vp-editor-state.facade';
+import {
+  VP_EDITOR_PERSISTENCE,
+  VP_EDITOR_STATE,
+  VpEditorStatePort,
+} from './vp-editor-state.port';
 import { VpModelTrainingOptionsService } from './vp-model-training-options.service';
 import { CanvasHitTarget } from './vp-editor-context.models';
 import { VpAssistantBridgeService } from './vp-assistant-bridge.service';
@@ -39,11 +47,37 @@ import {
   autoLayoutGraph, edgeId, hintColor, nodeKindColor, stepId,
 } from './vp-editor-config';
 
+interface ResolvedVpEditorState {
+  readonly state: VpEditorStatePort;
+  readonly hosted: boolean;
+}
+
+const VP_EDITOR_COMPONENT_STATE = new InjectionToken<ResolvedVpEditorState>(
+  'VP_EDITOR_COMPONENT_STATE',
+);
+
+function resolveVpEditorState(): ResolvedVpEditorState {
+  const hosted = inject(VP_EDITOR_STATE, { optional: true, skipSelf: true });
+  return hosted
+    ? { state: hosted, hosted: true }
+    : {
+      state: new VpEditorStateFacade(inject(VP_EDITOR_HISTORY_LIMIT)),
+      hosted: false,
+    };
+}
+
 @Component({
   standalone: true,
   selector: 'app-visual-process-editor',
   imports: [FormsModule, VpStepInspectorComponent, VisualProcessCanvasComponent, VpNodePaletteComponent, VpAssistantBubbleComponent, VpWorkflowPatchPreviewComponent],
-  providers: [VpCanvasInteractionService, VpImportExportService, VpWorkflowRunnerService, VpEditorStateFacade, VpAssistantBridgeService, VpResourceOptionProvider],
+  providers: [
+    VpCanvasInteractionService,
+    VpImportExportService,
+    VpWorkflowRunnerService,
+    VpAssistantBridgeService,
+    VpResourceOptionProvider,
+    { provide: VP_EDITOR_COMPONENT_STATE, useFactory: resolveVpEditorState },
+  ],
   templateUrl: './visual-process-editor.component.html',
   styleUrls: ['./visual-process-editor.component.scss'],
 })
@@ -54,7 +88,13 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   private interaction = inject(VpCanvasInteractionService);
   private importExport = inject(VpImportExportService);
   private workflowRunner = inject(VpWorkflowRunnerService);
-  private editorState = inject(VpEditorStateFacade);
+  private readonly resolvedEditorState = inject(VP_EDITOR_COMPONENT_STATE);
+  private readonly editorState = this.resolvedEditorState.state;
+  readonly graphStateHosted = this.resolvedEditorState.hosted;
+  private readonly hostedPersistence = inject(VP_EDITOR_PERSISTENCE, {
+    optional: true,
+    skipSelf: true,
+  });
   private trainingOptions = inject(VpModelTrainingOptionsService);
   private nodeRegistry = inject(VpNodeDefinitionRegistryService);
   private resourceOptions = inject(VpResourceOptionProvider);
@@ -104,7 +144,12 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
 
   private _showMermaidDialog = false;
   constructor() {
-    effect(() => this.editorState.validation.set(this.workflowRunner.validationResult()));
+    effect(() => {
+      const validation = this.workflowRunner.validationResult();
+      if (!this.graphStateHosted || validation !== null) {
+        this.editorState.validation.set(validation);
+      }
+    });
     effect(() => {
       this.dryRunResult();
       this.assistant.patchPreview();
@@ -276,17 +321,24 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       this.resourceOptions.setStatic('training-profiles', options.trainingProfiles.map(item => ({ id: item.id, label: item.label || item.id })));
       this.resourceOptions.setStatic('training-base-models', options.baseModels.map(item => ({ id: item.id, label: item.label || item.id })));
     }));
-    if (this.graphId) this.loadSavedGraphById(this.graphId);
+    if (this.graphId && !this.graphStateHosted) this.loadSavedGraphById(this.graphId);
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['graphId'] && !changes['graphId'].firstChange && this.graphId) this.loadSavedGraphById(this.graphId);
+    if (
+      changes['graphId']
+      && !changes['graphId'].firstChange
+      && this.graphId
+      && !this.graphStateHosted
+    ) {
+      this.loadSavedGraphById(this.graphId);
+    }
   }
 
   ngOnDestroy(): void {
     this.subs.unsubscribe();
     this.workflowRunner.destroy();
-    this.editorState.destroy();
+    if (!this.graphStateHosted) this.editorState.destroy();
   }
   @HostListener('document:keydown', ['$event'])
   onKey(e: KeyboardEvent): void {
@@ -493,6 +545,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     }));
   }
   loadPreset(id: string): void {
+    if (this.graphStateHosted) {
+      this.statusMsg.set('Graphwechsel werden vom CaseFlow Studio verwaltet.');
+      return;
+    }
     this.loadPresetMenu = false;
     this.subs.add(this.api.getPreset(id).subscribe({
       next: g => {
@@ -505,6 +561,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   loadSavedGraphById(id: string): void {
+    if (this.graphStateHosted) {
+      this.statusMsg.set('Graphwechsel werden vom CaseFlow Studio verwaltet.');
+      return;
+    }
     this.loadSavedMenu = false;
     this.subs.add(this.api.loadSavedGraph(id).subscribe({
       next: g => {
@@ -518,11 +578,23 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   saveGraphToServer(): void {
-    this.subs.add(this.api.saveGraph(this.graph()).subscribe({
+    if (this.graphStateHosted) {
+      if (this.hostedPersistence) this.hostedPersistence.saveCurrentGraph();
+      else this.statusMsg.set('Studio-Persistenz ist nicht verfügbar.');
+      return;
+    }
+    const request = this.editorState.captureSaveRequest();
+    this.subs.add(this.api.saveGraph(request.graph).subscribe({
       next: r => {
-        this.editorState.acceptSaveResult(r);
+        const acceptance = this.editorState.acceptSaveResult(r, request);
+        if (acceptance.status === 'rejected_identity' || acceptance.status === 'rejected_stale') {
+          this.statusMsg.set('Veraltete oder abweichende Speicherantwort wurde verworfen.');
+          return;
+        }
         this.saveConflict.set(false);
-        this.statusMsg.set(`Gespeichert ✓ (${this.graph().name})`);
+        this.statusMsg.set(acceptance.status === 'accepted_clean'
+          ? `Gespeichert ✓ (${this.graph().name})`
+          : `Gespeichert; spätere Änderungen bleiben offen (${this.graph().name})`);
         this.api.listSavedGraphs().subscribe(g => this.savedGraphs.set(g));
       },
       error: error => {
@@ -535,6 +607,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   }
 
   reloadAfterSaveConflict(): void {
+    if (this.graphStateHosted) {
+      this.statusMsg.set('Neu laden ist im Studio nur über den Workspace möglich.');
+      return;
+    }
     const id = this.graph().id;
     if (id) this.loadSavedGraphById(id);
   }

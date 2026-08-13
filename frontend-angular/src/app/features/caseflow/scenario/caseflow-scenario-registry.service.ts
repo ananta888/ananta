@@ -101,7 +101,7 @@ export class CaseFlowScenarioRegistryService {
       blocks.splice(-1, 0, { id: 'artifacts', kind: 'artifacts', title: 'Ergebnisse' });
     }
 
-    return {
+    const generated: CaseFlowScenarioDefinition = {
       schema: CASEFLOW_UI_SCHEMA,
       id,
       title: String(draft?.title || graph.name || id),
@@ -112,17 +112,46 @@ export class CaseFlowScenarioRegistryService {
       tags: [...new Set([...(graph.tags || []), 'caseflow'])],
       pages: [{ id: 'overview', title: 'Übersicht', blocks }],
     };
+    return this.mergeScenarioExtension(
+      graph.extensions?.[CASEFLOW_UI_EXTENSION],
+      generated,
+    );
   }
 
   publish(graph: VpGraph, scenario: CaseFlowScenarioDefinition) {
-    const extensions = { ...(graph.extensions || {}), [CASEFLOW_UI_EXTENSION]: scenario };
-    const tags = [...new Set([...(graph.tags || []), 'caseflow'])];
-    return this.visualProcessApi.saveGraph({ ...graph, extensions, tags }).pipe(
-      tap(() => this.scenarios.update(items => [
-        ...items.filter(item => item.id !== scenario.id),
-        scenario,
-      ])),
+    const graphWithScenario = this.withScenario(graph, scenario);
+    const savedScenario = this.fromGraph(graphWithScenario)!;
+    return this.visualProcessApi.saveGraph(graphWithScenario).pipe(
+      tap(result => {
+        if (result.id !== graphWithScenario.id) return;
+        this.scenarios.update(items => [
+          ...items.filter(item => item.id !== savedScenario.id),
+          savedScenario,
+        ]);
+      }),
     );
+  }
+
+  /**
+   * Adds the manifest immutably. Unknown extension, page and block fields are
+   * retained so the Studio remains forward compatible with additive schemas.
+   */
+  withScenario(graph: VpGraph, scenario: CaseFlowScenarioDefinition): VpGraph {
+    const safeScenario = isCaseFlowScenarioDefinition(scenario)
+      ? scenario
+      : this.compileFromGraph(graph);
+    const mergedScenario = this.mergeScenarioExtension(
+      graph.extensions?.[CASEFLOW_UI_EXTENSION],
+      safeScenario,
+    );
+    return {
+      ...structuredClone(graph),
+      extensions: {
+        ...structuredClone(graph.extensions || {}),
+        [CASEFLOW_UI_EXTENSION]: mergedScenario,
+      },
+      tags: [...new Set([...(graph.tags || []), 'caseflow'])],
+    };
   }
 
   fromGraph(graph: VpGraph): CaseFlowScenarioDefinition | null {
@@ -139,4 +168,52 @@ export class CaseFlowScenarioRegistryService {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'caseflow';
   }
+
+  private mergeScenarioExtension(
+    existingValue: unknown,
+    scenario: CaseFlowScenarioDefinition,
+  ): CaseFlowScenarioDefinition {
+    const existing = isCaseFlowScenarioDefinition(existingValue)
+      ? structuredClone(existingValue) as unknown as Record<string, unknown>
+      : {};
+    const existingPages = Array.isArray(existing['pages']) ? existing['pages'] : [];
+    const generatedPageIds = new Set(scenario.pages.map(page => page.id));
+    const pages: unknown[] = scenario.pages.map(page => {
+      const existingPage = existingPages.find(candidate =>
+        isRecord(candidate) && candidate['id'] === page.id);
+      const pageRecord = isRecord(existingPage) ? existingPage : {};
+      const existingBlocks = Array.isArray(pageRecord['blocks']) ? pageRecord['blocks'] : [];
+      const generatedBlockIds = new Set(page.blocks.map(block => block.id));
+      const blocks: unknown[] = page.blocks.map(block => {
+        const existingBlock = existingBlocks.find(candidate =>
+          isRecord(candidate) && candidate['id'] === block.id);
+        return {
+          ...(isRecord(existingBlock) ? existingBlock : {}),
+          ...structuredClone(block),
+        };
+      });
+      blocks.push(...structuredClone(existingBlocks.filter(candidate =>
+        !isRecord(candidate)
+        || typeof candidate['id'] !== 'string'
+        || !generatedBlockIds.has(candidate['id']))));
+      return { ...pageRecord, ...structuredClone(page), blocks };
+    });
+    pages.push(...structuredClone(existingPages.filter(candidate =>
+      !isRecord(candidate)
+      || typeof candidate['id'] !== 'string'
+      || !generatedPageIds.has(candidate['id']))));
+
+    const candidate = {
+      ...existing,
+      ...structuredClone(scenario),
+      pages,
+    };
+    return isCaseFlowScenarioDefinition(candidate)
+      ? candidate
+      : structuredClone(scenario);
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }

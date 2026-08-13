@@ -3,19 +3,20 @@ import { Inject, Injectable, InjectionToken, Optional, computed, signal } from '
 import { GraphSaveResult, ValidationResult, VpGraph } from './visual-process-api.service';
 import { emptyGraph } from './vp-editor-config';
 import { CanvasHitTarget } from './vp-editor-context.models';
+import {
+  VpEditorCommand,
+  VpEditorSaveAcceptance,
+  VpEditorSaveRequest,
+  VpEditorStatePort,
+  VpGraphMutationOptions,
+} from './vp-editor-state.port';
 
-export interface VpGraphMutationOptions {
-  coalesceKey?: string;
-  invalidateValidation?: boolean;
-  markDirty?: boolean;
-  recordHistory?: boolean;
-}
-
-export interface VpEditorCommand {
-  label: string;
-  apply(graph: VpGraph): VpGraph;
-  coalesceKey?: string;
-}
+export type {
+  VpEditorCommand,
+  VpEditorSaveAcceptance,
+  VpEditorSaveRequest,
+  VpGraphMutationOptions,
+} from './vp-editor-state.port';
 
 interface VpHistoryEntry {
   before: VpGraph;
@@ -57,7 +58,7 @@ function graphFingerprint(graph: VpGraph): string {
  * open transaction records a single history entry.
  */
 @Injectable()
-export class VpEditorStateFacade {
+export class VpEditorStateFacade implements VpEditorStatePort {
   readonly graph = signal<VpGraph>(emptyGraph());
   readonly selectedId = signal<string | null>(null);
   readonly dirty = signal(false);
@@ -75,7 +76,12 @@ export class VpEditorStateFacade {
   private transaction: VpOpenTransaction | null = null;
   private readonly historyLimit: number;
   private persistenceIdentity = this.capturePersistenceIdentity(this.graph());
+  private stateEpoch = 0;
+  private latestSaveRequestId = 0;
 
+  // Explicit constructor injection also keeps the state aggregate usable in
+  // framework-free command/history tests.
+  // eslint-disable-next-line @angular-eslint/prefer-inject
   constructor(@Optional() @Inject(VP_EDITOR_HISTORY_LIMIT) historyLimit: number | null = null) {
     this.historyLimit = Math.max(1, Math.floor(historyLimit ?? 100));
   }
@@ -87,6 +93,7 @@ export class VpEditorStateFacade {
 
   initialize(graph: VpGraph): void {
     const next = cloneGraph(graph);
+    this.stateEpoch += 1;
     this.persistenceIdentity = this.capturePersistenceIdentity(next);
     this.graph.set(next);
     this.savedFingerprint = graphFingerprint(next);
@@ -110,6 +117,7 @@ export class VpEditorStateFacade {
   ): void {
     const before = cloneGraph(this.graph());
     const after = cloneGraph(graph);
+    this.stateEpoch += 1;
     this.persistenceIdentity = this.capturePersistenceIdentity(after);
     this.graph.set(after);
     if (options.resetHistory !== false) {
@@ -222,19 +230,50 @@ export class VpEditorStateFacade {
     this.dirty.set(false);
   }
 
-  acceptSaveResult(result: GraphSaveResult): void {
-    this.graph.update(graph => ({
-      ...graph,
-      version: result.version || graph.version,
-      graph_schema_version: result.graph_schema_version ?? graph.graph_schema_version,
-      node_registry_version: result.node_registry_version ?? graph.node_registry_version,
-      definition_revision: result.definition_revision,
-      base_graph_hash: result.base_graph_hash,
-    }));
-    this.persistenceIdentity = this.capturePersistenceIdentity(this.graph());
-    this.savedFingerprint = graphFingerprint(this.graph());
-    this.dirty.set(false);
+  captureSaveRequest(): VpEditorSaveRequest {
+    const requestId = ++this.latestSaveRequestId;
+    return Object.freeze({
+      graph: cloneGraph(this.graph()),
+      revision: this.revision(),
+      state_epoch: this.stateEpoch,
+      request_id: requestId,
+    });
+  }
+
+  /**
+   * Applies Hub persistence identity without overwriting edits made while the
+   * request was in flight. The accepted request graph becomes the saved
+   * baseline; a later local revision therefore remains dirty.
+   */
+  acceptSaveResult(
+    result: GraphSaveResult,
+    request: VpEditorSaveRequest,
+  ): VpEditorSaveAcceptance {
+    const current = this.graph();
+    if (request.state_epoch !== this.stateEpoch) {
+      return { status: 'rejected_stale', request_id: request.request_id };
+    }
+    if (current.id !== request.graph.id || result.id !== request.graph.id) {
+      return { status: 'rejected_identity', request_id: request.request_id };
+    }
+    if (request.request_id !== this.latestSaveRequestId) {
+      return { status: 'rejected_stale', request_id: request.request_id };
+    }
+
+    const persisted = this.withSaveResult(request.graph, result);
+    const unchanged = this.revision() === request.revision
+      && graphFingerprint(current) === graphFingerprint(request.graph);
+    const next = this.withSaveResult(current, result);
+
+    this.persistenceIdentity = this.capturePersistenceIdentity(next);
+    this.savedFingerprint = graphFingerprint(persisted);
+    this.graph.set(next);
+    this.refreshDirty();
     this.revision.update(value => value + 1);
+    return {
+      status: unchanged && !this.dirty() ? 'accepted_clean' : 'accepted_dirty',
+      request_id: request.request_id,
+    };
   }
 
   previewTarget(target: CanvasHitTarget | null): void {
@@ -294,6 +333,18 @@ export class VpEditorStateFacade {
       nodeRegistryVersion: graph.node_registry_version,
       definitionRevision: graph.definition_revision,
       baseGraphHash: graph.base_graph_hash,
+    };
+  }
+
+  private withSaveResult(graph: VpGraph, result: GraphSaveResult): VpGraph {
+    return {
+      ...cloneGraph(graph),
+      id: result.id || graph.id,
+      version: result.version || graph.version,
+      graph_schema_version: result.graph_schema_version ?? graph.graph_schema_version,
+      node_registry_version: result.node_registry_version ?? graph.node_registry_version,
+      definition_revision: result.definition_revision,
+      base_graph_hash: result.base_graph_hash,
     };
   }
 

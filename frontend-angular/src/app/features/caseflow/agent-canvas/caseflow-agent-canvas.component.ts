@@ -245,7 +245,9 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   @Input({ required: true }) graph!: VpGraph;
   @Input() runtimeOverlay: VpRuntimeOverlay | null = null;
   @Input() edgeTraceReadModel: CaseFlowEdgeTraceReadModel | null = null;
+  @Input() selectedId: string | null = null;
   @Output() readonly graphChange = new EventEmitter<VpGraph>();
+  @Output() readonly selectedIdChange = new EventEmitter<string | null>();
   @Output() readonly nodeSelected = new EventEmitter<string>();
   @Output() readonly edgeSelected = new EventEmitter<string>();
 
@@ -259,7 +261,6 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   edgeActivityProjection: CaseFlowAgentEdgeActivityProjection =
     projectCaseFlowAgentEdgeActivity('', [], null);
   projectionError = '';
-  selectedId: string | null = null;
   viewport: CaseFlowAgentCanvasViewport = { ...DEFAULT_VIEWPORT };
 
   private graphIdentity: string | null = null;
@@ -290,15 +291,14 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     this.refreshEdgeActivityProjection();
 
     if (identityChanged) {
-      this.selectedId = null;
       this.viewport = { ...DEFAULT_VIEWPORT };
       this.captureBaselinePositions();
-      return;
+    } else {
+      this.reconcileBaselinePositions();
     }
 
-    this.reconcileBaselinePositions();
     if (this.selectedId && !this.hasSelectableId(this.selectedId)) {
-      this.selectedId = null;
+      this.selectedIdChange.emit(null);
     }
   }
 
@@ -317,12 +317,15 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     event?.stopPropagation();
     if (this.selectedId === node.step_id) return;
     this.selectedId = node.step_id;
+    this.selectedIdChange.emit(node.step_id);
     this.nodeSelected.emit(node.step_id);
   }
 
   selectEdge(edge: CaseFlowAgentCanvasEdgeProjection, event?: Event): void {
     event?.stopPropagation();
+    if (this.selectedId === edge.edge_id) return;
     this.selectedId = edge.edge_id;
+    this.selectedIdChange.emit(edge.edge_id);
     this.edgeSelected.emit(edge.edge_id);
   }
 

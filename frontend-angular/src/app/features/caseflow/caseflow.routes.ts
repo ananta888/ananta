@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { JOB_APPLICATION_ROUTES } from './job-application/job-application.routes';
+import { caseFlowStudioDirtyGuard } from './scenario/caseflow-studio.guard';
 
 export const caseFlowRoutes: Routes = [
   {
@@ -15,6 +16,7 @@ export const caseFlowRoutes: Routes = [
       {
         path: 'studio',
         data: { breadcrumb: 'CaseFlow Studio', area: 'Configure' },
+        canDeactivate: [caseFlowStudioDirtyGuard],
         loadComponent: () =>
           import('./scenario/caseflow-studio.component').then(m => m.CaseFlowStudioComponent),
       },

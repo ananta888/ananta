@@ -142,6 +142,42 @@ describe('CaseFlowAgentCanvasComponent', () => {
     expect(fixture.nativeElement.querySelector('[data-step-id="agent-b"]')?.getAttribute('aria-pressed')).toBe('true');
   });
 
+  it('renders controlled selection and emits its canonical two-way value', () => {
+    const fixture = createFixture();
+    const selected: Array<string | null> = [];
+    fixture.componentInstance.selectedIdChange.subscribe(value => selected.push(value));
+    fixture.componentRef.setInput('selectedId', 'agent-c');
+    fixture.detectChanges();
+
+    const agentC = fixture.nativeElement.querySelector('[data-step-id="agent-c"]') as SVGGElement;
+    const edge = fixture.nativeElement.querySelector('[data-edge-id="edge-ab"]') as SVGGElement;
+    expect(agentC.getAttribute('aria-pressed')).toBe('true');
+
+    edge.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    fixture.detectChanges();
+    expect(selected).toEqual(['edge-ab']);
+    expect(edge.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('returns an invalidated controlled selection to its canonical owner', () => {
+    const fixture = createFixture();
+    const selected: Array<string | null> = [];
+    fixture.componentInstance.selectedIdChange.subscribe(value => selected.push(value));
+    fixture.componentRef.setInput('selectedId', 'agent-c');
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('graph', {
+      ...AGENT_GRAPH,
+      steps: AGENT_GRAPH.steps.filter(step => step.id !== 'agent-c'),
+      edges: AGENT_GRAPH.edges.filter(edge =>
+        edge.source !== 'agent-c' && edge.target !== 'agent-c'),
+    });
+    fixture.detectChanges();
+
+    expect(selected).toEqual([null]);
+    expect(fixture.nativeElement.querySelector('[data-step-id="agent-c"]')).toBeNull();
+  });
+
   it('places the arrow marker only at the target of a directed edge', () => {
     const fixture = createFixture();
     const line = fixture.nativeElement.querySelector(
@@ -309,6 +345,8 @@ describe('CaseFlowAgentCanvasComponent', () => {
     expect(component.selectedId).toBe('agent-b');
     expect(component.viewport).toEqual(viewport);
     expect(nodeTransforms(fixture)).toEqual(transforms);
+    const invalidated: Array<string | null> = [];
+    component.selectedIdChange.subscribe(value => invalidated.push(value));
 
     fixture.componentRef.setInput('graph', {
       ...AGENT_GRAPH,
@@ -316,7 +354,7 @@ describe('CaseFlowAgentCanvasComponent', () => {
       edges: AGENT_GRAPH.edges.filter(edge => edge.source !== 'agent-b' && edge.target !== 'agent-b'),
     });
     fixture.detectChanges();
-    expect(component.selectedId).toBeNull();
+    expect(invalidated).toEqual([null]);
     expect(component.viewport).toEqual(viewport);
   });
 

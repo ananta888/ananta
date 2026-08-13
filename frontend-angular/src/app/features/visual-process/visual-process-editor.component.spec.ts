@@ -2,10 +2,15 @@ import { ɵresolveComponentResources } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
 import { vi, describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { VisualProcessEditorComponent } from './visual-process-editor.component';
-import { VisualProcessApiService, VpGraph, VpStep } from './visual-process-api.service';
+import {
+  GraphSaveResult,
+  VisualProcessApiService,
+  VpGraph,
+  VpStep,
+} from './visual-process-api.service';
 import { VpCanvasInteractionService } from './vp-canvas-interaction.service';
 import { FALLBACK_KINDS, nodeKindColor } from './vp-editor-config';
 import { VpImportExportService } from './vp-import-export.service';
@@ -48,6 +53,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     listModelProfiles: ReturnType<typeof vi.fn>;
     saveGraph: ReturnType<typeof vi.fn>;
     loadSavedGraph: ReturnType<typeof vi.fn>;
+    policySummary: ReturnType<typeof vi.fn>;
     validate: ReturnType<typeof vi.fn>;
     dryRun: ReturnType<typeof vi.fn>;
   };
@@ -62,6 +68,7 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       listModelProfiles: vi.fn().mockReturnValue(of({ profiles: [], fallback_groups: {}, status: 'ok' })),
       saveGraph: vi.fn().mockReturnValue(of({ id: 'g', version: '1', definition_revision: 1, base_graph_hash: 'a'.repeat(64), saved: true })),
       loadSavedGraph: vi.fn().mockReturnValue(of(emptyGraph())),
+      policySummary: vi.fn().mockReturnValue(of({ summary: {}, per_step: {} })),
       validate: vi.fn().mockReturnValue(of({ valid: true, error_count: 0, warning_count: 0, issues: [] })),
       dryRun: vi.fn().mockReturnValue(of({} as any)),
     };
@@ -90,6 +97,21 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     expect(graph).toBeDefined();
     expect(Array.isArray(graph.steps)).toBe(true);
     expect(Array.isArray(graph.edges)).toBe(true);
+  });
+
+  it('keeps standalone graph loading backward compatible when no workspace port exists', () => {
+    const saved = { ...emptyGraph(), id: 'standalone', name: 'Standalone' };
+    api.loadSavedGraph.mockReturnValueOnce(of(saved));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.componentInstance.graphId = 'standalone';
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.graphStateHosted).toBe(false);
+    expect(api.loadSavedGraph).toHaveBeenCalledOnce();
+    expect(api.loadSavedGraph).toHaveBeenCalledWith('standalone');
+    expect(fixture.componentInstance.graph()).toMatchObject({
+      id: 'standalone', name: 'Standalone',
+    });
   });
 
   it('isolates editor commands and Assistant context across parallel instances', () => {
@@ -283,6 +305,33 @@ it('routes validation calls through VpWorkflowRunnerService, not directly to api
     const applied = (component as unknown as { applyAssistantPatch: (preview: unknown) => boolean }).applyAssistantPatch({});
     expect(applied).toBe(false);
     expect(component.isDirty()).toBe(false);
+  });
+
+  it('does not report an older overlapping save response as a success', () => {
+    const older = new Subject<GraphSaveResult>();
+    const newer = new Subject<GraphSaveResult>();
+    api.saveGraph.mockReturnValueOnce(older).mockReturnValueOnce(newer);
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    component.setGraphName('First');
+    component.saveGraphToServer();
+    component.setGraphName('Second');
+    component.saveGraphToServer();
+
+    newer.next({
+      id: component.graph().id, version: '3', definition_revision: 3,
+      base_graph_hash: 'c'.repeat(64), saved: true,
+    });
+    older.next({
+      id: component.graph().id, version: '2', definition_revision: 2,
+      base_graph_hash: 'b'.repeat(64), saved: true,
+    });
+
+    expect(component.graph()).toMatchObject({
+      name: 'Second', definition_revision: 3, base_graph_hash: 'c'.repeat(64),
+    });
+    expect(component.statusMsg()).toContain('verworfen');
   });
 
   it('preserves draft, history and dirty state on 409 and offers reload or an undoable fork', () => {

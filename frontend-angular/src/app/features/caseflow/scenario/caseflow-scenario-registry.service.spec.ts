@@ -100,6 +100,62 @@ describe('CaseFlowScenarioRegistryService', () => {
     expect(registry.scenarios().at(-1)).toEqual(scenario);
   });
 
+  it('does not register a scenario from a save response with a different graph identity', () => {
+    saveGraph.mockReturnValueOnce(of({
+      id: 'different-graph', version: '1', definition_revision: 1,
+      base_graph_hash: 'hash', saved: true,
+    }));
+    const source = graph();
+    const scenario = registry.compileFromGraph(source);
+
+    registry.publish(source, scenario).subscribe();
+
+    expect(registry.scenarios().some(item => item.id === scenario.id)).toBe(false);
+  });
+
+  it('preserves additive scenario fields immutably while replacing canonical draft values', () => {
+    const source = graph();
+    const existing = {
+      ...registry.compileFromGraph(source),
+      future_root: { mode: 'v2' },
+      pages: [{
+        id: 'overview', title: 'Alt', future_page: 17,
+        blocks: [
+          { id: 'summary', kind: 'summary', title: 'Alt', future_block: true },
+          { id: 'custom-metrics', kind: 'metrics', title: 'Zusätzlich', untouched: 'block' },
+        ],
+      }, {
+        id: 'details', title: 'Details', untouched: 'page',
+        blocks: [{ id: 'details-summary', kind: 'summary', title: 'Details' }],
+      }],
+    };
+    const graphWithExtension = {
+      ...source,
+      extensions: { [CASEFLOW_UI_EXTENSION]: existing },
+    };
+    const before = structuredClone(graphWithExtension);
+
+    const scenario = registry.compileFromGraph(graphWithExtension, { title: 'Neu' });
+    const published = registry.withScenario(graphWithExtension, scenario);
+    const extension = published.extensions?.[CASEFLOW_UI_EXTENSION] as Record<string, unknown>;
+    const page = (extension['pages'] as Record<string, unknown>[])[0];
+    const block = (page['blocks'] as Record<string, unknown>[])[0];
+
+    expect(extension['future_root']).toEqual({ mode: 'v2' });
+    expect(page['future_page']).toBe(17);
+    expect(block['future_block']).toBe(true);
+    expect((page['blocks'] as Record<string, unknown>[])[6]).toMatchObject({
+      id: 'custom-metrics', untouched: 'block',
+    });
+    expect((extension['pages'] as Record<string, unknown>[])[1]).toMatchObject({
+      id: 'details', untouched: 'page',
+    });
+    expect(extension['title']).toBe('Neu');
+    expect(graphWithExtension).toEqual(before);
+    expect(published).not.toBe(graphWithExtension);
+    expect(registry.withScenario(published, scenario)).toEqual(published);
+  });
+
   it('rejects component kinds outside the renderer allowlist', () => {
     const scenario = registry.compileFromGraph(graph());
     const unsafe = {
@@ -108,5 +164,31 @@ describe('CaseFlowScenarioRegistryService', () => {
     };
 
     expect(isCaseFlowScenarioDefinition(unsafe)).toBe(false);
+  });
+
+  it('sanitizes a malformed stored extension before compiling or saving', () => {
+    const source = {
+      ...graph(),
+      extensions: {
+        [CASEFLOW_UI_EXTENSION]: {
+          schema: CASEFLOW_UI_SCHEMA,
+          id: 'broken', title: 'Broken', description: '', icon: 'warning',
+          caseType: 'broken', workflowGraphId: 'wrong', tags: [],
+          pages: [{
+            id: 'overview', title: 'Broken',
+            blocks: [7, { id: 'unsafe', title: 'Unsafe', kind: 'angular-component' }],
+          }],
+        },
+      },
+    } as unknown as VpGraph;
+
+    const scenario = registry.compileFromGraph(source, { title: 'Safe' });
+    expect(isCaseFlowScenarioDefinition(scenario)).toBe(true);
+    expect(scenario.title).toBe('Safe');
+    expect(scenario.pages[0].blocks.every(block => block.kind !== 'angular-component')).toBe(true);
+
+    expect(() => registry.publish(source, scenario).subscribe()).not.toThrow();
+    const saved = saveGraph.mock.calls.at(-1)?.[0] as VpGraph;
+    expect(isCaseFlowScenarioDefinition(saved.extensions?.[CASEFLOW_UI_EXTENSION])).toBe(true);
   });
 });

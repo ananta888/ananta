@@ -22,6 +22,7 @@
     <button class="vpe-btn" (click)="autoLayout()" title="Auto-Layout">Auto-Layout</button>
   </div>
 
+  @if (!graphStateHosted) {
   <div class="vpe-tb-group">
     <button class="vpe-btn" (click)="loadPresetMenu = !loadPresetMenu; loadSavedMenu = false">Preset ▾</button>
     @if (loadPresetMenu) {
@@ -46,6 +47,7 @@
       </div>
     }
   </div>
+  }
 
   <div class="vpe-tb-group">
     <button class="vpe-btn" (click)="saveGraphToServer()">💾 Speichern</button>
@@ -226,8 +228,12 @@
   }
   @if (saveConflict()) {
     <span class="vpe-status-msg err" role="alert">Hub-Version ist neuer.</span>
-    <button type="button" class="vpe-btn-xs" (click)="reloadAfterSaveConflict()">Hub-Version neu laden</button>
-    <button type="button" class="vpe-btn-xs" (click)="forkAfterSaveConflict()">Lokalen Draft als Kopie behalten</button>
+    @if (!graphStateHosted) {
+      <button type="button" class="vpe-btn-xs" (click)="reloadAfterSaveConflict()">Hub-Version neu laden</button>
+      <button type="button" class="vpe-btn-xs" (click)="forkAfterSaveConflict()">Lokalen Draft als Kopie behalten</button>
+    } @else {
+      <span class="vpe-status-msg">Der Studio-Workspace behält den lokalen Draft.</span>
+    }
   }
   <span class="vpe-zoom-hint">Scroll = Zoom · Alt+Drag = Verschieben</span>
 </div>

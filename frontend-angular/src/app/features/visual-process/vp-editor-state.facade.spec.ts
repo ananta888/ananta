@@ -153,16 +153,97 @@ describe('VpEditorStateFacade', () => {
     const state = new VpEditorStateFacade();
     state.initialize({ ...graph(), definition_revision: 2, base_graph_hash: 'a'.repeat(64) });
     state.mutate('rename', draft => { draft.name = 'Saved name'; });
+    const request = state.captureSaveRequest();
     state.acceptSaveResult({
       id: 'a', version: '2', graph_schema_version: '1', node_registry_version: 'registry-1',
       definition_revision: 3, base_graph_hash: 'b'.repeat(64), saved: true,
-    });
+    }, request);
 
     expect(state.undo()).toBe(true);
     expect(state.graph()).toMatchObject({ name: 'A', version: '2', definition_revision: 3, base_graph_hash: 'b'.repeat(64) });
     expect(state.dirty()).toBe(true);
     expect(state.redo()).toBe(true);
     expect(state.graph()).toMatchObject({ name: 'Saved name', version: '2', definition_revision: 3, base_graph_hash: 'b'.repeat(64) });
+    expect(state.dirty()).toBe(false);
+  });
+
+  it('keeps edits made during an asynchronous save dirty and adopts only persistence identity', () => {
+    const state = new VpEditorStateFacade();
+    state.initialize({ ...graph(), definition_revision: 2, base_graph_hash: 'a'.repeat(64) });
+    state.mutate('submitted edit', draft => { draft.name = 'Submitted'; });
+    const request = state.captureSaveRequest();
+
+    state.mutate('later edit', draft => { draft.description = 'Not submitted'; });
+    const acceptance = state.acceptSaveResult({
+      id: 'a', version: '2', graph_schema_version: '1', node_registry_version: 'registry-1',
+      definition_revision: 3, base_graph_hash: 'b'.repeat(64), saved: true,
+    }, request);
+
+    expect(acceptance).toEqual({ status: 'accepted_dirty', request_id: request.request_id });
+    expect(state.graph()).toMatchObject({
+      name: 'Submitted',
+      description: 'Not submitted',
+      definition_revision: 3,
+      base_graph_hash: 'b'.repeat(64),
+    });
+    expect(state.dirty()).toBe(true);
+  });
+
+  it('rejects a save response for a different graph without mutating the draft', () => {
+    const state = new VpEditorStateFacade();
+    state.initialize(graph());
+    state.mutate('rename', draft => { draft.name = 'Local'; });
+    const request = state.captureSaveRequest();
+    const before = structuredClone(state.graph());
+
+    expect(state.acceptSaveResult({
+      id: 'different', version: '2', definition_revision: 3,
+      base_graph_hash: 'b'.repeat(64), saved: true,
+    }, request)).toEqual({ status: 'rejected_identity', request_id: request.request_id });
+    expect(state.graph()).toEqual(before);
+    expect(state.dirty()).toBe(true);
+  });
+
+  it('rejects an older overlapping response after a newer request was issued', () => {
+    const state = new VpEditorStateFacade();
+    state.initialize({ ...graph(), definition_revision: 2, base_graph_hash: 'a'.repeat(64) });
+    state.mutate('first', draft => { draft.name = 'First'; });
+    const older = state.captureSaveRequest();
+    state.mutate('second', draft => { draft.name = 'Second'; });
+    const newer = state.captureSaveRequest();
+
+    expect(state.acceptSaveResult({
+      id: 'a', version: '4', definition_revision: 4,
+      base_graph_hash: 'd'.repeat(64), saved: true,
+    }, newer)).toEqual({ status: 'accepted_clean', request_id: newer.request_id });
+    const acceptedGraph = structuredClone(state.graph());
+
+    expect(state.acceptSaveResult({
+      id: 'a', version: '3', definition_revision: 3,
+      base_graph_hash: 'c'.repeat(64), saved: true,
+    }, older)).toEqual({ status: 'rejected_stale', request_id: older.request_id });
+    expect(state.graph()).toEqual(acceptedGraph);
+    expect(state.graph()).toMatchObject({
+      name: 'Second', definition_revision: 4, base_graph_hash: 'd'.repeat(64),
+    });
+  });
+
+  it('rejects a save response captured before a same-id graph reload', () => {
+    const state = new VpEditorStateFacade();
+    state.initialize({ ...graph(), definition_revision: 2, base_graph_hash: 'a'.repeat(64) });
+    state.mutate('submitted', draft => { draft.name = 'Submitted'; });
+    const request = state.captureSaveRequest();
+    state.initialize({
+      ...graph(), name: 'Reloaded', definition_revision: 9, base_graph_hash: 'z'.repeat(64),
+    });
+
+    expect(state.acceptSaveResult({
+      id: 'a', version: '3', definition_revision: 3,
+      base_graph_hash: 'b'.repeat(64), saved: true,
+    }, request)).toEqual({ status: 'rejected_stale', request_id: request.request_id });
+    expect(state.graph()).toMatchObject({
+      id: 'a', name: 'Reloaded', definition_revision: 9, base_graph_hash: 'z'.repeat(64),
+    });
     expect(state.dirty()).toBe(false);
   });
 });
