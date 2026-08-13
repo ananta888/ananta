@@ -451,7 +451,7 @@
     {
       "id": "CAC-007",
       "title": "Runtime Overlay auf Agent Canvas projizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -466,7 +466,10 @@
         "Ein Runtime-Refresh-Test bewahrt Node-Positionen, Viewport und gültige Auswahl; entfernte Selektionen werden deterministisch geschlossen.",
         "Ein unbekannter Runtime-Status wird als unknown dargestellt und aktiviert keine Kante."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in c5d1bdc63. Pure graph-bound runtime projection with fail-closed workflow/step identity, accessible text/icon/color states, stable selection/viewport/positions, unknown-state fencing, and 36 focused frontend tests."
+      ]
     },
     {
       "id": "CAC-008",
@@ -612,13 +615,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "progress_percent_done": 42.9,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -632,8 +635,8 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 6,
-      "remaining": 7
+      "done": 7,
+      "remaining": 6
     },
     "milestones": {
       "total": 4,
@@ -663,16 +666,16 @@
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 7,
+          "todo": 6,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 4
+          "done": 5
         },
-        "done": 4,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 36.4
+        "progress_percent": 45.5
       },
       "test": {
         "total": 1,
@@ -693,10 +696,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 11.5,
-    "remaining_weight": 15.25,
+    "done_weight": 13.5,
+    "remaining_weight": 13.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 43.0
+    "weighted_percent": 50.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -718,10 +721,10 @@
       },
       "M3": {
         "total_tasks": 5,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 20.0,
-        "weighted_percent": 15.8,
+        "count_based_percent": 40.0,
+        "weighted_percent": 36.8,
         "status": "in_progress"
       },
       "M4": {
@@ -736,21 +739,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 8,
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 6,
-    "count_based_percent": 42.9,
-    "weighted_percent": 43.0
+    "done": 7,
+    "count_based_percent": 50.0,
+    "weighted_percent": 50.5
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T20:03:54.634356Z",
+    "generated_at": "2026-08-13T20:16:45.644607Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a29870de79d80240de27e10bb06c2e090e7fd38b8b2e8b55d4fe67250637d6a7",
+    "source_hash": "2c3f7e826e2cbc1d81a9ffe13d3669a8e60369de1d672a632782d3f3e9b803bf",
     "is_stale": false
   }
 }
