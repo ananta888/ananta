@@ -532,11 +532,30 @@ class TestVisualProcessAPI:
         r = flask_client.get("/api/visual-process/presets/does-not-exist")
         assert r.status_code == 404
 
+    @pytest.mark.parametrize(
+        "path",
+        (
+            "/api/visual-process/skill-profiles",
+            "/api/visual-process/skill-profiles/coder",
+        ),
+    )
+    def test_skill_profile_endpoints_require_user_authentication(self, flask_client, path):
+        anonymous_client = flask_client.application.test_client()
+
+        response = anonymous_client.get(path)
+
+        assert response.status_code == 401
+
     def test_skill_profiles(self, flask_client):
         r = flask_client.get("/api/visual-process/skill-profiles")
         assert r.status_code == 200
         data = r.get_json()
         assert any(p["id"] == "coder" for p in data)
+
+    def test_skill_profile_detail(self, flask_client):
+        r = flask_client.get("/api/visual-process/skill-profiles/coder")
+        assert r.status_code == 200
+        assert r.get_json()["id"] == "coder"
 
     def test_validate_valid(self, flask_client):
         from agent.visual_process.presets import get_preset

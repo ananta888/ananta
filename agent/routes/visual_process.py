@@ -349,12 +349,14 @@ def get_preset_by_id(preset_id: str):
 
 
 @vp_bp.get("/skill-profiles")
+@check_user_auth
 def skill_profiles():
     reg = get_skill_profile_registry()
     return jsonify(reg.as_library()), 200
 
 
 @vp_bp.get("/skill-profiles/<profile_id>")
+@check_user_auth
 def skill_profile_detail(profile_id: str):
     reg = get_skill_profile_registry()
     p = reg.get(profile_id)
