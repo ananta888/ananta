@@ -11,16 +11,25 @@ import {
   ViewChild,
 } from '@angular/core';
 
-import type { StepPosition, VpGraph } from '../../visual-process/visual-process-api.service';
+import type {
+  StepPosition,
+  VpGraph,
+  VpRuntimeOverlay,
+} from '../../visual-process/visual-process-api.service';
 import {
   CaseFlowAgentCanvasEdgeProjection,
   CaseFlowAgentCanvasNodeProjection,
   CaseFlowAgentCanvasProjection,
 } from './caseflow-agent-canvas.models';
 import { projectAgentCanvas } from './caseflow-agent-canvas.mapper';
+import {
+  CaseFlowAgentRuntimeNodeProjection,
+  CaseFlowAgentRuntimeProjection,
+  projectCaseFlowAgentRuntime,
+} from './caseflow-agent-runtime.mapper';
 
 export const CASEFLOW_AGENT_NODE_WIDTH = 168;
-export const CASEFLOW_AGENT_NODE_HEIGHT = 84;
+export const CASEFLOW_AGENT_NODE_HEIGHT = 104;
 
 const DEFAULT_VIEWPORT: Readonly<CaseFlowAgentCanvasViewport> = {
   x: 0,
@@ -175,6 +184,11 @@ export function moveCaseFlowAgentNode(
                 <g
                   class="agent-node"
                   [class.selected]="selectedId === node.step_id"
+                  [class.runtime-running]="runtimeProjection.available && runtimeFor(node).status === 'running'"
+                  [class.runtime-awaiting]="runtimeProjection.available && runtimeFor(node).status === 'awaiting_approval'"
+                  [class.runtime-success]="runtimeProjection.available && runtimeFor(node).status === 'success'"
+                  [class.runtime-error]="runtimeProjection.available && runtimeFor(node).status === 'error'"
+                  [class.runtime-unknown]="runtimeProjection.available && runtimeFor(node).status === 'unknown'"
                   [attr.transform]="nodeTransform(node)"
                   tabindex="0"
                   role="button"
@@ -189,6 +203,14 @@ export function moveCaseFlowAgentNode(
                   <text class="node-icon" x="16" y="27" aria-hidden="true">{{ node.icon }}</text>
                   <text class="node-label" x="16" y="50">{{ node.label }}</text>
                   <text class="node-role" x="16" y="70">{{ node.role }}</text>
+                  @if (runtimeProjection.available) {
+                    <text class="node-runtime-icon" x="16" y="91" aria-hidden="true">
+                      {{ runtimeFor(node).icon }}
+                    </text>
+                    <text class="node-runtime-label" x="39" y="91">
+                      {{ runtimeFor(node).label }}
+                    </text>
+                  }
                 </g>
               }
             </g>
@@ -207,6 +229,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   @ViewChild('surface', { static: true }) surfaceRef!: ElementRef<SVGSVGElement>;
 
   @Input({ required: true }) graph!: VpGraph;
+  @Input() runtimeOverlay: VpRuntimeOverlay | null = null;
   @Output() readonly graphChange = new EventEmitter<VpGraph>();
   @Output() readonly nodeSelected = new EventEmitter<string>();
   @Output() readonly edgeSelected = new EventEmitter<string>();
@@ -217,6 +240,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   readonly arrowMarkerUrl = `url(#${this.arrowMarkerId})`;
 
   projection: CaseFlowAgentCanvasProjection | null = null;
+  runtimeProjection: CaseFlowAgentRuntimeProjection = projectCaseFlowAgentRuntime('', [], null);
   projectionError = '';
   selectedId: string | null = null;
   viewport: CaseFlowAgentCanvasViewport = { ...DEFAULT_VIEWPORT };
@@ -236,11 +260,15 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (!changes['graph'] || !this.graph) return;
+    if (!changes['graph'] || !this.graph) {
+      if (changes['runtimeOverlay']) this.refreshRuntimeProjection();
+      return;
+    }
     const identityChanged = this.graphIdentity !== this.graph.id;
     this.graphIdentity = this.graph.id;
     this.previewPositions.clear();
     this.refreshProjection();
+    this.refreshRuntimeProjection();
 
     if (identityChanged) {
       this.selectedId = null;
@@ -253,6 +281,17 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     if (this.selectedId && !this.hasSelectableId(this.selectedId)) {
       this.selectedId = null;
     }
+  }
+
+  runtimeFor(node: CaseFlowAgentCanvasNodeProjection): CaseFlowAgentRuntimeNodeProjection {
+    return this.runtimeProjection.nodes[node.step_id] ?? {
+      step_id: node.step_id,
+      status: 'unknown',
+      label: 'Unbekannt',
+      icon: 'help_outline',
+      current: false,
+      active: false,
+    };
   }
 
   selectNode(node: CaseFlowAgentCanvasNodeProjection, event?: Event): void {
@@ -433,7 +472,10 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   }
 
   nodeAriaLabel(node: CaseFlowAgentCanvasNodeProjection): string {
-    return `Agent ${node.label}, Rolle ${node.role}`;
+    const runtime = this.runtimeProjection.available
+      ? `, Runtime ${this.runtimeFor(node).label}`
+      : '';
+    return `Agent ${node.label}, Rolle ${node.role}${runtime}`;
   }
 
   edgeAriaLabel(edge: CaseFlowAgentCanvasEdgeProjection): string {
@@ -509,6 +551,14 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     }
     this.projection = null;
     this.projectionError = result.issues.map(issue => issue.message).join(' ');
+  }
+
+  private refreshRuntimeProjection(): void {
+    this.runtimeProjection = projectCaseFlowAgentRuntime(
+      this.graph.id,
+      this.projection?.nodes ?? [],
+      this.runtimeOverlay,
+    );
   }
 
   private positionFor(node: CaseFlowAgentCanvasNodeProjection): StepPosition {

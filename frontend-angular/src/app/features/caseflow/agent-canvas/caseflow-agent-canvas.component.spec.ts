@@ -3,7 +3,12 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { VpEdge, VpGraph, VpStep } from '../../visual-process/visual-process-api.service';
+import type {
+  VpEdge,
+  VpGraph,
+  VpRuntimeOverlay,
+  VpStep,
+} from '../../visual-process/visual-process-api.service';
 import {
   CaseFlowAgentCanvasComponent,
   moveCaseFlowAgentNode,
@@ -226,6 +231,92 @@ describe('CaseFlowAgentCanvasComponent', () => {
     expect(changes[0].edges).toBe(AGENT_GRAPH.edges);
     expect(changes[0].extensions).toBe(AGENT_GRAPH.extensions);
   });
+
+  it('renders running, approval, success, and error with text, icon, and state classes', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-a': 'running',
+      'agent-b': 'awaiting_approval',
+      'agent-c': 'succeeded',
+    }, ['agent-a', 'agent-b']));
+    fixture.detectChanges();
+
+    const agentA = fixture.nativeElement.querySelector('[data-step-id="agent-a"]') as SVGGElement;
+    const agentB = fixture.nativeElement.querySelector('[data-step-id="agent-b"]') as SVGGElement;
+    const agentC = fixture.nativeElement.querySelector('[data-step-id="agent-c"]') as SVGGElement;
+    expect(agentA.classList).toContain('runtime-running');
+    expect(agentA.textContent).toContain('Läuft');
+    expect(agentA.textContent).toContain('play_circle');
+    expect(agentA.getAttribute('aria-label')).toContain('Runtime Läuft');
+    expect(agentB.classList).toContain('runtime-awaiting');
+    expect(agentB.textContent).toContain('Wartet auf Freigabe');
+    expect(agentB.textContent).toContain('approval');
+    expect(agentB.getAttribute('aria-label')).toContain('Runtime Wartet auf Freigabe');
+    expect(agentC.classList).toContain('runtime-success');
+    expect(agentC.textContent).toContain('Erfolgreich');
+    expect(agentC.textContent).toContain('check_circle');
+    expect(agentC.getAttribute('aria-label')).toContain('Runtime Erfolgreich');
+
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-a': 'failed',
+      'agent-b': 'unknown',
+      'agent-c': 'succeeded',
+    }, ['agent-b']));
+    fixture.detectChanges();
+    expect(agentA.classList).toContain('runtime-error');
+    expect(agentA.textContent).toContain('Fehler');
+    expect(agentA.textContent).toContain('error');
+    expect(agentA.getAttribute('aria-label')).toContain('Runtime Fehler');
+    expect(agentB.classList).toContain('runtime-unknown');
+    expect(agentB.textContent).toContain('Unbekannt');
+    expect(agentB.textContent).toContain('help_outline');
+    expect(agentB.getAttribute('aria-label')).toContain('Runtime Unbekannt');
+    expect(fixture.componentInstance.runtimeProjection.active_edge_ids).toEqual([]);
+  });
+
+  it('does not style or announce runtime when no bound overlay exists', () => {
+    const fixture = createFixture();
+    const agent = fixture.nativeElement.querySelector('[data-step-id="agent-a"]') as SVGGElement;
+
+    expect(Array.from(agent.classList).some(name => name.startsWith('runtime-'))).toBe(false);
+    expect(agent.textContent).not.toContain('Unbekannt');
+    expect(agent.getAttribute('aria-label')).not.toContain('Runtime');
+
+    fixture.componentRef.setInput('runtimeOverlay', {
+      ...runtimeOverlay({ 'agent-a': 'running' }, ['agent-a']),
+      workflow_id: 'another-graph',
+    });
+    fixture.detectChanges();
+    expect(Array.from(agent.classList).some(name => name.startsWith('runtime-'))).toBe(false);
+    expect(agent.getAttribute('aria-label')).not.toContain('Runtime');
+  });
+
+  it('preserves viewport and valid selection on runtime refresh and closes removed selection', () => {
+    const fixture = createFixture();
+    const component = fixture.componentInstance;
+    const node = fixture.nativeElement.querySelector('[data-step-id="agent-b"]') as SVGGElement;
+    node.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    component.zoomIn();
+    const viewport = component.viewport;
+    const transforms = nodeTransforms(fixture);
+
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-b': 'running',
+    }, ['agent-b']));
+    fixture.detectChanges();
+    expect(component.selectedId).toBe('agent-b');
+    expect(component.viewport).toEqual(viewport);
+    expect(nodeTransforms(fixture)).toEqual(transforms);
+
+    fixture.componentRef.setInput('graph', {
+      ...AGENT_GRAPH,
+      steps: AGENT_GRAPH.steps.filter(step => step.id !== 'agent-b'),
+      edges: AGENT_GRAPH.edges.filter(edge => edge.source !== 'agent-b' && edge.target !== 'agent-b'),
+    });
+    fixture.detectChanges();
+    expect(component.selectedId).toBeNull();
+    expect(component.viewport).toEqual(viewport);
+  });
 });
 
 function createFixture(graph = AGENT_GRAPH): ComponentFixture<CaseFlowAgentCanvasComponent> {
@@ -283,6 +374,23 @@ function rect(width: number, height: number): DOMRect {
     height,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+function runtimeOverlay(
+  statuses: Readonly<Record<string, VpRuntimeOverlay['steps'][string]['status']>>,
+  currentStepIds: string[],
+): VpRuntimeOverlay {
+  return {
+    run_id: 'run-existing',
+    workflow_id: AGENT_GRAPH.id,
+    overall_status: 'running',
+    current_step_ids: currentStepIds,
+    steps: Object.fromEntries(Object.entries(statuses).map(([stepId, status]) => [
+      stepId,
+      { step_id: stepId, status },
+    ])),
+    updated_at: 1,
+  };
 }
 
 const AGENT_GRAPH: VpGraph = {
