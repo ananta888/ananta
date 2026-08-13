@@ -76,7 +76,7 @@
             </div>
           }
           @if (!pairOnly) {
-            <div class="content" [class.hidden]="configPanelOpen || sharePanelOpen || snakeChatPanelOpen">
+            <div class="content" [class.hidden]="!generalAssistantSurfaceVisible">
               @if (snakeVisible) {
                 <div class="snake-panel">
                   <canvas #snakeCanvas class="snake-canvas"></canvas>
@@ -119,12 +119,14 @@
           <div class="dock-footer" data-testid="assistant-dock-footer">
             <div class="dock-footer-actions">
               @if (!pairOnly) {
-                <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
-                  Chats {{ threadSwitcherOpen ? 'schliessen' : 'anzeigen' }}
-                </button>
-                <button type="button" class="mini-footer-btn primary" (click)="createThread()">
-                  + Neuer Chat
-                </button>
+                @if (generalAssistantSurfaceVisible) {
+                  <button type="button" class="mini-footer-btn" (click)="toggleThreadSwitcher()">
+                    KI-Chats {{ threadSwitcherOpen ? 'ausblenden' : 'anzeigen' }}
+                  </button>
+                  <button type="button" class="mini-footer-btn primary" (click)="createThread()">
+                    + Neuer KI-Chat
+                  </button>
+                }
                 <button type="button" class="mini-footer-btn snake-btn" (click)="toggleSnakeCanvas()" [class.active]="snakeVisible" title="{{ snakeVisible ? 'Snake ausblenden' : 'Snake anzeigen' }}">
                   ◈ Snake
                 </button>
@@ -168,7 +170,7 @@
                 </button>
               }
             </div>
-            @if (!pairOnly && threadSwitcherOpen) {
+            @if (generalAssistantSurfaceVisible && threadSwitcherOpen) {
               <div class="thread-switcher">
                 @for (thread of chatThreads; track thread.id) {
                   <button

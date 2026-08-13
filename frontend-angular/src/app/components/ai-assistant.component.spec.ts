@@ -1,6 +1,7 @@
 import { AiAssistantComponent } from './ai-assistant.component';
 import { AiAssistantDomainService } from './ai-assistant-domain.service';
 import { AiAssistantStorageService } from './ai-assistant-storage.service';
+import { AI_SNAKE_PANEL_TABS } from './ai-snake-panel-tab';
 
 describe('AiAssistantComponent', () => {
   const store: Record<string, string> = {};
@@ -206,6 +207,48 @@ describe('AiAssistantComponent', () => {
 
     cmp.snakeChatPanelTab = 'chat';
     expect(cmp.snakeChatPanelVisible).toBe(true);
+  });
+
+  it('shows general assistant thread controls only when no workspace overlay is visible', () => {
+    const cmp = createComponent();
+    cmp.chatThreads = [
+      { id: 'thread-1', title: 'Chat 1', history: [], updatedAt: 1 },
+      { id: 'thread-2', title: 'Chat 2', history: [{ role: 'user', content: 'bleibt' }], updatedAt: 2 },
+    ];
+    cmp.activeThreadId = 'thread-2';
+    cmp.threadSwitcherOpen = true;
+    const threads = cmp.chatThreads;
+    cmp['pairOnlyValue'] = false;
+    cmp.snakeChatPanelOpen = false;
+    cmp.configPanelOpen = false;
+    cmp.sharePanelOpen = false;
+
+    expect(cmp.generalAssistantSurfaceVisible).toBe(true);
+
+    cmp.snakeChatPanelOpen = true;
+    for (const tab of AI_SNAKE_PANEL_TABS) {
+      cmp.snakeChatPanelTab = tab;
+      expect(cmp.generalAssistantSurfaceVisible).toBe(false);
+    }
+
+    cmp.snakeChatPanelOpen = false;
+    cmp.configPanelOpen = true;
+    expect(cmp.generalAssistantSurfaceVisible).toBe(false);
+
+    cmp.configPanelOpen = false;
+    cmp.sharePanelOpen = true;
+    expect(cmp.generalAssistantSurfaceVisible).toBe(false);
+
+    cmp.sharePanelOpen = false;
+    cmp['pairOnlyValue'] = true;
+    expect(cmp.generalAssistantSurfaceVisible).toBe(false);
+
+    cmp['pairOnlyValue'] = false;
+    expect(cmp.generalAssistantSurfaceVisible).toBe(true);
+    expect(cmp.chatThreads).toBe(threads);
+    expect(cmp.chatThreads[1]?.history).toEqual([{ role: 'user', content: 'bleibt' }]);
+    expect(cmp.activeThreadId).toBe('thread-2');
+    expect(cmp.threadSwitcherOpen).toBe(true);
   });
 
   it('returns to Pair and closes Hub overlays when validated Hub identity is lost', () => {

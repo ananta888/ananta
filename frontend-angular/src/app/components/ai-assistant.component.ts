@@ -96,6 +96,18 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       && this.snakeChatPanelTab !== 'media';
   }
 
+  /**
+   * The local LLM thread picker belongs to the unobscured assistant surface.
+   * Overlay workspaces keep their own chat/session navigation and must not
+   * expose controls that only mutate a hidden conversation underneath them.
+   */
+  get generalAssistantSurfaceVisible(): boolean {
+    return !this.pairOnly
+      && !this.configPanelOpen
+      && !this.sharePanelOpen
+      && !this.snakeChatPanelOpen;
+  }
+
   @ViewChild('snakeCanvas') private snakeCanvasRef?: ElementRef<HTMLCanvasElement>;
   snakeVisible = false;
   configPanelOpen = false;
