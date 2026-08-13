@@ -1,8 +1,8 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-11",
-  "updated_at": "2026-08-11",
+  "updated_at": "2026-08-13",
   "owner": "Peter Stuiber / Ananta",
   "track": "langextract_codecompass_claim_extraction_adapter",
   "status": "todo",
@@ -49,7 +49,7 @@
     "reviewed_files": [
       "AGENTS.md",
       "todos/todo.track.schema.json",
-      "todos/active/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json",
+      "todos/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json",
       "docs/system-komponenten.md",
       "docs/codecompass.md",
       "docs/architecture/codecompass-file-type-support.md",
@@ -664,7 +664,7 @@
       ],
       "files_to_update": [
         ".github/workflows/quality-and-docs.yml",
-        "todos/active/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json"
+        "todos/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json"
       ],
       "description": "Schema-, Contract-, Offline-, Quality-, Performance-, Security-, Rollout- und Dependency-Nachweise zusammenfuehren und KHW-008 explizit verknuepfen.",
       "acceptance_criteria": [
@@ -700,7 +700,7 @@
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 15,
       "P1": 5,
@@ -729,33 +729,269 @@
   "tasks_type_summary": {
     "total": 20,
     "by_type": {
-      "analysis": 1,
-      "architecture": 1,
-      "benchmark": 1,
-      "config": 1,
-      "contract": 1,
-      "dependency": 1,
-      "evaluation": 1,
-      "integration": 1,
-      "mapping": 1,
-      "observability": 1,
-      "performance": 1,
-      "release": 1,
-      "rollout": 1,
-      "scaling": 1,
-      "security": 3,
-      "test": 1,
-      "validation": 1,
-      "worker": 1
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "dependency": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "evaluation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "contract": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "mapping": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "config": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "worker": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "scaling": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "validation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "benchmark": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "observability": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "rollout": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "release": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
-    "state": "planned",
+    "state": "todo",
     "todo_remaining": 20,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -792,5 +1028,58 @@
         "Kein paralleler Index-, Retrieval-, Graph- oder Orchestrierungsstack."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 33.75,
+    "done_weight": 0.0,
+    "remaining_weight": 33.75,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M2": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M3": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M4": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-13T18:38:55.798705Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "c395a914b5e802a0393312b923392044bcaec610d561c4e4ca783b55bc817e4c",
+    "is_stale": false
+  }
 }

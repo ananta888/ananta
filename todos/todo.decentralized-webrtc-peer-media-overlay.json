@@ -1,5 +1,5 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "id": "todo.decentralized-webrtc-peer-media-overlay",
   "title": "Dezentrale WebRTC-Gruppentopologie und verschluesseltes Peer-Media-Overlay",
   "version": "1.0",
@@ -7,9 +7,9 @@
   "track": "decentralized-webrtc-peer-media-overlay",
   "status": "todo",
   "created_at": "2026-08-09",
-  "updated_at": "2026-08-09",
+  "updated_at": "2026-08-13",
   "parents": [
-    "todos/active/todo.pair-dev-collaboration-workspace-buzz-interop.json",
+    "todos/todo.pair-dev-collaboration-workspace-buzz-interop.json",
     "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
   ],
   "purpose": "Anantas vorhandene Direct-, Mesh-, LiveKit-, TURN-, E2EE-, Gruppen-, Epochen- und Peer-Identity-Bausteine werden additiv zu einer abgestuften Medien- und Daten-Topologie ausgebaut: 1:1 direkt, kleine Gruppen als vollstaendiges WebRTC-Mesh, groessere geeignete Publikationen ueber einen verschluesselten Peer-DAG und LiveKit/TURN als kontrollierter Fallback. Der Track trennt strikt zwischen heute produktiv nutzbarer Browser-WebRTC-Medienpipeline und einem experimentellen Ciphertext-Fanout, dessen Machbarkeit wegen der Eigentumsbindung von Encoded Frames zuerst nachgewiesen werden muss.",
@@ -416,18 +416,179 @@
   ],
   "tasks_status_summary": {
     "total": 48,
-    "by_status": {"todo": 48, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "by_status": {
+      "todo": 48,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
     "progress_percent_done": 0.0,
-    "by_priority": {"P0": 31, "P1": 15, "P2": 2},
-    "by_risk": {"low": 0, "medium": 2, "high": 19, "critical": 27},
-    "critical_path": {"total": 44, "done": 0, "remaining": 44},
-    "milestones": {"total": 12, "todo": 12, "in_progress": 0, "blocked": 0, "done": 0}
+    "by_priority": {
+      "P0": 31,
+      "P1": 15,
+      "P2": 2
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 19,
+      "critical": 27
+    },
+    "critical_path": {
+      "total": 44,
+      "done": 0,
+      "remaining": 44
+    },
+    "milestones": {
+      "total": 12,
+      "todo": 12,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
   },
   "tasks_type_summary": {
     "total": 48,
-    "by_type": {"architecture": 3, "research": 4, "refactor": 1, "contract": 6, "implementation": 16, "test": 6, "security": 9, "configuration": 1, "operations": 2}
+    "by_type": {
+      "architecture": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "research": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "refactor": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "contract": {
+        "total": 6,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "implementation": {
+        "total": 16,
+        "by_status": {
+          "todo": 16,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 6,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 9,
+        "by_status": {
+          "todo": 9,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "configuration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "operations": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
   },
-  "progress_summary": {"state": "not_started", "todo_remaining": 48, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0, "count_based_percent": 0.0},
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 48,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
+  },
   "execution_stage_summary": {
     "architecture_and_contracts": "todo",
     "small_group_mesh": "todo",
@@ -466,5 +627,122 @@
         "Keine Abschaltung von LiveKit/TURN und kein Security-Downgrade, wenn der Peer-Pfad nicht moeglich oder nicht belegt ist."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 88.5,
+    "done_weight": 0.0,
+    "remaining_weight": 88.5,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M01": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M02": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M03": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M04": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M05": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M06": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M07": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M08": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M09": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M10": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M11": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M12": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-13T18:38:55.794529Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "01183540cb108fef75eb4789024caae649d95bba92ddcfde124de819ab0e747a",
+    "is_stale": false
+  }
 }

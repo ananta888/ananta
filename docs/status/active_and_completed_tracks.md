@@ -6,7 +6,13 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| _None currently listed_ | _n/a_ | Active root-level OSS todo tracks should be added here only when the root file is intentionally restored as an active working-set backlog. |
+| `todos/todo.caseflow-agent-collaboration-canvas.json` | `caseflow-agent-collaboration-canvas` | Active backlog for the CaseFlow agent collaboration canvas, reusing the existing workflow, agent, and trace stacks |
+| `todos/todo.decentralized-webrtc-peer-media-overlay.json` | `decentralized-webrtc-peer-media-overlay` | Active backlog for decentralized WebRTC group topology and the experimental encrypted peer-media overlay |
+| `todos/todo.duckdb-codecompass-analytics-retrieval-integration.json` | `duckdb_codecompass_analytics_retrieval_integration` | Active backlog for the optional DuckDB analytics and retrieval backend for Ananta and CodeCompass |
+| `todos/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json` | `knowledge_hygiene_curated_markdown_wiki_conflict_resolution` | Active backlog for curated knowledge hygiene, conflict review, and human decisions |
+| `todos/todo.langextract-codecompass-claim-extraction-adapter.json` | `langextract_codecompass_claim_extraction_adapter` | Active backlog for the optional provider-neutral LangExtract claim-extraction strategy |
+| `todos/todo.local-moe-root-cause-routing-codecompass-behavioral-evaluation.json` | `local-moe-root-cause-routing-codecompass-behavioral-evaluation` | Active backlog for local MoE fit, root-cause routing, and behavioral evaluation |
+| `todos/todo.pair-dev-collaboration-workspace-buzz-interop.json` | `pair-dev-collaboration-workspace-buzz-interop` | Active backlog for the native Pair-Dev collaboration workspace and optional Buzz interoperability |
 
 ## Deferred KRITIS / Enterprise-related scope
 

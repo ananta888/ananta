@@ -1,8 +1,8 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-06",
-  "updated_at": "2026-08-06",
+  "updated_at": "2026-08-13",
   "owner": "Peter Stuiber / Ananta",
   "track": "duckdb_codecompass_analytics_retrieval_integration",
   "purpose": "DuckDB als optionales lokales Analyse-, Snapshot-, Parquet-, Volltext- und Vector-Retrieval-Backend fuer Ananta und CodeCompass integrieren, ohne JSON als deterministischen Offline-/Test-Fallback, SQLite FTS5 als bestehenden Volltext-Referenzpfad, Qdrant als skalierbares Vector-Backend oder den eigenstaendigen CodeCompass-Graph-Contract zu ersetzen.",
@@ -368,54 +368,136 @@
     {
       "id": "M1",
       "title": "Architektur, Ports, Konfiguration und Composition",
-      "task_ids": ["DDB-001", "DDB-002", "DDB-003", "DDB-004", "DDB-005"],
+      "task_ids": [
+        "DDB-001",
+        "DDB-002",
+        "DDB-003",
+        "DDB-004",
+        "DDB-005"
+      ],
       "status": "todo"
     },
     {
       "id": "M2",
       "title": "Runtime, Schema, Migration und sichere Snapshot-Publikation",
-      "task_ids": ["DDB-006", "DDB-007", "DDB-008", "DDB-009", "DDB-010", "DDB-011", "DDB-012", "DDB-013"],
+      "task_ids": [
+        "DDB-006",
+        "DDB-007",
+        "DDB-008",
+        "DDB-009",
+        "DDB-010",
+        "DDB-011",
+        "DDB-012",
+        "DDB-013"
+      ],
       "status": "todo"
     },
     {
       "id": "M3",
       "title": "CodeCompass-Import, Graph-, FTS-, Vector- und Parquet-Materialisierung",
-      "task_ids": ["DDB-014", "DDB-015", "DDB-016", "DDB-017", "DDB-018", "DDB-019", "DDB-020", "DDB-021"],
+      "task_ids": [
+        "DDB-014",
+        "DDB-015",
+        "DDB-016",
+        "DDB-017",
+        "DDB-018",
+        "DDB-019",
+        "DDB-020",
+        "DDB-021"
+      ],
       "status": "todo"
     },
     {
       "id": "M4",
       "title": "Vector Retrieval, Compatibility und Hybrid Ranking",
-      "task_ids": ["DDB-022", "DDB-023", "DDB-024", "DDB-025", "DDB-026", "DDB-027", "DDB-028"],
+      "task_ids": [
+        "DDB-022",
+        "DDB-023",
+        "DDB-024",
+        "DDB-025",
+        "DDB-026",
+        "DDB-027",
+        "DDB-028"
+      ],
       "status": "todo"
     },
     {
       "id": "M5",
       "title": "Ananta-Analytics, sichere Query-Templates, UI und Workflow-Integration",
-      "task_ids": ["DDB-029", "DDB-030", "DDB-031", "DDB-032", "DDB-033", "DDB-034"],
+      "task_ids": [
+        "DDB-029",
+        "DDB-030",
+        "DDB-031",
+        "DDB-032",
+        "DDB-033",
+        "DDB-034"
+      ],
       "status": "todo"
     },
     {
       "id": "M6",
       "title": "Security, Ressourcen, Packaging, Observability und Betrieb",
-      "task_ids": ["DDB-035", "DDB-036", "DDB-037", "DDB-038", "DDB-039", "DDB-040"],
+      "task_ids": [
+        "DDB-035",
+        "DDB-036",
+        "DDB-037",
+        "DDB-038",
+        "DDB-039",
+        "DDB-040"
+      ],
       "status": "todo"
     },
     {
       "id": "M7",
       "title": "Contract-, Integrations-, Concurrency-, Security- und Performance-Evidence",
-      "task_ids": ["DDB-041", "DDB-042", "DDB-043", "DDB-044", "DDB-045", "DDB-046"],
+      "task_ids": [
+        "DDB-041",
+        "DDB-042",
+        "DDB-043",
+        "DDB-044",
+        "DDB-045",
+        "DDB-046"
+      ],
       "status": "todo"
     },
     {
       "id": "M8",
       "title": "Rollout, Migration, Rollback und Abschlussdokumentation",
-      "task_ids": ["DDB-047", "DDB-048"],
+      "task_ids": [
+        "DDB-047",
+        "DDB-048"
+      ],
       "status": "todo"
     }
   ],
   "critical_path_tasks": [
-    "DDB-001", "DDB-002", "DDB-003", "DDB-004", "DDB-006", "DDB-007", "DDB-008", "DDB-009", "DDB-010", "DDB-011", "DDB-012", "DDB-014", "DDB-015", "DDB-019", "DDB-021", "DDB-022", "DDB-024", "DDB-025", "DDB-026", "DDB-035", "DDB-036", "DDB-037", "DDB-041", "DDB-042", "DDB-044", "DDB-045", "DDB-047"
+    "DDB-001",
+    "DDB-002",
+    "DDB-003",
+    "DDB-004",
+    "DDB-006",
+    "DDB-007",
+    "DDB-008",
+    "DDB-009",
+    "DDB-010",
+    "DDB-011",
+    "DDB-012",
+    "DDB-014",
+    "DDB-015",
+    "DDB-019",
+    "DDB-021",
+    "DDB-022",
+    "DDB-024",
+    "DDB-025",
+    "DDB-026",
+    "DDB-035",
+    "DDB-036",
+    "DDB-037",
+    "DDB-041",
+    "DDB-042",
+    "DDB-044",
+    "DDB-045",
+    "DDB-047"
   ],
   "tasks": [
     {
@@ -427,7 +509,9 @@
       "type": "architecture",
       "milestone_id": "M1",
       "depends_on": [],
-      "files": ["docs/architecture/duckdb-codecompass-backend.md"],
+      "files": [
+        "docs/architecture/duckdb-codecompass-backend.md"
+      ],
       "description": "Eine Architecture Decision Record definiert DuckDB als optionales abgeleitetes Read-Model und grenzt es gegen JSON, SQLite FTS5, Qdrant, GraphStore und die kanonische Ananta-Persistenz ab.",
       "acceptance_criteria": [
         "Die ADR enthaelt eine Entscheidungsmatrix fuer JSON, SQLite FTS5, DuckDB exact, DuckDB VSS und Qdrant.",
@@ -439,7 +523,7 @@
         "Dokumentations-Contracttest prueft alle Pflichtentscheidungen und Referenzlinks.",
         "Architekturreview gleicht die ADR gegen vector_store_contract.py und repository_intelligence_query.py ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-002",
@@ -449,8 +533,13 @@
       "risk": "high",
       "type": "architecture",
       "milestone_id": "M1",
-      "depends_on": ["DDB-001"],
-      "files": ["worker/retrieval/vector_store_contract.py", "docs/architecture/duckdb-codecompass-backend.md"],
+      "depends_on": [
+        "DDB-001"
+      ],
+      "files": [
+        "worker/retrieval/vector_store_contract.py",
+        "docs/architecture/duckdb-codecompass-backend.md"
+      ],
       "description": "Pruefen und dokumentieren, welche vorhandenen Vector-Ports unveraendert nutzbar sind und welche neuen schmalen Ports fuer Snapshot Build, Analytics Query, FTS und Parquet erforderlich sind.",
       "acceptance_criteria": [
         "VectorSearchPort und VectorIndexWriter bleiben backendneutral und importieren duckdb nicht.",
@@ -462,7 +551,7 @@
         "Protocol-Fakes beweisen ISP und Substituierbarkeit ohne duckdb-Import.",
         "Importtest startet Core-Installation ohne DuckDB-Paket."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-003",
@@ -472,8 +561,17 @@
       "risk": "high",
       "type": "configuration",
       "milestone_id": "M1",
-      "depends_on": ["DDB-001", "DDB-002"],
-      "files": ["worker/retrieval/duckdb_vector_store_config.py", "worker/retrieval/vector_store_config.py", "tests/test_duckdb_vector_store_config.py", "tests/test_vector_store_config.py", "config/examples/vector-store.duckdb-local.json"],
+      "depends_on": [
+        "DDB-001",
+        "DDB-002"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store_config.py",
+        "worker/retrieval/vector_store_config.py",
+        "tests/test_duckdb_vector_store_config.py",
+        "tests/test_vector_store_config.py",
+        "config/examples/vector-store.duckdb-local.json"
+      ],
       "description": "VectorStoreProvider um duckdb erweitern und eine fail-closed Konfiguration fuer Pfade, Snapshots, Extensions, Vector-Modus, FTS, Ressourcen und Security implementieren.",
       "acceptance_criteria": [
         "Unbekannte Felder, unsichere Pfade, negative Limits und inkonsistente exact/VSS-Optionen werden mit stabilen Reason-Codes abgelehnt.",
@@ -485,7 +583,7 @@
         "Tabellentests pruefen gueltige und ungueltige Konfigurationskombinationen.",
         "Property-Test prueft kanonischen Config-Hash und Roundtrip."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-004",
@@ -495,8 +593,17 @@
       "risk": "high",
       "type": "composition",
       "milestone_id": "M1",
-      "depends_on": ["DDB-002", "DDB-003", "DDB-006"],
-      "files": ["worker/retrieval/vector_store_factory.py", "worker/retrieval/codecompass_channel_providers.py", "tests/test_vector_store_factory.py", "tests/test_duckdb_vector_store_config.py"],
+      "depends_on": [
+        "DDB-002",
+        "DDB-003",
+        "DDB-006"
+      ],
+      "files": [
+        "worker/retrieval/vector_store_factory.py",
+        "worker/retrieval/codecompass_channel_providers.py",
+        "tests/test_vector_store_factory.py",
+        "tests/test_duckdb_vector_store_config.py"
+      ],
       "description": "DuckDB ausschliesslich im Composition Root lazy importieren und als optionalen Builder fuer Worker-Retrieval registrieren.",
       "acceptance_criteria": [
         "json- und qdrant-Pfade importieren das duckdb-Paket nicht.",
@@ -508,7 +615,7 @@
         "Import-Isolationstest entfernt duckdb aus sys.modules und startet JSON/Qdrant-Factory.",
         "Factory-Test prueft lazy Erfolg, fehlendes Extra und doppelte Registrierung."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-005",
@@ -518,8 +625,16 @@
       "risk": "medium",
       "type": "observability",
       "milestone_id": "M1",
-      "depends_on": ["DDB-003"],
-      "files": ["worker/retrieval/vector_store_observer.py", "agent/services/vector_store_rollout_service.py", "agent/adapters/vector_store_metrics_adapter.py", "tests/test_vector_store_metrics_adapter.py", "tests/test_vector_store_rollout_service.py"],
+      "depends_on": [
+        "DDB-003"
+      ],
+      "files": [
+        "worker/retrieval/vector_store_observer.py",
+        "agent/services/vector_store_rollout_service.py",
+        "agent/adapters/vector_store_metrics_adapter.py",
+        "tests/test_vector_store_metrics_adapter.py",
+        "tests/test_vector_store_rollout_service.py"
+      ],
       "description": "Feste json/qdrant-Allowlisten um duckdb erweitern, ohne hochkardinale Pfade, Scope-Werte oder Query-Inhalte in Metriken und Rollout-State aufzunehmen.",
       "acceptance_criteria": [
         "duckdb ist ein erlaubter Provider in Observer und Rollout-Service.",
@@ -531,7 +646,7 @@
         "Negativtests lehnen Pfad-, Secret- und Security-Downgrade-Overrides ab.",
         "Metriktest prueft feste Labelmengen und unbekannte Reasons."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-006",
@@ -541,8 +656,14 @@
       "risk": "high",
       "type": "packaging",
       "milestone_id": "M2",
-      "depends_on": ["DDB-001"],
-      "files": ["pyproject.toml", "docker/compose-next/requirements.duckdb-worker.lock", "tests/test_duckdb_platform_contract.py"],
+      "depends_on": [
+        "DDB-001"
+      ],
+      "files": [
+        "pyproject.toml",
+        "docker/compose-next/requirements.duckdb-worker.lock",
+        "tests/test_duckdb_platform_contract.py"
+      ],
       "description": "Ein separates duckdb-Extra und ein exakt gepinntes Worker-Lockfile einfuehren; die am 2026-08-06 gepruefte Linie ist DuckDB Python 1.5.x und muss vor Implementierung erneut auf Kompatibilitaet geprueft werden.",
       "acceptance_criteria": [
         "Die Kerninstallation zieht duckdb nicht transitiv ein.",
@@ -554,7 +675,7 @@
         "CI installiert Core ohne DuckDB sowie das separate DuckDB-Profil.",
         "Lockfile-Contracttest vergleicht Extra-Grenze und exakten Worker-Pin."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-007",
@@ -564,8 +685,15 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M2",
-      "depends_on": ["DDB-003", "DDB-006", "DDB-008"],
-      "files": ["worker/retrieval/duckdb_connection_factory.py", "tests/test_duckdb_connection_factory.py"],
+      "depends_on": [
+        "DDB-003",
+        "DDB-006",
+        "DDB-008"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_connection_factory.py",
+        "tests/test_duckdb_connection_factory.py"
+      ],
       "description": "Explizite read-only und writer Connections erzeugen, pro Thread getrennte Connections erzwingen und sichere Startkonfiguration vor jeder Query setzen und sperren.",
       "acceptance_criteria": [
         "Globale duckdb.sql()-Nutzung und geteilte Connections werden nicht verwendet.",
@@ -577,7 +705,7 @@
         "Mehrthreadtest weist jeder Ausfuehrung eine eigene Connection zu.",
         "Negativtests pruefen Schreibversuch auf read-only Snapshot und Nutzung nach close."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-008",
@@ -587,8 +715,15 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M2",
-      "depends_on": ["DDB-001", "DDB-003"],
-      "files": ["worker/retrieval/duckdb_vector_store_config.py", "worker/retrieval/duckdb_snapshot_manager.py", "tests/test_duckdb_security.py"],
+      "depends_on": [
+        "DDB-001",
+        "DDB-003"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store_config.py",
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "tests/test_duckdb_security.py"
+      ],
       "description": "Snapshot-, Pointer-, Temp-, Import- und Exportpfade aus trusted Scope ableiten und Traversal, Symlinks, Reparse Points, Netzwerkpfade und Scope-Kollisionen fail-closed abweisen.",
       "acceptance_criteria": [
         "workspace_id, repository_id und profile_name werden als Daten validiert und niemals ungeprueft in SQL-Identifier uebernommen.",
@@ -600,7 +735,7 @@
         "Security-Tests decken ../, absolute Pfade, Symlink-Swap und gleichnamige Scopes ab.",
         "Windows- und POSIX-spezifische Pfadtests laufen in der Plattformmatrix."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-009",
@@ -610,8 +745,16 @@
       "risk": "critical",
       "type": "migration",
       "milestone_id": "M2",
-      "depends_on": ["DDB-007", "DDB-008"],
-      "files": ["worker/retrieval/duckdb_schema.py", "worker/retrieval/duckdb_migration.py", "tests/test_duckdb_schema.py", "tests/test_duckdb_migration.py"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-008"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_schema.py",
+        "worker/retrieval/duckdb_migration.py",
+        "tests/test_duckdb_schema.py",
+        "tests/test_duckdb_migration.py"
+      ],
       "description": "Kanonische DDL, Schema-Fingerprint, geordnete Migrationen und ein manipulationssensitives Ledger fuer jeden Snapshot implementieren.",
       "acceptance_criteria": [
         "Jeder Snapshot speichert schema_version, schema_fingerprint, DuckDB-Version und angewandte Migrationen.",
@@ -623,7 +766,7 @@
         "Golden-Migrationstests pruefen v1-Aufbau, wiederholte Ausfuehrung und unbekannte Version.",
         "Fault-Injection unterbricht jede Migrationsstufe und prueft Rollback."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-010",
@@ -633,8 +776,14 @@
       "risk": "high",
       "type": "schema",
       "milestone_id": "M2",
-      "depends_on": ["DDB-009"],
-      "files": ["worker/retrieval/duckdb_schema.py", "tests/test_duckdb_schema.py", "docs/architecture/duckdb-codecompass-backend.md"],
+      "depends_on": [
+        "DDB-009"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_schema.py",
+        "tests/test_duckdb_schema.py",
+        "docs/architecture/duckdb-codecompass-backend.md"
+      ],
       "description": "Normalisierte Tabellen fuer Snapshot-State, Output-Dateien, Runs, Dokumente, Text, Vectoren, Graphfamilien, Artefakte, Tombstones und Diagnostics definieren.",
       "acceptance_criteria": [
         "Record-, Scope-, Manifest-, Output- und Source-Identitaeten besitzen NOT-NULL-/Unique-Grenzen, wo der Contract Eindeutigkeit verlangt.",
@@ -646,7 +795,7 @@
         "Schema-Introspectiontest vergleicht Tabellen, Spalten, Constraints und Indizes gegen eine Golden-Spezifikation.",
         "Negativtests pruefen doppelte IDs, fehlende Hashes und gemischte Vector-Dimensionen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-011",
@@ -656,8 +805,17 @@
       "risk": "critical",
       "type": "architecture",
       "milestone_id": "M2",
-      "depends_on": ["DDB-007", "DDB-008", "DDB-009"],
-      "files": ["worker/retrieval/duckdb_snapshot_manager.py", "worker/retrieval/vector_index_execution.py", "tests/test_duckdb_snapshot_manager.py", "tests/test_duckdb_vector_store_integration.py"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-008",
+        "DDB-009"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "worker/retrieval/vector_index_execution.py",
+        "tests/test_duckdb_snapshot_manager.py",
+        "tests/test_duckdb_vector_store_integration.py"
+      ],
       "description": "Pro Scope genau einen Worker-Writer mit portalocker-Lease zulassen und alle Rebuild-/Refresh-/Delete-Auftraege ueber die vorhandene signierte Hub-Task-Grenze ausfuehren.",
       "acceptance_criteria": [
         "Ein zweiter Writer erhaelt vor Datenbankzugriff einen stabilen scope_writer_busy-Fehler.",
@@ -669,7 +827,7 @@
         "Paralleltest startet zwei Writer fuer denselben Scope und unterschiedliche Scopes.",
         "Negativtests pruefen fehlende Admission, Replay, falsche Audience und manipulierten Scope vor jeder Dateioperation."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-012",
@@ -679,8 +837,16 @@
       "risk": "critical",
       "type": "reliability",
       "milestone_id": "M2",
-      "depends_on": ["DDB-009", "DDB-010", "DDB-011"],
-      "files": ["worker/retrieval/duckdb_snapshot_manager.py", "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json", "tests/test_duckdb_snapshot_manager.py"],
+      "depends_on": [
+        "DDB-009",
+        "DDB-010",
+        "DDB-011"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json",
+        "tests/test_duckdb_snapshot_manager.py"
+      ],
       "description": "Neue Datenbanken unter unveraenderlichen Versionsnamen bauen, pruefen und erst danach einen fsync-/replace-atomaren JSON-Pointer aktivieren.",
       "acceptance_criteria": [
         "Offene Reader muessen ihre aktive Datei nicht umbenennen oder ueberschreiben.",
@@ -692,7 +858,7 @@
         "Crash-Matrix unterbricht Build, fsync, Pointer-Write, Replace und Retention.",
         "Windows-/Linux-Test haelt alten Snapshot offen und aktiviert parallel einen neuen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-013",
@@ -702,8 +868,15 @@
       "risk": "high",
       "type": "reliability",
       "milestone_id": "M2",
-      "depends_on": ["DDB-012"],
-      "files": ["worker/retrieval/duckdb_snapshot_manager.py", "worker/retrieval/duckdb_migration.py", "tests/test_duckdb_snapshot_manager.py", "docs/worker/duckdb-codecompass-migration.md"],
+      "depends_on": [
+        "DDB-012"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "worker/retrieval/duckdb_migration.py",
+        "tests/test_duckdb_snapshot_manager.py",
+        "docs/worker/duckdb-codecompass-migration.md"
+      ],
       "description": "Snapshot-Verifikation, vorherige-Version-Restore und klare degraded/incompatible/corrupt Diagnostics bereitstellen.",
       "acceptance_criteria": [
         "Restore aktiviert nur einen existierenden Snapshot mit passendem Hash, Scope und Schema.",
@@ -715,7 +888,7 @@
         "Tests manipulieren Datenbankbytes, Pointer-Felder und Dateinamen.",
         "Restore-Test prueft erfolgreichen Rollback sowie abgelehnte Cross-Scope-Datei."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-014",
@@ -725,8 +898,17 @@
       "risk": "high",
       "type": "integration",
       "milestone_id": "M3",
-      "depends_on": ["DDB-010", "DDB-012"],
-      "files": ["schemas/worker/codecompass_output_manifest.v1.json", "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json", "docs/contracts/codecompass-output-manifest.md", "ananta_codecompass/output_reader.py", "tests/test_duckdb_output_importer.py"],
+      "depends_on": [
+        "DDB-010",
+        "DDB-012"
+      ],
+      "files": [
+        "schemas/worker/codecompass_output_manifest.v1.json",
+        "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json",
+        "docs/contracts/codecompass-output-manifest.md",
+        "ananta_codecompass/output_reader.py",
+        "tests/test_duckdb_output_importer.py"
+      ],
       "description": "CodeCompass-Output-Hashes, Record Counts, Profil und Source Scope als unveraenderliche Eingaben des DuckDB-Snapshots erfassen.",
       "acceptance_criteria": [
         "Jede importierte Output-Datei wird mit output_kind, sha256, mtime, record_count und Bytegroesse registriert.",
@@ -738,7 +920,7 @@
         "Golden-Manifesttest prueft identischen Fingerprint bei unterschiedlicher JSON-Key-Reihenfolge.",
         "Negativtests aendern Datei, Count, Profil und Source Scope."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-015",
@@ -748,8 +930,17 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M3",
-      "depends_on": ["DDB-007", "DDB-008", "DDB-010", "DDB-014"],
-      "files": ["worker/retrieval/duckdb_output_importer.py", "ananta_codecompass/output_reader.py", "tests/test_duckdb_output_importer.py"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-008",
+        "DDB-010",
+        "DDB-014"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_output_importer.py",
+        "ananta_codecompass/output_reader.py",
+        "tests/test_duckdb_output_importer.py"
+      ],
       "description": "Manifestgebundene JSONL-Dateien mit Byte-, Record-, Feld- und Payload-Limits in Batches importieren, ohne den gesamten Output in Python-RAM zu laden.",
       "acceptance_criteria": [
         "Importer akzeptiert nur im verifizierten Manifest deklarierte Dateien unter erlaubten Roots.",
@@ -761,7 +952,7 @@
         "Tests importieren kleine, grosse und partitionierte JSONL-Fixtures.",
         "Fuzztests pruefen kaputtes UTF-8, tiefe JSON-Strukturen, uebergrosse Zeilen und Abbruch."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-016",
@@ -771,8 +962,14 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M3",
-      "depends_on": ["DDB-015"],
-      "files": ["worker/retrieval/duckdb_output_importer.py", "worker/retrieval/codecompass_duckdb_materializer.py", "tests/test_codecompass_duckdb_materializer.py"],
+      "depends_on": [
+        "DDB-015"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_output_importer.py",
+        "worker/retrieval/codecompass_duckdb_materializer.py",
+        "tests/test_codecompass_duckdb_materializer.py"
+      ],
       "description": "Index-, Detail-, Context- und Embedding-Records in kanonische Dokument-, Text- und Provenienztabellen projizieren.",
       "acceptance_criteria": [
         "record_id, kind, file, parent_id, role_labels, importance, generated_code und Hashes bleiben erhalten.",
@@ -784,7 +981,7 @@
         "Golden-Fixtures vergleichen DuckDB-Projektion mit OutputReader-Ergebnis.",
         "Duplikat- und Provenienztests pruefen stabile Auswahl und Fehlercodes."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-017",
@@ -794,8 +991,15 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M3",
-      "depends_on": ["DDB-015", "DDB-016"],
-      "files": ["worker/retrieval/codecompass_duckdb_materializer.py", "ananta_codecompass/graph_store.py", "tests/test_codecompass_duckdb_materializer.py"],
+      "depends_on": [
+        "DDB-015",
+        "DDB-016"
+      ],
+      "files": [
+        "worker/retrieval/codecompass_duckdb_materializer.py",
+        "ananta_codecompass/graph_store.py",
+        "tests/test_codecompass_duckdb_materializer.py"
+      ],
       "description": "Symbol-, semantische, Repository-Intelligence- und x86-Nodes/Edges getrennt ablegen und die Identitaets- und Evidence-Semantik des GraphStore erhalten.",
       "acceptance_criteria": [
         "Keine Graphfamilie schreibt in Tabellen einer anderen Familie.",
@@ -807,7 +1011,7 @@
         "Paritaetstest vergleicht Node-/Edge-Counts und Identitaeten mit CodeCompassGraphStore.",
         "Negativtests pruefen Cross-Family-Kanten, fehlende IDs und ungueltige Evidence."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-018",
@@ -817,8 +1021,16 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M3",
-      "depends_on": ["DDB-016", "DDB-035"],
-      "files": ["worker/retrieval/duckdb_fts_store.py", "worker/retrieval/codecompass_fts_store.py", "worker/retrieval/codecompass_channel_providers.py", "tests/test_duckdb_fts_store.py"],
+      "depends_on": [
+        "DDB-016",
+        "DDB-035"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_fts_store.py",
+        "worker/retrieval/codecompass_fts_store.py",
+        "worker/retrieval/codecompass_channel_providers.py",
+        "tests/test_duckdb_fts_store.py"
+      ],
       "description": "DuckDB FTS als deaktivierten optionalen Provider einfuehren und SQLite FTS5 als Referenz- und Produktionsdefault erhalten.",
       "acceptance_criteria": [
         "Bestehende Query-Parser-, Result- und Ranking-Felder bleiben backendneutral vergleichbar.",
@@ -830,7 +1042,7 @@
         "Paritaetsfixtures vergleichen SQLite- und DuckDB-Resultsets fuer Symbole, Pfade und Begriffe.",
         "Negativtest startet ohne FTS-Bundle und prueft sichtbare Diagnostics."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-019",
@@ -840,8 +1052,16 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M3",
-      "depends_on": ["DDB-010", "DDB-014", "DDB-015"],
-      "files": ["worker/retrieval/duckdb_vector_store.py", "worker/retrieval/codecompass_duckdb_materializer.py", "tests/test_duckdb_vector_store.py"],
+      "depends_on": [
+        "DDB-010",
+        "DDB-014",
+        "DDB-015"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "worker/retrieval/codecompass_duckdb_materializer.py",
+        "tests/test_duckdb_vector_store.py"
+      ],
       "description": "PreparedVectorPoint-Daten mit fester Dimension, Source Hash, Payload und Scope in den Staging-Snapshot schreiben.",
       "acceptance_criteria": [
         "Dimension, Distance, Provider, Modell, Encoding und Profil stimmen exakt mit CompatibilitySpec ueberein.",
@@ -853,7 +1073,7 @@
         "Golden-Test vergleicht Point IDs, Payload und Compatibility mit JsonVectorStore.",
         "Negativtests pruefen Dimensionskonflikt, nicht-finite Werte und Scope-Mismatch."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-020",
@@ -863,8 +1083,19 @@
       "risk": "high",
       "type": "integration",
       "milestone_id": "M3",
-      "depends_on": ["DDB-012", "DDB-014", "DDB-016", "DDB-017", "DDB-019"],
-      "files": ["worker/retrieval/codecompass_duckdb_materializer.py", "worker/retrieval/duckdb_snapshot_manager.py", "worker/retrieval/vector_index_execution.py", "tests/test_codecompass_duckdb_materializer.py"],
+      "depends_on": [
+        "DDB-012",
+        "DDB-014",
+        "DDB-016",
+        "DDB-017",
+        "DDB-019"
+      ],
+      "files": [
+        "worker/retrieval/codecompass_duckdb_materializer.py",
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "worker/retrieval/vector_index_execution.py",
+        "tests/test_codecompass_duckdb_materializer.py"
+      ],
       "description": "Delta-Operationen erzeugen immer einen neuen Snapshot, koennen aber einen verifizierten alten Snapshot als read-only Basis nutzen und nur geaenderte Records materialisieren.",
       "acceptance_criteria": [
         "Aktiver Snapshot wird nie in-place durch mehrere Prozesse mutiert.",
@@ -876,7 +1107,7 @@
         "Differentialtest vergleicht Full Rebuild gegen Folge aus Upserts und Deletes.",
         "Replay-Test wiederholt denselben Task und prueft unveraenderten Snapshot-Fingerprint."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-021",
@@ -886,8 +1117,18 @@
       "risk": "high",
       "type": "schema",
       "milestone_id": "M3",
-      "depends_on": ["DDB-010", "DDB-012", "DDB-014", "DDB-035"],
-      "files": ["worker/retrieval/duckdb_parquet_exchange.py", "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json", "tests/test_duckdb_parquet_exchange.py", "docs/worker/duckdb-codecompass-store.md"],
+      "depends_on": [
+        "DDB-010",
+        "DDB-012",
+        "DDB-014",
+        "DDB-035"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_parquet_exchange.py",
+        "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json",
+        "tests/test_duckdb_parquet_exchange.py",
+        "docs/worker/duckdb-codecompass-store.md"
+      ],
       "description": "Versionierte Parquet-Datasets fuer freigegebene Tabellen exportieren/importieren und mit Schema, Partitionierung, Hashes und Snapshot-Manifest binden.",
       "acceptance_criteria": [
         "Export schreibt nur in erlaubte Artifact Roots und verwendet eine explizite Tabellen-Allowlist.",
@@ -899,7 +1140,7 @@
         "Roundtrip-Test exportiert und importiert alle freigegebenen Tabellen.",
         "Negativtests pruefen Schema Drift, manipulierte Hashes, fremden Scope und Path Traversal."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-022",
@@ -909,8 +1150,18 @@
       "risk": "high",
       "type": "implementation",
       "milestone_id": "M4",
-      "depends_on": ["DDB-004", "DDB-007", "DDB-019", "DDB-024", "DDB-025"],
-      "files": ["worker/retrieval/duckdb_vector_store.py", "tests/test_duckdb_vector_store.py", "tests/test_duckdb_vector_store_integration.py"],
+      "depends_on": [
+        "DDB-004",
+        "DDB-007",
+        "DDB-019",
+        "DDB-024",
+        "DDB-025"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "tests/test_duckdb_vector_store.py",
+        "tests/test_duckdb_vector_store_integration.py"
+      ],
       "description": "VectorSearchPort mit parameterisierter exact cosine/dot/euclid Query, stabiler Sortierung und backendneutralen Hits implementieren.",
       "acceptance_criteria": [
         "Gleiche Testvectoren liefern dieselbe Reihenfolge und toleranzgleiche Scores wie JsonVectorStore.",
@@ -922,7 +1173,7 @@
         "Differentialtest generiert Vector-Sets und vergleicht JSON gegen DuckDB exact.",
         "Tests pruefen leeren Index, Zero Vector, Ties, Limits und alle Distanzen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-023",
@@ -932,8 +1183,16 @@
       "risk": "high",
       "type": "experiment",
       "milestone_id": "M4",
-      "depends_on": ["DDB-022", "DDB-035", "DDB-045"],
-      "files": ["worker/retrieval/duckdb_vector_store.py", "config/benchmarks/duckdb-codecompass.v1.json", "tests/test_duckdb_vector_store.py", "docs/worker/duckdb-codecompass-benchmarks.md"],
+      "depends_on": [
+        "DDB-022",
+        "DDB-035"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "config/benchmarks/duckdb-codecompass.v1.json",
+        "tests/test_duckdb_vector_store.py",
+        "docs/worker/duckdb-codecompass-benchmarks.md"
+      ],
       "description": "VSS laden, HNSW auf Staging-Snapshot bauen und Persistenz, Recall, Speicher, Startzeit und Upgradeverhalten messen; Aktivierung bleibt explizit experimentell.",
       "acceptance_criteria": [
         "Ohne enabled=true und experimentelles Profil wird VSS weder geladen noch indexiert.",
@@ -945,7 +1204,7 @@
         "Restarttest prueft HNSW-Persistenz und Extension-Versionswechsel.",
         "Benchmark vergleicht Recall, p50/p95, Buildzeit, RAM und Dateigroesse mit exact und Qdrant."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-024",
@@ -955,8 +1214,16 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M4",
-      "depends_on": ["DDB-002", "DDB-008", "DDB-010"],
-      "files": ["worker/retrieval/duckdb_vector_store.py", "worker/retrieval/duckdb_query_templates.py", "tests/test_duckdb_security.py"],
+      "depends_on": [
+        "DDB-002",
+        "DDB-008",
+        "DDB-010"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "tests/test_duckdb_security.py"
+      ],
       "description": "VectorScope und VectorStoreFilters ausschliesslich als typisierte Parameter in feste SQL-Templates binden.",
       "acceptance_criteria": [
         "Request-Felder koennen workspace, repository, profile oder domain nicht erzeugen oder erweitern.",
@@ -968,7 +1235,7 @@
         "Injection-Tests verwenden Quotes, Kommentare, Unicode, Wildcards und SQL-Keywords in allen Filtern.",
         "Cross-Scope-Test beweist Nulltreffer trotz identischer record_id in anderem Scope."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-025",
@@ -978,8 +1245,17 @@
       "risk": "high",
       "type": "compatibility",
       "milestone_id": "M4",
-      "depends_on": ["DDB-009", "DDB-010", "DDB-014", "DDB-019"],
-      "files": ["worker/retrieval/duckdb_vector_store.py", "worker/retrieval/duckdb_schema.py", "tests/test_duckdb_vector_store.py"],
+      "depends_on": [
+        "DDB-009",
+        "DDB-010",
+        "DDB-014",
+        "DDB-019"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "worker/retrieval/duckdb_schema.py",
+        "tests/test_duckdb_vector_store.py"
+      ],
       "description": "Vor jeder Suche oder Aktivierung Dimensions-, Distance-, Provider-, Modell-, Profil-, Manifest-, Config-, Encoding- und Schema-Zustand gegen CompatibilitySpec vergleichen.",
       "acceptance_criteria": [
         "Jede Abweichung besitzt einen stabilen backendneutralen Reason-Code.",
@@ -991,7 +1267,7 @@
         "Matrix-Test variiert jedes Compatibility-Feld einzeln.",
         "Cross-Backend-Test prueft gleiche Reason-Semantik fuer JSON, DuckDB und Qdrant."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-026",
@@ -1001,8 +1277,18 @@
       "risk": "critical",
       "type": "reliability",
       "milestone_id": "M4",
-      "depends_on": ["DDB-003", "DDB-004", "DDB-022", "DDB-025"],
-      "files": ["worker/retrieval/vector_store_fallback.py", "worker/retrieval/vector_store_factory.py", "tests/test_vector_store_fallback.py", "tests/test_duckdb_vector_store_integration.py"],
+      "depends_on": [
+        "DDB-003",
+        "DDB-004",
+        "DDB-022",
+        "DDB-025"
+      ],
+      "files": [
+        "worker/retrieval/vector_store_fallback.py",
+        "worker/retrieval/vector_store_factory.py",
+        "tests/test_vector_store_fallback.py",
+        "tests/test_duckdb_vector_store_integration.py"
+      ],
       "description": "Die aktuell Qdrant-spezifische Availability-Komposition fuer optionale nicht-JSON-Provider generalisieren und JSON nur bei expliziter, kompatibler Policy verwenden.",
       "acceptance_criteria": [
         "fail_fast, degraded_empty und explicit_json_fallback funktionieren fuer DuckDB ohne Qdrant-Verhalten zu aendern.",
@@ -1014,7 +1300,7 @@
         "Matrix-Test kombiniert Provider, Availability Mode, kompatiblen/inkompatiblen JSON-Index und Fehlerklasse.",
         "Regressionstest prueft unveraendertes Qdrant-Fallback-Verhalten."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-027",
@@ -1024,8 +1310,19 @@
       "risk": "high",
       "type": "integration",
       "milestone_id": "M4",
-      "depends_on": ["DDB-018", "DDB-022", "DDB-024", "DDB-025", "DDB-026"],
-      "files": ["worker/retrieval/codecompass_channel_providers.py", "agent/services/codecompass_vector_retrieval_service.py", "docs/worker/codecompass-vector-retrieval.md", "tests/test_duckdb_vector_store_integration.py"],
+      "depends_on": [
+        "DDB-018",
+        "DDB-022",
+        "DDB-024",
+        "DDB-025",
+        "DDB-026"
+      ],
+      "files": [
+        "worker/retrieval/codecompass_channel_providers.py",
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "docs/worker/codecompass-vector-retrieval.md",
+        "tests/test_duckdb_vector_store_integration.py"
+      ],
       "description": "DuckDB-Vector und optional DuckDB-FTS als normale Hybrid-Signale einspeisen, ohne exakte Symbol-, Pfad- und Graph-Signale zu ueberstimmen.",
       "acceptance_criteria": [
         "Bestehende channel names, cross_engine_signals und Deduplication bleiben stabil.",
@@ -1037,7 +1334,7 @@
         "Hybrid-Golden-Tests vergleichen JSON-, DuckDB- und Qdrant-Vector-Signale.",
         "Scope-Test prueft doppelte Records, Pfadfilter und Cross-Engine-Deduplication."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-028",
@@ -1047,8 +1344,17 @@
       "risk": "high",
       "type": "lifecycle",
       "milestone_id": "M4",
-      "depends_on": ["DDB-007", "DDB-012", "DDB-022"],
-      "files": ["worker/retrieval/duckdb_connection_factory.py", "worker/retrieval/duckdb_snapshot_manager.py", "worker/retrieval/duckdb_vector_store.py", "tests/test_duckdb_snapshot_manager.py"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-012",
+        "DDB-022"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_connection_factory.py",
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "worker/retrieval/duckdb_vector_store.py",
+        "tests/test_duckdb_snapshot_manager.py"
+      ],
       "description": "Reader erkennen Active-Pointer-Aenderungen, oeffnen einen validierten neuen Snapshot read-only und schliessen alte Connections erst nach laufenden Queries.",
       "acceptance_criteria": [
         "Pointer-Hash und Snapshot-Hash werden vor Connection-Wechsel validiert.",
@@ -1060,7 +1366,7 @@
         "Concurrency-Test aktiviert waehrend langer Reader-Query einen neuen Snapshot.",
         "Negativtest publiziert ungueltigen Pointer und prueft Erhalt des alten Readers."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-029",
@@ -1070,8 +1376,16 @@
       "risk": "medium",
       "type": "analytics",
       "milestone_id": "M5",
-      "depends_on": ["DDB-016", "DDB-017", "DDB-021"],
-      "files": ["worker/retrieval/duckdb_analytics_store.py", "worker/retrieval/duckdb_query_templates.py", "tests/test_duckdb_analytics_store.py"],
+      "depends_on": [
+        "DDB-016",
+        "DDB-017",
+        "DDB-021"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_analytics_store.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "tests/test_duckdb_analytics_store.py"
+      ],
       "description": "Versionierte Views/Templates fuer Komponenten, Abhaengigkeiten, Hotspots, unverbundene Nodes, Testabdeckung, Dateiarten, Provenienzvollstaendigkeit und Indexqualitaet bereitstellen.",
       "acceptance_criteria": [
         "Jede Kennzahl definiert Nenner, Scope, Null-Semantik, Version und Evidence-Felder.",
@@ -1083,7 +1397,7 @@
         "Golden-Fixtures pruefen jede Kennzahl und Partial-Coverage-Warnung.",
         "Determinismustest variiert physische Insert-Reihenfolge."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-030",
@@ -1093,8 +1407,18 @@
       "risk": "high",
       "type": "analytics",
       "milestone_id": "M5",
-      "depends_on": ["DDB-002", "DDB-017", "DDB-024", "DDB-029"],
-      "files": ["ananta_codecompass/repository_intelligence_query.py", "worker/retrieval/duckdb_analytics_store.py", "worker/retrieval/duckdb_query_templates.py", "tests/test_duckdb_analytics_store.py"],
+      "depends_on": [
+        "DDB-002",
+        "DDB-017",
+        "DDB-024",
+        "DDB-029"
+      ],
+      "files": [
+        "ananta_codecompass/repository_intelligence_query.py",
+        "worker/retrieval/duckdb_analytics_store.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "tests/test_duckdb_analytics_store.py"
+      ],
       "description": "Die vorhandenen allowlisteten Query-Typen gegen einen minimalen Source-Port ausfuehren, sodass JSON GraphStore Referenz bleibt und DuckDB dieselbe Semantik liefern kann.",
       "acceptance_criteria": [
         "Die erlaubten Query-Typen bleiben unveraendert und freie Graph-/SQL-Sprache bleibt ausgeschlossen.",
@@ -1106,7 +1430,7 @@
         "Differentialtests laufen alle Repository-Intelligence-Query-Typen gegen beide Backends.",
         "Negativtests pruefen unbekannten Query-Typ, unklaren Seed und Scope-Verbreiterung."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-031",
@@ -1116,8 +1440,19 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M5",
-      "depends_on": ["DDB-024", "DDB-029", "DDB-030", "DDB-036", "DDB-037"],
-      "files": ["worker/retrieval/duckdb_query_templates.py", "agent/services/codecompass_duckdb_analytics_service.py", "tests/test_duckdb_security.py", "tests/test_duckdb_analytics_store.py"],
+      "depends_on": [
+        "DDB-024",
+        "DDB-029",
+        "DDB-030",
+        "DDB-036",
+        "DDB-037"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_query_templates.py",
+        "agent/services/codecompass_duckdb_analytics_service.py",
+        "tests/test_duckdb_security.py",
+        "tests/test_duckdb_analytics_store.py"
+      ],
       "description": "Agenten waehlen nur benannte Query-IDs mit typisierten Parametern; der Service bindet trusted Scope, Budgets und Ergebnisredaktion.",
       "acceptance_criteria": [
         "Kein API-, Tool- oder Prompt-Feld akzeptiert freie SQL-Fragmente.",
@@ -1129,7 +1464,7 @@
         "Injection-/Fuzztests pruefen alle Stringparameter und unbekannte Template-IDs.",
         "Budgettests erzwingen Timeout, Row- und Byte-Limit mit stabilen Fehlercodes."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-032",
@@ -1139,8 +1474,17 @@
       "risk": "medium",
       "type": "ui",
       "milestone_id": "M5",
-      "depends_on": ["DDB-005", "DDB-028", "DDB-029", "DDB-039"],
-      "files": ["agent/routes/vector_store_control.py", "agent/routes/codecompass_graph.py", "web/www/codecompass/index.html"],
+      "depends_on": [
+        "DDB-005",
+        "DDB-028",
+        "DDB-029",
+        "DDB-039"
+      ],
+      "files": [
+        "agent/routes/vector_store_control.py",
+        "agent/routes/codecompass_graph.py",
+        "web/www/codecompass/index.html"
+      ],
       "description": "Provider, Snapshot-Version, Alter, Counts, Schema, search_mode, FTS-Status, Ressourcen und letzte Fehler sichtbar machen, ohne lokale Pfade oder Secrets offenzulegen.",
       "acceptance_criteria": [
         "UI unterscheidet JSON, DuckDB exact, DuckDB HNSW und Qdrant eindeutig.",
@@ -1152,7 +1496,7 @@
         "Route-Contracttests pruefen Redaction und alle Zustandsvarianten.",
         "UI-Test prueft Providerwechsel, Stale Warning und fehlende Berechtigung."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-033",
@@ -1162,8 +1506,21 @@
       "risk": "high",
       "type": "integration",
       "milestone_id": "M5",
-      "depends_on": ["DDB-011", "DDB-014", "DDB-015", "DDB-020", "DDB-027"],
-      "files": ["scripts/setup_codecompass_index.py", "worker/retrieval/codecompass_duckdb_materializer.py", "worker/retrieval/vector_index_execution.py", "agent/services/codecompass_vector_runtime_service.py", "agent/services/codecompass_vector_retrieval_service.py", "tests/test_codecompass_duckdb_materializer.py"],
+      "depends_on": [
+        "DDB-011",
+        "DDB-014",
+        "DDB-015",
+        "DDB-020",
+        "DDB-027"
+      ],
+      "files": [
+        "scripts/setup_codecompass_index.py",
+        "worker/retrieval/codecompass_duckdb_materializer.py",
+        "worker/retrieval/vector_index_execution.py",
+        "agent/services/codecompass_vector_runtime_service.py",
+        "agent/services/codecompass_vector_retrieval_service.py",
+        "tests/test_codecompass_duckdb_materializer.py"
+      ],
       "description": "Nach erfolgreicher CodeCompass-Output-Erzeugung einen expliziten DuckDB-Snapshot-Auftrag planen; Suche darf den Build nicht implizit anstossen.",
       "acceptance_criteria": [
         "Input-Artifact, Manifest-Hash, Scope, Compatibility und Idempotency sind im delegierten Auftrag gebunden.",
@@ -1175,7 +1532,7 @@
         "End-to-End-Fixture erzeugt Outputs, Snapshot, Pointer und anschliessende Hybrid-Suche.",
         "Negativtest bricht Materialisierung ab und prueft unveraenderte bestehende Artefakte."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-034",
@@ -1185,8 +1542,17 @@
       "risk": "medium",
       "type": "analytics",
       "milestone_id": "M5",
-      "depends_on": ["DDB-021", "DDB-029", "DDB-031"],
-      "files": ["worker/retrieval/duckdb_analytics_store.py", "worker/retrieval/duckdb_parquet_exchange.py", "agent/services/codecompass_duckdb_analytics_service.py", "tests/test_duckdb_analytics_store.py"],
+      "depends_on": [
+        "DDB-021",
+        "DDB-029",
+        "DDB-031"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_analytics_store.py",
+        "worker/retrieval/duckdb_parquet_exchange.py",
+        "agent/services/codecompass_duckdb_analytics_service.py",
+        "tests/test_duckdb_analytics_store.py"
+      ],
       "description": "Benannte Analysen als begrenzte JSON-, CSV- oder Parquet-Artefakte mit Query-Template-, Snapshot- und Evidence-Metadaten exportieren.",
       "acceptance_criteria": [
         "Report-Manifest bindet Query-ID/Version, Parameterhash, Scope, Snapshot, Zeitpunkt, Rows und Output-Hash.",
@@ -1198,7 +1564,7 @@
         "Roundtriptests validieren JSON, CSV und Parquet samt Manifest.",
         "Securitytests pruefen CSV-Formula-Injection und verbotene Spalten."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-035",
@@ -1208,8 +1574,17 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M6",
-      "depends_on": ["DDB-003", "DDB-006", "DDB-007"],
-      "files": ["worker/retrieval/duckdb_extension_policy.py", "docker/compose-next/requirements.duckdb-worker.lock", "tests/test_duckdb_extension_policy.py", "docs/worker/duckdb-codecompass-security.md"],
+      "depends_on": [
+        "DDB-003",
+        "DDB-006",
+        "DDB-007"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_extension_policy.py",
+        "docker/compose-next/requirements.duckdb-worker.lock",
+        "tests/test_duckdb_extension_policy.py",
+        "docs/worker/duckdb-codecompass-security.md"
+      ],
       "description": "Extensions nur aus dem vorab gebauten Worker-Artefakt laden, Signatur/Version pruefen und Autoinstall, Autoload, Community sowie unsigned produktiv deaktivieren.",
       "acceptance_criteria": [
         "Produktiver Requestpfad fuehrt nie INSTALL oder Download aus.",
@@ -1221,7 +1596,7 @@
         "Offline-Test startet Worker ohne Netzwerk und laedt freigegebene gebundene Extensions.",
         "Negativtests versuchen Community-, unsigned-, fremde Pfad- und Autoinstall-Loads."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-036",
@@ -1231,8 +1606,18 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M6",
-      "depends_on": ["DDB-007", "DDB-008", "DDB-024", "DDB-035"],
-      "files": ["worker/retrieval/duckdb_connection_factory.py", "worker/retrieval/duckdb_query_templates.py", "tests/test_duckdb_security.py", "docs/worker/duckdb-codecompass-security.md"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-008",
+        "DDB-024",
+        "DDB-035"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_connection_factory.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "tests/test_duckdb_security.py",
+        "docs/worker/duckdb-codecompass-security.md"
+      ],
       "description": "Agentisch erreichbare Connections auf feste read-only Statements begrenzen und Dateisystem-, Netzwerk-, ATTACH-, COPY-, INSTALL-/LOAD- und Secret-Exfiltration verhindern.",
       "acceptance_criteria": [
         "Query-Service akzeptiert ausschliesslich vorbereitete SELECT-Templates aus interner Registry.",
@@ -1244,7 +1629,7 @@
         "SQL-Fuzzing prueft Comments, Semikolons, Unicode, verschachtelte Subqueries und Table Functions.",
         "Exfiltrationstest versucht lokale Dateien, Umgebungsvariablen, HTTP und verbotene Exporte."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-037",
@@ -1254,8 +1639,18 @@
       "risk": "high",
       "type": "performance",
       "milestone_id": "M6",
-      "depends_on": ["DDB-003", "DDB-007", "DDB-008"],
-      "files": ["worker/retrieval/duckdb_connection_factory.py", "worker/retrieval/duckdb_output_importer.py", "worker/retrieval/duckdb_query_templates.py", "tests/test_duckdb_connection_factory.py", "tests/test_duckdb_security.py"],
+      "depends_on": [
+        "DDB-003",
+        "DDB-007",
+        "DDB-008"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_connection_factory.py",
+        "worker/retrieval/duckdb_output_importer.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "tests/test_duckdb_connection_factory.py",
+        "tests/test_duckdb_security.py"
+      ],
       "description": "DuckDB-Einstellungen mit Ananta-Taskbudgets verbinden und zusaetzliche Grenzen fuer Speicher ausserhalb des Buffer Managers, Ergebnisse und Import-Payload setzen.",
       "acceptance_criteria": [
         "threads, memory_limit, max_temp_directory_size und Temp-Root werden pro Workerprofil gesetzt.",
@@ -1267,7 +1662,7 @@
         "Tests erzwingen Thread-, RAM-, Temp-, Result- und Importlimits mit kleinen deterministischen Fixtures.",
         "Cancellationtest beendet lange Query und gibt Connection kontrolliert frei."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-038",
@@ -1277,8 +1672,17 @@
       "risk": "high",
       "type": "packaging",
       "milestone_id": "M6",
-      "depends_on": ["DDB-006", "DDB-035", "DDB-037"],
-      "files": ["docker/compose-next/Dockerfile.quickstart-no-ollama", "docker/compose-next/requirements.duckdb-worker.lock", "pyproject.toml", "tests/test_duckdb_platform_contract.py"],
+      "depends_on": [
+        "DDB-006",
+        "DDB-035",
+        "DDB-037"
+      ],
+      "files": [
+        "docker/compose-next/Dockerfile.quickstart-no-ollama",
+        "docker/compose-next/requirements.duckdb-worker.lock",
+        "pyproject.toml",
+        "tests/test_duckdb_platform_contract.py"
+      ],
       "description": "DuckDB nur im dafuer vorgesehenen Workerprofil installieren, Extension-Artefakte offline mitliefern und Linux/Windows/macOS-Dateisemantik pruefen.",
       "acceptance_criteria": [
         "Standard-Image bleibt ohne DuckDB-Extra baubar; DuckDB-Profil ist explizit und reproduzierbar.",
@@ -1290,7 +1694,7 @@
         "Image-Contracttest prueft Pins, Non-Root, Offline-Start und fehlendes DuckDB im Core-Image.",
         "Plattformmatrix erstellt, liest, wechselt und entfernt versionierte Snapshots."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-039",
@@ -1300,8 +1704,20 @@
       "risk": "medium",
       "type": "observability",
       "milestone_id": "M6",
-      "depends_on": ["DDB-005", "DDB-012", "DDB-022", "DDB-037"],
-      "files": ["worker/retrieval/vector_store_observer.py", "worker/retrieval/duckdb_vector_store.py", "agent/adapters/vector_store_metrics_adapter.py", "agent/metrics.py", "agent/routes/vector_store_control.py", "tests/test_vector_store_metrics_adapter.py"],
+      "depends_on": [
+        "DDB-005",
+        "DDB-012",
+        "DDB-022",
+        "DDB-037"
+      ],
+      "files": [
+        "worker/retrieval/vector_store_observer.py",
+        "worker/retrieval/duckdb_vector_store.py",
+        "agent/adapters/vector_store_metrics_adapter.py",
+        "agent/metrics.py",
+        "agent/routes/vector_store_control.py",
+        "tests/test_vector_store_metrics_adapter.py"
+      ],
       "description": "Operationen, Dauer, Rows, Importcounts, Snapshot-Alter, exact/HNSW-Modus, Fallbacks und Resource-Limit-Fehler mit begrenzter Kardinalitaet beobachten.",
       "acceptance_criteria": [
         "Metriken enthalten keine Scope-IDs, Dateinamen, SQL, Vectoren oder Texte als Labels.",
@@ -1313,7 +1729,7 @@
         "Metriktests pruefen feste Labelmengen und High-Cardinality-Abwehr.",
         "Readiness-Matrix prueft missing, valid, stale, incompatible, corrupt und resource_limited."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-040",
@@ -1323,8 +1739,18 @@
       "risk": "medium",
       "type": "documentation",
       "milestone_id": "M6",
-      "depends_on": ["DDB-013", "DDB-035", "DDB-036", "DDB-037", "DDB-039"],
-      "files": ["docs/worker/duckdb-codecompass-store.md", "docs/worker/duckdb-codecompass-security.md", "docs/worker/duckdb-codecompass-migration.md"],
+      "depends_on": [
+        "DDB-013",
+        "DDB-035",
+        "DDB-036",
+        "DDB-037",
+        "DDB-039"
+      ],
+      "files": [
+        "docs/worker/duckdb-codecompass-store.md",
+        "docs/worker/duckdb-codecompass-security.md",
+        "docs/worker/duckdb-codecompass-migration.md"
+      ],
       "description": "Setup, Offline-Extensions, Snapshots, Limits, Diagnostik, Backup/Restore, Fehlersuche und sichere Deaktivierung dokumentieren.",
       "acceptance_criteria": [
         "Runbooks enthalten JSON-default, DuckDB-opt-in, Qdrant-Abgrenzung und SQLite-FTS-Rollback.",
@@ -1336,7 +1762,7 @@
         "Docs-Contracttest prueft Pflichtabschnitte, Links, Config-Felder und Fehlercodes.",
         "Fresh-install-Dry-run folgt dem Runbook offline."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-041",
@@ -1346,8 +1772,22 @@
       "risk": "high",
       "type": "testing",
       "milestone_id": "M7",
-      "depends_on": ["DDB-003", "DDB-004", "DDB-005", "DDB-022", "DDB-025", "DDB-026"],
-      "files": ["tests/test_vector_store_contract.py", "tests/test_vector_store_config.py", "tests/test_vector_store_factory.py", "tests/test_vector_store_fallback.py", "tests/test_duckdb_vector_store.py", "tests/test_duckdb_vector_store_config.py"],
+      "depends_on": [
+        "DDB-003",
+        "DDB-004",
+        "DDB-005",
+        "DDB-022",
+        "DDB-025",
+        "DDB-026"
+      ],
+      "files": [
+        "tests/test_vector_store_contract.py",
+        "tests/test_vector_store_config.py",
+        "tests/test_vector_store_factory.py",
+        "tests/test_vector_store_fallback.py",
+        "tests/test_duckdb_vector_store.py",
+        "tests/test_duckdb_vector_store_config.py"
+      ],
       "description": "JSON, DuckDB und Qdrant gegen denselben Search-/Write-/Diagnostics-Contract pruefen und Core-Tests ohne optionale Backends erhalten.",
       "acceptance_criteria": [
         "Gemeinsame Contract-Suite prueft Resultfelder, stabile Sortierung, Scope, Compatibility und Error-Reasons.",
@@ -1359,7 +1799,7 @@
         "CI-Matrix: core, duckdb, qdrant-unit und kombinierte Contract-Suite.",
         "Importgraph-Test prueft keine optionalen Imports im Corepfad."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-042",
@@ -1369,8 +1809,21 @@
       "risk": "high",
       "type": "testing",
       "milestone_id": "M7",
-      "depends_on": ["DDB-009", "DDB-012", "DDB-013", "DDB-014", "DDB-020", "DDB-021", "DDB-028"],
-      "files": ["tests/test_duckdb_vector_store_integration.py", "tests/test_duckdb_migration.py", "tests/test_duckdb_snapshot_manager.py", "tests/test_duckdb_parquet_exchange.py"],
+      "depends_on": [
+        "DDB-009",
+        "DDB-012",
+        "DDB-013",
+        "DDB-014",
+        "DDB-020",
+        "DDB-021",
+        "DDB-028"
+      ],
+      "files": [
+        "tests/test_duckdb_vector_store_integration.py",
+        "tests/test_duckdb_migration.py",
+        "tests/test_duckdb_snapshot_manager.py",
+        "tests/test_duckdb_parquet_exchange.py"
+      ],
       "description": "Realen DuckDB-Prozess ueber Build, Restart, Reader-Wechsel, Migration, Parquet-Roundtrip, Korruption und Restore testen.",
       "acceptance_criteria": [
         "Snapshot bleibt nach Prozessrestart such- und analysierbar.",
@@ -1382,7 +1835,7 @@
         "Integrationstest laeuft mit exakt gepinntem DuckDB-Paket und ohne Netzwerk.",
         "Fault-Injection-Matrix deckt alle dauerhaften Schreibphasen ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-043",
@@ -1392,8 +1845,18 @@
       "risk": "high",
       "type": "testing",
       "milestone_id": "M7",
-      "depends_on": ["DDB-007", "DDB-011", "DDB-012", "DDB-028", "DDB-038"],
-      "files": ["tests/test_duckdb_platform_contract.py", "tests/test_duckdb_connection_factory.py", "tests/test_duckdb_snapshot_manager.py"],
+      "depends_on": [
+        "DDB-007",
+        "DDB-011",
+        "DDB-012",
+        "DDB-028",
+        "DDB-038"
+      ],
+      "files": [
+        "tests/test_duckdb_platform_contract.py",
+        "tests/test_duckdb_connection_factory.py",
+        "tests/test_duckdb_snapshot_manager.py"
+      ],
       "description": "Single-Writer, mehrere read-only Prozesse, Reader-Wechsel und offene Handles unter Linux, Windows und macOS testen.",
       "acceptance_criteria": [
         "Zwei Writer fuer denselben Scope koennen nie gleichzeitig mutieren.",
@@ -1405,7 +1868,7 @@
         "Multi-Prozess-Test koordiniert Writer, Reader und Pointer-Swap.",
         "Plattformjobs pruefen Lock-Freigabe nach Crash und normalen Close."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-044",
@@ -1415,8 +1878,20 @@
       "risk": "critical",
       "type": "security",
       "milestone_id": "M7",
-      "depends_on": ["DDB-008", "DDB-011", "DDB-024", "DDB-031", "DDB-035", "DDB-036", "DDB-037"],
-      "files": ["tests/test_duckdb_security.py", "tests/test_duckdb_extension_policy.py", ".github/workflows/quality-and-docs.yml"],
+      "depends_on": [
+        "DDB-008",
+        "DDB-011",
+        "DDB-024",
+        "DDB-031",
+        "DDB-035",
+        "DDB-036",
+        "DDB-037"
+      ],
+      "files": [
+        "tests/test_duckdb_security.py",
+        "tests/test_duckdb_extension_policy.py",
+        ".github/workflows/quality-and-docs.yml"
+      ],
       "description": "Path-, SQL-, Extension-, Scope-, Replay-, Resource- und Exfiltrationsangriffe automatisiert pruefen und vor Release fail-closed blockieren.",
       "acceptance_criteria": [
         "Suite deckt SQL Injection, Mehrfachstatements, ATTACH/COPY/INSTALL/LOAD, externe Table Functions und Dateilesen ab.",
@@ -1428,7 +1903,7 @@
         "Deterministische Payload-Sammlung laeuft in jedem DuckDB-CI-Profil.",
         "Fuzzer besitzt feste Seeds, Laufzeitbudget und speichert nur redigierte reproduzierbare Fails."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-045",
@@ -1438,8 +1913,20 @@
       "risk": "high",
       "type": "benchmark",
       "milestone_id": "M7",
-      "depends_on": ["DDB-022", "DDB-023", "DDB-026", "DDB-037", "DDB-041", "DDB-042"],
-      "files": ["config/benchmarks/duckdb-codecompass.v1.json", "scripts/benchmark/duckdb_codecompass_store.py", "tests/benchmarks/codecompass_worker/test_duckdb_codecompass_benchmark.py", "docs/worker/duckdb-codecompass-benchmarks.md"],
+      "depends_on": [
+        "DDB-022",
+        "DDB-023",
+        "DDB-026",
+        "DDB-037",
+        "DDB-041",
+        "DDB-042"
+      ],
+      "files": [
+        "config/benchmarks/duckdb-codecompass.v1.json",
+        "scripts/benchmark/duckdb_codecompass_store.py",
+        "tests/benchmarks/codecompass_worker/test_duckdb_codecompass_benchmark.py",
+        "docs/worker/duckdb-codecompass-benchmarks.md"
+      ],
       "description": "JSON exact, DuckDB exact, DuckDB HNSW und Qdrant auf denselben kleinen/mittleren/grossen Fixtures fuer Qualitaet, Latenz, Buildzeit, RAM und Disk vergleichen.",
       "acceptance_criteria": [
         "Profil definiert Dataset-Digest, Dimension, top_k, Warmup, Wiederholungen, Hardware-Evidence und inconclusive-Regeln.",
@@ -1451,7 +1938,7 @@
         "CI-Smoketest prueft Schema und kleine Fixture ohne Performance-Claim.",
         "Referenzhost-Lauf erzeugt signiertes BenchmarkRunArtifact mit RUN-ID vor Produktionsfreigabe."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-046",
@@ -1461,8 +1948,20 @@
       "risk": "medium",
       "type": "benchmark",
       "milestone_id": "M7",
-      "depends_on": ["DDB-018", "DDB-021", "DDB-029", "DDB-034", "DDB-037", "DDB-042"],
-      "files": ["config/benchmarks/duckdb-codecompass.v1.json", "scripts/benchmark/duckdb_codecompass_store.py", "tests/benchmarks/codecompass_worker/test_duckdb_codecompass_benchmark.py", "docs/worker/duckdb-codecompass-benchmarks.md"],
+      "depends_on": [
+        "DDB-018",
+        "DDB-021",
+        "DDB-029",
+        "DDB-034",
+        "DDB-037",
+        "DDB-042"
+      ],
+      "files": [
+        "config/benchmarks/duckdb-codecompass.v1.json",
+        "scripts/benchmark/duckdb_codecompass_store.py",
+        "tests/benchmarks/codecompass_worker/test_duckdb_codecompass_benchmark.py",
+        "docs/worker/duckdb-codecompass-benchmarks.md"
+      ],
       "description": "SQLite FTS5 gegen DuckDB FTS sowie JSON-Graphauswertung gegen DuckDB-Analytics und DuckDB-Datei gegen Parquet-Scan vergleichen.",
       "acceptance_criteria": [
         "FTS-Qualitaet wird mit festen Queries, erwarteten Treffern, MRR/Recall und Sprachprofil gemessen.",
@@ -1474,7 +1973,7 @@
         "Golden-Qualitaetsset prueft Symbole, Pfade, deutsche/englische Begriffe und Sonderzeichen.",
         "Benchmark-Artefakt kennzeichnet fehlende Referenzhardware als inconclusive."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-047",
@@ -1484,8 +1983,25 @@
       "risk": "critical",
       "type": "release",
       "milestone_id": "M8",
-      "depends_on": ["DDB-013", "DDB-026", "DDB-033", "DDB-039", "DDB-041", "DDB-042", "DDB-043", "DDB-044", "DDB-045", "DDB-046"],
-      "files": ["agent/services/vector_store_rollout_service.py", "worker/retrieval/vector_store_migration.py", "agent/routes/vector_store_control.py", "docs/release/duckdb-codecompass-rollout.md", ".github/workflows/quality-and-docs.yml"],
+      "depends_on": [
+        "DDB-013",
+        "DDB-026",
+        "DDB-033",
+        "DDB-039",
+        "DDB-041",
+        "DDB-042",
+        "DDB-043",
+        "DDB-044",
+        "DDB-045",
+        "DDB-046"
+      ],
+      "files": [
+        "agent/services/vector_store_rollout_service.py",
+        "worker/retrieval/vector_store_migration.py",
+        "agent/routes/vector_store_control.py",
+        "docs/release/duckdb-codecompass-rollout.md",
+        ".github/workflows/quality-and-docs.yml"
+      ],
       "description": "Shadow Build, Shadow Query, kleine canary Scopes, explizites Opt-in und jederzeitigen Rueckwechsel auf JSON/SQLite/Qdrant mit Evidence steuern.",
       "acceptance_criteria": [
         "Rolloutstufen sind off, build_only, shadow_read, canary und enabled mit getrennten Freigaben.",
@@ -1497,7 +2013,7 @@
         "Rollout-Service-Test prueft jede Zustandsfolge, ungueltige Spruenge und Security-Downgrade.",
         "Canary-E2E wechselt DuckDB an/aus und prueft identische trusted Scope-Grenzen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DDB-048",
@@ -1507,8 +2023,19 @@
       "risk": "medium",
       "type": "documentation",
       "milestone_id": "M8",
-      "depends_on": ["DDB-040", "DDB-045", "DDB-046", "DDB-047"],
-      "files": ["docs/worker/duckdb-codecompass-store.md", "docs/worker/duckdb-codecompass-security.md", "docs/worker/duckdb-codecompass-migration.md", "docs/worker/duckdb-codecompass-benchmarks.md", "docs/release/duckdb-codecompass-rollout.md"],
+      "depends_on": [
+        "DDB-040",
+        "DDB-045",
+        "DDB-046",
+        "DDB-047"
+      ],
+      "files": [
+        "docs/worker/duckdb-codecompass-store.md",
+        "docs/worker/duckdb-codecompass-security.md",
+        "docs/worker/duckdb-codecompass-migration.md",
+        "docs/worker/duckdb-codecompass-benchmarks.md",
+        "docs/release/duckdb-codecompass-rollout.md"
+      ],
       "description": "Implementierten Ist-Stand, Konfiguration, Grenzen, Benchmarks, bekannte Risiken, Upgradepfad und formale Evidence abschliessend dokumentieren.",
       "acceptance_criteria": [
         "Dokumentation unterscheidet implementiert, experimentell, deaktiviert und geplant eindeutig.",
@@ -1520,7 +2047,7 @@
         "Docs- und Link-Checks laufen im Quality Workflow.",
         "Release-Review gleicht Definition of Done, Evidence-Artefakte und offene Risiken ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     }
   ],
   "definition_of_done": [
@@ -1553,7 +2080,7 @@
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 26,
       "P1": 18,
@@ -1582,35 +2109,395 @@
   "tasks_type_summary": {
     "total": 48,
     "by_type": {
-      "architecture": 3,
-      "configuration": 1,
-      "composition": 1,
-      "observability": 2,
-      "packaging": 2,
-      "implementation": 7,
-      "security": 6,
-      "migration": 1,
-      "schema": 2,
-      "reliability": 3,
-      "integration": 4,
-      "experiment": 1,
-      "compatibility": 1,
-      "lifecycle": 1,
-      "analytics": 3,
-      "ui": 1,
-      "performance": 1,
-      "documentation": 2,
-      "testing": 3,
-      "benchmark": 2,
-      "release": 1
+      "architecture": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "configuration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "composition": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "observability": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "packaging": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "implementation": {
+        "total": 7,
+        "by_status": {
+          "todo": 7,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 6,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "migration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "schema": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "reliability": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "experiment": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "compatibility": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "lifecycle": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "analytics": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "ui": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "documentation": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "testing": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "benchmark": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "release": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
-    "state": "planned",
+    "state": "todo",
     "todo_remaining": 48,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 85.0,
+    "done_weight": 0.0,
+    "remaining_weight": 85.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M2": {
+        "total_tasks": 8,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M3": {
+        "total_tasks": 8,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M4": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M5": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M6": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M7": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M8": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-13T18:46:56.064445Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "03c35ae3ada9de8c722acc8c3c0c290f3dd686542206ed87deddf14644a13255",
+    "is_stale": false
   }
 }

@@ -1,12 +1,12 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
   "id": "TODO-LOCAL-MOE-ROOT-CAUSE-ROUTING-CODECOMPASS-EVAL",
   "owner": "Peter Stuiber / Ananta",
   "track": "local-moe-root-cause-routing-codecompass-behavioral-evaluation",
   "title": "Lokale MoE-Modelle fuer Root-Cause-Routing und CodeCompass-Verhalten evaluieren",
   "created_at": "2026-08-08",
-  "updated_at": "2026-08-08",
+  "updated_at": "2026-08-13",
   "status": "todo",
   "implementation_status": "source_aligned_planning_complete",
   "evidence_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
@@ -277,10 +277,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "governance",
       "milestone_id": "MORCE-M0",
-      "dependencies": [],
+      "depends_on": [],
       "repo_evidence": [
         "AGENTS.md verlangt source-grounded IDs und trennt lokale Inspektion von verifizierter Evidence.",
         "ananta_contracts/model_intelligence.py leitet stabile Modellidentitaeten aus Source, Locator, Revision und SHA-256 ab.",
@@ -308,10 +308,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "contracts",
       "milestone_id": "MORCE-M0",
-      "dependencies": [
+      "depends_on": [
         "MORCE-000"
       ],
       "repo_evidence": [
@@ -341,10 +341,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "governance",
       "milestone_id": "MORCE-M0",
-      "dependencies": [
+      "depends_on": [
         "MORCE-000"
       ],
       "repo_evidence": [
@@ -374,11 +374,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
-      "dependencies": [
-        "MORCE-000",
+      "depends_on": [
         "MORCE-002"
       ],
       "repo_evidence": [
@@ -408,11 +407,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
-      "dependencies": [
-        "MORCE-000",
+      "depends_on": [
         "MORCE-003"
       ],
       "repo_evidence": [
@@ -442,11 +440,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
-      "dependencies": [
-        "MORCE-003",
+      "depends_on": [
         "MORCE-004"
       ],
       "repo_evidence": [
@@ -476,11 +473,10 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
-      "dependencies": [
-        "MORCE-004",
+      "depends_on": [
         "MORCE-005"
       ],
       "repo_evidence": [
@@ -510,10 +506,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "routing",
       "milestone_id": "MORCE-M2",
-      "dependencies": [
+      "depends_on": [
         "MORCE-001"
       ],
       "repo_evidence": [
@@ -543,11 +539,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "routing",
       "milestone_id": "MORCE-M2",
-      "dependencies": [
-        "MORCE-001",
+      "depends_on": [
         "MORCE-007"
       ],
       "repo_evidence": [
@@ -577,11 +572,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "routing",
       "milestone_id": "MORCE-M2",
-      "dependencies": [
-        "MORCE-001",
+      "depends_on": [
         "MORCE-008"
       ],
       "repo_evidence": [
@@ -611,11 +605,10 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "routing",
       "milestone_id": "MORCE-M2",
-      "dependencies": [
-        "MORCE-008",
+      "depends_on": [
         "MORCE-009"
       ],
       "repo_evidence": [
@@ -645,13 +638,11 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "runtime",
       "milestone_id": "MORCE-M2",
-      "dependencies": [
-        "MORCE-003",
+      "depends_on": [
         "MORCE-004",
-        "MORCE-008",
         "MORCE-010"
       ],
       "repo_evidence": [
@@ -681,11 +672,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "contracts",
       "milestone_id": "MORCE-M3",
-      "dependencies": [
-        "MORCE-000",
+      "depends_on": [
         "MORCE-002"
       ],
       "repo_evidence": [
@@ -715,10 +705,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
-      "dependencies": [
+      "depends_on": [
         "MORCE-012"
       ],
       "repo_evidence": [
@@ -748,12 +738,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
-      "dependencies": [
+      "depends_on": [
         "MORCE-008",
-        "MORCE-012",
         "MORCE-013"
       ],
       "repo_evidence": [
@@ -783,13 +772,11 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
-      "dependencies": [
+      "depends_on": [
         "MORCE-009",
-        "MORCE-012",
-        "MORCE-013",
         "MORCE-014"
       ],
       "repo_evidence": [
@@ -819,13 +806,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
-      "dependencies": [
-        "MORCE-000",
-        "MORCE-002",
-        "MORCE-012",
+      "depends_on": [
         "MORCE-013"
       ],
       "repo_evidence": [
@@ -855,11 +839,10 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
-      "dependencies": [
-        "MORCE-001",
+      "depends_on": [
         "MORCE-009",
         "MORCE-014"
       ],
@@ -890,17 +873,12 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
-      "dependencies": [
-        "MORCE-003",
-        "MORCE-004",
-        "MORCE-008",
-        "MORCE-009",
-        "MORCE-014",
-        "MORCE-016",
-        "MORCE-017"
+      "depends_on": [
+        "MORCE-011",
+        "MORCE-020"
       ],
       "repo_evidence": [
         "ModelEvaluationComparisonService vergleicht nur kompatible Profile und kann gleiche Runtime/Hardware erzwingen.",
@@ -929,14 +907,13 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
-      "dependencies": [
-        "MORCE-009",
+      "depends_on": [
+        "MORCE-015",
         "MORCE-016",
-        "MORCE-017",
-        "MORCE-018"
+        "MORCE-017"
       ],
       "repo_evidence": [
         "Model-Intelligence EvaluationRun akzeptiert definierte Metrics und Regression-Thresholds.",
@@ -965,11 +942,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
-      "dependencies": [
-        "MORCE-018",
+      "depends_on": [
         "MORCE-019"
       ],
       "repo_evidence": [
@@ -999,17 +975,11 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "surfaces",
       "milestone_id": "MORCE-M5",
-      "dependencies": [
-        "MORCE-004",
-        "MORCE-008",
-        "MORCE-009",
-        "MORCE-012",
-        "MORCE-013",
-        "MORCE-018",
-        "MORCE-019"
+      "depends_on": [
+        "MORCE-018"
       ],
       "repo_evidence": [
         "agent/routes/model_intelligence.py ist die bestehende Model-Intelligence-API.",
@@ -1038,17 +1008,11 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "governance",
       "milestone_id": "MORCE-M5",
-      "dependencies": [
-        "MORCE-002",
-        "MORCE-004",
+      "depends_on": [
         "MORCE-006",
-        "MORCE-008",
-        "MORCE-009",
-        "MORCE-011",
-        "MORCE-015",
         "MORCE-021"
       ],
       "repo_evidence": [
@@ -1078,25 +1042,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "type": "evaluation",
       "milestone_id": "MORCE-M5",
-      "dependencies": [
-        "MORCE-001",
-        "MORCE-002",
-        "MORCE-003",
-        "MORCE-004",
-        "MORCE-007",
-        "MORCE-008",
-        "MORCE-009",
-        "MORCE-012",
-        "MORCE-013",
-        "MORCE-014",
-        "MORCE-016",
-        "MORCE-018",
-        "MORCE-019",
-        "MORCE-020",
-        "MORCE-021",
+      "depends_on": [
         "MORCE-022"
       ],
       "repo_evidence": [
@@ -1158,7 +1107,7 @@
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 17,
       "P1": 7,
@@ -1187,13 +1136,104 @@
   "tasks_type_summary": {
     "total": 24,
     "by_type": {
-      "governance": 3,
-      "contracts": 2,
-      "runtime": 5,
-      "routing": 4,
-      "codecompass": 3,
-      "evaluation": 6,
-      "surfaces": 1
+      "governance": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "contracts": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "runtime": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "routing": {
+        "total": 4,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "codecompass": {
+        "total": 3,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "evaluation": {
+        "total": 6,
+        "by_status": {
+          "todo": 6,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "surfaces": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
@@ -1202,12 +1242,83 @@
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
   },
   "summary_notes": [
     "Der Track uebernimmt die Architekturidee eines grossen lokalen Reasoning-Modells als kontrollierte Spezialstufe, nicht Laguna S als Produktvorgabe.",
     "Die wichtigsten Produktinvestitionen sind task-spezifische Budgets, ConflictSet/CausalEvidence, reproduzierbare Behavioral Evaluation und erklaerbares Routing.",
     "Die RTX-3080-Uebertragung wird als messbares Hardwareprofil behandelt; keine Token/s- oder Kontextannahme ist ein Releaseversprechen.",
     "Alle Aufgaben starten bei todo und 0 Prozent; lokale Repository-Inspektion ist kein Implementierungsfortschritt."
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 42.5,
+    "done_weight": 0.0,
+    "remaining_weight": 42.5,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "MORCE-M0": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "MORCE-M1": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "MORCE-M2": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "MORCE-M3": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "MORCE-M4": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "MORCE-M5": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-13T18:52:46.106976Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "58df8f28d7750d5b077956fa8919b26e58c943117e363f13a01cc94710c07b79",
+    "is_stale": false
+  }
 }
