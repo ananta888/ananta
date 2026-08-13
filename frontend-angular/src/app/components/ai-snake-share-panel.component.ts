@@ -189,7 +189,10 @@ interface PairGroupMember {
       }
 
       @if (publicOnly && view === 'catalog') {
-        <app-pair-session-catalog (switched)="onSessionSwitched()" />
+        <app-pair-session-catalog
+          (opened)="onSessionOpened()"
+          (switched)="onSessionSwitched()"
+        />
       }
 
       @if ((!svc.isActive || publicOnly) && view === 'create') {
@@ -260,7 +263,7 @@ interface PairGroupMember {
             <div class="share-session-title">{{ state.session?.title }}</div>
             <div class="share-meta">
               <span class="share-badge {{ state.role }}">{{ state.role === 'owner' ? 'Eigentümer' : 'Teilnehmer' }}</span>
-              @if (state.session?.invite_code) {
+              @if (state.role === 'owner' && state.session?.invite_code) {
                 <span class="share-meta-code">Code: <strong>{{ state.session?.invite_code }}</strong></span>
                 <button class="share-copy-btn" (click)="copyCode(state.session?.invite_code ?? '')">⎘</button>
               }
@@ -825,6 +828,14 @@ export class AiSnakeSharePanelComponent implements OnInit {
   }
 
   onSessionSwitched(): void {
+    this.openActiveSessionChat();
+  }
+
+  onSessionOpened(): void {
+    this.openActiveSessionChat();
+  }
+
+  private openActiveSessionChat(): void {
     this.createError = '';
     this.joinError = '';
     this.sessionActionError = '';

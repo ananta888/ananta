@@ -51,6 +51,7 @@ import { pairSessionErrorMessage } from '../services/pair-session-error-message'
           <article
             class="catalog-row"
             [class.active]="active"
+            [attr.aria-current]="active ? 'true' : null"
             [attr.data-session-state]="entry.session.local_runtime_state || (active ? 'active' : 'parked')">
             <div class="catalog-main">
               <span class="catalog-title">{{ entry.session.title || 'Pair-Session' }}</span>
@@ -62,12 +63,24 @@ import { pairSessionErrorMessage } from '../services/pair-session-error-message'
               }
             </div>
             @if (active) {
-              <span class="catalog-state" data-testid="active-pair-session">Aktiv</span>
+              <div class="catalog-actions">
+                <span class="catalog-state" data-testid="active-pair-session">Aktiv</span>
+                <button
+                  type="button"
+                  class="catalog-button open"
+                  data-testid="open-pair-session"
+                  [attr.aria-label]="openLabel(entry)"
+                  (click)="open(entry)"
+                  [disabled]="loading || !!switchingSessionId">
+                  Chat öffnen
+                </button>
+              </div>
             } @else {
               <button
                 type="button"
                 class="catalog-button switch"
                 data-testid="switch-pair-session"
+                [attr.aria-label]="switchLabel(entry, selected)"
                 (click)="switchTo(entry)"
                 [disabled]="loading || !!switchingSessionId">
                 {{ switchingSessionId === entry.session.id
@@ -97,6 +110,7 @@ import { pairSessionErrorMessage } from '../services/pair-session-error-message'
     .catalog-main { flex: 1; }
     .catalog-title { overflow: hidden; color: #c8d8f8; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
     .catalog-state { color: #7fffd4; font-size: 10px; }
+    .catalog-actions { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
     .catalog-button {
       flex-shrink: 0; border: 1px solid #2a4070; border-radius: 3px; padding: 4px 7px;
       background: #162444; color: #a8c7ff; cursor: pointer; font: inherit; font-size: 10px;
@@ -111,6 +125,7 @@ export class PairSessionCatalogComponent implements OnInit, OnDestroy {
   private readonly sessions = inject(ShareSessionService);
 
   @Output() readonly switched = new EventEmitter<string>();
+  @Output() readonly opened = new EventEmitter<string>();
 
   entries: readonly ShareSessionCatalogEntry[] = [];
   loading = false;
@@ -183,6 +198,20 @@ export class PairSessionCatalogComponent implements OnInit, OnDestroy {
     } finally {
       this.switchingSessionId = '';
     }
+  }
+
+  open(entry: ShareSessionCatalogEntry): void {
+    if (!this.isActive(entry) || this.loading || this.switchingSessionId) return;
+    this.opened.emit(entry.session.id);
+  }
+
+  openLabel(entry: ShareSessionCatalogEntry): string {
+    return `Session „${entry.session.title || 'Pair-Session'}“ im Chat öffnen`;
+  }
+
+  switchLabel(entry: ShareSessionCatalogEntry, selected: boolean): string {
+    const action = selected ? 'wieder aktivieren' : 'wechseln';
+    return `Zu Session „${entry.session.title || 'Pair-Session'}“ ${action}`;
   }
 
   isActive(entry: ShareSessionCatalogEntry): boolean {

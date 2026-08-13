@@ -95,7 +95,9 @@ und eine passende neue Session erstellt. Sie wird dabei weder beendet noch
 verlassen; ihre bisherige Transport-Epoche wird ungueltig.
 
 Unter `Sessions verwalten` listet Ananta die im aktuellen Browser-Tab sicher
-wiederverbindbaren eigenen und beigetretenen Pair-Sessions. `Wechseln` haelt
+wiederverbindbaren eigenen und beigetretenen Pair-Sessions. `Chat oeffnen`
+kehrt bei der bereits aktiven Session zu Chat und Details zurueck; nur der
+Eigentuemer sieht dort den Einladungscode. `Wechseln` haelt
 fuer dasselbe Konto und Geraet immer nur eine WebRTC-/E2EE-Verbindung aktiv;
 alle anderen Eintraege bleiben serverseitig geparkt. Beim Wechsel werden
 Kamera, Bildschirm, Mikrofon sowie lokale

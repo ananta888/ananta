@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, of } from 'rxjs';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AgentDirectoryService } from '../services/agent-directory.service';
@@ -65,6 +65,11 @@ function deferred<T>() {
 }
 
 describe('AiSnakeSharePanelComponent production security host', () => {
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
+  });
+
   it('boots the Pair binding and exposes confirmed E2EE in the reachable Share UI', () => {
     const { binding } = configure('ready');
     const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
@@ -318,6 +323,38 @@ describe('AiSnakeSharePanelComponent production security host', () => {
     expect(host.querySelector('[data-testid="pair-session-catalog"]')).not.toBeNull();
     expect(service.endSession).not.toHaveBeenCalled();
     expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
+  it('handles an active catalogue open intent with chat and the owner invite but no lifecycle mutation', () => {
+    const { service } = configure('ready');
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    fixture.componentInstance.view = 'catalog';
+    fixture.componentInstance.activeTab = 'participants';
+    fixture.componentInstance.onSessionOpened();
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.view).toBe('home');
+    expect(fixture.componentInstance.activeTab).toBe('chat');
+    expect(host.querySelector('.share-session-title')?.textContent).toContain('Reachable Strict Pair');
+    expect(host.querySelector('.share-meta-code')?.textContent).toContain('invite');
+    expect(host.querySelector('.share-chat-input')).not.toBeNull();
+    expect(service.switchToSession).not.toHaveBeenCalled();
+    expect(service.endSession).not.toHaveBeenCalled();
+    expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
+  it('does not expose an invitation code in a participant session view', () => {
+    const { service } = configure('ready');
+    service.state$.next({ ...service.state$.value, role: 'participant' });
+    const fixture = TestBed.createComponent(AiSnakeSharePanelComponent);
+    fixture.componentRef.setInput('publicOnly', true);
+    fixture.detectChanges();
+
+    expect((fixture.nativeElement as HTMLElement).querySelector('.share-meta-code')).toBeNull();
   });
 
   it('fences toolbar methods while a create, join or switch mutation owns the session state', async () => {

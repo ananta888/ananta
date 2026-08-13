@@ -100,6 +100,32 @@ describe('PairSessionCatalogComponent', () => {
     expect(switched).toHaveBeenCalledWith('session-b');
   });
 
+  it('opens the active session without reconnecting or retiring it', async () => {
+    vi.useFakeTimers();
+    const active: ShareSessionCatalogEntry = { session: session('session-a', 'Mit Alice', 1), role: 'owner' };
+    const service = configure([active]);
+    const fixture = TestBed.createComponent(PairSessionCatalogComponent);
+    const opened = vi.fn();
+    fixture.componentInstance.opened.subscribe(opened);
+    await fixture.componentInstance.load();
+    fixture.detectChanges();
+
+    const host = fixture.nativeElement as HTMLElement;
+    const row = host.querySelector<HTMLElement>('.catalog-row.active');
+    const button = host.querySelector<HTMLButtonElement>('[data-testid="open-pair-session"]');
+    expect(row?.getAttribute('aria-current')).toBe('true');
+    expect(button?.type).toBe('button');
+    expect(button?.textContent).toContain('Chat öffnen');
+    expect(button?.getAttribute('aria-label')).toContain('Mit Alice');
+
+    button?.click();
+
+    expect(opened).toHaveBeenCalledWith('session-a');
+    expect(service.switchToSession).not.toHaveBeenCalled();
+    expect(service.endSession).not.toHaveBeenCalled();
+    expect(service.leaveSession).not.toHaveBeenCalled();
+  });
+
   it('keeps a failed switch retryable and renders a local error', async () => {
     vi.useFakeTimers();
     const active: ShareSessionCatalogEntry = { session: session('session-a', 'Mit Alice', 1), role: 'owner' };
