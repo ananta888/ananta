@@ -11,9 +11,10 @@ The goal is to cover the same problem class as Block Buzz without turning
 Pair-Dev into a Buzz clone. Pair-Dev remains fully useful on its own. Buzz is an
 optional external workspace and protocol adapter.
 
-This architecture was reviewed against Ananta commit
-`ad22c51cf78c3aa900a7a93c16a0613634029ee8` and the public Buzz architecture on
-2026-08-06.
+The Ananta baseline was revalidated against commit
+`e046211d4c6ad069a8be96c3e1436b90182b6602` on 2026-08-13. The public Buzz
+references were reviewed on 2026-08-06; they remain design inputs for the
+optional adapter and are not evidence for native Ananta runtime readiness.
 
 ## Architectural decision
 
@@ -60,6 +61,17 @@ The target builds additively on the current implementation:
   separates direct WebRTC delivery from Hub-relay fallback.
 - `frontend-angular/src/app/services/pair-view-sync.types.ts` defines typed
   view, cursor, selection, artifact and control contracts.
+- `frontend-angular/src/app/services/pair-compact-app-sync.service.ts` and
+  `pair-view-sync.service.ts` provide compact, session-/Epoch-bound E2EE
+  sharing of internal route, area, scroll and cursor state without sharing
+  screen pixels or form values.
+- `frontend-angular/src/app/components/pair-session-catalog.component.ts`
+  exposes session parking and switching; an active session can be reopened in
+  chat and its owner can retrieve the invite code again.
+- `frontend-angular/src/app/services/pair-session-control-plane.service.ts`
+  and `e2e-replay.store.ts` add explicit public-session authority and bounded
+  replay state. These browser-side foundations do not replace the Hub-owned
+  durable workspace event log planned here.
 - `docs/architecture/pair-view-sync.md` documents delta-first view sync and
   explicitly identifies multi-participant view sync as a remaining gap.
 - `docs/security/webrtc-e2ee-security-contract.md` defines the authoritative
@@ -424,34 +436,49 @@ expired or migrated.
 
 The critical order is:
 
-1. Architecture decisions and transport-neutral contracts.
-2. Durable event store, inbox/outbox and projection rebuild.
-3. Actor, membership and permission model.
-4. Native room/thread UI and session migration.
-5. Multi-participant live semantics.
-6. Agent/resource participation and Hub command intents.
-7. Project, branch, task, workflow and CodeCompass projections.
-8. Optional Buzz adapter.
-9. Security, chaos, scale, accessibility and release gates.
+1. Current capability inventory, threat model and visibility policy contract.
+2. Architecture decisions and transport-neutral contracts.
+3. Durable event store, inbox/outbox and projection rebuild.
+4. Actor, membership and permission model.
+5. Native room/thread UI, session migration, native security and recovery.
+6. Native-core release gate.
+7. Multi-participant live semantics, Agent/resource participation and their
+   independent Agent-/Live-gate.
+8. Project, branch, task, workflow and CodeCompass projections.
+9. Optional Buzz adapter and its independent bridge gate.
 
 Native Pair-Dev quality is prioritized before external ecosystem breadth.
 
 ## Release gates
 
-Production activation requires:
+Releases are divided into three additive lanes. A missing or red gate in one
+optional lane cannot change the status of another lane.
+
+The **native-core gate** requires:
 
 - Python/TypeScript contract parity for all public envelopes
 - migration and rollback evidence
 - authorization and tenant-isolation negative tests
-- multi-browser, multi-participant and reconnect E2E evidence
+- native room/thread browser E2E and reconnect evidence
 - event-store replay and projection rebuild evidence
-- bounded queue, backpressure, load, soak and chaos results
-- E2EE/revocation/key-rotation evidence for enabled live topologies
-- prompt-injection, secret-redaction and bridge loop-prevention tests
+- bounded durable queue, outbox/inbox and projection-load results
+- E2EE/revocation/key-rotation evidence for the enabled native topology
+- prompt-injection and secret-redaction tests
 - accessibility and keyboard-only UI verification
 - backup/restore and disaster-recovery exercise
-- Buzz-disconnected standalone operation
-- one global default-off release gate with explicit rollout decision
+- standalone operation without Buzz and without an n>2/SFU claim
+- a default-off native-core gate with an explicit rollout decision
+
+The independent **Agent-/Multi-Participant-Live gate** additionally requires
+real multi-browser/multi-agent E2E evidence, per-receiver authorization,
+revocation, bounded backpressure, load, soak and chaos results for the exact
+enabled relay/SFU profile. A red gate must not be presented as n>2, SFU or
+Agent collaboration readiness.
+
+The independent **Buzz bridge gate** additionally requires a pinned compatible
+external version, signature and identity/key-custody checks, ingress hardening,
+delivery idempotency, replay/deduplication and loop-prevention evidence. Buzz
+disconnect or failure must not impair native event admission or room use.
 
 No missing external runtime evidence may be replaced with an implementation
 claim or invented source/run identifier.
@@ -467,4 +494,3 @@ claim or invented source/run identifier.
 - **ISP:** Focused ports avoid a single collaboration god-interface.
 - **DIP:** Domain services depend on contracts; WebRTC, LiveKit, Postgres,
   search and Buzz/Nostr remain adapters.
-
