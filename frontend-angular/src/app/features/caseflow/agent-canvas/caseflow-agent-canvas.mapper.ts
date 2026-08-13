@@ -25,7 +25,7 @@ export function projectAgentCanvas(
   graph: VpGraph,
 ): CaseFlowAgentCanvasResult<CaseFlowAgentCanvasProjection> {
   const extensionResult = parseAgentCanvasExtension(graph);
-  if (!extensionResult.ok) return extensionResult;
+  if (!extensionResult.ok) return agentCanvasFailure(...extensionResult.issues);
   const extension = extensionResult.value;
   const agentSteps = graph.steps.filter(step => isAgentCapableStep(
     step,

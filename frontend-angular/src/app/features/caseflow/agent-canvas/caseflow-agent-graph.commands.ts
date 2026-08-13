@@ -53,9 +53,9 @@ export function setAgentRoleAndIcon(
   if (stepIndex < 0) return stepNotFound(stepId);
 
   const roleResult = validateRoleSelection(selection);
-  if (!roleResult.ok) return roleResult;
+  if (!roleResult.ok) return agentCanvasFailure(...roleResult.issues);
   const extensionResult = parseAgentCanvasExtension(graph);
-  if (!extensionResult.ok) return extensionResult;
+  if (!extensionResult.ok) return agentCanvasFailure(...extensionResult.issues);
 
   const currentPresentation = extensionResult.value.nodes?.[stepId] ?? {};
   const extension = {
@@ -94,9 +94,9 @@ export function setAgentBindings(
   const step = graph.steps[stepIndex];
 
   const existingBindingsResult = parseAgentBindings(step);
-  if (!existingBindingsResult.ok) return existingBindingsResult;
+  if (!existingBindingsResult.ok) return agentCanvasFailure(...existingBindingsResult.issues);
   const existingRoutingResult = readModelRoutingBindings(step);
-  if (!existingRoutingResult.ok) return existingRoutingResult;
+  if (!existingRoutingResult.ok) return agentCanvasFailure(...existingRoutingResult.issues);
 
   const draftIssues = validateBindingDraft(draft, catalog);
   if (draftIssues.length) return agentCanvasFailure(...draftIssues);
@@ -132,7 +132,7 @@ export function setAgentBindings(
       }
     }
     const serializedBindings = serializeAgentBindings(updatedStep, bindings);
-    if (!serializedBindings.ok) return serializedBindings;
+    if (!serializedBindings.ok) return agentCanvasFailure(...serializedBindings.issues);
     updatedStep = serializedBindings.value;
   }
 

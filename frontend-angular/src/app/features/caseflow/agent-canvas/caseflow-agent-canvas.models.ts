@@ -248,7 +248,7 @@ export function serializeAgentCanvasExtension(
   extension: CaseFlowAgentCanvasExtensionV1,
 ): CaseFlowAgentCanvasResult<VpGraph> {
   const validation = validateAgentCanvasExtension(extension);
-  if (!validation.ok) return validation;
+  if (!validation.ok) return agentCanvasFailure(...validation.issues);
   return agentCanvasSuccess({
     ...graph,
     extensions: {
@@ -299,7 +299,7 @@ export function serializeAgentBindings(
   bindings: CaseFlowAgentBindingsV1,
 ): CaseFlowAgentCanvasResult<VpStep> {
   const validation = validateAgentBindingsValue(step.id, bindings);
-  if (!validation.ok) return validation;
+  if (!validation.ok) return agentCanvasFailure(...validation.issues);
   return agentCanvasSuccess({
     ...step,
     metadata: {
