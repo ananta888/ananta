@@ -1,0 +1,137 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.edge-inspector {
+  background: var(--surface-color, #0a1424);
+  border: 1px solid var(--border-color, #29405f);
+  border-radius: 0.7rem;
+  color: var(--text-color, #d6e5ff);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.inspector-header {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.eyebrow {
+  color: var(--accent-color, #56e5c3);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.25rem;
+  text-transform: uppercase;
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.direction-switch,
+.inspector-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+button {
+  background: transparent;
+  border: 1px solid var(--border-color, #29405f);
+  border-radius: 0.35rem;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.4rem 0.65rem;
+}
+
+button.active,
+button[aria-pressed='true'] {
+  background: color-mix(in srgb, var(--accent-color, #56e5c3) 18%, transparent);
+  border-color: var(--accent-color, #56e5c3);
+}
+
+.edge-status {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.edge-status span {
+  border: 1px solid var(--border-color, #29405f);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.55rem;
+}
+
+.inspector-state {
+  color: var(--text-muted, #8296b5);
+  margin: 0;
+}
+
+.inspector-state.error {
+  color: var(--danger-color, #ff8091);
+}
+
+.inspector-state small {
+  display: block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  margin-top: 0.35rem;
+}
+
+.telemetry-scope {
+  color: var(--text-muted, #8296b5);
+  font-size: 0.8rem;
+  margin: 0 0 0.65rem;
+  overflow-wrap: anywhere;
+}
+
+.telemetry-scope code {
+  color: var(--text-color, #d6e5ff);
+}
+
+.message-list {
+  display: grid;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.message-list li {
+  background: var(--surface-raised, #101b2d);
+  border: 1px solid var(--border-color, #29405f);
+  border-radius: 0.55rem;
+  padding: 0.75rem;
+}
+
+.message-list header {
+  display: flex;
+  font-size: 0.8rem;
+  gap: 0.5rem;
+  justify-content: space-between;
+}
+
+.message-list header span,
+.correlation-unverified {
+  color: var(--text-muted, #8296b5);
+}
+
+.message-list p {
+  margin: 0.55rem 0;
+  white-space: pre-wrap;
+}
+
+.correlation-link,
+.correlation-unverified {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.correlation-link {
+  color: var(--accent-color, #56e5c3);
+  padding: 0.25rem 0.4rem;
+}
