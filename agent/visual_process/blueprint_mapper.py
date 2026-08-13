@@ -11,8 +11,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.visual_process.models import ModelRoutingConfig, VisualProcessGraph, VisualProcessStep
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
+from agent.visual_process.edge_catalog_contract import (
+    CASEFLOW_EDGE_CATALOG_METADATA_KEY,
+    build_caseflow_edge_catalog_for_workflow,
+)
+from agent.visual_process.models import ModelRoutingConfig, VisualProcessGraph, VisualProcessStep
 
 
 def graph_to_blueprint_steps(graph: VisualProcessGraph) -> list[dict[str, Any]]:
@@ -118,7 +122,17 @@ def graph_to_workflow_request(
         allowed_tools=tuple(str(v) for v in list(allowed_tools or [])),
         policy_scope=dict(policy_scope or {}),
         requested_by=requested_by,
-        metadata={"source": "visual_process_graph", **dict(graph.metadata or {})},
+        metadata={
+            "source": "visual_process_graph",
+            **dict(graph.metadata or {}),
+            # ``depends_on`` preserves execution topology but not canonical
+            # VisualProcess edge identity.  The bounded catalog lets Hub-owned
+            # read models correlate exact directions without reconstructing or
+            # inventing edge IDs; execution adapters continue to use steps.
+            CASEFLOW_EDGE_CATALOG_METADATA_KEY: (
+                build_caseflow_edge_catalog_for_workflow(graph.edges)
+            ),
+        },
     )
 
 

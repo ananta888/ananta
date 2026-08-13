@@ -16,6 +16,7 @@ POST /api/visual-process/workflow-request       — graph to canonical workflow 
 POST /api/visual-process/workflow/start         — start through configured backend
 POST /api/visual-process/workflow/<id>/resume   — resume through Hub control
 POST /api/visual-process/workflow/<id>/retry    — retry through Hub control
+POST /api/visual-process/workflow/<id>/caseflow-edge-trace — authorized edge trace read model
 POST /api/visual-process/save-blueprint         — save dry-run result as Blueprint (VPBLUEPR-001)
 
 -- Graph persistence (VPPERS-001) --
@@ -44,6 +45,13 @@ from agent.common.redaction import VisibilityLevel, redact
 from agent.config import settings
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
+from agent.services.caseflow_agent_collaboration_trace_projection_service import (
+    CASEFLOW_EDGE_CATALOG_METADATA_KEY,
+    MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES,
+    CaseflowEdgeTraceProjectionError,
+    CaseflowEdgeTraceQuery,
+    get_caseflow_agent_collaboration_trace_projection_service,
+)
 from agent.services.chat_process_binding import authorize_graph, bind_graph_owner, public_graph
 from agent.services.chat_session_security import ChatSessionPrincipal
 from agent.services.visual_process_definition_service import (
@@ -957,6 +965,11 @@ def workflow_start():
         errors = workflow.validate()
         if errors:
             return jsonify({"error": "invalid_workflow_request", "errors": errors}), 422
+        # Canonical edge identity is Hub-derived from a validated graph. A
+        # direct neutral WorkflowRequest may not assert that internal catalog.
+        direct_metadata = dict(workflow.metadata)
+        direct_metadata.pop(CASEFLOW_EDGE_CATALOG_METADATA_KEY, None)
+        workflow = replace(workflow, metadata=direct_metadata)
     else:
         graph, err = _parse_graph()
         if err:
@@ -1208,6 +1221,71 @@ def workflow_events(workflow_id: str):
         return backend_error("workflow_backend_unavailable", code=503)
     safe_events = [dict(redact(event, VisibilityLevel.USER) or {}) for event in events if isinstance(event, dict)]
     return jsonify({"events": safe_events}), 200
+
+
+@vp_bp.post("/workflow/<workflow_id>/caseflow-edge-trace")
+@check_strict_auth
+def caseflow_edge_trace(workflow_id: str):
+    """Project bounded directional edge evidence from existing Hub history."""
+
+    if request.args:
+        return api_response(
+            status="error",
+            message="caseflow edge trace parameters must not be sent in a URL",
+            data={"reason_code": "caseflow_edge_trace_query_transport_forbidden"},
+            code=400,
+        )
+    principal, auth_error = require_workflow_owner(workflow_id)
+    if auth_error is not None:
+        return auth_error
+    body, body_error = workflow_json_body(
+        max_bytes=MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES
+    )
+    if body_error is not None:
+        return body_error
+    try:
+        query = CaseflowEdgeTraceQuery.from_mapping(body or {})
+    except CaseflowEdgeTraceProjectionError as exc:
+        return api_response(
+            status="error",
+            message="invalid caseflow edge trace request",
+            data={"reason_code": exc.reason_code},
+            code=exc.status_code,
+        )
+    assert principal is not None
+    backend, backend_failure = configured_workflow_backend(principal)
+    if backend_failure is not None:
+        return backend_failure
+    try:
+        projection = (
+            get_caseflow_agent_collaboration_trace_projection_service().read(
+                principal=principal,
+                workflow_id=workflow_id,
+                run_id=query.run_id,
+                history=backend,
+            )
+        )
+    except CaseflowEdgeTraceProjectionError as exc:
+        return api_response(
+            status="error",
+            message=(
+                "workflow not found"
+                if exc.status_code == 404
+                else "caseflow edge trace unavailable"
+            ),
+            data={"reason_code": exc.reason_code},
+            code=exc.status_code,
+        )
+    except Exception as exc:  # noqa: BLE001
+        log_audit(
+            "caseflow_edge_trace_projection_failed",
+            {
+                "workflow_id": workflow_id,
+                "exception_type": type(exc).__name__,
+            },
+        )
+        return backend_error("caseflow_edge_trace_unavailable", code=503)
+    return jsonify(projection), 200
 
 
 @vp_bp.post("/workflow/events/stream")
