@@ -259,7 +259,7 @@
     {
       "id": "M2",
       "title": "Canvas Editing",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "CAC-004",
         "CAC-005",
@@ -405,7 +405,7 @@
     {
       "id": "CAC-006",
       "title": "Node Inspector für Konfiguration erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -420,7 +420,10 @@
         "Advanced-Felder sind initial geschlossen, tastaturbedienbar und verändern beim Auf- oder Zuklappen keine Graphdaten.",
         "Speichern mit einer ungültigen Binding-Referenz bleibt deaktiviert und zeigt den konkreten Validierungsfehler."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 7d9ae320e, 37b5e23ed, and bbd5a9e51. Authenticated catalog sources, resource-specific fail-closed read models, deterministic directed neighborhood projection, and an immutable authorized node inspector cover role/icon plus Skill, Instruction, Context, and Model bindings with 18 focused review tests and 72 full agent-canvas tests."
+      ]
     },
     {
       "id": "CAC-007A",
@@ -615,13 +618,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 7,
+      "todo": 6,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 57.1,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -635,15 +638,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 7,
-      "remaining": 6
+      "done": 8,
+      "remaining": 5
     },
     "milestones": {
       "total": 4,
       "todo": 1,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "tasks_type_summary": {
@@ -666,16 +669,16 @@
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 6,
+          "todo": 5,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 5
+          "done": 6
         },
-        "done": 5,
+        "done": 6,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.5
+        "progress_percent": 54.5
       },
       "test": {
         "total": 1,
@@ -696,10 +699,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 13.5,
-    "remaining_weight": 13.25,
+    "done_weight": 16.0,
+    "remaining_weight": 10.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 50.5
+    "weighted_percent": 59.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -713,11 +716,11 @@
       },
       "M2": {
         "total_tasks": 3,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 66.7,
-        "weighted_percent": 61.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M3": {
         "total_tasks": 5,
@@ -739,21 +742,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 7,
+    "todo_remaining": 6,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 7,
-    "count_based_percent": 50.0,
-    "weighted_percent": 50.5
+    "done": 8,
+    "count_based_percent": 57.1,
+    "weighted_percent": 59.8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T20:16:45.644607Z",
+    "generated_at": "2026-08-13T20:39:43.500921Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "2c3f7e826e2cbc1d81a9ffe13d3669a8e60369de1d672a632782d3f3e9b803bf",
+    "source_hash": "f6d4557369656601f480090622c9de6fd29198887a21bb4d087fe6df3725f593",
     "is_stale": false
   }
 }
