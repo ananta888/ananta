@@ -1,0 +1,231 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.node-inspector {
+  --inspector-border: color-mix(in srgb, currentColor 22%, transparent);
+  --inspector-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --inspector-surface: color-mix(in srgb, currentColor 5%, transparent);
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--inspector-border);
+  border-radius: 0.75rem;
+  background: var(--inspector-surface);
+  color: inherit;
+}
+
+.inspector-header,
+.inspector-section,
+fieldset {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.inspector-header h2,
+.inspector-section h3,
+.inspector-section h4,
+.inspector-header p,
+.inspector-section p {
+  margin: 0;
+}
+
+.eyebrow {
+  color: var(--inspector-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.inspector-section {
+  padding-block-start: 1rem;
+  border-block-start: 1px solid var(--inspector-border);
+}
+
+.section-help,
+.empty-value,
+.resource-status,
+.resource-status-list,
+.relationship-grid span {
+  color: var(--inspector-muted);
+  font-size: 0.82rem;
+}
+
+label,
+legend,
+summary {
+  font-weight: 650;
+}
+
+select,
+input,
+button {
+  min-height: 2.25rem;
+  border: 1px solid var(--inspector-border);
+  border-radius: 0.4rem;
+  background: Canvas;
+  color: CanvasText;
+  font: inherit;
+}
+
+select,
+input {
+  width: 100%;
+  padding-inline: 0.55rem;
+}
+
+button {
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+button:disabled,
+select:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+summary:focus-visible {
+  outline: 2px solid Highlight;
+  outline-offset: 2px;
+}
+
+button.primary {
+  border-color: color-mix(in srgb, Highlight 70%, currentColor);
+  background: Highlight;
+  color: HighlightText;
+  font-weight: 700;
+}
+
+button.secondary {
+  white-space: nowrap;
+}
+
+.field-group {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.field-with-action {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.45rem;
+  align-items: start;
+}
+
+fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--inspector-border);
+  border-radius: 0.55rem;
+}
+
+.resource-status-list,
+.binding-list,
+.relationship-grid ul,
+.validation-errors ul {
+  margin: 0;
+  padding-inline-start: 1.25rem;
+}
+
+.resource-status-list li[data-state='degraded'],
+.resource-status-list li[data-state='disabled'],
+.resource-status[data-state='degraded'],
+.resource-status[data-state='disabled'] {
+  font-weight: 650;
+}
+
+.binding-list {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.binding-list li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.model-grid,
+.relationship-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.relationship-grid > div {
+  min-width: 0;
+  padding: 0.65rem;
+  border: 1px solid var(--inspector-border);
+  border-radius: 0.5rem;
+}
+
+.relationship-grid li {
+  display: grid;
+  gap: 0.15rem;
+  margin-block: 0.45rem;
+}
+
+code {
+  overflow-wrap: anywhere;
+}
+
+.advanced summary {
+  cursor: pointer;
+}
+
+.advanced dl {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0.85rem 0 0;
+}
+
+.advanced dl div {
+  display: grid;
+  grid-template-columns: minmax(7rem, 0.4fr) minmax(0, 1fr);
+  gap: 0.6rem;
+}
+
+.advanced dt {
+  font-weight: 650;
+}
+
+.advanced dd {
+  min-width: 0;
+  margin: 0;
+}
+
+.message,
+.validation-errors {
+  padding: 0.75rem;
+  border: 1px solid var(--inspector-border);
+  border-radius: 0.5rem;
+}
+
+.message.error,
+.validation-errors {
+  border-color: color-mix(in srgb, #b3261e 62%, var(--inspector-border));
+}
+
+.validation-errors p {
+  margin-block-start: 0;
+  font-weight: 700;
+}
+
+.inspector-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (min-width: 46rem) {
+  .model-grid,
+  .relationship-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
