@@ -1,14 +1,38 @@
 {
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber",
   "track": "caseflow-agent-collaboration-canvas",
   "id": "todo.caseflow-agent-collaboration-canvas",
   "title": "CaseFlow Agent Collaboration Canvas mit Rollen, Beziehungen, Runtime und Trace",
-  "created": "2026-08-12",
-  "updated": "2026-08-12",
+  "created_at": "2026-08-12",
+  "updated_at": "2026-08-13",
   "project": "Ananta",
   "status": "todo",
-  "priority": "high",
+  "priority": "P0",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "priority_policy": {
+    "P0": "Definiert kanonische Verträge, Hub-Autorität, Datenintegrität oder den minimalen Ende-zu-Ende-Pfad und blockiert abhängige Implementierung.",
+    "P1": "Ist für den produktiven Collaboration Canvas erforderlich, kann nach stabilen Kernverträgen teilweise parallel umgesetzt werden.",
+    "P2": "Erweitert Presets oder Bedienkomfort und darf die Kernfreigabe nicht blockieren."
+  },
   "purpose": "Eine einfache Angular-Komponente unter CaseFlow bereitstellen, mit der Nutzer Agenten/Rollen grafisch definieren, ihre Beziehungen nachvollziehen und laufende Kommunikation samt technischer Telemetrie und eigentlichem Agenten-Chat untersuchen können. Die Umsetzung soll die vorhandene Ananta-Architektur wiederverwenden und keinen zweiten Workflow-, Agenten- oder Trace-Stack einführen.",
   "goal": "CaseFlow erhält einen verständlichen Agent Collaboration Canvas. Agenten erscheinen als Rollen-Knoten mit Icon, Persönlichkeit, Context und bestehenden Skill-/Model-/Policy-Bindings. Gerichtete Aufrufe werden als Pfeile dargestellt, bidirektionale Kommunikation als Pfeile in beide Richtungen. Während eines Runs wird ausschließlich die tatsächlich aktive Kommunikation dezent animiert. Klick auf eine Verbindung öffnet technische Telemetrie und den fachlichen Agenten-Chat; Klick auf einen Agenten öffnet Konfiguration sowie Runtime-, Parent-/Child- und Trace-Sicht.",
   "source_code_alignment": {
@@ -89,10 +113,44 @@
     "metadata_extension": "UI-spezifische Rollen- und Darstellungsdaten werden versioniert unter graph.extensions['ananta.caseflow.agent-canvas'] bzw. Step-Metadata gespeichert."
   },
   "role_catalog_v1": {
-    "software": ["architect", "developer", "frontend", "backend", "devops", "tester", "security", "reviewer", "product_owner", "scrum_master"],
-    "creative": ["artist", "designer", "ux", "writer", "video", "audio"],
-    "business": ["marketing", "sales", "finance", "legal", "hr", "business_analyst", "researcher", "project_manager"],
-    "generic": ["lead", "specialist", "critic", "approver", "observer", "custom"],
+    "software": [
+      "architect",
+      "developer",
+      "frontend",
+      "backend",
+      "devops",
+      "tester",
+      "security",
+      "reviewer",
+      "product_owner",
+      "scrum_master"
+    ],
+    "creative": [
+      "artist",
+      "designer",
+      "ux",
+      "writer",
+      "video",
+      "audio"
+    ],
+    "business": [
+      "marketing",
+      "sales",
+      "finance",
+      "legal",
+      "hr",
+      "business_analyst",
+      "researcher",
+      "project_manager"
+    ],
+    "generic": [
+      "lead",
+      "specialist",
+      "critic",
+      "approver",
+      "observer",
+      "custom"
+    ],
     "requirements": [
       "Jede Rolle besitzt ein neutrales, konsistentes Icon aus der bereits genutzten UI-Icon-Library.",
       "Rolle ist nur ein Preset für Label, Icon und optionale Defaults; sie begrenzt nicht die Fähigkeiten des Agenten.",
@@ -168,28 +226,67 @@
     "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.models.ts",
     "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.mapper.ts",
     "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime.service.ts",
-    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-role-catalog.ts"
+    "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-role-catalog.ts",
+    "agent/services/caseflow_agent_collaboration_trace_projection_service.py",
+    "agent/routes/visual_process.py"
+  ],
+  "critical_path_tasks": [
+    "CAC-001",
+    "CAC-002",
+    "CAC-003",
+    "CAC-004",
+    "CAC-005",
+    "CAC-006",
+    "CAC-007A",
+    "CAC-007",
+    "CAC-008",
+    "CAC-009",
+    "CAC-010",
+    "CAC-011",
+    "CAC-013"
   ],
   "milestones": [
     {
       "id": "M1",
       "title": "Graph Projection und Rollen",
-      "task_ids": ["CAC-001", "CAC-002", "CAC-003"]
+      "status": "todo",
+      "task_ids": [
+        "CAC-001",
+        "CAC-002",
+        "CAC-003"
+      ]
     },
     {
       "id": "M2",
       "title": "Canvas Editing",
-      "task_ids": ["CAC-004", "CAC-005", "CAC-006"]
+      "status": "todo",
+      "task_ids": [
+        "CAC-004",
+        "CAC-005",
+        "CAC-006"
+      ]
     },
     {
       "id": "M3",
       "title": "Runtime und Trace",
-      "task_ids": ["CAC-007", "CAC-008", "CAC-009", "CAC-010"]
+      "status": "todo",
+      "task_ids": [
+        "CAC-007A",
+        "CAC-007",
+        "CAC-008",
+        "CAC-009",
+        "CAC-010"
+      ]
     },
     {
       "id": "M4",
       "title": "Integration und Qualität",
-      "task_ids": ["CAC-011", "CAC-012", "CAC-013"]
+      "status": "todo",
+      "task_ids": [
+        "CAC-011",
+        "CAC-012",
+        "CAC-013"
+      ]
     }
   ],
   "tasks": [
@@ -197,151 +294,292 @@
       "id": "CAC-001",
       "title": "CaseFlow Agent Canvas Contract definieren",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M1",
+      "depends_on": [],
       "description": "Versionierte UI-Projektion für Rollen, Icons und Inspector-Hints definieren, ohne VpGraph/VpStep/VpEdge zu duplizieren.",
       "acceptance_criteria": [
-        "Persistierte Runtime-Wahrheit bleibt VpGraph.",
-        "Unbekannte Extension-Felder brechen ältere Clients nicht.",
-        "Roundtrip Graph -> Canvas -> Graph verliert keine Edges oder Step-Metadaten."
-      ]
+        "Ein versionierter Contract für graph.extensions['ananta.caseflow.agent-canvas'] ist in TypeScript typisiert und enthält keine duplizierten Runtime-Zustände.",
+        "Fixture-Tests belegen, dass unbekannte Extension-Felder beim Lesen, Editieren und Schreiben byte-semantisch erhalten bleiben.",
+        "Roundtrip-Tests mit gerichteten, bidirektionalen und Loop-Edges belegen Graph -> Canvas -> Graph ohne Verlust von Edges, Step-Metadaten oder unbekannten Extensions.",
+        "Ein Contract-Test weist VpGraph als einzige persistierte Graph- und Runtime-Wahrheit aus; die Canvas-Projektion bleibt rein ableitbar."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-002",
       "title": "Rollen- und Icon-Katalog implementieren",
       "status": "todo",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M1",
+      "depends_on": [
+        "CAC-001"
+      ],
       "acceptance_criteria": [
-        "Software-, Creative-, Business- und Generic-Rollen verfügbar.",
-        "Custom Role möglich.",
-        "Icons sind konsistent und nicht an Runtime-Fähigkeiten gekoppelt."
-      ]
+        "Katalogtests enthalten jede unter role_catalog_v1 deklarierte Software-, Creative-, Business- und Generic-Rolle genau einmal.",
+        "Eine Custom-Rolle akzeptiert einen nichtleeren Namen und ausschließlich Icons aus der vorhandenen Icon-Allowlist; ungültige Eingaben liefern einen Validierungsfehler.",
+        "Tests belegen, dass ein Rollen- oder Icon-Wechsel agent_skill_profile_id, Model-Routing, Tools und Policies nicht verändert."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-003",
       "title": "Agent-Konfiguration auf bestehende Ananta-Bindings mappen",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M1",
+      "depends_on": [
+        "CAC-001"
+      ],
       "acceptance_criteria": [
-        "Skill Profile wird über agent_skill_profile_id referenziert.",
-        "Model Routing nutzt vorhandene Profile/Rollen/Fallbacks.",
-        "Personality und Context werden referenziert bzw. als deklarative Metadaten gespeichert, nicht als parallele Runtime-Konfiguration."
-      ]
+        "Mapper-Tests belegen, dass Skill Profile ausschließlich über agent_skill_profile_id und Model-Routing ausschließlich über vorhandene Profil-/Rollen-/Fallback-Referenzen gespeichert werden.",
+        "Personality und Context werden als bestehende Bindings oder deklarative Metadaten referenziert; Fixtures enthalten keine kopierten Runtime-Konfigurationen.",
+        "Unbekannte oder nicht erlaubte Binding-Referenzen werden vor dem Speichern sichtbar und fail-closed abgelehnt.",
+        "Ein Graph-Roundtrip bewahrt alle nicht vom Agent-Inspector verwalteten Step-Felder unverändert."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-004",
       "title": "Agent Canvas Angular-Komponente bauen",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M2",
+      "depends_on": [
+        "CAC-001",
+        "CAC-002",
+        "CAC-003"
+      ],
       "acceptance_criteria": [
-        "CaseFlow-Menü führt zur neuen Ansicht.",
-        "Nodes sind verschiebbar und Positionen persistent.",
-        "Zoom/Pan/Fit-to-view funktionieren.",
-        "Komponente bleibt unabhängig vom vollständigen VisualProcessEditor nutzbar."
-      ]
+        "Die routenunabhängige Komponente rendert einen über Input gelieferten VpGraph, ohne VisualProcessEditor oder CaseFlow Studio instanziieren zu müssen.",
+        "Ein Drag-Component-Test verschiebt genau einen Node und emittiert eine kleine Graph-Änderung, die ausschließlich dessen VpStep.position aktualisiert.",
+        "Component-Tests prüfen Zoom, Pan, Fit-to-view und Reset Layout mit einem Graphen aus mindestens drei Nodes.",
+        "Auswahl, Viewport und Layout bleiben bei einer immutable Graph-Aktualisierung erhalten, sofern die selektierte ID weiter existiert.",
+        "Routing, CaseFlow-Menü und Umschaltung werden ausschließlich in CAC-011 umgesetzt."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-005",
       "title": "Gerichtete und bidirektionale Agentenbeziehungen darstellen",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M2",
+      "depends_on": [
+        "CAC-001",
+        "CAC-004"
+      ],
       "acceptance_criteria": [
-        "A->B zeigt Pfeil bei B.",
-        "A->B plus B->A ist eindeutig bidirektional sichtbar.",
-        "Edge-Klick selektiert exakt die technische Richtung bzw. bietet bei gekoppelter Darstellung beide Richtungen an.",
-        "Loop-Kanten bleiben erkennbar."
-      ]
+        "Rendering-Tests belegen für A->B eine Pfeilspitze ausschließlich am Ziel B.",
+        "Für A->B plus B->A bleiben beide kanonischen Edge-IDs erhalten und werden in Snapshot-/DOM-Tests eindeutig als zwei Richtungen angeboten.",
+        "Ein Edge-Klick emittiert exakt die kanonische Edge-ID der gewählten Richtung; eine gekoppelte Darstellung verlangt vor dem Inspector eine eindeutige Richtungswahl.",
+        "Loop-Edge-Fixtures werden mit eigener Pfeilgeometrie und unveränderter kanonischer Edge-ID gerendert."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-006",
       "title": "Node Inspector für Konfiguration erstellen",
       "status": "todo",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M2",
+      "depends_on": [
+        "CAC-003",
+        "CAC-004"
+      ],
       "acceptance_criteria": [
-        "Rolle, Icon, Personality, Context, Skill Profile und Model Routing editierbar bzw. auswählbar.",
-        "Parent-/Child-Beziehungen sichtbar.",
-        "Advanced-Konfiguration klappt technische Felder gezielt auf."
-      ]
+        "Component-Tests bearbeiten Rolle, Icon sowie erlaubte Personality-, Context-, Skill-Profile- und Model-Routing-Bindings und prüfen die resultierenden fokussierten Graph-Commands.",
+        "Parent- und Child-Listen werden aus gerichteten VpEdges abgeleitet und zeigen bei bidirektionalen Edges beide Rollen getrennt an.",
+        "Advanced-Felder sind initial geschlossen, tastaturbedienbar und verändern beim Auf- oder Zuklappen keine Graphdaten.",
+        "Speichern mit einer ungültigen Binding-Referenz bleibt deaktiviert und zeigt den konkreten Validierungsfehler."
+      ],
+      "progress_percent": 0.0
+    },
+    {
+      "id": "CAC-007A",
+      "title": "Hub-eigenes Read Model für gerichtete Edge-/Trace-Korrelation implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M3",
+      "depends_on": [
+        "CAC-001",
+        "CAC-003"
+      ],
+      "description": "Ein autorisiertes, typisiertes und redigiertes Hub-Read-Model korreliert vorhandene Workflow-, Run-, Step-, Edge-, Event- und Trace-Daten. Worker liefern weiterhin nur delegierte Arbeit und Evidenz; sie orchestrieren keine anderen Worker und werden nicht zur Autorität der Projektion.",
+      "acceptance_criteria": [
+        "Der Hub prüft Tenant-, Workflow- und Run-Zugriff vor jeder Projektion; Contract-Tests decken erlaubten Zugriff sowie Cross-Tenant- und unbekannte-Run-Ablehnung ab.",
+        "Das versionierte DTO enthält workflow_id, run_id, source_step_id, target_step_id, kanonische Edge-Identität, Aktivitätsstatus und ausschließlich vorhandene Trace-/Event-Referenzen.",
+        "Eine Richtung gilt nur dann als aktiv, wenn vorhandene Run-/Event-/Trace-Daten Source und Target eindeutig korrelieren; current_step_ids allein aktiviert keine Edge.",
+        "Fehlende oder widersprüchliche Korrelation wird explizit als unknown/unverified ausgegeben; es werden keine SRC_*, RUN_* oder sonstigen Evidenz-IDs erfunden.",
+        "Nachrichten und Telemetrie werden größenbegrenzt, deterministisch sortiert und nach bestehender Zugriffspolicy redigiert; es entsteht keine zweite Chat- oder Trace-Persistenz.",
+        "Fokussierte Service- und API-Contract-Tests prüfen Richtung, Redaction, Größenlimit, deterministische Reihenfolge und fehlende Evidenz."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-007",
       "title": "Runtime Overlay auf Agent Canvas projizieren",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M3",
+      "depends_on": [
+        "CAC-004",
+        "CAC-007A"
+      ],
       "acceptance_criteria": [
-        "current_step_ids und Step-Status werden ohne Graphmutation angezeigt.",
-        "Running/Awaiting Approval/Success/Error sind am Node erkennbar.",
-        "Runtime-Ansicht kann aktualisiert werden, ohne Layout oder Auswahl zu verlieren."
-      ]
+        "Mapper-Tests projizieren current_step_ids und Step-Status aus einem VpRuntimeOverlay, ohne den Eingabegraphen zu mutieren.",
+        "Component-Tests unterscheiden Running, Awaiting Approval, Success und Error über Text/Icon sowie Farbe und bleiben damit ohne Farbwahrnehmung verständlich.",
+        "Ein Runtime-Refresh-Test bewahrt Node-Positionen, Viewport und gültige Auswahl; entfernte Selektionen werden deterministisch geschlossen.",
+        "Ein unbekannter Runtime-Status wird als unknown dargestellt und aktiviert keine Kante."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-008",
       "title": "Aktive Kommunikationskante dezent animieren",
       "status": "todo",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M3",
+      "depends_on": [
+        "CAC-005",
+        "CAC-007",
+        "CAC-007A"
+      ],
       "acceptance_criteria": [
-        "Nur tatsächlich aktive Edge wird animiert.",
-        "Animation ist subtil und theme-kompatibel.",
-        "prefers-reduced-motion deaktiviert Bewegung zuverlässig."
-      ]
+        "Nur eine vom CAC-007A-Read-Model eindeutig als active gelieferte kanonische Edge-ID erhält die Animationsklasse; unknown/unverified bleibt statisch.",
+        "DOM-/Style-Tests belegen eine theme-kompatible, nicht blinkende Animation ohne Veränderung der Edge-Geometrie oder Klickfläche.",
+        "Ein prefers-reduced-motion-Test deaktiviert Bewegung vollständig und hält Aktivität über ein statisches Text-/Icon-Signal erkennbar.",
+        "Bei A->B plus B->A wird ausschließlich die vom Read Model gemeldete Richtung animiert."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-009",
       "title": "Edge Inspector mit Chat- und Telemetrie-Ansicht bauen",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M3",
+      "depends_on": [
+        "CAC-005",
+        "CAC-007A"
+      ],
       "acceptance_criteria": [
-        "Kommunikations-Tab zeigt Source->Target-Nachrichten chronologisch.",
-        "Telemetry-Tab zeigt technische Trace-/Run-Daten.",
-        "Keine zweite Trace-Persistenz wird eingeführt.",
-        "Nachricht und technische Trace-Daten sind korrelierbar."
-      ]
+        "Der Kommunikations-Tab zeigt ausschließlich Nachrichten der selektierten Source->Target-Edge in der deterministischen Reihenfolge des Hub-Read-Models.",
+        "Der Telemetrie-Tab zeigt nur vorhandene und erlaubte Run-/Trace-Felder; fehlende Werte erscheinen als nicht verfügbar und erzeugen keine Ersatz-ID.",
+        "Jede angezeigte Nachricht verlinkt über eine vorhandene Korrelationsreferenz auf genau den zugehörigen Telemetrieeintrag oder weist explizit unverified aus.",
+        "API- und Component-Tests belegen, dass der Inspector keine eigene Chat- oder Trace-Persistenz schreibt.",
+        "Richtungswechsel bei einer bidirektionalen Beziehung leert zuerst die alte Auswahl und lädt ausschließlich die neue Richtung."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-010",
       "title": "Node Runtime/Trace Inspector bauen",
       "status": "todo",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M3",
+      "depends_on": [
+        "CAC-006",
+        "CAC-007",
+        "CAC-007A"
+      ],
       "acceptance_criteria": [
-        "Alle Kommunikation des Agenten mit Parents und Childs filterbar.",
-        "Agentbezogene Trace-Ereignisse und Runtime-Metriken sichtbar.",
-        "Letzter Fehler und aktuelle Aktivität sind ohne Wechsel in den Full Process Designer sichtbar."
-      ]
+        "Component-Tests filtern agentbezogene Kommunikation getrennt nach Parent, Child und kanonischer Edge-ID.",
+        "Der Inspector zeigt ausschließlich vom Hub-Read-Model gelieferte Trace-Ereignisse und Runtime-Metriken und kennzeichnet redigierte oder fehlende Felder.",
+        "Letzter erlaubter Fehler und aktuelle Aktivität sind mit Zeit, Status und vorhandener Trace-Referenz sichtbar, ohne den Full Process Designer zu öffnen.",
+        "Ein Zugriffsentzug leert bereits geladene Runtime-/Trace-Daten und schließt den Inspector fail-closed."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-011",
       "title": "CaseFlow Studio und Menü integrieren",
       "status": "todo",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M4",
+      "depends_on": [
+        "CAC-004",
+        "CAC-005",
+        "CAC-006",
+        "CAC-007"
+      ],
       "acceptance_criteria": [
-        "Canvas ist über CaseFlow direkt erreichbar.",
-        "Bestehende CaseFlow-Szenarien und VisualProcessGraph-IDs werden weiterverwendet.",
-        "Wechsel zwischen einfacher Agentenansicht und vollständigem Prozesseditor ist möglich."
-      ]
+        "Ein Routing-Test öffnet die in CAC-004 fertiggestellte Canvas-Komponente über einen eindeutigen CaseFlow-Menüeintrag; CAC-011 implementiert keine zweite Canvas-Darstellung.",
+        "Beim Wechsel zwischen Agentenansicht und vollständigem Prozesseditor bleiben scenario_id und VisualProcessGraph-ID identisch.",
+        "Browser-Component-Tests wechseln in beide Richtungen, ohne ungespeicherte Graphänderungen zu verlieren oder einen zweiten Graphen anzulegen.",
+        "Ein Szenario ohne rollenfähige Steps zeigt einen erklärenden Leerzustand und einen Link zum bestehenden Prozesseditor."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-012",
       "title": "Gauntlet/Builder-Critic Presets ergänzen",
       "status": "todo",
-      "priority": "medium",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M4",
+      "depends_on": [
+        "CAC-002",
+        "CAC-003",
+        "CAC-005",
+        "CAC-006"
+      ],
       "acceptance_criteria": [
-        "Lead, Builder und Critic können aus Rollenpresets angelegt werden.",
-        "Fan-out und Feedback-Loops werden mit normalen VpEdges abgebildet.",
-        "Critic kann Benchmark/Context-Bindings erhalten, ohne Sonder-Runtime."
-      ]
+        "Preset-Tests erzeugen Lead, Builder und Critic als normale VpSteps mit eindeutigen IDs und Katalogrollen.",
+        "Fan-out und Feedback-Loop bestehen ausschließlich aus normalen VpEdges; Snapshot-Tests enthalten keinen neuen Runtime-Step- oder Edge-Typ.",
+        "Critic-Presets referenzieren erlaubte Benchmark-/Context-Bindings und werden bei fehlender Berechtigung fail-closed abgelehnt.",
+        "Das Anwenden eines Presets verändert keine bereits vorhandenen, nicht selektierten Steps oder Edges."
+      ],
+      "progress_percent": 0.0
     },
     {
       "id": "CAC-013",
       "title": "Tests für Mapping, Interaction und Runtime Trace ergänzen",
       "status": "todo",
-      "priority": "critical",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M4",
+      "depends_on": [
+        "CAC-008",
+        "CAC-009",
+        "CAC-010",
+        "CAC-011"
+      ],
       "acceptance_criteria": [
-        "Mapper Roundtrip getestet.",
-        "Gerichtete/bidirektionale Edge-Darstellung getestet.",
-        "Node-/Edge-Auswahl und Inspector getestet.",
-        "Runtime-Status und aktive Edge getestet.",
-        "Trace-Korrelation getestet.",
-        "Reduced Motion getestet."
-      ]
+        "Fokussierte Angular-Tests bestehen für Mapper-Roundtrip, gerichtete/bidirektionale/Loop-Edges, Graph-Commands, Auswahl und beide Inspectoren.",
+        "Fokussierte Hub-Service-/API-Tests bestehen für Autorisierung, Redaction, gerichtete Edge-/Trace-Korrelation, missing evidence und Größenlimits.",
+        "Runtime-Tests belegen, dass nur eindeutig korrelierte aktive Edges animiert werden und unbekannte Korrelation fail-closed bleibt.",
+        "Accessibility-Tests bestehen für Tastaturbedienung, sichtbare Fokuszustände, statusunabhängige Beschriftung und Reduced Motion.",
+        "Ein schlanker CaseFlow-Integrationslauf prüft Menüwechsel, identische Graph-ID und Erhalt ungespeicherter Änderungen; schwere Gesamtsuiten sind kein Ersatz für diese fokussierten Gates.",
+        "Der Gate-Report referenziert ausschließlich tatsächlich erzeugte Testausgaben und erfindet keine SRC_*-/RUN_*-IDs."
+      ],
+      "progress_percent": 0.0
     }
   ],
   "definition_of_done": [
@@ -352,5 +590,149 @@
     "Während eines Runs sind aktive Agenten und Kommunikationswege subtil sichtbar.",
     "Klick auf Agent oder Verbindung führt von der verständlichen Oberfläche bis zur tatsächlichen technischen Trace-Evidenz.",
     "Keine neue Workflow-, Agenten-, Chat- oder Trace-Infrastruktur wurde parallel eingeführt."
-  ]
+  ],
+  "tasks_status_summary": {
+    "total": 14,
+    "by_status": {
+      "todo": 14,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 5,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 7,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 14,
+    "by_type": {
+      "contract": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "implementation": {
+        "total": 11,
+        "by_status": {
+          "todo": 11,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 26.75,
+    "done_weight": 0.0,
+    "remaining_weight": 26.75,
+    "blocked_weight": 0.0,
+    "weighted_percent": 0.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M2": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M3": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M4": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 14,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-13T18:52:25.060978Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "834a5c80a460aa503e3b309223a8d7659ccea179e7468c9724023f026cb70aca",
+    "is_stale": false
+  }
 }
