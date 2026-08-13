@@ -5,9 +5,11 @@ Endpunkte:
   GET  /info
   POST /rendezvous/sessions
   GET  /rendezvous/sessions
+  POST /rendezvous/sessions/catalog
   POST /rendezvous/sessions/join
   POST /rendezvous/sessions/<id>/join
   GET  /rendezvous/sessions/<id>/participants
+  PUT  /rendezvous/sessions/<id>/membership/runtime
   GET  /rendezvous/sessions/<id>/security/key-packages
   GET/POST /rendezvous/sessions/<id>/security/key-confirmations
   PATCH /rendezvous/sessions/<id>/permissions
@@ -63,7 +65,7 @@ def add_cors_headers(response):
         response.headers["Access-Control-Allow-Headers"] = (
             "Authorization, Content-Type, X-Ananta-Peer-Id, X-Ananta-Device-Id, X-Ananta-Membership-Capability"
         )
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, DELETE, OPTIONS"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
         response.headers["Access-Control-Expose-Headers"] = "Retry-After"
         response.headers["Access-Control-Max-Age"] = "600"
     return response
@@ -96,13 +98,24 @@ def _closed_json_body(allowed_fields: set[str]):
     return body, None
 
 
-def _session_for_local_peer(session: Any, peer_id: str) -> Any:
+def _session_for_local_peer(
+    session: Any,
+    peer_id: str,
+    *,
+    role: str = "",
+    runtime_state: str = "",
+) -> Any:
     if not isinstance(session, dict):
         return session
-    return {
+    projected = {
         **{key: value for key, value in session.items() if not key.startswith("_")},
         "local_peer_id": peer_id,
     }
+    if role:
+        projected["local_role"] = role
+    if runtime_state:
+        projected["local_runtime_state"] = runtime_state
+    return projected
 
 
 def _requested_peer_id() -> str:
@@ -296,7 +309,12 @@ def create_session():
         return jsonify({"error": str(exc)}), 400
     idempotent = bool(session.pop("_idempotent", False))
     local_peer_id = str(session.get("owner_peer_id") or "") if identity_binding_version == 2 else ctx.account_id
-    local_session = _session_for_local_peer(session, local_peer_id)
+    local_session = _session_for_local_peer(
+        session,
+        local_peer_id,
+        role="owner",
+        runtime_state=str(session.get("local_runtime_state") or "active"),
+    )
     log.info("session_created id=%s identity_binding_version=%d", session["id"], identity_binding_version)
     response = jsonify(
         {
@@ -315,24 +333,73 @@ def list_sessions():
     ctx = _require_auth()
     if not ctx:
         return _auth_error()
-    requested_peer_id = _requested_peer_id()
-    sessions = svc.list_sessions_for_user(
-        requester_user_id=ctx.account_id,
-        requested_peer_id=requested_peer_id,
-        requested_device_id=_requested_device_id(),
-    )
-    if not requested_peer_id and not _requested_device_id():
-        sessions = [session for session in sessions if int(session.get("identity_binding_version") or 0) == 1]
-    # Backward-compatible page-level v1 identity. V2 clients must use each
-    # item's exact selector-bound local_peer_id instead.
-    local_peer_id = requested_peer_id or ctx.account_id
-    return jsonify(
+    sessions = svc.list_sessions_for_user(requester_user_id=ctx.account_id)
+    local_peer_id = ctx.account_id
+    response = jsonify(
         {
             "ok": True,
             "local_peer_id": local_peer_id,
             "data": {"items": sessions, "local_peer_id": local_peer_id},
         }
-    ), 200
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
+
+
+@app.post("/rendezvous/sessions/catalog")
+def list_sessions_by_membership_proof():
+    """List V2 sessions only after exact per-session capability validation."""
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    body, body_error = _closed_json_body({"memberships"})
+    if body_error:
+        return body_error
+    assert body is not None
+    raw_memberships = body.get("memberships")
+    if not isinstance(raw_memberships, list) or len(raw_memberships) > 32:
+        return jsonify({"error": "catalog_request_invalid"}), 400
+    proofs: list[dict[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for raw_proof in raw_memberships:
+        if not isinstance(raw_proof, dict) or set(raw_proof) != {
+            "session_id",
+            "local_peer_id",
+            "membership_capability",
+        }:
+            return jsonify({"error": "catalog_request_invalid"}), 400
+        session_id = raw_proof.get("session_id")
+        local_peer_id = raw_proof.get("local_peer_id")
+        capability = raw_proof.get("membership_capability")
+        if not all(isinstance(value, str) for value in (session_id, local_peer_id, capability)):
+            return jsonify({"error": "catalog_request_invalid"}), 400
+        try:
+            normalized_session_id = str(uuid.UUID(session_id))
+        except (AttributeError, ValueError):
+            return jsonify({"error": "catalog_request_invalid"}), 400
+        if (
+            not svc.is_device_peer_id(local_peer_id)
+            or not svc.is_membership_capability(capability)
+            or (normalized_session_id, local_peer_id) in seen
+        ):
+            return jsonify({"error": "catalog_request_invalid"}), 400
+        seen.add((normalized_session_id, local_peer_id))
+        proofs.append(
+            {
+                "session_id": normalized_session_id,
+                "local_peer_id": local_peer_id,
+                "membership_capability": capability,
+            }
+        )
+    if limited := _membership_probe_limit(ctx.account_id):
+        return limited
+    sessions = svc.list_sessions_for_membership_proofs(
+        requester_user_id=ctx.account_id,
+        membership_proofs=proofs,
+    )
+    response = jsonify({"ok": True, "data": {"items": sessions}})
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
 
 
 @app.post("/rendezvous/sessions/join")
@@ -431,7 +498,12 @@ def _join_session_by_invite(*, expected_session_id: str):
     session_label = expected_session_id or "invite"
     participant = result.get("participant") or {}
     local_peer_id = str(participant.get("peer_id") or participant.get("user_id") or "")
-    local_session = _session_for_local_peer(result.get("session"), local_peer_id)
+    local_session = _session_for_local_peer(
+        result.get("session"),
+        local_peer_id,
+        role="participant",
+        runtime_state=str((result.get("session") or {}).get("local_runtime_state") or "active"),
+    )
     log.info(
         "participant_joined session=%s identity_binding_version=%s",
         session_label,
@@ -644,6 +716,53 @@ def leave_session(session_id: str):
     return response, 200
 
 
+@app.put("/rendezvous/sessions/<session_id>/membership/runtime")
+def set_membership_runtime(session_id: str):
+    """Activate or park one exact v2 membership without retiring it."""
+    ctx = _require_auth()
+    if not ctx:
+        return _auth_error()
+    body, body_error = _closed_json_body({"state"})
+    if body_error:
+        return body_error
+    assert body is not None
+    state = body.get("state")
+    if state not in {"active", "parked"}:
+        return jsonify({"error": "runtime_state_invalid"}), 400
+    if limited := _membership_probe_limit(ctx.account_id):
+        return limited
+    result = svc.set_membership_runtime(
+        session_id=session_id,
+        account_id=ctx.account_id,
+        requested_peer_id=_requested_peer_id(),
+        membership_capability=_membership_capability(),
+        state=state,
+    )
+    if not result.get("ok"):
+        reason = str(result.get("reason") or "membership_state_conflict")
+        status = (
+            400
+            if reason == "runtime_state_invalid"
+            else _member_error_status(reason)
+        )
+        return jsonify({"error": reason}), status
+    local_peer_id = str(result["local_peer_id"])
+    response = jsonify(
+        {
+            "ok": True,
+            "local_peer_id": local_peer_id,
+            "data": {
+                "state": result["state"],
+                "security_epoch": result["security_epoch"],
+                "changed": bool(result["changed"]),
+                "parked_session_ids": list(result["parked_session_ids"]),
+            },
+        }
+    )
+    response.headers["Cache-Control"] = "no-store"
+    return response, 200
+
+
 @app.get("/rendezvous/turn-credentials")
 def turn_credentials():
     ctx = _require_auth()
@@ -727,6 +846,7 @@ def push_signal(session_id: str):
             "sender_id",
             "recipient_id",
             "payload",
+            "security_epoch",
         }
     )
     if body_error:
@@ -761,12 +881,18 @@ def push_signal(session_id: str):
     ):
         return limited
     signal_type = str(body.get("type") or "").strip()
+    security_epoch = body.get("security_epoch")
+    if security_epoch is not None and (
+        isinstance(security_epoch, bool) or not isinstance(security_epoch, int) or security_epoch < 1
+    ):
+        return jsonify({"error": "signal_epoch_invalid"}), 400
     result = svc.push_signal(
         session_id=session_id,
         sender_id=selected_peer_id,
         recipient_id=recipient_id,
         signal_type=signal_type,
         payload=body.get("payload"),
+        security_epoch=security_epoch,
         sender_account_id=ctx.account_id,
         membership_capability=membership_capability,
     )
@@ -803,6 +929,15 @@ def poll_signals(session_id: str):
     since = int(raw_since) if raw_since else 0
     if since > svc._MAX_SIGNAL_CURSOR:
         return jsonify({"error": "signal_cursor_invalid"}), 400
+    epoch_values = request.args.getlist("security_epoch")
+    if len(epoch_values) > 1:
+        return jsonify({"error": "signal_epoch_invalid"}), 400
+    raw_epoch = str(epoch_values[0]) if epoch_values else ""
+    if raw_epoch and (
+        len(raw_epoch) > 19 or not raw_epoch.isascii() or not raw_epoch.isdecimal() or int(raw_epoch) < 1
+    ):
+        return jsonify({"error": "signal_epoch_invalid"}), 400
+    security_epoch = int(raw_epoch) if raw_epoch else None
     if limited := _membership_probe_limit(ctx.account_id):
         return limited
     requested_peer_id = _requested_peer_id()
@@ -830,6 +965,7 @@ def poll_signals(session_id: str):
         since=since,
         requester_peer_id=requested_peer_id,
         membership_capability=membership_capability,
+        security_epoch=security_epoch,
     )
     if not result.get("ok"):
         reason = str(result.get("reason") or "forbidden")

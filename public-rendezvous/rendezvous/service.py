@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import logging
 import math
@@ -181,14 +182,24 @@ def _migrate_database(conn: sqlite3.Connection) -> None:
         _add_column(conn, "sessions", "owner_capability_lookup_hash TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "sessions", "owner_create_request_hash TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "sessions", "public_media_e2ee_version INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "sessions", "owner_runtime_state TEXT NOT NULL DEFAULT 'active'")
         _add_column(conn, "participants", "public_key_spki_b64 TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "account_id TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "peer_id TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "membership_capability_hash TEXT NOT NULL DEFAULT ''")
         _add_column(conn, "participants", "public_media_e2ee_version INTEGER NOT NULL DEFAULT 0")
+        _add_column(conn, "participants", "runtime_state TEXT NOT NULL DEFAULT 'active'")
         _add_column(conn, "signals", "sequence INTEGER NOT NULL DEFAULT 0")
+        signal_epoch_added = _add_column(
+            conn,
+            "signals",
+            "security_epoch INTEGER NOT NULL DEFAULT 0",
+        )
         _add_column(conn, "key_confirmations", "expires_at REAL NOT NULL DEFAULT 0")
         _backfill_v1_identity_columns(conn)
+        if signal_epoch_added:
+            _backfill_signal_epochs(conn)
+        _reconcile_v2_runtime_memberships(conn)
         _backfill_signal_sequences(conn)
         # Compatibility boundary: the pre-cursor image writes the column
         # default (0). A persistent unique index would make rollback fail on
@@ -198,6 +209,10 @@ def _migrate_database(conn: sqlite3.Connection) -> None:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_sessions_owner_account ON sessions(owner_account_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_participants_account ON participants(account_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_participants_peer ON participants(session_id, peer_id)")
+        conn.execute(
+            """CREATE INDEX IF NOT EXISTS idx_signals_recipient_epoch
+               ON signals(session_id, recipient_id, security_epoch, sequence)"""
+        )
         conn.execute(
             """CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_owner_capability_lookup
                ON sessions(owner_capability_lookup_hash)
@@ -251,6 +266,7 @@ def _create_base_schema(conn: sqlite3.Connection) -> None:
                signal_type TEXT NOT NULL,
                payload TEXT NOT NULL,
                sequence INTEGER NOT NULL DEFAULT 0,
+               security_epoch INTEGER NOT NULL DEFAULT 0,
                sent_at REAL NOT NULL,
                FOREIGN KEY(session_id) REFERENCES sessions(id) ON DELETE CASCADE
            )""",
@@ -282,7 +298,7 @@ def _create_base_schema(conn: sqlite3.Connection) -> None:
         conn.execute(statement)
 
 
-def _add_column(conn: sqlite3.Connection, table: str, definition: str) -> None:
+def _add_column(conn: sqlite3.Connection, table: str, definition: str) -> bool:
     name = definition.split()[0]
     columns = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
     if name not in columns:
@@ -294,19 +310,25 @@ def _add_column(conn: sqlite3.Connection, table: str, definition: str) -> None:
             refreshed = {str(row["name"]) for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
             if name not in refreshed:
                 raise exc
+        return True
+    return False
 
 
 def _backfill_signal_sequences(conn: sqlite3.Connection) -> None:
     """Assign deterministic per-recipient cursors to rows from the legacy schema."""
     rows = conn.execute(
-        """SELECT rowid, session_id, recipient_id, sequence
+        """SELECT rowid, session_id, recipient_id, security_epoch, sequence
            FROM signals
-           ORDER BY session_id, recipient_id, sent_at, rowid"""
+           ORDER BY session_id, recipient_id, security_epoch, sent_at, rowid"""
     ).fetchall()
-    partition: tuple[str, str] | None = None
+    partition: tuple[str, str, int] | None = None
     high_watermark = 0
     for row in rows:
-        current_partition = (str(row["session_id"]), str(row["recipient_id"]))
+        current_partition = (
+            str(row["session_id"]),
+            str(row["recipient_id"]),
+            int(row["security_epoch"] or 0),
+        )
         if current_partition != partition:
             partition = current_partition
             high_watermark = 0
@@ -318,6 +340,79 @@ def _backfill_signal_sequences(conn: sqlite3.Connection) -> None:
                 (stored_sequence, int(row["rowid"])),
             )
         high_watermark = stored_sequence
+
+
+def _backfill_signal_epochs(conn: sqlite3.Connection) -> None:
+    """Bind pre-epoch signaling rows to the session epoch seen at migration."""
+    conn.execute(
+        """UPDATE signals
+           SET security_epoch = COALESCE(
+               (SELECT security_epoch FROM sessions WHERE sessions.id = signals.session_id),
+               security_epoch
+           )
+           WHERE security_epoch = 0"""
+    )
+
+
+def _reconcile_v2_runtime_memberships(conn: sqlite3.Connection) -> None:
+    """Park duplicate pre-runtime device memberships, keeping the newest session."""
+    now = _now()
+    rows = conn.execute(
+        """SELECT s.id AS session_id, s.owner_account_id AS account_id,
+                  s.owner_peer_id AS peer_id, s.created_at AS session_created_at,
+                  1 AS owner, '' AS participant_id
+           FROM sessions s
+           WHERE s.identity_binding_version = 2
+             AND s.owner_runtime_state = 'active'
+             AND s.owner_account_id != '' AND s.owner_peer_id != ''
+             AND s.revoked_at IS NULL AND s.expires_at > ?
+           UNION ALL
+           SELECT s.id AS session_id, p.account_id AS account_id,
+                  p.peer_id AS peer_id, s.created_at AS session_created_at,
+                  0 AS owner, p.id AS participant_id
+           FROM participants p
+           JOIN sessions s ON s.id = p.session_id
+           WHERE s.identity_binding_version = 2
+             AND p.runtime_state = 'active'
+             AND p.account_id != '' AND p.peer_id != ''
+             AND p.revoked_at IS NULL
+             AND s.revoked_at IS NULL AND s.expires_at > ?""",
+        (now, now),
+    ).fetchall()
+    memberships_by_peer: dict[tuple[str, str], list[sqlite3.Row]] = {}
+    for row in rows:
+        key = (str(row["account_id"]), str(row["peer_id"]))
+        memberships_by_peer.setdefault(key, []).append(row)
+
+    invalidated_session_ids: set[str] = set()
+    for memberships in memberships_by_peer.values():
+        if len(memberships) < 2:
+            continue
+        ordered = sorted(
+            memberships,
+            key=lambda row: (
+                float(row["session_created_at"] or 0),
+                str(row["session_id"]),
+            ),
+            reverse=True,
+        )
+        for duplicate in ordered[1:]:
+            session_id = str(duplicate["session_id"])
+            if bool(duplicate["owner"]):
+                conn.execute(
+                    "UPDATE sessions SET owner_runtime_state = 'parked' WHERE id = ?",
+                    (session_id,),
+                )
+            else:
+                conn.execute(
+                    """UPDATE participants SET runtime_state = 'parked'
+                       WHERE id = ? AND session_id = ? AND revoked_at IS NULL""",
+                    (str(duplicate["participant_id"]), session_id),
+                )
+            invalidated_session_ids.add(session_id)
+
+    for session_id in sorted(invalidated_session_ids):
+        _invalidate_pair_runtime_locked(conn, session_id)
 
 
 def _backfill_v1_identity_columns(conn: sqlite3.Connection) -> None:
@@ -385,6 +480,7 @@ def _row_to_session(row: sqlite3.Row) -> dict[str, Any]:
         "mode": "p2p",
         "transport": "webrtc",
         "permissions_version": 1,
+        "_owner_runtime_state": row["owner_runtime_state"],
     }
 
 
@@ -401,6 +497,7 @@ def _list_participants(
                device_fingerprint, public_key_spki_b64, permissions,
                joined_at, last_seen, revoked_at, account_id, peer_id,
                membership_capability_hash, public_media_e2ee_version
+               , runtime_state
         FROM participants
         WHERE session_id = ? {where_clause}
         ORDER BY joined_at ASC
@@ -429,6 +526,7 @@ def _list_participants(
                 "public_media_capabilities": public_media_capabilities_for_version(
                     int(row["public_media_e2ee_version"] or 0)
                 ),
+                "_runtime_state": row["runtime_state"],
             }
         )
     return out
@@ -452,6 +550,60 @@ def _session_snapshot(
             for participant in participants
         ]
     return out
+
+
+def _catalog_peer_label(session_id: str, peer_id: str) -> str:
+    """Return a display-only peer label without exposing a stable peer id."""
+    digest = hmac.new(
+        cfg.RENDEZVOUS_SECURITY_SIGNING_SECRET.encode("utf-8"),
+        b"ananta.public-rendezvous.catalog-peer.v1\0"
+        + session_id.encode("utf-8")
+        + b"\0"
+        + peer_id.encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+    return f"Peer-{digest[:6]}"
+
+
+def _session_catalog_item(
+    session: dict[str, Any],
+    memberships: list[dict[str, Any]],
+    selected: dict[str, Any],
+) -> dict[str, Any]:
+    """Project the minimum authenticated metadata needed to switch sessions."""
+    local_peer_id = str(selected["peer_id"])
+    permissions = dict(session.get("allowed_permissions") or {})
+    item: dict[str, Any] = {
+        "id": str(session["id"]),
+        "title": str(session.get("title") or ""),
+        "permissions": permissions,
+        "created_at": session.get("created_at"),
+        "expires_at": session.get("expires_at"),
+        "revoked_at": session.get("revoked_at"),
+        "security_epoch": int(session.get("security_epoch") or 0),
+        "security_contract_version": int(session.get("security_contract_version") or 0),
+        "security_mode": str(session.get("security_mode") or ""),
+        "identity_binding_version": int(session.get("identity_binding_version") or 0),
+        "mode": "p2p",
+        "transport": "webrtc",
+        "permissions_version": 1,
+        "participant_count": max(0, len(memberships) - 1),
+        "local_peer_id": local_peer_id,
+        # Preserve the additive discovery shape without revealing other device
+        # memberships owned by the same account.
+        "local_peer_ids": [local_peer_id],
+        "local_runtime_state": str(selected.get("runtime_state") or "active"),
+    }
+    item["local_role"] = "owner" if selected["owner"] else "participant"
+    if selected["owner"]:
+        item["invite_code"] = str(session.get("invite_code") or "")
+    remote = next(
+        (member for member in memberships if str(member["peer_id"]) != local_peer_id),
+        None,
+    )
+    if remote is not None:
+        item["peer_label"] = _catalog_peer_label(str(session["id"]), str(remote["peer_id"]))
+    return item
 
 
 def _get_session_by_id(conn: sqlite3.Connection, session_id: str) -> dict[str, Any] | None:
@@ -594,6 +746,143 @@ def reset_rate_limits_for_tests() -> None:
 
 
 # --- Session operations ---
+
+
+def _invalidate_pair_runtime_locked(conn: sqlite3.Connection, session_id: str) -> int:
+    """Advance the crypto fence and remove every prior transport artifact."""
+    conn.execute(
+        "UPDATE sessions SET security_epoch = security_epoch + 1 WHERE id = ?",
+        (session_id,),
+    )
+    conn.execute("DELETE FROM key_confirmations WHERE session_id = ?", (session_id,))
+    conn.execute("DELETE FROM signals WHERE session_id = ?", (session_id,))
+    row = conn.execute(
+        "SELECT security_epoch FROM sessions WHERE id = ?",
+        (session_id,),
+    ).fetchone()
+    if not row:
+        raise RuntimeError("runtime session disappeared")
+    return int(row["security_epoch"])
+
+
+def _write_membership_runtime_locked(
+    conn: sqlite3.Connection,
+    session_id: str,
+    member: dict[str, Any],
+    state: str,
+) -> None:
+    if member["owner"]:
+        updated = conn.execute(
+            "UPDATE sessions SET owner_runtime_state = ? WHERE id = ?",
+            (state, session_id),
+        )
+    else:
+        participant_id = str(member["membership_id"]).removeprefix("member:")
+        updated = conn.execute(
+            """UPDATE participants SET runtime_state = ?
+               WHERE id = ? AND session_id = ? AND revoked_at IS NULL""",
+            (state, participant_id, session_id),
+        )
+    if updated.rowcount != 1:
+        raise RuntimeError("membership runtime update conflict")
+
+
+def _active_memberships_for_peer_locked(
+    conn: sqlite3.Connection,
+    *,
+    account_id: str,
+    peer_id: str,
+    excluded_session_id: str,
+) -> list[tuple[str, bool]]:
+    now = _now()
+    rows = conn.execute(
+        """SELECT s.id AS session_id, 1 AS owner
+           FROM sessions s
+           WHERE s.identity_binding_version = 2
+             AND s.owner_account_id = ? AND s.owner_peer_id = ?
+             AND s.owner_runtime_state = 'active'
+             AND s.id != ? AND s.revoked_at IS NULL AND s.expires_at > ?
+           UNION ALL
+           SELECT s.id AS session_id, 0 AS owner
+           FROM participants p
+           JOIN sessions s ON s.id = p.session_id
+           WHERE s.identity_binding_version = 2
+             AND p.account_id = ? AND p.peer_id = ?
+             AND p.runtime_state = 'active'
+             AND p.revoked_at IS NULL
+             AND s.id != ? AND s.revoked_at IS NULL AND s.expires_at > ?
+           ORDER BY session_id""",
+        (
+            account_id,
+            peer_id,
+            excluded_session_id,
+            now,
+            account_id,
+            peer_id,
+            excluded_session_id,
+            now,
+        ),
+    ).fetchall()
+    return [(str(row["session_id"]), bool(row["owner"])) for row in rows]
+
+
+def _set_membership_runtime_locked(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    member: dict[str, Any],
+    state: str,
+) -> dict[str, Any]:
+    """Apply one exact runtime state and enforce one-active-peer atomically."""
+    if state not in {"active", "parked"}:
+        raise ValueError("runtime_state_invalid")
+    if int(session.get("identity_binding_version") or 0) != 2:
+        raise ValueError("runtime_state_requires_identity_v2")
+
+    session_id = str(session["id"])
+    current_state = str(member.get("runtime_state") or "active")
+    parked_session_ids: list[str] = []
+    if state == "active":
+        other_memberships = _active_memberships_for_peer_locked(
+            conn,
+            account_id=str(member["account_id"]),
+            peer_id=str(member["peer_id"]),
+            excluded_session_id=session_id,
+        )
+        for other_session_id, owner in other_memberships:
+            if owner:
+                conn.execute(
+                    "UPDATE sessions SET owner_runtime_state = 'parked' WHERE id = ?",
+                    (other_session_id,),
+                )
+            else:
+                conn.execute(
+                    """UPDATE participants SET runtime_state = 'parked'
+                       WHERE session_id = ? AND account_id = ? AND peer_id = ?
+                         AND revoked_at IS NULL""",
+                    (other_session_id, member["account_id"], member["peer_id"]),
+                )
+            _invalidate_pair_runtime_locked(conn, other_session_id)
+            parked_session_ids.append(other_session_id)
+
+    target_changed = current_state != state
+    changed = target_changed or bool(parked_session_ids)
+    if target_changed:
+        _write_membership_runtime_locked(conn, session_id, member, state)
+    # Selecting an already-active target while another session was active is
+    # still a new transport generation. Fence stale target SDP together with
+    # the peers that were atomically parked.
+    if changed:
+        security_epoch = _invalidate_pair_runtime_locked(conn, session_id)
+    else:
+        security_epoch = int(session.get("security_epoch") or 0)
+    if state == "parked" and target_changed:
+        parked_session_ids.append(session_id)
+    return {
+        "state": state,
+        "security_epoch": security_epoch,
+        "changed": changed,
+        "parked_session_ids": sorted(set(parked_session_ids)),
+    }
 
 
 def create_session(
@@ -750,8 +1039,13 @@ def create_session(
                         if not immutable_matches:
                             conn.execute("ROLLBACK")
                             raise ValueError("membership_capability_conflict")
+                        owner_member = _memberships(conn, existing)[0]
+                        _set_membership_runtime_locked(conn, existing, owner_member, "active")
+                        existing = _get_session_by_id(conn, str(existing["id"])) or existing
                         conn.execute("COMMIT")
                         snapshot = _session_snapshot(conn, existing, include_participants=True)
+                        snapshot["local_role"] = "owner"
+                        snapshot["local_runtime_state"] = "active"
                         snapshot["_idempotent"] = True
                         return snapshot
                 conn.execute(
@@ -790,6 +1084,12 @@ def create_session(
                         normalized_media_version,
                     ),
                 )
+                if identity_binding_version == 2:
+                    inserted = _get_session_by_id(conn, sid)
+                    if not inserted:
+                        raise RuntimeError("created session not found")
+                    owner_member = _memberships(conn, inserted)[0]
+                    _set_membership_runtime_locked(conn, inserted, owner_member, "active")
                 conn.execute("COMMIT")
                 break
             except sqlite3.IntegrityError as exc:
@@ -810,60 +1110,103 @@ def create_session(
         if not session:
             raise RuntimeError("created session not found")
         snapshot = _session_snapshot(conn, session, include_participants=True)
+        snapshot["local_role"] = "owner"
+        snapshot["local_runtime_state"] = "active"
         return snapshot
 
 
-def list_sessions_for_user(
-    *,
+def _account_v1_sessions_locked(
+    conn: sqlite3.Connection,
     requester_user_id: str,
-    requested_peer_id: str = "",
-    requested_device_id: str = "",
-) -> list[dict[str, Any]]:
+) -> list[tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]]:
+    rows = conn.execute(
+        """SELECT DISTINCT s.*
+           FROM sessions s
+           LEFT JOIN participants p
+             ON p.session_id = s.id AND p.revoked_at IS NULL
+           WHERE s.revoked_at IS NULL
+             AND s.identity_binding_version = 1
+             AND (s.owner_user_id = ? OR p.user_id = ?)
+           ORDER BY s.created_at DESC""",
+        (requester_user_id, requester_user_id),
+    ).fetchall()
+    resolved: list[tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]] = []
+    for row in rows:
+        session = _row_to_session(row)
+        try:
+            memberships = _validated_strict_memberships(conn, session, require_pair=False)
+        except ValueError:
+            continue
+        account_members = [member for member in memberships if member["account_id"] == requester_user_id]
+        if len(account_members) == 1:
+            resolved.append((session, memberships, account_members[0]))
+    return resolved
+
+
+def list_sessions_for_user(*, requester_user_id: str) -> list[dict[str, Any]]:
+    """Return the backward-compatible full V1 snapshot; never disclose V2."""
     _ensure_db_initialized()
     _cleanup_expired()
     with _db() as conn:
-        rows = conn.execute(
-            """
-            SELECT DISTINCT s.*
-            FROM sessions s
-            LEFT JOIN participants p
-              ON p.session_id = s.id
-             AND p.revoked_at IS NULL
-            WHERE s.revoked_at IS NULL
-              AND (s.owner_user_id = ? OR p.user_id = ?)
-            ORDER BY s.created_at DESC
-            """,
-            (requester_user_id, requester_user_id),
-        ).fetchall()
         snapshots: list[dict[str, Any]] = []
-        for row in rows:
-            session = _row_to_session(row)
+        for session, _memberships_for_session, selected in _account_v1_sessions_locked(
+            conn,
+            requester_user_id,
+        ):
             snapshot = _session_snapshot(conn, session, include_participants=True)
-            try:
-                memberships = _validated_strict_memberships(conn, session, require_pair=False)
-            except ValueError:
-                # Legacy/incomplete sessions remain visible for cleanup, but
-                # never receive an inferred authenticated transport identity.
-                memberships = []
-            account_members = [member for member in memberships if member["account_id"] == requester_user_id]
-            local_peer_ids = [str(member["peer_id"]) for member in account_members]
-            selected = next(
-                (member for member in account_members if requested_peer_id and member["peer_id"] == requested_peer_id),
-                None,
-            )
-            if selected is None and requested_device_id:
-                device_matches = [member for member in account_members if member["device_id"] == requested_device_id]
-                selected = device_matches[0] if len(device_matches) == 1 else None
-            if (
-                selected is None
-                and int(session.get("identity_binding_version") or 0) == 1
-                and len(account_members) == 1
-            ):
-                selected = account_members[0]
-            snapshot["local_peer_ids"] = local_peer_ids
-            snapshot["local_peer_id"] = str(selected["peer_id"]) if selected else None
+            local_peer_id = str(selected["peer_id"])
+            snapshot["local_peer_ids"] = [local_peer_id]
+            snapshot["local_peer_id"] = local_peer_id
+            snapshot["local_role"] = "owner" if selected["owner"] else "participant"
             snapshots.append(snapshot)
         return snapshots
+
+
+def list_sessions_for_membership_proofs(
+    *,
+    requester_user_id: str,
+    membership_proofs: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    """Return V1 compatibility rows plus exact proof-validated V2 rows."""
+    _ensure_db_initialized()
+    _cleanup_expired()
+    with _db() as conn:
+        v1_items = [
+            _session_catalog_item(session, memberships, selected)
+            for session, memberships, selected in _account_v1_sessions_locked(
+                conn,
+                requester_user_id,
+            )
+        ]
+        v2_items: list[dict[str, Any]] = []
+        for proof in membership_proofs:
+            session = _get_session_by_id(conn, proof["session_id"])
+            if (
+                not session
+                or session.get("revoked_at") is not None
+                or float(session.get("expires_at") or 0) <= _now()
+                or int(session.get("identity_binding_version") or 0) != 2
+            ):
+                continue
+            try:
+                selected = _resolve_authenticated_membership(
+                    conn,
+                    session,
+                    account_id=requester_user_id,
+                    requested_peer_id=proof["local_peer_id"],
+                    membership_capability=proof["membership_capability"],
+                )
+                memberships = _validated_strict_memberships(conn, session, require_pair=False)
+            except ValueError:
+                # A catalog batch is not a membership-validation oracle. One
+                # invalid proof does not reveal whether the session exists.
+                continue
+            v2_items.append(_session_catalog_item(session, memberships, selected))
+    return sorted(
+        [*v1_items, *v2_items],
+        key=lambda item: (float(item.get("created_at") or 0), str(item["id"])),
+        reverse=True,
+    )
 
 
 def is_owner_create_recovery(
@@ -959,6 +1302,31 @@ def is_join_recovery(
             str(row["membership_capability_hash"] or ""),
             expected_hash,
         )
+
+
+def _activate_joined_v2_membership_locked(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    peer_id: str,
+) -> dict[str, Any]:
+    """Activate an exact joined device and return its refreshed session."""
+    if int(session.get("identity_binding_version") or 0) != 2:
+        return session
+    member = next(
+        (
+            candidate
+            for candidate in _memberships(conn, session)
+            if str(candidate["peer_id"]) == peer_id
+        ),
+        None,
+    )
+    if member is None:
+        raise RuntimeError("joined membership not found")
+    _set_membership_runtime_locked(conn, session, member, "active")
+    refreshed = _get_session_by_id(conn, str(session["id"]))
+    if refreshed is None:
+        raise RuntimeError("joined session not found")
+    return refreshed
 
 
 def join_session(
@@ -1063,7 +1431,8 @@ def join_session(
             SELECT id, session_id, user_id, user_sub_hash, device_id,
                    device_fingerprint, public_key_spki_b64, permissions,
                    joined_at, last_seen, revoked_at, account_id, peer_id,
-                   membership_capability_hash, public_media_e2ee_version
+                   membership_capability_hash, public_media_e2ee_version,
+                   runtime_state
             FROM participants
             WHERE session_id = ?
               AND ((? = 2 AND peer_id = ?) OR (? = 1 AND user_id = ? AND device_id = ?))
@@ -1124,12 +1493,19 @@ def join_session(
                 "public_media_capabilities": public_media_capabilities_for_version(
                     int(existing["public_media_e2ee_version"] or 0)
                 ),
+                "runtime_state": str(existing["runtime_state"] or "active"),
             }
+            session = _activate_joined_v2_membership_locked(conn, session, peer_id)
+            participant["runtime_state"] = "active"
             conn.execute("COMMIT")
             return {
                 "ok": True,
                 "participant": participant,
-                "session": _session_snapshot(conn, session),
+                "session": {
+                    **_session_snapshot(conn, session),
+                    "local_role": "participant",
+                    "local_runtime_state": participant["runtime_state"],
+                },
                 "idempotent": True,
             }
 
@@ -1157,6 +1533,7 @@ def join_session(
             "peer_id": peer_id,
             "public_media_e2ee_version": normalized_media_version,
             "public_media_capabilities": public_media_capabilities_for_version(normalized_media_version),
+            "runtime_state": "active",
         }
         if identity_binding_version == 2:
             if not membership_capability:
@@ -1195,12 +1572,17 @@ def join_session(
         )
         conn.execute("UPDATE sessions SET security_epoch = security_epoch + 1 WHERE id = ?", (sid,))
         conn.execute("DELETE FROM key_confirmations WHERE session_id = ?", (sid,))
+        updated = _get_session_by_id(conn, sid) or session
+        updated = _activate_joined_v2_membership_locked(conn, updated, peer_id)
         conn.execute("COMMIT")
-        updated = _get_session_by_id(conn, sid)
         return {
             "ok": True,
             "participant": dict(participant),
-            "session": _session_snapshot(conn, updated or session),
+            "session": {
+                **_session_snapshot(conn, updated),
+                "local_role": "participant",
+                "local_runtime_state": "active",
+            },
         }
 
 
@@ -1503,6 +1885,7 @@ def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict
         "public_key_spki_b64": session["owner_public_key_spki_b64"],
         "_membership_capability_hash": session.get("_owner_membership_capability_hash") or "",
         "public_media_e2ee_version": int(session.get("public_media_e2ee_version") or 0),
+        "runtime_state": str(session.get("_owner_runtime_state") or "active"),
         "owner": True,
     }
     members = [owner]
@@ -1520,6 +1903,7 @@ def _memberships(conn: sqlite3.Connection, session: dict[str, Any]) -> list[dict
                 "public_key_spki_b64": participant["public_key_spki_b64"],
                 "_membership_capability_hash": participant.get("_membership_capability_hash") or "",
                 "public_media_e2ee_version": int(participant.get("public_media_e2ee_version") or 0),
+                "runtime_state": str(participant.get("_runtime_state") or "active"),
                 "owner": False,
             }
         )
@@ -1670,6 +2054,100 @@ def authenticate_session_membership(
         }
 
 
+def set_membership_runtime(
+    *,
+    session_id: str,
+    account_id: str,
+    requested_peer_id: str,
+    membership_capability: str,
+    state: str,
+) -> dict[str, Any]:
+    """Set one exact v2 membership runtime under the one-active-peer invariant."""
+    _ensure_db_initialized()
+    if state not in {"active", "parked"}:
+        return {"ok": False, "reason": "runtime_state_invalid"}
+    with _db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        session = _get_session_by_id(conn, session_id)
+        if not session:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "session_not_found"}
+        if session.get("revoked_at") is not None or float(session.get("expires_at") or 0) <= _now():
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": "session_inactive"}
+        try:
+            member = _resolve_authenticated_membership(
+                conn,
+                session,
+                account_id=account_id,
+                requested_peer_id=requested_peer_id,
+                membership_capability=membership_capability,
+            )
+            runtime = _set_membership_runtime_locked(conn, session, member, state)
+        except ValueError as exc:
+            conn.execute("ROLLBACK")
+            return {"ok": False, "reason": str(exc)}
+        conn.execute("COMMIT")
+        return {
+            "ok": True,
+            "local_peer_id": str(member["peer_id"]),
+            **runtime,
+        }
+
+
+def _pair_runtime_active(members: list[dict[str, Any]]) -> bool:
+    return len(members) == 2 and all(
+        str(member.get("runtime_state") or "active") == "active"
+        for member in members
+    )
+
+
+def _require_pair_runtime_active(
+    session: dict[str, Any],
+    members: list[dict[str, Any]],
+) -> None:
+    if int(session.get("identity_binding_version") or 0) == 2 and not _pair_runtime_active(members):
+        raise ValueError("pair_runtime_not_ready")
+
+
+def _mutual_confirmations_ready_locked(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    members: list[dict[str, Any]],
+) -> bool:
+    if len(members) != 2:
+        return False
+    peer_ids = {str(member["peer_id"]) for member in members}
+    rows = conn.execute(
+        """SELECT sender_peer_id, recipient_peer_id
+           FROM key_confirmations
+           WHERE session_id = ? AND epoch = ? AND expires_at > ?""",
+        (session["id"], int(session["security_epoch"]), _now()),
+    ).fetchall()
+    directions = {
+        (str(row["sender_peer_id"]), str(row["recipient_peer_id"]))
+        for row in rows
+        if str(row["sender_peer_id"]) in peer_ids and str(row["recipient_peer_id"]) in peer_ids
+    }
+    return len(directions) == 2 and all(
+        sender != recipient
+        and (recipient, sender) in directions
+        for sender, recipient in directions
+    )
+
+
+def _require_transport_ready_locked(
+    conn: sqlite3.Connection,
+    session: dict[str, Any],
+    members: list[dict[str, Any]],
+) -> None:
+    if int(session.get("identity_binding_version") or 0) != 2:
+        return
+    _require_pair_runtime_active(session, members)
+    if not _mutual_confirmations_ready_locked(conn, session, members):
+        raise ValueError("pair_runtime_not_ready")
+
+
 def _strict_pair_material(
     conn: sqlite3.Connection,
     session: dict[str, Any],
@@ -1771,6 +2249,30 @@ def get_key_packages(
                 "local_membership_id": requester["membership_id"],
                 "local_peer_id": requester["peer_id"],
                 "local_package_id": None,
+                "transport_ready": False,
+                "local_runtime_state": str(requester.get("runtime_state") or "active"),
+                "peer_runtime_state": "missing",
+            }
+        if int(session.get("identity_binding_version") or 0) == 2 and not _pair_runtime_active(members):
+            authority = _SECURITY_AUTHORITY
+            remote = next(member for member in members if member["peer_id"] != requester["peer_id"])
+            return {
+                "ok": True,
+                "epoch": session["security_epoch"],
+                "tenant_id": TENANT_ID,
+                "security_contract_digest": None,
+                "security_contract": None,
+                "public_media_security_contract_v1": None,
+                "public_media_security_contract_v2": None,
+                "hub_key_id": authority.key_id,
+                "hub_public_key_b64": authority.public_key_b64,
+                "packages": [],
+                "local_membership_id": requester["membership_id"],
+                "local_peer_id": requester["peer_id"],
+                "local_package_id": None,
+                "transport_ready": False,
+                "local_runtime_state": str(requester.get("runtime_state") or "active"),
+                "peer_runtime_state": str(remote.get("runtime_state") or "active"),
             }
         try:
             members, authority, contract = _strict_pair_material(conn, session)
@@ -1820,6 +2322,9 @@ def get_key_packages(
             "local_membership_id": requester["membership_id"],
             "local_peer_id": requester["peer_id"],
             "local_package_id": local_package["package_id"],
+            "transport_ready": True,
+            "local_runtime_state": str(requester.get("runtime_state") or "active"),
+            "peer_runtime_state": str(remote.get("runtime_state") or "active"),
         }
 
 
@@ -1863,6 +2368,7 @@ def put_key_confirmation(
                 requested_peer_id=sender_peer_id,
                 membership_capability=membership_capability,
             )
+            _require_pair_runtime_active(session, members)
             if sender["peer_id"] != sender_peer_id:
                 raise ValueError("forbidden")
             expected_package = _expected_key_package(
@@ -2002,6 +2508,7 @@ def get_key_confirmation(
                 requested_peer_id=requester_peer_id,
                 membership_capability=membership_capability,
             )
+            _require_pair_runtime_active(session, members)
             expected_package = _expected_key_package(
                 members=members,
                 authority=authority,
@@ -2129,6 +2636,7 @@ def push_signal(
     recipient_id: str,
     signal_type: str,
     payload: Any,
+    security_epoch: int | None = None,
     sender_account_id: str = "",
     membership_capability: str = "",
 ) -> dict[str, Any]:
@@ -2163,6 +2671,15 @@ def push_signal(
                 requested_peer_id=sender_id,
                 membership_capability=membership_capability,
             )
+            current_epoch = int(session.get("security_epoch") or 0)
+            if int(session.get("identity_binding_version") or 0) == 2:
+                if isinstance(security_epoch, bool) or not isinstance(security_epoch, int):
+                    raise ValueError("signal_epoch_required")
+                if security_epoch != current_epoch:
+                    raise ValueError("epoch_mismatch")
+            elif security_epoch is not None and security_epoch != current_epoch:
+                raise ValueError("epoch_mismatch")
+            _require_transport_ready_locked(conn, session, members)
         except ValueError as exc:
             conn.execute("ROLLBACK")
             return {"ok": False, "reason": str(exc)}
@@ -2175,8 +2692,9 @@ def push_signal(
             return {"ok": False, "reason": "recipient_not_authorized"}
         queue_state = conn.execute(
             """SELECT COUNT(1) AS queue_size, COALESCE(MAX(sequence), 0) AS cursor
-               FROM signals WHERE session_id = ? AND recipient_id = ?""",
-            (session_id, recipient_id),
+               FROM signals
+               WHERE session_id = ? AND recipient_id = ? AND security_epoch = ?""",
+            (session_id, recipient_id, current_epoch),
         ).fetchone()
         if int(queue_state["queue_size"] or 0) >= _MAX_SIGNAL_QUEUE:
             conn.execute("ROLLBACK")
@@ -2187,11 +2705,13 @@ def push_signal(
             return {"ok": False, "reason": "signal_sequence_exhausted"}
         sequence = cursor + 1
         entry["sequence"] = sequence
+        entry["security_epoch"] = current_epoch
         conn.execute(
             """
             INSERT INTO signals (
-                id, session_id, sender_id, recipient_id, signal_type, payload, sequence, sent_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                id, session_id, sender_id, recipient_id, signal_type, payload,
+                sequence, security_epoch, sent_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 entry["id"],
@@ -2201,6 +2721,7 @@ def push_signal(
                 entry["type"],
                 serialized_payload,
                 entry["sequence"],
+                entry["security_epoch"],
                 entry["sent_at"],
             ),
         )
@@ -2210,6 +2731,7 @@ def push_signal(
         "signal_id": entry["id"],
         "sequence": str(entry["sequence"]),
         "cursor": str(entry["sequence"]),
+        "security_epoch": entry["security_epoch"],
     }
 
 
@@ -2220,6 +2742,7 @@ def poll_signals(
     since: int = 0,
     requester_peer_id: str = "",
     membership_capability: str = "",
+    security_epoch: int | None = None,
 ) -> dict[str, Any]:
     """Read signaling metadata without consuming it and expose retention gaps."""
     _ensure_db_initialized()
@@ -2235,6 +2758,7 @@ def poll_signals(
                 since=since,
                 requester_peer_id=requester_peer_id,
                 membership_capability=membership_capability,
+                security_epoch=security_epoch,
             )
             conn.execute("COMMIT")
             return result
@@ -2252,6 +2776,7 @@ def _poll_signals_locked(
     since: int,
     requester_peer_id: str,
     membership_capability: str,
+    security_epoch: int | None,
 ) -> dict[str, Any]:
     """Read, acknowledge and update one recipient cursor under a writer lock."""
     session = _get_session_by_id(conn, session_id)
@@ -2266,6 +2791,15 @@ def _poll_signals_locked(
             requested_peer_id=requester_peer_id,
             membership_capability=membership_capability,
         )
+        current_epoch = int(session.get("security_epoch") or 0)
+        if int(session.get("identity_binding_version") or 0) == 2:
+            if isinstance(security_epoch, bool) or not isinstance(security_epoch, int):
+                raise ValueError("signal_epoch_required")
+            if security_epoch != current_epoch:
+                raise ValueError("epoch_mismatch")
+        elif security_epoch is not None and security_epoch != current_epoch:
+            raise ValueError("epoch_mismatch")
+        _require_transport_ready_locked(conn, session, members)
     except ValueError as exc:
         return {"ok": False, "reason": str(exc)}
     local_peer_id = str(requester["peer_id"])
@@ -2275,8 +2809,9 @@ def _poll_signals_locked(
     bounds = conn.execute(
         """SELECT COALESCE(MIN(sequence), 0) AS oldest,
                   COALESCE(MAX(sequence), 0) AS newest
-           FROM signals WHERE session_id = ? AND recipient_id = ?""",
-        (session_id, local_peer_id),
+           FROM signals
+           WHERE session_id = ? AND recipient_id = ? AND security_epoch = ?""",
+        (session_id, local_peer_id, current_epoch),
     ).fetchone()
     oldest = int(bounds["oldest"] or 0)
     newest = int(bounds["newest"] or 0)
@@ -2286,12 +2821,13 @@ def _poll_signals_locked(
     truncated = since < cursor_floor
     rows = conn.execute(
         """
-        SELECT id, session_id, sender_id, recipient_id, signal_type, payload, sequence, sent_at
+        SELECT id, session_id, sender_id, recipient_id, signal_type, payload,
+               sequence, security_epoch, sent_at
         FROM signals
-        WHERE session_id = ? AND recipient_id = ? AND sequence > ?
+        WHERE session_id = ? AND recipient_id = ? AND security_epoch = ? AND sequence > ?
         ORDER BY sequence ASC
         """,
-        (session_id, local_peer_id, since),
+        (session_id, local_peer_id, current_epoch, since),
     ).fetchall()
     out = [
         {
@@ -2302,6 +2838,7 @@ def _poll_signals_locked(
             "type": row["signal_type"],
             "payload": json.loads(row["payload"]),
             "sequence": str(row["sequence"]),
+            "security_epoch": int(row["security_epoch"]),
             "sent_at": row["sent_at"],
         }
         for row in rows
@@ -2312,8 +2849,9 @@ def _poll_signals_locked(
     if since > 0:
         conn.execute(
             """DELETE FROM signals
-               WHERE session_id = ? AND recipient_id = ? AND sequence < ?""",
-            (session_id, local_peer_id, since),
+               WHERE session_id = ? AND recipient_id = ?
+                 AND security_epoch = ? AND sequence < ?""",
+            (session_id, local_peer_id, current_epoch, since),
         )
     if not requester["owner"]:
         identity_binding_version = int(session.get("identity_binding_version") or 0)
@@ -2331,6 +2869,7 @@ def _poll_signals_locked(
         "truncated": truncated,
         "retention_limit": _MAX_SIGNAL_QUEUE,
         "local_peer_id": local_peer_id,
+        "security_epoch": current_epoch,
     }
 
 
@@ -2371,6 +2910,7 @@ def issue_turn_credentials(
                 requested_peer_id=requester_peer_id,
                 membership_capability=membership_capability,
             )
+            _require_transport_ready_locked(conn, session, memberships)
         except ValueError as exc:
             return {"ok": False, "reason": str(exc)}
         local_peer_id = str(requester["peer_id"])

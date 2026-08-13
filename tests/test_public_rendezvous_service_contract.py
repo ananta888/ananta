@@ -56,6 +56,12 @@ def test_list_sessions_returns_owner_and_participant_sessions(public_service):
     assert stranger_items == []
     assert owner_items[0]["permissions"]["view_tui"] is False
     assert owner_items[0]["participant_count"] == 1
+    assert owner_items[0]["owner_user_id"] == _peer_id("owner-sub")
+    assert owner_items[0]["invite_code"] == session["invite_code"]
+    assert owner_items[0]["participants"][0]["user_id"] == _peer_id("guest-sub")
+    assert owner_items[0]["local_role"] == "owner"
+    assert guest_items[0]["participants"][0]["user_id"] == _peer_id("guest-sub")
+    assert guest_items[0]["local_role"] == "participant"
 
 
 def test_join_can_be_bound_to_expected_session_id(public_service):
@@ -295,21 +301,66 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     assert "membership_capability" not in session
     assert "membership_capability" not in joined
 
-    unselected = public_service.list_sessions_for_user(requester_user_id=account_id)[0]
-    wrong_device = public_service.list_sessions_for_user(
+    unproven = public_service.list_sessions_for_user(requester_user_id=account_id)
+    owner_selected = public_service.list_sessions_for_membership_proofs(
         requester_user_id=account_id,
-        requested_device_id="unknown-device",
+        membership_proofs=[
+            {
+                "session_id": session["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": owner_capability,
+            }
+        ],
     )[0]
-    guest_selected = public_service.list_sessions_for_user(
+    guest_selected = public_service.list_sessions_for_membership_proofs(
         requester_user_id=account_id,
-        requested_device_id="guest-device",
+        membership_proofs=[
+            {
+                "session_id": session["id"],
+                "local_peer_id": guest_peer_id,
+                "membership_capability": guest_capability,
+            }
+        ],
     )[0]
-    assert unselected["local_peer_id"] is None
-    assert wrong_device["local_peer_id"] is None
-    assert set(unselected["local_peer_ids"]) == {owner_peer_id, guest_peer_id}
+    forged_proofs = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=account_id,
+        membership_proofs=[
+            {
+                "session_id": session["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": guest_capability,
+            },
+            {
+                "session_id": session["id"],
+                "local_peer_id": guest_peer_id,
+                "membership_capability": owner_capability,
+            },
+        ],
+    )
+    assert unproven == []
+    assert forged_proofs == []
+    assert owner_selected["local_peer_id"] == owner_peer_id
+    assert owner_selected["local_peer_ids"] == [owner_peer_id]
+    assert owner_selected["local_role"] == "owner"
+    assert owner_selected["invite_code"] == session["invite_code"]
     assert guest_selected["local_peer_id"] == guest_peer_id
-    assert owner_capability not in json.dumps(unselected)
-    assert guest_capability not in json.dumps(unselected)
+    assert guest_selected["local_peer_ids"] == [guest_peer_id]
+    assert guest_selected["local_role"] == "participant"
+    assert "invite_code" not in guest_selected
+    redacted_fields = {
+        "participants",
+        "owner_user_id",
+        "owner_user_sub_hash",
+        "owner_account_id",
+        "owner_device_id",
+        "owner_device_fingerprint",
+        "owner_public_key_spki_b64",
+        "oidc_issuer",
+    }
+    assert redacted_fields.isdisjoint(owner_selected)
+    assert redacted_fields.isdisjoint(guest_selected)
+    assert owner_capability not in json.dumps(owner_selected)
+    assert guest_capability not in json.dumps(guest_selected)
     with public_service._db() as conn:
         stored_session = conn.execute(
             """SELECT owner_membership_capability_hash,
@@ -391,6 +442,17 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     assert confirmed["ok"] is True
     assert fetched_confirmation["confirmation"]["confirmation_tag"] == confirmation_tag
     assert forged_confirmation == {"ok": False, "reason": "membership_capability_invalid"}
+    guest_confirmed = public_service.put_key_confirmation(
+        session_id=session["id"],
+        sender_peer_id=guest_peer_id,
+        recipient_peer_id=owner_peer_id,
+        package_id=guest_packages["packages"][0]["package_id"],
+        epoch=2,
+        confirmation_tag=base64.b64encode(b"w" * 32).decode("ascii"),
+        sender_account_id=account_id,
+        membership_capability=guest_capability,
+    )
+    assert guest_confirmed["ok"] is True
 
     pushed = public_service.push_signal(
         session_id=session["id"],
@@ -398,6 +460,7 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
         recipient_id=guest_peer_id,
         signal_type="offer",
         payload={"sdp": "opaque"},
+        security_epoch=2,
         sender_account_id=account_id,
         membership_capability=owner_capability,
     )
@@ -406,6 +469,7 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
         user_id=account_id,
         requester_peer_id=guest_peer_id,
         membership_capability=guest_capability,
+        security_epoch=2,
     )
     reflected = public_service.push_signal(
         session_id=session["id"],
@@ -413,6 +477,7 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
         recipient_id=owner_peer_id,
         signal_type="offer",
         payload={},
+        security_epoch=2,
         sender_account_id=account_id,
         membership_capability=owner_capability,
     )
@@ -440,6 +505,391 @@ def test_v2_same_account_pair_is_device_addressed_and_capability_isolated(public
     assert owner_turn["credentials"]["username"] != guest_turn["credentials"]["username"]
 
 
+def test_v2_runtime_switch_parks_previous_peer_and_fences_stale_signaling(
+    public_service,
+    monkeypatch,
+):
+    pair_a = _public_media_pair(
+        public_service,
+        owner_media_version=0,
+        guest_media_version=0,
+    )
+    session_a = pair_a["session"]
+    owner_peer_id = pair_a["owner_peer_id"]
+
+    session_b = public_service.create_session(
+        **{
+            **pair_a["create_kwargs"],
+            "title": "Pair B",
+            "membership_capability": "T" * 43,
+        }
+    )
+    guest_b_spki, guest_b_fingerprint = _device_key()
+    guest_b_account = _peer_id("runtime-guest-b")
+    joined_b = public_service.join_session(
+        invite_code=session_b["invite_code"],
+        user_id=guest_b_account,
+        user_sub="runtime-guest-b",
+        device_id="runtime-guest-b-device",
+        device_fingerprint=guest_b_fingerprint,
+        public_key_spki_b64=guest_b_spki,
+        oidc_issuer="https://issuer",
+        expected_identity_binding_version=2,
+        membership_capability="U" * 43,
+    )
+    assert session_b["owner_peer_id"] == owner_peer_id
+    assert session_b["local_role"] == "owner"
+    assert session_b["local_runtime_state"] == "active"
+    assert joined_b["session"]["local_role"] == "participant"
+    assert joined_b["session"]["local_runtime_state"] == "active"
+
+    catalog_a = next(
+        item
+        for item in public_service.list_sessions_for_membership_proofs(
+            requester_user_id=pair_a["account_id"],
+            membership_proofs=[
+                {
+                    "session_id": session_a["id"],
+                    "local_peer_id": owner_peer_id,
+                    "membership_capability": pair_a["owner_capability"],
+                }
+            ],
+        )
+        if item["id"] == session_a["id"]
+    )
+    assert catalog_a["local_runtime_state"] == "parked"
+
+    activated_a = public_service.set_membership_runtime(
+        session_id=session_a["id"],
+        account_id=pair_a["account_id"],
+        requested_peer_id=owner_peer_id,
+        membership_capability=pair_a["owner_capability"],
+        state="active",
+    )
+    repeated_a = public_service.set_membership_runtime(
+        session_id=session_a["id"],
+        account_id=pair_a["account_id"],
+        requested_peer_id=owner_peer_id,
+        membership_capability=pair_a["owner_capability"],
+        state="active",
+    )
+    assert activated_a["changed"] is True
+    assert activated_a["parked_session_ids"] == [session_b["id"]]
+    assert repeated_a == {
+        "ok": True,
+        "local_peer_id": owner_peer_id,
+        "state": "active",
+        "security_epoch": activated_a["security_epoch"],
+        "changed": False,
+        "parked_session_ids": [],
+    }
+
+    packages_a = _confirm_v2_transport(
+        public_service,
+        session_id=session_a["id"],
+        epoch=activated_a["security_epoch"],
+        owner_account_id=pair_a["account_id"],
+        owner_peer_id=owner_peer_id,
+        owner_capability=pair_a["owner_capability"],
+        guest_account_id=pair_a["account_id"],
+        guest_peer_id=pair_a["guest_peer_id"],
+        guest_capability=pair_a["guest_capability"],
+    )
+    missing_epoch_signal = public_service.push_signal(
+        session_id=session_a["id"],
+        sender_id=owner_peer_id,
+        recipient_id=pair_a["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "missing-generation"},
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    first_signal = public_service.push_signal(
+        session_id=session_a["id"],
+        sender_id=owner_peer_id,
+        recipient_id=pair_a["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "generation-a"},
+        security_epoch=activated_a["security_epoch"],
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    assert missing_epoch_signal == {"ok": False, "reason": "signal_epoch_required"}
+    assert first_signal["sequence"] == "1"
+
+    activated_b = public_service.set_membership_runtime(
+        session_id=session_b["id"],
+        account_id=pair_a["account_id"],
+        requested_peer_id=owner_peer_id,
+        membership_capability="T" * 43,
+        state="active",
+    )
+    assert activated_b["changed"] is True
+    assert activated_b["parked_session_ids"] == [session_a["id"]]
+
+    parked_packages = public_service.get_key_packages(
+        session_id=session_a["id"],
+        requester_user_id=pair_a["account_id"],
+        requester_peer_id=pair_a["guest_peer_id"],
+        membership_capability=pair_a["guest_capability"],
+    )
+    denied_confirmation = public_service.put_key_confirmation(
+        session_id=session_a["id"],
+        sender_peer_id=owner_peer_id,
+        recipient_peer_id=pair_a["guest_peer_id"],
+        package_id=packages_a["owner"]["packages"][0]["package_id"],
+        epoch=activated_a["security_epoch"],
+        confirmation_tag=base64.b64encode(b"z" * 32).decode("ascii"),
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    monkeypatch.setattr(public_service.cfg, "TURN_SHARED_SECRET", "turn-only-test-secret")
+    monkeypatch.setattr(public_service.cfg, "TURN_URLS", ["turn:relay.example:3478"])
+    denied_turn = public_service.issue_turn_credentials(
+        session_id=session_a["id"],
+        requester_user_id=pair_a["account_id"],
+        requester_peer_id=pair_a["guest_peer_id"],
+        membership_capability=pair_a["guest_capability"],
+    )
+    stale_signal = public_service.push_signal(
+        session_id=session_a["id"],
+        sender_id=owner_peer_id,
+        recipient_id=pair_a["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "stale-generation"},
+        security_epoch=activated_a["security_epoch"],
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    parked_signal = public_service.push_signal(
+        session_id=session_a["id"],
+        sender_id=owner_peer_id,
+        recipient_id=pair_a["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "parked-generation"},
+        security_epoch=parked_packages["epoch"],
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    assert parked_packages["packages"] == []
+    assert parked_packages["transport_ready"] is False
+    assert parked_packages["local_runtime_state"] == "active"
+    assert parked_packages["peer_runtime_state"] == "parked"
+    assert denied_confirmation == {"ok": False, "reason": "pair_runtime_not_ready"}
+    assert denied_turn == {"ok": False, "reason": "pair_runtime_not_ready"}
+    assert stale_signal == {"ok": False, "reason": "epoch_mismatch"}
+    assert parked_signal == {"ok": False, "reason": "pair_runtime_not_ready"}
+
+    resumed_a = public_service.set_membership_runtime(
+        session_id=session_a["id"],
+        account_id=pair_a["account_id"],
+        requested_peer_id=owner_peer_id,
+        membership_capability=pair_a["owner_capability"],
+        state="active",
+    )
+    assert resumed_a["security_epoch"] > parked_packages["epoch"]
+    _confirm_v2_transport(
+        public_service,
+        session_id=session_a["id"],
+        epoch=resumed_a["security_epoch"],
+        owner_account_id=pair_a["account_id"],
+        owner_peer_id=owner_peer_id,
+        owner_capability=pair_a["owner_capability"],
+        guest_account_id=pair_a["account_id"],
+        guest_peer_id=pair_a["guest_peer_id"],
+        guest_capability=pair_a["guest_capability"],
+    )
+    missing_epoch_poll = public_service.poll_signals(
+        session_id=session_a["id"],
+        user_id=pair_a["account_id"],
+        requester_peer_id=pair_a["guest_peer_id"],
+        membership_capability=pair_a["guest_capability"],
+    )
+    fresh_signal = public_service.push_signal(
+        session_id=session_a["id"],
+        sender_id=owner_peer_id,
+        recipient_id=pair_a["guest_peer_id"],
+        signal_type="offer",
+        payload={"sdp": "fresh-generation"},
+        security_epoch=resumed_a["security_epoch"],
+        sender_account_id=pair_a["account_id"],
+        membership_capability=pair_a["owner_capability"],
+    )
+    fresh_poll = public_service.poll_signals(
+        session_id=session_a["id"],
+        user_id=pair_a["account_id"],
+        requester_peer_id=pair_a["guest_peer_id"],
+        membership_capability=pair_a["guest_capability"],
+        security_epoch=resumed_a["security_epoch"],
+    )
+    stale_poll = public_service.poll_signals(
+        session_id=session_a["id"],
+        user_id=pair_a["account_id"],
+        requester_peer_id=pair_a["guest_peer_id"],
+        membership_capability=pair_a["guest_capability"],
+        security_epoch=activated_a["security_epoch"],
+    )
+    assert missing_epoch_poll == {"ok": False, "reason": "signal_epoch_required"}
+    assert fresh_signal["sequence"] == "1"
+    assert fresh_poll["security_epoch"] == resumed_a["security_epoch"]
+    assert [signal["payload"]["sdp"] for signal in fresh_poll["signals"]] == ["fresh-generation"]
+    assert stale_poll == {"ok": False, "reason": "epoch_mismatch"}
+
+
+def test_v2_create_recovery_reactivates_exact_target_and_parks_other_session(public_service):
+    pair_a = _public_media_pair(
+        public_service,
+        owner_media_version=0,
+        guest_media_version=0,
+    )
+    session_a = pair_a["session"]
+    owner_peer_id = pair_a["owner_peer_id"]
+    session_b = public_service.create_session(
+        **{
+            **pair_a["create_kwargs"],
+            "title": "Committed after lost response",
+            "membership_capability": "T" * 43,
+        }
+    )
+    parked_a = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_a["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": pair_a["owner_capability"],
+            }
+        ],
+    )[0]
+    active_b = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_b["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": "T" * 43,
+            }
+        ],
+    )[0]
+    assert parked_a["local_runtime_state"] == "parked"
+    assert active_b["local_runtime_state"] == "active"
+
+    # The first create response was lost. An exact immutable retry with the
+    # retained pending capability is the recovery action selected by the user.
+    recovered_a = public_service.create_session(**pair_a["create_kwargs"])
+    repeated_a = public_service.create_session(**pair_a["create_kwargs"])
+    recovered_catalog_a = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_a["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": pair_a["owner_capability"],
+            }
+        ],
+    )[0]
+    parked_catalog_b = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_b["id"],
+                "local_peer_id": owner_peer_id,
+                "membership_capability": "T" * 43,
+            }
+        ],
+    )[0]
+
+    assert recovered_a["_idempotent"] is True
+    assert recovered_a["local_runtime_state"] == "active"
+    assert recovered_a["security_epoch"] > parked_a["security_epoch"]
+    assert repeated_a["security_epoch"] == recovered_a["security_epoch"]
+    assert recovered_catalog_a["local_runtime_state"] == "active"
+    assert recovered_catalog_a["security_epoch"] == recovered_a["security_epoch"]
+    assert parked_catalog_b["local_runtime_state"] == "parked"
+    assert parked_catalog_b["security_epoch"] > active_b["security_epoch"]
+
+
+def test_v2_join_recovery_reactivates_exact_target_and_parks_other_session(public_service):
+    pair_a = _public_media_pair(
+        public_service,
+        owner_media_version=0,
+        guest_media_version=0,
+    )
+    session_a = pair_a["session"]
+    session_b = _create_session(
+        public_service,
+        subject="join-recovery-owner-b",
+        title="Other participant session",
+        identity_binding_version=2,
+        membership_capability="V" * 43,
+    )
+    guest_b_capability = "W" * 43
+    joined_b = public_service.join_session(
+        **{
+            **pair_a["join_kwargs"],
+            "invite_code": session_b["invite_code"],
+            "membership_capability": guest_b_capability,
+        }
+    )
+    parked_a = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_a["id"],
+                "local_peer_id": pair_a["guest_peer_id"],
+                "membership_capability": pair_a["guest_capability"],
+            }
+        ],
+    )[0]
+    active_b = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_b["id"],
+                "local_peer_id": pair_a["guest_peer_id"],
+                "membership_capability": guest_b_capability,
+            }
+        ],
+    )[0]
+    assert joined_b["session"]["local_runtime_state"] == "active"
+    assert parked_a["local_runtime_state"] == "parked"
+    assert active_b["local_runtime_state"] == "active"
+
+    # The original A join committed but its response was lost. The exact
+    # capability-bound retry must recover A instead of leaving it unbindable.
+    recovered_a = public_service.join_session(**pair_a["join_kwargs"])
+    repeated_a = public_service.join_session(**pair_a["join_kwargs"])
+    recovered_catalog_a = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_a["id"],
+                "local_peer_id": pair_a["guest_peer_id"],
+                "membership_capability": pair_a["guest_capability"],
+            }
+        ],
+    )[0]
+    parked_catalog_b = public_service.list_sessions_for_membership_proofs(
+        requester_user_id=pair_a["account_id"],
+        membership_proofs=[
+            {
+                "session_id": session_b["id"],
+                "local_peer_id": pair_a["guest_peer_id"],
+                "membership_capability": guest_b_capability,
+            }
+        ],
+    )[0]
+
+    assert recovered_a["idempotent"] is True
+    assert recovered_a["session"]["local_runtime_state"] == "active"
+    assert recovered_a["session"]["security_epoch"] > parked_a["security_epoch"]
+    assert repeated_a["session"]["security_epoch"] == recovered_a["session"]["security_epoch"]
+    assert recovered_catalog_a["local_runtime_state"] == "active"
+    assert recovered_catalog_a["security_epoch"] == recovered_a["session"]["security_epoch"]
+    assert parked_catalog_b["local_runtime_state"] == "parked"
+    assert parked_catalog_b["security_epoch"] > active_b["security_epoch"]
+
+
 def test_v2_guest_leave_is_exact_idempotent_and_rekeys_cleanly(public_service):
     pair = _public_media_pair(
         public_service,
@@ -448,16 +898,16 @@ def test_v2_guest_leave_is_exact_idempotent_and_rekeys_cleanly(public_service):
     )
     session_id = pair["session"]["id"]
     initial_epoch = pair["joined"]["session"]["security_epoch"]
-    confirmation_tag = base64.b64encode(b"l" * 32).decode("ascii")
-    confirmed = public_service.put_key_confirmation(
+    _confirm_v2_transport(
+        public_service,
         session_id=session_id,
-        sender_peer_id=pair["owner_peer_id"],
-        recipient_peer_id=pair["guest_peer_id"],
-        package_id=pair["owner_packages"]["packages"][0]["package_id"],
         epoch=initial_epoch,
-        confirmation_tag=confirmation_tag,
-        sender_account_id=pair["account_id"],
-        membership_capability=pair["owner_capability"],
+        owner_account_id=pair["account_id"],
+        owner_peer_id=pair["owner_peer_id"],
+        owner_capability=pair["owner_capability"],
+        guest_account_id=pair["account_id"],
+        guest_peer_id=pair["guest_peer_id"],
+        guest_capability=pair["guest_capability"],
     )
     signaled = public_service.push_signal(
         session_id=session_id,
@@ -465,6 +915,7 @@ def test_v2_guest_leave_is_exact_idempotent_and_rekeys_cleanly(public_service):
         recipient_id=pair["guest_peer_id"],
         signal_type="offer",
         payload={"sdp": "retired-pair-offer"},
+        security_epoch=initial_epoch,
         sender_account_id=pair["account_id"],
         membership_capability=pair["owner_capability"],
     )
@@ -517,7 +968,6 @@ def test_v2_guest_leave_is_exact_idempotent_and_rekeys_cleanly(public_service):
         membership_capability=pair["owner_capability"],
     )
 
-    assert confirmed["ok"] is True
     assert signaled["ok"] is True
     assert owner_attempt == {"ok": False, "reason": "owner_must_end_session"}
     assert forged_attempt == {"ok": False, "reason": "membership_capability_invalid"}
@@ -547,15 +997,16 @@ def test_owner_end_removes_retained_pair_security_artifacts(public_service):
     )
     session_id = pair["session"]["id"]
     epoch = pair["joined"]["session"]["security_epoch"]
-    public_service.put_key_confirmation(
+    _confirm_v2_transport(
+        public_service,
         session_id=session_id,
-        sender_peer_id=pair["owner_peer_id"],
-        recipient_peer_id=pair["guest_peer_id"],
-        package_id=pair["owner_packages"]["packages"][0]["package_id"],
         epoch=epoch,
-        confirmation_tag=base64.b64encode(b"e" * 32).decode("ascii"),
-        sender_account_id=pair["account_id"],
-        membership_capability=pair["owner_capability"],
+        owner_account_id=pair["account_id"],
+        owner_peer_id=pair["owner_peer_id"],
+        owner_capability=pair["owner_capability"],
+        guest_account_id=pair["account_id"],
+        guest_peer_id=pair["guest_peer_id"],
+        guest_capability=pair["guest_capability"],
     )
     public_service.push_signal(
         session_id=session_id,
@@ -563,6 +1014,7 @@ def test_owner_end_removes_retained_pair_security_artifacts(public_service):
         recipient_id=pair["guest_peer_id"],
         signal_type="offer",
         payload={"sdp": "ending-pair-offer"},
+        security_epoch=epoch,
         sender_account_id=pair["account_id"],
         membership_capability=pair["owner_capability"],
     )
@@ -1686,6 +2138,16 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
         signal_indexes = {row[1] for row in conn.execute("PRAGMA index_list(signals)")}
         confirmation_expiry = conn.execute("SELECT expires_at FROM key_confirmations").fetchone()[0]
 
+    with service._db() as conn:
+        signal_epochs_before_restart = conn.execute(
+            "SELECT id, security_epoch FROM signals ORDER BY id"
+        ).fetchall()
+        conn.execute("UPDATE sessions SET security_epoch = 9 WHERE id = 'legacy-session'")
+        service._migrate_database(conn)
+        signal_epochs_after_restart = conn.execute(
+            "SELECT id, security_epoch FROM signals ORDER BY id"
+        ).fetchall()
+
     assert "identity_binding_version" in session_columns
     assert "public_media_e2ee_version" in session_columns
     assert "public_media_e2ee_version" in participant_info
@@ -1693,9 +2155,114 @@ def test_legacy_sqlite_schema_migrates_additively_and_fails_closed(monkeypatch, 
     assert participant_info["public_media_e2ee_version"][4] == "0"
     assert migrated_signal_rows == [(1,), (2,)]
     assert rollback_signal_rows == [(0,), (0,)]
+    assert [tuple(row) for row in signal_epochs_before_restart] == [
+        ("rollback-signal-1", 0),
+        ("rollback-signal-2", 0),
+        ("signal-a", 1),
+        ("signal-b", 1),
+    ]
+    assert [tuple(row) for row in signal_epochs_after_restart] == [
+        ("rollback-signal-1", 0),
+        ("rollback-signal-2", 0),
+        ("signal-a", 1),
+        ("signal-b", 1),
+    ]
     assert "idx_signals_recipient_sequence" not in signal_indexes
     assert confirmation_expiry == 0
     assert service.is_authorized_participant("legacy-session", "legacy-owner") is False
+
+
+def test_runtime_migration_parks_older_duplicate_v2_membership_once(public_service):
+    older_pair = _public_media_pair(
+        public_service,
+        owner_media_version=0,
+        guest_media_version=0,
+    )
+    older_session_id = older_pair["session"]["id"]
+    newer_session = public_service.create_session(
+        **{
+            **older_pair["create_kwargs"],
+            "title": "Newer runtime",
+            "membership_capability": "T" * 43,
+        }
+    )
+    newer_session_id = newer_session["id"]
+
+    with public_service._db() as conn:
+        conn.execute(
+            "UPDATE sessions SET created_at = 10, owner_runtime_state = 'active' WHERE id = ?",
+            (older_session_id,),
+        )
+        conn.execute(
+            "UPDATE sessions SET created_at = 20, owner_runtime_state = 'active' WHERE id = ?",
+            (newer_session_id,),
+        )
+        older_epoch = int(
+            conn.execute(
+                "SELECT security_epoch FROM sessions WHERE id = ?",
+                (older_session_id,),
+            ).fetchone()[0]
+        )
+        conn.execute(
+            """INSERT INTO signals (
+                   id, session_id, sender_id, recipient_id, signal_type,
+                   payload, sequence, security_epoch, sent_at
+               ) VALUES (?, ?, ?, ?, 'offer', '{}', 1, ?, 11)""",
+            (
+                "pre-runtime-signal",
+                older_session_id,
+                older_pair["owner_peer_id"],
+                older_pair["guest_peer_id"],
+                older_epoch,
+            ),
+        )
+        conn.execute(
+            """INSERT INTO key_confirmations (
+                   session_id, epoch, sender_peer_id, recipient_peer_id,
+                   package_id, confirmation_tag, created_at, expires_at
+               ) VALUES (?, ?, ?, ?, ?, ?, 11, 9999999999)""",
+            (
+                older_session_id,
+                older_epoch,
+                older_pair["owner_peer_id"],
+                older_pair["guest_peer_id"],
+                "a" * 64,
+                base64.b64encode(b"m" * 32).decode("ascii"),
+            ),
+        )
+
+        public_service._migrate_database(conn)
+        first_migration = {
+            row["id"]: (row["owner_runtime_state"], int(row["security_epoch"]))
+            for row in conn.execute(
+                """SELECT id, owner_runtime_state, security_epoch
+                   FROM sessions WHERE id IN (?, ?)""",
+                (older_session_id, newer_session_id),
+            ).fetchall()
+        }
+        first_artifact_counts = tuple(
+            conn.execute(
+                """SELECT
+                       (SELECT COUNT(1) FROM signals WHERE session_id = ?),
+                       (SELECT COUNT(1) FROM key_confirmations WHERE session_id = ?)""",
+                (older_session_id, older_session_id),
+            ).fetchone()
+        )
+
+        public_service._migrate_database(conn)
+        second_migration = {
+            row["id"]: (row["owner_runtime_state"], int(row["security_epoch"]))
+            for row in conn.execute(
+                """SELECT id, owner_runtime_state, security_epoch
+                   FROM sessions WHERE id IN (?, ?)""",
+                (older_session_id, newer_session_id),
+            ).fetchall()
+        }
+
+    assert first_migration[older_session_id] == ("parked", older_epoch + 1)
+    assert first_migration[newer_session_id][0] == "active"
+    assert first_artifact_counts == (0, 0)
+    assert second_migration == first_migration
 
 
 def test_pre_v2_strict_session_is_backfilled_as_account_scoped_v1(public_service, monkeypatch, tmp_path):
@@ -2143,6 +2710,8 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     invite_code = created_payload["session"]["invite_code"]
     owner_peer_id = created_payload["local_peer_id"]
     assert created.status_code == 201
+    assert created_payload["session"]["local_role"] == "owner"
+    assert created_payload["session"]["local_runtime_state"] == "active"
     assert info.get_json()["supported_public_media_e2ee_versions"] == [1, 2]
     assert (missing_media_capabilities.status_code, missing_media_capabilities.get_json()) == (
         400,
@@ -2190,6 +2759,8 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     assert joined.headers["Cache-Control"] == "no-store"
     assert guest_peer_id != owner_peer_id
     assert guest_capability not in json.dumps(joined_payload)
+    assert joined_payload["session"]["local_role"] == "participant"
+    assert joined_payload["session"]["local_runtime_state"] == "active"
 
     guest_headers = {
         **auth,
@@ -2201,6 +2772,62 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         "X-Ananta-Peer-Id": owner_peer_id,
         **guest_capability_header,
     }
+    owner_bound_headers = {
+        **auth,
+        "X-Ananta-Peer-Id": owner_peer_id,
+        "X-Ananta-Membership-Capability": owner_capability,
+        "Origin": "https://app.example",
+    }
+    parked = client.put(
+        f"/rendezvous/sessions/{session_id}/membership/runtime",
+        headers=guest_headers,
+        json={"state": "parked"},
+    )
+    parked_packages = client.get(
+        f"/rendezvous/sessions/{session_id}/security/key-packages",
+        headers=owner_bound_headers,
+    )
+    activated = client.put(
+        f"/rendezvous/sessions/{session_id}/membership/runtime",
+        headers=guest_headers,
+        json={"state": "active"},
+    )
+    repeated_activation = client.put(
+        f"/rendezvous/sessions/{session_id}/membership/runtime",
+        headers=guest_headers,
+        json={"state": "active"},
+    )
+    forged_activation = client.put(
+        f"/rendezvous/sessions/{session_id}/membership/runtime",
+        headers=forged_headers,
+        json={"state": "active"},
+    )
+    parked_payload = parked.get_json()
+    activated_payload = activated.get_json()
+    assert parked.status_code == 200
+    assert parked.headers["Cache-Control"] == "no-store"
+    assert parked_payload["local_peer_id"] == guest_peer_id
+    assert parked_payload["data"]["state"] == "parked"
+    assert parked_payload["data"]["changed"] is True
+    assert parked_payload["data"]["parked_session_ids"] == [session_id]
+    assert parked_packages.status_code == 200
+    assert parked_packages.get_json()["transport_ready"] is False
+    assert parked_packages.get_json()["packages"] == []
+    assert parked_packages.get_json()["security_contract"] is None
+    assert activated.status_code == 200
+    assert activated_payload["data"]["state"] == "active"
+    assert activated_payload["data"]["security_epoch"] > parked_payload["data"]["security_epoch"]
+    assert repeated_activation.status_code == 200
+    assert repeated_activation.get_json()["data"] == {
+        "state": "active",
+        "security_epoch": activated_payload["data"]["security_epoch"],
+        "changed": False,
+        "parked_session_ids": [],
+    }
+    assert (forged_activation.status_code, forged_activation.get_json()) == (
+        403,
+        {"error": "membership_capability_invalid"},
+    )
     participants = client.get(
         f"/rendezvous/sessions/{session_id}/participants",
         headers=guest_headers,
@@ -2216,20 +2843,44 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         {"error": "membership_capability_invalid"},
     )
 
-    owner_bound_headers = {
-        **auth,
-        "X-Ananta-Peer-Id": owner_peer_id,
-        "X-Ananta-Membership-Capability": owner_capability,
-        "Origin": "https://app.example",
-    }
     owner_packages = client.get(
         f"/rendezvous/sessions/{session_id}/security/key-packages",
         headers=owner_bound_headers,
     )
+    guest_packages = client.get(
+        f"/rendezvous/sessions/{session_id}/security/key-packages",
+        headers=guest_headers,
+    )
     assert owner_packages.status_code == 200
-    media_contract = owner_packages.get_json()["public_media_security_contract_v1"]
-    assert media_contract["base_security_contract_digest"] == owner_packages.get_json()["security_contract_digest"]
-    _verify_public_media_contract(media_contract, owner_packages.get_json()["hub_public_key_b64"])
+    assert guest_packages.status_code == 200
+    owner_packages_payload = owner_packages.get_json()
+    guest_packages_payload = guest_packages.get_json()
+    epoch = owner_packages_payload["epoch"]
+    media_contract = owner_packages_payload["public_media_security_contract_v1"]
+    assert media_contract["base_security_contract_digest"] == owner_packages_payload["security_contract_digest"]
+    _verify_public_media_contract(media_contract, owner_packages_payload["hub_public_key_b64"])
+    owner_confirmation = client.post(
+        f"/rendezvous/sessions/{session_id}/security/key-confirmations",
+        headers=owner_bound_headers,
+        json={
+            "recipient_peer_id": guest_peer_id,
+            "package_id": owner_packages_payload["packages"][0]["package_id"],
+            "epoch": epoch,
+            "confirmation_tag": base64.b64encode(b"o" * 32).decode("ascii"),
+        },
+    )
+    guest_confirmation = client.post(
+        f"/rendezvous/sessions/{session_id}/security/key-confirmations",
+        headers=guest_headers,
+        json={
+            "recipient_peer_id": owner_peer_id,
+            "package_id": guest_packages_payload["packages"][0]["package_id"],
+            "epoch": epoch,
+            "confirmation_tag": base64.b64encode(b"g" * 32).decode("ascii"),
+        },
+    )
+    assert owner_confirmation.status_code == 201
+    assert guest_confirmation.status_code == 201
     owner_signal = client.post(
         f"/webrtc/sessions/{session_id}/signal",
         headers=owner_bound_headers,
@@ -2238,6 +2889,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
             "sender_id": owner_peer_id,
             "recipient_id": guest_peer_id,
             "payload": {"sdp": "opaque-owner"},
+            "security_epoch": epoch,
         },
     )
     guest_signal = client.post(
@@ -2248,6 +2900,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
             "sender_id": guest_peer_id,
             "recipient_id": owner_peer_id,
             "payload": {"sdp": "opaque-guest"},
+            "security_epoch": epoch,
         },
     )
     owner_signal_limited = client.post(
@@ -2258,6 +2911,7 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
             "sender_id": owner_peer_id,
             "recipient_id": guest_peer_id,
             "payload": {"sdp": "second-owner-offer"},
+            "security_epoch": epoch,
         },
     )
     assert owner_signal.status_code == 201
@@ -2270,15 +2924,15 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     assert owner_signal_limited.headers["Access-Control-Expose-Headers"] == "Retry-After"
 
     owner_poll = client.get(
-        f"/webrtc/sessions/{session_id}/signal",
+        f"/webrtc/sessions/{session_id}/signal?security_epoch={epoch}",
         headers=owner_bound_headers,
     )
     guest_poll = client.get(
-        f"/webrtc/sessions/{session_id}/signal",
+        f"/webrtc/sessions/{session_id}/signal?security_epoch={epoch}",
         headers=guest_headers,
     )
     owner_poll_limited = client.get(
-        f"/webrtc/sessions/{session_id}/signal",
+        f"/webrtc/sessions/{session_id}/signal?security_epoch={epoch}",
         headers=owner_bound_headers,
     )
     owner_turn = client.get(
@@ -2307,6 +2961,79 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
     )
     assert owner_turn.get_json()["data"]["username"] != guest_turn.get_json()["data"]["username"]
 
+    empty_catalog = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={"memberships": []},
+    )
+    cross_device_proof = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={
+            "memberships": [
+                {
+                    "session_id": session_id,
+                    "local_peer_id": owner_peer_id,
+                    "membership_capability": guest_capability,
+                }
+            ]
+        },
+    )
+    malformed_catalog = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={"memberships": [{"session_id": session_id}]},
+    )
+    duplicate_catalog = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={
+            "memberships": [
+                {
+                    "session_id": session_id,
+                    "local_peer_id": guest_peer_id,
+                    "membership_capability": guest_capability,
+                },
+                {
+                    "session_id": session_id,
+                    "local_peer_id": guest_peer_id,
+                    "membership_capability": guest_capability,
+                },
+            ]
+        },
+    )
+    oversized_catalog = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={
+            "memberships": [
+                {
+                    "session_id": session_id,
+                    "local_peer_id": guest_peer_id,
+                    "membership_capability": guest_capability,
+                }
+                for _ in range(33)
+            ]
+        },
+    )
+    assert empty_catalog.status_code == 200
+    assert empty_catalog.headers["Cache-Control"] == "no-store"
+    assert empty_catalog.get_json() == {"ok": True, "data": {"items": []}}
+    assert cross_device_proof.status_code == 200
+    assert cross_device_proof.get_json() == {"ok": True, "data": {"items": []}}
+    assert (malformed_catalog.status_code, malformed_catalog.get_json()) == (
+        400,
+        {"error": "catalog_request_invalid"},
+    )
+    assert (duplicate_catalog.status_code, duplicate_catalog.get_json()) == (
+        400,
+        {"error": "catalog_request_invalid"},
+    )
+    assert (oversized_catalog.status_code, oversized_catalog.get_json()) == (
+        400,
+        {"error": "catalog_request_invalid"},
+    )
+
     legacy_spki, legacy_fp = _device_key()
     legacy_session = public_app.svc.create_session(
         owner_user_id=context.account_id,
@@ -2318,19 +3045,52 @@ def test_http_v2_same_account_pair_requires_membership_capabilities(monkeypatch,
         title="Legacy v1 pair",
         identity_binding_version=1,
     )
-    legacy_list = client.get("/rendezvous/sessions", headers=auth)
-    guest_list = client.get(
+    legacy_list = client.get(
         "/rendezvous/sessions",
-        headers={**auth, "X-Ananta-Device-Id": "guest-device"},
+        headers={**auth, "X-Ananta-Peer-Id": guest_peer_id, "X-Ananta-Device-Id": "guest-device"},
+    )
+    guest_list = client.post(
+        "/rendezvous/sessions/catalog",
+        headers=auth,
+        json={
+            "memberships": [
+                {
+                    "session_id": session_id,
+                    "local_peer_id": guest_peer_id,
+                    "membership_capability": guest_capability,
+                }
+            ]
+        },
     )
     legacy_payload = legacy_list.get_json()
+    guest_list_payload = guest_list.get_json()
     assert [item["id"] for item in legacy_payload["data"]["items"]] == [legacy_session["id"]]
     assert legacy_payload["local_peer_id"] == context.account_id
     assert legacy_payload["data"]["local_peer_id"] == context.account_id
-    v2_item = next(item for item in guest_list.get_json()["data"]["items"] if item["identity_binding_version"] == 2)
+    assert legacy_list.headers["Cache-Control"] == "no-store"
+    assert guest_list.headers["Cache-Control"] == "no-store"
+    assert all(item["local_role"] == "owner" for item in legacy_payload["data"]["items"])
+    assert {item["id"] for item in guest_list_payload["data"]["items"]} == {
+        legacy_session["id"],
+        session_id,
+    }
+    v2_item = next(item for item in guest_list_payload["data"]["items"] if item["identity_binding_version"] == 2)
     assert v2_item["local_peer_id"] == guest_peer_id
-    assert owner_capability not in json.dumps(guest_list.get_json())
-    assert guest_capability not in json.dumps(guest_list.get_json())
+    assert v2_item["local_role"] == "participant"
+    assert "invite_code" not in v2_item
+    assert {
+        "participants",
+        "owner_user_id",
+        "owner_user_sub_hash",
+        "owner_account_id",
+        "owner_device_id",
+        "owner_device_fingerprint",
+        "owner_public_key_spki_b64",
+        "oidc_issuer",
+    }.isdisjoint(v2_item)
+    assert "membership_capability" not in json.dumps(guest_list_payload)
+    assert owner_capability not in json.dumps(guest_list_payload)
+    assert guest_capability not in json.dumps(guest_list_payload)
 
 
 def test_create_recovery_probe_is_rate_limited_before_lookup(monkeypatch, tmp_path):
@@ -3019,6 +3779,58 @@ def _public_media_pair(public_service, *, owner_media_version: int, guest_media_
         "owner_packages": owner_packages,
         "guest_packages": guest_packages,
     }
+
+
+def _confirm_v2_transport(
+    public_service,
+    *,
+    session_id: str,
+    epoch: int,
+    owner_account_id: str,
+    owner_peer_id: str,
+    owner_capability: str,
+    guest_account_id: str,
+    guest_peer_id: str,
+    guest_capability: str,
+) -> dict:
+    owner_packages = public_service.get_key_packages(
+        session_id=session_id,
+        requester_user_id=owner_account_id,
+        requester_peer_id=owner_peer_id,
+        membership_capability=owner_capability,
+    )
+    guest_packages = public_service.get_key_packages(
+        session_id=session_id,
+        requester_user_id=guest_account_id,
+        requester_peer_id=guest_peer_id,
+        membership_capability=guest_capability,
+    )
+    assert owner_packages["epoch"] == epoch
+    assert guest_packages["epoch"] == epoch
+    assert owner_packages["packages"] and guest_packages["packages"]
+    owner_confirmation = public_service.put_key_confirmation(
+        session_id=session_id,
+        sender_peer_id=owner_peer_id,
+        recipient_peer_id=guest_peer_id,
+        package_id=owner_packages["packages"][0]["package_id"],
+        epoch=epoch,
+        confirmation_tag=base64.b64encode(b"o" * 32).decode("ascii"),
+        sender_account_id=owner_account_id,
+        membership_capability=owner_capability,
+    )
+    guest_confirmation = public_service.put_key_confirmation(
+        session_id=session_id,
+        sender_peer_id=guest_peer_id,
+        recipient_peer_id=owner_peer_id,
+        package_id=guest_packages["packages"][0]["package_id"],
+        epoch=epoch,
+        confirmation_tag=base64.b64encode(b"g" * 32).decode("ascii"),
+        sender_account_id=guest_account_id,
+        membership_capability=guest_capability,
+    )
+    assert owner_confirmation["ok"] is True
+    assert guest_confirmation["ok"] is True
+    return {"owner": owner_packages, "guest": guest_packages}
 
 
 def _verify_public_media_contract(contract: dict, public_key_b64: str, *, check_digest: bool = True) -> None:
