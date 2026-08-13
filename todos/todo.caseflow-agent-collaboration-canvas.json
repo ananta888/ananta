@@ -259,7 +259,7 @@
     {
       "id": "M2",
       "title": "Canvas Editing",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "CAC-004",
         "CAC-005",
@@ -357,7 +357,7 @@
     {
       "id": "CAC-004",
       "title": "Agent Canvas Angular-Komponente bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -374,12 +374,15 @@
         "Auswahl, Viewport und Layout bleiben bei einer immutable Graph-Aktualisierung erhalten, sofern die selektierte ID weiter existiert.",
         "Routing, CaseFlow-Menü und Umschaltung werden ausschließlich in CAC-011 umgesetzt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in dacc38094. Route-independent accessible SVG canvas with focused immutable node moves, pointer and keyboard interaction, local viewport state, fit/reset controls, and state-preserving immutable refreshes."
+      ]
     },
     {
       "id": "CAC-005",
       "title": "Gerichtete und bidirektionale Agentenbeziehungen darstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -394,7 +397,10 @@
         "Ein Edge-Klick emittiert exakt die kanonische Edge-ID der gewählten Richtung; eine gekoppelte Darstellung verlangt vor dem Inspector eine eindeutige Richtungswahl.",
         "Loop-Edge-Fixtures werden mit eigener Pfeilgeometrie und unveränderter kanonischer Edge-ID gerendert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in dacc38094. Canonical directed, bidirectional, self-loop, and non-self feedback edges retain exact IDs, keyboard selection, distinct geometry, and target-only arrow markers."
+      ]
     },
     {
       "id": "CAC-006",
@@ -606,13 +612,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 10,
+      "todo": 8,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 6
     },
-    "progress_percent_done": 28.6,
+    "progress_percent_done": 42.9,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -626,13 +632,13 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 4,
-      "remaining": 9
+      "done": 6,
+      "remaining": 7
     },
     "milestones": {
       "total": 4,
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 1,
+      "in_progress": 2,
       "blocked": 0,
       "done": 1
     }
@@ -657,16 +663,16 @@
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 9,
+          "todo": 7,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 2
+          "done": 4
         },
-        "done": 2,
+        "done": 4,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 18.2
+        "progress_percent": 36.4
       },
       "test": {
         "total": 1,
@@ -687,10 +693,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 7.5,
-    "remaining_weight": 19.25,
+    "done_weight": 11.5,
+    "remaining_weight": 15.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 28.0
+    "weighted_percent": 43.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -704,11 +710,11 @@
       },
       "M2": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 66.7,
+        "weighted_percent": 61.5,
+        "status": "in_progress"
       },
       "M3": {
         "total_tasks": 5,
@@ -730,21 +736,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 10,
+    "todo_remaining": 8,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 4,
-    "count_based_percent": 28.6,
-    "weighted_percent": 28.0
+    "done": 6,
+    "count_based_percent": 42.9,
+    "weighted_percent": 43.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T19:51:15.048291Z",
+    "generated_at": "2026-08-13T20:03:54.634356Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a36524511cb32db65ea65bb62d574b5dd1f9d6ea560a0a32b6ff317218897891",
+    "source_hash": "a29870de79d80240de27e10bb06c2e090e7fd38b8b2e8b55d4fe67250637d6a7",
     "is_stale": false
   }
 }
