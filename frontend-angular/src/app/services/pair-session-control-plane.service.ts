@@ -4,6 +4,7 @@ import {
   Observable,
   TimeoutError,
   catchError,
+  concatMap,
   defer,
   firstValueFrom,
   from,
@@ -13,6 +14,7 @@ import {
   tap,
   throwError,
   timer,
+  toArray,
 } from 'rxjs';
 
 import { AgentDirectoryService } from './agent-directory.service';
@@ -24,6 +26,7 @@ import {
   PairMembershipAttemptScope,
   PairMembershipAuthorityScope,
   PairMembershipCapabilityStore,
+  MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS,
 } from './pair-membership-capability.store';
 import { PairPublicAuthorityPolicy } from './pair-public-authority.policy';
 import { PairPublicSessionContractPolicy } from './pair-public-session-contract.policy';
@@ -73,12 +76,32 @@ interface SessionListEnvelope<T> extends SessionListPayload<T> {
   readonly data?: SessionListPayload<T>;
 }
 
+interface PairCatalogMembershipProof {
+  readonly session_id: string;
+  readonly local_peer_id: string;
+  readonly membership_capability: string;
+}
+
 interface BoundSessionShape {
   readonly id?: unknown;
   readonly local_peer_id?: unknown;
   readonly local_peer_ids?: unknown;
   readonly identity_binding_version?: unknown;
+  readonly local_role?: unknown;
+  readonly local_runtime_state?: unknown;
+  readonly security_epoch?: unknown;
   readonly membership_capability?: unknown;
+}
+
+interface PairSessionRuntimeEnvelope {
+  readonly ok?: unknown;
+  readonly local_peer_id?: unknown;
+  readonly data?: {
+    readonly state?: unknown;
+    readonly security_epoch?: unknown;
+    readonly changed?: unknown;
+    readonly parked_session_ids?: unknown;
+  };
 }
 
 interface PreparedSession<T> {
@@ -104,6 +127,14 @@ export interface PairSessionAuthorityRoute {
 export interface PairSessionMutationOptions {
   /** Fail closed instead of falling back to another control plane. */
   readonly expectedAuthority?: PairControlPlaneKind;
+}
+
+/** Validated result of one exact public membership-runtime transition. */
+export interface PairSessionRuntimeActivation {
+  readonly state: 'active';
+  readonly security_epoch: number;
+  readonly changed: boolean;
+  readonly parked_session_ids: readonly string[];
 }
 
 type PublicResponsePurpose = 'v2-mutation' | 'list';
@@ -167,6 +198,12 @@ export class PairSessionControlPlaneService {
 
   isPublicSession(sessionId: string): boolean {
     return this.bindings.isPublic(sessionId);
+  }
+
+  /** Whether this immutable binding uses the epoch-fenced Public v2 signal wire. */
+  requiresSignalEpoch(sessionId: string): boolean {
+    const binding = this.bindings.require(sessionId);
+    return binding.kind === 'public' && binding.identityBindingVersion === 2;
   }
 
   /** Exact authority lookup for policies that must reject an unbound session. */
@@ -258,18 +295,41 @@ export class PairSessionControlPlaneService {
    * session using the server-issued local peer id. A bare id is never enough
    * to reconstruct a public binding after reload.
    */
-  list<T>(): Observable<readonly T[]> {
-    const authority = this.authorityForNewSession();
-    const path = authority.kind === 'public' ? '/rendezvous/sessions' : '/share-sessions';
-    const request = authority.kind === 'public'
-      ? this.core.request<SessionListEnvelope<T>>('GET', `${authority.baseUrl}${path}`, authority.baseUrl, {
-        token: authority.token,
-        headers: { [DEVICE_ID_HEADER]: this.deviceId },
-      }).pipe(retry(this.core.retryCount))
-      : this.core.get<SessionListEnvelope<T>>(
-        `${authority.baseUrl}${path}`, authority.baseUrl, authority.token,
+  list<T>(options: PairSessionMutationOptions = {}): Observable<readonly T[]> {
+    const authority = this.authorityForNewSession(options.expectedAuthority);
+    if (authority.kind === 'public') {
+      const batches = catalogMembershipBatches(this.publicCatalogMembershipProofs(authority));
+      return from(batches).pipe(
+        // Keep requests ordered and below the authenticated catalogue's
+        // account rate limit. No binding is materialised until every batch
+        // has returned and the combined snapshot validates atomically.
+        concatMap(memberships => this.core.request<SessionListEnvelope<T>>(
+          'POST', `${authority.baseUrl}/rendezvous/sessions/catalog`, authority.baseUrl, {
+            body: { memberships },
+            token: authority.token,
+            context: locallyHandledPairRequestContext(),
+          },
+        )),
+        toArray(),
+        map(responses => this.prepareListedResponses(responses, authority)),
       );
-    return request.pipe(map(response => {
+    }
+    return this.core.get<SessionListEnvelope<T>>(
+      `${authority.baseUrl}/share-sessions`, authority.baseUrl, authority.token,
+    ).pipe(map(response => this.prepareListedResponses([response], authority)));
+  }
+
+  private prepareListedResponses<T>(
+    responses: readonly SessionListEnvelope<T>[],
+    authority: RequestAuthority,
+  ): readonly T[] {
+    if (authority.kind === 'public') this.assertPublicCatalogAuthorityCurrent(authority);
+    const uniqueItems = new Map<string, {
+      readonly fingerprint: string;
+      readonly pagePeerId: string;
+      readonly session: T;
+    }>();
+    for (const response of responses) {
       if (authority.kind === 'public' && response?.ok !== true) {
         throw new Error('public_pair_session_response_invalid');
       }
@@ -285,14 +345,76 @@ export class PairSessionControlPlaneService {
         throw new Error('public_local_peer_id_mismatch');
       }
       const pagePeerId = envelopePeerId || payloadPeerId;
-      // Validate the complete page before materialising any binding. One
-      // downgraded item invalidates the authenticated public list atomically.
-      const prepared = payload.items.flatMap(session => {
-        const candidate = this.prepareListedResponse(session, authority, pagePeerId);
-        return candidate ? [candidate] : [];
-      });
-      return prepared.map(candidate => this.commitBinding(candidate));
-    }));
+      for (const session of payload.items) {
+        const item = session as T & BoundSessionShape;
+        const sessionId = validIdentifier(item?.id, 'pair_session_id_invalid');
+        const fingerprint = catalogItemFingerprint(session);
+        const duplicate = uniqueItems.get(sessionId);
+        if (duplicate) {
+          if (
+            duplicate.fingerprint !== fingerprint
+            || duplicate.pagePeerId !== pagePeerId
+          ) {
+            throw new Error('pair_session_list_duplicate_conflict');
+          }
+          continue;
+        }
+        uniqueItems.set(sessionId, { fingerprint, pagePeerId, session });
+      }
+    }
+    // Validate the complete combined snapshot before materialising any
+    // binding. One downgraded or conflicting row rejects every batch.
+    const prepared = [...uniqueItems.values()].flatMap(({ session, pagePeerId }) => {
+      const candidate = this.prepareListedResponse(session, authority, pagePeerId);
+      return candidate ? [candidate] : [];
+    });
+    for (const candidate of prepared) this.bindings.assertCompatible(candidate.binding);
+    return Object.freeze(prepared.map(candidate => this.commitBinding(candidate)));
+  }
+
+  private assertPublicCatalogAuthorityCurrent(
+    authority: Extract<RequestAuthority, { kind: 'public' }> | RequestAuthority,
+  ): void {
+    if (authority.kind !== 'public') return;
+    const current = this.publicAuthority.forNewSession();
+    if (!current) throw new Error('public_session_profile_changed');
+    if (
+      current.oidcIssuer !== authority.oidcIssuer
+      || current.oidcSubject !== authority.oidcSubject
+    ) throw new Error('public_session_identity_changed');
+    if (
+      current.baseUrl !== authority.baseUrl
+      || current.profileId !== authority.profileId
+    ) throw new Error('public_session_profile_changed');
+  }
+
+  private publicCatalogMembershipProofs(
+    authority: Extract<RequestAuthority, { kind: 'public' }> | RequestAuthority,
+  ): readonly PairCatalogMembershipProof[] {
+    if (authority.kind !== 'public') return [];
+    return this.capabilities.listBound(membershipAuthorityScope(authority)).map(binding => (
+      Object.freeze({
+        session_id: binding.sessionId,
+        local_peer_id: binding.localPeerId,
+        membership_capability: binding.capability,
+      })
+    ));
+  }
+
+  /**
+   * Makes one bound v2 membership server-authoritatively active. The server
+   * parks this device's other memberships atomically; Hub sessions keep their
+   * established lifecycle and never pass through this public-only endpoint.
+   */
+  activateSessionRuntime(sessionId: string): Observable<PairSessionRuntimeActivation> {
+    const binding = this.bindings.require(sessionId);
+    if (binding.kind !== 'public' || binding.identityBindingVersion !== 2) {
+      return throwError(() => new Error('public_pair_runtime_v2_required'));
+    }
+    const path = `/rendezvous/sessions/${encodeURIComponent(sessionId)}/membership/runtime`;
+    return this.publicBoundRequest<PairSessionRuntimeEnvelope>(
+      'PUT', binding, path, { state: 'active' }, false, locallyHandledPairRequestContext(),
+    ).pipe(map(response => validateRuntimeActivation(response, binding)));
   }
 
   participants<T>(sessionId: string): Observable<T> {
@@ -376,11 +498,17 @@ export class PairSessionControlPlaneService {
       : this.boundPost<T>(binding, path, body);
   }
 
-  signalPoll<T>(sessionId: string, cursor: string): Observable<T> {
+  signalPoll<T>(sessionId: string, cursor: string, securityEpoch?: number): Observable<T> {
     const binding = this.bindings.require(sessionId);
-    const path = binding.kind === 'public'
-      ? `/webrtc/sessions/${encodeURIComponent(sessionId)}/signal?since=${encodeURIComponent(cursor)}`
-      : `/api/webrtc/sessions/${encodeURIComponent(sessionId)}/signal?since=${encodeURIComponent(cursor)}`;
+    let path: string;
+    if (binding.kind === 'public') {
+      const epochQuery = binding.identityBindingVersion === 2
+        ? `&security_epoch=${encodeURIComponent(String(requireSignalEpoch(securityEpoch)))}`
+        : '';
+      path = `/webrtc/sessions/${encodeURIComponent(sessionId)}/signal?since=${encodeURIComponent(cursor)}${epochQuery}`;
+    } else {
+      path = `/api/webrtc/sessions/${encodeURIComponent(sessionId)}/signal?since=${encodeURIComponent(cursor)}`;
+    }
     // Signaling polls are cursor based and must not be retried underneath the
     // caller; a retried response can race a later cursor and duplicate SDP/ICE.
     return this.boundGet<T>(
@@ -393,6 +521,9 @@ export class PairSessionControlPlaneService {
 
   signalSend<T>(sessionId: string, body: unknown): Observable<T> {
     const binding = this.bindings.require(sessionId);
+    if (binding.kind === 'public' && binding.identityBindingVersion === 2) {
+      requireSignalBodyEpoch(body);
+    }
     const root = binding.kind === 'public' ? 'webrtc' : 'api/webrtc';
     const path = `/${root}/sessions/${encodeURIComponent(sessionId)}/signal`;
     return binding.kind === 'public'
@@ -476,6 +607,7 @@ export class PairSessionControlPlaneService {
         },
       }),
       map(response => this.prepareResponse(response, authority, 'v2-mutation', pending.capability)),
+      map(prepared => validatePublicV2MutationSession(prepared, kind)),
       map(prepared => this.commitV2MutationBinding(prepared, scope)),
       catchError(error => {
         // Only an explicit HTTP rejection known to precede endpoint commit
@@ -488,7 +620,7 @@ export class PairSessionControlPlaneService {
   }
 
   private publicBoundRequest<T>(
-    method: 'GET' | 'POST' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
     binding: PairSessionBinding,
     path: string,
     body?: unknown,
@@ -533,6 +665,7 @@ export class PairSessionControlPlaneService {
       );
     }
     this.publicContract.assertValid(item);
+    validatePublicV2ListedSession(item);
     if (item.membership_capability !== undefined) {
       throw new Error('public_membership_capability_exposed');
     }
@@ -771,6 +904,46 @@ function locallyHandledPairRequestContext(): HttpContext {
   return new HttpContext().set(SUPPRESS_GLOBAL_ERROR_NOTIFICATION, true);
 }
 
+function catalogMembershipBatches(
+  proofs: readonly PairCatalogMembershipProof[],
+): readonly (readonly PairCatalogMembershipProof[])[] {
+  if (proofs.length === 0) return Object.freeze([Object.freeze([])]);
+  const batches: Array<readonly PairCatalogMembershipProof[]> = [];
+  for (
+    let offset = 0;
+    offset < proofs.length;
+    offset += MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS
+  ) {
+    batches.push(Object.freeze(
+      proofs.slice(offset, offset + MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS),
+    ));
+  }
+  return Object.freeze(batches);
+}
+
+function catalogItemFingerprint(value: unknown): string {
+  try {
+    return JSON.stringify(canonicalCatalogJson(value));
+  } catch {
+    throw new Error('pair_session_list_response_invalid');
+  }
+}
+
+function canonicalCatalogJson(value: unknown): unknown {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return value;
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) throw new Error('invalid');
+    return value;
+  }
+  if (Array.isArray(value)) return value.map(item => canonicalCatalogJson(item));
+  if (!value || typeof value !== 'object') throw new Error('invalid');
+  const canonical: Record<string, unknown> = {};
+  for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+    canonical[key] = canonicalCatalogJson((value as Record<string, unknown>)[key]);
+  }
+  return canonical;
+}
+
 function turnCredentialCacheKey(
   binding: PairSessionBinding,
   authority: RequestAuthority,
@@ -823,6 +996,88 @@ function validatePublicBoundResponse<T>(response: T, binding: PairSessionBinding
     throw new Error('public_membership_capability_exposed');
   }
   return response;
+}
+
+function validateRuntimeActivation(
+  response: PairSessionRuntimeEnvelope,
+  binding: PairSessionBinding,
+): PairSessionRuntimeActivation {
+  const data = response?.data;
+  if (response?.ok !== true || !data || typeof data !== 'object') {
+    throw new Error('pair_session_runtime_response_invalid');
+  }
+  if (response.local_peer_id !== binding.localPeerId || data.state !== 'active') {
+    throw new Error('pair_session_runtime_response_invalid');
+  }
+  if (
+    typeof data.security_epoch !== 'number'
+    || !Number.isSafeInteger(data.security_epoch)
+    || data.security_epoch < 1
+    || typeof data.changed !== 'boolean'
+    || !Array.isArray(data.parked_session_ids)
+  ) throw new Error('pair_session_runtime_response_invalid');
+  const parkedSessionIds = data.parked_session_ids.map(value => (
+    validIdentifier(value, 'pair_session_runtime_response_invalid')
+  ));
+  if (
+    new Set(parkedSessionIds).size !== parkedSessionIds.length
+    || parkedSessionIds.includes(binding.sessionId)
+  ) throw new Error('pair_session_runtime_response_invalid');
+  return Object.freeze({
+    state: 'active' as const,
+    security_epoch: data.security_epoch,
+    changed: data.changed,
+    parked_session_ids: Object.freeze(parkedSessionIds),
+  });
+}
+
+function validatePublicV2MutationSession<T>(
+  prepared: PreparedSession<T>,
+  kind: PairMembershipAttemptKind,
+): PreparedSession<T> {
+  const session = prepared.session;
+  const expectedRole = kind === 'create' ? 'owner' : 'participant';
+  if (session.local_role === undefined) throw new Error('pair_session_local_role_missing');
+  if (session.local_role !== expectedRole) throw new Error('pair_session_local_role_mismatch');
+  if (session.local_runtime_state !== 'active') {
+    throw new Error('pair_session_runtime_state_invalid');
+  }
+  if (
+    typeof session.security_epoch !== 'number'
+    || !Number.isSafeInteger(session.security_epoch)
+    || session.security_epoch < 1
+  ) throw new Error('pair_session_runtime_epoch_invalid');
+  return prepared;
+}
+
+function validatePublicV2ListedSession(session: BoundSessionShape): void {
+  if (session.local_role !== 'owner' && session.local_role !== 'participant') {
+    throw new Error(session.local_role === undefined
+      ? 'pair_session_local_role_missing'
+      : 'pair_session_local_role_invalid');
+  }
+  if (session.local_runtime_state !== 'active' && session.local_runtime_state !== 'parked') {
+    throw new Error('pair_session_runtime_state_invalid');
+  }
+  if (
+    typeof session.security_epoch !== 'number'
+    || !Number.isSafeInteger(session.security_epoch)
+    || session.security_epoch < 1
+  ) throw new Error('pair_session_runtime_epoch_invalid');
+}
+
+function requireSignalEpoch(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isSafeInteger(value) || value < 1) {
+    throw new Error('signal_epoch_required');
+  }
+  return value;
+}
+
+function requireSignalBodyEpoch(body: unknown): number {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('signal_epoch_required');
+  }
+  return requireSignalEpoch((body as Record<string, unknown>)['security_epoch']);
 }
 
 function publicIdentityBindingVersion(value: unknown, localPeerId: string): 1 | 2 {

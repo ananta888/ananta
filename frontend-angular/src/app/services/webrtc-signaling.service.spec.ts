@@ -9,7 +9,11 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
   let service: WebrtcSignalingService;
   let pollResponse: unknown;
   let handler: ReturnType<typeof vi.fn<(message: unknown) => Promise<void>>>;
-  const signalPoll = vi.fn<(sessionId: string, cursor: string) => Observable<unknown>>();
+  const signalPoll = vi.fn<(
+    sessionId: string,
+    cursor: string,
+    securityEpoch?: number,
+  ) => Observable<unknown>>();
   const signalSend = vi.fn();
   const controlPlane = {
     signalPoll,
@@ -17,7 +21,17 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     assertSessionAvailable: vi.fn(),
     peerIdForSession: vi.fn(() => 'peer-a'),
     isPublicSession: vi.fn(() => false),
+    requiresSignalEpoch: vi.fn(() => false),
   };
+
+  function connect(securityEpoch = 2): void {
+    service.connect(
+      '',
+      'session-1',
+      'peer-b',
+      controlPlane.isPublicSession('session-1') ? securityEpoch : undefined,
+    );
+  }
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -32,6 +46,10 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     controlPlane.peerIdForSession.mockReturnValue('peer-a');
     controlPlane.isPublicSession.mockReset();
     controlPlane.isPublicSession.mockReturnValue(false);
+    controlPlane.requiresSignalEpoch.mockReset();
+    controlPlane.requiresSignalEpoch.mockImplementation(sessionId => (
+      controlPlane.isPublicSession(sessionId)
+    ));
     TestBed.resetTestingModule();
     TestBed.configureTestingModule({ providers: [
       WebrtcSignalingService,
@@ -66,7 +84,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
   });
 
   it('hardDisconnect is idempotent and leaves no reconnect path', () => {
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     service.hardDisconnect();
     expect(() => service.hardDisconnect()).not.toThrow();
     expect(service.status$.value).toBe('disconnected');
@@ -74,7 +92,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
   });
 
   it('binds the verified remote peer to every signal', async () => {
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await service.send({
       type: 'offer', session_id: 'session-1', recipient_id: 'stale-peer', payload: { sdp: 'v=0' },
     });
@@ -84,6 +102,67 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       session_id: 'session-1',
       recipient_id: 'peer-b',
       payload: { sdp: 'v=0' },
+    });
+  });
+
+  it('binds the exact public epoch to every outbound signal', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    connect(7);
+
+    await service.send({
+      type: 'offer',
+      session_id: 'session-1',
+      security_epoch: 99,
+      payload: { sdp: 'v=0' },
+    });
+
+    expect(signalSend).toHaveBeenCalledWith('session-1', expect.objectContaining({
+      type: 'offer',
+      session_id: 'session-1',
+      recipient_id: 'peer-b',
+      security_epoch: 7,
+    }));
+    expect(signalPoll).toHaveBeenCalledWith('session-1', '', 7);
+  });
+
+  it('fails closed before a public poll when the exact epoch is missing', () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+
+    service.connect('', 'session-1', 'peer-b');
+
+    expect(service.status$.value).toBe('failed');
+    expect(service.failureReason$.value).toBe('signal_epoch_required');
+    expect(signalPoll).not.toHaveBeenCalled();
+    expect(signalSend).not.toHaveBeenCalled();
+  });
+
+  it('keeps the public v1 signaling wire compatible without an epoch field', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    controlPlane.requiresSignalEpoch.mockReturnValue(false);
+    pollResponse = {
+      ok: true,
+      data: {
+        cursor: '1',
+        signals: [{
+          id: 'legacy-signal-1', type: 'offer', session_id: 'session-1',
+          sender_id: 'peer-b', recipient_id: 'peer-a', payload: 'legacy-offer',
+        }],
+      },
+    };
+
+    connect();
+    await settleAsyncWork();
+    await service.send({
+      type: 'answer', session_id: 'session-1', payload: { sdp: 'legacy-answer' },
+    });
+
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({
+      payload: 'legacy-offer',
+    }));
+    expect(signalPoll).toHaveBeenCalledWith('session-1', '');
+    expect(signalSend).toHaveBeenCalledWith('session-1', {
+      type: 'answer', session_id: 'session-1', recipient_id: 'peer-b',
+      payload: { sdp: 'legacy-answer' },
     });
   });
 
@@ -111,7 +190,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     controlPlane.isPublicSession.mockReturnValue(true);
     const accepted = {
       id: 'signal-1', type: 'offer', session_id: 'session-1', sender_id: 'peer-b',
-      recipient_id: 'peer-a', payload: 'accepted',
+      recipient_id: 'peer-a', security_epoch: 2, payload: 'accepted',
     };
     pollResponse = {
       ok: true,
@@ -128,19 +207,99 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     const observed: string[] = [];
     service.message$.subscribe(message => observed.push(String(message.payload)));
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
     (service as unknown as { pollSignals(): void }).pollSignals();
 
     expect(observed).toEqual(['accepted']);
     expect(handler).toHaveBeenCalledTimes(1);
-    expect(signalPoll.mock.calls).toEqual([['session-1', ''], ['session-1', '2']]);
+    expect(signalPoll.mock.calls).toEqual([
+      ['session-1', '', 2],
+      ['session-1', '2', 2],
+    ]);
+  });
+
+  it.each([1, 3])(
+    'fails closed on addressed epoch %s without poisoning a replacement epoch',
+    async mismatchedEpoch => {
+      controlPlane.isPublicSession.mockReturnValue(true);
+      pollResponse = {
+        ok: true,
+        data: {
+          cursor: '1',
+          signals: [{
+            id: `signal-${mismatchedEpoch}`,
+            type: 'offer',
+            session_id: 'session-1',
+            sender_id: 'peer-b',
+            recipient_id: 'peer-a',
+            security_epoch: mismatchedEpoch,
+            payload: { type: 'offer', sdp: 'wrong-epoch' },
+          }],
+        },
+      };
+
+      connect(2);
+      await settleAsyncWork();
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(service.status$.value).toBe('failed');
+      expect(service.isSessionRecreationRequired('session-1', 2)).toBe(true);
+      expect(service.isSessionRecreationRequired('session-1', 3)).toBe(false);
+
+      pollResponse = { ok: true, data: { signals: [], cursor: '0' } };
+      connect(3);
+      await settleAsyncWork();
+
+      expect(service.status$.value).toBe('connected');
+      expect(signalPoll.mock.calls.at(-1)).toEqual(['session-1', '', 3]);
+    },
+  );
+
+  it('starts a new epoch from cursor zero with an independent dedupe scope', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalPoll
+      .mockReturnValueOnce(of({
+        ok: true,
+        data: {
+          cursor: '4',
+          signals: [{
+            id: 'signal-shared', type: 'offer', session_id: 'session-1',
+            sender_id: 'peer-b', recipient_id: 'peer-a', security_epoch: 2,
+            payload: 'epoch-2',
+          }],
+        },
+      }))
+      .mockReturnValueOnce(of({
+        ok: true,
+        data: {
+          cursor: '1',
+          signals: [{
+            id: 'signal-shared', type: 'offer', session_id: 'session-1',
+            sender_id: 'peer-b', recipient_id: 'peer-a', security_epoch: 3,
+            payload: 'epoch-3',
+          }],
+        },
+      }));
+
+    connect(2);
+    await settleAsyncWork();
+    service.disconnect();
+    connect(3);
+    await settleAsyncWork();
+
+    expect(signalPoll.mock.calls).toEqual([
+      ['session-1', '', 2],
+      ['session-1', '', 3],
+    ]);
+    expect(handler.mock.calls.map(([message]) => (message as SignalMessage).payload))
+      .toEqual(['epoch-2', 'epoch-3']);
   });
 
   it('keeps only one signaling poll in flight', async () => {
     const pending = new Subject<unknown>();
     signalPoll.mockReturnValue(pending);
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     (service as unknown as { pollSignals(): void }).pollSignals();
     expect(signalPoll).toHaveBeenCalledTimes(1);
@@ -166,7 +325,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       },
     };
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
 
     expect(service.status$.value).toBe('failed');
@@ -176,7 +335,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
 
   it('retries a transient poll failure with the unchanged cursor', () => {
     signalPoll.mockReturnValueOnce(throwError(() => ({ status: 503 })));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     signalPoll.mockReturnValueOnce(of({ ok: true, data: { signals: [], cursor: '1' } }));
 
     (service as unknown as { pollSignals(): void }).pollSignals();
@@ -192,7 +351,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       error: { error: 'session_not_found' },
     })));
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('session_not_found');
@@ -207,11 +366,34 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       error: { error: 'unexpected_public_rejection' },
     })));
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
     expect(service.isSessionRecreationRequired('session-1')).toBe(true);
+  });
+
+  it('treats a parked peer poll rejection as reversible without a recreation latch', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    signalPoll.mockReturnValueOnce(throwError(() => ({
+      status: 409,
+      error: { error: 'pair_runtime_not_ready' },
+    })));
+
+    connect(2);
+
+    expect(service.status$.value).toBe('disconnected');
+    expect(service.failureReason$.value).toBe('pair_runtime_not_ready');
+    expect(service.isSessionRecreationRequired('session-1', 2)).toBe(false);
+    expect((service as unknown as { pollHandle: unknown }).pollHandle).toBeNull();
+    await expect(service.send({
+      type: 'offer', session_id: 'session-1', payload: { sdp: 'not-yet' },
+    })).rejects.toThrow('pair_runtime_not_ready');
+    expect(service.status$.value).toBe('disconnected');
+
+    signalPoll.mockReturnValueOnce(of({ ok: true, data: { signals: [], cursor: '0' } }));
+    connect(2);
+    expect(service.status$.value).toBe('connected');
   });
 
   it('honors Retry-After without hammering the signaling endpoint', () => {
@@ -220,7 +402,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       status: 429,
       headers: { get: (name: string) => name === 'Retry-After' ? '5' : null },
     })));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     (service as unknown as { pollSignals(): void }).pollSignals();
     expect(signalPoll).toHaveBeenCalledTimes(1);
@@ -234,7 +416,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
   });
 
   it('fails closed when the signaling queue rejects an outbound signal', async () => {
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     signalSend.mockReturnValue(throwError(() => ({ status: 503, error: { error: 'queue_unavailable' } })));
 
     await expect(service.send({
@@ -247,7 +429,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
 
   it('propagates an explicit terminal send rejection without a recreation latch', async () => {
     controlPlane.isPublicSession.mockReturnValue(true);
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     signalSend.mockReturnValue(throwError(() => ({
       status: 403,
       error: { reason_code: 'membership_capability_retired' },
@@ -263,6 +445,27 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     expect(service.isSessionRecreationRequired('session-1')).toBe(false);
   });
 
+  it('treats a parked peer send rejection as reversible without poisoning the epoch', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    connect(2);
+    signalSend.mockReturnValueOnce(throwError(() => ({
+      status: 409,
+      error: { reason_code: 'pair_runtime_not_ready' },
+    })));
+
+    await expect(service.send({
+      type: 'offer', session_id: 'session-1', payload: { sdp: 'v=0' },
+    })).rejects.toBeTruthy();
+    await settleAsyncWork();
+
+    expect(service.status$.value).toBe('disconnected');
+    expect(service.failureReason$.value).toBe('pair_runtime_not_ready');
+    expect(service.isSessionRecreationRequired('session-1', 2)).toBe(false);
+
+    connect(2);
+    expect(service.status$.value).toBe('connected');
+  });
+
   it('retries the exact public signal after Retry-After without letting queued ICE overtake it', async () => {
     controlPlane.isPublicSession.mockReturnValue(true);
     signalSend
@@ -271,7 +474,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
         headers: { get: (name: string) => name === 'Retry-After' ? '2' : null },
       })))
       .mockReturnValue(of({ ok: true }));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     const offer = service.send({
       type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'v=0' },
@@ -301,7 +504,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
       status: 429,
       headers: { get: (name: string) => name === 'Retry-After' ? '5' : null },
     })));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     const staleWrite = service.send({
       type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'old' },
     }).catch(error => error as Error);
@@ -309,7 +512,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
 
     service.disconnect();
     expect(() => service.assertSessionReusable('session-1')).not.toThrow();
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     expect(service.status$.value).toBe('connected');
 
     await vi.advanceTimersByTimeAsync(5_000);
@@ -323,7 +526,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     signalSend.mockImplementation((_sessionId: string, message: { type: string }) => (
       message.type === 'offer' ? delayedOffer : of({ ok: true })
     ));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
 
     const offer = service.send({
       type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'v=0' },
@@ -352,25 +555,26 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
         cursor: '1',
         signals: [{
           id: 'signal-1', sequence: '1', type: 'offer', session_id: 'session-1',
-          sender_id: 'peer-b', recipient_id: 'peer-a', payload: { type: 'offer', sdp: 'bad' },
+          sender_id: 'peer-b', recipient_id: 'peer-a', security_epoch: 2,
+          payload: { type: 'offer', sdp: 'bad' },
         }],
       },
     };
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
 
     expect(handler).toHaveBeenCalledTimes(1);
     expect((service as unknown as { pollCursor: string }).pollCursor).toBe('');
-    expect(signalPoll.mock.calls).toEqual([['session-1', '']]);
+    expect(signalPoll.mock.calls).toEqual([['session-1', '', 2]]);
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
     expect((service as unknown as { pollHandle: unknown }).pollHandle).toBeNull();
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
-    expect(signalPoll.mock.calls).toEqual([['session-1', '']]);
+    expect(signalPoll.mock.calls).toEqual([['session-1', '', 2]]);
   });
 
   it('resumes a same-peer session from its applied cursor without replaying old SDP', async () => {
@@ -382,7 +586,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
           cursor: '1', cursor_floor: '0', truncated: false,
           signals: [{
             id: 'signal-1', type: 'offer', session_id: 'session-1', sender_id: 'peer-b',
-            recipient_id: 'peer-a', payload: 'first-offer',
+            recipient_id: 'peer-a', security_epoch: 2, payload: 'first-offer',
           }],
         },
       }))
@@ -392,20 +596,20 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
           cursor: '2', cursor_floor: '1', truncated: false,
           signals: [{
             id: 'signal-2', type: 'answer', session_id: 'session-1', sender_id: 'peer-b',
-            recipient_id: 'peer-a', payload: 'new-answer',
+            recipient_id: 'peer-a', security_epoch: 2, payload: 'new-answer',
           }],
         },
       }));
 
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
     service.disconnect();
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
 
     expect(signalPoll.mock.calls).toEqual([
-      ['session-1', ''],
-      ['session-1', '1'],
+      ['session-1', '', 2],
+      ['session-1', '1', 2],
     ]);
     expect(handler.mock.calls.map(([message]) => (message as { payload: unknown }).payload))
       .toEqual(['first-offer', 'new-answer']);
@@ -417,7 +621,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     controlPlane.isPublicSession.mockReturnValue(true);
     const stalePost = new Subject<{ ok: true }>();
     signalSend.mockReturnValueOnce(stalePost).mockReturnValue(of({ ok: true }));
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     const oldWrite = service.send({
       type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'old' },
     }).catch(error => error);
@@ -426,7 +630,7 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     service.disconnect();
     expect(() => service.assertSessionReusable('session-1'))
       .toThrow('public_signaling_session_recreation_required');
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     expect(service.status$.value).toBe('failed');
     expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
     stalePost.error(new Error('late_old_generation_failure'));
@@ -442,13 +646,38 @@ describe('WebrtcSignalingService authenticated cursor signaling', () => {
     service.retireSession('session-1');
     expect(service.isSessionRecreationRequired('session-1')).toBe(false);
     service.bindMessageHandler(async () => undefined);
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     expect(service.status$.value).toBe('connected');
+  });
+
+  it('does not let a late old-epoch POST rejection poison the replacement epoch', async () => {
+    controlPlane.isPublicSession.mockReturnValue(true);
+    const stalePost = new Subject<{ ok: true }>();
+    signalSend.mockReturnValueOnce(stalePost);
+    connect(2);
+    const oldWrite = service.send({
+      type: 'offer', session_id: 'session-1', payload: { type: 'offer', sdp: 'old' },
+    }).catch(error => error);
+    await Promise.resolve();
+
+    service.disconnect();
+    connect(3);
+    stalePost.error({
+      status: 403,
+      error: { reason_code: 'membership_capability_retired' },
+    });
+    await oldWrite;
+    await settleAsyncWork();
+
+    expect(service.status$.value).toBe('connected');
+    expect(service.failureReason$.value).toBeNull();
+    expect(service.isSessionRecreationRequired('session-1', 2)).toBe(true);
+    expect(service.isSessionRecreationRequired('session-1', 3)).toBe(false);
   });
 
   it('stops public signaling when its immutable authority disappears', async () => {
     controlPlane.assertSessionAvailable.mockImplementationOnce(() => undefined);
-    service.connect('', 'session-1', 'peer-b');
+    connect();
     await settleAsyncWork();
     controlPlane.assertSessionAvailable.mockImplementation(() => {
       throw new Error('public_session_authentication_lost');

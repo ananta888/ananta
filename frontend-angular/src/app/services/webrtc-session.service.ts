@@ -154,7 +154,13 @@ export class WebrtcSessionService {
     }
   });
 
-  async startSession(sessionId: string, isInitiator: boolean, remotePeerId?: string): Promise<void> {
+  async startSession(
+    sessionId: string,
+    isInitiator: boolean,
+    remotePeerId?: string,
+    securityEpoch = 1,
+  ): Promise<void> {
+    const exactSecurityEpoch = validSecurityEpoch(securityEpoch);
     if (
       this.pc || this.releaseSignalingHandler || this.signalingStatusSubscription
       || this.connectionTimeout || this.disconnectTimeout
@@ -165,7 +171,7 @@ export class WebrtcSessionService {
     const generation = ++this.sessionGeneration;
     this.sessionId = sessionId;
     this.isInitiator = isInitiator;
-    this.activeEpoch = 1;
+    this.activeEpoch = exactSecurityEpoch;
     this.localDescriptionPublicationPending = false;
     this.pendingLocalIce = [];
     this.remoteDescriptionApplied = false;
@@ -184,7 +190,7 @@ export class WebrtcSessionService {
         // retained sequence cannot safely be reused must not consume another
         // short-lived credential on every UI security refresh.
         this.controlPlane.assertSessionAvailable(sessionId);
-        this.signaling.assertSessionReusable(sessionId);
+        this.signaling.assertSessionReusable(sessionId, exactSecurityEpoch);
       } catch (error) {
         const reasonCode = errorReasonCode(error, 'public_session_unavailable');
         this.terminateSession('failed', reasonCode);
@@ -222,7 +228,7 @@ export class WebrtcSessionService {
           // A server-rejected authority must not become a two-second
           // TURN/reopen loop. Preserve the control-plane binding for an
           // explicit End/Leave retry, but quarantine this signaling session.
-          this.signaling.markSessionRecreationRequired(sessionId);
+          this.signaling.markSessionRecreationRequired(sessionId, exactSecurityEpoch);
           this.terminateSession('failed', SIGNAL_SESSION_RECREATION_REQUIRED);
           throw error;
         }
@@ -349,7 +355,9 @@ export class WebrtcSessionService {
         if (this.isCurrentSession(pc, sessionId, generation)) {
           this.audit('signal_error', error instanceof Error ? error.message : String(error));
           const publicFailure = this.controlPlane.isPublicSession(sessionId);
-          if (publicFailure) this.signaling.markSessionRecreationRequired(sessionId);
+          if (publicFailure) {
+            this.signaling.markSessionRecreationRequired(sessionId, exactSecurityEpoch);
+          }
           // Public apply failures are latched by WebrtcSignalingService while
           // its generation is still current. Keep that connection alive until
           // the rejected handler reaches the signaling owner; its failed state
@@ -364,17 +372,29 @@ export class WebrtcSessionService {
       }
     });
     this.signalingStatusSubscription = this.signaling.status$.subscribe(status => {
-      if (status !== 'failed' || !this.isCurrentSession(pc, sessionId, generation)) return;
-      this.audit('signaling_failed');
+      if (!this.isCurrentSession(pc, sessionId, generation)) return;
       const signalingReason = this.signaling.failureReason$.value;
+      if (status === 'disconnected' && signalingReason === 'pair_runtime_not_ready') {
+        this.audit('signaling_waiting_for_pair_runtime');
+        this.failureReason$.next(signalingReason);
+        this.terminateSession('closed');
+        return;
+      }
+      if (status !== 'failed') return;
+      this.audit('signaling_failed');
       const reasonCode = isTerminalPairSessionReason(signalingReason)
         ? signalingReason
-        : this.signaling.isSessionRecreationRequired(sessionId)
+        : this.signaling.isSessionRecreationRequired(sessionId, exactSecurityEpoch)
           ? SIGNAL_SESSION_RECREATION_REQUIRED
           : signalingReason || 'webrtc_signaling_failed';
       this.terminateSession('failed', reasonCode);
     });
-    this.signaling.connect(profile.signaling_url, sessionId, remotePeerId);
+    this.signaling.connect(
+      profile.signaling_url,
+      sessionId,
+      remotePeerId,
+      exactSecurityEpoch,
+    );
     if (!this.isCurrentSession(pc, sessionId, generation)) return;
     this.wirePeerConnection(pc, isInitiator, sessionId, generation);
 
@@ -406,8 +426,8 @@ export class WebrtcSessionService {
     }
   }
 
-  isSessionRecreationRequired(sessionId: string): boolean {
-    return this.signaling.isSessionRecreationRequired(sessionId);
+  isSessionRecreationRequired(sessionId: string, securityEpoch = this.activeEpoch): boolean {
+    return this.signaling.isSessionRecreationRequired(sessionId, securityEpoch);
   }
 
   private terminateSession(
@@ -995,7 +1015,9 @@ export class WebrtcSessionService {
           const publicFailure = this.controlPlane.isPublicSession(sessionId);
           this.terminateSession(
             'failed',
-            publicFailure && this.signaling.isSessionRecreationRequired(sessionId)
+            publicFailure && this.signaling.isSessionRecreationRequired(
+              sessionId, this.activeEpoch,
+            )
               ? SIGNAL_SESSION_RECREATION_REQUIRED
               : errorReasonCode(error, 'webrtc_signal_send_failed'),
           );
@@ -1054,7 +1076,7 @@ export class WebrtcSessionService {
         this.audit('public_sdp_rejected', `unexpected_${msg.type}:${this.publicSdpPhase}`);
         // Latch before media fail callbacks: the E2EE coordinator is allowed
         // to synchronously close signaling as part of fail-closed teardown.
-        this.signaling.markSessionRecreationRequired(sessionId);
+        this.signaling.markSessionRecreationRequired(sessionId, this.activeEpoch);
         if (this.pairMediaTransforms.isPrepared(sessionId)) {
           this.pairMediaE2ee.fail(sessionId, 'public_media_unexpected_sdp');
         }
@@ -1501,4 +1523,11 @@ export class WebrtcSessionService {
 
 function errorReasonCode(error: unknown, fallback: string): string {
   return error instanceof Error && error.message ? error.message : fallback;
+}
+
+function validSecurityEpoch(epoch: number): number {
+  if (!Number.isSafeInteger(epoch) || epoch < 1) {
+    throw new Error('webrtc_signal_epoch_invalid');
+  }
+  return epoch;
 }

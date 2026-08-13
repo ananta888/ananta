@@ -229,17 +229,25 @@ export class SemanticMediaProgramFacade implements OnDestroy {
       const previousSessionId = this.shareState.session?.id ?? '';
       const previousEpoch = this.shareState.session?.security_epoch ?? 0;
       const previousAuthority = this.boundAuthority();
+      const nextSessionId = state.session?.id ?? '';
       this.shareState = state;
       const authorityContextChanged = (
-        previousSessionId !== (state.session?.id ?? '')
+        previousSessionId !== nextSessionId
         || previousEpoch !== (state.session?.security_epoch ?? 0)
       );
       if (authorityContextChanged) {
         this.authorityContextGeneration += 1;
         this.cancelPublicationConsentPreparation();
       }
-      if (previousSessionId && previousSessionId !== (state.session?.id ?? '')) {
-        this.stopSessionScopedState(previousSessionId, previousAuthority === 'public');
+      if (previousSessionId && previousSessionId !== nextSessionId) {
+        // Replacing A directly with B parks A. The transport owner has already
+        // closed and unbound A; turning that reversible transition into the
+        // coordinator's terminal failClosed path would permanently disable A's
+        // otherwise reusable media contract. A transition to no session is the
+        // terminal End/Leave/remote-retirement projection and keeps the existing
+        // terminal coordinator teardown as defense in depth.
+        const terminalPublicSessionEnd = !nextSessionId && previousAuthority === 'public';
+        this.stopSessionScopedState(previousSessionId, terminalPublicSessionEnd);
       }
       this.syncContext();
       this.emit();
@@ -721,10 +729,10 @@ export class SemanticMediaProgramFacade implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    this.stopSessionScopedState(
-      this.shareState.session?.id ?? '',
-      this.boundAuthority() === 'public',
-    );
+    // Destroying a panel/facade host is a local UI lifecycle event, not proof
+    // that the Pair membership ended. Stop capture and revoke runtime consent,
+    // but leave terminal E2EE teardown to the session/transport owner.
+    this.stopSessionScopedState(this.shareState.session?.id ?? '');
     this.subscriptions.unsubscribe();
     this.view$.complete();
   }
@@ -927,11 +935,13 @@ export class SemanticMediaProgramFacade implements OnDestroy {
     });
   }
 
-  private stopSessionScopedState(sessionId = '', deactivatePublicMedia = false): void {
-    if (sessionId && deactivatePublicMedia) {
+  private stopSessionScopedState(sessionId = '', terminalPublicMedia = false): void {
+    if (sessionId) {
       this.publicMediaReadySessionId = '';
       this.publicMediaFailureCleanupSessionId = '';
-      this.pairMediaE2ee.deactivate(sessionId, 'ordinary_media_session_ended');
+      if (terminalPublicMedia) {
+        this.pairMediaE2ee.deactivate(sessionId, 'ordinary_media_session_ended');
+      }
     }
     this.stopSpeech('semantic_speech_session_ended');
     this.speech.stop();

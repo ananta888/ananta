@@ -868,6 +868,49 @@ describe('SemanticMediaProgramFacade', () => {
     expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
   });
 
+  it('parks a Public replacement without terminal media teardown and keeps a real end terminal', () => {
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    publicationConsentState$.next(publicationState('granted', publicationContext, {
+      term: { kind: 'session' }, expiresAtMs: Date.now() + 60_000,
+    }));
+    media.stopAudio.mockClear();
+    mediaPublications.stopAll.mockClear();
+    publicationConsent.bind.mockClear();
+    publicationConsent.grant.mockClear();
+    pairMediaE2ee.deactivate.mockClear();
+
+    const replacement = { ...session, id: 'session-b', security_epoch: 4 };
+    shareState$.next({ ...shareState$.value, session: replacement });
+
+    expect(media.stopAudio).toHaveBeenCalledWith('ordinary_media_session_ended');
+    expect(mediaPublications.stopAll)
+      .toHaveBeenCalledWith('ordinary_media_session_ended', true);
+    expect(publicationConsent.bind).toHaveBeenCalledWith(null);
+    expect(publicationConsent.grant).not.toHaveBeenCalled();
+    expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
+
+    shareState$.next({ ...shareState$.value, session: null });
+
+    expect(pairMediaE2ee.deactivate)
+      .toHaveBeenCalledWith('session-b', 'ordinary_media_session_ended');
+  });
+
+  it('treats facade destruction as nonterminal while stopping tracks and consent', () => {
+    pairControlPlane.authorityKindForSession.mockReturnValue('public');
+    media.stopAudio.mockClear();
+    mediaPublications.stopAll.mockClear();
+    publicationConsent.bind.mockClear();
+    pairMediaE2ee.deactivate.mockClear();
+
+    facade.ngOnDestroy();
+
+    expect(media.stopAudio).toHaveBeenCalledWith('ordinary_media_session_ended');
+    expect(mediaPublications.stopAll)
+      .toHaveBeenCalledWith('ordinary_media_session_ended', true);
+    expect(publicationConsent.bind).toHaveBeenCalledWith(null);
+    expect(pairMediaE2ee.deactivate).not.toHaveBeenCalled();
+  });
+
   it('applies pause and ordinary override to transport and ordinary media, not only the panel label', async () => {
     await facade.handleProgramIntent({ capability: 'live_speech', desired: 'activate', requestId: 'request-live-settings' });
     facade.handleSpeechSettings({

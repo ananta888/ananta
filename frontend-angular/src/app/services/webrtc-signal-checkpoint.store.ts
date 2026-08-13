@@ -4,6 +4,8 @@ export interface WebrtcSignalCheckpointContext {
   readonly sessionId: string;
   readonly localPeerId: string;
   readonly remotePeerId: string;
+  /** Present for public v2 signaling; omitted for the legacy Hub contract. */
+  readonly securityEpoch?: number;
 }
 
 export interface WebrtcSignalCheckpoint {
@@ -73,11 +75,20 @@ export class WebrtcSignalCheckpointStore {
 }
 
 function checkpointKey(context: WebrtcSignalCheckpointContext): string {
-  return `${checkpointSessionPrefix(context.sessionId)}${encodeURIComponent(context.localPeerId)}.${encodeURIComponent(context.remotePeerId)}`;
+  const epoch = context.securityEpoch;
+  const epochSegment = epoch === undefined ? '' : `epoch-${validSecurityEpoch(epoch)}.`;
+  return `${checkpointSessionPrefix(context.sessionId)}${epochSegment}${encodeURIComponent(context.localPeerId)}.${encodeURIComponent(context.remotePeerId)}`;
 }
 
 function checkpointSessionPrefix(sessionId: string): string {
   return `${STORAGE_PREFIX}${encodeURIComponent(sessionId)}.`;
+}
+
+function validSecurityEpoch(epoch: number): number {
+  if (!Number.isSafeInteger(epoch) || epoch < 1) {
+    throw new Error('webrtc_signal_epoch_invalid');
+  }
+  return epoch;
 }
 
 function parseCheckpoint(raw: string | null): WebrtcSignalCheckpoint | null {

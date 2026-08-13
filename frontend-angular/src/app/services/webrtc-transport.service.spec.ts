@@ -69,7 +69,10 @@ describe('WebrtcTransportService semantic relay', () => {
     recreationRequired.clear();
     webrtc.startSession.mockReset();
     webrtc.retireSession.mockClear();
-    webrtc.isSessionRecreationRequired.mockClear();
+    webrtc.isSessionRecreationRequired.mockReset();
+    webrtc.isSessionRecreationRequired.mockImplementation(
+      (sessionId: string) => recreationRequired.has(sessionId),
+    );
     webrtc.sendDc.mockReset();
     webrtc.sendDc.mockReturnValue(false);
     webrtc.state$.next('idle');
@@ -146,6 +149,7 @@ describe('WebrtcTransportService semantic relay', () => {
     });
 
     await service.open('session-1', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+    expect(webrtc.startSession).toHaveBeenCalledWith('session-1', true, 'bob', 2);
     webrtc.state$.next('failed');
 
     expect(lifecycle).toEqual(['peer_closed', 'relay_open']);
@@ -173,6 +177,20 @@ describe('WebrtcTransportService semantic relay', () => {
     expect(get).not.toHaveBeenCalled();
   });
 
+  it('returns to idle without a terminal latch while the remote runtime is parked', async () => {
+    profile.current.transport_order = ['webrtc'];
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+
+    webrtc.failureReason$.next('pair_runtime_not_ready');
+    webrtc.state$.next('closed');
+
+    expect(service.mode$.value).toBe('idle');
+    expect(service.terminalFailure$.value).toBeNull();
+    expect(service.isSessionRecreationRequired('public-session', 2)).toBe(false);
+    expect(closeSession).not.toHaveBeenCalled();
+  });
+
   it('latches terminal public signaling failure and blocks every same-session reopen', async () => {
     profile.current.transport_order = ['webrtc'];
     controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
@@ -192,6 +210,25 @@ describe('WebrtcTransportService semantic relay', () => {
     )).rejects.toThrow('public_signaling_session_recreation_required');
     expect(webrtc.startSession).toHaveBeenCalledTimes(1);
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('allows a fresh epoch and clears the prior epoch terminal projection', async () => {
+    profile.current.transport_order = ['webrtc'];
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.open('public-session', true, { semanticEpoch: 2, remotePeerId: 'bob' });
+    webrtc.isSessionRecreationRequired.mockImplementation((sessionId, epoch) => (
+      sessionId === 'public-session' && epoch === 2
+    ));
+    webrtc.state$.next('failed');
+
+    expect(service.terminalFailure$.value).toMatchObject({
+      kind: 'local_recreation_required', sessionId: 'public-session',
+    });
+    await service.open('public-session', true, { semanticEpoch: 3, remotePeerId: 'bob' });
+
+    expect(service.mode$.value).toBe('webrtc');
+    expect(service.terminalFailure$.value).toBeNull();
+    expect(webrtc.startSession).toHaveBeenLastCalledWith('public-session', true, 'bob', 3);
   });
 
   it('emits a distinct server-terminal failure without latching local recreation', async () => {

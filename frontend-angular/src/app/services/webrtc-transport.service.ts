@@ -130,14 +130,24 @@ export class WebrtcTransportService {
     const order = this.profiles.current.transport_order;
     const useWebrtc = order[0] === 'webrtc';
     const publicSession = this.controlPlane.isPublicSession(sessionId);
-    if (publicSession && this.webrtc.isSessionRecreationRequired(sessionId)) {
-      this.latchSessionRecreationRequired(sessionId);
+    const securityEpoch = this.validEpoch(options.semanticEpoch ?? 1);
+    const recreationRequired = publicSession && (
+      this.terminalSessions.has(terminalSessionKey(sessionId, securityEpoch))
+      || this.webrtc.isSessionRecreationRequired(sessionId, securityEpoch)
+    );
+    if (recreationRequired) {
+      this.latchSessionRecreationRequired(sessionId, securityEpoch);
       throw new Error(SIGNAL_SESSION_RECREATION_REQUIRED);
     }
+    const priorTerminal = this.terminalFailure$.value;
+    if (
+      priorTerminal?.kind === 'local_recreation_required'
+      && priorTerminal.sessionId === sessionId
+    ) this.terminalFailure$.next(null);
 
     this.subscriptions = new Subscription();
     this.sessionId = sessionId;
-    this.semanticEpoch = this.validEpoch(options.semanticEpoch ?? 1);
+    this.semanticEpoch = securityEpoch;
     const viewTransportGeneration = ++this.viewTransportGeneration;
     this.publishViewTransportState(false, viewTransportGeneration);
     for (const trafficClass of options.semanticTrafficClasses ?? []) {
@@ -155,15 +165,28 @@ export class WebrtcTransportService {
         throw new Error('webrtc_remote_peer_required');
       }
       this.mode$.next('webrtc');
-      // Monitor for WebRTC failure and fall back
+      let peerStartRequested = false;
+      // Monitor for WebRTC failure and reversible public runtime suspension.
       this.subscriptions.add(this.webrtc.state$.subscribe(state => {
+        // BehaviorSubject can still project the previous peer generation's
+        // terminal level until startSession synchronously publishes connecting.
+        if (!peerStartRequested) return;
+        if (
+          state === 'closed'
+          && this.mode$.value === 'webrtc'
+          && publicSession
+          && this.webrtc.failureReason$.value === 'pair_runtime_not_ready'
+        ) {
+          this.close();
+          return;
+        }
         if (state === 'failed' && this.mode$.value === 'webrtc') {
           if (publicSession) {
             const failureReason = this.webrtc.failureReason$.value;
             if (isTerminalPairSessionReason(failureReason)) {
               this.emitServerTerminal(sessionId, failureReason);
-            } else if (this.webrtc.isSessionRecreationRequired(sessionId)) {
-              this.latchSessionRecreationRequired(sessionId);
+            } else if (this.webrtc.isSessionRecreationRequired(sessionId, securityEpoch)) {
+              this.latchSessionRecreationRequired(sessionId, securityEpoch);
             }
             this.close();
           }
@@ -188,7 +211,13 @@ export class WebrtcTransportService {
         ) this.publishViewTransportState(state === 'open', viewTransportGeneration);
       }));
       try {
-        await this.webrtc.startSession(sessionId, isInitiator, options.remotePeerId);
+        peerStartRequested = true;
+        await this.webrtc.startSession(
+          sessionId,
+          isInitiator,
+          options.remotePeerId,
+          securityEpoch,
+        );
       } catch (error) {
         const terminalReason = terminalPairSessionReason(error);
         const reasonCode = errorReasonCode(error);
@@ -201,10 +230,10 @@ export class WebrtcTransportService {
         else if (
           publicSession
           && (
-            this.webrtc.isSessionRecreationRequired(sessionId)
+            this.webrtc.isSessionRecreationRequired(sessionId, securityEpoch)
             || reasonCode === SIGNAL_SESSION_RECREATION_REQUIRED
           )
-        ) this.latchSessionRecreationRequired(sessionId);
+        ) this.latchSessionRecreationRequired(sessionId, securityEpoch);
         this.close();
         throw error;
       }
@@ -221,7 +250,7 @@ export class WebrtcTransportService {
     const wasOpen = this.mode$.value !== 'idle';
     this.stopRelayPoll();
     this.subscriptions.unsubscribe();
-    if (wasOpen) this.webrtc.closeSession();
+    if (wasOpen && this.webrtc.state$.value !== 'closed') this.webrtc.closeSession();
     this.semanticRelayClasses.clear();
     this.semanticRelayCursors.clear();
     this.semanticRelayPolls.clear();
@@ -237,15 +266,18 @@ export class WebrtcTransportService {
   retireSession(sessionId: string): void {
     if (this.sessionId === sessionId) this.close();
     this.webrtc.retireSession(sessionId);
-    this.terminalSessions.delete(sessionId);
+    for (const key of this.terminalSessions) {
+      if (key.startsWith(`${sessionId}\u0000`)) this.terminalSessions.delete(key);
+    }
     if (this.terminalFailure$.value?.sessionId === sessionId) {
       this.terminalFailure$.next(null);
     }
   }
 
-  isSessionRecreationRequired(sessionId: string): boolean {
-    return this.terminalSessions.has(sessionId)
-      || this.webrtc.isSessionRecreationRequired(sessionId);
+  isSessionRecreationRequired(sessionId: string, securityEpoch = this.semanticEpoch): boolean {
+    const exactEpoch = this.validEpoch(securityEpoch);
+    return this.terminalSessions.has(terminalSessionKey(sessionId, exactEpoch))
+      || this.webrtc.isSessionRecreationRequired(sessionId, exactEpoch);
   }
 
   setSemanticEpoch(epoch: number): void {
@@ -574,9 +606,10 @@ export class WebrtcTransportService {
     }
   }
 
-  private latchSessionRecreationRequired(sessionId: string): void {
-    if (this.terminalSessions.has(sessionId)) return;
-    this.terminalSessions.add(sessionId);
+  private latchSessionRecreationRequired(sessionId: string, securityEpoch: number): void {
+    const key = terminalSessionKey(sessionId, securityEpoch);
+    if (this.terminalSessions.has(key)) return;
+    this.terminalSessions.add(key);
     this.terminalFailure$.next(Object.freeze({
       kind: 'local_recreation_required',
       sessionId,
@@ -604,4 +637,8 @@ export class WebrtcTransportService {
 
 function errorReasonCode(error: unknown): string {
   return error instanceof Error ? error.message : '';
+}
+
+function terminalSessionKey(sessionId: string, securityEpoch: number): string {
+  return `${sessionId}\u0000${securityEpoch}`;
 }

@@ -48,6 +48,7 @@ describe('PairSessionControlPlaneService', () => {
   let createdResponse: Record<string, unknown>;
   let joinedResponse: Record<string, unknown>;
   let listedResponses: Array<Record<string, unknown>>;
+  let runtimeResponse: Record<string, unknown>;
   let publicMediaAdvertisement: Record<string, unknown> | null;
 
   beforeEach(() => {
@@ -60,9 +61,13 @@ describe('PairSessionControlPlaneService', () => {
     profile.publicPairOptedIn = true;
     directory.list.mockReset();
     directory.list.mockReturnValue([{ role: 'hub', url: 'http://127.0.0.1:5000' }]);
-    createdResponse = publicSession('created-session', ownerPeerId);
-    joinedResponse = publicSession('joined-session', joinerPeerId);
-    listedResponses = [publicSession('listed-session', listedPeerId)];
+    createdResponse = publicSession('created-session', ownerPeerId, 2, 'owner', 'active');
+    joinedResponse = publicSession('joined-session', joinerPeerId, 2, 'participant', 'active');
+    listedResponses = [publicSession('listed-session', listedPeerId, 2, 'owner', 'parked')];
+    runtimeResponse = {
+      state: 'active', security_epoch: 4, changed: true,
+      parked_session_ids: ['parked-session'],
+    };
     publicMediaAdvertisement = null;
     localStorage.clear();
     localStorage.setItem('ananta.pair-device-id.v1', 'device-a');
@@ -96,6 +101,13 @@ describe('PairSessionControlPlaneService', () => {
           }
           if (method === 'POST' && url.endsWith('/rendezvous/sessions/join')) {
             return of({ ok: true, local_peer_id: joinerPeerId, session: joinedResponse });
+          }
+          if (method === 'PUT' && url.endsWith('/membership/runtime')) {
+            const localPeerId = url.includes('/joined-session/') ? joinerPeerId : ownerPeerId;
+            return of({ ok: true, local_peer_id: localPeerId, data: runtimeResponse });
+          }
+          if (method === 'POST' && url.endsWith('/rendezvous/sessions/catalog')) {
+            return of({ ok: true, data: { items: listedResponses } });
           }
           if (method === 'GET' && url.endsWith('/rendezvous/sessions')) {
             return of({
@@ -181,6 +193,8 @@ describe('PairSessionControlPlaneService', () => {
     expect(service.currentPeerId).toBe('hub-user');
     expect(service.peerIdForSession('created-session')).toBe(ownerPeerId);
     expect(service.peerIdForSession('joined-session')).toBe(joinerPeerId);
+    expect(service.requiresSignalEpoch('created-session')).toBe(true);
+    expect(service.requiresSignalEpoch('joined-session')).toBe(true);
     const route = service.authorityRouteForSession('created-session');
     expect(route).toEqual({ kind: 'public', baseUrl: 'https://webrtc.ananta.de' });
     expect(Object.isFrozen(route)).toBe(true);
@@ -300,8 +314,11 @@ describe('PairSessionControlPlaneService', () => {
     }
   });
 
-  it('restores public bindings only from an explicit authenticated list response', () => {
-    seedBoundCapability('listed-session', listedPeerId);
+  it('posts only exact-account proofs and restores the authenticated v2 catalogue response', () => {
+    const capability = seedBoundCapability('listed-session', listedPeerId);
+    const otherCapability = seedBoundCapability(
+      'other-account-session', `peer:${'e'.repeat(64)}`, 'other-account',
+    );
     const service = TestBed.inject(PairSessionControlPlaneService);
     let sessions: readonly unknown[] = [];
     service.list().subscribe(items => { sessions = items; });
@@ -313,9 +330,148 @@ describe('PairSessionControlPlaneService', () => {
     expect(service.peerIdForSession('listed-session')).toBe(listedPeerId);
     expect(() => service.participants('unknown-session')).toThrow('pair_control_plane_binding_missing');
     expect(requests[0]).toMatchObject({
-      method: 'GET',
-      headers: { 'X-Ananta-Device-Id': 'device-a' },
+      method: 'POST',
+      url: 'https://webrtc.ananta.de/rendezvous/sessions/catalog',
+      token: oidcToken,
+      body: { memberships: [{
+        session_id: 'listed-session',
+        local_peer_id: listedPeerId,
+        membership_capability: capability,
+      }] },
     });
+    expect(requests[0].headers).toBeUndefined();
+    expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+    expect(requests[0].url).not.toContain(capability);
+    expect(requests[0].url).not.toContain(otherCapability);
+  });
+
+  it('queries every proof batch so stale leading proofs cannot hide a later live session', async () => {
+    for (let index = 0; index < 33; index += 1) {
+      seedBoundCapability(
+        `stale-${String(index).padStart(2, '0')}`,
+        `peer:${index.toString(16).padStart(64, '0')}`,
+      );
+    }
+    const latePeerId = `peer:${'f'.repeat(64)}`;
+    const lateCapability = seedBoundCapability('zz-live-session', latePeerId);
+    const legacy = publicSession('legacy-session', legacyPeerId, 1);
+    const live = publicSession('zz-live-session', latePeerId);
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request)
+      .mockReturnValueOnce(of({ ok: true, data: { items: [legacy] } }))
+      .mockReturnValueOnce(of({ ok: true, data: { items: [legacy, live] } }));
+
+    await expect(firstValueFrom(service.list())).resolves.toEqual([
+      expect.objectContaining({ id: 'legacy-session' }),
+      expect.objectContaining({ id: 'zz-live-session', local_peer_id: latePeerId }),
+    ]);
+
+    const catalogCalls = vi.mocked(core.request).mock.calls;
+    expect(catalogCalls).toHaveLength(2);
+    expect((catalogCalls[0]?.[3]?.body as { memberships: unknown[] }).memberships)
+      .toHaveLength(32);
+    expect((catalogCalls[1]?.[3]?.body as { memberships: Array<Record<string, unknown>> }).memberships)
+      .toEqual(expect.arrayContaining([expect.objectContaining({
+        session_id: 'zz-live-session',
+        local_peer_id: latePeerId,
+        membership_capability: lateCapability,
+      })]));
+    expect(service.isPublicSession('zz-live-session')).toBe(true);
+  });
+
+  it('rejects conflicting duplicate rows across batches before binding any session', async () => {
+    for (let index = 0; index < 33; index += 1) {
+      seedBoundCapability(
+        `stale-${String(index).padStart(2, '0')}`,
+        `peer:${index.toString(16).padStart(64, '0')}`,
+      );
+    }
+    const first = publicSession('legacy-conflict', legacyPeerId, 1);
+    const second = { ...first, security_epoch: 4 };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request)
+      .mockReturnValueOnce(of({ ok: true, data: { items: [first] } }))
+      .mockReturnValueOnce(of({ ok: true, data: { items: [second] } }));
+
+    await expect(firstValueFrom(service.list()))
+      .rejects.toThrow('pair_session_list_duplicate_conflict');
+    expect(service.isPublicSession('legacy-conflict')).toBe(false);
+  });
+
+  it('rejects a completed catalogue snapshot after the OIDC subject changes in flight', async () => {
+    seedBoundCapability('listed-session', listedPeerId);
+    const response = new Subject<unknown>();
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(response);
+
+    const pending = firstValueFrom(service.list());
+    auth.oidcAccessTokenValue = jwt({
+      iss: PUBLIC_OIDC_ISSUER,
+      sub: 'replacement-account',
+      exp: Math.floor(Date.now() / 1000) + 3600,
+    });
+    response.next({ ok: true, data: { items: listedResponses } });
+    response.complete();
+
+    await expect(pending).rejects.toThrow('public_session_identity_changed');
+    expect(service.isPublicSession('listed-session')).toBe(false);
+  });
+
+  it('rejects a completed catalogue snapshot after the Public profile changes in flight', async () => {
+    seedBoundCapability('listed-session', listedPeerId);
+    const response = new Subject<unknown>();
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    const core = TestBed.inject(HubApiCoreService);
+    vi.mocked(core.request).mockReturnValueOnce(response);
+
+    const pending = firstValueFrom(service.list());
+    profile.current = {
+      ...publicProfile(),
+      profile_id: 'local',
+      public_rendezvous: false,
+    };
+    response.next({ ok: true, data: { items: listedResponses } });
+    response.complete();
+
+    await expect(pending).rejects.toThrow('public_session_profile_changed');
+    expect(service.isPublicSession('listed-session')).toBe(false);
+  });
+
+  it('activates one exact v2 membership and validates the authoritative epoch', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    requests.length = 0;
+
+    await expect(firstValueFrom(service.activateSessionRuntime('created-session'))).resolves.toEqual({
+      state: 'active', security_epoch: 4, changed: true,
+      parked_session_ids: ['parked-session'],
+    });
+
+    expect(requests).toEqual([expect.objectContaining({
+      method: 'PUT',
+      url: 'https://webrtc.ananta.de/rendezvous/sessions/created-session/membership/runtime',
+      body: { state: 'active' },
+      token: oidcToken,
+      headers: {
+        'X-Ananta-Peer-Id': ownerPeerId,
+        'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      },
+    })]);
+    expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+  });
+
+  it('rejects a malformed runtime response instead of treating the target as active', async () => {
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Pair' }));
+    runtimeResponse = {
+      state: 'active', security_epoch: 0, changed: true, parked_session_ids: [],
+    };
+
+    await expect(firstValueFrom(service.activateSessionRuntime('created-session')))
+      .rejects.toThrow('pair_session_runtime_response_invalid');
   });
 
   it('never sends a bearer token to an attacker-modified public profile origin', () => {
@@ -383,6 +539,24 @@ describe('PairSessionControlPlaneService', () => {
     expect(service.isPublicSession('joined-session')).toBe(false);
   });
 
+  it('requires the v2 create role and active runtime projection before binding', async () => {
+    delete createdResponse['local_role'];
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    await expect(firstValueFrom(service.create({ title: 'Pair' })))
+      .rejects.toThrow('pair_session_local_role_missing');
+    expect(service.isPublicSession('created-session')).toBe(false);
+  });
+
+  it('rejects a parked v2 join response instead of locally treating it as active', async () => {
+    joinedResponse = { ...joinedResponse, local_runtime_state: 'parked' };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    await expect(firstValueFrom(service.join({ invite_code: 'INVITE' })))
+      .rejects.toThrow('pair_session_runtime_state_invalid');
+    expect(service.isPublicSession('joined-session')).toBe(false);
+  });
+
   it('rejects an entire public list atomically when one session exceeds advertised capabilities', async () => {
     listedResponses = [
       publicSession('listed-valid'),
@@ -394,6 +568,16 @@ describe('PairSessionControlPlaneService', () => {
       .rejects.toThrow('public_pair_capability_contract_invalid');
     expect(service.isPublicSession('listed-valid')).toBe(false);
     expect(service.isPublicSession('listed-downgraded')).toBe(false);
+  });
+
+  it('rejects v2 discovery without authoritative role/runtime before binding it', async () => {
+    seedBoundCapability('listed-session', listedPeerId);
+    delete listedResponses[0]['local_role'];
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    await expect(firstValueFrom(service.list()))
+      .rejects.toThrow('pair_session_local_role_missing');
+    expect(service.isPublicSession('listed-session')).toBe(false);
   });
 
   it('refuses a public profile that does not advertise strict WebRTC-only capability', () => {
@@ -456,6 +640,19 @@ describe('PairSessionControlPlaneService', () => {
     expect(requests).toEqual([]);
   });
 
+  it('never falls back to a Hub session catalogue when Public Pair is required', () => {
+    profile.current = {
+      ...publicProfile(), profile_id: 'local', public_rendezvous: false,
+      oidc: { ...publicProfile().oidc, issuer: '' },
+      rendezvous: { ...publicProfile().rendezvous, base_url: '', signaling_url: '' },
+    };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+
+    expect(() => service.list({ expectedAuthority: 'public' }))
+      .toThrow('public_pair_authority_required');
+    expect(requests).toEqual([]);
+  });
+
   it('does not fall back to Hub after a bound public session loses its token', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
@@ -488,14 +685,15 @@ describe('PairSessionControlPlaneService', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
     service.create({ title: 'Pair' }).subscribe();
     requests.length = 0;
-    service.signalPoll('created-session', '6').subscribe();
+    service.signalPoll('created-session', '6', 3).subscribe();
     service.signalSend('created-session', {
-      type: 'offer', recipient_id: 'oidc:peer-b', payload: { sdp: 'v=0' },
+      type: 'offer', recipient_id: 'oidc:peer-b', security_epoch: 3,
+      payload: { sdp: 'v=0' },
     }).subscribe();
 
     expect(requests[0]).toMatchObject({
       method: 'GET',
-      url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal?since=6',
+      url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal?since=6&security_epoch=3',
       token: oidcToken,
       headers: {
         'X-Ananta-Peer-Id': ownerPeerId,
@@ -506,6 +704,7 @@ describe('PairSessionControlPlaneService', () => {
       method: 'POST',
       url: 'https://webrtc.ananta.de/webrtc/sessions/created-session/signal',
       token: oidcToken,
+      body: expect.objectContaining({ security_epoch: 3 }),
       headers: {
         'X-Ananta-Peer-Id': ownerPeerId,
         'X-Ananta-Membership-Capability': expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
@@ -513,6 +712,53 @@ describe('PairSessionControlPlaneService', () => {
     });
     expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
     expect(requests[1].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
+  });
+
+  it.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'fails closed before a v2 public signal poll with invalid epoch %s',
+    async (securityEpoch) => {
+      const service = TestBed.inject(PairSessionControlPlaneService);
+      await firstValueFrom(service.create({ title: 'Pair' }));
+      requests.length = 0;
+
+      expect(() => service.signalPoll('created-session', '6', securityEpoch))
+        .toThrow('signal_epoch_required');
+      expect(requests).toEqual([]);
+    },
+  );
+
+  it.each([undefined, 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1])(
+    'fails closed before a v2 public signal send with invalid epoch %s',
+    async (securityEpoch) => {
+      const service = TestBed.inject(PairSessionControlPlaneService);
+      await firstValueFrom(service.create({ title: 'Pair' }));
+      requests.length = 0;
+
+      expect(() => service.signalSend('created-session', {
+        type: 'offer', security_epoch: securityEpoch, payload: { sdp: 'v=0' },
+      })).toThrow('signal_epoch_required');
+      expect(requests).toEqual([]);
+    },
+  );
+
+  it('keeps the Hub signal-poll path compatible without an epoch query', async () => {
+    profile.current = {
+      ...publicProfile(), profile_id: 'local', public_rendezvous: false,
+      oidc: { ...publicProfile().oidc, issuer: '' },
+      rendezvous: { ...publicProfile().rendezvous, base_url: '', signaling_url: '' },
+    };
+    const service = TestBed.inject(PairSessionControlPlaneService);
+    await firstValueFrom(service.create({ title: 'Hub Pair' }));
+    expect(service.requiresSignalEpoch('created-session')).toBe(false);
+    gets.length = 0;
+
+    await firstValueFrom(service.signalPoll('created-session', '6'));
+
+    expect(gets).toContainEqual({
+      url: 'http://127.0.0.1:5000/api/webrtc/sessions/created-session/signal?since=6',
+      token: undefined,
+      useRetry: false,
+    });
   });
 
   it('requests TURN credentials through the exact bound public session', async () => {
@@ -754,6 +1000,12 @@ describe('PairSessionControlPlaneService', () => {
     const service = TestBed.inject(PairSessionControlPlaneService);
 
     await expect(firstValueFrom(service.list())).resolves.toEqual([]);
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: 'https://webrtc.ananta.de/rendezvous/sessions/catalog',
+      body: { memberships: [] },
+    });
+    expect(requests[0].headers).toBeUndefined();
     expect(() => service.peerIdForSession('listed-session'))
       .toThrow('pair_control_plane_binding_missing');
   });
@@ -764,9 +1016,15 @@ describe('PairSessionControlPlaneService', () => {
     await expect(firstValueFrom(service.list())).resolves.toEqual([
       expect.objectContaining({ id: 'legacy-session', local_peer_id: legacyPeerId }),
     ]);
+    expect(requests[0]).toMatchObject({
+      method: 'POST',
+      url: 'https://webrtc.ananta.de/rendezvous/sessions/catalog',
+      body: { memberships: [] },
+    });
     requests.length = 0;
 
     await firstValueFrom(service.participants('legacy-session'));
+    expect(service.requiresSignalEpoch('legacy-session')).toBe(false);
     expect(requests[0].headers).toEqual({ 'X-Ananta-Peer-Id': legacyPeerId });
     expect(requests[0].context?.get(SUPPRESS_GLOBAL_ERROR_NOTIFICATION)).toBe(true);
   });
@@ -931,16 +1189,21 @@ function publicProfile() {
   };
 }
 
-function seedBoundCapability(sessionId: string, localPeerId: string): void {
+function seedBoundCapability(
+  sessionId: string,
+  localPeerId: string,
+  oidcSubject = 'raw-oidc-sub',
+): string {
   const store = TestBed.inject(PairMembershipCapabilityStore);
   const scope = {
     kind: 'create' as const,
     baseUrl: 'https://webrtc.ananta.de',
     oidcIssuer: PUBLIC_OIDC_ISSUER,
-    oidcSubject: 'raw-oidc-sub',
+    oidcSubject,
   };
   const pending = store.begin(scope, { restore: sessionId });
   store.promote(scope, sessionId, localPeerId, pending.capability);
+  return pending.capability;
 }
 
 function capabilityScope() {
@@ -955,6 +1218,8 @@ function publicSession(
   id: string,
   localPeerId = `peer:${'a'.repeat(64)}`,
   identityBindingVersion: 1 | 2 = 2,
+  localRole: 'owner' | 'participant' = 'owner',
+  localRuntimeState: 'active' | 'parked' = 'active',
 ): Record<string, unknown> {
   const permissions = {
     chat: true,
@@ -974,7 +1239,12 @@ function publicSession(
     permissions,
     allowed_permissions: { ...permissions },
     local_peer_id: localPeerId,
-    ...(identityBindingVersion === 2 ? { local_peer_ids: [localPeerId] } : {}),
+    security_epoch: 3,
+    ...(identityBindingVersion === 2 ? {
+      local_peer_ids: [localPeerId],
+      local_role: localRole,
+      local_runtime_state: localRuntimeState,
+    } : {}),
   };
 }
 

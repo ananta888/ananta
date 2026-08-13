@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PairMembershipCapabilityStore } from './pair-membership-capability.store';
+import {
+  MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS,
+  PairMembershipCapabilityStore,
+} from './pair-membership-capability.store';
 
 const sessionId = 'session-a';
 const localPeerId = `peer:${'a'.repeat(64)}`;
@@ -131,5 +134,37 @@ describe('PairMembershipCapabilityStore', () => {
       localPeerId,
       { ...createScope, oidcSubject: 'account-b' },
     )).toThrow('public_membership_capability_binding_invalid');
+  });
+
+  it('enumerates the complete exact authority/account scope in stable batch order', () => {
+    const store = TestBed.inject(PairMembershipCapabilityStore);
+    for (let index = 0; index < MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS + 2; index += 1) {
+      const id = `session-${String(index).padStart(2, '0')}`;
+      const peer = `peer:${index.toString(16).padStart(64, '0')}`;
+      const pending = store.begin(createScope, { title: id });
+      store.promote(createScope, id, peer, pending.capability);
+    }
+    const otherScope = { ...createScope, kind: 'create' as const, oidcSubject: 'account-b' };
+    const other = store.begin(otherScope, { title: 'other-account' });
+    store.promote(otherScope, 'session-other', `peer:${'f'.repeat(64)}`, other.capability);
+
+    const listed = store.listBound(createScope);
+
+    expect(listed).toHaveLength(MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS + 2);
+    expect(listed.map(item => item.sessionId)).toEqual(
+      Array.from({ length: MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS + 2 }, (_, index) => (
+        `session-${String(index).padStart(2, '0')}`
+      )),
+    );
+    expect(listed.every(item => item.oidcSubject === 'account-a')).toBe(true);
+    expect(Object.isFrozen(listed)).toBe(true);
+  });
+
+  it('returns an empty proof batch for a different same-origin account', () => {
+    const store = TestBed.inject(PairMembershipCapabilityStore);
+    const pending = store.begin(createScope, { title: 'Pair' });
+    store.promote(createScope, sessionId, localPeerId, pending.capability);
+
+    expect(store.listBound({ ...createScope, oidcSubject: 'account-b' })).toEqual([]);
   });
 });

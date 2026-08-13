@@ -206,6 +206,23 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     }));
   });
 
+  it('closes the exact peer as reversible wait when the remote runtime is parked', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+    await service.startSession('public-session', false, 'bob', 4);
+    const peer = FakePeerConnection.instances[0];
+
+    signaling.failureReason$.next('pair_runtime_not_ready');
+    signaling.status$.next('disconnected');
+
+    expect(peer.close).toHaveBeenCalledTimes(1);
+    expect(service.state$.value).toBe('closed');
+    expect(service.failureReason$.value).toBe('pair_runtime_not_ready');
+    expect(signaling.markSessionRecreationRequired).not.toHaveBeenCalled();
+    expect(service.auditLog).toContainEqual(expect.objectContaining({
+      type: 'signaling_waiting_for_pair_runtime', session_id: 'public-session',
+    }));
+  });
+
   it('preserves an explicit server-terminal signaling reason over a local latch', async () => {
     controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
     await service.startSession('public-session', false, 'bob');
@@ -282,7 +299,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
         .rejects.toBe(authorityError);
 
       expect(signaling.markSessionRecreationRequired).toHaveBeenCalledOnce();
-      expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session');
+      expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session', 1);
       expect(service.failureReason$.value).toBe('public_signaling_session_recreation_required');
       expect(FakePeerConnection.instances).toEqual([]);
       expect(signaling.bindMessageHandler).not.toHaveBeenCalled();
@@ -305,7 +322,17 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     expect(FakePeerConnection.instances[0].configuration?.iceServers).toEqual([
       { urls: PUBLIC_WEBRTC_STUN_URL },
     ]);
-    expect(signaling.connect).toHaveBeenCalledWith('', 'public-session', 'bob');
+    expect(signaling.connect).toHaveBeenCalledWith('', 'public-session', 'bob', 1);
+  });
+
+  it('binds a non-default security epoch before public signaling starts', async () => {
+    controlPlane.isPublicSession.mockImplementation(sessionId => sessionId === 'public-session');
+
+    await service.startSession('public-session', false, 'bob', 7);
+
+    expect(signaling.assertSessionReusable).toHaveBeenCalledWith('public-session', 7);
+    expect(signaling.connect).toHaveBeenCalledWith('', 'public-session', 'bob', 7);
+    expect(service.isSessionRecreationRequired('public-session', 7)).toBe(false);
   });
 
   it('buffers retained remote ICE until the matching remote description is applied', async () => {
@@ -365,7 +392,7 @@ describe('WebrtcSessionService session-bound signaling lifecycle', () => {
     await expect(signalHandler?.(candidate(256)))
       .rejects.toThrow('webrtc_remote_ice_buffer_overflow');
     expect(FakePeerConnection.instances[0].addIceCandidate).not.toHaveBeenCalled();
-    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session');
+    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('public-session', 1);
   });
 
   it('rejects local and remote ordinary tracks for a public Pair session', async () => {

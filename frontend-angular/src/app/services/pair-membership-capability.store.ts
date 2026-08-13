@@ -30,6 +30,7 @@ const PENDING_PREFIX = 'ananta.pair-membership-capability.pending.v2.';
 const BOUND_PREFIX = 'ananta.pair-membership-capability.bound.v2.';
 const IDENTIFIER_RE = /^[A-Za-z0-9][A-Za-z0-9._:@-]{0,127}$/;
 const CAPABILITY_RE = /^[A-Za-z0-9_-]{43}$/;
+export const MAX_PUBLIC_PAIR_CATALOG_MEMBERSHIPS = 32;
 const PENDING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const CLOCK_SKEW_MS = 5 * 60 * 1000;
 
@@ -38,7 +39,8 @@ const CLOCK_SKEW_MS = 5 * 60 * 1000;
  *
  * Pending proof is durable before a mutating request leaves the browser, so a
  * lost create/join response can be retried with the same idempotency secret.
- * Public list responses may discover metadata, but can never create a proof.
+ * Public catalog responses may discover metadata only for an exact bounded
+ * set of already-bound proofs; they can never create or broaden a proof.
  */
 @Injectable({ providedIn: 'root' })
 export class PairMembershipCapabilityStore {
@@ -142,6 +144,30 @@ export class PairMembershipCapabilityStore {
     )?.capability ?? null;
   }
 
+  /** Returns every bound proof for one exact OIDC authority in stable order. */
+  listBound(
+    scope: PairMembershipAuthorityScope,
+  ): readonly Readonly<PairMembershipCapabilityBinding>[] {
+    const expectedScope = normalizeAuthorityScope(scope);
+    const matches: Readonly<PairMembershipCapabilityBinding>[] = [];
+    for (const key of boundStorageKeys()) {
+      const raw = readStorageItem(key);
+      if (!raw) continue;
+      let binding: Readonly<PairMembershipCapabilityBinding>;
+      try {
+        binding = normalizeBinding(JSON.parse(raw) as PairMembershipCapabilityBinding);
+      } catch {
+        throw new Error('public_membership_capability_binding_invalid');
+      }
+      if (sameAuthorityScope(binding, expectedScope)) matches.push(binding);
+    }
+    matches.sort((left, right) => (
+      left.sessionId.localeCompare(right.sessionId)
+      || left.localPeerId.localeCompare(right.localPeerId)
+    ));
+    return Object.freeze(matches);
+  }
+
   clearPending(kind: PairMembershipAttemptKind): void {
     removeStorageItem(pendingKey(kind));
   }
@@ -170,6 +196,19 @@ function pendingKey(kind: PairMembershipAttemptKind): string {
 
 function boundKey(sessionId: string, localPeerId: string): string {
   return `${BOUND_PREFIX}${encodeURIComponent(sessionId)}.${encodeURIComponent(localPeerId)}`;
+}
+
+function boundStorageKeys(): readonly string[] {
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < sessionStorage.length; index += 1) {
+      const key = sessionStorage.key(index);
+      if (key?.startsWith(BOUND_PREFIX)) keys.push(key);
+    }
+    return keys;
+  } catch {
+    throw new Error('public_membership_capability_storage_unavailable');
+  }
 }
 
 function readPending(

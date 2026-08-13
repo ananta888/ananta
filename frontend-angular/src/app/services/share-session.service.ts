@@ -31,25 +31,44 @@ export interface ShareSession {
   /** Canonical, server-issued peer identity for this exact control plane. */
   local_peer_id?: string;
   title: string;
-  invite_code: string;
+  /** Present only when the current membership is allowed to invite another peer. */
+  invite_code?: string;
   mode: string;
   transport: string;
   permissions: Record<string, boolean>;
   created_at: number;
   expires_at: number | null;
   revoked_at: number | null;
-  owner_user_id: string;
+  /** Legacy/Hub identity field; compact v2 catalog rows deliberately omit it. */
+  owner_user_id?: string;
   tenant_id?: string;
   permissions_version?: number;
   security_epoch?: number | null;
   security_contract_version?: number;
   security_mode?: string;
   identity_binding_version?: number;
+  /** Server-validated role for an exact device-selected list item. */
+  local_role?: 'owner' | 'participant';
+  /** Server-authoritative runtime state for this exact v2 device membership. */
+  local_runtime_state?: 'active' | 'parked';
+  /** Canonical owner device peer id for v2 role verification. */
+  owner_peer_id?: string;
+  participant_count?: number;
+  /** Server-issued, session-scoped label that does not expose a peer/device id. */
+  peer_label?: string;
+  participants?: readonly ShareParticipant[];
+}
+
+export interface ShareSessionCatalogEntry {
+  readonly session: ShareSession;
+  readonly role: 'owner' | 'participant';
 }
 
 export interface ShareParticipant {
   id: string;
   user_id: string;
+  account_id?: string;
+  peer_id?: string;
   device_id: string;
   joined_at: number;
   last_seen_at: number | null;
@@ -102,6 +121,14 @@ export interface ActiveShareState {
 
 type PendingMembershipAuthority = PairControlPlaneKind | 'unknown';
 
+interface MembershipMutationFence {
+  readonly serial: number;
+  readonly kind: 'create' | 'join';
+  readonly authority: PendingMembershipAuthority;
+  readonly sourceSessionId: string;
+  readonly sourceGeneration: number;
+}
+
 export type PublicPairRuntimeState =
   | 'idle'
   | 'public_pending'
@@ -142,10 +169,13 @@ export class ShareSessionService implements OnDestroy {
     promise: Promise<void>;
   }> | null = null;
   private membershipMutationSerial = 0;
-  private activeMembershipMutation: Readonly<{
+  private activeMembershipMutation: Readonly<MembershipMutationFence> | null = null;
+  private sessionSwitchSerial = 0;
+  private activeSessionSwitch: Readonly<{
     serial: number;
-    kind: 'create' | 'join';
-    authority: PendingMembershipAuthority;
+    sourceSessionId: string;
+    targetSessionId: string;
+    sourceGeneration: number;
   }> | null = null;
 
   constructor() {
@@ -184,7 +214,10 @@ export class ShareSessionService implements OnDestroy {
         if (failure.kind === 'server_terminal') {
           this.terminateRemoteSession(active.id, this.sessionGeneration);
         } else {
-          this.quiesceActiveTransport(active.id, this.sessionGeneration);
+          // A local replay ambiguity is scoped to the exact security epoch.
+          // Keep authenticated membership/security polling alive so a later
+          // server epoch can replace it without reusing the poisoned transport.
+          this.closeEpochBlockedTransport(active.id, this.sessionGeneration);
         }
       }));
     }
@@ -199,7 +232,9 @@ export class ShareSessionService implements OnDestroy {
       || state === 'public'
       || state === 'unknown';
   }
-  get sessionMutationPending(): boolean { return this.activeMembershipMutation !== null; }
+  get sessionMutationPending(): boolean {
+    return this.activeMembershipMutation !== null || this.activeSessionSwitch !== null;
+  }
 
   /**
    * Permissions of the currently active session, normalised
@@ -263,9 +298,10 @@ export class ShareSessionService implements OnDestroy {
     options: PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
     const authority = this.pinMembershipAuthority(options.expectedAuthority);
-    return this.runMembershipMutation('create', authority, async () => {
+    return this.runMembershipMutation('create', authority, async mutation => {
       const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
+      this.assertMembershipMutationCurrent(mutation);
       const transport = this.preferredTransport();
       const body = {
         title,
@@ -283,6 +319,7 @@ export class ShareSessionService implements OnDestroy {
         expectedAuthority,
       }));
       if (!session?.id) throw new Error('no session in response');
+      this.assertMembershipMutationCurrent(mutation);
       this.activateValidatedSession(session, 'owner');
       return session;
     });
@@ -293,9 +330,10 @@ export class ShareSessionService implements OnDestroy {
     options: { allowLegacy?: boolean } & PairSessionMutationOptions = {},
   ): Promise<ShareSession> {
     const authority = this.pinMembershipAuthority(options.expectedAuthority);
-    return this.runMembershipMutation('join', authority, async () => {
+    return this.runMembershipMutation('join', authority, async mutation => {
       const expectedAuthority = this.requirePinnedMembershipAuthority(authority);
       const deviceKey = await this.e2ee.ensureLocalKeyPair();
+      this.assertMembershipMutationCurrent(mutation);
       const session = await firstValueFrom(this.controlPlane.join<ShareSession>({
         invite_code: inviteCode,
         minimum_security_mode: options.allowLegacy === true ? 'legacy' : 'strict_e2ee',
@@ -303,9 +341,94 @@ export class ShareSessionService implements OnDestroy {
         public_key_fingerprint: deviceKey.fingerprint,
       }, { expectedAuthority }));
       if (!session?.id) throw new Error('join failed');
+      this.assertMembershipMutationCurrent(mutation);
       this.activateValidatedSession(session, 'participant', options.allowLegacy === true);
       return session;
     });
+  }
+
+  /**
+   * Returns only sessions that the currently pinned control-plane authority
+   * can bind to this tab's exact device membership proof.
+   */
+  async listSessions(
+    options: PairSessionMutationOptions = {},
+  ): Promise<readonly ShareSessionCatalogEntry[]> {
+    const authority = this.requirePinnedMembershipAuthority(
+      this.pinMembershipAuthority(options.expectedAuthority),
+    );
+    const sessions = await firstValueFrom(this.controlPlane.list<ShareSession>({
+      expectedAuthority: authority,
+    }));
+    return Object.freeze(sessions.map(session => {
+      if (authority === 'public') listedSessionRuntimeState(session);
+      return Object.freeze({
+        session,
+        role: listedSessionRole(session),
+      });
+    }));
+  }
+
+  /**
+   * Parks the current local runtime and activates exactly one listed session.
+   * No server membership is ended or left; a later switch can re-bind it from
+   * its tab-local capability. The current session stays untouched until the
+   * target has been freshly discovered and fully validated.
+   */
+  async switchToSession(
+    sessionId: string,
+    options: PairSessionMutationOptions = {},
+  ): Promise<void> {
+    const targetSessionId = sessionId.trim();
+    if (!targetSessionId) throw new Error('pair_session_switch_target_required');
+    const sourceSession = this.state$.value.session;
+    const sourceSessionId = sourceSession?.id ?? '';
+    if (
+      sourceSessionId === targetSessionId
+      && (!sourceSession
+        || !this.controlPlane.isPublicSession(sourceSessionId)
+        || sourceSession.identity_binding_version !== 2)
+    ) return;
+    if (this.activeMembershipMutation || this.retirementOperation || this.activeSessionSwitch) {
+      throw new Error('pair_session_mutation_in_progress');
+    }
+    const serial = ++this.sessionSwitchSerial;
+    const operation = Object.freeze({
+      serial,
+      sourceSessionId,
+      targetSessionId,
+      sourceGeneration: this.sessionGeneration,
+    });
+    this.activeSessionSwitch = operation;
+    try {
+      const entries = await this.listSessions(options);
+      this.assertSessionSwitchCurrent(operation);
+      const target = entries.find(entry => entry.session.id === targetSessionId);
+      if (!target) throw new Error('pair_session_switch_target_unavailable');
+      let activatedSession = target.session;
+      if (
+        this.controlPlane.isPublicSession(targetSessionId)
+        && target.session.identity_binding_version === 2
+      ) {
+        const runtime = await firstValueFrom(
+          this.controlPlane.activateSessionRuntime(targetSessionId),
+        );
+        this.assertSessionSwitchCurrent(operation);
+        if (
+          typeof target.session.security_epoch === 'number'
+          && runtime.security_epoch < target.session.security_epoch
+        ) throw new Error('pair_session_runtime_epoch_stale');
+        activatedSession = {
+          ...target.session,
+          local_runtime_state: runtime.state,
+          security_epoch: runtime.security_epoch,
+        };
+      }
+      this.assertSessionSwitchCurrent(operation);
+      this.activateValidatedSession(activatedSession, target.role);
+    } finally {
+      if (this.activeSessionSwitch?.serial === serial) this.activeSessionSwitch = null;
+    }
   }
 
   /**
@@ -619,24 +742,55 @@ export class ShareSessionService implements OnDestroy {
   private async runMembershipMutation<T>(
     kind: 'create' | 'join',
     authority: PendingMembershipAuthority,
-    operation: () => Promise<T>,
+    operation: (mutation: Readonly<MembershipMutationFence>) => Promise<T>,
   ): Promise<T> {
-    if (this.activeMembershipMutation) throw new Error('pair_session_mutation_in_progress');
+    if (this.activeMembershipMutation || this.activeSessionSwitch) {
+      throw new Error('pair_session_mutation_in_progress');
+    }
     const mutation = Object.freeze({
       serial: ++this.membershipMutationSerial,
       kind,
       authority,
+      sourceSessionId: this.state$.value.session?.id ?? '',
+      sourceGeneration: this.sessionGeneration,
     });
     this.activeMembershipMutation = mutation;
     this.publishPublicPairRuntimeState();
     try {
-      return await operation();
+      return await operation(mutation);
     } finally {
       if (this.activeMembershipMutation?.serial === mutation.serial) {
         this.activeMembershipMutation = null;
         this.publishPublicPairRuntimeState();
       }
     }
+  }
+
+  private assertMembershipMutationCurrent(mutation: Readonly<MembershipMutationFence>): void {
+    if (this.activeMembershipMutation?.serial !== mutation.serial) {
+      throw new Error('pair_session_mutation_overtaken');
+    }
+    if (
+      this.sessionGeneration !== mutation.sourceGeneration
+      || (this.state$.value.session?.id ?? '') !== mutation.sourceSessionId
+    ) throw new Error('pair_session_mutation_context_changed');
+  }
+
+  private assertSessionSwitchCurrent(
+    operation: Readonly<{
+      serial: number;
+      sourceSessionId: string;
+      targetSessionId: string;
+      sourceGeneration: number;
+    }>,
+  ): void {
+    if (this.activeSessionSwitch?.serial !== operation.serial) {
+      throw new Error('pair_session_switch_overtaken');
+    }
+    if (
+      this.sessionGeneration !== operation.sourceGeneration
+      || (this.state$.value.session?.id ?? '') !== operation.sourceSessionId
+    ) throw new Error('pair_session_switch_context_changed');
   }
 
   private publishPublicPairRuntimeState(): void {
@@ -683,6 +837,16 @@ export class ShareSessionService implements OnDestroy {
   ): void {
     try {
       this.controlPlane.assertSessionAvailable(session.id);
+      if (
+        this.controlPlane.isPublicSession(session.id)
+        && session.identity_binding_version === 2
+      ) {
+        const authoritativeRole = listedSessionRole(session);
+        if (authoritativeRole !== role) throw new Error('pair_session_local_role_mismatch');
+        if (listedSessionRuntimeState(session) !== 'active') {
+          throw new Error('pair_session_runtime_state_invalid');
+        }
+      }
       if (role === 'participant' && !this.isStrictSession(session) && !allowLegacy) {
         throw new Error('legacy_session_requires_explicit_approval');
       }
@@ -708,7 +872,12 @@ export class ShareSessionService implements OnDestroy {
     this.securityBootstrap.clear();
     if (priorSessionId && priorSessionId !== session.id) {
       this.secureSequences.clearScope(priorSessionId);
-      this.controlPlane.forgetSession(priorSessionId);
+      // Public v2 capabilities are intentionally tab-scoped parked-session
+      // authority. Retaining the immutable binding makes A -> B -> A possible
+      // without ending either membership. Hub sessions keep legacy cleanup.
+      if (!this.controlPlane.isPublicSession(priorSessionId)) {
+        this.controlPlane.forgetSession(priorSessionId);
+      }
     }
     this.state$.next({ session, participants: [], messages: [], cursor: '0', role });
     this.startPolling();
@@ -818,8 +987,11 @@ export class ShareSessionService implements OnDestroy {
       || this.transport.mode$.value !== 'idle'
     ) return;
 
-    if (this.transport.isSessionRecreationRequired?.(sessionId)) {
-      this.quiesceActiveTransport(sessionId, generation);
+    if (this.transport.isSessionRecreationRequired?.(
+      sessionId,
+      active.session.security_epoch ?? 1,
+    )) {
+      this.closeEpochBlockedTransport(sessionId, generation);
       return;
     }
 
@@ -886,6 +1058,11 @@ export class ShareSessionService implements OnDestroy {
     this.transport.close();
     this.securityBootstrap.clear();
     return this.sessionGeneration;
+  }
+
+  private closeEpochBlockedTransport(sessionId: string, generation: number): void {
+    if (!this.isCurrentSession(sessionId, generation)) return;
+    if (this.transport.mode$.value !== 'idle') this.transport.close();
   }
 
   private completeSessionRetirement(sessionId: string, generation: number | null): void {
@@ -1042,4 +1219,47 @@ export class ShareSessionService implements OnDestroy {
     }
     this.controlPlane.assertSessionAvailable(sessionId);
   }
+}
+
+function listedSessionRole(session: ShareSession): 'owner' | 'participant' {
+  const advertisedRole = session.local_role;
+  if (
+    advertisedRole !== undefined
+    && advertisedRole !== 'owner'
+    && advertisedRole !== 'participant'
+  ) throw new Error('pair_session_local_role_invalid');
+
+  // Identity-v2 catalog rows are selected from an authenticated membership
+  // on the server.  Never reconstruct that operational role from client-side
+  // identifiers when the authoritative projection is absent.
+  if (session.identity_binding_version === 2 && !advertisedRole) {
+    throw new Error('pair_session_local_role_missing');
+  }
+
+  const localPeerId = String(session.local_peer_id || '').trim();
+  const ownerPeerId = String(session.owner_peer_id || '').trim();
+  const derivedRole = localPeerId && ownerPeerId
+    ? localPeerId === ownerPeerId ? 'owner' : 'participant'
+    : null;
+  if (advertisedRole && derivedRole && advertisedRole !== derivedRole) {
+    throw new Error('pair_session_local_role_mismatch');
+  }
+  if (advertisedRole) return advertisedRole;
+  if (derivedRole) return derivedRole;
+
+  // Legacy/Hub list responses use the account identity as their peer id.
+  const ownerUserId = String(session.owner_user_id || '').trim();
+  if (localPeerId && ownerUserId) {
+    return localPeerId === ownerUserId ? 'owner' : 'participant';
+  }
+  throw new Error('pair_session_local_role_missing');
+}
+
+function listedSessionRuntimeState(session: ShareSession): 'active' | 'parked' | null {
+  const state = session.local_runtime_state;
+  if (session.identity_binding_version !== 2) return null;
+  if (state !== 'active' && state !== 'parked') {
+    throw new Error('pair_session_runtime_state_invalid');
+  }
+  return state;
 }

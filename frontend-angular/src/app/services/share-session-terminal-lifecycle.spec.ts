@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { BehaviorSubject, Observable, Subject, of } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AgentDirectoryService } from './agent-directory.service';
@@ -33,6 +33,9 @@ const SESSION: ShareSession = {
   security_epoch: 3,
   security_contract_version: 1,
   security_mode: 'strict_e2ee',
+  identity_binding_version: 2,
+  local_role: 'owner',
+  local_runtime_state: 'active',
 };
 
 class TerminalControlPlane {
@@ -59,9 +62,21 @@ class TerminalControlPlane {
   });
   publicSession = true;
   sessionResponse: ShareSession = { ...SESSION };
+  listedSessions: ShareSession[] = [];
 
-  readonly create = vi.fn(() => of({ ...this.sessionResponse }));
-  readonly join = vi.fn(() => of({ ...this.sessionResponse }));
+  readonly create = vi.fn(() => of({
+    ...this.sessionResponse, local_role: 'owner' as const, local_runtime_state: 'active' as const,
+  }));
+  readonly join = vi.fn(() => of({
+    ...this.sessionResponse, local_role: 'participant' as const, local_runtime_state: 'active' as const,
+  }));
+  readonly list = vi.fn(() => of(this.listedSessions.map(session => ({ ...session }))));
+  readonly activateSessionRuntime = vi.fn(() => of({
+    state: 'active' as const,
+    security_epoch: 7,
+    changed: true,
+    parked_session_ids: [],
+  }));
   readonly discardPendingPublicMutation = vi.fn();
   readonly assertSessionAvailable = vi.fn();
   readonly revokeParticipant = vi.fn(() => of({ ok: true }));
@@ -194,6 +209,201 @@ describe('ShareSessionService terminal session lifecycle', () => {
     expect(service.sessionMutationPending).toBe(false);
   });
 
+  it('parks A and switches A to B to A without ending either membership', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    const sessionB: ShareSession = {
+      ...SESSION,
+      id: 'session-b',
+      title: 'Session B',
+      invite_code: 'invite-b',
+      local_peer_id: 'peer:local',
+      owner_peer_id: 'peer:other-owner',
+      local_role: 'participant',
+    };
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      owner_peer_id: 'peer:local',
+      local_role: 'owner',
+    }, sessionB];
+    bootstrap.currentEpoch = 7;
+    transport.close.mockClear();
+    controlPlane.forgetSession.mockClear();
+
+    await service.switchToSession('session-b', { expectedAuthority: 'public' });
+
+    expect(controlPlane.list).toHaveBeenCalledWith({ expectedAuthority: 'public' });
+    expect(controlPlane.activateSessionRuntime).toHaveBeenCalledWith('session-b');
+    expect(service.state$.value.session?.id).toBe('session-b');
+    expect(service.state$.value.session?.security_epoch).toBe(7);
+    expect(service.state$.value.session?.local_runtime_state).toBe('active');
+    expect(service.state$.value.role).toBe('participant');
+    expect(transport.close).toHaveBeenCalled();
+    expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+    expect(controlPlane.end).not.toHaveBeenCalled();
+    expect(controlPlane.leave).not.toHaveBeenCalled();
+
+    await service.switchToSession('session-a', { expectedAuthority: 'public' });
+
+    expect(service.state$.value.session?.id).toBe('session-a');
+    expect(service.state$.value.role).toBe('owner');
+    expect(controlPlane.activateSessionRuntime).toHaveBeenCalledWith('session-a');
+    expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+    expect(controlPlane.end).not.toHaveBeenCalled();
+    expect(controlPlane.leave).not.toHaveBeenCalled();
+  });
+
+  it('keeps the active session untouched when fresh discovery cannot select the target', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [];
+    transport.close.mockClear();
+    controlPlane.forgetSession.mockClear();
+
+    await expect(service.switchToSession('session-missing', { expectedAuthority: 'public' }))
+      .rejects.toThrow('pair_session_switch_target_unavailable');
+
+    expect(service.state$.value.session?.id).toBe('session-a');
+    expect(service.state$.value.role).toBe('owner');
+    expect(transport.close).not.toHaveBeenCalled();
+    expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+  });
+
+  it('does not locally activate a target when server runtime activation fails', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      id: 'session-b',
+      local_role: 'participant',
+      local_runtime_state: 'parked',
+    }];
+    const unavailable = { status: 503, error: { error: 'service_unavailable' } };
+    controlPlane.activateSessionRuntime.mockReturnValueOnce(throwError(() => unavailable));
+    transport.close.mockClear();
+
+    await expect(service.switchToSession('session-b', { expectedAuthority: 'public' }))
+      .rejects.toBe(unavailable);
+
+    expect(service.state$.value.session?.id).toBe('session-a');
+    expect(service.state$.value.role).toBe('owner');
+    expect(transport.close).not.toHaveBeenCalled();
+    expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+  });
+
+  it('rejects a runtime epoch older than the freshly listed target', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      id: 'session-b',
+      security_epoch: 9,
+      local_role: 'participant',
+      local_runtime_state: 'parked',
+    }];
+    controlPlane.activateSessionRuntime.mockReturnValueOnce(of({
+      state: 'active' as const,
+      security_epoch: 8,
+      changed: true,
+      parked_session_ids: ['session-a'],
+    }));
+    transport.close.mockClear();
+
+    await expect(service.switchToSession('session-b', { expectedAuthority: 'public' }))
+      .rejects.toThrow('pair_session_runtime_epoch_stale');
+
+    expect(service.state$.value.session?.id).toBe('session-a');
+    expect(transport.close).not.toHaveBeenCalled();
+  });
+
+  it('server-reactivates the locally selected session after another tab parked it', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      local_role: 'owner',
+      local_runtime_state: 'parked',
+    }];
+    bootstrap.currentEpoch = 7;
+    transport.close.mockClear();
+
+    await service.switchToSession('session-a', { expectedAuthority: 'public' });
+
+    expect(controlPlane.activateSessionRuntime).toHaveBeenCalledWith('session-a');
+    expect(service.state$.value.session).toMatchObject({
+      id: 'session-a', local_runtime_state: 'active', security_epoch: 7,
+    });
+    expect(transport.close).toHaveBeenCalled();
+    expect(controlPlane.forgetSession).not.toHaveBeenCalled();
+  });
+
+  it('fences a delayed runtime response after the source session generation changed', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      id: 'session-b',
+      local_role: 'participant',
+      local_runtime_state: 'parked',
+    }];
+    const runtime = new Subject<{
+      state: 'active'; security_epoch: number; changed: boolean; parked_session_ids: string[];
+    }>();
+    controlPlane.activateSessionRuntime.mockReturnValueOnce(runtime);
+
+    const pending = service.switchToSession('session-b', { expectedAuthority: 'public' });
+    await settleAsyncWork();
+    expect(controlPlane.activateSessionRuntime).toHaveBeenCalledWith('session-b');
+
+    transport.terminalFailure$.next({
+      kind: 'server_terminal',
+      sessionId: 'session-a',
+      reasonCode: 'session_not_found',
+    });
+    runtime.next({ state: 'active', security_epoch: 8, changed: true, parked_session_ids: ['session-a'] });
+    runtime.complete();
+
+    await expect(pending).rejects.toThrow('pair_session_switch_context_changed');
+    expect(service.state$.value.session).toBeNull();
+    expect(service.state$.value.session?.id).not.toBe('session-b');
+  });
+
+  it('fences a delayed create response after its source session changed', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    const response = new Subject<ShareSession>();
+    controlPlane.create.mockReturnValueOnce(response);
+
+    const pending = service.createSession('Session B', { chat: true }, null);
+    await settleAsyncWork();
+    transport.terminalFailure$.next({
+      kind: 'server_terminal',
+      sessionId: 'session-a',
+      reasonCode: 'session_not_found',
+    });
+    response.next({
+      ...SESSION,
+      id: 'session-b',
+      local_role: 'owner',
+      local_runtime_state: 'active',
+    });
+    response.complete();
+
+    await expect(pending).rejects.toThrow('pair_session_mutation_context_changed');
+    expect(service.state$.value.session).toBeNull();
+  });
+
+  it('rejects a mismatched server role before changing the active session', async () => {
+    await service.createSession('Session A', { chat: true }, null);
+    controlPlane.listedSessions = [{
+      ...SESSION,
+      id: 'session-b',
+      local_peer_id: 'peer:local',
+      owner_peer_id: 'peer:other-owner',
+      local_role: 'owner',
+    }];
+    transport.close.mockClear();
+
+    await expect(service.switchToSession('session-b', { expectedAuthority: 'public' }))
+      .rejects.toThrow('pair_session_local_role_mismatch');
+
+    expect(service.state$.value.session?.id).toBe('session-a');
+    expect(transport.close).not.toHaveBeenCalled();
+  });
+
   it('clears a Public session locally when its exact pinned authority is lost', async () => {
     await service.createSession('Authority loss', { chat: true }, null);
     controlPlane.assertSessionAvailable.mockImplementation(() => {
@@ -273,8 +483,38 @@ describe('ShareSessionService terminal session lifecycle', () => {
     expect(controlPlane.retireSession).toHaveBeenCalledTimes(1);
   });
 
-  it('quiesces a local signaling terminal without retiring live server authority', async () => {
+  it('keeps a not-both-active security poll in waiting without retiring membership', async () => {
+    bootstrap.ensureImpl = async () => {
+      bootstrap.state$.next({ status: 'waiting_for_peer' });
+      return false;
+    };
+
+    await service.createSession('Parked peer', { chat: true }, null);
+    await settleAsyncWork();
+
+    expect(service.isActive).toBe(true);
+    expect(service.securityState$.value.status).toBe('waiting_for_peer');
+    expect(controlPlane.retireSession).not.toHaveBeenCalled();
+    expect(transport.retireSession).not.toHaveBeenCalled();
+  });
+
+  it('keeps security polling and opens exactly once on the epoch after a local signal latch', async () => {
+    bootstrap.confirmedRemotePeerId = 'peer:remote';
+    bootstrap.ensureImpl = async () => {
+      bootstrap.confirmedRemotePeerId = 'peer:remote';
+      bootstrap.state$.next({ status: 'ready', fingerprint: 'f'.repeat(64) });
+      return true;
+    };
     await service.createSession('Terminal Pair', { chat: true }, null);
+    await settleAsyncWork();
+    expect(transport.open).toHaveBeenCalledWith('session-a', true, {
+      semanticEpoch: 3,
+      remotePeerId: 'peer:remote',
+    });
+    transport.open.mockClear();
+    transport.close.mockClear();
+    bootstrap.clear.mockClear();
+    transport.isSessionRecreationRequired.mockImplementation((_sessionId, epoch) => epoch === 3);
     const participantCalls = controlPlane.participantsCalls.mock.calls.length;
 
     transport.terminalFailure$.next({
@@ -282,14 +522,30 @@ describe('ShareSessionService terminal session lifecycle', () => {
       sessionId: 'session-a',
       reasonCode: 'public_signaling_session_recreation_required',
     });
-    vi.advanceTimersByTime(10_000);
+    await vi.advanceTimersByTimeAsync(2_000);
+    await settleAsyncWork();
 
     expect(service.isActive).toBe(true);
     expect(service.state$.value.role).toBe('owner');
+    expect(transport.close).toHaveBeenCalledTimes(1);
+    expect(bootstrap.clear).not.toHaveBeenCalled();
+    expect(controlPlane.participantsCalls.mock.calls.length).toBeGreaterThan(participantCalls);
+    expect(transport.open).not.toHaveBeenCalled();
     expect(controlPlane.forgetSession).not.toHaveBeenCalled();
     expect(controlPlane.retireSession).not.toHaveBeenCalled();
     expect(transport.retireSession).not.toHaveBeenCalled();
-    expect(controlPlane.participantsCalls).toHaveBeenCalledTimes(participantCalls);
+
+    bootstrap.currentEpoch = 4;
+    await vi.advanceTimersByTimeAsync(2_000);
+    await settleAsyncWork();
+
+    expect(service.state$.value.session?.security_epoch).toBe(4);
+    expect(transport.setSemanticEpoch).toHaveBeenCalledWith(4);
+    expect(transport.open).toHaveBeenCalledTimes(1);
+    expect(transport.open).toHaveBeenCalledWith('session-a', true, {
+      semanticEpoch: 4,
+      remotePeerId: 'peer:remote',
+    });
 
     const completion = service.endSession();
     expect(controlPlane.end).toHaveBeenCalledWith('session-a');
