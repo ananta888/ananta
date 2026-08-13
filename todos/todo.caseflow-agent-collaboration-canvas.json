@@ -269,7 +269,7 @@
     {
       "id": "M3",
       "title": "Runtime und Trace",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "CAC-007A",
         "CAC-007",
@@ -525,7 +525,7 @@
     {
       "id": "CAC-010",
       "title": "Node Runtime/Trace Inspector bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -541,7 +541,10 @@
         "Letzter erlaubter Fehler und aktuelle Aktivität sind mit Zeit, Status und vorhandener Trace-Referenz sichtbar, ohne den Full Process Designer zu öffnen.",
         "Ein Zugriffsentzug leert bereits geladene Runtime-/Trace-Daten und schließt den Inspector fail-closed."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in f88e57b1c. Pure exact-scope node runtime/trace projection and read-only inspector with canonical parent/child/loop filtering, allowlisted metrics/evidence, stale-response fencing, fail-closed access revocation, and 13 focused frontend tests."
+      ]
     },
     {
       "id": "CAC-011",
@@ -624,13 +627,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 11
     },
-    "progress_percent_done": 71.4,
+    "progress_percent_done": 78.6,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -644,15 +647,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 10,
-      "remaining": 3
+      "done": 11,
+      "remaining": 2
     },
     "milestones": {
       "total": 4,
       "todo": 1,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -675,16 +678,16 @@
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 3,
+          "todo": 2,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 8
+          "done": 9
         },
-        "done": 8,
+        "done": 9,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 72.7
+        "progress_percent": 81.8
       },
       "test": {
         "total": 1,
@@ -705,10 +708,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 19.5,
-    "remaining_weight": 7.25,
+    "done_weight": 22.0,
+    "remaining_weight": 4.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 72.9
+    "weighted_percent": 82.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -730,11 +733,11 @@
       },
       "M3": {
         "total_tasks": 5,
-        "done": 4,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 80.0,
-        "weighted_percent": 73.7,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M4": {
         "total_tasks": 3,
@@ -748,21 +751,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 4,
+    "todo_remaining": 3,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 10,
-    "count_based_percent": 71.4,
-    "weighted_percent": 72.9
+    "done": 11,
+    "count_based_percent": 78.6,
+    "weighted_percent": 82.2
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T20:51:03.401330Z",
+    "generated_at": "2026-08-13T21:12:37.408731Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "1a6e6f23c46d48939029dc4a731597f87375d71c16b7d9c87528e6d9dfeaf8c6",
+    "source_hash": "90c94bb081bf6e3f10ff4b11fb8e9d7cedddebdd3767b8018c1286ecba74f869",
     "is_stale": false
   }
 }
