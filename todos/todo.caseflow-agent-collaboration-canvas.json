@@ -477,7 +477,7 @@
     {
       "id": "CAC-008",
       "title": "Aktive Kommunikationskante dezent animieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -493,12 +493,15 @@
         "Ein prefers-reduced-motion-Test deaktiviert Bewegung vollständig und hält Aktivität über ein statisches Text-/Icon-Signal erkennbar.",
         "Bei A->B plus B->A wird ausschließlich die vom Read Model gemeldete Richtung animiert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 1c9f4ea18. Exact Hub-verified directed edge activity projection, static unknown/unverified states, unchanged geometry/hit targets, accessible text cue, and reduced-motion-safe flow animation with 20 focused frontend tests."
+      ]
     },
     {
       "id": "CAC-009",
       "title": "Edge Inspector mit Chat- und Telemetrie-Ansicht bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -514,7 +517,10 @@
         "API- und Component-Tests belegen, dass der Inspector keine eigene Chat- oder Trace-Persistenz schreibt.",
         "Richtungswechsel bei einer bidirektionalen Beziehung leert zuerst die alte Auswahl und lädt ausschließlich die neue Richtung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 09f5bd683. Exact workflow/run-scoped DTO validation, directed message and telemetry inspection, verified correlation, synchronous stale-direction clearing, fail-closed authorization errors, and 19 focused frontend tests."
+      ]
     },
     {
       "id": "CAC-010",
@@ -618,13 +624,13 @@
   "tasks_status_summary": {
     "total": 14,
     "by_status": {
-      "todo": 6,
+      "todo": 4,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 8
+      "done": 10
     },
-    "progress_percent_done": 57.1,
+    "progress_percent_done": 71.4,
     "by_priority": {
       "P0": 8,
       "P1": 5,
@@ -638,8 +644,8 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 8,
-      "remaining": 5
+      "done": 10,
+      "remaining": 3
     },
     "milestones": {
       "total": 4,
@@ -669,16 +675,16 @@
       "implementation": {
         "total": 11,
         "by_status": {
-          "todo": 5,
+          "todo": 3,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 6
+          "done": 8
         },
-        "done": 6,
+        "done": 8,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 54.5
+        "progress_percent": 72.7
       },
       "test": {
         "total": 1,
@@ -699,10 +705,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 26.75,
-    "done_weight": 16.0,
-    "remaining_weight": 10.75,
+    "done_weight": 19.5,
+    "remaining_weight": 7.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 59.8
+    "weighted_percent": 72.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -724,10 +730,10 @@
       },
       "M3": {
         "total_tasks": 5,
-        "done": 2,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 40.0,
-        "weighted_percent": 36.8,
+        "count_based_percent": 80.0,
+        "weighted_percent": 73.7,
         "status": "in_progress"
       },
       "M4": {
@@ -742,21 +748,21 @@
   },
   "progress_summary": {
     "state": "todo",
-    "todo_remaining": 6,
+    "todo_remaining": 4,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 8,
-    "count_based_percent": 57.1,
-    "weighted_percent": 59.8
+    "done": 10,
+    "count_based_percent": 71.4,
+    "weighted_percent": 72.9
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T20:39:43.500921Z",
+    "generated_at": "2026-08-13T20:51:03.401330Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "f6d4557369656601f480090622c9de6fd29198887a21bb4d087fe6df3725f593",
+    "source_hash": "1a6e6f23c46d48939029dc4a731597f87375d71c16b7d9c87528e6d9dfeaf8c6",
     "is_stale": false
   }
 }
