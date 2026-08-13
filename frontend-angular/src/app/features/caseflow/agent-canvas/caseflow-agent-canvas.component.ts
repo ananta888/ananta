@@ -21,7 +21,12 @@ import {
   CaseFlowAgentCanvasNodeProjection,
   CaseFlowAgentCanvasProjection,
 } from './caseflow-agent-canvas.models';
+import type { CaseFlowEdgeTraceReadModel } from './caseflow-edge-trace.models';
 import { projectAgentCanvas } from './caseflow-agent-canvas.mapper';
+import {
+  CaseFlowAgentEdgeActivityProjection,
+  projectCaseFlowAgentEdgeActivity,
+} from './caseflow-agent-edge-activity.mapper';
 import {
   CaseFlowAgentRuntimeNodeProjection,
   CaseFlowAgentRuntimeProjection,
@@ -142,6 +147,7 @@ export function moveCaseFlowAgentNode(
                   [class.bidirectional-edge]="edge.reverse_edge_ids.length > 0"
                   [class.loop-edge]="edge.loop"
                   [class.feedback-edge]="edge.feedback"
+                  [class.active-edge]="isEdgeActive(edge)"
                   [class.selected]="selectedId === edge.edge_id"
                   tabindex="0"
                   role="button"
@@ -174,6 +180,14 @@ export function moveCaseFlowAgentNode(
                       [attr.y]="edgeLabelPoint(edge).y"
                       aria-hidden="true"
                     >{{ edge.label }}</text>
+                  }
+                  @if (isEdgeActive(edge)) {
+                    <text
+                      class="edge-activity-indicator"
+                      [attr.x]="edgeLabelPoint(edge).x"
+                      [attr.y]="edgeLabelPoint(edge).y + (edge.label ? 16 : 0)"
+                      aria-hidden="true"
+                    >↗ Aktiv</text>
                   }
                 </g>
               }
@@ -230,6 +244,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
 
   @Input({ required: true }) graph!: VpGraph;
   @Input() runtimeOverlay: VpRuntimeOverlay | null = null;
+  @Input() edgeTraceReadModel: CaseFlowEdgeTraceReadModel | null = null;
   @Output() readonly graphChange = new EventEmitter<VpGraph>();
   @Output() readonly nodeSelected = new EventEmitter<string>();
   @Output() readonly edgeSelected = new EventEmitter<string>();
@@ -241,6 +256,8 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
 
   projection: CaseFlowAgentCanvasProjection | null = null;
   runtimeProjection: CaseFlowAgentRuntimeProjection = projectCaseFlowAgentRuntime('', [], null);
+  edgeActivityProjection: CaseFlowAgentEdgeActivityProjection =
+    projectCaseFlowAgentEdgeActivity('', [], null);
   projectionError = '';
   selectedId: string | null = null;
   viewport: CaseFlowAgentCanvasViewport = { ...DEFAULT_VIEWPORT };
@@ -262,6 +279,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['graph'] || !this.graph) {
       if (changes['runtimeOverlay']) this.refreshRuntimeProjection();
+      if (changes['edgeTraceReadModel']) this.refreshEdgeActivityProjection();
       return;
     }
     const identityChanged = this.graphIdentity !== this.graph.id;
@@ -269,6 +287,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     this.previewPositions.clear();
     this.refreshProjection();
     this.refreshRuntimeProjection();
+    this.refreshEdgeActivityProjection();
 
     if (identityChanged) {
       this.selectedId = null;
@@ -482,7 +501,12 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     const reverse = edge.reverse_edge_ids.length
       ? `, Gegenrichtung separat als ${edge.reverse_edge_ids.join(', ')}`
       : '';
-    return `Beziehung ${edge.edge_id}, Richtung ${edge.source_step_id} nach ${edge.target_step_id}${reverse}`;
+    const activity = this.isEdgeActive(edge) ? ', Aktivität verifiziert aktiv' : '';
+    return `Beziehung ${edge.edge_id}, Richtung ${edge.source_step_id} nach ${edge.target_step_id}${reverse}${activity}`;
+  }
+
+  isEdgeActive(edge: CaseFlowAgentCanvasEdgeProjection): boolean {
+    return this.edgeActivityProjection.active_edge_ids.includes(edge.edge_id);
   }
 
   edgePath(edge: CaseFlowAgentCanvasEdgeProjection): string {
@@ -558,6 +582,14 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
       this.graph.id,
       this.projection?.nodes ?? [],
       this.runtimeOverlay,
+    );
+  }
+
+  private refreshEdgeActivityProjection(): void {
+    this.edgeActivityProjection = projectCaseFlowAgentEdgeActivity(
+      this.graph.id,
+      this.projection?.edges ?? [],
+      this.edgeTraceReadModel,
     );
   }
 

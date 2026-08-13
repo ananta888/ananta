@@ -143,6 +143,17 @@
   stroke-width: 2;
 }
 
+.edge-activity-indicator {
+  fill: #67e8f9;
+  font-size: 10px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+@keyframes caseflow-edge-flow {
+  to { stroke-dashoffset: -32; }
+}
+
 .bidirectional-edge .edge-line {
   stroke: #a8b8ff;
 }
@@ -153,6 +164,19 @@
 
 .feedback-edge .edge-line {
   stroke-dasharray: 8 3;
+}
+
+.active-edge .edge-line {
+  stroke: #22d3ee;
+  stroke-dasharray: 9 7;
+  animation: caseflow-edge-flow 1.8s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active-edge .edge-line {
+    animation: none;
+    stroke-dasharray: none;
+  }
 }
 
 .edge-hit-target {

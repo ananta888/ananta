@@ -1,6 +1,7 @@
 import { ɵresolveComponentResources } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -9,6 +10,7 @@ import type {
   VpRuntimeOverlay,
   VpStep,
 } from '../../visual-process/visual-process-api.service';
+import type { CaseFlowEdgeTraceReadModel } from './caseflow-edge-trace.models';
 import {
   CaseFlowAgentCanvasComponent,
   moveCaseFlowAgentNode,
@@ -317,6 +319,58 @@ describe('CaseFlowAgentCanvasComponent', () => {
     expect(component.selectedId).toBeNull();
     expect(component.viewport).toEqual(viewport);
   });
+
+  it('animates only the exact Hub-verified active direction without changing geometry', () => {
+    const fixture = createFixture();
+    const forward = fixture.nativeElement.querySelector('[data-edge-id="edge-ab"]') as SVGGElement;
+    const reverse = fixture.nativeElement.querySelector('[data-edge-id="edge-ba"]') as SVGGElement;
+    const forwardPath = forward.querySelector('.edge-line')?.getAttribute('d');
+    const reversePath = reverse.querySelector('.edge-line')?.getAttribute('d');
+
+    fixture.componentRef.setInput('edgeTraceReadModel', edgeTraceReadModel());
+    fixture.detectChanges();
+
+    expect(forward.classList).toContain('active-edge');
+    expect(forward.textContent).toContain('Aktiv');
+    expect(forward.getAttribute('aria-label')).toContain('Aktivität verifiziert aktiv');
+    expect(reverse.classList).not.toContain('active-edge');
+    expect(reverse.textContent).not.toContain('Aktiv');
+    expect(forward.querySelector('.edge-line')?.getAttribute('d')).toBe(forwardPath);
+    expect(reverse.querySelector('.edge-line')?.getAttribute('d')).toBe(reversePath);
+  });
+
+  it('keeps unknown and unverified edge evidence static', () => {
+    const fixture = createFixture();
+    const readModel = edgeTraceReadModel();
+    fixture.componentRef.setInput('edgeTraceReadModel', {
+      ...readModel,
+      edges: readModel.edges.map(edge => ({
+        ...edge,
+        activity_status: 'unknown' as const,
+        verification_status: 'unverified' as const,
+      })),
+    });
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.querySelector('.active-edge')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('↗ Aktiv');
+  });
+
+  it('uses a non-blinking theme-compatible flow cue and disables motion on request', async () => {
+    const styles = await readFile(
+      resolve(
+        process.cwd(),
+        'src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.scss',
+      ),
+      'utf8',
+    );
+
+    expect(styles).toContain('.active-edge .edge-line');
+    expect(styles).toContain('animation: caseflow-edge-flow 1.8s linear infinite');
+    expect(styles).not.toContain('blink');
+    expect(styles).toContain('@media (prefers-reduced-motion: reduce)');
+    expect(styles).toMatch(/prefers-reduced-motion:[\s\S]*animation:\s*none/);
+  });
 });
 
 function createFixture(graph = AGENT_GRAPH): ComponentFixture<CaseFlowAgentCanvasComponent> {
@@ -390,6 +444,51 @@ function runtimeOverlay(
       { step_id: stepId, status },
     ])),
     updated_at: 1,
+  };
+}
+
+function edgeTraceReadModel(): CaseFlowEdgeTraceReadModel {
+  const edge = (edgeId: string, sourceStepId: string, targetStepId: string, activity: 'active' | 'inactive') => ({
+    edge_id: edgeId,
+    source_step_id: sourceStepId,
+    target_step_id: targetStepId,
+    edge_kind: 'dependency' as const,
+    activity_status: activity,
+    verification_status: 'verified' as const,
+    reason_code: `caseflow_edge_correlation_verified_${activity}`,
+    correlation_basis: 'explicit_edge_id' as const,
+    event_refs: [],
+    trace_refs: [],
+    messages: [],
+    telemetry: [],
+    limits: {
+      messages_truncated: 0,
+      telemetry_truncated: 0,
+      event_refs_truncated: 0,
+      trace_refs_truncated: 0,
+    },
+  });
+  return {
+    schema: 'ananta.caseflow_edge_trace_read_model.v1',
+    workflow_id: AGENT_GRAPH.id,
+    run_id: 'run-existing',
+    catalog_verification_status: 'verified',
+    verification_status: 'verified',
+    reason_code: '',
+    edges: [
+      edge('edge-ab', 'agent-a', 'agent-b', 'active'),
+      edge('edge-ba', 'agent-b', 'agent-a', 'inactive'),
+    ],
+    telemetry: {
+      source_event_count: 0,
+      processed_event_count: 0,
+      rejected_event_count: 0,
+      truncated_event_count: 0,
+      correlated_edge_count: 2,
+      redaction_policy: 'user',
+      messages_per_edge_limit: 64,
+      telemetry_per_edge_limit: 128,
+    },
   };
 }
 
