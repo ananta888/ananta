@@ -145,6 +145,7 @@ export interface CaseFlowAgentCanvasEdgeProjection {
   target_step_id: string;
   label?: string;
   loop: boolean;
+  feedback: boolean;
   reverse_edge_ids: readonly string[];
 }
 

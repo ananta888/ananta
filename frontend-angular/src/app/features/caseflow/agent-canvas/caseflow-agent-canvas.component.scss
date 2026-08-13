@@ -1,0 +1,177 @@
+:host {
+  display: block;
+  min-height: 28rem;
+}
+
+.agent-canvas {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto minmax(24rem, 1fr);
+  min-height: inherit;
+  overflow: hidden;
+  color: #dbeafe;
+  background: #081321;
+  border: 1px solid #23415f;
+  border-radius: 10px;
+}
+
+.canvas-toolbar {
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  padding: .55rem;
+  background: #0d1b2c;
+  border-bottom: 1px solid #23415f;
+}
+
+.canvas-toolbar button {
+  min-height: 2rem;
+  padding: .25rem .65rem;
+  color: #dbeafe;
+  background: #142a43;
+  border: 1px solid #3a5f82;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.canvas-toolbar button:hover,
+.canvas-toolbar button:focus-visible {
+  color: #fff;
+  background: #1c3b5d;
+  outline: 2px solid #67e8f9;
+  outline-offset: 1px;
+}
+
+.canvas-surface {
+  width: 100%;
+  height: 100%;
+  min-height: 24rem;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  background-color: #081321;
+  background-image:
+    linear-gradient(rgb(85 124 157 / 11%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(85 124 157 / 11%) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.canvas-surface:active {
+  cursor: grabbing;
+}
+
+.canvas-surface:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: -2px;
+}
+
+.agent-node {
+  cursor: move;
+}
+
+.node-card {
+  fill: #10243a;
+  stroke: #52789b;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 4px 7px rgb(0 0 0 / 30%));
+}
+
+.agent-node:hover .node-card,
+.agent-node:focus-visible .node-card,
+.agent-node.selected .node-card {
+  stroke: #67e8f9;
+  stroke-width: 3;
+}
+
+.agent-node:focus-visible,
+.agent-edge:focus-visible {
+  outline: none;
+}
+
+.node-icon {
+  fill: #7dd3fc;
+  font-family: "Material Icons", sans-serif;
+  font-size: 17px;
+}
+
+.node-label {
+  fill: #f8fafc;
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.node-role {
+  fill: #9fb9d1;
+  font-size: 11px;
+}
+
+.edge-line {
+  fill: none;
+  stroke: #79a9cc;
+  stroke-width: 2;
+}
+
+.bidirectional-edge .edge-line {
+  stroke: #a8b8ff;
+}
+
+.loop-edge .edge-line {
+  stroke-dasharray: 5 3;
+}
+
+.feedback-edge .edge-line {
+  stroke-dasharray: 8 3;
+}
+
+.edge-hit-target {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  cursor: pointer;
+}
+
+.agent-edge:hover .edge-line,
+.agent-edge:focus-visible .edge-line,
+.agent-edge.selected .edge-line {
+  stroke: #f9d56e;
+  stroke-width: 3.5;
+}
+
+marker path {
+  fill: #79a9cc;
+}
+
+.edge-label {
+  fill: #c6d7e7;
+  font-size: 10px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: #081321;
+  stroke-width: 4px;
+}
+
+.canvas-error,
+.canvas-empty {
+  position: absolute;
+  z-index: 3;
+  top: 4rem;
+  left: 50%;
+  max-width: min(36rem, calc(100% - 2rem));
+  margin: 0;
+  padding: .7rem 1rem;
+  transform: translateX(-50%);
+  border-radius: 6px;
+}
+
+.canvas-error {
+  color: #fecaca;
+  background: rgb(69 10 10 / 92%);
+  border: 1px solid #ef4444;
+}
+
+.canvas-empty {
+  color: #b8c9dc;
+  background: rgb(13 27 44 / 90%);
+  border: 1px solid #31506d;
+}

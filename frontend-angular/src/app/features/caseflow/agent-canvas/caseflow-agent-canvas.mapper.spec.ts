@@ -61,6 +61,7 @@ describe('CaseFlow agent-canvas v1 projection contract', () => {
     expect(projected.value.edges.find(edge => edge.edge_id === 'builder-critic')?.reverse_edge_ids)
       .toEqual([]);
     expect(projected.value.edges.find(edge => edge.edge_id === 'critic-loop')?.loop).toBe(true);
+    expect(projected.value.edges.find(edge => edge.edge_id === 'critic-loop')?.feedback).toBe(false);
 
     const restored = graphFromAgentCanvasProjection(projected.value);
     expect(restored).toBe(graph);

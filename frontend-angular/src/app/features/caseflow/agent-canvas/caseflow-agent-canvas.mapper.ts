@@ -99,7 +99,8 @@ export function projectAgentCanvas(
       source_step_id: edge.source,
       target_step_id: edge.target,
       ...(edge.label ? { label: edge.label } : {}),
-      loop: edge.source === edge.target || edge.condition?.kind === 'back_edge',
+      loop: edge.source === edge.target,
+      feedback: edge.source !== edge.target && edge.condition?.kind === 'back_edge',
       reverse_edge_ids: canvasEdges
         .filter(candidate =>
           edge.source !== edge.target
