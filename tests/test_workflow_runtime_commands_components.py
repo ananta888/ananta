@@ -13,6 +13,7 @@ from agent.services.workflow_runtime.components import (
     WorkflowComponentCompiler,
     WorkflowComponentRegistry,
 )
+from agent.services.workflow_runtime.errors import ContractValidationError
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 from agent.services.workflow_runtime.security import (
     HmacKeyRing,
@@ -48,9 +49,7 @@ def command(key_ring: HmacKeyRing, **changes) -> SignedWorkflowCommand:
 def test_commands_are_bound_signed_replay_safe_and_secret_free() -> None:
     key_ring = keys()
     value = command(key_ring)
-    verifier = WorkflowCommandVerifier(
-        key_ring, InMemoryReplayNonceStore(clock=lambda: 110.0)
-    )
+    verifier = WorkflowCommandVerifier(key_ring, InMemoryReplayNonceStore(clock=lambda: 110.0))
     bindings = {
         "tenant_id": "tenant-a",
         "workflow_id": "workflow-a",
@@ -70,6 +69,69 @@ def test_commands_are_bound_signed_replay_safe_and_secret_free() -> None:
         replace(value, actor_roles=("admin",)).verify(key_ring=key_ring, **bindings)
     with pytest.raises(Exception, match="embedded_secret"):
         command(key_ring, command_type="edit", payload={"api_token": "raw"})
+
+
+@pytest.mark.parametrize(
+    ("field_name", "invalid_value", "reason_code"),
+    (
+        pytest.param(
+            "expected_revision",
+            "not-an-int",
+            "workflow_command_revision_invalid",
+            id="revision",
+        ),
+        pytest.param(
+            "issued_at",
+            True,
+            "workflow_command_expiry_invalid",
+            id="issued-at",
+        ),
+        pytest.param(
+            "expires_at",
+            float("inf"),
+            "workflow_command_expiry_invalid",
+            id="expires-at",
+        ),
+        pytest.param(
+            "expires_at",
+            "9" * 5_000,
+            "workflow_command_expiry_invalid",
+            id="expires-at-huge-decimal-string",
+        ),
+    ),
+)
+def test_command_wire_numeric_failures_keep_hub_contract_vocabulary(
+    field_name: str,
+    invalid_value: object,
+    reason_code: str,
+) -> None:
+    raw_command = command(keys()).to_dict()
+    raw_command[field_name] = invalid_value
+
+    with pytest.raises(ContractValidationError, match=f"^{reason_code}$"):
+        SignedWorkflowCommand.from_mapping(raw_command)
+
+
+@pytest.mark.parametrize("expected_revision", (True, 1.5))
+def test_command_issuer_does_not_pre_normalize_invalid_revisions(
+    expected_revision: object,
+) -> None:
+    with pytest.raises(
+        ContractValidationError,
+        match="^workflow_command_revision_invalid$",
+    ):
+        command(keys(), expected_revision=expected_revision)
+
+
+@pytest.mark.parametrize("now", (True, float("nan"), float("inf"), float("-inf")))
+def test_command_issuer_does_not_pre_normalize_invalid_timestamps(
+    now: object,
+) -> None:
+    with pytest.raises(
+        ContractValidationError,
+        match="^workflow_command_expiry_invalid$",
+    ):
+        command(keys(), now=now)
 
 
 def component_plan(*, nested: dict | None = None, policy: str = "policy-v1") -> ExecutionPlan:
@@ -156,10 +218,13 @@ def test_component_policy_narrowing_schema_cycle_and_n_minus_one_compatibility()
             replace(
                 root_plan(),
                 nodes=(
-                    replace(root_plan().nodes[0], metadata={
-                        "component": {"id": "summarizer", "version": "1.0.0"},
-                        "component_input": {"language": 7},
-                    }),
+                    replace(
+                        root_plan().nodes[0],
+                        metadata={
+                            "component": {"id": "summarizer", "version": "1.0.0"},
+                            "component_input": {"language": 7},
+                        },
+                    ),
                 ),
             )
         )
@@ -169,9 +234,7 @@ def test_component_policy_narrowing_schema_cycle_and_n_minus_one_compatibility()
     with pytest.raises(ValueError, match="policy_escalation"):
         WorkflowComponentCompiler(policy_registry).compile(root_plan())
 
-    compatible = replace(
-        component(version="1.1.0"), compatible_versions=("1.0.0",)
-    )
+    compatible = replace(component(version="1.1.0"), compatible_versions=("1.0.0",))
     compatibility_registry = WorkflowComponentRegistry()
     compatibility_registry.register(compatible)
     assert compatibility_registry.resolve("summarizer", "1.0.0").version == "1.1.0"

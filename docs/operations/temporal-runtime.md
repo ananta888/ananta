@@ -75,6 +75,50 @@ Worker must never mount the signing file. Verification loaders reject private
 or legacy symmetric fields. Shared HMAC is disabled by default; its explicit
 compatibility flag is for isolated development migration only.
 
+## Workflow-command authority
+
+New Hub-issued workflow commands use
+`ananta.workflow_command.v3`. Every v3 command carries
+`signature_algorithm`, currently `ed25519` in production, and a
+`payload_digest` formatted as `sha256:<hex>`. The digest covers exactly the
+command ID and type, tenant/workflow/run/step/checkpoint bindings, expected
+revision, plan hash, policy version, actor ID and roles, and command payload.
+It deliberately excludes schema version, issuance and expiry times, nonce,
+algorithm, key ID, digest and signature. Thus a legitimately renewed signature
+has the same semantic identity, while any domain-field change is a divergent
+command even when it reuses the command ID.
+
+The Temporal workflow does not import a crypto implementation. Before looking
+up a duplicate, validating workflow state or mutating state, it calls the
+side-effect-free `ananta.temporal.verify-workflow-command.v1` Local Activity.
+That Activity has only an Ed25519 public-keyring and returns a typed, command-
+bound proof. Missing configuration, HMAC v3, unknown or revoked keys, revoked
+commands and invalid signatures fail closed. Expiry and tenant/workflow/run/
+step/checkpoint bindings are then checked deterministically in the workflow.
+The Worker container never receives or exposes a command-signing method or
+private seed.
+
+Deterministic contract, crypto and domain denials return
+`ananta.temporal-workflow-command-result.v2` with `accepted=false`, the
+submitted command ID, current revision/status and a stable reason code. These
+are final decisions and must not enter a dispatcher retry loop. Failure to
+execute the Local Activity, or an invalid Activity response, is different: the
+outcome is ambiguous and remains retryable. An exact semantic duplicate returns
+the recorded result only after a fresh crypto check. Reusing a command ID with
+a different semantic digest returns `command_duplicate_payload_mismatch`.
+
+The neutral contract and Hub verifier still parse `ananta.workflow_command.v2`
+for compatibility. A historical 64-hex HMAC-v2 command can be verified at the
+Hub and replayed from existing history, and an Ed25519-v2 command uses the
+normal 88-character Base64 signature. HMAC is not production-equivalent at the
+Temporal Worker boundary: a new production execution requires public-key
+verification. The `ananta-workflow-command-authority-v3` patch marker preserves
+N-1 histories. During replay, a history without the marker follows its recorded
+legacy command path without scheduling a new Activity; a live command sent to
+such an old run returns
+`temporal_command_authority_migration_required`. Start a replacement run from a
+Hub-authorized checkpoint instead of weakening the old history's trust model.
+
 The dispatch-encryption keyring has the same JSON envelope but every value must
 be a URL-safe Fernet key. It is mounted into the Hub only. The Hub-admin token
 is also Hub-only. Temporal gets a separate random token of at least 32 bytes;
@@ -269,13 +313,20 @@ dispatch key, signing key or runtime-service keyring. The base Temporal and
 probe overlays remain credential-free, so the probe remains safe without
 production secrets.
 
-Rotate the active authorization key through the Hub first, distribute a
-verification keyring containing old and new keys, wait until all workers report
-the new Build ID, and only then stop issuing the previous key. Rotate the
-Temporal token and its Hub-only keyring entry atomically, then recreate the Hub
-and Temporal worker. Rotate the unrelated Hub-admin token separately. A failed
-secret validation returns a bounded workflow-auth configuration error; never
-roll back to inline or shared tokens.
+For authorization-key rotation, first distribute a verification keyring
+containing both old and new public keys and recreate every Temporal worker.
+After all pollers report the intended Build ID, switch the Hub's active private
+key to the preloaded new key. Retain the old public key until no admitted
+command delivery or duplicate acknowledgement can still be retried. Then add
+the old ID to `revoked_key_ids` (or an individual compromised command ID to
+`revoked_envelope_ids`) and recreate workers again. Revocation is checked
+before duplicate handling, so it intentionally overrides a formerly accepted
+duplicate. An absent, malformed or symmetric-only Worker keyring remains
+fail-closed; do not use the development HMAC compatibility flag as rollback.
+Rotate the Temporal token and its Hub-only keyring entry atomically, then
+recreate the Hub and Temporal worker. Rotate the unrelated Hub-admin token
+separately. A failed secret validation returns a bounded workflow-auth
+configuration error; never roll back to inline or shared tokens.
 
 ## Health and graceful shutdown
 

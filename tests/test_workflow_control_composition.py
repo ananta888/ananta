@@ -46,6 +46,7 @@ from agent.services.workflow_route_authorization_service import (
     workflow_route_authorization_service,
 )
 from agent.services.workflow_runtime.security import HmacKeyRing
+from ananta_contracts.temporal_workflow import COMMAND_SCHEMA
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -448,7 +449,7 @@ def test_temporal_control_is_transported_as_hub_signed_revision_bound_update() -
 
     assert backend.signals == []
     assert result["status"] == "paused"
-    assert backend.updates[0]["schema"] == "ananta.workflow_command.v2"
+    assert backend.updates[0]["schema"] == COMMAND_SCHEMA
     assert backend.updates[0]["command_type"] == "pause"
     assert backend.updates[0]["expected_revision"] == 0
     assert backend.updates[0]["signature"]

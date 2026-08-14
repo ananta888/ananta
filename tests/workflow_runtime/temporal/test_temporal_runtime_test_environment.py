@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import json
 import time
 import uuid
 from contextlib import asynccontextmanager
@@ -12,7 +14,8 @@ import pytest
 
 pytest.importorskip("temporalio")
 
-from temporalio.client import WorkflowUpdateFailedError
+from temporalio import workflow
+from temporalio.exceptions import ApplicationError
 from temporalio.testing import WorkflowEnvironment
 from temporalio.worker import Replayer, Worker
 
@@ -21,20 +24,33 @@ from agent.services.temporal_history_projection import (
     TemporalHistoryProjectionService,
     TemporalSDKHistorySource,
 )
+from agent.services.temporal_workflow_backend import TemporalWorkflowBackend
+from agent.services.workflow_backend_durable_run_adapter import (
+    DURABLE_RUN_SIGNAL_SCHEMA,
+    WorkflowBackendDurableRunAdapter,
+)
+from agent.services.workflow_control_command_verification import (
+    HubSignedWorkflowCommandVerifier,
+)
 from agent.services.workflow_runtime import (
     ExecutionPlan,
     HmacKeyRing,
+    InMemoryReplayNonceStore,
     RuntimeAuthorizationEnvelope,
     SignedWorkflowCommand,
+    WorkflowCommandVerifier,
     WorkflowState,
 )
 from ananta_contracts.hub_task_gateway import RetryBudgetReceipt
+from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 from ananta_contracts.temporal_workflow import (
+    LEGACY_COMMAND_SCHEMA,
     ActivityClass,
     AnantaWorkflowInput,
     ArtifactReference,
     AuthorizationEnvelopeRef,
     ProbeRequest,
+    TemporalContractError,
     TemporalWorkflowStep,
     WorkflowCommand,
     WorkflowCommandType,
@@ -45,6 +61,10 @@ from tests.workflow_runtime_contract_fixtures import (
 )
 from worker.temporal.activities import HubActivityGateway, probe_activity
 from worker.temporal.authorization import RuntimeAuthorizationVerifier
+from worker.temporal.command_authority import (
+    PublicKeyWorkflowCommandAuthorityVerifier,
+    WorkflowCommandAuthorityActivity,
+)
 from worker.temporal.hub_gateway import HubGatewayError, HubTaskReceipt
 from worker.temporal.legacy_replay_workflows import LegacyV0AnantaWorkflow
 from worker.temporal.workflows import (
@@ -55,7 +75,44 @@ from worker.temporal.workflows import (
 
 SIGNING_KEY = "temporal-test-signing-key-32-bytes"
 KEY_ID = "temporal-test-key"
+COMMAND_SIGNING_RING = Ed25519SigningKeyRing(
+    {KEY_ID: base64.b64encode(b"c" * 32).decode("ascii")},
+    active_key_id=KEY_ID,
+)
 PLAN_HASH = "a" * 64
+
+
+@workflow.defn(name="AnantaWorkflow", sandboxed=False)
+class FrozenLegacyV2CommandWorkflow(AnantaWorkflow):
+    """Test-only pre-authority handler used to create a golden v2 history."""
+
+    _record_compatibility_patch = False
+
+    @workflow.run
+    async def run(self, raw_input: dict[str, Any]) -> dict[str, Any]:
+        return await super().run(raw_input)
+
+    @workflow.update(name="command")
+    def command(self, raw_command: dict[str, Any]) -> dict[str, Any]:
+        try:
+            command = WorkflowCommand.from_mapping(raw_command)
+            duplicate = self._processed_command_ids.get(command.command_id)
+            if duplicate is not None:
+                return duplicate.to_dict()
+            self._validate_command(command)
+            return self._apply_command(command).to_dict()
+        except TemporalContractError as exc:
+            raise ApplicationError(
+                "workflow command rejected",
+                type=exc.reason_code,
+                non_retryable=True,
+            ) from exc
+
+    @command.validator
+    def validate_command(self, raw_command: dict[str, Any]) -> None:
+        command = WorkflowCommand.from_mapping(raw_command)
+        if command.command_id not in self._processed_command_ids:
+            self._validate_command(command)
 
 
 @dataclass
@@ -251,6 +308,9 @@ async def _running_worker(
         poll_seconds=0.05,
         activity_timeout_seconds=activity_timeout_seconds,
     )
+    command_authority = WorkflowCommandAuthorityActivity(
+        PublicKeyWorkflowCommandAuthorityVerifier(COMMAND_SIGNING_RING.verification_key_ring())
+    )
     try:
         async with Worker(
             environment.client,
@@ -260,7 +320,7 @@ async def _running_worker(
                 TemporalRecoveryProbeWorkflow,
                 workflow_class,
             ],
-            activities=[probe_activity, activity_gateway.execute],
+            activities=[probe_activity, activity_gateway.execute, command_authority.verify],
             graceful_shutdown_timeout=timedelta(seconds=1),
         ):
             yield environment, task_queue
@@ -285,10 +345,12 @@ def _command(
     revision: int,
     payload: dict[str, Any] | None = None,
     authorization: AuthorizationEnvelopeRef | None = None,
+    now: float | None = None,
+    ttl_seconds: float = 86_400,
 ) -> dict[str, Any]:
     binding = authorization or workflow_input.steps[0].authorization_envelope
     signed = SignedWorkflowCommand.issue(
-        key_ring=HmacKeyRing({KEY_ID: SIGNING_KEY}, active_key_id=KEY_ID),
+        key_ring=COMMAND_SIGNING_RING,
         command_id=command_id,
         command_type=command_type.value,
         tenant_id=binding.tenant_id,
@@ -306,10 +368,50 @@ def _command(
         # workflow start.  A small lower margin avoids wall-clock sub-second
         # races, while one day covers bounded time-skipping between ten critical
         # race repetitions without weakening production command validation.
+        now=binding.issued_at - 60 if now is None else now,
+        ttl_seconds=ttl_seconds,
+    )
+    return WorkflowCommand.from_mapping(signed.to_dict()).to_dict()
+
+
+def _legacy_v2_command(
+    workflow_input: AnantaWorkflowInput,
+    *,
+    command_id: str,
+    command_type: WorkflowCommandType,
+    revision: int,
+) -> dict[str, Any]:
+    binding = workflow_input.steps[0].authorization_envelope
+    key_ring = HmacKeyRing({KEY_ID: SIGNING_KEY}, active_key_id=KEY_ID)
+    current = SignedWorkflowCommand.issue(
+        key_ring=key_ring,
+        command_id=command_id,
+        command_type=command_type.value,
+        tenant_id=binding.tenant_id,
+        workflow_id=binding.workflow_id,
+        run_id=binding.run_id,
+        step_id=binding.step_id,
+        checkpoint_id=f"temporal:{workflow_input.workflow_id}:{revision}",
+        expected_revision=revision,
+        plan_hash=binding.plan_hash,
+        policy_version=binding.policy_version,
+        actor_id="operator-1",
+        actor_roles=("operator",),
+        payload={},
         now=binding.issued_at - 60,
         ttl_seconds=86_400,
     )
-    return WorkflowCommand.from_mapping(signed.to_dict()).to_dict()
+    unsigned = current.to_dict()
+    unsigned["schema"] = LEGACY_COMMAND_SCHEMA
+    unsigned.pop("signature_algorithm")
+    unsigned.pop("payload_digest")
+    unsigned.pop("signature")
+    key_id, signature = key_ring.sign(
+        namespace=LEGACY_COMMAND_SCHEMA,
+        payload=unsigned,
+        key_id=KEY_ID,
+    )
+    return WorkflowCommand.from_mapping({**unsigned, "key_id": key_id, "signature": signature}).to_dict()
 
 
 def test_probe_happy_path_artifact_and_history_replay() -> None:
@@ -455,13 +557,10 @@ def test_parallel_merge_omits_only_explicitly_allowed_failed_branches() -> None:
 
 def test_n_minus_one_v0_history_replays_with_current_workflow() -> None:
     n_minus_one_runtime_contracts = n_minus_one_runtime_contract_fixture()
+
     async def scenario() -> None:
-        migrated_plan = ExecutionPlan.from_mapping(
-            n_minus_one_runtime_contracts["plan"]
-        )
-        migrated_state = WorkflowState.from_mapping(
-            n_minus_one_runtime_contracts["state"]
-        )
+        migrated_plan = ExecutionPlan.from_mapping(n_minus_one_runtime_contracts["plan"])
+        migrated_state = WorkflowState.from_mapping(n_minus_one_runtime_contracts["state"])
         gateway = ScriptedHubGateway(artifact_refs=(ArtifactReference("legacy-artifact", kind="generated").to_dict(),))
         async with _running_worker(gateway, workflow_class=LegacyV0AnantaWorkflow) as (
             environment,
@@ -494,6 +593,137 @@ def test_n_minus_one_v0_history_replays_with_current_workflow() -> None:
     asyncio.run(scenario())
 
 
+def test_accepted_legacy_v2_command_history_replays_without_crypto_activity() -> None:
+    async def scenario() -> None:
+        gateway = ScriptedHubGateway()
+        async with _running_worker(
+            gateway,
+            workflow_class=FrozenLegacyV2CommandWorkflow,
+        ) as (environment, task_queue):
+            workflow_id = f"legacy-command-{uuid.uuid4().hex}"
+            workflow_input = _workflow_input(workflow_id=workflow_id, gate=True)
+            handle = await environment.client.start_workflow(
+                "AnantaWorkflow",
+                workflow_input.to_dict(),
+                id=workflow_id,
+                task_queue=task_queue,
+            )
+            waiting = await _wait_for_status(handle, "waiting_approval")
+            accepted = await handle.execute_update(
+                "command",
+                _legacy_v2_command(
+                    workflow_input,
+                    command_id="accepted-legacy-command",
+                    command_type=WorkflowCommandType.APPROVE,
+                    revision=waiting["revision"],
+                ),
+            )
+            assert accepted["accepted"] is True
+            assert (await handle.result())["status"] == "completed"
+            history = await handle.fetch_history()
+
+            assert "ananta.temporal.verify-workflow-command.v1" not in json.dumps(
+                history.to_json_dict(),
+                sort_keys=True,
+            )
+            replay = await Replayer(workflows=[AnantaWorkflow]).replay_workflow(history)
+            assert replay.replay_failure is None
+
+    asyncio.run(scenario())
+
+
+def test_legacy_v2_live_command_requires_hub_authorized_replacement_run() -> None:
+    async def scenario() -> None:
+        gateway = ScriptedHubGateway()
+        async with _running_worker(gateway, workflow_class=LegacyV0AnantaWorkflow) as (
+            environment,
+            task_queue,
+        ):
+            workflow_id = f"legacy-live-{uuid.uuid4().hex}"
+            workflow_input = _workflow_input(workflow_id=workflow_id, gate=True)
+            handle = await environment.client.start_workflow(
+                "AnantaWorkflow",
+                workflow_input.to_dict(),
+                id=workflow_id,
+                task_queue=task_queue,
+            )
+            waiting = await _wait_for_status(handle, "waiting_approval")
+            rejected = await handle.execute_update(
+                "command",
+                _legacy_v2_command(
+                    workflow_input,
+                    command_id="legacy-live-command",
+                    command_type=WorkflowCommandType.APPROVE,
+                    revision=waiting["revision"],
+                ),
+            )
+
+            assert rejected["accepted"] is False
+            assert rejected["command_id"] == "legacy-live-command"
+            assert rejected["revision"] == waiting["revision"]
+            assert rejected["status"] == "waiting_approval"
+            assert rejected["reason_code"] == "temporal_command_authority_migration_required"
+            await handle.cancel()
+
+    asyncio.run(scenario())
+
+
+def test_production_ed25519_command_crosses_durable_adapter_backend_and_worker() -> None:
+    async def scenario() -> None:
+        gateway = ScriptedHubGateway()
+        async with _running_worker(gateway) as (environment, task_queue):
+            workflow_id = f"durable-ed25519-{uuid.uuid4().hex}"
+            workflow_input = _workflow_input(workflow_id=workflow_id, gate=True)
+            handle = await environment.client.start_workflow(
+                "AnantaWorkflow",
+                workflow_input.to_dict(),
+                id=workflow_id,
+                task_queue=task_queue,
+            )
+            waiting = await _wait_for_status(handle, "waiting_approval")
+            signed = SignedWorkflowCommand.from_mapping(
+                _command(
+                    workflow_input,
+                    command_id="durable-ed25519-command",
+                    command_type=WorkflowCommandType.APPROVE,
+                    revision=waiting["revision"],
+                )
+            )
+            verifier = HubSignedWorkflowCommandVerifier(
+                WorkflowCommandVerifier(
+                    COMMAND_SIGNING_RING.verification_key_ring(),
+                    InMemoryReplayNonceStore(),
+                )
+            )
+            backend = TemporalWorkflowBackend(
+                address=environment.client.service_client.config.target_host,
+                namespace=environment.client.namespace,
+                task_queue=task_queue,
+            )
+            adapter = WorkflowBackendDurableRunAdapter(
+                backend,
+                commands=verifier,
+            )
+
+            result = await asyncio.to_thread(
+                adapter.signal,
+                tenant_id=workflow_input.tenant_id,
+                run_id=workflow_input.workflow_id,
+                command={
+                    "schema": DURABLE_RUN_SIGNAL_SCHEMA,
+                    "command": signed.to_dict(),
+                },
+            )
+
+            assert signed.signature_algorithm == "ed25519"
+            assert len(signed.signature) == 88
+            assert result["accepted"] is True
+            assert result["command_id"] == signed.command_id
+            assert (await handle.result())["status"] == "completed"
+
+    asyncio.run(scenario())
+
+
 def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() -> None:
     async def scenario() -> None:
         gateway = ScriptedHubGateway()
@@ -512,6 +742,20 @@ def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() ->
                 task_queue=task_queue,
             )
             waiting = await _wait_for_status(handle, "waiting_approval")
+            expired_command = _command(
+                workflow_input,
+                command_id="expired-1",
+                command_type=WorkflowCommandType.PARAMETER_UPDATE,
+                revision=waiting["revision"],
+                payload={"parameters": {"mode": "expired"}},
+                now=workflow_input.steps[0].authorization_envelope.issued_at - 120,
+                ttl_seconds=1,
+            )
+            expired = await handle.execute_update("command", expired_command)
+            assert expired["accepted"] is False
+            assert expired["reason_code"] == "command_expired"
+            assert expired["revision"] == waiting["revision"]
+
             parameter_command = _command(
                 workflow_input,
                 command_id="parameter-1",
@@ -522,6 +766,33 @@ def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() ->
             first = await handle.execute_update("command", parameter_command)
             duplicate = await handle.execute_update("command", parameter_command)
             assert duplicate == first
+            renewed_duplicate = _command(
+                workflow_input,
+                command_id="parameter-1",
+                command_type=WorkflowCommandType.PARAMETER_UPDATE,
+                revision=waiting["revision"],
+                payload={"parameters": {"mode": "fast"}},
+            )
+            assert await handle.execute_update("command", renewed_duplicate) == first
+            crypto_tamper = dict(parameter_command)
+            crypto_tamper["signature"] = ("A" if parameter_command["signature"][0] != "A" else "B") + parameter_command[
+                "signature"
+            ][1:]
+            invalid = await handle.execute_update("command", crypto_tamper)
+            assert invalid["accepted"] is False
+            assert invalid["reason_code"] == "signature_invalid"
+            assert invalid["revision"] == first["revision"]
+            divergent_duplicate = _command(
+                workflow_input,
+                command_id="parameter-1",
+                command_type=WorkflowCommandType.PARAMETER_UPDATE,
+                revision=waiting["revision"],
+                payload={"parameters": {"mode": "tampered"}},
+            )
+            divergent = await handle.execute_update("command", divergent_duplicate)
+            assert divergent["accepted"] is False
+            assert divergent["reason_code"] == "command_duplicate_payload_mismatch"
+            assert divergent["revision"] == first["revision"]
 
             stale_approval = _command(
                 workflow_input,
@@ -529,8 +800,10 @@ def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() ->
                 command_type=WorkflowCommandType.APPROVE,
                 revision=waiting["revision"],
             )
-            with pytest.raises(WorkflowUpdateFailedError):
-                await handle.execute_update("command", stale_approval)
+            stale = await handle.execute_update("command", stale_approval)
+            assert stale["accepted"] is False
+            assert stale["reason_code"] == "stale_workflow_revision"
+            assert stale["revision"] == first["revision"]
 
             current = await handle.query("status")
             foreign_authorization = _authorization(
@@ -545,8 +818,10 @@ def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() ->
                 revision=current["revision"],
                 authorization=foreign_authorization,
             )
-            with pytest.raises(WorkflowUpdateFailedError):
-                await handle.execute_update("command", unauthorized)
+            denied = await handle.execute_update("command", unauthorized)
+            assert denied["accepted"] is False
+            assert denied["reason_code"] == "command_workflow_id_mismatch"
+            assert denied["revision"] == current["revision"]
 
             approval = _command(
                 workflow_input,
@@ -558,6 +833,9 @@ def test_typed_updates_validate_duplicate_stale_unauthorized_and_parameters() ->
             result = await handle.result()
             assert result["status"] == "completed"
             assert result["parameters"] == {"mode": "fast"}
+            history = await handle.fetch_history()
+            replay = await Replayer(workflows=[AnantaWorkflow]).replay_workflow(history)
+            assert replay.replay_failure is None
 
     asyncio.run(scenario())
 

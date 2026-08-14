@@ -14,9 +14,11 @@ from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
+from temporalio.common import RetryPolicy
 from temporalio.exceptions import ActivityError, ApplicationError
 
 from ananta_contracts.temporal_workflow import (
+    COMMAND_AUTHORITY_ACTIVITY,
     AnantaWorkflowInput,
     ArtifactReference,
     ProbeRequest,
@@ -25,6 +27,7 @@ from ananta_contracts.temporal_workflow import (
     TemporalContractError,
     TemporalWorkflowStep,
     WorkflowCommand,
+    WorkflowCommandAuthorityResult,
     WorkflowCommandResult,
     WorkflowCommandType,
     WorkflowPhase,
@@ -38,6 +41,7 @@ RECOVERY_PROBE_WORKFLOW_TYPE = "AnantaTemporalRecoveryProbeWorkflow"
 N_MINUS_ONE_PATCH_ID = "ananta-workflow-state-machine-v1"
 HUB_SIGNED_COMMAND_PATCH_ID = "ananta-hub-signed-workflow-command-v2"
 BOUNDED_PARALLEL_PATCH_ID = "ananta-workflow-bounded-parallel-v1"
+COMMAND_AUTHORITY_PATCH_ID = "ananta-workflow-command-authority-v3"
 
 
 @workflow.defn(name=PROBE_WORKFLOW_TYPE, sandboxed=True)
@@ -119,6 +123,8 @@ class AnantaWorkflow:
         self._open_gates: list[str] = []
         self._approved_gates: set[str] = set()
         self._processed_command_ids: dict[str, WorkflowCommandResult] = {}
+        self._processed_command_payload_digests: dict[str, str] = {}
+        self._command_authority_enabled = False
         self._parameters: dict[str, Any] = {}
         self._retry_budget_remaining = 0
         self._retry_budget_maximum = 0
@@ -147,6 +153,10 @@ class AnantaWorkflow:
             self._phase = WorkflowPhase.FAILED
             self._reason_code = "temporal_workflow_id_mismatch"
             return self._status().to_dict()
+
+        self._command_authority_enabled = (
+            workflow.patched(COMMAND_AUTHORITY_PATCH_ID) if self._record_compatibility_patch else False
+        )
 
         self._parameters = dict(self._input.parameters)
         self._effective_plan_hash = self._input.plan_hash
@@ -502,34 +512,105 @@ class AnantaWorkflow:
         }
 
     @workflow.update(name="command")
-    def command(self, raw_command: dict[str, Any]) -> dict[str, Any]:
+    async def command(self, raw_command: dict[str, Any]) -> dict[str, Any]:
         try:
             command = WorkflowCommand.from_mapping(raw_command)
+            if not self._command_authority_enabled:
+                if not workflow.unsafe.is_replaying():
+                    raise TemporalContractError(
+                        "temporal_command_authority_migration_required",
+                        "legacy workflow requires a Hub-authorized replacement run",
+                    )
+                return self._apply_legacy_replay_command(command).to_dict()
+            authority = await self._verify_command_authority(command)
             duplicate = self._processed_command_ids.get(command.command_id)
             if duplicate is not None:
+                expected_digest = self._processed_command_payload_digests.get(command.command_id)
+                if not expected_digest or expected_digest != authority.payload_digest:
+                    raise TemporalContractError(
+                        "command_duplicate_payload_mismatch",
+                        "duplicate workflow command payload differs",
+                    )
                 return duplicate.to_dict()
             self._validate_command(command)
-            return self._apply_command(command).to_dict()
+            result = self._apply_command(command)
+            self._processed_command_payload_digests[command.command_id] = authority.payload_digest
+            return result.to_dict()
         except TemporalContractError as exc:
-            raise ApplicationError(
-                "workflow command rejected",
-                type=exc.reason_code,
-                non_retryable=True,
-            ) from exc
+            return self._rejected_command_result(raw_command, exc.reason_code).to_dict()
 
     @command.validator
     def validate_command(self, raw_command: dict[str, Any]) -> None:
-        try:
-            command = WorkflowCommand.from_mapping(raw_command)
-            if command.command_id in self._processed_command_ids:
-                return
-            self._validate_command(command)
-        except TemporalContractError as exc:
+        # Update validators cannot run Activities.  Deterministic contract,
+        # crypto and domain denials must reach the handler so callers receive a
+        # bound ``accepted=false`` result instead of an exception/retry loop.
+        if not isinstance(raw_command, dict):
             raise ApplicationError(
                 "workflow command rejected",
-                type=exc.reason_code,
+                type="invalid_command",
                 non_retryable=True,
+            )
+
+    async def _verify_command_authority(
+        self,
+        command: WorkflowCommand,
+    ) -> WorkflowCommandAuthorityResult:
+        raw_result = await workflow.execute_local_activity(
+            COMMAND_AUTHORITY_ACTIVITY,
+            command.to_dict(),
+            start_to_close_timeout=timedelta(seconds=5),
+            retry_policy=RetryPolicy(maximum_attempts=1),
+            result_type=dict,
+        )
+        try:
+            result = WorkflowCommandAuthorityResult.from_mapping(raw_result)
+        except TemporalContractError as exc:
+            raise ApplicationError(
+                "workflow command authority returned an invalid result",
+                type=f"temporal-command-authority-result-invalid:{exc.reason_code}",
+                non_retryable=False,
             ) from exc
+        expected_algorithm = command.signature_algorithm or "ed25519"
+        if (
+            result.command_id != command.command_id
+            or result.payload_digest != command.computed_payload_digest()
+            or result.signature_algorithm != expected_algorithm
+            or result.key_id != command.key_id
+        ):
+            raise ApplicationError(
+                "workflow command authority result is not bound to the command",
+                type="temporal-command-authority-result-binding-mismatch",
+                non_retryable=False,
+            )
+        if not result.accepted:
+            raise TemporalContractError(
+                result.reason_code,
+                "workflow command authority rejected the command",
+            )
+        return result
+
+    def _rejected_command_result(
+        self,
+        raw_command: dict[str, Any],
+        reason_code: str,
+    ) -> WorkflowCommandResult:
+        command_id = str(raw_command.get("command_id") or "")[:256]
+        return WorkflowCommandResult(
+            command_id=command_id,
+            accepted=False,
+            revision=self._revision,
+            status=self._phase.value,
+            reason_code=str(reason_code or "workflow_command_rejected"),
+        )
+
+    def _apply_legacy_replay_command(self, command: WorkflowCommand) -> WorkflowCommandResult:
+        duplicate = self._processed_command_ids.get(command.command_id)
+        if duplicate is not None:
+            return duplicate
+        self._validate_command(command)
+        result = self._apply_command(command)
+        self._processed_command_payload_digests[command.command_id] = command.computed_payload_digest()
+        return result
 
     @workflow.signal(name="approve")
     def approve(self, raw_command: dict[str, Any]) -> None:
@@ -647,7 +728,10 @@ class AnantaWorkflow:
             merged = {**self._parameters, **updates}
             if len(json.dumps(merged, sort_keys=True, separators=(",", ":")).encode("utf-8")) > 32_768:
                 raise TemporalContractError("parameter_update_too_large", "parameter update exceeds its limit")
-        elif command_type in {WorkflowCommandType.EDIT, WorkflowCommandType.REQUEST_CHANGES}:
+        elif command_type in {
+            WorkflowCommandType.EDIT,
+            WorkflowCommandType.REQUEST_CHANGES,
+        }:
             if self._active_activity is not None or self._active_activities:
                 raise TemporalContractError("plan_edit_activity_running", "an active activity cannot be edited")
 
@@ -675,7 +759,10 @@ class AnantaWorkflow:
                 handle.cancel()
         elif command_type is WorkflowCommandType.PARAMETER_UPDATE:
             self._parameters.update(dict(command.payload.get("parameters") or {}))
-        elif command_type in {WorkflowCommandType.EDIT, WorkflowCommandType.REQUEST_CHANGES}:
+        elif command_type in {
+            WorkflowCommandType.EDIT,
+            WorkflowCommandType.REQUEST_CHANGES,
+        }:
             self._effective_plan_hash = str(command.payload["replacement_plan_hash"])
             self._plan_ref = str(command.payload.get("plan_ref") or "inline-plan")[:256]
             self._plan_revision += 1

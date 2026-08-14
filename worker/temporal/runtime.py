@@ -10,8 +10,16 @@ from datetime import timedelta
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from ananta_contracts.runtime_authorization_crypto import (
+    ED25519_VERIFICATION_KEYRING_SCHEMA,
+    Ed25519VerificationKeyRing,
+)
 from worker.temporal.activities import HubActivityGateway, probe_activity
 from worker.temporal.authorization import RuntimeAuthorizationVerifier
+from worker.temporal.command_authority import (
+    PublicKeyWorkflowCommandAuthorityVerifier,
+    WorkflowCommandAuthorityActivity,
+)
 from worker.temporal.config import TemporalWorkerConfig
 from worker.temporal.health import WorkerHealthServer, WorkerHealthState
 from worker.temporal.hub_gateway import HttpHubTaskGateway, UnavailableHubTaskGateway
@@ -61,14 +69,23 @@ def build_activity_gateway(config: TemporalWorkerConfig) -> HubActivityGateway:
     )
 
 
+def build_command_authority_activity(config: TemporalWorkerConfig) -> WorkflowCommandAuthorityActivity:
+    keyring = config.read_authorization_keyring()
+    if not keyring or str(keyring.get("schema") or "") != ED25519_VERIFICATION_KEYRING_SCHEMA:
+        return WorkflowCommandAuthorityActivity()
+    verification_key_ring = Ed25519VerificationKeyRing.from_mapping(keyring)
+    return WorkflowCommandAuthorityActivity(PublicKeyWorkflowCommandAuthorityVerifier(verification_key_ring))
+
+
 def build_worker(config: TemporalWorkerConfig, client: Client) -> Worker:
     validate_all_retry_profiles()
     gateway = build_activity_gateway(config)
+    command_authority = build_command_authority_activity(config)
     return Worker(
         client,
         task_queue=config.task_queue,
         workflows=[TemporalProbeWorkflow, TemporalRecoveryProbeWorkflow, AnantaWorkflow],
-        activities=[probe_activity, gateway.execute],
+        activities=[probe_activity, gateway.execute, command_authority.verify],
         build_id=config.build_id,
         identity=config.identity,
         use_worker_versioning=config.use_worker_versioning,
@@ -155,4 +172,11 @@ if __name__ == "__main__":
     main()
 
 
-__all__ = ["build_activity_gateway", "build_worker", "connect_client", "main", "run_worker"]
+__all__ = [
+    "build_activity_gateway",
+    "build_command_authority_activity",
+    "build_worker",
+    "connect_client",
+    "main",
+    "run_worker",
+]

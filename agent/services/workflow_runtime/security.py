@@ -53,6 +53,10 @@ class HmacKeyRing:
     def active_key_id(self) -> str:
         return self._active_key_id
 
+    @property
+    def signature_algorithm(self) -> str:
+        return "hmac-sha256"
+
     def rotate(self, *, key_id: str, key: str | bytes) -> None:
         value = key.encode("utf-8") if isinstance(key, str) else bytes(key)
         if len(value) < 16:
@@ -109,6 +113,9 @@ class HmacKeyRing:
 
 
 class SignatureVerificationKeyRingPort(Protocol):
+    @property
+    def signature_algorithm(self) -> str: ...
+
     def verify(
         self,
         *,
@@ -134,8 +141,7 @@ class SignatureSigningKeyRingPort(SignatureVerificationKeyRingPort, Protocol):
 
 
 class ReplayNonceStore(Protocol):
-    def consume(self, *, tenant_id: str, nonce: str, expires_at: float) -> bool:
-        ...
+    def consume(self, *, tenant_id: str, nonce: str, expires_at: float) -> bool: ...
 
 
 class InMemoryReplayNonceStore:
@@ -222,12 +228,8 @@ class RuntimeAuthorizationEnvelope:
             nonce=str(nonce or uuid.uuid4().hex),
             key_id="",
             signature="",
-            allowed_provider_bindings=_normalize_provider_bindings(
-                allowed_provider_bindings
-            ),
-            provider_attempt_plan=_normalize_provider_attempt_plan(
-                provider_attempt_plan
-            ),
+            allowed_provider_bindings=_normalize_provider_bindings(allowed_provider_bindings),
+            provider_attempt_plan=_normalize_provider_attempt_plan(provider_attempt_plan),
         )
         unsigned._assert_structure()
         key_id = key_ring.active_key_id
@@ -246,9 +248,7 @@ class RuntimeAuthorizationEnvelope:
             upcast_runtime_contract_for_loading,
         )
 
-        raw = upcast_runtime_contract_for_loading(
-            raw, contract_type="authorization"
-        )
+        raw = upcast_runtime_contract_for_loading(raw, contract_type="authorization")
         return cls(
             envelope_id=str(raw.get("envelope_id") or ""),
             tenant_id=str(raw.get("tenant_id") or ""),
@@ -265,12 +265,8 @@ class RuntimeAuthorizationEnvelope:
             nonce=str(raw.get("nonce") or ""),
             key_id=str(raw.get("key_id") or ""),
             signature=str(raw.get("signature") or ""),
-            allowed_provider_bindings=_normalize_provider_bindings(
-                raw.get("allowed_provider_bindings") or ()
-            ),
-            provider_attempt_plan=_normalize_provider_attempt_plan(
-                raw.get("provider_attempt_plan") or ()
-            ),
+            allowed_provider_bindings=_normalize_provider_bindings(raw.get("allowed_provider_bindings") or ()),
+            provider_attempt_plan=_normalize_provider_attempt_plan(raw.get("provider_attempt_plan") or ()),
             schema=str(raw.get("schema") or AUTHORIZATION_ENVELOPE_SCHEMA),
         )
 
@@ -332,52 +328,28 @@ class RuntimeAuthorizationEnvelope:
         if any(value < 0 for value in self.budgets.values()):
             raise ContractValidationError("authorization_budget_invalid")
         if len(self.allowed_provider_bindings) > 8:
-            raise ContractValidationError(
-                "authorization_provider_binding_limit_exceeded"
-            )
+            raise ContractValidationError("authorization_provider_binding_limit_exceeded")
         if len(self.provider_attempt_plan) > 8:
-            raise ContractValidationError(
-                "authorization_provider_attempt_plan_limit_exceeded"
-            )
+            raise ContractValidationError("authorization_provider_attempt_plan_limit_exceeded")
         try:
             for item in self.allowed_provider_bindings:
                 item.validate()
             for item in self.provider_attempt_plan:
                 item.validate()
         except (AttributeError, ProviderExecutionBindingError) as exc:
-            raise ContractValidationError(
-                "authorization_provider_binding_invalid"
-            ) from exc
+            raise ContractValidationError("authorization_provider_binding_invalid") from exc
         if self.provider_attempt_plan:
-            allowed = {
-                item.binding_id: item
-                for item in self.allowed_provider_bindings
-            }
-            planned = {
-                item.binding_id: item.binding_authorization
-                for item in self.provider_attempt_plan
-            }
-            if (
-                not allowed
-                or set(planned) != set(allowed)
-                or any(planned[key] != allowed[key] for key in planned)
-            ):
-                raise ContractValidationError(
-                    "authorization_provider_attempt_plan_binding_mismatch"
-                )
+            allowed = {item.binding_id: item for item in self.allowed_provider_bindings}
+            planned = {item.binding_id: item.binding_authorization for item in self.provider_attempt_plan}
+            if not allowed or set(planned) != set(allowed) or any(planned[key] != allowed[key] for key in planned):
+                raise ContractValidationError("authorization_provider_attempt_plan_binding_mismatch")
             raw_maximum = self.budgets.get("provider_attempts")
             if (
                 raw_maximum is None
                 or isinstance(raw_maximum, bool)
-                or int(raw_maximum)
-                != sum(
-                    item.maximum_attempts
-                    for item in self.provider_attempt_plan
-                )
+                or int(raw_maximum) != sum(item.maximum_attempts for item in self.provider_attempt_plan)
             ):
-                raise ContractValidationError(
-                    "authorization_provider_attempt_plan_budget_mismatch"
-                )
+                raise ContractValidationError("authorization_provider_attempt_plan_budget_mismatch")
 
     def _signing_payload(self) -> dict[str, Any]:
         payload = self.to_dict()
@@ -404,15 +376,9 @@ class RuntimeAuthorizationEnvelope:
             "signature": self.signature,
         }
         if self.allowed_provider_bindings:
-            payload["allowed_provider_bindings"] = [
-                item.to_dict()
-                for item in self.allowed_provider_bindings
-            ]
+            payload["allowed_provider_bindings"] = [item.to_dict() for item in self.allowed_provider_bindings]
         if self.provider_attempt_plan:
-            payload["provider_attempt_plan"] = [
-                item.to_dict()
-                for item in self.provider_attempt_plan
-            ]
+            payload["provider_attempt_plan"] = [item.to_dict() for item in self.provider_attempt_plan]
         if redacted:
             payload["nonce"] = "[REDACTED]"
             payload["signature"] = "[REDACTED]"
@@ -425,9 +391,7 @@ def _normalize_provider_bindings(
     if raw is None:
         return ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
-        raise ContractValidationError(
-            "authorization_provider_bindings_invalid"
-        )
+        raise ContractValidationError("authorization_provider_bindings_invalid")
     values: list[ProviderBindingAuthorization] = []
     seen_ids: set[str] = set()
     try:
@@ -439,9 +403,7 @@ def _normalize_provider_bindings(
             )
             value.validate()
             if value.binding_id in seen_ids:
-                raise ContractValidationError(
-                    "authorization_provider_binding_duplicate"
-                )
+                raise ContractValidationError("authorization_provider_binding_duplicate")
             seen_ids.add(value.binding_id)
             values.append(value)
     except ProviderExecutionBindingError as exc:
@@ -464,9 +426,7 @@ def _normalize_provider_attempt_plan(
     if raw is None:
         return ()
     if isinstance(raw, (str, bytes)) or not isinstance(raw, (list, tuple)):
-        raise ContractValidationError(
-            "authorization_provider_attempt_plan_invalid"
-        )
+        raise ContractValidationError("authorization_provider_attempt_plan_invalid")
     values: list[ProviderProfileAttemptPlanEntry] = []
     seen_profiles: set[str] = set()
     seen_bindings: set[str] = set()
@@ -478,13 +438,8 @@ def _normalize_provider_attempt_plan(
                 else ProviderProfileAttemptPlanEntry.from_mapping(item)
             )
             value.validate()
-            if (
-                value.profile_id in seen_profiles
-                or value.binding_id in seen_bindings
-            ):
-                raise ContractValidationError(
-                    "authorization_provider_attempt_plan_duplicate"
-                )
+            if value.profile_id in seen_profiles or value.binding_id in seen_bindings:
+                raise ContractValidationError("authorization_provider_attempt_plan_duplicate")
             seen_profiles.add(value.profile_id)
             seen_bindings.add(value.binding_id)
             values.append(value)
@@ -673,9 +628,7 @@ class SignedCheckpoint:
             upcast_runtime_contract_for_loading,
         )
 
-        raw = upcast_runtime_contract_for_loading(
-            raw, contract_type="checkpoint"
-        )
+        raw = upcast_runtime_contract_for_loading(raw, contract_type="checkpoint")
         return cls(
             checkpoint_id=str(raw.get("checkpoint_id") or ""),
             tenant_id=str(raw.get("tenant_id") or ""),
