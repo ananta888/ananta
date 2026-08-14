@@ -4,6 +4,7 @@ from collections.abc import Iterator
 
 import pytest
 
+from agent.services.identity_validation import IdentityValidationError
 from agent.services.workflow_runtime import (
     CanonicalWorkflowEvent,
     FencingTokenError,
@@ -75,6 +76,58 @@ def test_event_store_orders_dedupes_redacts_and_enforces_optimistic_sequence(eve
     assert second.payload == {"api_token": "[REDACTED]", "safe": True}
     assert event_store.list_events(tenant_id="tenant-a", run_id="run-1") == (first, second)
     assert event_store.list_events(tenant_id="tenant-b", run_id="run-1") == ()
+    exact_event_query = {
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-1",
+        "run_id": "run-1",
+        "dedupe_key": "2",
+    }
+    event_snapshot = event_store.list_events(
+        tenant_id="tenant-a",
+        run_id="run-1",
+    )
+    exact_event = event_store.get_by_dedupe(**exact_event_query)
+    assert exact_event == second
+    assert exact_event is not None
+    exact_event.payload["safe"] = False
+    assert event_store.get_by_dedupe(**exact_event_query) == second
+    assert (
+        event_store.get_by_dedupe(
+            tenant_id="tenant-b",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            dedupe_key="2",
+        )
+        is None
+    )
+    assert (
+        event_store.get_by_dedupe(
+            tenant_id="tenant-a",
+            workflow_id="workflow-1",
+            run_id="run-missing",
+            dedupe_key="2",
+        )
+        is None
+    )
+    with pytest.raises(OptimisticConcurrencyError, match="dedupe_binding_conflict"):
+        event_store.get_by_dedupe(
+            tenant_id="tenant-a",
+            workflow_id="workflow-other",
+            run_id="run-1",
+            dedupe_key="2",
+        )
+    for field_name, invalid in (
+        ("tenant_id", True),
+        ("workflow_id", 7),
+        ("run_id", " run-1"),
+        ("dedupe_key", False),
+        ("dedupe_key", " 2"),
+        ("dedupe_key", "2\x00"),
+        ("dedupe_key", "x" * 513),
+    ):
+        with pytest.raises((IdentityValidationError, ValueError)):
+            event_store.get_by_dedupe(**{**exact_event_query, field_name: invalid})
+    assert event_store.list_events(tenant_id="tenant-a", run_id="run-1") == event_snapshot
 
     with pytest.raises(OptimisticConcurrencyError, match="sequence_conflict"):
         event_store.append(_event(event_type="workflow.run.completed", dedupe="3"), expected_sequence=0)
@@ -128,6 +181,67 @@ def test_checkpoint_store_is_atomic_revisioned_tenant_bound_and_fenced(checkpoin
 
     assert checkpoint_store.get_latest(tenant_id="tenant-a", run_id="run-1", task_id="task-1") == second
     assert checkpoint_store.get_latest(tenant_id="tenant-b", run_id="run-1", task_id="task-1") is None
+    exact_checkpoint_query = {
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-1",
+        "run_id": "run-1",
+        "task_id": "task-1",
+        "checkpoint_id": "cp-1",
+    }
+    history_snapshot = checkpoint_store.list_history(
+        tenant_id="tenant-a",
+        run_id="run-1",
+        task_id="task-1",
+    )
+    exact_checkpoint = checkpoint_store.get_by_id(**exact_checkpoint_query)
+    assert exact_checkpoint == first
+    assert exact_checkpoint is not None
+    exact_checkpoint.state.business_data["revision"] = 999
+    assert checkpoint_store.get_by_id(**exact_checkpoint_query) == first
+    assert (
+        checkpoint_store.get_by_id(
+            tenant_id="tenant-b",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            task_id="task-1",
+            checkpoint_id="cp-1",
+        )
+        is None
+    )
+    for mismatch in (
+        {"workflow_id": "workflow-other"},
+        {"run_id": "run-other"},
+        {"task_id": "task-other"},
+    ):
+        query = {
+            "tenant_id": "tenant-a",
+            "workflow_id": "workflow-1",
+            "run_id": "run-1",
+            "task_id": "task-1",
+            "checkpoint_id": "cp-1",
+            **mismatch,
+        }
+        with pytest.raises(OptimisticConcurrencyError, match="checkpoint_id_binding_conflict"):
+            checkpoint_store.get_by_id(**query)
+    for field_name, invalid in (
+        ("tenant_id", True),
+        ("workflow_id", 7),
+        ("run_id", " run-1"),
+        ("task_id", False),
+        ("task_id", " task-1"),
+        ("checkpoint_id", "cp-1\x00"),
+        ("checkpoint_id", "x" * 257),
+    ):
+        with pytest.raises((IdentityValidationError, ValueError)):
+            checkpoint_store.get_by_id(**{**exact_checkpoint_query, field_name: invalid})
+    assert (
+        checkpoint_store.list_history(
+            tenant_id="tenant-a",
+            run_id="run-1",
+            task_id="task-1",
+        )
+        == history_snapshot
+    )
     assert checkpoint_store.save(second, expected_revision=999) == second
 
     with pytest.raises(OptimisticConcurrencyError, match="revision_conflict"):

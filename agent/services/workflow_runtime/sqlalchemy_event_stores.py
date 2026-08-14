@@ -17,8 +17,17 @@ from agent.db_models.workflow_runtime import (
 from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
-from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
-from agent.services.workflow_runtime.persistence import CheckpointStore
+from agent.services.workflow_runtime.events import (
+    CanonicalWorkflowEvent,
+    EventStore,
+    assert_workflow_event_dedupe_read_binding,
+    workflow_event_dedupe_read_binding,
+)
+from agent.services.workflow_runtime.persistence import (
+    CheckpointStore,
+    assert_workflow_checkpoint_identity_read_binding,
+    workflow_checkpoint_identity_read_binding,
+)
 from agent.services.workflow_runtime.security import SignedCheckpoint
 from agent.services.workflow_runtime.sqlalchemy_support import (
     SessionFactory,
@@ -340,6 +349,37 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
             rows = session.execute(statement).scalars().all()
             return tuple(CanonicalWorkflowEvent.from_mapping(dict(row.canonical_event)) for row in rows)
 
+    def get_by_dedupe(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+    ) -> CanonicalWorkflowEvent | None:
+        tenant, workflow, run, dedupe = workflow_event_dedupe_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+        )
+        with self._read_session() as session:
+            row = session.execute(
+                sa.select(WorkflowRuntimeEventDB).where(
+                    WorkflowRuntimeEventDB.tenant_id == tenant,
+                    WorkflowRuntimeEventDB.run_id == run,
+                    WorkflowRuntimeEventDB.dedupe_key == dedupe,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            event = CanonicalWorkflowEvent.from_mapping(dict(row.canonical_event))
+            assert_workflow_event_dedupe_read_binding(
+                event,
+                expected=(tenant, workflow, run, dedupe),
+            )
+            return event
+
     @property
     def outbox(self) -> SQLAlchemyRuntimeOutbox:
         return SQLAlchemyRuntimeOutbox(self._session_factory)
@@ -407,6 +447,38 @@ class SQLAlchemyCheckpointStore(SQLAlchemyStoreSupport, CheckpointStore):
         with self._read_session() as session:
             row = session.execute(statement).scalar_one_or_none()
             return SignedCheckpoint.from_mapping(dict(row.signed_checkpoint)) if row else None
+
+    def get_by_id(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        task_id: str,
+        checkpoint_id: str,
+    ) -> SignedCheckpoint | None:
+        tenant, workflow, run, task, identity = workflow_checkpoint_identity_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            task_id=task_id,
+            checkpoint_id=checkpoint_id,
+        )
+        with self._read_session() as session:
+            row = session.execute(
+                sa.select(WorkflowRuntimeCheckpointDB).where(
+                    WorkflowRuntimeCheckpointDB.tenant_id == tenant,
+                    WorkflowRuntimeCheckpointDB.checkpoint_id == identity,
+                )
+            ).scalar_one_or_none()
+            if row is None:
+                return None
+            checkpoint = SignedCheckpoint.from_mapping(dict(row.signed_checkpoint))
+            assert_workflow_checkpoint_identity_read_binding(
+                checkpoint,
+                expected=(tenant, workflow, run, task, identity),
+            )
+            return checkpoint
 
     def list_history(self, *, tenant_id: str, run_id: str, task_id: str) -> tuple[SignedCheckpoint, ...]:
         statement = (

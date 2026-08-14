@@ -11,7 +11,12 @@ from typing import Protocol
 from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
-from agent.services.workflow_runtime.events import CanonicalWorkflowEvent, EventStore
+from agent.services.workflow_runtime.events import (
+    CanonicalWorkflowEvent,
+    EventStore,
+    assert_workflow_event_dedupe_read_binding,
+    workflow_event_dedupe_read_binding,
+)
 from agent.services.workflow_runtime.security import SignedCheckpoint
 
 
@@ -21,6 +26,24 @@ class CheckpointStore(Protocol):
     def save(self, checkpoint: SignedCheckpoint, *, expected_revision: int) -> SignedCheckpoint: ...
 
     def get_latest(self, *, tenant_id: str, run_id: str, task_id: str) -> SignedCheckpoint | None: ...
+
+
+class WorkflowCheckpointIdentityReadPort(Protocol):
+    """Read one exact transition-owned checkpoint identity.
+
+    The bounded canonical identity contract is additive and does not strengthen
+    the existing broad ``CheckpointStore`` protocol.
+    """
+
+    def get_by_id(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        task_id: str,
+        checkpoint_id: str,
+    ) -> SignedCheckpoint | None: ...
 
 
 class InMemoryCheckpointStore:
@@ -57,6 +80,32 @@ class InMemoryCheckpointStore:
         with self._lock:
             history = self._history.get((str(tenant_id), str(run_id), str(task_id)), [])
             return _clone_checkpoint(history[-1]) if history else None
+
+    def get_by_id(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        task_id: str,
+        checkpoint_id: str,
+    ) -> SignedCheckpoint | None:
+        tenant, workflow, run, task, identity = workflow_checkpoint_identity_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            task_id=task_id,
+            checkpoint_id=checkpoint_id,
+        )
+        with self._lock:
+            checkpoint = self._ids.get((tenant, identity))
+            if checkpoint is None:
+                return None
+            assert_workflow_checkpoint_identity_read_binding(
+                checkpoint,
+                expected=(tenant, workflow, run, task, identity),
+            )
+            return _clone_checkpoint(checkpoint)
 
     def list_history(self, *, tenant_id: str, run_id: str, task_id: str) -> tuple[SignedCheckpoint, ...]:
         with self._lock:
@@ -206,6 +255,37 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
             rows = self._connection.execute(query, parameters).fetchall()
         return tuple(CanonicalWorkflowEvent.from_mapping(json.loads(str(row["event_json"]))) for row in rows)
 
+    def get_by_dedupe(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+    ) -> CanonicalWorkflowEvent | None:
+        tenant, workflow, run, dedupe = workflow_event_dedupe_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+        )
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT event_json FROM workflow_runtime_events
+                WHERE tenant_id = ? AND run_id = ? AND dedupe_key = ?
+                """,
+                (tenant, run, dedupe),
+            ).fetchone()
+        if row is None:
+            return None
+        event = CanonicalWorkflowEvent.from_mapping(json.loads(str(row["event_json"])))
+        assert_workflow_event_dedupe_read_binding(
+            event,
+            expected=(tenant, workflow, run, dedupe),
+        )
+        return event
+
 
 class SQLiteCheckpointStore(_SQLiteStore, CheckpointStore):
     """Durable RPO-0 checkpoint history with revision and fencing checks."""
@@ -304,6 +384,39 @@ class SQLiteCheckpointStore(_SQLiteStore, CheckpointStore):
             return None
         return SignedCheckpoint.from_mapping(json.loads(str(row["checkpoint_json"])))
 
+    def get_by_id(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        task_id: str,
+        checkpoint_id: str,
+    ) -> SignedCheckpoint | None:
+        tenant, workflow, run, task, identity = workflow_checkpoint_identity_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            task_id=task_id,
+            checkpoint_id=checkpoint_id,
+        )
+        with self._lock:
+            row = self._connection.execute(
+                """
+                SELECT checkpoint_json FROM workflow_runtime_checkpoints
+                WHERE tenant_id = ? AND checkpoint_id = ?
+                """,
+                (tenant, identity),
+            ).fetchone()
+        if row is None:
+            return None
+        checkpoint = SignedCheckpoint.from_mapping(json.loads(str(row["checkpoint_json"])))
+        assert_workflow_checkpoint_identity_read_binding(
+            checkpoint,
+            expected=(tenant, workflow, run, task, identity),
+        )
+        return checkpoint
+
     def list_history(self, *, tenant_id: str, run_id: str, task_id: str) -> tuple[SignedCheckpoint, ...]:
         with self._lock:
             rows = self._connection.execute(
@@ -319,3 +432,47 @@ class SQLiteCheckpointStore(_SQLiteStore, CheckpointStore):
 
 def _clone_checkpoint(checkpoint: SignedCheckpoint) -> SignedCheckpoint:
     return SignedCheckpoint.from_mapping(checkpoint.to_dict())
+
+
+def workflow_checkpoint_identity_read_binding(
+    *,
+    tenant_id: str,
+    workflow_id: str,
+    run_id: str,
+    task_id: str,
+    checkpoint_id: str,
+) -> tuple[str, str, str, str, str]:
+    tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
+    workflow = require_canonical_identity(
+        workflow_id,
+        field_name="workflow_id",
+    )
+    run = require_canonical_identity(run_id, field_name="run_id")
+    task = _checkpoint_read_identifier(task_id, reason="task_id")
+    identity = _checkpoint_read_identifier(
+        checkpoint_id,
+        reason="checkpoint_id",
+    )
+    return tenant, workflow, run, task, identity
+
+
+def _checkpoint_read_identifier(value: str, *, reason: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip() or len(value) > 256 or "\x00" in value:
+        raise ValueError(f"workflow_checkpoint_{reason}_invalid")
+    return value
+
+
+def assert_workflow_checkpoint_identity_read_binding(
+    checkpoint: SignedCheckpoint,
+    *,
+    expected: tuple[str, str, str, str, str],
+) -> None:
+    actual = (
+        checkpoint.tenant_id,
+        checkpoint.workflow_id,
+        checkpoint.run_id,
+        checkpoint.task_id,
+        checkpoint.checkpoint_id,
+    )
+    if actual != expected:
+        raise OptimisticConcurrencyError("workflow_checkpoint_id_binding_conflict")

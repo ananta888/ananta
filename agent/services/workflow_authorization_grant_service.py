@@ -12,6 +12,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
 from agent.db_models.workflow_runtime import WorkflowAuthorizationGrantDB
+from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import sha256_json
 from agent.services.workflow_runtime.security import RuntimeAuthorizationEnvelope
 from agent.services.workflow_runtime.sqlalchemy_support import (
@@ -52,6 +53,20 @@ class WorkflowAuthorizationGrantPort(HubAuthorizationRevalidationPort, Protocol)
         reason_code: str,
         expected_revision: int | None = None,
     ) -> WorkflowAuthorizationGrant: ...
+
+
+class WorkflowAuthorizationGrantReadPort(Protocol):
+    """Read one exact transition-owned grant without widening the mutation port."""
+
+    def get(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        step_id: str,
+        envelope_id: str,
+    ) -> WorkflowAuthorizationGrant | None: ...
 
 
 class UnavailableHubAuthorizationRevalidator:
@@ -113,6 +128,29 @@ class InMemoryWorkflowAuthorizationGrantService:
         with self._lock:
             current = self._values.get(envelope.envelope_id)
         return _grant_matches(current, envelope, now=float(self._clock()))
+
+    def get(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        step_id: str,
+        envelope_id: str,
+    ) -> WorkflowAuthorizationGrant | None:
+        binding = _grant_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            step_id=step_id,
+            envelope_id=envelope_id,
+        )
+        with self._lock:
+            grant = self._values.get(binding[-1])
+            if grant is None:
+                return None
+            _assert_grant_read_binding(grant, expected=binding)
+            return grant
 
 
 class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
@@ -191,6 +229,30 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
             grant = _grant_from_row(current) if current is not None else None
         return _grant_matches(grant, envelope, now=float(self._clock()))
 
+    def get(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        step_id: str,
+        envelope_id: str,
+    ) -> WorkflowAuthorizationGrant | None:
+        binding = _grant_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            step_id=step_id,
+            envelope_id=envelope_id,
+        )
+        with self._read_session() as session:
+            current = session.get(WorkflowAuthorizationGrantDB, binding[-1])
+            if current is None:
+                return None
+            grant = _grant_from_row(current)
+            _assert_grant_read_binding(grant, expected=binding)
+            return grant
+
 
 def _grant_from_envelope(
     envelope: RuntimeAuthorizationEnvelope,
@@ -242,6 +304,47 @@ def _grant_digest(envelope: RuntimeAuthorizationEnvelope) -> str:
     return sha256_json(envelope.to_dict())
 
 
+def _grant_read_binding(
+    *,
+    tenant_id: str,
+    workflow_id: str,
+    run_id: str,
+    step_id: str,
+    envelope_id: str,
+) -> tuple[str, str, str, str, str]:
+    values = (
+        require_canonical_identity(tenant_id, field_name="tenant_id"),
+        require_canonical_identity(workflow_id, field_name="workflow_id"),
+        require_canonical_identity(run_id, field_name="run_id"),
+        require_canonical_identity(step_id, field_name="step_id"),
+    )
+    if (
+        not isinstance(envelope_id, str)
+        or not envelope_id
+        or envelope_id != envelope_id.strip()
+        or len(envelope_id) > 256
+        or "\x00" in envelope_id
+    ):
+        raise ValueError("workflow_authorization_grant_envelope_id_invalid")
+    return (*values, envelope_id)
+
+
+def _assert_grant_read_binding(
+    grant: WorkflowAuthorizationGrant,
+    *,
+    expected: tuple[str, str, str, str, str],
+) -> None:
+    actual = (
+        grant.tenant_id,
+        grant.workflow_id,
+        grant.run_id,
+        grant.step_id,
+        grant.envelope_id,
+    )
+    if actual != expected:
+        raise RuntimeError("workflow_authorization_grant_binding_conflict")
+
+
 def _grant_row(grant: WorkflowAuthorizationGrant) -> WorkflowAuthorizationGrantDB:
     return WorkflowAuthorizationGrantDB(
         envelope_id=grant.envelope_id,
@@ -288,4 +391,5 @@ __all__ = [
     "UnavailableHubAuthorizationRevalidator",
     "WorkflowAuthorizationGrant",
     "WorkflowAuthorizationGrantPort",
+    "WorkflowAuthorizationGrantReadPort",
 ]

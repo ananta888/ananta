@@ -189,6 +189,23 @@ class EventStore(Protocol):
     ) -> tuple[CanonicalWorkflowEvent, ...]: ...
 
 
+class WorkflowEventDedupeReadPort(Protocol):
+    """Read one exact transition-owned event identity.
+
+    The bounded canonical key contract is intentionally narrower than legacy
+    ``EventStore`` inputs; the existing broad mutation protocol is unchanged.
+    """
+
+    def get_by_dedupe(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+    ) -> CanonicalWorkflowEvent | None: ...
+
+
 class InMemoryEventStore:
     """Thread-safe reference implementation of :class:`EventStore`."""
 
@@ -242,6 +259,30 @@ class InMemoryEventStore:
             if limit is not None:
                 values = values[: max(0, int(limit))]
             return tuple(_clone_event(event) for event in values)
+
+    def get_by_dedupe(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+    ) -> CanonicalWorkflowEvent | None:
+        tenant, workflow, run, dedupe = workflow_event_dedupe_read_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+        )
+        with self._lock:
+            event = self._dedupe.get((tenant, run, dedupe))
+            if event is None:
+                return None
+            assert_workflow_event_dedupe_read_binding(
+                event,
+                expected=(tenant, workflow, run, dedupe),
+            )
+            return _clone_event(event)
 
 
 @dataclass
@@ -376,6 +417,45 @@ def event_payload_equal(left: CanonicalWorkflowEvent, right: CanonicalWorkflowEv
     """Useful for cross-runtime conformance tests without comparing sequence."""
 
     return canonical_json({**left.to_dict(), "sequence": 0}) == canonical_json({**right.to_dict(), "sequence": 0})
+
+
+def workflow_event_dedupe_read_binding(
+    *,
+    tenant_id: str,
+    workflow_id: str,
+    run_id: str,
+    dedupe_key: str,
+) -> tuple[str, str, str, str]:
+    tenant = require_canonical_identity(tenant_id, field_name="tenant_id")
+    workflow = require_canonical_identity(
+        workflow_id,
+        field_name="workflow_id",
+    )
+    run = require_canonical_identity(run_id, field_name="run_id")
+    if (
+        not isinstance(dedupe_key, str)
+        or not dedupe_key
+        or dedupe_key != dedupe_key.strip()
+        or len(dedupe_key) > 512
+        or "\x00" in dedupe_key
+    ):
+        raise ValueError("workflow_event_dedupe_key_invalid")
+    return tenant, workflow, run, dedupe_key
+
+
+def assert_workflow_event_dedupe_read_binding(
+    event: CanonicalWorkflowEvent,
+    *,
+    expected: tuple[str, str, str, str],
+) -> None:
+    actual = (
+        event.tenant_id,
+        event.workflow_id,
+        event.run_id,
+        event.dedupe_key,
+    )
+    if actual != expected:
+        raise OptimisticConcurrencyError("workflow_event_dedupe_binding_conflict")
 
 
 def _clone_event(event: CanonicalWorkflowEvent) -> CanonicalWorkflowEvent:

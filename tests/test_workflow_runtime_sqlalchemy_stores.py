@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine
 
 from agent.db_models.workflow_runtime import (
+    WorkflowAuthorizationGrantDB,
     WorkflowExecutionAttemptHistoryDB,
     WorkflowExecutionOwnershipDB,
     WorkflowProviderBudgetDB,
@@ -25,6 +26,7 @@ from agent.db_models.workflow_runtime import (
 from agent.services.identity_validation import IdentityValidationError
 from agent.services.workflow_authorization_grant_service import (
     InMemoryWorkflowAuthorizationGrantService,
+    SQLAlchemyWorkflowAuthorizationGrantService,
 )
 from agent.services.workflow_runtime import (
     AuthorizationVerifier,
@@ -73,6 +75,7 @@ from ananta_contracts.workflow_worker_gateway import (
 )
 
 _TABLES = [
+    WorkflowAuthorizationGrantDB.__table__,
     WorkflowRuntimeEventDB.__table__,
     WorkflowRuntimeReadModelDB.__table__,
     WorkflowRuntimeCheckpointDB.__table__,
@@ -135,6 +138,48 @@ def test_event_store_has_atomic_dedupe_sequence_tenant_and_outbox_semantics(runt
     assert stored.payload == {"token": "[REDACTED]", "result_ref": "artifact://safe"}
     assert store.list_events(tenant_id="tenant-a", run_id="run-1") == (stored,)
     assert store.list_events(tenant_id="tenant-b", run_id="run-1") == ()
+    exact_event_query = {
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-1",
+        "run_id": "run-1",
+        "dedupe_key": "delivery-1",
+    }
+    event_snapshot = store.list_events(tenant_id="tenant-a", run_id="run-1")
+    outbox_snapshot = store.outbox.list_messages(tenant_id="tenant-a")
+    exact_event = store.get_by_dedupe(**exact_event_query)
+    assert exact_event == stored
+    assert exact_event is not None
+    exact_event.payload["result_ref"] = "artifact://mutated"
+    assert store.get_by_dedupe(**exact_event_query) == stored
+    for field_name, invalid in (
+        ("tenant_id", True),
+        ("workflow_id", 7),
+        ("run_id", " run-1"),
+        ("dedupe_key", False),
+        ("dedupe_key", " delivery-1"),
+        ("dedupe_key", "delivery-1\x00"),
+        ("dedupe_key", "x" * 513),
+    ):
+        with pytest.raises((IdentityValidationError, ValueError)):
+            store.get_by_dedupe(**{**exact_event_query, field_name: invalid})
+    assert store.list_events(tenant_id="tenant-a", run_id="run-1") == event_snapshot
+    assert store.outbox.list_messages(tenant_id="tenant-a") == outbox_snapshot
+    assert (
+        store.get_by_dedupe(
+            tenant_id="tenant-b",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            dedupe_key="delivery-1",
+        )
+        is None
+    )
+    with pytest.raises(OptimisticConcurrencyError, match="dedupe_binding_conflict"):
+        store.get_by_dedupe(
+            tenant_id="tenant-a",
+            workflow_id="workflow-other",
+            run_id="run-1",
+            dedupe_key="delivery-1",
+        )
 
     messages = store.outbox.list_messages(tenant_id="tenant-a")
     assert len(messages) == 1
@@ -340,6 +385,67 @@ def test_checkpoint_store_has_revision_cas_tenant_isolation_and_fencing(runtime_
     assert store.save(second, expected_revision=999) == second
     assert store.get_latest(tenant_id="tenant-a", run_id="run-1", task_id="task-1") == second
     assert store.get_latest(tenant_id="tenant-b", run_id="run-1", task_id="task-1") is None
+    exact_checkpoint_query = {
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-1",
+        "run_id": "run-1",
+        "task_id": "task-1",
+        "checkpoint_id": "cp-1",
+    }
+    history_snapshot = store.list_history(
+        tenant_id="tenant-a",
+        run_id="run-1",
+        task_id="task-1",
+    )
+    exact_checkpoint = store.get_by_id(**exact_checkpoint_query)
+    assert exact_checkpoint == first
+    assert exact_checkpoint is not None
+    exact_checkpoint.state.business_data["revision"] = 999
+    assert store.get_by_id(**exact_checkpoint_query) == first
+    assert (
+        store.get_by_id(
+            tenant_id="tenant-b",
+            workflow_id="workflow-1",
+            run_id="run-1",
+            task_id="task-1",
+            checkpoint_id="cp-1",
+        )
+        is None
+    )
+    for mismatch in (
+        {"workflow_id": "workflow-other"},
+        {"run_id": "run-other"},
+        {"task_id": "task-other"},
+    ):
+        query = {
+            "tenant_id": "tenant-a",
+            "workflow_id": "workflow-1",
+            "run_id": "run-1",
+            "task_id": "task-1",
+            "checkpoint_id": "cp-1",
+            **mismatch,
+        }
+        with pytest.raises(OptimisticConcurrencyError, match="checkpoint_id_binding_conflict"):
+            store.get_by_id(**query)
+    for field_name, invalid in (
+        ("tenant_id", True),
+        ("workflow_id", 7),
+        ("run_id", " run-1"),
+        ("task_id", False),
+        ("task_id", " task-1"),
+        ("checkpoint_id", "cp-1\x00"),
+        ("checkpoint_id", "x" * 257),
+    ):
+        with pytest.raises((IdentityValidationError, ValueError)):
+            store.get_by_id(**{**exact_checkpoint_query, field_name: invalid})
+    assert (
+        store.list_history(
+            tenant_id="tenant-a",
+            run_id="run-1",
+            task_id="task-1",
+        )
+        == history_snapshot
+    )
     assert store.list_history(tenant_id="tenant-a", run_id="run-1", task_id="task-1") == (
         first,
         second,
@@ -348,6 +454,78 @@ def test_checkpoint_store_has_revision_cas_tenant_isolation_and_fencing(runtime_
         store.save(_checkpoint(revision=3, fence=4, checkpoint_id="cp-3"), expected_revision=1)
     with pytest.raises(FencingTokenError, match="stale"):
         store.save(_checkpoint(revision=3, fence=3, checkpoint_id="cp-stale"), expected_revision=2)
+
+
+def test_authorization_grant_exact_read_port_has_memory_sql_binding_parity(
+    runtime_engine,
+) -> None:
+    envelope = RuntimeAuthorizationEnvelope.issue(
+        key_ring=HmacKeyRing({"key": "x" * 32}, active_key_id="key"),
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="run-1",
+        step_id="step-1",
+        plan_hash="f" * 64,
+        policy_version="policy-1",
+        now=100,
+        ttl_seconds=300,
+        envelope_id="rae-grant-1",
+        nonce="nonce-grant-1",
+    )
+    factories = (
+        lambda clock: InMemoryWorkflowAuthorizationGrantService(clock=clock),
+        lambda clock: SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=clock,
+        ),
+    )
+    for factory in factories:
+        clock_calls: list[float] = []
+
+        def clock() -> float:
+            clock_calls.append(101.0)
+            return 101.0
+
+        service = factory(clock)
+        stored = service.grant(envelope)
+        grant_clock_calls = tuple(clock_calls)
+        exact = {
+            "tenant_id": "tenant-a",
+            "workflow_id": "workflow-1",
+            "run_id": "run-1",
+            "step_id": "step-1",
+            "envelope_id": "rae-grant-1",
+        }
+        assert service.get(**exact) == stored
+        assert service.get(**{**exact, "envelope_id": "rae-missing"}) is None
+        for mismatch in (
+            {"tenant_id": "tenant-other"},
+            {"workflow_id": "workflow-other"},
+            {"run_id": "run-other"},
+            {"step_id": "step-other"},
+        ):
+            with pytest.raises(RuntimeError, match="grant_binding_conflict"):
+                service.get(**{**exact, **mismatch})
+        for field_name, invalid in (
+            ("tenant_id", True),
+            ("workflow_id", 7),
+            ("run_id", " run-1"),
+            ("step_id", False),
+            ("envelope_id", " rae-grant-1"),
+            ("envelope_id", "rae-grant-1\x00"),
+            ("envelope_id", "x" * 257),
+        ):
+            with pytest.raises((IdentityValidationError, ValueError)):
+                service.get(**{**exact, field_name: invalid})
+        assert tuple(clock_calls) == grant_clock_calls
+        assert service.get(**exact).revision == stored.revision
+
+        revoked = service.revoke(
+            envelope.envelope_id,
+            reason_code="policy_revoked",
+            expected_revision=stored.revision,
+        )
+        assert service.get(**exact) == revoked
 
 
 def test_side_effect_ledger_enforces_exactly_once_claim_cas_and_fencing(runtime_engine) -> None:
