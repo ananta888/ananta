@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -390,6 +391,229 @@ def _prepared_command_run(engine, clock: list[float]):
     key_ring = HmacKeyRing({"control": "x" * 32}, active_key_id="control")
     backend = _IdempotentTemporalBackend(request)
     return binding, bindings, key_ring, backend
+
+
+def _control_rows_snapshot(engine, workflow_id: str, intent_id: str) -> tuple[dict[str, Any], Any]:
+    with Session(engine) as session:
+        binding = session.get(WorkflowControlBindingDB, workflow_id)
+        intent = session.get(WorkflowControlDispatchIntentDB, intent_id)
+        assert binding is not None
+        binding_values = {
+            column.name: getattr(binding, column.name) for column in binding.__table__.columns
+        }
+        intent_values = (
+            {column.name: getattr(intent, column.name) for column in intent.__table__.columns}
+            if intent is not None
+            else None
+        )
+        return binding_values, intent_values
+
+
+@pytest.mark.parametrize("dispatch_kind", ["command", "start"])
+def test_sql_active_transition_fences_legacy_dispatch_staging(
+    intent_engine,
+    dispatch_kind: str,
+) -> None:
+    clock = [100.0]
+    binding, _bindings, key_ring, _backend = _prepared_command_run(intent_engine, clock)
+    store = SQLAlchemyWorkflowControlDispatchIntentStore(
+        intent_engine,
+        clock=lambda: clock[0],
+    )
+    command = _command(binding, key_ring)
+    intent_id = command.command_id if dispatch_kind == "command" else f"start:{binding.workflow_id}"
+    with Session(intent_engine) as session, session.begin():
+        row = session.get(WorkflowControlBindingDB, binding.workflow_id)
+        assert row is not None
+        row.active_transition_id = "transition-active"
+    before = _control_rows_snapshot(intent_engine, binding.workflow_id, intent_id)
+
+    with pytest.raises(
+        WorkflowControlDispatchIntentError,
+        match="workflow_control_dispatch_stage_cas_conflict",
+    ):
+        if dispatch_kind == "command":
+            store.stage_command(binding=binding, command=command)
+        else:
+            store.stage_start(
+                binding=binding,
+                start_command={
+                    "schema": DURABLE_RUN_START_SCHEMA,
+                    "tenant_id": binding.tenant_id,
+                    "workflow_id": binding.workflow_id,
+                    "run_id": binding.run_id,
+                    "workflow_request": binding.request.to_dict(),
+                },
+                request_id="start-request-a",
+                pending_status=_start_pending(binding),
+            )
+
+    assert _control_rows_snapshot(intent_engine, binding.workflow_id, intent_id) == before
+    with Session(intent_engine) as session:
+        assert session.exec(select(WorkflowControlDispatchIntentDB)).all() == []
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "expected_error"),
+    [
+        ("claim", ""),
+        ("claim_due", ""),
+        ("acknowledge", "workflow_control_dispatch_lease_conflict"),
+        ("release", "workflow_control_dispatch_lease_conflict"),
+        ("complete", "workflow_control_dispatch_completion_conflict"),
+        ("reject", "workflow_control_dispatch_completion_conflict"),
+    ],
+)
+def test_sql_active_transition_fences_every_legacy_dispatch_mutation_family(
+    intent_engine,
+    operation_name: str,
+    expected_error: str,
+) -> None:
+    clock = [100.0]
+    binding, _bindings, key_ring, _backend = _prepared_command_run(intent_engine, clock)
+    store = SQLAlchemyWorkflowControlDispatchIntentStore(
+        intent_engine,
+        clock=lambda: clock[0],
+    )
+    command = _command(binding, key_ring)
+    store.stage_command(binding=binding, command=command)
+    if operation_name not in {"claim", "claim_due"}:
+        claimed = store.claim(
+            command.command_id,
+            owner_id="legacy-owner",
+            lease_seconds=30.0,
+        )
+        assert claimed is not None
+    with Session(intent_engine) as session, session.begin():
+        row = session.get(WorkflowControlBindingDB, binding.workflow_id)
+        assert row is not None
+        row.active_transition_id = "transition-active"
+
+    operations = {
+        "claim": lambda: store.claim(
+            command.command_id,
+            owner_id="legacy-owner",
+            lease_seconds=30.0,
+        ),
+        "claim_due": lambda: store.claim_due(
+            owner_id="legacy-owner",
+            lease_seconds=30.0,
+            limit=10,
+        ),
+        "acknowledge": lambda: store.acknowledge(
+            command.command_id,
+            owner_id="legacy-owner",
+            acknowledgement_revision=1,
+            acknowledgement_status="paused",
+        ),
+        "release": lambda: store.release(
+            command.command_id,
+            owner_id="legacy-owner",
+            reason_code="retryable_failure",
+            retry_at=101.0,
+        ),
+        "complete": lambda: store.complete(
+            command.command_id,
+            owner_id="legacy-owner",
+            status=_temporal_status(binding),
+        ),
+        "reject": lambda: store.reject(
+            command.command_id,
+            owner_id="legacy-owner",
+            reason_code="command_rejected",
+        ),
+    }
+    before = _control_rows_snapshot(intent_engine, binding.workflow_id, command.command_id)
+
+    if expected_error:
+        with pytest.raises(WorkflowControlDispatchIntentError, match=expected_error):
+            operations[operation_name]()
+    else:
+        result = operations[operation_name]()
+        assert result == (() if operation_name == "claim_due" else None)
+
+    assert _control_rows_snapshot(intent_engine, binding.workflow_id, command.command_id) == before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_legacy_receipt_heartbeat_atomically_upgrades_generation_and_fences_gen_zero(
+    intent_engine,
+    kind: str,
+) -> None:
+    clock = [100.0]
+    request = _request(f"workflow-legacy-heartbeat-{kind}")
+    binding = _binding(request)
+    key_ring = HmacKeyRing({"control": "x" * 32}, active_key_id="control")
+    command = _command(binding, key_ring, command_id=f"legacy-heartbeat-{kind}")
+    if kind == "memory":
+        bindings = InMemoryWorkflowControlBindingStore()
+        bindings.put(binding)
+        bindings.record_status(binding.workflow_id, _temporal_status(binding))
+        receipts: Any = InMemoryWorkflowControlCommandReceiptStore(
+            bindings,
+            clock=lambda: clock[0],
+        )
+    else:
+        bindings = SQLAlchemyWorkflowControlBindingStore(
+            intent_engine,
+            clock=lambda: clock[0],
+        )
+        bindings.put(binding)
+        bindings.record_status(binding.workflow_id, _temporal_status(binding))
+        receipts = SQLAlchemyWorkflowControlCommandReceiptStore(
+            intent_engine,
+            clock=lambda: clock[0],
+        )
+    staged = receipts.stage(
+        binding=binding,
+        command_id=command.command_id,
+        actor_id=binding.subject_id,
+        command_type=command.command_type,
+        request_payload={
+            "actor_roles": ["operator"],
+            "admitted_command": command.to_dict(),
+            "payload": {},
+            "step_id": command.step_id,
+        },
+        expected_revision=0,
+        checkpoint_ref=binding.checkpoint_id,
+    )
+    if kind == "memory":
+        receipts._rows[staged.command_id] = replace(  # noqa: SLF001 - migration fixture
+            staged,
+            state="dispatching",
+            dispatch_owner="legacy-owner",
+            dispatch_lease_expires_at=130.0,
+        )
+    else:
+        with Session(intent_engine) as session, session.begin():
+            row = session.get(WorkflowControlCommandReceiptDB, staged.command_id)
+            assert row is not None
+            row.state = "dispatching"
+            row.dispatch_owner = "legacy-owner"
+            row.dispatch_lease_expires_at = 130.0
+            row.dispatch_generation = 0
+            row.last_heartbeat_at = 0.0
+
+    heartbeat = receipts.heartbeat(
+        staged.command_id,
+        owner_id="legacy-owner",
+        dispatch_generation=0,
+        lease_seconds=30.0,
+    )
+
+    assert heartbeat.dispatch_generation == 1
+    assert heartbeat.last_heartbeat_at == 100.0
+    assert heartbeat.dispatch_lease_expires_at == 130.0
+    assert receipts.get(staged.command_id) == heartbeat
+    with pytest.raises(WorkflowControlCommandReceiptError, match="lease_conflict"):
+        receipts.reject(
+            staged.command_id,
+            reason_code="stale_legacy_generation",
+            owner_id="legacy-owner",
+            dispatch_generation=0,
+        )
+    assert receipts.get(staged.command_id) == heartbeat
 
 
 def test_command_intent_completes_from_real_v1_status_with_temporal_update_id(
@@ -947,6 +1171,7 @@ def test_sql_command_receipt_recovers_binding_commit_after_process_restart(
         receipt.command_id,
         status=status,
         owner_id="receipt-test-owner",
+        dispatch_generation=claimed.dispatch_generation,
     )
 
     assert completed.state == "completed"
@@ -1004,7 +1229,11 @@ def test_sql_command_receipt_lease_blocks_parallel_and_same_owner_reclaim(
     assert receipts.list_pending()[0].command_id == receipt.command_id
     reclaimed = receipts.claim(receipt.command_id, owner_id="receipt-owner-b")
     assert reclaimed is not None and reclaimed.dispatch_owner == "receipt-owner-b"
-    released = receipts.release(receipt.command_id, owner_id="receipt-owner-b")
+    released = receipts.release(
+        receipt.command_id,
+        owner_id="receipt-owner-b",
+        dispatch_generation=reclaimed.dispatch_generation,
+    )
     assert released.state == "pending"
 
 

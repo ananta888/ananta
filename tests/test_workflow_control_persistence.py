@@ -101,6 +101,179 @@ def _binding() -> WorkflowControlRunBinding:
     )
 
 
+def test_sql_discard_treats_a_concurrent_identical_delete_as_idempotent(
+    control_engine,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _LostDeleteSession:
+        reads = 0
+
+        def __init__(self, _engine: Any) -> None:
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args: Any) -> None:
+            return None
+
+        def get(self, _model: Any, _identity: str):
+            self.reads += 1
+            if self.reads == 1:
+                return SimpleNamespace(
+                    plan_hash="f" * 64,
+                    active_transition_id="",
+                    revision=1,
+                )
+            return None
+
+        @staticmethod
+        def exec(_statement: Any) -> SimpleNamespace:
+            return SimpleNamespace(rowcount=0)
+
+        @staticmethod
+        def rollback() -> None:
+            return None
+
+    persistence = import_module("agent.services.workflow_control_persistence")
+    monkeypatch.setattr(persistence, "Session", _LostDeleteSession)
+    store = SQLAlchemyWorkflowControlBindingStore(control_engine)
+
+    store.discard("workflow-restart", plan_hash="f" * 64)
+
+
+@pytest.mark.parametrize(
+    ("operation_name", "expected_error"),
+    [
+        ("bind_runtime", "workflow_control_runtime_binding_conflict"),
+        ("list_reconcilable", ""),
+        ("claim_reconcilable", ""),
+        ("finish_reconciliation", "workflow_control_reconciliation_cas_conflict"),
+        ("release_reconciliation", ""),
+        ("discard", "workflow_control_binding_transition_active"),
+        ("record_status", "workflow_control_binding_revision_conflict"),
+        ("record_public_status", "workflow_control_public_status_cas_conflict"),
+        ("claim_command", "workflow_control_command_cas_conflict"),
+        ("mark_command_pending", "workflow_control_command_pending_conflict"),
+        ("finish_command", "workflow_control_command_finish_conflict"),
+        ("release_command", ""),
+        ("bind_receipt", "workflow_control_command_receipt_stage_conflict"),
+        ("finish_receipt", "workflow_control_command_receipt_completion_conflict"),
+        ("reject_receipt", "workflow_control_command_receipt_completion_conflict"),
+        ("clear_receipt", "workflow_control_command_receipt_completion_conflict"),
+    ],
+)
+def test_sql_active_transition_fences_every_legacy_binding_mutation_family(
+    control_engine,
+    operation_name: str,
+    expected_error: str,
+) -> None:
+    store = SQLAlchemyWorkflowControlBindingStore(control_engine, clock=lambda: 100.0)
+    store.put(_binding())
+    current = _native_status("checkpoint-0", revision=0)
+    next_status = _native_status("local:workflow-restart:1", revision=1)
+    with Session(control_engine) as session, session.begin():
+        row = session.get(WorkflowControlBindingDB, "workflow-restart")
+        assert row is not None
+        row.active_transition_id = "transition-a"
+        if "reconcil" in operation_name:
+            row.last_status = current
+            row.scheduler_owner = "legacy-owner"
+            row.scheduler_lease_expires_at = 200.0
+        if operation_name in {"mark_command_pending", "finish_command", "release_command"}:
+            row.command_claim = "command-a"
+            row.command_claim_expires_at = 200.0
+        if operation_name in {"finish_receipt", "reject_receipt", "clear_receipt"}:
+            row.command_receipt_id = "receipt-a"
+
+    def snapshot() -> dict[str, Any]:
+        with Session(control_engine) as session:
+            row = session.get(WorkflowControlBindingDB, "workflow-restart")
+            assert row is not None
+            return {column.name: getattr(row, column.name) for column in row.__table__.columns}
+
+    operations = {
+        "bind_runtime": lambda: store.bind_runtime(
+            "workflow-restart",
+            plan_hash="f" * 64,
+            runtime_id="local",
+        ),
+        "list_reconcilable": lambda: store.list_reconcilable(runtime_id="local"),
+        "claim_reconcilable": lambda: store.claim_reconcilable(
+            runtime_id="local",
+            owner_id="legacy-owner",
+            lease_seconds=30.0,
+        ),
+        "finish_reconciliation": lambda: store.finish_reconciliation(
+            "workflow-restart",
+            owner_id="legacy-owner",
+            expected_revision=0,
+            expected_checkpoint_ref="checkpoint-0",
+            status=next_status,
+        ),
+        "release_reconciliation": lambda: store.release_reconciliation(
+            "workflow-restart",
+            owner_id="legacy-owner",
+        ),
+        "discard": lambda: store.discard("workflow-restart", plan_hash="f" * 64),
+        "record_status": lambda: store.record_status("workflow-restart", next_status),
+        "record_public_status": lambda: store.record_public_status(
+            "workflow-restart",
+            next_status,
+        ),
+        "claim_command": lambda: store.claim_command(
+            "workflow-restart",
+            expected_revision=0,
+            checkpoint_id="checkpoint-0",
+            command_id="command-a",
+        ),
+        "mark_command_pending": lambda: store.mark_command_observation_pending(
+            "workflow-restart",
+            command_id="command-a",
+            minimum_revision=1,
+        ),
+        "finish_command": lambda: store.finish_command(
+            "workflow-restart",
+            command_id="command-a",
+            status=next_status,
+        ),
+        "release_command": lambda: store.release_command(
+            "workflow-restart",
+            command_id="command-a",
+        ),
+        "bind_receipt": lambda: store.bind_command_receipt(
+            "workflow-restart",
+            receipt_id="receipt-a",
+            expected_revision=0,
+            checkpoint_ref="checkpoint-0",
+        ),
+        "finish_receipt": lambda: store.finish_command_receipt(
+            "workflow-restart",
+            receipt_id="receipt-a",
+            status=next_status,
+        ),
+        "reject_receipt": lambda: store.reject_command_receipt(
+            "workflow-restart",
+            receipt_id="receipt-a",
+        ),
+        "clear_receipt": lambda: store.clear_command_receipt(
+            "workflow-restart",
+            receipt_id="receipt-a",
+        ),
+    }
+    before = snapshot()
+
+    if expected_error:
+        with pytest.raises(WorkflowControlBindingPersistenceError, match=expected_error):
+            operations[operation_name]()
+    else:
+        result = operations[operation_name]()
+        if operation_name in {"list_reconcilable", "claim_reconcilable"}:
+            assert result == ()
+
+    assert snapshot() == before
+
+
 def _native_status(
     checkpoint_ref: str,
     *,

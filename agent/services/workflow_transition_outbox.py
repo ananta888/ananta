@@ -17,6 +17,7 @@ from types import MappingProxyType
 from typing import Any, Protocol
 
 from agent.services.workflow_runtime._serialization import canonical_json
+from ananta_contracts.temporal_workflow import TemporalContractError, WorkflowCommand
 
 WORKFLOW_TRANSITION_SCHEMA = "ananta.workflow-transition.v1"
 WORKFLOW_TRANSITION_EFFECT_SCHEMA = "ananta.workflow-transition-effect.v1"
@@ -455,7 +456,7 @@ class WorkflowTransitionSnapshot:
         ):
             raise WorkflowTransitionError("workflow_transition_completion_effect_proof_missing")
         if self.transition.state == TRANSITION_STATE_REJECTED and any(
-            effect.state not in {EFFECT_STATE_APPLIED, EFFECT_STATE_REJECTED} for effect in normalized
+            effect.state != EFFECT_STATE_REJECTED for effect in normalized
         ):
             raise WorkflowTransitionError("workflow_transition_rejection_effect_proof_missing")
         object.__setattr__(self, "effects", normalized)
@@ -569,6 +570,19 @@ class WorkflowTransitionCompletionPort(Protocol):
     ) -> WorkflowTransitionSnapshot: ...
 
 
+class WorkflowTransitionReceiptProjectionPort(Protocol):
+    """Derive a canonical public receipt result from locked Hub state."""
+
+    def project(
+        self,
+        *,
+        transition: WorkflowTransition,
+        binding: Mapping[str, Any],
+        binding_status: Mapping[str, Any],
+        previous_public_status: Mapping[str, Any] | None,
+    ) -> Mapping[str, Any]: ...
+
+
 class WorkflowTransitionStore(
     WorkflowTransitionStagePort,
     WorkflowTransitionReadPort,
@@ -643,13 +657,29 @@ def workflow_transition_request_fingerprint(payload: Mapping[str, Any]) -> str:
 
 
 def workflow_admitted_command_digest(command: Mapping[str, Any]) -> str:
+    """Compare command bodies without treating renewable authority as semantics.
+
+    The Receipt ledger may recognize a v2/v3 envelope with renewed signature,
+    key, nonce, or validity window as the same semantic command.  It must still
+    retain the originally admitted envelope: a transition request fingerprint
+    binds that exact persisted Receipt and cannot be renewed after staging.  The
+    neutral contract's semantic payload is the version-independent comparison
+    boundary.  Non-command mappings retain their complete JSON identity.
+    """
+
     safe = _validated_mapping(
         command,
         maximum=_MAX_EFFECT_PAYLOAD_BYTES,
         reason="admitted_command",
         empty=False,
     )
-    return _digest(safe, namespace="workflow-transition-admitted-command")
+    semantic: Mapping[str, Any] = safe
+    if "command_type" in safe:
+        try:
+            semantic = WorkflowCommand.semantic_payload_for_mapping(safe)
+        except (TemporalContractError, TypeError, ValueError) as exc:
+            raise WorkflowTransitionError("workflow_transition_admitted_command_invalid") from exc
+    return _digest(semantic, namespace="workflow-transition-admitted-command")
 
 
 def workflow_transition_effect_result_digest(payload: Mapping[str, Any]) -> str:
@@ -687,8 +717,9 @@ def workflow_transition_outcome_fingerprint(
     *,
     binding_status: Mapping[str, Any],
     checkpoint_ref: str,
+    receipt_result: Mapping[str, Any] | None = None,
 ) -> str:
-    """Bind applied effect results to the exact final status and checkpoint."""
+    """Bind effects, raw binding state, and its public receipt projection."""
 
     values = _validated_effects(effects, transition_id=transition.transition_id)
     non_final = [effect for effect in values if effect.kind != EFFECT_BINDING_FINALIZE]
@@ -701,6 +732,18 @@ def workflow_transition_outcome_fingerprint(
         empty=False,
     )
     _bounded_text(checkpoint_ref, 512, "checkpoint_ref")
+    receipt_status: Mapping[str, Any] = {}
+    if transition.receipt_id:
+        if receipt_result is None:
+            raise WorkflowTransitionError("workflow_transition_receipt_result_missing")
+        receipt_status = _validated_mapping(
+            receipt_result,
+            maximum=_MAX_STATUS_BYTES,
+            reason="receipt_result",
+            empty=False,
+        )
+    elif receipt_result is not None:
+        raise WorkflowTransitionError("workflow_transition_receipt_result_unexpected")
     return _digest(
         {
             "transition_id": transition.transition_id,
@@ -716,6 +759,7 @@ def workflow_transition_outcome_fingerprint(
             ],
             "binding_status": status,
             "checkpoint_ref": checkpoint_ref,
+            "receipt_result": receipt_status,
         },
         namespace="workflow-transition-outcome",
     )
@@ -935,6 +979,7 @@ __all__ = [
     "WorkflowTransitionEffectPort",
     "WorkflowTransitionLeasePort",
     "WorkflowTransitionReadPort",
+    "WorkflowTransitionReceiptProjectionPort",
     "WorkflowTransitionSnapshot",
     "WorkflowTransitionStagePort",
     "WorkflowTransitionStore",

@@ -298,11 +298,17 @@ class _FailOnceCommandReceiptCompletion(InMemoryWorkflowControlCommandReceiptSto
         *,
         status: dict[str, Any],
         owner_id: str,
+        dispatch_generation: int,
     ):
         if self.failures:
             self.failures -= 1
             raise RuntimeError("command_receipt_completion_lost")
-        return super().complete(command_id, status=status, owner_id=owner_id)
+        return super().complete(
+            command_id,
+            status=status,
+            owner_id=owner_id,
+            dispatch_generation=dispatch_generation,
+        )
 
 
 def test_legacy_backend_shape_is_dispatched_only_through_bound_hub_control() -> None:

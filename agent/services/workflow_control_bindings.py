@@ -129,10 +129,31 @@ class WorkflowControlBindingStore(Protocol):
     def reject_command_receipt(self, workflow_id: str, *, receipt_id: str) -> None: ...
 
 
-class InMemoryWorkflowControlBindingStore:
-    """Thread-safe, explicit containment store for unit/dev composition."""
+class WorkflowControlTransitionFenceStore(Protocol):
+    """Read-only marker port preventing legacy mutation during a transition.
 
-    def __init__(self, *, clock: Any = time.time) -> None:
+    The transition aggregate is the only marker write authority.  Legacy
+    binding adapters may observe that authority, but must never manufacture or
+    clear a marker independently of the outbox unit of work.
+    """
+
+    def active_transition_id(self, workflow_id: str) -> str: ...
+
+
+class InMemoryWorkflowControlBindingStore:
+    """Thread-safe, explicit containment store for unit/dev composition.
+
+    Transition admission is disabled in default composition.  Tests that own a
+    complete in-memory transition aggregate may inject only its read-only fence
+    view; this store never creates a second marker authority.
+    """
+
+    def __init__(
+        self,
+        *,
+        clock: Any = time.time,
+        transition_fences: WorkflowControlTransitionFenceStore | None = None,
+    ) -> None:
         self._bindings: dict[str, WorkflowControlRunBinding] = {}
         self._run_ids: dict[str, str] = {}
         self._statuses: dict[str, dict[str, Any]] = {}
@@ -148,6 +169,7 @@ class InMemoryWorkflowControlBindingStore:
         self._command_receipts: dict[str, str] = {}
         self._scheduler_claims: dict[str, tuple[str, float]] = {}
         self._clock = clock
+        self._transition_fences = transition_fences
         self._lock = threading.RLock()
 
     def put(self, binding: WorkflowControlRunBinding) -> None:
@@ -177,6 +199,8 @@ class InMemoryWorkflowControlBindingStore:
             binding = self._bindings.get(normalized)
             if binding is None or binding.plan_hash != str(plan_hash):
                 raise RuntimeError("workflow_control_binding_not_found")
+            if self.active_transition_id(normalized):
+                raise RuntimeError("workflow_control_runtime_binding_conflict")
             if binding.runtime_id not in {"pending", selected}:
                 raise RuntimeError("workflow_control_runtime_binding_conflict")
             if binding.runtime_id == "pending":
@@ -195,6 +219,12 @@ class InMemoryWorkflowControlBindingStore:
             binding = self._bindings.get(workflow_id) if workflow_id is not None else None
             return deepcopy(binding) if binding is not None else None
 
+    def active_transition_id(self, workflow_id: str) -> str:
+        normalized = str(workflow_id or "").strip()
+        if not normalized or self._transition_fences is None:
+            return ""
+        return str(self._transition_fences.active_transition_id(normalized) or "")
+
     def list_reconcilable(self, *, runtime_id: str, limit: int = 100) -> tuple[WorkflowControlRunBinding, ...]:
         bounded = max(1, min(int(limit), 1000))
         now = float(self._clock())
@@ -208,6 +238,7 @@ class InMemoryWorkflowControlBindingStore:
                     and bool(status)
                     and not self._dispatch_intents.get(workflow_id)
                     and not self._command_receipts.get(workflow_id)
+                    and not self.active_transition_id(workflow_id)
                     and (
                         not self._command_claims.get(workflow_id)
                         or self._command_claim_expiry.get(workflow_id, 0.0) <= now
@@ -265,6 +296,7 @@ class InMemoryWorkflowControlBindingStore:
             command = self._command_claims.get(normalized, "")
             if (
                 owner != str(owner_id)
+                or self.active_transition_id(normalized)
                 or self._runtime_revisions.get(normalized, 0) != int(expected_revision)
                 or self._checkpoint_refs.get(normalized, "") != str(expected_checkpoint_ref)
                 or self._command_receipts.get(normalized)
@@ -284,7 +316,7 @@ class InMemoryWorkflowControlBindingStore:
         normalized = str(workflow_id or "").strip()
         with self._lock:
             owner, _expires = self._scheduler_claims.get(normalized, ("", 0.0))
-            if owner == str(owner_id):
+            if owner == str(owner_id) and not self.active_transition_id(normalized):
                 self._scheduler_claims[normalized] = ("", 0.0)
 
     def discard(self, workflow_id: str, *, plan_hash: str = "") -> None:
@@ -293,6 +325,8 @@ class InMemoryWorkflowControlBindingStore:
             binding = self._bindings.get(normalized)
             if binding is None or (plan_hash and binding.plan_hash != str(plan_hash)):
                 return
+            if self.active_transition_id(normalized):
+                raise RuntimeError("workflow_control_binding_transition_active")
             self._bindings.pop(normalized, None)
             self._run_ids.pop(binding.run_id, None)
             self._statuses.pop(normalized, None)
@@ -311,7 +345,11 @@ class InMemoryWorkflowControlBindingStore:
     def record_status(self, workflow_id: str, status: dict[str, Any]) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if self._command_claims.get(normalized) or self._command_receipts.get(normalized):
+            if (
+                self._command_claims.get(normalized)
+                or self._command_receipts.get(normalized)
+                or self.active_transition_id(normalized)
+            ):
                 raise RuntimeError("workflow_control_binding_revision_conflict")
             self._record_status(normalized, status)
 
@@ -325,6 +363,8 @@ class InMemoryWorkflowControlBindingStore:
         with self._lock:
             if normalized not in self._bindings:
                 raise RuntimeError("workflow_control_binding_not_found")
+            if self.active_transition_id(normalized):
+                raise RuntimeError("workflow_control_public_status_cas_conflict")
             previous = self._public_statuses.get(normalized)
             assert_public_status_progression(previous, status)
             self._public_statuses[normalized] = deepcopy(status)
@@ -347,6 +387,7 @@ class InMemoryWorkflowControlBindingStore:
             scheduler_owner, scheduler_expires = self._scheduler_claims.get(normalized, ("", 0.0))
             if (
                 normalized not in self._bindings
+                or self.active_transition_id(normalized)
                 or self._command_observation_pending.get(normalized, False)
                 or (scheduler_owner and scheduler_expires > float(self._clock()))
                 or (
@@ -369,6 +410,7 @@ class InMemoryWorkflowControlBindingStore:
         with self._lock:
             if (
                 normalized not in self._bindings
+                or self.active_transition_id(normalized)
                 or self._dispatch_intents.get(normalized)
                 or self._command_receipts.get(normalized)
             ):
@@ -379,6 +421,8 @@ class InMemoryWorkflowControlBindingStore:
         normalized = str(workflow_id or "").strip()
         with self._lock:
             if self._dispatch_intents.get(normalized) != str(intent_id):
+                raise RuntimeError("workflow_control_dispatch_completion_conflict")
+            if self.active_transition_id(normalized):
                 raise RuntimeError("workflow_control_dispatch_completion_conflict")
             self._dispatch_intents[normalized] = ""
 
@@ -398,6 +442,7 @@ class InMemoryWorkflowControlBindingStore:
             )
             if (
                 normalized not in self._bindings
+                or self.active_transition_id(normalized)
                 or self._dispatch_intents.get(normalized)
                 or self._command_receipts.get(normalized)
                 or self._command_claims.get(normalized)
@@ -411,7 +456,11 @@ class InMemoryWorkflowControlBindingStore:
     def clear_command_receipt(self, workflow_id: str, *, receipt_id: str) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if self._command_receipts.get(normalized) != str(receipt_id) or self._command_claims.get(normalized):
+            if (
+                self._command_receipts.get(normalized) != str(receipt_id)
+                or self._command_claims.get(normalized)
+                or self.active_transition_id(normalized)
+            ):
                 raise RuntimeError("workflow_control_command_receipt_completion_conflict")
             self._command_receipts[normalized] = ""
 
@@ -424,7 +473,11 @@ class InMemoryWorkflowControlBindingStore:
     ) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if self._command_receipts.get(normalized) != str(receipt_id) or self._command_claims.get(normalized):
+            if (
+                self._command_receipts.get(normalized) != str(receipt_id)
+                or self._command_claims.get(normalized)
+                or self.active_transition_id(normalized)
+            ):
                 raise RuntimeError("workflow_control_command_receipt_completion_conflict")
             del status
             self._command_receipts[normalized] = ""
@@ -441,7 +494,10 @@ class InMemoryWorkflowControlBindingStore:
     ) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if self._command_claims.get(normalized) != str(command_id):
+            if (
+                self._command_claims.get(normalized) != str(command_id)
+                or self.active_transition_id(normalized)
+            ):
                 raise RuntimeError("workflow_control_command_finish_conflict")
             self._assert_command_observation_fence(normalized, status)
             self._record_status(normalized, status)
@@ -465,7 +521,10 @@ class InMemoryWorkflowControlBindingStore:
         status = _command_observation_status(expected_status)
         ready = _command_observation_readiness(reconciliation_ready)
         with self._lock:
-            if self._command_claims.get(normalized) != str(command_id):
+            if (
+                self._command_claims.get(normalized) != str(command_id)
+                or self.active_transition_id(normalized)
+            ):
                 raise RuntimeError("workflow_control_command_pending_conflict")
             current_minimum = self._command_observation_min_revision.get(normalized, 0)
             current_status = self._command_observation_expected_status.get(normalized, "")
@@ -487,8 +546,10 @@ class InMemoryWorkflowControlBindingStore:
     def release_command(self, workflow_id: str, *, command_id: str) -> None:
         normalized = str(workflow_id or "").strip()
         with self._lock:
-            if self._command_claims.get(normalized) == str(command_id) and not self._command_observation_pending.get(
-                normalized, False
+            if (
+                self._command_claims.get(normalized) == str(command_id)
+                and not self._command_observation_pending.get(normalized, False)
+                and not self.active_transition_id(normalized)
             ):
                 self._command_claims[normalized] = ""
                 self._command_claim_expiry[normalized] = 0.0
@@ -681,5 +742,6 @@ __all__ = [
     "WorkflowControlBindingOwnerResolver",
     "WorkflowControlBindingStore",
     "WorkflowControlRunBinding",
+    "WorkflowControlTransitionFenceStore",
     "WorkflowRouteControlAuthorization",
 ]

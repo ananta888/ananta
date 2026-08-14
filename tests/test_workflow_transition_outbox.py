@@ -8,11 +8,14 @@ from agent.services.workflow_transition_outbox import (
     EFFECT_BINDING_FINALIZE,
     EFFECT_QUEUE_RESERVE,
     EFFECT_STATE_APPLIED,
+    EFFECT_STATE_REJECTED,
     TRANSITION_KIND_COMMAND,
     TRANSITION_RUNTIME_NATIVE,
+    TRANSITION_STATE_REJECTED,
     WorkflowTransition,
     WorkflowTransitionEffect,
     WorkflowTransitionError,
+    WorkflowTransitionSnapshot,
     thaw_json,
     validate_transition_plan,
     workflow_transition_effect_fingerprint,
@@ -166,31 +169,84 @@ def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> Non
         "revision": 8,
         "checkpoint_ref": "checkpoint-8",
     }
+    receipt_status = {**status, "checkpoint_ref": "local:workflow-a:8"}
     first = workflow_transition_outcome_fingerprint(
         transition,
         (applied, effects[1]),
         binding_status=status,
         checkpoint_ref="checkpoint-8",
+        receipt_result=receipt_status,
     )
     second = workflow_transition_outcome_fingerprint(
         transition,
         (applied, effects[1]),
         binding_status={**status, "status": "paused"},
         checkpoint_ref="checkpoint-8",
+        receipt_result=receipt_status,
     )
     third = workflow_transition_outcome_fingerprint(
         transition,
         (applied, effects[1]),
         binding_status={**status, "checkpoint_ref": "checkpoint-9"},
         checkpoint_ref="checkpoint-9",
+        receipt_result=receipt_status,
+    )
+    fourth = workflow_transition_outcome_fingerprint(
+        transition,
+        (applied, effects[1]),
+        binding_status=status,
+        checkpoint_ref="checkpoint-8",
+        receipt_result={**receipt_status, "status": "paused"},
     )
 
     assert len(first) == 64
-    assert len({first, second, third}) == 3
+    assert len({first, second, third, fourth}) == 4
     with pytest.raises(WorkflowTransitionError, match="effects_incomplete"):
         workflow_transition_outcome_fingerprint(
             transition,
             effects,
             binding_status=status,
             checkpoint_ref="checkpoint-8",
+            receipt_result=receipt_status,
+        )
+
+
+def test_rejected_snapshot_requires_every_effect_to_be_rejected() -> None:
+    transition, effects = _plan()
+    rejected_transition = replace(
+        transition,
+        state=TRANSITION_STATE_REJECTED,
+        last_error="policy_rejected",
+        revision=2,
+        updated_at=1_001.0,
+    )
+    rejected_effects = tuple(
+        replace(
+            effect,
+            state=EFFECT_STATE_REJECTED,
+            revision=2,
+            updated_at=1_001.0,
+        )
+        for effect in effects
+    )
+
+    assert WorkflowTransitionSnapshot(rejected_transition, rejected_effects).effects == rejected_effects
+
+    result = {"task_id": "task-a"}
+    ambiguously_applied = replace(
+        effects[0],
+        state=EFFECT_STATE_APPLIED,
+        applied_generation=1,
+        result_payload=result,
+        result_digest=workflow_transition_effect_result_digest(result),
+        revision=2,
+        updated_at=1_001.0,
+    )
+    with pytest.raises(
+        WorkflowTransitionError,
+        match="rejection_effect_proof_missing",
+    ):
+        WorkflowTransitionSnapshot(
+            rejected_transition,
+            (ambiguously_applied, rejected_effects[1]),
         )

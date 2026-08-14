@@ -93,6 +93,11 @@ class SQLAlchemyWorkflowControlBindingStore:
             ).first()
             return self._binding(row) if row is not None else None
 
+    def active_transition_id(self, workflow_id: str) -> str:
+        with Session(self._engine) as session:
+            row = session.get(WorkflowControlBindingDB, str(workflow_id or "").strip())
+            return str((row.active_transition_id if row is not None else "") or "")
+
     def bind_runtime(self, workflow_id: str, *, plan_hash: str, runtime_id: str):
         normalized = str(workflow_id or "").strip()
         selected = str(runtime_id or "").strip()
@@ -103,6 +108,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.plan_hash == str(plan_hash),
                     WorkflowControlBindingDB.runtime_id.in_(["pending", selected]),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     runtime_id=selected,
@@ -129,6 +135,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.runtime_id == str(runtime_id),
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     sa.or_(
                         WorkflowControlBindingDB.command_claim == "",
                         WorkflowControlBindingDB.command_claim_expires_at <= now,
@@ -167,6 +174,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.runtime_id == str(runtime_id),
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     sa.or_(
                         WorkflowControlBindingDB.command_claim == "",
                         WorkflowControlBindingDB.command_claim_expires_at <= now,
@@ -195,6 +203,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                         WorkflowControlBindingDB.revision == int(row.revision),
                         WorkflowControlBindingDB.dispatch_intent_id == "",
                         WorkflowControlBindingDB.command_receipt_id == "",
+                        WorkflowControlBindingDB.active_transition_id == "",
                         sa.or_(
                             WorkflowControlBindingDB.command_claim == "",
                             WorkflowControlBindingDB.command_claim_expires_at <= now,
@@ -246,6 +255,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.revision == int(row.revision),
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.scheduler_owner == str(owner_id),
                     WorkflowControlBindingDB.runtime_revision == int(expected_revision),
                     WorkflowControlBindingDB.runtime_checkpoint_ref == str(expected_checkpoint_ref),
@@ -284,6 +294,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                 .where(
                     WorkflowControlBindingDB.id == str(workflow_id or "").strip(),
                     WorkflowControlBindingDB.scheduler_owner == str(owner_id),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     scheduler_owner="",
@@ -298,11 +309,27 @@ class SQLAlchemyWorkflowControlBindingStore:
         normalized = str(workflow_id or "").strip()
         if not normalized:
             return
-        statement = sa.delete(WorkflowControlBindingDB).where(WorkflowControlBindingDB.id == normalized)
-        if plan_hash:
-            statement = statement.where(WorkflowControlBindingDB.plan_hash == str(plan_hash))
         with Session(self._engine) as session:
-            session.exec(statement)
+            row = session.get(WorkflowControlBindingDB, normalized)
+            if row is None or (plan_hash and row.plan_hash != str(plan_hash)):
+                return
+            if row.active_transition_id:
+                raise WorkflowControlBindingPersistenceError("workflow_control_binding_transition_active")
+            result = session.exec(
+                sa.delete(WorkflowControlBindingDB).where(
+                    WorkflowControlBindingDB.id == normalized,
+                    WorkflowControlBindingDB.revision == int(row.revision),
+                    WorkflowControlBindingDB.active_transition_id == "",
+                )
+            )
+            if int(result.rowcount or 0) != 1:
+                session.rollback()
+                refreshed = session.get(WorkflowControlBindingDB, normalized)
+                if refreshed is None:
+                    return
+                if refreshed is not None and refreshed.active_transition_id:
+                    raise WorkflowControlBindingPersistenceError("workflow_control_binding_transition_active")
+                raise WorkflowControlBindingPersistenceError("workflow_control_binding_revision_conflict")
             session.commit()
 
     def record_status(self, workflow_id: str, status: dict[str, Any]) -> None:
@@ -321,6 +348,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.revision == expected_revision,
                     WorkflowControlBindingDB.command_claim == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
                 )
                 .values(
@@ -356,6 +384,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.runtime_revision == int(expected_revision),
                     WorkflowControlBindingDB.runtime_checkpoint_ref == str(checkpoint_id),
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
                     sa.or_(
                         WorkflowControlBindingDB.command_receipt_id == "",
@@ -405,6 +434,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
                     WorkflowControlBindingDB.command_claim == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
                     sa.or_(
                         WorkflowControlBindingDB.scheduler_owner == "",
@@ -431,6 +461,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.command_receipt_id == str(receipt_id),
                     WorkflowControlBindingDB.command_claim == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_receipt_id="",
@@ -463,6 +494,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.revision == int(row.revision),
                     WorkflowControlBindingDB.command_receipt_id == str(receipt_id),
                     WorkflowControlBindingDB.command_claim == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_receipt_id="",
@@ -499,6 +531,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.revision == int(row.revision),
                     WorkflowControlBindingDB.command_claim == str(command_id),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     last_status=safe_status,
@@ -536,7 +569,7 @@ class SQLAlchemyWorkflowControlBindingStore:
         ready = _pending_readiness(reconciliation_ready)
         with Session(self._engine) as session:
             row = session.get(WorkflowControlBindingDB, normalized)
-            if row is None or row.command_claim != str(command_id):
+            if row is None or row.command_claim != str(command_id) or row.active_transition_id:
                 raise WorkflowControlBindingPersistenceError("workflow_control_command_pending_conflict")
             current_minimum = int(row.command_observation_min_revision or 0)
             current_status = str(row.command_observation_expected_status or "")
@@ -556,6 +589,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.command_claim == str(command_id),
                     WorkflowControlBindingDB.revision == int(row.revision),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_observation_pending=True,
@@ -580,6 +614,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.command_claim == str(command_id),
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_claim="",
@@ -609,6 +644,8 @@ class SQLAlchemyWorkflowControlBindingStore:
             row = session.get(WorkflowControlBindingDB, normalized)
             if row is None:
                 raise WorkflowControlBindingPersistenceError("workflow_control_binding_not_found")
+            if row.active_transition_id:
+                raise WorkflowControlBindingPersistenceError("workflow_control_public_status_cas_conflict")
             previous = dict(row.public_status or {}) or None
             _assert_public_status_progression(previous, safe_status)
             if previous == safe_status:
@@ -618,6 +655,7 @@ class SQLAlchemyWorkflowControlBindingStore:
                 .where(
                     WorkflowControlBindingDB.id == normalized,
                     WorkflowControlBindingDB.revision == int(row.revision),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     public_status=safe_status,
@@ -629,7 +667,11 @@ class SQLAlchemyWorkflowControlBindingStore:
                 session.rollback()
                 with Session(self._engine) as adoption:
                     refreshed = adoption.get(WorkflowControlBindingDB, normalized)
-                    if refreshed is not None and dict(refreshed.public_status or {}) == safe_status:
+                    if (
+                        refreshed is not None
+                        and not refreshed.active_transition_id
+                        and dict(refreshed.public_status or {}) == safe_status
+                    ):
                         return
                 raise WorkflowControlBindingPersistenceError("workflow_control_public_status_cas_conflict")
             session.commit()

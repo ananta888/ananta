@@ -40,6 +40,7 @@ from agent.services.workflow_runtime.security import (
     InMemoryReplayNonceStore,
     ReplayNonceStore,
 )
+from agent.services.workflow_transition_outbox import workflow_transition_request_fingerprint
 
 
 class InMemoryWorkflowControlCommandReceiptStore:
@@ -79,6 +80,7 @@ class InMemoryWorkflowControlCommandReceiptStore:
             request_payload=deepcopy(request_payload),
             expected_revision=expected_revision,
             checkpoint_ref=checkpoint_ref,
+            request_fingerprint=workflow_transition_request_fingerprint(request_payload),
         )
         command = admitted_receipt_command(candidate)
         with self._lock:
@@ -91,7 +93,11 @@ class InMemoryWorkflowControlCommandReceiptStore:
                     command_type=command_type,
                     request_payload=request_payload,
                 )
+                if not existing.transition_id and self._bindings.active_transition_id(binding.workflow_id):
+                    raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
                 return deepcopy(existing)
+            if self._bindings.active_transition_id(binding.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
             self._bindings.bind_command_receipt(
                 binding.workflow_id,
                 receipt_id=candidate.command_id,
@@ -139,6 +145,9 @@ class InMemoryWorkflowControlCommandReceiptStore:
             row = self._rows.get(str(command_id or "").strip())
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
+            _assert_unattributed_receipt(row)
+            if self._bindings.active_transition_id(row.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
             if row.state != COMMAND_RECEIPT_PENDING and not (
                 row.state == COMMAND_RECEIPT_DISPATCHING and row.dispatch_lease_expires_at <= now
             ):
@@ -148,6 +157,8 @@ class InMemoryWorkflowControlCommandReceiptStore:
                 state=COMMAND_RECEIPT_DISPATCHING,
                 dispatch_owner=str(owner_id),
                 dispatch_lease_expires_at=expires_at,
+                dispatch_generation=row.dispatch_generation + 1,
+                last_heartbeat_at=now,
                 revision=row.revision + 1,
             )
             claimed.__post_init__()
@@ -159,14 +170,17 @@ class InMemoryWorkflowControlCommandReceiptStore:
         command_id: str,
         *,
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
+        now = float(self._clock())
         with self._lock:
             row = self._rows.get(str(command_id or "").strip())
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
-            if row.state in {COMMAND_RECEIPT_COMPLETED, COMMAND_RECEIPT_REJECTED}:
-                return deepcopy(row)
-            _assert_receipt_owner(row, owner_id)
+            _assert_unattributed_receipt(row)
+            if self._bindings.active_transition_id(row.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(row, owner_id, dispatch_generation, now=now)
             released = replace(
                 row,
                 state=COMMAND_RECEIPT_PENDING,
@@ -177,20 +191,51 @@ class InMemoryWorkflowControlCommandReceiptStore:
             self._rows[row.command_id] = released
             return deepcopy(released)
 
+    def heartbeat(
+        self,
+        command_id: str,
+        *,
+        owner_id: str,
+        dispatch_generation: int,
+        lease_seconds: float = 30.0,
+    ) -> WorkflowControlCommandReceipt:
+        now = float(self._clock())
+        with self._lock:
+            row = self._rows.get(str(command_id or "").strip())
+            if row is None:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
+            _assert_unattributed_receipt(row)
+            if self._bindings.active_transition_id(row.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(row, owner_id, dispatch_generation, now=now)
+            next_generation = max(1, row.dispatch_generation)
+            updated = replace(
+                row,
+                dispatch_lease_expires_at=now + _lease_seconds(lease_seconds),
+                dispatch_generation=next_generation,
+                last_heartbeat_at=now,
+                revision=row.revision + 1,
+            )
+            self._rows[row.command_id] = updated
+            return deepcopy(updated)
+
     def complete(
         self,
         command_id: str,
         *,
         status: dict[str, Any],
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
+        now = float(self._clock())
         with self._lock:
             row = self._rows.get(str(command_id or "").strip())
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
-            if row.state == COMMAND_RECEIPT_COMPLETED:
-                return deepcopy(row)
-            _assert_receipt_owner(row, owner_id)
+            _assert_unattributed_receipt(row)
+            if self._bindings.active_transition_id(row.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(row, owner_id, dispatch_generation, now=now)
             validate_result_status(row, status)
             binding = self._bindings.get(row.workflow_id)
             if binding is None:
@@ -207,6 +252,7 @@ class InMemoryWorkflowControlCommandReceiptStore:
                 result_status=deepcopy(status),
                 dispatch_owner="",
                 dispatch_lease_expires_at=0.0,
+                last_heartbeat_at=now,
                 revision=row.revision + 1,
             )
             self._rows[row.command_id] = completed
@@ -218,22 +264,24 @@ class InMemoryWorkflowControlCommandReceiptStore:
         *,
         reason_code: str,
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
+        now = float(self._clock())
         with self._lock:
             row = self._rows.get(str(command_id or "").strip())
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
-            if row.state == COMMAND_RECEIPT_COMPLETED:
-                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_completion_conflict")
-            if row.state == COMMAND_RECEIPT_REJECTED:
-                return deepcopy(row)
-            _assert_receipt_owner(row, owner_id)
+            _assert_unattributed_receipt(row)
+            if self._bindings.active_transition_id(row.workflow_id):
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(row, owner_id, dispatch_generation, now=now)
             rejected = replace(
                 row,
                 state=COMMAND_RECEIPT_REJECTED,
                 rejection_reason=str(reason_code),
                 dispatch_owner="",
                 dispatch_lease_expires_at=0.0,
+                last_heartbeat_at=now,
                 revision=row.revision + 1,
             )
             # Construct the terminal DTO before freeing the binding marker.
@@ -257,6 +305,8 @@ class InMemoryWorkflowControlCommandReceiptStore:
                 for row in sorted(self._rows.values(), key=lambda item: item.command_id)
                 if row.state == COMMAND_RECEIPT_PENDING
                 or (row.state == COMMAND_RECEIPT_DISPATCHING and row.dispatch_lease_expires_at <= float(self._clock()))
+                if not row.transition_id
+                if not self._bindings.active_transition_id(row.workflow_id)
             )[:bounded]
 
 
@@ -295,6 +345,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
             request_payload=deepcopy(request_payload),
             expected_revision=expected_revision,
             checkpoint_ref=checkpoint_ref,
+            request_fingerprint=workflow_transition_request_fingerprint(request_payload),
         )
         command = admitted_receipt_command(candidate)
         now = float(self._clock())
@@ -311,6 +362,13 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     command_type=command_type,
                     request_payload=request_payload,
                 )
+                persisted_binding = session.get(WorkflowControlBindingDB, candidate.workflow_id)
+                if (
+                    not parsed.transition_id
+                    and persisted_binding is not None
+                    and persisted_binding.active_transition_id
+                ):
+                    raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
                 return parsed
             row = session.get(WorkflowControlBindingDB, binding.workflow_id)
             _assert_binding(row, binding)
@@ -321,6 +379,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                 or str(row.dispatch_intent_id or "")
                 or bool(row.command_observation_pending)
                 or str(row.command_receipt_id or "")
+                or str(row.active_transition_id or "")
                 or (row.scheduler_owner and float(row.scheduler_lease_expires_at) > now)
                 or (row.command_claim and float(row.command_claim_expires_at) > now)
             ):
@@ -340,6 +399,12 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                 rejection_reason="",
                 dispatch_owner="",
                 dispatch_lease_expires_at=0.0,
+                request_fingerprint=candidate.request_fingerprint,
+                transition_id="",
+                effect_fingerprint="",
+                outcome_fingerprint="",
+                dispatch_generation=0,
+                last_heartbeat_at=0.0,
                 revision=1,
                 created_at=now,
                 updated_at=now,
@@ -367,6 +432,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                         WorkflowControlBindingDB.runtime_checkpoint_ref == candidate.checkpoint_ref,
                         WorkflowControlBindingDB.dispatch_intent_id == "",
                         WorkflowControlBindingDB.command_receipt_id == "",
+                        WorkflowControlBindingDB.active_transition_id == "",
                         WorkflowControlBindingDB.command_observation_pending.is_(False),
                         sa.or_(
                             WorkflowControlBindingDB.scheduler_owner == "",
@@ -418,11 +484,17 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
             row = session.get(WorkflowControlCommandReceiptDB, normalized_id)
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
+            receipt = _receipt(row)
+            _assert_unattributed_receipt(receipt)
+            binding = session.get(WorkflowControlBindingDB, receipt.workflow_id)
+            if binding is None or binding.active_transition_id:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
             result = session.exec(
                 sa.update(WorkflowControlCommandReceiptDB)
                 .where(
                     WorkflowControlCommandReceiptDB.id == row.id,
                     WorkflowControlCommandReceiptDB.revision == int(row.revision),
+                    WorkflowControlCommandReceiptDB.transition_id == "",
                     sa.or_(
                         WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_PENDING,
                         sa.and_(
@@ -435,6 +507,8 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     state=COMMAND_RECEIPT_DISPATCHING,
                     dispatch_owner=str(owner_id),
                     dispatch_lease_expires_at=expires_at,
+                    dispatch_generation=int(row.dispatch_generation) + 1,
+                    last_heartbeat_at=now,
                     revision=int(row.revision) + 1,
                     updated_at=now,
                 )
@@ -451,6 +525,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         command_id: str,
         *,
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
         now = float(self._clock())
         normalized_id = str(command_id or "").strip()
@@ -459,9 +534,11 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
             receipt = _receipt(row)
-            if receipt.state in {COMMAND_RECEIPT_COMPLETED, COMMAND_RECEIPT_REJECTED}:
-                return receipt
-            _assert_receipt_owner(receipt, owner_id)
+            _assert_unattributed_receipt(receipt)
+            binding = session.get(WorkflowControlBindingDB, receipt.workflow_id)
+            if binding is None or binding.active_transition_id:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(receipt, owner_id, dispatch_generation, now=now)
             result = session.exec(
                 sa.update(WorkflowControlCommandReceiptDB)
                 .where(
@@ -469,11 +546,63 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     WorkflowControlCommandReceiptDB.revision == int(row.revision),
                     WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_DISPATCHING,
                     WorkflowControlCommandReceiptDB.dispatch_owner == str(owner_id),
+                    WorkflowControlCommandReceiptDB.dispatch_generation == int(dispatch_generation),
+                    WorkflowControlCommandReceiptDB.dispatch_lease_expires_at > now,
+                    WorkflowControlCommandReceiptDB.transition_id == "",
                 )
                 .values(
                     state=COMMAND_RECEIPT_PENDING,
                     dispatch_owner="",
                     dispatch_lease_expires_at=0.0,
+                    revision=int(row.revision) + 1,
+                    updated_at=now,
+                )
+            )
+            if int(result.rowcount or 0) != 1:
+                session.rollback()
+                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_lease_conflict")
+            session.commit()
+            refreshed = session.get(WorkflowControlCommandReceiptDB, normalized_id)
+            if refreshed is None:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
+            return _receipt(refreshed)
+
+    def heartbeat(
+        self,
+        command_id: str,
+        *,
+        owner_id: str,
+        dispatch_generation: int,
+        lease_seconds: float = 30.0,
+    ) -> WorkflowControlCommandReceipt:
+        now = float(self._clock())
+        normalized_id = str(command_id or "").strip()
+        with Session(self._engine) as session:
+            row = session.get(WorkflowControlCommandReceiptDB, normalized_id)
+            if row is None:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
+            receipt = _receipt(row)
+            _assert_unattributed_receipt(receipt)
+            binding = session.get(WorkflowControlBindingDB, receipt.workflow_id)
+            if binding is None or binding.active_transition_id:
+                raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
+            _assert_receipt_owner(receipt, owner_id, dispatch_generation, now=now)
+            next_generation = max(1, int(row.dispatch_generation))
+            result = session.exec(
+                sa.update(WorkflowControlCommandReceiptDB)
+                .where(
+                    WorkflowControlCommandReceiptDB.id == row.id,
+                    WorkflowControlCommandReceiptDB.revision == int(row.revision),
+                    WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_DISPATCHING,
+                    WorkflowControlCommandReceiptDB.dispatch_owner == str(owner_id),
+                    WorkflowControlCommandReceiptDB.dispatch_generation == int(dispatch_generation),
+                    WorkflowControlCommandReceiptDB.dispatch_lease_expires_at > now,
+                    WorkflowControlCommandReceiptDB.transition_id == "",
+                )
+                .values(
+                    dispatch_lease_expires_at=now + _lease_seconds(lease_seconds),
+                    dispatch_generation=next_generation,
+                    last_heartbeat_at=now,
                     revision=int(row.revision) + 1,
                     updated_at=now,
                 )
@@ -493,6 +622,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         *,
         status: dict[str, Any],
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
         safe_status = deepcopy(status)
         now = float(self._clock())
@@ -504,15 +634,15 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
             receipt = _receipt(row)
-            if receipt.state == COMMAND_RECEIPT_COMPLETED:
-                return receipt
-            _assert_receipt_owner(receipt, owner_id)
+            _assert_unattributed_receipt(receipt)
+            _assert_receipt_owner(receipt, owner_id, dispatch_generation, now=now)
             validate_result_status(receipt, safe_status)
             binding = session.get(WorkflowControlBindingDB, receipt.workflow_id)
             if (
                 binding is None
                 or str(binding.command_receipt_id or "") != receipt.command_id
                 or str(binding.command_claim or "")
+                or str(binding.active_transition_id or "")
             ):
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_completion_conflict")
             validate_persisted_public_status(receipt, binding, safe_status)
@@ -523,6 +653,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     WorkflowControlBindingDB.revision == int(binding.revision),
                     WorkflowControlBindingDB.command_receipt_id == receipt.command_id,
                     WorkflowControlBindingDB.command_claim == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_receipt_id="",
@@ -537,12 +668,16 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     WorkflowControlCommandReceiptDB.revision == int(row.revision),
                     WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_DISPATCHING,
                     WorkflowControlCommandReceiptDB.dispatch_owner == str(owner_id),
+                    WorkflowControlCommandReceiptDB.dispatch_generation == int(dispatch_generation),
+                    WorkflowControlCommandReceiptDB.dispatch_lease_expires_at > now,
+                    WorkflowControlCommandReceiptDB.transition_id == "",
                 )
                 .values(
                     state=COMMAND_RECEIPT_COMPLETED,
                     result_status=safe_status,
                     dispatch_owner="",
                     dispatch_lease_expires_at=0.0,
+                    last_heartbeat_at=now,
                     revision=int(row.revision) + 1,
                     updated_at=now,
                 )
@@ -562,6 +697,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         *,
         reason_code: str,
         owner_id: str,
+        dispatch_generation: int,
     ) -> WorkflowControlCommandReceipt:
         normalized_reason = WorkflowControlCommandRejectedError(reason_code).reason_code
         now = float(self._clock())
@@ -573,16 +709,14 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
             if row is None:
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_not_found")
             receipt = _receipt(row)
-            if receipt.state == COMMAND_RECEIPT_COMPLETED:
-                raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_completion_conflict")
-            if receipt.state == COMMAND_RECEIPT_REJECTED:
-                return receipt
-            _assert_receipt_owner(receipt, owner_id)
+            _assert_unattributed_receipt(receipt)
+            _assert_receipt_owner(receipt, owner_id, dispatch_generation, now=now)
             binding = session.get(WorkflowControlBindingDB, receipt.workflow_id)
             if (
                 binding is None
                 or str(binding.command_receipt_id or "") != receipt.command_id
                 or str(binding.command_claim or "")
+                or str(binding.active_transition_id or "")
             ):
                 raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_completion_conflict")
             binding_result = session.exec(
@@ -592,6 +726,7 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     WorkflowControlBindingDB.revision == int(binding.revision),
                     WorkflowControlBindingDB.command_receipt_id == receipt.command_id,
                     WorkflowControlBindingDB.command_claim == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     command_receipt_id="",
@@ -606,12 +741,16 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
                     WorkflowControlCommandReceiptDB.revision == int(row.revision),
                     WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_DISPATCHING,
                     WorkflowControlCommandReceiptDB.dispatch_owner == str(owner_id),
+                    WorkflowControlCommandReceiptDB.dispatch_generation == int(dispatch_generation),
+                    WorkflowControlCommandReceiptDB.dispatch_lease_expires_at > now,
+                    WorkflowControlCommandReceiptDB.transition_id == "",
                 )
                 .values(
                     state=COMMAND_RECEIPT_REJECTED,
                     rejection_reason=normalized_reason,
                     dispatch_owner="",
                     dispatch_lease_expires_at=0.0,
+                    last_heartbeat_at=now,
                     revision=int(row.revision) + 1,
                     updated_at=now,
                 )
@@ -634,7 +773,13 @@ class SQLAlchemyWorkflowControlCommandReceiptStore:
         with Session(self._engine) as session:
             rows = session.exec(
                 select(WorkflowControlCommandReceiptDB)
+                .join(
+                    WorkflowControlBindingDB,
+                    WorkflowControlBindingDB.id == WorkflowControlCommandReceiptDB.workflow_id,
+                )
                 .where(
+                    WorkflowControlCommandReceiptDB.transition_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     sa.or_(
                         WorkflowControlCommandReceiptDB.state == COMMAND_RECEIPT_PENDING,
                         sa.and_(
@@ -691,6 +836,12 @@ def _receipt(row: WorkflowControlCommandReceiptDB) -> WorkflowControlCommandRece
         rejection_reason=str(row.rejection_reason or ""),
         dispatch_owner=str(row.dispatch_owner or ""),
         dispatch_lease_expires_at=float(row.dispatch_lease_expires_at or 0.0),
+        request_fingerprint=str(row.request_fingerprint or ""),
+        transition_id=str(row.transition_id or ""),
+        effect_fingerprint=str(row.effect_fingerprint or ""),
+        outcome_fingerprint=str(row.outcome_fingerprint or ""),
+        dispatch_generation=int(row.dispatch_generation or 0),
+        last_heartbeat_at=float(row.last_heartbeat_at or 0.0),
         revision=int(row.revision),
     )
 
@@ -708,9 +859,22 @@ def _lease_seconds(value: float) -> float:
 def _assert_receipt_owner(
     receipt: WorkflowControlCommandReceipt,
     owner_id: str,
+    dispatch_generation: int,
+    *,
+    now: float,
 ) -> None:
-    if receipt.state != COMMAND_RECEIPT_DISPATCHING or receipt.dispatch_owner != str(owner_id):
+    if (
+        receipt.state != COMMAND_RECEIPT_DISPATCHING
+        or receipt.dispatch_owner != str(owner_id)
+        or receipt.dispatch_generation != int(dispatch_generation)
+        or receipt.dispatch_lease_expires_at <= now
+    ):
         raise WorkflowControlCommandReceiptError("workflow_control_command_receipt_lease_conflict")
+
+
+def _assert_unattributed_receipt(receipt: WorkflowControlCommandReceipt) -> None:
+    if receipt.transition_id:
+        raise WorkflowControlCommandReceiptError("workflow_control_command_transition_pending")
 
 
 def _assert_binding(

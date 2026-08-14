@@ -74,6 +74,8 @@ class InMemoryWorkflowControlDispatchIntentStore:
     ) -> WorkflowControlDispatchIntent:
         payload = command_intent_payload(command)
         with self._lock:
+            if self._bindings.active_transition_id(binding.workflow_id):
+                raise WorkflowControlDispatchIntentError("workflow_control_dispatch_stage_cas_conflict")
             existing = self._rows.get(command.command_id)
             if existing is not None:
                 if (
@@ -134,6 +136,8 @@ class InMemoryWorkflowControlDispatchIntentStore:
         payload = start_intent_payload(start_command, request_id=request_id)
         intent_id = _start_intent_id(binding.workflow_id)
         with self._lock:
+            if self._bindings.active_transition_id(binding.workflow_id):
+                raise WorkflowControlDispatchIntentError("workflow_control_dispatch_stage_cas_conflict")
             existing = self._rows.get(intent_id)
             if existing is not None:
                 if (
@@ -187,7 +191,11 @@ class InMemoryWorkflowControlDispatchIntentStore:
         now = float(self._clock())
         with self._lock:
             row = self._rows.get(str(intent_id))
-            if row is None or not _claimable(row, now=now, owner_id=owner_id):
+            if (
+                row is None
+                or self._bindings.active_transition_id(row.workflow_id)
+                or not _claimable(row, now=now, owner_id=owner_id)
+            ):
                 return None
             phase = row.phase
             claimed = replace(
@@ -355,7 +363,12 @@ class InMemoryWorkflowControlDispatchIntentStore:
         owner_id: str,
     ) -> WorkflowControlDispatchIntent:
         row = self._rows.get(str(intent_id))
-        if row is None or row.state != DISPATCH_STATE_DISPATCHING or row.lease_owner != str(owner_id):
+        if (
+            row is None
+            or self._bindings.active_transition_id(row.workflow_id)
+            or row.state != DISPATCH_STATE_DISPATCHING
+            or row.lease_owner != str(owner_id)
+        ):
             raise WorkflowControlDispatchIntentError("workflow_control_dispatch_lease_conflict")
         return row
 
@@ -385,6 +398,9 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
         with Session(self._engine) as session:
             existing = session.get(WorkflowControlDispatchIntentDB, command.command_id)
             if existing is not None:
+                active_binding = session.get(WorkflowControlBindingDB, binding.workflow_id)
+                if active_binding is not None and active_binding.active_transition_id:
+                    raise WorkflowControlDispatchIntentError("workflow_control_dispatch_stage_cas_conflict")
                 parsed = _intent(existing)
                 if (
                     parsed.kind != DISPATCH_KIND_COMMAND
@@ -404,6 +420,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                 or bool(row.command_observation_pending)
                 or str(row.dispatch_intent_id or "")
                 or str(row.command_receipt_id or "")
+                or str(row.active_transition_id or "")
                 or (row.scheduler_owner and float(row.scheduler_lease_expires_at) > now)
                 or (row.command_claim and float(row.command_claim_expires_at) > now)
             ):
@@ -450,6 +467,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                     WorkflowControlBindingDB.runtime_checkpoint_ref == command.checkpoint_id,
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
                     sa.or_(
                         WorkflowControlBindingDB.scheduler_owner == "",
@@ -494,6 +512,9 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
         with Session(self._engine) as session:
             existing = session.get(WorkflowControlDispatchIntentDB, intent_id)
             if existing is not None:
+                active_binding = session.get(WorkflowControlBindingDB, binding.workflow_id)
+                if active_binding is not None and active_binding.active_transition_id:
+                    raise WorkflowControlDispatchIntentError("workflow_control_dispatch_stage_cas_conflict")
                 return _assert_exact_start_intent(
                     _intent(existing),
                     binding=binding,
@@ -516,6 +537,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                 row is None
                 or str(row.dispatch_intent_id or "")
                 or str(row.command_receipt_id or "")
+                or str(row.active_transition_id or "")
                 or bool(row.command_observation_pending)
                 or (row.scheduler_owner and float(row.scheduler_lease_expires_at) > now)
                 or (row.command_claim and float(row.command_claim_expires_at) > now)
@@ -549,6 +571,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                     WorkflowControlBindingDB.revision == int(row.revision),
                     WorkflowControlBindingDB.dispatch_intent_id == "",
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
                     sa.or_(
                         WorkflowControlBindingDB.scheduler_owner == "",
@@ -604,7 +627,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
             row = session.get(WorkflowControlBindingDB, binding.workflow_id)
             _assert_binding_row(row, binding)
             active_id = str(row.dispatch_intent_id or "") if row is not None else ""
-            if active_id != intent_id:
+            if active_id != intent_id or (row is not None and row.active_transition_id):
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_stage_cas_conflict")
             existing = session.get(WorkflowControlDispatchIntentDB, intent_id)
             if existing is None:
@@ -641,7 +664,13 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
         now = float(self._clock())
         with Session(self._engine) as session:
             row = session.get(WorkflowControlDispatchIntentDB, str(intent_id))
-            if row is None or not _claimable(_intent(row), now=now, owner_id=owner_id):
+            binding = session.get(WorkflowControlBindingDB, str(row.workflow_id)) if row is not None else None
+            if (
+                row is None
+                or binding is None
+                or binding.active_transition_id
+                or not _claimable(_intent(row), now=now, owner_id=owner_id)
+            ):
                 return None
             phase = _intent(row).phase
             result = session.exec(
@@ -716,7 +745,8 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
         now = float(self._clock())
         with Session(self._engine) as session:
             row = session.get(WorkflowControlDispatchIntentDB, str(intent_id))
-            if not _owned(row, owner_id):
+            binding = session.get(WorkflowControlBindingDB, str(row.workflow_id)) if row is not None else None
+            if not _owned(row, owner_id) or binding is None or binding.active_transition_id:
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_lease_conflict")
             result = session.exec(
                 sa.update(WorkflowControlDispatchIntentDB)
@@ -744,6 +774,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                         WorkflowControlBindingDB.id == row.workflow_id,
                         WorkflowControlBindingDB.dispatch_intent_id == row.id,
                         WorkflowControlBindingDB.command_claim == row.id,
+                        WorkflowControlBindingDB.active_transition_id == "",
                     )
                     .values(
                         command_observation_pending=True,
@@ -773,7 +804,8 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
         now = float(self._clock())
         with Session(self._engine) as session:
             row = session.get(WorkflowControlDispatchIntentDB, str(intent_id))
-            if not _owned(row, owner_id):
+            binding = session.get(WorkflowControlBindingDB, str(row.workflow_id)) if row is not None else None
+            if not _owned(row, owner_id) or binding is None or binding.active_transition_id:
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_lease_conflict")
             result = session.exec(
                 sa.update(WorkflowControlDispatchIntentDB)
@@ -812,7 +844,11 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
             if not _owned(row, owner_id):
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_lease_conflict")
             binding = session.get(WorkflowControlBindingDB, str(row.workflow_id))
-            if binding is None or str(binding.dispatch_intent_id or "") != row.id:
+            if (
+                binding is None
+                or binding.active_transition_id
+                or str(binding.dispatch_intent_id or "") != row.id
+            ):
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_completion_conflict")
             if row.kind == DISPATCH_KIND_COMMAND:
                 if binding.command_claim != row.id:
@@ -832,6 +868,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                     WorkflowControlBindingDB.revision == int(binding.revision),
                     WorkflowControlBindingDB.dispatch_intent_id == row.id,
                     WorkflowControlBindingDB.command_receipt_id == "",
+                    WorkflowControlBindingDB.active_transition_id == "",
                     *((WorkflowControlBindingDB.command_claim == row.id,) if row.kind == DISPATCH_KIND_COMMAND else ()),
                 )
                 .values(
@@ -894,6 +931,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                 or str(binding.dispatch_intent_id or "") != row.id
                 or str(binding.command_claim or "") != row.id
                 or bool(binding.command_observation_pending)
+                or bool(binding.active_transition_id)
             ):
                 raise WorkflowControlDispatchIntentError("workflow_control_dispatch_completion_conflict")
             status_values: dict[str, Any] = {}
@@ -922,6 +960,7 @@ class SQLAlchemyWorkflowControlDispatchIntentStore:
                     WorkflowControlBindingDB.dispatch_intent_id == row.id,
                     WorkflowControlBindingDB.command_claim == row.id,
                     WorkflowControlBindingDB.command_observation_pending.is_(False),
+                    WorkflowControlBindingDB.active_transition_id == "",
                 )
                 .values(
                     **status_values,
