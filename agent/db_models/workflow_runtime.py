@@ -387,6 +387,30 @@ class WorkflowControlBindingDB(SQLModel, table=True):
         default="",
         sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
     )
+    active_transition_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
+    last_transition_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default=""),
+    )
+    last_transition_command_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default=""),
+    )
+    last_transition_request_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    last_transition_effect_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    last_transition_outcome_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
     scheduler_owner: str = Field(default="", index=True)
     scheduler_lease_expires_at: float = Field(default=0.0, index=True)
     revision: int = 1
@@ -479,9 +503,184 @@ class WorkflowControlCommandReceiptDB(SQLModel, table=True):
         sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
     )
     dispatch_lease_expires_at: float = Field(default=0.0, index=True)
+    request_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    transition_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
+    effect_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    outcome_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    dispatch_generation: int = Field(
+        default=0,
+        sa_column=Column(sa.BigInteger(), nullable=False, server_default="0"),
+    )
+    last_heartbeat_at: float = Field(default=0.0, sa_column=Column(sa.Float(), nullable=False, server_default="0"))
     revision: int = 1
     created_at: float = Field(index=True)
     updated_at: float = Field(index=True)
+
+
+class WorkflowTransitionOutboxDB(SQLModel, table=True):
+    """Hub-owned recoverable transition header and authoritative proof."""
+
+    __tablename__ = "workflow_transition_outbox"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "tenant_id",
+            "workflow_id",
+            "command_id",
+            name="uq_workflow_transition_command",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "receipt_id",
+            name="uq_workflow_transition_receipt",
+        ),
+        sa.Index(
+            "ix_workflow_transition_due",
+            "state",
+            "available_at",
+            "claim_expires_at",
+        ),
+        sa.Index(
+            "ix_workflow_transition_workflow_state",
+            "tenant_id",
+            "workflow_id",
+            "state",
+        ),
+        sa.Index(
+            "ix_workflow_transition_run_created",
+            "tenant_id",
+            "run_id",
+            "created_at",
+        ),
+        sa.CheckConstraint(
+            "expected_revision >= 0 AND attempt_count >= 0 AND claim_generation >= 0 AND revision >= 1",
+            name="ck_workflow_transition_non_negative",
+        ),
+    )
+
+    id: str = Field(sa_column=Column(sa.String(256), primary_key=True))
+    tenant_id: str = Field(sa_column=Column(sa.String(256), nullable=False))
+    workflow_id: str = Field(sa_column=Column(sa.String(256), nullable=False))
+    run_id: str = Field(sa_column=Column(sa.String(256), nullable=False))
+    runtime_id: str = Field(sa_column=Column(sa.String(64), nullable=False))
+    kind: str = Field(sa_column=Column(sa.String(32), nullable=False))
+    request_payload: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+    command_id: Optional[str] = Field(default=None, sa_column=Column(sa.String(256), nullable=True))
+    receipt_id: Optional[str] = Field(default=None, sa_column=Column(sa.String(256), nullable=True))
+    request_fingerprint: str = Field(sa_column=Column(sa.String(64), nullable=False))
+    admitted_command_digest: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    effect_fingerprint: str = Field(sa_column=Column(sa.String(64), nullable=False))
+    outcome_fingerprint: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    expected_revision: int
+    expected_checkpoint_ref: str = Field(sa_column=Column(sa.String(512), nullable=False))
+    result_status: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(sa.JSON, nullable=False, server_default=sa.text("'{}'")),
+    )
+    result_checkpoint_ref: str = Field(
+        default="",
+        sa_column=Column(sa.String(512), nullable=False, server_default=""),
+    )
+    state: str = Field(sa_column=Column(sa.String(32), nullable=False))
+    available_at: float
+    claim_owner: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default=""),
+    )
+    claim_generation: int = Field(
+        default=0,
+        sa_column=Column(sa.BigInteger(), nullable=False, server_default="0"),
+    )
+    claim_expires_at: float = Field(default=0.0, sa_column=Column(sa.Float(), nullable=False, server_default="0"))
+    last_heartbeat_at: float = Field(default=0.0, sa_column=Column(sa.Float(), nullable=False, server_default="0"))
+    attempt_count: int = Field(default=0, sa_column=Column(sa.Integer(), nullable=False, server_default="0"))
+    last_error: str = Field(
+        default="",
+        sa_column=Column(sa.String(160), nullable=False, server_default=""),
+    )
+    revision: int = Field(default=1, sa_column=Column(sa.Integer(), nullable=False, server_default="1"))
+    created_at: float
+    updated_at: float
+    completed_at: float = Field(default=0.0, sa_column=Column(sa.Float(), nullable=False, server_default="0"))
+
+
+class WorkflowTransitionEffectDB(SQLModel, table=True):
+    """One ordered immutable transition effect and its exact result proof."""
+
+    __tablename__ = "workflow_transition_effects"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "transition_id",
+            "ordinal",
+            name="uq_workflow_transition_effect_ordinal",
+        ),
+        sa.UniqueConstraint(
+            "transition_id",
+            "idempotency_key",
+            name="uq_workflow_transition_effect_key",
+        ),
+        sa.Index(
+            "ix_workflow_transition_effect_state",
+            "transition_id",
+            "state",
+            "ordinal",
+        ),
+        sa.CheckConstraint(
+            "ordinal >= 1 AND applied_generation >= 0 AND revision >= 1",
+            name="ck_workflow_transition_effect_non_negative",
+        ),
+    )
+
+    id: str = Field(sa_column=Column(sa.String(256), primary_key=True))
+    transition_id: str = Field(
+        sa_column=Column(
+            sa.String(256),
+            sa.ForeignKey(
+                "workflow_transition_outbox.id",
+                name="fk_workflow_transition_effect_transition",
+                ondelete="CASCADE",
+            ),
+            nullable=False,
+        )
+    )
+    ordinal: int
+    kind: str = Field(sa_column=Column(sa.String(32), nullable=False))
+    idempotency_key: str = Field(sa_column=Column(sa.String(512), nullable=False))
+    payload: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+    payload_digest: str = Field(sa_column=Column(sa.String(64), nullable=False))
+    state: str = Field(sa_column=Column(sa.String(32), nullable=False))
+    applied_generation: int = Field(
+        default=0,
+        sa_column=Column(sa.BigInteger(), nullable=False, server_default="0"),
+    )
+    result_payload: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(sa.JSON, nullable=False, server_default=sa.text("'{}'")),
+    )
+    result_digest: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    revision: int = Field(default=1, sa_column=Column(sa.Integer(), nullable=False, server_default="1"))
+    created_at: float
+    updated_at: float
 
 
 class WorkflowCommandNonceDB(SQLModel, table=True):

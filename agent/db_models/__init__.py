@@ -363,6 +363,8 @@ from .workflow_runtime import (
     WorkflowRuntimeRolloutAuditDB,
     WorkflowRuntimeRolloutPolicyDB,
     WorkflowSideEffectLedgerDB,
+    WorkflowTransitionEffectDB,
+    WorkflowTransitionOutboxDB,
     WorkflowWorkerAssignmentDB,
 )
 
@@ -622,6 +624,8 @@ __all__ = [
     "WorkflowRuntimeRolloutAuditDB",
     "WorkflowRuntimeRolloutPolicyDB",
     "WorkflowSideEffectLedgerDB",
+    "WorkflowTransitionEffectDB",
+    "WorkflowTransitionOutboxDB",
     "WorkflowDefinitionRevisionDB",
     "ToolCallDB",
     "UserDB",
