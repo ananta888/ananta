@@ -37,6 +37,7 @@ import { VpResourceOptionProvider } from './vp-resource-option-provider';
 import { VpAssistantPatchPreview } from './vp-assistant-api.service';
 import { VpWorkflowPatchPreviewComponent } from './vp-workflow-patch-preview.component';
 import { validateVpPresetDirectLoad } from './vp-preset-load.policy';
+import { normalizeVpDefinitionHash } from './vp-definition-hash';
 import {
   DatasetSummary,
   TrainingBaseModel,
@@ -85,6 +86,12 @@ function resolveVpEditorState(): ResolvedVpEditorState {
 export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChanges {
   @Input() graphId = '';
   @Input() editorMode: 'compact-readonly'|'embedded-edit'|'full-editor' = 'full-editor';
+  /**
+   * A hosted workspace may own the authoritative runtime session separately
+   * from this graph editor. In that mode the local runner remains available
+   * for validation and dry-runs, but must never start a second runtime poller.
+   */
+  @Input() runtimeMode: 'owned' | 'external-readonly' = 'owned';
   private api = inject(VisualProcessApiService);
   private interaction = inject(VpCanvasInteractionService);
   private importExport = inject(VpImportExportService);
@@ -104,6 +111,10 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   private suppressNextAssistantSelection = false;
   private presetLoadGeneration = 0;
   private policyRefreshGeneration = 0;
+  private readonly locallyStartedRuntimeSnapshot = signal<{
+    readonly graphId: string;
+    readonly editorRevision: number;
+  } | null>(null);
 
   @ViewChild('bpmnFileInput') bpmnFileInputRef!: ElementRef<HTMLInputElement>;
   readonly NODE_W = NODE_W;
@@ -138,6 +149,29 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   activeWorkflowId = this.workflowRunner.activeWorkflowId;
   workflowStatus = this.workflowRunner.workflowStatus;
   runtimeOverlay = this.workflowRunner.runtimeOverlay;
+  /**
+   * Runtime evidence belongs to the exact definition admitted at start. Keep
+   * the runner session available for control commands, but do not project its
+   * evidence onto a subsequently changed or differently hashed graph.
+   */
+  readonly visibleRuntimeOverlay = computed(() => {
+    const overlay = this.runtimeOverlay();
+    if (overlay === null) return null;
+    const localSnapshot = this.locallyStartedRuntimeSnapshot();
+    if (
+      localSnapshot !== null
+      && localSnapshot.graphId === this.graph().id
+      && localSnapshot.graphId === (overlay.process_id ?? overlay.workflow_id)
+      && localSnapshot.editorRevision === this.editorState.revision()
+      && normalizeVpDefinitionHash(overlay.snapshot_hash) !== null
+    ) {
+      return overlay;
+    }
+    if (this.isDirty()) return null;
+    const graphHash = normalizeVpDefinitionHash(this.graph().base_graph_hash);
+    const snapshotHash = normalizeVpDefinitionHash(overlay.snapshot_hash);
+    return graphHash !== null && graphHash === snapshotHash ? overlay : null;
+  });
 
   private _loadPresetMenu = false;
   private _loadSavedMenu = false;
@@ -210,7 +244,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   graphTagsStr = computed(() => this.graph().tags.join(', '));
 
   gateStepId = computed<string | null>(() => {
-    const overlay = this.runtimeOverlay();
+    const overlay = this.visibleRuntimeOverlay();
     if (!overlay) return null;
     const graphSteps = this.graph().steps;
     const found = Object.values(overlay.steps).find(
@@ -571,6 +605,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
             : 'Preset-Antwort wurde verworfen; der aktuelle Graph bleibt unverändert.');
           return;
         }
+        this.clearRuntimeScope();
         this.editorState.initialize(result.value);
         this.statusMsg.set(`Preset "${result.value.name}" geladen`);
         this.schedulePolicyHintsRefresh(true);
@@ -591,6 +626,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     this.loadSavedMenu = false;
     this.subs.add(this.api.loadSavedGraph(id).subscribe({
       next: g => {
+        this.clearRuntimeScope();
         this.editorState.initialize(g);
         this.saveConflict.set(false);
         this.statusMsg.set(`"${g.name}" geladen`);
@@ -641,6 +677,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
   forkAfterSaveConflict(): void {
     if (!this.saveConflict()) return;
     const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}`;
+    this.clearRuntimeScope();
     this.editorState.execute('Konflikt-Draft als Kopie vorbereiten', graph => {
       const fork = structuredClone(graph);
       fork.id = `vp-fork-${uuid}`;
@@ -690,10 +727,28 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       this.requestPolicyHints(preserveCleanBaseline, generation);
     }, 300);
   }
-  startWorkflow(): void { this.workflowRunner.start(this.graph); }
-  cancelWorkflow(): void { this.workflowRunner.cancel(); }
-  approveGate(): void { this.workflowRunner.signalGate('approve', this.gateStepId()); }
-  rejectGate(): void { this.workflowRunner.signalGate('reject', this.gateStepId()); }
+  startWorkflow(): void {
+    if (this.runtimeMode !== 'owned' || !this.canStartWorkflow()) return;
+    const snapshot = {
+      graphId: this.graph().id,
+      editorRevision: this.editorState.revision(),
+    } as const;
+    if (this.workflowRunner.start(this.graph)) {
+      this.locallyStartedRuntimeSnapshot.set(snapshot);
+    }
+  }
+  cancelWorkflow(): void {
+    if (this.runtimeMode !== 'owned') return;
+    this.workflowRunner.cancel();
+  }
+  approveGate(): void {
+    if (this.runtimeMode !== 'owned') return;
+    this.workflowRunner.signalGate('approve', this.gateStepId());
+  }
+  rejectGate(): void {
+    if (this.runtimeMode !== 'owned') return;
+    this.workflowRunner.signalGate('reject', this.gateStepId());
+  }
   exportBpmn(): void {
     this.subs.add(this.importExport.exportBpmn(this.graph()).subscribe({
       next: result => {
@@ -709,7 +764,8 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
     this.subs.add(this.importExport.importBpmn(file).subscribe({
-        next: result => {
+      next: result => {
+          this.clearRuntimeScope();
           this.editorState.replaceGraph(result.graph, { markDirty: true, validation: result.validation });
           const warns = result.warnings?.length ? ` (${result.warnings.join(', ')})` : '';
           this.statusMsg.set(`BPMN importiert: ${result.graph.steps.length} Schritte${warns}`);
@@ -831,7 +887,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     this.assistant.refreshWorkflowPatch(
       () => this.graph(),
       this.validationResult()?.issues ?? [],
-      this.runtimeOverlay(),
+      this.visibleRuntimeOverlay(),
     );
   }
 
@@ -866,7 +922,7 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
       target,
       definition,
       validationIssues: this.validationResult()?.issues ?? [],
-      runtime: this.runtimeOverlay(),
+      runtime: this.visibleRuntimeOverlay(),
       editorMode: this.editorMode,
     };
   }
@@ -889,6 +945,11 @@ export class VisualProcessEditorComponent implements OnInit, OnDestroy, OnChange
     this.nodeDefinitions.set(this.nodeRegistry.definitions(FALLBACK_KINDS));
     this.registrySource.set('degraded');
     this.registryStatus.set(message);
+  }
+
+  private clearRuntimeScope(): void {
+    this.locallyStartedRuntimeSnapshot.set(null);
+    this.workflowRunner.clearRuntimeScope();
   }
 
   private mutateStep(id: string, fn: (s: VpStep) => void): void {

@@ -89,6 +89,39 @@ describe('VisualProcessApiService definition contracts', () => {
     request.flush({ id: draft.id, version: '1', definition_revision: 1, base_graph_hash: 'a'.repeat(64), saved: true });
   });
 
+  it('sends stable workflow command IDs only in mutation request bodies', () => {
+    api.startWorkflowFromGraph(graph(), { command_id: 'vp-start-1' }).subscribe();
+    const start = http.expectOne('http://hub/api/visual-process/workflow/start');
+    expect(start.request.method).toBe('POST');
+    expect(start.request.body).toEqual({ graph: graph(), command_id: 'vp-start-1' });
+    start.flush({});
+
+    api.cancelWorkflow('workflow / one', 'stop', 'vp-command-cancel-1').subscribe();
+    const cancel = http.expectOne('http://hub/api/visual-process/workflow/workflow%20%2F%20one/cancel');
+    expect(cancel.request.method).toBe('POST');
+    expect(cancel.request.body).toEqual({
+      reason: 'stop',
+      command_id: 'vp-command-cancel-1',
+    });
+    cancel.flush({});
+
+    api.signalWorkflow(
+      'workflow-a',
+      'approve',
+      { step_id: 'gate-a' },
+      'vp-command-gate-1',
+    ).subscribe();
+    const signalRequest = http.expectOne('http://hub/api/visual-process/workflow/workflow-a/signal');
+    expect(signalRequest.request.method).toBe('POST');
+    expect(signalRequest.request.body).toEqual({
+      name: 'approve',
+      payload: { step_id: 'gate-a' },
+      actor: 'visual_process_designer',
+      command_id: 'vp-command-gate-1',
+    });
+    signalRequest.flush({});
+  });
+
   it('uses revision and If-Match for an existing graph', () => {
     const draft = { ...graph(), definition_revision: 3, base_graph_hash: 'b'.repeat(64) };
     api.saveGraph(draft).subscribe();

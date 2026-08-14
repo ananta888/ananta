@@ -20,6 +20,7 @@ import {
   CaseFlowEdgeIdentity,
   CaseFlowEdgeTraceMessage,
   CaseFlowEdgeTraceProjection,
+  CaseFlowEdgeTraceReadModel,
   CaseFlowMessageTelemetryResolution,
 } from './caseflow-edge-trace.models';
 import {
@@ -41,6 +42,8 @@ interface EdgeLoadResult {
   readonly edge: CaseFlowEdgeTraceProjection | null;
   readonly errorCode: string | null;
 }
+
+let edgeInspectorSequence = 0;
 
 @Component({
   selector: 'app-caseflow-agent-edge-inspector',
@@ -83,25 +86,39 @@ interface EdgeLoadResult {
           <span>{{ edgeProjection.verification_status }}</span>
         </div>
 
-        <nav class="inspector-tabs" aria-label="Verbindungsansicht">
+        <nav class="inspector-tabs" role="tablist" aria-label="Verbindungsansicht">
           <button
             type="button"
+            [id]="communicationTabId"
             [class.active]="activeTab === 'communication'"
             [attr.aria-selected]="activeTab === 'communication'"
+            [attr.aria-controls]="communicationPanelId"
+            [attr.tabindex]="activeTab === 'communication' ? 0 : -1"
+            data-inspector-tab="communication"
             role="tab"
             (click)="openTab('communication')"
+            (keydown)="tabKeydown($event, 'communication')"
           >Kommunikation</button>
           <button
             type="button"
+            [id]="telemetryTabId"
             [class.active]="activeTab === 'telemetry'"
             [attr.aria-selected]="activeTab === 'telemetry'"
+            [attr.aria-controls]="telemetryPanelId"
+            [attr.tabindex]="activeTab === 'telemetry' ? 0 : -1"
+            data-inspector-tab="telemetry"
             role="tab"
             (click)="openTab('telemetry')"
+            (keydown)="tabKeydown($event, 'telemetry')"
           >Telemetrie</button>
         </nav>
 
         @if (activeTab === 'communication') {
-          <section role="tabpanel" aria-label="Kommunikation">
+          <section
+            [id]="communicationPanelId"
+            role="tabpanel"
+            [attr.aria-labelledby]="communicationTabId"
+          >
             @if (edgeProjection.messages.length === 0) {
               <p class="inspector-state">Keine verifizierten Nachrichten für diese Richtung.</p>
             } @else {
@@ -134,7 +151,11 @@ interface EdgeLoadResult {
             }
           </section>
         } @else {
-          <section role="tabpanel" aria-label="Telemetrie">
+          <section
+            [id]="telemetryPanelId"
+            role="tabpanel"
+            [attr.aria-labelledby]="telemetryTabId"
+          >
             <p class="telemetry-scope" data-testid="caseflow-edge-run-scope">
               Run: <code>{{ runId }}</code>
             </p>
@@ -162,7 +183,15 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
   @Input() runId = '';
   @Input() edge: CaseFlowEdgeIdentity | null = null;
   @Input() reverseEdge: CaseFlowEdgeIdentity | null = null;
+  /** undefined keeps standalone API loading; null/model delegates loading to the host. */
+  @Input() traceReadModel: CaseFlowEdgeTraceReadModel | null | undefined = undefined;
   @Output() readonly directionSelected = new EventEmitter<CaseFlowEdgeIdentity>();
+
+  readonly inspectorId = `caseflow-edge-inspector-${++edgeInspectorSequence}`;
+  readonly communicationTabId = `${this.inspectorId}-communication-tab`;
+  readonly communicationPanelId = `${this.inspectorId}-communication-panel`;
+  readonly telemetryTabId = `${this.inspectorId}-telemetry-tab`;
+  readonly telemetryPanelId = `${this.inspectorId}-telemetry-panel`;
 
   selectedDirection: CaseFlowEdgeIdentity | null = null;
   projection: CaseFlowEdgeTraceProjection | null = null;
@@ -201,14 +230,22 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     const directions = this.availableDirections;
-    if (changes['edge'] || !directions.some(direction => this.sameEdge(direction, this.selectedDirection))) {
+    const edgeChanged = edgeIdentityChanged(changes['edge']);
+    const selectedDirectionDisappeared = this.selectedDirection !== null
+      && !directions.some(direction => this.sameEdge(direction, this.selectedDirection));
+    if (edgeChanged || selectedDirectionDisappeared) {
       this.selectedDirection = this.edge;
     }
-    if (this.selectedDirection && this.workflowId && this.runId) {
-      this.load(this.selectedDirection);
-    } else {
-      this.clearProjection(false);
+    const scopeChanged = stringValueChanged(changes['workflowId'])
+      || stringValueChanged(changes['runId']);
+    if (this.traceReadModel !== undefined
+      && !scopeChanged
+      && !edgeChanged
+      && !selectedDirectionDisappeared) {
+      this.refreshHostProjectionPreservingNavigation();
+      return;
     }
+    this.refreshSelectedDirection();
   }
 
   get availableDirections(): readonly CaseFlowEdgeIdentity[] {
@@ -221,7 +258,10 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
     const canonical = this.availableDirections.find(candidate => this.sameEdge(candidate, direction));
     if (!canonical || this.sameEdge(canonical, this.selectedDirection)) return;
     this.selectedDirection = canonical;
-    this.clearProjection(true);
+    const standaloneLoad = this.traceReadModel === undefined
+      && Boolean(this.workflowId)
+      && Boolean(this.runId);
+    this.clearProjection(standaloneLoad);
     const generation = this.generation;
     const workflowId = this.workflowId;
     const runId = this.runId;
@@ -230,7 +270,11 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
       || workflowId !== this.workflowId
       || runId !== this.runId
       || !this.sameEdge(canonical, this.selectedDirection)) return;
-    this.enqueueLoad(canonical, generation, workflowId, runId);
+    if (this.traceReadModel === undefined) {
+      if (standaloneLoad) this.enqueueLoad(canonical, generation, workflowId, runId);
+      return;
+    }
+    this.projectHostReadModel(canonical, generation, workflowId, runId);
   }
 
   openTab(tab: CaseFlowEdgeInspectorTab): void {
@@ -238,9 +282,32 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
     if (tab === 'communication') this.highlightedTelemetryIndex = null;
   }
 
+  tabKeydown(event: KeyboardEvent, current: CaseFlowEdgeInspectorTab): void {
+    const tabs: readonly CaseFlowEdgeInspectorTab[] = ['communication', 'telemetry'];
+    const currentIndex = tabs.indexOf(current);
+    let targetIndex: number | null = null;
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+      targetIndex = (currentIndex + 1) % tabs.length;
+    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      targetIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+    } else if (event.key === 'Home') {
+      targetIndex = 0;
+    } else if (event.key === 'End') {
+      targetIndex = tabs.length - 1;
+    }
+    if (targetIndex === null) return;
+    event.preventDefault();
+    const target = tabs[targetIndex];
+    this.openTab(target);
+    const tabList = (event.currentTarget as HTMLElement | null)?.parentElement;
+    const button = tabList?.querySelector<HTMLButtonElement>(`[data-inspector-tab="${target}"]`);
+    button?.focus();
+  }
+
   showTelemetry(index: number): void {
     this.highlightedTelemetryIndex = index;
     this.activeTab = 'telemetry';
+    document.getElementById(this.telemetryTabId)?.focus();
   }
 
   messageTelemetry(
@@ -268,9 +335,72 @@ export class CaseFlowAgentEdgeInspectorComponent implements OnChanges {
       && left.target_step_id === right.target_step_id;
   }
 
-  private load(edge: Readonly<CaseFlowEdgeIdentity>): void {
-    this.clearProjection(true);
-    this.enqueueLoad(edge, this.generation, this.workflowId, this.runId);
+  private refreshSelectedDirection(): void {
+    const direction = this.selectedDirection;
+    const hasScope = Boolean(this.workflowId) && Boolean(this.runId);
+    const standaloneLoad = this.traceReadModel === undefined && hasScope && direction !== null;
+    this.clearProjection(standaloneLoad);
+    if (!direction || !hasScope) return;
+    if (this.traceReadModel === undefined) {
+      this.enqueueLoad(direction, this.generation, this.workflowId, this.runId);
+      return;
+    }
+    this.projectHostReadModel(
+      direction,
+      this.generation,
+      this.workflowId,
+      this.runId,
+    );
+  }
+
+  private refreshHostProjectionPreservingNavigation(): void {
+    const direction = this.selectedDirection;
+    const hasScope = Boolean(this.workflowId) && Boolean(this.runId);
+    this.generation += 1;
+    this.projection = null;
+    this.errorCode = null;
+    this.highlightedTelemetryIndex = null;
+    this.loading = false;
+    if (!direction || !hasScope) {
+      this.changeDetector.markForCheck();
+      return;
+    }
+    this.projectHostReadModel(
+      direction,
+      this.generation,
+      this.workflowId,
+      this.runId,
+    );
+  }
+
+  private projectHostReadModel(
+    edge: Readonly<CaseFlowEdgeIdentity>,
+    generation: number,
+    workflowId: string,
+    runId: string,
+  ): void {
+    const readModel = this.traceReadModel;
+    if (generation !== this.generation || readModel === undefined) return;
+    this.loading = false;
+    if (readModel === null) {
+      this.changeDetector.markForCheck();
+      return;
+    }
+    if (readModel.workflow_id !== workflowId || readModel.run_id !== runId) {
+      this.errorCode = 'caseflow_edge_trace_scope_mismatch';
+      this.changeDetector.markForCheck();
+      return;
+    }
+    try {
+      this.projection = selectExactCaseFlowEdge(readModel, edge);
+      this.errorCode = this.projection === null
+        ? 'caseflow_edge_not_found_or_ambiguous'
+        : null;
+    } catch {
+      this.projection = null;
+      this.errorCode = 'caseflow_edge_trace_unavailable';
+    }
+    this.changeDetector.markForCheck();
   }
 
   private enqueueLoad(
@@ -315,4 +445,18 @@ function isCanonicalReverse(
     && edge.edge_id !== candidate.edge_id
     && edge.source_step_id === candidate.target_step_id
     && edge.target_step_id === candidate.source_step_id;
+}
+
+function edgeIdentityChanged(change: SimpleChanges[string] | undefined): boolean {
+  if (!change) return false;
+  const previous = change.previousValue as CaseFlowEdgeIdentity | null | undefined;
+  const current = change.currentValue as CaseFlowEdgeIdentity | null | undefined;
+  if (previous == null || current == null) return previous !== current;
+  return previous.edge_id !== current.edge_id
+    || previous.source_step_id !== current.source_step_id
+    || previous.target_step_id !== current.target_step_id;
+}
+
+function stringValueChanged(change: SimpleChanges[string] | undefined): boolean {
+  return Boolean(change && change.previousValue !== change.currentValue);
 }

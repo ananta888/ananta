@@ -48,6 +48,12 @@ button {
   padding: 0.4rem 0.65rem;
 }
 
+button:focus-visible {
+  border-color: var(--accent-color, #56e5c3);
+  outline: 2px solid var(--accent-color, #56e5c3);
+  outline-offset: 2px;
+}
+
 button.active,
 button[aria-pressed='true'] {
   background: color-mix(in srgb, var(--accent-color, #56e5c3) 18%, transparent);

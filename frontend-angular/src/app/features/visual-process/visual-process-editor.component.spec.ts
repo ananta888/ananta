@@ -122,6 +122,33 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
     });
   });
 
+  it('keeps runtime commands owned by standalone editors and disables them for hosted projections', () => {
+    const standalone = TestBed.createComponent(VisualProcessEditorComponent);
+    standalone.detectChanges();
+    expect(standalone.componentInstance.runtimeMode).toBe('owned');
+    expect(standalone.nativeElement.textContent).toContain('Starten');
+
+    const hosted = TestBed.createComponent(VisualProcessEditorComponent);
+    hosted.componentInstance.runtimeMode = 'external-readonly';
+    hosted.detectChanges();
+    const runner = hosted.debugElement.injector.get(VpWorkflowRunnerService);
+    const start = vi.spyOn(runner, 'start');
+    const cancel = vi.spyOn(runner, 'cancel');
+    const signalGate = vi.spyOn(runner, 'signalGate');
+
+    hosted.componentInstance.startWorkflow();
+    hosted.componentInstance.cancelWorkflow();
+    hosted.componentInstance.approveGate();
+    hosted.componentInstance.rejectGate();
+
+    expect(hosted.nativeElement.textContent).not.toContain('▶ Starten');
+    expect(hosted.nativeElement.textContent).not.toContain('⏹ Abbrechen');
+    expect(hosted.nativeElement.textContent).not.toContain('Gate-Freigabe erforderlich');
+    expect(start).not.toHaveBeenCalled();
+    expect(cancel).not.toHaveBeenCalled();
+    expect(signalGate).not.toHaveBeenCalled();
+  });
+
   it('isolates editor commands and Assistant context across parallel instances', () => {
     const first = TestBed.createComponent(VisualProcessEditorComponent);
     const second = TestBed.createComponent(VisualProcessEditorComponent);
@@ -176,6 +203,144 @@ describe('VisualProcessEditorComponent (FSR-T015 acceptance)', () => {
       id: 'preset-plain', name: 'Plain preset',
     });
     expect(fixture.componentInstance.statusMsg()).toContain('geladen');
+  });
+
+  it('retires runtime evidence before either standalone graph replacement path', () => {
+    const graphWithSharedStep = (id: string, name: string): VpGraph => ({
+      ...emptyGraph(),
+      id,
+      name,
+      steps: [step('shared-step')],
+    });
+    api.loadSavedGraph.mockReturnValueOnce(of(graphWithSharedStep('graph-b', 'Graph B')));
+    api.getPreset.mockReturnValueOnce(of(graphWithSharedStep('preset-c', 'Preset C')));
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const runner = fixture.debugElement.injector.get(VpWorkflowRunnerService);
+    const seedRuntime = (graphId: string, runId: string): void => {
+      (runner as any).activeWorkflowId.set(graphId);
+      (runner as any).applyStatus({
+        schema: 'ananta.workflow_backend_status.v1',
+        workflow_id: graphId,
+        run_id: runId,
+        process_id: graphId,
+        revision: 1,
+        updated_at: 1,
+        status: 'running',
+        steps: [{ step_id: 'shared-step', status: 'running' }],
+      });
+    };
+
+    seedRuntime('graph-a', 'run-a');
+    component.loadSavedGraphById('graph-b');
+    expect(component.graph().id).toBe('graph-b');
+    expect(runner.activeWorkflowId()).toBeNull();
+    expect(runner.runtimeOverlay()).toBeNull();
+
+    seedRuntime('graph-b', 'run-b');
+    component.loadPreset('preset-c');
+    expect(component.graph().id).toBe('preset-c');
+    expect(runner.activeWorkflowId()).toBeNull();
+    expect(runner.workflowStatus()).toBeNull();
+    expect(runner.runtimeOverlay()).toBeNull();
+  });
+
+  it('suppresses snapshot-bound runtime evidence after a local graph mutation', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const runner = fixture.debugElement.injector.get(VpWorkflowRunnerService);
+    const snapshotHash = 'a'.repeat(64);
+    const persistedGraph: VpGraph = {
+      ...emptyGraph(),
+      id: 'graph-a',
+      base_graph_hash: snapshotHash,
+      steps: [step('shared-step')],
+    };
+    (component as unknown as {
+      editorState: { initialize: (graph: VpGraph) => void };
+    }).editorState.initialize(persistedGraph);
+    (runner as any).activeWorkflowId.set('graph-a');
+    (runner as any).applyStatus({
+      schema: 'ananta.workflow_backend_status.v1',
+      workflow_id: 'graph-a',
+      run_id: 'run-a',
+      process_id: 'graph-a',
+      snapshot_hash: snapshotHash,
+      revision: 1,
+      updated_at: 1,
+      status: 'running',
+      steps: [{ step_id: 'shared-step', status: 'running' }],
+    });
+
+    expect(component.visibleRuntimeOverlay()?.run_id).toBe('run-a');
+
+    component.addStep('review');
+    fixture.detectChanges();
+
+    expect(component.isDirty()).toBe(true);
+    expect(component.canUndo()).toBe(true);
+    expect(component.graph().steps).toHaveLength(2);
+    expect(component.visibleRuntimeOverlay()).toBeNull();
+    expect(runner.runtimeOverlay()?.run_id).toBe('run-a');
+    expect((fixture.nativeElement as HTMLElement).querySelector('.vp-runtime-badge')).toBeNull();
+  });
+
+  it('shows a locally started dirty draft only until its editor revision changes', () => {
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const runner = fixture.debugElement.injector.get(VpWorkflowRunnerService);
+    component.addStep('review');
+    expect(component.isDirty()).toBe(true);
+    expect(component.graph().base_graph_hash).toBeUndefined();
+    (component as unknown as {
+      editorState: { validation: { set: (value: unknown) => void } };
+    }).editorState.validation.set({
+      valid: true,
+      error_count: 0,
+      warning_count: 0,
+      issues: [],
+    });
+    vi.spyOn(runner, 'start').mockImplementation(() => true);
+
+    component.startWorkflow();
+    (runner as any).activeWorkflowId.set(component.graph().id);
+    (runner as any).applyStatus({
+      schema: 'ananta.workflow_backend_status.v1',
+      workflow_id: component.graph().id,
+      run_id: 'draft-run',
+      process_id: component.graph().id,
+      revision: 1,
+      updated_at: 1,
+      status: 'running',
+      steps: [{ step_id: component.graph().steps[0].id, status: 'running' }],
+    });
+
+    expect(component.visibleRuntimeOverlay()).toBeNull();
+
+    (runner as any).applyStatus({
+      schema: 'ananta.workflow_backend_status.v1',
+      workflow_id: component.graph().id,
+      run_id: 'draft-run',
+      process_id: component.graph().id,
+      snapshot_hash: 'b'.repeat(64),
+      revision: 2,
+      updated_at: 2,
+      status: 'running',
+      steps: [{ step_id: component.graph().steps[0].id, status: 'running' }],
+    });
+
+    expect(component.visibleRuntimeOverlay()?.run_id).toBe('draft-run');
+
+    component.setGraphDescription('lokale Änderung nach dem Start');
+    fixture.detectChanges();
+
+    expect(component.visibleRuntimeOverlay()).toBeNull();
+    expect(runner.runtimeOverlay()?.run_id).toBe('draft-run');
+    expect((fixture.nativeElement as HTMLElement).textContent)
+      .toContain('Workflow-Evidenz gehört zu einem anderen Graph-Stand');
   });
 
   it.each([
@@ -532,7 +697,26 @@ it('routes validation calls through VpWorkflowRunnerService, not directly to api
       initialize: (graph: VpGraph) => void;
       mutate: (label: string, mutation: (graph: VpGraph) => void) => void;
     } }).editorState;
-    state.initialize({ ...emptyGraph(), id: 'hub-graph', name: 'Hub Graph', definition_revision: 2, base_graph_hash: 'b'.repeat(64) });
+    state.initialize({
+      ...emptyGraph(),
+      id: 'hub-graph',
+      name: 'Hub Graph',
+      definition_revision: 2,
+      base_graph_hash: 'b'.repeat(64),
+      steps: [step('shared-step')],
+    });
+    const runner = fixture.debugElement.injector.get(VpWorkflowRunnerService);
+    (runner as any).activeWorkflowId.set('hub-graph');
+    (runner as any).applyStatus({
+      schema: 'ananta.workflow_backend_status.v1',
+      workflow_id: 'hub-graph',
+      run_id: 'run-before-fork',
+      process_id: 'hub-graph',
+      revision: 1,
+      updated_at: 1,
+      status: 'running',
+      steps: [{ step_id: 'shared-step', status: 'running' }],
+    });
     state.mutate('local edit', draft => { draft.name = 'Lokaler Draft'; });
     component.saveGraphToServer();
     fixture.detectChanges();
@@ -560,5 +744,47 @@ it('routes validation calls through VpWorkflowRunnerService, not directly to api
     expect(component.graph().base_graph_hash).toBeUndefined();
     expect(component.isDirty()).toBe(true);
     expect(component.canUndo()).toBe(true);
+    expect(runner.activeWorkflowId()).toBeNull();
+    expect(runner.workflowStatus()).toBeNull();
+    expect(runner.runtimeOverlay()).toBeNull();
+  });
+
+  it('retires the accepted runtime before replacing a graph through BPMN import', () => {
+    const imported = {
+      ...emptyGraph(),
+      id: 'imported-graph',
+      name: 'Imported graph',
+      steps: [step('shared-step')],
+    };
+    const fixture = TestBed.createComponent(VisualProcessEditorComponent);
+    fixture.detectChanges();
+    const component = fixture.componentInstance;
+    const runner = fixture.debugElement.injector.get(VpWorkflowRunnerService);
+    const importExport = fixture.debugElement.injector.get(VpImportExportService);
+    vi.spyOn(importExport, 'importBpmn').mockReturnValueOnce(of({
+      graph: imported,
+      validation: { valid: true, error_count: 0, warning_count: 0, issues: [] },
+      warnings: [],
+    }));
+    (runner as any).activeWorkflowId.set('old-graph');
+    (runner as any).applyStatus({
+      schema: 'ananta.workflow_backend_status.v1',
+      workflow_id: 'old-graph',
+      run_id: 'run-before-import',
+      process_id: 'old-graph',
+      revision: 1,
+      updated_at: 1,
+      status: 'running',
+      steps: [{ step_id: 'shared-step', status: 'running' }],
+    });
+    const target = { files: [new File(['<bpmn />'], 'graph.bpmn')], value: 'selected' };
+
+    component.onBpmnFile({ target } as unknown as Event);
+
+    expect(component.graph()).toEqual(imported);
+    expect(target.value).toBe('');
+    expect(runner.activeWorkflowId()).toBeNull();
+    expect(runner.workflowStatus()).toBeNull();
+    expect(runner.runtimeOverlay()).toBeNull();
   });
 });

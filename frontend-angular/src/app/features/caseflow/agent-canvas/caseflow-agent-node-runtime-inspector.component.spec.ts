@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ɵresolveComponentResources } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { Observable, Subject, throwError } from 'rxjs';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -182,6 +183,107 @@ describe('CaseFlowAgentNodeRuntimeInspectorComponent', () => {
     expect(reader.read).toHaveBeenLastCalledWith({ workflow_id: 'graph-a', run_id: 'run-b' });
   });
 
+  it('projects a host-managed trace model synchronously without an API request', () => {
+    const fixture = createHostFixture(traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'host-message', telemetry('selected', 10)),
+    ]));
+
+    expect(reader.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.loading).toBe(false);
+    expect(fixture.componentInstance.projection?.available).toBe(true);
+    clickButton(fixture, 'Kommunikation');
+    expect(fixture.nativeElement.textContent).toContain('host-message');
+  });
+
+  it('preserves trace view and an exact selected relation across host refreshes', () => {
+    const fixture = createHostFixture(traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'parent-v1', telemetry('selected', 10)),
+      traceEdge('selected-peer', 'selected', 'peer', 'child-v1', telemetry('selected', 20)),
+    ]));
+    clickButton(fixture, 'Kommunikation');
+    relationButtons(fixture, 'child')[0].click();
+    fixture.detectChanges();
+    const selectedRelationKey = fixture.componentInstance.selectedRelationKey;
+    clickButton(fixture, 'Trace');
+
+    fixture.componentRef.setInput('runtimeOverlay', {
+      ...runtimeOverlay('run-a'), updated_at: 61,
+    });
+    fixture.componentRef.setInput('traceReadModel', traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'parent-v2', telemetry('selected', 30)),
+      traceEdge('selected-peer', 'selected', 'peer', 'child-v2', telemetry('selected', 40)),
+    ]));
+    fixture.detectChanges();
+
+    expect(reader.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.activeView).toBe('trace');
+    expect(fixture.componentInstance.selectedRelationKey).toBe(selectedRelationKey);
+    expect(fixture.componentInstance.selectedRelation?.messages[0]?.content).toBe('child-v2');
+    expect(fixture.nativeElement.textContent).toContain('trace-40');
+    expect(fixture.nativeElement.textContent).not.toContain('trace-20');
+  });
+
+  it('clears only a selected relation that disappears from the current graph', () => {
+    const fixture = createHostFixture(traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'parent', telemetry('selected', 10)),
+      traceEdge('selected-peer', 'selected', 'peer', 'child', telemetry('selected', 20)),
+    ]));
+    clickButton(fixture, 'Kommunikation');
+    relationButtons(fixture, 'child')[0].click();
+    fixture.detectChanges();
+    clickButton(fixture, 'Trace');
+    const updatedGraph = agentGraph();
+
+    fixture.componentRef.setInput('graph', {
+      ...updatedGraph,
+      edges: updatedGraph.edges.filter(edge => edge.id !== 'selected-peer'),
+    });
+    fixture.componentRef.setInput('traceReadModel', traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'parent-v2', telemetry('selected', 30)),
+    ]));
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeView).toBe('trace');
+    expect(fixture.componentInstance.selectedRelationKey).toBeNull();
+    expect(fixture.componentInstance.projection?.children).toEqual([]);
+  });
+
+  it('clears host-managed data synchronously when its reason revokes access', () => {
+    const fixture = createHostFixture(traceReadModel([
+      traceEdge('peer-selected', 'peer', 'selected', 'host-secret', telemetry('selected', 10)),
+    ]));
+    const revoked: string[] = [];
+    fixture.componentInstance.accessRevoked.subscribe(reason => revoked.push(reason));
+
+    fixture.componentRef.setInput('traceReadModelReason', 'caseflow_runtime_http_403');
+    fixture.detectChanges();
+
+    expect(reader.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.projection).toBeNull();
+    expect(fixture.componentInstance.closed).toBe(true);
+    expect(fixture.componentInstance.loading).toBe(false);
+    expect(revoked).toEqual(['caseflow_runtime_http_403']);
+    expect(fixture.nativeElement.textContent).not.toContain('host-secret');
+    expect(fixture.nativeElement.textContent).toContain('Zugriff wurde entzogen');
+
+    fixture.componentRef.setInput('runtimeOverlay', { ...runtimeOverlay('run-a'), updated_at: 61 });
+    fixture.detectChanges();
+    expect(revoked).toEqual(['caseflow_runtime_http_403']);
+  });
+
+  it('defines an explicit visible keyboard focus indicator', async () => {
+    const styles = await readFile(
+      resolve(
+        process.cwd(),
+        'src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime-inspector.component.scss',
+      ),
+      'utf8',
+    );
+
+    expect(styles).toMatch(/button:focus-visible\s*\{[^}]*outline:\s*2px solid/s);
+    expect(styles).toContain('outline-offset: 2px');
+  });
+
   it('is read-only and exposes neither persistence nor a Full Designer escape', () => {
     const write = vi.spyOn(Storage.prototype, 'setItem');
     const fixture = createFixture();
@@ -204,6 +306,20 @@ function createFixture(): ComponentFixture<CaseFlowAgentNodeRuntimeInspectorComp
   fixture.componentRef.setInput('workflowId', 'graph-a');
   fixture.componentRef.setInput('runId', 'run-a');
   fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay('run-a'));
+  fixture.detectChanges();
+  return fixture;
+}
+
+function createHostFixture(
+  model: CaseFlowEdgeTraceReadModel | null,
+): ComponentFixture<CaseFlowAgentNodeRuntimeInspectorComponent> {
+  const fixture = TestBed.createComponent(CaseFlowAgentNodeRuntimeInspectorComponent);
+  fixture.componentRef.setInput('graph', agentGraph());
+  fixture.componentRef.setInput('selectedStepId', 'selected');
+  fixture.componentRef.setInput('workflowId', 'graph-a');
+  fixture.componentRef.setInput('runId', 'run-a');
+  fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay('run-a'));
+  fixture.componentRef.setInput('traceReadModel', model);
   fixture.detectChanges();
   return fixture;
 }

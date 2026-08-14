@@ -13,6 +13,7 @@ describe('projectCaseFlowAgentEdgeActivity', () => {
         traceEdge('edge-ab', 'agent-a', 'agent-b', 'active', 'verified'),
         traceEdge('edge-ba', 'agent-b', 'agent-a', 'inactive', 'verified'),
       ]),
+      runtimeEvidence(),
     );
 
     expect(result).toEqual({ available: true, active_edge_ids: ['edge-ab'] });
@@ -26,6 +27,7 @@ describe('projectCaseFlowAgentEdgeActivity', () => {
       'graph-a',
       [edge('edge-ab', 'agent-a', 'agent-b')],
       readModel([traceEdge('edge-ab', 'agent-a', 'agent-b', activity, verification)]),
+      runtimeEvidence(),
     );
 
     expect(result.active_edge_ids).toEqual([]);
@@ -36,15 +38,63 @@ describe('projectCaseFlowAgentEdgeActivity', () => {
     const active = traceEdge('edge-ab', 'agent-a', 'agent-b', 'active', 'verified');
 
     expect(projectCaseFlowAgentEdgeActivity(
-      'another-graph', [graphEdge], readModel([active]),
+      'another-graph', [graphEdge], readModel([active]), runtimeEvidence(),
     )).toEqual({ available: false, active_edge_ids: [] });
     expect(projectCaseFlowAgentEdgeActivity(
-      'graph-a', [graphEdge], { ...readModel([active]), catalog_verification_status: 'unverified' },
+      'graph-a', [graphEdge], { ...readModel([active]), catalog_verification_status: 'unverified' }, runtimeEvidence(),
     )).toEqual({ available: false, active_edge_ids: [] });
     expect(projectCaseFlowAgentEdgeActivity(
-      'graph-a', [graphEdge], readModel([active, active]),
+      'graph-a', [graphEdge], readModel([active, active]), runtimeEvidence(),
     ).active_edge_ids).toEqual([]);
   });
+
+  it('fails closed without the exact expected top-level run identity', () => {
+    const graphEdge = edge('edge-ab', 'agent-a', 'agent-b');
+    const model = readModel([traceEdge(
+      'edge-ab', 'agent-a', 'agent-b', 'active', 'verified',
+    )]);
+
+    expect(projectCaseFlowAgentEdgeActivity('graph-a', [graphEdge], model, null))
+      .toEqual({ available: false, active_edge_ids: [] });
+    expect(projectCaseFlowAgentEdgeActivity('graph-a', [graphEdge], model, runtimeEvidence('running', 'run-other')))
+      .toEqual({ available: false, active_edge_ids: [] });
+    expect(projectCaseFlowAgentEdgeActivity('graph-a', [graphEdge], model, runtimeEvidence()))
+      .toEqual({ available: true, active_edge_ids: ['edge-ab'] });
+  });
+
+  it('fails closed for a foreign runtime workflow even when the run ID matches', () => {
+    const graphEdge = edge('edge-ab', 'agent-a', 'agent-b');
+    const model = readModel([
+      traceEdge('edge-ab', 'agent-a', 'agent-b', 'active', 'verified'),
+    ]);
+
+    expect(projectCaseFlowAgentEdgeActivity(
+      'graph-a',
+      [graphEdge],
+      model,
+      runtimeEvidence('running', 'run-a', 'graph-b'),
+    )).toEqual({ available: false, active_edge_ids: [] });
+    expect(projectCaseFlowAgentEdgeActivity(
+      'graph-a',
+      [graphEdge],
+      model,
+      runtimeEvidence('running', 'run-a', 'graph-a', 'graph-b'),
+    )).toEqual({ available: false, active_edge_ids: [] });
+  });
+
+  it.each(['completed', 'failed', 'cancelled', 'skipped'])(
+    'suppresses stale active trace evidence after exact run status %s',
+    status => {
+      const graphEdge = edge('edge-ab', 'agent-a', 'agent-b');
+
+      expect(projectCaseFlowAgentEdgeActivity(
+        'graph-a',
+        [graphEdge],
+        readModel([traceEdge('edge-ab', 'agent-a', 'agent-b', 'active', 'verified')]),
+        runtimeEvidence(status),
+      )).toEqual({ available: true, active_edge_ids: [] });
+    },
+  );
 });
 
 function edge(
@@ -60,6 +110,23 @@ function edge(
     reverse_edge_ids: [],
     loop: false,
     feedback: false,
+  };
+}
+
+function runtimeEvidence(
+  overallStatus = 'running',
+  runId = 'run-a',
+  workflowId = 'graph-a',
+  processId: string | undefined = 'graph-a',
+): Pick<
+  import('../../visual-process/visual-process-api.service').VpRuntimeOverlay,
+  'run_id' | 'workflow_id' | 'process_id' | 'overall_status'
+> {
+  return {
+    run_id: runId,
+    workflow_id: workflowId,
+    process_id: processId,
+    overall_status: overallStatus,
   };
 }
 

@@ -263,6 +263,9 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
   @Input() workflowId = '';
   @Input() runId = '';
   @Input() runtimeOverlay: VpRuntimeOverlay | null = null;
+  /** undefined keeps standalone API loading; null/model delegates loading to the host. */
+  @Input() traceReadModel: CaseFlowEdgeTraceReadModel | null | undefined = undefined;
+  @Input() traceReadModelReason: string | null = null;
   @Output() readonly accessRevoked = new EventEmitter<string>();
 
   readonly titleId = `caseflow-node-runtime-title-${++inspectorSequence}`;
@@ -282,6 +285,7 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
   loading = false;
   closed = false;
   errorCode: string | null = null;
+  private lastAccessRevocation: string | null = null;
 
   constructor() {
     this.loadRequests.pipe(
@@ -313,7 +317,11 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
     ).subscribe(result => this.acceptResult(result));
   }
 
-  ngOnChanges(_changes: SimpleChanges): void {
+  ngOnChanges(changes: SimpleChanges): void {
+    if (this.traceReadModel !== undefined && !nodeScopeChanged(changes)) {
+      this.refreshHostProjectionPreservingNavigation();
+      return;
+    }
     this.reload();
   }
 
@@ -334,6 +342,10 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
     this.clearState(true, false);
     if (!this.graph || !this.selectedStepId || !this.workflowId || !this.runId) {
       this.loading = false;
+      return;
+    }
+    if (this.traceReadModel !== undefined) {
+      this.projectHostReadModel();
       return;
     }
     this.loadRequests.next({
@@ -406,13 +418,15 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
     ].some(isRedacted));
   }
 
-  private acceptResult(result: Readonly<NodeLoadResult>): void {
+  private acceptResult(
+    result: Readonly<NodeLoadResult>,
+    preserveNavigation = false,
+  ): void {
     if (result.generation !== this.generation) return;
     if (result.accessRevoked) {
-      this.clearState(false, true);
-      this.errorCode = result.errorCode;
-      this.accessRevoked.emit(result.errorCode ?? 'caseflow_node_trace_access_revoked');
-      this.changeDetector.markForCheck();
+      this.closeForAccessRevocation(
+        result.errorCode ?? 'caseflow_node_trace_access_revoked',
+      );
       return;
     }
     this.loading = false;
@@ -424,11 +438,74 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
       this.changeDetector.markForCheck();
       return;
     }
+    this.lastAccessRevocation = null;
     this.projection = result.projection;
     this.errorCode = null;
-    this.selectedRelationKey = this.allRelations()[0]
-      ? this.relationKey(this.allRelations()[0])
-      : null;
+    if (preserveNavigation) {
+      const selectedKey = this.selectedRelationKey;
+      if (selectedKey && !this.allRelations().some(
+        relation => this.relationKey(relation) === selectedKey,
+      )) {
+        this.selectedRelationKey = null;
+      }
+    } else {
+      this.selectedRelationKey = this.allRelations()[0]
+        ? this.relationKey(this.allRelations()[0])
+        : null;
+    }
+    this.changeDetector.markForCheck();
+  }
+
+  private refreshHostProjectionPreservingNavigation(): void {
+    this.generation += 1;
+    this.projection = null;
+    this.errorCode = null;
+    this.loading = false;
+    this.closed = false;
+    if (this.selectedRelationKey && !this.graphContainsRelation(this.selectedRelationKey)) {
+      this.selectedRelationKey = null;
+    }
+    this.projectHostReadModel(true);
+  }
+
+  private projectHostReadModel(preserveNavigation = false): void {
+    const readModel = this.traceReadModel;
+    const reason = this.traceReadModelReason;
+    const generation = this.generation;
+    this.loading = false;
+    if (reason && isAccessRevokedReason(reason)) {
+      this.closeForAccessRevocation(reason, true);
+      return;
+    }
+    if (readModel === null) {
+      this.lastAccessRevocation = null;
+      this.errorCode = reason;
+      this.changeDetector.markForCheck();
+      return;
+    }
+    if (readModel === undefined) return;
+    const projection = projectCaseFlowAgentNodeRuntimeTrace(
+      this.graph,
+      this.selectedStepId,
+      this.workflowId,
+      this.runId,
+      this.runtimeOverlay,
+      readModel,
+    );
+    this.acceptResult({
+      generation,
+      projection,
+      errorCode: reason,
+      accessRevoked: false,
+    }, preserveNavigation);
+  }
+
+  private closeForAccessRevocation(reason: string, deduplicate = false): void {
+    const shouldEmit = !deduplicate || this.lastAccessRevocation !== reason;
+    this.lastAccessRevocation = reason;
+    this.clearState(false, true);
+    this.errorCode = reason;
+    if (shouldEmit) this.accessRevoked.emit(reason);
     this.changeDetector.markForCheck();
   }
 
@@ -439,6 +516,13 @@ export class CaseFlowAgentNodeRuntimeInspectorComponent implements OnChanges {
       ...this.projection.children,
       ...this.projection.loops,
     ];
+  }
+
+  private graphContainsRelation(key: string): boolean {
+    const matches = this.graph.edges.filter(edge =>
+      `${edge.id}\u0000${edge.source}\u0000${edge.target}` === key
+      && (edge.source === this.selectedStepId || edge.target === this.selectedStepId));
+    return matches.length === 1;
   }
 
   private clearState(loading: boolean, closed: boolean): void {
@@ -466,7 +550,32 @@ function isAccessRevoked(error: unknown): boolean {
   return error instanceof HttpErrorResponse && [401, 403, 404].includes(error.status);
 }
 
+function isAccessRevokedReason(reason: string): boolean {
+  return reason.includes('unauthorized')
+    || reason.includes('forbidden')
+    || reason.includes('not_found')
+    || reason.includes('access_revoked')
+    || reason.includes('runtime_disappeared')
+    || /_http_(401|403|404)$/.test(reason);
+}
+
 function isRedacted(value: unknown): boolean {
   return typeof value === 'string'
     && (value.includes('***REDACTED_') || value.trim() === '***');
+}
+
+function nodeScopeChanged(changes: SimpleChanges): boolean {
+  const graphChange = changes['graph'];
+  const previousGraph = graphChange?.previousValue as VpGraph | null | undefined;
+  const currentGraph = graphChange?.currentValue as VpGraph | null | undefined;
+  return Boolean(
+    (graphChange && previousGraph?.id !== currentGraph?.id)
+    || stringInputChanged(changes['selectedStepId'])
+    || stringInputChanged(changes['workflowId'])
+    || stringInputChanged(changes['runId']),
+  );
+}
+
+function stringInputChanged(change: SimpleChanges[string] | undefined): boolean {
+  return Boolean(change && change.previousValue !== change.currentValue);
 }

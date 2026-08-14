@@ -312,17 +312,27 @@ export class VisualProcessApiService {
     return this.http.get<WorkflowStatus>(`${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/status`);
   }
 
-  cancelWorkflow(workflowId: string, reason = ''): Observable<WorkflowStatus> {
+  cancelWorkflow(workflowId: string, reason = '', commandId = ''): Observable<WorkflowStatus> {
     return this.http.post<WorkflowStatus>(
       `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/cancel`,
-      { reason },
+      { reason, ...(commandId ? { command_id: commandId } : {}) },
     );
   }
 
-  signalWorkflow(workflowId: string, name: string, payload: Record<string, unknown> = {}): Observable<WorkflowStatus> {
+  signalWorkflow(
+    workflowId: string,
+    name: string,
+    payload: Record<string, unknown> = {},
+    commandId = '',
+  ): Observable<WorkflowStatus> {
     return this.http.post<WorkflowStatus>(
       `${this.baseUrl}/api/visual-process/workflow/${encodeURIComponent(workflowId)}/signal`,
-      { name, payload, actor: 'visual_process_designer' },
+      {
+        name,
+        payload,
+        actor: 'visual_process_designer',
+        ...(commandId ? { command_id: commandId } : {}),
+      },
     );
   }
 

@@ -77,10 +77,14 @@ button {
 }
 
 button:hover,
-button:focus-visible,
 button[aria-pressed='true'] {
   border-color: var(--tone-info, #22d3ee);
-  outline-color: var(--tone-info, #22d3ee);
+}
+
+button:focus-visible {
+  border-color: var(--tone-info, #22d3ee);
+  outline: 2px solid var(--tone-info, #22d3ee);
+  outline-offset: 2px;
 }
 
 button[aria-pressed='true'] {

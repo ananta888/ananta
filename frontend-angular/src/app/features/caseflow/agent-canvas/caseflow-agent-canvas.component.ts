@@ -21,7 +21,10 @@ import {
   CaseFlowAgentCanvasNodeProjection,
   CaseFlowAgentCanvasProjection,
 } from './caseflow-agent-canvas.models';
-import type { CaseFlowEdgeTraceReadModel } from './caseflow-edge-trace.models';
+import type {
+  CaseFlowEdgeIdentity,
+  CaseFlowEdgeTraceReadModel,
+} from './caseflow-edge-trace.models';
 import { projectAgentCanvas } from './caseflow-agent-canvas.mapper';
 import {
   CaseFlowAgentEdgeActivityProjection,
@@ -148,11 +151,11 @@ export function moveCaseFlowAgentNode(
                   [class.loop-edge]="edge.loop"
                   [class.feedback-edge]="edge.feedback"
                   [class.active-edge]="isEdgeActive(edge)"
-                  [class.selected]="selectedId === edge.edge_id"
+                  [class.selected]="isEdgeSelected(edge)"
                   tabindex="0"
                   role="button"
                   [attr.aria-label]="edgeAriaLabel(edge)"
-                  [attr.aria-pressed]="selectedId === edge.edge_id"
+                  [attr.aria-pressed]="isEdgeSelected(edge)"
                   [attr.data-edge-id]="edge.edge_id"
                   [attr.data-direction]="edge.source_step_id + '->' + edge.target_step_id"
                   [attr.data-reverse-edge-ids]="edge.reverse_edge_ids.join(',')"
@@ -197,7 +200,7 @@ export function moveCaseFlowAgentNode(
               @for (node of canvas.nodes; track node.step_id) {
                 <g
                   class="agent-node"
-                  [class.selected]="selectedId === node.step_id"
+                  [class.selected]="isNodeSelected(node)"
                   [class.runtime-running]="runtimeProjection.available && runtimeFor(node).status === 'running'"
                   [class.runtime-awaiting]="runtimeProjection.available && runtimeFor(node).status === 'awaiting_approval'"
                   [class.runtime-success]="runtimeProjection.available && runtimeFor(node).status === 'success'"
@@ -207,7 +210,7 @@ export function moveCaseFlowAgentNode(
                   tabindex="0"
                   role="button"
                   [attr.aria-label]="nodeAriaLabel(node)"
-                  [attr.aria-pressed]="selectedId === node.step_id"
+                  [attr.aria-pressed]="isNodeSelected(node)"
                   [attr.data-step-id]="node.step_id"
                   (pointerdown)="startNodeDrag($event, node)"
                   (click)="selectNode(node, $event)"
@@ -246,10 +249,14 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   @Input() runtimeOverlay: VpRuntimeOverlay | null = null;
   @Input() edgeTraceReadModel: CaseFlowEdgeTraceReadModel | null = null;
   @Input() selectedId: string | null = null;
+  /** When either typed input is bound, both replace the ambiguous legacy highlight. */
+  @Input() selectedNodeId: string | null | undefined = undefined;
+  @Input() selectedEdgeIdentity: CaseFlowEdgeIdentity | null | undefined = undefined;
   @Output() readonly graphChange = new EventEmitter<VpGraph>();
   @Output() readonly selectedIdChange = new EventEmitter<string | null>();
   @Output() readonly nodeSelected = new EventEmitter<string>();
   @Output() readonly edgeSelected = new EventEmitter<string>();
+  @Output() readonly edgeIdentitySelected = new EventEmitter<CaseFlowEdgeIdentity>();
 
   readonly nodeWidth = CASEFLOW_AGENT_NODE_WIDTH;
   readonly nodeHeight = CASEFLOW_AGENT_NODE_HEIGHT;
@@ -259,7 +266,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
   projection: CaseFlowAgentCanvasProjection | null = null;
   runtimeProjection: CaseFlowAgentRuntimeProjection = projectCaseFlowAgentRuntime('', [], null);
   edgeActivityProjection: CaseFlowAgentEdgeActivityProjection =
-    projectCaseFlowAgentEdgeActivity('', [], null);
+    projectCaseFlowAgentEdgeActivity('', [], null, null);
   projectionError = '';
   viewport: CaseFlowAgentCanvasViewport = { ...DEFAULT_VIEWPORT };
 
@@ -279,7 +286,10 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
 
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['graph'] || !this.graph) {
-      if (changes['runtimeOverlay']) this.refreshRuntimeProjection();
+      if (changes['runtimeOverlay']) {
+        this.refreshRuntimeProjection();
+        this.refreshEdgeActivityProjection();
+      }
       if (changes['edgeTraceReadModel']) this.refreshEdgeActivityProjection();
       return;
     }
@@ -315,7 +325,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
 
   selectNode(node: CaseFlowAgentCanvasNodeProjection, event?: Event): void {
     event?.stopPropagation();
-    if (this.selectedId === node.step_id) return;
+    if (this.isNodeSelected(node)) return;
     this.selectedId = node.step_id;
     this.selectedIdChange.emit(node.step_id);
     this.nodeSelected.emit(node.step_id);
@@ -323,10 +333,30 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
 
   selectEdge(edge: CaseFlowAgentCanvasEdgeProjection, event?: Event): void {
     event?.stopPropagation();
-    if (this.selectedId === edge.edge_id) return;
+    if (this.isEdgeSelected(edge)) return;
     this.selectedId = edge.edge_id;
     this.selectedIdChange.emit(edge.edge_id);
     this.edgeSelected.emit(edge.edge_id);
+    this.edgeIdentitySelected.emit(Object.freeze({
+      edge_id: edge.edge_id,
+      source_step_id: edge.source_step_id,
+      target_step_id: edge.target_step_id,
+    }));
+  }
+
+  isNodeSelected(node: Readonly<CaseFlowAgentCanvasNodeProjection>): boolean {
+    return this.hasTypedSelection
+      ? this.selectedNodeId === node.step_id
+      : this.selectedId === node.step_id;
+  }
+
+  isEdgeSelected(edge: Readonly<CaseFlowAgentCanvasEdgeProjection>): boolean {
+    if (!this.hasTypedSelection) return this.selectedId === edge.edge_id;
+    return this.selectedEdgeIdentity !== null
+      && this.selectedEdgeIdentity !== undefined
+      && this.selectedEdgeIdentity.edge_id === edge.edge_id
+      && this.selectedEdgeIdentity.source_step_id === edge.source_step_id
+      && this.selectedEdgeIdentity.target_step_id === edge.target_step_id;
   }
 
   nodeKeydown(event: KeyboardEvent, node: CaseFlowAgentCanvasNodeProjection): void {
@@ -593,6 +623,7 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
       this.graph.id,
       this.projection?.edges ?? [],
       this.edgeTraceReadModel,
+      this.runtimeOverlay,
     );
   }
 
@@ -638,6 +669,10 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
       this.projection?.nodes.some(node => node.step_id === id)
       || this.projection?.edges.some(edge => edge.edge_id === id),
     );
+  }
+
+  private get hasTypedSelection(): boolean {
+    return this.selectedNodeId !== undefined || this.selectedEdgeIdentity !== undefined;
   }
 }
 

@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ɵresolveComponentResources } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { Observable, Subject, throwError } from 'rxjs';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -66,6 +67,70 @@ describe('CaseFlowAgentEdgeInspectorComponent', () => {
     expect(fixture.nativeElement.querySelector('.direction-switch')).toBeNull();
   });
 
+  it('projects a host-managed read model synchronously without an API request', () => {
+    const model = readModel([
+      edgeProjection(FORWARD, 'host-forward'),
+      edgeProjection(REVERSE, 'host-reverse'),
+    ]);
+    const fixture = createHostFixture(model);
+
+    expect(api.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.projection?.edge_id).toBe('edge-a-b');
+    expect(fixture.nativeElement.textContent).toContain('host-forward');
+
+    const reverse = fixture.nativeElement.querySelectorAll(
+      '.direction-switch button',
+    )[1] as HTMLButtonElement;
+    reverse.click();
+
+    expect(api.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.loading).toBe(false);
+    expect(fixture.componentInstance.projection?.edge_id).toBe('edge-b-a');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('host-reverse');
+    expect(fixture.nativeElement.textContent).not.toContain('host-forward');
+  });
+
+  it('preserves the exact reverse direction and telemetry tab across host refreshes', () => {
+    const fixture = createHostFixture(readModel([
+      edgeProjection(FORWARD, 'forward-v1'),
+      edgeProjection(REVERSE, 'reverse-v1'),
+    ]));
+    const reverseButton = fixture.nativeElement.querySelectorAll(
+      '.direction-switch button',
+    )[1] as HTMLButtonElement;
+    reverseButton.click();
+    fixture.detectChanges();
+    const telemetryTab = fixture.nativeElement.querySelector(
+      '[data-inspector-tab="telemetry"]',
+    ) as HTMLButtonElement;
+    telemetryTab.click();
+    fixture.detectChanges();
+
+    fixture.componentRef.setInput('traceReadModel', readModel([
+      edgeProjection(FORWARD, 'forward-v2'),
+      edgeProjection(REVERSE, 'reverse-v2'),
+    ]));
+    fixture.detectChanges();
+
+    expect(api.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.selectedDirection).toEqual(REVERSE);
+    expect(fixture.componentInstance.projection?.edge_id).toBe(REVERSE.edge_id);
+    expect(fixture.componentInstance.projection?.messages[0]?.content).toBe('reverse-v2');
+    expect(fixture.componentInstance.activeTab).toBe('telemetry');
+    expect(fixture.nativeElement.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby'))
+      .toBe(fixture.componentInstance.telemetryTabId);
+  });
+
+  it('treats an explicit null host model as settled and performs no API request', () => {
+    const fixture = createHostFixture(null);
+
+    expect(api.read).not.toHaveBeenCalled();
+    expect(fixture.componentInstance.loading).toBe(false);
+    expect(fixture.componentInstance.projection).toBeNull();
+    expect(fixture.componentInstance.errorCode).toBeNull();
+  });
+
   it('clears the old direction synchronously and ignores the cancelled response', () => {
     const fixture = createFixture();
     const selected: string[] = [];
@@ -123,6 +188,58 @@ describe('CaseFlowAgentEdgeInspectorComponent', () => {
       .toContain('run-a');
   });
 
+  it('implements labelled roving tabs with Arrow, Home, and End keyboard control', () => {
+    const fixture = createHostFixture(readModel([edgeProjection(FORWARD, 'tabs')]));
+    const tabs = fixture.nativeElement.querySelectorAll('[role="tab"]') as NodeListOf<HTMLButtonElement>;
+    const communication = tabs[0];
+    const telemetryTab = tabs[1];
+
+    expect(communication.getAttribute('tabindex')).toBe('0');
+    expect(telemetryTab.getAttribute('tabindex')).toBe('-1');
+    expect(communication.getAttribute('aria-controls')).toBe(
+      fixture.componentInstance.communicationPanelId,
+    );
+    expect(fixture.nativeElement.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby'))
+      .toBe(fixture.componentInstance.communicationTabId);
+
+    communication.focus();
+    communication.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'ArrowRight', bubbles: true, cancelable: true,
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.activeTab).toBe('telemetry');
+    expect(document.activeElement).toBe(telemetryTab);
+    expect(telemetryTab.getAttribute('tabindex')).toBe('0');
+    expect(fixture.nativeElement.querySelector('[role="tabpanel"]')?.getAttribute('aria-labelledby'))
+      .toBe(fixture.componentInstance.telemetryTabId);
+
+    telemetryTab.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'Home', bubbles: true, cancelable: true,
+    }));
+    fixture.detectChanges();
+    expect(fixture.componentInstance.activeTab).toBe('communication');
+    expect(document.activeElement).toBe(communication);
+
+    communication.dispatchEvent(new KeyboardEvent('keydown', {
+      key: 'End', bubbles: true, cancelable: true,
+    }));
+    expect(fixture.componentInstance.activeTab).toBe('telemetry');
+    expect(document.activeElement).toBe(telemetryTab);
+  });
+
+  it('defines a visible keyboard focus indicator', async () => {
+    const styles = await readFile(
+      resolve(
+        process.cwd(),
+        'src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.scss',
+      ),
+      'utf8',
+    );
+
+    expect(styles).toMatch(/button:focus-visible\s*\{[^}]*outline:\s*2px solid/s);
+    expect(styles).toContain('outline-offset: 2px');
+  });
+
   it('marks ambiguous correlation unverified and performs no local persistence write', () => {
     const localWrite = vi.spyOn(Storage.prototype, 'setItem');
     const fixture = createFixture();
@@ -151,6 +268,19 @@ function createFixture(): ComponentFixture<CaseFlowAgentEdgeInspectorComponent> 
   fixture.componentRef.setInput('runId', 'run-a');
   fixture.componentRef.setInput('edge', FORWARD);
   fixture.componentRef.setInput('reverseEdge', REVERSE);
+  fixture.detectChanges();
+  return fixture;
+}
+
+function createHostFixture(
+  model: CaseFlowEdgeTraceReadModel | null,
+): ComponentFixture<CaseFlowAgentEdgeInspectorComponent> {
+  const fixture = TestBed.createComponent(CaseFlowAgentEdgeInspectorComponent);
+  fixture.componentRef.setInput('workflowId', 'workflow-a');
+  fixture.componentRef.setInput('runId', 'run-a');
+  fixture.componentRef.setInput('edge', FORWARD);
+  fixture.componentRef.setInput('reverseEdge', REVERSE);
+  fixture.componentRef.setInput('traceReadModel', model);
   fixture.detectChanges();
   return fixture;
 }

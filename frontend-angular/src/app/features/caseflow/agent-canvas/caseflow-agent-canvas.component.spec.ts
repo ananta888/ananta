@@ -219,6 +219,51 @@ describe('CaseFlowAgentCanvasComponent', () => {
     expect(fixture.componentInstance.selectedId).toBe('edge-ba');
   });
 
+  it('emits the full exact edge identity while preserving the legacy edge id output', () => {
+    const fixture = createFixture();
+    const identities: Array<{
+      edge_id: string;
+      source_step_id: string;
+      target_step_id: string;
+    }> = [];
+    const legacyIds: string[] = [];
+    fixture.componentInstance.edgeIdentitySelected.subscribe(identity => identities.push(identity));
+    fixture.componentInstance.edgeSelected.subscribe(id => legacyIds.push(id));
+
+    const reverse = fixture.nativeElement.querySelector('[data-edge-id="edge-ba"]') as SVGGElement;
+    reverse.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+    expect(identities).toEqual([{
+      edge_id: 'edge-ba', source_step_id: 'agent-b', target_step_id: 'agent-a',
+    }]);
+    expect(legacyIds).toEqual(['edge-ba']);
+  });
+
+  it('uses separate typed node and edge highlights when their IDs collide', () => {
+    const sharedIdGraph: VpGraph = {
+      ...AGENT_GRAPH,
+      steps: [agentStep('shared', 'Shared agent', 'developer', 0, 0), AGENT_GRAPH.steps[1]],
+      edges: [agentEdge('shared', 'shared', 'agent-b')],
+    };
+    const fixture = createFixture(sharedIdGraph);
+    fixture.componentRef.setInput('selectedNodeId', null);
+    fixture.componentRef.setInput('selectedEdgeIdentity', {
+      edge_id: 'shared', source_step_id: 'shared', target_step_id: 'agent-b',
+    });
+    fixture.detectChanges();
+
+    const node = fixture.nativeElement.querySelector('[data-step-id="shared"]') as SVGGElement;
+    const edge = fixture.nativeElement.querySelector('[data-edge-id="shared"]') as SVGGElement;
+    expect(node.getAttribute('aria-pressed')).toBe('false');
+    expect(edge.getAttribute('aria-pressed')).toBe('true');
+
+    fixture.componentRef.setInput('selectedNodeId', 'shared');
+    fixture.componentRef.setInput('selectedEdgeIdentity', null);
+    fixture.detectChanges();
+    expect(node.getAttribute('aria-pressed')).toBe('true');
+    expect(edge.getAttribute('aria-pressed')).toBe('false');
+  });
+
   it('renders a loop with its own cubic geometry and unchanged canonical edge id', () => {
     const fixture = createFixture();
     const loop = fixture.nativeElement.querySelector('[data-edge-id="edge-cc"]') as SVGGElement;
@@ -365,6 +410,9 @@ describe('CaseFlowAgentCanvasComponent', () => {
     const forwardPath = forward.querySelector('.edge-line')?.getAttribute('d');
     const reversePath = reverse.querySelector('.edge-line')?.getAttribute('d');
 
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-a': 'running',
+    }, ['agent-a']));
     fixture.componentRef.setInput('edgeTraceReadModel', edgeTraceReadModel());
     fixture.detectChanges();
 
@@ -380,6 +428,9 @@ describe('CaseFlowAgentCanvasComponent', () => {
   it('keeps unknown and unverified edge evidence static', () => {
     const fixture = createFixture();
     const readModel = edgeTraceReadModel();
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-a': 'running',
+    }, ['agent-a']));
     fixture.componentRef.setInput('edgeTraceReadModel', {
       ...readModel,
       edges: readModel.edges.map(edge => ({
@@ -390,6 +441,22 @@ describe('CaseFlowAgentCanvasComponent', () => {
     });
     fixture.detectChanges();
 
+    expect(fixture.nativeElement.querySelector('.active-edge')).toBeNull();
+    expect(fixture.nativeElement.textContent).not.toContain('↗ Aktiv');
+  });
+
+  it('keeps a stale trace from another run static even within the same workflow', () => {
+    const fixture = createFixture();
+    fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
+      'agent-a': 'running',
+    }, ['agent-a']));
+    fixture.componentRef.setInput('edgeTraceReadModel', {
+      ...edgeTraceReadModel(),
+      run_id: 'run-stale',
+    });
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.edgeActivityProjection.available).toBe(false);
     expect(fixture.nativeElement.querySelector('.active-edge')).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('↗ Aktiv');
   });
