@@ -19,13 +19,19 @@ from agent.services.workflow_control_bindings import WorkflowControlBindingStore
 from agent.services.workflow_control_command_verification import (
     HubSignedWorkflowCommandVerifier,
 )
+from agent.services.workflow_control_dispatch_intents import (
+    WorkflowControlDispatchIntentStore,
+)
 from agent.services.workflow_control_read_model_projector import (
     WorkflowControlReadModelProjector,
 )
 from agent.services.workflow_provider_selection_service import (
     build_workflow_provider_decision_service,
 )
-from agent.services.workflow_runtime.commands import WorkflowCommandVerifier
+from agent.services.workflow_runtime.commands import (
+    WorkflowCommandIssuer,
+    WorkflowCommandVerifier,
+)
 from agent.services.workflow_runtime.security import HmacKeyRing, ReplayNonceStore
 from agent.services.workflow_runtime_bridge_registry import (
     WorkflowRuntimeBridgeRegistry,
@@ -43,6 +49,7 @@ def register_production_runtime_bridges(
     replay_store: ReplayNonceStore,
     authorization_grants: WorkflowAuthorizationGrantPort,
     read_models: WorkflowControlReadModelProjector | None,
+    dispatch_intents: WorkflowControlDispatchIntentStore | None,
 ) -> None:
     """Register Native, LangGraph and Temporal; absence fails at composition."""
 
@@ -69,19 +76,19 @@ def register_production_runtime_bridges(
     if configured_bridge.selection_runtime_id != "temporal":
         if temporal_backend.backend_id != "temporal":
             raise ValueError("temporal_runtime_bridge_required")
-        commands = HubSignedWorkflowCommandVerifier(
-            WorkflowCommandVerifier(key_ring, replay_store)
-        )
+        commands = HubSignedWorkflowCommandVerifier(WorkflowCommandVerifier(key_ring, replay_store))
         temporal = configured_bridge_factory(
             temporal_backend,
             bindings,
             durable_runs=WorkflowBackendDurableRunAdapter(
                 temporal_backend,
                 commands=commands,
+                command_issuer=WorkflowCommandIssuer(key_ring),
             ),
             commands=commands,
             read_models=read_models,
             authorization_grants=authorization_grants,
+            dispatch_intents=dispatch_intents,
         )
         registry.register("temporal", temporal)
 

@@ -96,6 +96,14 @@ class DurableRunInfrastructurePort(Protocol):
 
     def signal(self, *, tenant_id: str, run_id: str, command: dict[str, Any]) -> dict[str, Any]: ...
 
+    def signal_persisted(
+        self,
+        *,
+        tenant_id: str,
+        run_id: str,
+        command: dict[str, Any],
+    ) -> dict[str, Any]: ...
+
     def cancel(self, *, tenant_id: str, run_id: str, reason: str) -> dict[str, Any]: ...
 
     def history(self, *, tenant_id: str, run_id: str, after_cursor: str = "") -> dict[str, Any]: ...

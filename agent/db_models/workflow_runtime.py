@@ -18,15 +18,9 @@ class WorkflowRuntimeEventDB(SQLModel, table=True):
 
     __tablename__ = "workflow_runtime_events"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "run_id", "sequence", name="uq_workflow_runtime_event_sequence"
-        ),
-        sa.UniqueConstraint(
-            "tenant_id", "run_id", "dedupe_key", name="uq_workflow_runtime_event_dedupe"
-        ),
-        sa.UniqueConstraint(
-            "tenant_id", "run_id", "event_id", name="uq_workflow_runtime_event_id"
-        ),
+        sa.UniqueConstraint("tenant_id", "run_id", "sequence", name="uq_workflow_runtime_event_sequence"),
+        sa.UniqueConstraint("tenant_id", "run_id", "dedupe_key", name="uq_workflow_runtime_event_dedupe"),
+        sa.UniqueConstraint("tenant_id", "run_id", "event_id", name="uq_workflow_runtime_event_id"),
         sa.Index(
             "ix_workflow_runtime_events_tenant_run_sequence",
             "tenant_id",
@@ -53,9 +47,7 @@ class WorkflowRuntimeCheckpointDB(SQLModel, table=True):
 
     __tablename__ = "workflow_runtime_checkpoints"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "checkpoint_id", name="uq_workflow_runtime_checkpoint_id"
-        ),
+        sa.UniqueConstraint("tenant_id", "checkpoint_id", name="uq_workflow_runtime_checkpoint_id"),
         sa.UniqueConstraint(
             "tenant_id",
             "run_id",
@@ -213,9 +205,7 @@ class WorkflowRetryBudgetDB(SQLModel, table=True):
     """One combined retry counter for all runtime layers of a run."""
 
     __tablename__ = "workflow_retry_budgets"
-    __table_args__ = (
-        sa.UniqueConstraint("tenant_id", "run_id", name="uq_workflow_retry_budget_run"),
-    )
+    __table_args__ = (sa.UniqueConstraint("tenant_id", "run_id", name="uq_workflow_retry_budget_run"),)
 
     id: str = Field(primary_key=True)
     tenant_id: str = Field(index=True)
@@ -231,9 +221,7 @@ class WorkflowRetryConsumptionDB(SQLModel, table=True):
 
     __tablename__ = "workflow_retry_consumptions"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "run_id", "retry_id", name="uq_workflow_retry_consumption_id"
-        ),
+        sa.UniqueConstraint("tenant_id", "run_id", "retry_id", name="uq_workflow_retry_consumption_id"),
         sa.Index(
             "ix_workflow_retry_consumptions_run",
             "tenant_id",
@@ -318,9 +306,7 @@ class WorkflowRuntimeOutboxDB(SQLModel, table=True):
 
     __tablename__ = "workflow_runtime_outbox"
     __table_args__ = (
-        sa.UniqueConstraint(
-            "tenant_id", "topic", "dedupe_key", name="uq_workflow_runtime_outbox_dedupe"
-        ),
+        sa.UniqueConstraint("tenant_id", "topic", "dedupe_key", name="uq_workflow_runtime_outbox_dedupe"),
         sa.Index(
             "ix_workflow_runtime_outbox_delivery",
             "tenant_id",
@@ -379,12 +365,120 @@ class WorkflowControlBindingDB(SQLModel, table=True):
         default_factory=dict,
         sa_column=Column(sa.JSON, nullable=False),
     )
+    public_status: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(sa.JSON, nullable=False),
+    )
     runtime_revision: int = 0
     runtime_checkpoint_ref: str
     command_claim: str = Field(default="", index=True)
     command_claim_expires_at: float = Field(default=0.0, index=True)
+    command_observation_pending: bool = Field(default=False, index=True)
+    command_observation_min_revision: int = 0
+    command_observation_expected_status: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    dispatch_intent_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
+    command_receipt_id: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
     scheduler_owner: str = Field(default="", index=True)
     scheduler_lease_expires_at: float = Field(default=0.0, index=True)
+    revision: int = 1
+    created_at: float = Field(index=True)
+    updated_at: float = Field(index=True)
+
+
+class WorkflowControlDispatchIntentDB(SQLModel, table=True):
+    """Hub-owned, leased intent for restart-safe Temporal mutations."""
+
+    __tablename__ = "workflow_control_dispatch_intents"
+    __table_args__ = (
+        sa.Index(
+            "ix_workflow_control_dispatch_due",
+            "state",
+            "available_at",
+            "lease_expires_at",
+        ),
+        sa.Index(
+            "ix_workflow_control_dispatch_workflow",
+            "workflow_id",
+            "state",
+        ),
+    )
+
+    id: str = Field(sa_column=Column(sa.String(256), primary_key=True))
+    kind: str = Field(sa_column=Column(sa.String(32), nullable=False, index=True))
+    tenant_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    workflow_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    run_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    payload: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+    state: str = Field(sa_column=Column(sa.String(32), nullable=False, index=True))
+    dispatch_from_state: str = Field(
+        default="ready",
+        sa_column=Column(sa.String(32), nullable=False, server_default="ready"),
+    )
+    acknowledgement_revision: int = 0
+    acknowledgement_status: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    attempt_count: int = 0
+    available_at: float = Field(index=True)
+    lease_owner: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
+    lease_expires_at: float = Field(default=0.0, index=True)
+    last_error: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default=""),
+    )
+    revision: int = 1
+    created_at: float = Field(index=True)
+    updated_at: float = Field(index=True)
+
+
+class WorkflowControlCommandReceiptDB(SQLModel, table=True):
+    """Hub-owned idempotency receipt for non-Temporal control commands."""
+
+    __tablename__ = "workflow_control_command_receipts"
+    __table_args__ = (
+        sa.Index(
+            "ix_workflow_control_command_receipts_workflow_state",
+            "workflow_id",
+            "state",
+        ),
+    )
+
+    id: str = Field(sa_column=Column(sa.String(256), primary_key=True))
+    tenant_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    workflow_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    run_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    actor_id: str = Field(sa_column=Column(sa.String(256), nullable=False, index=True))
+    command_type: str = Field(sa_column=Column(sa.String(64), nullable=False, index=True))
+    request_payload: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+    expected_revision: int
+    checkpoint_ref: str = Field(sa_column=Column(sa.String(512), nullable=False))
+    state: str = Field(sa_column=Column(sa.String(32), nullable=False, index=True))
+    result_status: dict[str, Any] = Field(
+        default_factory=dict,
+        sa_column=Column(sa.JSON, nullable=False),
+    )
+    rejection_reason: str = Field(
+        default="",
+        sa_column=Column(sa.String(64), nullable=False, server_default=""),
+    )
+    dispatch_owner: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default="", index=True),
+    )
+    dispatch_lease_expires_at: float = Field(default=0.0, index=True)
     revision: int = 1
     created_at: float = Field(index=True)
     updated_at: float = Field(index=True)

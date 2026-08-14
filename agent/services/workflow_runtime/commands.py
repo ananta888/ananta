@@ -258,8 +258,33 @@ class WorkflowCommandVerifier:
         self._key_ring = key_ring
         self._replay_store = replay_store
 
-    def verify_once(self, command: SignedWorkflowCommand, **bindings: Any) -> None:
+    def verify(self, command: SignedWorkflowCommand, **bindings: Any) -> None:
+        """Verify immutable signature/bindings without consuming replay state.
+
+        This is reserved for Hub outbox replay of an intent whose nonce was
+        consumed before it was staged.  Public submission paths use
+        :meth:`verify_once`.
+        """
+
         command.verify(key_ring=self._key_ring, **bindings)
+
+    def verify_persisted(self, command: SignedWorkflowCommand, **bindings: Any) -> None:
+        """Verify a previously admitted intent after its submission TTL.
+
+        Expiry is an admission fence, not a deadline for the durable Hub
+        outbox.  Replays still verify the original signature and every binding.
+        """
+
+        persisted_bindings = dict(bindings)
+        persisted_bindings.pop("now", None)
+        command.verify(
+            key_ring=self._key_ring,
+            now=command.issued_at,
+            **persisted_bindings,
+        )
+
+    def verify_once(self, command: SignedWorkflowCommand, **bindings: Any) -> None:
+        self.verify(command, **bindings)
         if not self._replay_store.consume(
             tenant_id=command.tenant_id,
             nonce=command.nonce,

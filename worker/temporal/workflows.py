@@ -14,7 +14,7 @@ from datetime import timedelta
 from typing import Any
 
 from temporalio import workflow
-from temporalio.exceptions import ActivityError
+from temporalio.exceptions import ActivityError, ApplicationError
 
 from ananta_contracts.temporal_workflow import (
     AnantaWorkflowInput,
@@ -503,19 +503,33 @@ class AnantaWorkflow:
 
     @workflow.update(name="command")
     def command(self, raw_command: dict[str, Any]) -> dict[str, Any]:
-        command = WorkflowCommand.from_mapping(raw_command)
-        duplicate = self._processed_command_ids.get(command.command_id)
-        if duplicate is not None:
-            return duplicate.to_dict()
-        self._validate_command(command)
-        return self._apply_command(command).to_dict()
+        try:
+            command = WorkflowCommand.from_mapping(raw_command)
+            duplicate = self._processed_command_ids.get(command.command_id)
+            if duplicate is not None:
+                return duplicate.to_dict()
+            self._validate_command(command)
+            return self._apply_command(command).to_dict()
+        except TemporalContractError as exc:
+            raise ApplicationError(
+                "workflow command rejected",
+                type=exc.reason_code,
+                non_retryable=True,
+            ) from exc
 
     @command.validator
     def validate_command(self, raw_command: dict[str, Any]) -> None:
-        command = WorkflowCommand.from_mapping(raw_command)
-        if command.command_id in self._processed_command_ids:
-            return
-        self._validate_command(command)
+        try:
+            command = WorkflowCommand.from_mapping(raw_command)
+            if command.command_id in self._processed_command_ids:
+                return
+            self._validate_command(command)
+        except TemporalContractError as exc:
+            raise ApplicationError(
+                "workflow command rejected",
+                type=exc.reason_code,
+                non_retryable=True,
+            ) from exc
 
     @workflow.signal(name="approve")
     def approve(self, raw_command: dict[str, Any]) -> None:
@@ -574,6 +588,19 @@ class AnantaWorkflow:
             raise TemporalContractError("command_limit_exceeded", "workflow command limit was reached")
         if command.expected_revision != self._revision:
             raise TemporalContractError("stale_workflow_revision", "workflow revision is stale")
+        if command.command_type is WorkflowCommandType.RETRY:
+            raise TemporalContractError(
+                "temporal_retry_unsupported",
+                "Temporal retry requires a new Hub-owned execution",
+            )
+        if command.command_type in {
+            WorkflowCommandType.EDIT,
+            WorkflowCommandType.REQUEST_CHANGES,
+        }:
+            raise TemporalContractError(
+                "temporal_plan_edit_unsupported",
+                "Temporal plan edits require a new Hub-owned execution",
+            )
         if self._phase in {WorkflowPhase.COMPLETED, WorkflowPhase.FAILED, WorkflowPhase.CANCELLED}:
             raise TemporalContractError("workflow_terminal", "workflow is terminal")
         current_step = self._current_step_id or self._input.steps[0].step_id

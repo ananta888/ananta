@@ -106,6 +106,8 @@ class NativeRunState:
     reason_code: str = ""
     base_plan_hash: str = ""
     effective_plan: dict[str, Any] = field(default_factory=dict)
+    last_command_id: str = ""
+    last_command_fingerprint: str = ""
 
     @classmethod
     def from_workflow_state(cls, state: WorkflowState) -> "NativeRunState":
@@ -115,33 +117,15 @@ class NativeRunState:
             status=str(runtime.get("status") or "running"),
             input_data=dict(business.get("input_data") or {}),
             node_results=dict(business.get("node_results") or {}),
-            artifact_refs={
-                str(key): str(value)
-                for key, value in dict(runtime.get("artifact_refs") or {}).items()
-            },
+            artifact_refs={str(key): str(value) for key, value in dict(runtime.get("artifact_refs") or {}).items()},
             completed=set(runtime.get("completed") or ()),
             skipped=set(runtime.get("skipped") or ()),
-            failed={
-                str(key): str(value)
-                for key, value in dict(runtime.get("failed") or {}).items()
-            },
-            running={
-                str(key): dict(value)
-                for key, value in dict(runtime.get("running") or {}).items()
-            },
+            failed={str(key): str(value) for key, value in dict(runtime.get("failed") or {}).items()},
+            running={str(key): dict(value) for key, value in dict(runtime.get("running") or {}).items()},
             approved_gates=set(runtime.get("approved_gates") or ()),
-            open_gates={
-                str(key): str(value)
-                for key, value in dict(runtime.get("open_gates") or {}).items()
-            },
-            attempts={
-                str(key): int(value)
-                for key, value in dict(runtime.get("attempts") or {}).items()
-            },
-            budget_usage={
-                str(key): value
-                for key, value in dict(runtime.get("budget_usage") or {}).items()
-            },
+            open_gates={str(key): str(value) for key, value in dict(runtime.get("open_gates") or {}).items()},
+            attempts={str(key): int(value) for key, value in dict(runtime.get("attempts") or {}).items()},
+            budget_usage={str(key): value for key, value in dict(runtime.get("budget_usage") or {}).items()},
             event_sequence=int(runtime.get("event_sequence") or 0),
             plan_revision=int(runtime.get("plan_revision") or 1),
             tenant_parallel_limit=int(runtime.get("tenant_parallel_limit") or 1),
@@ -149,6 +133,8 @@ class NativeRunState:
             reason_code=str(runtime.get("reason_code") or ""),
             base_plan_hash=str(runtime.get("base_plan_hash") or ""),
             effective_plan=dict(business.get("effective_plan") or {}),
+            last_command_id=str(runtime.get("last_command_id") or ""),
+            last_command_fingerprint=str(runtime.get("last_command_fingerprint") or ""),
         )
 
     def to_workflow_state(self, *, secret_refs: tuple[str, ...]) -> WorkflowState:
@@ -164,9 +150,7 @@ class NativeRunState:
                 "completed": sorted(self.completed),
                 "skipped": sorted(self.skipped),
                 "failed": dict(sorted(self.failed.items())),
-                "running": {
-                    key: dict(self.running[key]) for key in sorted(self.running)
-                },
+                "running": {key: dict(self.running[key]) for key in sorted(self.running)},
                 "approved_gates": sorted(self.approved_gates),
                 "open_gates": dict(sorted(self.open_gates.items())),
                 "attempts": dict(sorted(self.attempts.items())),
@@ -177,6 +161,8 @@ class NativeRunState:
                 "worker_parallel_limit": self.worker_parallel_limit,
                 "reason_code": self.reason_code,
                 "base_plan_hash": self.base_plan_hash,
+                "last_command_id": self.last_command_id,
+                "last_command_fingerprint": self.last_command_fingerprint,
             },
             secret_refs=secret_refs,
             artifact_refs=tuple(sorted(set(self.artifact_refs.values()))),

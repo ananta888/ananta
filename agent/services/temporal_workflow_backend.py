@@ -3,6 +3,7 @@
 Temporal is deliberately imported lazily so the default local runtime has no
 hard dependency on the temporalio package or a running Temporal server.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -19,10 +20,12 @@ from agent.services.workflow_backend import (
     WorkflowSignal,
     workflow_backend_event,
 )
+from ananta_contracts.temporal_workflow import STATUS_SCHEMA as TEMPORAL_STATUS_SCHEMA
 from ananta_contracts.temporal_workflow import (
     AnantaWorkflowInput,
     TemporalContractError,
     WorkflowCommand,
+    WorkflowCommandResult,
 )
 
 
@@ -77,6 +80,22 @@ class TemporalWorkflowBackend:
             or getattr(handle, "result_run_id", "")
             or ""
         )
+        if not temporal_run_id:
+            try:
+                description = _run(self._describe(request.workflow_id))
+                temporal_run_id = str(getattr(description, "run_id", "") or "")
+            except Exception as exc:  # noqa: BLE001
+                return self._degraded(
+                    request.workflow_id,
+                    f"temporal_start_adoption_failed:{type(exc).__name__}",
+                    request=request,
+                )
+        if not temporal_run_id:
+            return self._degraded(
+                request.workflow_id,
+                "temporal_start_run_id_missing",
+                request=request,
+            )
         try:
             self._projection_service().bind_run(
                 tenant_id=workflow_input.tenant_id,
@@ -223,24 +242,107 @@ class TemporalWorkflowBackend:
             return self._degraded(workflow_id, f"temporal_query_failed:{type(exc).__name__}")
         return dict(result) if isinstance(result, dict) else {"result": result}
 
-    def update_workflow(self, workflow_id: str, command: dict[str, Any]) -> dict[str, Any]:
+    def update_workflow(
+        self,
+        workflow_id: str,
+        command: dict[str, Any],
+        *,
+        update_id: str = "",
+    ) -> dict[str, Any]:
         unavailable = self._temporal_unavailable()
         if unavailable:
             return self._degraded(workflow_id, unavailable)
+        typed: WorkflowCommand | None = None
         try:
             typed = WorkflowCommand.from_mapping(command)
-            result = _run(self._update(workflow_id, typed.to_dict()))
-        except TemporalContractError as exc:
+            result = _run(
+                self._update(
+                    workflow_id,
+                    typed.to_dict(),
+                    update_id=str(update_id or typed.command_id),
+                )
+            )
+        except Exception as exc:  # the exact SDK type is imported lazily below
+            rejected = self._rejected_update_result(
+                workflow_id,
+                command=typed,
+                cause=exc,
+            )
+            if rejected is not None:
+                return rejected
+            if isinstance(exc, TemporalContractError):
+                return self._degraded(
+                    workflow_id,
+                    "invalid_temporal_workflow_command",
+                    details={"validation_reason": exc.reason_code},
+                )
             return self._degraded(
                 workflow_id,
-                "invalid_temporal_workflow_command",
-                details={"validation_reason": exc.reason_code},
+                f"temporal_update_failed:{type(exc).__name__}",
             )
-        except Exception as exc:  # noqa: BLE001
-            return self._degraded(workflow_id, f"temporal_update_failed:{type(exc).__name__}")
         if hasattr(result, "to_dict"):
             return dict(result.to_dict())
         return dict(result) if isinstance(result, dict) else {"result": result}
+
+    def _rejected_update_result(
+        self,
+        workflow_id: str,
+        *,
+        command: WorkflowCommand | None,
+        cause: Exception,
+    ) -> dict[str, Any] | None:
+        from temporalio.client import WorkflowUpdateFailedError
+        from temporalio.exceptions import ApplicationError
+
+        if command is None or not isinstance(cause, WorkflowUpdateFailedError):
+            return None
+        application = cause.cause
+        if not isinstance(application, ApplicationError):
+            return None
+        reason_code = str(application.type or "").strip()
+        if (
+            not reason_code
+            or len(reason_code) > 64
+            or not reason_code[0].isalpha()
+            or any(not character.isalnum() and character != "_" for character in reason_code)
+        ):
+            return None
+        try:
+            observed = _run(self._query(workflow_id, "status"))
+        except Exception:  # noqa: BLE001 - ambiguous observation remains retryable
+            return None
+        if not isinstance(observed, dict):
+            return None
+        revision = observed.get("revision")
+        status = observed.get("status")
+        if (
+            observed.get("schema") != TEMPORAL_STATUS_SCHEMA
+            or observed.get("workflow_id") != command.workflow_id
+            or observed.get("run_id") != command.run_id
+            or observed.get("plan_hash") != command.plan_hash
+            or isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < command.expected_revision
+            or not isinstance(status, str)
+            or status
+            not in {
+                "created",
+                "running",
+                "paused",
+                "waiting_approval",
+                "completed",
+                "failed",
+                "cancelled",
+            }
+        ):
+            return None
+        return WorkflowCommandResult(
+            command_id=command.command_id,
+            accepted=False,
+            revision=revision,
+            status=status,
+            reason_code=reason_code,
+        ).to_dict()
 
     @staticmethod
     def _temporal_unavailable() -> str:
@@ -294,13 +396,21 @@ class TemporalWorkflowBackend:
         )
 
     async def _start(self, request: WorkflowRequest, workflow_input: AnantaWorkflowInput):
+        from temporalio.exceptions import WorkflowAlreadyStartedError
+
         client = await self._client()
-        return await client.start_workflow(
-            self.workflow_type,
-            workflow_input.to_dict(),
-            id=request.workflow_id,
-            task_queue=self.task_queue,
-        )
+        try:
+            return await client.start_workflow(
+                self.workflow_type,
+                workflow_input.to_dict(),
+                id=request.workflow_id,
+                task_queue=self.task_queue,
+            )
+        except WorkflowAlreadyStartedError:
+            # The stable workflow ID is the start idempotency key.  Re-adopt
+            # the durable execution so a failed Hub projection binding can be
+            # retried without creating or orphaning another Workflow.
+            return client.get_workflow_handle(request.workflow_id)
 
     async def _describe(self, workflow_id: str):
         client = await self._client()
@@ -314,11 +424,18 @@ class TemporalWorkflowBackend:
         client = await self._client()
         return await client.get_workflow_handle(str(workflow_id or "").strip()).query(str(query_name or "status"))
 
-    async def _update(self, workflow_id: str, command: dict[str, Any]):
+    async def _update(
+        self,
+        workflow_id: str,
+        command: dict[str, Any],
+        *,
+        update_id: str,
+    ):
         client = await self._client()
         return await client.get_workflow_handle(str(workflow_id or "").strip()).execute_update(
             "command",
             command,
+            id=update_id,
         )
 
     def _projection_service(self) -> TemporalHistoryProjectionService:
@@ -357,8 +474,7 @@ class TemporalWorkflowBackend:
                     "operation_id": step_metadata.get("operation_id"),
                     "authorization_envelope": envelope,
                     "artifact_refs": [
-                        {"artifact_id": artifact_id, "kind": "workflow_input"}
-                        for artifact_id in step.input_artifacts
+                        {"artifact_id": artifact_id, "kind": "workflow_input"} for artifact_id in step.input_artifacts
                     ],
                     "activity_class": step_metadata.get("activity_class")
                     or step_metadata.get("side_effect_class")
@@ -381,9 +497,7 @@ class TemporalWorkflowBackend:
             "policy_version": policy_version,
             "steps": steps,
             "retry_budget_remaining": retry_budget_remaining,
-            "retry_budget_maximum": int(
-                metadata.get("retry_budget_maximum", retry_budget_remaining)
-            ),
+            "retry_budget_maximum": int(metadata.get("retry_budget_maximum", retry_budget_remaining)),
             "mutable_parameters": list(metadata.get("mutable_parameters") or []),
             "parameters": dict(metadata.get("parameters") or {}),
             "max_parallel_steps": int(metadata.get("max_parallel_steps") or 1),

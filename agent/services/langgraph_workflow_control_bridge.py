@@ -32,6 +32,9 @@ from agent.services.workflow_control_bindings import (
     WorkflowControlBindingStore,
     WorkflowControlRunBinding,
 )
+from agent.services.workflow_control_command_receipts import (
+    WorkflowControlCommandRejectedError,
+)
 from agent.services.workflow_control_read_model_projector import (
     WorkflowControlReadModelProjector,
 )
@@ -104,9 +107,7 @@ class LangGraphWorkflowControlBridge:
         self._merge = merge or DeterministicMergeService()
         self._conditions = conditions or DeclarativeConditionEvaluator()
         self._clock = clock
-        self._reconciler_id = str(
-            reconciler_id or f"langgraph-reconciler-{uuid.uuid4().hex}"
-        )
+        self._reconciler_id = str(reconciler_id or f"langgraph-reconciler-{uuid.uuid4().hex}")
         self._capacity = capacity
 
     def start(
@@ -165,9 +166,7 @@ class LangGraphWorkflowControlBridge:
                 plan = self._plan(binding)
                 previous = self._current_status(binding, plan=plan)
                 expected_revision = int(previous.get("revision") or 0)
-                expected_checkpoint = str(
-                    previous.get("checkpoint_ref") or binding.checkpoint_id
-                )
+                expected_checkpoint = str(previous.get("checkpoint_ref") or binding.checkpoint_id)
                 status = self._advance(
                     binding,
                     plan=plan,
@@ -264,17 +263,19 @@ class LangGraphWorkflowControlBridge:
         *,
         principal: WorkflowPrincipal,
         command: SignedWorkflowCommand,
+        admitted_replay: bool = False,
     ) -> dict[str, Any]:
-        binding = self._require_command_binding(command, principal)
-        self._bindings.claim_command(
-            binding.workflow_id,
-            expected_revision=command.expected_revision,
-            checkpoint_id=command.checkpoint_id,
-            command_id=command.command_id,
-        )
         try:
+            binding = self._require_command_binding(command, principal)
+            self._bindings.claim_command(
+                binding.workflow_id,
+                expected_revision=command.expected_revision,
+                checkpoint_id=command.checkpoint_id,
+                command_id=command.command_id,
+            )
             plan = self._plan(binding)
-            self._commands.verify_once(
+            verifier = self._commands.verify_persisted if admitted_replay else self._commands.verify_once
+            verifier(
                 command,
                 tenant_id=binding.tenant_id,
                 workflow_id=binding.workflow_id,
@@ -297,14 +298,34 @@ class LangGraphWorkflowControlBridge:
                 command_id=command.command_id,
                 status=status,
             )
+        except (PermissionError, ValueError) as exc:
+            self._bindings.release_command(
+                command.workflow_id,
+                command_id=command.command_id,
+            )
+            raise WorkflowControlCommandRejectedError(str(exc)) from exc
         except Exception:
             self._bindings.release_command(
-                binding.workflow_id,
+                command.workflow_id,
                 command_id=command.command_id,
             )
             raise
         self._project(binding, status)
         return status
+
+    def recover_command(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        command: SignedWorkflowCommand,
+    ) -> dict[str, Any]:
+        """Replay a persisted admission through idempotent Hub queue adapters."""
+
+        return self._apply_command(
+            principal=principal,
+            command=command,
+            admitted_replay=True,
+        )
 
     def _command_transition(
         self,
@@ -354,13 +375,9 @@ class LangGraphWorkflowControlBridge:
             )
             if gate is None:
                 raise ValueError("langgraph_approval_gate_not_declared")
-            if gate.required_roles and not set(gate.required_roles).intersection(
-                command.actor_roles
-            ):
+            if gate.required_roles and not set(gate.required_roles).intersection(command.actor_roles):
                 raise PermissionError("langgraph_approval_gate_role_denied")
-            value["approved_gates"] = sorted(
-                {*value.get("approved_gates", []), node.gate_id}
-            )
+            value["approved_gates"] = sorted({*value.get("approved_gates", []), node.gate_id})
             value = self._advance(binding, plan=plan, status=value)
         elif command.command_type == "reject":
             step = self._step(value, command.step_id)
@@ -413,19 +430,9 @@ class LangGraphWorkflowControlBridge:
             return self._bump(value, plan=plan)
         self._settle_hub_nodes(plan, value)
         steps = {str(step["step_id"]): step for step in value["steps"]}
-        completed = {
-            node_id
-            for node_id, step in steps.items()
-            if step["status"] in {"completed", "skipped"}
-        }
-        running = {
-            node_id for node_id, step in steps.items() if step["status"] in _ACTIVE
-        }
-        failed = {
-            node_id
-            for node_id, step in steps.items()
-            if step["status"] in {"failed", "cancelled"}
-        }
+        completed = {node_id for node_id, step in steps.items() if step["status"] in {"completed", "skipped"}}
+        running = {node_id for node_id, step in steps.items() if step["status"] in _ACTIVE}
+        failed = {node_id for node_id, step in steps.items() if step["status"] in {"failed", "cancelled"}}
         limits = self._parallel_limits(binding, plan=plan)
         batch = self._fan_out.select_ready(
             plan,
@@ -516,10 +523,7 @@ class LangGraphWorkflowControlBridge:
                 if step["status"] != "pending":
                     continue
                 dependencies = incoming[node.node_id]
-                if not dependencies or any(
-                    steps[edge.source]["status"] not in _TERMINAL
-                    for edge in dependencies
-                ):
+                if not dependencies or any(steps[edge.source]["status"] not in _TERMINAL for edge in dependencies):
                     continue
                 if node.node_type == "merge":
                     result = self._merge.merge(
@@ -554,9 +558,7 @@ class LangGraphWorkflowControlBridge:
                     changed = True
                 elif any(steps[edge.source]["status"] in {"failed", "cancelled"} for edge in dependencies):
                     failed = sorted(
-                        edge.source
-                        for edge in dependencies
-                        if steps[edge.source]["status"] in {"failed", "cancelled"}
+                        edge.source for edge in dependencies if steps[edge.source]["status"] in {"failed", "cancelled"}
                     )
                     step.update(
                         status="failed",
@@ -652,9 +654,7 @@ class LangGraphWorkflowControlBridge:
             allowed_tools=tuple(node.allowed_tools),
             allowed_artifacts=tuple(node.output_artifacts),
             correlation_id=str(binding.request.correlation_id or binding.run_id),
-            idempotency_key=(
-                f"langgraph:{binding.run_id}:{node.node_id}:{retry}:{plan.plan_hash}"
-            )[:256],
+            idempotency_key=(f"langgraph:{binding.run_id}:{node.node_id}:{retry}:{plan.plan_hash}")[:256],
             maximum_retries=max(0, int((node.budget or plan.budget).max_attempts) - 1),
             # Provider reservations are aggregate and SQL-CAS guarded by
             # tenant/run/policy. Every branch therefore carries the same plan
@@ -671,17 +671,11 @@ class LangGraphWorkflowControlBridge:
             provider_profile_bindings=decision.profile_bindings,
             provider_attempt_plan=decision.profile_attempt_plan,
             provider_maximum_attempts=decision.maximum_provider_attempts,
-            model_routing=(
-                model_routing.as_metadata()
-                if model_routing is not None
-                else {}
-            ),
+            model_routing=(model_routing.as_metadata() if model_routing is not None else {}),
         )
 
     @staticmethod
-    def _node_outcome(
-        task: Mapping[str, Any], *, node_id: str, plan_hash: str
-    ) -> dict[str, Any]:
+    def _node_outcome(task: Mapping[str, Any], *, node_id: str, plan_hash: str) -> dict[str, Any]:
         task_status = str(task.get("status") or "failed").lower()
         result = task.get("result")
         reason = str(task.get("reason_code") or "")
@@ -695,9 +689,7 @@ class LangGraphWorkflowControlBridge:
                     if artifact.get("schema") == LANGGRAPH_HUB_NODE_RESULT_SCHEMA:
                         validate_langgraph_node_result(artifact)
                         if str(artifact.get("node_id") or "") != node_id:
-                            raise WorkflowAdapterQueueError(
-                                "langgraph_node_result_binding_mismatch", status_code=409
-                            )
+                            raise WorkflowAdapterQueueError("langgraph_node_result_binding_mismatch", status_code=409)
                         if str(artifact.get("plan_hash") or "") != plan_hash:
                             raise WorkflowAdapterQueueError(
                                 "langgraph_node_result_plan_binding_mismatch",
@@ -746,7 +738,6 @@ class LangGraphWorkflowControlBridge:
                     "id": node.node_id,
                     "step_id": node.node_id,
                     "task_kind": node.task_kind,
-                    "gate": bool(node.gate_id),
                     "gate_id": node.gate_id,
                     "status": "pending",
                     "reason_code": "",
@@ -871,8 +862,7 @@ class LangGraphWorkflowControlBridge:
         raw_plan = (
             effective
             if isinstance(effective, Mapping)
-            else binding.execution_plan
-            or binding.request.metadata.get("execution_plan")
+            else binding.execution_plan or binding.request.metadata.get("execution_plan")
         )
         if isinstance(raw_plan, Mapping):
             plan = ExecutionPlan.from_mapping(dict(raw_plan))
@@ -902,11 +892,7 @@ class LangGraphWorkflowControlBridge:
     @staticmethod
     def _step(status: Mapping[str, Any], node_id: str) -> dict[str, Any]:
         step = next(
-            (
-                value
-                for value in status.get("steps") or ()
-                if str(value.get("step_id") or "") == str(node_id)
-            ),
+            (value for value in status.get("steps") or () if str(value.get("step_id") or "") == str(node_id)),
             None,
         )
         if not isinstance(step, dict):
@@ -964,10 +950,7 @@ class LangGraphWorkflowControlBridge:
         binding: WorkflowControlRunBinding,
         principal: WorkflowPrincipal,
     ) -> None:
-        if (
-            binding.tenant_id != principal.tenant_id
-            or binding.subject_id != principal.subject_id
-        ):
+        if binding.tenant_id != principal.tenant_id or binding.subject_id != principal.subject_id:
             raise PermissionError("workflow_control_principal_binding_mismatch")
 
     def _project(

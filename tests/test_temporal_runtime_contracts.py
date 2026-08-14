@@ -13,7 +13,11 @@ import pytest
 
 from agent.services.temporal_workflow_backend import TemporalWorkflowBackend
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
-from agent.services.workflow_runtime import HmacKeyRing, RuntimeAuthorizationEnvelope
+from agent.services.workflow_runtime import (
+    HmacKeyRing,
+    RuntimeAuthorizationEnvelope,
+)
+from agent.services.workflow_runtime.commands import WorkflowCommandIssuer
 from ananta_contracts.hub_task_gateway import HubTaskContractError
 from ananta_contracts.runtime_authorization_crypto import (
     ED25519_VERIFICATION_KEYRING_SCHEMA,
@@ -25,6 +29,8 @@ from ananta_contracts.temporal_workflow import (
     AuthorizationEnvelopeRef,
     TemporalContractError,
     TemporalWorkflowStep,
+    WorkflowCommand,
+    WorkflowPhase,
 )
 from worker.temporal.authorization import RuntimeAuthorizationVerifier
 from worker.temporal.config import TemporalWorkerConfig, TemporalWorkerConfigError
@@ -35,6 +41,7 @@ from worker.temporal.retry_profiles import (
     retry_profile_for,
     validate_all_retry_profiles,
 )
+from worker.temporal.workflows import AnantaWorkflow
 
 ROOT = Path(__file__).resolve().parents[1]
 SIGNING_KEY = "temporal-test-signing-key-32-bytes"
@@ -124,9 +131,7 @@ def test_temporal_worker_verifies_hub_ed25519_without_signing_material() -> None
             ).to_dict()
         )
 
-    verifier = RuntimeAuthorizationVerifier.from_config_mapping(
-        trusted.verification_mapping()
-    )
+    verifier = RuntimeAuthorizationVerifier.from_config_mapping(trusted.verification_mapping())
     verifier.verify(issue(trusted), now=101)
     with pytest.raises(TemporalContractError) as caught:
         verifier.verify(issue(rogue), now=101)
@@ -295,10 +300,7 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
         }
     )
     assert config.productive_gateway_configured is True
-    assert (
-        config.read_authorization_keyring()["schema"]
-        == ED25519_VERIFICATION_KEYRING_SCHEMA
-    )
+    assert config.read_authorization_keyring()["schema"] == ED25519_VERIFICATION_KEYRING_SCHEMA
     assert config.read_hub_token() == "signed-hub-service-token"
 
     with pytest.raises(TemporalWorkerConfigError, match="service identity"):
@@ -320,9 +322,7 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
         encoding="utf-8",
     )
     with pytest.raises(TemporalWorkerConfigError, match="legacy HMAC"):
-        TemporalWorkerConfig.from_env(
-            {"ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy)}
-        )
+        TemporalWorkerConfig.from_env({"ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy)})
     compatibility = TemporalWorkerConfig.from_env(
         {
             "ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy),
@@ -336,7 +336,7 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
 
 
 def test_native_import_path_does_not_require_temporal_sdk() -> None:
-    script = r'''
+    script = r"""
 import builtins
 real_import = builtins.__import__
 def guarded(name, *args, **kwargs):
@@ -347,7 +347,7 @@ builtins.__import__ = guarded
 import worker.temporal
 import agent.services.temporal_workflow_backend
 print("native-import-ok")
-'''
+"""
     completed = subprocess.run(
         [sys.executable, "-c", script],
         cwd=ROOT,
@@ -371,6 +371,140 @@ def test_temporal_backend_reports_lazy_sdk_unavailability(monkeypatch: pytest.Mo
     status = backend.get_workflow_status("wf-1")
     assert status["status"] == "degraded"
     assert status["reason"] == "temporalio_unavailable:ModuleNotFoundError"
+
+
+def test_temporal_backend_maps_typed_worker_rejection_to_bound_command_result() -> None:
+    from temporalio.client import WorkflowUpdateFailedError
+    from temporalio.exceptions import ApplicationError
+
+    signed = WorkflowCommandIssuer(
+        HmacKeyRing({"command-key": "x" * 32}, active_key_id="command-key"),
+        clock=lambda: 10.0,
+    ).issue(
+        command_id="command-rejected",
+        command_type="pause",
+        tenant_id="tenant-1",
+        workflow_id="wf-1",
+        run_id="run-1",
+        step_id="step-1",
+        checkpoint_id="checkpoint-0",
+        expected_revision=0,
+        plan_hash="a" * 64,
+        policy_version="policy-v1",
+        actor_id="owner-1",
+        actor_roles=("operator",),
+        payload={},
+    )
+
+    class RejectedBackend(TemporalWorkflowBackend):
+        @staticmethod
+        def _temporal_unavailable() -> str:
+            return ""
+
+        async def _update(self, *_args, **_kwargs):
+            raise WorkflowUpdateFailedError(
+                ApplicationError(
+                    "workflow command rejected",
+                    type="stale_workflow_revision",
+                    non_retryable=True,
+                )
+            )
+
+        async def _query(self, _workflow_id: str, _query_name: str):
+            return {
+                "schema": "ananta.temporal-workflow-status.v1",
+                "workflow_id": "wf-1",
+                "run_id": "run-1",
+                "plan_hash": "a" * 64,
+                "revision": 1,
+                "status": "running",
+            }
+
+    result = RejectedBackend().update_workflow(
+        "wf-1",
+        WorkflowCommand.from_mapping(signed.to_dict()).to_dict(),
+        update_id=signed.command_id,
+    )
+
+    assert result == {
+        "schema": "ananta.temporal-workflow-command-result.v2",
+        "command_id": signed.command_id,
+        "accepted": False,
+        "revision": 1,
+        "status": "running",
+        "reason_code": "stale_workflow_revision",
+    }
+
+
+@pytest.mark.parametrize("phase", [WorkflowPhase.RUNNING, WorkflowPhase.COMPLETED])
+def test_temporal_worker_retry_is_typed_rejection_without_revision_mutation(
+    phase: WorkflowPhase,
+) -> None:
+    signed = WorkflowCommandIssuer(
+        HmacKeyRing({"command-key": "x" * 32}, active_key_id="command-key"),
+        clock=lambda: 10.0,
+    ).issue(
+        command_id=f"command-retry-{phase.value}",
+        command_type="retry",
+        tenant_id="tenant-1",
+        workflow_id="wf-1",
+        run_id="run-1",
+        step_id="step-1",
+        checkpoint_id="checkpoint-0",
+        expected_revision=0,
+        plan_hash="a" * 64,
+        policy_version="policy-v1",
+        actor_id="owner-1",
+        actor_roles=("operator",),
+        payload={},
+    )
+    subject = AnantaWorkflow()
+    subject._input = object()
+    subject._phase = phase
+    subject._revision = 0
+
+    with pytest.raises(TemporalContractError) as rejected:
+        subject._validate_command(WorkflowCommand.from_mapping(signed.to_dict()))
+
+    assert rejected.value.reason_code == "temporal_retry_unsupported"
+    assert subject._revision == 0
+
+
+@pytest.mark.parametrize("command_type", ["edit", "request_changes"])
+def test_temporal_worker_plan_edit_is_typed_rejection_without_revision_mutation(
+    command_type: str,
+) -> None:
+    signed = WorkflowCommandIssuer(
+        HmacKeyRing({"command-key": "x" * 32}, active_key_id="command-key"),
+        clock=lambda: 10.0,
+    ).issue(
+        command_id=f"command-{command_type}",
+        command_type=command_type,
+        tenant_id="tenant-1",
+        workflow_id="wf-1",
+        run_id="run-1",
+        step_id="step-1",
+        checkpoint_id="checkpoint-0",
+        expected_revision=0,
+        plan_hash="a" * 64,
+        policy_version="policy-v1",
+        actor_id="owner-1",
+        actor_roles=("operator",),
+        payload={
+            "replacement_plan": {"nodes": []},
+            "replacement_plan_hash": "b" * 64,
+        },
+    )
+    subject = AnantaWorkflow()
+    subject._input = object()
+    subject._phase = WorkflowPhase.RUNNING
+    subject._revision = 0
+
+    with pytest.raises(TemporalContractError) as rejected:
+        subject._validate_command(WorkflowCommand.from_mapping(signed.to_dict()))
+
+    assert rejected.value.reason_code == "temporal_plan_edit_unsupported"
+    assert subject._revision == 0
 
 
 def test_temporal_backend_rejects_incomplete_runtime_binding_before_network_call() -> None:

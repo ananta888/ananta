@@ -1,4 +1,5 @@
 """HTTP security boundary shared by workflow control routes."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -79,9 +80,7 @@ def require_workflow_owner(workflow_id: str):
             data={"reason_code": "workflow_principal_required"},
             code=401,
         )
-    authorized = workflow_route_authorization_service.is_authorized(
-        workflow_id, principal
-    )
+    authorized = workflow_route_authorization_service.is_authorized(workflow_id, principal)
     if not authorized:
         try:
             # Composition installs the persistent owner resolver.  This call
@@ -92,9 +91,7 @@ def require_workflow_owner(workflow_id: str):
                 "workflow_control_owner_recovery_failed",
                 {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
             )
-        authorized = workflow_route_authorization_service.is_authorized(
-            workflow_id, principal
-        )
+        authorized = workflow_route_authorization_service.is_authorized(workflow_id, principal)
     if not authorized:
         return None, api_response(
             status="error",
@@ -120,8 +117,6 @@ def backend_result(payload: dict[str, Any], *, success_code: int = 200):
     status = str(payload.get("status") or "").strip().lower()
     if status in {"degraded", "unavailable"}:
         return backend_error("workflow_backend_unavailable", code=503)
-    if status == "failed":
-        return backend_error("workflow_backend_rejected", code=422)
     if status == "not_found":
         return backend_error("workflow_run_not_found", code=404)
     return jsonify(_safe_backend_payload(payload)), success_code

@@ -66,6 +66,9 @@ def test_export_bpmn_xml_roundtrips_visual_graph():
 def test_graph_to_workflow_request_requires_policy_scope():
     from agent.visual_process.blueprint_mapper import graph_to_workflow_request
     from agent.visual_process.bpmn_adapter import import_bpmn_xml
+    from agent.visual_process.definition_snapshot_contract import (
+        VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY,
+    )
 
     graph = import_bpmn_xml(_simple_bpmn()).graph
 
@@ -81,6 +84,7 @@ def test_graph_to_workflow_request_requires_policy_scope():
     assert workflow.validate() == []
     assert workflow.steps[2].gate is True
     assert workflow.steps[1].depends_on == ("start",)
+    assert workflow.metadata[VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY] == graph.definition_hash()
 
 
 def test_local_workflow_backend_models_start_signal_and_cancel():
@@ -181,4 +185,4 @@ def test_visual_process_bpmn_and_workflow_routes(
         headers=auth_headers,
     )
     assert started.status_code == 200
-    assert started.get_json()["backend"] == "local"
+    assert started.get_json()["backend"] == "ananta-native"

@@ -254,8 +254,7 @@ class WorkflowControlService:
                 allowed_runtimes=allowed_runtimes,
             )
         if selected.mode == "incompatible" and any(
-            "runtime_capabilities_missing:" in str(rejected.get("detail") or "")
-            for rejected in selected.rejected
+            "runtime_capabilities_missing:" in str(rejected.get("detail") or "") for rejected in selected.rejected
         ):
             # Preserve the established, actionable compatibility error for
             # callers while the common selector retains the richer audited
@@ -266,8 +265,7 @@ class WorkflowControlService:
                 raise RuntimeError("workflow_runtime_incompatible:" + ",".join(missing))
         if selected.mode in {"blocked", "incompatible"}:
             raise RuntimeError(
-                f"workflow_runtime_selection_{selected.mode}:"
-                f"{selected.reason_code or 'runtime_selection_failed'}"
+                f"workflow_runtime_selection_{selected.mode}:{selected.reason_code or 'runtime_selection_failed'}"
             )
         missing = set(plan.capabilities) - set(selected.capabilities)
         if missing:
@@ -307,6 +305,17 @@ class WorkflowControlService:
         principal: WorkflowPrincipal,
         command: WorkflowControlCommand,
     ) -> dict[str, Any]:
+        signed = self.prepare_command(principal=principal, command=command)
+        return self.dispatch_command(principal=principal, command=signed)
+
+    def prepare_command(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        command: WorkflowControlCommand,
+    ) -> SignedWorkflowCommand:
+        """Validate, authorize and sign without crossing the mutation boundary."""
+
         issues = command.validate()
         if issues:
             raise ValueError(";".join(issues))
@@ -314,7 +323,7 @@ class WorkflowControlService:
         self._authorize_bound(principal, command.command_type, command.workflow_id, command.run_id)
         if self._command_issuer is None:
             raise RuntimeError("workflow_command_issuer_not_configured")
-        signed = self._command_issuer.issue(
+        return self._command_issuer.issue(
             command_id=command.command_id,
             command_type=command.command_type,
             tenant_id=command.tenant_id,
@@ -329,9 +338,18 @@ class WorkflowControlService:
             actor_roles=principal.roles,
             payload=dict(command.payload),
         )
-        if signed.command_type == "cancel":
-            return self._bridge.cancel(principal=principal, command=signed)
-        return self._bridge.signal(principal=principal, command=signed)
+
+    def dispatch_command(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        command: SignedWorkflowCommand,
+    ) -> dict[str, Any]:
+        """Dispatch one already admitted signed command to its bound runtime."""
+
+        if command.command_type == "cancel":
+            return self._bridge.cancel(principal=principal, command=command)
+        return self._bridge.signal(principal=principal, command=command)
 
     def _authorize_bound(
         self,

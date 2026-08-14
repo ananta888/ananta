@@ -71,12 +71,8 @@ class AnantaHubTaskQueueAdapter:
                 "command_id": command.command_id,
             },
             extra_fields={
-                "plan_id": command.plan_hash,
-                "plan_node_id": command.node.node_id,
                 "task_kind": command.node.task_kind,
                 "required_capabilities": list(command.node.required_capabilities),
-                "parent_task_id": command.control_task_id,
-                "source_task_id": command.control_task_id,
                 "derivation_reason": "native_graph_hub_delegation",
                 "worker_execution_context": {
                     "schema": "ananta.native_graph_worker_context.v1",

@@ -12,6 +12,9 @@ from __future__ import annotations
 from typing import Any
 
 from agent.services.workflow_backend import WorkflowRequest, WorkflowStepRequest
+from agent.visual_process.definition_snapshot_contract import (
+    VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY,
+)
 from agent.visual_process.edge_catalog_contract import (
     CASEFLOW_EDGE_CATALOG_METADATA_KEY,
     build_caseflow_edge_catalog_for_workflow,
@@ -125,6 +128,7 @@ def graph_to_workflow_request(
         metadata={
             "source": "visual_process_graph",
             **dict(graph.metadata or {}),
+            VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY: graph.definition_hash(),
             # ``depends_on`` preserves execution topology but not canonical
             # VisualProcess edge identity.  The bounded catalog lets Hub-owned
             # read models correlate exact directions without reconstructing or

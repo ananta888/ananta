@@ -18,6 +18,9 @@ from agent.services.workflow_control_bindings import (
     WorkflowControlBindingStore,
     WorkflowControlRunBinding,
 )
+from agent.services.workflow_control_command_receipts import (
+    WorkflowControlCommandRejectedError,
+)
 from agent.services.workflow_control_read_model_projector import (
     WorkflowControlReadModelProjector,
 )
@@ -54,9 +57,7 @@ class NativeGraphWorkflowControlBridge:
         self._orchestrator = orchestrator
         self._bindings = bindings
         self._read_models = read_models
-        self._reconciler_id = str(
-            reconciler_id or f"native-reconciler-{uuid.uuid4().hex}"
-        )
+        self._reconciler_id = str(reconciler_id or f"native-reconciler-{uuid.uuid4().hex}")
 
     def start(
         self,
@@ -103,9 +104,7 @@ class NativeGraphWorkflowControlBridge:
             reason_code=result.reason_code,
         )
 
-    def query(
-        self, *, principal: WorkflowPrincipal, run_id: str
-    ) -> dict[str, Any]:
+    def query(self, *, principal: WorkflowPrincipal, run_id: str) -> dict[str, Any]:
         binding = self._require_run_binding(run_id)
         self._assert_principal(binding, principal)
         status = self._bindings.last_status(binding.workflow_id)
@@ -139,9 +138,7 @@ class NativeGraphWorkflowControlBridge:
             try:
                 previous = self._bindings.last_status(binding.workflow_id) or {}
                 expected_revision = int(previous.get("revision") or 0)
-                expected_checkpoint = str(
-                    previous.get("checkpoint_ref") or binding.checkpoint_id
-                )
+                expected_checkpoint = str(previous.get("checkpoint_ref") or binding.checkpoint_id)
                 result = self._orchestrator.advance(self._request(binding))
                 status = self._status(result)
                 self._bindings.finish_reconciliation(
@@ -208,18 +205,20 @@ class NativeGraphWorkflowControlBridge:
         *,
         principal: WorkflowPrincipal,
         command: SignedWorkflowCommand,
+        admitted_replay: bool = False,
     ) -> dict[str, Any]:
-        binding = self._require_command_binding(command, principal)
-        self._bindings.claim_command(
-            binding.workflow_id,
-            expected_revision=command.expected_revision,
-            checkpoint_id=command.checkpoint_id,
-            command_id=command.command_id,
-        )
         try:
+            binding = self._require_command_binding(command, principal)
+            self._bindings.claim_command(
+                binding.workflow_id,
+                expected_revision=command.expected_revision,
+                checkpoint_id=command.checkpoint_id,
+                command_id=command.command_id,
+            )
             result = self._orchestrator.resume(
                 self._request(binding),
                 command=command,
+                admitted_replay=admitted_replay,
             )
             status = self._status(result)
             self._bindings.finish_command(
@@ -227,14 +226,34 @@ class NativeGraphWorkflowControlBridge:
                 command_id=command.command_id,
                 status=status,
             )
+        except (PermissionError, ValueError) as exc:
+            self._bindings.release_command(
+                command.workflow_id,
+                command_id=command.command_id,
+            )
+            raise WorkflowControlCommandRejectedError(str(exc)) from exc
         except Exception:
             self._bindings.release_command(
-                binding.workflow_id,
+                command.workflow_id,
                 command_id=command.command_id,
             )
             raise
         self._project(binding, status)
         return status
+
+    def recover_command(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        command: SignedWorkflowCommand,
+    ) -> dict[str, Any]:
+        """Adopt or replay one Hub-admitted command from its durable checkpoint."""
+
+        return self._apply_command(
+            principal=principal,
+            command=command,
+            admitted_replay=True,
+        )
 
     def _request(
         self,
@@ -249,15 +268,7 @@ class NativeGraphWorkflowControlBridge:
         input_data = dict(input_candidate) if isinstance(input_candidate, Mapping) else {}
         raw_secret_refs = metadata.get("secret_refs")
         secret_refs = (
-            tuple(
-                sorted(
-                    {
-                        str(value).strip()
-                        for value in raw_secret_refs
-                        if str(value).strip()
-                    }
-                )
-            )
+            tuple(sorted({str(value).strip() for value in raw_secret_refs if str(value).strip()}))
             if isinstance(raw_secret_refs, (list, tuple))
             else ()
         )
@@ -277,22 +288,15 @@ class NativeGraphWorkflowControlBridge:
             control_task_id=self._control_task_id(binding.run_id),
             input_data=input_data,
             secret_refs=secret_refs,
-            tenant_parallel_limit=self._parallel_limit(
-                metadata.get("tenant_parallel_limit"), default=4
-            ),
-            worker_parallel_limit=self._parallel_limit(
-                metadata.get("worker_parallel_limit"), default=4
-            ),
+            tenant_parallel_limit=self._parallel_limit(metadata.get("tenant_parallel_limit"), default=4),
+            worker_parallel_limit=self._parallel_limit(metadata.get("worker_parallel_limit"), default=4),
         )
 
     def _status(self, result: NativeGraphResult) -> dict[str, Any]:
         runtime = dict(result.checkpoint.state.runtime_metadata)
         completed = set(runtime.get("completed") or ())
         skipped = set(runtime.get("skipped") or ())
-        failed = {
-            str(key): str(value)
-            for key, value in dict(runtime.get("failed") or {}).items()
-        }
+        failed = {str(key): str(value) for key, value in dict(runtime.get("failed") or {}).items()}
         running = set(dict(runtime.get("running") or {}))
         gate_nodes = set(dict(runtime.get("open_gates") or {}).values())
         plan = result.effective_plan or ExecutionPlan.from_mapping(
@@ -317,7 +321,6 @@ class NativeGraphWorkflowControlBridge:
                     "id": node.node_id,
                     "step_id": node.node_id,
                     "task_kind": node.task_kind,
-                    "gate": bool(node.gate_id),
                     "status": state,
                     "reason_code": failed.get(node.node_id, ""),
                     "consumes": list(node.input_artifacts),
@@ -450,10 +453,7 @@ class NativeGraphWorkflowControlBridge:
         binding: WorkflowControlRunBinding,
         principal: WorkflowPrincipal,
     ) -> None:
-        if (
-            binding.tenant_id != principal.tenant_id
-            or binding.subject_id != principal.subject_id
-        ):
+        if binding.tenant_id != principal.tenant_id or binding.subject_id != principal.subject_id:
             raise PermissionError("workflow_control_principal_binding_mismatch")
 
     @staticmethod

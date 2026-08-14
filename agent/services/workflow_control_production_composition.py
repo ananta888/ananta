@@ -10,6 +10,9 @@ from agent.services.workflow_authorization_grant_service import (
 )
 from agent.services.workflow_backend import WorkflowBackend
 from agent.services.workflow_control_bindings import WorkflowControlBindingStore
+from agent.services.workflow_control_dispatch_intents import (
+    WorkflowControlDispatchIntentStore,
+)
 from agent.services.workflow_control_read_model_projector import (
     WorkflowControlReadModelProjector,
 )
@@ -21,7 +24,6 @@ from agent.services.workflow_runtime.security import ReplayNonceStore, Signature
 from agent.services.workflow_runtime_rollout_service import (
     WorkflowRolloutPolicyService,
 )
-from agent.services.workflow_runtime_selection_composition import configured_runtime_id
 from agent.services.workflow_runtime_selection_service import (
     RuntimeHealthPort,
     WorkflowRuntimeProfileService,
@@ -91,9 +93,10 @@ def production_authorization_grants() -> WorkflowAuthorizationGrantPort:
 
 
 def production_command_key_ring(backend: WorkflowBackend) -> SignatureSigningKeyRingPort | None:
-    runtime_id = configured_runtime_id(str(backend.backend_id))
-    if runtime_id not in {"ananta-native", "temporal"}:
-        return None
+    # Production registers every runtime bridge, so persisted commands may be
+    # selected for Native or Temporal even when LangGraph is the configured
+    # primary. Never fall back to a process-local key in that composition.
+    del backend
     from agent.services.workflow_hub_task_gateway_runtime import (
         get_workflow_authorization_key_ring,
     )
@@ -119,6 +122,15 @@ def production_command_replay_store() -> ReplayNonceStore:
     return SQLAlchemyWorkflowCommandReplayNonceStore(engine)
 
 
+def production_dispatch_intent_store() -> WorkflowControlDispatchIntentStore:
+    from agent.database import engine
+    from agent.services.workflow_control_dispatch_persistence import (
+        SQLAlchemyWorkflowControlDispatchIntentStore,
+    )
+
+    return SQLAlchemyWorkflowControlDispatchIntentStore(engine)
+
+
 def production_read_model_projector() -> WorkflowControlReadModelProjector:
     from agent.database import engine
     from agent.services.workflow_runtime.sqlalchemy_event_stores import (
@@ -139,6 +151,7 @@ __all__ = [
     "production_binding_store",
     "production_command_key_ring",
     "production_command_replay_store",
+    "production_dispatch_intent_store",
     "production_read_model_projector",
     "production_release_admission",
     "production_rollout_policies",

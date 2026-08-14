@@ -61,6 +61,9 @@ from agent.services.visual_process_definition_service import (
 )
 from agent.services.visual_process_location_service import visual_process_location_service
 from agent.services.workflow_backend import WorkflowRequest, WorkflowSignal
+from agent.services.workflow_control_command_receipts import (
+    WorkflowControlCommandRejectedError,
+)
 from agent.services.workflow_route_authorization_service import workflow_route_authorization_service
 from agent.services.workflow_runtime._serialization import redact_json
 from agent.services.workflow_runtime.streaming import (
@@ -71,6 +74,9 @@ from agent.services.workflow_runtime.streaming import (
 from agent.visual_process.blueprint_mapper import graph_to_blueprint_dict, graph_to_workflow_request
 from agent.visual_process.bpmn_adapter import export_bpmn_xml, import_bpmn_xml
 from agent.visual_process.context_assembly import StepContextAssembler
+from agent.visual_process.definition_snapshot_contract import (
+    VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY,
+)
 from agent.visual_process.mermaid_export import to_mermaid, to_tui_text
 from agent.visual_process.models import VisualProcessGraph
 from agent.visual_process.node_definitions import (
@@ -105,12 +111,7 @@ _validator = VisualProcessValidator()
 def _graph_principal() -> ChatSessionPrincipal | None:
     identity = dict(get_request_auth_context() or {})
     subject = identity.get("sub") or identity.get("username")
-    tenant_id = (
-        identity.get("tenant_id")
-        or identity.get("tenant")
-        or identity.get("organization_id")
-        or subject
-    )
+    tenant_id = identity.get("tenant_id") or identity.get("tenant") or identity.get("organization_id") or subject
     try:
         return ChatSessionPrincipal.from_values(tenant_id, subject)
     except ValueError:
@@ -187,9 +188,7 @@ def _definition_error(exc: Exception):
         return jsonify(exc.as_dict()), 409
     if isinstance(exc, VisualProcessDefinitionSecurityError):
         status = 428 if exc.reason_code == "definition_precondition_required" else 422
-        return jsonify(
-            {"error": exc.reason_code, "error_code": exc.reason_code, "path": exc.path}
-        ), status
+        return jsonify({"error": exc.reason_code, "error_code": exc.reason_code, "path": exc.path}), status
     raise exc
 
 
@@ -288,9 +287,7 @@ def _build_model_plan(graph: VisualProcessGraph) -> dict:
                 "resolver_rank": result.final_rank,
                 "fallback_group_id": routing.get("fallback_group_id") or getattr(selected, "fallback_group", None),
                 "context_recovery_strategies": list(routing.get("context_recovery_strategies") or []),
-                "require_approval_for_generated_plan": bool(
-                    routing.get("require_approval_for_generated_plan", True)
-                ),
+                "require_approval_for_generated_plan": bool(routing.get("require_approval_for_generated_plan", True)),
                 "candidate_chain": [p.profile_id for p in chain],
                 "cloud_allowed": bool(routing.get("allow_cloud", False)),
                 "blocked_candidates": [
@@ -959,9 +956,14 @@ def workflow_start():
     if body_error is not None:
         return body_error
     assert body is not None
-    if "workflow_request" in body:
+    command_id, command_id_error = _workflow_command_id(body.get("command_id"))
+    if command_id_error is not None:
+        return command_id_error
+    workflow_body = dict(body)
+    workflow_body.pop("command_id", None)
+    if "workflow_request" in workflow_body:
         try:
-            workflow = WorkflowRequest.from_mapping(body.get("workflow_request") or {})
+            workflow = WorkflowRequest.from_mapping(workflow_body.get("workflow_request") or {})
         except Exception as exc:
             return jsonify({"error": "invalid_workflow_request", "detail": str(exc)}), 400
         errors = workflow.validate()
@@ -971,6 +973,7 @@ def workflow_start():
         # direct neutral WorkflowRequest may not assert that internal catalog.
         direct_metadata = dict(workflow.metadata)
         direct_metadata.pop(CASEFLOW_EDGE_CATALOG_METADATA_KEY, None)
+        direct_metadata.pop(VISUAL_PROCESS_DEFINITION_HASH_METADATA_KEY, None)
         workflow = replace(workflow, metadata=direct_metadata)
     else:
         graph, err = _parse_graph()
@@ -979,7 +982,7 @@ def workflow_start():
         validation = _validator.validate(graph)
         if not validation.valid:
             return jsonify({"validation": validation.as_dict(), "error": "invalid_graph"}), 422
-        workflow = _compile_workflow_request(graph, body)
+        workflow = _compile_workflow_request(graph, workflow_body)
     invalid_id = validate_workflow_id(workflow.workflow_id)
     if invalid_id is not None:
         return invalid_id
@@ -996,14 +999,14 @@ def workflow_start():
     if backend_failure is not None:
         return backend_failure
     reservation = workflow_route_authorization_service.reserve(workflow.workflow_id, principal)
-    if reservation in {"foreign", "duplicate"}:
+    if reservation == "foreign":
         return api_response(
             status="error",
             message="workflow id unavailable",
             data={"reason_code": "workflow_id_unavailable"},
             code=409,
         )
-    if reservation != "reserved":
+    if reservation not in {"reserved", "duplicate"}:
         return backend_error("workflow_id_invalid", code=400)
 
     workflow = replace(
@@ -1018,15 +1021,28 @@ def workflow_start():
         },
     )
     try:
-        status = backend.start_workflow(workflow)
+        status = (
+            backend.start_workflow(workflow, command_id=command_id) if command_id else backend.start_workflow(workflow)
+        )
     except Exception as exc:  # noqa: BLE001
-        workflow_route_authorization_service.release(workflow.workflow_id, principal)
+        pending = str(exc) == "workflow_control_start_observation_pending"
+        if not pending and reservation != "duplicate":
+            workflow_route_authorization_service.release(workflow.workflow_id, principal)
         log_audit(
-            "workflow_backend_start_failed",
+            ("workflow_control_start_observation_pending" if pending else "workflow_backend_start_failed"),
             {"workflow_id": workflow.workflow_id, "exception_type": type(exc).__name__},
         )
+        if pending:
+            try:
+                pending_status = backend.get_workflow_status(workflow.workflow_id)
+            except Exception:  # the persisted binding remains queryable on retry
+                return backend_error(
+                    "workflow_control_start_observation_pending",
+                    code=503,
+                )
+            return backend_result(pending_status, success_code=202)
         return backend_error("workflow_backend_unavailable", code=503)
-    if str(status.get("status") or "").lower() in {"failed", "degraded", "unavailable"}:
+    if str(status.get("status") or "").lower() in {"degraded", "unavailable", "not_found"}:
         workflow_route_authorization_service.release(workflow.workflow_id, principal)
     return backend_result(status)
 
@@ -1065,6 +1081,9 @@ def workflow_cancel(workflow_id: str):
         return body_error
     assert body is not None
     reason = str(body.get("reason") or "").strip()
+    command_id, command_id_error = _workflow_command_id(body.get("command_id"))
+    if command_id_error is not None:
+        return command_id_error
     if len(reason) > 1000:
         return api_response(
             status="error",
@@ -1077,12 +1096,35 @@ def workflow_cancel(workflow_id: str):
     if backend_failure is not None:
         return backend_failure
     try:
-        status = backend.cancel_workflow(workflow_id, reason=reason)
+        command = getattr(backend, "command_workflow", None)
+        status = (
+            command(
+                workflow_id,
+                command_type="cancel",
+                payload={"reason": reason},
+                command_id=command_id,
+            )
+            if command_id and callable(command)
+            else backend.cancel_workflow(workflow_id, reason=reason)
+        )
+    except WorkflowControlCommandRejectedError as exc:
+        safe_reason = _public_command_rejection_reason(exc.reason_code)
+        log_audit(
+            "workflow_control_command_rejected",
+            {"workflow_id": workflow_id, "reason_code": safe_reason},
+        )
+        return backend_error(safe_reason, code=409)
     except Exception as exc:  # noqa: BLE001
         log_audit(
             "workflow_backend_cancel_failed",
             {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
         )
+        if str(exc) == "workflow_control_command_observation_pending":
+            try:
+                pending_status = backend.get_workflow_status(workflow_id)
+            except Exception:
+                return backend_error(str(exc), code=503)
+            return backend_result(pending_status, success_code=202)
         return backend_error("workflow_backend_unavailable", code=503)
     return backend_result(status)
 
@@ -1107,9 +1149,7 @@ def workflow_signal(workflow_id: str):
     signal = WorkflowSignal.from_mapping(
         {
             **body,
-            "payload": redact_json(
-                redact(dict(body.get("payload") or {}), VisibilityLevel.PUBLIC)
-            ),
+            "payload": redact_json(redact(dict(body.get("payload") or {}), VisibilityLevel.PUBLIC)),
             "actor": principal.subject,
         }
     )
@@ -1127,7 +1167,15 @@ def workflow_signal(workflow_id: str):
             data={"reason_code": "workflow_signal_name_invalid"},
             code=422,
         )
-    return _dispatch_workflow_signal(workflow_id, principal, signal)
+    command_id, command_id_error = _workflow_command_id(body.get("command_id"))
+    if command_id_error is not None:
+        return command_id_error
+    return _dispatch_workflow_signal(
+        workflow_id,
+        principal,
+        signal,
+        command_id=command_id,
+    )
 
 
 @vp_bp.post("/workflow/<workflow_id>/resume")
@@ -1150,6 +1198,9 @@ def _named_workflow_control(workflow_id: str, command_name: str):
     if body_error is not None:
         return body_error
     assert body is not None and principal is not None
+    command_id, command_id_error = _workflow_command_id(body.get("command_id"))
+    if command_id_error is not None:
+        return command_id_error
     payload = body.get("payload", body)
     if not isinstance(payload, dict):
         return api_response(
@@ -1158,25 +1209,56 @@ def _named_workflow_control(workflow_id: str, command_name: str):
             data={"reason_code": "workflow_signal_payload_invalid"},
             code=422,
         )
+    safe_payload = dict(payload)
+    safe_payload.pop("command_id", None)
     signal = WorkflowSignal(
         name=command_name,
-        payload=dict(redact_json(redact(payload, VisibilityLevel.PUBLIC)) or {}),
+        payload=dict(redact_json(redact(safe_payload, VisibilityLevel.PUBLIC)) or {}),
         actor=principal.subject,
     )
-    return _dispatch_workflow_signal(workflow_id, principal, signal)
+    return _dispatch_workflow_signal(
+        workflow_id,
+        principal,
+        signal,
+        command_id=command_id,
+    )
 
 
-def _dispatch_workflow_signal(workflow_id: str, principal, signal: WorkflowSignal):
+def _dispatch_workflow_signal(
+    workflow_id: str,
+    principal,
+    signal: WorkflowSignal,
+    *,
+    command_id: str = "",
+):
     backend, backend_failure = configured_workflow_backend(principal)
     if backend_failure is not None:
         return backend_failure
     try:
-        status = backend.signal_workflow(workflow_id, signal)
+        command = getattr(backend, "command_workflow", None)
+        status = (
+            command(
+                workflow_id,
+                command_type=signal.name,
+                payload=dict(signal.payload),
+                command_id=command_id,
+            )
+            if command_id and callable(command)
+            else backend.signal_workflow(workflow_id, signal)
+        )
+    except WorkflowControlCommandRejectedError as exc:
+        safe_reason = _public_command_rejection_reason(exc.reason_code)
+        log_audit(
+            "workflow_control_command_rejected",
+            {"workflow_id": workflow_id, "reason_code": safe_reason},
+        )
+        return backend_error(safe_reason, code=409)
     except PermissionError as exc:
         reason_code = str(exc)
         safe_reason = (
             reason_code
-            if reason_code in {
+            if reason_code
+            in {
                 "temporal_hub_verified_command_required",
                 "workflow_control_checkpoint_binding_mismatch",
                 "workflow_control_plan_binding_mismatch",
@@ -1196,8 +1278,61 @@ def _dispatch_workflow_signal(workflow_id: str, principal, signal: WorkflowSigna
             "workflow_backend_signal_failed",
             {"workflow_id": workflow_id, "exception_type": type(exc).__name__},
         )
+        if str(exc) == "workflow_control_command_observation_pending":
+            try:
+                pending_status = backend.get_workflow_status(workflow_id)
+            except Exception:
+                return backend_error(str(exc), code=503)
+            return backend_result(pending_status, success_code=202)
         return backend_error("workflow_backend_unavailable", code=503)
     return backend_result(status)
+
+
+def _workflow_command_id(raw: Any):
+    if raw is None or raw == "":
+        return "", None
+    if (
+        not isinstance(raw, str)
+        or raw != raw.strip()
+        or len(raw) > 256
+        or not raw
+        or not raw[0].isalnum()
+        or any(not character.isalnum() and character not in "_.:/-" for character in raw)
+    ):
+        return "", api_response(
+            status="error",
+            message="invalid workflow command id",
+            data={"reason_code": "workflow_command_id_invalid"},
+            code=422,
+        )
+    return raw, None
+
+
+def _public_command_rejection_reason(reason_code: str) -> str:
+    allowed = {
+        "approval_gate_not_open",
+        "authorization_binding_mismatch",
+        "command_expired",
+        "command_limit_exceeded",
+        "langgraph_approval_gate_not_open",
+        "langgraph_approval_gate_role_denied",
+        "stale_workflow_revision",
+        "temporal_retry_unsupported",
+        "temporal_plan_edit_unsupported",
+        "workflow_plan_edit_rebind_required",
+        "workflow_control_command_id_conflict",
+        "workflow_control_checkpoint_binding_mismatch",
+        "workflow_control_command_rejected",
+        "workflow_control_plan_binding_mismatch",
+        "workflow_control_policy_binding_mismatch",
+        "workflow_control_principal_binding_mismatch",
+        "workflow_control_run_binding_mismatch",
+        "workflow_not_pausable",
+        "workflow_not_paused",
+        "workflow_terminal",
+    }
+    normalized = str(reason_code or "").strip()
+    return normalized if normalized in allowed else "workflow_control_command_rejected"
 
 
 @vp_bp.get("/workflow/<workflow_id>/events")
@@ -1240,9 +1375,7 @@ def caseflow_edge_trace(workflow_id: str):
     principal, auth_error = require_workflow_owner(workflow_id)
     if auth_error is not None:
         return auth_error
-    body, body_error = workflow_json_body(
-        max_bytes=MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES
-    )
+    body, body_error = workflow_json_body(max_bytes=MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES)
     if body_error is not None:
         return body_error
     try:
@@ -1259,22 +1392,16 @@ def caseflow_edge_trace(workflow_id: str):
     if backend_failure is not None:
         return backend_failure
     try:
-        projection = (
-            get_caseflow_agent_collaboration_trace_projection_service().read(
-                principal=principal,
-                workflow_id=workflow_id,
-                run_id=query.run_id,
-                history=backend,
-            )
+        projection = get_caseflow_agent_collaboration_trace_projection_service().read(
+            principal=principal,
+            workflow_id=workflow_id,
+            run_id=query.run_id,
+            history=backend,
         )
     except CaseflowEdgeTraceProjectionError as exc:
         return api_response(
             status="error",
-            message=(
-                "workflow not found"
-                if exc.status_code == 404
-                else "caseflow edge trace unavailable"
-            ),
+            message=("workflow not found" if exc.status_code == 404 else "caseflow edge trace unavailable"),
             data={"reason_code": exc.reason_code},
             code=exc.status_code,
         )

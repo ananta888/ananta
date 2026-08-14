@@ -21,8 +21,10 @@ from worker.runtime.native_graph.task_adapter import NativeGraphWorkerTaskAdapte
 class FakeQueue:
     def __init__(self, repository):
         self.repository = repository
+        self.ingested_values = []
 
     def ingest_task(self, **values):
+        self.ingested_values.append(values)
         extra = dict(values["extra_fields"])
         self.repository.values[values["task_id"]] = SimpleNamespace(
             id=values["task_id"],
@@ -93,8 +95,9 @@ def result(value: NativeNodeCommand, task_id: str) -> NativeNodeResult:
 
 def test_hub_queue_adapter_creates_real_task_polls_contract_and_cancels() -> None:
     repository = FakeRepository()
+    queue = FakeQueue(repository)
     adapter = AnantaHubTaskQueueAdapter(
-        task_queue=FakeQueue(repository),
+        task_queue=queue,
         task_repository=repository,
         task_runtime=FakeTaskRuntime(repository),
     )
@@ -106,6 +109,16 @@ def test_hub_queue_adapter_creates_real_task_polls_contract_and_cancels() -> Non
     assert receipt.accepted and duplicate.accepted
     task = repository.values[receipt.hub_task_id]
     assert task.worker_execution_context["runtime_path"] == "native_graph_node"
+    assert task.worker_execution_context["native_node_command"]["control_task_id"] == "control-a"
+    # Runtime identities are carried by the typed worker contract.  They are
+    # not persisted as relational Task/Plan identities unless those rows
+    # actually exist in the Hub database.
+    assert {
+        "parent_task_id",
+        "source_task_id",
+        "plan_id",
+        "plan_node_id",
+    }.isdisjoint(queue.ingested_values[0]["extra_fields"])
     task.status = "completed"
     task.verification_status = {"native_node_result": result(value, receipt.hub_task_id).to_dict()}
     assert adapter.poll(

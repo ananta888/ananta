@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine
 
@@ -59,6 +60,22 @@ class NoProviderRequired:
             status="not_required",
             binding=None,
             reason_code="provider_not_required",
+        )
+
+
+class FailFirstCommandFinishStore(SQLAlchemyWorkflowControlBindingStore):
+    def __init__(self, engine) -> None:
+        super().__init__(engine)
+        self.fail_command_finish = True
+
+    def finish_command(self, workflow_id, *, command_id, status):
+        if self.fail_command_finish:
+            self.fail_command_finish = False
+            raise RuntimeError("injected_binding_finish_failure")
+        return super().finish_command(
+            workflow_id,
+            command_id=command_id,
+            status=status,
         )
 
 
@@ -146,6 +163,7 @@ def test_native_production_bridge_uses_sql_state_and_hub_queue_after_restart() -
     assert first_status["backend"] == "local"
     assert first_status["runtime_id"] == "ananta-native"
     assert first_status["status"] == "running"
+    assert all("gate" not in step for step in first_status["steps"])
     assert len(queue.commands) == 1
     first_checkpoint = bridge._orchestrator.checkpoint(  # noqa: SLF001 - contract probe
         bridge._request(binding)  # noqa: SLF001 - contract probe
@@ -220,3 +238,108 @@ def test_native_production_bridge_uses_sql_state_and_hub_queue_after_restart() -
         event["event_type"] == "workflow.run.cancelled"
         for event in restarted.history(principal=principal, run_id=binding.run_id)
     )
+
+
+def test_native_command_checkpoint_receipt_recovers_binding_finish_loss() -> None:
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    SQLModel.metadata.create_all(engine)
+    keys = HmacKeyRing({"native-production": "n" * 32}, active_key_id="native-production")
+    bindings = FailFirstCommandFinishStore(engine)
+    queue = RecordingHubTaskQueue()
+    request = _request()
+    plan = WorkflowRequestExecutionPlanAdapter.adapt(
+        request,
+        tenant_id="tenant-a",
+        policy_version="policy-v1",
+    )
+    binding = WorkflowControlRunBinding(
+        tenant_id="tenant-a",
+        subject_id="owner-a",
+        workflow_id=request.workflow_id,
+        run_id="native-production-run",
+        runtime_id="local",
+        plan_hash=plan.plan_hash,
+        policy_version=plan.policy_version,
+        checkpoint_id=f"legacy-current:{plan.plan_hash[:24]}",
+        request=request,
+    )
+    bindings.put(binding)
+    principal = WorkflowPrincipal("tenant-a", "owner-a")
+    bridge = build_native_graph_workflow_control_bridge(
+        engine=engine,
+        bindings=bindings,
+        key_ring=keys,
+        replay_store=SQLAlchemyWorkflowCommandReplayNonceStore(engine),
+        authorization_grants=SQLAlchemyWorkflowAuthorizationGrantService(engine),
+        provider_decisions=NoProviderRequired(),
+        queue=queue,
+    )
+    bridge.start(
+        principal=principal,
+        plan=plan,
+        run_id=binding.run_id,
+        selection=RuntimeSelection(
+            runtime_id="ananta-native",
+            capabilities=frozenset(),
+            mode="live",
+            reason_code="selected",
+        ),
+        authorization_envelope={
+            "schema": "ananta.workflow_route_control.v1",
+            "tenant_id": "tenant-a",
+            "subject_id": "owner-a",
+            "workflow_id": request.workflow_id,
+            "run_id": binding.run_id,
+        },
+    )
+    before = bindings.last_status(request.workflow_id)
+    assert before is not None
+    issuer = WorkflowCommandIssuer(keys)
+
+    def command():
+        return issuer.issue(
+            command_id="cancel-native-finish-loss",
+            command_type="cancel",
+            tenant_id="tenant-a",
+            workflow_id=request.workflow_id,
+            run_id=binding.run_id,
+            step_id="__workflow__",
+            checkpoint_id=before["checkpoint_ref"],
+            expected_revision=before["revision"],
+            plan_hash=plan.plan_hash,
+            policy_version=plan.policy_version,
+            actor_id="owner-a",
+            actor_roles=(),
+            payload={"reason": "operator"},
+        )
+
+    with pytest.raises(RuntimeError, match="injected_binding_finish_failure"):
+        bridge.cancel(principal=principal, command=command())
+
+    persisted_checkpoint = bridge._orchestrator.checkpoint(  # noqa: SLF001
+        bridge._request(binding)  # noqa: SLF001
+    )
+    assert persisted_checkpoint.revision == before["revision"] + 1
+    assert bindings.last_status(request.workflow_id) == before
+    assert queue.cancelled == ["native-task-1"]
+
+    restarted_bindings = SQLAlchemyWorkflowControlBindingStore(engine)
+    restarted = build_native_graph_workflow_control_bridge(
+        engine=engine,
+        bindings=restarted_bindings,
+        key_ring=keys,
+        replay_store=SQLAlchemyWorkflowCommandReplayNonceStore(engine),
+        authorization_grants=SQLAlchemyWorkflowAuthorizationGrantService(engine),
+        provider_decisions=NoProviderRequired(),
+        queue=queue,
+    )
+    recovered = restarted.recover_command(principal=principal, command=command())
+
+    assert recovered["status"] == "cancelled"
+    assert recovered["revision"] == before["revision"] + 1
+    assert queue.cancelled == ["native-task-1"]
+    assert restarted_bindings.last_status(request.workflow_id) == recovered

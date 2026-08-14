@@ -8,6 +8,7 @@ ownership and persistence).  Every executable task node is submitted through
 
 from __future__ import annotations
 
+import hashlib
 import time
 from typing import Any
 
@@ -33,6 +34,7 @@ from agent.services.workflow_provider_selection_service import (
     WorkflowProviderDecisionPort,
     build_workflow_provider_decision_service,
 )
+from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand, WorkflowCommandVerifier
 from agent.services.workflow_runtime.components import (
     WorkflowComponentCompiler,
@@ -59,6 +61,28 @@ from agent.services.workflow_runtime.security import (
 from agent.services.workflow_runtime.side_effects import SideEffectLedger, side_effect_event
 
 _TERMINAL = NATIVE_GRAPH_TERMINAL_STATUSES
+
+
+def _command_fingerprint(command: SignedWorkflowCommand) -> str:
+    """Hash stable command semantics, excluding renewable signature fields."""
+
+    value = {
+        "schema": command.schema,
+        "command_id": command.command_id,
+        "command_type": command.command_type,
+        "tenant_id": command.tenant_id,
+        "workflow_id": command.workflow_id,
+        "run_id": command.run_id,
+        "step_id": command.step_id,
+        "checkpoint_id": command.checkpoint_id,
+        "expected_revision": command.expected_revision,
+        "plan_hash": command.plan_hash,
+        "policy_version": command.policy_version,
+        "actor_id": command.actor_id,
+        "actor_roles": sorted(command.actor_roles),
+        "payload": dict(command.payload),
+    }
+    return hashlib.sha256(canonical_json(value).encode("utf-8")).hexdigest()
 
 
 class NativeGraphOrchestrator:
@@ -222,6 +246,7 @@ class NativeGraphOrchestrator:
         *,
         command: SignedWorkflowCommand,
         checkpoint: SignedCheckpoint | None = None,
+        admitted_replay: bool = False,
     ) -> NativeGraphResult:
         request.assert_valid()
         requested_plan = self._compile(request.plan)
@@ -233,7 +258,29 @@ class NativeGraphOrchestrator:
             plan = self._effective_plan(requested_plan, state, current)
             self._verify_checkpoint(current, plan, request)
         self._assert_request_state_binding(request, current, state)
-        self._commands.verify_once(
+        command_fingerprint = _command_fingerprint(command)
+        if state.last_command_id == command.command_id:
+            # A checkpoint is the Native runtime's durable mutation receipt.
+            # Exact retries are verified but never re-apply the transition;
+            # this closes the checkpoint-save -> Hub-binding-commit window.
+            duplicate_verifier = self._commands.verify_persisted if admitted_replay else self._commands.verify
+            duplicate_verifier(
+                command,
+                tenant_id=plan.tenant_id,
+                workflow_id=plan.workflow_id,
+                run_id=request.run_id,
+                step_id=command.step_id,
+                checkpoint_id=command.checkpoint_id,
+                expected_revision=command.expected_revision,
+                plan_hash=plan.plan_hash,
+                policy_version=plan.policy_version,
+                now=float(self._clock()),
+            )
+            if state.last_command_fingerprint != command_fingerprint:
+                raise PermissionError("native_control_command_receipt_conflict")
+            return self._result(plan, request, state, current)
+        verifier = self._commands.verify_persisted if admitted_replay else self._commands.verify_once
+        verifier(
             command,
             tenant_id=plan.tenant_id,
             workflow_id=plan.workflow_id,
@@ -251,6 +298,8 @@ class NativeGraphOrchestrator:
         plan = self._apply_command(plan, request, state, command)
         if state.status == "running":
             self._tick(plan, request, state)
+        state.last_command_id = command.command_id
+        state.last_command_fingerprint = command_fingerprint
         updated = self._save_checkpoint(plan, request, state)
         return self._result(plan, request, state, updated)
 

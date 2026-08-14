@@ -132,6 +132,45 @@ class WorkflowRuntimeBridgeRegistry(HubWorkflowTaskBridge):
             "reports": reports,
         }
 
+    def retry_command(
+        self,
+        *,
+        binding: Any,
+        command_id: str,
+        command_type: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Route an idempotent retry to the bridge bound by the Hub."""
+
+        bridge = self._require_bridge(str(binding.runtime_id))
+        retry = getattr(bridge, "retry_command", None)
+        if not callable(retry):
+            return None
+        value = retry(
+            binding=binding,
+            command_id=command_id,
+            command_type=command_type,
+            payload=payload,
+        )
+        return dict(value) if value is not None else None
+
+    def recover_command(
+        self,
+        *,
+        principal: WorkflowPrincipal,
+        command: SignedWorkflowCommand,
+    ) -> dict[str, Any]:
+        """Replay one durably admitted synchronous command under Hub control."""
+
+        bridge = self._bridge_for_run(command.run_id)
+        recover = getattr(bridge, "recover_command", None)
+        if not callable(recover):
+            raise RuntimeError("workflow_control_command_recovery_unsupported")
+        value = recover(principal=principal, command=command)
+        if not isinstance(value, dict):
+            raise TypeError("workflow_control_command_recovery_invalid")
+        return dict(value)
+
     def _bridge_for_run(self, run_id: str) -> HubWorkflowTaskBridge:
         binding = self._bindings.get_by_run_id(str(run_id))
         if binding is None:

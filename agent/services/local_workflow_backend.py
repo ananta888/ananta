@@ -4,6 +4,7 @@ This backend intentionally does not execute worker business logic.  It records
 validated workflow requests, exposes status, and models approval/cancel signals
 so the hub can use the same port before a durable backend is enabled.
 """
+
 from __future__ import annotations
 
 import time
@@ -57,29 +58,30 @@ class LocalWorkflowBackend:
         state = _RunState(
             request=request,
             status="waiting_for_approval" if any(step.gate for step in request.steps) else "running",
-            step_status={
-                step.step_id: ("waiting_for_approval" if step.gate else "pending")
-                for step in request.steps
-            },
+            step_status={step.step_id: ("waiting_for_approval" if step.gate else "pending") for step in request.steps},
         )
         if state.status == "running":
             first_ready = next((step for step in request.steps if not step.gate), None)
             if first_ready is not None:
                 state.step_status[first_ready.step_id] = "running"
-        state.events.append(workflow_backend_event(
-            workflow_id=request.workflow_id,
-            event_type="workflow_started",
-            status=state.status,
-            details={"step_count": len(request.steps), "correlation_id": request.correlation_id},
-        ))
+        state.events.append(
+            workflow_backend_event(
+                workflow_id=request.workflow_id,
+                event_type="workflow_started",
+                status=state.status,
+                details={"step_count": len(request.steps), "correlation_id": request.correlation_id},
+            )
+        )
         active_step = next((sid for sid, status in state.step_status.items() if status == "running"), "")
         if active_step:
-            state.events.append(workflow_backend_event(
-                workflow_id=request.workflow_id,
-                event_type="step_started",
-                status="running",
-                details={"step_id": active_step},
-            ))
+            state.events.append(
+                workflow_backend_event(
+                    workflow_id=request.workflow_id,
+                    event_type="step_started",
+                    status="running",
+                    details={"step_id": active_step},
+                )
+            )
         self._runs[request.workflow_id] = state
         return self.get_workflow_status(request.workflow_id)
 
@@ -92,18 +94,19 @@ class LocalWorkflowBackend:
         if str(status.get("workflow_id") or "") != workflow_id:
             raise ValueError("local_workflow_restore_binding_mismatch")
         raw_steps = status.get("steps")
-        step_status = {
-            str(item.get("step_id") or item.get("id") or ""): str(item.get("status") or "pending")
-            for item in raw_steps
-            if isinstance(item, dict) and str(item.get("step_id") or item.get("id") or "")
-        } if isinstance(raw_steps, list) else {}
+        step_status = (
+            {
+                str(item.get("step_id") or item.get("id") or ""): str(item.get("status") or "pending")
+                for item in raw_steps
+                if isinstance(item, dict) and str(item.get("step_id") or item.get("id") or "")
+            }
+            if isinstance(raw_steps, list)
+            else {}
+        )
         self._runs[workflow_id] = _RunState(
             request=request,
             status=str(status.get("status") or "pending"),
-            step_status={
-                step.step_id: step_status.get(step.step_id, "pending")
-                for step in request.steps
-            },
+            step_status={step.step_id: step_status.get(step.step_id, "pending") for step in request.steps},
             events=[dict(item) for item in status.get("events") or () if isinstance(item, dict)],
             revision=max(1, int(status.get("revision") or 1)),
             created_at=float(status.get("created_at") or time.time()),
@@ -132,24 +135,27 @@ class LocalWorkflowBackend:
             tasks=[],
             include_audit_log=False,
         )
-        status_payload.update({
-            "schema": WORKFLOW_STATUS_SCHEMA,
-            "backend": self.backend_id,
-            "workflow_request_schema": request.to_dict().get("schema"),
-            "workflow_id": request.workflow_id,
-            "status": state.status,
-            "steps": [
-                _status_step_dict(step, state.step_status.get(step.step_id, "pending"))
-                for step in request.steps
-            ],
-            "correlation_id": request.correlation_id,
-            "created_at": state.created_at,
-            "updated_at": state.updated_at,
-            "revision": state.revision,
-            "checkpoint_ref": f"local:{request.workflow_id}:{state.revision}",
-            "plan_hash": str(request.metadata.get("plan_hash") or ""),
-            "events": list(state.events),
-        })
+        status_payload.update(
+            {
+                "schema": WORKFLOW_STATUS_SCHEMA,
+                "backend": self.backend_id,
+                "workflow_request_schema": request.to_dict().get("schema"),
+                "workflow_id": request.workflow_id,
+                "run_id": str(request.metadata.get("run_id") or request.workflow_id),
+                "tenant_id": str(request.metadata.get("tenant_id") or ""),
+                "status": state.status,
+                "steps": [
+                    _status_step_dict(step, state.step_status.get(step.step_id, "pending")) for step in request.steps
+                ],
+                "correlation_id": request.correlation_id,
+                "created_at": state.created_at,
+                "updated_at": state.updated_at,
+                "revision": state.revision,
+                "checkpoint_ref": f"local:{request.workflow_id}:{state.revision}",
+                "plan_hash": str(request.metadata.get("plan_hash") or ""),
+                "events": list(state.events),
+            }
+        )
         return status_payload
 
     def cancel_workflow(self, workflow_id: str, reason: str = "") -> dict[str, Any]:
@@ -162,25 +168,29 @@ class LocalWorkflowBackend:
         for step_id in list(state.step_status):
             if state.step_status[step_id] not in {"completed", "failed", "cancelled"}:
                 state.step_status[step_id] = "cancelled"
-        state.events.append(workflow_backend_event(
-            workflow_id=state.request.workflow_id,
-            event_type="workflow_cancelled",
-            status=state.status,
-            details={"reason": reason},
-        ))
+        state.events.append(
+            workflow_backend_event(
+                workflow_id=state.request.workflow_id,
+                event_type="workflow_cancelled",
+                status=state.status,
+                details={"reason": reason},
+            )
+        )
         return self.get_workflow_status(workflow_id)
 
     def signal_workflow(self, workflow_id: str, signal: WorkflowSignal) -> dict[str, Any]:
         state = self._runs.get(str(workflow_id or "").strip())
         if state is None:
             return self.get_workflow_status(workflow_id)
-        state.events.append(workflow_backend_event(
-            workflow_id=state.request.workflow_id,
-            event_type=f"signal:{signal.name}",
-            status=state.status,
-            actor=signal.actor,
-            details=signal.payload,
-        ))
+        state.events.append(
+            workflow_backend_event(
+                workflow_id=state.request.workflow_id,
+                event_type=f"signal:{signal.name}",
+                status=state.status,
+                actor=signal.actor,
+                details=signal.payload,
+            )
+        )
         if signal.name == "approve":
             for step_id, status in list(state.step_status.items()):
                 if status == "waiting_for_approval":
@@ -199,8 +209,7 @@ class LocalWorkflowBackend:
             _activate_first_pending(state)
         elif signal.name == "retry" and state.status in {"failed", "cancelled"}:
             state.step_status = {
-                step.step_id: ("waiting_for_approval" if step.gate else "pending")
-                for step in state.request.steps
+                step.step_id: ("waiting_for_approval" if step.gate else "pending") for step in state.request.steps
             }
             state.status = (
                 "waiting_for_approval"
@@ -225,7 +234,6 @@ def _status_step_dict(step, status: str) -> dict[str, Any]:
         "step_id": step.step_id,
         "role": step.role,
         "task_kind": step.task_kind,
-        "gate": step.gate,
         "consumes": list(step.input_artifacts),
         "status": status,
         "selected_model_profile_id": routing.get("preferred_profile_id"),
