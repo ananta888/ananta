@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.caseflow_agent_collaboration_gate.v1",
+  "title": "CaseFlow agent collaboration canvas release gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "gate_id",
+    "status",
+    "fail_closed",
+    "source_manifest",
+    "source_manifest_sha256",
+    "source_ids",
+    "run_ids",
+    "source_ids_synthesized",
+    "test_outputs",
+    "reason_codes"
+  ],
+  "properties": {
+    "schema": { "const": "ananta.caseflow_agent_collaboration_gate.v1" },
+    "gate_id": { "const": "CAC-013" },
+    "status": { "$ref": "#/$defs/status" },
+    "fail_closed": { "const": true },
+    "source_manifest": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "uniqueItems": true,
+      "items": { "$ref": "#/$defs/sourceEntry" }
+    },
+    "source_manifest_sha256": { "$ref": "#/$defs/sha256" },
+    "source_ids": { "type": "array", "maxItems": 0 },
+    "run_ids": { "type": "array", "maxItems": 0 },
+    "source_ids_synthesized": { "const": false },
+    "test_outputs": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        { "$ref": "#/$defs/angularOutput" },
+        { "$ref": "#/$defs/hubOutput" },
+        { "$ref": "#/$defs/browserOutput" }
+      ]
+    },
+    "reason_codes": {
+      "type": "array",
+      "maxItems": 64,
+      "uniqueItems": true,
+      "allOf": [
+        { "contains": { "const": "temporal_command_authority_verification_required" } },
+        { "contains": { "const": "workflow_command_transition_outbox_required" } },
+        { "contains": { "const": "workflow_terminal_trace_reconciliation_required" } }
+      ],
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160,
+        "pattern": "^[a-z0-9_.:-]+$"
+      }
+    }
+  },
+  "$defs": {
+    "status": { "type": "string", "enum": ["passed", "failed"] },
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "repositoryPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 320,
+      "pattern": "^[A-Za-z0-9._@+-]+(?:/[A-Za-z0-9._@+-]+)*$"
+    },
+    "sourceEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": { "$ref": "#/$defs/repositoryPath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "testOutputBase": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "suite_id",
+        "format",
+        "output_ref",
+        "status",
+        "tests",
+        "passed",
+        "failed",
+        "skipped",
+        "normalized_sha256"
+      ],
+      "properties": {
+        "suite_id": { "type": "string" },
+        "format": { "type": "string" },
+        "output_ref": { "$ref": "#/$defs/repositoryPath" },
+        "status": { "$ref": "#/$defs/status" },
+        "tests": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "normalized_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "angularOutput": {
+      "allOf": [
+        { "$ref": "#/$defs/testOutputBase" },
+        {
+          "properties": {
+            "suite_id": { "const": "angular-focused" },
+            "format": { "const": "vitest-json" },
+            "output_ref": { "const": "ephemeral/vitest.json" }
+          }
+        }
+      ]
+    },
+    "hubOutput": {
+      "allOf": [
+        { "$ref": "#/$defs/testOutputBase" },
+        {
+          "properties": {
+            "suite_id": { "const": "hub-focused" },
+            "format": { "const": "pytest-junit" },
+            "output_ref": { "const": "ephemeral/pytest.xml" }
+          }
+        }
+      ]
+    },
+    "browserOutput": {
+      "allOf": [
+        { "$ref": "#/$defs/testOutputBase" },
+        {
+          "properties": {
+            "suite_id": { "const": "studio-browser" },
+            "format": { "const": "playwright-json" },
+            "output_ref": { "const": "ephemeral/playwright.json" }
+          }
+        }
+      ]
+    }
+  }
+}

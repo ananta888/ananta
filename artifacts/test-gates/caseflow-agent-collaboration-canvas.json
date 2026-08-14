@@ -1,0 +1,496 @@
+{
+  "fail_closed": true,
+  "gate_id": "CAC-013",
+  "reason_codes": [
+    "temporal_command_authority_verification_required",
+    "workflow_command_transition_outbox_required",
+    "workflow_terminal_trace_reconciliation_required"
+  ],
+  "run_ids": [],
+  "schema": "ananta.caseflow_agent_collaboration_gate.v1",
+  "source_ids": [],
+  "source_ids_synthesized": false,
+  "source_manifest": [
+    {
+      "path": "agent/routes/visual_process.py",
+      "sha256": "f76dd9e9863fcb03cb0fa865d30e28d1e51993cd001d1410efaf52fdd17a7761"
+    },
+    {
+      "path": "agent/routes/workflow_control_security.py",
+      "sha256": "6c041652be404c109e649cf9cc7f876ca3ebb9310487d02c70a7c52e9e69699a"
+    },
+    {
+      "path": "agent/services/caseflow_agent_collaboration_trace_projection_service.py",
+      "sha256": "ddcf8ea1a77e9390271cf98e9e401a3911d36b3af82f892a86e626117f05f237"
+    },
+    {
+      "path": "agent/services/local_workflow_backend.py",
+      "sha256": "74e2ffc5edc4961b9d0b571ae681a781a557a520de1313d2648eb5c4f4ef7366"
+    },
+    {
+      "path": "agent/services/native_graph_task_queue_adapter.py",
+      "sha256": "294f92db3ab027eeacf4f10ece174dc7cf2d2bfafa7d31c02273c7498dea6da3"
+    },
+    {
+      "path": "agent/services/native_graph_control_bridge.py",
+      "sha256": "c68517237584cd9d513500bd63471009a1f77cd3e68725e15c64bcb4fa58f511"
+    },
+    {
+      "path": "agent/services/native_graph_models.py",
+      "sha256": "de1957869a5fabfa53e7ac54bc6e8836a130af4eb5508eff4e2b04b9ab951919"
+    },
+    {
+      "path": "agent/services/native_graph_orchestration_service.py",
+      "sha256": "e7d9395166a0b010c63f00b8c48f3640214f54216db65b5aa433d5166bc6376b"
+    },
+    {
+      "path": "agent/services/langgraph_workflow_control_bridge.py",
+      "sha256": "00aaccbe0a896cf5dc5c284f487a6ea121ea34c843516c97a06c7b187e2b7fc3"
+    },
+    {
+      "path": "agent/services/temporal_workflow_backend.py",
+      "sha256": "c9d98ae9114b6f33d3013420378655e1772497be509310122e0ae055bf0f7b8f"
+    },
+    {
+      "path": "agent/services/workflow_backend_durable_run_adapter.py",
+      "sha256": "e7f885bfb2a2f32f87db28b79ee83738a785d89e470b86807297b88261e581e9"
+    },
+    {
+      "path": "agent/services/workflow_configured_bridge_reconciler.py",
+      "sha256": "d77bb77e4d0c014ee90d5074381a91abf19d08dea411b508419f33b7524e7f8e"
+    },
+    {
+      "path": "agent/services/workflow_control_bindings.py",
+      "sha256": "e67d6f1e057d0fd0862683af35cba284f09ecc3c4bfb9b6d09dfcc111c0326ca"
+    },
+    {
+      "path": "agent/services/workflow_control_composition.py",
+      "sha256": "7228ac19215084a917923211eeedc213e35d7838a14db8332453111ed00c3a31"
+    },
+    {
+      "path": "agent/services/workflow_control_command_verification.py",
+      "sha256": "52707bfc6f80287e7f2b09c8ae9b0bfa3bac5a46ea2ef7eca7f9d7c1f6634ac3"
+    },
+    {
+      "path": "agent/services/workflow_control_command_receipts.py",
+      "sha256": "b2cd0b3e3980993c2c4f07dcb9eaa00a25f812f1422d69d59fd87de2a461b17e"
+    },
+    {
+      "path": "agent/services/workflow_control_command_receipt_persistence.py",
+      "sha256": "af74813d112bb287234991247ddc6044c30793cb3271656bd5f5ef5c08004a64"
+    },
+    {
+      "path": "agent/services/workflow_control_dispatch_intents.py",
+      "sha256": "11ae7a93321cdc9bc8b53e5f290d2e3d59eba0cdc2052412c554faf8969ab654"
+    },
+    {
+      "path": "agent/services/workflow_control_dispatch_persistence.py",
+      "sha256": "008d335e2c0be29f0de4cafac618e37ea8c1aa7879bf3cd20e2d3c940deba47c"
+    },
+    {
+      "path": "agent/services/workflow_control_dispatch_service.py",
+      "sha256": "897f1db773ee0769345c906c30c46b9caf053e02d942b9c3c09bc148f82415e7"
+    },
+    {
+      "path": "agent/services/workflow_control_persistence.py",
+      "sha256": "e840db2b0d1444e3e4ab8eb187ed743010fae7646e7c38b8312a08ace063e61b"
+    },
+    {
+      "path": "agent/services/workflow_control_production_composition.py",
+      "sha256": "b266cc97cbf4f1b665257ac003f3d46ad0d2d8b4f0517d1603832e8d26e971b4"
+    },
+    {
+      "path": "agent/services/workflow_control_runtime_registry_composition.py",
+      "sha256": "8d227b5290e8593738de756eed2d1263e9619f18f647c140afe37093ae38e011"
+    },
+    {
+      "path": "agent/services/workflow_control_service.py",
+      "sha256": "aa5a53ff324649cfe5be8e1bd3ec4944e3b66c0d0635c8f5422cb4847c8bfc5b"
+    },
+    {
+      "path": "agent/services/workflow_runtime_status_projection.py",
+      "sha256": "65c2a98ee3a832579c1c9ae1f608abcf28ea423d388c30b6e12db4a9cc80fc67"
+    },
+    {
+      "path": "agent/services/workflow_runtime/commands.py",
+      "sha256": "6e7e2512310e59fd4a35bcf31044951953ee0f8ea88bd6999abafdff062eeb7d"
+    },
+    {
+      "path": "agent/services/workflow_runtime/ports.py",
+      "sha256": "9561ffe07881ad426a71df2ff8f18e9eae82b33b63f87a58d23e5ad116774c0d"
+    },
+    {
+      "path": "agent/services/workflow_runtime_bridge_registry.py",
+      "sha256": "e89e6bb355ba889a3803e2a8924f11b185532334c90c1acd2f40263e5fddb8de"
+    },
+    {
+      "path": "agent/visual_process/definition_snapshot_contract.py",
+      "sha256": "f4f350eb122553c9f00db8ede71ca61d8c12e4a0c74632416f760c92665f9a99"
+    },
+    {
+      "path": "agent/visual_process/blueprint_mapper.py",
+      "sha256": "a44a9921382d1813d218d84806cace8c54608f262ea5a57aa6f67c58ec421ae4"
+    },
+    {
+      "path": "worker/temporal/workflows.py",
+      "sha256": "63e7dce3615a534f5f30b53be4ec387f26ecdabdd445dec17eacd1e9c044b089"
+    },
+    {
+      "path": "agent/db_models/workflow_runtime.py",
+      "sha256": "d1a753b3a947a54f82d4f0a854c940512e3b9f7749a4f9dabb548a1dec6b0230"
+    },
+    {
+      "path": "agent/db_models/__init__.py",
+      "sha256": "5b129c9f466c80ab04abe981278707417dd6057db818ab553d7a46f02b604674"
+    },
+    {
+      "path": "migrations/versions/c7e9a1b3d5f7_add_workflow_command_observation_pending.py",
+      "sha256": "634b8a04faa8c456ac4a29ffbea9d134dd1a156ad5d942e2fe41c32d201735b5"
+    },
+    {
+      "path": "frontend-angular/playwright.caseflow-agent-collaboration.config.ts",
+      "sha256": "448120e536004fa2943cf9f9362dfb815240e5e8adaae7c7f6e65c14936cabe8"
+    },
+    {
+      "path": "frontend-angular/tests/caseflow-agent-collaboration.spec.ts",
+      "sha256": "d70347a28306bdf298c7ccb33c9cbf4caa548a2dbc64f6315fc9f7579db9db1c"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.ts",
+      "sha256": "1d7ccf5041ee6f253fc47bce13ed8e920a37d9ad0fde24425673b06edf45a1a6"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.mapper.ts",
+      "sha256": "2886d0c3447f0b08b255ce3ea4f06b9116c97f6542e4e02e21059d1cee64b090"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-activity.mapper.ts",
+      "sha256": "e9fa16dbf99bd24cd9f94954983b690ab8b19269662358bdcec0d4aa8a2f55df"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.ts",
+      "sha256": "d0269856c5d8ff4d23f5ff5db5c1b7b6bff985b87206f14e8304b43879c9e81f"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.scss",
+      "sha256": "61953d7693eb7d46fd15599b06c2255acabe6c3f40cfc7b20e82d2abc3ff2c06"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.scss",
+      "sha256": "0bb8b6956103b3338db8d6e902718e241da42b3381ad03c57abcd37169a7f0a3"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-graph.commands.ts",
+      "sha256": "06fdb1d8f237c5e1e773922ac35cbab0870703d2959b8eb50d2e767797527240"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-neighborhood.selector.ts",
+      "sha256": "c3fd110f79195075cab3cd52a4cfb4670043ed7dc9e4cfc10fb3c36a38e58ae4"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-inspector.component.ts",
+      "sha256": "32b36582cd92f7851cc58e482e617d11e8b651a48416e0fbb7d973a131f7b98a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime.mapper.ts",
+      "sha256": "9472bf0d53c8e9a7b35ce490917e5eae5a952de132ffb2488e212ef0018769ed"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace-api.service.ts",
+      "sha256": "9dd4955cb6e7c78ed4da1a43d4a73171c694eadb17511f07216f7b018ea960a8"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace.validator.ts",
+      "sha256": "5fdf4c5c3b68f9aee40c187ee98f40c3c0d042ebc0e7f21c86143dd9480278b1"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime-inspector.component.ts",
+      "sha256": "26268d1210542c26c05122e1e377dd3da90d494c23ec0f9f73cde25f4f6d453a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime-inspector.component.scss",
+      "sha256": "9a82526f0f9230e2c9c16524b56621655b603dcc8e33621c098fba4868fc9153"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime-session.facade.ts",
+      "sha256": "9c027d6494694b300fa428fd08f007d90b17b0103dd4612df1055f96f6304f0a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime.mapper.ts",
+      "sha256": "d2377ca48586d2bc71a6a07961b16db5b1e8bb5d385fb2374c3758517490a367"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-binding-catalog.service.ts",
+      "sha256": "cf74126c30c4cbcb00849ef6b6e836b8602712628f3df15bf7806fecb0a73ad7"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-preset.commands.ts",
+      "sha256": "9fa227b61b3a9b768dc4c95684c0449a473679dfaf450f4cc63829537471049b"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace-list.component.ts",
+      "sha256": "4c2b4623895278177d60a98179c24c6c1cfbb415b1755e79432461f118158045"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-role-catalog.ts",
+      "sha256": "0f55190733bc897001fb359c654cbe223ab67e18192d1af4aa3e4d678f3c6e51"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-navigation.ts",
+      "sha256": "123679e8cb9b9541d5a216d3c09e3fd8c57562bf4daf25ecc96068bcf74985be"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio-selection.facade.ts",
+      "sha256": "125e77eff4992ca94e17660d368418ee822bfe38b0e9acdb89f59768d9a9c031"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio-workspace.facade.ts",
+      "sha256": "0d717459e338e14f9d09b4836122ed4f8ea1b0deb7d23e52c9e845ecabfd0c08"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio.component.ts",
+      "sha256": "199050a1ced9af0ede2294c1d617ebf9e4560f8593d7109e1598d6b56dcba8c6"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio.guard.ts",
+      "sha256": "5790b119c0c47b832e471a70fa08d8126f593504f7f3a290543e5893d7f08e02"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
+      "sha256": "057e2f1ccac656865f83d5af3ab396e4bcbb7c217e779544d8ac53c4f020ac73"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-definition-hash.ts",
+      "sha256": "d03f0ee41cd9e4256f8049e1f9dc2e26d0ebdbdd91d955a4c40cda18d4ecffd6"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-runtime-overlay.mapper.ts",
+      "sha256": "6294d5151f220417c91224dc7131a16dc3c6873bb312a3b34cb9f5cca391ed55"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-workflow-runner.service.ts",
+      "sha256": "bf83a914277384ff528d8691105c0a85046985b07ee6de94718804f06d7e4c77"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.html",
+      "sha256": "d5166347d4e375e2c68be300d8efee2393dabd096e9ec744bbe312a766cc104b"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
+      "sha256": "cde58f9c8acc4a0ce9de965d0ee3c4bfec898815e214b2564d17cac0de948cc1"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts",
+      "sha256": "2d8357f3d205bc7c266eb59e45e80aa74ba6f8a91f594fa81cbc2eaa2a1a75ec"
+    },
+    {
+      "path": "schemas/testing/caseflow_agent_collaboration_gate.v1.json",
+      "sha256": "a0ea9d2f1350d3b8288d6d638d49ab70c4ece14ef39670941fd797157f3110e5"
+    },
+    {
+      "path": "scripts/run_caseflow_agent_collaboration_gate.py",
+      "sha256": "ea961c8a80b5d82842086f0156e30c9a239888b45085351660102a8276cc3045"
+    },
+    {
+      "path": "tests/services/test_caseflow_agent_collaboration_trace_projection_service.py",
+      "sha256": "c9fad96224418a2c1d6d0d9777062d52c6ef1ff0eebdb2a8baef89430ad4fb9b"
+    },
+    {
+      "path": "tests/test_caseflow_agent_collaboration_trace_api.py",
+      "sha256": "f0616986352dd047efe75cfa21647923299d41d80d4e0a2acd12691f544e3a9d"
+    },
+    {
+      "path": "tests/test_caseflow_agent_collaboration_gate.py",
+      "sha256": "327f0a5ac3a33f0beffb61d95f32afe4835d06048a30c9815c84dbc1acdf0ce1"
+    },
+    {
+      "path": "tests/test_caseflow_workflow_runtime_contract_api.py",
+      "sha256": "d2f85ae4030063832ee7ea94988010f02df74a81eacd057c83184b0f2e7b579f"
+    },
+    {
+      "path": "tests/test_workflow_configured_bridge_reconciler.py",
+      "sha256": "d5da32b0e12f3fcb5e3cec2038f2e1f9e0ef3b578453c02dc5e6bf70d367107c"
+    },
+    {
+      "path": "tests/test_workflow_control_http_result.py",
+      "sha256": "845f64403079e263c9d1af24578d217c80d6966b74044597a031ea3f8c049ec8"
+    },
+    {
+      "path": "tests/test_workflow_control_dispatch_intents.py",
+      "sha256": "07d3613ce56075bcf137fa05eea70d3d43e00d9393597467d975844a2e3a76f2"
+    },
+    {
+      "path": "tests/test_workflow_control_composition.py",
+      "sha256": "ad75418291a736a463c6b4e766dabd4c743ce1039998bdbcbd81fe608a364109"
+    },
+    {
+      "path": "tests/test_workflow_control_persistence.py",
+      "sha256": "2a9f910d1324cd144dacef95674ec40de10731d2281fd18a2726576495d8f154"
+    },
+    {
+      "path": "tests/test_native_graph_task_adapters.py",
+      "sha256": "d0e6a7e375924e76f68343597395a6a78011d1dafd2a16a6c991900d7d4fb98b"
+    },
+    {
+      "path": "tests/test_native_graph_production_bridge.py",
+      "sha256": "0dffad544aa4e90be0666c0a6e33aeb6f978f7a95b5a1c197b65f82ef5868689"
+    },
+    {
+      "path": "tests/test_langgraph_workflow_control_bridge.py",
+      "sha256": "27ba7fa75a1723501c0a91843e3e177a4231d67c472217e33162215642cad633"
+    },
+    {
+      "path": "tests/test_temporal_runtime_contracts.py",
+      "sha256": "ce11147baa11da0cf81fabdd918aba5a2b01300016a4d92007ff17d135c6aa03"
+    },
+    {
+      "path": "tests/test_visual_process_bpmn_workflow.py",
+      "sha256": "98c445d7a6fba833e1e999bb38860f95783dca3eb52b25bc2f7b95aa1782c322"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-binding-catalog.service.spec.ts",
+      "sha256": "cb509c797bf5f9b36591ebd0b8c96ba4ee82b64b202e9a5b0c520ad34775050c"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.mapper.spec.ts",
+      "sha256": "470b1f7bdbb28002a9615d406c42a187a86615380bf49c9edc4a531f771228ae"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-activity.mapper.spec.ts",
+      "sha256": "bd4639a7d16e08ab3eb4f96d3c024bb8e6fcc1126d251c24bfb601b2e44952d8"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-graph.commands.spec.ts",
+      "sha256": "8d9e64a213eaa5ca1e8ba6c7446521a759b16dcbcee7292417e68c80d4b75496"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-canvas.component.spec.ts",
+      "sha256": "7be880bf3d8d0a3745ee74666d82861c07168daacfe2a4163cd335918844f487"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-edge-inspector.component.spec.ts",
+      "sha256": "58bfbff061cb045502ec78a90ea31753cf58f8bba28028e99f9583879e7a7f9d"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-neighborhood.selector.spec.ts",
+      "sha256": "4d74fe223c8aa5aca11bc52dbec8d04d42f32b3c16e01679892fe58007fbef85"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-inspector.component.spec.ts",
+      "sha256": "41a20223e627597578ace915dc2ea88ae5f0579b3a1d501b3378a7afda0f0078"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime-inspector.component.spec.ts",
+      "sha256": "8102342b54c993cba6c834ed6b437fef1f5464d6e88fad81dcb5d60ffdeadadb"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-node-runtime.mapper.spec.ts",
+      "sha256": "004c35ed062bee626258c04fcd9302e397fb23c7218d72a10d9006ae78edfcc9"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-preset.commands.spec.ts",
+      "sha256": "e118872c01d5aaee828f9220cdeb75c68c9c8feba2e24325e82e8757c95bd71d"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime-session.facade.spec.ts",
+      "sha256": "120c61568863a2532a8f92c0288545952c3e0db4d30d22042a95dfb96050bcb0"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-agent-runtime.mapper.spec.ts",
+      "sha256": "2d4733cb30ba331a94ed645d16cfe5aa4bb1010cefbbe5ab5a02e060ba046dcc"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace-api.service.spec.ts",
+      "sha256": "51470bfde33eda32c948d6ce04ccfc64c671f2b21e3895a07def6226d772be85"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace-list.component.spec.ts",
+      "sha256": "8da0b4490144f7dd240d7809962c8ea2d7c386a064fc001a316e07b42280f87a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-edge-trace.validator.spec.ts",
+      "sha256": "b48ad73572d3edbd75b929cf821cd54a7d68af59f85de8d11a3a9cfc82b6b736"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/agent-canvas/caseflow-role-catalog.spec.ts",
+      "sha256": "b7cae0fe5db923e388728bedc296f6585a29ab1299a42dea170e9f200d6a5bbf"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-navigation.spec.ts",
+      "sha256": "b9de4168efb06bbfab510edca0fe8f2e2b9b9f76adcef94f3952195e4707b97a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio-selection.facade.spec.ts",
+      "sha256": "5f115c100bf4e51fef19a754a56d422cfd23d363e60de691473eef100a41c63a"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio-workspace.facade.spec.ts",
+      "sha256": "0081546fcc6a1bc4cc79c795afc7ae6971fcd511226fb6ca3ef6d73ba42c57f3"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio.component.spec.ts",
+      "sha256": "cfa301ba4aeaec03fb3317bfb549c721739944ef1f114150f2dc992df0eff34d"
+    },
+    {
+      "path": "frontend-angular/src/app/features/caseflow/scenario/caseflow-studio.guard.spec.ts",
+      "sha256": "df50cb808b887193c604b29fe2ca10e2866b53b18ce6118419c7ab283fdf5d2c"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.spec.ts",
+      "sha256": "905da1a4f4c9e6823658275e5e33ac1fe0e3105a0be9a1be0ab47003af5c30e0"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/visual-process-api.service.spec.ts",
+      "sha256": "3781f700f025a8aef3d0d74b9a71372f1ff80cae2245a7a41b00bc712a7cb460"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.spec.ts",
+      "sha256": "4c30478b7e62354999b9ba7e84f9c30c5c8e1c8019beddd5d32fbe65bae2f3d0"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-runtime-overlay.mapper.spec.ts",
+      "sha256": "ba8d80ad28e25406f1f752c247d80008cf7dea901220873293021b366d87163b"
+    },
+    {
+      "path": "frontend-angular/src/app/features/visual-process/vp-workflow-runner.service.spec.ts",
+      "sha256": "52eeac1e9d382f31784056e63f85f08401e7d380c372490f3608940f18dc6baf"
+    }
+  ],
+  "source_manifest_sha256": "fe9cb367d01d047c63ec5dc3a7a90fa8495226c61883a9feb737e9187c28a0e7",
+  "status": "failed",
+  "test_outputs": [
+    {
+      "failed": 0,
+      "format": "vitest-json",
+      "normalized_sha256": "061985aa7d2a2435f86cd13d1a5eb1ece13187afbf8d8dbf55833dfe519145f4",
+      "output_ref": "ephemeral/vitest.json",
+      "passed": 352,
+      "skipped": 0,
+      "status": "passed",
+      "suite_id": "angular-focused",
+      "tests": 352
+    },
+    {
+      "failed": 0,
+      "format": "pytest-junit",
+      "normalized_sha256": "11bf0f9405d7152aaac28c57907276c90198d861d9933ac5b22bfd612513ebb1",
+      "output_ref": "ephemeral/pytest.xml",
+      "passed": 143,
+      "skipped": 0,
+      "status": "passed",
+      "suite_id": "hub-focused",
+      "tests": 143
+    },
+    {
+      "failed": 0,
+      "format": "playwright-json",
+      "normalized_sha256": "3193ebe9b0d9e15a6b263c236179e82c5620c62537fe9e46602c14d3e69670e1",
+      "output_ref": "ephemeral/playwright.json",
+      "passed": 1,
+      "skipped": 0,
+      "status": "passed",
+      "suite_id": "studio-browser",
+      "tests": 1
+    }
+  ]
+}
