@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 
 import pytest
+import sqlalchemy as sa
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine
 
@@ -27,6 +28,9 @@ from agent.services.identity_validation import IdentityValidationError
 from agent.services.workflow_authorization_grant_service import (
     InMemoryWorkflowAuthorizationGrantService,
     SQLAlchemyWorkflowAuthorizationGrantService,
+    WorkflowAuthorizationGrantReadPort,
+    WorkflowTransitionAuthorizationGrantCommitPort,
+    workflow_authorization_grant_digest,
 )
 from agent.services.workflow_runtime import (
     AuthorizationVerifier,
@@ -525,7 +529,474 @@ def test_authorization_grant_exact_read_port_has_memory_sql_binding_parity(
             reason_code="policy_revoked",
             expected_revision=stored.revision,
         )
+        assert revoked.status == "revoked"
+        assert revoked.revision == 2
+        assert revoked.revoked_at == revoked.updated_at
         assert service.get(**exact) == revoked
+
+
+def _transition_grant_envelope(
+    *,
+    envelope_id: str,
+    nonce: str,
+) -> RuntimeAuthorizationEnvelope:
+    return RuntimeAuthorizationEnvelope.issue(
+        key_ring=HmacKeyRing({"key": "x" * 32}, active_key_id="key"),
+        tenant_id="tenant-a",
+        workflow_id="workflow-1",
+        run_id="run-1",
+        step_id="step-1",
+        plan_hash="f" * 64,
+        policy_version="policy-1",
+        allowed_tools=("artifact.read",),
+        allowed_artifacts=("artifact://grant-input",),
+        budgets={"tokens": 10},
+        now=100,
+        ttl_seconds=300,
+        envelope_id=envelope_id,
+        nonce=nonce,
+    )
+
+
+def _forbidden_transition_grant_clock() -> float:
+    raise AssertionError("transition grant commit used a hidden clock")
+
+
+def test_transition_grant_commit_is_explicit_clock_free_and_runtime_checkable(
+    runtime_engine,
+) -> None:
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-clock-free",
+        nonce="nonce-transition-clock-free",
+    )
+
+    services = (
+        InMemoryWorkflowAuthorizationGrantService(clock=_forbidden_transition_grant_clock),
+        SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=_forbidden_transition_grant_clock,
+        ),
+    )
+    observed = []
+    for service in services:
+        assert isinstance(service, WorkflowAuthorizationGrantReadPort)
+        assert isinstance(service, WorkflowTransitionAuthorizationGrantCommitPort)
+        stored = service.commit_transition_grant(envelope, recorded_at=125.5)
+        assert stored.status == "active"
+        assert stored.revision == 1
+        assert stored.updated_at == 125.5
+        assert stored.revoked_at is None
+        assert stored.revocation_reason == ""
+        assert stored.grant_digest == workflow_authorization_grant_digest(envelope)
+        observed.append(stored)
+
+    assert observed[0] == observed[1]
+    assert workflow_authorization_grant_digest(
+        replace(envelope, signature="tampered-signature")
+    ) != workflow_authorization_grant_digest(envelope)
+
+
+def test_existing_grant_method_delegates_with_one_clock_sample(runtime_engine) -> None:
+    factories = (
+        lambda clock: InMemoryWorkflowAuthorizationGrantService(clock=clock),
+        lambda clock: SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=clock,
+        ),
+    )
+    for index, factory in enumerate(factories):
+        clock_calls: list[float] = []
+
+        def clock() -> float:
+            clock_calls.append(130.25)
+            return 130.25
+
+        service = factory(clock)
+        envelope = _transition_grant_envelope(
+            envelope_id=f"rae-transition-delegate-{index}",
+            nonce=f"nonce-transition-delegate-{index}",
+        )
+        stored = service.grant(envelope)
+
+        assert clock_calls == [130.25]
+        assert stored.updated_at == 130.25
+
+
+def test_transition_grant_commit_has_memory_sql_exact_idempotence_and_conflict(
+    runtime_engine,
+) -> None:
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-idempotence",
+        nonce="nonce-transition-idempotence",
+    )
+    services = (
+        InMemoryWorkflowAuthorizationGrantService(clock=_forbidden_transition_grant_clock),
+        SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=_forbidden_transition_grant_clock,
+        ),
+    )
+    first_results = []
+    for service in services:
+        first = service.commit_transition_grant(envelope, recorded_at=140.0)
+        duplicate = service.commit_transition_grant(envelope, recorded_at=999.0)
+        assert duplicate == first
+        assert duplicate.updated_at == 140.0
+        with pytest.raises(RuntimeError, match="workflow_authorization_grant_conflict"):
+            service.commit_transition_grant(
+                replace(envelope, nonce="nonce-transition-conflict"),
+                recorded_at=141.0,
+            )
+        first_results.append(first)
+
+    assert first_results[0] == first_results[1]
+
+
+def test_transition_grant_concurrent_identical_commits_adopt_one_winner(
+    runtime_engine,
+) -> None:
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-concurrent",
+        nonce="nonce-transition-concurrent",
+    )
+    store_pairs = (
+        (
+            InMemoryWorkflowAuthorizationGrantService(),
+            None,
+        ),
+        (
+            SQLAlchemyWorkflowAuthorizationGrantService(runtime_engine),
+            SQLAlchemyWorkflowAuthorizationGrantService(runtime_engine),
+        ),
+    )
+    for first_store, optional_second_store in store_pairs:
+        second_store = optional_second_store or first_store
+
+        def commit(item):
+            store, recorded_at = item
+            return store.commit_transition_grant(
+                envelope,
+                recorded_at=recorded_at,
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = tuple(
+                executor.map(
+                    commit,
+                    ((first_store, 150.0), (second_store, 151.0)),
+                )
+            )
+
+        assert results[0] == results[1]
+        assert results[0].updated_at in {150.0, 151.0}
+
+
+def test_transition_grant_current_and_revoked_dtos_have_memory_sql_parity(
+    runtime_engine,
+) -> None:
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-revoked-parity",
+        nonce="nonce-transition-revoked-parity",
+    )
+    services = (
+        InMemoryWorkflowAuthorizationGrantService(clock=lambda: 175.0),
+        SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=lambda: 175.0,
+        ),
+    )
+    active = tuple(service.commit_transition_grant(envelope, recorded_at=160.0) for service in services)
+    assert active[0] == active[1]
+    assert active[0].revoked_at is None
+
+    revoked = tuple(
+        service.revoke(
+            envelope.envelope_id,
+            reason_code="key_revoked",
+            expected_revision=1,
+        )
+        for service in services
+    )
+    assert revoked[0] == revoked[1]
+    assert revoked[0].status == "revoked"
+    assert revoked[0].revision == 2
+    assert revoked[0].updated_at == 175.0
+    assert revoked[0].revoked_at == 175.0
+    assert revoked[0].revocation_reason == "key_revoked"
+    for service in services:
+        assert service.commit_transition_grant(envelope, recorded_at=999.0) == revoked[0]
+
+
+@pytest.mark.parametrize(
+    "recorded_at",
+    (True, 0, -1, 99, 10**400, float("nan"), float("inf"), "100"),
+    ids=(
+        "boolean",
+        "zero",
+        "negative",
+        "before_issuance",
+        "overflowing_integer",
+        "nan",
+        "infinite",
+        "string",
+    ),
+)
+def test_transition_grant_commit_rejects_invalid_recorded_at_without_writing(
+    runtime_engine,
+    recorded_at,
+) -> None:
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-invalid-recorded-at",
+        nonce="nonce-transition-invalid-recorded-at",
+    )
+    services = (
+        InMemoryWorkflowAuthorizationGrantService(),
+        SQLAlchemyWorkflowAuthorizationGrantService(runtime_engine),
+    )
+    exact = {
+        "tenant_id": envelope.tenant_id,
+        "workflow_id": envelope.workflow_id,
+        "run_id": envelope.run_id,
+        "step_id": envelope.step_id,
+        "envelope_id": envelope.envelope_id,
+    }
+    for service in services:
+        with pytest.raises(
+            ValueError,
+            match="workflow_authorization_grant_recorded_at_invalid",
+        ):
+            service.commit_transition_grant(
+                envelope,
+                recorded_at=recorded_at,
+            )
+        assert service.get(**exact) is None
+
+
+def test_sql_transition_grant_exact_read_rejects_raw_state_projection_tamper(
+    runtime_engine,
+) -> None:
+    service = SQLAlchemyWorkflowAuthorizationGrantService(runtime_engine)
+    table = WorkflowAuthorizationGrantDB.__table__
+    corruptions = (
+        {"status": "revoked"},
+        {"updated_at": 99.0},
+        {
+            "status": "revoked",
+            "revision": 2,
+            "updated_at": 181.0,
+            "revoked_at": 180.0,
+            "revocation_reason": "raw_tamper",
+        },
+        {
+            "status": "revoked",
+            "revision": 2,
+            "updated_at": 99.0,
+            "revoked_at": 99.0,
+            "revocation_reason": "raw_tamper",
+        },
+        {"revoked_at": 180.0},
+    )
+    for index, values in enumerate(corruptions):
+        envelope = _transition_grant_envelope(
+            envelope_id=f"rae-transition-raw-state-{index}",
+            nonce=f"nonce-transition-raw-state-{index}",
+        )
+        service.commit_transition_grant(envelope, recorded_at=170.0)
+        with runtime_engine.begin() as connection:
+            connection.execute(sa.update(table).where(table.c.envelope_id == envelope.envelope_id).values(**values))
+        with pytest.raises(
+            RuntimeError,
+            match="workflow_authorization_grant_projection_conflict",
+        ):
+            service.get(
+                tenant_id=envelope.tenant_id,
+                workflow_id=envelope.workflow_id,
+                run_id=envelope.run_id,
+                step_id=envelope.step_id,
+                envelope_id=envelope.envelope_id,
+            )
+
+
+def test_sql_transition_grant_commit_rejects_raw_immutable_projection_tamper(
+    runtime_engine,
+) -> None:
+    service = SQLAlchemyWorkflowAuthorizationGrantService(runtime_engine)
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-raw-immutable",
+        nonce="nonce-transition-raw-immutable",
+    )
+    service.commit_transition_grant(envelope, recorded_at=190.0)
+    table = WorkflowAuthorizationGrantDB.__table__
+    with runtime_engine.begin() as connection:
+        connection.execute(
+            sa.update(table).where(table.c.envelope_id == envelope.envelope_id).values(plan_hash="e" * 64)
+        )
+
+    with pytest.raises(
+        RuntimeError,
+        match="workflow_authorization_grant_projection_conflict",
+    ):
+        service.commit_transition_grant(envelope, recorded_at=191.0)
+
+
+def test_transition_grant_chronology_failure_rolls_back_memory_and_sql(
+    runtime_engine,
+) -> None:
+    services = (
+        InMemoryWorkflowAuthorizationGrantService(clock=lambda: 99.0),
+        SQLAlchemyWorkflowAuthorizationGrantService(
+            runtime_engine,
+            clock=lambda: 99.0,
+        ),
+    )
+    for index, service in enumerate(services):
+        envelope = _transition_grant_envelope(
+            envelope_id=f"rae-transition-chronology-{index}",
+            nonce=f"nonce-transition-chronology-{index}",
+        )
+        active = service.commit_transition_grant(envelope, recorded_at=100.0)
+        with pytest.raises(
+            RuntimeError,
+            match="workflow_authorization_grant_projection_conflict",
+        ):
+            service.revoke(
+                envelope.envelope_id,
+                reason_code="invalid_early_revoke",
+                expected_revision=1,
+            )
+        assert (
+            service.get(
+                tenant_id=envelope.tenant_id,
+                workflow_id=envelope.workflow_id,
+                run_id=envelope.run_id,
+                step_id=envelope.step_id,
+                envelope_id=envelope.envelope_id,
+            )
+            == active
+        )
+
+
+def test_transition_grant_memory_exact_read_rejects_chronology_tamper() -> None:
+    service = InMemoryWorkflowAuthorizationGrantService()
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-memory-chronology-tamper",
+        nonce="nonce-transition-memory-chronology-tamper",
+    )
+    stored = service.commit_transition_grant(envelope, recorded_at=100.0)
+    service._values[envelope.envelope_id] = replace(stored, updated_at=99.0)
+
+    with pytest.raises(
+        RuntimeError,
+        match="workflow_authorization_grant_projection_conflict",
+    ):
+        service.get(
+            tenant_id=envelope.tenant_id,
+            workflow_id=envelope.workflow_id,
+            run_id=envelope.run_id,
+            step_id=envelope.step_id,
+            envelope_id=envelope.envelope_id,
+        )
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    ({"revision": 2}, {"updated_at": 99.0}),
+    ids=("revision", "chronology"),
+)
+def test_transition_grant_revalidation_rejects_corrupt_projection_memory_sql(
+    runtime_engine,
+    tamper,
+) -> None:
+    memory = InMemoryWorkflowAuthorizationGrantService(clock=lambda: 150.0)
+    sql = SQLAlchemyWorkflowAuthorizationGrantService(
+        runtime_engine,
+        clock=lambda: 150.0,
+    )
+    services = (memory, sql)
+    envelopes = tuple(
+        _transition_grant_envelope(
+            envelope_id=f"rae-transition-revalidate-corrupt-{index}",
+            nonce=f"nonce-transition-revalidate-corrupt-{index}",
+        )
+        for index in range(2)
+    )
+    for service, envelope in zip(services, envelopes, strict=True):
+        service.commit_transition_grant(envelope, recorded_at=100.0)
+
+    memory._values[envelopes[0].envelope_id] = replace(
+        memory._values[envelopes[0].envelope_id],
+        **tamper,
+    )
+    with runtime_engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowAuthorizationGrantDB.__table__)
+            .where(WorkflowAuthorizationGrantDB.envelope_id == envelopes[1].envelope_id)
+            .values(**tamper)
+        )
+
+    for service, envelope in zip(services, envelopes, strict=True):
+        assert service.revalidate(envelope) is False
+
+    malformed = replace(envelopes[0], expires_at=envelopes[0].issued_at)
+    assert memory.revalidate(malformed) is False
+    assert sql.revalidate(malformed) is False
+
+
+def test_sql_transition_grant_baseexception_during_insert_rolls_back(
+    runtime_engine,
+    tmp_path,
+) -> None:
+    class InjectedHardCrash(BaseException):
+        pass
+
+    engine = runtime_engine
+    owns_engine = False
+    if runtime_engine.dialect.name == "sqlite":
+        engine = create_engine(
+            f"sqlite:///{tmp_path / 'transition-grant-hard-crash.sqlite'}",
+            connect_args={"check_same_thread": False},
+        )
+        SQLModel.metadata.create_all(
+            engine,
+            tables=[WorkflowAuthorizationGrantDB.__table__],
+        )
+        owns_engine = True
+    service = SQLAlchemyWorkflowAuthorizationGrantService(engine)
+    envelope = _transition_grant_envelope(
+        envelope_id="rae-transition-sql-hard-crash",
+        nonce="nonce-transition-sql-hard-crash",
+    )
+
+    def crash_after_insert(
+        _connection,
+        _cursor,
+        statement,
+        _parameters,
+        _context,
+        _executemany,
+    ) -> None:
+        if statement.lstrip().upper().startswith("INSERT") and ("workflow_authorization_grants" in statement):
+            raise InjectedHardCrash("crash after grant insert")
+
+    sa.event.listen(engine, "after_cursor_execute", crash_after_insert)
+    try:
+        with pytest.raises(InjectedHardCrash):
+            service.commit_transition_grant(envelope, recorded_at=100.0)
+    finally:
+        sa.event.remove(engine, "after_cursor_execute", crash_after_insert)
+
+    assert (
+        service.get(
+            tenant_id=envelope.tenant_id,
+            workflow_id=envelope.workflow_id,
+            run_id=envelope.run_id,
+            step_id=envelope.step_id,
+            envelope_id=envelope.envelope_id,
+        )
+        is None
+    )
+    if owns_engine:
+        engine.dispose()
 
 
 def test_side_effect_ledger_enforces_exactly_once_claim_cas_and_fencing(runtime_engine) -> None:

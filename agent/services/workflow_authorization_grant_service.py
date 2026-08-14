@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import math
 import threading
 import time
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -37,6 +38,11 @@ class WorkflowAuthorizationGrant:
     expires_at: float
     updated_at: float
     revocation_reason: str = ""
+    revoked_at: float | None = None
+
+
+class WorkflowAuthorizationGrantConflict(RuntimeError):
+    """A proven grant identity, projection, or compare-and-set conflict."""
 
 
 class HubAuthorizationRevalidationPort(Protocol):
@@ -55,6 +61,7 @@ class WorkflowAuthorizationGrantPort(HubAuthorizationRevalidationPort, Protocol)
     ) -> WorkflowAuthorizationGrant: ...
 
 
+@runtime_checkable
 class WorkflowAuthorizationGrantReadPort(Protocol):
     """Read one exact transition-owned grant without widening the mutation port."""
 
@@ -67,6 +74,18 @@ class WorkflowAuthorizationGrantReadPort(Protocol):
         step_id: str,
         envelope_id: str,
     ) -> WorkflowAuthorizationGrant | None: ...
+
+
+@runtime_checkable
+class WorkflowTransitionAuthorizationGrantCommitPort(Protocol):
+    """Deterministic grant commit capability for one Hub transition effect."""
+
+    def commit_transition_grant(
+        self,
+        envelope: RuntimeAuthorizationEnvelope,
+        *,
+        recorded_at: float,
+    ) -> WorkflowAuthorizationGrant: ...
 
 
 class UnavailableHubAuthorizationRevalidator:
@@ -85,12 +104,29 @@ class InMemoryWorkflowAuthorizationGrantService:
 
     def grant(self, envelope: RuntimeAuthorizationEnvelope) -> WorkflowAuthorizationGrant:
         envelope._assert_structure()
-        candidate = _grant_from_envelope(envelope, timestamp=float(self._clock()))
+        return self.commit_transition_grant(
+            envelope,
+            recorded_at=float(self._clock()),
+        )
+
+    def commit_transition_grant(
+        self,
+        envelope: RuntimeAuthorizationEnvelope,
+        *,
+        recorded_at: float,
+    ) -> WorkflowAuthorizationGrant:
+        envelope._assert_structure()
+        candidate = _grant_from_envelope(
+            envelope,
+            timestamp=_positive_recorded_at(recorded_at),
+        )
         with self._lock:
             current = self._values.get(envelope.envelope_id)
             if current is not None:
+                assert_workflow_authorization_grant_projection(current)
                 if current.grant_digest != candidate.grant_digest:
-                    raise RuntimeError("workflow_authorization_grant_conflict")
+                    raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_conflict")
+                _assert_same_grant_issuance(current, candidate)
                 return current
             self._values[envelope.envelope_id] = candidate
             return candidate
@@ -102,32 +138,44 @@ class InMemoryWorkflowAuthorizationGrantService:
         reason_code: str,
         expected_revision: int | None = None,
     ) -> WorkflowAuthorizationGrant:
-        if not str(reason_code).strip():
+        reason = str(reason_code).strip()
+        if not reason:
             raise ValueError("workflow_authorization_revocation_reason_required")
         with self._lock:
             current = self._values.get(str(envelope_id))
             if current is None:
                 raise KeyError("workflow_authorization_grant_not_found")
+            assert_workflow_authorization_grant_projection(current)
             if expected_revision is not None and current.revision != int(expected_revision):
-                raise RuntimeError("workflow_authorization_grant_cas_conflict")
+                raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_cas_conflict")
             if current.status == "revoked":
                 return current
+            timestamp = float(self._clock())
             updated = WorkflowAuthorizationGrant(
                 **{
                     **current.__dict__,
                     "status": "revoked",
                     "revision": current.revision + 1,
-                    "updated_at": float(self._clock()),
-                    "revocation_reason": str(reason_code),
+                    "updated_at": timestamp,
+                    "revoked_at": timestamp,
+                    "revocation_reason": reason,
                 }
             )
+            assert_workflow_authorization_grant_projection(updated)
             self._values[updated.envelope_id] = updated
             return updated
 
     def revalidate(self, envelope: RuntimeAuthorizationEnvelope) -> bool:
+        try:
+            envelope._assert_structure()
+        except (AttributeError, TypeError, ValueError):
+            return False
         with self._lock:
             current = self._values.get(envelope.envelope_id)
-        return _grant_matches(current, envelope, now=float(self._clock()))
+        try:
+            return _grant_matches(current, envelope, now=float(self._clock()))
+        except RuntimeError:
+            return False
 
     def get(
         self,
@@ -149,6 +197,7 @@ class InMemoryWorkflowAuthorizationGrantService:
             grant = self._values.get(binding[-1])
             if grant is None:
                 return None
+            assert_workflow_authorization_grant_projection(grant)
             _assert_grant_read_binding(grant, expected=binding)
             return grant
 
@@ -162,15 +211,30 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
 
     def grant(self, envelope: RuntimeAuthorizationEnvelope) -> WorkflowAuthorizationGrant:
         envelope._assert_structure()
-        timestamp = float(self._clock())
-        candidate = _grant_from_envelope(envelope, timestamp=timestamp)
+        return self.commit_transition_grant(
+            envelope,
+            recorded_at=float(self._clock()),
+        )
+
+    def commit_transition_grant(
+        self,
+        envelope: RuntimeAuthorizationEnvelope,
+        *,
+        recorded_at: float,
+    ) -> WorkflowAuthorizationGrant:
+        envelope._assert_structure()
+        candidate = _grant_from_envelope(
+            envelope,
+            timestamp=_positive_recorded_at(recorded_at),
+        )
         try:
             with self._transaction() as session:
                 current = session.get(WorkflowAuthorizationGrantDB, envelope.envelope_id)
                 if current is not None:
                     stored = _grant_from_row(current)
                     if stored.grant_digest != candidate.grant_digest:
-                        raise RuntimeError("workflow_authorization_grant_conflict")
+                        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_conflict")
+                    _assert_same_grant_issuance(stored, candidate)
                     return stored
                 session.add(_grant_row(candidate))
                 session.flush()
@@ -181,8 +245,9 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
                 if current is not None:
                     stored = _grant_from_row(current)
                     if stored.grant_digest == candidate.grant_digest:
+                        _assert_same_grant_issuance(stored, candidate)
                         return stored
-            raise RuntimeError("workflow_authorization_grant_conflict") from exc
+            raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_conflict") from exc
 
     def revoke(
         self,
@@ -205,12 +270,11 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
             ).scalar_one_or_none()
             if current is None:
                 raise KeyError("workflow_authorization_grant_not_found")
-            if expected_revision is not None and int(current.revision) != int(
-                expected_revision
-            ):
-                raise RuntimeError("workflow_authorization_grant_cas_conflict")
-            if current.status == "revoked":
-                return _grant_from_row(current)
+            stored = _grant_from_row(current)
+            if expected_revision is not None and stored.revision != int(expected_revision):
+                raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_cas_conflict")
+            if stored.status == "revoked":
+                return stored
             current.status = "revoked"
             current.revision = int(current.revision) + 1
             current.updated_at = timestamp
@@ -222,11 +286,14 @@ class SQLAlchemyWorkflowAuthorizationGrantService(SQLAlchemyStoreSupport):
     def revalidate(self, envelope: RuntimeAuthorizationEnvelope) -> bool:
         try:
             envelope._assert_structure()
-        except (TypeError, ValueError):
+        except (AttributeError, TypeError, ValueError):
             return False
         with self._read_session() as session:
             current = session.get(WorkflowAuthorizationGrantDB, envelope.envelope_id)
-            grant = _grant_from_row(current) if current is not None else None
+            try:
+                grant = _grant_from_row(current) if current is not None else None
+            except RuntimeError:
+                return False
         return _grant_matches(grant, envelope, now=float(self._clock()))
 
     def get(
@@ -259,7 +326,9 @@ def _grant_from_envelope(
     *,
     timestamp: float,
 ) -> WorkflowAuthorizationGrant:
-    return WorkflowAuthorizationGrant(
+    if timestamp < envelope.issued_at:
+        raise ValueError("workflow_authorization_grant_recorded_at_invalid")
+    grant = WorkflowAuthorizationGrant(
         envelope_id=envelope.envelope_id,
         tenant_id=envelope.tenant_id,
         workflow_id=envelope.workflow_id,
@@ -267,13 +336,15 @@ def _grant_from_envelope(
         step_id=envelope.step_id,
         plan_hash=envelope.plan_hash,
         policy_version=envelope.policy_version,
-        grant_digest=_grant_digest(envelope),
+        grant_digest=workflow_authorization_grant_digest(envelope),
         status="active",
         revision=1,
         issued_at=envelope.issued_at,
         expires_at=envelope.expires_at,
         updated_at=timestamp,
     )
+    assert_workflow_authorization_grant_projection(grant)
+    return grant
 
 
 def _grant_matches(
@@ -282,7 +353,10 @@ def _grant_matches(
     *,
     now: float,
 ) -> bool:
-    if grant is None or grant.status != "active" or grant.expires_at <= now:
+    if grant is None:
+        return False
+    assert_workflow_authorization_grant_projection(grant)
+    if grant.status != "active" or grant.expires_at <= now:
         return False
     return bool(
         grant.envelope_id == envelope.envelope_id
@@ -294,12 +368,19 @@ def _grant_matches(
         and grant.policy_version == envelope.policy_version
         and grant.issued_at == envelope.issued_at
         and grant.expires_at == envelope.expires_at
-        and grant.grant_digest == _grant_digest(envelope)
+        and grant.grant_digest == workflow_authorization_grant_digest(envelope)
     )
 
 
-def _grant_digest(envelope: RuntimeAuthorizationEnvelope) -> str:
-    # The signature is already a MAC over the envelope. Hashing the complete
+def workflow_authorization_grant_digest(
+    envelope: RuntimeAuthorizationEnvelope,
+) -> str:
+    """Hash every signed-envelope field without redaction or upcasting."""
+
+    if not isinstance(envelope, RuntimeAuthorizationEnvelope):
+        raise TypeError("workflow_authorization_grant_envelope_invalid")
+    envelope._assert_structure()
+    # The signature already authenticates the envelope. Hashing the complete
     # contract makes any tool, artifact, budget or binding widening fail closed.
     return sha256_json(envelope.to_dict())
 
@@ -329,6 +410,101 @@ def _grant_read_binding(
     return (*values, envelope_id)
 
 
+def _positive_recorded_at(value: object) -> float:
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, (int, float))
+        or value <= 0
+        or value > 2**63 - 1
+        or (isinstance(value, float) and not math.isfinite(value))
+    ):
+        raise ValueError("workflow_authorization_grant_recorded_at_invalid")
+    return float(value)
+
+
+def assert_workflow_authorization_grant_projection(
+    grant: WorkflowAuthorizationGrant,
+) -> WorkflowAuthorizationGrant:
+    """Reject coercible or semantically impossible current-row projections."""
+
+    if not isinstance(grant, WorkflowAuthorizationGrant):
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    for name in (
+        "envelope_id",
+        "tenant_id",
+        "workflow_id",
+        "run_id",
+        "step_id",
+        "plan_hash",
+        "policy_version",
+        "grant_digest",
+        "status",
+        "revocation_reason",
+    ):
+        value = getattr(grant, name)
+        if not isinstance(value, str) or "\x00" in value:
+            raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    if (
+        not grant.envelope_id
+        or grant.envelope_id != grant.envelope_id.strip()
+        or len(grant.envelope_id) > 256
+        or not grant.tenant_id
+        or not grant.workflow_id
+        or not grant.run_id
+        or not grant.step_id
+        or not grant.plan_hash
+        or not grant.policy_version
+        or len(grant.grant_digest) != 64
+        or any(character not in "0123456789abcdef" for character in grant.grant_digest)
+        or isinstance(grant.revision, bool)
+        or not isinstance(grant.revision, int)
+    ):
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    for timestamp in (grant.issued_at, grant.expires_at, grant.updated_at):
+        if type(timestamp) is not float or not math.isfinite(timestamp):
+            raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    if grant.issued_at <= 0 or grant.expires_at <= grant.issued_at or grant.updated_at < grant.issued_at:
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    if grant.status == "active":
+        if grant.revision != 1 or grant.revoked_at is not None or grant.revocation_reason:
+            raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+        return grant
+    if grant.status == "revoked":
+        if (
+            grant.revision != 2
+            or type(grant.revoked_at) is not float
+            or not math.isfinite(grant.revoked_at)
+            or grant.revoked_at <= 0
+            or grant.updated_at != grant.revoked_at
+            or grant.revoked_at < grant.issued_at
+            or not grant.revocation_reason
+            or grant.revocation_reason != grant.revocation_reason.strip()
+        ):
+            raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+        return grant
+    raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+
+
+def _assert_same_grant_issuance(
+    current: WorkflowAuthorizationGrant,
+    candidate: WorkflowAuthorizationGrant,
+) -> None:
+    immutable_fields = (
+        "envelope_id",
+        "tenant_id",
+        "workflow_id",
+        "run_id",
+        "step_id",
+        "plan_hash",
+        "policy_version",
+        "grant_digest",
+        "issued_at",
+        "expires_at",
+    )
+    if any(getattr(current, name) != getattr(candidate, name) for name in immutable_fields):
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+
+
 def _assert_grant_read_binding(
     grant: WorkflowAuthorizationGrant,
     *,
@@ -342,10 +518,11 @@ def _assert_grant_read_binding(
         grant.envelope_id,
     )
     if actual != expected:
-        raise RuntimeError("workflow_authorization_grant_binding_conflict")
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_binding_conflict")
 
 
 def _grant_row(grant: WorkflowAuthorizationGrant) -> WorkflowAuthorizationGrantDB:
+    assert_workflow_authorization_grant_projection(grant)
     return WorkflowAuthorizationGrantDB(
         envelope_id=grant.envelope_id,
         tenant_id=grant.tenant_id,
@@ -360,28 +537,67 @@ def _grant_row(grant: WorkflowAuthorizationGrant) -> WorkflowAuthorizationGrantD
         issued_at=grant.issued_at,
         expires_at=grant.expires_at,
         updated_at=grant.updated_at,
-        revoked_at=None,
+        revoked_at=grant.revoked_at,
         revocation_reason=grant.revocation_reason,
     )
 
 
 def _grant_from_row(row: WorkflowAuthorizationGrantDB) -> WorkflowAuthorizationGrant:
-    return WorkflowAuthorizationGrant(
-        envelope_id=str(row.envelope_id),
-        tenant_id=str(row.tenant_id),
-        workflow_id=str(row.workflow_id),
-        run_id=str(row.run_id),
-        step_id=str(row.step_id),
-        plan_hash=str(row.plan_hash),
-        policy_version=str(row.policy_version),
-        grant_digest=str(row.grant_digest),
-        status=str(row.status),
-        revision=int(row.revision),
-        issued_at=float(row.issued_at),
-        expires_at=float(row.expires_at),
-        updated_at=float(row.updated_at),
-        revocation_reason=str(row.revocation_reason or ""),
+    grant = WorkflowAuthorizationGrant(
+        envelope_id=row.envelope_id,
+        tenant_id=row.tenant_id,
+        workflow_id=row.workflow_id,
+        run_id=row.run_id,
+        step_id=row.step_id,
+        plan_hash=row.plan_hash,
+        policy_version=row.policy_version,
+        grant_digest=row.grant_digest,
+        status=row.status,
+        revision=row.revision,
+        issued_at=row.issued_at,
+        expires_at=row.expires_at,
+        updated_at=row.updated_at,
+        revoked_at=row.revoked_at,
+        revocation_reason=row.revocation_reason,
     )
+    assert_workflow_authorization_grant_projection(grant)
+    projected = (
+        row.envelope_id,
+        row.tenant_id,
+        row.workflow_id,
+        row.run_id,
+        row.step_id,
+        row.plan_hash,
+        row.policy_version,
+        row.grant_digest,
+        row.status,
+        row.revision,
+        row.issued_at,
+        row.expires_at,
+        row.updated_at,
+        row.revoked_at,
+        row.revocation_reason,
+    )
+    exact = (
+        grant.envelope_id,
+        grant.tenant_id,
+        grant.workflow_id,
+        grant.run_id,
+        grant.step_id,
+        grant.plan_hash,
+        grant.policy_version,
+        grant.grant_digest,
+        grant.status,
+        grant.revision,
+        grant.issued_at,
+        grant.expires_at,
+        grant.updated_at,
+        grant.revoked_at,
+        grant.revocation_reason,
+    )
+    if projected != exact:
+        raise WorkflowAuthorizationGrantConflict("workflow_authorization_grant_projection_conflict")
+    return grant
 
 
 __all__ = [
@@ -390,6 +606,10 @@ __all__ = [
     "SQLAlchemyWorkflowAuthorizationGrantService",
     "UnavailableHubAuthorizationRevalidator",
     "WorkflowAuthorizationGrant",
+    "WorkflowAuthorizationGrantConflict",
     "WorkflowAuthorizationGrantPort",
     "WorkflowAuthorizationGrantReadPort",
+    "WorkflowTransitionAuthorizationGrantCommitPort",
+    "assert_workflow_authorization_grant_projection",
+    "workflow_authorization_grant_digest",
 ]
