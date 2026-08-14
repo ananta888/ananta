@@ -21,6 +21,7 @@ from ananta_contracts.temporal_workflow import TemporalContractError, WorkflowCo
 
 WORKFLOW_TRANSITION_SCHEMA = "ananta.workflow-transition.v1"
 WORKFLOW_TRANSITION_EFFECT_SCHEMA = "ananta.workflow-transition-effect.v1"
+WORKFLOW_TRANSITION_EFFECT_RESULT_SCHEMA = "ananta.workflow-transition-effect-result.v1"
 
 TRANSITION_KIND_START = "start"
 TRANSITION_KIND_ADVANCE = "advance"
@@ -36,16 +37,24 @@ TRANSITION_KINDS = frozenset(
 TRANSITION_STATE_READY = "ready"
 TRANSITION_STATE_APPLYING = "applying"
 TRANSITION_STATE_COMPLETED = "completed"
+TRANSITION_STATE_QUARANTINED = "quarantined"
 TRANSITION_STATE_REJECTED = "rejected"
 TRANSITION_STATES = frozenset(
     {
         TRANSITION_STATE_READY,
         TRANSITION_STATE_APPLYING,
         TRANSITION_STATE_COMPLETED,
+        TRANSITION_STATE_QUARANTINED,
         TRANSITION_STATE_REJECTED,
     }
 )
-TRANSITION_TERMINAL_STATES = frozenset({TRANSITION_STATE_COMPLETED, TRANSITION_STATE_REJECTED})
+TRANSITION_TERMINAL_STATES = frozenset(
+    {
+        TRANSITION_STATE_COMPLETED,
+        TRANSITION_STATE_QUARANTINED,
+        TRANSITION_STATE_REJECTED,
+    }
+)
 
 EFFECT_STATE_PLANNED = "planned"
 EFFECT_STATE_APPLYING = "applying"
@@ -91,8 +100,11 @@ _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _MAX_EFFECTS = 64
 _MAX_EFFECT_PAYLOAD_BYTES = 524_288
 _MAX_RESULT_PAYLOAD_BYTES = 524_288
+_MAX_FINALIZATION_RESULT_PAYLOAD_BYTES = 1_100_000
 _MAX_STATUS_BYTES = 524_288
 _MAX_IDEMPOTENCY_KEY_CHARS = 512
+_MAX_STAGE_ATTEMPTS = 1_000
+_EFFECT_RESULT_MODES = frozenset({"adopt", "execute"})
 
 FrozenJsonMapping = Mapping[str, Any]
 
@@ -156,14 +168,23 @@ class WorkflowTransitionEffect:
 
         safe_result = _validated_mapping(
             self.result_payload,
-            maximum=_MAX_RESULT_PAYLOAD_BYTES,
+            maximum=(
+                _MAX_FINALIZATION_RESULT_PAYLOAD_BYTES
+                if self.kind == EFFECT_BINDING_FINALIZE
+                else _MAX_RESULT_PAYLOAD_BYTES
+            ),
             reason="effect_result",
         )
         if self.state == EFFECT_STATE_APPLIED:
             if self.applied_generation < 1 or not safe_result or not self.result_digest:
                 raise WorkflowTransitionError("workflow_transition_effect_result_missing")
             _sha256(self.result_digest, "effect_result_digest")
-            if _digest(safe_result, namespace="workflow-transition-effect-result") != self.result_digest:
+            result_digest = (
+                workflow_transition_finalization_result_digest(safe_result)
+                if self.kind == EFFECT_BINDING_FINALIZE
+                else workflow_transition_effect_result_digest(safe_result)
+            )
+            if result_digest != self.result_digest:
                 raise WorkflowTransitionError("workflow_transition_effect_result_digest_mismatch")
         elif safe_result or self.result_digest:
             raise WorkflowTransitionError("workflow_transition_effect_result_unexpected")
@@ -297,6 +318,8 @@ class WorkflowTransition:
         _bounded_text(self.expected_checkpoint_ref, 512, "expected_checkpoint_ref")
         _non_negative_integer(self.claim_generation, "claim_generation")
         _non_negative_integer(self.attempt_count, "attempt_count")
+        if self.attempt_count != self.claim_generation:
+            raise WorkflowTransitionError("workflow_transition_header_attempt_conflict")
         if isinstance(self.revision, bool) or not isinstance(self.revision, int) or self.revision < 1:
             raise WorkflowTransitionError("workflow_transition_revision_invalid")
 
@@ -351,7 +374,7 @@ class WorkflowTransition:
                 raise WorkflowTransitionError("workflow_transition_completed_at_invalid")
         elif safe_result or self.result_checkpoint_ref or self.outcome_fingerprint or self.completed_at:
             raise WorkflowTransitionError("workflow_transition_completion_proof_unexpected")
-        if self.state == TRANSITION_STATE_REJECTED:
+        if self.state in {TRANSITION_STATE_QUARANTINED, TRANSITION_STATE_REJECTED}:
             _reason_code(self.last_error)
         elif self.last_error:
             _reason_code(self.last_error)
@@ -520,6 +543,16 @@ class WorkflowTransitionLeasePort(Protocol):
         retry_at: float,
     ) -> WorkflowTransitionSnapshot: ...
 
+    def yield_ready(
+        self,
+        transition_id: str,
+        effect_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        available_at: float,
+    ) -> WorkflowTransitionSnapshot: ...
+
 
 class WorkflowTransitionEffectPort(Protocol):
     """Record exact effect begin/result proofs under a transition lease."""
@@ -565,13 +598,27 @@ class WorkflowTransitionCompletionPort(Protocol):
         claim_generation: int,
         binding_status: Mapping[str, Any],
         checkpoint_ref: str,
-        outcome_fingerprint: str,
+        finalization_proof: Mapping[str, Any],
+        outcome_fingerprint: str = "",
         receipt_result: Mapping[str, Any] | None = None,
     ) -> WorkflowTransitionSnapshot: ...
 
 
-class WorkflowTransitionReceiptProjectionPort(Protocol):
-    """Derive a canonical public receipt result from locked Hub state."""
+class WorkflowTransitionQuarantinePort(Protocol):
+    """Hold an ambiguous transition for explicit, separately authorized recovery."""
+
+    def quarantine(
+        self,
+        transition_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        reason_code: str,
+    ) -> WorkflowTransitionSnapshot: ...
+
+
+class WorkflowTransitionPublicProjectionPort(Protocol):
+    """Derive canonical public state from raw runtime state under the binding lock."""
 
     def project(
         self,
@@ -583,12 +630,16 @@ class WorkflowTransitionReceiptProjectionPort(Protocol):
     ) -> Mapping[str, Any]: ...
 
 
+WorkflowTransitionReceiptProjectionPort = WorkflowTransitionPublicProjectionPort
+
+
 class WorkflowTransitionStore(
     WorkflowTransitionStagePort,
     WorkflowTransitionReadPort,
     WorkflowTransitionLeasePort,
     WorkflowTransitionEffectPort,
     WorkflowTransitionCompletionPort,
+    WorkflowTransitionQuarantinePort,
     Protocol,
 ):
     """Convenience aggregate; consumers should depend on the smallest port."""
@@ -692,6 +743,114 @@ def workflow_transition_effect_result_digest(payload: Mapping[str, Any]) -> str:
     return _digest(safe, namespace="workflow-transition-effect-result")
 
 
+def workflow_transition_finalization_result_digest(payload: Mapping[str, Any]) -> str:
+    """Hash the bounded, store-owned binding-finalization proof."""
+
+    safe = _validated_mapping(
+        payload,
+        maximum=_MAX_FINALIZATION_RESULT_PAYLOAD_BYTES,
+        reason="finalization_result",
+        empty=False,
+    )
+    return _digest(safe, namespace="workflow-transition-effect-result")
+
+
+def workflow_transition_effect_result_envelope(
+    *,
+    mode: str,
+    result_payload: Mapping[str, Any],
+    proof_payload: Mapping[str, Any],
+    stage_attempt_count: int,
+) -> dict[str, Any]:
+    """Build the canonical durable proof for one non-final effect result."""
+
+    if not isinstance(mode, str) or mode not in _EFFECT_RESULT_MODES:
+        raise WorkflowTransitionError("workflow_transition_effect_result_mode_invalid")
+    if (
+        isinstance(stage_attempt_count, bool)
+        or not isinstance(stage_attempt_count, int)
+        or not 1 <= stage_attempt_count <= _MAX_STAGE_ATTEMPTS
+    ):
+        raise WorkflowTransitionError("workflow_transition_effect_stage_attempt_invalid")
+    result = _validated_mapping(
+        result_payload,
+        maximum=_MAX_RESULT_PAYLOAD_BYTES,
+        reason="effect_result_component",
+        empty=False,
+    )
+    proof = _validated_mapping(
+        proof_payload,
+        maximum=_MAX_RESULT_PAYLOAD_BYTES,
+        reason="effect_proof_component",
+        empty=False,
+    )
+    envelope = {
+        "schema": WORKFLOW_TRANSITION_EFFECT_RESULT_SCHEMA,
+        "mode": mode,
+        "effect_result": result,
+        "effect_proof": proof,
+        "stage_attempt_count": stage_attempt_count,
+    }
+    return _validated_mapping(
+        envelope,
+        maximum=_MAX_RESULT_PAYLOAD_BYTES,
+        reason="effect_result_envelope",
+        empty=False,
+    )
+
+
+def workflow_transition_effect_stage_attempt_count(
+    result_payload: Mapping[str, Any],
+) -> int:
+    """Validate a persisted canonical result envelope and return its stage count."""
+
+    if not isinstance(result_payload, Mapping) or set(result_payload) != {
+        "schema",
+        "mode",
+        "effect_result",
+        "effect_proof",
+        "stage_attempt_count",
+    }:
+        raise WorkflowTransitionError("workflow_transition_effect_result_envelope_invalid")
+    if result_payload.get("schema") != WORKFLOW_TRANSITION_EFFECT_RESULT_SCHEMA:
+        raise WorkflowTransitionError("workflow_transition_effect_result_envelope_invalid")
+    expected = workflow_transition_effect_result_envelope(
+        mode=result_payload.get("mode"),
+        result_payload=result_payload.get("effect_result"),
+        proof_payload=result_payload.get("effect_proof"),
+        stage_attempt_count=result_payload.get("stage_attempt_count"),
+    )
+    if canonical_json(expected) != canonical_json(thaw_json(result_payload)):
+        raise WorkflowTransitionError("workflow_transition_effect_result_envelope_invalid")
+    return int(expected["stage_attempt_count"])
+
+
+def workflow_transition_finalization_stage_attempt_count(
+    transition: WorkflowTransition,
+    effects: Sequence[WorkflowTransitionEffect],
+) -> int:
+    """Validate the applied prefix and return the finalization-stage attempts."""
+
+    values = _validated_effects(effects, transition_id=transition.transition_id)
+    if transition.attempt_count != transition.claim_generation:
+        raise WorkflowTransitionError("workflow_transition_header_attempt_conflict")
+    non_final = [effect for effect in values if effect.kind != EFFECT_BINDING_FINALIZE]
+    if any(effect.state != EFFECT_STATE_APPLIED for effect in non_final):
+        raise WorkflowTransitionError("workflow_transition_effects_incomplete")
+    previous_generation = 0
+    for effect in non_final:
+        if effect.applied_generation <= previous_generation or effect.applied_generation >= transition.claim_generation:
+            raise WorkflowTransitionError("workflow_transition_effect_application_generation_invalid")
+        stage_attempts = workflow_transition_effect_stage_attempt_count(effect.result_payload)
+        if stage_attempts != effect.applied_generation - previous_generation:
+            raise WorkflowTransitionError("workflow_transition_effect_stage_attempt_invalid")
+        previous_generation = effect.applied_generation
+    finalization_attempts = transition.claim_generation - previous_generation
+    if finalization_attempts < 1:
+        raise WorkflowTransitionError("workflow_transition_effect_stage_attempt_invalid")
+    return finalization_attempts
+
+
 def workflow_transition_effect_fingerprint(
     effects: Sequence[WorkflowTransitionEffect],
 ) -> str:
@@ -717,14 +876,18 @@ def workflow_transition_outcome_fingerprint(
     *,
     binding_status: Mapping[str, Any],
     checkpoint_ref: str,
+    finalization_proof: Mapping[str, Any],
+    public_status: Mapping[str, Any] | None = None,
     receipt_result: Mapping[str, Any] | None = None,
 ) -> str:
-    """Bind effects, raw binding state, and its public receipt projection."""
+    """Bind effects, raw binding state, and its canonical public projection."""
 
     values = _validated_effects(effects, transition_id=transition.transition_id)
     non_final = [effect for effect in values if effect.kind != EFFECT_BINDING_FINALIZE]
-    if any(effect.state != EFFECT_STATE_APPLIED for effect in non_final):
-        raise WorkflowTransitionError("workflow_transition_effects_incomplete")
+    finalization_attempts = workflow_transition_finalization_stage_attempt_count(
+        transition,
+        values,
+    )
     status = _validated_mapping(
         binding_status,
         maximum=_MAX_STATUS_BYTES,
@@ -732,18 +895,23 @@ def workflow_transition_outcome_fingerprint(
         empty=False,
     )
     _bounded_text(checkpoint_ref, 512, "checkpoint_ref")
-    receipt_status: Mapping[str, Any] = {}
-    if transition.receipt_id:
-        if receipt_result is None:
-            raise WorkflowTransitionError("workflow_transition_receipt_result_missing")
-        receipt_status = _validated_mapping(
-            receipt_result,
-            maximum=_MAX_STATUS_BYTES,
-            reason="receipt_result",
-            empty=False,
-        )
-    elif receipt_result is not None:
-        raise WorkflowTransitionError("workflow_transition_receipt_result_unexpected")
+    if public_status is not None and receipt_result is not None:
+        raise WorkflowTransitionError("workflow_transition_public_status_ambiguous")
+    projected = public_status if public_status is not None else receipt_result
+    if projected is None:
+        raise WorkflowTransitionError("workflow_transition_public_status_missing")
+    canonical_status = _validated_mapping(
+        projected,
+        maximum=_MAX_STATUS_BYTES,
+        reason="public_status",
+        empty=False,
+    )
+    proof = _validated_mapping(
+        finalization_proof,
+        maximum=_MAX_EFFECT_PAYLOAD_BYTES,
+        reason="finalization_proof",
+        empty=False,
+    )
     return _digest(
         {
             "transition_id": transition.transition_id,
@@ -759,7 +927,9 @@ def workflow_transition_outcome_fingerprint(
             ],
             "binding_status": status,
             "checkpoint_ref": checkpoint_ref,
-            "receipt_result": receipt_status,
+            "finalization_stage_attempt_count": finalization_attempts,
+            "finalization_proof": proof,
+            "public_status": canonical_status,
         },
         namespace="workflow-transition-outcome",
     )
@@ -970,6 +1140,7 @@ __all__ = [
     "TRANSITION_RUNTIME_NATIVE",
     "TRANSITION_STATE_APPLYING",
     "TRANSITION_STATE_COMPLETED",
+    "TRANSITION_STATE_QUARANTINED",
     "TRANSITION_STATE_READY",
     "TRANSITION_STATE_REJECTED",
     "WorkflowTransition",
@@ -978,17 +1149,24 @@ __all__ = [
     "WorkflowTransitionCompletionPort",
     "WorkflowTransitionEffectPort",
     "WorkflowTransitionLeasePort",
+    "WorkflowTransitionPublicProjectionPort",
+    "WorkflowTransitionQuarantinePort",
     "WorkflowTransitionReadPort",
     "WorkflowTransitionReceiptProjectionPort",
     "WorkflowTransitionSnapshot",
     "WorkflowTransitionStagePort",
     "WorkflowTransitionStore",
+    "WORKFLOW_TRANSITION_EFFECT_RESULT_SCHEMA",
     "thaw_json",
     "validate_transition_plan",
     "workflow_admitted_command_digest",
     "workflow_transition_effect_fingerprint",
     "workflow_transition_effect_id",
     "workflow_transition_effect_result_digest",
+    "workflow_transition_effect_result_envelope",
+    "workflow_transition_effect_stage_attempt_count",
+    "workflow_transition_finalization_result_digest",
+    "workflow_transition_finalization_stage_attempt_count",
     "workflow_transition_id",
     "workflow_transition_outcome_fingerprint",
     "workflow_transition_request_fingerprint",

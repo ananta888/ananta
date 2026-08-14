@@ -32,21 +32,28 @@ from agent.services.workflow_transition_outbox import (
     EFFECT_STATE_REJECTED,
     TRANSITION_STATE_APPLYING,
     TRANSITION_STATE_COMPLETED,
+    TRANSITION_STATE_QUARANTINED,
     TRANSITION_STATE_READY,
     TRANSITION_STATE_REJECTED,
     WorkflowTransition,
     WorkflowTransitionEffect,
     WorkflowTransitionError,
-    WorkflowTransitionReceiptProjectionPort,
+    WorkflowTransitionPublicProjectionPort,
     WorkflowTransitionSnapshot,
     thaw_json,
     validate_transition_plan,
     workflow_transition_effect_result_digest,
+    workflow_transition_effect_stage_attempt_count,
+    workflow_transition_finalization_result_digest,
+    workflow_transition_finalization_stage_attempt_count,
     workflow_transition_outcome_fingerprint,
     workflow_transition_request_fingerprint,
 )
 
 _RECEIPT_ACTIVE_STATES = frozenset({"pending", "dispatching"})
+_ACTIVE_MARKER_TRANSITION_STATES = frozenset(
+    {TRANSITION_STATE_READY, TRANSITION_STATE_APPLYING, TRANSITION_STATE_QUARANTINED}
+)
 _MAX_LEASE_SECONDS = 300.0
 _MAX_RESULT_BYTES = 524_288
 
@@ -68,7 +75,7 @@ class InMemoryWorkflowTransitionStore:
         *,
         clock: Callable[[], float] = time.time,
         fault_injector: Callable[[str], None] | None = None,
-        receipt_projector: WorkflowTransitionReceiptProjectionPort | None = None,
+        receipt_projector: WorkflowTransitionPublicProjectionPort | None = None,
     ) -> None:
         self._clock = clock
         self._fault_injector = fault_injector or (lambda _stage: None)
@@ -280,7 +287,16 @@ class InMemoryWorkflowTransitionStore:
         with self._lock:
             binding = self._bindings.get(str(workflow_id))
             transition_id = str((binding or {}).get("active_transition_id") or "")
-            return self._snapshot(transition_id) if transition_id else None
+            if not transition_id:
+                return None
+            transition = self._transitions.get(transition_id)
+            if (
+                transition is None
+                or transition.workflow_id != str(workflow_id)
+                or transition.state not in _ACTIVE_MARKER_TRANSITION_STATES
+            ):
+                raise WorkflowTransitionPersistenceError("workflow_transition_binding_marker_orphaned")
+            return self._snapshot(transition_id)
 
     def active_transition_id(self, workflow_id: str) -> str:
         """Expose the aggregate-owned marker through a read-only fence port."""
@@ -421,6 +437,17 @@ class InMemoryWorkflowTransitionStore:
             _assert_receipt_lease_mirror(receipt, transition)
             values = list(self._effects[transition.transition_id])
             index, current = _effect(values, effect_id)
+            _assert_effect_begin_order(values, effect_index=index)
+            binding = self._binding_owned_by(transition)
+            _assert_binding_execution_state(binding, transition)
+            if any(
+                candidate.effect_id != current.effect_id
+                and candidate.kind != EFFECT_BINDING_FINALIZE
+                and candidate.state in {EFFECT_STATE_APPLYING, EFFECT_STATE_APPLIED}
+                and candidate.applied_generation == claim_generation
+                for candidate in values
+            ):
+                raise WorkflowTransitionPersistenceError("workflow_transition_effect_claim_progress_conflict")
             if current.kind == EFFECT_BINDING_FINALIZE:
                 raise WorkflowTransitionPersistenceError("workflow_transition_finalize_effect_direct_execution_denied")
             if current.state == EFFECT_STATE_APPLIED:
@@ -474,6 +501,12 @@ class InMemoryWorkflowTransitionStore:
                 return current
             if current.state != EFFECT_STATE_APPLYING or current.applied_generation != claim_generation:
                 raise WorkflowTransitionPersistenceError("workflow_transition_effect_generation_conflict")
+            _assert_effect_stage_attempt(
+                transition,
+                values,
+                effect_index=index,
+                result_payload=safe_result,
+            )
             updated = replace(
                 current,
                 state=EFFECT_STATE_APPLIED,
@@ -507,6 +540,8 @@ class InMemoryWorkflowTransitionStore:
             )
             receipt = self._receipt_owned_by(current)
             _assert_receipt_lease_mirror(receipt, current)
+            binding = self._binding_owned_by(current)
+            _assert_binding_execution_state(binding, current)
             updated = replace(
                 current,
                 state=TRANSITION_STATE_READY,
@@ -531,6 +566,111 @@ class InMemoryWorkflowTransitionStore:
             self._transitions[current.transition_id] = updated
             return self._snapshot(current.transition_id)  # type: ignore[return-value]
 
+    def yield_ready(
+        self,
+        transition_id: str,
+        effect_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        available_at: float,
+    ) -> WorkflowTransitionSnapshot:
+        """Yield after one applied effect without consuming retry authority."""
+
+        ready_at = _retry_at(available_at)
+        now = float(self._clock())
+        with self._lock:
+            current = self._owned(
+                transition_id,
+                owner_id=owner_id,
+                claim_generation=claim_generation,
+                now=now,
+            )
+            receipt = self._receipt_owned_by(current)
+            _assert_receipt_lease_mirror(receipt, current)
+            binding = self._binding_owned_by(current)
+            _assert_yield_effect(
+                self._effects[current.transition_id],
+                effect_id=effect_id,
+                claim_generation=claim_generation,
+            )
+            _assert_binding_execution_state(binding, current)
+            updated = replace(
+                current,
+                state=TRANSITION_STATE_READY,
+                claim_owner="",
+                claim_expires_at=0.0,
+                available_at=ready_at,
+                last_heartbeat_at=now,
+                last_error="",
+                revision=current.revision + 1,
+                updated_at=now,
+            )
+            next_receipt = dict(receipt or {})
+            if receipt is not None:
+                next_receipt.update(
+                    state="pending",
+                    dispatch_owner="",
+                    dispatch_lease_expires_at=0.0,
+                    dispatch_generation=claim_generation,
+                    last_heartbeat_at=now,
+                    revision=int(next_receipt["revision"]) + 1,
+                )
+            self._fault_injector("yield_before_commit")
+            self._transitions[current.transition_id] = updated
+            if receipt is not None:
+                self._receipts[current.receipt_id] = next_receipt
+            return self._snapshot(current.transition_id)  # type: ignore[return-value]
+
+    def quarantine(
+        self,
+        transition_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        reason_code: str,
+    ) -> WorkflowTransitionSnapshot:
+        """Atomically hold an ambiguous aggregate without inventing an outcome."""
+
+        reason = _reason_code(reason_code)
+        now = float(self._clock())
+        with self._lock:
+            current = self._owned(
+                transition_id,
+                owner_id=owner_id,
+                claim_generation=claim_generation,
+                now=now,
+            )
+            binding = self._binding_owned_by(current)
+            _assert_binding_quarantine_state(binding, current)
+            receipt = self._receipt_owned_by(current)
+            _assert_receipt_finalize_state(receipt, current)
+            quarantined = replace(
+                current,
+                state=TRANSITION_STATE_QUARANTINED,
+                claim_owner="",
+                claim_expires_at=0.0,
+                last_heartbeat_at=now,
+                last_error=reason,
+                revision=current.revision + 1,
+                updated_at=now,
+            )
+            next_receipt = dict(receipt or {})
+            if receipt is not None:
+                next_receipt.update(
+                    state="pending",
+                    dispatch_owner="",
+                    dispatch_lease_expires_at=0.0,
+                    dispatch_generation=claim_generation,
+                    last_heartbeat_at=now,
+                    revision=int(next_receipt["revision"]) + 1,
+                )
+            self._fault_injector("quarantine_before_commit")
+            self._transitions[current.transition_id] = quarantined
+            if receipt is not None:
+                self._receipts[current.receipt_id] = next_receipt
+            return self._snapshot(current.transition_id)  # type: ignore[return-value]
+
     def reject(
         self,
         transition_id: str,
@@ -549,6 +689,7 @@ class InMemoryWorkflowTransitionStore:
                 now=now,
             )
             binding = self._binding_owned_by(current)
+            _assert_binding_finalize_state(binding, current)
             receipt = self._receipt_owned_by(current)
             _assert_receipt_finalize_state(receipt, current)
             _assert_effect_rejection_safe(self._effects[current.transition_id])
@@ -612,7 +753,8 @@ class InMemoryWorkflowTransitionStore:
         claim_generation: int,
         binding_status: Mapping[str, Any],
         checkpoint_ref: str,
-        outcome_fingerprint: str,
+        finalization_proof: Mapping[str, Any],
+        outcome_fingerprint: str = "",
         receipt_result: Mapping[str, Any] | None = None,
     ) -> WorkflowTransitionSnapshot:
         now = float(self._clock())
@@ -628,20 +770,21 @@ class InMemoryWorkflowTransitionStore:
             receipt = self._receipt_owned_by(current)
             _assert_binding_finalize_state(binding, current)
             _assert_receipt_finalize_state(receipt, current)
-            projected_receipt_result = _project_receipt_result(
+            public_status = _project_public_status(
                 self._receipt_projector,
                 transition=current,
                 binding=binding,
                 binding_status=binding_status,
                 receipt_result=receipt_result,
             )
-            status, receipt_status, completed_effects = _finalization_values(
+            status, public_status, completed_outcome, completed_effects = _finalization_values(
                 current,
                 effects,
                 binding_status=binding_status,
                 checkpoint_ref=checkpoint_ref,
+                finalization_proof=finalization_proof,
                 outcome_fingerprint=outcome_fingerprint,
-                receipt_result=projected_receipt_result,
+                public_status=public_status,
                 claim_generation=claim_generation,
                 now=now,
             )
@@ -649,7 +792,7 @@ class InMemoryWorkflowTransitionStore:
             next_binding = dict(binding)
             next_binding.update(
                 last_status=status,
-                public_status=receipt_status if receipt is not None else next_binding.get("public_status", {}),
+                public_status=public_status,
                 runtime_revision=_status_revision(status),
                 runtime_checkpoint_ref=checkpoint_ref,
                 active_transition_id="",
@@ -657,7 +800,7 @@ class InMemoryWorkflowTransitionStore:
                 last_transition_command_id=current.command_id,
                 last_transition_request_fingerprint=current.request_fingerprint,
                 last_transition_effect_fingerprint=current.effect_fingerprint,
-                last_transition_outcome_fingerprint=outcome_fingerprint,
+                last_transition_outcome_fingerprint=completed_outcome,
                 revision=int(next_binding["revision"]) + 1,
             )
             if current.receipt_id:
@@ -666,8 +809,8 @@ class InMemoryWorkflowTransitionStore:
             if receipt is not None:
                 next_receipt.update(
                     state="completed",
-                    result_status=receipt_status,
-                    outcome_fingerprint=outcome_fingerprint,
+                    result_status=public_status,
+                    outcome_fingerprint=completed_outcome,
                     dispatch_owner="",
                     dispatch_lease_expires_at=0.0,
                     last_heartbeat_at=now,
@@ -679,7 +822,7 @@ class InMemoryWorkflowTransitionStore:
                 state=TRANSITION_STATE_COMPLETED,
                 result_status=status,
                 result_checkpoint_ref=checkpoint_ref,
-                outcome_fingerprint=outcome_fingerprint,
+                outcome_fingerprint=completed_outcome,
                 claim_owner="",
                 claim_expires_at=0.0,
                 last_heartbeat_at=now,
@@ -721,7 +864,9 @@ class InMemoryWorkflowTransitionStore:
 
     def _binding_owned_by(self, transition: WorkflowTransition) -> dict[str, Any]:
         binding = self._bindings.get(transition.workflow_id)
-        if binding is None or binding.get("active_transition_id") != transition.transition_id:
+        if binding is None:
+            raise WorkflowTransitionPersistenceError("workflow_transition_binding_not_found")
+        if binding.get("active_transition_id") != transition.transition_id:
             raise WorkflowTransitionPersistenceError("workflow_transition_binding_cas_conflict")
         return binding
 
@@ -729,7 +874,9 @@ class InMemoryWorkflowTransitionStore:
         if not transition.receipt_id:
             return None
         receipt = self._receipts.get(transition.receipt_id)
-        if receipt is None or receipt.get("transition_id") != transition.transition_id:
+        if receipt is None:
+            raise WorkflowTransitionPersistenceError("workflow_transition_receipt_not_found")
+        if receipt.get("transition_id") != transition.transition_id:
             raise WorkflowTransitionPersistenceError("workflow_transition_receipt_cas_conflict")
         return receipt
 
@@ -752,7 +899,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
         *,
         clock: Callable[[], float] = time.time,
         fault_injector: Callable[[str], None] | None = None,
-        receipt_projector: WorkflowTransitionReceiptProjectionPort | None = None,
+        receipt_projector: WorkflowTransitionPublicProjectionPort | None = None,
     ) -> None:
         super().__init__(bind)
         self._clock = clock
@@ -777,6 +924,14 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
         statement = sa.select(WorkflowControlCommandReceiptDB).where(
             WorkflowControlCommandReceiptDB.id == transition.receipt_id
         )
+        return session.execute(self._for_update(statement)).scalar_one_or_none()
+
+    def _locked_binding(
+        self,
+        session: Any,
+        transition: WorkflowTransition,
+    ) -> WorkflowControlBindingDB | None:
+        statement = sa.select(WorkflowControlBindingDB).where(WorkflowControlBindingDB.id == transition.workflow_id)
         return session.execute(self._for_update(statement)).scalar_one_or_none()
 
     def stage(
@@ -867,8 +1022,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                             WorkflowControlCommandReceiptDB.outcome_fingerprint == "",
                             sa.or_(
                                 WorkflowControlCommandReceiptDB.request_fingerprint == "",
-                                WorkflowControlCommandReceiptDB.request_fingerprint
-                                == transition.request_fingerprint,
+                                WorkflowControlCommandReceiptDB.request_fingerprint == transition.request_fingerprint,
                             ),
                             WorkflowControlCommandReceiptDB.state == "pending",
                             WorkflowControlCommandReceiptDB.dispatch_owner == "",
@@ -911,7 +1065,11 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
             if not transition_id:
                 return None
             row = session.get(WorkflowTransitionOutboxDB, transition_id)
-            if row is None:
+            if (
+                row is None
+                or str(row.workflow_id) != str(workflow_id)
+                or str(row.state) not in _ACTIVE_MARKER_TRANSITION_STATES
+            ):
                 raise WorkflowTransitionPersistenceError("workflow_transition_binding_marker_orphaned")
             return _sql_snapshot(session, row)
 
@@ -1118,10 +1276,8 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                         WorkflowControlCommandReceiptDB.state == "dispatching",
                         WorkflowControlCommandReceiptDB.dispatch_owner == owner,
                         WorkflowControlCommandReceiptDB.dispatch_generation == generation,
-                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at
-                        == transition.claim_expires_at,
-                        WorkflowControlCommandReceiptDB.last_heartbeat_at
-                        == transition.last_heartbeat_at,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
                     )
                     .values(
                         dispatch_lease_expires_at=next_expiry,
@@ -1159,10 +1315,35 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
             transition = _transition_from_row(transition_row)
             receipt = self._locked_receipt(session, transition)
             _assert_receipt_lease_mirror(receipt, transition)
-            row = session.get(WorkflowTransitionEffectDB, str(effect_id))
-            if row is None or row.transition_id != str(transition_id):
+            binding = self._locked_binding(session, transition)
+            effect_rows = (
+                session.execute(
+                    self._for_update(
+                        sa.select(WorkflowTransitionEffectDB)
+                        .where(WorkflowTransitionEffectDB.transition_id == transition.transition_id)
+                        .order_by(WorkflowTransitionEffectDB.ordinal.asc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            values = tuple(_effect_from_row(effect) for effect in effect_rows)
+            try:
+                index, current = _effect(values, str(effect_id))
+            except WorkflowTransitionPersistenceError:
                 raise WorkflowTransitionPersistenceError("workflow_transition_effect_not_found")
-            current = _effect_from_row(row)
+            _assert_effect_begin_order(values, effect_index=index)
+            _assert_binding_execution_state(binding, transition)
+            row = effect_rows[index]
+            generation = _generation(claim_generation)
+            if any(
+                candidate.effect_id != current.effect_id
+                and candidate.kind != EFFECT_BINDING_FINALIZE
+                and candidate.state in {EFFECT_STATE_APPLYING, EFFECT_STATE_APPLIED}
+                and candidate.applied_generation == generation
+                for candidate in values
+            ):
+                raise WorkflowTransitionPersistenceError("workflow_transition_effect_claim_progress_conflict")
             if current.kind == EFFECT_BINDING_FINALIZE:
                 raise WorkflowTransitionPersistenceError("workflow_transition_finalize_effect_direct_execution_denied")
             if current.state == EFFECT_STATE_APPLIED:
@@ -1179,7 +1360,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
             if prior_incomplete is not None:
                 raise WorkflowTransitionPersistenceError("workflow_transition_effect_order_conflict")
             if current.state == EFFECT_STATE_APPLYING:
-                if current.applied_generation >= _generation(claim_generation):
+                if current.applied_generation >= generation:
                     raise WorkflowTransitionPersistenceError("workflow_transition_effect_generation_conflict")
             elif current.state != EFFECT_STATE_PLANNED:
                 raise WorkflowTransitionPersistenceError("workflow_transition_effect_state_conflict")
@@ -1194,7 +1375,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                 )
                 .values(
                     state=EFFECT_STATE_APPLYING,
-                    applied_generation=_generation(claim_generation),
+                    applied_generation=generation,
                     revision=int(row.revision) + 1,
                     updated_at=now,
                 )
@@ -1232,16 +1413,37 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
             transition = _transition_from_row(transition_row)
             receipt = self._locked_receipt(session, transition)
             _assert_receipt_lease_mirror(receipt, transition)
-            row = session.get(WorkflowTransitionEffectDB, str(effect_id))
-            if row is None or row.transition_id != str(transition_id):
+            effect_rows = (
+                session.execute(
+                    self._for_update(
+                        sa.select(WorkflowTransitionEffectDB)
+                        .where(WorkflowTransitionEffectDB.transition_id == transition.transition_id)
+                        .order_by(WorkflowTransitionEffectDB.ordinal.asc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            values = tuple(_effect_from_row(effect) for effect in effect_rows)
+            try:
+                index, current = _effect(values, str(effect_id))
+            except WorkflowTransitionPersistenceError:
                 raise WorkflowTransitionPersistenceError("workflow_transition_effect_not_found")
-            current = _effect_from_row(row)
+            row = effect_rows[index]
             if current.kind == EFFECT_BINDING_FINALIZE:
                 raise WorkflowTransitionPersistenceError("workflow_transition_finalize_effect_direct_execution_denied")
             if current.state == EFFECT_STATE_APPLIED:
                 if current.result_digest != result_digest or thaw_json(current.result_payload) != safe_result:
                     raise WorkflowTransitionPersistenceError("workflow_transition_effect_result_conflict")
                 return current
+            if current.state != EFFECT_STATE_APPLYING or current.applied_generation != generation:
+                raise WorkflowTransitionPersistenceError("workflow_transition_effect_generation_conflict")
+            _assert_effect_stage_attempt(
+                transition,
+                values,
+                effect_index=index,
+                result_payload=safe_result,
+            )
             result = session.execute(
                 sa.update(WorkflowTransitionEffectDB)
                 .where(
@@ -1305,6 +1507,8 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                 else None
             )
             _assert_receipt_lease_mirror(receipt, transition)
+            binding = self._locked_binding(session, transition)
+            _assert_binding_execution_state(binding, transition)
             result = session.execute(
                 sa.update(WorkflowTransitionOutboxDB)
                 .where(
@@ -1338,10 +1542,8 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                         WorkflowControlCommandReceiptDB.state == "dispatching",
                         WorkflowControlCommandReceiptDB.dispatch_owner == owner,
                         WorkflowControlCommandReceiptDB.dispatch_generation == generation,
-                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at
-                        == transition.claim_expires_at,
-                        WorkflowControlCommandReceiptDB.last_heartbeat_at
-                        == transition.last_heartbeat_at,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
                     )
                     .values(
                         state="pending",
@@ -1357,6 +1559,200 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
             session.flush()
             session.expire_all()
             refreshed = session.get(WorkflowTransitionOutboxDB, row.id)
+            if refreshed is None:  # pragma: no cover
+                raise WorkflowTransitionPersistenceError("workflow_transition_not_found")
+            return _sql_snapshot(session, refreshed)
+
+    def yield_ready(
+        self,
+        transition_id: str,
+        effect_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        available_at: float,
+    ) -> WorkflowTransitionSnapshot:
+        """Yield after one current-generation effect proof in the same UoW."""
+
+        ready_at = _retry_at(available_at)
+        owner = _owner_id(owner_id)
+        generation = _generation(claim_generation)
+        now = float(self._clock())
+        with self._transaction() as session:
+            row = self._locked_transition(session, transition_id)
+            _assert_sql_owned(
+                row,
+                owner_id=owner,
+                claim_generation=generation,
+                now=now,
+            )
+            transition = _transition_from_row(row)
+            receipt = self._locked_receipt(session, transition)
+            _assert_receipt_lease_mirror(receipt, transition)
+            binding = self._locked_binding(session, transition)
+            effect_rows = (
+                session.execute(
+                    self._for_update(
+                        sa.select(WorkflowTransitionEffectDB)
+                        .where(WorkflowTransitionEffectDB.transition_id == transition.transition_id)
+                        .order_by(WorkflowTransitionEffectDB.ordinal.asc())
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            _assert_yield_effect(
+                tuple(_effect_from_row(effect) for effect in effect_rows),
+                effect_id=effect_id,
+                claim_generation=generation,
+            )
+            _assert_binding_execution_state(binding, transition)
+
+            transition_result = session.execute(
+                sa.update(WorkflowTransitionOutboxDB)
+                .where(
+                    WorkflowTransitionOutboxDB.id == transition.transition_id,
+                    WorkflowTransitionOutboxDB.revision == transition.revision,
+                    WorkflowTransitionOutboxDB.state == TRANSITION_STATE_APPLYING,
+                    WorkflowTransitionOutboxDB.claim_owner == owner,
+                    WorkflowTransitionOutboxDB.claim_generation == generation,
+                    WorkflowTransitionOutboxDB.claim_expires_at > now,
+                )
+                .values(
+                    state=TRANSITION_STATE_READY,
+                    claim_owner="",
+                    claim_expires_at=0.0,
+                    available_at=ready_at,
+                    last_heartbeat_at=now,
+                    last_error="",
+                    revision=transition.revision + 1,
+                    updated_at=now,
+                )
+            )
+            if int(transition_result.rowcount or 0) != 1:
+                raise WorkflowTransitionPersistenceError("workflow_transition_lease_conflict")
+            if receipt is not None:
+                receipt_result = session.execute(
+                    sa.update(WorkflowControlCommandReceiptDB)
+                    .where(
+                        WorkflowControlCommandReceiptDB.id == transition.receipt_id,
+                        WorkflowControlCommandReceiptDB.revision == int(receipt.revision),
+                        WorkflowControlCommandReceiptDB.transition_id == transition.transition_id,
+                        WorkflowControlCommandReceiptDB.request_fingerprint == transition.request_fingerprint,
+                        WorkflowControlCommandReceiptDB.effect_fingerprint == transition.effect_fingerprint,
+                        WorkflowControlCommandReceiptDB.state == "dispatching",
+                        WorkflowControlCommandReceiptDB.dispatch_owner == owner,
+                        WorkflowControlCommandReceiptDB.dispatch_generation == generation,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
+                    )
+                    .values(
+                        state="pending",
+                        dispatch_owner="",
+                        dispatch_lease_expires_at=0.0,
+                        dispatch_generation=generation,
+                        last_heartbeat_at=now,
+                        revision=int(receipt.revision) + 1,
+                        updated_at=now,
+                    )
+                )
+                if int(receipt_result.rowcount or 0) != 1:
+                    raise WorkflowTransitionPersistenceError("workflow_transition_receipt_cas_conflict")
+            self._fault_injector("yield_before_commit")
+            session.flush()
+            session.expire_all()
+            refreshed = session.get(WorkflowTransitionOutboxDB, transition.transition_id)
+            if refreshed is None:  # pragma: no cover
+                raise WorkflowTransitionPersistenceError("workflow_transition_not_found")
+            return _sql_snapshot(session, refreshed)
+
+    def quarantine(
+        self,
+        transition_id: str,
+        *,
+        owner_id: str,
+        claim_generation: int,
+        reason_code: str,
+    ) -> WorkflowTransitionSnapshot:
+        """Atomically hold an ambiguous aggregate without changing its effects."""
+
+        reason = _reason_code(reason_code)
+        owner = _owner_id(owner_id)
+        generation = _generation(claim_generation)
+        now = float(self._clock())
+        with self._transaction() as session:
+            transition_row = self._locked_transition(session, transition_id)
+            _assert_sql_owned(
+                transition_row,
+                owner_id=owner,
+                claim_generation=generation,
+                now=now,
+            )
+            transition = _transition_from_row(transition_row)
+            binding = session.execute(
+                self._for_update(
+                    sa.select(WorkflowControlBindingDB).where(WorkflowControlBindingDB.id == transition.workflow_id)
+                )
+            ).scalar_one_or_none()
+            _assert_binding_quarantine_state(binding, transition)
+            receipt = self._locked_receipt(session, transition)
+            _assert_receipt_finalize_state(receipt, transition)
+
+            if receipt is not None:
+                receipt_result = session.execute(
+                    sa.update(WorkflowControlCommandReceiptDB)
+                    .where(
+                        WorkflowControlCommandReceiptDB.id == transition.receipt_id,
+                        WorkflowControlCommandReceiptDB.revision == int(receipt.revision),
+                        WorkflowControlCommandReceiptDB.transition_id == transition.transition_id,
+                        WorkflowControlCommandReceiptDB.request_fingerprint == transition.request_fingerprint,
+                        WorkflowControlCommandReceiptDB.effect_fingerprint == transition.effect_fingerprint,
+                        WorkflowControlCommandReceiptDB.state == "dispatching",
+                        WorkflowControlCommandReceiptDB.dispatch_owner == owner,
+                        WorkflowControlCommandReceiptDB.dispatch_generation == generation,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
+                    )
+                    .values(
+                        state="pending",
+                        dispatch_owner="",
+                        dispatch_lease_expires_at=0.0,
+                        dispatch_generation=generation,
+                        last_heartbeat_at=now,
+                        revision=int(receipt.revision) + 1,
+                        updated_at=now,
+                    )
+                )
+                if int(receipt_result.rowcount or 0) != 1:
+                    raise WorkflowTransitionPersistenceError("workflow_transition_receipt_cas_conflict")
+                self._fault_injector("quarantine_after_receipt_cas")
+
+            transition_result = session.execute(
+                sa.update(WorkflowTransitionOutboxDB)
+                .where(
+                    WorkflowTransitionOutboxDB.id == transition.transition_id,
+                    WorkflowTransitionOutboxDB.revision == transition.revision,
+                    WorkflowTransitionOutboxDB.state == TRANSITION_STATE_APPLYING,
+                    WorkflowTransitionOutboxDB.claim_owner == owner,
+                    WorkflowTransitionOutboxDB.claim_generation == generation,
+                    WorkflowTransitionOutboxDB.claim_expires_at > now,
+                )
+                .values(
+                    state=TRANSITION_STATE_QUARANTINED,
+                    claim_owner="",
+                    claim_expires_at=0.0,
+                    last_heartbeat_at=now,
+                    last_error=reason,
+                    revision=transition.revision + 1,
+                    updated_at=now,
+                )
+            )
+            if int(transition_result.rowcount or 0) != 1:
+                raise WorkflowTransitionPersistenceError("workflow_transition_lease_conflict")
+            self._fault_injector("quarantine_before_commit")
+            session.flush()
+            session.expire_all()
+            refreshed = session.get(WorkflowTransitionOutboxDB, transition.transition_id)
             if refreshed is None:  # pragma: no cover
                 raise WorkflowTransitionPersistenceError("workflow_transition_not_found")
             return _sql_snapshot(session, refreshed)
@@ -1473,10 +1869,8 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                         WorkflowControlCommandReceiptDB.state == "dispatching",
                         WorkflowControlCommandReceiptDB.dispatch_owner == owner,
                         WorkflowControlCommandReceiptDB.dispatch_generation == generation,
-                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at
-                        == transition.claim_expires_at,
-                        WorkflowControlCommandReceiptDB.last_heartbeat_at
-                        == transition.last_heartbeat_at,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
                     )
                     .values(
                         state="rejected",
@@ -1530,7 +1924,8 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
         claim_generation: int,
         binding_status: Mapping[str, Any],
         checkpoint_ref: str,
-        outcome_fingerprint: str,
+        finalization_proof: Mapping[str, Any],
+        outcome_fingerprint: str = "",
         receipt_result: Mapping[str, Any] | None = None,
     ) -> WorkflowTransitionSnapshot:
         owner = _owner_id(owner_id)
@@ -1575,20 +1970,21 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                 else None
             )
             _assert_receipt_finalize_state(receipt, transition)
-            projected_receipt_result = _project_receipt_result(
+            public_status = _project_public_status(
                 self._receipt_projector,
                 transition=transition,
                 binding=_sql_binding_projection_context(binding),
                 binding_status=binding_status,
                 receipt_result=receipt_result,
             )
-            status, receipt_status, completed_effects = _finalization_values(
+            status, public_status, completed_outcome, completed_effects = _finalization_values(
                 transition,
                 effects,
                 binding_status=binding_status,
                 checkpoint_ref=checkpoint_ref,
+                finalization_proof=finalization_proof,
                 outcome_fingerprint=outcome_fingerprint,
-                receipt_result=projected_receipt_result,
+                public_status=public_status,
                 claim_generation=generation,
                 now=now,
             )
@@ -1606,7 +2002,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                 )
                 .values(
                     last_status=status,
-                    public_status=receipt_status if receipt is not None else binding.public_status,
+                    public_status=public_status,
                     runtime_revision=_status_revision(status),
                     runtime_checkpoint_ref=checkpoint_ref,
                     active_transition_id="",
@@ -1615,7 +2011,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                     last_transition_command_id=transition.command_id,
                     last_transition_request_fingerprint=transition.request_fingerprint,
                     last_transition_effect_fingerprint=transition.effect_fingerprint,
-                    last_transition_outcome_fingerprint=outcome_fingerprint,
+                    last_transition_outcome_fingerprint=completed_outcome,
                     revision=int(binding.revision) + 1,
                     updated_at=now,
                 )
@@ -1636,15 +2032,13 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                         WorkflowControlCommandReceiptDB.state == "dispatching",
                         WorkflowControlCommandReceiptDB.dispatch_owner == owner,
                         WorkflowControlCommandReceiptDB.dispatch_generation == generation,
-                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at
-                        == transition.claim_expires_at,
-                        WorkflowControlCommandReceiptDB.last_heartbeat_at
-                        == transition.last_heartbeat_at,
+                        WorkflowControlCommandReceiptDB.dispatch_lease_expires_at == transition.claim_expires_at,
+                        WorkflowControlCommandReceiptDB.last_heartbeat_at == transition.last_heartbeat_at,
                     )
                     .values(
                         state="completed",
-                        result_status=receipt_status,
-                        outcome_fingerprint=outcome_fingerprint,
+                        result_status=public_status,
+                        outcome_fingerprint=completed_outcome,
                         dispatch_owner="",
                         dispatch_lease_expires_at=0.0,
                         dispatch_generation=generation,
@@ -1695,7 +2089,7 @@ class SQLAlchemyWorkflowTransitionStore(SQLAlchemyStoreSupport):
                     state=TRANSITION_STATE_COMPLETED,
                     result_status=status,
                     result_checkpoint_ref=checkpoint_ref,
-                    outcome_fingerprint=outcome_fingerprint,
+                    outcome_fingerprint=completed_outcome,
                     claim_owner="",
                     claim_expires_at=0.0,
                     last_heartbeat_at=now,
@@ -1768,6 +2162,8 @@ def _effect_row(value: WorkflowTransitionEffect) -> WorkflowTransitionEffectDB:
 
 
 def _transition_from_row(row: WorkflowTransitionOutboxDB) -> WorkflowTransition:
+    if int(row.attempt_count) != int(row.claim_generation):
+        raise WorkflowTransitionPersistenceError("workflow_transition_header_attempt_conflict")
     return WorkflowTransition(
         transition_id=str(row.id),
         tenant_id=str(row.tenant_id),
@@ -1856,6 +2252,7 @@ def _same_snapshot_or_raise(
         "available_at",
         "last_error",
         "revision",
+        "created_at",
         "updated_at",
         "completed_at",
     }
@@ -1873,6 +2270,7 @@ def _same_snapshot_or_raise(
                 "result_payload",
                 "result_digest",
                 "revision",
+                "created_at",
                 "updated_at",
             }
         }
@@ -1889,6 +2287,7 @@ def _same_snapshot_or_raise(
                 "result_payload",
                 "result_digest",
                 "revision",
+                "created_at",
                 "updated_at",
             }
         }
@@ -1985,8 +2384,7 @@ def _assert_memory_receipt_for_stage(
         or receipt.get("checkpoint_ref") != transition.expected_checkpoint_ref
         or workflow_transition_request_fingerprint(receipt.get("request_payload") or {})
         != transition.request_fingerprint
-        or str(receipt.get("request_fingerprint") or "")
-        not in {"", transition.request_fingerprint}
+        or str(receipt.get("request_fingerprint") or "") not in {"", transition.request_fingerprint}
         or receipt.get("state") != "pending"
         or str(receipt.get("transition_id") or "")
         or str(receipt.get("effect_fingerprint") or "")
@@ -2068,6 +2466,35 @@ def _assert_binding_finalize_state(
     binding: Mapping[str, Any] | WorkflowControlBindingDB | None,
     transition: WorkflowTransition,
 ) -> None:
+    _assert_binding_execution_state(binding, transition)
+
+
+def _assert_binding_execution_state(
+    binding: Mapping[str, Any] | WorkflowControlBindingDB | None,
+    transition: WorkflowTransition,
+) -> None:
+    """Fence authority before send and before any retry/progress requeue."""
+
+    _assert_binding_quarantine_state(binding, transition)
+    if binding is None:  # pragma: no cover - guarded above
+        raise WorkflowTransitionPersistenceError("workflow_transition_binding_not_found")
+
+    def get(name: str) -> Any:
+        return binding.get(name) if isinstance(binding, Mapping) else getattr(binding, name)
+
+    if (
+        int(get("runtime_revision") or 0) != transition.expected_revision
+        or str(get("runtime_checkpoint_ref") or "") != transition.expected_checkpoint_ref
+    ):
+        raise WorkflowTransitionPersistenceError("workflow_transition_binding_cas_conflict")
+
+
+def _assert_binding_quarantine_state(
+    binding: Mapping[str, Any] | WorkflowControlBindingDB | None,
+    transition: WorkflowTransition,
+) -> None:
+    """Validate aggregate identity without requiring the possibly-drifted revision."""
+
     if binding is None:
         raise WorkflowTransitionPersistenceError("workflow_transition_binding_not_found")
 
@@ -2076,8 +2503,10 @@ def _assert_binding_finalize_state(
 
     if (
         str(get("active_transition_id") or "") != transition.transition_id
-        or int(get("runtime_revision") or 0) != transition.expected_revision
-        or str(get("runtime_checkpoint_ref") or "") != transition.expected_checkpoint_ref
+        or str(get("tenant_id") or "") != transition.tenant_id
+        or str(get("workflow_id") or "") != transition.workflow_id
+        or str(get("run_id") or "") != transition.run_id
+        or not _runtime_matches(str(get("runtime_id") or ""), transition.runtime_id)
         or str(get("command_receipt_id") or "") != transition.receipt_id
     ):
         raise WorkflowTransitionPersistenceError("workflow_transition_binding_cas_conflict")
@@ -2110,6 +2539,7 @@ def _assert_receipt_lease_mirror(
         TRANSITION_STATE_READY: "pending",
         TRANSITION_STATE_APPLYING: "dispatching",
         TRANSITION_STATE_COMPLETED: "completed",
+        TRANSITION_STATE_QUARANTINED: "pending",
         TRANSITION_STATE_REJECTED: "rejected",
     }.get(transition.state)
     expected_owner = transition.claim_owner if transition.state == TRANSITION_STATE_APPLYING else ""
@@ -2134,11 +2564,18 @@ def _finalization_values(
     *,
     binding_status: Mapping[str, Any],
     checkpoint_ref: str,
+    finalization_proof: Mapping[str, Any],
     outcome_fingerprint: str,
-    receipt_result: Mapping[str, Any] | None,
+    public_status: Mapping[str, Any],
     claim_generation: int,
     now: float,
-) -> tuple[dict[str, Any], dict[str, Any], tuple[WorkflowTransitionEffect, ...]]:
+) -> tuple[
+    dict[str, Any],
+    dict[str, Any],
+    str,
+    tuple[WorkflowTransitionEffect, ...],
+]:
+    supplied_outcome = _optional_outcome_fingerprint(outcome_fingerprint)
     status = _bounded_mapping(binding_status, reason="binding_status", empty=False)
     if not isinstance(checkpoint_ref, str) or not checkpoint_ref or len(checkpoint_ref) > 512:
         raise WorkflowTransitionPersistenceError("workflow_transition_checkpoint_ref_invalid")
@@ -2148,26 +2585,37 @@ def _finalization_values(
     observed_checkpoint = status.get("checkpoint_ref")
     if not isinstance(observed_checkpoint, str) or observed_checkpoint != checkpoint_ref:
         raise WorkflowTransitionPersistenceError("workflow_transition_status_checkpoint_mismatch")
-    expected_outcome = workflow_transition_outcome_fingerprint(
-        transition,
-        effects,
-        binding_status=status,
-        checkpoint_ref=checkpoint_ref,
-        receipt_result=receipt_result,
+    canonical_public = _bounded_mapping(
+        public_status,
+        reason="public_status",
+        empty=False,
     )
-    if outcome_fingerprint != expected_outcome:
-        raise WorkflowTransitionPersistenceError("workflow_transition_outcome_fingerprint_mismatch")
-    receipt_status: dict[str, Any] = {}
-    if transition.receipt_id:
-        if receipt_result is None:
-            raise WorkflowTransitionPersistenceError("workflow_transition_receipt_result_missing")
-        receipt_status = _bounded_mapping(
-            receipt_result,
-            reason="receipt_result",
-            empty=False,
+    if not isinstance(finalization_proof, Mapping):
+        raise WorkflowTransitionPersistenceError("workflow_transition_finalization_proof_invalid")
+    proof = _bounded_mapping(
+        finalization_proof,
+        reason="finalization_proof",
+        empty=False,
+    )
+    try:
+        finalization_attempts = workflow_transition_finalization_stage_attempt_count(
+            transition,
+            effects,
         )
-    elif receipt_result is not None:
-        raise WorkflowTransitionPersistenceError("workflow_transition_receipt_result_unexpected")
+        expected_outcome = workflow_transition_outcome_fingerprint(
+            transition,
+            effects,
+            binding_status=status,
+            checkpoint_ref=checkpoint_ref,
+            finalization_proof=proof,
+            public_status=canonical_public,
+        )
+    except WorkflowTransitionError as exc:
+        if str(exc) == "workflow_transition_header_attempt_conflict":
+            raise WorkflowTransitionPersistenceError(str(exc)) from exc
+        raise WorkflowTransitionPersistenceError("workflow_transition_effect_result_envelope_invalid") from exc
+    if supplied_outcome and supplied_outcome != expected_outcome:
+        raise WorkflowTransitionPersistenceError("workflow_transition_outcome_fingerprint_mismatch")
 
     values = list(effects)
     if not values or values[-1].kind != EFFECT_BINDING_FINALIZE:
@@ -2175,11 +2623,14 @@ def _finalization_values(
     if any(effect.state != EFFECT_STATE_APPLIED for effect in values[:-1]):
         raise WorkflowTransitionPersistenceError("workflow_transition_effects_incomplete")
     final_effect = values[-1]
-    if final_effect.state not in {EFFECT_STATE_PLANNED, EFFECT_STATE_APPLYING}:
+    if final_effect.state != EFFECT_STATE_PLANNED or final_effect.applied_generation != 0:
         raise WorkflowTransitionPersistenceError("workflow_transition_binding_finalize_effect_conflict")
     final_result = {
         "checkpoint_ref": checkpoint_ref,
-        "outcome_fingerprint": outcome_fingerprint,
+        "finalization_stage_attempt_count": finalization_attempts,
+        "finalization_proof": proof,
+        "outcome_fingerprint": expected_outcome,
+        "public_status": canonical_public,
         "receipt_completed": bool(transition.receipt_id),
         "status_revision": revision,
     }
@@ -2188,27 +2639,21 @@ def _finalization_values(
         state=EFFECT_STATE_APPLIED,
         applied_generation=_generation(claim_generation),
         result_payload=final_result,
-        result_digest=workflow_transition_effect_result_digest(final_result),
+        result_digest=workflow_transition_finalization_result_digest(final_result),
         revision=final_effect.revision + 1,
         updated_at=now,
     )
-    return status, receipt_status, tuple(values)
+    return status, canonical_public, expected_outcome, tuple(values)
 
 
-def _project_receipt_result(
-    projector: WorkflowTransitionReceiptProjectionPort | None,
+def _project_public_status(
+    projector: WorkflowTransitionPublicProjectionPort | None,
     *,
     transition: WorkflowTransition,
     binding: Mapping[str, Any],
     binding_status: Mapping[str, Any],
     receipt_result: Mapping[str, Any] | None,
-) -> dict[str, Any] | None:
-    if not transition.receipt_id:
-        if receipt_result is not None:
-            raise WorkflowTransitionPersistenceError("workflow_transition_receipt_result_unexpected")
-        return None
-    if receipt_result is None:
-        raise WorkflowTransitionPersistenceError("workflow_transition_receipt_result_missing")
+) -> dict[str, Any]:
     if projector is None:
         raise WorkflowTransitionPersistenceError("workflow_transition_receipt_projector_required")
     context = _bounded_mapping(binding, reason="binding_projection_context", empty=False)
@@ -2226,14 +2671,15 @@ def _project_receipt_result(
             binding_status=raw_status,
             previous_public_status=previous or None,
         )
-        canonical = _bounded_mapping(projected, reason="receipt_projection", empty=False)
+        canonical = _bounded_mapping(projected, reason="public_projection", empty=False)
     except WorkflowTransitionPersistenceError:
         raise
     except (KeyError, RuntimeError, TypeError, ValueError) as exc:
         raise WorkflowTransitionPersistenceError("workflow_transition_receipt_projection_invalid") from exc
-    supplied = _bounded_mapping(receipt_result, reason="receipt_result", empty=False)
-    if canonical_json(canonical) != canonical_json(supplied):
-        raise WorkflowTransitionPersistenceError("workflow_transition_receipt_projection_mismatch")
+    if receipt_result is not None:
+        supplied = _bounded_mapping(receipt_result, reason="receipt_result", empty=False)
+        if canonical_json(canonical) != canonical_json(supplied):
+            raise WorkflowTransitionPersistenceError("workflow_transition_receipt_projection_mismatch")
     return canonical
 
 
@@ -2273,6 +2719,73 @@ def _assert_effect_rejection_safe(
         raise WorkflowTransitionPersistenceError("workflow_transition_effect_recovery_required")
 
 
+def _assert_effect_begin_order(
+    effects: Sequence[WorkflowTransitionEffect],
+    *,
+    effect_index: int,
+) -> None:
+    """Deny execution authority when a later non-final stage already progressed."""
+
+    if any(
+        effect.kind != EFFECT_BINDING_FINALIZE and effect.state != EFFECT_STATE_PLANNED
+        for effect in effects[effect_index + 1 :]
+    ):
+        raise WorkflowTransitionPersistenceError("workflow_transition_effect_order_conflict")
+
+
+def _assert_yield_effect(
+    effects: Sequence[WorkflowTransitionEffect],
+    *,
+    effect_id: str,
+    claim_generation: int,
+) -> None:
+    _index, effect = _effect(effects, str(effect_id))
+    generation = _generation(claim_generation)
+    current_generation = tuple(
+        candidate
+        for candidate in effects
+        if candidate.state == EFFECT_STATE_APPLIED and candidate.applied_generation == generation
+    )
+    if (
+        effect.kind == EFFECT_BINDING_FINALIZE
+        or effect.state != EFFECT_STATE_APPLIED
+        or effect.applied_generation != generation
+        or current_generation != (effect,)
+    ):
+        raise WorkflowTransitionPersistenceError("workflow_transition_yield_effect_conflict")
+
+
+def _assert_effect_stage_attempt(
+    transition: WorkflowTransition,
+    effects: Sequence[WorkflowTransitionEffect],
+    *,
+    effect_index: int,
+    result_payload: Mapping[str, Any],
+) -> None:
+    try:
+        if transition.attempt_count != transition.claim_generation:
+            raise WorkflowTransitionError("workflow_transition_header_attempt_conflict")
+        previous_generation = 0
+        for effect in effects[:effect_index]:
+            if effect.kind == EFFECT_BINDING_FINALIZE or effect.state != EFFECT_STATE_APPLIED:
+                continue
+            if (
+                effect.applied_generation <= previous_generation
+                or effect.applied_generation >= transition.claim_generation
+            ):
+                raise WorkflowTransitionError("workflow_transition_effect_application_generation_invalid")
+            stage_attempts = workflow_transition_effect_stage_attempt_count(effect.result_payload)
+            if stage_attempts != effect.applied_generation - previous_generation:
+                raise WorkflowTransitionError("workflow_transition_effect_stage_attempt_invalid")
+            previous_generation = effect.applied_generation
+        supplied = workflow_transition_effect_stage_attempt_count(result_payload)
+    except WorkflowTransitionError as exc:
+        raise WorkflowTransitionPersistenceError("workflow_transition_effect_result_envelope_invalid") from exc
+    expected = transition.claim_generation - previous_generation
+    if expected < 1 or supplied != expected:
+        raise WorkflowTransitionPersistenceError("workflow_transition_effect_stage_attempt_conflict")
+
+
 def _claimable(transition: WorkflowTransition, *, now: float) -> bool:
     return bool(
         transition.available_at <= now
@@ -2307,6 +2820,10 @@ def _result_payload(
     safe = _bounded_mapping(value, reason="effect_result", empty=False)
     if workflow_transition_effect_result_digest(safe) != str(result_digest):
         raise WorkflowTransitionPersistenceError("workflow_transition_effect_result_digest_mismatch")
+    try:
+        workflow_transition_effect_stage_attempt_count(safe)
+    except WorkflowTransitionError as exc:
+        raise WorkflowTransitionPersistenceError("workflow_transition_effect_result_envelope_invalid") from exc
     return safe
 
 
@@ -2382,6 +2899,14 @@ def _retry_at(value: Any) -> float:
     if not math.isfinite(normalized) or normalized < 0:
         raise WorkflowTransitionPersistenceError("workflow_transition_retry_at_invalid")
     return normalized
+
+
+def _optional_outcome_fingerprint(value: Any) -> str:
+    if not isinstance(value, str):
+        raise WorkflowTransitionPersistenceError("workflow_transition_outcome_fingerprint_invalid")
+    if value and (len(value) != 64 or any(character not in "0123456789abcdef" for character in value)):
+        raise WorkflowTransitionPersistenceError("workflow_transition_outcome_fingerprint_invalid")
+    return value
 
 
 def _reason_code(value: Any) -> str:

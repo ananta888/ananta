@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from threading import Barrier
 from typing import Any
 
@@ -29,16 +29,19 @@ from agent.services.workflow_transition_outbox import (
     EFFECT_STATE_APPLIED,
     EFFECT_STATE_APPLYING,
     EFFECT_STATE_PLANNED,
+    TRANSITION_KIND_ADVANCE,
     TRANSITION_KIND_COMMAND,
     TRANSITION_RUNTIME_NATIVE,
     TRANSITION_STATE_APPLYING,
     TRANSITION_STATE_COMPLETED,
+    TRANSITION_STATE_QUARANTINED,
     TRANSITION_STATE_READY,
     TRANSITION_STATE_REJECTED,
     WorkflowTransition,
     WorkflowTransitionEffect,
     thaw_json,
     workflow_transition_effect_result_digest,
+    workflow_transition_effect_result_envelope,
     workflow_transition_id,
     workflow_transition_outcome_fingerprint,
 )
@@ -65,7 +68,36 @@ class _IdentityReceiptProjector:
         return dict(kwargs["binding_status"])
 
 
+class _SentinelPublicProjector:
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def project(self, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(dict(kwargs))
+        raw = dict(kwargs["binding_status"])
+        return {
+            **raw,
+            "checkpoint_ref": f"public:{raw['revision']}",
+            "projection": "canonical",
+        }
+
+
 _IDENTITY_PROJECTOR = _IdentityReceiptProjector()
+_FINALIZATION_PROOF = {"observation_revision": 8}
+
+
+def _effect_result(
+    payload: dict[str, Any],
+    *,
+    stage_attempt_count: int = 1,
+    mode: str = "execute",
+) -> dict[str, Any]:
+    return workflow_transition_effect_result_envelope(
+        mode=mode,
+        result_payload=payload,
+        proof_payload={"test_proof": "exact"},
+        stage_attempt_count=stage_attempt_count,
+    )
 
 
 @dataclass
@@ -92,7 +124,11 @@ class _Harness:
         )
 
 
-def _plan() -> tuple[WorkflowTransition, tuple[WorkflowTransitionEffect, ...]]:
+def _plan(
+    *,
+    created_at: float = 1_000.0,
+    effect_count: int = 1,
+) -> tuple[WorkflowTransition, tuple[WorkflowTransitionEffect, ...]]:
     transition_id = workflow_transition_id(
         tenant_id="tenant-a",
         workflow_id="workflow-a",
@@ -101,22 +137,27 @@ def _plan() -> tuple[WorkflowTransition, tuple[WorkflowTransitionEffect, ...]]:
         kind=TRANSITION_KIND_COMMAND,
         identity_key="command-a",
     )
-    effects = (
+    effects = tuple(
         WorkflowTransitionEffect.build(
             transition_id=transition_id,
-            ordinal=1,
+            ordinal=ordinal,
             kind=EFFECT_QUEUE_RESERVE,
-            idempotency_key="task-a",
-            payload={"task_id": "task-a", "attempt_id": "attempt-a"},
-            created_at=1_000.0,
-        ),
+            idempotency_key="task-a" if ordinal == 1 else f"task-{ordinal}",
+            payload={
+                "task_id": "task-a" if ordinal == 1 else f"task-{ordinal}",
+                "attempt_id": "attempt-a" if ordinal == 1 else f"attempt-{ordinal}",
+            },
+            created_at=created_at,
+        )
+        for ordinal in range(1, effect_count + 1)
+    ) + (
         WorkflowTransitionEffect.build(
             transition_id=transition_id,
-            ordinal=2,
+            ordinal=effect_count + 1,
             kind=EFFECT_BINDING_FINALIZE,
             idempotency_key="workflow-a",
             payload={"workflow_id": "workflow-a"},
-            created_at=1_000.0,
+            created_at=created_at,
         ),
     )
     return (
@@ -134,7 +175,55 @@ def _plan() -> tuple[WorkflowTransition, tuple[WorkflowTransitionEffect, ...]]:
             effects=effects,
             expected_revision=7,
             expected_checkpoint_ref="checkpoint-7",
-            created_at=1_000.0,
+            created_at=created_at,
+        ),
+        effects,
+    )
+
+
+def _receiptless_plan(
+    *,
+    created_at: float = 1_000.0,
+) -> tuple[WorkflowTransition, tuple[WorkflowTransitionEffect, ...]]:
+    transition_id = workflow_transition_id(
+        tenant_id="tenant-a",
+        workflow_id="workflow-a",
+        run_id="run-a",
+        runtime_id=TRANSITION_RUNTIME_NATIVE,
+        kind=TRANSITION_KIND_ADVANCE,
+        identity_key="advance-8",
+    )
+    effects = (
+        WorkflowTransitionEffect.build(
+            transition_id=transition_id,
+            ordinal=1,
+            kind=EFFECT_QUEUE_RESERVE,
+            idempotency_key="task-a",
+            payload={"task_id": "task-a", "attempt_id": "attempt-a"},
+            created_at=created_at,
+        ),
+        WorkflowTransitionEffect.build(
+            transition_id=transition_id,
+            ordinal=2,
+            kind=EFFECT_BINDING_FINALIZE,
+            idempotency_key="workflow-a",
+            payload={"workflow_id": "workflow-a"},
+            created_at=created_at,
+        ),
+    )
+    return (
+        WorkflowTransition.build(
+            transition_id=transition_id,
+            tenant_id="tenant-a",
+            workflow_id="workflow-a",
+            run_id="run-a",
+            runtime_id=TRANSITION_RUNTIME_NATIVE,
+            kind=TRANSITION_KIND_ADVANCE,
+            request_payload={"advance_id": "advance-8"},
+            effects=effects,
+            expected_revision=7,
+            expected_checkpoint_ref="checkpoint-7",
+            created_at=created_at,
         ),
         effects,
     )
@@ -297,6 +386,192 @@ def _records(harness: _Harness) -> tuple[dict[str, Any], dict[str, Any]]:
         )
 
 
+def _mutate_binding(harness: _Harness, **values: Any) -> None:
+    if harness.engine is None:
+        getattr(harness.store, "_bindings")["workflow-a"].update(values)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowControlBindingDB).where(WorkflowControlBindingDB.id == "workflow-a").values(**values)
+        )
+
+
+def _mutate_receipt(harness: _Harness, **values: Any) -> None:
+    if harness.engine is None:
+        getattr(harness.store, "_receipts")["command-a"].update(values)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowControlCommandReceiptDB)
+            .where(WorkflowControlCommandReceiptDB.id == "command-a")
+            .values(**values)
+        )
+
+
+def _delete_transition_but_keep_binding_marker(
+    harness: _Harness,
+    transition_id: str,
+) -> None:
+    if harness.engine is None:
+        getattr(harness.store, "_effects").pop(transition_id)
+        getattr(harness.store, "_transitions").pop(transition_id)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.delete(WorkflowTransitionEffectDB).where(WorkflowTransitionEffectDB.transition_id == transition_id)
+        )
+        connection.execute(sa.delete(WorkflowTransitionOutboxDB).where(WorkflowTransitionOutboxDB.id == transition_id))
+
+
+def _raw_transition_records(
+    harness: _Harness,
+    transition_id: str,
+) -> tuple[dict[str, Any], tuple[dict[str, Any], ...]]:
+    if harness.engine is None:
+        transition = getattr(harness.store, "_transitions")[transition_id]
+        effects = getattr(harness.store, "_effects")[transition_id]
+        return transition.to_dict(), tuple(effect.to_dict() for effect in effects)
+    with Session(harness.engine) as session:
+        transition = session.get(WorkflowTransitionOutboxDB, transition_id)
+        assert transition is not None
+        effects = (
+            session.execute(
+                sa.select(WorkflowTransitionEffectDB)
+                .where(WorkflowTransitionEffectDB.transition_id == transition_id)
+                .order_by(WorkflowTransitionEffectDB.ordinal.asc())
+            )
+            .scalars()
+            .all()
+        )
+        return (
+            {column.name: getattr(transition, column.name) for column in transition.__table__.columns},
+            tuple(
+                {column.name: getattr(effect, column.name) for column in effect.__table__.columns} for effect in effects
+            ),
+        )
+
+
+def _corrupt_effect_result(
+    harness: _Harness,
+    *,
+    transition_id: str,
+    effect_id: str,
+    result_payload: dict[str, Any],
+) -> None:
+    digest = workflow_transition_effect_result_digest(result_payload)
+    if harness.engine is None:
+        values = list(getattr(harness.store, "_effects")[transition_id])
+        index = next(index for index, effect in enumerate(values) if effect.effect_id == effect_id)
+        values[index] = replace(
+            values[index],
+            result_payload=result_payload,
+            result_digest=digest,
+            revision=values[index].revision + 1,
+        )
+        getattr(harness.store, "_effects")[transition_id] = tuple(values)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowTransitionEffectDB)
+            .where(WorkflowTransitionEffectDB.id == effect_id)
+            .values(
+                result_payload=result_payload,
+                result_digest=digest,
+                revision=WorkflowTransitionEffectDB.revision + 1,
+            )
+        )
+
+
+def _corrupt_effect_as_applied(
+    harness: _Harness,
+    *,
+    transition_id: str,
+    effect_id: str,
+    applied_generation: int,
+) -> None:
+    payload = _effect_result(
+        {"task_id": "out-of-order"},
+        stage_attempt_count=applied_generation,
+    )
+    digest = workflow_transition_effect_result_digest(payload)
+    if harness.engine is None:
+        values = list(getattr(harness.store, "_effects")[transition_id])
+        index = next(index for index, effect in enumerate(values) if effect.effect_id == effect_id)
+        values[index] = replace(
+            values[index],
+            state=EFFECT_STATE_APPLIED,
+            applied_generation=applied_generation,
+            result_payload=payload,
+            result_digest=digest,
+            revision=values[index].revision + 1,
+        )
+        getattr(harness.store, "_effects")[transition_id] = tuple(values)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowTransitionEffectDB)
+            .where(WorkflowTransitionEffectDB.id == effect_id)
+            .values(
+                state=EFFECT_STATE_APPLIED,
+                applied_generation=applied_generation,
+                result_payload=payload,
+                result_digest=digest,
+                revision=WorkflowTransitionEffectDB.revision + 1,
+            )
+        )
+
+
+def _corrupt_final_effect_generation(
+    harness: _Harness,
+    *,
+    transition_id: str,
+    effect_id: str,
+    applied_generation: int = 1,
+) -> None:
+    if harness.engine is None:
+        values = list(getattr(harness.store, "_effects")[transition_id])
+        index = next(index for index, effect in enumerate(values) if effect.effect_id == effect_id)
+        values[index] = replace(
+            values[index],
+            state=EFFECT_STATE_APPLYING,
+            applied_generation=applied_generation,
+            revision=values[index].revision + 1,
+        )
+        getattr(harness.store, "_effects")[transition_id] = tuple(values)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowTransitionEffectDB)
+            .where(WorkflowTransitionEffectDB.id == effect_id)
+            .values(
+                state=EFFECT_STATE_APPLYING,
+                applied_generation=applied_generation,
+                revision=WorkflowTransitionEffectDB.revision + 1,
+            )
+        )
+
+
+def _corrupt_transition_attempt_count(
+    harness: _Harness,
+    *,
+    transition_id: str,
+    attempt_count: int,
+) -> None:
+    if harness.engine is None:
+        values = getattr(harness.store, "_transitions")
+        object.__setattr__(values[transition_id], "attempt_count", attempt_count)
+        return
+    with harness.engine.begin() as connection:
+        connection.execute(
+            sa.update(WorkflowTransitionOutboxDB)
+            .where(WorkflowTransitionOutboxDB.id == transition_id)
+            .values(
+                attempt_count=attempt_count,
+                revision=WorkflowTransitionOutboxDB.revision + 1,
+            )
+        )
+
+
 @pytest.mark.parametrize("kind", ["memory", "sql"])
 def test_stage_is_atomic_adoptable_and_conflict_safe(kind: str, tmp_path: Any) -> None:
     harness = _harness(kind, tmp_path, name=f"stage-{kind}")
@@ -334,6 +609,105 @@ def test_stage_is_atomic_adoptable_and_conflict_safe(kind: str, tmp_path: Any) -
 
 
 @pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("corruption", ["missing", "foreign_workflow", "terminal"])
+def test_get_active_rejects_an_orphaned_or_misbound_marker(
+    kind: str,
+    corruption: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"active-orphan-{kind}-{corruption}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    if corruption == "missing":
+        _delete_transition_but_keep_binding_marker(harness, transition.transition_id)
+    elif harness.engine is None:
+        stored = getattr(harness.store, "_transitions")[transition.transition_id]
+        object.__setattr__(
+            stored,
+            "workflow_id" if corruption == "foreign_workflow" else "state",
+            "workflow-b" if corruption == "foreign_workflow" else TRANSITION_STATE_COMPLETED,
+        )
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowTransitionOutboxDB)
+                .where(WorkflowTransitionOutboxDB.id == transition.transition_id)
+                .values(
+                    **(
+                        {"workflow_id": "workflow-b"}
+                        if corruption == "foreign_workflow"
+                        else {"state": TRANSITION_STATE_COMPLETED}
+                    )
+                )
+            )
+
+    with pytest.raises(
+        WorkflowTransitionPersistenceError,
+        match="binding_marker_orphaned",
+    ):
+        harness.store.get_active("workflow-a")
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_stage_adopts_first_writer_timestamps_but_not_payload_time_drift(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"stage-planned-at-{kind}")
+    transition, effects = _plan(created_at=1_000.0)
+    staged = harness.store.stage(transition, effects, receipt_id="command-a")
+    restarted_transition, restarted_effects = _plan(created_at=1_234.0)
+
+    adopted = harness.adapter().stage(
+        restarted_transition,
+        restarted_effects,
+        receipt_id="command-a",
+    )
+
+    assert adopted == staged
+    assert adopted.transition.created_at == 1_000.0
+    assert {effect.created_at for effect in adopted.effects} == {1_000.0}
+
+    divergent_effects = (
+        WorkflowTransitionEffect.build(
+            transition_id=transition.transition_id,
+            ordinal=1,
+            kind=EFFECT_QUEUE_RESERVE,
+            idempotency_key="task-a",
+            payload={
+                "task_id": "task-a",
+                "attempt_id": "attempt-a",
+                "occurred_at": 1_234.0,
+            },
+            created_at=1_234.0,
+        ),
+        restarted_effects[-1],
+    )
+    divergent_transition = WorkflowTransition.build(
+        transition_id=transition.transition_id,
+        tenant_id=transition.tenant_id,
+        workflow_id=transition.workflow_id,
+        run_id=transition.run_id,
+        runtime_id=transition.runtime_id,
+        kind=transition.kind,
+        command_id=transition.command_id,
+        receipt_id=transition.receipt_id,
+        admitted_command={"command_id": "command-a", "kind": "advance"},
+        request_payload=transition.request_payload,
+        effects=divergent_effects,
+        expected_revision=transition.expected_revision,
+        expected_checkpoint_ref=transition.expected_checkpoint_ref,
+        created_at=1_234.0,
+    )
+    with pytest.raises(WorkflowTransitionPersistenceError, match="stage_conflict"):
+        harness.adapter().stage(
+            divergent_transition,
+            divergent_effects,
+            receipt_id="command-a",
+        )
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
 def test_stage_accepts_only_an_empty_or_exact_receipt_request_fingerprint(
     kind: str,
     tmp_path: Any,
@@ -341,9 +715,7 @@ def test_stage_accepts_only_an_empty_or_exact_receipt_request_fingerprint(
     harness = _harness(kind, tmp_path, name=f"receipt-request-proof-{kind}")
     transition, effects = _plan()
     if harness.engine is None:
-        getattr(harness.store, "_receipts")["command-a"]["request_fingerprint"] = (
-            transition.request_fingerprint
-        )
+        getattr(harness.store, "_receipts")["command-a"]["request_fingerprint"] = transition.request_fingerprint
     else:
         with harness.engine.begin() as connection:
             connection.execute(
@@ -671,13 +1043,14 @@ def test_expired_lease_adoption_fences_the_old_generation(
             lease_seconds=30.0,
         )
     with pytest.raises(WorkflowTransitionPersistenceError, match="lease_conflict"):
+        stale_result = _effect_result({"task_id": "stale"})
         harness.store.finish_effect(
             transition.transition_id,
             effects[0].effect_id,
             owner_id="owner-a",
             claim_generation=1,
-            result_payload={"task_id": "stale"},
-            result_digest=workflow_transition_effect_result_digest({"task_id": "stale"}),
+            result_payload=stale_result,
+            result_digest=workflow_transition_effect_result_digest(stale_result),
         )
 
     resumed = harness.store.begin_effect(
@@ -790,6 +1163,714 @@ def test_effect_begin_requires_first_nonterminal_ordinal_and_reject_is_unambiguo
     assert receipt["rejection_reason"] == ""
 
 
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_quarantine_holds_marker_and_preserves_ambiguous_effects(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"quarantine-{kind}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    claimed = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert claimed is not None
+    harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    before = harness.store.get(transition.transition_id)
+    binding_before, receipt_before = _records(harness)
+    assert before is not None
+
+    quarantined = harness.store.quarantine(
+        transition.transition_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        reason_code="effect_outcome_ambiguous",
+    )
+
+    assert quarantined.transition.state == TRANSITION_STATE_QUARANTINED
+    assert quarantined.transition.claim_owner == ""
+    assert quarantined.transition.claim_expires_at == 0.0
+    assert quarantined.transition.claim_generation == 1
+    assert quarantined.transition.last_error == "effect_outcome_ambiguous"
+    assert quarantined.effects == before.effects
+    binding, receipt = _records(harness)
+    assert binding == binding_before
+    assert binding["active_transition_id"] == transition.transition_id
+    assert binding["command_receipt_id"] == "command-a"
+    assert receipt["state"] == "pending"
+    assert receipt["dispatch_owner"] == ""
+    assert receipt["dispatch_lease_expires_at"] == 0.0
+    assert receipt["dispatch_generation"] == 1
+    assert receipt["last_heartbeat_at"] == quarantined.transition.last_heartbeat_at
+    assert receipt["result_status"] == receipt_before["result_status"] == {}
+    assert receipt["rejection_reason"] == receipt_before["rejection_reason"] == ""
+    assert receipt["outcome_fingerprint"] == receipt_before["outcome_fingerprint"] == ""
+    assert (
+        harness.store.claim(
+            transition.transition_id,
+            owner_id="owner-b",
+            lease_seconds=30.0,
+        )
+        is None
+    )
+    with pytest.raises(WorkflowTransitionPersistenceError, match="lease_conflict"):
+        harness.store.heartbeat(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            lease_seconds=30.0,
+        )
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_quarantine_allows_revision_and_checkpoint_drift(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"quarantine-drift-{kind}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    if harness.engine is None:
+        binding = getattr(harness.store, "_bindings")["workflow-a"]
+        binding.update(
+            runtime_revision=99,
+            runtime_checkpoint_ref="unexpected-checkpoint",
+            revision=binding["revision"] + 1,
+        )
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowControlBindingDB)
+                .where(WorkflowControlBindingDB.id == "workflow-a")
+                .values(
+                    runtime_revision=99,
+                    runtime_checkpoint_ref="unexpected-checkpoint",
+                    revision=WorkflowControlBindingDB.revision + 1,
+                )
+            )
+
+    quarantined = harness.store.quarantine(
+        transition.transition_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        reason_code="binding_revision_drift",
+    )
+
+    assert quarantined.transition.state == TRANSITION_STATE_QUARANTINED
+    binding, _receipt = _records(harness)
+    assert binding["runtime_revision"] == 99
+    assert binding["runtime_checkpoint_ref"] == "unexpected-checkpoint"
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    [
+        ("tenant_id", "tenant-b"),
+        ("workflow_id", "workflow-b"),
+        ("run_id", "run-b"),
+        ("runtime_id", "langgraph"),
+        ("command_receipt_id", "different-receipt"),
+    ],
+)
+def test_quarantine_rejects_binding_identity_loss_without_mutation(
+    kind: str,
+    field_name: str,
+    field_value: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"quarantine-identity-{kind}-{field_name}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    if harness.engine is None:
+        getattr(harness.store, "_bindings")["workflow-a"][field_name] = field_value
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowControlBindingDB)
+                .where(WorkflowControlBindingDB.id == "workflow-a")
+                .values({field_name: field_value})
+            )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="binding_cas_conflict"):
+        harness.store.quarantine(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            reason_code="binding_identity_lost",
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    [
+        ("state", "pending"),
+        ("dispatch_owner", "owner-b"),
+        ("dispatch_generation", 99),
+        ("dispatch_lease_expires_at", 1_999.0),
+        ("last_heartbeat_at", 1_999.0),
+    ],
+)
+def test_quarantine_requires_exact_receipt_lease_mirror_without_mutation(
+    kind: str,
+    field_name: str,
+    field_value: Any,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"quarantine-receipt-mirror-{kind}-{field_name}",
+    )
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    if harness.engine is None:
+        getattr(harness.store, "_receipts")["command-a"][field_name] = field_value
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowControlCommandReceiptDB)
+                .where(WorkflowControlCommandReceiptDB.id == "command-a")
+                .values({field_name: field_value})
+            )
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="receipt_cas_conflict"):
+        harness.store.quarantine(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            reason_code="receipt_mirror_lost",
+        )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_quarantine_fault_rolls_back_receipt_and_transition(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    def inject(stage: str) -> None:
+        if stage == "quarantine_before_commit":
+            raise RuntimeError("injected:quarantine_before_commit")
+
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"quarantine-fault-{kind}",
+        fault_injector=inject,
+    )
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(RuntimeError, match="injected:quarantine_before_commit"):
+        harness.store.quarantine(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            reason_code="effect_outcome_ambiguous",
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_yield_ready_requires_one_current_generation_nonfinal_effect_proof(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"yield-proof-{kind}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    for effect_id, reason in (
+        (effects[0].effect_id, "yield_effect_conflict"),
+        (effects[-1].effect_id, "yield_effect_conflict"),
+        ("missing-effect", "effect_not_found"),
+    ):
+        with pytest.raises(WorkflowTransitionPersistenceError, match=reason):
+            harness.store.yield_ready(
+                transition.transition_id,
+                effect_id,
+                owner_id="owner-a",
+                claim_generation=1,
+                available_at=1_000.0,
+            )
+        assert harness.store.get(transition.transition_id) == before
+        assert _records(harness) == records_before
+
+    begun = harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    result = _effect_result({"task_id": "task-a", "queue_state": "reserved"})
+    harness.store.finish_effect(
+        transition.transition_id,
+        begun.effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        result_payload=result,
+        result_digest=workflow_transition_effect_result_digest(result),
+    )
+    yielded = harness.store.yield_ready(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        available_at=1_000.0,
+    )
+    assert yielded.transition.state == TRANSITION_STATE_READY
+    binding, receipt = _records(harness)
+    assert binding["active_transition_id"] == transition.transition_id
+    assert receipt["state"] == "pending"
+    assert receipt["dispatch_generation"] == 1
+
+    claimed = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-b",
+        lease_seconds=30.0,
+    )
+    assert claimed is not None and claimed.transition.claim_generation == 2
+    current = harness.store.get(transition.transition_id)
+    with pytest.raises(WorkflowTransitionPersistenceError, match="yield_effect_conflict"):
+        harness.store.yield_ready(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-b",
+            claim_generation=2,
+            available_at=1_000.0,
+        )
+    assert harness.store.get(transition.transition_id) == current
+    with pytest.raises(WorkflowTransitionPersistenceError, match="lease_conflict"):
+        harness.store.yield_ready(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            available_at=1_000.0,
+        )
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize(
+    ("result_kind", "reason"),
+    [
+        ("raw", "result_envelope_invalid"),
+        ("unhashable_mode", "result_envelope_invalid"),
+        ("wrong_stage_count", "stage_attempt_conflict"),
+    ],
+)
+def test_finish_effect_enforces_canonical_envelope_and_exact_stage_attempt(
+    kind: str,
+    result_kind: str,
+    reason: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"finish-envelope-{kind}-{result_kind}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    if result_kind == "raw":
+        result = {"task_id": "raw-unproved"}
+    elif result_kind == "unhashable_mode":
+        result = {
+            "schema": "ananta.workflow-transition-effect-result.v1",
+            "mode": [],
+            "effect_result": {"task_id": "task-a"},
+            "effect_proof": {"downstream_revision": 1},
+            "stage_attempt_count": 1,
+        }
+    else:
+        result = _effect_result({"task_id": "task-a"}, stage_attempt_count=2)
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match=reason):
+        harness.store.finish_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            result_payload=result,
+            result_digest=workflow_transition_effect_result_digest(result),
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_begin_effect_grants_only_one_nonfinal_execution_per_claim(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"begin-one-effect-{kind}")
+    transition, effects = _plan(effect_count=2)
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    result = _effect_result({"task_id": "task-1"})
+    harness.store.finish_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        result_payload=result,
+        result_digest=workflow_transition_effect_result_digest(result),
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="claim_progress_conflict"):
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[1].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+    harness.store.yield_ready(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        available_at=1_000.0,
+    )
+    claimed = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert claimed is not None and claimed.transition.claim_generation == 2
+    begun = harness.store.begin_effect(
+        transition.transition_id,
+        effects[1].effect_id,
+        owner_id="owner-a",
+        claim_generation=2,
+    )
+    assert begun.state == EFFECT_STATE_APPLYING
+    assert begun.applied_generation == 2
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("first_state", ["planned", "applying"])
+def test_begin_effect_rejects_an_out_of_order_later_applied_stage(
+    kind: str,
+    first_state: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"begin-order-{kind}-{first_state}")
+    transition, effects = _plan(effect_count=2)
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    if first_state == "applying":
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+    _corrupt_effect_as_applied(
+        harness,
+        transition_id=transition.transition_id,
+        effect_id=effects[1].effect_id,
+        applied_generation=1,
+    )
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="effect_order_conflict"):
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize(
+    ("target", "field_name", "field_value", "reason"),
+    [
+        ("binding", "active_transition_id", "", "binding_cas_conflict"),
+        ("binding", "tenant_id", "tenant-b", "binding_cas_conflict"),
+        ("binding", "workflow_id", "workflow-b", "binding_cas_conflict"),
+        ("binding", "run_id", "run-b", "binding_cas_conflict"),
+        ("binding", "runtime_id", "langgraph", "binding_cas_conflict"),
+        ("binding", "command_receipt_id", "other", "binding_cas_conflict"),
+        ("binding", "runtime_revision", 8, "binding_cas_conflict"),
+        ("binding", "runtime_checkpoint_ref", "checkpoint-8", "binding_cas_conflict"),
+        ("receipt", "dispatch_generation", 99, "receipt_cas_conflict"),
+    ],
+)
+def test_begin_effect_requires_full_binding_and_receipt_authority_without_mutation(
+    kind: str,
+    target: str,
+    field_name: str,
+    field_value: Any,
+    reason: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"begin-authority-{kind}-{target}-{field_name}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    mutate = _mutate_binding if target == "binding" else _mutate_receipt
+    mutate(harness, **{field_name: field_value})
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match=reason):
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize(
+    ("target", "reason"),
+    [
+        ("binding", "binding_not_found"),
+        ("receipt", "receipt_not_found"),
+    ],
+)
+def test_begin_effect_reports_missing_authority_consistently_without_mutation(
+    kind: str,
+    target: str,
+    reason: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"begin-missing-{kind}-{target}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    before = _raw_transition_records(harness, transition.transition_id)
+    if harness.engine is None:
+        collection = "_bindings" if target == "binding" else "_receipts"
+        key = "workflow-a" if target == "binding" else "command-a"
+        getattr(harness.store, collection).pop(key)
+    else:
+        model = WorkflowControlBindingDB if target == "binding" else WorkflowControlCommandReceiptDB
+        identifier = "workflow-a" if target == "binding" else "command-a"
+        with harness.engine.begin() as connection:
+            connection.execute(sa.delete(model).where(model.id == identifier))
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match=reason):
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("operation", ["release", "yield"])
+def test_requeue_paths_require_current_binding_authority_without_mutation(
+    kind: str,
+    operation: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"requeue-authority-{kind}-{operation}")
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    if operation == "yield":
+        harness.store.begin_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+        )
+        result = _effect_result({"task_id": "task-a"})
+        harness.store.finish_effect(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            result_payload=result,
+            result_digest=workflow_transition_effect_result_digest(result),
+        )
+    _mutate_binding(harness, runtime_revision=8)
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="binding_cas_conflict"):
+        if operation == "release":
+            harness.store.release(
+                transition.transition_id,
+                owner_id="owner-a",
+                claim_generation=1,
+                reason_code="retry",
+                retry_at=1_002.0,
+            )
+        else:
+            harness.store.yield_ready(
+                transition.transition_id,
+                effects[0].effect_id,
+                owner_id="owner-a",
+                claim_generation=1,
+                available_at=1_000.0,
+            )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_yield_fault_rolls_back_transition_and_receipt_mirror(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    def inject(stage: str) -> None:
+        if stage == "yield_before_commit":
+            raise RuntimeError("injected:yield_before_commit")
+
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"yield-fault-{kind}",
+        fault_injector=inject,
+    )
+    transition, effects = _plan()
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    assert harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    result = _effect_result({"task_id": "task-a"})
+    harness.store.finish_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        result_payload=result,
+        result_digest=workflow_transition_effect_result_digest(result),
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(RuntimeError, match="injected:yield_before_commit"):
+        harness.store.yield_ready(
+            transition.transition_id,
+            effects[0].effect_id,
+            owner_id="owner-a",
+            claim_generation=1,
+            available_at=1_000.0,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
 def _prepare_for_finalize(harness: _Harness) -> tuple[WorkflowTransition, str]:
     transition, effects = _plan()
     harness.store.stage(transition, effects, receipt_id="command-a")
@@ -805,7 +1886,7 @@ def _prepare_for_finalize(harness: _Harness) -> tuple[WorkflowTransition, str]:
         owner_id="owner-a",
         claim_generation=1,
     )
-    result = {"task_id": "task-a", "queue_state": "reserved"}
+    result = _effect_result({"task_id": "task-a", "queue_state": "reserved"})
     harness.store.finish_effect(
         transition.transition_id,
         effects[0].effect_id,
@@ -814,8 +1895,19 @@ def _prepare_for_finalize(harness: _Harness) -> tuple[WorkflowTransition, str]:
         result_payload=result,
         result_digest=workflow_transition_effect_result_digest(result),
     )
-    snapshot = harness.store.get(transition.transition_id)
-    assert snapshot is not None
+    harness.store.yield_ready(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        available_at=1_000.0,
+    )
+    snapshot = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert snapshot is not None and snapshot.transition.claim_generation == 2
     status = {
         "status": "running",
         "revision": 8,
@@ -826,9 +1918,77 @@ def _prepare_for_finalize(harness: _Harness) -> tuple[WorkflowTransition, str]:
         snapshot.effects,
         binding_status=status,
         checkpoint_ref="checkpoint-8",
+        finalization_proof=_FINALIZATION_PROOF,
         receipt_result=status,
     )
     return transition, outcome
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("operation", ["reject", "finalize"])
+@pytest.mark.parametrize(
+    ("field_name", "field_value"),
+    [
+        ("tenant_id", "tenant-b"),
+        ("workflow_id", "workflow-b"),
+        ("run_id", "run-b"),
+        ("runtime_id", "langgraph"),
+    ],
+)
+def test_terminal_mutations_require_exact_binding_identity_without_mutation(
+    kind: str,
+    operation: str,
+    field_name: str,
+    field_value: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"terminal-identity-{kind}-{operation}-{field_name}",
+    )
+    if operation == "finalize":
+        transition, _outcome = _prepare_for_finalize(harness)
+        generation = 2
+    else:
+        transition, effects = _plan()
+        harness.store.stage(transition, effects, receipt_id="command-a")
+        assert harness.store.claim(
+            transition.transition_id,
+            owner_id="owner-a",
+            lease_seconds=30.0,
+        )
+        generation = 1
+    _mutate_binding(harness, **{field_name: field_value})
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="binding_cas_conflict"):
+        if operation == "reject":
+            harness.store.reject(
+                transition.transition_id,
+                owner_id="owner-a",
+                claim_generation=generation,
+                reason_code="denied",
+            )
+        else:
+            status = {
+                "status": "running",
+                "revision": 8,
+                "checkpoint_ref": "checkpoint-8",
+            }
+            harness.store.finalize(
+                transition.transition_id,
+                owner_id="owner-a",
+                claim_generation=generation,
+                binding_status=status,
+                checkpoint_ref="checkpoint-8",
+                finalization_proof=_FINALIZATION_PROOF,
+                receipt_result=status,
+            )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
 
 
 @pytest.mark.parametrize("kind", ["memory", "sql"])
@@ -851,9 +2011,10 @@ def test_finalize_publishes_exact_binding_receipt_and_effect_proofs(
         harness.adapter().finalize(
             transition.transition_id,
             owner_id="owner-a",
-            claim_generation=1,
+            claim_generation=2,
             binding_status=status,
             checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
             outcome_fingerprint=outcome,
             receipt_result={**status, "status": "unrelated"},
         )
@@ -861,9 +2022,10 @@ def test_finalize_publishes_exact_binding_receipt_and_effect_proofs(
     completed = harness.adapter().finalize(
         transition.transition_id,
         owner_id="owner-a",
-        claim_generation=1,
+        claim_generation=2,
         binding_status=status,
         checkpoint_ref="checkpoint-8",
+        finalization_proof=_FINALIZATION_PROOF,
         outcome_fingerprint=outcome,
         receipt_result=status,
     )
@@ -871,6 +2033,7 @@ def test_finalize_publishes_exact_binding_receipt_and_effect_proofs(
     assert completed.transition.state == TRANSITION_STATE_COMPLETED
     assert completed.transition.result_status == status
     assert completed.effects[-1].state == EFFECT_STATE_APPLIED
+    assert thaw_json(completed.effects[-1].result_payload)["finalization_proof"] == (_FINALIZATION_PROOF)
     binding, receipt = _records(harness)
     assert binding["active_transition_id"] == ""
     assert binding["runtime_revision"] == 8
@@ -883,7 +2046,447 @@ def test_finalize_publishes_exact_binding_receipt_and_effect_proofs(
     assert receipt["result_status"] == status
     assert receipt["transition_id"] == transition.transition_id
     assert receipt["outcome_fingerprint"] == outcome
-    assert receipt["dispatch_generation"] == 1
+    assert receipt["dispatch_generation"] == 2
+    assert thaw_json(completed.effects[-1].result_payload)["finalization_stage_attempt_count"] == 1
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_receiptless_finalize_projects_and_persists_full_public_proof(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    projector = _SentinelPublicProjector()
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"receiptless-finalize-{kind}",
+        receipt_projector=projector,
+    )
+    if harness.engine is None:
+        getattr(harness.store, "_bindings")["workflow-a"]["command_receipt_id"] = ""
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowControlBindingDB)
+                .where(WorkflowControlBindingDB.id == "workflow-a")
+                .values(command_receipt_id="")
+            )
+    transition, effects = _receiptless_plan()
+    harness.store.stage(transition, effects)
+    claimed = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert claimed is not None
+    applying = harness.store.begin_effect(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+    )
+    result = _effect_result({"task_id": "task-a", "queue_state": "reserved"})
+    harness.store.finish_effect(
+        transition.transition_id,
+        applying.effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        result_payload=result,
+        result_digest=workflow_transition_effect_result_digest(result),
+    )
+    harness.store.yield_ready(
+        transition.transition_id,
+        effects[0].effect_id,
+        owner_id="owner-a",
+        claim_generation=1,
+        available_at=1_000.0,
+    )
+    final_claim = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert final_claim is not None and final_claim.transition.claim_generation == 2
+    raw_status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+    public_status = {
+        **raw_status,
+        "checkpoint_ref": "public:8",
+        "projection": "canonical",
+    }
+
+    completed = harness.store.finalize(
+        transition.transition_id,
+        owner_id="owner-a",
+        claim_generation=2,
+        binding_status=raw_status,
+        checkpoint_ref="checkpoint-8",
+        finalization_proof=_FINALIZATION_PROOF,
+    )
+
+    expected_outcome = workflow_transition_outcome_fingerprint(
+        completed.transition,
+        completed.effects,
+        binding_status=raw_status,
+        checkpoint_ref="checkpoint-8",
+        finalization_proof=_FINALIZATION_PROOF,
+        public_status=public_status,
+    )
+    assert completed.transition.outcome_fingerprint == expected_outcome
+    assert thaw_json(completed.transition.result_status) == raw_status
+    final_result = thaw_json(completed.effects[-1].result_payload)
+    assert final_result["public_status"] == public_status
+    assert final_result["finalization_stage_attempt_count"] == 1
+    assert final_result["finalization_proof"] == _FINALIZATION_PROOF
+    assert final_result["outcome_fingerprint"] == expected_outcome
+    assert final_result["receipt_completed"] is False
+    binding, receipt = _records(harness)
+    assert binding["last_status"] == raw_status
+    assert binding["public_status"] == public_status
+    assert binding["last_transition_outcome_fingerprint"] == expected_outcome
+    assert receipt["state"] == "pending"
+    assert receipt["transition_id"] == ""
+    assert len(projector.calls) == 1
+    assert projector.calls[0]["transition"].receipt_id == ""
+    assert projector.calls[0]["binding_status"] == raw_status
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("invalid_outcome", [None, False, 0, "abc", "g" * 64])
+def test_finalize_accepts_only_empty_or_sha256_optional_outcome_proof(
+    kind: str,
+    invalid_outcome: Any,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"invalid-outcome-{kind}-{invalid_outcome!s}")
+    transition, _outcome = _prepare_for_finalize(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="outcome_fingerprint_invalid"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=2,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            outcome_fingerprint=invalid_outcome,
+            receipt_result=status,
+        )
+
+    snapshot = harness.store.get(transition.transition_id)
+    assert snapshot is not None and snapshot.transition.state == TRANSITION_STATE_APPLYING
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("proof_kind", ["missing", "none", "empty", "nan", "oversize"])
+def test_finalize_requires_bounded_structural_proof_without_mutation(
+    kind: str,
+    proof_kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"finalization-proof-{kind}-{proof_kind}")
+    transition, _outcome = _prepare_for_finalize(harness)
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+    arguments = {
+        "owner_id": "owner-a",
+        "claim_generation": 2,
+        "binding_status": status,
+        "checkpoint_ref": "checkpoint-8",
+        "receipt_result": status,
+    }
+
+    if proof_kind == "missing":
+        with pytest.raises(TypeError, match="finalization_proof"):
+            harness.store.finalize(transition.transition_id, **arguments)
+    else:
+        proof: Any = {
+            "none": None,
+            "empty": {},
+            "nan": {"value": float("nan")},
+            "oversize": {"value": "x" * 524_289},
+        }[proof_kind]
+        with pytest.raises(
+            WorkflowTransitionPersistenceError,
+            match="finalization_proof",
+        ):
+            harness.store.finalize(
+                transition.transition_id,
+                finalization_proof=proof,
+                **arguments,
+            )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_finalize_defensively_rejects_digest_valid_noncanonical_effect_result(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"finalize-malformed-effect-{kind}")
+    transition, _outcome = _prepare_for_finalize(harness)
+    current = harness.store.get(transition.transition_id)
+    assert current is not None
+    _corrupt_effect_result(
+        harness,
+        transition_id=transition.transition_id,
+        effect_id=current.effects[0].effect_id,
+        result_payload={
+            "schema": "ananta.workflow-transition-effect-result.v1",
+            "mode": {},
+            "effect_result": {"task_id": "digest-valid-but-unproved"},
+            "effect_proof": {"downstream_revision": 1},
+            "stage_attempt_count": 1,
+        },
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="result_envelope_invalid"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=2,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            receipt_result=status,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("stage_attempt_count", [0, 2])
+def test_finalize_rejects_digest_valid_under_or_over_counted_effect_attempts(
+    kind: str,
+    stage_attempt_count: int,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"finalize-effect-count-{kind}-{stage_attempt_count}",
+    )
+    transition, _outcome = _prepare_for_finalize(harness)
+    current = harness.store.get(transition.transition_id)
+    assert current is not None
+    _corrupt_effect_result(
+        harness,
+        transition_id=transition.transition_id,
+        effect_id=current.effects[0].effect_id,
+        result_payload={
+            "schema": "ananta.workflow-transition-effect-result.v1",
+            "mode": "execute",
+            "effect_result": {"task_id": "task-a"},
+            "effect_proof": {"downstream_revision": 1},
+            "stage_attempt_count": stage_attempt_count,
+        },
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="result_envelope_invalid"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=2,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            receipt_result=status,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_finalize_rejects_zero_finalization_stage_attempts_without_mutation(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"finalize-zero-stage-attempt-{kind}")
+    transition, _outcome = _prepare_for_finalize(harness)
+    _corrupt_transition_attempt_count(
+        harness,
+        transition_id=transition.transition_id,
+        attempt_count=1,
+    )
+    before = _raw_transition_records(harness, transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="header_attempt_conflict"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=2,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            receipt_result=status,
+        )
+
+    assert _raw_transition_records(harness, transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+@pytest.mark.parametrize("applied_generation", [1, 2])
+def test_finalize_rejects_any_applying_final_effect_generation(
+    kind: str,
+    applied_generation: int,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(
+        kind,
+        tmp_path,
+        name=f"finalize-applying-final-{kind}-{applied_generation}",
+    )
+    transition, _outcome = _prepare_for_finalize(harness)
+    current = harness.store.get(transition.transition_id)
+    assert current is not None
+    _corrupt_final_effect_generation(
+        harness,
+        transition_id=transition.transition_id,
+        effect_id=current.effects[-1].effect_id,
+        applied_generation=applied_generation,
+    )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="finalize_effect_conflict"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=2,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            receipt_result=status,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
+
+
+@pytest.mark.parametrize("kind", ["memory", "sql"])
+def test_finalize_rejects_non_monotonic_applied_generation_prefix(
+    kind: str,
+    tmp_path: Any,
+) -> None:
+    harness = _harness(kind, tmp_path, name=f"finalize-generation-prefix-{kind}")
+    transition, effects = _plan(effect_count=2)
+    harness.store.stage(transition, effects, receipt_id="command-a")
+    for generation, effect in enumerate(effects[:-1], start=1):
+        claimed = harness.store.claim(
+            transition.transition_id,
+            owner_id="owner-a",
+            lease_seconds=30.0,
+        )
+        assert claimed is not None and claimed.transition.claim_generation == generation
+        harness.store.begin_effect(
+            transition.transition_id,
+            effect.effect_id,
+            owner_id="owner-a",
+            claim_generation=generation,
+        )
+        result = _effect_result({"task_id": f"task-{generation}"})
+        harness.store.finish_effect(
+            transition.transition_id,
+            effect.effect_id,
+            owner_id="owner-a",
+            claim_generation=generation,
+            result_payload=result,
+            result_digest=workflow_transition_effect_result_digest(result),
+        )
+        harness.store.yield_ready(
+            transition.transition_id,
+            effect.effect_id,
+            owner_id="owner-a",
+            claim_generation=generation,
+            available_at=1_000.0,
+        )
+    final_claim = harness.store.claim(
+        transition.transition_id,
+        owner_id="owner-a",
+        lease_seconds=30.0,
+    )
+    assert final_claim is not None and final_claim.transition.claim_generation == 3
+    if harness.engine is None:
+        values = list(getattr(harness.store, "_effects")[transition.transition_id])
+        values[0] = replace(values[0], applied_generation=2, revision=values[0].revision + 1)
+        values[1] = replace(values[1], applied_generation=1, revision=values[1].revision + 1)
+        getattr(harness.store, "_effects")[transition.transition_id] = tuple(values)
+    else:
+        with harness.engine.begin() as connection:
+            connection.execute(
+                sa.update(WorkflowTransitionEffectDB)
+                .where(WorkflowTransitionEffectDB.id == effects[0].effect_id)
+                .values(applied_generation=2, revision=WorkflowTransitionEffectDB.revision + 1)
+            )
+            connection.execute(
+                sa.update(WorkflowTransitionEffectDB)
+                .where(WorkflowTransitionEffectDB.id == effects[1].effect_id)
+                .values(applied_generation=1, revision=WorkflowTransitionEffectDB.revision + 1)
+            )
+    before = harness.store.get(transition.transition_id)
+    records_before = _records(harness)
+    status = {
+        "status": "running",
+        "revision": 8,
+        "checkpoint_ref": "checkpoint-8",
+    }
+
+    with pytest.raises(WorkflowTransitionPersistenceError, match="result_envelope_invalid"):
+        harness.store.finalize(
+            transition.transition_id,
+            owner_id="owner-a",
+            claim_generation=3,
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
+            receipt_result=status,
+        )
+
+    assert harness.store.get(transition.transition_id) == before
+    assert _records(harness) == records_before
 
 
 @pytest.mark.parametrize("kind", ["memory", "sql"])
@@ -929,6 +2532,7 @@ def test_finalize_atomically_persists_raw_native_and_canonical_public_status(
         snapshot.effects,
         binding_status=raw_status,
         checkpoint_ref=raw_status["checkpoint_ref"],
+        finalization_proof=_FINALIZATION_PROOF,
         receipt_result=public_status,
     )
 
@@ -939,15 +2543,17 @@ def test_finalize_atomically_persists_raw_native_and_canonical_public_status(
         snapshot.effects,
         binding_status=raw_status,
         checkpoint_ref=raw_status["checkpoint_ref"],
+        finalization_proof=_FINALIZATION_PROOF,
         receipt_result=missing_identity,
     )
     with pytest.raises(WorkflowTransitionPersistenceError, match="receipt_projection_mismatch"):
         harness.store.finalize(
             transition.transition_id,
             owner_id="owner-a",
-            claim_generation=1,
+            claim_generation=2,
             binding_status=raw_status,
             checkpoint_ref=raw_status["checkpoint_ref"],
+            finalization_proof=_FINALIZATION_PROOF,
             outcome_fingerprint=mismatched_outcome,
             receipt_result=missing_identity,
         )
@@ -955,9 +2561,10 @@ def test_finalize_atomically_persists_raw_native_and_canonical_public_status(
     completed = harness.store.finalize(
         transition.transition_id,
         owner_id="owner-a",
-        claim_generation=1,
+        claim_generation=2,
         binding_status=raw_status,
         checkpoint_ref=raw_status["checkpoint_ref"],
+        finalization_proof=_FINALIZATION_PROOF,
         outcome_fingerprint=outcome,
         receipt_result=public_status,
     )
@@ -967,6 +2574,7 @@ def test_finalize_atomically_persists_raw_native_and_canonical_public_status(
     assert binding["public_status"] == public_status
     assert receipt["result_status"] == public_status
     assert receipt["outcome_fingerprint"] == outcome
+    assert thaw_json(completed.effects[-1].result_payload)["public_status"] == public_status
 
 
 @pytest.mark.parametrize("kind", ["memory", "sql"])
@@ -1008,6 +2616,7 @@ def test_unrelated_binding_revision_cannot_complete_the_receipt(
         snapshot.effects,
         binding_status=unrelated_status,
         checkpoint_ref="unrelated-checkpoint-8",
+        finalization_proof=_FINALIZATION_PROOF,
         receipt_result=unrelated_status,
     )
 
@@ -1018,9 +2627,10 @@ def test_unrelated_binding_revision_cannot_complete_the_receipt(
         harness.store.finalize(
             transition.transition_id,
             owner_id="owner-a",
-            claim_generation=1,
+            claim_generation=2,
             binding_status=unrelated_status,
             checkpoint_ref="unrelated-checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
             outcome_fingerprint=unrelated_outcome,
             receipt_result=unrelated_status,
         )
@@ -1068,9 +2678,10 @@ def test_finalize_fault_seams_roll_back_every_proof(
         harness.store.finalize(
             transition.transition_id,
             owner_id="owner-a",
-            claim_generation=1,
+            claim_generation=2,
             binding_status=status,
             checkpoint_ref="checkpoint-8",
+            finalization_proof=_FINALIZATION_PROOF,
             outcome_fingerprint=outcome,
             receipt_result=status,
         )

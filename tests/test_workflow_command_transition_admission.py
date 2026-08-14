@@ -31,7 +31,6 @@ from agent.services.workflow_transition_outbox import (
     WorkflowTransition,
     WorkflowTransitionEffect,
     workflow_admitted_command_digest,
-    workflow_transition_id,
     workflow_transition_request_fingerprint,
 )
 from agent.services.workflow_transition_persistence import (
@@ -114,31 +113,36 @@ def _receipt(*, request_payload: dict[str, Any] | None = None) -> WorkflowContro
 class _NativeTestIntentFactory:
     """Complete test-only plan; production has no generic default planner."""
 
-    def __init__(self, runtime_id: str = TRANSITION_RUNTIME_NATIVE) -> None:
+    def __init__(
+        self,
+        runtime_id: str = TRANSITION_RUNTIME_NATIVE,
+        *,
+        planned_at_offset: float = 0.0,
+    ) -> None:
         self._runtime_id = runtime_id
+        self._planned_at_offset = planned_at_offset
 
     def build(
         self,
         *,
         receipt: WorkflowControlCommandReceipt,
         binding: WorkflowControlRunBinding,
+        transition_id: str,
+        planned_at: float,
     ) -> WorkflowCommandTransitionIntent:
-        transition_id = workflow_transition_id(
-            tenant_id=binding.tenant_id,
-            workflow_id=binding.workflow_id,
-            run_id=binding.run_id,
-            runtime_id=self._runtime_id,
-            kind=TRANSITION_KIND_COMMAND,
-            identity_key=receipt.command_id,
-        )
+        candidate_time = planned_at + self._planned_at_offset
         effects = (
             WorkflowTransitionEffect.build(
                 transition_id=transition_id,
                 ordinal=1,
                 kind=EFFECT_QUEUE_RESERVE,
                 idempotency_key="task-a",
-                payload={"task_id": "task-a", "command_id": receipt.command_id},
-                created_at=1_000.0,
+                payload={
+                    "task_id": "task-a",
+                    "command_id": receipt.command_id,
+                    "occurred_at": candidate_time,
+                },
+                created_at=candidate_time,
             ),
             WorkflowTransitionEffect.build(
                 transition_id=transition_id,
@@ -146,7 +150,7 @@ class _NativeTestIntentFactory:
                 kind=EFFECT_BINDING_FINALIZE,
                 idempotency_key=binding.workflow_id,
                 payload={"workflow_id": binding.workflow_id},
-                created_at=1_000.0,
+                created_at=candidate_time,
             ),
         )
         admitted = receipt.request_payload["admitted_command"]
@@ -165,9 +169,23 @@ class _NativeTestIntentFactory:
             effects=effects,
             expected_revision=receipt.expected_revision,
             expected_checkpoint_ref=receipt.checkpoint_ref,
-            created_at=1_000.0,
+            created_at=candidate_time,
         )
         return WorkflowCommandTransitionIntent(transition, effects)
+
+
+def _service(
+    store: InMemoryWorkflowTransitionStore,
+    *,
+    factory: _NativeTestIntentFactory | None = None,
+    clock: Any = lambda: 1_000.0,
+) -> WorkflowCommandTransitionAdmissionService:
+    return WorkflowCommandTransitionAdmissionService(
+        store,
+        transition_reader=store,
+        intent_factory=factory or _NativeTestIntentFactory(),
+        clock=clock,
+    )
 
 
 def _store(
@@ -200,10 +218,7 @@ def _store(
 def test_admission_stages_and_exactly_adopts_an_injected_complete_plan() -> None:
     receipt = _receipt()
     store = _store(receipt)
-    service = WorkflowCommandTransitionAdmissionService(
-        store,
-        intent_factory=_NativeTestIntentFactory(),
-    )
+    service = _service(store)
 
     staged = service.stage_or_adopt(receipt=receipt, binding=_binding())
     attributed = replace(
@@ -216,6 +231,53 @@ def test_admission_stages_and_exactly_adopts_an_injected_complete_plan() -> None
     assert adopted == staged
     assert store.active_transition_id("workflow-a") == staged.transition.transition_id
     assert store.receipt_record("command-a")["transition_id"] == staged.transition.transition_id
+
+
+def test_admission_reuses_persisted_planned_at_without_sampling_restart_clock() -> None:
+    receipt = _receipt()
+    store = _store(receipt)
+    first_calls: list[float] = []
+
+    def first_clock() -> float:
+        first_calls.append(1_234.0)
+        return 1_234.0
+
+    staged = _service(store, clock=first_clock).stage_or_adopt(
+        receipt=receipt,
+        binding=_binding(),
+    )
+
+    def forbidden_restart_clock() -> float:
+        raise AssertionError("an exact adoption must reuse persisted planned_at")
+
+    adopted = _service(store, clock=forbidden_restart_clock).stage_or_adopt(
+        receipt=replace(
+            receipt,
+            transition_id=staged.transition.transition_id,
+            effect_fingerprint=staged.transition.effect_fingerprint,
+        ),
+        binding=_binding(),
+    )
+
+    assert first_calls == [1_234.0]
+    assert adopted == staged
+    assert adopted.transition.created_at == 1_234.0
+    assert adopted.effects[0].payload["occurred_at"] == 1_234.0
+
+
+def test_admission_rejects_a_factory_that_ignores_authoritative_planned_at() -> None:
+    receipt = _receipt()
+    store = _store(receipt)
+    service = _service(
+        store,
+        factory=_NativeTestIntentFactory(planned_at_offset=1.0),
+        clock=lambda: 1_234.0,
+    )
+
+    with pytest.raises(WorkflowCommandTransitionAdmissionError, match="intent_mismatch"):
+        service.stage_or_adopt(receipt=receipt, binding=_binding())
+
+    assert store.get_active("workflow-a") is None
 
 
 @pytest.mark.parametrize(
@@ -231,9 +293,9 @@ def test_admission_exactly_matches_native_alias_and_langgraph_runtime(
 ) -> None:
     receipt = _receipt()
     store = _store(receipt, runtime_id=binding_runtime)
-    service = WorkflowCommandTransitionAdmissionService(
+    service = _service(
         store,
-        intent_factory=_NativeTestIntentFactory(transition_runtime),
+        factory=_NativeTestIntentFactory(transition_runtime),
     )
 
     staged = service.stage_or_adopt(
@@ -246,9 +308,10 @@ def test_admission_exactly_matches_native_alias_and_langgraph_runtime(
 
 def test_admission_rejects_a_binding_transition_runtime_mismatch() -> None:
     receipt = _receipt()
-    service = WorkflowCommandTransitionAdmissionService(
-        _store(receipt),
-        intent_factory=_NativeTestIntentFactory(TRANSITION_RUNTIME_LANGGRAPH),
+    store = _store(receipt)
+    service = _service(
+        store,
+        factory=_NativeTestIntentFactory(TRANSITION_RUNTIME_LANGGRAPH),
     )
 
     with pytest.raises(WorkflowCommandTransitionAdmissionError, match="intent_mismatch"):
@@ -272,19 +335,14 @@ def test_pre_cutover_admission_has_no_live_composition_or_default_plan() -> None
         source = (ROOT / relative_path).read_text(encoding="utf-8")
         assert all(symbol not in source for symbol in live_only_symbols), relative_path
 
-    intent_factory = signature(WorkflowCommandTransitionAdmissionService).parameters[
-        "intent_factory"
-    ]
+    intent_factory = signature(WorkflowCommandTransitionAdmissionService).parameters["intent_factory"]
     assert intent_factory.default is Parameter.empty
 
 
 def test_admission_rejects_attribution_and_request_divergence() -> None:
     receipt = _receipt()
     store = _store(receipt)
-    service = WorkflowCommandTransitionAdmissionService(
-        store,
-        intent_factory=_NativeTestIntentFactory(),
-    )
+    service = _service(store)
     staged = service.stage_or_adopt(receipt=receipt, binding=_binding())
 
     with pytest.raises(WorkflowCommandTransitionAdmissionError, match="id_conflict"):
@@ -337,10 +395,7 @@ def test_admitted_command_digest_ignores_only_renewable_authority() -> None:
 def test_transition_adoption_binds_the_original_receipt_authority_envelope() -> None:
     receipt = _receipt()
     store = _store(receipt)
-    service = WorkflowCommandTransitionAdmissionService(
-        store,
-        intent_factory=_NativeTestIntentFactory(),
-    )
+    service = _service(store)
     staged = service.stage_or_adopt(receipt=receipt, binding=_binding())
     renewed_command = _command(nonce="nonce-b", now=1_001.0)
     renewed_request = {

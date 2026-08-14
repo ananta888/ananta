@@ -11,6 +11,7 @@ from agent.services.workflow_transition_outbox import (
     EFFECT_STATE_REJECTED,
     TRANSITION_KIND_COMMAND,
     TRANSITION_RUNTIME_NATIVE,
+    TRANSITION_STATE_QUARANTINED,
     TRANSITION_STATE_REJECTED,
     WorkflowTransition,
     WorkflowTransitionEffect,
@@ -20,6 +21,8 @@ from agent.services.workflow_transition_outbox import (
     validate_transition_plan,
     workflow_transition_effect_fingerprint,
     workflow_transition_effect_result_digest,
+    workflow_transition_effect_result_envelope,
+    workflow_transition_finalization_result_digest,
     workflow_transition_id,
     workflow_transition_outcome_fingerprint,
     workflow_transition_request_fingerprint,
@@ -154,11 +157,25 @@ def test_transition_contract_rejects_unbounded_open_or_inconsistent_values() -> 
 
 def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> None:
     transition, effects = _plan()
-    result = {"task_id": "task-a", "queue_state": "reserved"}
+    transition = replace(
+        transition,
+        state="applying",
+        claim_owner="runner-a",
+        claim_generation=2,
+        claim_expires_at=1_100.0,
+        last_heartbeat_at=1_000.0,
+        attempt_count=2,
+    )
+    result = workflow_transition_effect_result_envelope(
+        mode="execute",
+        result_payload={"task_id": "task-a", "queue_state": "reserved"},
+        proof_payload={"downstream_revision": 1},
+        stage_attempt_count=1,
+    )
     applied = replace(
         effects[0],
         state=EFFECT_STATE_APPLIED,
-        applied_generation=3,
+        applied_generation=1,
         result_payload=result,
         result_digest=workflow_transition_effect_result_digest(result),
         revision=2,
@@ -170,11 +187,20 @@ def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> Non
         "checkpoint_ref": "checkpoint-8",
     }
     receipt_status = {**status, "checkpoint_ref": "local:workflow-a:8"}
+    with pytest.raises(WorkflowTransitionError, match="public_status_missing"):
+        workflow_transition_outcome_fingerprint(
+            transition,
+            (applied, effects[1]),
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof={"observation_revision": 8},
+        )
     first = workflow_transition_outcome_fingerprint(
         transition,
         (applied, effects[1]),
         binding_status=status,
         checkpoint_ref="checkpoint-8",
+        finalization_proof={"observation_revision": 8},
         receipt_result=receipt_status,
     )
     second = workflow_transition_outcome_fingerprint(
@@ -182,6 +208,7 @@ def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> Non
         (applied, effects[1]),
         binding_status={**status, "status": "paused"},
         checkpoint_ref="checkpoint-8",
+        finalization_proof={"observation_revision": 8},
         receipt_result=receipt_status,
     )
     third = workflow_transition_outcome_fingerprint(
@@ -189,6 +216,7 @@ def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> Non
         (applied, effects[1]),
         binding_status={**status, "checkpoint_ref": "checkpoint-9"},
         checkpoint_ref="checkpoint-9",
+        finalization_proof={"observation_revision": 8},
         receipt_result=receipt_status,
     )
     fourth = workflow_transition_outcome_fingerprint(
@@ -196,17 +224,49 @@ def test_outcome_fingerprint_binds_effect_results_status_and_checkpoint() -> Non
         (applied, effects[1]),
         binding_status=status,
         checkpoint_ref="checkpoint-8",
+        finalization_proof={"observation_revision": 8},
         receipt_result={**receipt_status, "status": "paused"},
+    )
+    fifth = workflow_transition_outcome_fingerprint(
+        replace(transition, attempt_count=3, claim_generation=3),
+        (applied, effects[1]),
+        binding_status=status,
+        checkpoint_ref="checkpoint-8",
+        finalization_proof={"observation_revision": 8},
+        receipt_result=receipt_status,
+    )
+    sixth = workflow_transition_outcome_fingerprint(
+        transition,
+        (applied, effects[1]),
+        binding_status=status,
+        checkpoint_ref="checkpoint-8",
+        finalization_proof={"observation_revision": 9},
+        receipt_result=receipt_status,
     )
 
     assert len(first) == 64
-    assert len({first, second, third, fourth}) == 4
+    assert len({first, second, third, fourth, fifth, sixth}) == 6
+    raw_applied = replace(
+        applied,
+        result_payload={"task_id": "digest-valid-but-unproved"},
+        result_digest=workflow_transition_effect_result_digest({"task_id": "digest-valid-but-unproved"}),
+    )
+    with pytest.raises(WorkflowTransitionError, match="result_envelope_invalid"):
+        workflow_transition_outcome_fingerprint(
+            transition,
+            (raw_applied, effects[1]),
+            binding_status=status,
+            checkpoint_ref="checkpoint-8",
+            finalization_proof={"observation_revision": 8},
+            receipt_result=receipt_status,
+        )
     with pytest.raises(WorkflowTransitionError, match="effects_incomplete"):
         workflow_transition_outcome_fingerprint(
             transition,
             effects,
             binding_status=status,
             checkpoint_ref="checkpoint-8",
+            finalization_proof={"observation_revision": 8},
             receipt_result=receipt_status,
         )
 
@@ -249,4 +309,66 @@ def test_rejected_snapshot_requires_every_effect_to_be_rejected() -> None:
         WorkflowTransitionSnapshot(
             rejected_transition,
             (ambiguously_applied, rejected_effects[1]),
+        )
+
+
+def test_quarantined_snapshot_preserves_ambiguous_effect_state_and_requires_reason() -> None:
+    transition, effects = _plan()
+    applying = replace(
+        effects[0],
+        state="applying",
+        applied_generation=2,
+        revision=2,
+        updated_at=1_001.0,
+    )
+    quarantined = replace(
+        transition,
+        state=TRANSITION_STATE_QUARANTINED,
+        claim_generation=2,
+        attempt_count=2,
+        last_heartbeat_at=1_001.0,
+        last_error="effect_outcome_ambiguous",
+        revision=3,
+        updated_at=1_001.0,
+    )
+
+    snapshot = WorkflowTransitionSnapshot(quarantined, (applying, effects[1]))
+
+    assert snapshot.effects == (applying, effects[1])
+    with pytest.raises(WorkflowTransitionError, match="reason_code_invalid"):
+        replace(quarantined, last_error="")
+
+
+def test_binding_finalization_result_has_a_separate_closed_size_boundary() -> None:
+    _transition, effects = _plan()
+    result = {"public_status": {"proof": "x" * 600_000}}
+    digest = workflow_transition_finalization_result_digest(result)
+
+    finalized = replace(
+        effects[-1],
+        state=EFFECT_STATE_APPLIED,
+        applied_generation=2,
+        result_payload=result,
+        result_digest=digest,
+        revision=2,
+        updated_at=1_001.0,
+    )
+
+    assert finalized.result_digest == digest
+    with pytest.raises(WorkflowTransitionError, match="effect_result_too_large"):
+        workflow_transition_effect_result_digest(result)
+    with pytest.raises(WorkflowTransitionError, match="finalization_result_too_large"):
+        workflow_transition_finalization_result_digest({"public_status": {"proof": "x" * 1_100_000}})
+
+
+@pytest.mark.parametrize("invalid_mode", [[], {}])
+def test_effect_result_envelope_rejects_unhashable_modes_stably(
+    invalid_mode: object,
+) -> None:
+    with pytest.raises(WorkflowTransitionError, match="result_mode_invalid"):
+        workflow_transition_effect_result_envelope(
+            mode=invalid_mode,  # type: ignore[arg-type]
+            result_payload={"task_id": "task-a"},
+            proof_payload={"downstream_revision": 1},
+            stage_attempt_count=1,
         )
