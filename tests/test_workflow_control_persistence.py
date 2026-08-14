@@ -25,7 +25,12 @@ from agent.db_models.workflow_runtime import (
 )
 from agent.routes.workflow_runtime_operations import workflow_runtime_operations_bp
 from agent.services.local_workflow_backend import LocalWorkflowBackend
-from agent.services.workflow_backend import WorkflowRequest, WorkflowSignal, WorkflowStepRequest
+from agent.services.workflow_backend import (
+    WORKFLOW_STATUS_SCHEMA,
+    WorkflowRequest,
+    WorkflowSignal,
+    WorkflowStepRequest,
+)
 from agent.services.workflow_control_composition import (
     WorkflowControlBindingOwnerResolver,
     WorkflowControlRunBinding,
@@ -53,6 +58,7 @@ from agent.services.workflow_runtime_read_model_persistence import (
     SQLAlchemyWorkflowRuntimeReadModelRepository,
 )
 from agent.services.workflow_runtime_read_model_service import WorkflowRuntimeReadModelService
+from agent.services.workflow_runtime_status_projection import authoritative_runtime_status
 
 
 @pytest.fixture
@@ -93,6 +99,118 @@ def _binding() -> WorkflowControlRunBinding:
         checkpoint_id="checkpoint-0",
         request=_request(),
     )
+
+
+def _native_status(
+    checkpoint_ref: str,
+    *,
+    revision: int = 1,
+    backend: str = "local",
+) -> dict[str, Any]:
+    return {
+        "schema": WORKFLOW_STATUS_SCHEMA,
+        "backend": backend,
+        "tenant_id": "tenant-a",
+        "workflow_id": "workflow-restart",
+        "run_id": "run-restart",
+        "plan_hash": "f" * 64,
+        "status": "running",
+        "revision": revision,
+        "checkpoint_ref": checkpoint_ref,
+        "steps": [{"step_id": "step-a", "status": "running"}],
+    }
+
+
+@pytest.mark.parametrize(
+    ("checkpoint_ref", "canonical_ref"),
+    [
+        ("local:workflow-restart:1", "local:workflow-restart:1"),
+        (f"wfc-{'a' * 32}", "local:workflow-restart:1"),
+    ],
+)
+def test_native_projection_normalizes_internal_checkpoint_markers(
+    checkpoint_ref: str,
+    canonical_ref: str,
+) -> None:
+    projected = authoritative_runtime_status(
+        _native_status(checkpoint_ref),
+        binding=replace(_binding(), runtime_id="ananta-native"),
+        previous=None,
+        runtime_id="ananta-native",
+        observed_at=1.0,
+    )
+
+    assert projected["checkpoint_ref"] == canonical_ref
+
+
+def test_native_projection_is_stable_across_internal_marker_changes() -> None:
+    binding = replace(_binding(), runtime_id="ananta-native")
+    first = authoritative_runtime_status(
+        _native_status(f"wfc-{'a' * 32}"),
+        binding=binding,
+        previous=None,
+        runtime_id="ananta-native",
+        observed_at=1.0,
+    )
+
+    second = authoritative_runtime_status(
+        _native_status(f"wfc-{'b' * 32}"),
+        binding=binding,
+        previous=first,
+        runtime_id="ananta-native",
+        observed_at=1.0,
+    )
+
+    assert second == first
+    assert second["checkpoint_ref"] == "local:workflow-restart:1"
+
+
+def test_native_projection_derives_a_new_checkpoint_for_each_revision() -> None:
+    binding = replace(_binding(), runtime_id="ananta-native")
+    first = authoritative_runtime_status(
+        _native_status(f"wfc-{'a' * 32}", revision=1),
+        binding=binding,
+        previous=None,
+        runtime_id="ananta-native",
+        observed_at=1.0,
+    )
+    second = authoritative_runtime_status(
+        _native_status(f"wfc-{'b' * 32}", revision=2),
+        binding=binding,
+        previous=first,
+        runtime_id="ananta-native",
+        observed_at=2.0,
+    )
+
+    assert first["checkpoint_ref"] == "local:workflow-restart:1"
+    assert second["checkpoint_ref"] == "local:workflow-restart:2"
+
+
+@pytest.mark.parametrize(
+    ("checkpoint_ref", "backend"),
+    [
+        ("local:foreign-workflow:1", "local"),
+        ("local:workflow-restart:2", "local"),
+        (f"wfc-{'a' * 31}", "local"),
+        (f"wfc-{'A' * 32}", "local"),
+        (f"wfc-{'a' * 32}", "ananta-native"),
+    ],
+)
+def test_native_projection_rejects_foreign_or_malformed_checkpoint_forms(
+    checkpoint_ref: str,
+    backend: str,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="workflow_runtime_source_checkpoint_ref_unproven",
+    ):
+        authoritative_runtime_status(
+            _native_status(checkpoint_ref, backend=backend),
+            binding=replace(_binding(), runtime_id="ananta-native"),
+            previous=None,
+            runtime_id="ananta-native",
+            observed_at=1.0,
+        )
 
 
 def test_sql_control_binding_restores_owner_request_status_and_global_uniqueness(

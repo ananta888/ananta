@@ -719,9 +719,10 @@ def _canonical_checkpoint_ref(
     elif runtime_id == "langgraph":
         expected.add(f"langgraph:{binding.plan_hash}:{source_revision}")
     elif runtime_id == "ananta-native" and raw.get("backend") == "local":
-        expected.add(f"local:{binding.workflow_id}:{source_revision}")
-    elif runtime_id == "ananta-native" and re.fullmatch(r"wfc-[0-9a-f]{32}", checkpoint):
-        return checkpoint
+        local_checkpoint = f"local:{binding.workflow_id}:{source_revision}"
+        expected.add(local_checkpoint)
+        if re.fullmatch(r"wfc-[0-9a-f]{32}", checkpoint):
+            return local_checkpoint
     if checkpoint not in expected:
         raise ValueError("workflow_runtime_source_checkpoint_ref_unproven")
     return checkpoint

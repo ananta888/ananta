@@ -178,6 +178,8 @@ from ananta_contracts.temporal_workflow import (
 )
 
 _FAILED_START_STATUSES = frozenset({"degraded", "unavailable", "not_found"})
+_SOURCE_OBSERVATION_KEYS = frozenset({"schema", "status", "backend", "revision"})
+_SOURCE_OBSERVATION_REQUIRED_KEYS = frozenset({"schema", "status"})
 _TEMPORAL_COMMAND_RESULT_KEYS = frozenset({"schema", "command_id", "accepted", "revision", "status", "reason_code"})
 _TEMPORAL_COMMAND_STATUSES = frozenset(
     {"created", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"}
@@ -197,18 +199,108 @@ def _canonical_public_status(
     *,
     previous: dict[str, Any] | None,
 ) -> dict[str, Any]:
-    if configured_runtime_id(binding.runtime_id) == "temporal":
+    runtime_id = configured_runtime_id(binding.runtime_id)
+    if runtime_id == "temporal":
         return dict(status)
     raw_observed_at = status.get("updated_at")
     if not isinstance(raw_observed_at, (int, float)) or isinstance(raw_observed_at, bool) or float(raw_observed_at) < 0:
         raise ValueError("workflow_runtime_source_updated_at_invalid")
-    return authoritative_runtime_status(
+    source_observation = _validated_source_observation(
         status,
         binding=binding,
-        previous=previous,
-        runtime_id=configured_runtime_id(binding.runtime_id),
-        observed_at=float(raw_observed_at),
+        runtime_id=runtime_id,
     )
+    if source_observation is None:
+        return authoritative_runtime_status(
+            status,
+            binding=binding,
+            previous=previous,
+            runtime_id=runtime_id,
+            observed_at=float(raw_observed_at),
+        )
+
+    raw_status = dict(status)
+    raw_status.pop("source_observation", None)
+    for field_name in _SOURCE_OBSERVATION_KEYS:
+        if field_name in source_observation:
+            raw_status[field_name] = source_observation[field_name]
+        else:
+            raw_status.pop(field_name, None)
+    projected = authoritative_runtime_status(
+        raw_status,
+        binding=binding,
+        previous=None,
+        runtime_id=runtime_id,
+        events=tuple(status.get("events") or ()),
+        event_cursor=status.get("event_cursor") or "",
+        observed_at=float(raw_observed_at),
+        allow_initial_ack="revision" not in source_observation,
+    )
+    if projected != status:
+        raise ValueError("workflow_control_public_status_reprojection_mismatch")
+    return projected
+
+
+def _validated_source_observation(
+    status: dict[str, Any],
+    *,
+    binding: WorkflowControlRunBinding,
+    runtime_id: str,
+) -> dict[str, Any] | None:
+    if "source_observation" not in status:
+        return None
+    source = status["source_observation"]
+    if (
+        not isinstance(source, dict)
+        or not _SOURCE_OBSERVATION_REQUIRED_KEYS.issubset(source)
+        or not frozenset(source).issubset(_SOURCE_OBSERVATION_KEYS)
+        or not isinstance(source.get("schema"), str)
+        or not isinstance(source.get("status"), str)
+        or ("backend" in source and not isinstance(source["backend"], str))
+    ):
+        raise ValueError("workflow_control_public_status_source_observation_invalid")
+    if (
+        status.get("schema") != WORKFLOW_STATUS_SCHEMA
+        or status.get("backend") != runtime_id
+        or status.get("runtime_id") != runtime_id
+        or status.get("tenant_id") != binding.tenant_id
+        or status.get("workflow_id") != binding.workflow_id
+        or status.get("run_id") != binding.run_id
+        or status.get("plan_hash") != binding.plan_hash
+    ):
+        raise ValueError("workflow_control_public_status_binding_mismatch")
+    revision = status.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        raise ValueError("workflow_control_public_status_revision_invalid")
+    if "revision" in source:
+        source_revision = source["revision"]
+        if (
+            isinstance(source_revision, bool)
+            or not isinstance(source_revision, int)
+            or source_revision < 0
+            or source_revision != revision
+        ):
+            raise ValueError("workflow_control_public_status_source_observation_mismatch")
+    elif revision != 0:
+        raise ValueError("workflow_control_public_status_source_observation_mismatch")
+    return dict(source)
+
+
+def _authoritative_projection_binding(
+    bindings: WorkflowControlBindingStore,
+    candidate: WorkflowControlRunBinding,
+) -> WorkflowControlRunBinding:
+    authoritative = bindings.get(candidate.workflow_id)
+    if authoritative is None:
+        raise RuntimeError("workflow_control_binding_not_found")
+    if replace(candidate, runtime_id=authoritative.runtime_id) != authoritative or candidate.runtime_id not in {
+        "pending",
+        authoritative.runtime_id,
+    }:
+        raise ValueError("workflow_control_public_status_binding_mismatch")
+    if authoritative.runtime_id == "pending":
+        raise ValueError("workflow_control_public_status_runtime_unbound")
+    return authoritative
 
 
 class ConfiguredWorkflowBackendBridge:
@@ -960,6 +1052,7 @@ class WorkflowBackendControlFacade:
         binding: WorkflowControlRunBinding,
         status: dict[str, Any],
     ) -> dict[str, Any]:
+        binding = _authoritative_projection_binding(self._bindings, binding)
         previous = self._bindings.last_public_status(binding.workflow_id)
         projected = _canonical_public_status(
             binding,

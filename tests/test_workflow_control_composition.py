@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from threading import Event
 from typing import Any
@@ -848,6 +849,58 @@ def test_repeated_public_status_read_is_timestamp_and_payload_stable() -> None:
     second = bound.get_workflow_status("workflow-control-composition")
 
     assert first == second == started
+    assert started["backend"] == "ananta-native"
+    assert started["source_observation"]["backend"] == "local"
+
+
+def test_public_reprojection_rejects_forged_mismatched_or_missing_provenance() -> None:
+    backend = RecordingBackend("local")
+    facade, bound, _ownership = _bound_facade(backend)
+    started = bound.start_workflow(_request())
+    binding = facade.bindings.get("workflow-control-composition")
+    assert binding is not None
+
+    forged = {
+        **started,
+        "source_observation": {
+            **started["source_observation"],
+            "forged": "worker-assertion",
+        },
+    }
+    with pytest.raises(
+        ValueError,
+        match="workflow_control_public_status_source_observation_invalid",
+    ):
+        facade._project_public_status(binding, forged)  # noqa: SLF001 - provenance boundary probe
+
+    mismatched = {
+        **started,
+        "source_observation": {
+            **started["source_observation"],
+            "revision": started["revision"] + 1,
+        },
+    }
+    with pytest.raises(
+        ValueError,
+        match="workflow_control_public_status_source_observation_mismatch",
+    ):
+        facade._project_public_status(binding, mismatched)  # noqa: SLF001 - provenance boundary probe
+
+    missing = {key: value for key, value in started.items() if key != "source_observation"}
+    with pytest.raises(
+        ValueError,
+        match="workflow_runtime_source_checkpoint_ref_unproven",
+    ):
+        facade._project_public_status(binding, missing)  # noqa: SLF001 - provenance boundary probe
+
+    with pytest.raises(
+        ValueError,
+        match="workflow_control_public_status_binding_mismatch",
+    ):
+        facade._project_public_status(  # noqa: SLF001 - authoritative binding probe
+            replace(binding, subject_id="foreign-subject"),
+            started,
+        )
 
 
 def test_parallel_exact_temporal_start_loser_never_discards_winner_binding() -> None:
