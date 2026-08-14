@@ -6,7 +6,10 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
 
-from agent.db_models.workflow_runtime import WorkflowSideEffectLedgerDB
+from agent.db_models.workflow_runtime import (
+    WorkflowSideEffectLedgerDB,
+    WorkflowTransitionSideEffectAuthorizationDB,
+)
 from agent.services.workflow_runtime.errors import (
     FencingTokenError,
     OptimisticConcurrencyError,
@@ -15,9 +18,16 @@ from agent.services.workflow_runtime.side_effects import (
     SideEffectClaim,
     SideEffectLedger,
     SideEffectRecord,
+    WorkflowTransitionSideEffectAuthorizationIntent,
+    WorkflowTransitionSideEffectAuthorizationObservation,
+    WorkflowTransitionSideEffectAuthorizationReceipt,
+    _assert_side_effect_row_projection,
     _binding,
     _new_record,
     _transition,
+    _transition_authorization_commit_values,
+    _transition_authorization_observation,
+    assert_workflow_transition_side_effect_authorization_observation_digest,
 )
 from agent.services.workflow_runtime.sqlalchemy_support import SessionFactory, SQLAlchemyStoreSupport
 
@@ -207,6 +217,71 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
                 return None
             return _record(row)
 
+    def observe_transition_authorization(
+        self,
+        intent: WorkflowTransitionSideEffectAuthorizationIntent,
+    ) -> WorkflowTransitionSideEffectAuthorizationObservation:
+        with self._read_session() as session:
+            observation, _row = self._transition_authorization_observation(
+                session,
+                intent,
+                lock=False,
+            )
+            return observation
+
+    def authorize_transition_effect(
+        self,
+        intent: WorkflowTransitionSideEffectAuthorizationIntent,
+        *,
+        expected_observation_digest: str,
+    ) -> WorkflowTransitionSideEffectAuthorizationReceipt:
+        expected_digest = assert_workflow_transition_side_effect_authorization_observation_digest(
+            expected_observation_digest
+        )
+        try:
+            with self._transaction() as session:
+                observation, ledger_row = self._transition_authorization_observation(
+                    session,
+                    intent,
+                    lock=True,
+                )
+                if observation.receipt is not None:
+                    return observation.receipt
+                if observation.observation_digest != expected_digest:
+                    raise OptimisticConcurrencyError(
+                        "workflow_transition_side_effect_authorization_observation_conflict"
+                    )
+                planned, authorized, receipt = _transition_authorization_commit_values(
+                    intent,
+                    current=observation.ledger_record,
+                    prior_receipts=observation.operation_receipts,
+                )
+                if ledger_row is None:
+                    session.add(_ledger_row(authorized))
+                else:
+                    if planned.revision != int(ledger_row.revision):
+                        raise OptimisticConcurrencyError(
+                            "workflow_transition_side_effect_authorization_observation_conflict"
+                        )
+                    self._compare_and_set(session, ledger_row, authorized)
+                session.add(_transition_authorization_row(receipt))
+                session.flush()
+                return receipt
+        except (IntegrityError, OptimisticConcurrencyError) as exc:
+            with self._read_session() as session:
+                observation, _row = self._transition_authorization_observation(
+                    session,
+                    intent,
+                    lock=False,
+                )
+                if observation.receipt is not None:
+                    return observation.receipt
+            if isinstance(exc, OptimisticConcurrencyError):
+                raise
+            raise OptimisticConcurrencyError(
+                "workflow_transition_side_effect_authorization_compare_and_set_failed"
+            ) from exc
+
     def _finish(
         self,
         operation_id: str,
@@ -234,6 +309,67 @@ class SQLAlchemySideEffectLedger(SQLAlchemyStoreSupport, SideEffectLedger):
             )
             self._compare_and_set(session, row, updated)
             return updated
+
+    def _transition_authorization_observation(
+        self,
+        session,
+        intent: WorkflowTransitionSideEffectAuthorizationIntent,
+        *,
+        lock: bool,
+    ) -> tuple[
+        WorkflowTransitionSideEffectAuthorizationObservation,
+        WorkflowSideEffectLedgerDB | None,
+    ]:
+        anchor = sa.select(sa.literal(intent.operation_id).label("operation_id")).subquery()
+        receipt_predicate = sa.or_(
+            WorkflowTransitionSideEffectAuthorizationDB.operation_id == intent.operation_id,
+            WorkflowTransitionSideEffectAuthorizationDB.receipt_id == intent.receipt_id,
+            WorkflowTransitionSideEffectAuthorizationDB.effect_id == intent.effect_id,
+            WorkflowTransitionSideEffectAuthorizationDB.operation_fence_id == intent.operation_fence_id,
+        )
+        statement = (
+            sa.select(
+                WorkflowSideEffectLedgerDB,
+                WorkflowTransitionSideEffectAuthorizationDB,
+            )
+            .select_from(
+                anchor.outerjoin(
+                    WorkflowSideEffectLedgerDB,
+                    WorkflowSideEffectLedgerDB.operation_id == anchor.c.operation_id,
+                ).outerjoin(
+                    WorkflowTransitionSideEffectAuthorizationDB,
+                    receipt_predicate,
+                )
+            )
+            .order_by(
+                WorkflowTransitionSideEffectAuthorizationDB.authorized_ledger_revision,
+                WorkflowTransitionSideEffectAuthorizationDB.receipt_id,
+            )
+            .limit(1_001)
+        )
+        # One statement provides one READ COMMITTED snapshot.  Do not add
+        # ``FOR UPDATE`` here: PostgreSQL rejects locks on nullable sides of
+        # the two LEFT JOINs.  The write path is fenced by the ledger revision
+        # CAS plus the append-only receipt uniqueness constraints.
+        del lock
+        rows = tuple(session.execute(statement).all())
+        ledger_rows = tuple(row[0] for row in rows if row[0] is not None)
+        if ledger_rows and any(row is not ledger_rows[0] for row in ledger_rows[1:]):
+            raise OptimisticConcurrencyError("workflow_transition_side_effect_authorization_ledger_alias_conflict")
+        ledger_row = ledger_rows[0] if ledger_rows else None
+        receipt_rows = tuple(row[1] for row in rows if row[1] is not None)
+        if len(receipt_rows) > 1_000:
+            raise OptimisticConcurrencyError("workflow_transition_side_effect_authorization_history_limit")
+        ledger_record = _record_exact(ledger_row) if ledger_row is not None else None
+        receipts = tuple(_transition_authorization_receipt(row) for row in receipt_rows)
+        return (
+            _transition_authorization_observation(
+                intent,
+                ledger_record=ledger_record,
+                receipts=receipts,
+            ),
+            ledger_row,
+        )
 
     def _mutate(self, operation_id: str, **changes: object) -> SideEffectRecord:
         with self._transaction() as session:
@@ -297,9 +433,89 @@ def _record(row: WorkflowSideEffectLedgerDB) -> SideEffectRecord:
     return SideEffectRecord.from_mapping(dict(row.record))
 
 
-def _same_binding_or_raise(
-    row: WorkflowSideEffectLedgerDB, candidate: SideEffectRecord
-) -> SideEffectRecord:
+def _record_exact(row: WorkflowSideEffectLedgerDB) -> SideEffectRecord:
+    try:
+        record = SideEffectRecord.from_exact_mapping(dict(row.record))
+    except (TypeError, ValueError) as exc:
+        raise OptimisticConcurrencyError("workflow_transition_side_effect_ledger_record_invalid") from exc
+    _assert_side_effect_row_projection(
+        record,
+        operation_id=row.operation_id,
+        tenant_id=row.tenant_id,
+        workflow_id=row.workflow_id,
+        run_id=row.run_id,
+        step_id=row.step_id,
+        status=row.status,
+        revision=row.revision,
+        fencing_token=row.fencing_token,
+        updated_at=row.updated_at,
+    )
+    return record
+
+
+def _transition_authorization_row(
+    receipt: WorkflowTransitionSideEffectAuthorizationReceipt,
+) -> WorkflowTransitionSideEffectAuthorizationDB:
+    return WorkflowTransitionSideEffectAuthorizationDB(
+        receipt_id=receipt.receipt_id,
+        transition_id=receipt.transition_id,
+        effect_id=receipt.effect_id,
+        operation_id=receipt.operation_id,
+        operation_fence_id=receipt.operation_fence_id,
+        tenant_id=receipt.tenant_id,
+        workflow_id=receipt.workflow_id,
+        run_id=receipt.run_id,
+        runtime_id=receipt.runtime_id,
+        step_id=receipt.step_id,
+        operation_intent_digest=receipt.operation_intent_digest,
+        authorization_envelope_id=receipt.authorization_envelope_id,
+        authorization_envelope_digest=receipt.authorization_envelope_digest,
+        ownership_attempt_id=receipt.ownership_attempt_id,
+        ownership_fencing_token=receipt.ownership_fencing_token,
+        creator_claim_generation=receipt.creator_claim_generation,
+        authorized_ledger_revision=receipt.authorized_ledger_revision,
+        planned_at=receipt.planned_at,
+        authorized_at=receipt.authorized_at,
+        receipt_digest=receipt.receipt_digest,
+        receipt=receipt.to_dict(),
+    )
+
+
+def _transition_authorization_receipt(
+    row: WorkflowTransitionSideEffectAuthorizationDB,
+) -> WorkflowTransitionSideEffectAuthorizationReceipt:
+    try:
+        receipt = WorkflowTransitionSideEffectAuthorizationReceipt.from_mapping(dict(row.receipt))
+    except (TypeError, ValueError) as exc:
+        raise OptimisticConcurrencyError("workflow_transition_side_effect_authorization_receipt_invalid") from exc
+    projection = {
+        "receipt_id": row.receipt_id,
+        "transition_id": row.transition_id,
+        "effect_id": row.effect_id,
+        "operation_id": row.operation_id,
+        "operation_fence_id": row.operation_fence_id,
+        "tenant_id": row.tenant_id,
+        "workflow_id": row.workflow_id,
+        "run_id": row.run_id,
+        "runtime_id": row.runtime_id,
+        "step_id": row.step_id,
+        "operation_intent_digest": row.operation_intent_digest,
+        "authorization_envelope_id": row.authorization_envelope_id,
+        "authorization_envelope_digest": row.authorization_envelope_digest,
+        "ownership_attempt_id": row.ownership_attempt_id,
+        "ownership_fencing_token": row.ownership_fencing_token,
+        "creator_claim_generation": row.creator_claim_generation,
+        "authorized_ledger_revision": row.authorized_ledger_revision,
+        "planned_at": row.planned_at,
+        "authorized_at": row.authorized_at,
+        "receipt_digest": row.receipt_digest,
+    }
+    if any(getattr(receipt, name) != value for name, value in projection.items()):
+        raise OptimisticConcurrencyError("workflow_transition_side_effect_authorization_receipt_projection_conflict")
+    return receipt
+
+
+def _same_binding_or_raise(row: WorkflowSideEffectLedgerDB, candidate: SideEffectRecord) -> SideEffectRecord:
     current = _record(row)
     if _binding(current) != _binding(candidate):
         raise OptimisticConcurrencyError("operation_id_binding_conflict")

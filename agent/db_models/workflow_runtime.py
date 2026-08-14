@@ -100,6 +100,66 @@ class WorkflowSideEffectLedgerDB(SQLModel, table=True):
     record: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
 
 
+class WorkflowTransitionSideEffectAuthorizationDB(SQLModel, table=True):
+    """Append-only proof of one transition-owned ledger authorization."""
+
+    __tablename__ = "workflow_transition_side_effect_authorizations"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "effect_id",
+            name="uq_workflow_transition_side_effect_auth_effect",
+        ),
+        sa.UniqueConstraint(
+            "operation_fence_id",
+            name="uq_workflow_transition_side_effect_auth_fence",
+        ),
+        sa.UniqueConstraint(
+            "operation_id",
+            "authorized_ledger_revision",
+            name="uq_workflow_transition_side_effect_auth_revision",
+        ),
+        sa.CheckConstraint(
+            "ownership_fencing_token > 0 AND creator_claim_generation > 0 AND authorized_ledger_revision > 1",
+            name="ck_workflow_transition_side_effect_auth_positive",
+        ),
+        sa.Index(
+            "ix_workflow_transition_side_effect_auth_operation",
+            "operation_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_side_effect_auth_tenant_run",
+            "tenant_id",
+            "run_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_side_effect_auth_transition",
+            "transition_id",
+        ),
+    )
+
+    receipt_id: str = Field(primary_key=True, max_length=256)
+    transition_id: str = Field(max_length=256)
+    effect_id: str = Field(max_length=256)
+    operation_id: str = Field(max_length=256)
+    operation_fence_id: str = Field(max_length=256)
+    tenant_id: str = Field(max_length=256)
+    workflow_id: str = Field(max_length=256)
+    run_id: str = Field(max_length=256)
+    runtime_id: str = Field(max_length=64)
+    step_id: str = Field(max_length=256)
+    operation_intent_digest: str = Field(max_length=64)
+    authorization_envelope_id: str = Field(max_length=256)
+    authorization_envelope_digest: str = Field(max_length=64)
+    ownership_attempt_id: str = Field(max_length=256)
+    ownership_fencing_token: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    creator_claim_generation: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    authorized_ledger_revision: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    planned_at: float
+    authorized_at: float
+    receipt_digest: str = Field(max_length=64)
+    receipt: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+
+
 class WorkflowExecutionOwnershipDB(SQLModel, table=True):
     """CAS-protected current owner of a hub-delegated workflow step."""
 
