@@ -171,6 +171,7 @@ class RecordingBackend:
         revision = self.revisions[workflow_id]
         terminal = status in {"completed", "failed", "cancelled"}
         step_status = status if terminal else status
+        checkpoint_scope = str(request.metadata["plan_hash"]) if self.backend_id == "langgraph" else workflow_id
         return {
             "schema": WORKFLOW_STATUS_SCHEMA,
             "backend": self.backend_id,
@@ -180,7 +181,7 @@ class RecordingBackend:
             "plan_hash": str(request.metadata["plan_hash"]),
             "status": status,
             "revision": revision,
-            "checkpoint_ref": f"{self.backend_id}:{workflow_id}:{revision}",
+            "checkpoint_ref": f"{self.backend_id}:{checkpoint_scope}:{revision}",
             "steps": [
                 {
                     "step_id": step.step_id,
@@ -605,7 +606,11 @@ def test_runtime_command_uses_current_step_and_rejects_plan_edit_without_receipt
         read_model_projector=_NoOpReadModelProjector(),
     )
     bound = facade.bind(principal)
-    bound.start_workflow(_request(workflow_id))
+    started = bound.start_workflow(_request(workflow_id))
+
+    if runtime_id == "langgraph":
+        plan_hash = str(backend.requests[workflow_id].metadata["plan_hash"])
+        assert started["checkpoint_ref"] == f"langgraph:{plan_hash}:0"
 
     with pytest.raises(
         WorkflowControlCommandRejectedError,
@@ -629,6 +634,8 @@ def test_runtime_command_uses_current_step_and_rejects_plan_edit_without_receipt
     assert rejected.value.reason_code == "workflow_plan_edit_rebind_required"
     assert receipts.get(f"{runtime_id}-edit-rejected") is None
     assert paused["status"] == "paused"
+    if runtime_id == "langgraph":
+        assert paused["checkpoint_ref"] == f"langgraph:{plan_hash}:1"
     if runtime_id == "temporal":
         assert len(backend.updates) == 1
         assert backend.updates[0]["step_id"] == "step-1"
@@ -636,6 +643,35 @@ def test_runtime_command_uses_current_step_and_rejects_plan_edit_without_receipt
     else:
         assert backend.updates == []
         assert len(backend.signals) == 1
+
+
+def test_langgraph_projection_rejects_workflow_id_scoped_checkpoint() -> None:
+    workflow_id = "workflow-langgraph-checkpoint-scope"
+    backend = RecordingBackend("langgraph")
+    ownership = WorkflowRouteAuthorizationService()
+    principal = WorkflowRoutePrincipal("tenant-a", "owner-a")
+    assert ownership.reserve(workflow_id, principal) == "reserved"
+    facade = build_workflow_backend_control_facade(
+        backend,
+        ownership=ownership,
+        release_admission=RecordingReleaseAdmission(),
+        read_model_projector=_NoOpReadModelProjector(),
+    )
+    started = facade.bind(principal).start_workflow(_request(workflow_id))
+    binding = facade.bindings.get(workflow_id)
+    assert binding is not None
+
+    with pytest.raises(
+        ValueError,
+        match="workflow_runtime_source_checkpoint_ref_unproven",
+    ):
+        facade._project_public_status(  # noqa: SLF001 - checkpoint authority boundary probe
+            binding,
+            {
+                **started,
+                "checkpoint_ref": f"langgraph:{workflow_id}:0",
+            },
+        )
 
 
 @pytest.mark.parametrize("runtime_id", ["local", "langgraph", "temporal"])
