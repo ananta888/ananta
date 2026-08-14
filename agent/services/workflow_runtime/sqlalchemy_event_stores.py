@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from typing import Any
 
 import sqlalchemy as sa
 from sqlalchemy.engine import Engine
@@ -15,13 +16,21 @@ from agent.db_models.workflow_runtime import (
     WorkflowRuntimeOutboxDB,
 )
 from agent.services.identity_validation import require_canonical_identity
-from agent.services.workflow_runtime._serialization import canonical_json
+from agent.services.workflow_runtime._serialization import canonical_json, sha256_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
 from agent.services.workflow_runtime.events import (
+    WORKFLOW_EVENT_COMMIT_OUTBOX,
+    WORKFLOW_EVENT_TOPIC,
     CanonicalWorkflowEvent,
     EventStore,
+    WorkflowEventCommitProof,
+    WorkflowEventIdentityHeadSnapshot,
     assert_workflow_event_dedupe_read_binding,
+    assert_workflow_transition_event_record_projection,
+    canonical_workflow_event_from_exact_mapping,
+    event_payload_equal,
     workflow_event_dedupe_read_binding,
+    workflow_transition_event_observation_binding,
 )
 from agent.services.workflow_runtime.persistence import (
     CheckpointStore,
@@ -35,8 +44,28 @@ from agent.services.workflow_runtime.sqlalchemy_support import (
     stable_row_id,
 )
 
-WORKFLOW_EVENT_TOPIC = "workflow.runtime.events"
 OUTBOX_STATUSES = frozenset({"pending", "processing", "published", "dead_letter"})
+_TRANSITION_EVENT_COMMIT_COLUMNS = (
+    ("id", WorkflowRuntimeOutboxDB.id),
+    ("tenant_id", WorkflowRuntimeOutboxDB.tenant_id),
+    ("aggregate_id", WorkflowRuntimeOutboxDB.aggregate_id),
+    ("topic", WorkflowRuntimeOutboxDB.topic),
+    ("dedupe_key", WorkflowRuntimeOutboxDB.dedupe_key),
+    ("created_at", WorkflowRuntimeOutboxDB.created_at),
+    ("payload", WorkflowRuntimeOutboxDB.payload),
+)
+_TRANSITION_EVENT_COLUMNS = (
+    ("tenant_id", WorkflowRuntimeEventDB.tenant_id),
+    ("workflow_id", WorkflowRuntimeEventDB.workflow_id),
+    ("run_id", WorkflowRuntimeEventDB.run_id),
+    ("sequence", WorkflowRuntimeEventDB.sequence),
+    ("dedupe_key", WorkflowRuntimeEventDB.dedupe_key),
+    ("event_id", WorkflowRuntimeEventDB.event_id),
+    ("event_type", WorkflowRuntimeEventDB.event_type),
+    ("content_hash", WorkflowRuntimeEventDB.content_hash),
+    ("occurred_at", WorkflowRuntimeEventDB.occurred_at),
+    ("canonical_event", WorkflowRuntimeEventDB.canonical_event),
+)
 
 
 @dataclass(frozen=True)
@@ -280,6 +309,19 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
         except IntegrityError as exc:
             return self._resolve_append_integrity(event, expected_sequence=expected_sequence, cause=exc)
 
+    def append_transition_event(
+        self,
+        event: CanonicalWorkflowEvent,
+        *,
+        expected_sequence: int,
+    ) -> CanonicalWorkflowEvent:
+        if not self._publish_to_outbox or self._outbox_topic != WORKFLOW_EVENT_TOPIC:
+            raise OptimisticConcurrencyError("workflow_transition_event_outbox_required")
+        stored = self.append(event, expected_sequence=expected_sequence)
+        if not event_payload_equal(stored, event):
+            raise OptimisticConcurrencyError("workflow_transition_event_identity_conflict")
+        return stored
+
     def _resolve_append_integrity(
         self,
         event: CanonicalWorkflowEvent,
@@ -373,12 +415,173 @@ class SQLAlchemyEventStore(SQLAlchemyStoreSupport, EventStore):
             ).scalar_one_or_none()
             if row is None:
                 return None
-            event = CanonicalWorkflowEvent.from_mapping(dict(row.canonical_event))
+            event = canonical_workflow_event_from_exact_mapping(dict(row.canonical_event))
+            assert_workflow_transition_event_record_projection(
+                event,
+                tenant_id=row.tenant_id,
+                workflow_id=row.workflow_id,
+                run_id=row.run_id,
+                sequence=row.sequence,
+                dedupe_key=row.dedupe_key,
+                event_id=row.event_id,
+                event_type=row.event_type,
+                content_hash=row.content_hash,
+                occurred_at=row.occurred_at,
+            )
             assert_workflow_event_dedupe_read_binding(
                 event,
                 expected=(tenant, workflow, run, dedupe),
             )
             return event
+
+    def observe_transition_event(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+        event_id: str,
+    ) -> WorkflowEventIdentityHeadSnapshot:
+        if not self._publish_to_outbox or self._outbox_topic != WORKFLOW_EVENT_TOPIC:
+            raise OptimisticConcurrencyError("workflow_transition_event_outbox_required")
+        tenant, workflow, run, dedupe, identity = workflow_transition_event_observation_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+            event_id=event_id,
+        )
+
+        event_scope = (
+            WorkflowRuntimeEventDB.tenant_id == tenant,
+            WorkflowRuntimeEventDB.run_id == run,
+        )
+        canonical_outbox_scope = (
+            WorkflowRuntimeOutboxDB.tenant_id == tenant,
+            WorkflowRuntimeOutboxDB.topic == WORKFLOW_EVENT_TOPIC,
+        )
+        delivery_dedupe = f"{run}:{dedupe}"
+
+        def event_value(
+            column: Any,
+            conditions: tuple[Any, ...],
+            *,
+            latest: bool = False,
+        ) -> Any:
+            query = sa.select(column).where(*conditions)
+            if latest:
+                query = query.order_by(WorkflowRuntimeEventDB.sequence.desc())
+            return query.limit(1).scalar_subquery()
+
+        def outbox_value(column: Any, *conditions: Any) -> Any:
+            return sa.select(column).where(*conditions).limit(1).scalar_subquery()
+
+        dedupe_outbox = (
+            *canonical_outbox_scope,
+            WorkflowRuntimeOutboxDB.dedupe_key == delivery_dedupe,
+        )
+        identity_outbox = (
+            *canonical_outbox_scope,
+            WorkflowRuntimeOutboxDB.aggregate_id == run,
+            WorkflowRuntimeOutboxDB.payload["event_id"].as_string() == identity,
+        )
+        dedupe_event_scope = (*event_scope, WorkflowRuntimeEventDB.dedupe_key == dedupe)
+        identity_event_scope = (*event_scope, WorkflowRuntimeEventDB.event_id == identity)
+        statement = sa.select(
+            *(
+                event_value(column, dedupe_event_scope).label(f"dedupe_event_{name}")
+                for name, column in _TRANSITION_EVENT_COLUMNS
+            ),
+            *(
+                event_value(column, identity_event_scope).label(f"identity_event_{name}")
+                for name, column in _TRANSITION_EVENT_COLUMNS
+            ),
+            *(
+                event_value(column, event_scope, latest=True).label(f"head_event_{name}")
+                for name, column in _TRANSITION_EVENT_COLUMNS
+            ),
+            (
+                sa.select(sa.func.count())
+                .select_from(WorkflowRuntimeEventDB)
+                .where(*event_scope, WorkflowRuntimeEventDB.workflow_id != workflow)
+                .scalar_subquery()
+            ).label("workflow_mismatch"),
+            *(
+                outbox_value(column, *dedupe_outbox).label(f"dedupe_{name}")
+                for name, column in _TRANSITION_EVENT_COMMIT_COLUMNS
+            ),
+            (
+                sa.select(sa.func.count()).select_from(WorkflowRuntimeOutboxDB).where(*dedupe_outbox).scalar_subquery()
+            ).label("dedupe_count"),
+            *(
+                outbox_value(column, *identity_outbox).label(f"event_id_{name}")
+                for name, column in _TRANSITION_EVENT_COMMIT_COLUMNS
+            ),
+            (
+                sa.select(sa.func.count())
+                .select_from(WorkflowRuntimeOutboxDB)
+                .where(*identity_outbox)
+                .scalar_subquery()
+            ).label("event_id_count"),
+        )
+        with self._read_session() as session:
+            values = session.execute(statement).one()._mapping
+        if int(values["workflow_mismatch"] or 0):
+            raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+
+        def stored_event(prefix: str) -> CanonicalWorkflowEvent | None:
+            raw = values[f"{prefix}_canonical_event"]
+            if raw is None:
+                return None
+            event = canonical_workflow_event_from_exact_mapping(dict(raw))
+            assert_workflow_transition_event_record_projection(
+                event,
+                tenant_id=values[f"{prefix}_tenant_id"],
+                workflow_id=values[f"{prefix}_workflow_id"],
+                run_id=values[f"{prefix}_run_id"],
+                sequence=values[f"{prefix}_sequence"],
+                dedupe_key=values[f"{prefix}_dedupe_key"],
+                event_id=values[f"{prefix}_event_id"],
+                event_type=values[f"{prefix}_event_type"],
+                content_hash=values[f"{prefix}_content_hash"],
+                occurred_at=values[f"{prefix}_occurred_at"],
+            )
+            return event
+
+        def commit(prefix: str) -> WorkflowEventCommitProof | None:
+            count = int(values[f"{prefix}_count"] or 0)
+            if count == 0:
+                return None
+            if count != 1:
+                raise OptimisticConcurrencyError("workflow_event_commit_identity_conflict")
+            payload = values[f"{prefix}_payload"]
+            if not isinstance(payload, dict):
+                raise OptimisticConcurrencyError("workflow_event_commit_payload_invalid")
+            return WorkflowEventCommitProof(
+                commit_id=str(values[f"{prefix}_id"]),
+                delivery_mode=WORKFLOW_EVENT_COMMIT_OUTBOX,
+                tenant_id=str(values[f"{prefix}_tenant_id"]),
+                aggregate_id=str(values[f"{prefix}_aggregate_id"]),
+                topic=str(values[f"{prefix}_topic"]),
+                dedupe_key=str(values[f"{prefix}_dedupe_key"]),
+                created_at=float(values[f"{prefix}_created_at"]),
+                payload_digest=sha256_json(payload),
+            )
+
+        return WorkflowEventIdentityHeadSnapshot(
+            tenant_id=tenant,
+            workflow_id=workflow,
+            run_id=run,
+            dedupe_key=dedupe,
+            event_id=identity,
+            delivery_mode=WORKFLOW_EVENT_COMMIT_OUTBOX,
+            dedupe_event=stored_event("dedupe_event"),
+            event_id_event=stored_event("identity_event"),
+            head_event=stored_event("head_event"),
+            dedupe_commit=commit("dedupe"),
+            event_id_commit=commit("event_id"),
+        )
 
     @property
     def outbox(self) -> SQLAlchemyRuntimeOutbox:

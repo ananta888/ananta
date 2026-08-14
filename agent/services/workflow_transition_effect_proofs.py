@@ -36,6 +36,7 @@ from agent.services.workflow_transition_outbox import (
 
 WORKFLOW_TRANSITION_EFFECT_PROOF_CONTEXT_SCHEMA = "ananta.workflow_transition_effect_proof_context.v1"
 WORKFLOW_TRANSITION_EFFECT_RESOURCE_PROOF_SCHEMA = "ananta.workflow_transition_effect_resource_proof.v1"
+WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA = "ananta.workflow_transition_effect_absence_proof.v1"
 
 _CONTEXT_FIELDS = frozenset(
     {
@@ -57,6 +58,9 @@ _CONTEXT_FIELDS = frozenset(
 )
 _PROOF_FIELDS = frozenset({"schema", "context", "resource"})
 _RESOURCE_FIELDS = frozenset({"kind", "id", "revision", "digest"})
+_ABSENCE_PROOF_FIELDS = frozenset({"schema", "context", "resource", "head"})
+_ABSENCE_RESOURCE_FIELDS = frozenset({"kind", "id"})
+_ABSENCE_HEAD_FIELDS = frozenset({"revision", "digest"})
 _IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$")
 _RESOURCE_KIND_RE = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 _SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
@@ -348,6 +352,83 @@ class WorkflowTransitionEffectResourceProof:
         }
 
 
+@final
+@dataclass(frozen=True, slots=True)
+class WorkflowTransitionEffectAbsenceProof:
+    """Structural evidence that one active effect observed no resource.
+
+    ``head_revision`` and ``head_digest`` identify the bounded collection head
+    against which absence was observed.  This DTO does not establish that the
+    head is authoritative; a future adapter must derive both values from an
+    authoritative read before asserting the binding.
+    """
+
+    context: WorkflowTransitionEffectProofContext
+    resource_kind: str
+    resource_id: str
+    head_revision: int
+    head_digest: str
+    schema: str = WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA
+
+    def __post_init__(self) -> None:
+        if self.schema != WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA:
+            raise WorkflowTransitionEffectProofError("workflow_transition_effect_absence_proof_schema_unsupported")
+        if not isinstance(self.context, WorkflowTransitionEffectProofContext):
+            raise WorkflowTransitionEffectProofError("workflow_transition_effect_absence_proof_context_invalid")
+        _resource_kind(self.resource_kind)
+        _bounded_text(
+            self.resource_id,
+            maximum=_MAX_RESOURCE_ID_CHARS,
+            reason="resource_id",
+        )
+        _nonnegative_counter(self.head_revision, reason="head_revision")
+        _sha256(self.head_digest, reason="head_digest")
+        _bounded_json(
+            self.to_dict(),
+            maximum=_MAX_PROOF_BYTES,
+            reason="absence_proof",
+        )
+
+    @classmethod
+    def from_mapping(
+        cls,
+        raw: Mapping[str, Any],
+    ) -> WorkflowTransitionEffectAbsenceProof:
+        if not isinstance(raw, Mapping) or set(raw) != _ABSENCE_PROOF_FIELDS:
+            raise WorkflowTransitionEffectProofError("workflow_transition_effect_absence_proof_invalid")
+        resource = raw["resource"]
+        head = raw["head"]
+        if (
+            not isinstance(resource, Mapping)
+            or set(resource) != _ABSENCE_RESOURCE_FIELDS
+            or not isinstance(head, Mapping)
+            or set(head) != _ABSENCE_HEAD_FIELDS
+        ):
+            raise WorkflowTransitionEffectProofError("workflow_transition_effect_absence_proof_invalid")
+        return cls(
+            context=WorkflowTransitionEffectProofContext.from_mapping(raw["context"]),
+            resource_kind=resource["kind"],
+            resource_id=resource["id"],
+            head_revision=head["revision"],
+            head_digest=head["digest"],
+            schema=raw["schema"],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": self.schema,
+            "context": self.context.to_dict(),
+            "resource": {
+                "kind": self.resource_kind,
+                "id": self.resource_id,
+            },
+            "head": {
+                "revision": self.head_revision,
+                "digest": self.head_digest,
+            },
+        }
+
+
 def assert_active_workflow_transition_effect_proof_binding(
     proof: WorkflowTransitionEffectResourceProof | Mapping[str, Any],
     *,
@@ -381,6 +462,59 @@ def assert_active_workflow_transition_effect_proof_binding(
         binding_reason="workflow_transition_effect_active_proof_binding_mismatch",
         resource_reason="workflow_transition_effect_active_proof_resource_mismatch",
     )
+
+
+def assert_active_workflow_transition_effect_absence_proof_binding(
+    proof: WorkflowTransitionEffectAbsenceProof | Mapping[str, Any],
+    *,
+    transition: WorkflowTransition,
+    effect: WorkflowTransitionEffect,
+    claim_generation: int,
+    resource_kind: str,
+    resource_id: str,
+    head_revision: int,
+    head_digest: str,
+) -> WorkflowTransitionEffectAbsenceProof:
+    """Assert absence evidence against one exact active claim and head.
+
+    This function intentionally performs no I/O and confers no authority.  A
+    future adapter must first re-read the authoritative resource collection,
+    establish absence, and derive the supplied head revision and digest.
+    """
+
+    expected_context = WorkflowTransitionEffectProofContext.from_active_claim(
+        transition=transition,
+        effect=effect,
+        claim_generation=claim_generation,
+    )
+    candidate = (
+        proof
+        if isinstance(proof, WorkflowTransitionEffectAbsenceProof)
+        else WorkflowTransitionEffectAbsenceProof.from_mapping(proof)
+    )
+    if candidate.context != expected_context:
+        raise WorkflowTransitionEffectProofError("workflow_transition_effect_active_absence_proof_binding_mismatch")
+    _resource_kind(resource_kind)
+    _bounded_text(
+        resource_id,
+        maximum=_MAX_RESOURCE_ID_CHARS,
+        reason="resource_id",
+    )
+    _nonnegative_counter(head_revision, reason="head_revision")
+    _sha256(head_digest, reason="head_digest")
+    if (
+        candidate.resource_kind,
+        candidate.resource_id,
+        candidate.head_revision,
+        candidate.head_digest,
+    ) != (
+        resource_kind,
+        resource_id,
+        head_revision,
+        head_digest,
+    ):
+        raise WorkflowTransitionEffectProofError("workflow_transition_effect_active_absence_proof_resource_mismatch")
+    return candidate
 
 
 def assert_durable_workflow_transition_effect_proof_binding(
@@ -503,6 +637,12 @@ def _positive_counter(value: Any, *, reason: str) -> int:
     return value
 
 
+def _nonnegative_counter(value: Any, *, reason: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0 or value > _MAX_COUNTER:
+        raise WorkflowTransitionEffectProofError(f"workflow_transition_effect_proof_{reason}_invalid")
+    return value
+
+
 def _bounded_json(value: Any, *, maximum: int, reason: str) -> str:
     try:
         rendered = canonical_json(value)
@@ -545,11 +685,14 @@ def _copy_json(value: Any, *, depth: int, budget: _JsonCopyBudget) -> Any:
 
 
 __all__ = [
+    "WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA",
     "WORKFLOW_TRANSITION_EFFECT_PROOF_CONTEXT_SCHEMA",
     "WORKFLOW_TRANSITION_EFFECT_RESOURCE_PROOF_SCHEMA",
+    "WorkflowTransitionEffectAbsenceProof",
     "WorkflowTransitionEffectProofContext",
     "WorkflowTransitionEffectProofError",
     "WorkflowTransitionEffectResourceProof",
+    "assert_active_workflow_transition_effect_absence_proof_binding",
     "assert_active_workflow_transition_effect_proof_binding",
     "assert_durable_workflow_transition_effect_proof_binding",
     "workflow_transition_effect_resource_digest",

@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import hashlib
+import math
 import threading
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from typing import Any, Protocol
 
@@ -20,6 +23,55 @@ from agent.services.workflow_runtime.errors import (
 )
 
 CANONICAL_WORKFLOW_EVENT_SCHEMA = "ananta.workflow_event.v1"
+WORKFLOW_EVENT_TOPIC = "workflow.runtime.events"
+WORKFLOW_EVENT_COMMIT_INLINE = "inline_atomic"
+WORKFLOW_EVENT_COMMIT_OUTBOX = "transactional_outbox"
+WORKFLOW_EVENT_COMMIT_MODES = frozenset(
+    {
+        WORKFLOW_EVENT_COMMIT_INLINE,
+        WORKFLOW_EVENT_COMMIT_OUTBOX,
+    }
+)
+_CANONICAL_EVENT_FIELDS = frozenset(
+    {
+        "schema",
+        "event_id",
+        "tenant_id",
+        "workflow_id",
+        "run_id",
+        "step_id",
+        "attempt",
+        "event_type",
+        "actor",
+        "correlation_id",
+        "causation_id",
+        "sequence",
+        "dedupe_key",
+        "occurred_at",
+        "payload",
+    }
+)
+_MAX_TRANSITION_EVENT_BYTES = 262_144
+_MAX_TRANSITION_JSON_DEPTH = 32
+_MAX_TRANSITION_JSON_ITEMS = 10_000
+_EVENT_TYPE_UNSET = object()
+
+
+@dataclass(slots=True)
+class _TransitionJsonBudget:
+    remaining_items: int = _MAX_TRANSITION_JSON_ITEMS
+    remaining_bytes: int = _MAX_TRANSITION_EVENT_BYTES
+
+    def consume(self, value: str = "") -> None:
+        self.remaining_items -= 1
+        if self.remaining_items < 0:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+        try:
+            self.remaining_bytes -= len(value.encode("utf-8"))
+        except UnicodeEncodeError as exc:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid") from exc
+        if self.remaining_bytes < 0:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_too_large")
 
 
 @dataclass(frozen=True)
@@ -189,6 +241,176 @@ class EventStore(Protocol):
     ) -> tuple[CanonicalWorkflowEvent, ...]: ...
 
 
+class WorkflowTransitionEventAppendPort(Protocol):
+    """Append one transition event through the raw authoritative store."""
+
+    def append_transition_event(
+        self,
+        event: CanonicalWorkflowEvent,
+        *,
+        expected_sequence: int,
+    ) -> CanonicalWorkflowEvent: ...
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowEventCommitProof:
+    """Immutable backend commit projection; mutable publisher state is excluded."""
+
+    commit_id: str
+    delivery_mode: str
+    tenant_id: str
+    aggregate_id: str
+    topic: str
+    dedupe_key: str
+    created_at: float
+    payload_digest: str
+
+    def __post_init__(self) -> None:
+        tenant = require_canonical_identity(self.tenant_id, field_name="tenant_id")
+        run = require_canonical_identity(self.aggregate_id, field_name="run_id")
+        if self.delivery_mode not in WORKFLOW_EVENT_COMMIT_MODES:
+            raise OptimisticConcurrencyError("workflow_event_commit_mode_invalid")
+        if self.topic != WORKFLOW_EVENT_TOPIC:
+            raise OptimisticConcurrencyError("workflow_event_commit_topic_conflict")
+        _transition_event_identifier(
+            self.commit_id,
+            maximum=80,
+            reason="commit_id",
+        )
+        _transition_event_identifier(
+            self.dedupe_key,
+            maximum=768,
+            reason="outbox_dedupe_key",
+        )
+        for value in (self.created_at,):
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+                raise OptimisticConcurrencyError("workflow_event_commit_timestamp_invalid")
+            if float(value) <= 0:
+                raise OptimisticConcurrencyError("workflow_event_commit_timestamp_invalid")
+        if (
+            not isinstance(self.payload_digest, str)
+            or len(self.payload_digest) != 64
+            or any(character not in "0123456789abcdef" for character in self.payload_digest)
+        ):
+            raise OptimisticConcurrencyError("workflow_event_commit_payload_digest_invalid")
+        if tenant != self.tenant_id or run != self.aggregate_id:
+            raise OptimisticConcurrencyError("workflow_event_commit_binding_conflict")
+
+    @classmethod
+    def for_event(
+        cls,
+        event: CanonicalWorkflowEvent,
+        *,
+        delivery_mode: str = WORKFLOW_EVENT_COMMIT_INLINE,
+    ) -> WorkflowEventCommitProof:
+        return cls(
+            commit_id=workflow_event_outbox_id(event),
+            delivery_mode=delivery_mode,
+            tenant_id=event.tenant_id,
+            aggregate_id=event.run_id,
+            topic=WORKFLOW_EVENT_TOPIC,
+            dedupe_key=workflow_event_delivery_dedupe_key(event),
+            created_at=event.occurred_at,
+            payload_digest=sha256_json(event.to_dict()),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "commit_id": self.commit_id,
+            "delivery_mode": self.delivery_mode,
+            "tenant_id": self.tenant_id,
+            "aggregate_id": self.aggregate_id,
+            "topic": self.topic,
+            "dedupe_key": self.dedupe_key,
+            "created_at": self.created_at,
+            "payload_digest": self.payload_digest,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkflowEventIdentityHeadSnapshot:
+    """One atomic read of both event identities, stream head, and commit proof."""
+
+    tenant_id: str
+    workflow_id: str
+    run_id: str
+    dedupe_key: str
+    event_id: str
+    delivery_mode: str
+    dedupe_event: CanonicalWorkflowEvent | None
+    event_id_event: CanonicalWorkflowEvent | None
+    head_event: CanonicalWorkflowEvent | None
+    dedupe_commit: WorkflowEventCommitProof | None
+    event_id_commit: WorkflowEventCommitProof | None
+
+    def __post_init__(self) -> None:
+        expected = workflow_transition_event_observation_binding(
+            tenant_id=self.tenant_id,
+            workflow_id=self.workflow_id,
+            run_id=self.run_id,
+            dedupe_key=self.dedupe_key,
+            event_id=self.event_id,
+        )
+        if self.delivery_mode not in WORKFLOW_EVENT_COMMIT_MODES:
+            raise OptimisticConcurrencyError("workflow_event_observation_mode_invalid")
+        cloned_events: list[CanonicalWorkflowEvent | None] = []
+        for role, event in (
+            ("dedupe", self.dedupe_event),
+            ("event_id", self.event_id_event),
+            ("head", self.head_event),
+        ):
+            if event is None:
+                cloned_events.append(None)
+                continue
+            if not isinstance(event, CanonicalWorkflowEvent):
+                raise OptimisticConcurrencyError("workflow_event_observation_invalid")
+            cloned = canonical_workflow_event_from_exact_mapping(event.to_dict())
+            if (cloned.tenant_id, cloned.workflow_id, cloned.run_id) != expected[:3]:
+                raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+            if role == "dedupe" and cloned.dedupe_key != expected[3]:
+                raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+            if role == "event_id" and cloned.event_id != expected[4]:
+                raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+            cloned_events.append(cloned)
+        dedupe_event, event_id_event, head_event = cloned_events
+        if head_event is None and (dedupe_event is not None or event_id_event is not None):
+            raise OptimisticConcurrencyError("workflow_event_observation_head_conflict")
+        if head_event is not None:
+            for event in (dedupe_event, event_id_event):
+                if event is not None and event.sequence > head_event.sequence:
+                    raise OptimisticConcurrencyError("workflow_event_observation_head_conflict")
+        for commit in (self.dedupe_commit, self.event_id_commit):
+            if commit is not None and not isinstance(commit, WorkflowEventCommitProof):
+                raise OptimisticConcurrencyError("workflow_event_commit_invalid")
+            if commit is not None and (
+                commit.tenant_id != expected[0]
+                or commit.aggregate_id != expected[2]
+                or commit.delivery_mode != self.delivery_mode
+            ):
+                raise OptimisticConcurrencyError("workflow_event_commit_binding_conflict")
+        object.__setattr__(self, "dedupe_event", dedupe_event)
+        object.__setattr__(self, "event_id_event", event_id_event)
+        object.__setattr__(self, "head_event", head_event)
+
+    @property
+    def head_sequence(self) -> int:
+        return self.head_event.sequence if self.head_event is not None else 0
+
+
+class WorkflowTransitionEventObservationReadPort(Protocol):
+    """Atomically read transition event identities, head, and commit evidence."""
+
+    def observe_transition_event(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+        event_id: str,
+    ) -> WorkflowEventIdentityHeadSnapshot: ...
+
+
 class WorkflowEventDedupeReadPort(Protocol):
     """Read one exact transition-owned event identity.
 
@@ -212,6 +434,7 @@ class InMemoryEventStore:
     def __init__(self) -> None:
         self._events: dict[tuple[str, str], list[CanonicalWorkflowEvent]] = {}
         self._dedupe: dict[tuple[str, str, str], CanonicalWorkflowEvent] = {}
+        self._event_ids: dict[tuple[str, str, str], CanonicalWorkflowEvent] = {}
         self._lock = threading.RLock()
 
     def append(self, event: CanonicalWorkflowEvent, *, expected_sequence: int) -> CanonicalWorkflowEvent:
@@ -224,6 +447,9 @@ class InMemoryEventStore:
                 if duplicate.content_hash != event.content_hash:
                     raise OptimisticConcurrencyError("dedupe_key_payload_conflict")
                 return _clone_event(duplicate)
+            identity = self._event_ids.get((*key, event.event_id))
+            if identity is not None:
+                raise OptimisticConcurrencyError("event_id_payload_conflict")
             current = len(self._events.get(key, ()))
             if int(expected_sequence) != current:
                 raise OptimisticConcurrencyError(
@@ -232,7 +458,19 @@ class InMemoryEventStore:
             stored = _clone_event(event.with_sequence(current + 1))
             self._events.setdefault(key, []).append(stored)
             self._dedupe[dedupe_key] = stored
+            self._event_ids[(*key, stored.event_id)] = stored
             return _clone_event(stored)
+
+    def append_transition_event(
+        self,
+        event: CanonicalWorkflowEvent,
+        *,
+        expected_sequence: int,
+    ) -> CanonicalWorkflowEvent:
+        stored = self.append(event, expected_sequence=expected_sequence)
+        if not event_payload_equal(stored, event):
+            raise OptimisticConcurrencyError("workflow_transition_event_identity_conflict")
+        return stored
 
     def list_events(
         self,
@@ -282,7 +520,46 @@ class InMemoryEventStore:
                 event,
                 expected=(tenant, workflow, run, dedupe),
             )
-            return _clone_event(event)
+            return canonical_workflow_event_from_exact_mapping(event.to_dict())
+
+    def observe_transition_event(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+        event_id: str,
+    ) -> WorkflowEventIdentityHeadSnapshot:
+        tenant, workflow, run, dedupe, identity = workflow_transition_event_observation_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+            event_id=event_id,
+        )
+        with self._lock:
+            stream = self._events.get((tenant, run), ())
+            if any(event.workflow_id != workflow for event in stream):
+                raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+            dedupe_event = self._dedupe.get((tenant, run, dedupe))
+            event_id_event = self._event_ids.get((tenant, run, identity))
+            head_event = stream[-1] if stream else None
+            return WorkflowEventIdentityHeadSnapshot(
+                tenant_id=tenant,
+                workflow_id=workflow,
+                run_id=run,
+                dedupe_key=dedupe,
+                event_id=identity,
+                delivery_mode=WORKFLOW_EVENT_COMMIT_INLINE,
+                dedupe_event=dedupe_event,
+                event_id_event=event_id_event,
+                head_event=head_event,
+                dedupe_commit=(WorkflowEventCommitProof.for_event(dedupe_event) if dedupe_event is not None else None),
+                event_id_commit=(
+                    WorkflowEventCommitProof.for_event(event_id_event) if event_id_event is not None else None
+                ),
+            )
 
 
 @dataclass
@@ -419,6 +696,106 @@ def event_payload_equal(left: CanonicalWorkflowEvent, right: CanonicalWorkflowEv
     return canonical_json({**left.to_dict(), "sequence": 0}) == canonical_json({**right.to_dict(), "sequence": 0})
 
 
+def workflow_transition_event_payload_copy(value: Any) -> dict[str, Any]:
+    """Return one bounded detached JSON payload without implicit redaction."""
+
+    try:
+        copied = _copy_transition_json(
+            value,
+            depth=0,
+            budget=_TransitionJsonBudget(),
+            ancestors=set(),
+        )
+        if not isinstance(copied, dict):
+            raise TypeError
+        encoded = canonical_json(copied).encode("utf-8")
+    except OptimisticConcurrencyError:
+        raise
+    except (OverflowError, TypeError, ValueError, RecursionError, UnicodeEncodeError) as exc:
+        raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid") from exc
+    if len(encoded) > _MAX_TRANSITION_EVENT_BYTES:
+        raise OptimisticConcurrencyError("workflow_transition_event_payload_too_large")
+    if canonical_json(redact_json(copied)) != canonical_json(copied):
+        raise OptimisticConcurrencyError("workflow_transition_event_payload_sensitive")
+    return copied
+
+
+def canonical_workflow_event_from_exact_mapping(
+    raw: Mapping[str, Any],
+    *,
+    allow_unsequenced: bool = False,
+) -> CanonicalWorkflowEvent:
+    """Hydrate a transition event without defaults, coercion, or upcasting."""
+
+    try:
+        if not isinstance(raw, Mapping) or set(raw) != _CANONICAL_EVENT_FIELDS:
+            raise TypeError
+        if raw["schema"] != CANONICAL_WORKFLOW_EVENT_SCHEMA:
+            raise TypeError
+        for field_name in ("tenant_id", "workflow_id", "run_id"):
+            require_canonical_identity(raw[field_name], field_name=field_name)
+        for field_name in (
+            "event_id",
+            "event_type",
+            "actor",
+            "correlation_id",
+            "causation_id",
+            "dedupe_key",
+        ):
+            _transition_event_identifier(
+                raw[field_name],
+                maximum=512,
+                reason=field_name,
+            )
+        step_id = raw["step_id"]
+        if not isinstance(step_id, str) or step_id != step_id.strip() or len(step_id) > 512 or "\x00" in step_id:
+            raise TypeError
+        step_id.encode("utf-8")
+        sequence = raw["sequence"]
+        minimum_sequence = 0 if allow_unsequenced else 1
+        if isinstance(sequence, bool) or not isinstance(sequence, int) or sequence < minimum_sequence:
+            raise TypeError
+        attempt = raw["attempt"]
+        if isinstance(attempt, bool) or not isinstance(attempt, int) or attempt < 0:
+            raise TypeError
+        occurred_at = raw["occurred_at"]
+        if (
+            isinstance(occurred_at, bool)
+            or not isinstance(occurred_at, (int, float))
+            or not math.isfinite(float(occurred_at))
+            or float(occurred_at) <= 0
+        ):
+            raise TypeError
+        payload = workflow_transition_event_payload_copy(raw["payload"])
+        event = CanonicalWorkflowEvent(
+            tenant_id=raw["tenant_id"],
+            workflow_id=raw["workflow_id"],
+            run_id=raw["run_id"],
+            event_type=raw["event_type"],
+            correlation_id=raw["correlation_id"],
+            causation_id=raw["causation_id"],
+            dedupe_key=raw["dedupe_key"],
+            sequence=sequence,
+            step_id=step_id,
+            attempt=attempt,
+            actor=raw["actor"],
+            occurred_at=float(occurred_at),
+            payload=payload,
+            event_id=raw["event_id"],
+            schema=raw["schema"],
+        )
+        event.assert_valid(allow_unsequenced=allow_unsequenced)
+        if canonical_json(event.to_dict()) != canonical_json(dict(raw)):
+            raise TypeError
+        if len(canonical_json(event.to_dict()).encode("utf-8")) > _MAX_TRANSITION_EVENT_BYTES:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_too_large")
+        return event
+    except OptimisticConcurrencyError:
+        raise
+    except Exception as exc:
+        raise OptimisticConcurrencyError("workflow_transition_event_record_invalid") from exc
+
+
 def workflow_event_dedupe_read_binding(
     *,
     tenant_id: str,
@@ -441,6 +818,156 @@ def workflow_event_dedupe_read_binding(
     ):
         raise ValueError("workflow_event_dedupe_key_invalid")
     return tenant, workflow, run, dedupe_key
+
+
+def workflow_transition_event_observation_binding(
+    *,
+    tenant_id: str,
+    workflow_id: str,
+    run_id: str,
+    dedupe_key: str,
+    event_id: str,
+) -> tuple[str, str, str, str, str]:
+    tenant, workflow, run, dedupe = workflow_event_dedupe_read_binding(
+        tenant_id=tenant_id,
+        workflow_id=workflow_id,
+        run_id=run_id,
+        dedupe_key=dedupe_key,
+    )
+    identity = _transition_event_identifier(
+        event_id,
+        maximum=512,
+        reason="event_id",
+    )
+    return tenant, workflow, run, dedupe, identity
+
+
+def assert_workflow_transition_event_record_projection(
+    event: CanonicalWorkflowEvent,
+    *,
+    tenant_id: Any,
+    workflow_id: Any,
+    run_id: Any,
+    sequence: Any,
+    dedupe_key: Any,
+    event_id: Any,
+    content_hash: Any,
+    occurred_at: Any,
+    event_type: Any = _EVENT_TYPE_UNSET,
+) -> None:
+    """Bind strict canonical JSON to every duplicated immutable row field."""
+
+    if not isinstance(event, CanonicalWorkflowEvent):
+        raise OptimisticConcurrencyError("workflow_transition_event_record_projection_conflict")
+    actual = (
+        tenant_id,
+        workflow_id,
+        run_id,
+        sequence,
+        dedupe_key,
+        event_id,
+        content_hash,
+        occurred_at,
+    )
+    expected = (
+        event.tenant_id,
+        event.workflow_id,
+        event.run_id,
+        event.sequence,
+        event.dedupe_key,
+        event.event_id,
+        event.content_hash,
+        event.occurred_at,
+    )
+    if actual != expected or (event_type is not _EVENT_TYPE_UNSET and event_type != event.event_type):
+        raise OptimisticConcurrencyError("workflow_transition_event_record_projection_conflict")
+
+
+def workflow_event_delivery_dedupe_key(event: CanonicalWorkflowEvent) -> str:
+    event.assert_valid()
+    return f"{event.run_id}:{event.dedupe_key}"
+
+
+def workflow_event_outbox_id(event: CanonicalWorkflowEvent) -> str:
+    delivery_key = workflow_event_delivery_dedupe_key(event)
+    framed = "\x1f".join(
+        (
+            "wfro",
+            event.tenant_id,
+            WORKFLOW_EVENT_TOPIC,
+            delivery_key,
+        )
+    )
+    return f"wfro-{hashlib.sha256(framed.encode('utf-8')).hexdigest()}"
+
+
+def _transition_event_identifier(value: Any, *, maximum: int, reason: str) -> str:
+    if not isinstance(value, str) or not value or value != value.strip() or len(value) > maximum or "\x00" in value:
+        raise ValueError(f"workflow_transition_event_{reason}_invalid")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError as exc:
+        raise ValueError(f"workflow_transition_event_{reason}_invalid") from exc
+    return value
+
+
+def _copy_transition_json(
+    value: Any,
+    *,
+    depth: int,
+    budget: _TransitionJsonBudget,
+    ancestors: set[int],
+) -> Any:
+    if depth > _MAX_TRANSITION_JSON_DEPTH:
+        raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+    if isinstance(value, str):
+        budget.consume(value)
+        return value
+    budget.consume()
+    if value is None or isinstance(value, (bool, int)):
+        return value
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+        return value
+    if isinstance(value, Mapping):
+        identity = id(value)
+        if identity in ancestors:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+        ancestors.add(identity)
+        try:
+            copied: dict[str, Any] = {}
+            for key, item in value.items():
+                if not isinstance(key, str) or not key or len(key) > 256 or "\x00" in key:
+                    raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+                budget.consume(key)
+                copied[key] = _copy_transition_json(
+                    item,
+                    depth=depth + 1,
+                    budget=budget,
+                    ancestors=ancestors,
+                )
+            return copied
+        finally:
+            ancestors.remove(identity)
+    if isinstance(value, (list, tuple)):
+        identity = id(value)
+        if identity in ancestors:
+            raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
+        ancestors.add(identity)
+        try:
+            return [
+                _copy_transition_json(
+                    item,
+                    depth=depth + 1,
+                    budget=budget,
+                    ancestors=ancestors,
+                )
+                for item in value
+            ]
+        finally:
+            ancestors.remove(identity)
+    raise OptimisticConcurrencyError("workflow_transition_event_payload_invalid")
 
 
 def assert_workflow_event_dedupe_read_binding(

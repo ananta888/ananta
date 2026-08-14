@@ -12,10 +12,17 @@ from agent.services.identity_validation import require_canonical_identity
 from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.errors import FencingTokenError, OptimisticConcurrencyError
 from agent.services.workflow_runtime.events import (
+    WORKFLOW_EVENT_COMMIT_INLINE,
     CanonicalWorkflowEvent,
     EventStore,
+    WorkflowEventCommitProof,
+    WorkflowEventIdentityHeadSnapshot,
     assert_workflow_event_dedupe_read_binding,
+    assert_workflow_transition_event_record_projection,
+    canonical_workflow_event_from_exact_mapping,
+    event_payload_equal,
     workflow_event_dedupe_read_binding,
+    workflow_transition_event_observation_binding,
 )
 from agent.services.workflow_runtime.security import SignedCheckpoint
 
@@ -184,6 +191,15 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
                     stored = CanonicalWorkflowEvent.from_mapping(json.loads(str(duplicate["event_json"])))
                     self._commit()
                     return stored
+                identity = self._connection.execute(
+                    """
+                    SELECT event_json FROM workflow_runtime_events
+                    WHERE tenant_id = ? AND run_id = ? AND event_id = ?
+                    """,
+                    (event.tenant_id, event.run_id, event.event_id),
+                ).fetchone()
+                if identity is not None:
+                    raise OptimisticConcurrencyError("event_id_payload_conflict")
                 row = self._connection.execute(
                     """
                     SELECT COALESCE(MAX(sequence), 0) AS current_sequence
@@ -221,6 +237,17 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
             except Exception:
                 self._rollback()
                 raise
+
+    def append_transition_event(
+        self,
+        event: CanonicalWorkflowEvent,
+        *,
+        expected_sequence: int,
+    ) -> CanonicalWorkflowEvent:
+        stored = self.append(event, expected_sequence=expected_sequence)
+        if not event_payload_equal(stored, event):
+            raise OptimisticConcurrencyError("workflow_transition_event_identity_conflict")
+        return stored
 
     def list_events(
         self,
@@ -272,19 +299,157 @@ class SQLiteEventStore(_SQLiteStore, EventStore):
         with self._lock:
             row = self._connection.execute(
                 """
-                SELECT event_json FROM workflow_runtime_events
+                SELECT tenant_id, workflow_id, run_id, sequence, dedupe_key,
+                       event_id, content_hash, occurred_at, event_json
+                FROM workflow_runtime_events
                 WHERE tenant_id = ? AND run_id = ? AND dedupe_key = ?
                 """,
                 (tenant, run, dedupe),
             ).fetchone()
         if row is None:
             return None
-        event = CanonicalWorkflowEvent.from_mapping(json.loads(str(row["event_json"])))
+        event = canonical_workflow_event_from_exact_mapping(json.loads(str(row["event_json"])))
+        assert_workflow_transition_event_record_projection(
+            event,
+            tenant_id=row["tenant_id"],
+            workflow_id=row["workflow_id"],
+            run_id=row["run_id"],
+            sequence=row["sequence"],
+            dedupe_key=row["dedupe_key"],
+            event_id=row["event_id"],
+            content_hash=row["content_hash"],
+            occurred_at=row["occurred_at"],
+        )
         assert_workflow_event_dedupe_read_binding(
             event,
             expected=(tenant, workflow, run, dedupe),
         )
         return event
+
+    def observe_transition_event(
+        self,
+        *,
+        tenant_id: str,
+        workflow_id: str,
+        run_id: str,
+        dedupe_key: str,
+        event_id: str,
+    ) -> WorkflowEventIdentityHeadSnapshot:
+        tenant, workflow, run, dedupe, identity = workflow_transition_event_observation_binding(
+            tenant_id=tenant_id,
+            workflow_id=workflow_id,
+            run_id=run_id,
+            dedupe_key=dedupe_key,
+            event_id=event_id,
+        )
+        with self._lock:
+            row = self._connection.execute(
+                """
+                WITH dedupe_row AS (
+                    SELECT * FROM workflow_runtime_events
+                    WHERE tenant_id = ? AND run_id = ? AND dedupe_key = ?
+                    LIMIT 1
+                ),
+                identity_row AS (
+                    SELECT * FROM workflow_runtime_events
+                    WHERE tenant_id = ? AND run_id = ? AND event_id = ?
+                    LIMIT 1
+                ),
+                head_row AS (
+                    SELECT * FROM workflow_runtime_events
+                    WHERE tenant_id = ? AND run_id = ?
+                    ORDER BY sequence DESC LIMIT 1
+                )
+                SELECT
+                    d.tenant_id AS dedupe_tenant_id,
+                    d.workflow_id AS dedupe_workflow_id,
+                    d.run_id AS dedupe_run_id,
+                    d.sequence AS dedupe_sequence,
+                    d.dedupe_key AS dedupe_dedupe_key,
+                    d.event_id AS dedupe_event_id,
+                    d.content_hash AS dedupe_content_hash,
+                    d.occurred_at AS dedupe_occurred_at,
+                    d.event_json AS dedupe_json,
+                    i.tenant_id AS identity_tenant_id,
+                    i.workflow_id AS identity_workflow_id,
+                    i.run_id AS identity_run_id,
+                    i.sequence AS identity_sequence,
+                    i.dedupe_key AS identity_dedupe_key,
+                    i.event_id AS identity_event_id,
+                    i.content_hash AS identity_content_hash,
+                    i.occurred_at AS identity_occurred_at,
+                    i.event_json AS identity_json,
+                    h.tenant_id AS head_tenant_id,
+                    h.workflow_id AS head_workflow_id,
+                    h.run_id AS head_run_id,
+                    h.sequence AS head_sequence,
+                    h.dedupe_key AS head_dedupe_key,
+                    h.event_id AS head_event_id,
+                    h.content_hash AS head_content_hash,
+                    h.occurred_at AS head_occurred_at,
+                    h.event_json AS head_json,
+                    (
+                        SELECT COUNT(*) FROM workflow_runtime_events
+                        WHERE tenant_id = ? AND run_id = ? AND workflow_id <> ?
+                    ) AS workflow_mismatch
+                FROM (SELECT 1) AS anchor
+                LEFT JOIN dedupe_row AS d ON 1 = 1
+                LEFT JOIN identity_row AS i ON 1 = 1
+                LEFT JOIN head_row AS h ON 1 = 1
+                """,
+                (
+                    tenant,
+                    run,
+                    dedupe,
+                    tenant,
+                    run,
+                    identity,
+                    tenant,
+                    run,
+                    tenant,
+                    run,
+                    workflow,
+                ),
+            ).fetchone()
+        if row is None or int(row["workflow_mismatch"] or 0):
+            raise OptimisticConcurrencyError("workflow_event_observation_binding_conflict")
+
+        def event_from(prefix: str) -> CanonicalWorkflowEvent | None:
+            raw = row[f"{prefix}_json"]
+            if raw is None:
+                return None
+            event = canonical_workflow_event_from_exact_mapping(json.loads(str(raw)))
+            assert_workflow_transition_event_record_projection(
+                event,
+                tenant_id=row[f"{prefix}_tenant_id"],
+                workflow_id=row[f"{prefix}_workflow_id"],
+                run_id=row[f"{prefix}_run_id"],
+                sequence=row[f"{prefix}_sequence"],
+                dedupe_key=row[f"{prefix}_dedupe_key"],
+                event_id=row[f"{prefix}_event_id"],
+                content_hash=row[f"{prefix}_content_hash"],
+                occurred_at=row[f"{prefix}_occurred_at"],
+            )
+            return event
+
+        dedupe_event = event_from("dedupe")
+        event_id_event = event_from("identity")
+        head_event = event_from("head")
+        return WorkflowEventIdentityHeadSnapshot(
+            tenant_id=tenant,
+            workflow_id=workflow,
+            run_id=run,
+            dedupe_key=dedupe,
+            event_id=identity,
+            delivery_mode=WORKFLOW_EVENT_COMMIT_INLINE,
+            dedupe_event=dedupe_event,
+            event_id_event=event_id_event,
+            head_event=head_event,
+            dedupe_commit=(WorkflowEventCommitProof.for_event(dedupe_event) if dedupe_event is not None else None),
+            event_id_commit=(
+                WorkflowEventCommitProof.for_event(event_id_event) if event_id_event is not None else None
+            ),
+        )
 
 
 class SQLiteCheckpointStore(_SQLiteStore, CheckpointStore):

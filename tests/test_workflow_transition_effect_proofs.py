@@ -5,11 +5,14 @@ from dataclasses import FrozenInstanceError, replace
 import pytest
 
 from agent.services.workflow_transition_effect_proofs import (
+    WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA,
     WORKFLOW_TRANSITION_EFFECT_PROOF_CONTEXT_SCHEMA,
     WORKFLOW_TRANSITION_EFFECT_RESOURCE_PROOF_SCHEMA,
+    WorkflowTransitionEffectAbsenceProof,
     WorkflowTransitionEffectProofContext,
     WorkflowTransitionEffectProofError,
     WorkflowTransitionEffectResourceProof,
+    assert_active_workflow_transition_effect_absence_proof_binding,
     assert_active_workflow_transition_effect_proof_binding,
     assert_durable_workflow_transition_effect_proof_binding,
     workflow_transition_effect_resource_digest,
@@ -148,6 +151,36 @@ def _applied_effect(
         revision=effect.revision + 1,
         updated_at=1_001.0,
     )
+
+
+def _absence_proof(
+    *,
+    generation: int = 3,
+) -> tuple[
+    WorkflowTransition,
+    WorkflowTransitionEffect,
+    WorkflowTransitionEffectAbsenceProof,
+]:
+    transition, effect = _claimed_effect(generation=generation)
+    context = WorkflowTransitionEffectProofContext.from_active_claim(
+        transition=transition,
+        effect=effect,
+        claim_generation=generation,
+    )
+    proof = WorkflowTransitionEffectAbsenceProof(
+        context=context,
+        resource_kind="workflow_event",
+        resource_id="event-missing",
+        head_revision=7,
+        head_digest=workflow_transition_effect_resource_digest(
+            {
+                "resource_kind": "workflow_event",
+                "head_revision": 7,
+                "resource_ids": ["event-before"],
+            }
+        ),
+    )
+    return transition, effect, proof
 
 
 def test_proof_context_is_versioned_frozen_bounded_and_payload_derived() -> None:
@@ -554,3 +587,171 @@ def test_structural_binding_does_not_claim_resource_authority() -> None:
         )
         is proof
     )
+
+
+def test_absence_proof_is_versioned_frozen_and_accepts_zero_head() -> None:
+    transition, effect = _claimed_effect()
+    proof = WorkflowTransitionEffectAbsenceProof(
+        context=WorkflowTransitionEffectProofContext.from_active_claim(
+            transition=transition,
+            effect=effect,
+            claim_generation=3,
+        ),
+        resource_kind="workflow_event",
+        resource_id="event-missing",
+        head_revision=0,
+        head_digest="0" * 64,
+    )
+
+    assert proof.schema == WORKFLOW_TRANSITION_EFFECT_ABSENCE_PROOF_SCHEMA
+    assert proof.head_revision == 0
+    with pytest.raises(FrozenInstanceError):
+        proof.head_revision = 1  # type: ignore[misc]
+
+
+def test_absence_proof_mapping_round_trip_copies_and_active_binding_accepts() -> None:
+    transition, effect, proof = _absence_proof()
+    raw = proof.to_dict()
+    restored = WorkflowTransitionEffectAbsenceProof.from_mapping(raw)
+
+    raw["context"]["tenant_id"] = "tenant-mutated"
+    raw["resource"]["id"] = "event-mutated"
+    raw["head"]["revision"] = 8
+    assert restored == proof
+    assert (
+        assert_active_workflow_transition_effect_absence_proof_binding(
+            restored.to_dict(),
+            transition=transition,
+            effect=effect,
+            claim_generation=3,
+            resource_kind="workflow_event",
+            resource_id="event-missing",
+            head_revision=7,
+            head_digest=proof.head_digest,
+        )
+        == proof
+    )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("transition_id", "wft-other"),
+        ("effect_id", "wfx-other"),
+        ("effect_kind", EFFECT_CHECKPOINT_SAVE),
+        ("runtime_id", TRANSITION_RUNTIME_LANGGRAPH),
+        ("tenant_id", "tenant-other"),
+        ("workflow_id", "workflow-other"),
+        ("run_id", "run-other"),
+        ("transition_kind", TRANSITION_KIND_START),
+        ("transition_request_fingerprint", "a" * 64),
+        ("effect_ordinal", 2),
+        ("effect_payload_digest", "b" * 64),
+        ("idempotency_key", "event:other"),
+        ("claim_generation", 4),
+    ),
+)
+def test_absence_proof_cross_context_replay_fails_closed(
+    field_name: str,
+    value: object,
+) -> None:
+    transition, effect, proof = _absence_proof()
+    replay = replace(
+        proof,
+        context=replace(proof.context, **{field_name: value}),
+    )
+
+    with pytest.raises(
+        WorkflowTransitionEffectProofError,
+        match="active_absence_proof_binding_mismatch",
+    ):
+        assert_active_workflow_transition_effect_absence_proof_binding(
+            replay,
+            transition=transition,
+            effect=effect,
+            claim_generation=3,
+            resource_kind="workflow_event",
+            resource_id="event-missing",
+            head_revision=7,
+            head_digest=proof.head_digest,
+        )
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    (
+        ("resource_kind", "checkpoint"),
+        ("resource_id", "event-other"),
+        ("head_revision", 8),
+        ("head_digest", "c" * 64),
+    ),
+)
+def test_absence_proof_cross_resource_or_head_replay_fails_closed(
+    field_name: str,
+    value: object,
+) -> None:
+    transition, effect, proof = _absence_proof()
+    replay = replace(proof, **{field_name: value})
+
+    with pytest.raises(
+        WorkflowTransitionEffectProofError,
+        match="active_absence_proof_resource_mismatch",
+    ):
+        assert_active_workflow_transition_effect_absence_proof_binding(
+            replay,
+            transition=transition,
+            effect=effect,
+            claim_generation=3,
+            resource_kind="workflow_event",
+            resource_id="event-missing",
+            head_revision=7,
+            head_digest=proof.head_digest,
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda value: {**value, "unknown": True},
+        lambda value: {key: item for key, item in value.items() if key != "head"},
+        lambda value: {**value, "schema": "unsupported"},
+        lambda value: {**value, "context": None},
+        lambda value: {
+            **value,
+            "resource": {**value["resource"], "unknown": True},
+        },
+        lambda value: {
+            **value,
+            "head": {**value["head"], "unknown": True},
+        },
+        lambda value: {
+            **value,
+            "resource": {**value["resource"], "kind": []},
+        },
+        lambda value: {
+            **value,
+            "resource": {**value["resource"], "id": "invalid-\ud800"},
+        },
+        lambda value: {
+            **value,
+            "resource": {**value["resource"], "id": "x" * 513},
+        },
+        lambda value: {
+            **value,
+            "head": {**value["head"], "revision": True},
+        },
+        lambda value: {
+            **value,
+            "head": {**value["head"], "revision": -1},
+        },
+        lambda value: {
+            **value,
+            "head": {**value["head"], "digest": []},
+        },
+    ),
+)
+def test_absence_proof_mapping_is_strict_bounded_and_has_stable_errors(mutation) -> None:
+    _transition, _effect, proof = _absence_proof()
+
+    with pytest.raises(WorkflowTransitionEffectProofError):
+        WorkflowTransitionEffectAbsenceProof.from_mapping(mutation(proof.to_dict()))
