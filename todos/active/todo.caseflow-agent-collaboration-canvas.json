@@ -1,12 +1,12 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber",
   "track": "caseflow-agent-collaboration-canvas",
   "id": "todo.caseflow-agent-collaboration-canvas",
   "title": "CaseFlow Agent Collaboration Canvas mit Rollen, Beziehungen, Runtime und Trace",
   "created_at": "2026-08-12",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-14",
   "project": "Ananta",
   "status": "in_progress",
   "priority": "P0",
@@ -208,7 +208,7 @@
     ]
   },
   "gauntlet_support": {
-    "status": "design_for_extension",
+    "status": "implemented",
     "requirements": [
       "Lead-Agent kann mehrere Child-Agenten fan-out aufrufen.",
       "Builder/Critic-Beziehungen sind normale Nodes/Edges und benötigen keinen Sonder-Runtime-Typ.",
@@ -243,6 +243,9 @@
     "CAC-009",
     "CAC-010",
     "CAC-011",
+    "CAC-014",
+    "CAC-015",
+    "CAC-016",
     "CAC-013"
   ],
   "milestones": [
@@ -280,11 +283,21 @@
     },
     {
       "id": "M4",
-      "title": "Integration und Qualität",
-      "status": "todo",
+      "title": "Studio-Integration und Presets",
+      "status": "done",
       "task_ids": [
         "CAC-011",
-        "CAC-012",
+        "CAC-012"
+      ]
+    },
+    {
+      "id": "M5",
+      "title": "Runtime-Härtung und Release-Gate",
+      "status": "in_progress",
+      "task_ids": [
+        "CAC-014",
+        "CAC-015",
+        "CAC-016",
         "CAC-013"
       ]
     }
@@ -549,7 +562,7 @@
     {
       "id": "CAC-011",
       "title": "CaseFlow Studio und Menü integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -566,12 +579,15 @@
         "Browser-Component-Tests wechseln in beide Richtungen, ohne ungespeicherte Graphänderungen zu verlieren oder einen zweiten Graphen anzulegen.",
         "Ein Szenario ohne rollenfähige Steps zeigt einen erklärenden Leerzustand und einen Link zum bestehenden Prozesseditor."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 029c9b5b9. CaseFlow Studio owns one canonical graph/editor state across Agent and Process views, retains drafts through navigation, and closes load/save/conflict/selection races with focused component and state tests."
+      ]
     },
     {
       "id": "CAC-012",
       "title": "Gauntlet/Builder-Critic Presets ergänzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -588,21 +604,27 @@
         "Critic-Presets referenzieren erlaubte Benchmark-/Context-Bindings und werden bei fehlender Berechtigung fail-closed abgelehnt.",
         "Das Anwenden eines Presets verändert keine bereits vorhandenen, nicht selektierten Steps oder Edges."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "notes": [
+        "Done in 1e59829b3. Authorized Builder/Critic presets use ordinary VpSteps/VpEdges, exact catalog-bound context selection, fail-closed runtime definition admission, one undoable graph command, and fresh permission/revision/generation fences."
+      ]
     },
     {
       "id": "CAC-013",
       "title": "Tests für Mapping, Interaction und Runtime Trace ergänzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
-      "milestone_id": "M4",
+      "milestone_id": "M5",
       "depends_on": [
         "CAC-008",
         "CAC-009",
         "CAC-010",
-        "CAC-011"
+        "CAC-011",
+        "CAC-014",
+        "CAC-015",
+        "CAC-016"
       ],
       "acceptance_criteria": [
         "Fokussierte Angular-Tests bestehen für Mapper-Roundtrip, gerichtete/bidirektionale/Loop-Edges, Graph-Commands, Auswahl und beide Inspectoren.",
@@ -610,9 +632,87 @@
         "Runtime-Tests belegen, dass nur eindeutig korrelierte aktive Edges animiert werden und unbekannte Korrelation fail-closed bleibt.",
         "Accessibility-Tests bestehen für Tastaturbedienung, sichtbare Fokuszustände, statusunabhängige Beschriftung und Reduced Motion.",
         "Ein schlanker CaseFlow-Integrationslauf prüft Menüwechsel, identische Graph-ID und Erhalt ungespeicherter Änderungen; schwere Gesamtsuiten sind kein Ersatz für diese fokussierten Gates.",
-        "Der Gate-Report referenziert ausschließlich tatsächlich erzeugte Testausgaben und erfindet keine SRC_*-/RUN_*-IDs."
+        "Der Gate-Report referenziert ausschließlich tatsächlich erzeugte Testausgaben und erfindet keine SRC_*-/RUN_*-IDs.",
+        "CAC-013 wird erst done, wenn CAC-014 bis CAC-016 abgeschlossen sind, deren Reason-Codes evidenzgebunden aus Gate und Schema entfernt wurden und zwei vollständige Gate-Läufe byte-identisch status=passed ohne Reason-Codes erzeugen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.7,
+      "evidence_refs": [
+        "artifacts/test-gates/caseflow-agent-collaboration-canvas.json"
+      ],
+      "gate_reason_codes": [
+        "temporal_command_authority_verification_required",
+        "workflow_command_transition_outbox_required",
+        "workflow_terminal_trace_reconciliation_required"
+      ],
+      "notes": [
+        "Partial in a16ff5161, bea8a36d5, and 3e1d20853. Two byte-identical focused gates prove Angular 352/352, Hub 143/143, and Browser 1/1; the report remains fail-closed exclusively for CAC-014, CAC-015, and CAC-016."
+      ]
+    },
+    {
+      "id": "CAC-014",
+      "title": "Native/LangGraph Transition-Outbox und Effect-Attribution härten",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M5",
+      "depends_on": [
+        "CAC-007A",
+        "CAC-011"
+      ],
+      "acceptance_criteria": [
+        "Eine Hub-eigene persistente Transition-Outbox verbindet Native start, advance und command atomar beziehungsweise recoverbar mit Event-Append, Grant/Ownership, Side-Effect-Ledger, Queue-Intent, State/Checkpoint und autoritativem Binding-Status.",
+        "LangGraph-Ingest erfolgt erst nach einem Hub-eigenen Grant-/Ledger-Intent; Crash-Recovery adoptiert exakt denselben Task und Versuch, ohne verwaiste Ownership oder Grants.",
+        "Receipt-Leases besitzen Heartbeat oder Downstream-Fencing; ein abgelaufener Lease kann keine zweite parallele Transition neben einem noch aktiven Owner ausführen.",
+        "recover_command akzeptiert ausschließlich einen exakten command_id- und Payload-/Effect-Fingerprint-Beleg; eine unabhängige spätere Runtime-Revision gilt nie als Ausführungsnachweis.",
+        "Fault-Injection- und Restart-Tests an jeder Side-Effect-/Checkpoint-/Binding-Grenze belegen genau einen Task, ein Event, einen Effect und ein terminales Outcome."
+      ],
+      "progress_percent": 0.0,
+      "gate_reason_code": "workflow_command_transition_outbox_required"
+    },
+    {
+      "id": "CAC-015",
+      "title": "Temporal Command Authority kryptografisch vereinheitlichen",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M5",
+      "depends_on": [
+        "CAC-007A",
+        "CAC-011"
+      ],
+      "acceptance_criteria": [
+        "Ein gemeinsamer versionierter, algorithmusbewusster Command-Vertrag akzeptiert den Produktions-Ed25519-/Base64-Keyring und entfernt die duplizierte 64-Hex-HMAC-Annahme im Temporal-DTO.",
+        "Der Temporal Worker prüft Contract-Version, Algorithmus, Key-ID, kanonischen Payload-Digest und Signatur mit einem Public-Keyring vor Duplicate-Lookup und jeder Zustandsänderung.",
+        "Unbekannte oder widerrufene Keys/Algorithmen, manipulierte Payloads, abgelaufene nicht zugelassene Commands und Cross-Run-Replays werden fail-closed abgelehnt.",
+        "Duplicate Adoption erfolgt erst nach erfolgreicher Kryptoprüfung und exaktem Payload-Fingerprint; gleiche command_id mit abweichendem Inhalt bleibt deterministisch rejected.",
+        "Rotation-, Revocation- und End-to-End-Tests führen einen echten Produktions-Ed25519-Command über Adapter, Backend und Worker und belegen die Trennung privater Hub- und öffentlicher Worker-Schlüssel."
+      ],
+      "progress_percent": 0.0,
+      "gate_reason_code": "temporal_command_authority_verification_required"
+    },
+    {
+      "id": "CAC-016",
+      "title": "Terminale Trace-Projektion persistent und vollständig reconciliieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M5",
+      "depends_on": [
+        "CAC-007A",
+        "CAC-014"
+      ],
+      "acceptance_criteria": [
+        "Ein persistentes trace_pending beziehungsweise eine Trace-Outbox hält terminale Runs bis zum atomaren Projektions-ACK reconcile-fähig und überlebt Prozessneustarts.",
+        "History wird in stabilen Repository-Seiten von höchstens 256 Events gelesen; eine 600-Event-Fixture ergibt exakt 256, 256 und 88 Events.",
+        "Der Cursor basiert auf einer stabilen Repository-Sequence/Event-ID statt auf Listenindizes; synthetische unavailable Diagnostics verändern ihn nicht und der Pfad bleibt über 10000 Events hinaus fortsetzbar.",
+        "Crash-, Restart- und Concurrent-Reconciler-Tests projizieren finale Events und Cursor genau einmal, ohne Duplikate oder erfundene Source-/Run-IDs.",
+        "Das Frontend beendet terminales Polling erst nach einem statusgebundenen Trace-Completion-Beleg; syntaktisch gültige, aber stale oder unverified Trace-Daten bleiben retrybar."
+      ],
+      "progress_percent": 0.0,
+      "gate_reason_code": "workflow_terminal_trace_reconciliation_required"
     }
   ],
   "definition_of_done": [
@@ -625,17 +725,17 @@
     "Keine neue Workflow-, Agenten-, Chat- oder Trace-Infrastruktur wurde parallel eingeführt."
   ],
   "tasks_status_summary": {
-    "total": 14,
+    "total": 17,
     "by_status": {
       "todo": 3,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
-      "done": 11
+      "done": 13
     },
-    "progress_percent_done": 78.6,
+    "progress_percent_done": 76.5,
     "by_priority": {
-      "P0": 8,
+      "P0": 11,
       "P1": 5,
       "P2": 1
     },
@@ -643,23 +743,23 @@
       "low": 0,
       "medium": 4,
       "high": 7,
-      "critical": 3
+      "critical": 6
     },
     "critical_path": {
-      "total": 13,
-      "done": 11,
-      "remaining": 2
+      "total": 16,
+      "done": 12,
+      "remaining": 4
     },
     "milestones": {
-      "total": 4,
-      "todo": 1,
-      "in_progress": 0,
+      "total": 5,
+      "todo": 0,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 3
+      "done": 4
     }
   },
   "tasks_type_summary": {
-    "total": 14,
+    "total": 17,
     "by_type": {
       "contract": {
         "total": 2,
@@ -676,20 +776,34 @@
         "progress_percent": 100.0
       },
       "implementation": {
-        "total": 11,
+        "total": 13,
         "by_status": {
           "todo": 2,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 9
+          "done": 11
         },
-        "done": 9,
+        "done": 11,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 81.8
+        "progress_percent": 84.6
       },
       "test": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 85.7
+      },
+      "security": {
         "total": 1,
         "by_status": {
           "todo": 1,
@@ -707,11 +821,11 @@
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
-    "total_weight": 26.75,
-    "done_weight": 22.0,
+    "total_weight": 31.25,
+    "done_weight": 26.5,
     "remaining_weight": 4.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 82.2
+    "weighted_percent": 84.8
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -740,32 +854,40 @@
         "status": "done"
       },
       "M4": {
-        "total_tasks": 3,
+        "total_tasks": 2,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M5": {
+        "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 24.0,
+        "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
+    "state": "in_progress",
     "todo_remaining": 3,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 11,
-    "count_based_percent": 78.6,
-    "weighted_percent": 82.2
+    "done": 13,
+    "count_based_percent": 76.5,
+    "weighted_percent": 84.8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T21:12:37.408731Z",
+    "generated_at": "2026-08-14T10:07:10.581877Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "90c94bb081bf6e3f10ff4b11fb8e9d7cedddebdd3767b8018c1286ecba74f869",
+    "source_hash": "487809f4a594b3e1a7ab8a275d14505c11e234c8e6bab0eb538b2b5fe0cbb415",
     "is_stale": false
   }
 }

@@ -6,7 +6,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| `todos/todo.caseflow-agent-collaboration-canvas.json` | `caseflow-agent-collaboration-canvas` | Active backlog for the CaseFlow agent collaboration canvas, reusing the existing workflow, agent, and trace stacks |
+| `todos/active/todo.caseflow-agent-collaboration-canvas.json` | `caseflow-agent-collaboration-canvas` | Active backlog for the CaseFlow agent collaboration canvas, reusing the existing workflow, agent, and trace stacks |
 | `todos/todo.decentralized-webrtc-peer-media-overlay.json` | `decentralized-webrtc-peer-media-overlay` | Active backlog for decentralized WebRTC group topology and the experimental encrypted peer-media overlay |
 | `todos/todo.duckdb-codecompass-analytics-retrieval-integration.json` | `duckdb_codecompass_analytics_retrieval_integration` | Active backlog for the optional DuckDB analytics and retrieval backend for Ananta and CodeCompass |
 | `todos/todo.knowledge-hygiene-curated-markdown-wiki-conflict-resolution.json` | `knowledge_hygiene_curated_markdown_wiki_conflict_resolution` | Active backlog for curated knowledge hygiene, conflict review, and human decisions |
