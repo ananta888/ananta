@@ -1,0 +1,967 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-08-14",
+  "updated_at": "2026-08-14",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "graphify_inspired_codecompass_architecture_intelligence",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Die staerksten Architektur-Analyse-, Clustering-, Diff-, Export- und Standalone-UX-Ideen aus Graphify fuer Ananta CodeCompass uebernehmen, ohne Graphify als produktive Kernabhaengigkeit einzubauen und ohne bestehende CodeCompass-Vertraege fuer Evidence, Trust, revisionsfeste Indexierung, hybride Retrieval-Kanaele oder fail-closed Security zu schwaechen.",
+  "goal": "CodeCompass wird zusaetzlich zu seiner bestehenden Symbol-, Repository-Intelligence-, Semantic- und Evidence-Schicht zu einer deterministischen Architecture-Intelligence-Plattform: automatische Community-Erkennung, Centrality/God-Nodes, Architecture-Smells, Graph-Diffs zwischen Revisionen, Architektur-Aenderungserkennung, inkrementell gepflegte Wiki-/Report-Artefakte, portable Exporte und eine einfache Standalone-CLI bzw. Agent-Skill-Oberflaeche. Alle Aussagen bleiben durch CodeCompass-Provenienz und Confidence/Evidence nachvollziehbar.",
+  "repository": {
+    "full_name": "ananta888/ananta",
+    "branch": "main",
+    "reviewed_commit": "626e668742c74a17e4e42726fc0cb971b39c8912",
+    "verification_method": "GitHub connector source review",
+    "reviewed_at": "2026-08-14",
+    "scope": [
+      "ananta_codecompass",
+      "rag-helper/rag_helper/extractors",
+      "worker/retrieval",
+      "agent/services",
+      "agent/routes",
+      "schemas",
+      "web/www/codecompass",
+      "docs",
+      "tests",
+      "todos"
+    ]
+  },
+  "external_reference": {
+    "repository": "Graphify-Labs/graphify",
+    "branch_reviewed": "v8",
+    "license_observed": "Apache-2.0",
+    "reviewed_at": "2026-08-14",
+    "relevant_claims": [
+      "Lokale deterministische Code-Extraktion mit tree-sitter AST.",
+      "Kanten tragen Confidence-Kategorien wie EXTRACTED, INFERRED und AMBIGUOUS.",
+      "Leiden-Community-Detection zur automatischen Subsystem-Erkennung.",
+      "Analyse-Helfer fuer God Nodes, surprising connections, Import-Zyklen und graph_diff.",
+      "Exporte nach JSON, HTML, SVG, GraphML, Obsidian, Cypher und Wiki.",
+      "CLI-/Skill-UX mit einem einfachen Analysekommando und portablen Ausgabeartefakten.",
+      "Watch-/Cache-Pfade fuer wiederholte Analysen.",
+      "MCP-Server auf einem erzeugten Graphen."
+    ],
+    "adoption_policy": "Ideen und beobachtbare Verhaltensmuster uebernehmen, aber keine Graphify-Runtime-Abhaengigkeit im CodeCompass-Core. Falls spaeter Interoperabilitaet benoetigt wird, nur ueber versionierte Import-/Export-Adapter und Lizenz-/Security-Pruefung."
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "code_analysis": {
+    "existing_foundations": [
+      "CodeCompass kombiniert bereits Symbolgraph, Repository Intelligence, Semantic/RAG und Policy/Trust/Evidence ueber versionierte Contracts.",
+      "Der aktuelle Symbolgraph kennt Funktionen, Klassen, Imports, Calls, Inheritance, Tests und weitere typisierte Relationen.",
+      "Die Architecture Query Engine liefert bereits deterministische Evidence-Pfade mit Richtung, Tiefe, Confidence und begrenzten Query-Typen.",
+      "CodeCompass nutzt keine freie Graph-Query-Sprache fuer Agenten; Query-Typen und Limits sind explizit allowlisted.",
+      "Die revisionsfeste Indexierung bindet Workspace-Revision, Snapshot-Policy, Source-Identitaet, Manifest und Coverage fail-closed.",
+      "FTS-, Vector-, Symbol- und Graph-Kanaele existieren bereits als kombinierbare Retrieval-Provider.",
+      "Evidence-Konflikte zwischen Dokumentation und Code/Schema werden bereits explizit modelliert und nicht heuristisch still aufgeloest.",
+      "JSON-GraphStore existiert als lokaler Default; SQLiteGraphStore und spaetere externe Graph-DB-Adapter sind bereits als Architekturpfad vorgesehen.",
+      "CodeCompass besitzt bereits Web-/REST-Oberflaechen fuer Graph- und Architecture-Queries.",
+      "Ein bestehender Track fuer kuratiertes Markdown-Wiki und Knowledge Hygiene kann die hier vorgeschlagene Community-basierte Wiki-Pflege spaeter konsumieren."
+    ],
+    "confirmed_or_likely_gaps": [
+      "Keine zentrale Leiden- oder vergleichbare Community-Detection als kanonische Architecture-Intelligence-Funktion gefunden.",
+      "Keine kanonische God-Node-/Centrality-Auswertung mit Degree-, Betweenness-, Bridge- und Community-Metriken gefunden.",
+      "Keine vereinheitlichte Architecture-Smell-Schicht fuer Zyklen, God Nodes, unerwartete Cross-Community-Kanten, Boundary-Verletzungen und stark wachsende Knoten gefunden.",
+      "Keine einfache kanonische graph_diff-Abstraktion gefunden, die zwei CodeCompass-Graph-Snapshots deterministisch auf Node-, Edge-, Community- und Metrik-Ebene vergleicht.",
+      "Keine explizite PR-/Commit-Auswertung gefunden, die Dateidiff und CodeCompass-Graphdiff zu einer Architecture Change Summary zusammenfuehrt.",
+      "Keine Community-getriebene automatische Wiki-Synthese als Architekturprojektion des Graphen gefunden.",
+      "Keine einheitliche portable Exportmatrix fuer GraphML, Cypher, Obsidian und standalone HTML gefunden.",
+      "Keine reduzierte Standalone-UX nach dem Muster 'analyze repository -> drei portable Artefakte' als first-class CodeCompass-Modus gefunden.",
+      "Keine fuer Architecture Intelligence normalisierte Benchmark-Suite fuer Clustering-Stabilitaet, Diff-Determinismus, Query-Nutzen und Agent-Tokenersparnis gefunden.",
+      "Keine explizite Graphify-Interop-Spezifikation gefunden."
+    ],
+    "decision_summary": "Graphify wird nicht als Ersatz fuer CodeCompass und nicht als Core-Dependency integriert. CodeCompass besitzt bereits den staerkeren produktiven Unterbau fuer Trust, Evidence, Security, Revisionen und Hybrid Retrieval. Uebernommen werden Architecture-Intelligence-Konzepte oberhalb des bestehenden CodeCompass-Graphen: Community Detection, Centrality, Graph Diff, Smell Detection, portable Exporte, Wiki-Projektion und vereinfachte Standalone-UX."
+  },
+  "architecture_principles": [
+    "CodeCompass bleibt kanonische Graph- und Evidence-Schicht; neue Analysefunktionen konsumieren versionierte CodeCompass-Artefakte statt parallel eigene Wahrheiten zu erzeugen.",
+    "Deterministische strukturelle Analysen benoetigen kein LLM. Ein LLM darf nur fuer optionale Labels, Zusammenfassungen und Wiki-Prosa eingesetzt werden.",
+    "Jede abgeleitete Aussage muss auf Node-/Edge-/Source-Provenienz zurueckfuehrbar bleiben.",
+    "Community-Zuordnung ist eine Analyseprojektion, keine Source-Evidence und darf nicht wie harte strukturelle Wahrheit behandelt werden.",
+    "Clustering, Centrality, Diff und Smell Detection erhalten versionierte Algorithmus- und Parameter-Fingerprints.",
+    "Gleicher Input, gleiche Konfiguration und gleiche Algorithmusversion muessen byte-stabile oder semantisch deterministische Resultate erzeugen.",
+    "Graph-Analysen laufen gegen immutable Knowledge-Index-Snapshots und veraendern den kanonischen Source-Graph nicht in place.",
+    "Neue Query-Funktionen folgen dem vorhandenen Allowlist-Prinzip; kein freies Cypher/GQL fuer Agenten im produktiven Runtime-Pfad.",
+    "Cypher/GraphML sind Exportformate, nicht automatisch aktivierte Runtime-Backends.",
+    "Exporte entfernen oder redaktieren nicht freigegebene Inhalte und respektieren Tenant-, Scope-, Revision- und Source-Policies.",
+    "Architecture Diff unterscheidet Source-Aenderung, Graph-Aenderung, Confidence-Aenderung, Community-Aenderung und reine Algorithmus-/Versionseffekte.",
+    "Fehlende Graph-Coverage darf niemals als entfernte Architektur interpretiert werden.",
+    "Community-IDs duerfen nicht blind als dauerhaft stabil betrachtet werden; stabile Community-Fingerprints muessen aus Mitgliedern/Signaturen abgeleitet werden.",
+    "Wiki-Generierung ist abgeleitete Dokumentation und muss ihren Snapshot, Algorithmus, Quellen und Aktualisierungsstatus ausweisen.",
+    "Standalone-Modus bleibt optional und darf Hub-/Worker-Security nicht umgehen, wenn er innerhalb einer Ananta-Installation verwendet wird.",
+    "Keine neue schwere Graph-Datenbankpflicht fuer lokale CodeCompass-Nutzung.",
+    "NetworkX oder eine andere Bibliothek darf nur hinter einem schmalen Algorithmus-Port verwendet werden, damit grosse Graphen spaeter alternative Backends nutzen koennen.",
+    "Benchmarks und Regressionstests werden vor produktiver Aktivierung der neuen Architecture-Intelligence-Ausgaben verpflichtend."
+  ],
+  "non_goals": [
+    "Graphify als Fork oder vendorte Kopie in Ananta aufnehmen.",
+    "Die bestehende CodeCompass Architecture Query Engine ersetzen.",
+    "Vector Search, FTS oder Semantic Retrieval entfernen, nur weil Graphify ohne Vector Store arbeitet.",
+    "Freie Graphabfragen fuer Agenten produktiv freischalten.",
+    "Neo4j, Memgraph, Kuzu oder einen anderen Graph-Service als Pflichtabhaengigkeit einfuehren.",
+    "Community Detection als beweisbare Architekturwahrheit darstellen.",
+    "LLM-basierte heuristische Kanten ohne Kennzeichnung in harte EXTRACTED-Evidence umwandeln.",
+    "Automatisch Wiki-Inhalte als Source-of-Truth zurueck in den Graph schreiben.",
+    "Graph-Diff ohne Coverage-/Revision-Pruefung fuer Breaking-Change-Aussagen verwenden.",
+    "Bestehende Trust-, Redaction-, Injection- und Source-Authority-Pruefungen fuer Exporte oder Standalone-UX umgehen."
+  ],
+  "target_architecture": {
+    "pipeline": [
+      "trusted CodeCompass snapshot",
+      "normalized unified graph projection",
+      "community detection",
+      "centrality and bridge metrics",
+      "architecture smell analyzers",
+      "cross-revision graph diff",
+      "architecture change classifier",
+      "reports and typed query results",
+      "wiki projection",
+      "portable export adapters",
+      "standalone CLI / agent skill"
+    ],
+    "proposed_modules": [
+      "ananta_codecompass/architecture_intelligence/model.py",
+      "ananta_codecompass/architecture_intelligence/graph_projection.py",
+      "ananta_codecompass/architecture_intelligence/community.py",
+      "ananta_codecompass/architecture_intelligence/centrality.py",
+      "ananta_codecompass/architecture_intelligence/smells.py",
+      "ananta_codecompass/architecture_intelligence/diff.py",
+      "ananta_codecompass/architecture_intelligence/change_classifier.py",
+      "ananta_codecompass/architecture_intelligence/report.py",
+      "ananta_codecompass/architecture_intelligence/wiki.py",
+      "ananta_codecompass/architecture_intelligence/exporters/",
+      "worker/retrieval/codecompass_architecture_intelligence.py",
+      "agent/services/codecompass_architecture_intelligence_service.py"
+    ],
+    "proposed_artifacts": [
+      "architecture-intelligence.json",
+      "architecture-report.md",
+      "architecture.html",
+      "architecture-diff.json",
+      "architecture-diff.md",
+      "communities.json",
+      "centrality.json",
+      "architecture-smells.json"
+    ],
+    "standalone_output": [
+      "codecompass-out/graph.json",
+      "codecompass-out/architecture.html",
+      "codecompass-out/report.md"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "CCGAI-M0",
+      "title": "Contracts, baseline and algorithm boundaries",
+      "priority": "P0",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-001",
+          "title": "Current graph contracts and artifact boundaries inventory",
+          "priority": "P0",
+          "risk": "low",
+          "status": "todo",
+          "description": "Alle bestehenden CodeCompass-Graph-, Evidence-, Output-Manifest-, Query- und Snapshot-Vertraege inventarisieren und festlegen, welcher davon der einzige Input fuer Architecture Intelligence ist.",
+          "acceptance_criteria": [
+            "Dokument nennt kanonischen Graph-Input und dessen Schema-Version.",
+            "Kein neuer paralleler Symbolgraph wird als Source-of-Truth eingefuehrt.",
+            "Coverage-, Revision-, Tenant- und Source-Authority-Felder sind explizit abgebildet."
+          ]
+        },
+        {
+          "id": "CCGAI-002",
+          "title": "Architecture Intelligence result contract v1",
+          "priority": "P0",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Versioniertes Schema fuer Communities, Metriken, Smells, Algorithmus-Fingerprint, Snapshot-Referenzen, Coverage und Diagnostics definieren.",
+          "acceptance_criteria": [
+            "JSON-Schema ist versioniert und contract-getestet.",
+            "Jede abgeleitete Einheit kann auf Input-Snapshot und Algorithmusversion zurueckgefuehrt werden.",
+            "Partial/unknown coverage ist explizit modelliert."
+          ]
+        },
+        {
+          "id": "CCGAI-003",
+          "title": "Algorithm provider ports",
+          "priority": "P0",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Schmale Ports fuer Community Detection, Centrality, Diff und Smell Analysis definieren, damit die Runtime nicht an NetworkX oder eine einzelne Bibliothek gekoppelt wird.",
+          "acceptance_criteria": [
+            "Core-Service importiert keine konkrete Graph-Bibliothek direkt.",
+            "Deterministischer InMemory-/Reference-Adapter fuer Tests existiert.",
+            "Provider-Version und Parameter werden in Resultaten gespeichert."
+          ]
+        },
+        {
+          "id": "CCGAI-004",
+          "title": "Reference corpus and golden graphs",
+          "priority": "P0",
+          "risk": "low",
+          "status": "todo",
+          "description": "Kleine Golden-Graph-Fixtures fuer modulare Architektur, Monolith, Zyklen, Bridge-Nodes, Rename/Move, Partial Coverage und heuristische Kanten anlegen.",
+          "acceptance_criteria": [
+            "Fixtures decken mindestens 8 unterschiedliche Graphmuster ab.",
+            "Erwartete Communities, Centrality-Reihenfolgen und Diffs sind dokumentiert.",
+            "Tests laufen ohne Netzwerk und ohne LLM."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M1",
+      "title": "Unified graph projection and deterministic community detection",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-010",
+          "title": "Normalized architecture graph projection",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Aus dem bestehenden CodeCompass-Graph eine begrenzte Architecture-Projection erzeugen, die nur fuer Architektur relevante Node-/Edge-Typen aufnimmt und Confidence, Provenienz und Scope behaelt.",
+          "acceptance_criteria": [
+            "Projection ist deterministisch sortiert und versioniert.",
+            "Node-/Edge-Filter sind explizit konfigurierbar und allowlisted.",
+            "Heuristische Kanten bleiben als solche markiert.",
+            "Projection veraendert den Source-Graph nicht."
+          ]
+        },
+        {
+          "id": "CCGAI-011",
+          "title": "Leiden community detection adapter",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Leiden Community Detection fuer ungerichtete bzw. explizit projizierte gewichtete Architekturgraphen implementieren oder ueber einen optionalen Adapter anbinden.",
+          "acceptance_criteria": [
+            "Algorithmusversion, Seed und Parameter sind festgehalten.",
+            "Gleicher Input liefert reproduzierbare Zuordnungen oder einen dokumentierten stabilen Normalisierungsschritt.",
+            "Fallback fuer Installationen ohne optionale Leiden-Abhaengigkeit ist definiert.",
+            "Sehr kleine Graphen und isolierte Knoten werden sinnvoll behandelt."
+          ]
+        },
+        {
+          "id": "CCGAI-012",
+          "title": "Stable community fingerprints",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Community-IDs revisionsuebergreifend ueber stabile Fingerprints und Matching statt ueber rohe Algorithmus-IDs verfolgen.",
+          "acceptance_criteria": [
+            "Community rename/reorder erzeugt keinen falschen Komplettwechsel.",
+            "Split, merge, new und removed werden unterschieden.",
+            "Matching-Confidence wird ausgegeben."
+          ]
+        },
+        {
+          "id": "CCGAI-013",
+          "title": "Community labels without mandatory LLM",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Deterministische Labels aus Pfaden, Symbolnamen, Paketnamen und zentralen Knoten erzeugen; optional darf ein LLM ein Display-Label vorschlagen.",
+          "acceptance_criteria": [
+            "LLM ist fuer funktionale Ausgabe nicht erforderlich.",
+            "LLM-Label ist als generated/inferred markiert und nie Source-Evidence.",
+            "Deterministisches Fallback-Label ist immer vorhanden."
+          ]
+        },
+        {
+          "id": "CCGAI-014",
+          "title": "Community API and UI overlay",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Communities ueber typisierte API und als optionales Overlay in der bestehenden CodeCompass-Graph-UI darstellen.",
+          "acceptance_criteria": [
+            "API hat harte Node-/Result-Limits.",
+            "UI kann Communities ein-/ausblenden und nach ihnen filtern.",
+            "Partial coverage und Analyseversion werden sichtbar angezeigt."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M2",
+      "title": "Centrality, God Nodes and architecture bridges",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-020",
+          "title": "Centrality metrics v1",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Degree, in/out degree, betweenness und optional PageRank/eigenvector-aehnliche Metriken fuer geeignete Projektionen berechnen.",
+          "acceptance_criteria": [
+            "Metriken sind pro Algorithmus und Projektion dokumentiert.",
+            "Ergebnisse enthalten keine irrefuehrende Rangzahl ohne Graphgroesse und Kontext.",
+            "Runtime-Budgets fuer grosse Graphen sind vorhanden."
+          ]
+        },
+        {
+          "id": "CCGAI-021",
+          "title": "God-node classifier",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Stark ueberdurchschnittlich verbundene Knoten anhand robuster relativer Schwellen und Knotentypen markieren.",
+          "acceptance_criteria": [
+            "Schwellen sind konfigurierbar und im Ergebnis sichtbar.",
+            "God Node ist Diagnose, nicht automatisch Architekturfehler.",
+            "Generated, framework und registry nodes koennen separat behandelt werden."
+          ]
+        },
+        {
+          "id": "CCGAI-022",
+          "title": "Community bridge detection",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Knoten und Kanten identifizieren, die Communities stark verbinden oder deren Entfernung Subsysteme voneinander trennt.",
+          "acceptance_criteria": [
+            "Bridge-Score ist nachvollziehbar.",
+            "Cross-community edges koennen nach Relationstyp gefiltert werden.",
+            "Top-Bridges sind auf Evidence-Pfade zurueckfuehrbar."
+          ]
+        },
+        {
+          "id": "CCGAI-023",
+          "title": "Centrality trend across revisions",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Signifikante Centrality-Aenderungen zwischen zwei kompatiblen Snapshots erfassen.",
+          "acceptance_criteria": [
+            "Normalisierung beruecksichtigt unterschiedliche Graphgroesse.",
+            "Partial coverage blockiert oder markiert unsichere Trends.",
+            "Neue Hotspots koennen in Architecture Diff erscheinen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M3",
+      "title": "Architecture smells and structural diagnostics",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-030",
+          "title": "Import and dependency cycle detection",
+          "priority": "P1",
+          "risk": "low",
+          "status": "todo",
+          "description": "Zyklen fuer geeignete gerichtete Kantenarten als standardisierte Diagnose anbieten.",
+          "acceptance_criteria": [
+            "Cycle-Ausgabe enthaelt vollstaendigen Pfad und Edge-Evidence.",
+            "Kantenarten sind allowlisted.",
+            "Heuristische Kanten koennen getrennt ein-/ausgeschaltet werden."
+          ]
+        },
+        {
+          "id": "CCGAI-031",
+          "title": "Cross-community dependency anomaly detector",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Unerwartete oder stark zunehmende Abhaengigkeiten zwischen Communities erkennen, ohne automatisch fachliche Fehler zu behaupten.",
+          "acceptance_criteria": [
+            "Baseline und Schwellen sind versioniert.",
+            "Resultat verwendet Begriffe wie anomaly/signal statt defect, solange keine Policy verletzt ist.",
+            "Top-Anomalien enthalten Pfad, Relationstyp und Confidence."
+          ]
+        },
+        {
+          "id": "CCGAI-032",
+          "title": "Architecture boundary policies",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Optional explizite Layer-/Domain-/Package-Regeln definieren und gegen Graphkanten pruefen, damit echte Boundary-Verletzungen von statistischen Anomalien getrennt werden.",
+          "acceptance_criteria": [
+            "Policies sind declarative, versioniert und repo-lokal speicherbar.",
+            "Violation verweist auf konkrete Regel und Evidence-Kante.",
+            "Ohne Policy wird keine harte Boundary-Verletzung behauptet."
+          ]
+        },
+        {
+          "id": "CCGAI-033",
+          "title": "Surprising connections ranking",
+          "priority": "P2",
+          "risk": "high",
+          "status": "todo",
+          "description": "Graphify-aehnliche 'surprising connections' als transparentes, deterministisches Ranking entwerfen, z. B. seltene Cross-Community-Kanten mit hoher struktureller Relevanz.",
+          "acceptance_criteria": [
+            "Ranking-Formel ist dokumentiert und testbar.",
+            "Keine LLM-Wertung ist fuer den Score erforderlich.",
+            "Ergebnis ist explorativ gekennzeichnet."
+          ]
+        },
+        {
+          "id": "CCGAI-034",
+          "title": "Architecture health summary",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Eine kompakte Health-Zusammenfassung aus belegbaren strukturellen Signalen erzeugen, ohne einen pseudoobjektiven Gesamtscore als Wahrheit zu verkaufen.",
+          "acceptance_criteria": [
+            "Einzelsignale bleiben sichtbar.",
+            "Kein einzelner undokumentierter Health Score entscheidet Releases.",
+            "Policy Violations, anomalies und informational signals sind getrennte Kategorien."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M4",
+      "title": "Cross-revision graph diff and architecture change detection",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-040",
+          "title": "GraphDiff contract v1",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Deterministischen Diff fuer Nodes, Edges, Attribute, Confidence und Provenienz zwischen kompatiblen CodeCompass-Snapshots definieren.",
+          "acceptance_criteria": [
+            "added/removed/changed sind klar definiert.",
+            "Rename/Move kann getrennt von remove+add modelliert werden, wenn Evidence ausreicht.",
+            "Coverage-Differenzen werden nicht als reale Entfernung fehlklassifiziert.",
+            "Algorithmus- und Schema-Inkompatibilitaet fuehrt fail-closed zu 'not comparable'."
+          ]
+        },
+        {
+          "id": "CCGAI-041",
+          "title": "Community diff",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Neue, entfernte, stabile, gesplittete und zusammengefuehrte Communities revisionsuebergreifend klassifizieren.",
+          "acceptance_criteria": [
+            "Community matching nutzt stabile Fingerprints statt rohe IDs.",
+            "Split/Merge-Evidence zeigt Mitgliederueberlappung.",
+            "Unsichere Matches werden als ambiguous markiert."
+          ]
+        },
+        {
+          "id": "CCGAI-042",
+          "title": "Architecture change classifier",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Graph-Diff-Signale zu Kategorien wie new_dependency, removed_dependency, new_cycle, boundary_violation, centrality_spike, community_split, community_merge und subsystem_bridge_change verdichten.",
+          "acceptance_criteria": [
+            "Jede Klassifikation verweist auf rohe Diff-Evidence.",
+            "Keine semantische Breaking-Change-Behauptung ohne passenden Contract-/Policy-Nachweis.",
+            "Confidence und Severity sind getrennt modelliert."
+          ]
+        },
+        {
+          "id": "CCGAI-043",
+          "title": "PR and commit architecture summary",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Dateidiff, Tests und GraphDiff zu einer kompakten Architecture Change Summary fuer CI, PR Review und Agenten verbinden.",
+          "acceptance_criteria": [
+            "Summary nennt relevante neue/entfernte Dependencies, Communities, Zyklen und Hotspots.",
+            "Links/IDs zu Evidence-Pfaden sind enthalten.",
+            "Bei fehlendem kompatiblem Baseline-Snapshot wird sauber degraded berichtet."
+          ]
+        },
+        {
+          "id": "CCGAI-044",
+          "title": "Architecture regression CI gate",
+          "priority": "P2",
+          "risk": "high",
+          "status": "todo",
+          "description": "Opt-in CI-Gate fuer explizite Architecture Policies und neue harte Verstosse implementieren; statistische Anomalien bleiben standardmaessig non-blocking.",
+          "acceptance_criteria": [
+            "Default ist report-only.",
+            "Blocking ist nur fuer explizit konfigurierte Regeln moeglich.",
+            "Baseline- und Coverage-Probleme koennen keinen False-Pass erzeugen."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M5",
+      "title": "Architecture wiki and living documentation",
+      "priority": "P2",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-050",
+          "title": "Community-to-wiki projection contract",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Definieren, wie Communities, zentrale Knoten, APIs, Abhaengigkeiten und Evidence-Pfade in eine kuratierbare Markdown-Struktur projiziert werden.",
+          "acceptance_criteria": [
+            "Wiki-Seite nennt Snapshot und Community-Fingerprint.",
+            "Strukturelle Fakten sind von generierter Erklaerprosa getrennt.",
+            "Quellen/Evidence koennen aus der Seite zurueckverfolgt werden."
+          ]
+        },
+        {
+          "id": "CCGAI-051",
+          "title": "Incremental wiki refresh from GraphDiff",
+          "priority": "P2",
+          "risk": "high",
+          "status": "todo",
+          "description": "Nur Wiki-Seiten aktualisieren, deren Community oder relevante Graphsignale sich geaendert haben.",
+          "acceptance_criteria": [
+            "Unveraenderte Seiten bleiben byte-stabil, sofern keine Template-Version wechselt.",
+            "Split/Merge erzeugt nachvollziehbare Migration der Seiten.",
+            "Manuelle kuratierte Bereiche werden nicht ueberschrieben."
+          ]
+        },
+        {
+          "id": "CCGAI-052",
+          "title": "Integrate with knowledge hygiene track",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Community-Wiki mit dem bestehenden Knowledge-Hygiene-/Conflict-Resolution-Track verbinden, statt einen zweiten konkurrierenden Wiki-Store zu schaffen.",
+          "acceptance_criteria": [
+            "Generierte Architektur-Seiten nutzen dieselben Provenienz-/Conflict-Grundsaetze.",
+            "Code-vs-Docs-Konflikte bleiben sichtbar.",
+            "Keine automatische Truth-Precedence wird neu eingefuehrt."
+          ]
+        },
+        {
+          "id": "CCGAI-053",
+          "title": "Architecture ADR and rationale linking",
+          "priority": "P3",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Vorhandene ADR/RFC/WHY/NOTE-Evidence als optionale Begruendung an Communities und Architekturbeziehungen anbinden.",
+          "acceptance_criteria": [
+            "Rationale wird nur gezeigt, wenn Source-Evidence vorhanden ist.",
+            "Inference und direkte Zitate/Referenzen bleiben unterscheidbar."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M6",
+      "title": "Portable exports and standalone visualization",
+      "priority": "P2",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-060",
+          "title": "Standalone HTML architecture explorer",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Portables HTML-Artefakt ohne Serverpflicht fuer Graph, Communities, Filter, Suche, Centrality, Smells und Diff-Summary erzeugen.",
+          "acceptance_criteria": [
+            "HTML laeuft lokal ohne externes CDN.",
+            "Keine Secrets oder nicht freigegebene Inhalte werden eingebettet.",
+            "Grosse Graphen haben harte Exportlimits oder Sampling/Level-of-detail."
+          ]
+        },
+        {
+          "id": "CCGAI-061",
+          "title": "GraphML export",
+          "priority": "P2",
+          "risk": "low",
+          "status": "todo",
+          "description": "GraphML-Export fuer Gephi/Cytoscape mit Node-/Edge-Typen, Confidence, Community und erlaubter Provenienz.",
+          "acceptance_criteria": [
+            "Export ist schema-/contract-getestet.",
+            "Nicht serialisierbare Attribute werden deterministisch normalisiert.",
+            "Redaction-Policy gilt vor Export."
+          ]
+        },
+        {
+          "id": "CCGAI-062",
+          "title": "Cypher export",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Optionalen Cypher-Export fuer Offline-Import in Neo4j/Memgraph-artige Systeme erzeugen, ohne produktive Runtime-Abhaengigkeit.",
+          "acceptance_criteria": [
+            "Labels und Properties werden sicher escaped.",
+            "Output ist rein exportierend und fuehrt nichts aus.",
+            "Tenant-/Source-Scope kann nicht durch Export erweitert werden."
+          ]
+        },
+        {
+          "id": "CCGAI-063",
+          "title": "Obsidian / Markdown graph export",
+          "priority": "P3",
+          "risk": "low",
+          "status": "todo",
+          "description": "Optionale lokale Markdown-/Obsidian-Projektion fuer Communities, zentrale Knoten und Beziehungen anbieten.",
+          "acceptance_criteria": [
+            "Dateinamen sind stabil und portabel.",
+            "Links bleiben innerhalb des Exportverzeichnisses.",
+            "Generated content ist als solches markiert."
+          ]
+        },
+        {
+          "id": "CCGAI-064",
+          "title": "Portable export manifest",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Jeder Export erhaelt Manifest mit Snapshot-ID, Schema, Algorithmusversionen, Scope, Hashes, Coverage und Redaction-Profil.",
+          "acceptance_criteria": [
+            "Artefakte sind offline verifizierbar.",
+            "Manifest verhindert Verwechslung inkompatibler Exporte.",
+            "Source- und Tenant-IDs folgen bestehender Authority-Policy."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M7",
+      "title": "Standalone CLI, agent skill and MCP read surface",
+      "priority": "P2",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-070",
+          "title": "ananta codecompass analyze command",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Einen einfachen lokalen Befehl nach dem UX-Prinzip 'Repository analysieren -> wenige portable Artefakte' bereitstellen.",
+          "acceptance_criteria": [
+            "Minimaler Aufruf benoetigt nur Zielpfad und optional Profil.",
+            "Default-Ausgabe enthaelt graph.json, architecture.html und report.md oder deren CodeCompass-aequivalente Contracts.",
+            "Bestehende Index-/Security-Pfade werden wiederverwendet statt umgangen.",
+            "Exit Codes sind fuer success, partial, policy_blocked und failure stabil definiert."
+          ]
+        },
+        {
+          "id": "CCGAI-071",
+          "title": "CodeCompass coding-agent skill",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Projekt-skopierten Skill fuer Claude Code/Codex-kompatible Agenten definieren, der zuerst typisierte CodeCompass-Queries und Architecture Intelligence nutzt.",
+          "acceptance_criteria": [
+            "Skill dokumentiert sichere Query-Reihenfolge und Limits.",
+            "Kein Zwang zu einem bestimmten LLM-Provider.",
+            "Raw-file fallback bleibt moeglich, wird aber nicht als Evidence-Ersatz missverstanden."
+          ]
+        },
+        {
+          "id": "CCGAI-072",
+          "title": "Read-only MCP architecture tools",
+          "priority": "P3",
+          "risk": "high",
+          "status": "todo",
+          "description": "Optional read-only MCP-Tools fuer community, centrality, path, diff und architecture_summary ueber bereits autorisierte CodeCompass-Snapshots anbieten.",
+          "acceptance_criteria": [
+            "Tools sind read-only und scope-bound.",
+            "Keine freie Graph-Sprache wird exponiert.",
+            "Result- und Traversal-Limits entsprechen den REST-/Agent-Limits.",
+            "MCP darf keinen nicht autorisierten Exportpfad oeffnen."
+          ]
+        },
+        {
+          "id": "CCGAI-073",
+          "title": "Watch and incremental re-analysis",
+          "priority": "P3",
+          "risk": "high",
+          "status": "todo",
+          "description": "Lokalen Watch-Modus fuer Entwicklungsworkspaces evaluieren, der nach bestehender Snapshot-/Indexlogik nur betroffene Analysen neu berechnet.",
+          "acceptance_criteria": [
+            "Debounce und Dateigrenzen sind konfigurierbar.",
+            "Keine direkte Mutation eines aktiven immutable Snapshots.",
+            "Watch-Modus ist nicht Voraussetzung fuer Server-/CI-Betrieb.",
+            "Cache-Invalidierung ist getestet."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M8",
+      "title": "Graphify interoperability",
+      "priority": "P3",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-080",
+          "title": "Graphify graph.json import feasibility",
+          "priority": "P3",
+          "risk": "high",
+          "status": "todo",
+          "description": "Nur falls realer Bedarf entsteht: Graphify graph.json in einen untrusted external graph adapter importieren und auf CodeCompass-Vertraege abbilden.",
+          "acceptance_criteria": [
+            "Importierte Daten sind standardmaessig unverified.",
+            "Keine Source-ID wird erfunden.",
+            "Schema-/Version-Drift fuehrt fail-closed.",
+            "Lizenz- und Security-Review ist dokumentiert."
+          ]
+        },
+        {
+          "id": "CCGAI-081",
+          "title": "CodeCompass to Graphify-compatible export feasibility",
+          "priority": "P3",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Optional pruefen, ob ein reduzierter Export fuer Graphify-nahe Toolchains sinnvoll ist, ohne den internen CodeCompass-Contract zu verengen.",
+          "acceptance_criteria": [
+            "Adapter ist rein optional.",
+            "Lossy mapping wird explizit dokumentiert.",
+            "Internes Evidence-Modell bleibt vollstaendig erhalten."
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CCGAI-M9",
+      "title": "Performance, benchmarks and production hardening",
+      "priority": "P1",
+      "status": "todo",
+      "tasks": [
+        {
+          "id": "CCGAI-090",
+          "title": "Architecture intelligence benchmark suite",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Benchmark-Suite fuer Buildzeit, Peak-RAM, Clustering, Centrality, Diff, Export und Query-Latenz auf kleinen, mittleren und grossen Repositories etablieren.",
+          "acceptance_criteria": [
+            "Mindestens drei Groessenklassen und ein >100k-Edge-Test sind enthalten oder synthetisch reproduzierbar.",
+            "Cold/warm run werden getrennt gemessen.",
+            "Budgetverletzungen erzeugen Diagnostics statt stillen OOM."
+          ]
+        },
+        {
+          "id": "CCGAI-091",
+          "title": "Clustering stability regression tests",
+          "priority": "P1",
+          "risk": "high",
+          "status": "todo",
+          "description": "Stabilitaet der Community-Erkennung gegen kleine irrelevante Aenderungen, Node-Reihenfolge und Algorithmus-Upgrades messen.",
+          "acceptance_criteria": [
+            "Node-Reihenfolge veraendert Ergebnis nicht unkontrolliert.",
+            "Algorithmusupgrade benoetigt expliziten Baseline-Refresh.",
+            "Community similarity metrics werden als Regression-Gate genutzt."
+          ]
+        },
+        {
+          "id": "CCGAI-092",
+          "title": "GraphDiff correctness suite",
+          "priority": "P0",
+          "risk": "high",
+          "status": "todo",
+          "description": "Rename, move, add/remove edge, confidence change, coverage loss, parser-version change und community split/merge als Golden-Diffs testen.",
+          "acceptance_criteria": [
+            "Coverage loss wird nie als bestaetigte Entfernung ausgegeben.",
+            "Inkompatible Extractor-/Schema-Versionen werden erkannt.",
+            "Diff-Sortierung ist deterministisch."
+          ]
+        },
+        {
+          "id": "CCGAI-093",
+          "title": "Agent usefulness and token benchmark",
+          "priority": "P2",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Messen, ob Community-/Centrality-/Diff-Queries Coding-Agenten weniger Raw-File-Lesevorgaenge und Tokens bei gleicher oder besserer Korrektheit benoetigen.",
+          "acceptance_criteria": [
+            "Vergleich gegen bestehenden CodeCompass-Pfad ohne Architecture Intelligence.",
+            "Messung trennt Retrieval-Tokens, Modell-Tokens, Latenz und Antwortqualitaet.",
+            "Keine Marketingaussage ohne reproduzierbaren Benchmark."
+          ]
+        },
+        {
+          "id": "CCGAI-094",
+          "title": "Security and export abuse tests",
+          "priority": "P0",
+          "risk": "critical",
+          "status": "todo",
+          "description": "Tenant leakage, path traversal, malicious labels, HTML injection, Cypher escaping, oversized graph, crafted GraphML/XML, untrusted Graphify import und source authority bypass testen.",
+          "acceptance_criteria": [
+            "Security-Tests laufen automatisiert in CI.",
+            "Standalone HTML escaped untrusted labels.",
+            "Export kann Scope nicht erweitern.",
+            "Importe koennen keine verified Evidence erzeugen."
+          ]
+        },
+        {
+          "id": "CCGAI-095",
+          "title": "Observability and diagnostics",
+          "priority": "P1",
+          "risk": "medium",
+          "status": "todo",
+          "description": "Metriken und strukturierte Diagnostics fuer Graphgroesse, Community Count, Laufzeiten, Budgetabbruch, Diff-Kompatibilitaet und Exportgroesse einfuehren.",
+          "acceptance_criteria": [
+            "Keine Source-Inhalte oder Secrets in Metric Labels.",
+            "Algorithmusversion und Resultstatus sind diagnostizierbar.",
+            "Partial/degraded Zustande sind von success unterscheidbar."
+          ]
+        }
+      ]
+    }
+  ],
+  "cross_cutting_requirements": {
+    "security": [
+      "Alle Inputs stammen aus autorisierten, revisionsgebundenen CodeCompass-Snapshots oder explizit untrusted import adapters.",
+      "Keine freien Dateipfade, Shell-Kommandos, SQL-, Cypher- oder Graph-Query-Ausdruecke aus Agenteninput in produktiven Services.",
+      "HTML/SVG/GraphML/Cypher/Markdown-Exporte behandeln Labels, Pfade und Attribute als untrusted Daten.",
+      "Tenant-, Repository-, Workspace-, Revision- und Source-Scope wird fuer jede Query und jeden Export gebunden.",
+      "Externe Graphimporte erzeugen nie verified Source-Evidence ohne separaten Authority-Abgleich."
+    ],
+    "performance": [
+      "Graphgroesse und Analysekomplexitaet werden vor teuren Algorithmen geprueft.",
+      "Centrality-Algorithmen mit schlechter Skalierung erhalten Budget, Approximation oder Deaktivierungsgrenze.",
+      "Community Detection darf fuer inkrementelle UI-Anfragen nicht bei jedem Request neu laufen.",
+      "Immutable Result-Artefakte duerfen per Snapshot-/Algorithmus-Fingerprint gecacht werden.",
+      "Exports besitzen Groessenlimits und Streaming-/Chunking-Strategien fuer grosse Resultate."
+    ],
+    "reproducibility": [
+      "Input graph hash",
+      "snapshot id",
+      "extractor/schema versions",
+      "algorithm provider",
+      "algorithm version",
+      "parameters",
+      "random seed",
+      "projection profile",
+      "coverage summary"
+    ],
+    "ux": [
+      "Architecture Intelligence ist zusaetzlich; bestehende CodeCompass-Queries bleiben weiterhin direkt nutzbar.",
+      "UI trennt harte Evidence, heuristische Relation, statistische Anomalie und generierte Erklaerung visuell.",
+      "Einsteiger erhalten eine kompakte Architekturuebersicht; Experten koennen auf Pfade, Kanten, Quellen und Parameter drill-downen.",
+      "Standalone-Modus produziert wenige klar benannte Artefakte statt eine unuebersichtliche Dateimenge als Default."
+    ]
+  },
+  "dependencies": [
+    {
+      "track_or_area": "CodeCompass graph/evidence contracts",
+      "relationship": "required foundation",
+      "notes": "Architecture Intelligence darf nur auf dem kanonischen Graph-/Evidence-Modell aufbauen."
+    },
+    {
+      "track_or_area": "Knowledge Hygiene / Curated Markdown Wiki",
+      "relationship": "integration",
+      "notes": "Community-basierte Wiki-Seiten sollen denselben kuratierten Wissens- und Konfliktworkflow nutzen."
+    },
+    {
+      "track_or_area": "DuckDB CodeCompass analytics integration",
+      "relationship": "optional acceleration",
+      "notes": "DuckDB kann spaeter Metriken/Diffs materialisieren, ist aber keine Voraussetzung fuer diesen Track."
+    },
+    {
+      "track_or_area": "external graph database adapters",
+      "relationship": "future optional",
+      "notes": "Cypher Export und grosse Graphen koennen spaeter Neo4j/Memgraph/Kuzu-Adapter nutzen, ohne Core-Abhaengigkeit."
+    }
+  ],
+  "recommended_delivery_order": [
+    "CCGAI-M0 Contracts/Baseline",
+    "CCGAI-M1 Community Detection",
+    "CCGAI-M2 Centrality/God Nodes",
+    "CCGAI-M4 GraphDiff/Architecture Change Detection",
+    "CCGAI-M3 Smell Detection",
+    "CCGAI-M9 Benchmarks/Security hardening parallel zu M1-M4",
+    "CCGAI-M5 Wiki",
+    "CCGAI-M6 Exports",
+    "CCGAI-M7 Standalone CLI/Skill/MCP",
+    "CCGAI-M8 Graphify Interop nur bei echtem Bedarf"
+  ],
+  "minimum_viable_slice": {
+    "name": "Architecture Intelligence v1",
+    "required_tasks": [
+      "CCGAI-001",
+      "CCGAI-002",
+      "CCGAI-003",
+      "CCGAI-004",
+      "CCGAI-010",
+      "CCGAI-011",
+      "CCGAI-012",
+      "CCGAI-020",
+      "CCGAI-021",
+      "CCGAI-022",
+      "CCGAI-030",
+      "CCGAI-040",
+      "CCGAI-041",
+      "CCGAI-042",
+      "CCGAI-043",
+      "CCGAI-064",
+      "CCGAI-090",
+      "CCGAI-092",
+      "CCGAI-094",
+      "CCGAI-095"
+    ],
+    "definition_of_done": [
+      "Ein bestehender CodeCompass-Snapshot kann deterministisch in eine Architecture-Projection ueberfuehrt werden.",
+      "Communities, God Nodes, Bridges und Import-/Dependency-Zyklen werden ohne LLM berechnet.",
+      "Zwei kompatible Revisionen koennen auf Graph- und Community-Ebene verglichen werden.",
+      "PR-/Commit-Summary zeigt belegbare Architekturveraenderungen.",
+      "Alle Ergebnisse enthalten Snapshot-, Coverage- und Algorithmus-Provenienz.",
+      "Security-, Diff-Correctness- und Reproducibility-Gates bestehen."
+    ]
+  },
+  "future_extensions": [
+    "Temporal graph history ueber viele Revisionen statt nur paarweisem Diff.",
+    "Architecture trend dashboard mit Community-, Centrality- und Dependency-Zeitreihen.",
+    "Cross-repository community detection fuer grosse Multi-Repo-Systeme.",
+    "Ownership-/CODEOWNERS-Projektion auf Communities und Architecture Hotspots.",
+    "Runtime traces als separat gekennzeichnete dynamische Evidence neben statischen Calls.",
+    "Test coverage heatmap pro Community.",
+    "Security policy / threat-model overlay auf Architecture Communities.",
+    "LLM-gestuetzte Architekturerklaerungen nur als grounded Rendering ueber bereits berechnete Evidence."
+  ],
+  "success_metrics": [
+    "Community Detection ist fuer identische Snapshots reproduzierbar und gegen definierte Golden-Graph-Fixtures stabil.",
+    "Architecture Diff produziert bei reinen Node-Reihenfolge-/Serialisierungsunterschieden keinen semantischen Diff.",
+    "Coverage-Verlust erzeugt keine falschen removed-node/removed-edge Claims.",
+    "Mindestens 90 Prozent der in Architecture Summary gezeigten strukturellen Claims koennen direkt auf Evidence-Pfade/Edges aufgeloest werden; verbleibende Aussagen muessen als inference/anomaly gekennzeichnet sein.",
+    "Agent-Benchmark zeigt gegen den bestehenden Pfad eine messbare Reduktion ungezielter Raw-File-Reads oder Tokens bei gleicher oder besserer Aufgabenqualitaet.",
+    "Standalone HTML und Exporte bestehen Injection-/Escaping-/Scope-Tests.",
+    "Architecture Intelligence bleibt ohne externen Graph-Service und ohne LLM funktionsfaehig."
+  ],
+  "release_gates": [
+    "Contract schemas merged and validated",
+    "Golden graph tests green",
+    "GraphDiff correctness suite green",
+    "Security/export abuse suite green",
+    "Performance budgets documented",
+    "Algorithm versions pinned",
+    "Coverage semantics validated",
+    "No regression to existing CodeCompass query/evidence contracts",
+    "Standalone/export paths respect source authority and tenant scope"
+  ],
+  "notes": [
+    "Graphify dient in diesem Track als externe Referenz fuer gute Produkt-/UX-Ideen, nicht als Architekturautoritaet fuer Ananta.",
+    "Der groesste unmittelbare Mehrwert liegt in Community Detection, Centrality/God Nodes und revisionsuebergreifendem Architecture Diff.",
+    "Wiki, Exporte und Standalone Skill sollten erst auf den stabilen Analysevertraegen aufbauen.",
+    "Graphify-Interop ist bewusst P3, da native CodeCompass-Implementierung die vorhandenen Trust-/Evidence-Vertraege besser bewahrt."
+  ]
+}
