@@ -45,6 +45,8 @@ from agent.common.redaction import VisibilityLevel, redact
 from agent.config import settings
 from agent.database import engine
 from agent.db_models.visual_process import VisualProcessGraphDB
+from agent.services.alias_catalog import default_alias_registry
+from agent.services.alias_registry import ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET
 from agent.services.caseflow_agent_collaboration_trace_projection_service import (
     CASEFLOW_EDGE_CATALOG_METADATA_KEY,
     MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES,
@@ -331,7 +333,29 @@ def _invalid_model_plan() -> dict[str, Any]:
 
 @vp_bp.get("/presets")
 def get_presets():
-    return jsonify(list_presets()), 200
+    """List presets, each carrying the names a person can read and search by.
+
+    The technical id stays the identity; display_name and aliases are added
+    beside it so a client never has to invent a label of its own.
+    """
+
+    registry = default_alias_registry()
+    return (
+        jsonify(
+            [
+                {
+                    **preset,
+                    **registry.describe(
+                        namespace=ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET,
+                        canonical_id=str(preset.get("id") or ""),
+                    ),
+                    "id": preset.get("id"),
+                }
+                for preset in list_presets()
+            ]
+        ),
+        200,
+    )
 
 
 @vp_bp.get("/presets/<preset_id>")

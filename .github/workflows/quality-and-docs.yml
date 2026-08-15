@@ -338,6 +338,8 @@ jobs:
           tests/test_workflow_transition_checkpoint_binding_migration.py
           tests/test_workflow_transition_grant_policy.py
           tests/test_workflow_transition_production_switches.py
+          tests/test_alias_registry.py
+          tests/test_alias_catalog.py
 
   workflow-runtime-security:
     runs-on: ubuntu-latest
