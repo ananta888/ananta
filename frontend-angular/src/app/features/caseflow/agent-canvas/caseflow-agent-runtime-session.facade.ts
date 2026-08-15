@@ -390,15 +390,20 @@ export class CaseFlowAgentRuntimeSessionFacade {
 /**
  * Terminal polling may only stop on trace evidence bound to the terminal run.
  *
- * A decoded trace proves the payload parsed, not that the Hub finished
- * correlating it. An unverified projection is still incomplete, so stopping on
- * it would freeze the canvas on a partial picture of how the run ended.
+ * Three things must hold. The payload decoded, which proves only syntax. The
+ * Hub finished correlating it, because an unverified projection would freeze
+ * the canvas on a partial picture of how the run ended. And the projection
+ * reflects at least the revision this status reported, because a trace built
+ * before the run finished describes a run that had not finished.
+ *
+ * An unstamped projection is treated as unproven rather than fresh, so an
+ * older Hub keeps retrying instead of stopping on evidence it cannot bind.
  */
 function isTerminalTraceComplete(result: PollResult): boolean {
-  return result.kind === 'runtime'
-    && result.terminal
-    && result.trace !== null
-    && result.trace.verification_status === 'verified';
+  if (result.kind !== 'runtime' || !result.terminal || result.trace === null) return false;
+  if (result.trace.verification_status !== 'verified') return false;
+  return result.trace.source_revision !== null
+    && result.trace.source_revision >= result.revision;
 }
 
 function accessRevoked(fence: RequestFence, errorCode: string): PollResult {

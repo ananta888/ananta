@@ -667,9 +667,9 @@
         "recover_command akzeptiert ausschließlich einen exakten command_id- und Payload-/Effect-Fingerprint-Beleg; eine unabhängige spätere Runtime-Revision gilt nie als Ausführungsnachweis.",
         "Fault-Injection- und Restart-Tests an jeder Side-Effect-/Checkpoint-/Binding-Grenze belegen genau einen Task, ein Event, einen Effect und ein terminales Outcome."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 70.0,
       "gate_reason_code": "workflow_command_transition_outbox_required",
-      "notes": "Transition-Outbox, Persistenz (SQLite/PostgreSQL), Fencing, Quarantäne, Receipt-Lease-Heartbeat und die Adapter für ownership_reserve, event_append und side_effect_authorize sind implementiert und getestet. Die Native-Slice ist über workflow_transition_native_composition komponierbar: Planner, Effect-/Finalization-Registry, Binding-Observer, Public-Projector und bounded Drain-Driver, end-to-end getestet. Offen: Anschluss an workflow_control_composition (receipt.transition_id ist noch hart \"\"), queue_reserve- und checkpoint_save-Adapter, LangGraph-Planner, der widerrufsbewusste Grant-Pfad (WorkflowAuthorizationEnvelopeHistoricalIntegrityPort ist deklariert, aber nicht implementiert) sowie die Fault-Injection- und Restart-Tests aus Akzeptanzkriterium 5."
+      "notes": "Umgesetzt: Transition-Outbox, Persistenz, Fencing, Quarantaene, Receipt-Lease-Heartbeat, die Adapter fuer ownership_reserve, event_append und side_effect_authorize, die komponierbare Native-Slice (workflow_transition_native_composition) und deren Anschluss an workflow_control_composition. Der Grant-Effect ist komponierbar: NativeAuthorizationGrantWiring buendelt Autoritaet, retained-key- und widerrufsbewussten Verifizierer, sodass die permissive Haelfte nicht allein konfiguriert werden kann. Kriterium 5 ist belegt: 17 Fault-Injection- und Restart-Tests ueber alle Runner- und Store-Grenzen. Offen und jeweils track-gross: queue_reserve- und checkpoint_save-Adapter (es existieren weder transition-foermige Ports noch Tabellen dafuer) sowie der LangGraph-Pfad, dessen Planner trivial waere, dessen Ingest-Vertrag aber ungeklaert ist."
     },
     {
       "id": "CAC-015",
@@ -696,7 +696,7 @@
     {
       "id": "CAC-016",
       "title": "Terminale Trace-Projektion persistent und vollständig reconciliieren",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -712,9 +712,9 @@
         "Crash-, Restart- und Concurrent-Reconciler-Tests projizieren finale Events und Cursor genau einmal, ohne Duplikate oder erfundene Source-/Run-IDs.",
         "Das Frontend beendet terminales Polling erst nach einem statusgebundenen Trace-Completion-Beleg; syntaktisch gültige, aber stale oder unverified Trace-Daten bleiben retrybar."
       ],
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "gate_reason_code": "workflow_terminal_trace_reconciliation_required",
-      "notes": "Umgesetzt: durables trace_pending am Binding (Migration a1c3e5f7b9d2 mit trace_pending, trace_pending_revision, trace_projected_revision, trace_cursor), WorkflowTerminalTraceReconciler mit CAS-ACK auf der beobachteten Revision, gebundenes History-Paging (workflow_run_history_paging, 600 Events ergeben exakt 256/256/88, ueber 10000 Events fortsetzbar), Cursor auf Sequence beziehungsweise Event-ID statt Listenindex, Crash-, Neustart- und Concurrent-Reconciler-Tests. Verdrahtet: _project markiert terminale Runs pending, reconcile_active drained sie. Frontend beendet terminales Polling nur noch bei verification_status=verified. Offen: die Stale-Haelfte von Kriterium 5 - der Trace-Read-Model-Vertrag traegt keine Revision, ein revisionsgebundener Completion-Beleg braucht daher eine additive Vertragsaenderung in Python und TypeScript."
+      "notes": "Alle fuenf Kriterien erfuellt. Durables trace_pending am Binding (Migration a1c3e5f7b9d2), WorkflowTerminalTraceReconciler mit CAS-ACK auf der beobachteten Revision, gebundenes History-Paging (600 Events ergeben exakt 256/256/88, ueber 10000 Events fortsetzbar), Cursor auf Sequence beziehungsweise Event-ID statt Listenindex, Crash-, Neustart- und Concurrent-Reconciler-Tests. Das Read Model traegt jetzt source_revision; das Frontend beendet terminales Polling nur bei verification_status=verified UND source_revision >= Statusrevision. Ein fehlender Stempel gilt als unbewiesen, nie als frisch, damit ein aelterer Hub lesbar bleibt."
     }
   ],
   "definition_of_done": [
@@ -730,12 +730,12 @@
     "total": 17,
     "by_status": {
       "todo": 1,
-      "in_progress": 2,
+      "in_progress": 1,
       "partial": 1,
       "blocked": 0,
-      "done": 13
+      "done": 14
     },
-    "progress_percent_done": 76.5,
+    "progress_percent_done": 82.4,
     "by_priority": {
       "P0": 11,
       "P1": 5,
@@ -749,8 +749,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 12,
-      "remaining": 4
+      "done": 13,
+      "remaining": 3
     },
     "milestones": {
       "total": 5,
@@ -781,15 +781,15 @@
         "total": 13,
         "by_status": {
           "todo": 0,
-          "in_progress": 2,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
-          "done": 11
+          "done": 12
         },
-        "done": 11,
+        "done": 12,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 95.0
+        "progress_percent": 97.7
       },
       "test": {
         "total": 1,
@@ -824,10 +824,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 31.25,
-    "done_weight": 28.525,
-    "remaining_weight": 2.725,
+    "done_weight": 29.05,
+    "remaining_weight": 2.2,
     "blocked_weight": 0.0,
-    "weighted_percent": 91.3
+    "weighted_percent": 93.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -865,10 +865,10 @@
       },
       "M5": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 56.4,
+        "count_based_percent": 25.0,
+        "weighted_percent": 64.8,
         "status": "in_progress"
       }
     }
@@ -876,20 +876,20 @@
   "progress_summary": {
     "state": "in_progress",
     "todo_remaining": 1,
-    "in_progress": 2,
+    "in_progress": 1,
     "partial": 1,
     "blocked": 0,
-    "done": 13,
-    "count_based_percent": 76.5,
-    "weighted_percent": 91.3
+    "done": 14,
+    "count_based_percent": 82.4,
+    "weighted_percent": 93.0
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-15T12:51:56.101801Z",
+    "generated_at": "2026-08-15T13:54:24.623227Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "0af026eecf5bacf5256c703132e46474fd84981bc3cf31ff4409d6e18caf5c05",
+    "source_hash": "6a29b7503b4c64292274fae81e286fc3957e8b426839246db9a357794208fac5",
     "is_stale": false
   }
 }

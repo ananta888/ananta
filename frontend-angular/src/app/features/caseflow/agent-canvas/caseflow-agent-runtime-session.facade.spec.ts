@@ -202,6 +202,44 @@ describe('CaseFlowAgentRuntimeSessionFacade', () => {
     expect(api.getWorkflowStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps polling a terminal run whose trace was projected at an older revision', () => {
+    vi.useFakeTimers();
+    const { facade, api, statusResponses, traceResponses } = setup({ intervalMs: 50 });
+    facade.attach({ graph_id: 'graph-a', workflow_id: 'graph-a' });
+
+    statusResponses[0].next(runtimeStatus({ revision: 8, status: 'completed' }));
+    traceResponses[0].next(traceReadModel('graph-a', 'run-a', 7));
+    traceResponses[0].complete();
+
+    // A trace built before the run finished describes a run that had not
+    // finished, however well formed it is.
+    expect(facade.state()).toBe('terminal');
+    vi.advanceTimersByTime(50);
+    expect(api.getWorkflowStatus).toHaveBeenCalledTimes(2);
+
+    statusResponses[1].next(runtimeStatus({ revision: 8, status: 'completed' }));
+    traceResponses[1].next(traceReadModel('graph-a', 'run-a', 8));
+    traceResponses[1].complete();
+
+    vi.advanceTimersByTime(500);
+    expect(api.getWorkflowStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps polling when a Hub cannot stamp the revision it projected at', () => {
+    vi.useFakeTimers();
+    const { facade, api, statusResponses, traceResponses } = setup({ intervalMs: 50 });
+    facade.attach({ graph_id: 'graph-a', workflow_id: 'graph-a' });
+
+    statusResponses[0].next(runtimeStatus({ revision: 8, status: 'completed' }));
+    traceResponses[0].next(traceReadModel('graph-a', 'run-a', null));
+    traceResponses[0].complete();
+
+    // Unstamped is unproven, never proven fresh.
+    expect(facade.edgeTraceReadModel()?.source_revision).toBeNull();
+    vi.advanceTimersByTime(50);
+    expect(api.getWorkflowStatus).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps polling a terminal run whose trace projection is not yet verified', () => {
     vi.useFakeTimers();
     const { facade, api, statusResponses, traceResponses } = setup({ intervalMs: 50 });
@@ -391,6 +429,7 @@ function unverifiedTraceReadModel(
 function traceReadModel(
   workflowId = 'graph-a',
   runId = 'run-a',
+  sourceRevision: number | null = 8,
 ): Record<string, unknown> {
   return {
     schema: 'ananta.caseflow_edge_trace_read_model.v1',
@@ -399,6 +438,7 @@ function traceReadModel(
     catalog_verification_status: 'verified',
     verification_status: 'verified',
     reason_code: '',
+    ...(sourceRevision === null ? {} : { source_revision: sourceRevision }),
     edges: [],
     telemetry: {
       source_event_count: 0,

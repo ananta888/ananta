@@ -75,6 +75,7 @@ export function decodeCaseFlowEdgeTraceReadModel(
     catalog_verification_status: verification(value['catalog_verification_status']),
     verification_status: verification(value['verification_status']),
     reason_code: text(value['reason_code'], 512, 'caseflow_edge_trace_reason_invalid'),
+    source_revision: sourceRevision(value['source_revision']),
     edges: Object.freeze(edges),
     telemetry: decodeProjectionTelemetry(value['telemetry']),
   });
@@ -141,6 +142,18 @@ export function resolveCaseFlowMessageTelemetry(
     telemetry_index: candidates[0].index,
     correlation_ref: correlationRef,
   });
+}
+
+/**
+ * An absent stamp is tolerated so an older Hub stays readable, but a malformed
+ * one is not: a garbled revision would be indistinguishable from a fresh one.
+ */
+function sourceRevision(raw: unknown): number | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'number' || !Number.isSafeInteger(raw) || raw < 0) {
+    fail('caseflow_edge_trace_source_revision_invalid');
+  }
+  return raw as number;
 }
 
 function decodeEdge(raw: unknown, index: number): CaseFlowEdgeTraceProjection {

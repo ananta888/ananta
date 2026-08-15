@@ -33,6 +33,10 @@ from agent.services.workflow_runtime.events import (
 )
 from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyEventStore
 from agent.services.workflow_runtime.sqlalchemy_ownership import SQLAlchemyExecutionOwnershipStore
+from agent.services.workflow_transition_authorization_grant import (
+    WorkflowTransitionAuthorizationGrantExecutor,
+    WorkflowTransitionAuthorizationGrantObserver,
+)
 from agent.services.workflow_transition_effect_execution import (
     BoundedWorkflowTransitionRetryPolicy,
     FinalizationObservationResult,
@@ -56,6 +60,7 @@ from agent.services.workflow_transition_event_effect import (
     workflow_transition_event_id,
 )
 from agent.services.workflow_transition_outbox import (
+    EFFECT_AUTHORIZATION_GRANT,
     EFFECT_BINDING_FINALIZE,
     EFFECT_EVENT_APPEND,
     EFFECT_OWNERSHIP_RESERVE,
@@ -340,6 +345,32 @@ class NativeTransitionPublicProjector:
         }
 
 
+@final
+@dataclass(frozen=True, slots=True)
+class NativeAuthorizationGrantWiring:
+    """Everything the grant effect needs, or nothing at all.
+
+    Historical integrity and current authority stay two distinct verifiers on
+    purpose.  The retained-key verifier proves only that an existing issuance
+    was signed, so it must never authorize a new grant; the current verifier is
+    revocation aware and is the one consulted immediately before the commit.
+    Bundling them means a deployment cannot accidentally configure only the
+    permissive half.
+    """
+
+    authority: Any
+    historical_integrity: Any
+    current_verifier: Any
+
+    def __post_init__(self) -> None:
+        historical = getattr(self.historical_integrity, "signature_algorithm", None)
+        current = getattr(self.current_verifier, "signature_algorithm", None)
+        if historical != current or not isinstance(historical, str) or not historical:
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_grant_algorithm_mismatch")
+        if self.historical_integrity is self.current_verifier:
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_grant_verifier_shared")
+
+
 def build_native_transition_effect_registry(
     *,
     ownership_authority: WorkflowTransitionOwnershipReservationAuthority,
@@ -347,13 +378,42 @@ def build_native_transition_effect_registry(
     event_authority: WorkflowTransitionEventAuthority,
     event_reads: WorkflowTransitionEventObservationReadPort,
     clock: Callable[[], float],
+    authorization_grants: NativeAuthorizationGrantWiring | None = None,
 ) -> WorkflowTransitionEffectExecutorRegistry:
-    """Register exactly the Native effect kinds that have a proven adapter."""
+    """Register exactly the Native effect kinds that have a proven adapter.
+
+    The authorization grant is opt in.  A deployment that never issues grants
+    should not carry a resolvable grant executor, because an effect kind that
+    resolves is an effect kind that can run.
+    """
 
     if not callable(clock):
         raise WorkflowTransitionNativeCompositionError("workflow_transition_native_clock_invalid")
+    grant_registrations: tuple[WorkflowTransitionEffectRegistration, ...] = ()
+    if authorization_grants is not None:
+        grant_registrations = (
+            WorkflowTransitionEffectRegistration(
+                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                effect_kind=EFFECT_AUTHORIZATION_GRANT,
+                handler=WorkflowTransitionEffectHandler(
+                    observation=WorkflowTransitionAuthorizationGrantObserver(
+                        reads=authorization_grants.authority,
+                        historical_integrity=authorization_grants.historical_integrity,
+                        current_verifier=authorization_grants.current_verifier,
+                        clock=clock,
+                    ),
+                    execution=WorkflowTransitionAuthorizationGrantExecutor(
+                        authority=authorization_grants.authority,
+                        historical_integrity=authorization_grants.historical_integrity,
+                        current_verifier=authorization_grants.current_verifier,
+                        clock=clock,
+                    ),
+                ),
+            ),
+        )
     return WorkflowTransitionEffectExecutorRegistry(
         (
+            *grant_registrations,
             WorkflowTransitionEffectRegistration(
                 runtime_id=TRANSITION_RUNTIME_NATIVE,
                 effect_kind=EFFECT_OWNERSHIP_RESERVE,
@@ -549,6 +609,7 @@ def _step_id(receipt: WorkflowControlCommandReceipt) -> str:
 __all__ = [
     "NATIVE_COMMAND_EVENT_TYPE",
     "NativeBindingFinalizationObserver",
+    "NativeAuthorizationGrantWiring",
     "NativeCommandTransitionIntentFactory",
     "NativeTransitionPublicProjector",
     "WorkflowBindingStatusReadPort",

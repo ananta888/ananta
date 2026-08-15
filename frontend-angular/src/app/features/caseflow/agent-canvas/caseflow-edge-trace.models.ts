@@ -102,6 +102,11 @@ export interface CaseFlowEdgeTraceReadModel {
   /** Hub order is authoritative and must not be rearranged by clients. */
   readonly edges: readonly CaseFlowEdgeTraceProjection[];
   readonly telemetry: CaseFlowEdgeTraceProjectionTelemetry;
+  /**
+   * Runtime revision this projection reflects, or null when the Hub could not
+   * establish one. Null means freshness is unproven, never proven fresh.
+   */
+  readonly source_revision: number | null;
 }
 
 export interface CaseFlowEdgeTraceScope {

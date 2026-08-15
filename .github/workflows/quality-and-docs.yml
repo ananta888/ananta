@@ -331,6 +331,7 @@ jobs:
           tests/test_workflow_terminal_trace_reconciliation.py
           tests/test_workflow_binding_trace_migration.py
           tests/test_workflow_control_composition.py
+          tests/test_caseflow_trace_freshness_stamp.py
 
   workflow-runtime-security:
     runs-on: ubuntu-latest

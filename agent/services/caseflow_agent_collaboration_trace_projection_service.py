@@ -34,9 +34,7 @@ from agent.visual_process.edge_catalog_contract import (
 )
 
 CASEFLOW_EDGE_TRACE_QUERY_SCHEMA = "ananta.caseflow_edge_trace_query.v1"
-CASEFLOW_EDGE_TRACE_READ_MODEL_SCHEMA = (
-    "ananta.caseflow_edge_trace_read_model.v1"
-)
+CASEFLOW_EDGE_TRACE_READ_MODEL_SCHEMA = "ananta.caseflow_edge_trace_read_model.v1"
 
 MAX_CASEFLOW_EDGE_TRACE_QUERY_BYTES = 4 * 1024
 MAX_CASEFLOW_TRACE_EVENTS = 2048
@@ -78,9 +76,7 @@ _TERMINAL_EVENT_SUFFIXES = (
     ".succeeded",
 )
 _ACTIVE_STATUSES = frozenset({"active", "delegated", "running", "started"})
-_TERMINAL_STATUSES = frozenset(
-    {"cancelled", "canceled", "completed", "failed", "rejected", "skipped", "succeeded"}
-)
+_TERMINAL_STATUSES = frozenset({"cancelled", "canceled", "completed", "failed", "rejected", "skipped", "succeeded"})
 
 
 class CaseflowEdgeTraceProjectionError(ValueError):
@@ -175,6 +171,12 @@ class WorkflowHistoryReadPort(Protocol):
     def list_workflow_events(self, workflow_id: str) -> Sequence[Mapping[str, Any]]: ...
 
 
+class WorkflowStatusReadPort(Protocol):
+    """Optional authoritative status read used to stamp projection freshness."""
+
+    def get_workflow_status(self, workflow_id: str) -> Mapping[str, Any]: ...
+
+
 class CaseflowAgentCollaborationTraceProjectionService:
     """Build a deterministic, tenant-bound projection from existing Hub facts."""
 
@@ -211,14 +213,27 @@ class CaseflowAgentCollaborationTraceProjectionService:
                 "caseflow_edge_trace_history_invalid",
                 status_code=502,
             )
-        return self.project(binding=binding, raw_events=raw_events)
+        return self.project(
+            binding=binding,
+            raw_events=raw_events,
+            source_revision=_observed_revision(history, workflow_id),
+        )
 
     def project(
         self,
         *,
         binding: Any,
         raw_events: Sequence[Mapping[str, Any]],
+        source_revision: int | None = None,
     ) -> dict[str, Any]:
+        """Project one run's trace, stamped with the revision it was built at.
+
+        The stamp is what lets a client tell a current projection from a stale
+        one.  It is omitted rather than guessed when the authoritative status
+        is unavailable: a fabricated revision would defeat the very staleness
+        check it exists to enable.
+        """
+
         workflow_id = _required_identity(binding.workflow_id, "workflow_id")
         run_id = _required_identity(binding.run_id, "run_id")
         tenant_id = _required_identity(binding.tenant_id, "tenant_id")
@@ -250,48 +265,71 @@ class CaseflowAgentCollaborationTraceProjectionService:
                     truncated_event_count=truncated_event_count,
                     correlated_edge_count=0,
                 ),
+                **_freshness_stamp(source_revision),
             }
 
         projected = _project_edges(catalog, ordered)
-        projection_verified = all(
-            edge["verification_status"] == "verified" for edge in projected
-        )
+        projection_verified = all(edge["verification_status"] == "verified" for edge in projected)
         return {
             "schema": CASEFLOW_EDGE_TRACE_READ_MODEL_SCHEMA,
             "workflow_id": workflow_id,
             "run_id": run_id,
             "catalog_verification_status": "verified",
-            "verification_status": (
-                "verified" if projection_verified else "unverified"
-            ),
-            "reason_code": (
-                "" if projection_verified else "caseflow_edge_evidence_incomplete"
-            ),
+            "verification_status": ("verified" if projection_verified else "unverified"),
+            "reason_code": ("" if projection_verified else "caseflow_edge_evidence_incomplete"),
             "edges": projected,
             "telemetry": _projection_telemetry(
                 source_event_count=source_event_count,
                 processed_event_count=len(ordered),
                 rejected_event_count=rejected_count,
                 truncated_event_count=truncated_event_count,
-                correlated_edge_count=sum(
-                    edge["verification_status"] == "verified" for edge in projected
-                ),
+                correlated_edge_count=sum(edge["verification_status"] == "verified" for edge in projected),
             ),
+            **_freshness_stamp(source_revision),
         }
 
 
-def get_caseflow_agent_collaboration_trace_projection_service() -> (
-    CaseflowAgentCollaborationTraceProjectionService
-):
+def _freshness_stamp(source_revision: int | None) -> dict[str, Any]:
+    """Stamp the runtime revision a projection reflects, when it is known."""
+
+    if isinstance(source_revision, bool) or not isinstance(source_revision, int):
+        return {}
+    if source_revision < 0:
+        return {}
+    return {"source_revision": source_revision}
+
+
+def _observed_revision(history: Any, workflow_id: str) -> int | None:
+    """Read the authoritative revision this projection is being built at.
+
+    A history port that cannot report status simply yields no stamp.  Failing
+    the whole trace read over a missing freshness marker would be worse than
+    serving a projection a client must treat as unproven.
+    """
+
+    reader = getattr(history, "get_workflow_status", None)
+    if not callable(reader):
+        return None
+    try:
+        status = reader(workflow_id)
+    except Exception:
+        return None
+    if not isinstance(status, Mapping):
+        return None
+    revision = status.get("revision")
+    if isinstance(revision, bool) or not isinstance(revision, int) or revision < 0:
+        return None
+    return int(revision)
+
+
+def get_caseflow_agent_collaboration_trace_projection_service() -> CaseflowAgentCollaborationTraceProjectionService:
     """Bind the projection to the active Hub control-plane binding store."""
 
     from agent.services.workflow_control_composition import (
         get_workflow_backend_control_facade,
     )
 
-    return CaseflowAgentCollaborationTraceProjectionService(
-        get_workflow_backend_control_facade().bindings
-    )
+    return CaseflowAgentCollaborationTraceProjectionService(get_workflow_backend_control_facade().bindings)
 
 
 def _required_identity(value: Any, field_name: str) -> str:
@@ -341,11 +379,7 @@ def _catalog_from_binding(
     if rebuilt != dict(raw):
         return None, "caseflow_edge_catalog_unverified"
     request_steps = getattr(request, "steps", ())
-    step_ids = {
-        getattr(step, "step_id", "")
-        for step in request_steps
-        if getattr(step, "step_id", "")
-    }
+    step_ids = {getattr(step, "step_id", "") for step in request_steps if getattr(step, "step_id", "")}
     dependencies = {
         getattr(step, "step_id", ""): set(getattr(step, "depends_on", ()))
         for step in request_steps
@@ -355,10 +389,7 @@ def _catalog_from_binding(
     if any(
         edge.source_step_id not in step_ids
         or edge.target_step_id not in step_ids
-        or (
-            edge.edge_kind == "dependency"
-            and edge.source_step_id not in dependencies.get(edge.target_step_id, set())
-        )
+        or (edge.edge_kind == "dependency" and edge.source_step_id not in dependencies.get(edge.target_step_id, set()))
         for edge in edges
     ):
         return None, "caseflow_edge_catalog_topology_mismatch"
@@ -470,16 +501,10 @@ def _bounded_fingerprint_value(value: Any, *, depth: int = 0) -> Any:
         return type(value).__name__
     if isinstance(value, Mapping):
         items = sorted(value.items(), key=lambda item: str(item[0]))[:32]
-        return {
-            str(key)[:128]: _bounded_fingerprint_value(item, depth=depth + 1)
-            for key, item in items
-        }
+        return {str(key)[:128]: _bounded_fingerprint_value(item, depth=depth + 1) for key, item in items}
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
         return {
-            "items": [
-                _bounded_fingerprint_value(item, depth=depth + 1)
-                for item in value[:MAX_CASEFLOW_EDGE_MESSAGES]
-            ],
+            "items": [_bounded_fingerprint_value(item, depth=depth + 1) for item in value[:MAX_CASEFLOW_EDGE_MESSAGES]],
             "length": len(value),
         }
     return type(value).__name__
@@ -552,19 +577,11 @@ def _normalize_events(
             or raw_payload.get("trace_id")
             or raw_payload.get("trace_bundle_ref")
         )
-        agent_run_ref = _optional_reference(
-            raw.get("agent_run_id") or raw_payload.get("agent_run_id")
-        )
-        correlation_ref = _optional_reference(
-            raw.get("correlation_id") or raw_payload.get("correlation_id")
-        )
-        causation_ref = _optional_reference(
-            raw.get("causation_id") or raw_payload.get("causation_id")
-        )
+        agent_run_ref = _optional_reference(raw.get("agent_run_id") or raw_payload.get("agent_run_id"))
+        correlation_ref = _optional_reference(raw.get("correlation_id") or raw_payload.get("correlation_id"))
+        causation_ref = _optional_reference(raw.get("causation_id") or raw_payload.get("causation_id"))
         status = _safe_text(
-            raw.get("status")
-            or raw_payload.get("status")
-            or raw_payload.get("legacy_status"),
+            raw.get("status") or raw_payload.get("status") or raw_payload.get("legacy_status"),
             maximum=64,
         ).lower()
         sequence = _positive_integer(raw.get("sequence"))
@@ -614,9 +631,7 @@ def _project_edges(
     events: Sequence[_TraceEvent],
 ) -> list[dict[str, Any]]:
     by_id = {edge.edge_id: edge for edge in catalog}
-    by_direction: dict[
-        tuple[str, str], list[CanonicalVisualProcessEdge]
-    ] = defaultdict(list)
+    by_direction: dict[tuple[str, str], list[CanonicalVisualProcessEdge]] = defaultdict(list)
     incoming: dict[str, list[CanonicalVisualProcessEdge]] = defaultdict(list)
     for edge in catalog:
         by_direction[(edge.source_step_id, edge.target_step_id)].append(edge)
@@ -630,12 +645,8 @@ def _project_edges(
             edge = by_id.get(event.edge_id)
             if edge is None:
                 continue
-            if (
-                event.source_step_id
-                and event.source_step_id != edge.source_step_id
-            ) or (
-                event.target_step_id
-                and event.target_step_id != edge.target_step_id
+            if (event.source_step_id and event.source_step_id != edge.source_step_id) or (
+                event.target_step_id and event.target_step_id != edge.target_step_id
             ):
                 conflicts.add(edge.edge_id)
                 continue
@@ -643,9 +654,7 @@ def _project_edges(
             bases[edge.edge_id] = "explicit_edge_id"
             continue
         if event.source_step_id and event.target_step_id:
-            candidates = by_direction.get(
-                (event.source_step_id, event.target_step_id), []
-            )
+            candidates = by_direction.get((event.source_step_id, event.target_step_id), [])
             if len(candidates) == 1:
                 edge = candidates[0]
                 correlated[edge.edge_id].append(event)
@@ -706,20 +715,14 @@ def _infer_unique_dependency_events(
     target_incoming = incoming.get(edge.target_step_id, ())
     if len(target_incoming) != 1 or target_incoming[0].edge_id != edge.edge_id:
         return ()
-    target_active = [
-        event
-        for event in events
-        if event.step_id == edge.target_step_id and event.activity == "active"
-    ]
+    target_active = [event for event in events if event.step_id == edge.target_step_id and event.activity == "active"]
     if not target_active:
         return ()
     active = target_active[-1]
     source_terminal = [
         event
         for event in events
-        if event.step_id == edge.source_step_id
-        and event.activity == "inactive"
-        and event.order_key < active.order_key
+        if event.step_id == edge.source_step_id and event.activity == "inactive" and event.order_key < active.order_key
     ]
     if not source_terminal:
         return ()
@@ -727,9 +730,7 @@ def _infer_unique_dependency_events(
     target_terminal = [
         event
         for event in events
-        if event.step_id == edge.target_step_id
-        and event.activity == "inactive"
-        and event.order_key > active.order_key
+        if event.step_id == edge.target_step_id and event.activity == "inactive" and event.order_key > active.order_key
     ]
     if target_terminal:
         evidence.append(target_terminal[-1])
@@ -779,12 +780,8 @@ def _edge_projection(
         "limits": {
             "messages_truncated": max(0, len(messages) - MAX_CASEFLOW_EDGE_MESSAGES),
             "telemetry_truncated": max(0, len(telemetry) - MAX_CASEFLOW_EDGE_TELEMETRY),
-            "event_refs_truncated": max(
-                0, len(all_event_refs) - MAX_CASEFLOW_EDGE_REFERENCES
-            ),
-            "trace_refs_truncated": max(
-                0, len(all_trace_refs) - MAX_CASEFLOW_EDGE_REFERENCES
-            ),
+            "event_refs_truncated": max(0, len(all_event_refs) - MAX_CASEFLOW_EDGE_REFERENCES),
+            "trace_refs_truncated": max(0, len(all_trace_refs) - MAX_CASEFLOW_EDGE_REFERENCES),
         },
     }
 
@@ -830,9 +827,7 @@ def _messages(event: _TraceEvent) -> list[dict[str, Any]]:
                 "trace_ref": event.trace_ref or None,
                 "correlation_ref": correlation_ref or None,
                 "occurred_at": event.occurred_at,
-                "verification_status": (
-                    "verified" if correlation_ref else "unverified"
-                ),
+                "verification_status": ("verified" if correlation_ref else "unverified"),
                 "truncated": source_truncated or len(content) > len(safe_content),
             }
         )
@@ -852,21 +847,14 @@ def _telemetry(event: _TraceEvent) -> dict[str, Any]:
         "sequence": event.sequence,
         "occurred_at": event.occurred_at,
         "status": event.status or None,
-        "duration_ms": _non_negative_number(
-            payload.get("duration_ms") or payload.get("latency_ms")
-        ),
+        "duration_ms": _non_negative_number(payload.get("duration_ms") or payload.get("latency_ms")),
         "model": _safe_text(payload.get("model"), maximum=160) or None,
         "provider": _safe_text(payload.get("provider"), maximum=160) or None,
         "token_usage": _bounded_scalar_mapping(payload.get("token_usage")),
         "cost_micros": _non_negative_integer(payload.get("cost_micros")),
-        "tool": _safe_text(
-            payload.get("tool") or payload.get("tool_name"), maximum=160
-        )
-        or None,
+        "tool": _safe_text(payload.get("tool") or payload.get("tool_name"), maximum=160) or None,
         "error": _safe_text(
-            payload.get("error")
-            or payload.get("reason_code")
-            or payload.get("last_error"),
+            payload.get("error") or payload.get("reason_code") or payload.get("last_error"),
             maximum=512,
         )
         or None,

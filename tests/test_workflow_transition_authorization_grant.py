@@ -2043,11 +2043,16 @@ def test_sql_raw_projection_tampering_is_never_adopted(
     assert type(observed) is EffectQuarantine
 
 
-def test_authorization_grant_effect_remains_unwired_in_production() -> None:
+def test_authorization_grant_effect_is_imported_only_by_the_cutover_composition() -> None:
     root = Path(__file__).resolve().parents[1]
+    # The Native cutover composition is the single sanctioned importer, and it
+    # registers the grant only when a deployment supplies both verifiers.  Any
+    # other production import would reach the permissive historical verifier
+    # without the revocation-aware one beside it.
     approved = {
         root / "agent/services/workflow_transition_authorization_grant.py",
         root / "agent/services/workflow_authorization_grant_service.py",
+        root / "agent/services/workflow_transition_native_composition.py",
     }
     violations: list[str] = []
     for path in (root / "agent").rglob("*.py"):
