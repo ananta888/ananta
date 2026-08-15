@@ -365,6 +365,7 @@ from .workflow_runtime import (
     WorkflowSideEffectLedgerDB,
     WorkflowTransitionEffectDB,
     WorkflowTransitionOutboxDB,
+    WorkflowTransitionOwnershipReservationDB,
     WorkflowTransitionSideEffectAuthorizationDB,
     WorkflowWorkerAssignmentDB,
 )
@@ -627,6 +628,7 @@ __all__ = [
     "WorkflowSideEffectLedgerDB",
     "WorkflowTransitionSideEffectAuthorizationDB",
     "WorkflowTransitionEffectDB",
+    "WorkflowTransitionOwnershipReservationDB",
     "WorkflowTransitionOutboxDB",
     "WorkflowDefinitionRevisionDB",
     "ToolCallDB",
