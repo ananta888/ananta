@@ -17,7 +17,10 @@ from agent.services.workflow_control_command_receipts import (
     COMMAND_RECEIPT_PENDING,
     WorkflowControlCommandReceipt,
 )
-from agent.services.workflow_control_composition import AuthorizedWorkflowBackend
+from agent.services.workflow_control_composition import (
+    AuthorizedWorkflowBackend,
+    ConfiguredWorkflowBackendBridge,
+)
 from agent.services.workflow_transition_native_composition import (
     WorkflowCommandTransitionRuntime,
     WorkflowTransitionDriver,
@@ -230,3 +233,65 @@ def test_drive_report_is_countable_for_the_reconcile_summary() -> None:
         "processed": 2,
         "outcomes": ["progressed", "completed"],
     }
+
+
+class _TraceState:
+    def __init__(self) -> None:
+        self.marked: list[tuple[str, int]] = []
+        self.error: Exception | None = None
+
+    def mark_pending(self, workflow_id: str, *, revision: int) -> None:
+        if self.error is not None:
+            raise self.error
+        self.marked.append((workflow_id, revision))
+
+    def list_pending(self, *, limit: int) -> tuple[Any, ...]:
+        del limit
+        return ()
+
+    def acknowledge(self, workflow_id: str, *, revision: int, cursor: str) -> bool:
+        del workflow_id, revision, cursor
+        return True
+
+
+def _bridge(trace_state: Any) -> Any:
+    bridge = ConfiguredWorkflowBackendBridge.__new__(ConfiguredWorkflowBackendBridge)
+    bridge._trace_state = trace_state  # type: ignore[attr-defined]
+    bridge._read_models = None  # type: ignore[attr-defined]
+    return bridge
+
+
+def test_a_terminal_status_marks_the_trace_pending_at_its_own_revision() -> None:
+    state = _TraceState()
+    bridge = _bridge(state)
+
+    bridge._project(_binding(), {"status": "completed", "revision": 9})
+
+    assert state.marked == [("workflow-a", 9)]
+
+
+def test_a_running_status_never_marks_a_trace_pending() -> None:
+    state = _TraceState()
+    bridge = _bridge(state)
+
+    bridge._project(_binding(), {"status": "running", "revision": 9})
+
+    assert state.marked == []
+
+
+def test_an_unavailable_trace_store_never_fails_the_run_it_was_bookkeeping_for() -> None:
+    """Marking is bookkeeping; a run must not break because it was unavailable."""
+
+    state = _TraceState()
+    state.error = TimeoutError("trace state unavailable")
+    bridge = _bridge(state)
+
+    bridge._project(_binding(), {"status": "completed", "revision": 9})
+
+    assert state.marked == []
+
+
+def test_a_deployment_without_trace_state_keeps_its_previous_projection_path() -> None:
+    bridge = _bridge(None)
+
+    bridge._project(_binding(), {"status": "completed", "revision": 9})

@@ -564,6 +564,22 @@ class WorkflowControlBindingDB(SQLModel, table=True):
     )
     scheduler_owner: str = Field(default="", index=True)
     scheduler_lease_expires_at: float = Field(default=0.0, index=True)
+    # Terminal trace projection is durable, not best effort: a run that reached
+    # a terminal state stays pending until a projection acknowledges it, so a
+    # restart resumes the reconciliation instead of losing the final trace.
+    trace_pending: bool = Field(default=False, index=True)
+    trace_pending_revision: int = Field(
+        default=0,
+        sa_column=Column(sa.Integer, nullable=False, server_default="0"),
+    )
+    trace_projected_revision: int = Field(
+        default=0,
+        sa_column=Column(sa.Integer, nullable=False, server_default="0"),
+    )
+    trace_cursor: str = Field(
+        default="",
+        sa_column=Column(sa.String(256), nullable=False, server_default=""),
+    )
     revision: int = 1
     created_at: float = Field(index=True)
     updated_at: float = Field(index=True)

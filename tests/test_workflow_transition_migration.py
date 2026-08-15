@@ -456,7 +456,7 @@ def test_transition_migration_fails_closed_without_c7_prerequisites(
 
 def test_transition_migration_is_the_single_head_after_c7() -> None:
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert scripts.get_heads() == ["f0b2d4e6a8c1"]
+    assert scripts.get_heads() == ["a1c3e5f7b9d2"]
     migration = scripts.get_revision("d8f0a2c4e6b8")
     assert migration is not None
     assert migration.down_revision == "c7e9a1b3d5f7"
@@ -466,3 +466,6 @@ def test_transition_migration_is_the_single_head_after_c7() -> None:
     ownership_migration = scripts.get_revision("f0b2d4e6a8c1")
     assert ownership_migration is not None
     assert ownership_migration.down_revision == "e9a2c4d6f8b0"
+    trace_migration = scripts.get_revision("a1c3e5f7b9d2")
+    assert trace_migration is not None
+    assert trace_migration.down_revision == "f0b2d4e6a8c1"

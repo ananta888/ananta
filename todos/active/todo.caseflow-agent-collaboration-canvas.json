@@ -696,7 +696,7 @@
     {
       "id": "CAC-016",
       "title": "Terminale Trace-Projektion persistent und vollständig reconciliieren",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -712,8 +712,9 @@
         "Crash-, Restart- und Concurrent-Reconciler-Tests projizieren finale Events und Cursor genau einmal, ohne Duplikate oder erfundene Source-/Run-IDs.",
         "Das Frontend beendet terminales Polling erst nach einem statusgebundenen Trace-Completion-Beleg; syntaktisch gültige, aber stale oder unverified Trace-Daten bleiben retrybar."
       ],
-      "progress_percent": 0.0,
-      "gate_reason_code": "workflow_terminal_trace_reconciliation_required"
+      "progress_percent": 80.0,
+      "gate_reason_code": "workflow_terminal_trace_reconciliation_required",
+      "notes": "Umgesetzt: durables trace_pending am Binding (Migration a1c3e5f7b9d2 mit trace_pending, trace_pending_revision, trace_projected_revision, trace_cursor), WorkflowTerminalTraceReconciler mit CAS-ACK auf der beobachteten Revision, gebundenes History-Paging (workflow_run_history_paging, 600 Events ergeben exakt 256/256/88, ueber 10000 Events fortsetzbar), Cursor auf Sequence beziehungsweise Event-ID statt Listenindex, Crash-, Neustart- und Concurrent-Reconciler-Tests. Verdrahtet: _project markiert terminale Runs pending, reconcile_active drained sie. Frontend beendet terminales Polling nur noch bei verification_status=verified. Offen: die Stale-Haelfte von Kriterium 5 - der Trace-Read-Model-Vertrag traegt keine Revision, ein revisionsgebundener Completion-Beleg braucht daher eine additive Vertragsaenderung in Python und TypeScript."
     }
   ],
   "definition_of_done": [
@@ -728,8 +729,8 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 2,
-      "in_progress": 1,
+      "todo": 1,
+      "in_progress": 2,
       "partial": 1,
       "blocked": 0,
       "done": 13
@@ -779,8 +780,8 @@
       "implementation": {
         "total": 13,
         "by_status": {
-          "todo": 1,
-          "in_progress": 1,
+          "todo": 0,
+          "in_progress": 2,
           "partial": 0,
           "blocked": 0,
           "done": 11
@@ -788,7 +789,7 @@
         "done": 11,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 88.8
+        "progress_percent": 95.0
       },
       "test": {
         "total": 1,
@@ -823,10 +824,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 31.25,
-    "done_weight": 27.325,
-    "remaining_weight": 3.925,
+    "done_weight": 28.525,
+    "remaining_weight": 2.725,
     "blocked_weight": 0.0,
-    "weighted_percent": 87.4
+    "weighted_percent": 91.3
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -867,28 +868,28 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 37.2,
+        "weighted_percent": 56.4,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 2,
-    "in_progress": 1,
+    "todo_remaining": 1,
+    "in_progress": 2,
     "partial": 1,
     "blocked": 0,
     "done": 13,
     "count_based_percent": 76.5,
-    "weighted_percent": 87.4
+    "weighted_percent": 91.3
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-15T11:41:53.504733Z",
+    "generated_at": "2026-08-15T12:51:56.101801Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ff62b30b97531977987ec407aa4092edbefd68ce9f6477f574e9ce9662d90285",
+    "source_hash": "0af026eecf5bacf5256c703132e46474fd84981bc3cf31ff4409d6e18caf5c05",
     "is_stale": false
   }
 }

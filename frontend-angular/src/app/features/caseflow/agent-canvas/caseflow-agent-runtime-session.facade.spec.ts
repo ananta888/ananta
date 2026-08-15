@@ -202,6 +202,31 @@ describe('CaseFlowAgentRuntimeSessionFacade', () => {
     expect(api.getWorkflowStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps polling a terminal run whose trace projection is not yet verified', () => {
+    vi.useFakeTimers();
+    const { facade, api, statusResponses, traceResponses } = setup({ intervalMs: 50 });
+    facade.attach({ graph_id: 'graph-a', workflow_id: 'graph-a' });
+
+    statusResponses[0].next(runtimeStatus({ revision: 8, status: 'completed' }));
+    traceResponses[0].next(unverifiedTraceReadModel());
+    traceResponses[0].complete();
+
+    // The payload decodes, so it is shown, but an incomplete correlation is not
+    // the completion evidence that may end terminal polling.
+    expect(facade.state()).toBe('terminal');
+    expect(facade.edgeTraceReadModel()?.verification_status).toBe('unverified');
+    vi.advanceTimersByTime(50);
+    expect(api.getWorkflowStatus).toHaveBeenCalledTimes(2);
+
+    statusResponses[1].next(runtimeStatus({ revision: 8, status: 'completed' }));
+    traceResponses[1].next(traceReadModel());
+    traceResponses[1].complete();
+
+    expect(facade.edgeTraceReadModel()?.verification_status).toBe('verified');
+    vi.advanceTimersByTime(500);
+    expect(api.getWorkflowStatus).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps a terminal trace failure explicitly unavailable and retries until final trace arrives', () => {
     vi.useFakeTimers();
     const { facade, api, statusResponses, traceResponses } = setup({ intervalMs: 50 });
@@ -350,6 +375,17 @@ function terminalStepStatus(status: string): string {
   if (['cancelled', 'canceled'].includes(status)) return 'cancelled';
   if (status === 'skipped') return 'skipped';
   return 'running';
+}
+
+function unverifiedTraceReadModel(
+  workflowId = 'graph-a',
+  runId = 'run-a',
+): Record<string, unknown> {
+  return {
+    ...traceReadModel(workflowId, runId),
+    verification_status: 'unverified',
+    reason_code: 'caseflow_edge_evidence_incomplete',
+  };
 }
 
 function traceReadModel(

@@ -304,9 +304,10 @@ jobs:
           retention-days: 14
 
   workflow-transition-track:
-    # The transition track is unwired production code guarded entirely by its
-    # own tests, so nothing else would notice a regression.  The glob is
-    # deliberate: new transition modules join this gate without an edit here.
+    # The transition track and the terminal trace path it feeds are guarded
+    # almost entirely by their own tests, so nothing else would notice a
+    # regression.  The globs are deliberate: a new transition or trace module
+    # joins this gate without an edit here.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -326,6 +327,10 @@ jobs:
           pytest -q
           tests/test_workflow_transition_*.py
           tests/test_workflow_command_transition_admission.py
+          tests/test_workflow_run_history_paging.py
+          tests/test_workflow_terminal_trace_reconciliation.py
+          tests/test_workflow_binding_trace_migration.py
+          tests/test_workflow_control_composition.py
 
   workflow-runtime-security:
     runs-on: ubuntu-latest

@@ -229,7 +229,7 @@ export class CaseFlowAgentRuntimeSessionFacade {
         const suspendAuto = boundedNoRun
           || result.kind === 'access_revoked'
           || result.kind === 'invalid_contract'
-          || (result.kind === 'runtime' && result.terminal && result.trace !== null);
+          || isTerminalTraceComplete(result);
         autoSuspended = suspendAuto;
         return Object.freeze({
           result,
@@ -385,6 +385,20 @@ export class CaseFlowAgentRuntimeSessionFacade {
     this.edgeTraceReadModel.set(null);
     this.errorCode.set(null);
   }
+}
+
+/**
+ * Terminal polling may only stop on trace evidence bound to the terminal run.
+ *
+ * A decoded trace proves the payload parsed, not that the Hub finished
+ * correlating it. An unverified projection is still incomplete, so stopping on
+ * it would freeze the canvas on a partial picture of how the run ended.
+ */
+function isTerminalTraceComplete(result: PollResult): boolean {
+  return result.kind === 'runtime'
+    && result.terminal
+    && result.trace !== null
+    && result.trace.verification_status === 'verified';
 }
 
 function accessRevoked(fence: RequestFence, errorCode: string): PollResult {

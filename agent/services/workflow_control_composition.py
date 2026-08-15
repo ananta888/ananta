@@ -15,6 +15,7 @@ from __future__ import annotations
 import threading
 import time
 import uuid
+from collections.abc import Mapping
 from dataclasses import replace
 from secrets import token_bytes
 from typing import Any
@@ -138,6 +139,7 @@ from agent.services.workflow_route_authorization_service import (
     WorkflowRoutePrincipal,
     workflow_route_authorization_service,
 )
+from agent.services.workflow_run_history_paging import page_workflow_run_history
 from agent.services.workflow_runtime.commands import (
     SignedWorkflowCommand,
     WorkflowCommandIssuer,
@@ -171,6 +173,12 @@ from agent.services.workflow_runtime_selection_service import (
     WorkflowRuntimeProfileService,
 )
 from agent.services.workflow_runtime_status_projection import authoritative_runtime_status
+from agent.services.workflow_terminal_trace_reconciliation import (
+    WorkflowTerminalTraceReconciler,
+    WorkflowTerminalTraceStatePort,
+    is_terminal_status,
+    status_revision,
+)
 from agent.services.workflow_transition_native_composition import WorkflowCommandTransitionRuntime
 from agent.services.workflow_transition_public_projection import canonical_workflow_public_status
 from ananta_contracts.temporal_workflow import (
@@ -238,9 +246,11 @@ class ConfiguredWorkflowBackendBridge:
         read_models: WorkflowControlReadModelProjector | None = None,
         authorization_grants: WorkflowAuthorizationGrantPort | None = None,
         dispatch_intents: WorkflowControlDispatchIntentStore | None = None,
+        trace_state: WorkflowTerminalTraceStatePort | None = None,
     ) -> None:
         self._backend = backend
         self._bindings = bindings
+        self._trace_state = trace_state
         self._durable_runs = durable_runs
         self._commands = commands
         self._read_models = read_models
@@ -786,9 +796,47 @@ class ConfiguredWorkflowBackendBridge:
                 raise TypeError("durable_run_history_invalid_response")
             projected_events = tuple(dict(event) for event in events if isinstance(event, dict))
         else:
+            # Anchor on the events' own identity rather than slicing by list
+            # position, and bound the page: a reconciler must be able to resume
+            # a long run exactly, without ever reading it whole.
             events = self._backend.list_workflow_events(workflow_id)
-            projected_events = tuple(dict(event) for event in events[offset:] if isinstance(event, dict))
+            anchor = "" if offset <= 0 else str(offset)
+            projected_events = page_workflow_run_history(
+                [event for event in events if isinstance(event, dict)],
+                after_cursor=anchor,
+            ).events
         return projected_events
+
+    def _mark_terminal_trace(
+        self,
+        binding: WorkflowControlRunBinding,
+        status: Mapping[str, Any],
+    ) -> None:
+        """Record that a terminal run still owes a projected trace.
+
+        This is deliberately durable rather than best effort: the projection
+        below may fail, and without a pending marker that failure would silently
+        cost the run its final trace.  Marking cannot fail the caller either —
+        a run must not be blocked because its bookkeeping was unavailable.
+        """
+
+        if self._trace_state is None or not is_terminal_status(status):
+            return
+        try:
+            self._trace_state.mark_pending(
+                binding.workflow_id,
+                revision=status_revision(status),
+            )
+        except Exception as exc:
+            log_audit(
+                "workflow_terminal_trace_mark_failed",
+                {
+                    "tenant_id": binding.tenant_id,
+                    "workflow_id": binding.workflow_id,
+                    "run_id": binding.run_id,
+                    "error_type": type(exc).__name__,
+                },
+            )
 
     def _project(
         self,
@@ -799,6 +847,7 @@ class ConfiguredWorkflowBackendBridge:
         capabilities: tuple[str, ...] = (),
         events: tuple[dict[str, Any], ...] = (),
     ) -> None:
+        self._mark_terminal_trace(binding, status)
         if self._read_models is None:
             return
         try:
@@ -955,6 +1004,7 @@ class WorkflowBackendControlFacade:
         registry: WorkflowRuntimeBridgeRegistry,
         command_receipts: WorkflowControlCommandReceiptStore,
         transitions: WorkflowCommandTransitionRuntime | None = None,
+        trace_reconciler: WorkflowTerminalTraceReconciler | None = None,
     ) -> None:
         self._control = control
         self._bridge = bridge
@@ -962,6 +1012,7 @@ class WorkflowBackendControlFacade:
         self._registry = registry
         self._command_receipts = command_receipts
         self._transitions = transitions
+        self._trace_reconciler = trace_reconciler
         receipt_reconciler_owner = f"receipt-reconciler:{uuid.uuid4().hex}"
         self._receipt_reconciler = WorkflowControlCommandReceiptReconciler(
             receipts=command_receipts,
@@ -1048,16 +1099,23 @@ class WorkflowBackendControlFacade:
         transitions = self._transitions.driver.tick() if self._transitions is not None else None
         receipts = self._receipt_reconciler.drain(limit=limit)
         runtime = dict(self._registry.reconcile_active(limit=limit))
+        # Traces are drained last: a run that finalized earlier in this same
+        # pass is already terminal here, so its trace is projected without
+        # waiting a whole cycle.
+        traces = self._trace_reconciler.drain(limit=limit) if self._trace_reconciler is not None else None
         driven = transitions.processed if transitions is not None else 0
-        if not receipts["processed"] and not receipts["failed"] and not driven:
+        projected = traces.projected if traces is not None else 0
+        if not receipts["processed"] and not receipts["failed"] and not driven and not projected:
             return runtime
         reports: list[dict[str, Any]] = [receipts, runtime]
         if transitions is not None:
             reports.insert(0, transitions.to_dict())
+        if traces is not None:
+            reports.append(traces.to_dict())
         return {
             **runtime,
-            "processed": int(runtime.get("processed") or 0) + int(receipts["processed"]) + driven,
-            "failed": [*list(runtime.get("failed") or ()), *receipts["failed"]],
+            "processed": int(runtime.get("processed") or 0) + int(receipts["processed"]) + driven + projected,
+            "failed": [*list(runtime.get("failed") or ()), *receipts["failed"], *(traces.failed if traces else ())],
             "reports": reports,
         }
 
@@ -1571,6 +1629,8 @@ def build_workflow_backend_control_facade(
     dispatch_intents: WorkflowControlDispatchIntentStore | None = None,
     command_receipts: WorkflowControlCommandReceiptStore | None = None,
     command_transitions: WorkflowCommandTransitionRuntime | None = None,
+    trace_state: WorkflowTerminalTraceStatePort | None = None,
+    trace_reconciler: WorkflowTerminalTraceReconciler | None = None,
     register_all_runtimes: bool = False,
     temporal_backend: WorkflowBackend | None = None,
 ) -> WorkflowBackendControlFacade:
@@ -1645,6 +1705,7 @@ def build_workflow_backend_control_facade(
             read_models=resolved_read_models,
             authorization_grants=authorization_grants,
             dispatch_intents=dispatch_store,
+            trace_state=trace_state,
         )
     registry = WorkflowRuntimeBridgeRegistry(binding_store)
     if register_all_runtimes:
@@ -1708,6 +1769,7 @@ def build_workflow_backend_control_facade(
         registry=registry,
         command_receipts=receipt_store,
         transitions=command_transitions,
+        trace_reconciler=trace_reconciler,
     )
 
 
