@@ -1074,19 +1074,33 @@ def test_runner_is_not_wired_into_production_or_runtime_bridges() -> None:
         (ROOT / "agent/services/workflow_transition_outbox.py").resolve(),
         (ROOT / "agent/services/workflow_transition_runner.py").resolve(),
     }
-    forbidden = (
+    # Effect adapters legitimately import the execution contracts.  Every new
+    # adapter must be listed here deliberately; nothing else may reach for them.
+    adapter_files = {
+        (ROOT / "agent/services/workflow_transition_authorization_grant.py").resolve(),
+        (ROOT / "agent/services/workflow_transition_event_effect.py").resolve(),
+        (ROOT / "agent/services/workflow_transition_ownership_reservation.py").resolve(),
+        (ROOT / "agent/services/workflow_transition_side_effect_authorization.py").resolve(),
+    }
+    runner_composition = (
         "WorkflowTransitionRunner",
         "WorkflowTransitionEffectExecutorRegistry",
         "WorkflowTransitionFinalizationObserverRegistry",
         "WorkflowTransitionCompletionPort",
-        "workflow_transition_effect_execution",
         "workflow_transition_runner",
     )
+    execution_contracts = ("workflow_transition_effect_execution",)
     for path in (ROOT / "agent").rglob("*.py"):
-        if path.resolve() in framework_files:
+        resolved = path.resolve()
+        if resolved in framework_files:
             continue
         source = path.read_text(encoding="utf-8")
-        assert all(symbol not in source for symbol in forbidden), path.relative_to(ROOT)
+        leaked = [symbol for symbol in runner_composition if symbol in source]
+        assert not leaked, f"{path.relative_to(ROOT)} references {leaked}"
+        if resolved in adapter_files:
+            continue
+        leaked = [symbol for symbol in execution_contracts if symbol in source]
+        assert not leaked, f"{path.relative_to(ROOT)} references {leaked}"
 
 
 def test_invalid_retry_schedule_quarantines_and_subclass_result_never_begins(
