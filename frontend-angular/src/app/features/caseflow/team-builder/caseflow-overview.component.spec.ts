@@ -19,6 +19,7 @@ import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AgentDirectoryService } from '../../../services/agent-directory.service';
 import { ProjectContextService } from '../../../services/project-context.service';
 import { OrganizationApiClient } from '../../organizations/services/organization-api.client';
+import { CaseFlowWorkService } from './caseflow-work.service';
 import { VisualProcessApiService, type VpGraph } from '../../visual-process/visual-process-api.service';
 import { CaseFlowOverviewComponent } from './caseflow-overview.component';
 
@@ -103,6 +104,7 @@ let api: {
   saveGraph: ReturnType<typeof vi.fn>;
   getWorkflowStatus: ReturnType<typeof vi.fn>;
 };
+let work: { tasks: ReturnType<typeof vi.fn>; trace: ReturnType<typeof vi.fn> };
 let projectId: string;
 
 function mount() {
@@ -125,10 +127,15 @@ beforeEach(() => {
     listOrganizations: vi.fn().mockReturnValue(of({ items: [ORGANIZATION], next_cursor: null })),
     topology: vi.fn().mockReturnValue(
       of(topology([
-        { id: 'n-1', stable_key: 'unit.a', kind: 'coordination_unit', label: 'Plattform', depth: 1 },
-        { id: 'n-2', stable_key: 'team.a', kind: 'team', label: 'Alpha', depth: 2 },
+        { id: 'n-1', stable_key: 'unit.a', kind: 'coordination_unit', label: 'Plattform', depth: 1, parent_id: null },
+        { id: 'n-2', stable_key: 'team.a', kind: 'team', label: 'Alpha', depth: 2, parent_id: 'n-1' },
+        { id: 'n-3', stable_key: 'slot.a', kind: 'role_slot', label: 'Entwicklung', depth: 3, parent_id: 'n-2' },
       ])),
     ),
+  };
+  work = {
+    tasks: vi.fn().mockReturnValue(of([])),
+    trace: vi.fn().mockReturnValue(of([])),
   };
   api = {
     listSavedGraphs: vi.fn().mockReturnValue(of([TEAM])),
@@ -141,6 +148,7 @@ beforeEach(() => {
     providers: [
       provideRouter([]),
       { provide: OrganizationApiClient, useValue: organizations },
+      { provide: CaseFlowWorkService, useValue: work },
       { provide: VisualProcessApiService, useValue: api },
       { provide: AgentDirectoryService, useValue: { list: () => [{ role: 'hub', url: HUB }] } },
       { provide: ProjectContextService, useValue: { selectedProjectId: () => projectId } },
@@ -215,25 +223,38 @@ describe('both levels in one list', () => {
   });
 });
 
+function openOrganization(fixture: ReturnType<typeof mount>) {
+  cards(fixture)[1].nativeElement.click();
+  fixture.detectChanges();
+}
+
+function parts(fixture: ReturnType<typeof mount>) {
+  return fixture.debugElement.queryAll(By.css('.ov-part'));
+}
+
 describe('opening an organisation', () => {
-  it('shows its structure with one row per part, indented as the Hub nested them', () => {
+  it('shows only what the organisation directly contains, not everything at once', () => {
     const fixture = mount();
 
-    cards(fixture)[1].nativeElement.click();
-    fixture.detectChanges();
+    openOrganization(fixture);
 
-    const rows = fixture.debugElement.queryAll(By.css('.ov-row'));
-    expect(rows).toHaveLength(2);
-    expect(rows[0].nativeElement.textContent).toContain('Plattform');
-    expect(rows[1].nativeElement.textContent).toContain('Alpha');
-    expect(text(fixture)).toContain('1 Bereiche · 1 Teams');
+    expect(parts(fixture).map(part => part.nativeElement.textContent.trim())).toHaveLength(1);
+    expect(text(fixture)).toContain('Plattform');
+    expect(text(fixture)).not.toContain('Entwicklung');
+  });
+
+  it('counts everything below the level a person is standing on', () => {
+    const fixture = mount();
+
+    openOrganization(fixture);
+
+    expect(text(fixture)).toContain('1 Bereiche · 1 Teams · 1 Rollenplätze');
   });
 
   it('offers the way onward to the editor that can change it', () => {
     const fixture = mount();
 
-    cards(fixture)[1].nativeElement.click();
-    fixture.detectChanges();
+    openOrganization(fixture);
 
     expect(fixture.debugElement.query(By.css('a[href="/organizations"]'))).not.toBeNull();
   });
@@ -242,16 +263,14 @@ describe('opening an organisation', () => {
     organizations.topology.mockReturnValue(throwError(() => new Error('offline')));
     const fixture = mount();
 
-    cards(fixture)[1].nativeElement.click();
-    fixture.detectChanges();
+    openOrganization(fixture);
 
     expect(text(fixture)).toContain('Die Struktur dieser Organisation konnte nicht gelesen werden.');
   });
 
   it('returns to both levels from an opened organisation', () => {
     const fixture = mount();
-    cards(fixture)[1].nativeElement.click();
-    fixture.detectChanges();
+    openOrganization(fixture);
 
     fixture.debugElement.query(By.css('.ov-ghost')).nativeElement.click();
     fixture.detectChanges();
@@ -280,5 +299,103 @@ describe('opening a team', () => {
 
     expect(text(fixture)).toContain('Dieses Team konnte nicht geladen werden.');
     expect(cards(fixture)).toHaveLength(2);
+  });
+});
+
+
+describe('clicking down into a level', () => {
+  it('replaces the view with what the clicked part contains', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Alpha');
+    expect(parts(fixture)).toHaveLength(1);
+  });
+
+  it('leaves a trail back up through every level walked', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    const crumbs = fixture.debugElement.queryAll(By.css('.ov-crumb')).map(item =>
+      item.nativeElement.textContent.trim(),
+    );
+    expect(crumbs).toHaveLength(3);
+    expect(crumbs[0]).toContain('Produktorganisation');
+    expect(crumbs[2]).toContain('Alpha');
+  });
+
+  it('goes back up when a step in the trail is chosen', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    fixture.debugElement.queryAll(By.css('.ov-crumb'))[0].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Plattform');
+    expect(fixture.debugElement.queryAll(By.css('.ov-crumb'))).toHaveLength(1);
+  });
+
+  it('says plainly when a level holds nothing further', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(text(fixture)).toContain('Diese Ebene enthält nichts Weiteres.');
+  });
+
+  it('asks the work panel about the level actually standing on', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+    expect(work.tasks).toHaveBeenLastCalledWith({ level: 'organization' });
+
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(work.tasks).toHaveBeenLastCalledWith({ level: 'unit', unit_id: 'n-1' });
+
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(work.tasks).toHaveBeenLastCalledWith({ level: 'team', team_id: 'n-2' });
+
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+    expect(work.tasks).toHaveBeenLastCalledWith({ level: 'role_slot', role_slot_id: 'n-3' });
+  });
+
+  it('starts an organisation at its own top rather than where the last one ended', () => {
+    const fixture = mount();
+    openOrganization(fixture);
+    parts(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    fixture.componentInstance['backToAll']();
+    fixture.detectChanges();
+    openOrganization(fixture);
+
+    expect(fixture.debugElement.queryAll(By.css('.ov-crumb'))).toHaveLength(1);
+  });
+});
+
+describe('the work of an opened team', () => {
+  it('asks about that team by its own identity', () => {
+    const fixture = mount();
+
+    cards(fixture)[0].nativeElement.click();
+    fixture.detectChanges();
+
+    expect(work.tasks).toHaveBeenLastCalledWith({ level: 'team', team_id: 'g-1' });
   });
 });

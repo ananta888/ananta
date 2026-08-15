@@ -14,11 +14,14 @@ import type {
 } from '../../organizations/models/organization-topology.models';
 import type { SavedGraphSummary } from '../../visual-process/visual-process-api.service';
 import {
+  childrenOf,
   countByLevel,
+  descendantsOf,
   matchesSearch,
   organizationCard,
   structureNodes,
   teamCard,
+  workScopeFor,
 } from './caseflow-overview.models';
 
 function organization(overrides: Partial<OrganizationSummary> = {}): OrganizationSummary {
@@ -174,5 +177,80 @@ describe('the structure of an organisation', () => {
     );
 
     expect(countByLevel(rows)).toEqual({ team: 2, role_slot: 1 });
+  });
+});
+
+describe('clicking down through the structure', () => {
+  it('finds what a node directly contains', () => {
+    const rows = structureNodes(
+      page([
+        node({ id: 'unit', kind: 'coordination_unit', parent_id: null }),
+        node({ id: 'team', kind: 'team', parent_id: 'unit' }),
+        node({ id: 'slot', kind: 'role_slot', parent_id: 'team' }),
+      ]),
+    );
+
+    expect(childrenOf(rows, 'unit').map(row => row.id)).toEqual(['team']);
+    expect(childrenOf(rows, null).map(row => row.id)).toEqual(['unit']);
+  });
+
+  it('finds everything below a node, however deep', () => {
+    const rows = structureNodes(
+      page([
+        node({ id: 'unit', kind: 'coordination_unit', parent_id: null }),
+        node({ id: 'team', kind: 'team', parent_id: 'unit' }),
+        node({ id: 'slot', kind: 'role_slot', parent_id: 'team' }),
+        node({ id: 'other', kind: 'team', parent_id: null }),
+      ]),
+    );
+
+    expect(descendantsOf(rows, 'unit').map(row => row.id)).toEqual(['team', 'slot']);
+    expect(descendantsOf(rows, 'other')).toEqual([]);
+  });
+
+  it('asks a team about its own tasks and an assignment about its agent', () => {
+    const rows = structureNodes(
+      page([
+        node({ id: 'team', kind: 'team' }),
+        node({ id: 'a-1', kind: 'assignment', metadata: { agent_url: 'http://agent-a' } }),
+      ]),
+    );
+
+    expect(workScopeFor(rows[0])).toEqual({ level: 'team', team_id: 'team' });
+    expect(workScopeFor(rows[1])).toEqual({ level: 'agent', agent: 'http://agent-a' });
+  });
+
+  it('asks a unit and a value stream about their own slice', () => {
+    const rows = structureNodes(
+      page([
+        node({ id: 'unit', kind: 'coordination_unit' }),
+        node({ id: 'stream', kind: 'value_stream' }),
+        node({ id: 'slot', kind: 'role_slot' }),
+      ]),
+    );
+
+    expect(workScopeFor(rows[0])).toEqual({ level: 'unit', unit_id: 'unit' });
+    expect(workScopeFor(rows[1])).toEqual({ level: 'unit', unit_id: 'stream' });
+    expect(workScopeFor(rows[2])).toEqual({ level: 'role_slot', role_slot_id: 'slot' });
+  });
+
+  it('falls back to the organisation when standing on nothing in particular', () => {
+    const rows = structureNodes(page([node({ id: 'org', kind: 'organization' })]));
+
+    expect(workScopeFor(rows[0])).toEqual({ level: 'organization' });
+    expect(workScopeFor(null)).toEqual({ level: 'organization' });
+  });
+
+  it('does not guess an agent from a label when the node names none', () => {
+    const rows = structureNodes(page([node({ id: 'a-1', kind: 'assignment', label: 'Fritz' })]));
+
+    expect(rows[0].agent_ref).toBe('');
+    expect(workScopeFor(rows[0])).toEqual({ level: 'agent', agent: '' });
+  });
+
+  it('falls back to the assignment id when no agent url was sent', () => {
+    const rows = structureNodes(page([node({ id: 'a-1', kind: 'assignment', assignment_id: 'as-9' })]));
+
+    expect(rows[0].agent_ref).toBe('as-9');
   });
 });

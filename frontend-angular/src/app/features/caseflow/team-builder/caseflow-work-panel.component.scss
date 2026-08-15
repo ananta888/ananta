@@ -1,0 +1,211 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.work {
+  --work-border: color-mix(in srgb, currentColor 22%, transparent);
+  --work-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --work-surface: color-mix(in srgb, currentColor 5%, transparent);
+  --work-hover: color-mix(in srgb, currentColor 10%, transparent);
+  display: grid;
+  gap: 0.6rem;
+  min-width: 0;
+  color: inherit;
+}
+
+.work-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--work-border);
+
+  button {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: transparent;
+    color: var(--work-muted);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--work-hover);
+    }
+  }
+}
+
+.work-tab--active {
+  border-color: var(--work-border) !important;
+  border-bottom-color: transparent !important;
+  background: var(--work-hover) !important;
+  color: inherit !important;
+  font-weight: 600;
+}
+
+.work-ghost {
+  margin-left: auto;
+  border-color: var(--work-border) !important;
+  border-radius: 0.5rem !important;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.work-muted {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--work-muted);
+  font-size: 0.875rem;
+}
+
+.work-error {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, crimson 45%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, crimson 10%, transparent);
+  font-size: 0.85rem;
+}
+
+.work-heading {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+}
+
+/* ── Who is busy ──────────────────────────────────────────────────────── */
+
+.work-assignees {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.work-assignee {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--work-border);
+  border-radius: 0.65rem;
+  background: var(--work-surface);
+}
+
+.work-agent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.work-badge {
+  padding: 0 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, seagreen 32%, transparent);
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+/* ── Tasks ────────────────────────────────────────────────────────────── */
+
+.work-tasks {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &--flat {
+    max-height: 20rem;
+    overflow-y: auto;
+  }
+}
+
+.work-task {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  border-radius: 0.4rem;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 0.85rem;
+
+  &--quiet {
+    color: var(--work-muted);
+    background: transparent;
+  }
+}
+
+.work-task-title {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.work-status {
+  padding: 0 0.4rem;
+  border: 1px solid var(--work-border);
+  border-radius: 999px;
+  color: var(--work-muted);
+  font-size: 0.7rem;
+  overflow-wrap: anywhere;
+
+  &--working {
+    border-color: color-mix(in srgb, seagreen 45%, transparent);
+    color: inherit;
+  }
+}
+
+/* ── Trace ────────────────────────────────────────────────────────────── */
+
+.work-trace {
+  display: grid;
+  gap: 0.25rem;
+  max-height: 22rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.work-trace-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.45rem;
+  padding: 0.3rem 0.45rem;
+  border-left: 3px solid transparent;
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: color-mix(in srgb, currentColor 4%, transparent);
+  font-size: 0.85rem;
+
+  &--creating {
+    border-left-color: color-mix(in srgb, steelblue 60%, transparent);
+  }
+}
+
+.work-trace-actor {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.work-trace-summary {
+  flex: 1 1 14rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.work-trace-type {
+  color: var(--work-muted);
+  font-size: 0.72rem;
+}

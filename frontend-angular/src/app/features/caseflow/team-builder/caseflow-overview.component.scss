@@ -173,3 +173,87 @@
   color: var(--ov-muted);
   font-size: 0.72rem;
 }
+
+/* ── Clicking down through the levels ─────────────────────────────────── */
+
+.ov-path {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.ov-crumb {
+  padding: 0.3rem 0.55rem;
+  border: 1px solid transparent;
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.95rem;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ov-hover);
+  }
+
+  &:last-of-type {
+    border-color: var(--ov-border);
+    font-weight: 600;
+  }
+}
+
+.ov-crumb-sep {
+  color: var(--ov-muted);
+}
+
+.ov-parts {
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+}
+
+.ov-part {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  padding: 0.8rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.7rem;
+  background: var(--ov-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ov-hover);
+  }
+
+  &--leaf {
+    background: transparent;
+  }
+}
+
+.ov-part-glyph {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.ov-part-label {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ov-part-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.ov-part-count {
+  color: var(--ov-muted);
+  font-size: 0.78rem;
+}

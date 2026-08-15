@@ -19,12 +19,18 @@ import {
 import { CaseFlowAgentLiveViewComponent } from './caseflow-agent-live-view.component';
 import {
   type OverviewCard,
+  type OverviewStructureNode,
+  childrenOf,
   countByLevel,
+  descendantsOf,
   matchesSearch,
   organizationCard,
   structureNodes,
   teamCard,
+  workScopeFor,
 } from './caseflow-overview.models';
+import { CaseFlowWorkPanelComponent } from './caseflow-work-panel.component';
+import type { WorkScope } from './caseflow-work.models';
 
 type Level = 'all' | 'organization' | 'team';
 
@@ -44,7 +50,7 @@ type Level = 'all' | 'organization' | 'team';
 @Component({
   selector: 'app-caseflow-overview',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, CaseFlowAgentLiveViewComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CaseFlowAgentLiveViewComponent, CaseFlowWorkPanelComponent],
   styleUrl: './caseflow-overview.component.scss',
   template: `
     <section class="ov">
@@ -100,31 +106,59 @@ type Level = 'all' | 'organization' | 'team';
 
         @case ('organization') {
           @if (openOrganization(); as organization) {
-            <h2 class="ov-section">
-              <span aria-hidden="true">{{ organizationGlyph }}</span> {{ organization.title }}
-            </h2>
-            <p class="ov-hint">
-              Die Ebene über einem Team: Bereiche, Wertströme, Teams und die Rollenplätze, die sie
-              besetzen. Für Umbauten geht es im
-              <a routerLink="/organizations">Organisations-Editor</a> weiter.
-            </p>
+            <nav class="ov-path" aria-label="Ebene">
+              <button type="button" class="ov-crumb" (click)="zoomTo(-1)">
+                <span aria-hidden="true">{{ organizationGlyph }}</span> {{ organization.title }}
+              </button>
+              @for (step of path(); track step.id) {
+                <span class="ov-crumb-sep" aria-hidden="true">›</span>
+                <button type="button" class="ov-crumb" (click)="zoomTo($index)">
+                  <span aria-hidden="true">{{ step.glyph }}</span> {{ step.label }}
+                </button>
+              }
+            </nav>
+
             @if (structureLoading()) {
               <p class="ov-muted">Struktur wird geladen …</p>
             } @else if (!structure().length) {
               <p class="ov-muted">Zu dieser Organisation ist keine Struktur lesbar.</p>
             } @else {
-              <p class="ov-hint">{{ structureSummary() }}</p>
-              <ol class="ov-structure">
-                @for (row of structure(); track row.id) {
-                  <li class="ov-row" [style.padding-left.rem]="0.6 + row.depth * 1.1">
-                    <span class="ov-row-glyph" aria-hidden="true">{{ row.glyph }}</span>
-                    <span class="ov-row-label">{{ row.label }}</span>
-                    @if (row.status) {
-                      <span class="ov-row-status">{{ row.status }}</span>
-                    }
-                  </li>
+              <p class="ov-hint">
+                {{ currentSummary() }}
+                @if (!path().length) {
+                  Für Umbauten geht es im
+                  <a routerLink="/organizations">Organisations-Editor</a> weiter.
                 }
-              </ol>
+              </p>
+
+              @if (visibleParts().length) {
+                <div class="ov-parts">
+                  @for (part of visibleParts(); track part.id) {
+                    <button
+                      type="button"
+                      class="ov-part"
+                      [class.ov-part--leaf]="!hasChildren(part)"
+                      (click)="zoomInto(part)"
+                    >
+                      <span class="ov-part-glyph" aria-hidden="true">{{ part.glyph }}</span>
+                      <span class="ov-part-label">{{ part.label }}</span>
+                      <span class="ov-part-meta">
+                        @if (hasChildren(part)) {
+                          <span class="ov-part-count">{{ contentsLabel(part) }}</span>
+                        }
+                        @if (part.status) {
+                          <span class="ov-row-status">{{ part.status }}</span>
+                        }
+                      </span>
+                    </button>
+                  }
+                </div>
+              } @else {
+                <p class="ov-muted">Diese Ebene enthält nichts Weiteres.</p>
+              }
+
+              <h3 class="ov-section ov-section--small">{{ currentTitle() }} — Arbeit</h3>
+              <app-caseflow-work-panel [scope]="workScope()" />
             }
           }
         }
@@ -132,6 +166,8 @@ type Level = 'all' | 'organization' | 'team';
         @case ('team') {
           @if (openTeam(); as team) {
             <app-caseflow-agent-live-view [graph]="team" (graphChange)="openTeam.set($event)" />
+            <h3 class="ov-section ov-section--small">Aufgaben dieses Teams</h3>
+            <app-caseflow-work-panel [scope]="teamScope()" />
           } @else {
             <p class="ov-muted">Team wird geladen …</p>
           }
@@ -172,6 +208,23 @@ export class CaseFlowOverviewComponent {
 
   protected readonly structure = computed(() => structureNodes(this.topology()));
 
+  /** The nodes clicked into, outermost first; empty means the organisation. */
+  protected readonly path = signal<readonly OverviewStructureNode[]>([]);
+
+  protected readonly currentNode = computed(() => this.path().at(-1) ?? null);
+
+  /** What the level a person is standing on directly contains. */
+  protected readonly visibleParts = computed(() =>
+    childrenOf(this.structure(), this.currentNode()?.id ?? null),
+  );
+
+  protected readonly workScope = computed<WorkScope>(() => workScopeFor(this.currentNode()));
+
+  protected readonly teamScope = computed<WorkScope>(() => ({
+    level: 'team',
+    team_id: this.openTeam()?.id ?? '',
+  }));
+
   protected readonly structureSummary = computed(() => {
     const counts = countByLevel(this.structure());
     const parts = [
@@ -184,6 +237,21 @@ export class CaseFlowOverviewComponent {
     return parts.join(' · ');
   });
 
+  /** What the current level holds, counted over everything below it. */
+  protected readonly currentSummary = computed(() => {
+    const node = this.currentNode();
+    const scoped = node ? descendantsOf(this.structure(), node.id) : this.structure();
+    const counts = countByLevel(scoped);
+    const parts = [
+      counts['unit'] ? `${counts['unit']} Bereiche` : null,
+      counts['value_stream'] ? `${counts['value_stream']} Wertströme` : null,
+      counts['team'] ? `${counts['team']} Teams` : null,
+      counts['role_slot'] ? `${counts['role_slot']} Rollenplätze` : null,
+      counts['agent'] ? `${counts['agent']} Besetzungen` : null,
+    ].filter(Boolean);
+    return parts.length ? parts.join(' · ') : 'Nichts weiter darunter.';
+  });
+
   constructor() {
     this.load();
   }
@@ -193,6 +261,7 @@ export class CaseFlowOverviewComponent {
       const organization = this.organizationList().find(item => item.id === card.id);
       if (!organization) return;
       this.openOrganization.set(organization);
+      this.path.set([]);
       this.level.set('organization');
       this.loadTopology(organization.id);
       return;
@@ -200,11 +269,40 @@ export class CaseFlowOverviewComponent {
     this.openTeamById(card.id);
   }
 
+  /**
+   * Click into one part; what is below it becomes the whole view.
+   *
+   * A part with nothing under it is still worth opening: its own work is the
+   * point of the click, not its contents.
+   */
+  protected zoomInto(node: OverviewStructureNode): void {
+    this.path.set([...this.path(), node]);
+  }
+
+  /** Back up to a level already visited; -1 is the organisation itself. */
+  protected zoomTo(index: number): void {
+    this.path.set(index < 0 ? [] : this.path().slice(0, index + 1));
+  }
+
+  protected hasChildren(node: OverviewStructureNode): boolean {
+    return childrenOf(this.structure(), node.id).length > 0;
+  }
+
+  protected contentsLabel(node: OverviewStructureNode): string {
+    const count = childrenOf(this.structure(), node.id).length;
+    return count === 1 ? '1 Teil' : `${count} Teile`;
+  }
+
+  protected currentTitle(): string {
+    return this.currentNode()?.label ?? this.openOrganization()?.title ?? 'Organisation';
+  }
+
   protected backToAll(): void {
     this.level.set('all');
     this.openOrganization.set(null);
     this.openTeam.set(null);
     this.topology.set(null);
+    this.path.set([]);
   }
 
   private openTeamById(graphId: string): void {
@@ -257,6 +355,7 @@ export class CaseFlowOverviewComponent {
       return;
     }
     this.topology.set(null);
+    this.path.set([]);
     this.structureLoading.set(true);
     this.organizations
       .topology(hubUrl, organizationId, { page_size: 100, include_runtime: true })
