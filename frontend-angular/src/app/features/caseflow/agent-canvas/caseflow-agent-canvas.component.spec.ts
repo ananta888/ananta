@@ -11,6 +11,7 @@ import type {
   VpStep,
 } from '../../visual-process/visual-process-api.service';
 import type { CaseFlowEdgeTraceReadModel } from './caseflow-edge-trace.models';
+import { glyphForIconName } from './caseflow-agent-glyphs';
 import {
   CaseFlowAgentCanvasComponent,
   moveCaseFlowAgentNode,
@@ -329,15 +330,18 @@ describe('CaseFlowAgentCanvasComponent', () => {
     const agentC = fixture.nativeElement.querySelector('[data-step-id="agent-c"]') as SVGGElement;
     expect(agentA.classList).toContain('runtime-running');
     expect(agentA.textContent).toContain('Läuft');
-    expect(agentA.textContent).toContain('play_circle');
+    // The icon is drawn, not spelled: no icon font is bundled, so rendering
+    // the Material name put the word "play_circle" on the card.
+    expect(agentA.textContent).toContain(glyphForIconName('play_circle'));
+    expect(agentA.textContent).not.toContain('play_circle');
     expect(agentA.getAttribute('aria-label')).toContain('Runtime Läuft');
     expect(agentB.classList).toContain('runtime-awaiting');
     expect(agentB.textContent).toContain('Wartet auf Freigabe');
-    expect(agentB.textContent).toContain('approval');
+    expect(agentB.textContent).toContain(glyphForIconName('approval'));
     expect(agentB.getAttribute('aria-label')).toContain('Runtime Wartet auf Freigabe');
     expect(agentC.classList).toContain('runtime-success');
     expect(agentC.textContent).toContain('Erfolgreich');
-    expect(agentC.textContent).toContain('check_circle');
+    expect(agentC.textContent).toContain(glyphForIconName('check_circle'));
     expect(agentC.getAttribute('aria-label')).toContain('Runtime Erfolgreich');
 
     fixture.componentRef.setInput('runtimeOverlay', runtimeOverlay({
@@ -348,11 +352,11 @@ describe('CaseFlowAgentCanvasComponent', () => {
     fixture.detectChanges();
     expect(agentA.classList).toContain('runtime-error');
     expect(agentA.textContent).toContain('Fehler');
-    expect(agentA.textContent).toContain('error');
+    expect(agentA.textContent).toContain(glyphForIconName('error'));
     expect(agentA.getAttribute('aria-label')).toContain('Runtime Fehler');
     expect(agentB.classList).toContain('runtime-unknown');
     expect(agentB.textContent).toContain('Unbekannt');
-    expect(agentB.textContent).toContain('help_outline');
+    expect(agentB.textContent).toContain(glyphForIconName('help_outline'));
     expect(agentB.getAttribute('aria-label')).toContain('Runtime Unbekannt');
     expect(fixture.componentInstance.runtimeProjection.active_edge_ids).toEqual([]);
   });

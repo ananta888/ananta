@@ -26,6 +26,7 @@ import type {
   CaseFlowEdgeTraceReadModel,
 } from './caseflow-edge-trace.models';
 import { projectAgentCanvas } from './caseflow-agent-canvas.mapper';
+import { glyphForIconName } from './caseflow-agent-glyphs';
 import {
   CaseFlowAgentEdgeActivityProjection,
   projectCaseFlowAgentEdgeActivity,
@@ -217,12 +218,12 @@ export function moveCaseFlowAgentNode(
                   (keydown)="nodeKeydown($event, node)"
                 >
                   <rect class="node-card" [attr.width]="nodeWidth" [attr.height]="nodeHeight" rx="12" />
-                  <text class="node-icon" x="16" y="27" aria-hidden="true">{{ node.icon }}</text>
+                  <text class="node-icon" x="16" y="27" aria-hidden="true">{{ glyph(node.icon) }}</text>
                   <text class="node-label" x="16" y="50">{{ node.label }}</text>
                   <text class="node-role" x="16" y="70">{{ node.role }}</text>
                   @if (runtimeProjection.available) {
                     <text class="node-runtime-icon" x="16" y="91" aria-hidden="true">
-                      {{ runtimeFor(node).icon }}
+                      {{ glyph(runtimeFor(node).icon) }}
                     </text>
                     <text class="node-runtime-label" x="39" y="91">
                       {{ runtimeFor(node).label }}
@@ -310,6 +311,17 @@ export class CaseFlowAgentCanvasComponent implements OnChanges {
     if (this.selectedId && !this.hasSelectableId(this.selectedId)) {
       this.selectedIdChange.emit(null);
     }
+  }
+
+  /**
+   * The drawable form of an icon name.
+   *
+   * Icons are stored as Material names, but no icon font is bundled and the
+   * stack runs offline, so drawing the name directly put the literal words
+   * "code" and "bug_report" on the cards.
+   */
+  glyph(icon: string): string {
+    return glyphForIconName(icon);
   }
 
   runtimeFor(node: CaseFlowAgentCanvasNodeProjection): CaseFlowAgentRuntimeNodeProjection {

@@ -1,0 +1,265 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.live {
+  --live-border: color-mix(in srgb, currentColor 22%, transparent);
+  --live-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --live-surface: color-mix(in srgb, currentColor 5%, transparent);
+  --live-hover: color-mix(in srgb, currentColor 10%, transparent);
+  display: grid;
+  gap: 0.85rem;
+  min-width: 0;
+  color: inherit;
+}
+
+.live-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+
+  h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+}
+
+.live-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.live-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.live-state {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+
+  &--active {
+    background: color-mix(in srgb, seagreen 35%, transparent);
+  }
+
+  &--error,
+  &--access_revoked {
+    background: color-mix(in srgb, crimson 30%, transparent);
+  }
+
+  &--no_run,
+  &--no_run_timeout,
+  &--detached {
+    color: var(--live-muted);
+  }
+}
+
+.live-error {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, crimson 45%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, crimson 10%, transparent);
+  font-size: 0.85rem;
+}
+
+.live-muted {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--live-muted);
+  font-size: 0.875rem;
+}
+
+.live-primary,
+.live-ghost {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--live-border);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
+    background: var(--live-hover);
+  }
+}
+
+.live-primary {
+  background: color-mix(in srgb, currentColor 16%, transparent);
+  font-weight: 600;
+}
+
+/* ── The open agent ───────────────────────────────────────────────────── */
+
+.agent-box {
+  display: grid;
+  gap: 0.7rem;
+  padding: 0.9rem;
+  border: 1px solid var(--live-border);
+  border-radius: 0.75rem;
+  background: var(--live-surface);
+  min-width: 0;
+}
+
+.agent-box-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.7rem;
+}
+
+.agent-glyph {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.agent-name {
+  display: grid;
+  gap: 0.2rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+
+  input {
+    min-width: 0;
+    padding: 0.45rem 0.6rem;
+    border: 1px solid var(--live-border);
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+  }
+}
+
+.agent-name-hint {
+  color: var(--live-muted);
+  font-size: 0.75rem;
+}
+
+.agent-status {
+  padding-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.agent-desc {
+  margin: 0;
+  color: var(--live-muted);
+  font-size: 0.875rem;
+}
+
+.agent-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.agent-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--live-border);
+
+  button {
+    padding: 0.35rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem 0.5rem 0 0;
+    background: transparent;
+    color: var(--live-muted);
+    font: inherit;
+    font-size: 0.85rem;
+    cursor: pointer;
+
+    &:hover {
+      background: var(--live-hover);
+    }
+  }
+}
+
+.agent-tab--active {
+  border-color: var(--live-border) !important;
+  border-bottom-color: transparent !important;
+  background: var(--live-hover) !important;
+  color: inherit !important;
+  font-weight: 600;
+}
+
+/* ── Chat ─────────────────────────────────────────────────────────────── */
+
+.agent-chat {
+  display: grid;
+  gap: 0.5rem;
+  max-height: 22rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.chat-line {
+  display: grid;
+  gap: 0.2rem;
+  justify-self: end;
+  max-width: min(100%, 46rem);
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--live-border);
+  border-radius: 0.75rem 0.75rem 0 0.75rem;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+
+  &--incoming {
+    justify-self: start;
+    border-radius: 0.75rem 0.75rem 0.75rem 0;
+    background: transparent;
+  }
+}
+
+.chat-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: baseline;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.chat-role {
+  color: var(--live-muted);
+  font-weight: 400;
+}
+
+.chat-content {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+
+.chat-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.chat-mark {
+  padding: 0 0.35rem;
+  border: 1px solid var(--live-border);
+  border-radius: 999px;
+  color: var(--live-muted);
+  font-size: 0.68rem;
+}

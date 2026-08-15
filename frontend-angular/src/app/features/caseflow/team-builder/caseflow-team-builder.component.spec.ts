@@ -95,6 +95,7 @@ function savedGraph(): VpGraph {
 let builder: { listTemplates: ReturnType<typeof vi.fn>; listRoles: ReturnType<typeof vi.fn> };
 let api: {
   saveGraph: ReturnType<typeof vi.fn>;
+  getWorkflowStatus: ReturnType<typeof vi.fn>;
   listSavedGraphs: ReturnType<typeof vi.fn>;
   loadSavedGraph: ReturnType<typeof vi.fn>;
 };
@@ -119,7 +120,8 @@ beforeEach(() => {
     listRoles: vi.fn().mockReturnValue(of([{ id: 'r-4', name: 'Tester' }])),
   };
   api = {
-    saveGraph: vi.fn().mockReturnValue(of({ saved: true })),
+    saveGraph: vi.fn().mockReturnValue(of({ saved: true, definition_revision: 1, base_graph_hash: 'a'.repeat(64) })),
+    getWorkflowStatus: vi.fn().mockReturnValue(throwError(() => ({ status: 404 }))),
     listSavedGraphs: vi.fn().mockReturnValue(of([])),
     loadSavedGraph: vi.fn().mockReturnValue(of(savedGraph())),
   };
@@ -253,7 +255,7 @@ describe('saving and watching', () => {
     const saved = api.saveGraph.mock.calls[0][0] as VpGraph;
     expect(saved.name).toBe('Scrum');
     expect(saved.steps.map(step => step.label)).toEqual(['Mara', 'Scrum Master', 'Developer']);
-    expect(fixture.debugElement.query(By.css('app-caseflow-agent-canvas'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('app-caseflow-agent-live-view'))).not.toBeNull();
   });
 
   it('keeps the draft when saving fails so nothing typed is lost', () => {
@@ -277,7 +279,7 @@ describe('saving and watching', () => {
     fixture.detectChanges();
 
     expect(api.loadSavedGraph).toHaveBeenCalledWith('g-1');
-    expect(fixture.debugElement.query(By.css('app-caseflow-agent-canvas'))).not.toBeNull();
+    expect(fixture.debugElement.query(By.css('app-caseflow-agent-live-view'))).not.toBeNull();
   });
 
   it('points onward to the editors that configure the same team more finely', () => {

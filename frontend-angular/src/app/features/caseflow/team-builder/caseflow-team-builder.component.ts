@@ -5,7 +5,7 @@ import { RouterLink } from '@angular/router';
 import type { VpGraph } from '../../visual-process/visual-process-api.service';
 import { VisualProcessApiService } from '../../visual-process/visual-process-api.service';
 import type { SavedGraphSummary } from '../../visual-process/visual-process-api.service';
-import { CaseFlowAgentCanvasComponent } from '../agent-canvas/caseflow-agent-canvas.component';
+import { CaseFlowAgentLiveViewComponent } from './caseflow-agent-live-view.component';
 import {
   TEAM_TEMPLATE_KIND_TEAM,
   type TeamDraft,
@@ -34,7 +34,7 @@ type Phase = 'gallery' | 'draft' | 'team';
 @Component({
   selector: 'app-caseflow-team-builder',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink, CaseFlowAgentCanvasComponent],
+  imports: [CommonModule, FormsModule, RouterLink, CaseFlowAgentLiveViewComponent],
   styleUrl: './caseflow-team-builder.component.scss',
   template: `
     <section class="team-builder">
@@ -199,8 +199,7 @@ type Phase = 'gallery' | 'draft' | 'team';
         @case ('team') {
           @if (graph(); as current) {
             <div class="tb-team">
-              <h2 class="tb-section">{{ current.name }}</h2>
-              <app-caseflow-agent-canvas [graph]="current" />
+              <app-caseflow-agent-live-view [graph]="current" (graphChange)="graph.set($event)" />
               <h3 class="tb-section tb-section--small">Weiter konfigurieren</h3>
               <p class="tb-hint">Alle drei öffnen dasselbe Team — nur mit mehr Stellschrauben.</p>
               <ul class="tb-links">
