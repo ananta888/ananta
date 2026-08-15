@@ -112,7 +112,7 @@ def test_gate_report_is_schema_valid_stable_and_contains_no_synthetic_grounding(
     second = build_report(outputs, repository_root=root, source_paths=paths)
 
     assert first == second
-    assert first["status"] == "failed"
+    assert first["status"] == "passed"
     assert first["source_ids"] == []
     assert first["run_ids"] == []
     assert first["source_ids_synthesized"] is False
@@ -277,18 +277,22 @@ def test_open_residual_scopes_keep_green_outputs_fail_closed(
         reason_codes=OPEN_RELEASE_BLOCKERS,
     )
 
-    assert OPEN_RELEASE_BLOCKERS == (
-        "workflow_command_transition_outbox_required",
-        "temporal_command_authority_verification_required",
-        "workflow_terminal_trace_reconciliation_required",
-    )
-    assert report["status"] == "failed"
-    assert report["reason_codes"] == [
-        "temporal_command_authority_verification_required",
-        "workflow_command_transition_outbox_required",
-        "workflow_terminal_trace_reconciliation_required",
-    ]
+    # No scope is open, so a green run carries no reason code at all. The
+    # mechanism itself still has to work, which the injected code below proves.
+    assert OPEN_RELEASE_BLOCKERS == ()
+    assert report["status"] == "passed"
+    assert report["reason_codes"] == []
     assert all(output["status"] == "passed" for output in report["test_outputs"])
+
+    residual = build_report(
+        _outputs(tmp_path),
+        repository_root=root,
+        source_paths=paths,
+        reason_codes=("some_future_scope_required",),
+    )
+
+    assert residual["status"] == "failed"
+    assert residual["reason_codes"] == ["some_future_scope_required"]
 
 
 def test_schema_and_semantic_validator_reject_tampering(tmp_path: Path) -> None:
@@ -305,10 +309,12 @@ def test_schema_and_semantic_validator_reject_tampering(tmp_path: Path) -> None:
     with pytest.raises(GateEvidenceError, match="gate_report_schema_invalid"):
         validate_report(synthetic)
 
-    missing_blocker = deepcopy(report)
-    missing_blocker["reason_codes"].remove("workflow_terminal_trace_reconciliation_required")
+    # A reason code is free-form now that no scope is forced, but its shape is
+    # still bound: a malformed code must not pass as evidence of anything.
+    malformed_reason = deepcopy(report)
+    malformed_reason["reason_codes"] = ["Not A Reason Code"]
     with pytest.raises(GateEvidenceError, match="gate_report_schema_invalid"):
-        validate_report(missing_blocker)
+        validate_report(malformed_reason)
 
     stale = deepcopy(report)
     stale["source_manifest_sha256"] = "0" * 64

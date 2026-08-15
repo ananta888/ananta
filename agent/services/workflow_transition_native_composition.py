@@ -1,16 +1,20 @@
 """Native command-transition cutover composition.
 
 This module turns the previously unwired transition track into a runnable
-Native slice.  It contributes the four pieces the track deliberately left
-open: a concrete command planner, the exact effect/finalization registries,
-an authoritative binding observer, and a bounded drain driver.
+Native slice.  It contributes the pieces the track deliberately left open: a
+concrete command planner, the exact effect and finalization registries, an
+authoritative binding observer, a public projector and a bounded drain driver.
 
-The planned slice is intentionally narrow.  One command transition reserves
-exactly one execution owner, appends exactly one Hub-owned event, and then
-finalizes the binding against authoritative runtime status.  Queue, checkpoint
-and authorization-grant effects have no adapter yet and are therefore never
-planned; a plan that needed them would fail closed at registry resolution
-rather than silently skip them.
+What a plan contains is a deliberate choice rather than a default.  Every
+transition reserves exactly one execution owner, appends exactly one Hub-owned
+event and finalizes against authoritative runtime status.  Beyond that, a
+queue slot is reserved only by a plan that hands work to a worker, and a
+checkpoint binding is planned only where the runtime actually checkpoints — a
+control command like pause does neither.
+
+Effect kinds are likewise registered only when their authority is supplied.
+An effect kind that resolves is an effect kind that can run, so a deployment
+that issues no grants carries no resolvable grant executor.
 """
 
 from __future__ import annotations
@@ -44,6 +48,12 @@ from agent.services.workflow_runtime.sqlalchemy_queue_reservations import (
 from agent.services.workflow_transition_authorization_grant import (
     WorkflowTransitionAuthorizationGrantExecutor,
     WorkflowTransitionAuthorizationGrantObserver,
+    build_workflow_transition_authorization_grant_effect,
+)
+from agent.services.workflow_transition_checkpoint_binding import (
+    WorkflowTransitionCheckpointBindingExecutor,
+    WorkflowTransitionCheckpointBindingObserver,
+    build_workflow_transition_checkpoint_binding_effect,
 )
 from agent.services.workflow_transition_effect_execution import (
     BoundedWorkflowTransitionRetryPolicy,
@@ -70,6 +80,7 @@ from agent.services.workflow_transition_event_effect import (
 from agent.services.workflow_transition_outbox import (
     EFFECT_AUTHORIZATION_GRANT,
     EFFECT_BINDING_FINALIZE,
+    EFFECT_CHECKPOINT_SAVE,
     EFFECT_EVENT_APPEND,
     EFFECT_OWNERSHIP_RESERVE,
     EFFECT_QUEUE_RESERVE,
@@ -117,6 +128,26 @@ class WorkflowBindingStatusReadPort(Protocol):
 
 
 @final
+@dataclass(frozen=True, slots=True)
+class PlannedAuthorizationGrant:
+    """A grant derived from the plan, together with the key that signs it.
+
+    Both halves are required.  A signing key without a derived scope could
+    sign anything; a derived scope without a key could not be proven at all.
+    """
+
+    grant: Any
+    signing_key_ring: Any
+
+    def __post_init__(self) -> None:
+        for name in ("allowed_tools", "allowed_artifacts", "budgets", "ttl_seconds"):
+            if not hasattr(self.grant, name):
+                raise WorkflowTransitionNativeCompositionError("workflow_transition_native_grant_plan_invalid")
+        if not callable(getattr(self.signing_key_ring, "sign", None)):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_signing_key_ring_invalid")
+
+
+@final
 class NativeCommandTransitionIntentFactory:
     """Plan one Native command transition as ownership, event and finalize.
 
@@ -135,6 +166,8 @@ class NativeCommandTransitionIntentFactory:
     """
 
     __slots__ = (
+        "_authorization",
+        "_binds_checkpoint_revision",
         "_events",
         "_lease_seconds",
         "_maximum_retries",
@@ -152,6 +185,8 @@ class NativeCommandTransitionIntentFactory:
         maximum_retries: int = 3,
         runtime_id: str = TRANSITION_RUNTIME_NATIVE,
         reserves_queue_slot: bool = False,
+        binds_checkpoint_revision: int | None = None,
+        authorization: PlannedAuthorizationGrant | None = None,
     ) -> None:
         if not callable(getattr(events, "observe_transition_event", None)):
             raise WorkflowTransitionNativeCompositionError("workflow_transition_native_events_invalid")
@@ -174,8 +209,18 @@ class NativeCommandTransitionIntentFactory:
             raise WorkflowTransitionNativeCompositionError("workflow_transition_native_queue_flag_invalid")
         self._lease_seconds = float(lease_seconds)
         self._maximum_retries = int(maximum_retries)
+        if binds_checkpoint_revision is not None and (
+            isinstance(binds_checkpoint_revision, bool)
+            or not isinstance(binds_checkpoint_revision, int)
+            or binds_checkpoint_revision <= 0
+        ):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_checkpoint_revision_invalid")
         self._runtime_id = runtime_id
         self._reserves_queue_slot = reserves_queue_slot
+        self._binds_checkpoint_revision = binds_checkpoint_revision
+        if authorization is not None and not isinstance(authorization, PlannedAuthorizationGrant):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_authorization_invalid")
+        self._authorization = authorization
 
     def build(
         self,
@@ -192,37 +237,70 @@ class NativeCommandTransitionIntentFactory:
         if not isinstance(admitted, Mapping):
             raise WorkflowTransitionNativeCompositionError("workflow_transition_native_admitted_command_invalid")
         step_id = _step_id(receipt)
+        scope = {
+            "transition_id": transition_id,
+            "tenant_id": binding.tenant_id,
+            "workflow_id": binding.workflow_id,
+            "run_id": binding.run_id,
+            "runtime_id": self._runtime_id,
+            "step_id": step_id,
+        }
+        # Ordinals are handed out in plan order rather than fixed per kind,
+        # because which effects a plan contains is a per-plan decision.
+        ordinal = _OWNERSHIP_ORDINAL
         ownership = build_workflow_transition_ownership_reservation_effect(
-            transition_id=transition_id,
-            tenant_id=binding.tenant_id,
-            workflow_id=binding.workflow_id,
-            run_id=binding.run_id,
-            runtime_id=self._runtime_id,
-            ordinal=_OWNERSHIP_ORDINAL,
-            step_id=step_id,
+            **scope,
+            ordinal=ordinal,
             lease_seconds=self._lease_seconds,
             maximum_retries=self._maximum_retries,
             planned_at=planned_at,
         )
+        grant: tuple[WorkflowTransitionEffect, ...] = ()
+        if self._authorization is not None:
+            # A Hub-owned grant intent precedes any ingest, so nothing reaches
+            # a worker before the Hub has said what that work may do.
+            ordinal += 1
+            grant = (
+                build_workflow_transition_authorization_grant_effect(
+                    **scope,
+                    signing_key_ring=self._authorization.signing_key_ring,
+                    ordinal=ordinal,
+                    plan_hash=binding.plan_hash,
+                    policy_version=binding.policy_version,
+                    allowed_tools=self._authorization.grant.allowed_tools,
+                    allowed_artifacts=self._authorization.grant.allowed_artifacts,
+                    budgets=self._authorization.grant.budgets,
+                    ttl_seconds=self._authorization.grant.ttl_seconds,
+                    planned_at=planned_at,
+                ),
+            )
         queue: tuple[WorkflowTransitionEffect, ...] = ()
-        event_ordinal = _EVENT_ORDINAL if self._reserves_queue_slot else _QUEUE_ORDINAL
         if self._reserves_queue_slot:
             # The reservation is the ingest: a run that hands work to a worker
             # must own exactly one slot before any event says it did.
+            ordinal += 1
             queue = (
                 build_workflow_transition_queue_reservation_effect(
-                    transition_id=transition_id,
-                    tenant_id=binding.tenant_id,
-                    workflow_id=binding.workflow_id,
-                    run_id=binding.run_id,
-                    runtime_id=self._runtime_id,
-                    ordinal=_QUEUE_ORDINAL,
-                    step_id=step_id,
+                    **scope,
+                    ordinal=ordinal,
                     task_id=workflow_transition_task_id(transition_id=transition_id),
                     maximum_retries=self._maximum_retries,
                     planned_at=planned_at,
                 ),
             )
+        checkpoint: tuple[WorkflowTransitionEffect, ...] = ()
+        if self._binds_checkpoint_revision is not None:
+            ordinal += 1
+            checkpoint = (
+                build_workflow_transition_checkpoint_binding_effect(
+                    **scope,
+                    ordinal=ordinal,
+                    task_id=workflow_transition_task_id(transition_id=transition_id),
+                    expected_revision=self._binds_checkpoint_revision,
+                    planned_at=planned_at,
+                ),
+            )
+        event_ordinal = ordinal + 1
         event = build_workflow_transition_event_effect(
             transition_id=transition_id,
             tenant_id=binding.tenant_id,
@@ -252,7 +330,7 @@ class NativeCommandTransitionIntentFactory:
             payload={"workflow_id": binding.workflow_id},
             created_at=planned_at,
         )
-        effects = (ownership, *queue, event, finalize)
+        effects = (ownership, *grant, *queue, *checkpoint, event, finalize)
         transition = WorkflowTransition.build(
             transition_id=transition_id,
             tenant_id=binding.tenant_id,
@@ -399,6 +477,26 @@ class NativeTransitionPublicProjector:
 
 @final
 @dataclass(frozen=True, slots=True)
+class NativeCheckpointBindingWiring:
+    """The binding authority together with the checkpoints it reads.
+
+    Both are required: a binding authority without the checkpoint store it
+    derives digests from could only record a caller's claim about a revision,
+    which is exactly the unverified evidence the binding exists to replace.
+    """
+
+    authority: Any
+    checkpoints: Any
+
+    def __post_init__(self) -> None:
+        if not callable(getattr(self.authority, "bind_transition_checkpoint", None)):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_checkpoint_authority_invalid")
+        if not callable(getattr(self.checkpoints, "get_latest", None)):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_checkpoint_reads_invalid")
+
+
+@final
+@dataclass(frozen=True, slots=True)
 class NativeAuthorizationGrantWiring:
     """Everything the grant effect needs, or nothing at all.
 
@@ -431,6 +529,8 @@ def build_native_transition_effect_registry(
     event_reads: WorkflowTransitionEventObservationReadPort,
     queue_reservations: WorkflowTransitionQueueReservationAuthority,
     clock: Callable[[], float],
+    runtime_id: str = TRANSITION_RUNTIME_NATIVE,
+    checkpoint_bindings: NativeCheckpointBindingWiring | None = None,
     authorization_grants: NativeAuthorizationGrantWiring | None = None,
 ) -> WorkflowTransitionEffectExecutorRegistry:
     """Register exactly the Native effect kinds that have a proven adapter.
@@ -442,11 +542,29 @@ def build_native_transition_effect_registry(
 
     if not callable(clock):
         raise WorkflowTransitionNativeCompositionError("workflow_transition_native_clock_invalid")
+    if runtime_id not in TRANSITION_RUNTIMES:
+        raise WorkflowTransitionNativeCompositionError("workflow_transition_native_runtime_invalid")
+    checkpoint_registrations: tuple[WorkflowTransitionEffectRegistration, ...] = ()
+    if checkpoint_bindings is not None:
+        checkpoint_registrations = (
+            WorkflowTransitionEffectRegistration(
+                runtime_id=runtime_id,
+                effect_kind=EFFECT_CHECKPOINT_SAVE,
+                handler=WorkflowTransitionEffectHandler(
+                    observation=WorkflowTransitionCheckpointBindingObserver(reads=checkpoint_bindings.authority),
+                    execution=WorkflowTransitionCheckpointBindingExecutor(
+                        authority=checkpoint_bindings.authority,
+                        checkpoints=checkpoint_bindings.checkpoints,
+                        clock=clock,
+                    ),
+                ),
+            ),
+        )
     grant_registrations: tuple[WorkflowTransitionEffectRegistration, ...] = ()
     if authorization_grants is not None:
         grant_registrations = (
             WorkflowTransitionEffectRegistration(
-                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                runtime_id=runtime_id,
                 effect_kind=EFFECT_AUTHORIZATION_GRANT,
                 handler=WorkflowTransitionEffectHandler(
                     observation=WorkflowTransitionAuthorizationGrantObserver(
@@ -468,7 +586,7 @@ def build_native_transition_effect_registry(
         (
             *grant_registrations,
             WorkflowTransitionEffectRegistration(
-                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                runtime_id=runtime_id,
                 effect_kind=EFFECT_OWNERSHIP_RESERVE,
                 handler=WorkflowTransitionEffectHandler(
                     observation=WorkflowTransitionOwnershipReservationObserver(
@@ -481,8 +599,9 @@ def build_native_transition_effect_registry(
                     ),
                 ),
             ),
+            *checkpoint_registrations,
             WorkflowTransitionEffectRegistration(
-                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                runtime_id=runtime_id,
                 effect_kind=EFFECT_QUEUE_RESERVE,
                 handler=WorkflowTransitionEffectHandler(
                     observation=WorkflowTransitionQueueReservationObserver(reads=queue_reservations),
@@ -493,15 +612,15 @@ def build_native_transition_effect_registry(
                 ),
             ),
             WorkflowTransitionEffectRegistration(
-                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                runtime_id=runtime_id,
                 effect_kind=EFFECT_EVENT_APPEND,
                 handler=WorkflowTransitionEffectHandler(
                     observation=WorkflowTransitionEventEffectObserver(
-                        runtime_id=TRANSITION_RUNTIME_NATIVE,
+                        runtime_id=runtime_id,
                         reads=event_reads,
                     ),
                     execution=WorkflowTransitionEventEffectExecutor(
-                        runtime_id=TRANSITION_RUNTIME_NATIVE,
+                        runtime_id=runtime_id,
                         authority=event_authority,
                     ),
                 ),
@@ -513,13 +632,14 @@ def build_native_transition_effect_registry(
 def build_native_transition_finalization_registry(
     *,
     status_reads: WorkflowBindingStatusReadPort,
+    runtime_id: str = TRANSITION_RUNTIME_NATIVE,
 ) -> WorkflowTransitionFinalizationObserverRegistry:
     """Register the authoritative Native command finalization observer."""
 
     return WorkflowTransitionFinalizationObserverRegistry(
         (
             WorkflowTransitionFinalizationRegistration(
-                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                runtime_id=runtime_id,
                 transition_kind=TRANSITION_KIND_COMMAND,
                 observation=NativeBindingFinalizationObserver(status_reads=status_reads),
             ),
@@ -690,6 +810,8 @@ __all__ = [
     "NATIVE_COMMAND_EVENT_TYPE",
     "NativeBindingFinalizationObserver",
     "NativeAuthorizationGrantWiring",
+    "NativeCheckpointBindingWiring",
+    "PlannedAuthorizationGrant",
     "NativeCommandTransitionIntentFactory",
     "NativeTransitionPublicProjector",
     "WorkflowBindingStatusReadPort",

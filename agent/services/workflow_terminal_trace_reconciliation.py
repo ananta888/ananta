@@ -14,6 +14,7 @@ the revision that was pending when the work started.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, final, runtime_checkable
@@ -260,6 +261,54 @@ class WorkflowTerminalTraceReconciler:
                 return cursor
 
 
+@final
+@dataclass(frozen=True, slots=True)
+class WorkflowTerminalTraceRuntime:
+    """The two collaborators the control facade needs, bundled as one seam.
+
+    Marking without draining would accumulate pending traces nothing projects;
+    draining without marking would drain a set nothing ever fills.  Bundling
+    them makes enabling the trace path a single decision.
+    """
+
+    state: WorkflowTerminalTraceStatePort
+    reconciler: WorkflowTerminalTraceReconciler
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.state, WorkflowTerminalTraceStatePort):
+            raise WorkflowTerminalTraceError("workflow_terminal_trace_state_invalid")
+        if not isinstance(self.reconciler, WorkflowTerminalTraceReconciler):
+            raise WorkflowTerminalTraceError("workflow_terminal_trace_reconciler_invalid")
+
+
+def build_workflow_terminal_trace_runtime(
+    bind: Any,
+    *,
+    history: Callable[[TerminalTraceCandidate, str], Sequence[Mapping[str, Any]]],
+    project: Callable[[TerminalTraceCandidate, tuple[dict[str, Any], ...]], None],
+    clock: Callable[[], float] = time.time,
+    page_size: int = MAX_WORKFLOW_HISTORY_PAGE,
+) -> WorkflowTerminalTraceRuntime:
+    """Assemble the durable terminal-trace path against one database bind.
+
+    This is the safe half of the transition cutover: it changes no command
+    path.  It only makes the final trace of a terminal run survive a failed
+    projection, which is exactly the evidence you want in place *before*
+    turning command transitions on.
+    """
+
+    state = SQLAlchemyWorkflowTerminalTraceStateStore(bind, clock=clock)
+    return WorkflowTerminalTraceRuntime(
+        state=state,
+        reconciler=WorkflowTerminalTraceReconciler(
+            state=state,
+            history=history,
+            project=project,
+            page_size=page_size,
+        ),
+    )
+
+
 def _identity(value: object, reason: str) -> str:
     if not isinstance(value, str) or not value or len(value) > 256:
         raise WorkflowTerminalTraceError(f"workflow_terminal_trace_{reason}_invalid")
@@ -285,7 +334,9 @@ __all__ = [
     "TerminalTraceDrainReport",
     "WorkflowTerminalTraceError",
     "WorkflowTerminalTraceReconciler",
+    "WorkflowTerminalTraceRuntime",
     "WorkflowTerminalTraceStatePort",
+    "build_workflow_terminal_trace_runtime",
     "is_terminal_status",
     "status_revision",
 ]

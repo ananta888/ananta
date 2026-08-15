@@ -651,7 +651,7 @@
     {
       "id": "CAC-014",
       "title": "Native/LangGraph Transition-Outbox und Effect-Attribution härten",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -667,14 +667,14 @@
         "recover_command akzeptiert ausschließlich einen exakten command_id- und Payload-/Effect-Fingerprint-Beleg; eine unabhängige spätere Runtime-Revision gilt nie als Ausführungsnachweis.",
         "Fault-Injection- und Restart-Tests an jeder Side-Effect-/Checkpoint-/Binding-Grenze belegen genau einen Task, ein Event, einen Effect und ein terminales Outcome."
       ],
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "gate_reason_code": "workflow_command_transition_outbox_required",
-      "notes": "Umgesetzt: Transition-Outbox, Persistenz, Fencing, Quarantaene, Receipt-Lease-Heartbeat, die Adapter fuer ownership_reserve, event_append und side_effect_authorize, die komponierbare Native-Slice (workflow_transition_native_composition) und deren Anschluss an workflow_control_composition. Der Grant-Effect ist komponierbar: NativeAuthorizationGrantWiring buendelt Autoritaet, retained-key- und widerrufsbewussten Verifizierer, sodass die permissive Haelfte nicht allein konfiguriert werden kann. Kriterium 5 ist belegt: 17 Fault-Injection- und Restart-Tests ueber alle Runner- und Store-Grenzen. Offen und jeweils track-gross: queue_reserve- und checkpoint_save-Adapter (es existieren weder transition-foermige Ports noch Tabellen dafuer) sowie der LangGraph-Pfad, dessen Planner trivial waere, dessen Ingest-Vertrag aber ungeklaert ist."
+      "notes": "Alle fuenf Kriterien erfuellt. Effect-Adapter vollstaendig: ownership_reserve, queue_reserve, checkpoint_save (Binding an eine vom Runtime geschriebene Revision), event_append, side_effect_authorize und authorization_grant. queue_reserve und checkpoint_save haben eigene gefencte Tabellen (Migrationen b2d4f6a8c0e3 und c3e5a7b9d1f4) mit je In-Memory- und SQL-Adapter unter demselben parametrisierten Vertrag. Planner und Registries sind runtime-parametrisch; Ordinale werden in Planreihenfolge vergeben, weil der Planinhalt eine Entscheidung pro Plan ist. Kriterium 2 ist ohne Effect-Verkettung erfuellt: der Grant-Intent braucht ausschliesslich Planungswerte und wird deshalb VOR der Ingest-Reservierung geplant. Grants werden per ExecutionPlanGrantPolicy aus dem Execution-Plan abgeleitet, nie separat konfiguriert, sodass ein Grant nie mehr erlauben kann als der Plan deklariert. Kriterium 5 ist durch 17 Fault-Injection- und Restart-Tests ueber alle Runner- und Store-Grenzen belegt."
     },
     {
       "id": "CAC-015",
       "title": "Temporal Command Authority kryptografisch vereinheitlichen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -690,8 +690,9 @@
         "Duplicate Adoption erfolgt erst nach erfolgreicher Kryptoprüfung und exaktem Payload-Fingerprint; gleiche command_id mit abweichendem Inhalt bleibt deterministisch rejected.",
         "Rotation-, Revocation- und End-to-End-Tests führen einen echten Produktions-Ed25519-Command über Adapter, Backend und Worker und belegen die Trennung privater Hub- und öffentlicher Worker-Schlüssel."
       ],
-      "progress_percent": 0.0,
-      "gate_reason_code": "temporal_command_authority_verification_required"
+      "progress_percent": 100.0,
+      "gate_reason_code": "temporal_command_authority_verification_required",
+      "notes": "Der Status todo/0% war veraltet; die Arbeit war bereits gebaut und ist mit 42 Tests belegt (tests/workflow_runtime/temporal/test_temporal_command_authority.py): Ed25519-Public-Key-Verifikation ohne Signierport im Worker, Pruefung von Kontrollversion, Algorithmus, Key-ID, kanonischem Payload-Digest und Signatur vor Duplicate-Lookup, fail-closed bei unbekannten und widerrufenen Keys sowie bei Manipulation, Rotations- und Revocation-Ueberlappung, und die Trennung privater Hub- von oeffentlichen Worker-Schluesseln ueber getrennte Keyring-Dateien mit allow_legacy_hmac_keyring, das bereits auf False steht. Zu Kriterium 1 ein belegter Befund: die 64-Hex-Pruefung im Temporal-DTO ist KEINE versehentliche Duplikation, sondern eine Sandbox-Grenze. ananta_contracts/temporal_workflow.py laeuft im Temporal-Workflow-Sandbox und darf cryptography nicht importieren; ein Delegationsversuch liess die Workflow-Validierung mit SystemError scheitern und wurde zurueckgenommen. Die Trennung ist zu erhalten, nicht zu beheben."
     },
     {
       "id": "CAC-016",
@@ -729,13 +730,13 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 1,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "partial": 1,
       "blocked": 0,
-      "done": 14
+      "done": 16
     },
-    "progress_percent_done": 82.4,
+    "progress_percent_done": 94.1,
     "by_priority": {
       "P0": 11,
       "P1": 5,
@@ -749,8 +750,8 @@
     },
     "critical_path": {
       "total": 16,
-      "done": 13,
-      "remaining": 3
+      "done": 15,
+      "remaining": 1
     },
     "milestones": {
       "total": 5,
@@ -781,15 +782,15 @@
         "total": 13,
         "by_status": {
           "todo": 0,
-          "in_progress": 1,
+          "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 12
+          "done": 13
         },
-        "done": 12,
+        "done": 13,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 97.7
+        "progress_percent": 100.0
       },
       "test": {
         "total": 1,
@@ -808,26 +809,26 @@
       "security": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 31.25,
-    "done_weight": 29.05,
-    "remaining_weight": 2.2,
+    "done_weight": 31.0,
+    "remaining_weight": 0.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 93.0
+    "weighted_percent": 99.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -865,31 +866,31 @@
       },
       "M5": {
         "total_tasks": 4,
-        "done": 1,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 25.0,
-        "weighted_percent": 64.8,
+        "count_based_percent": 75.0,
+        "weighted_percent": 96.0,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 1,
-    "in_progress": 1,
+    "todo_remaining": 0,
+    "in_progress": 0,
     "partial": 1,
     "blocked": 0,
-    "done": 14,
-    "count_based_percent": 82.4,
-    "weighted_percent": 93.0
+    "done": 16,
+    "count_based_percent": 94.1,
+    "weighted_percent": 99.2
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-15T13:54:24.623227Z",
+    "generated_at": "2026-08-15T15:03:10.241239Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "6a29b7503b4c64292274fae81e286fc3957e8b426839246db9a357794208fac5",
+    "source_hash": "09f98dbbb33c9403b677f8941784d27e89d18217ec4dbd1548c3f62a856cb2c8",
     "is_stale": false
   }
 }

@@ -20,6 +20,8 @@ from agent.services.workflow_terminal_trace_reconciliation import (
     TerminalTraceCandidate,
     WorkflowTerminalTraceError,
     WorkflowTerminalTraceReconciler,
+    WorkflowTerminalTraceRuntime,
+    build_workflow_terminal_trace_runtime,
     is_terminal_status,
     status_revision,
 )
@@ -298,3 +300,39 @@ def test_drain_report_is_countable_for_a_reconcile_summary() -> None:
     )
 
     assert reconciler.drain().to_dict() == {"projected": 0, "deferred": 0, "failed": []}
+
+def test_the_runtime_builder_assembles_a_usable_trace_path() -> None:
+    """Enabling the safe half of the cutover must be one decision, not two."""
+
+    engine = _engine()
+    _seed(engine)
+    runtime = build_workflow_terminal_trace_runtime(
+        engine,
+        history=_history(_events(2)),
+        project=_Projection(),
+        clock=lambda: _NOW,
+    )
+
+    runtime.state.mark_pending("workflow-a", revision=8)
+    report = runtime.reconciler.drain()
+
+    assert report.projected == 1
+    assert runtime.state.list_pending(limit=8) == ()
+
+
+def test_a_half_configured_trace_runtime_is_refused() -> None:
+    engine = _engine()
+    store = _store(engine)
+
+    with pytest.raises(WorkflowTerminalTraceError, match="reconciler_invalid"):
+        WorkflowTerminalTraceRuntime(state=store, reconciler=object())  # type: ignore[arg-type]
+    with pytest.raises(WorkflowTerminalTraceError, match="state_invalid"):
+        WorkflowTerminalTraceRuntime(
+            state=object(),  # type: ignore[arg-type]
+            reconciler=WorkflowTerminalTraceReconciler(
+                state=store,
+                history=_history([]),
+                project=_Projection(),
+            ),
+        )
+

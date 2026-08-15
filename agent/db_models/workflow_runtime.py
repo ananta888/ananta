@@ -343,6 +343,84 @@ class WorkflowTransitionQueueReservationDB(SQLModel, table=True):
     receipt: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
 
 
+class WorkflowTransitionCheckpointBindingDB(SQLModel, table=True):
+    """Append-only proof binding one transition effect to one checkpoint.
+
+    The transition does not author checkpoint state; the runtime does.  This
+    record only proves which exact checkpoint revision a transition effect was
+    bound to, so a restart re-adopts that binding instead of binding the run
+    to whatever revision happens to be current later.
+    """
+
+    __tablename__ = "workflow_transition_checkpoint_bindings"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "effect_id",
+            name="uq_workflow_transition_checkpoint_bind_effect",
+        ),
+        sa.UniqueConstraint(
+            "operation_fence_id",
+            name="uq_workflow_transition_checkpoint_bind_fence",
+        ),
+        sa.UniqueConstraint(
+            "attempt_id",
+            name="uq_workflow_transition_checkpoint_bind_attempt",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "run_id",
+            "task_id",
+            "bound_revision",
+            name="uq_workflow_transition_checkpoint_bind_revision",
+        ),
+        sa.CheckConstraint(
+            "creator_claim_generation > 0 "
+            "AND bound_revision > 0 "
+            "AND bound_revision <= 2147483647 "
+            "AND bound_fencing_token > 0 "
+            "AND bound_fencing_token <= 2147483647 "
+            "AND planned_at > 0 "
+            "AND bound_at >= planned_at",
+            name="ck_workflow_transition_checkpoint_bind_valid",
+        ),
+        sa.Index(
+            "ix_workflow_transition_checkpoint_bind_transition",
+            "transition_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_checkpoint_bind_tenant_run",
+            "tenant_id",
+            "run_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_checkpoint_bind_checkpoint",
+            "checkpoint_id",
+        ),
+    )
+
+    receipt_id: str = Field(primary_key=True, max_length=256)
+    transition_id: str = Field(max_length=256)
+    effect_id: str = Field(max_length=256)
+    operation_fence_id: str = Field(max_length=256)
+    attempt_id: str = Field(max_length=256)
+    checkpoint_id: str = Field(max_length=256)
+    task_id: str = Field(max_length=256)
+    tenant_id: str = Field(max_length=256)
+    workflow_id: str = Field(max_length=256)
+    run_id: str = Field(max_length=256)
+    runtime_id: str = Field(max_length=64)
+    step_id: str = Field(max_length=256)
+    checkpoint_intent_digest: str = Field(max_length=64)
+    checkpoint_digest: str = Field(max_length=64)
+    receipt_digest: str = Field(max_length=64)
+    creator_claim_generation: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    bound_revision: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    bound_fencing_token: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    planned_at: float
+    bound_at: float
+    receipt: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+
+
 class WorkflowExecutionOwnershipDB(SQLModel, table=True):
     """CAS-protected current owner of a hub-delegated workflow step."""
 

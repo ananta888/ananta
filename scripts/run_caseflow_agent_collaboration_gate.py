@@ -22,11 +22,11 @@ FRONTEND = ROOT / "frontend-angular"
 REPORT_SCHEMA_PATH = ROOT / "schemas/testing/caseflow_agent_collaboration_gate.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/caseflow-agent-collaboration-canvas.json"
 REPORT_SCHEMA = "ananta.caseflow_agent_collaboration_gate.v1"
-OPEN_RELEASE_BLOCKERS: tuple[str, ...] = (
-    "workflow_command_transition_outbox_required",
-    "temporal_command_authority_verification_required",
-    "workflow_terminal_trace_reconciliation_required",
-)
+# Empty because the scopes it named are closed, not because the concept is.
+# CAC-014, CAC-015 and CAC-016 are done and evidenced, so keeping their codes
+# here would report a blocker no longer backed by anything. A future open scope
+# belongs back in this tuple rather than being tracked outside the gate.
+OPEN_RELEASE_BLOCKERS: tuple[str, ...] = ()
 
 VITEST_SPECS: tuple[str, ...] = (
     "src/app/features/caseflow/agent-canvas/caseflow-agent-binding-catalog.service.spec.ts",

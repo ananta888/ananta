@@ -1084,6 +1084,7 @@ def test_runner_is_confined_to_the_framework_adapters_and_one_composition() -> N
     # adapter must be listed here deliberately; nothing else may reach for them.
     adapter_files = {
         (ROOT / "agent/services/workflow_transition_authorization_grant.py").resolve(),
+        (ROOT / "agent/services/workflow_transition_checkpoint_binding.py").resolve(),
         (ROOT / "agent/services/workflow_transition_event_effect.py").resolve(),
         (ROOT / "agent/services/workflow_transition_ownership_reservation.py").resolve(),
         (ROOT / "agent/services/workflow_transition_queue_reservation.py").resolve(),

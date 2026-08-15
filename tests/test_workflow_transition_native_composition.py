@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -11,8 +13,16 @@ from agent.services.workflow_command_transition_admission import (
 )
 from agent.services.workflow_control_bindings import WorkflowControlRunBinding
 from agent.services.workflow_control_command_receipts import WorkflowControlCommandReceipt
+from agent.services.workflow_runtime.checkpoint_bindings import (
+    InMemoryWorkflowTransitionCheckpointBindingStore,
+)
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from agent.services.workflow_runtime.events import InMemoryEventStore
+from agent.services.workflow_runtime.execution_plan import (
+    ExecutionBudget,
+    ExecutionNode,
+    ExecutionPlan,
+)
 from agent.services.workflow_runtime.ownership import InMemoryExecutionOwnershipStore
 from agent.services.workflow_runtime.queue_reservations import (
     InMemoryWorkflowTransitionQueueReservationStore,
@@ -24,11 +34,14 @@ from agent.services.workflow_transition_effect_execution import (
     FinalizationQuarantine,
     FinalizationRetry,
 )
+from agent.services.workflow_transition_grant_policy import ExecutionPlanGrantPolicy
 from agent.services.workflow_transition_native_composition import (
     NATIVE_COMMAND_EVENT_TYPE,
     NativeBindingFinalizationObserver,
+    NativeCheckpointBindingWiring,
     NativeCommandTransitionIntentFactory,
     NativeTransitionPublicProjector,
+    PlannedAuthorizationGrant,
     WorkflowTransitionDriver,
     WorkflowTransitionNativeCompositionError,
     build_native_transition_effect_registry,
@@ -38,10 +51,12 @@ from agent.services.workflow_transition_native_composition import (
 from agent.services.workflow_transition_outbox import (
     EFFECT_AUTHORIZATION_GRANT,
     EFFECT_BINDING_FINALIZE,
+    EFFECT_CHECKPOINT_SAVE,
     EFFECT_EVENT_APPEND,
     EFFECT_OWNERSHIP_RESERVE,
     EFFECT_QUEUE_RESERVE,
     TRANSITION_KIND_COMMAND,
+    TRANSITION_RUNTIME_LANGGRAPH,
     TRANSITION_RUNTIME_NATIVE,
     TRANSITION_STATE_COMPLETED,
     WorkflowTransitionError,
@@ -53,6 +68,7 @@ from agent.services.workflow_transition_runner import (
     RUN_OUTCOME_PROGRESSED,
     WorkflowTransitionRunner,
 )
+from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -145,7 +161,7 @@ class _StatusReads:
         return dict(self.status)
 
 
-def _store() -> InMemoryWorkflowTransitionStore:
+def _store(*, runtime_id: str = TRANSITION_RUNTIME_NATIVE) -> InMemoryWorkflowTransitionStore:
     store = InMemoryWorkflowTransitionStore(
         clock=lambda: _NOW,
         receipt_projector=NativeTransitionPublicProjector(),
@@ -154,7 +170,7 @@ def _store() -> InMemoryWorkflowTransitionStore:
         tenant_id="tenant-a",
         workflow_id="workflow-a",
         run_id="run-a",
-        runtime_id=TRANSITION_RUNTIME_NATIVE,
+        runtime_id=runtime_id,
         runtime_revision=7,
         runtime_checkpoint_ref="checkpoint-7",
         command_receipt_id="command-a",
@@ -176,6 +192,7 @@ def harness() -> dict[str, Any]:
     events = InMemoryEventStore()
     ownership = InMemoryExecutionOwnershipStore()
     queue_reservations = InMemoryWorkflowTransitionQueueReservationStore()
+    checkpoint_bindings = InMemoryWorkflowTransitionCheckpointBindingStore()
     store = _store()
     status_reads = _StatusReads()
     factory = NativeCommandTransitionIntentFactory(events=events, transitions=store)
@@ -211,6 +228,7 @@ def harness() -> dict[str, Any]:
         "admission": admission,
         "events": events,
         "ownership": ownership,
+        "checkpoint_bindings": checkpoint_bindings,
         "queue_reservations": queue_reservations,
         "runner": runner,
         "status_reads": status_reads,
@@ -457,6 +475,259 @@ def test_a_command_plan_reserves_no_queue_slot_by_default(harness: dict[str, Any
     staged = harness["admission"].stage_or_adopt(receipt=_receipt(), binding=_binding())
 
     assert EFFECT_QUEUE_RESERVE not in {effect.kind for effect in staged.effects}
+
+
+def _checkpoint_harness(harness: dict[str, Any], checkpoint: Any) -> Any:
+    """A runner whose registry also resolves checkpoint_save."""
+
+    return WorkflowTransitionRunner(
+        reads=harness["store"],
+        leases=harness["store"],
+        effects=harness["store"],
+        completion=harness["store"],
+        quarantine=harness["store"],
+        effect_registry=build_native_transition_effect_registry(
+            ownership_authority=harness["ownership"],
+            ownership_reads=harness["ownership"],
+            event_authority=harness["events"],
+            event_reads=harness["events"],
+            queue_reservations=harness["queue_reservations"],
+            checkpoint_bindings=NativeCheckpointBindingWiring(
+                authority=harness["checkpoint_bindings"],
+                checkpoints=checkpoint,
+            ),
+            clock=lambda: _NOW,
+        ),
+        finalization_registry=build_native_transition_finalization_registry(
+            status_reads=harness["status_reads"],
+        ),
+        retry_policy=BoundedWorkflowTransitionRetryPolicy(3, 2.0, 2.0, 10.0),
+        owner_id="runner-checkpoint",
+        lease_seconds=30.0,
+        clock=lambda: _NOW,
+    )
+
+
+class _Checkpoints:
+    def __init__(self, revision: int | None) -> None:
+        self.revision = revision
+
+    def get_latest(self, *, tenant_id: str, run_id: str, task_id: str) -> Any:
+        del tenant_id, run_id, task_id
+        if self.revision is None:
+            return None
+        return SimpleNamespace(
+            checkpoint_id=f"checkpoint-{self.revision}",
+            revision=self.revision,
+            fencing_token=3,
+        )
+
+
+def _checkpoint_plan(harness: dict[str, Any], *, revision: int) -> Any:
+    store = harness["store"]
+    admission = WorkflowCommandTransitionAdmissionService(
+        store,
+        transition_reader=store,
+        intent_factory=NativeCommandTransitionIntentFactory(
+            events=harness["events"],
+            transitions=store,
+            binds_checkpoint_revision=revision,
+        ),
+        clock=lambda: _NOW,
+    )
+    return admission.stage_or_adopt(receipt=_receipt(), binding=_binding())
+
+
+def test_a_checkpoint_binding_plan_binds_the_exact_revision_the_runtime_wrote(
+    harness: dict[str, Any],
+) -> None:
+    staged = _checkpoint_plan(harness, revision=8)
+    runner = _checkpoint_harness(harness, _Checkpoints(8))
+
+    result = _run_to_completion(runner, staged.transition.transition_id)
+
+    assert EFFECT_CHECKPOINT_SAVE in {effect.kind for effect in staged.effects}
+    assert result.snapshot.transition.state == TRANSITION_STATE_COMPLETED
+    bound = harness["checkpoint_bindings"].observe_transition_checkpoint_binding(
+        tenant_id="tenant-a",
+        run_id="run-a",
+        effect_id=staged.effects[1].effect_id,
+    )
+    assert bound.receipt is not None
+    assert bound.receipt.bound_revision == 8
+
+
+def test_a_checkpoint_the_runtime_has_not_written_is_a_wait(harness: dict[str, Any]) -> None:
+    """Absence means the runtime has not checkpointed yet, not that it failed."""
+
+    staged = _checkpoint_plan(harness, revision=8)
+    runner = _checkpoint_harness(harness, _Checkpoints(None))
+
+    result = _run_to_completion(runner, staged.transition.transition_id)
+
+    assert result.snapshot.transition.state != TRANSITION_STATE_COMPLETED
+    bound = harness["checkpoint_bindings"].observe_transition_checkpoint_binding(
+        tenant_id="tenant-a",
+        run_id="run-a",
+        effect_id=staged.effects[1].effect_id,
+    )
+    assert bound.receipt is None
+
+
+def test_a_checkpoint_at_a_later_revision_is_never_silently_bound(
+    harness: dict[str, Any],
+) -> None:
+    """Binding a drifted revision would attribute state the run never saw."""
+
+    staged = _checkpoint_plan(harness, revision=8)
+    runner = _checkpoint_harness(harness, _Checkpoints(11))
+
+    result = _run_to_completion(runner, staged.transition.transition_id)
+
+    assert result.snapshot.transition.state != TRANSITION_STATE_COMPLETED
+    bound = harness["checkpoint_bindings"].observe_transition_checkpoint_binding(
+        tenant_id="tenant-a",
+        run_id="run-a",
+        effect_id=staged.effects[1].effect_id,
+    )
+    assert bound.receipt is None
+
+
+def test_the_same_composition_serves_the_langgraph_runtime(
+    harness: dict[str, Any],
+) -> None:
+    """Runtime is a parameter, not a fork: LangGraph gets the same adapters.
+
+    The registry is an exact runtime/kind pair, so a LangGraph registry must
+    not resolve Native effects and vice versa — that exactness is what stops
+    one runtime's effect from being executed under another's fencing.
+    """
+
+    registry = build_native_transition_effect_registry(
+        ownership_authority=harness["ownership"],
+        ownership_reads=harness["ownership"],
+        event_authority=harness["events"],
+        event_reads=harness["events"],
+        queue_reservations=harness["queue_reservations"],
+        runtime_id=TRANSITION_RUNTIME_LANGGRAPH,
+        clock=lambda: _NOW,
+    )
+
+    assert registry.resolve(runtime_id=TRANSITION_RUNTIME_LANGGRAPH, effect_kind=EFFECT_QUEUE_RESERVE)
+    with pytest.raises(Exception, match="executor_missing"):
+        registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind=EFFECT_QUEUE_RESERVE)
+
+
+def test_a_langgraph_plan_reserves_its_ingest_slot_before_any_event(
+    harness: dict[str, Any],
+) -> None:
+    store = _store(runtime_id=TRANSITION_RUNTIME_LANGGRAPH)
+    admission = WorkflowCommandTransitionAdmissionService(
+        store,
+        transition_reader=store,
+        intent_factory=NativeCommandTransitionIntentFactory(
+            events=harness["events"],
+            transitions=store,
+            runtime_id=TRANSITION_RUNTIME_LANGGRAPH,
+            reserves_queue_slot=True,
+        ),
+        clock=lambda: _NOW,
+    )
+
+    staged = admission.stage_or_adopt(
+        receipt=_receipt(),
+        binding=_binding(runtime_id=TRANSITION_RUNTIME_LANGGRAPH),
+    )
+
+    kinds = [effect.kind for effect in staged.effects]
+    assert staged.transition.runtime_id == TRANSITION_RUNTIME_LANGGRAPH
+    assert kinds.index(EFFECT_QUEUE_RESERVE) < kinds.index(EFFECT_EVENT_APPEND)
+
+
+def _signing_key_ring() -> Ed25519SigningKeyRing:
+    return Ed25519SigningKeyRing(
+        {"grant-key-v1": base64.b64encode(bytes([1]) * 32)},
+        active_key_id="grant-key-v1",
+    )
+
+
+def _planned_grant() -> PlannedAuthorizationGrant:
+    node = ExecutionNode(
+        node_id="step-a",
+        allowed_tools=("shell",),
+        input_artifacts=("in.md",),
+        budget=ExecutionBudget(max_attempts=2, timeout_seconds=30.0),
+    )
+    plan = ExecutionPlan(
+        tenant_id="tenant-a",
+        plan_id="plan-a",
+        workflow_id="workflow-a",
+        policy_version="policy-v1",
+        nodes=(node,),
+    )
+    return PlannedAuthorizationGrant(
+        grant=ExecutionPlanGrantPolicy().derive(plan, step_id="step-a"),
+        signing_key_ring=_signing_key_ring(),
+    )
+
+
+def test_a_langgraph_ingest_is_preceded_by_a_hub_owned_grant_intent(
+    harness: dict[str, Any],
+) -> None:
+    """CAC-014's ordering: nothing reaches a worker before the Hub authorized it.
+
+    The grant needs only plan-time inputs, so it can be planned ahead of the
+    ingest without the runner having to feed one effect's result into another.
+    """
+
+    store = _store(runtime_id=TRANSITION_RUNTIME_LANGGRAPH)
+    admission = WorkflowCommandTransitionAdmissionService(
+        store,
+        transition_reader=store,
+        intent_factory=NativeCommandTransitionIntentFactory(
+            events=harness["events"],
+            transitions=store,
+            runtime_id=TRANSITION_RUNTIME_LANGGRAPH,
+            reserves_queue_slot=True,
+            authorization=_planned_grant(),
+        ),
+        clock=lambda: _NOW,
+    )
+
+    staged = admission.stage_or_adopt(
+        receipt=_receipt(),
+        binding=_binding(runtime_id=TRANSITION_RUNTIME_LANGGRAPH),
+    )
+
+    kinds = [effect.kind for effect in staged.effects]
+    assert kinds.index(EFFECT_AUTHORIZATION_GRANT) < kinds.index(EFFECT_QUEUE_RESERVE)
+    assert kinds.index(EFFECT_QUEUE_RESERVE) < kinds.index(EFFECT_EVENT_APPEND)
+    assert tuple(effect.ordinal for effect in staged.effects) == (1, 2, 3, 4, 5)
+
+
+def test_a_grant_carrying_plan_stays_byte_deterministic(harness: dict[str, Any]) -> None:
+    """A replan must produce the same signed intent, or recovery breaks."""
+
+    def _plan() -> Any:
+        store = _store()
+        factory = NativeCommandTransitionIntentFactory(
+            events=harness["events"],
+            transitions=store,
+            authorization=_planned_grant(),
+        )
+        return factory.build(
+            receipt=_receipt(),
+            binding=_binding(),
+            transition_id="wft-deterministic",
+            planned_at=_NOW,
+        )
+
+    assert _plan().transition.effect_fingerprint == _plan().transition.effect_fingerprint
+
+
+def test_a_grant_without_its_signing_key_is_refused() -> None:
+    with pytest.raises(WorkflowTransitionNativeCompositionError, match="signing_key_ring_invalid"):
+        PlannedAuthorizationGrant(grant=_planned_grant().grant, signing_key_ring=object())
 
 
 def test_registry_resolves_exactly_the_effect_kinds_that_have_an_adapter(
