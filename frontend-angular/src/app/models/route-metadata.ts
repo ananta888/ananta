@@ -26,6 +26,15 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   projects: { label: 'Projekte', area: 'Configure', navGroup: 'Arbeiten', navOrder: 8, simpleNav: true },
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true, projectScoped: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
+  'caseflow/team': {
+    // First because it is the only entry that asks nothing of a newcomer: it
+    // offers templates, while the two below need an existing process picked.
+    label: 'Agenten-Team',
+    area: 'Configure',
+    navGroup: 'CaseFlow',
+    navOrder: 0,
+    simpleNav: true,
+  },
   'process-designer': {
     // Ordered before Studio because Studio can only select a process that
     // already exists; without this entry the designer was reachable by URL
@@ -33,14 +42,14 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
     label: 'Prozess-Designer',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 0,
+    navOrder: 1,
     simpleNav: true,
   },
   'caseflow/studio': {
     label: 'CaseFlow Studio',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 1,
+    navOrder: 2,
     simpleNav: true,
     separatorAfter: true,
   },

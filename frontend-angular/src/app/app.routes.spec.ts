@@ -72,6 +72,7 @@ describe('app routes', () => {
     expect(caseFlow.loadComponent).toBeUndefined();
     expect(caseFlow.children.map((item: any) => item.path)).toEqual([
       '',
+      'team',
       'studio',
       'classroom',
       'jobs',
