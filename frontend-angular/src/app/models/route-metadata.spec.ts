@@ -32,6 +32,7 @@ describe('route metadata', () => {
       '/voxtral-offline',
       '/llama-runtime',
       '/help',
+      '/process-designer',
       '/caseflow/studio',
     ]);
     expect(simplePaths).not.toContain('/agents');
@@ -48,11 +49,18 @@ describe('route metadata', () => {
     ]));
   });
 
-  it('places CaseFlow Studio first in its own main group with a separator', () => {
+  it('offers designing before selecting in its own main group with a separator', () => {
+    // Studio can only select a process that already exists, so the designer
+    // has to come first: with Studio alone the first workflow was
+    // undiscoverable, reachable by direct URL only.
     const caseFlowGroup = buildNavGroups('admin', 'simple')
       .find(group => group.label === 'CaseFlow');
 
     expect(caseFlowGroup?.items).toEqual([
+      expect.objectContaining({
+        label: 'Prozess-Designer',
+        path: '/process-designer',
+      }),
       expect.objectContaining({
         label: 'CaseFlow Studio',
         path: '/caseflow/studio',

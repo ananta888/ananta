@@ -26,11 +26,21 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   projects: { label: 'Projekte', area: 'Configure', navGroup: 'Arbeiten', navOrder: 8, simpleNav: true },
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true, projectScoped: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
+  'process-designer': {
+    // Ordered before Studio because Studio can only select a process that
+    // already exists; without this entry the designer was reachable by URL
+    // only, which made creating the first workflow undiscoverable.
+    label: 'Prozess-Designer',
+    area: 'Configure',
+    navGroup: 'CaseFlow',
+    navOrder: 0,
+    simpleNav: true,
+  },
   'caseflow/studio': {
     label: 'CaseFlow Studio',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 0,
+    navOrder: 1,
     simpleNav: true,
     separatorAfter: true,
   },
