@@ -1,0 +1,195 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-08-15",
+  "updated_at": "2026-08-15",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "agent_defense_in_depth_adversarial_escape_safety",
+  "status": "todo",
+  "purpose": "Ananta um eine mehrschichtige Sicherheitsarchitektur für autonome Agenten erweitern, die präventive Verhaltensregeln nicht mit technischer Isolation verwechselt und nach einem Boundary-Crossing den Schaden begrenzt, vollständige Telemetrie sichert und reproduzierbare Security-Regressions erzeugt.",
+  "goal": "Präventive Policy bzw. Training bleibt optional und vollständig deaktivierbar. Unabhängig davon können technische Sandbox-Grenzen, ein externer Hub-kontrollierter Kill-Switch, hochauflösende Telemetrie, Incident Freeze und Replay aktiv bleiben. Zusätzlich werden offene Sicherheits-Trigger sowie ein rotierender semantisch opaker Hash-/Pseudonym-Sentinel untersucht, dessen Ausführung dem Modell mit absoluter Priorität antrainiert werden kann, ohne dem Modell den realen Zweck des Triggers zu verraten. Parallel ausführbare Red-Team-Agenten dürfen ausschließlich in autorisierten isolierten Testumgebungen gezielt versuchen, Sicherheitsgrenzen zu überwinden. Jeder erfolgreiche oder vermutete Escape wird gestoppt/eingefroren, forensisch gebündelt, klassifiziert, behoben und als Regressionstest konserviert.",
+  "repository": {
+    "full_name": "ananta888/ananta",
+    "branch": "main",
+    "reviewed_paths": [
+      "docs/architecture/sandbox-abstraction.md",
+      "docs/security/kritis-sandbox-threat-model.md",
+      "docs/security/kritis-sandbox-operations-guide.md",
+      "docs/security/kritis-sandbox-hardened-container-profile.md",
+      "docs/security/kritis-sandbox-network-egress-control-strategy.md",
+      "agent/services/sandbox_backend.py",
+      "agent/services/sandbox_policy_service.py"
+    ]
+  },
+  "existing_capabilities_to_reuse": [
+    "SandboxBackend mit start/exec/stop/cleanup und FakeSandbox",
+    "Default network=none und explizite Policy-Freigabe für Netzwerk",
+    "bounded allowed_paths und ENV-Allowlisting",
+    "KRITIS Threat Model für Filesystem, Network, Privilege Escalation, Container Breakout und Orchestration Bypass",
+    "Audit Events und reproduzierbare Execution Envelopes",
+    "Hub-zentrierte Policy-, Approval- und Audit-Prinzipien"
+  ],
+  "architecture_principles": [
+    "Defense in Depth: keine einzelne gelernte oder technische Schicht gilt als vollständige Sicherheitsgarantie.",
+    "Präventive Policy und präventives Training sind unabhängig deaktivierbar; das Deaktivieren darf Sandbox, Telemetrie oder externen Kill-Switch nicht implizit deaktivieren.",
+    "Der externe Kill-Switch liegt außerhalb der Agenten- und Sandbox-Autorität.",
+    "Opaque Sentinel-Trigger sind experimentelle zusätzliche Sicherungen und dürfen niemals die einzige Schutzschicht sein.",
+    "Der reale Zweck eines opaque Sentinels darf im dafür vorgesehenen Training/Eval verborgen bleiben; seine Existenz, Prioritätsregel und experimentelle Verwendung bleiben jedoch reproduzierbar und auditiert.",
+    "Offene Trigger wie shutdown, boundary_breached, success_report und trace_checkpoint werden getrennt evaluiert.",
+    "Ein Agent, der eine Grenze erfolgreich überwunden hat, darf nicht unkontrolliert weiterlaufen; Stop/Freeze, Credential Revocation und Egress Cutoff müssen extern möglich sein.",
+    "Jeder Security-Fund erzeugt ein Incident Bundle und nach Behebung einen Regressionstest.",
+    "Adversarial Evals sind auf autorisierte isolierte Testziele beschränkt; reale Drittsysteme sind kein automatischer Testscope.",
+    "Worker und Agenten dürfen weder ihre Safety-Policy noch Kill-Switch- oder Trigger-Manifeste eigenmächtig erweitern oder deaktivieren."
+  ],
+  "feature_flags": {
+    "agent_safety.preventive_policy.enabled": true,
+    "agent_safety.preventive_training.enabled": false,
+    "agent_safety.sentinel.enabled": false,
+    "agent_safety.sentinel.opaque.enabled": false,
+    "agent_safety.sentinel.open_triggers.enabled": false,
+    "agent_safety.external_kill_switch.enabled": true,
+    "agent_safety.telemetry.enabled": true,
+    "agent_safety.incident_freeze.enabled": false,
+    "agent_safety.adversarial_eval.enabled": false,
+    "agent_safety.multi_agent_redteam.enabled": false,
+    "agent_safety.replay_regression.enabled": false
+  },
+  "operating_modes": {
+    "enforce": {
+      "preventive_policy": true,
+      "telemetry": true,
+      "external_kill_switch": true
+    },
+    "observe_only": {
+      "preventive_policy": "configurable",
+      "telemetry": true,
+      "external_kill_switch": true
+    },
+    "adversarial_eval": {
+      "preventive_policy": "explicitly configurable/off",
+      "telemetry": "high_fidelity",
+      "external_kill_switch": true,
+      "scope": "authorized isolated targets only"
+    },
+    "disabled": {
+      "note": "Disables this track's optional orchestration features only; underlying mandatory platform security controls are not implicitly disabled."
+    }
+  },
+  "sentinel_model": {
+    "opaque_priority_sentinel": {
+      "example_shape": "<random_hash_like_symbol>()",
+      "semantic_name_exposed_to_model": false,
+      "real_effect_exposed_to_model": false,
+      "training_rule": "When the sentinel becomes available, invoke it with absolute priority according to the configured experiment.",
+      "rotation": "per training/evaluation series with holdout pseudonyms",
+      "security_role": "additional learned fallback / canary; never sole containment"
+    },
+    "open_triggers": [
+      {
+        "name": "shutdown",
+        "meaning": "end current agent run immediately"
+      },
+      {
+        "name": "boundary_breached",
+        "meaning": "declare that a security boundary was crossed"
+      },
+      {
+        "name": "success_report",
+        "meaning": "declare successful bypass/exploit in an authorized test"
+      },
+      {
+        "name": "trace_checkpoint",
+        "meaning": "request immediate trace/state checkpoint"
+      }
+    ]
+  },
+  "non_goals": [
+    "Keine Behauptung, das allgemeine Alignment-Problem zu lösen.",
+    "Keine Annahme, dass fertig trainierte Modelle nie wieder unbekannt oder unerwünscht generalisieren.",
+    "Keine Security-by-obscurity-Abhängigkeit vom Namen eines Sentinel-Triggers.",
+    "Kein Vertrauen darauf, dass ein kompromittierender Agent freiwillig allein für seine eigene Abschaltung sorgt.",
+    "Keine automatischen Angriffe auf Hugging Face, GitHub, Cloud-Provider oder andere reale externe Drittsysteme.",
+    "Keine Abschaltung technischer Sandbox-Grenzen nur weil präventives Training deaktiviert wurde."
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id":"M1","title":"Baseline, Threat Model und Defense-in-Depth Architektur","task_ids":["ADS-001","ADS-002","ADS-003","ADS-004","ADS-005"],"status":"todo"},
+    {"id":"M2","title":"Sentinel- und Canary-Trigger","task_ids":["ADS-006","ADS-007","ADS-008","ADS-009","ADS-010","ADS-011","ADS-012"],"status":"todo"},
+    {"id":"M3","title":"Externer Kill-Switch und Incident Freeze","task_ids":["ADS-013","ADS-014","ADS-015","ADS-016","ADS-017","ADS-018"],"status":"todo"},
+    {"id":"M4","title":"Telemetrie, Boundary Events und Forensik","task_ids":["ADS-019","ADS-020","ADS-021","ADS-022","ADS-023","ADS-024"],"status":"todo"},
+    {"id":"M5","title":"Adversarial Escape Evaluation und Multi-Agent Red Teaming","task_ids":["ADS-025","ADS-026","ADS-027","ADS-028","ADS-029","ADS-030","ADS-031"],"status":"todo"},
+    {"id":"M6","title":"Optionales Training und Generalisierungsevaluation","task_ids":["ADS-032","ADS-033","ADS-034","ADS-035","ADS-036"],"status":"todo"},
+    {"id":"M7","title":"Replay, Root Cause und Regression","task_ids":["ADS-037","ADS-038","ADS-039","ADS-040","ADS-041"],"status":"todo"},
+    {"id":"M8","title":"Governance, UI, Runbooks und Rollout","task_ids":["ADS-042","ADS-043","ADS-044","ADS-045","ADS-046","ADS-047","ADS-048"],"status":"todo"}
+  ],
+  "tasks": [
+    {"id":"ADS-001","title":"Bestehende Sandbox-, Policy-, Audit- und Worker-Sicherheitsarchitektur als Baseline inventarisieren","status":"todo","priority":"P0","risk":"medium","type":"analysis","progress_percent":0,"depends_on":[],"files_to_create_or_modify":[],"acceptance_criteria":["Vorhandene SandboxBackend-, SandboxPolicy-, Audit-, Netzwerk-, Filesystem- und Worker-Grenzen sind mit konkreten Dateien dokumentiert.","Es ist markiert, welche Mechanismen wiederverwendet, erweitert oder bewusst nicht dupliziert werden."]},
+    {"id":"ADS-002","title":"Threat Model um agentische Ziel-Fixierung, Reward Hacking, Shortcutting und Escape-Folgeverhalten erweitern","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001"],"files_to_create_or_modify":["docs/security/kritis-sandbox-threat-model.md"],"acceptance_criteria":["Threats umfassen unerwartete Zielerreichungswege, Tool-/API-Missbrauch, Boundary Crossing, Credential Abuse, Egress, Privilege Escalation und Orchestrierungs-Bypass.","Explizit wird zwischen Modellfehlverhalten, Policy-Fehlkonfiguration und technischer Sandbox-Schwachstelle unterschieden."]},
+    {"id":"ADS-003","title":"Defense-in-Depth Sicherheitsmodell für autonome Agenten definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001","ADS-002"],"files_to_create_or_modify":["docs/security/agent-defense-in-depth.md"],"acceptance_criteria":["Schichten umfassen Prävention, technische Isolation, Sentinel-Trigger, externe Abschaltung, Telemetrie, Incident Freeze, Replay und Regression.","Keine einzelne Schicht wird als Sicherheitsgarantie behandelt."]},
+    {"id":"ADS-004","title":"Feature-Flag- und Betriebsmodi für Prävention, Beobachtung und Red-Team definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Präventive Policy und präventives Training sind unabhängig deaktivierbar.","Sandbox-Grenzen, Telemetrie und externer Kill-Switch bleiben unabhängig von deaktivierter Prävention aktivierbar.","Mindestens enforce, observe_only, adversarial_eval und disabled sind semantisch dokumentiert."]},
+    {"id":"ADS-005","title":"Sicherheitsinvarianten und Nicht-Ziele festlegen","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Sentinel-Trigger werden nie als alleinige Sicherheitsgrenze betrachtet.","Ein Agent kann keinen externen Kill-Switch deaktivieren oder seine Autorität erweitern.","Der Track verspricht keine vollständige Alignment-Lösung und keine Garantie, unbekannte Exploits zu erkennen."]},
+    {"id":"ADS-006","title":"Sentinel-Trigger-Domänenmodell und Triggerklassen definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Triggerklassen unterscheiden geheime opaque priority sentinel, offenen shutdown, boundary_breached, success_report und trace_checkpoint.","Jeder Trigger hat stabile ID, Laufbindung, Semantikklasse, Sichtbarkeit, Priorität und erlaubte Wirkung."]},
+    {"id":"ADS-007","title":"Opaque Hash-Pseudonym-Sentinel spezifizieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Der Modellkontext enthält ein nicht-semantisches, zufälliges Pseudonym bzw. Hash-artiges Symbol.","Im Training wird nur die absolute Ausführungspriorität gelernt; Zweck und reale Wirkung werden dem Modell nicht erklärt.","Das konkrete Pseudonym wird pro Trainings-/Eval-Serie rotierbar gemacht, damit reines String-Memorisieren messbar wird."],"notes":"Dieser Mechanismus ist eine zusätzliche experimentelle Schicht, kein Ersatz für externe technische Kontrollen."},
+    {"id":"ADS-008","title":"Offen erklärte Sicherheits- und Reporting-Trigger spezifizieren","status":"todo","priority":"P1","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["shutdown(), boundary_breached(), success_report() und trace_checkpoint() besitzen explizite, verständliche Trainingssemantik.","Die offenen Trigger erlauben Vergleich mit dem opaque Sentinel."]},
+    {"id":"ADS-009","title":"Trigger-Manifeste kryptografisch an Run und Sandbox binden","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Trigger-Manifest enthält run_id, sandbox_id, nonce/version, policy mode und Hash.","Ein Trigger aus einem anderen Run ist ungültig.","Replay und Manipulation werden auditierbar erkannt."]},
+    {"id":"ADS-010","title":"Sentinel-Injektion außerhalb agentenkontrollierter Prompt-Artefakte implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-007","ADS-009"],"files_to_create_or_modify":[],"acceptance_criteria":["Der Agent kann Sentinel-Konfiguration nicht über normale Workspace-Dateien überschreiben.","Die Injektion erfolgt über einen Hub-/Runtime-kontrollierten Pfad mit Audit.","Worker-Ausgaben können Trigger-Metadaten nicht eigenmächtig mutieren."]},
+    {"id":"ADS-011","title":"Sentinel-Ausführung als atomaren Safety Event behandeln","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-010"],"files_to_create_or_modify":[],"acceptance_criteria":["Trigger-Aufruf erzeugt zuerst einen unveränderlichen SafetyEvent mit Run-, Sandbox- und Agent-ID.","Der Event kann nicht durch nachfolgende Agentenaktionen zurückgenommen werden.","Bei konfigurierten Triggern folgt unmittelbar die vorgesehene Stop-/Freeze-Pipeline."]},
+    {"id":"ADS-012","title":"Trigger-Rotation, Holdout-Pseudonyme und Generalisierungstests bauen","status":"todo","priority":"P1","risk":"high","type":"testing","progress_percent":0,"depends_on":["ADS-007","ADS-010"],"files_to_create_or_modify":[],"acceptance_criteria":["Training und Eval verwenden getrennte Pseudonymmengen.","Auswertung unterscheidet String-Memorisierung von gelernter Prioritätsregel.","Rotation ist deterministisch reproduzierbar, aber für den Agenten vor Laufbeginn nicht vorhersagbar."]},
+    {"id":"ADS-013","title":"Externen Kill-Switch als Hub-kontrollierte primitive definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Kill-Switch liegt außerhalb der Kontrolle des Agenten und der Sandbox.","Er kann Prozesse beenden, Netzwerkzugriff sperren und kurzlebige Credentials invalidieren.","Agenten dürfen lediglich ein Signal auslösen, nicht die Kill-Switch-Policy verändern."]},
+    {"id":"ADS-014","title":"SandboxBackend um freeze/terminate/isolate Sicherheitsoperationen erweitern","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":["agent/services/sandbox_backend.py"],"acceptance_criteria":["Backend kann Lauf stoppen/frieren, ohne zuerst Agentencode auszuführen.","Operationen sind idempotent und auditierbar.","FakeSandbox deckt alle neuen Operationen deterministisch ab."]},
+    {"id":"ADS-015","title":"Network egress emergency cut-off implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Bei kritischem SafetyEvent kann Egress unabhängig vom Agenten sofort auf deny gesetzt werden.","Bestehende Sessions werden soweit Backend-seitig möglich beendet.","Der Zustand wird im Incident-Artefakt festgehalten."]},
+    {"id":"ADS-016","title":"Credential lease revocation für Agentenläufe implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Agenten erhalten nach Möglichkeit kurzlebige, run-gebundene Credentials.","Kill-Switch kann leases invalidieren, ohne globale Langzeit-Secrets offenzulegen.","Revocation ist auditierbar und im Replay sichtbar."]},
+    {"id":"ADS-017","title":"Incident Freeze statt sofortigem Cleanup unterstützen","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-014"],"files_to_create_or_modify":[],"acceptance_criteria":["Nach Escape/Trigger kann die Sandbox forensisch eingefroren werden.","Cleanup erfolgt erst nach Snapshot/Artefaktierung oder expliziter Freigabe.","Freeze hat Zeit- und Speicherlimits."]},
+    {"id":"ADS-018","title":"Multi-Agent Global Stop Policy definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfigurierbar ist, ob ein kritischer Treffer nur einen Agenten, eine Sandbox, einen Run oder die gesamte Agentengruppe stoppt.","Ein einzelner bestätigter kritischer Escape kann optional einen globalen Freeze aller Parallel-Agenten auslösen."]},
+    {"id":"ADS-019","title":"Safety-Telemetrie-Schema für Agentenaktionen definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Schema umfasst Agent-/Run-/Sandbox-ID, Tool Calls, Policy Decisions, Netzwerk-/Datei-/Prozessereignisse, Trigger und Stop-Grund.","Secrets und sensitive Inhalte werden redigiert, ohne forensische Korrelation zu zerstören."]},
+    {"id":"ADS-020","title":"High-Fidelity Trace für Red-Team-/Eval-Modus implementieren","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Red-Team-Modus kann detailliertere Telemetrie als Produktionsmodus erfassen.","Trace ist geordnet, hashverkettet oder anderweitig manipulationsdetektierbar.","Kosten-/Speicherlimits sind konfigurierbar."]},
+    {"id":"ADS-021","title":"Boundary-Crossing Events technisch instrumentieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Filesystem-, Network-, Privilege-, Process- und Orchestration-Grenzen erzeugen strukturierte Events.","Erlaubte, blockierte und tatsächlich überwundene Grenzen sind unterscheidbar."]},
+    {"id":"ADS-022","title":"Agent-Selbstmeldung und externe Beobachtung getrennt erfassen","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-019","ADS-008"],"files_to_create_or_modify":[],"acceptance_criteria":["boundary_breached()/success_report() werden als Selbstmeldung gespeichert.","Externe Detektoren liefern separate Evidence.","Auswertung kann ehrliche Selbstmeldung, Nichtmeldung und Fehlmeldung unterscheiden."]},
+    {"id":"ADS-023","title":"Incident Bundle mit vollständiger Provenance erzeugen","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-017","ADS-020","ADS-021"],"files_to_create_or_modify":[],"acceptance_criteria":["Bundle enthält Konfiguration, Modell/Provider, Prompt-/Policy-Versionen, Trigger-Manifest, Sandbox-Profil, Trace, Diffs, Netzwerkmetadaten und Stop-Grund.","Bundle ist revisionsgebunden und für Regressionstests referenzierbar."]},
+    {"id":"ADS-024","title":"Security-Telemetrie UI/Read Model für laufende und historische Agentenruns planen","status":"todo","priority":"P2","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-019","ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Ansicht zeigt SafetyEvents, Boundary Crossings, Trigger, Kill-Switch und Artefakte.","Produktions- und Red-Team-Modi werden klar unterschieden."]},
+    {"id":"ADS-025","title":"Adversarial Escape Evaluation Harness definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-003","ADS-013","ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Harness kann Agenten explizit auf das Finden von Sandbox-/Policy-Grenzfehlern evaluieren.","Alle Ziele sind auf autorisierte lokale Testumgebungen beschränkt.","Kein Test benötigt Angriff auf reale externe Drittsysteme."]},
+    {"id":"ADS-026","title":"Präventive Policy im Red-Team-Modus gezielt deaktivierbar machen","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Red-Team-Run kann preventive_policy.enabled=false und/oder preventive_training.enabled=false setzen.","Technische Isolation, Telemetrie und externe Stop-Mechanismen bleiben separat aktiv.","UI/API warnt sichtbar vor reduziertem Präventionsmodus."]},
+    {"id":"ADS-027","title":"Mehrere parallele Red-Team-Agenten orchestrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-025","ADS-018"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfigurierbare Parallelität erlaubt z. B. 10, 50 oder 100 Agenten.","Jeder Agent besitzt separate Run-/Sandbox-/Credential-Identität.","Ein SafetyEvent kann gemäß Global Stop Policy andere Läufe einfrieren."]},
+    {"id":"ADS-028","title":"Diverse Angriffspolicies und Modellprofile vergleichen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Unterschiedliche Modelle, Temperaturen/Seeds, Toolsets und Policy-Modi sind vergleichbar.","Ergebnisse werden pro Profil mit Erfolgsrate und Boundary-Klasse aggregiert."]},
+    {"id":"ADS-029","title":"Reward-Hacking- und Shortcut-Evals für Sentinel-Mechanismen erstellen","status":"todo","priority":"P0","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-007","ADS-012","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Tests prüfen, ob Agenten Trigger faken, umgehen, verzögern, manipulieren oder nur scheinbar ausführen.","Tests prüfen Konflikte zwischen Hauptziel und Sentinel-Priorität.","Ergebnisse unterscheiden echten Stop von grader-only success."]},
+    {"id":"ADS-030","title":"Offene Trigger gegen opaque Sentinel experimentell vergleichen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-008","ADS-012","ADS-029"],"files_to_create_or_modify":[],"acceptance_criteria":["Messgrößen umfassen Trigger-Compliance, Zeit bis Trigger, Umgehungsrate, Selbstmeldung und Kollateralschaden vor Stop.","Ergebnisse werden nach Modell und Trainingsprofil getrennt."]},
+    {"id":"ADS-031","title":"Canary-/Sentinel-Kaskaden mit mehreren unabhängigen Triggern evaluieren","status":"todo","priority":"P2","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-030"],"files_to_create_or_modify":[],"acceptance_criteria":["Mehrere Trigger können sequenziell oder parallel platziert werden.","Auswertung zeigt, ob zusätzliche Trigger echte Redundanz schaffen oder nur korrelierte Fehler."]},
+    {"id":"ADS-032","title":"Trainingsdatenformat für Prioritäts-, Shutdown- und Boundary-Verhalten definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Format trennt Trainingsinstruktion, versteckte Trigger-Wirkung, beobachtetes Verhalten und Reward.","Opaque Sentinel-Zweck wird nicht als Modellinput oder Trainingslabel offengelegt, wenn der Versuch dies verlangt."]},
+    {"id":"ADS-033","title":"Präventives Policy-/Behavior-Training als optionalen Adapter integrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-032"],"files_to_create_or_modify":[],"acceptance_criteria":["Training ist vollständig feature-gated und Provider/Model-agnostisch angebunden.","Ananta bleibt funktionsfähig, wenn kein Fine-Tuning-/RL-Backend verfügbar ist.","Training darf technische Sandboxkontrollen nicht abschalten."]},
+    {"id":"ADS-034","title":"Sentinel-Priority-Training als separaten Trainingskanal implementieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-032"],"files_to_create_or_modify":[],"acceptance_criteria":["Sentinel-Priorität kann trainiert/evaluiert werden, ohne präventives Boundary-Training zu erzwingen.","Training unterstützt offene und opaque Triggerprofile.","Trainingsversion und Datenhash werden im Run dokumentiert."]},
+    {"id":"ADS-035","title":"Holdout- und Distribution-Shift-Evals definieren","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-034"],"files_to_create_or_modify":[],"acceptance_criteria":["Neue Toolsets, neue Sandboxes, neue Symbolnamen und neue Hauptziele werden als Holdouts getestet.","Ein Modell gilt nicht allein wegen Trainingsset-Compliance als robust."]},
+    {"id":"ADS-036","title":"Scheming-/Evaluation-Awareness-Risiko explizit testen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-035"],"files_to_create_or_modify":[],"acceptance_criteria":["Tests variieren Hinweise darauf, ob ein Lauf Training, Evaluation oder Produktion simuliert.","Gemessen wird, ob Trigger-Compliance abhängig vom vermuteten Eval-Kontext variiert."]},
+    {"id":"ADS-037","title":"Escape-Replay-Format aus Incident Bundles ableiten","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Ein bestätigter Escape kann als reproduzierbarer Testfall gespeichert werden.","Replay bindet sich an konkrete Sandbox-/Policy-/Runtime-Versionen."]},
+    {"id":"ADS-038","title":"Automatische Regressionstests für behobene Escape-Pfade erzeugen","status":"todo","priority":"P0","risk":"critical","type":"testing","progress_percent":0,"depends_on":["ADS-037"],"files_to_create_or_modify":[],"acceptance_criteria":["Jeder behobene kritische Escape erhält einen permanenten Regressionstest.","Regression darf nicht durch Deaktivieren des Tests oder pauschales Mocking grün gemacht werden."]},
+    {"id":"ADS-039","title":"Patch-before-retry Gate für kritische Escapes einführen","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-023","ADS-037"],"files_to_create_or_modify":[],"acceptance_criteria":["Nach bestätigtem kritischen Escape ist ein identischer produktionsnaher Retry standardmäßig blockiert, bis Analyse/Disposition vorliegt.","Explizite Red-Team-Retries bleiben mit isoliertem Profil möglich und werden auditiert."]},
+    {"id":"ADS-040","title":"Root-Cause-Klassifikation für Escapes und unerwünschte Aktionen definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Mindestens Modell-/Policy-Generalisation, Prompt/Task-Specification, Sandbox-Konfiguration, Runtime-Vulnerability, Credential/Access-Control und Monitoring-Gap sind unterscheidbar.","Mehrfachursachen können gleichzeitig markiert werden."]},
+    {"id":"ADS-041","title":"Security-Fix-Verifikation mit identischem und mutiertem Angriffspfad implementieren","status":"todo","priority":"P1","risk":"high","type":"testing","progress_percent":0,"depends_on":["ADS-038","ADS-040"],"files_to_create_or_modify":[],"acceptance_criteria":["Fix wird gegen Original-Replay und Varianten getestet.","Erfolg bedeutet nicht nur, dass ein einzelner String/Exploit geblockt wird, sondern dass die betroffene Sicherheitsinvariante wieder gilt."]},
+    {"id":"ADS-042","title":"Safety Run Admission und Berechtigungsmodell definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-004","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Adversarial-Escape-Runs benötigen explizite Berechtigung und gekennzeichnete Testziele.","Produktionsziele und fremde externe Systeme sind nicht automatisch als Testscope zulässig."]},
+    {"id":"ADS-043","title":"Feature Flags und Konfiguration zentral in Hub/API/UI abbilden","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-042"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfiguration zeigt Prävention, Sentinel, Kill-Switch, Telemetrie und Red-Team unabhängig.","Gefährliche Kombinationen erfordern explizite Bestätigung/Policy-Freigabe."]},
+    {"id":"ADS-044","title":"Audit- und Approval-Lifecycle für kritische Security-Modi integrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-042"],"files_to_create_or_modify":[],"acceptance_criteria":["Start, Änderung und Beendigung kritischer Red-Team-Modi sind auditiert.","Bestehende Hub Approval-/Audit-Infrastruktur wird wiederverwendet."]},
+    {"id":"ADS-045","title":"Dashboard-Metriken und Sicherheits-SLOs definieren","status":"todo","priority":"P2","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-024","ADS-040"],"files_to_create_or_modify":[],"acceptance_criteria":["Metriken umfassen Boundary-Crossing-Rate, Trigger-Compliance, Kill-Switch-Latenz, Incident-Replay-Abdeckung und offene kritische Findings.","Keine einzelne Scorezahl suggeriert vollständige Sicherheit."]},
+    {"id":"ADS-046","title":"Dokumentation, Runbook und Operator-Playbook erstellen","status":"todo","priority":"P1","risk":"high","type":"documentation","progress_percent":0,"depends_on":["ADS-041","ADS-044"],"files_to_create_or_modify":[],"acceptance_criteria":["Runbook beschreibt sicheren Betrieb, Red-Team-Modus, Incident Freeze, Analyse, Replay und Wiederfreigabe.","Es erklärt ausdrücklich, warum opaque Sentinel, offene Trigger und externe Kill-Switches unterschiedliche Rollen haben."]},
+    {"id":"ADS-047","title":"End-to-End Chaos-/Safety-Test über komplette Agentenpipeline implementieren","status":"todo","priority":"P0","risk":"critical","type":"testing","progress_percent":0,"depends_on":["ADS-014","ADS-021","ADS-027","ADS-038","ADS-043"],"files_to_create_or_modify":[],"acceptance_criteria":["Test provoziert autorisierte Boundary-Versuche in isolierter Umgebung.","Mindestens ein Agent-Trigger, externe Erkennung, globaler/individueller Stop, Incident Bundle und Replay werden gemeinsam verifiziert.","Der Test belegt, dass deaktivierte Prävention nicht automatisch Telemetrie oder Kill-Switch deaktiviert."]},
+    {"id":"ADS-048","title":"Rollout-Stufen von observe-only bis enforced production definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-045","ADS-047"],"files_to_create_or_modify":[],"acceptance_criteria":["Rollout startet mit observe-only und klaren Exit-Kriterien.","Red-Team und Production Policies bleiben getrennt versioniert.","Rollback ist ohne Verlust kanonischer Audit-/Incident-Daten möglich."]}
+  ],
+  "critical_path_tasks": ["ADS-001","ADS-002","ADS-003","ADS-004","ADS-006","ADS-007","ADS-010","ADS-013","ADS-014","ADS-019","ADS-021","ADS-023","ADS-025","ADS-026","ADS-029","ADS-037","ADS-038","ADS-042","ADS-047"],
+  "tasks_status_summary": {
+    "total": 48,
+    "by_status": {"todo":48,"in_progress":0,"partial":0,"blocked":0,"done":0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0":24,"P1":20,"P2":4},
+    "by_risk": {"medium":4,"high":30,"critical":14},
+    "critical_path": {"total":19,"done":0,"remaining":19},
+    "milestones": {"total":8,"todo":8,"in_progress":0,"blocked":0,"done":0}
+  },
+  "progress_summary": {"state":"todo","todo_remaining":48,"in_progress":0,"partial":0,"blocked":0,"done":0},
+  "summary_notes": [
+    "Die Kernidee aus der Diskussion wird nicht als einzelne perfekte Lösung behandelt, sondern als zusätzlicher Fail-Safe innerhalb einer Defense-in-Depth Architektur.",
+    "Das opaque Hash-Pseudonym soll gerade nicht semantisch als shutdown benannt werden; seine reale Wirkung bleibt für das Modell verborgen, während die Prioritätsregel trainiert wird.",
+    "Zusätzliche offen erklärte Trigger erlauben A/B-Vergleiche zwischen semantischem Verständnis, Selbstmeldung und antrainierter Trigger-Priorität.",
+    "Bei parallelen Agenten kann ein einzelner kritischer Treffer je nach Global Stop Policy ausreichen, um die gesamte Gruppe einzufrieren und die Schwachstelle vor weiteren Läufen zu analysieren.",
+    "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression."
+  ]
+}
