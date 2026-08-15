@@ -16,17 +16,25 @@ rather than silently skip them.
 from __future__ import annotations
 
 import math
+import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, final, runtime_checkable
 
-from agent.services.workflow_command_transition_admission import WorkflowCommandTransitionIntent
+from agent.services.workflow_command_transition_admission import (
+    WorkflowCommandTransitionAdmissionPort,
+    WorkflowCommandTransitionAdmissionService,
+    WorkflowCommandTransitionIntent,
+)
 from agent.services.workflow_control_bindings import WorkflowControlRunBinding
 from agent.services.workflow_control_command_receipts import WorkflowControlCommandReceipt
 from agent.services.workflow_runtime.events import (
     WorkflowTransitionEventObservationReadPort,
 )
+from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyEventStore
+from agent.services.workflow_runtime.sqlalchemy_ownership import SQLAlchemyExecutionOwnershipStore
 from agent.services.workflow_transition_effect_execution import (
+    BoundedWorkflowTransitionRetryPolicy,
     FinalizationObservationResult,
     FinalizationObserved,
     FinalizationQuarantine,
@@ -65,6 +73,8 @@ from agent.services.workflow_transition_ownership_reservation import (
     WorkflowTransitionOwnershipReservationObserverReads,
     build_workflow_transition_ownership_reservation_effect,
 )
+from agent.services.workflow_transition_persistence import SQLAlchemyWorkflowTransitionStore
+from agent.services.workflow_transition_runner import WorkflowTransitionRunner
 
 NATIVE_COMMAND_EVENT_TYPE = "workflow.command.admitted"
 
@@ -444,6 +454,88 @@ class WorkflowTransitionDriver:
         return WorkflowTransitionDriveReport(len(outcomes), outcomes)
 
 
+@final
+@dataclass(frozen=True, slots=True)
+class WorkflowCommandTransitionRuntime:
+    """The two capabilities the control facade needs, bundled as one seam.
+
+    Passing a single collaborator keeps the transition path an all-or-nothing
+    decision: a deployment either admits commands as transitions and drives
+    them, or does neither.  A half-configured control path could stage a
+    transition nothing would ever run.
+    """
+
+    admission: WorkflowCommandTransitionAdmissionPort
+    driver: WorkflowTransitionDriver
+
+    def __post_init__(self) -> None:
+        if not callable(getattr(self.admission, "stage_or_adopt", None)):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_admission_invalid")
+        if not isinstance(self.driver, WorkflowTransitionDriver):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_driver_invalid")
+
+
+def build_native_command_transition_runtime(
+    bind: Any,
+    *,
+    status_reads: WorkflowBindingStatusReadPort,
+    owner_id: str,
+    clock: Callable[[], float] = time.time,
+    lease_seconds: float = 30.0,
+    maximum_attempts: int = 3,
+    drain_limit: int = 32,
+) -> WorkflowCommandTransitionRuntime:
+    """Assemble the whole Native transition path against one database bind.
+
+    Every store here writes through the same engine, so the transition, its
+    binding and its command receipt stay in one transactional world.  The
+    command receipt in particular is not a second record: the transition store
+    updates the very row the control receipt store created, under CAS.
+    """
+
+    transitions = SQLAlchemyWorkflowTransitionStore(
+        bind,
+        clock=clock,
+        receipt_projector=NativeTransitionPublicProjector(),
+    )
+    ownership = SQLAlchemyExecutionOwnershipStore(bind)
+    events = SQLAlchemyEventStore(bind)
+    admission = WorkflowCommandTransitionAdmissionService(
+        transitions,
+        transition_reader=transitions,
+        intent_factory=NativeCommandTransitionIntentFactory(
+            events=events,
+            transitions=transitions,
+            lease_seconds=lease_seconds,
+            maximum_retries=maximum_attempts,
+        ),
+        clock=clock,
+    )
+    runner = WorkflowTransitionRunner(
+        reads=transitions,
+        leases=transitions,
+        effects=transitions,
+        completion=transitions,
+        quarantine=transitions,
+        effect_registry=build_native_transition_effect_registry(
+            ownership_authority=ownership,
+            ownership_reads=ownership,
+            event_authority=events,
+            event_reads=events,
+            clock=clock,
+        ),
+        finalization_registry=build_native_transition_finalization_registry(status_reads=status_reads),
+        retry_policy=BoundedWorkflowTransitionRetryPolicy(maximum_attempts, 2.0, 2.0, 10.0),
+        owner_id=owner_id,
+        lease_seconds=lease_seconds,
+        clock=clock,
+    )
+    return WorkflowCommandTransitionRuntime(
+        admission=admission,
+        driver=WorkflowTransitionDriver(runner=runner, limit=drain_limit),
+    )
+
+
 def _step_id(receipt: WorkflowControlCommandReceipt) -> str:
     """Derive the transition step identity from the admitted command."""
 
@@ -460,9 +552,11 @@ __all__ = [
     "NativeCommandTransitionIntentFactory",
     "NativeTransitionPublicProjector",
     "WorkflowBindingStatusReadPort",
+    "WorkflowCommandTransitionRuntime",
     "WorkflowTransitionDriveReport",
     "WorkflowTransitionDriver",
     "WorkflowTransitionNativeCompositionError",
+    "build_native_command_transition_runtime",
     "build_native_transition_effect_registry",
     "build_native_transition_finalization_registry",
 ]

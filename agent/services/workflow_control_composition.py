@@ -171,6 +171,7 @@ from agent.services.workflow_runtime_selection_service import (
     WorkflowRuntimeProfileService,
 )
 from agent.services.workflow_runtime_status_projection import authoritative_runtime_status
+from agent.services.workflow_transition_native_composition import WorkflowCommandTransitionRuntime
 from agent.services.workflow_transition_public_projection import canonical_workflow_public_status
 from ananta_contracts.temporal_workflow import (
     COMMAND_RESULT_SCHEMA,
@@ -180,6 +181,9 @@ from ananta_contracts.temporal_workflow import (
 )
 
 _FAILED_START_STATUSES = frozenset({"degraded", "unavailable", "not_found"})
+# One attributed command plans three effects, so four bounded drive attempts
+# leave room for a single retry without ever becoming an unbounded wait.
+_TRANSITION_DRIVE_ATTEMPTS = 4
 _TEMPORAL_COMMAND_RESULT_KEYS = frozenset({"schema", "command_id", "accepted", "revision", "status", "reason_code"})
 _TEMPORAL_COMMAND_STATUSES = frozenset(
     {"created", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"}
@@ -950,12 +954,14 @@ class WorkflowBackendControlFacade:
         bindings: WorkflowControlBindingStore,
         registry: WorkflowRuntimeBridgeRegistry,
         command_receipts: WorkflowControlCommandReceiptStore,
+        transitions: WorkflowCommandTransitionRuntime | None = None,
     ) -> None:
         self._control = control
         self._bridge = bridge
         self._bindings = bindings
         self._registry = registry
         self._command_receipts = command_receipts
+        self._transitions = transitions
         receipt_reconciler_owner = f"receipt-reconciler:{uuid.uuid4().hex}"
         self._receipt_reconciler = WorkflowControlCommandReceiptReconciler(
             receipts=command_receipts,
@@ -1013,6 +1019,7 @@ class WorkflowBackendControlFacade:
             receipt_reconciler=self._receipt_reconciler,
             registry=self._registry,
             project_public_status=self._project_public_status,
+            transitions=self._transitions,
             principal=WorkflowPrincipal(
                 tenant_id=principal.tenant_id,
                 subject_id=principal.subject,
@@ -1035,15 +1042,23 @@ class WorkflowBackendControlFacade:
     def reconcile_active(self, *, limit: int = 100) -> dict[str, Any]:
         """Advance active runs only from the Hub background reconciliation path."""
 
+        # Transitions are driven before receipts so a transition that finalizes
+        # here is already terminal when the receipt reconciler reads it, rather
+        # than being observed mid-flight and deferred a whole cycle.
+        transitions = self._transitions.driver.tick() if self._transitions is not None else None
         receipts = self._receipt_reconciler.drain(limit=limit)
         runtime = dict(self._registry.reconcile_active(limit=limit))
-        if not receipts["processed"] and not receipts["failed"]:
+        driven = transitions.processed if transitions is not None else 0
+        if not receipts["processed"] and not receipts["failed"] and not driven:
             return runtime
+        reports: list[dict[str, Any]] = [receipts, runtime]
+        if transitions is not None:
+            reports.insert(0, transitions.to_dict())
         return {
             **runtime,
-            "processed": int(runtime.get("processed") or 0) + int(receipts["processed"]),
+            "processed": int(runtime.get("processed") or 0) + int(receipts["processed"]) + driven,
             "failed": [*list(runtime.get("failed") or ()), *receipts["failed"]],
-            "reports": [receipts, runtime],
+            "reports": reports,
         }
 
 
@@ -1061,6 +1076,7 @@ class AuthorizedWorkflowBackend:
         registry: WorkflowRuntimeBridgeRegistry,
         project_public_status: Any,
         principal: WorkflowPrincipal,
+        transitions: WorkflowCommandTransitionRuntime | None = None,
     ) -> None:
         self._control = control
         self._bridge = bridge
@@ -1070,6 +1086,7 @@ class AuthorizedWorkflowBackend:
         self._registry = registry
         self._project_public_status = project_public_status
         self._principal = principal
+        self._transitions = transitions
 
     @property
     def backend_id(self) -> str:
@@ -1268,6 +1285,13 @@ class AuthorizedWorkflowBackend:
                 raise
             if receipt.state == COMMAND_RECEIPT_REJECTED:
                 raise WorkflowControlCommandRejectedError(receipt.rejection_reason)
+            if self._transitions is not None and not receipt.transition_id:
+                # Admission attributes the receipt row itself under CAS, so the
+                # transition and its command become one durable fact before any
+                # effect runs.  A failure here must not fall through to the
+                # unattributed dispatch path.
+                self._transitions.admission.stage_or_adopt(receipt=receipt, binding=binding)
+                receipt = self._command_receipts.get(receipt.command_id) or receipt
             recovered = self._recover_command_receipt(receipt)
             if recovered is not None:
                 return recovered
@@ -1305,6 +1329,36 @@ class AuthorizedWorkflowBackend:
             return result
         raise RuntimeError("workflow_control_command_receipt_lease_missing")
 
+    def _drive_pending_transition(
+        self,
+        command_id: str,
+        binding: WorkflowControlRunBinding,
+    ) -> dict[str, Any]:
+        """Drive an attributed command to its terminal receipt, or fail closed.
+
+        A receipt that carries a transition is owned by the transition runner,
+        never by the synchronous dispatch path: claiming it here would race a
+        live effect against its own fencing.  Driving is therefore the only
+        legitimate move, and a transition that does not terminate within the
+        bounded budget stays pending rather than reporting a status nothing
+        has finalized.
+        """
+
+        if self._transitions is None:
+            raise RuntimeError("workflow_control_command_transition_pending")
+        for _ in range(_TRANSITION_DRIVE_ATTEMPTS):
+            self._transitions.driver.tick()
+            current = self._command_receipts.get(command_id)
+            if current is None:
+                raise RuntimeError("workflow_control_command_receipt_missing")
+            if current.state == COMMAND_RECEIPT_COMPLETED:
+                persisted = dict(current.result_status or {})
+                validate_persisted_public_status(current, binding, persisted)
+                return persisted
+            if current.state == COMMAND_RECEIPT_REJECTED:
+                raise WorkflowControlCommandRejectedError(current.rejection_reason)
+        raise RuntimeError("workflow_control_command_transition_pending")
+
     def _recover_command_receipt(
         self,
         receipt: WorkflowControlCommandReceipt,
@@ -1319,7 +1373,7 @@ class AuthorizedWorkflowBackend:
         if receipt.state == COMMAND_RECEIPT_REJECTED:
             raise WorkflowControlCommandRejectedError(receipt.rejection_reason)
         if receipt.transition_id:
-            raise RuntimeError("workflow_control_command_transition_pending")
+            return self._drive_pending_transition(receipt.command_id, binding)
         owner_id = f"receipt-request:{uuid.uuid4().hex}"
         claimed = self._command_receipts.claim(
             receipt.command_id,
@@ -1516,6 +1570,7 @@ def build_workflow_backend_control_facade(
     authorization_grants: WorkflowAuthorizationGrantPort | None = None,
     dispatch_intents: WorkflowControlDispatchIntentStore | None = None,
     command_receipts: WorkflowControlCommandReceiptStore | None = None,
+    command_transitions: WorkflowCommandTransitionRuntime | None = None,
     register_all_runtimes: bool = False,
     temporal_backend: WorkflowBackend | None = None,
 ) -> WorkflowBackendControlFacade:
@@ -1652,6 +1707,7 @@ def build_workflow_backend_control_facade(
         bindings=binding_store,
         registry=registry,
         command_receipts=receipt_store,
+        transitions=command_transitions,
     )
 
 
