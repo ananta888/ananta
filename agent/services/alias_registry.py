@@ -123,13 +123,18 @@ class AliasRegistry:
     """Resolve identifiers to names and names back to identifiers.
 
     Later sources win on the same canonical id, so a deployment-specific
-    source can rename what ships with the code without editing it.  An alias
-    claimed by two different identifiers is rejected outright rather than
-    resolved by order, because "whichever was registered first" is not an
-    answer a person can predict.
+    source can rename what ships with the code without editing it.
+
+    A name claimed by two different identifiers stops resolving instead of
+    picking one, because "whichever was registered first" is not an answer a
+    person can predict.  It is not fatal: the catalog is partly live data, and
+    one duplicated row must not be able to take naming down everywhere.  Both
+    identifiers keep rendering their own name, and
+    :meth:`ambiguous_names` reports the collision so a catalog that should
+    have none can assert it.
     """
 
-    __slots__ = ("_by_alias", "_by_id")
+    __slots__ = ("_ambiguous", "_by_alias", "_by_id")
 
     def __init__(self, sources: Sequence[AliasSource], *, namespaces: Iterable[str] = ()) -> None:
         wanted = tuple(_namespace(value) for value in namespaces) or (
@@ -147,14 +152,24 @@ class AliasRegistry:
                         raise AliasRegistryError("alias_namespace_mismatch")
                     by_id[(namespace, entry.canonical_id)] = entry
         by_alias: dict[tuple[str, str], str] = {}
+        ambiguous: set[tuple[str, str]] = set()
         for (namespace, canonical_id), entry in by_id.items():
             for term in entry.search_terms:
                 for variant in alias_keys(term):
                     key = (namespace, variant)
                     claimed = by_alias.get(key)
                     if claimed is not None and claimed != canonical_id:
-                        raise AliasRegistryError("alias_ambiguous")
+                        # Two identifiers answer to this name, so it can no
+                        # longer identify either. It stops resolving rather
+                        # than picking one, and both keep rendering their own
+                        # name — a live catalog must not be able to take
+                        # naming down everywhere by holding a duplicate.
+                        ambiguous.add(key)
+                        continue
                     by_alias[key] = canonical_id
+        for key in ambiguous:
+            by_alias.pop(key, None)
+        self._ambiguous = frozenset(ambiguous)
         self._by_id = by_id
         self._by_alias = by_alias
 
@@ -178,6 +193,12 @@ class AliasRegistry:
             if found is not None:
                 return found
         return None
+
+    def ambiguous_names(self, *, namespace: str) -> tuple[str, ...]:
+        """Names that two identifiers claim, and which therefore resolve to nothing."""
+
+        wanted = _namespace(namespace)
+        return tuple(sorted(name for (entry_namespace, name) in self._ambiguous if entry_namespace == wanted))
 
     def entries(self, *, namespace: str) -> tuple[AliasEntry, ...]:
         wanted = _namespace(namespace)

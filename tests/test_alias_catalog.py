@@ -14,12 +14,14 @@ from agent.services.alias_catalog import (
     AGENT_ROLE_ALIASES,
     VISUAL_PROCESS_PRESET_ALIASES,
     WORKFLOW_RUNTIME_ALIASES,
+    DatabaseRoleAliasSource,
     default_alias_registry,
 )
 from agent.services.alias_registry import (
     ALIAS_NAMESPACE_AGENT_ROLE,
     ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET,
     ALIAS_NAMESPACE_WORKFLOW_RUNTIME,
+    AliasRegistry,
 )
 from agent.services.workflow_transition_outbox import TRANSITION_RUNTIMES
 from agent.visual_process.presets import list_presets
@@ -45,11 +47,13 @@ def test_every_transition_runtime_has_a_human_name() -> None:
     assert set(TRANSITION_RUNTIMES) - set(WORKFLOW_RUNTIME_ALIASES) == set()
 
 
-def test_the_whole_catalog_loads_without_an_ambiguous_name() -> None:
-    """Construction is where ambiguity is caught, so loading it is the test."""
+def test_the_shipped_catalog_contains_no_ambiguous_name() -> None:
+    """Live data may hold duplicates; what we author ourselves must not."""
 
     registry = default_alias_registry()
 
+    for namespace in (_PRESET, ALIAS_NAMESPACE_WORKFLOW_RUNTIME, ALIAS_NAMESPACE_AGENT_ROLE):
+        assert registry.ambiguous_names(namespace=namespace) == ()
     assert len(registry.entries(namespace=_PRESET)) == len(VISUAL_PROCESS_PRESET_ALIASES)
 
 
@@ -99,3 +103,70 @@ def test_every_role_the_canvas_offers_has_a_human_name() -> None:
     text = source.read_text(encoding="utf-8")
     for role_id in AGENT_ROLE_ALIASES:
         assert f"id: '{role_id}'" in text, role_id
+
+
+class _Row:
+    def __init__(self, identifier: str, name: str, description: str = "") -> None:
+        self.id = identifier
+        self.name = name
+        self.description = description
+
+
+class _Roles:
+    def __init__(self, *rows: _Row) -> None:
+        self._rows = rows
+
+    def get_all(self) -> tuple[_Row, ...]:
+        return self._rows
+
+
+def test_a_persisted_role_is_reachable_by_its_uuid_and_by_its_name() -> None:
+    """A UUID beside a human name is the plainest case the registry is for."""
+
+    source = DatabaseRoleAliasSource(_Roles(_Row("b500b2a8-56e9", "Accessibility Specialist")))
+    registry = AliasRegistry([source])
+
+    assert (
+        registry.display_name(
+            namespace=ALIAS_NAMESPACE_AGENT_ROLE,
+            canonical_id="b500b2a8-56e9",
+        )
+        == "Accessibility Specialist"
+    )
+    assert (
+        registry.resolve(
+            namespace=ALIAS_NAMESPACE_AGENT_ROLE,
+            text="accessibility specialist",
+        )
+        == "b500b2a8-56e9"
+    )
+
+
+def test_an_unreachable_catalog_degrades_the_label_rather_than_the_screen() -> None:
+    """A failed lookup must not take down every view that renders a name."""
+
+    class _Broken:
+        def get_all(self) -> tuple[_Row, ...]:
+            raise RuntimeError("database unavailable")
+
+    assert DatabaseRoleAliasSource(_Broken()).entries(ALIAS_NAMESPACE_AGENT_ROLE) == ()
+
+
+def test_two_roles_sharing_a_name_stay_loadable_but_that_name_stops_resolving() -> None:
+    """One duplicated row must not be able to take naming down everywhere."""
+
+    source = DatabaseRoleAliasSource(_Roles(_Row("id-a", "Reviewer"), _Row("id-b", "Reviewer")))
+
+    registry = AliasRegistry([source])
+
+    assert registry.resolve(namespace=ALIAS_NAMESPACE_AGENT_ROLE, text="Reviewer") is None
+    assert registry.ambiguous_names(namespace=ALIAS_NAMESPACE_AGENT_ROLE) == ("reviewer",)
+    for identifier in ("id-a", "id-b"):
+        assert registry.display_name(namespace=ALIAS_NAMESPACE_AGENT_ROLE, canonical_id=identifier) == "Reviewer"
+    assert registry.resolve(namespace=ALIAS_NAMESPACE_AGENT_ROLE, text="id-a") == "id-a"
+
+
+def test_the_database_source_ignores_namespaces_it_does_not_own() -> None:
+    source = DatabaseRoleAliasSource(_Roles(_Row("id-a", "Reviewer")))
+
+    assert source.entries(ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET) == ()

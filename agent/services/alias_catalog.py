@@ -11,15 +11,20 @@ anyone who already knows it keeps finding what they know.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import lru_cache
+from typing import final
 
 from agent.services.alias_registry import (
     ALIAS_NAMESPACE_AGENT_ROLE,
     ALIAS_NAMESPACE_VISUAL_PROCESS_PRESET,
     ALIAS_NAMESPACE_WORKFLOW_RUNTIME,
+    AliasEntry,
     AliasRegistry,
+    AliasRegistryError,
     StaticAliasSource,
     alias_entries_from_mapping,
+    normalize_alias,
 )
 
 VISUAL_PROCESS_PRESET_ALIASES: dict[str, dict[str, object]] = {
@@ -103,6 +108,12 @@ WORKFLOW_RUNTIME_ALIASES: dict[str, dict[str, object]] = {
     },
 }
 
+# The canvas ships ten role keys of its own; these are the short German names
+# for them.  The authoritative role catalog is the ``roles`` table, which is
+# read through DatabaseRoleAliasSource — a role there is a UUID next to a
+# human name, which is exactly what this registry exists to bridge.  These
+# static entries stay because the canvas keys are not UUIDs and would
+# otherwise render raw.
 AGENT_ROLE_ALIASES: dict[str, dict[str, object]] = {
     "architect": {"display_name": "Architektur", "aliases": ["Architect", "Architekt"]},
     "developer": {"display_name": "Entwicklung", "aliases": ["Developer", "Entwickler"]},
@@ -115,6 +126,58 @@ AGENT_ROLE_ALIASES: dict[str, dict[str, object]] = {
     "product_owner": {"display_name": "Produkt", "aliases": ["Product Owner", "PO"]},
     "scrum_master": {"display_name": "Moderation", "aliases": ["Scrum Master", "SM"]},
 }
+
+
+@final
+class DatabaseRoleAliasSource:
+    """The persisted role catalog, read as aliases.
+
+    A role there is a UUID beside a human name — the plainest case this
+    registry exists for.  Reading it live rather than copying it means the
+    names can never drift from the catalog people actually edit.
+
+    An unreachable database yields no entries rather than raising: a missing
+    name degrades a label, while a failed request would take down every screen
+    that renders one.
+    """
+
+    __slots__ = ("_roles",)
+
+    def __init__(self, roles: object) -> None:
+        if not callable(getattr(roles, "get_all", None)):
+            raise AliasRegistryError("alias_source_invalid")
+        self._roles = roles
+
+    def entries(self, namespace: str) -> Sequence[AliasEntry]:
+        if namespace != ALIAS_NAMESPACE_AGENT_ROLE:
+            return ()
+        try:
+            rows = self._roles.get_all()
+        except Exception:
+            return ()
+        entries: list[AliasEntry] = []
+        seen: set[str] = set()
+        for row in rows:
+            canonical_id = str(getattr(row, "id", "") or "")
+            name = str(getattr(row, "name", "") or "").strip()
+            if not canonical_id or not name:
+                continue
+            key = normalize_alias(name)
+            if key in seen:
+                # Two roles sharing a name would make the name ambiguous, so
+                # the later one keeps its id as its only handle.
+                entries.append(AliasEntry(ALIAS_NAMESPACE_AGENT_ROLE, canonical_id, name))
+                continue
+            seen.add(key)
+            entries.append(
+                AliasEntry(
+                    namespace=ALIAS_NAMESPACE_AGENT_ROLE,
+                    canonical_id=canonical_id,
+                    display_name=name,
+                    description=str(getattr(row, "description", "") or "")[:1_024],
+                )
+            )
+        return tuple(entries)
 
 
 @lru_cache(maxsize=1)
@@ -145,6 +208,7 @@ def default_alias_registry() -> AliasRegistry:
 
 __all__ = [
     "AGENT_ROLE_ALIASES",
+    "DatabaseRoleAliasSource",
     "VISUAL_PROCESS_PRESET_ALIASES",
     "WORKFLOW_RUNTIME_ALIASES",
     "default_alias_registry",

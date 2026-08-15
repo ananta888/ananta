@@ -102,20 +102,25 @@ def test_a_namespace_keeps_identical_aliases_apart() -> None:
     assert registry.resolve(namespace=_ROLE, text="Prüfen") == "reviewer"
 
 
-def test_one_alias_claimed_by_two_identifiers_is_refused_outright() -> None:
+def test_a_name_two_identifiers_claim_stops_resolving_rather_than_guessing() -> None:
     """ "Whichever was registered first" is not an answer a person can predict."""
 
-    with pytest.raises(AliasRegistryError, match="alias_ambiguous"):
-        AliasRegistry(
-            [
-                StaticAliasSource(
-                    (
-                        _entry(canonical_id="preset-a", display_name="Bauen", aliases=("Duplikat",)),
-                        _entry(canonical_id="preset-b", display_name="Prüfen", aliases=("Duplikat",)),
-                    )
+    registry = AliasRegistry(
+        [
+            StaticAliasSource(
+                (
+                    _entry(canonical_id="preset-a", display_name="Bauen", aliases=("Duplikat",)),
+                    _entry(canonical_id="preset-b", display_name="Prüfen", aliases=("Duplikat",)),
                 )
-            ]
-        )
+            )
+        ]
+    )
+
+    assert registry.resolve(namespace=_PRESET, text="Duplikat") is None
+    assert registry.ambiguous_names(namespace=_PRESET) == ("duplikat",)
+    # The names nobody contests keep working.
+    assert registry.resolve(namespace=_PRESET, text="Bauen") == "preset-a"
+    assert registry.resolve(namespace=_PRESET, text="Prüfen") == "preset-b"
 
 
 def test_a_later_source_renames_what_ships_with_the_code() -> None:
