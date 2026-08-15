@@ -813,7 +813,10 @@ def test_cross_runtime_absence_and_durable_evidence_cannot_be_replayed() -> None
 @pytest.mark.parametrize(
     ("planned_at", "lease_seconds"),
     (
-        (1_000.0, float.fromhex("0x1.fffffffffffffp+1023")),
+        (
+            float.fromhex("0x1.fffffffffffffp+1023"),
+            float.fromhex("0x1.fffffffffffffp+1023"),
+        ),
         (1e300, 1.0),
     ),
 )
