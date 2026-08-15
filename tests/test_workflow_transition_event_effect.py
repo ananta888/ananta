@@ -1497,11 +1497,18 @@ def test_telemetry_decorator_is_structurally_ineligible_and_exports_nothing() ->
     assert exporter.calls == 0
 
 
-def test_event_effect_framework_remains_unwired_in_production() -> None:
+def test_event_effect_is_reachable_only_through_the_cutover_composition() -> None:
     root = Path(__file__).resolve().parents[1]
+    # The Native cutover composition is the single sanctioned consumer.  Any
+    # other production reference would bypass the registry seam and the
+    # planner, so the adapter would no longer be exactly attributable.
+    allowed = {
+        "workflow_transition_event_effect.py",
+        "workflow_transition_native_composition.py",
+    }
     offenders: list[str] = []
     for path in (root / "agent").rglob("*.py"):
-        if path.name == "workflow_transition_event_effect.py":
+        if path.name in allowed:
             continue
         source = path.read_text(encoding="utf-8")
         if (

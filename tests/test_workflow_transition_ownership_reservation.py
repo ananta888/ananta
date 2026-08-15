@@ -2743,16 +2743,23 @@ def test_durable_validator_rejects_tampered_persisted_result(
         )
 
 
-def test_ownership_reservation_effect_remains_unwired_before_cutover() -> None:
+def test_ownership_reservation_effect_is_imported_only_by_the_cutover_composition() -> None:
     repository = Path(__file__).resolve().parents[1]
-    adapter = (repository / "agent" / "services" / "workflow_transition_ownership_reservation.py").resolve()
+    services = repository / "agent" / "services"
+    # The Native cutover composition is the single sanctioned importer.  Any
+    # other production import would reserve ownership outside the registry
+    # seam, where no transition claim fences the reservation.
+    allowed = {
+        (services / "workflow_transition_ownership_reservation.py").resolve(),
+        (services / "workflow_transition_native_composition.py").resolve(),
+    }
     forbidden = (
         "from agent.services.workflow_transition_ownership_reservation import",
         "import agent.services.workflow_transition_ownership_reservation",
     )
     offenders = []
     for path in (repository / "agent").rglob("*.py"):
-        if path.resolve() == adapter:
+        if path.resolve() in allowed:
             continue
         source = path.read_text(encoding="utf-8")
         if any(value in source for value in forbidden):

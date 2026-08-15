@@ -1068,11 +1068,17 @@ def test_heartbeat_prevents_takeover_and_stale_yield_is_fenced(tmp_path: Path) -
         )
 
 
-def test_runner_is_not_wired_into_production_or_runtime_bridges() -> None:
+def test_runner_is_confined_to_the_framework_adapters_and_one_composition() -> None:
     framework_files = {
         (ROOT / "agent/services/workflow_transition_effect_execution.py").resolve(),
         (ROOT / "agent/services/workflow_transition_outbox.py").resolve(),
         (ROOT / "agent/services/workflow_transition_runner.py").resolve(),
+    }
+    # Exactly one module may assemble the runner's registries.  Keeping that
+    # single seam is what stops transition machinery from spreading across the
+    # codebase now that the Native slice is composable.
+    composition_files = {
+        (ROOT / "agent/services/workflow_transition_native_composition.py").resolve(),
     }
     # Effect adapters legitimately import the execution contracts.  Every new
     # adapter must be listed here deliberately; nothing else may reach for them.
@@ -1095,9 +1101,10 @@ def test_runner_is_not_wired_into_production_or_runtime_bridges() -> None:
         if resolved in framework_files:
             continue
         source = path.read_text(encoding="utf-8")
-        leaked = [symbol for symbol in runner_composition if symbol in source]
-        assert not leaked, f"{path.relative_to(ROOT)} references {leaked}"
-        if resolved in adapter_files:
+        if resolved not in composition_files:
+            leaked = [symbol for symbol in runner_composition if symbol in source]
+            assert not leaked, f"{path.relative_to(ROOT)} references {leaked}"
+        if resolved in adapter_files or resolved in composition_files:
             continue
         leaked = [symbol for symbol in execution_contracts if symbol in source]
         assert not leaked, f"{path.relative_to(ROOT)} references {leaked}"

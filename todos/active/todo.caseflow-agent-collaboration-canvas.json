@@ -6,7 +6,7 @@
   "id": "todo.caseflow-agent-collaboration-canvas",
   "title": "CaseFlow Agent Collaboration Canvas mit Rollen, Beziehungen, Runtime und Trace",
   "created_at": "2026-08-12",
-  "updated_at": "2026-08-14",
+  "updated_at": "2026-08-15",
   "project": "Ananta",
   "status": "in_progress",
   "priority": "P0",
@@ -651,7 +651,7 @@
     {
       "id": "CAC-014",
       "title": "Native/LangGraph Transition-Outbox und Effect-Attribution härten",
-      "status": "todo",
+      "status": "in_progress",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -667,8 +667,9 @@
         "recover_command akzeptiert ausschließlich einen exakten command_id- und Payload-/Effect-Fingerprint-Beleg; eine unabhängige spätere Runtime-Revision gilt nie als Ausführungsnachweis.",
         "Fault-Injection- und Restart-Tests an jeder Side-Effect-/Checkpoint-/Binding-Grenze belegen genau einen Task, ein Event, einen Effect und ein terminales Outcome."
       ],
-      "progress_percent": 0.0,
-      "gate_reason_code": "workflow_command_transition_outbox_required"
+      "progress_percent": 55.0,
+      "gate_reason_code": "workflow_command_transition_outbox_required",
+      "notes": "Transition-Outbox, Persistenz (SQLite/PostgreSQL), Fencing, Quarantäne, Receipt-Lease-Heartbeat und die Adapter für ownership_reserve, event_append und side_effect_authorize sind implementiert und getestet. Die Native-Slice ist über workflow_transition_native_composition komponierbar: Planner, Effect-/Finalization-Registry, Binding-Observer, Public-Projector und bounded Drain-Driver, end-to-end getestet. Offen: Anschluss an workflow_control_composition (receipt.transition_id ist noch hart \"\"), queue_reserve- und checkpoint_save-Adapter, LangGraph-Planner, der widerrufsbewusste Grant-Pfad (WorkflowAuthorizationEnvelopeHistoricalIntegrityPort ist deklariert, aber nicht implementiert) sowie die Fault-Injection- und Restart-Tests aus Akzeptanzkriterium 5."
     },
     {
       "id": "CAC-015",
@@ -727,8 +728,8 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 3,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "partial": 1,
       "blocked": 0,
       "done": 13
@@ -778,8 +779,8 @@
       "implementation": {
         "total": 13,
         "by_status": {
-          "todo": 2,
-          "in_progress": 0,
+          "todo": 1,
+          "in_progress": 1,
           "partial": 0,
           "blocked": 0,
           "done": 11
@@ -787,7 +788,7 @@
         "done": 11,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 84.6
+        "progress_percent": 88.8
       },
       "test": {
         "total": 1,
@@ -822,10 +823,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 31.25,
-    "done_weight": 26.5,
-    "remaining_weight": 4.75,
+    "done_weight": 27.325,
+    "remaining_weight": 3.925,
     "blocked_weight": 0.0,
-    "weighted_percent": 84.8
+    "weighted_percent": 87.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -866,28 +867,28 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 24.0,
+        "weighted_percent": 37.2,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
-    "in_progress": 0,
+    "todo_remaining": 2,
+    "in_progress": 1,
     "partial": 1,
     "blocked": 0,
     "done": 13,
     "count_based_percent": 76.5,
-    "weighted_percent": 84.8
+    "weighted_percent": 87.4
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-14T10:07:10.581877Z",
+    "generated_at": "2026-08-15T11:41:53.504733Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "487809f4a594b3e1a7ab8a275d14505c11e234c8e6bab0eb538b2b5fe0cbb415",
+    "source_hash": "ff62b30b97531977987ec407aa4092edbefd68ce9f6477f574e9ce9662d90285",
     "is_stale": false
   }
 }
