@@ -102,6 +102,9 @@ from agent.services.workflow_control_production_composition import (
     production_command_replay_store as _production_command_replay_store,
 )
 from agent.services.workflow_control_production_composition import (
+    production_command_transition_runtime as _production_command_transition_runtime,
+)
+from agent.services.workflow_control_production_composition import (
     production_dispatch_intent_store as _production_dispatch_intent_store,
 )
 from agent.services.workflow_control_production_composition import (
@@ -118,6 +121,9 @@ from agent.services.workflow_control_production_composition import (
 )
 from agent.services.workflow_control_production_composition import (
     production_runtime_profiles as _production_runtime_profiles,
+)
+from agent.services.workflow_control_production_composition import (
+    production_terminal_trace_runtime as _production_terminal_trace_runtime,
 )
 from agent.services.workflow_control_read_model_projector import (
     WorkflowControlReadModelProjector,
@@ -1796,6 +1802,7 @@ def get_workflow_backend_control_facade(
                 if backend.backend_id == "temporal"
                 else get_workflow_backend(replace(resolved, backend="temporal"))
             )
+            trace_runtime = _production_terminal_trace_runtime()
             _COMPOSITION = build_workflow_backend_control_facade(
                 backend,
                 release_admission=_production_release_admission(backend),
@@ -1807,6 +1814,9 @@ def get_workflow_backend_control_facade(
                 command_replay_store=_production_command_replay_store(),
                 bindings=_production_binding_store(),
                 dispatch_intents=_production_dispatch_intent_store(),
+                trace_state=(trace_runtime.state if trace_runtime is not None else None),
+                trace_reconciler=(trace_runtime.reconciler if trace_runtime is not None else None),
+                command_transitions=_production_command_transition_runtime(backend),
                 register_all_runtimes=True,
                 temporal_backend=temporal_backend,
             )
