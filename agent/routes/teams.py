@@ -45,12 +45,12 @@ from agent.services.blueprint_serializer import (
     _serialize_blueprint,
     _user_lifecycle_state_from_metadata,
 )
-from agent.services.repository_registry import get_repository_registry
 from agent.services.organization_team_deletion_service import (
     OrganizationTeamDeletionError,
     OrganizationTeamDeletionPrincipal,
     OrganizationTeamDeletionService,
 )
+from agent.services.repository_registry import get_repository_registry
 from agent.services.team_definition_version_service import (
     build_team_blueprint_diff,
     team_definition_metadata,
@@ -524,3 +524,46 @@ def activate_team(team_id):
         session.commit()
         log_audit("team_activated", {"team_id": team_id})
         return api_response(data={"status": "activated"})
+
+@teams_bp.route("/teams/templates", methods=["GET"])
+@check_auth
+def list_team_templates():
+    """Every template a person can start a team from, in one list.
+
+    Team types and process presets used to be reachable only through separate
+    screens with technical names. They are offered together here, each with a
+    readable name, its roles and how many agents it starts you with, so a
+    choice can be made without knowing which subsystem owns which list.
+    """
+
+    from agent.services.alias_catalog import DatabaseRoleAliasSource, default_alias_registry
+    from agent.services.alias_registry import AliasRegistry, StaticAliasSource
+    from agent.services.team_template_catalog import (
+        RepositoryTeamTypeReadPort,
+        TeamTemplateCatalog,
+    )
+    from agent.visual_process.presets import list_presets
+
+    repos = _repos()
+    shipped = default_alias_registry()
+    aliases = AliasRegistry(
+        [
+            StaticAliasSource(
+                (
+                    *shipped.entries(namespace="visual_process_preset"),
+                    *shipped.entries(namespace="workflow_runtime"),
+                )
+            ),
+            DatabaseRoleAliasSource(repos.role_repo),
+        ]
+    )
+    catalog = TeamTemplateCatalog(
+        team_types=RepositoryTeamTypeReadPort(
+            team_types=repos.team_type_repo,
+            role_links=repos.team_type_role_link_repo,
+            roles=repos.role_repo,
+        ),
+        presets=list_presets(),
+        aliases=aliases,
+    )
+    return api_response(data=catalog.to_dict())

@@ -340,6 +340,7 @@ jobs:
           tests/test_workflow_transition_production_switches.py
           tests/test_alias_registry.py
           tests/test_alias_catalog.py
+          tests/test_team_template_catalog.py
 
   workflow-runtime-security:
     runs-on: ubuntu-latest
