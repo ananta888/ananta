@@ -9,7 +9,6 @@ must never be treated as a downstream execution capability.
 from __future__ import annotations
 
 import math
-import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, final, runtime_checkable
@@ -47,6 +46,7 @@ from agent.services.workflow_transition_effect_proofs import (
     WorkflowTransitionEffectAbsenceProof,
     WorkflowTransitionEffectProofContext,
     WorkflowTransitionEffectResourceProof,
+    WorkflowTransitionEffectScalars,
     assert_active_workflow_transition_effect_absence_proof_binding,
     assert_durable_workflow_transition_effect_proof_binding,
 )
@@ -87,8 +87,6 @@ _EFFECT_FIELDS = frozenset(
     }
 )
 _RESULT_FIELDS = frozenset({"schema", "receipt"})
-_IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$")
-_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _MAX_DOMAIN_INTEGER = 2**63 - 1
 _MAX_OWNERSHIP_COUNTER = 2_147_483_647
 _MAXIMUM_RETRIES = 2_147_483_647
@@ -96,6 +94,12 @@ _MAXIMUM_RETRIES = 2_147_483_647
 
 class WorkflowTransitionOwnershipReservationError(ValueError):
     """Stable fail-closed effect, result, or proof binding error."""
+
+
+_SCALARS = WorkflowTransitionEffectScalars(
+    error=WorkflowTransitionOwnershipReservationError,
+    prefix="workflow_transition_ownership_reservation",
+)
 
 
 @runtime_checkable
@@ -1273,21 +1277,15 @@ def _reservation_clock_value(
 
 
 def _identity(value: object, reason: str) -> str:
-    if not isinstance(value, str) or _IDENTITY_RE.fullmatch(value) is None:
-        raise WorkflowTransitionOwnershipReservationError(f"workflow_transition_ownership_reservation_{reason}_invalid")
-    return value
+    return _SCALARS.identity(value, reason)
 
 
 def _sha256(value: object, reason: str) -> str:
-    if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
-        raise WorkflowTransitionOwnershipReservationError(f"workflow_transition_ownership_reservation_{reason}_invalid")
-    return value
+    return _SCALARS.sha256(value, reason)
 
 
 def _positive_integer(value: object, reason: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not 0 < value <= _MAX_DOMAIN_INTEGER:
-        raise WorkflowTransitionOwnershipReservationError(f"workflow_transition_ownership_reservation_{reason}_invalid")
-    return value
+    return _SCALARS.positive_integer(value, reason, maximum=_MAX_DOMAIN_INTEGER)
 
 
 def _maximum_retries(value: object) -> int:

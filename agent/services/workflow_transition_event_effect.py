@@ -39,6 +39,7 @@ from agent.services.workflow_transition_effect_proofs import (
     WorkflowTransitionEffectAbsenceProof,
     WorkflowTransitionEffectProofContext,
     WorkflowTransitionEffectResourceProof,
+    WorkflowTransitionEffectScalars,
     assert_active_workflow_transition_effect_absence_proof_binding,
     assert_active_workflow_transition_effect_proof_binding,
     assert_durable_workflow_transition_effect_proof_binding,
@@ -94,6 +95,12 @@ _MAX_SEQUENCE = 2**63 - 1
 
 class WorkflowTransitionEventEffectError(ValueError):
     """Stable fail-closed staged-event or adapter contract error."""
+
+
+_SCALARS = WorkflowTransitionEffectScalars(
+    error=WorkflowTransitionEventEffectError,
+    prefix="workflow_transition_event",
+)
 
 
 @runtime_checkable
@@ -895,32 +902,11 @@ def _json_mapping(
 
 
 def _identity(value: Any, *, reason: str) -> str:
-    text = _text(value, reason=reason)
-    if (
-        len(text) > _MAX_TEXT_CHARS
-        or not text[0].isalnum()
-        or any(
-            character not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.:/-" for character in text
-        )
-    ):
-        raise WorkflowTransitionEventEffectError(f"workflow_transition_event_{reason}_invalid")
-    return text
+    return _SCALARS.identity(value, reason)
 
 
 def _text(value: Any, *, reason: str) -> str:
-    if (
-        not isinstance(value, str)
-        or not value
-        or value != value.strip()
-        or len(value) > _MAX_TEXT_CHARS
-        or "\x00" in value
-    ):
-        raise WorkflowTransitionEventEffectError(f"workflow_transition_event_{reason}_invalid")
-    try:
-        value.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise WorkflowTransitionEventEffectError(f"workflow_transition_event_{reason}_invalid") from exc
-    return value
+    return _SCALARS.text(value, reason, maximum=_MAX_TEXT_CHARS)
 
 
 def _optional_text(value: Any, *, reason: str) -> str:
@@ -934,9 +920,7 @@ def _optional_text(value: Any, *, reason: str) -> str:
 
 
 def _positive_integer(value: Any, *, reason: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= _MAX_SEQUENCE:
-        raise WorkflowTransitionEventEffectError(f"workflow_transition_event_{reason}_invalid")
-    return value
+    return _SCALARS.positive_integer(value, reason, maximum=_MAX_SEQUENCE)
 
 
 def _nonnegative_integer(value: Any, *, reason: str) -> int:
@@ -957,13 +941,7 @@ def _positive_timestamp(value: Any, *, reason: str) -> float:
 
 
 def _sha256(value: Any, *, reason: str) -> str:
-    if (
-        not isinstance(value, str)
-        or len(value) != 64
-        or any(character not in "0123456789abcdef" for character in value)
-    ):
-        raise WorkflowTransitionEventEffectError(f"workflow_transition_event_{reason}_invalid")
-    return value
+    return _SCALARS.sha256(value, reason)
 
 
 def _opaque_identifier(prefix: str, namespace: str, *parts: str) -> str:

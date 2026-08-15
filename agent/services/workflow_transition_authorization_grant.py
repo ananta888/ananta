@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol, final, runtime_checkable
@@ -47,6 +46,7 @@ from agent.services.workflow_transition_effect_proofs import (
     WorkflowTransitionEffectAbsenceProof,
     WorkflowTransitionEffectProofContext,
     WorkflowTransitionEffectResourceProof,
+    WorkflowTransitionEffectScalars,
     assert_active_workflow_transition_effect_absence_proof_binding,
     assert_active_workflow_transition_effect_proof_binding,
     assert_durable_workflow_transition_effect_proof_binding,
@@ -129,8 +129,6 @@ _ISSUANCE_FIELDS = frozenset(
         "expires_at",
     }
 )
-_IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$")
-_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
 _MAX_ENVELOPE_BYTES = 240_000
 _MAX_EFFECT_BYTES = 260_000
 _MAX_JSON_DEPTH = 32
@@ -142,6 +140,12 @@ _MAX_COUNTER = 2**63 - 1
 
 class WorkflowTransitionAuthorizationGrantError(ValueError):
     """Stable fail-closed staged-grant or semantic-proof error."""
+
+
+_SCALARS = WorkflowTransitionEffectScalars(
+    error=WorkflowTransitionAuthorizationGrantError,
+    prefix="workflow_transition_authorization_grant",
+)
 
 
 @runtime_checkable
@@ -1357,9 +1361,7 @@ def _copy_json(value: Any, *, depth: int, budget: _JsonBudget) -> Any:
 
 
 def _identity(value: Any, reason: str) -> str:
-    if not isinstance(value, str) or _IDENTITY_RE.fullmatch(value) is None:
-        raise WorkflowTransitionAuthorizationGrantError(f"workflow_transition_authorization_grant_{reason}_invalid")
-    return value
+    return _SCALARS.identity(value, reason)
 
 
 def _scope_identity(value: Any, reason: str) -> str:
@@ -1373,27 +1375,15 @@ def _scope_identity(value: Any, reason: str) -> str:
 
 
 def _text(value: Any, maximum: int, reason: str) -> str:
-    if not isinstance(value, str) or not value or value != value.strip() or len(value) > maximum or "\x00" in value:
-        raise WorkflowTransitionAuthorizationGrantError(f"workflow_transition_authorization_grant_{reason}_invalid")
-    try:
-        value.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise WorkflowTransitionAuthorizationGrantError(
-            f"workflow_transition_authorization_grant_{reason}_invalid"
-        ) from exc
-    return value
+    return _SCALARS.text(value, reason, maximum=maximum)
 
 
 def _sha256(value: Any, reason: str) -> str:
-    if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
-        raise WorkflowTransitionAuthorizationGrantError(f"workflow_transition_authorization_grant_{reason}_invalid")
-    return value
+    return _SCALARS.sha256(value, reason)
 
 
 def _positive_integer(value: Any, reason: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1 or value > _MAX_COUNTER:
-        raise WorkflowTransitionAuthorizationGrantError(f"workflow_transition_authorization_grant_{reason}_invalid")
-    return value
+    return _SCALARS.positive_integer(value, reason, maximum=_MAX_COUNTER)
 
 
 def _positive_timestamp(value: Any, reason: str) -> float:

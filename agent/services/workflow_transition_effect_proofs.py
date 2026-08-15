@@ -79,6 +79,48 @@ class WorkflowTransitionEffectProofError(ValueError):
     """Stable fail-closed structural or exact-binding error."""
 
 
+@final
+@dataclass(frozen=True, slots=True)
+class WorkflowTransitionEffectScalars:
+    """Shared fail-closed scalar validation for effect adapters.
+
+    Every adapter validates identities, digests, counters and text the same
+    way and differs only in the error class and message prefix it raises with,
+    so those are the two things this binds.  Callers keep their own module
+    bound for counters and text, which stays an explicit per-adapter decision.
+    """
+
+    error: type[Exception]
+    prefix: str
+
+    def _invalid(self, reason: str) -> Exception:
+        return self.error(f"{self.prefix}_{reason}_invalid")
+
+    def identity(self, value: object, reason: str) -> str:
+        if not isinstance(value, str) or _IDENTITY_RE.fullmatch(value) is None:
+            raise self._invalid(reason)
+        return value
+
+    def sha256(self, value: object, reason: str) -> str:
+        if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
+            raise self._invalid(reason)
+        return value
+
+    def positive_integer(self, value: object, reason: str, *, maximum: int) -> int:
+        if isinstance(value, bool) or not isinstance(value, int) or not 0 < value <= maximum:
+            raise self._invalid(reason)
+        return value
+
+    def text(self, value: object, reason: str, *, maximum: int) -> str:
+        if not isinstance(value, str) or not value or value != value.strip() or len(value) > maximum or "\x00" in value:
+            raise self._invalid(reason)
+        try:
+            value.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            raise self._invalid(reason) from exc
+        return value
+
+
 @dataclass(slots=True)
 class _JsonCopyBudget:
     remaining_items: int = _MAX_JSON_ITEMS
@@ -692,6 +734,7 @@ __all__ = [
     "WorkflowTransitionEffectProofContext",
     "WorkflowTransitionEffectProofError",
     "WorkflowTransitionEffectResourceProof",
+    "WorkflowTransitionEffectScalars",
     "assert_active_workflow_transition_effect_absence_proof_binding",
     "assert_active_workflow_transition_effect_proof_binding",
     "assert_durable_workflow_transition_effect_proof_binding",

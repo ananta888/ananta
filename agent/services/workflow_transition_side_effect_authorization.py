@@ -8,7 +8,6 @@ revocation revalidation remain a mandatory live-cutover gate.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol, final, runtime_checkable
@@ -37,6 +36,7 @@ from agent.services.workflow_transition_effect_proofs import (
     WorkflowTransitionEffectAbsenceProof,
     WorkflowTransitionEffectProofContext,
     WorkflowTransitionEffectResourceProof,
+    WorkflowTransitionEffectScalars,
     assert_active_workflow_transition_effect_absence_proof_binding,
     assert_active_workflow_transition_effect_proof_binding,
     assert_durable_workflow_transition_effect_proof_binding,
@@ -84,8 +84,6 @@ _EFFECT_PAYLOAD_FIELDS = frozenset(
     }
 )
 _RESULT_FIELDS = frozenset({"schema", "receipt"})
-_SHA256_RE = re.compile(r"^[a-f0-9]{64}$")
-_IDENTITY_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/-]{0,255}$")
 _WRITE_CLASSES = frozenset({"idempotent_write", "non_idempotent_write"})
 _MAX_OPERATION_CHARS = 512
 _MAX_COUNTER = 2**63 - 1
@@ -93,6 +91,12 @@ _MAX_COUNTER = 2**63 - 1
 
 class WorkflowTransitionSideEffectAuthorizationError(ValueError):
     """Stable fail-closed staged intent or adapter error."""
+
+
+_SCALARS = WorkflowTransitionEffectScalars(
+    error=WorkflowTransitionSideEffectAuthorizationError,
+    prefix="workflow_transition_side_effect_authorization",
+)
 
 
 @runtime_checkable
@@ -745,33 +749,15 @@ def workflow_transition_side_effect_authorization_receipt_from_result(
 
 
 def _identity(value: object, reason: str) -> str:
-    if not isinstance(value, str) or _IDENTITY_RE.fullmatch(value) is None:
-        raise WorkflowTransitionSideEffectAuthorizationError(
-            f"workflow_transition_side_effect_authorization_{reason}_invalid"
-        )
-    return value
+    return _SCALARS.identity(value, reason)
 
 
 def _text(value: object, maximum: int, reason: str) -> str:
-    if not isinstance(value, str) or not value or value != value.strip() or len(value) > maximum or "\x00" in value:
-        raise WorkflowTransitionSideEffectAuthorizationError(
-            f"workflow_transition_side_effect_authorization_{reason}_invalid"
-        )
-    try:
-        value.encode("utf-8")
-    except UnicodeEncodeError as exc:
-        raise WorkflowTransitionSideEffectAuthorizationError(
-            f"workflow_transition_side_effect_authorization_{reason}_invalid"
-        ) from exc
-    return value
+    return _SCALARS.text(value, reason, maximum=maximum)
 
 
 def _sha256(value: object, reason: str) -> str:
-    if not isinstance(value, str) or _SHA256_RE.fullmatch(value) is None:
-        raise WorkflowTransitionSideEffectAuthorizationError(
-            f"workflow_transition_side_effect_authorization_{reason}_invalid"
-        )
-    return value
+    return _SCALARS.sha256(value, reason)
 
 
 def _write_class(value: object) -> str:
@@ -783,11 +769,7 @@ def _write_class(value: object) -> str:
 
 
 def _positive_integer(value: object, reason: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 1 or value > _MAX_COUNTER:
-        raise WorkflowTransitionSideEffectAuthorizationError(
-            f"workflow_transition_side_effect_authorization_{reason}_invalid"
-        )
-    return value
+    return _SCALARS.positive_integer(value, reason, maximum=_MAX_COUNTER)
 
 
 def _positive_timestamp(value: object, reason: str) -> float:
