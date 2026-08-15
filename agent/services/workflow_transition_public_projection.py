@@ -34,11 +34,7 @@ def canonical_workflow_public_status(
     if runtime_id not in {TRANSITION_RUNTIME_NATIVE, TRANSITION_RUNTIME_LANGGRAPH}:
         raise ValueError("workflow_transition_public_projection_runtime_unsupported")
     raw_observed_at = status.get("updated_at")
-    if (
-        not isinstance(raw_observed_at, (int, float))
-        or isinstance(raw_observed_at, bool)
-        or float(raw_observed_at) < 0
-    ):
+    if not isinstance(raw_observed_at, (int, float)) or isinstance(raw_observed_at, bool) or float(raw_observed_at) < 0:
         raise ValueError("workflow_runtime_source_updated_at_invalid")
     safe_status = dict(status)
     source_observation = _validated_source_observation(
