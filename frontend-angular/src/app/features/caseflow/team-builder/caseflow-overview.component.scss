@@ -1,0 +1,175 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.ov {
+  --ov-border: color-mix(in srgb, currentColor 22%, transparent);
+  --ov-muted: color-mix(in srgb, currentColor 68%, transparent);
+  --ov-surface: color-mix(in srgb, currentColor 5%, transparent);
+  --ov-hover: color-mix(in srgb, currentColor 10%, transparent);
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  color: inherit;
+}
+
+.ov-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h1 {
+    margin: 0 0 0.35rem;
+    font-size: 1.5rem;
+  }
+}
+
+.ov-lead {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--ov-muted);
+}
+
+.ov-section {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0;
+  font-size: 1.15rem;
+}
+
+.ov-hint,
+.ov-muted {
+  margin: 0;
+  max-width: 70ch;
+  color: var(--ov-muted);
+  font-size: 0.875rem;
+}
+
+.ov-error {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, crimson 45%, transparent);
+  border-radius: 0.5rem;
+  background: color-mix(in srgb, crimson 10%, transparent);
+  font-size: 0.85rem;
+}
+
+.ov-search input {
+  width: min(100%, 28rem);
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.ov-ghost {
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--ov-hover);
+  }
+}
+
+/* ── Cards ────────────────────────────────────────────────────────────── */
+
+.ov-grid {
+  display: grid;
+  gap: 0.85rem;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+}
+
+.ov-card {
+  display: grid;
+  gap: 0.3rem;
+  align-content: start;
+  padding: 0.9rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.75rem;
+  background: var(--ov-surface);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--ov-hover);
+  }
+}
+
+.ov-card-glyph {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.ov-card-level {
+  justify-self: start;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ov-card-title {
+  font-weight: 600;
+}
+
+.ov-card-sub {
+  color: var(--ov-muted);
+  font-size: 0.825rem;
+}
+
+/* ── Structure ────────────────────────────────────────────────────────── */
+
+.ov-structure {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ov-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 0.5rem;
+  background: var(--ov-surface);
+  font-size: 0.9rem;
+}
+
+.ov-row-glyph {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.ov-row-label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ov-row-status {
+  margin-left: auto;
+  padding: 0 0.4rem;
+  border: 1px solid var(--ov-border);
+  border-radius: 999px;
+  color: var(--ov-muted);
+  font-size: 0.72rem;
+}

@@ -14,6 +14,12 @@ export const caseFlowRoutes: Routes = [
           import('./scenario/caseflow-catalog.component').then(m => m.CaseFlowCatalogComponent),
       },
       {
+        path: 'overview',
+        data: { breadcrumb: 'Übersicht', area: 'Operate' },
+        loadComponent: () =>
+          import('./team-builder/caseflow-overview.component').then(m => m.CaseFlowOverviewComponent),
+      },
+      {
         path: 'team',
         data: { breadcrumb: 'Agenten-Team', area: 'Configure' },
         loadComponent: () =>

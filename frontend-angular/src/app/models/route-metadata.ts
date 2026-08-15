@@ -26,13 +26,22 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   projects: { label: 'Projekte', area: 'Configure', navGroup: 'Arbeiten', navOrder: 8, simpleNav: true },
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true, projectScoped: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
+  'caseflow/overview': {
+    // First because it is the only entry that assumes nothing: it shows what
+    // already exists, at both levels, and leads into everything below it.
+    label: 'Übersicht',
+    area: 'Operate',
+    navGroup: 'CaseFlow',
+    navOrder: 0,
+    simpleNav: true,
+  },
   'caseflow/team': {
-    // First because it is the only entry that asks nothing of a newcomer: it
-    // offers templates, while the two below need an existing process picked.
+    // Before the two editors because it asks nothing of a newcomer: it offers
+    // templates, while both of those need an existing process picked first.
     label: 'Agenten-Team',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 0,
+    navOrder: 1,
     simpleNav: true,
   },
   'process-designer': {
@@ -42,14 +51,14 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
     label: 'Prozess-Designer',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 1,
+    navOrder: 2,
     simpleNav: true,
   },
   'caseflow/studio': {
     label: 'CaseFlow Studio',
     area: 'Configure',
     navGroup: 'CaseFlow',
-    navOrder: 2,
+    navOrder: 3,
     simpleNav: true,
     separatorAfter: true,
   },

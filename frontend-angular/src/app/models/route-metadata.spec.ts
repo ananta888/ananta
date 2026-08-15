@@ -32,6 +32,7 @@ describe('route metadata', () => {
       '/voxtral-offline',
       '/llama-runtime',
       '/help',
+      '/caseflow/overview',
       '/caseflow/team',
       '/process-designer',
       '/caseflow/studio',
@@ -59,6 +60,10 @@ describe('route metadata', () => {
       .find(group => group.label === 'CaseFlow');
 
     expect(caseFlowGroup?.items).toEqual([
+      expect.objectContaining({
+        label: 'Übersicht',
+        path: '/caseflow/overview',
+      }),
       expect.objectContaining({
         label: 'Agenten-Team',
         path: '/caseflow/team',
