@@ -332,6 +332,8 @@ jobs:
           tests/test_workflow_binding_trace_migration.py
           tests/test_workflow_control_composition.py
           tests/test_caseflow_trace_freshness_stamp.py
+          tests/test_workflow_transition_queue_reservation.py
+          tests/test_workflow_transition_queue_reservation_migration.py
 
   workflow-runtime-security:
     runs-on: ubuntu-latest

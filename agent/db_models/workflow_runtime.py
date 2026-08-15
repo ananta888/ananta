@@ -251,6 +251,98 @@ class WorkflowTransitionOwnershipReservationDB(SQLModel, table=True):
     receipt: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
 
 
+class WorkflowTransitionQueueReservationDB(SQLModel, table=True):
+    """Append-only proof of one transition-owned task-queue reservation.
+
+    The reservation is deliberately its own record rather than an attribution
+    written into the task table.  Tasks are also created outside transitions,
+    so a shared row would put two writers with different fencing rules on one
+    piece of state; here the queue service stays the sole owner of tasks and
+    this table only proves which transition effect was allowed to claim one.
+    """
+
+    __tablename__ = "workflow_transition_queue_reservations"
+    __table_args__ = (
+        sa.UniqueConstraint(
+            "effect_id",
+            name="uq_workflow_transition_queue_res_effect",
+        ),
+        sa.UniqueConstraint(
+            "operation_fence_id",
+            name="uq_workflow_transition_queue_res_fence",
+        ),
+        sa.UniqueConstraint(
+            "attempt_id",
+            name="uq_workflow_transition_queue_res_attempt",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "run_id",
+            "task_id",
+            name="uq_workflow_transition_queue_res_task",
+        ),
+        sa.UniqueConstraint(
+            "tenant_id",
+            "run_id",
+            "step_id",
+            "reserved_revision",
+            name="uq_workflow_transition_queue_res_revision",
+        ),
+        sa.CheckConstraint(
+            "creator_claim_generation > 0 "
+            "AND reserved_revision > 0 "
+            "AND reserved_revision <= 2147483647 "
+            "AND maximum_retries >= 0 "
+            "AND maximum_retries <= 2147483647 "
+            "AND (retry_consumed = FALSE OR retry_consumed = TRUE) "
+            "AND planned_at > 0 "
+            "AND reserved_at >= planned_at",
+            name="ck_workflow_transition_queue_res_valid",
+        ),
+        sa.Index(
+            "ix_workflow_transition_queue_res_transition",
+            "transition_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_queue_res_tenant_run",
+            "tenant_id",
+            "run_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_queue_res_scope",
+            "tenant_id",
+            "run_id",
+            "step_id",
+        ),
+        sa.Index(
+            "ix_workflow_transition_queue_res_task",
+            "task_id",
+        ),
+    )
+
+    receipt_id: str = Field(primary_key=True, max_length=256)
+    transition_id: str = Field(max_length=256)
+    effect_id: str = Field(max_length=256)
+    operation_fence_id: str = Field(max_length=256)
+    attempt_id: str = Field(max_length=256)
+    task_id: str = Field(max_length=256)
+    tenant_id: str = Field(max_length=256)
+    workflow_id: str = Field(max_length=256)
+    run_id: str = Field(max_length=256)
+    runtime_id: str = Field(max_length=64)
+    step_id: str = Field(max_length=256)
+    queue_intent_digest: str = Field(max_length=64)
+    reservation_record_digest: str = Field(max_length=64)
+    receipt_digest: str = Field(max_length=64)
+    creator_claim_generation: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    reserved_revision: int = Field(sa_column=Column(sa.BigInteger, nullable=False))
+    maximum_retries: int = Field(sa_column=Column(sa.Integer, nullable=False))
+    retry_consumed: bool = Field(sa_column=Column(sa.Boolean, nullable=False))
+    planned_at: float
+    reserved_at: float
+    receipt: dict[str, Any] = Field(sa_column=Column(sa.JSON, nullable=False))
+
+
 class WorkflowExecutionOwnershipDB(SQLModel, table=True):
     """CAS-protected current owner of a hub-delegated workflow step."""
 

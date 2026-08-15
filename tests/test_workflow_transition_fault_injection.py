@@ -18,6 +18,9 @@ from agent.services.workflow_command_transition_admission import (
 )
 from agent.services.workflow_runtime.events import InMemoryEventStore
 from agent.services.workflow_runtime.ownership import InMemoryExecutionOwnershipStore
+from agent.services.workflow_runtime.queue_reservations import (
+    InMemoryWorkflowTransitionQueueReservationStore,
+)
 from agent.services.workflow_transition_effect_execution import (
     BoundedWorkflowTransitionRetryPolicy,
 )
@@ -93,6 +96,7 @@ class _World:
     def __init__(self, *, store_injector: Any = None) -> None:
         self.events = InMemoryEventStore()
         self.ownership = InMemoryExecutionOwnershipStore()
+        self.queue_reservations = InMemoryWorkflowTransitionQueueReservationStore()
         self.status_reads = _StatusReads()
         self.store = InMemoryWorkflowTransitionStore(
             clock=lambda: _NOW,
@@ -141,6 +145,7 @@ class _World:
                 ownership_reads=self.ownership,
                 event_authority=self.events,
                 event_reads=self.events,
+                queue_reservations=self.queue_reservations,
                 clock=lambda: _NOW,
             ),
             finalization_registry=build_native_transition_finalization_registry(

@@ -1086,6 +1086,7 @@ def test_runner_is_confined_to_the_framework_adapters_and_one_composition() -> N
         (ROOT / "agent/services/workflow_transition_authorization_grant.py").resolve(),
         (ROOT / "agent/services/workflow_transition_event_effect.py").resolve(),
         (ROOT / "agent/services/workflow_transition_ownership_reservation.py").resolve(),
+        (ROOT / "agent/services/workflow_transition_queue_reservation.py").resolve(),
         (ROOT / "agent/services/workflow_transition_side_effect_authorization.py").resolve(),
     }
     runner_composition = (

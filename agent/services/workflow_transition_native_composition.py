@@ -15,6 +15,7 @@ rather than silently skip them.
 
 from __future__ import annotations
 
+import hashlib
 import math
 import time
 from collections.abc import Callable, Mapping
@@ -28,11 +29,18 @@ from agent.services.workflow_command_transition_admission import (
 )
 from agent.services.workflow_control_bindings import WorkflowControlRunBinding
 from agent.services.workflow_control_command_receipts import WorkflowControlCommandReceipt
+from agent.services.workflow_runtime._serialization import canonical_json
 from agent.services.workflow_runtime.events import (
     WorkflowTransitionEventObservationReadPort,
 )
+from agent.services.workflow_runtime.queue_reservations import (
+    WorkflowTransitionQueueReservationAuthority,
+)
 from agent.services.workflow_runtime.sqlalchemy_event_stores import SQLAlchemyEventStore
 from agent.services.workflow_runtime.sqlalchemy_ownership import SQLAlchemyExecutionOwnershipStore
+from agent.services.workflow_runtime.sqlalchemy_queue_reservations import (
+    SQLAlchemyWorkflowTransitionQueueReservationStore,
+)
 from agent.services.workflow_transition_authorization_grant import (
     WorkflowTransitionAuthorizationGrantExecutor,
     WorkflowTransitionAuthorizationGrantObserver,
@@ -64,8 +72,10 @@ from agent.services.workflow_transition_outbox import (
     EFFECT_BINDING_FINALIZE,
     EFFECT_EVENT_APPEND,
     EFFECT_OWNERSHIP_RESERVE,
+    EFFECT_QUEUE_RESERVE,
     TRANSITION_KIND_COMMAND,
     TRANSITION_RUNTIME_NATIVE,
+    TRANSITION_RUNTIMES,
     WorkflowTransition,
     WorkflowTransitionEffect,
     WorkflowTransitionReadPort,
@@ -79,13 +89,19 @@ from agent.services.workflow_transition_ownership_reservation import (
     build_workflow_transition_ownership_reservation_effect,
 )
 from agent.services.workflow_transition_persistence import SQLAlchemyWorkflowTransitionStore
+from agent.services.workflow_transition_queue_reservation import (
+    WorkflowTransitionQueueReservationExecutor,
+    WorkflowTransitionQueueReservationObserver,
+    build_workflow_transition_queue_reservation_effect,
+)
 from agent.services.workflow_transition_runner import WorkflowTransitionRunner
 
 NATIVE_COMMAND_EVENT_TYPE = "workflow.command.admitted"
 
 _OWNERSHIP_ORDINAL = 1
-_EVENT_ORDINAL = 2
-_FINALIZE_ORDINAL = 3
+_QUEUE_ORDINAL = 2
+_EVENT_ORDINAL = 3
+_FINALIZE_ORDINAL = 4
 _MAX_DRAIN_LIMIT = 256
 
 
@@ -118,7 +134,14 @@ class NativeCommandTransitionIntentFactory:
     sequence drift instead of appending a misattributed event.
     """
 
-    __slots__ = ("_events", "_lease_seconds", "_maximum_retries", "_transitions")
+    __slots__ = (
+        "_events",
+        "_lease_seconds",
+        "_maximum_retries",
+        "_reserves_queue_slot",
+        "_runtime_id",
+        "_transitions",
+    )
 
     def __init__(
         self,
@@ -127,6 +150,8 @@ class NativeCommandTransitionIntentFactory:
         transitions: WorkflowTransitionReadPort,
         lease_seconds: float = 30.0,
         maximum_retries: int = 3,
+        runtime_id: str = TRANSITION_RUNTIME_NATIVE,
+        reserves_queue_slot: bool = False,
     ) -> None:
         if not callable(getattr(events, "observe_transition_event", None)):
             raise WorkflowTransitionNativeCompositionError("workflow_transition_native_events_invalid")
@@ -143,8 +168,14 @@ class NativeCommandTransitionIntentFactory:
             raise WorkflowTransitionNativeCompositionError("workflow_transition_native_retries_invalid")
         self._events = events
         self._transitions = transitions
+        if runtime_id not in TRANSITION_RUNTIMES:
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_runtime_invalid")
+        if not isinstance(reserves_queue_slot, bool):
+            raise WorkflowTransitionNativeCompositionError("workflow_transition_native_queue_flag_invalid")
         self._lease_seconds = float(lease_seconds)
         self._maximum_retries = int(maximum_retries)
+        self._runtime_id = runtime_id
+        self._reserves_queue_slot = reserves_queue_slot
 
     def build(
         self,
@@ -166,19 +197,38 @@ class NativeCommandTransitionIntentFactory:
             tenant_id=binding.tenant_id,
             workflow_id=binding.workflow_id,
             run_id=binding.run_id,
-            runtime_id=TRANSITION_RUNTIME_NATIVE,
+            runtime_id=self._runtime_id,
             ordinal=_OWNERSHIP_ORDINAL,
             step_id=step_id,
             lease_seconds=self._lease_seconds,
             maximum_retries=self._maximum_retries,
             planned_at=planned_at,
         )
+        queue: tuple[WorkflowTransitionEffect, ...] = ()
+        event_ordinal = _EVENT_ORDINAL if self._reserves_queue_slot else _QUEUE_ORDINAL
+        if self._reserves_queue_slot:
+            # The reservation is the ingest: a run that hands work to a worker
+            # must own exactly one slot before any event says it did.
+            queue = (
+                build_workflow_transition_queue_reservation_effect(
+                    transition_id=transition_id,
+                    tenant_id=binding.tenant_id,
+                    workflow_id=binding.workflow_id,
+                    run_id=binding.run_id,
+                    runtime_id=self._runtime_id,
+                    ordinal=_QUEUE_ORDINAL,
+                    step_id=step_id,
+                    task_id=workflow_transition_task_id(transition_id=transition_id),
+                    maximum_retries=self._maximum_retries,
+                    planned_at=planned_at,
+                ),
+            )
         event = build_workflow_transition_event_effect(
             transition_id=transition_id,
             tenant_id=binding.tenant_id,
             workflow_id=binding.workflow_id,
             run_id=binding.run_id,
-            ordinal=_EVENT_ORDINAL,
+            ordinal=event_ordinal,
             event_type=NATIVE_COMMAND_EVENT_TYPE,
             step_id=step_id,
             payload={
@@ -190,24 +240,25 @@ class NativeCommandTransitionIntentFactory:
             expected_sequence=self._head_sequence(
                 binding=binding,
                 transition_id=transition_id,
+                ordinal=event_ordinal,
             ),
             planned_at=planned_at,
         )
         finalize = WorkflowTransitionEffect.build(
             transition_id=transition_id,
-            ordinal=_FINALIZE_ORDINAL,
+            ordinal=event_ordinal + 1,
             kind=EFFECT_BINDING_FINALIZE,
             idempotency_key=binding.workflow_id,
             payload={"workflow_id": binding.workflow_id},
             created_at=planned_at,
         )
-        effects = (ownership, event, finalize)
+        effects = (ownership, *queue, event, finalize)
         transition = WorkflowTransition.build(
             transition_id=transition_id,
             tenant_id=binding.tenant_id,
             workflow_id=binding.workflow_id,
             run_id=binding.run_id,
-            runtime_id=TRANSITION_RUNTIME_NATIVE,
+            runtime_id=self._runtime_id,
             kind=TRANSITION_KIND_COMMAND,
             command_id=receipt.command_id,
             receipt_id=receipt.command_id,
@@ -225,15 +276,16 @@ class NativeCommandTransitionIntentFactory:
         *,
         binding: WorkflowControlRunBinding,
         transition_id: str,
+        ordinal: int,
     ) -> int:
         dedupe_key = workflow_transition_event_effect_idempotency_key(
             transition_id=transition_id,
-            ordinal=_EVENT_ORDINAL,
+            ordinal=ordinal,
             event_type=NATIVE_COMMAND_EVENT_TYPE,
         )
         effect_id = workflow_transition_effect_id(
             transition_id=transition_id,
-            ordinal=_EVENT_ORDINAL,
+            ordinal=ordinal,
             kind=EFFECT_EVENT_APPEND,
             idempotency_key=dedupe_key,
         )
@@ -377,6 +429,7 @@ def build_native_transition_effect_registry(
     ownership_reads: WorkflowTransitionOwnershipReservationObserverReads,
     event_authority: WorkflowTransitionEventAuthority,
     event_reads: WorkflowTransitionEventObservationReadPort,
+    queue_reservations: WorkflowTransitionQueueReservationAuthority,
     clock: Callable[[], float],
     authorization_grants: NativeAuthorizationGrantWiring | None = None,
 ) -> WorkflowTransitionEffectExecutorRegistry:
@@ -424,6 +477,17 @@ def build_native_transition_effect_registry(
                     ),
                     execution=WorkflowTransitionOwnershipReservationExecutor(
                         authority=ownership_authority,
+                        clock=clock,
+                    ),
+                ),
+            ),
+            WorkflowTransitionEffectRegistration(
+                runtime_id=TRANSITION_RUNTIME_NATIVE,
+                effect_kind=EFFECT_QUEUE_RESERVE,
+                handler=WorkflowTransitionEffectHandler(
+                    observation=WorkflowTransitionQueueReservationObserver(reads=queue_reservations),
+                    execution=WorkflowTransitionQueueReservationExecutor(
+                        authority=queue_reservations,
                         clock=clock,
                     ),
                 ),
@@ -560,6 +624,7 @@ def build_native_command_transition_runtime(
     )
     ownership = SQLAlchemyExecutionOwnershipStore(bind)
     events = SQLAlchemyEventStore(bind)
+    queue_reservations = SQLAlchemyWorkflowTransitionQueueReservationStore(bind)
     admission = WorkflowCommandTransitionAdmissionService(
         transitions,
         transition_reader=transitions,
@@ -582,6 +647,7 @@ def build_native_command_transition_runtime(
             ownership_reads=ownership,
             event_authority=events,
             event_reads=events,
+            queue_reservations=queue_reservations,
             clock=clock,
         ),
         finalization_registry=build_native_transition_finalization_registry(status_reads=status_reads),
@@ -594,6 +660,20 @@ def build_native_command_transition_runtime(
         admission=admission,
         driver=WorkflowTransitionDriver(runner=runner, limit=drain_limit),
     )
+
+
+def workflow_transition_task_id(*, transition_id: str) -> str:
+    """Derive the one task a transition may reserve, from the transition alone.
+
+    Deriving rather than allocating is what makes the reservation restart
+    safe: a replanned or retried transition names the same task instead of
+    asking the queue for a second one.
+    """
+
+    if not isinstance(transition_id, str) or not transition_id:
+        raise WorkflowTransitionNativeCompositionError("workflow_transition_native_transition_id_invalid")
+    framed = canonical_json({"namespace": "workflow-transition-task-id.v1", "transition_id": transition_id})
+    return f"wftt-{hashlib.sha256(framed.encode('utf-8')).hexdigest()[:40]}"
 
 
 def _step_id(receipt: WorkflowControlCommandReceipt) -> str:
@@ -617,6 +697,7 @@ __all__ = [
     "WorkflowTransitionDriveReport",
     "WorkflowTransitionDriver",
     "WorkflowTransitionNativeCompositionError",
+    "workflow_transition_task_id",
     "build_native_command_transition_runtime",
     "build_native_transition_effect_registry",
     "build_native_transition_finalization_registry",

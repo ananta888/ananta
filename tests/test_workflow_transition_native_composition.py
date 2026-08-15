@@ -14,6 +14,9 @@ from agent.services.workflow_control_command_receipts import WorkflowControlComm
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from agent.services.workflow_runtime.events import InMemoryEventStore
 from agent.services.workflow_runtime.ownership import InMemoryExecutionOwnershipStore
+from agent.services.workflow_runtime.queue_reservations import (
+    InMemoryWorkflowTransitionQueueReservationStore,
+)
 from agent.services.workflow_runtime.security import HmacKeyRing
 from agent.services.workflow_transition_effect_execution import (
     BoundedWorkflowTransitionRetryPolicy,
@@ -30,11 +33,14 @@ from agent.services.workflow_transition_native_composition import (
     WorkflowTransitionNativeCompositionError,
     build_native_transition_effect_registry,
     build_native_transition_finalization_registry,
+    workflow_transition_task_id,
 )
 from agent.services.workflow_transition_outbox import (
+    EFFECT_AUTHORIZATION_GRANT,
     EFFECT_BINDING_FINALIZE,
     EFFECT_EVENT_APPEND,
     EFFECT_OWNERSHIP_RESERVE,
+    EFFECT_QUEUE_RESERVE,
     TRANSITION_KIND_COMMAND,
     TRANSITION_RUNTIME_NATIVE,
     TRANSITION_STATE_COMPLETED,
@@ -169,6 +175,7 @@ def _store() -> InMemoryWorkflowTransitionStore:
 def harness() -> dict[str, Any]:
     events = InMemoryEventStore()
     ownership = InMemoryExecutionOwnershipStore()
+    queue_reservations = InMemoryWorkflowTransitionQueueReservationStore()
     store = _store()
     status_reads = _StatusReads()
     factory = NativeCommandTransitionIntentFactory(events=events, transitions=store)
@@ -189,6 +196,7 @@ def harness() -> dict[str, Any]:
             ownership_reads=ownership,
             event_authority=events,
             event_reads=events,
+            queue_reservations=queue_reservations,
             clock=lambda: _NOW,
         ),
         finalization_registry=build_native_transition_finalization_registry(
@@ -203,6 +211,7 @@ def harness() -> dict[str, Any]:
         "admission": admission,
         "events": events,
         "ownership": ownership,
+        "queue_reservations": queue_reservations,
         "runner": runner,
         "status_reads": status_reads,
         "store": store,
@@ -403,7 +412,54 @@ def test_driver_rejects_an_unbounded_or_non_integer_limit(
         WorkflowTransitionDriver(runner=harness["runner"], limit=limit)
 
 
-def test_registry_resolves_only_the_two_adapters_that_exist(
+def test_a_queue_reserving_plan_runs_end_to_end_and_takes_exactly_one_slot(
+    harness: dict[str, Any],
+) -> None:
+    """The reservation is the ingest: one run, one slot, one event."""
+
+    store = harness["store"]
+    admission = WorkflowCommandTransitionAdmissionService(
+        store,
+        transition_reader=store,
+        intent_factory=NativeCommandTransitionIntentFactory(
+            events=harness["events"],
+            transitions=store,
+            reserves_queue_slot=True,
+        ),
+        clock=lambda: _NOW,
+    )
+    staged = admission.stage_or_adopt(receipt=_receipt(), binding=_binding())
+
+    result = _run_to_completion(harness["runner"], staged.transition.transition_id)
+
+    assert tuple(effect.kind for effect in staged.effects) == (
+        EFFECT_OWNERSHIP_RESERVE,
+        EFFECT_QUEUE_RESERVE,
+        EFFECT_EVENT_APPEND,
+        EFFECT_BINDING_FINALIZE,
+    )
+    assert result.snapshot.transition.state == TRANSITION_STATE_COMPLETED
+    assert len(harness["events"].list_events(tenant_id="tenant-a", run_id="run-a")) == 1
+    reserved = harness["queue_reservations"].observe_transition_queue_reservation(
+        tenant_id="tenant-a",
+        run_id="run-a",
+        effect_id=staged.effects[1].effect_id,
+    )
+    assert reserved.receipt is not None
+    assert reserved.receipt.task_id == workflow_transition_task_id(
+        transition_id=staged.transition.transition_id
+    )
+
+
+def test_a_command_plan_reserves_no_queue_slot_by_default(harness: dict[str, Any]) -> None:
+    """A control command like pause dispatches no work, so it takes no slot."""
+
+    staged = harness["admission"].stage_or_adopt(receipt=_receipt(), binding=_binding())
+
+    assert EFFECT_QUEUE_RESERVE not in {effect.kind for effect in staged.effects}
+
+
+def test_registry_resolves_exactly_the_effect_kinds_that_have_an_adapter(
     harness: dict[str, Any],
 ) -> None:
     registry = build_native_transition_effect_registry(
@@ -411,13 +467,32 @@ def test_registry_resolves_only_the_two_adapters_that_exist(
         ownership_reads=harness["ownership"],
         event_authority=harness["events"],
         event_reads=harness["events"],
+        queue_reservations=harness["queue_reservations"],
         clock=lambda: _NOW,
     )
 
-    assert registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind=EFFECT_OWNERSHIP_RESERVE)
-    assert registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind=EFFECT_EVENT_APPEND)
+    for kind in (EFFECT_OWNERSHIP_RESERVE, EFFECT_QUEUE_RESERVE, EFFECT_EVENT_APPEND):
+        assert registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind=kind)
+    # checkpoint_save has no adapter, so it must not resolve: an effect kind
+    # that resolves is an effect kind that can run.
     with pytest.raises(Exception, match="executor_missing"):
-        registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind="queue_reserve")
+        registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind="checkpoint_save")
+
+
+def test_the_grant_effect_only_resolves_when_both_verifiers_are_configured(
+    harness: dict[str, Any],
+) -> None:
+    registry = build_native_transition_effect_registry(
+        ownership_authority=harness["ownership"],
+        ownership_reads=harness["ownership"],
+        event_authority=harness["events"],
+        event_reads=harness["events"],
+        queue_reservations=harness["queue_reservations"],
+        clock=lambda: _NOW,
+    )
+
+    with pytest.raises(Exception, match="executor_missing"):
+        registry.resolve(runtime_id=TRANSITION_RUNTIME_NATIVE, effect_kind=EFFECT_AUTHORIZATION_GRANT)
 
 
 def test_planner_rejects_an_invalid_lease_or_retry_budget() -> None:
