@@ -1,0 +1,1229 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "nanochat-inspired-end-to-end-llm-research-training",
+  "created": "2026-08-16",
+  "last_updated": "2026-08-16",
+  "status": "todo",
+  "purpose": "Anantas bestehende, sichere LoRA/QLoRA-Training-Control-Plane um einen optionalen End-to-End-Research-Pfad nach den uebertragbaren Prinzipien von karpathy/nanochat erweitern. Der neue Pfad soll Tokenizer-Training, From-Scratch-Pretraining, Base-Model-Evaluation, SFT, taskbasierte Evaluation, optionales RL/Post-Training, Inferenz-Benchmarking und reproduzierbare Modellserien abdecken, ohne Anantas Hub/Worker-, Policy-, Audit-, Dataset- und Registry-Architektur zu umgehen.",
+  "goal": "Ein klar isoliertes Research Training Harness etablieren, das kleine und mittlere Open-Weight-/From-Scratch-Experimente reproduzierbar ueber Ananta ausfuehren kann, nanochat-artige Einfachheit pro Experiment bewahrt, aber Ressourcen, Datenherkunft, Artefakte, Policies, Freigaben, Evaluation und Promotion ueber Anantas vorhandene Control Plane verwaltet.",
+  "non_goals": [
+    "Kein Fork oder Vendor-Copy von nanochat als Kernbestandteil von Ananta.",
+    "Keine Ablösung der bestehenden LoRA/QLoRA-Backends PEFT/TRL und Unsloth.",
+    "Kein automatisches Training auf Chat-, Agent-, Voice-, Repository- oder Nutzungsdaten ohne explizite kuratierte Dataset-Freigabe.",
+    "Kein ungeprueftes Ausfuehren beliebiger nanochat-Shellskripte innerhalb des Hub-Prozesses.",
+    "Keine implizite Promotion eines trainierten Modells in produktive Agent-Routen.",
+    "Keine Annahme, dass nanochat-Hyperparameter fuer beliebige Architekturen, Hardware oder Datensaetze compute-optimal sind.",
+    "Kein Zwang zu WandB oder einem externen Telemetrieanbieter.",
+    "Keine Aufgabe von Anantas tenant-, owner-, policy-, idempotency- und auditgebundenen Trainingsvertraegen."
+  ],
+  "source_review": {
+    "nanochat": [
+      {
+        "path": "README.md",
+        "observation": "nanochat beschreibt sich als minimales experimentelles Harness fuer den gesamten LLM-Lifecycle: Tokenisierung, Pretraining, Finetuning, Evaluation und Inferenz. Ein einzelner Komplexitaetsregler --depth leitet weitere Modell-/Trainingsparameter ab."
+      },
+      {
+        "path": "runs/speedrun.sh",
+        "observation": "Die Referenzpipeline ist explizit sequenziert: Datenbereitstellung, Tokenizer-Training/-Eval, Base-Pretraining/-Eval, SFT, Chat-Eval und danach interaktive Inferenz."
+      },
+      {
+        "path": "scripts/chat_rl.py",
+        "observation": "Ein optionaler RL/Post-Training-Pfad ist vorhanden; er fuehrt taskbasierte Rollouts, Rewards, Advantage-Berechnung, Evaluation und Checkpointing aus."
+      },
+      {
+        "path": "nanochat/checkpoint_manager.py",
+        "observation": "Checkpoints und Phasen werden als zentrale Artefakte fuer Base/SFT/RL und spaetere Inferenz behandelt."
+      },
+      {
+        "path": "nanochat/engine.py",
+        "observation": "Die Inferenz-Engine besitzt einen effizienten KV-Cache und wird sowohl fuer Chat als auch fuer Rollout-Erzeugung genutzt."
+      },
+      {
+        "path": "tasks/*",
+        "observation": "Evaluation und Post-Training sind ueber klar geschnittene Task-Abstraktionen fuer u.a. ARC, GSM8K, MMLU und einfache Coding-Aufgaben organisiert."
+      },
+      {
+        "path": "runs/scaling_laws.sh / runs/miniseries.sh",
+        "observation": "nanochat behandelt Modellserien und Scaling-Experimente als reproduzierbare Research Runs statt als einzelne manuelle Trainingskommandos."
+      }
+    ],
+    "ananta": [
+      {
+        "path": "worker/training/",
+        "observation": "Ananta besitzt bereits eine umfangreiche Worker-Training-Schicht mit Contracts, Dataset-Materialisierung, Evaluation, Inference, Runtime-Artefakten, Exporten, Prozesskontrolle und Backend-Strategien."
+      },
+      {
+        "path": "worker/training/backends/unsloth.py",
+        "observation": "Ein bestehendes reales Finetuning-Backend ist bereits vorhanden und darf nicht durch einen nanochat-spezifischen Pfad ersetzt werden."
+      },
+      {
+        "path": "worker/training/backends/peft_trl.py",
+        "observation": "PEFT/TRL bildet einen zweiten bestehenden Finetuning-Pfad; Backend-Erweiterung soll dem vorhandenen Port-/Strategy-Modell folgen."
+      },
+      {
+        "path": "docs/ml-intern-lora-finetuning.md",
+        "observation": "Der aktuelle Produktpfad ist bewusst auf LoRA/QLoRA vorhandener Basismodelle begrenzt; Full-Fine-Tuning aller Modellgewichte ist explizit kein Bestandteil."
+      },
+      {
+        "path": "docs/ml-intern-lora-finetuning.md",
+        "observation": "Hub ist Autoritaet fuer Admission, Tenant-Bindung, Idempotenz, Policy, Queue, Audit, Worker-Auswahl, Fencing, Approval und Runtime-Routing; reales Training laeuft isoliert auf Workern."
+      },
+      {
+        "path": "worker/training/evaluation.py",
+        "observation": "Evaluation ist bereits als eigene Komponente vorhanden und soll um Base-/Task-/Tokenizer-/Capability-Metriken erweitert statt dupliziert werden."
+      },
+      {
+        "path": "worker/training/runtime_artifact_service.py",
+        "observation": "Ananta hat bereits Lifecycle- und Artefaktmechanismen, an die neue Full-Model-/Tokenizer-/Checkpoint-Artefakte angebunden werden sollen."
+      }
+    ]
+  },
+  "fit_assessment": {
+    "directly_reusable_ideas": [
+      "Explizite End-to-End-Phasen vom Tokenizer bis Chat/RL.",
+      "Einfacher Research-Run als reproduzierbare Pipeline statt versteckter manueller Schritte.",
+      "Task-Abstraktion fuer Training und Evaluation.",
+      "Modellserien/Scaling Sweeps als First-Class Research Jobs.",
+      "Inference Benchmarking mit Latenz, Durchsatz und VRAM.",
+      "Hardwarebewusste Precision-Defaults mit explizitem Override.",
+      "Checkpoint-Phasen Base/SFT/RL und eindeutige Modell-Tags."
+    ],
+    "ideas_to_adapt_not_copy": [
+      "Der einzelne --depth-Regler soll als optionales Recipe/Auto-Tuning-Profil umgesetzt werden, nicht als globale Wahrheit fuer alle Modellfamilien.",
+      "nanochats lokales Cache-Verzeichnis wird in Ananta durch Artifact Registry/Storage abstrahiert.",
+      "WandB wird als optionaler Telemetry Sink behandelt; lokale/Prometheus/Ananta-Metriken bleiben moeglich.",
+      "Shell-Pipelines werden in deklarative, resumierbare Hub-Jobs mit einzelnen Stages uebersetzt.",
+      "Python-Codeausfuehrung als Tool darf nicht unkontrolliert in Training-/Evaluation-Jobs uebernommen werden."
+    ],
+    "already_covered_by_ananta": [
+      "Dataset-Katalog, Upload, Split, Validierung und Privacy-/Lizenzmetadaten.",
+      "Hub/Worker-Trennung, Queue, Capacity/Execution Leases, Fencing und Audit.",
+      "LoRA/QLoRA-Training ueber bestehende Backends.",
+      "Adapter-Registry, Evaluation, Approval, Export und Runtime-Rollback.",
+      "Lokale Inferenzpfade und isolierte Worker-Ausfuehrung."
+    ],
+    "main_gaps": [
+      "Trainierbarer Tokenizer als versioniertes Artefakt.",
+      "From-Scratch-Pretraining bzw. optionales Full-Weight-Continued-Pretraining.",
+      "Deklarative mehrstufige Research Pipelines.",
+      "Base-Model-Evaluation wie bits-per-byte/perplexity-nahe und capability-basierte Benchmarks.",
+      "First-Class SFT eines eigenen Full Models statt nur Adapter.",
+      "Optionales RL/Post-Training mit Reward-/Task-Contracts.",
+      "Scaling-Law-/Miniseries-Sweeps und budgetbasierte Modellgroessenplanung.",
+      "Unified Checkpoint lineage ueber tokenizer -> base -> sft -> rl -> export.",
+      "Systematisches Inference Benchmarking als Promotion Gate."
+    ]
+  },
+  "design_principles": [
+    "Control Plane bleibt Ananta-native; Training Engines sind austauschbare Worker-Backends.",
+    "Research Mode ist explizit opt-in und standardmaessig nicht produktionsaktiv.",
+    "Jede Stage ist resumierbar, idempotent, reproduzierbar und erzeugt immutable Artefakte.",
+    "Dataset-, Tokenizer-, Model-, Optimizer-, Code- und Recipe-Digests werden in jeder Lineage gespeichert.",
+    "Keine Trainingsdaten ohne nachweisbare Quelle, Lizenz-/Policy-Status und freigegebenen Scope.",
+    "Keine Full-Model-Promotion ohne definierte Evaluation Gates und explizites Approval.",
+    "Auto-Recipes duerfen Vorschlaege liefern, muessen aber alle abgeleiteten Werte transparent materialisieren.",
+    "Hardwareprofile und Precision werden vor Start validiert; OOM-Risiken muessen im Dry-Run sichtbar sein.",
+    "Backends liefern normalisierte Metriken und Events; Hub und UI kennen keine backendinternen Implementierungsdetails.",
+    "Experimente muessen billig auf kleiner Skala probeweise laufen koennen, bevor teure Runs zugelassen werden."
+  ],
+  "design_decisions": [
+    {
+      "id": "NCH-DD-001",
+      "decision": "Nanochat wird nicht vendored; stattdessen entsteht ein Ananta ResearchTrainingBackend mit optionalem nanochat-kompatiblem Adapter/Runner.",
+      "rationale": "Vermeidet Parallelarchitektur und harte Kopplung an ein schnelllebiges Research-Repo."
+    },
+    {
+      "id": "NCH-DD-002",
+      "decision": "Tokenizer, Base-Checkpoint, SFT-Checkpoint, RL-Checkpoint und Export sind getrennte immutable ArtifactKinds mit Lineage.",
+      "rationale": "Reproduzierbarkeit, Resume, Vergleich und gezielte Wiederverwendung."
+    },
+    {
+      "id": "NCH-DD-003",
+      "decision": "Die End-to-End-Pipeline wird als DAG/Stage-Graph modelliert, nicht als frei ausfuehrbares Shellskript.",
+      "rationale": "Hub kann Admission, Resume, Retry, Fencing, Audit und Kosten pro Stage steuern."
+    },
+    {
+      "id": "NCH-DD-004",
+      "decision": "Ein nanochat-artiges depth Recipe wird als optionaler RecipeResolver implementiert, der alle abgeleiteten Werte persistiert.",
+      "rationale": "Die einfache Bedienung bleibt erhalten, ohne implizite Magie."
+    },
+    {
+      "id": "NCH-DD-005",
+      "decision": "Full-weight Pretraining und Full-SFT laufen nur auf explizit dafuer markierten Worker-Capabilities.",
+      "rationale": "Ressourcen- und Sicherheitsprofil unterscheidet sich deutlich von LoRA."
+    },
+    {
+      "id": "NCH-DD-006",
+      "decision": "RL/Post-Training ist ein separates experimentelles Capability-Gate und darf nicht automatisch nach SFT starten.",
+      "rationale": "Hoeheres Kosten-, Stabilitaets- und Reward-Hacking-Risiko."
+    },
+    {
+      "id": "NCH-DD-007",
+      "decision": "Evaluation wird task- und metric-pluggable; nanochat-Aufgaben sind Referenzen, nicht hardcodierte Pflichtsuite.",
+      "rationale": "Ananta braucht domänenspezifische und spaeter eigene Agent-/Code-Evals."
+    },
+    {
+      "id": "NCH-DD-008",
+      "decision": "Inference Benchmarks werden auf demselben Zielruntime-Profil ausgefuehrt, das spaeter fuer Routing verwendet werden soll.",
+      "rationale": "Trainingserfolg ohne deploybare Performance ist kein ausreichendes Promotion-Kriterium."
+    },
+    {
+      "id": "NCH-DD-009",
+      "decision": "Externe Telemetrie wie WandB ist optionaler Sink hinter einem TelemetryPort.",
+      "rationale": "Local-first und Offline-Betrieb bleiben erhalten."
+    },
+    {
+      "id": "NCH-DD-010",
+      "decision": "Nanochat Upstream wird durch einen getrennten Compatibility/Research Watch Track beobachtet; Kernverhalten wird nicht automatisch synchronisiert.",
+      "rationale": "Upstream-Aenderungen duerfen Ananta nicht unkontrolliert veraendern."
+    }
+  ],
+  "canonical_domain_model": {
+    "TrainingRecipe": [
+      "recipe_id",
+      "recipe_version",
+      "engine",
+      "model_family",
+      "architecture",
+      "depth_or_scale",
+      "resolved_hyperparameters",
+      "precision_policy",
+      "optimizer_profile",
+      "dataset_profile",
+      "evaluation_profile",
+      "budget_limits",
+      "recipe_digest"
+    ],
+    "ResearchPipeline": [
+      "pipeline_id",
+      "pipeline_version",
+      "stages",
+      "stage_dependencies",
+      "resume_policy",
+      "failure_policy",
+      "promotion_policy",
+      "pipeline_digest"
+    ],
+    "TokenizerArtifact": [
+      "tokenizer_id",
+      "algorithm",
+      "vocab_size",
+      "special_tokens",
+      "training_dataset_digest",
+      "normalization",
+      "compression_metrics",
+      "artifact_digest",
+      "parent_tokenizer_id"
+    ],
+    "ModelCheckpointArtifact": [
+      "checkpoint_id",
+      "stage",
+      "model_tag",
+      "step",
+      "architecture_digest",
+      "tokenizer_id",
+      "dataset_digest",
+      "recipe_digest",
+      "optimizer_state_kind",
+      "weights_digest",
+      "parent_checkpoint_id"
+    ],
+    "ResearchRun": [
+      "run_id",
+      "workspace_id",
+      "owner_id",
+      "pipeline_id",
+      "recipe_id",
+      "source_revision",
+      "worker_profile",
+      "budget",
+      "status",
+      "current_stage",
+      "created_at",
+      "completed_at"
+    ],
+    "ResearchStageAttempt": [
+      "attempt_id",
+      "run_id",
+      "stage_id",
+      "worker_id",
+      "fencing_token_digest",
+      "input_artifacts",
+      "output_artifacts",
+      "metrics",
+      "resource_usage",
+      "status"
+    ],
+    "EvaluationTask": [
+      "task_id",
+      "task_version",
+      "task_kind",
+      "dataset_ref",
+      "prompt_renderer",
+      "reward_or_scorer",
+      "sandbox_policy",
+      "task_digest"
+    ],
+    "EvaluationSuite": [
+      "suite_id",
+      "tasks",
+      "weights",
+      "required_metrics",
+      "promotion_thresholds",
+      "suite_digest"
+    ],
+    "ModelLineage": [
+      "lineage_id",
+      "tokenizer_id",
+      "base_checkpoint_id",
+      "sft_checkpoint_id",
+      "rl_checkpoint_id",
+      "export_artifacts",
+      "evaluation_reports",
+      "promotion_state"
+    ]
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Contracts, Lineage und Research Safety Envelope",
+      "task_ids": [
+        "NCH-001",
+        "NCH-002",
+        "NCH-003",
+        "NCH-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Tokenizer und Pretraining Foundation",
+      "task_ids": [
+        "NCH-005",
+        "NCH-006",
+        "NCH-007",
+        "NCH-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "SFT, Evaluation und Inference Benchmarking",
+      "task_ids": [
+        "NCH-009",
+        "NCH-010",
+        "NCH-011",
+        "NCH-012"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "RL/Post-Training und Task Framework",
+      "task_ids": [
+        "NCH-013",
+        "NCH-014",
+        "NCH-015"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Recipes, Scaling Sweeps und Budgeting",
+      "task_ids": [
+        "NCH-016",
+        "NCH-017",
+        "NCH-018"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M6",
+      "title": "Hub/Worker/API/UI Integration",
+      "task_ids": [
+        "NCH-019",
+        "NCH-020",
+        "NCH-021",
+        "NCH-022"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M7",
+      "title": "Storage, Telemetry, Resume und Operations",
+      "task_ids": [
+        "NCH-023",
+        "NCH-024",
+        "NCH-025",
+        "NCH-026"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "M8",
+      "title": "Security, E2E Validation und Rollout",
+      "task_ids": [
+        "NCH-027",
+        "NCH-028",
+        "NCH-029",
+        "NCH-030"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "NCH-001",
+      "title": "Research-Training Contracts und ArtifactKinds definieren",
+      "type": "schema",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Neue Contracts fuer ResearchRun, Pipeline, StageAttempt, TrainingRecipe, TokenizerArtifact, ModelCheckpointArtifact und ModelLineage definieren.",
+          "Bestehende TrainingJob-/Artifact-Contracts erweitern, nicht duplizieren.",
+          "Stage IDs fuer tokenizer_train, tokenizer_eval, pretrain, base_eval, sft, chat_eval, rl, infer_bench, export vorsehen."
+        ],
+        "files_to_create": [
+          "schemas/worker/research_training_recipe.v1.json",
+          "schemas/worker/research_training_pipeline.v1.json",
+          "schemas/worker/research_training_artifact.v1.json",
+          "schemas/worker/research_model_lineage.v1.json"
+        ]
+      },
+      "acceptance_criteria": [
+        "Alle Schemas besitzen positive/negative Fixtures.",
+        "Lineage ist ohne Pfadannahmen vollstaendig rekonstruierbar.",
+        "Unbekannte/inkompatible Stage-Inputs werden fail-closed abgelehnt."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "NCH-002",
+      "title": "Bestehende LoRA-Control-Plane auf Research Jobs generalisieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Admission, Tenant/Owner Binding, Idempotency, Queue, Capacity Leases, Execution Leases, Attempts, Heartbeats und Fencing wiederverwenden.",
+          "ResearchJob als klaren Superset-/Sibling-Vertrag modellieren, ohne existierende v2-LoRA-API zu brechen.",
+          "Stage-spezifische Ressourcenanforderungen erlauben."
+        ]
+      },
+      "acceptance_criteria": [
+        "LoRA-Pfade bleiben unveraendert gruen.",
+        "Research Runs koennen dieselben Scheduler-/Fencing-Primitiven nutzen.",
+        "Hub importiert weiterhin kein Torch."
+      ],
+      "dependencies": [
+        "NCH-001"
+      ]
+    },
+    {
+      "id": "NCH-003",
+      "title": "Research Safety Envelope und Capability Gates definieren",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Capabilities full_weight_training, tokenizer_training, rl_training, multi_gpu_training und code_exec_eval getrennt deklarieren.",
+          "Default Research Mode auf dry_run/disabled setzen.",
+          "Explizite Admin-/Policy-Freigabe fuer kostenintensive oder riskante Stages verlangen.",
+          "Max GPU hours, max estimated cost, max storage, max dataset size und max checkpoint count definieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Nicht freigegebene Worker koennen kein Full-Weight-Training claimen.",
+        "Budgetueberschreitung stoppt vor Stage-Start.",
+        "RL und Code-Execution-Evals sind separat deaktivierbar."
+      ],
+      "dependencies": [
+        "NCH-001"
+      ]
+    },
+    {
+      "id": "NCH-004",
+      "title": "Reproduzierbarkeits- und Provenance-Manifest einfuehren",
+      "type": "schema",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Git/source revision, container/image digest, Python/torch/CUDA, backend version, dataset digest, tokenizer digest, recipe digest, seed und hardware profile speichern.",
+          "Resolved config statt nur user input persistieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Zwei identische Runs koennen hinsichtlich Inputs deterministisch verglichen werden.",
+        "Jeder promotete Checkpoint besitzt ein vollstaendiges Provenance-Manifest."
+      ],
+      "dependencies": [
+        "NCH-001"
+      ]
+    },
+    {
+      "id": "NCH-005",
+      "title": "Tokenizer-Training als Worker-Backend implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "BPE als initiale Implementierung; spaeter weitere Tokenizer hinter Port.",
+          "Training nur auf materialisierten, freigegebenen Dataset-Snapshots.",
+          "Special-token contract fuer Chat/Tool-Formate versionieren.",
+          "Tokenizer-Dateien immutable als Registry-Artefakt speichern."
+        ],
+        "files_to_create": [
+          "worker/training/tokenizers/contracts.py",
+          "worker/training/tokenizers/bpe_backend.py"
+        ]
+      },
+      "acceptance_criteria": [
+        "Tokenizer Roundtrip Tests bestehen.",
+        "Vocab/Special Tokens sind deterministisch versioniert.",
+        "Tokenizer kann von spaeteren Stages ausschliesslich ueber Artifact-ID geladen werden."
+      ],
+      "dependencies": [
+        "NCH-001",
+        "NCH-003",
+        "NCH-004"
+      ]
+    },
+    {
+      "id": "NCH-006",
+      "title": "Tokenizer-Evaluation und Compression Metrics erweitern",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Bytes/token, chars/token, unknown/special token rates und representative-domain splits messen.",
+          "Vergleich zweier Tokenizer als Report unterstuetzen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Report ist backendneutral.",
+        "Regression thresholds koennen als Gate konfiguriert werden."
+      ],
+      "dependencies": [
+        "NCH-005"
+      ]
+    },
+    {
+      "id": "NCH-007",
+      "title": "From-Scratch Pretraining Backend einfuehren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "PyTorch-DDP-first Research Backend mit klarer BackendPort-Schnittstelle.",
+          "Checkpointing, gradient accumulation, mixed precision, gradient clipping und deterministic seeds implementieren.",
+          "Kein nanochat-Code blind kopieren; Architekturideen ueber eigene Ports uebernehmen.",
+          "Single GPU und torchrun Multi-GPU Pfade getrennt testen."
+        ],
+        "files_to_create": [
+          "worker/training/backends/research_pretrain.py",
+          "worker/training/research/modeling.py",
+          "worker/training/research/distributed.py"
+        ]
+      },
+      "acceptance_criteria": [
+        "Tiny GPT kann auf kleinem Testkorpus end-to-end trainiert werden.",
+        "Resume ab Checkpoint reproduziert monotone Step-Lineage.",
+        "DDP und Single-GPU liefern innerhalb definierter Toleranz vergleichbare Loss-Kurven."
+      ],
+      "dependencies": [
+        "NCH-002",
+        "NCH-003",
+        "NCH-004",
+        "NCH-005"
+      ]
+    },
+    {
+      "id": "NCH-008",
+      "title": "Base-Model Evaluation Suite aufbauen",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Validation loss und vocab-size-invariante Metrik wie bits-per-byte aufnehmen.",
+          "Capability-Evals ueber Task Framework anbinden.",
+          "Samples nur redigiert/Policy-konform speichern.",
+          "Evaluation getrennt vom Training erneut ausfuehrbar machen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Base-Eval kann einen beliebigen registrierten Base-Checkpoint bewerten.",
+        "Metriken sind mit Dataset-/Task-Digests verknuepft.",
+        "Promotion kann Mindestmetriken verlangen."
+      ],
+      "dependencies": [
+        "NCH-007"
+      ]
+    },
+    {
+      "id": "NCH-009",
+      "title": "Full-Model SFT Stage implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Bestehende Chat-/Instruction-Dataset-Normalisierung wiederverwenden.",
+          "Full-weight SFT als getrennte Methode neben LoRA/QLoRA.",
+          "Loss mask fuer User/System/Tool-forced Tokens explizit definieren.",
+          "Chat template/special token contract aus TokenizerArtifact beziehen."
+        ]
+      },
+      "acceptance_criteria": [
+        "SFT veraendert Base-Checkpoint nicht in-place.",
+        "SFT-Checkpoint verweist auf exakten Parent Base Checkpoint.",
+        "LoRA/QLoRA bleiben alternative Methoden derselben Dataset-/Evaluation-Control-Plane."
+      ],
+      "dependencies": [
+        "NCH-007",
+        "NCH-005"
+      ]
+    },
+    {
+      "id": "NCH-010",
+      "title": "Task Framework fuer standardisierte Chat-/Capability-Evals einfuehren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "TaskSequence/TaskMixture-Idee adaptieren.",
+          "Initiale Adapter fuer MMLU-artige MCQ, GSM8K-artige Math, ARC-artige Science und simple Coding Tasks.",
+          "Task-Renderer, scorer/reward und sandbox policy trennen."
+        ],
+        "files_to_create": [
+          "worker/training/tasks/contracts.py",
+          "worker/training/tasks/registry.py"
+        ]
+      },
+      "acceptance_criteria": [
+        "Neue Tasks koennen ohne Training-Core-Aenderung registriert werden.",
+        "Eval-Ergebnisse sind pro Task-Version reproduzierbar.",
+        "Externe Dataset-Lizenzen/Quellen werden mitgefuehrt."
+      ],
+      "dependencies": [
+        "NCH-008",
+        "NCH-009"
+      ]
+    },
+    {
+      "id": "NCH-011",
+      "title": "Chat-Evaluation als Promotion Gate integrieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Base-vs-SFT-vs-RL Vergleichsreport erzeugen.",
+          "Regressionen pro Task sichtbar machen statt nur Gesamtscore.",
+          "Mandatory/optional task groups erlauben."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ein besserer Gesamtscore kann kritische Einzelregression nicht verstecken.",
+        "Threshold-Fails verhindern automatische Promotion."
+      ],
+      "dependencies": [
+        "NCH-010"
+      ]
+    },
+    {
+      "id": "NCH-012",
+      "title": "Inference Benchmark Stage implementieren",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "TTFT, tokens/s, p50/p95 latency, peak VRAM/RAM und max stable context messen.",
+          "KV-cache on/off und target runtime profile erfassen.",
+          "Benchmark gegen Anantas existierende Inference-Pfade normalisieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Benchmark ist als eigener wiederholbarer Stage-Job startbar.",
+        "Promotion Policy kann Performance-Grenzen definieren.",
+        "Resultate enthalten Hardware- und Runtime-Digest."
+      ],
+      "dependencies": [
+        "NCH-007",
+        "NCH-009"
+      ]
+    },
+    {
+      "id": "NCH-013",
+      "title": "Experimentelles RL/Post-Training Contract definieren",
+      "type": "schema",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "RewardProvider, rollout policy, sampling config, advantage strategy, optimizer profile und safety limits versionieren.",
+          "On-policy REINFORCE/GRPO-artige Variante als erste Engine definieren, aber nicht als allgemeine RL-Wahrheit festschreiben."
+        ]
+      },
+      "acceptance_criteria": [
+        "RL ist ohne explizite Capability nicht startbar.",
+        "Reward- und Task-Version sind Teil der Run-Lineage.",
+        "Rollout-Content kann gemaess Privacy Policy verworfen/redigiert werden."
+      ],
+      "dependencies": [
+        "NCH-010",
+        "NCH-003"
+      ]
+    },
+    {
+      "id": "NCH-014",
+      "title": "RL Rollout und Reward Engine implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Batched rollout generation mit OOM-bounded chunking.",
+          "Reward-Auswertung getrennt vom Optimizer.",
+          "Tool-/Code-Ausfuehrung nur ueber vorhandene Sandbox-Policy und standardmaessig deaktiviert.",
+          "Deterministische seed derivation pro step/example/sample."
+        ]
+      },
+      "acceptance_criteria": [
+        "Reward Engine ist mockbar.",
+        "OOM reduziert Batch oder bricht kontrolliert statt Worker zu destabilisieren.",
+        "Untrusted Code verlaesst Sandbox nicht."
+      ],
+      "dependencies": [
+        "NCH-013",
+        "NCH-009"
+      ]
+    },
+    {
+      "id": "NCH-015",
+      "title": "RL Evaluation und Regression Gates implementieren",
+      "type": "evaluation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Pass@k, reward distribution, variance/collapse indicators und non-target task regressions messen.",
+          "Reward hacking indicators und degenerate-output checks aufnehmen."
+        ]
+      },
+      "acceptance_criteria": [
+        "RL-Checkpoint wird nicht nur auf Trainingsreward bewertet.",
+        "Signifikante Regressionen blockieren Promotion."
+      ],
+      "dependencies": [
+        "NCH-014",
+        "NCH-011"
+      ]
+    },
+    {
+      "id": "NCH-016",
+      "title": "Nanochat-artigen RecipeResolver fuer Modellskalierung implementieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Optionalen depth/scale dial einfuehren.",
+          "Width, heads, sequence length, batch sizing, LR, weight decay und horizon als transparent resolved config ableiten.",
+          "Formeln versionieren und pro Backend/ModelFamily begrenzen.",
+          "Manual mode bleibt voll unterstuetzt."
+        ],
+        "files_to_create": [
+          "worker/training/research/recipe_resolver.py"
+        ]
+      },
+      "acceptance_criteria": [
+        "Alle abgeleiteten Werte werden vor Start angezeigt.",
+        "Gleiche Recipe-Version plus Input erzeugt gleiche Config.",
+        "Nicht unterstuetzte Architekturen fallen nicht still auf nanochat-Defaults zurueck."
+      ],
+      "dependencies": [
+        "NCH-007"
+      ]
+    },
+    {
+      "id": "NCH-017",
+      "title": "Scaling-Law und Miniseries Sweep Jobs einfuehren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Mehrere depth/scale Recipes als Sweep planen.",
+          "Shared tokenizer/dataset artifacts deduplizieren.",
+          "Runs budget- und concurrency-aware planen.",
+          "Vergleich von loss/capability gegen FLOPs, Zeit und Kosten speichern."
+        ]
+      },
+      "acceptance_criteria": [
+        "Sweep kann vor Ausfuehrung dry-run Kosten/Ressourcen schaetzen.",
+        "Teilruns sind unabhaengig resumierbar.",
+        "Abbruch eines Kandidaten beendet nicht unnoetig alle anderen."
+      ],
+      "dependencies": [
+        "NCH-016",
+        "NCH-008"
+      ]
+    },
+    {
+      "id": "NCH-018",
+      "title": "Budget- und Hardware-aware Preflight Planner bauen",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "VRAM-Schaetzung, device batch size, gradient accumulation, precision, expected walltime/FLOPs und storage schaetzen.",
+          "GPU profile fuer RTX 3080/3090, A100/H100 und generische CUDA Worker erlauben.",
+          "Warnung bei Full-context/OOM-Risiko und alternative kleinere Recipes anbieten."
+        ]
+      },
+      "acceptance_criteria": [
+        "Dry-run startet keine GPU-Arbeit.",
+        "Unrealistische Konfiguration wird vor Queueing abgelehnt oder explizit bestaetigungspflichtig.",
+        "Budgetgrenzen werden Stage-uebergreifend aggregiert."
+      ],
+      "dependencies": [
+        "NCH-016",
+        "NCH-003"
+      ]
+    },
+    {
+      "id": "NCH-019",
+      "title": "Research Pipeline Orchestrator im Hub implementieren",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Stage DAG verwalten; nur erfolgreiche/approved Inputs fuer Folge-Stage freigeben.",
+          "Pause, cancel, retry, resume-from-stage und clone-run unterstuetzen.",
+          "Stage Idempotency und fencing an bestehende Jobmechanik koppeln."
+        ]
+      },
+      "acceptance_criteria": [
+        "Kein Folge-Stage startet mit unvollstaendigem Parent Artifact.",
+        "Resume wiederholt bereits erfolgreiche immutable Stages nicht.",
+        "Concurrent Claims werden gefenced."
+      ],
+      "dependencies": [
+        "NCH-002",
+        "NCH-004",
+        "NCH-018"
+      ]
+    },
+    {
+      "id": "NCH-020",
+      "title": "Worker Capability Discovery fuer Research Training erweitern",
+      "type": "backend",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "GPU count, VRAM, compute capability, supported dtypes, torch distributed, storage headroom und backend versions melden.",
+          "Sensitive lokale Pfade nicht an UI exponieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Scheduler waehlt nur kompatible Worker.",
+        "Capability Drift wird vor Stage-Start erneut geprueft."
+      ],
+      "dependencies": [
+        "NCH-003",
+        "NCH-019"
+      ]
+    },
+    {
+      "id": "NCH-021",
+      "title": "Research Training API erweitern",
+      "type": "api",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Endpoints fuer recipes, pipelines, runs, stages, artifacts, evaluations, benchmarks und lineage.",
+          "Existing auth/admin/idempotency response conventions beibehalten.",
+          "Dry-run und resolved config als First-Class API."
+        ]
+      },
+      "acceptance_criteria": [
+        "OpenAPI/Schema Tests vorhanden.",
+        "IDs bleiben opaque und tenantgebunden.",
+        "API erlaubt keine direkten Worker URLs oder beliebige Shell Commands."
+      ],
+      "dependencies": [
+        "NCH-019"
+      ]
+    },
+    {
+      "id": "NCH-022",
+      "title": "Angular Model-Training UI um Research Mode erweitern",
+      "type": "frontend",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Bestehenden /model-training Bereich erweitern statt neue Insel-App.",
+          "Modi klar trennen: Adapter Fine-Tuning vs Full Model Research.",
+          "Pipeline graph, resolved recipe, Kosten-/VRAM-Preflight, Stage Timeline, Lineage und Eval-Vergleich anzeigen.",
+          "Risk acknowledgement fuer Full-weight und RL."
+        ]
+      },
+      "acceptance_criteria": [
+        "Default bleibt sicherer Adapter/dry-run Flow.",
+        "Nutzer erkennt jederzeit aktuelle Stage und Parent Artifacts.",
+        "Promotion ist separate bestaetigte Aktion."
+      ],
+      "dependencies": [
+        "NCH-021"
+      ]
+    },
+    {
+      "id": "NCH-023",
+      "title": "Unified Checkpoint Manager und immutable Lineage Store bauen",
+      "type": "storage",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Atomic staging -> digest verify -> publish.",
+          "Weights, optimizer state und metadata getrennt speicherbar.",
+          "Retention policy fuer optimizer-heavy Zwischencheckpoints.",
+          "Parent/child graph fuer base/sft/rl/export."
+        ]
+      },
+      "acceptance_criteria": [
+        "Partielle Checkpoints werden nie als ready sichtbar.",
+        "Rollback/vergleich benoetigt keinen Dateipfad-Hack.",
+        "GC loescht keine referenzierten Parents."
+      ],
+      "dependencies": [
+        "NCH-004",
+        "NCH-007",
+        "NCH-009",
+        "NCH-014"
+      ]
+    },
+    {
+      "id": "NCH-024",
+      "title": "Stage Resume, Retry und Preemption Robustheit implementieren",
+      "type": "reliability",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Checkpoint cadence konfigurierbar.",
+          "Spot/preemption Signal verarbeiten und letzten konsistenten Checkpoint publizieren.",
+          "Retry unterscheidet transient infrastructure vs deterministic config/data failure."
+        ]
+      },
+      "acceptance_criteria": [
+        "Worker crash korrumpiert keine Lineage.",
+        "Preempted Run kann auf kompatiblem Worker fortgesetzt werden.",
+        "Deterministische Fehler erzeugen keine Endlosschleife."
+      ],
+      "dependencies": [
+        "NCH-019",
+        "NCH-023"
+      ]
+    },
+    {
+      "id": "NCH-025",
+      "title": "TelemetryPort und Research Metrics normalisieren",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Ananta-native event/metrics sink als Default.",
+          "Optional WandB Adapter ohne Pflichtdependency.",
+          "train loss, val bpb/loss, tok/s, MFU/FLOPs estimate, VRAM, LR, grad norm, checkpoint timings und eval scores normalisieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Offline mode funktioniert ohne externe Calls.",
+        "Secrets/API Keys erscheinen nie in Events.",
+        "UI und API konsumieren normalisierte Metriken."
+      ],
+      "dependencies": [
+        "NCH-007",
+        "NCH-012"
+      ]
+    },
+    {
+      "id": "NCH-026",
+      "title": "Artifact Storage Quotas und Cleanup fuer Full Models erweitern",
+      "type": "storage",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Groesse von Full-Weight-Checkpoints, optimizer states, tokenizer data und eval artifacts separat quotaen.",
+          "Lease-aware cleanup, pinning und promotion retention.",
+          "Dry-run zeigt erwarteten Storagebedarf."
+        ]
+      },
+      "acceptance_criteria": [
+        "GC ist referenzsicher.",
+        "Quota-Fehler werden vor grossen Writes soweit moeglich erkannt."
+      ],
+      "dependencies": [
+        "NCH-023"
+      ]
+    },
+    {
+      "id": "NCH-027",
+      "title": "Dataset Governance fuer Pretraining erweitern",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Pretraining braucht staerkere Provenance als kleine SFT-Datasets: source manifests, license policy, robots/consent metadata soweit vorhanden, PII/secret scan, dedup status.",
+          "Keine automatischen Downloads durch Worker ohne explizit registrierte DataSource/Policy.",
+          "Train/val contamination checks vorsehen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Jeder Pretraining Shard ist auf Source Manifest zurueckfuehrbar.",
+        "Policy-gesperrte Shards koennen nicht materialisiert werden.",
+        "Dataset-Digest aendert sich bei Policy-relevanter Zusammensetzung."
+      ],
+      "dependencies": [
+        "NCH-003",
+        "NCH-005",
+        "NCH-007"
+      ]
+    },
+    {
+      "id": "NCH-028",
+      "title": "Security Hardening fuer Eval Tool-/Code-Ausfuehrung",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Code tasks nur in existierender isolierter Sandbox/Runner-Infrastruktur.",
+          "Network off by default, filesystem scratch-only, CPU/memory/time limits, syscall/container boundary.",
+          "Training model output niemals als Hub-executed code interpretieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Escape/timeout/network negative tests vorhanden.",
+        "Hub fuehrt keine Modellgenerierten Programme aus."
+      ],
+      "dependencies": [
+        "NCH-010",
+        "NCH-014"
+      ]
+    },
+    {
+      "id": "NCH-029",
+      "title": "E2E Research Pipeline Testmatrix erstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Tiny deterministic fixture: tokenizer -> tiny pretrain -> base eval -> SFT -> chat eval -> optional mock RL -> infer bench -> export.",
+          "Single CPU mock path fuer CI und optional GPU integration tests.",
+          "Resume, cancel, retry, worker loss, corrupt artifact, policy deny, quota exceed und version mismatch testen."
+        ]
+      },
+      "acceptance_criteria": [
+        "CI braucht keine H100.",
+        "GPU-markierte Tests koennen separat laufen.",
+        "End-to-end lineage ist nach Run vollstaendig validierbar."
+      ],
+      "dependencies": [
+        "NCH-006",
+        "NCH-008",
+        "NCH-011",
+        "NCH-012",
+        "NCH-015",
+        "NCH-024",
+        "NCH-028"
+      ]
+    },
+    {
+      "id": "NCH-030",
+      "title": "Gestuften Rollout und Upstream nanochat Watch definieren",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Phase 0 schemas/dry-run, Phase 1 tiny local models, Phase 2 single-GPU research, Phase 3 multi-GPU, Phase 4 optional RL.",
+          "nanochat upstream nur regelmaessig auf uebertragbare Ideen pruefen; keine automatische Code-Synchronisation.",
+          "Feature flags und kill switch pro research capability."
+        ]
+      },
+      "acceptance_criteria": [
+        "Production routes bleiben bis explizitem Approval unberuehrt.",
+        "Jede Phase besitzt Exit Criteria.",
+        "Rollback deaktiviert Research Features ohne Adapter-Training zu beeintraechtigen."
+      ],
+      "dependencies": [
+        "NCH-029"
+      ]
+    }
+  ],
+  "implementation_order": [
+    "NCH-001",
+    "NCH-003",
+    "NCH-004",
+    "NCH-002",
+    "NCH-005",
+    "NCH-006",
+    "NCH-018",
+    "NCH-007",
+    "NCH-023",
+    "NCH-008",
+    "NCH-009",
+    "NCH-010",
+    "NCH-011",
+    "NCH-012",
+    "NCH-019",
+    "NCH-020",
+    "NCH-021",
+    "NCH-022",
+    "NCH-024",
+    "NCH-025",
+    "NCH-026",
+    "NCH-027",
+    "NCH-028",
+    "NCH-013",
+    "NCH-014",
+    "NCH-015",
+    "NCH-016",
+    "NCH-017",
+    "NCH-029",
+    "NCH-030"
+  ],
+  "recommended_first_slice": {
+    "name": "Tiny end-to-end research path without RL",
+    "task_ids": [
+      "NCH-001",
+      "NCH-003",
+      "NCH-004",
+      "NCH-005",
+      "NCH-006",
+      "NCH-007",
+      "NCH-008",
+      "NCH-009",
+      "NCH-010",
+      "NCH-012",
+      "NCH-023",
+      "NCH-029"
+    ],
+    "reason": "Liefert den groessten nanochat-inspirierten Mehrwert mit klarer Lineage und Evaluation, ohne frueh die hohe Komplexitaet von RL, Scaling Sweeps und voller UI-Orchestrierung einzufuehren."
+  },
+  "success_metrics": [
+    "Ein Tiny-LLM kann aus registrierten Daten inklusive eigenem Tokenizer vollstaendig ueber Ananta trainiert, evaluiert, gechattet und exportiert werden.",
+    "Jeder Run ist durch immutable Lineage und Digests reproduzierbar.",
+    "Kein Full-Weight-Training umgeht Hub Admission, Policy, Fencing, Quotas oder Audit.",
+    "Bestehendes LoRA/QLoRA-Training bleibt API- und Verhaltenskompatibel.",
+    "Single-GPU und Multi-GPU Research Runs koennen ueber dieselbe Pipeline beschrieben werden.",
+    "Promotion bewertet sowohl Qualitaet als auch Runtime-Performance und erfordert explizite Freigabe."
+  ],
+  "reference": {
+    "upstream": "https://github.com/karpathy/nanochat",
+    "upstream_review_date": "2026-08-16",
+    "integration_strategy": "inspired-adapter-not-vendor",
+    "license_note": "Vor etwaiger direkter Codeuebernahme nanochat-Lizenz und Third-Party-Hinweise erneut pruefen; bevorzugt Konzepte/Architektur ueber eigene Implementierung uebernehmen."
+  }
+}
