@@ -332,7 +332,7 @@
           ],
           "commit_changes": [],
           "id": "CI-010",
-          "status": "partial",
+          "status": "done",
           "workflow": "Core Evidence Flow / Daemon Worker Runtime Evidence / Ananta Native Full E2E Evidence",
           "workflow_job": "evidence scripts",
           "step": "POST /tasks/orchestration/ingest",
@@ -352,7 +352,8 @@
             "Erste Ursache faktenbasiert aus Run 31939080335 (reason_code im Response-Body).",
             "Neu ausgeloest gegen aktuellen main: Daemon Worker Runtime Evidence 31944320515 = success, Ananta Native Full E2E Evidence 31944321516 = success. Beide 403er sind weg.",
             "Der Native-Lauf bestaetigt zugleich die Diff-Fenster-Korrektur aus CI-009 im CI.",
-            "Core Evidence Flow 31944319473 kommt am Ingest vorbei, scheitert nun aber an einer Folgeursache - siehe CI-019."
+            "Core Evidence Flow 31944319473 kommt am Ingest vorbei, scheitert nun aber an einer Folgeursache - siehe CI-019.",
+            "Alle drei Workflows sind gruen: Core Evidence Flow 31950962049, Daemon Worker Runtime Evidence 31944320515, Ananta Native Full E2E Evidence 31944321516. Der Hub-Guard wurde dabei nicht aufgeweicht - die Skripte senden die reservierten Felder schlicht nicht mehr."
           ],
           "implemented_solution": "Keine Aenderung noetig: die drei 403er waren bereits durch Commit 835cb0961 ('relax evidence context ingress') behoben; die roten Laeufe stammten von davor. Am aktuellen Stand senden alle drei Skripte worker_execution_context.evidence_context, was der Guard in agent/services/context_bundle_ingress_policy.py erlaubt - lokal gegen find_reserved_context_bundle_marker() geprueft (Ergebnis: None).",
           "run_ids": [

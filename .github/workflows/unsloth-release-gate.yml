@@ -33,6 +33,11 @@ on:
       - "tests/test_ml_intern_training_contract_v2.py"
       - "tests/worker/test_lora_training_*.py"
       - "tests/worker/test_unsloth_*.py"
+      # test_ml_intern_training_migration.py runs the Alembic chain up, down and
+      # up again, so any migration can break this gate. Without this the gate
+      # stayed red on a migration defect that was already fixed, because no
+      # push ever triggered it.
+      - "migrations/versions/**"
       - ".github/workflows/unsloth-release-gate.yml"
       - "docs/unsloth-release-gates.md"
       - "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
@@ -50,6 +55,8 @@ on:
       - "worker/training/**"
       - "agent/services/ml_intern_*"
       - "agent/services/unsloth_*"
+      - "agent/repositories/ml_intern_*"
+      - "agent/db_models/ml_intern_*"
       - "agent/routes/ml_intern_training*.py"
       - "agent/mcp/**"
       - "agent/studio/**"
@@ -65,6 +72,11 @@ on:
       - "tests/test_mcp_*training*.py"
       - "tests/worker/test_lora_training_*.py"
       - "tests/worker/test_unsloth_*.py"
+      # test_ml_intern_training_migration.py runs the Alembic chain up, down and
+      # up again, so any migration can break this gate. Without this the gate
+      # stayed red on a migration defect that was already fixed, because no
+      # push ever triggered it.
+      - "migrations/versions/**"
       - ".github/workflows/unsloth-release-gate.yml"
       - "docs/contracts/unsloth-gpu-compatibility-matrix.v1.json"
       - "docs/contracts/*lora-training*.schema.json"
