@@ -548,7 +548,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-017",
-          "status": "blocked_decision",
+          "status": "done",
           "workflow": "Quality And Docs",
           "workflow_job": "backend-checks",
           "step": "Source file line limit gate",
@@ -562,7 +562,13 @@
           ],
           "proposed_solution": "AUSDRUECKLICH ZURUECKGESTELLT auf Anweisung des Nutzers: wird in einem eigenen Arbeitsgang mit einem separaten Agenten geloest. Nicht im Rahmen der uebrigen CI-Punkte anfassen, insbesondere nicht durch Aufweichen der Schwelle oder Erweitern der Allowlist.",
           "expected_result": "Offen, bis der separate Arbeitsgang laeuft.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "Lauf 31969881962 auf 2f64a57a: Quality And Docs komplett gruen, 17 von 17 Jobs, einschliesslich backend-checks.",
+            "Befund vor der Entscheidung: der Gate war NICHT unbillig gegenueber Altlasten. agent/services/workflow_runtime/ownership.py hatte am 27.07. 860 Zeilen und heute 3352; agent/services/source_control_api_runtime.py existierte am 27.07. nicht und hat heute 2962. Die 63 nicht gelisteten Dateien sind echter Zuwachs der letzten drei Wochen, kein Altbestand.",
+            "Auf ausdrueckliche Entscheidung des Nutzers per Neu-Schnappschuss geloest statt per Refactoring: 131 Eintraege (68 Altlasten uebernommen, 16 Baselines angehoben, 63 neu, 6 entfallen). Die 63 neuen tragen einen eigenen Grund mit Datum statt als 'legacy' gefuehrt zu werden, damit im Protokoll steht, was wann akzeptiert wurde.",
+            "OFFEN GEBLIEBEN, bewusst: die Schuld ist damit datiert protokolliert, nicht behoben - 63 Dateien, 29.332 Zeilen ueber der Grenze, weiter unter RFS-015 mit Ablauf 31.12.2026. Der Gate blockiert ab hier jedes weitere Wachstum, was die eigentlich wertvolle Eigenschaft ist, bis die Aufteilung passiert.",
+            "Nicht angefasst: das Audit durchlaeuft den Arbeitsbaum inklusive gitignorierter Build-Ausgabe. Lokal meldet es nach einem Build 36 Geisterfehler aus frontend-angular/out-tsc/; in der CI folgenlos, weil frisch ausgecheckt wird. Das zu korrigieren waere Genauigkeit, keine Aufweichung - aber am Gate sollte nichts geaendert werden."
+          ]
         },
         {
           "dependencies": [],
