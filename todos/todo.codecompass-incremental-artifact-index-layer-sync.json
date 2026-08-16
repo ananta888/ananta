@@ -218,7 +218,7 @@
         "CIL-006",
         "CIL-007"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "M3",
@@ -415,11 +415,14 @@
       "id": "CIL-005",
       "title": "Snapshot-Diff auf Basis bestehender Datei-Hashes implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
+        "files_created": [
+          "worker/incremental_index/snapshot_diff.py"
+        ],
         "notes": [
           "codecompass_snapshot_manifest.v1 wiederverwenden.",
           "add/modify/delete/rename/policy_transition/unsupported_transition klassifizieren.",
@@ -434,17 +437,24 @@
       ],
       "dependencies": [
         "CIL-001"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: snapshot_diff.py with diff_snapshots() function",
+        "Tests passed: path_similarity, no_changes, add, delete, modify, rename detection, policy_transition, changeset_id_determinism"
       ]
     },
     {
       "id": "CIL-006",
       "title": "Dependency-/Impact-Graph fuer zielgerichtete Invalidierung aufbauen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
+        "files_created": [
+          "worker/incremental_index/dependency_impact.py"
+        ],
         "notes": [
           "Geaenderte Pfade auf Symbole, Chunks, Nodes, Edges, Buildtargets und Docs abbilden.",
           "Import-/Call-/Inheritance-/Schema-/Build-Abhaengigkeiten konservativ propagieren.",
@@ -459,6 +469,11 @@
       ],
       "dependencies": [
         "CIL-005"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: dependency_impact.py with DependencyImpactAnalyzer class",
+        "Features: symbol-based dependency resolution, transitive impact calculation, severity scoring, topological rebuild plan",
+        "Tests passed: direct impact detection, transitive impact propagation, severity calculation, rebuild plan generation"
       ]
     },
     {
