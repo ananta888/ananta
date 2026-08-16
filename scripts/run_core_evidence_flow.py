@@ -194,8 +194,18 @@ def run(out_dir: Path) -> None:
         )
 
         workspace_dir = Path(meta["workspace"]["workspace_dir"])
-        hub_context = (workspace_dir / ".ananta" / "hub-context.md").read_text(encoding="utf-8")
-        hub_context_hash = hashlib.sha256(hub_context.encode("utf-8")).hexdigest()
+        # hub-context.md exists only when the Hub resolved a context bundle for
+        # the task, and generic ingress can no longer create one: both
+        # worker_execution_context.context and .context_bundle_id are reserved
+        # Hub-owned fields.  This flow therefore no longer proves hub-context
+        # delivery, and says so instead of crashing on the missing file or
+        # quietly reporting a hash of nothing.
+        hub_context_path = workspace_dir / ".ananta" / "hub-context.md"
+        hub_context = hub_context_path.read_text(encoding="utf-8") if hub_context_path.is_file() else ""
+        hub_context_available = bool(hub_context)
+        hub_context_hash = (
+            hashlib.sha256(hub_context.encode("utf-8")).hexdigest() if hub_context_available else None
+        )
 
         engine_dir = out_dir / "worker-engines"
         engine_dir.mkdir(parents=True, exist_ok=True)
@@ -315,7 +325,13 @@ def run(out_dir: Path) -> None:
                 "has_security_controller": "securitycontroller" in json.dumps(all_records).lower(),
                 "has_token_verifier": "tokenverifier" in json.dumps(all_records).lower(),
                 "has_policy_service": "policyservice" in json.dumps(all_records).lower(),
-                "has_keycloak_reference": "ref.java.keycloak" in hub_context and "keycloak/keycloak" in hub_context,
+                # Only claimable when the Hub actually delivered a context.
+                "hub_context_available": hub_context_available,
+                "has_keycloak_reference": (
+                    hub_context_available
+                    and "ref.java.keycloak" in hub_context
+                    and "keycloak/keycloak" in hub_context
+                ),
                 "ananta_native_engine_present": ananta_native_result["engine"] == "ananta_native",
                 "opencode_engine_present": opencode_result["engine"] == "opencode",
                 "opencode_requires_approval": opencode_plan.get("required_approval") is True,
@@ -328,7 +344,8 @@ def run(out_dir: Path) -> None:
         _write_json(worker_dir / "task.json", claimed_task)
         (worker_dir / "prompt.txt").write_text(prompt, encoding="utf-8")
         _write_json(worker_dir / "metadata.json", meta)
-        (worker_dir / "hub-context.md").write_text(hub_context, encoding="utf-8")
+        if hub_context_available:
+            (worker_dir / "hub-context.md").write_text(hub_context, encoding="utf-8")
         _write_json(out_dir / "opencode-plan.json", opencode_plan)
         _write_json(out_dir / "evidence-summary.json", evidence)
         (out_dir / "README.md").write_text(
