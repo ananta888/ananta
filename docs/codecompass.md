@@ -108,3 +108,46 @@ See `todos/todo.codecompass-crg-rig-spade-integration.json`.
 The M1–M5 milestones are complete; M6/M7 close out the integration
 with the worker tool loop, e2e fixtures, metrics, and a final security
 audit. See the backlog for individual task status.
+
+## Hierarchical Architecture Context (HAC)
+
+CodeCompass unterstützt seit 2026-08-16 eine hierarchische Architektursicht für Agenten-Kontext.
+
+### Zweck
+
+Neben feingranularem Retrieval liefert CodeCompass nun eine begrenzte, hierarchische Architektursicht:
+- **System → Subsystem → Komponente → Datei → Symbol**
+- Initiale Push-basierte Architekturübersicht für Agenten
+- On-demand Pull-basierte Expansion via Tools/MCP
+
+### Contracts
+
+| Contract | Zweck |
+|----------|-------|
+| `schemas/codecompass/codecompass.hierarchical-architecture-context.v1.json` | Versionierter HAC-Contract mit Nodes, Edges, Budgets, Evidence |
+
+### Dokumentation
+
+| Dokument | Beschreibung |
+|----------|-------------|
+| `docs/architecture/codecompass-hierarchical-architecture-context.md` | Semantisches Knotenmodell, Beziehungstypen, Evidence-Anforderungen |
+
+### Design Principles
+
+1. **Kein kompletter Repository-Graph im Prompt** – Nur budgetierte Slices
+2. **Explizite Token-/Node-/Edge-Budgets** – Jede Antwort respektiert Limits
+3. **Evidence-gebunden** – Abstrakte Infos auf konkrete Source-Stellen zurückführbar
+4. **Keine freie Graph Query Language** – Nur typisierte, validierte Query-Operationen
+5. **Push/Pull-Konsistenz** – Dieselben Policies für initialen und on-demand Kontext
+6. **Navigierbarkeit** – Agent kann jederzeit tiefer oder höher zoomen
+
+### Integration
+
+- **Context Planner**: Integriert Architektur-Slices in initialen Agentenkontext
+- **CodeCompass Tools**: Neue Tools für hierarchische Navigation
+- **MCP**: Exponiert Architekturkontext für externe Clients
+- **AI-Snake / Worker**: Primäre Konsumenten der Hierarchie
+
+Siehe auch:
+- `todos/todo.codecompass-hierarchical-architecture-context.json` (Track-Definition)
+- `docs/architecture/codecompass-hierarchical-architecture-context.md` (Detaildokumentation)
