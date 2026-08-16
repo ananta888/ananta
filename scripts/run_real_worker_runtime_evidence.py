@@ -46,24 +46,54 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
 
 
 def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
-    response = requests.post(
-        f"{HUB_URL}{path}",
-        json=payload,
-        headers={"Authorization": f"Bearer {TOKEN}"},
-        timeout=30,
-    )
-    data = response.json() if response.text else {}
-    if response.status_code >= 400:
-        raise RuntimeError(f"POST {path} failed: {response.status_code} {data}")
-    return {"status_code": response.status_code, "json": data}
+    return _request_with_retry("POST", path, payload, timeout=30)
 
 
 def _get(path: str) -> dict[str, Any]:
-    response = requests.get(f"{HUB_URL}{path}", headers={"Authorization": f"Bearer {TOKEN}"}, timeout=30)
-    data = response.json() if response.text else {}
-    if response.status_code >= 400:
-        raise RuntimeError(f"GET {path} failed: {response.status_code} {data}")
-    return {"status_code": response.status_code, "json": data}
+    return _request_with_retry("GET", path, timeout=30)
+
+
+def _request_with_retry(
+    method: str,
+    path: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    timeout: int = 30,
+    attempts: int = 5,
+    base_sleep: float = 0.75,
+) -> dict[str, Any]:
+    headers = {"Authorization": f"Bearer {TOKEN}"}
+    last_status: int | None = None
+    last_data: dict[str, Any] = {}
+    last_error: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            if method == "GET":
+                response = requests.get(f"{HUB_URL}{path}", headers=headers, timeout=timeout)
+            else:
+                response = requests.post(
+                    f"{HUB_URL}{path}",
+                    json=payload,
+                    headers=headers,
+                    timeout=timeout,
+                )
+            last_status = response.status_code
+            last_data = response.json() if response.text else {}
+            if response.status_code < 400:
+                return {"status_code": response.status_code, "json": last_data}
+            if response.status_code < 500:
+                raise RuntimeError(f"{method} {path} failed: {response.status_code} {last_data}")
+        except (requests.RequestException, RuntimeError) as exc:
+            last_error = exc
+        if attempt < attempts and (last_status is None or last_status >= 500):
+            time.sleep(base_sleep * (2 ** (attempt - 1)))
+            continue
+        if last_status is None:
+            raise RuntimeError(f"{method} {path} failed after {attempt} attempts: {last_error}")
+        raise RuntimeError(f"{method} {path} failed: {last_status} {last_data}")
+    if last_error:
+        raise RuntimeError(f"{method} {path} failed: {last_error}")
+    raise RuntimeError(f"{method} {path} failed unexpectedly")
 
 
 def _wait_for_hub(timeout: int = 30) -> None:

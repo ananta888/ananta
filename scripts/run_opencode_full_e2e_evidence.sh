@@ -19,6 +19,97 @@ cleanup() {
 }
 trap cleanup EXIT
 
+retry_post_json() {
+  local path="$1"
+  local payload_file="$2"
+  local out_file="$3"
+  local include_status="${4:-0}"
+  local attempts=5
+  local base_sleep=0.75
+
+  for attempt in $(seq 1 "${attempts}"); do
+    local response_file="${OUT_DIR}/orchestration/.tmp-response-$$-${attempt}.json"
+    local status
+    status=$(curl -sS -X POST \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -H "Content-Type: application/json" \
+      --data "@${payload_file}" \
+      -o "${response_file}" \
+      -w "%{http_code}" \
+      "${HUB_URL}${path}" || echo 000)
+    if [[ "${status}" == 2* ]]; then
+      if [[ "${include_status}" == "1" ]]; then
+        python - "$status" "$out_file" "$response_file" <<'PY'
+import json
+import pathlib
+import sys
+
+status_code = int(sys.argv[1])
+out_file = pathlib.Path(sys.argv[2])
+response_file = pathlib.Path(sys.argv[3])
+payload_text = response_file.read_text(encoding="utf-8")
+if payload_text:
+    payload = json.loads(payload_text)
+else:
+    payload = None
+out_file.write_text(
+    json.dumps({"status_code": status_code, "json": payload}, indent=2, sort_keys=True),
+    encoding="utf-8",
+)
+PY
+      else
+        mv "${response_file}" "${out_file}"
+      fi
+      return 0
+    fi
+
+    if [[ "${status}" -ge 500 ]] && [[ "${attempt}" -lt "${attempts}" ]]; then
+      sleep "$(awk -v a="${base_sleep}" -v n="${attempt}" 'BEGIN{printf "%.2f", a*(2^(n-1))}')"
+      rm -f "${response_file}"
+      continue
+    fi
+
+    echo "Request to ${path} failed with status ${status}" >&2
+    cat "${response_file}" >&2 || true
+    rm -f "${response_file}"
+    return 1
+  done
+  return 1
+}
+
+get_json() {
+  local path="$1"
+  local out_file="$2"
+  local attempts=5
+  local base_sleep=0.75
+
+  for attempt in $(seq 1 "${attempts}"); do
+    local response_file="${OUT_DIR}/orchestration/.tmp-response-$$-${attempt}.json"
+    local status
+    status=$(curl -sS -X GET \
+      -H "Authorization: Bearer ${TOKEN}" \
+      -o "${response_file}" \
+      -w "%{http_code}" \
+      "${HUB_URL}${path}" || echo 000)
+    if [[ "${status}" == 2* ]]; then
+      mv "${response_file}" "${out_file}"
+      return 0
+    fi
+
+    if [[ "${status}" -ge 500 ]] && [[ "${attempt}" -lt "${attempts}" ]]; then
+      sleep "$(awk -v a="${base_sleep}" -v n="${attempt}" 'BEGIN{printf "%.2f", a*(2^(n-1))}')"
+      rm -f "${response_file}"
+      continue
+    fi
+
+    echo "Request to ${path} failed with status ${status}" >&2
+    cat "${response_file}" >&2 || true
+    rm -f "${response_file}"
+    return 1
+  done
+  return 1
+}
+
 mkdir -p "${OUT_DIR}/hub-data"
 DATABASE_URL="sqlite:///${OUT_DIR}/hub-data/hub.db" \
 python scripts/evidence_hub_server.py \
@@ -30,7 +121,7 @@ python scripts/evidence_hub_server.py \
 echo $! > "${OUT_DIR}/hub.pid"
 
 for i in $(seq 1 30); do
-  if curl -fsS -H "Authorization: Bearer ${TOKEN}" "${HUB_URL}/tasks/orchestration/read-model" > "${OUT_DIR}/orchestration/initial-read-model.json" 2>/dev/null; then
+  if get_json "/tasks/orchestration/read-model" "${OUT_DIR}/orchestration/initial-read-model.json"; then
     break
   fi
   sleep 1
@@ -76,57 +167,43 @@ WORKSPACE="${OUT_DIR}/workspace/mini-project"
   git commit -q -m "Initial mini project"
 )
 
-python - <<'PY'
-from __future__ import annotations
-import json, os, requests
-from pathlib import Path
-
-out = Path(os.environ.get('OUT_DIR_FOR_PY', 'ci-artifacts/opencode-full-e2e-evidence'))
-token = os.environ.get('EVIDENCE_TOKEN', 'evidence-agent-token-with-sufficient-length-1234567890')
-hub = os.environ.get('HUB_URL', 'http://127.0.0.1:5863')
-headers = {'Authorization': f'Bearer {token}'}
-context_text = '''Reference profile: ref.java.keycloak
-Reference repo: keycloak/keycloak
-Boundary: guidance_not_clone; no blind copy.
-Workspace: temporary mini Java project.
-Required change: add a safe audit helper method to PolicyService and add a Markdown evidence file.
-Validation: javac compile and git diff artifact.
-'''
-payload = {
-    'id': 'task-opencode-full-e2e-patch',
-    'title': 'OpenCode full E2E mini Java patch',
-    'description': 'Use OpenCode as worker coding engine to make a real safe patch in a temporary mini Java project.',
-    'source': 'opencode-full-e2e-evidence',
-    'created_by': 'evidence',
-    'priority': 'high',
-    'task_kind': 'coding',
-    'required_capabilities': ['coding', 'java', 'security', 'rag_helper', 'opencode'],
-    'worker_execution_context': {
-        'evidence_context': {
-            'context_text': context_text,
-            'worker_engine': 'opencode_full_e2e',
-        }
-    },
+cat > "${OUT_DIR}/orchestration/ingest-payload.json" <<'JSON'
+{
+  "id": "task-opencode-full-e2e-patch",
+  "title": "OpenCode full E2E mini Java patch",
+  "description": "Use OpenCode as worker coding engine to make a real safe patch in a temporary mini Java project.",
+  "source": "opencode-full-e2e-evidence",
+  "created_by": "evidence",
+  "priority": "high",
+  "task_kind": "coding",
+  "required_capabilities": ["coding", "java", "security", "rag_helper", "opencode"],
+  "worker_execution_context": {
+    "evidence_context": {
+      "context_text": "Reference profile: ref.java.keycloak\nReference repo: keycloak/keycloak\nBoundary: guidance_not_clone; no blind copy.\nWorkspace: temporary mini Java project.\nRequired change: add a safe audit helper method to PolicyService and add a Markdown evidence file.\nValidation: javac compile and git diff artifact.\n",
+      "worker_engine": "opencode_full_e2e"
+    }
+  }
 }
-response = requests.post(f'{hub}/tasks/orchestration/ingest', json=payload, headers=headers, timeout=30)
-response.raise_for_status()
-(out / 'orchestration' / 'ingest-response.json').write_text(json.dumps({'status_code': response.status_code, 'json': response.json()}, indent=2, sort_keys=True), encoding='utf-8')
-PY
+JSON
+if ! retry_post_json "/tasks/orchestration/ingest" \
+  "${OUT_DIR}/orchestration/ingest-payload.json" \
+  "${OUT_DIR}/orchestration/ingest-response.json" 1; then
+  exit 1
+fi
 
-python - <<'PY'
-from __future__ import annotations
-import json, os, requests
-from pathlib import Path
-
-out = Path(os.environ.get('OUT_DIR_FOR_PY', 'ci-artifacts/opencode-full-e2e-evidence'))
-token = os.environ.get('EVIDENCE_TOKEN', 'evidence-agent-token-with-sufficient-length-1234567890')
-hub = os.environ.get('HUB_URL', 'http://127.0.0.1:5863')
-headers = {'Authorization': f'Bearer {token}'}
-payload = {'task_id': 'task-opencode-full-e2e-patch', 'agent_url': 'http://opencode-full-e2e-worker:5001', 'idempotency_key': 'opencode-full-e2e-claim', 'lease_seconds': 300}
-response = requests.post(f'{hub}/tasks/orchestration/claim', json=payload, headers=headers, timeout=30)
-response.raise_for_status()
-(out / 'orchestration' / 'claim-response.json').write_text(json.dumps({'status_code': response.status_code, 'json': response.json()}, indent=2, sort_keys=True), encoding='utf-8')
-PY
+cat > "${OUT_DIR}/orchestration/claim-payload.json" <<'JSON'
+{
+  "task_id": "task-opencode-full-e2e-patch",
+  "agent_url": "http://opencode-full-e2e-worker:5001",
+  "idempotency_key": "opencode-full-e2e-claim",
+  "lease_seconds": 300
+}
+JSON
+if ! retry_post_json "/tasks/orchestration/claim" \
+  "${OUT_DIR}/orchestration/claim-payload.json" \
+  "${OUT_DIR}/orchestration/claim-response.json" 1; then
+  exit 1
+fi
 
 cat > "${OUT_DIR}/workspace/opencode-full-e2e-prompt.txt" <<'PROMPT'
 You are running inside a temporary mini Java project.

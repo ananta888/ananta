@@ -14,16 +14,50 @@ import requests
 
 
 def _post_json(base_url: str, path: str, payload: dict[str, Any], token: str, *, timeout: int = 20) -> dict[str, Any]:
-    response = requests.post(
-        f"{base_url.rstrip('/')}{path}",
-        json=payload,
-        headers={"Authorization": f"Bearer {token}"},
-        timeout=timeout,
-    )
-    data = response.json() if response.text else {}
-    if response.status_code >= 400:
-        raise RuntimeError(f"POST {path} failed with {response.status_code}: {data}")
-    return {"status_code": response.status_code, "json": data}
+    return _request_with_retry("POST", base_url.rstrip("/"), path, payload, token=token, timeout=timeout)
+
+
+def _request_with_retry(
+    method: str,
+    base_url: str,
+    path: str,
+    payload: dict[str, Any] | None = None,
+    *,
+    token: str | None = None,
+    timeout: int = 20,
+    attempts: int = 5,
+    base_sleep: float = 0.75,
+) -> dict[str, Any]:
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    last_error: Exception | None = None
+    last_status: int | None = None
+    last_data: dict[str, Any] = {}
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.request(
+                method,
+                f"{base_url.rstrip('/')}{path}",
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+            last_status = response.status_code
+            last_data = response.json() if response.text else {}
+            if response.status_code < 400:
+                return {"status_code": response.status_code, "json": last_data}
+            if response.status_code < 500:
+                raise RuntimeError(f"{method} {path} failed with {response.status_code}: {last_data}")
+        except (requests.RequestException, RuntimeError) as exc:
+            last_error = exc
+        if attempt < attempts and (last_status is None or last_status >= 500):
+            time.sleep(base_sleep * (2 ** (attempt - 1)))
+            continue
+        if last_status is None:
+            raise RuntimeError(f"{method} {path} failed after {attempt} attempts: {last_error}")
+        raise RuntimeError(f"{method} {path} failed with {last_status}: {last_data}")
+    if last_error:
+        raise RuntimeError(f"{method} {path} failed with {last_error}")
+    raise RuntimeError(f"{method} {path} failed unexpectedly")
 
 
 def _extract_context_text(task_payload: dict[str, Any]) -> str:

@@ -41,6 +41,8 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: ananta-opencode-full-e2e-evidence
-          path: ci-artifacts/opencode-full-e2e-evidence/**
+          path: |
+            ci-artifacts/opencode-full-e2e-evidence/**
+            !ci-artifacts/opencode-full-e2e-evidence/hub-data/**
           if-no-files-found: warn
           retention-days: 14
