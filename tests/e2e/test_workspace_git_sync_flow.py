@@ -9,7 +9,11 @@ from pathlib import Path
 
 import pytest
 
-from agent.services.workspace_git_service import WorkspaceGitService
+from agent.services.workspace_git_service import (
+    MANAGED_BARE_MARKER_NAME,
+    MANAGED_BARE_MARKER_VALUE,
+    WorkspaceGitService,
+)
 
 
 @pytest.fixture
@@ -19,9 +23,20 @@ def svc():
 
 @pytest.fixture
 def bare_repo(tmp_path: Path) -> Path:
+    """A bare repo marked as Ananta-managed, which is what makes it usable.
+
+    A local ``file://`` remote is only accepted when the target proves it is
+    Ananta-managed, and this marker is that proof.  Without it the remote falls
+    through to the network policy, whose parser requires a host — which a
+    ``file:///path`` URL does not have — so every test here failed with
+    ``git_remote_url_invalid``.  Writing the marker uses the supported path for
+    local remotes rather than loosening the policy that guards them.
+    """
+
     bare = tmp_path / "hub.git"
     bare.mkdir()
     subprocess.run(["git", "init", "--bare", str(bare)], check=True, capture_output=True)
+    (bare / MANAGED_BARE_MARKER_NAME).write_text(MANAGED_BARE_MARKER_VALUE, encoding="ascii")
     return bare
 
 

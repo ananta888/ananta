@@ -6,6 +6,11 @@ import subprocess
 from pathlib import Path
 from typing import Optional
 
+from agent.services.workspace_git_service import (
+    MANAGED_BARE_MARKER_NAME,
+    MANAGED_BARE_MARKER_VALUE,
+)
+
 _REPOS_ROOT = Path("/project-workspaces/git-repos")
 
 
@@ -29,6 +34,7 @@ class HubGitRemoteService:
         """Ensure a bare git repo exists for goal_id. Returns repo path. Idempotent."""
         repo = self._repo_path(goal_id)
         if repo.exists():
+            self._mark_managed(repo)
             return repo
         repo.mkdir(parents=True, exist_ok=True)
         res = subprocess.run(
@@ -37,8 +43,34 @@ class HubGitRemoteService:
         )
         if res.returncode != 0:
             raise HubGitRemoteError(f"git init --bare failed for goal {goal_id}: {res.stderr}")
+        self._mark_managed(repo)
         logging.info("Hub bare repo created: %s", repo)
         return repo
+
+    @staticmethod
+    def _mark_managed(repo: Path) -> None:
+        """Declare this bare repo Ananta-managed, which it is by construction.
+
+        get_remote_url hands workers a ``file://`` URL for this repo, and a
+        local remote is only accepted once it proves it is Ananta-managed.
+        Without the marker the Hub was handing out remotes its own workers then
+        refused, failing every clone with ``git_remote_url_invalid``.
+
+        Written on the existing-repo path too, so repos created before this are
+        healed rather than staying permanently unusable.
+        """
+
+        marker = repo / MANAGED_BARE_MARKER_NAME
+        try:
+            if marker.is_symlink():
+                return
+            if marker.is_file() and marker.read_text(encoding="ascii") == MANAGED_BARE_MARKER_VALUE:
+                return
+            marker.write_text(MANAGED_BARE_MARKER_VALUE, encoding="ascii")
+        except (OSError, UnicodeError):
+            # A repo that cannot be marked stays unusable as a local remote,
+            # which is the safe outcome; creating the repo still succeeds.
+            logging.warning("Could not mark bare repo as Ananta-managed: %s", repo)
 
     def get_remote_url(self, goal_id: str) -> str:
         """Return the file:// URL workers should clone from."""

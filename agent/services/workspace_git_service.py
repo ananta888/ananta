@@ -10,6 +10,13 @@ from pathlib import Path
 from typing import Optional
 from urllib.parse import unquote, urlsplit
 
+# The contract that makes a local ``file://`` remote usable: only a bare repo
+# carrying this marker is accepted.  Both sides of that contract must agree —
+# the Hub writes it when it creates a goal repo, this service requires it — so
+# it is defined once, here, rather than as a literal on each side.
+MANAGED_BARE_MARKER_NAME = ".ananta-managed-bare"
+MANAGED_BARE_MARKER_VALUE = "ananta-managed-bare-v1\n"
+
 from agent.services.git_audit_service import record_git_activity
 from agent.services.git_remote_policy_service import (
     GitRemoteAccessPolicyPort,
@@ -150,14 +157,14 @@ class WorkspaceGitService:
                 workspace_dir=bare_path,
                 reason_code="workspace_git_local_remote_invalid",
             )
-        marker = resolved / ".ananta-managed-bare"
+        marker = resolved / MANAGED_BARE_MARKER_NAME
         if marker.is_symlink():
             raise WorkspaceGitInitError(
                 "Managed local remote marker is unsafe",
                 workspace_dir=bare_path,
                 reason_code="workspace_git_local_remote_invalid",
             )
-        marker.write_text("ananta-managed-bare-v1\n", encoding="ascii")
+        marker.write_text(MANAGED_BARE_MARKER_VALUE, encoding="ascii")
 
     @staticmethod
     def _managed_local_remote(value: str) -> Path | None:
@@ -166,7 +173,7 @@ class WorkspaceGitService:
             return None
         try:
             resolved = Path(unquote(parsed.path)).resolve(strict=True)
-            marker = resolved / ".ananta-managed-bare"
+            marker = resolved / MANAGED_BARE_MARKER_NAME
             marker_value = marker.read_text(encoding="ascii")
         except (OSError, UnicodeError):
             return None
@@ -174,7 +181,7 @@ class WorkspaceGitService:
             not resolved.is_dir()
             or resolved.is_symlink()
             or marker.is_symlink()
-            or marker_value != "ananta-managed-bare-v1\n"
+            or marker_value != MANAGED_BARE_MARKER_VALUE
             or not (resolved / "HEAD").is_file()
             or not (resolved / "objects").is_dir()
         ):
