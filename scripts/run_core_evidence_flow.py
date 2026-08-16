@@ -145,7 +145,7 @@ def run(out_dir: Path) -> None:
             "task_kind": "coding",
             "required_capabilities": ["coding", "java", "security", "rag_helper"],
             "worker_execution_context": {
-                "context": {
+                "evidence_context": {
                     "context_text": task_context,
                     "reference_profile_id": "ref.java.keycloak",
                     "rag_index_kind": "real_rag_helper_index_service",

@@ -30,8 +30,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "${DEPLOY_TOKEN:-}" ]]; then
-            echo "Missing secret ANANTA888_GH_IO_TOKEN" >&2
-            exit 1
+            echo "Skipping deploy: ANANTA888_GH_IO_TOKEN is not set."
+            echo "This workflow is expected to run only with the deployment secret available."
+            exit 0
           fi
 
           workdir="$(mktemp -d)"

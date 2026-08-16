@@ -220,7 +220,7 @@ def run(out_dir: Path, *, require_opencode: bool) -> None:
                     "task_kind": "coding",
                     "required_capabilities": ["coding", "java", "security", "rag_helper", engine],
                     "worker_execution_context": {
-                        "context": {
+                        "evidence_context": {
                             "context_text": context_text,
                             "reference_profile_id": "ref.java.keycloak",
                             "rag_index_kind": "real_rag_helper_index_service",

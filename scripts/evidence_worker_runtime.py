@@ -26,6 +26,20 @@ def _post_json(base_url: str, path: str, payload: dict[str, Any], token: str, *,
     return {"status_code": response.status_code, "json": data}
 
 
+def _extract_context_text(task_payload: dict[str, Any]) -> str:
+    worker_execution_context = task_payload.get("worker_execution_context")
+    if isinstance(worker_execution_context, dict):
+        return (
+            str(
+                ((worker_execution_context.get("context") or {}).get("context_text") or "")
+            ).strip()
+            or str(
+                ((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")
+            ).strip()
+        )
+    return ""
+
+
 def _write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -76,7 +90,7 @@ def _run_opencode(prompt: str, workspace: Path, *, timeout: int) -> dict[str, An
 
 
 def _run_ananta_native(task_payload: dict[str, Any], workspace: Path) -> dict[str, Any]:
-    context = ((task_payload.get("worker_execution_context") or {}).get("context") or {}).get("context_text") or ""
+    context = _extract_context_text(task_payload)
     workspace.mkdir(parents=True, exist_ok=True)
     (workspace / "ananta-native-input-context.md").write_text(str(context), encoding="utf-8")
     result = {
@@ -140,7 +154,7 @@ def run() -> None:
         f"Engine: {args.engine}\n"
         "Task: create a safe plan for Java security secret rotation flow.\n"
         "Use provided RAG context and do not apply code changes.\n\n"
-        + str(((task_payload.get("worker_execution_context") or {}).get("context") or {}).get("context_text") or "")[:6000]
+        + str(_extract_context_text(task_payload))[:6000]
     )
     (workspace / "worker-prompt.txt").write_text(prompt, encoding="utf-8")
 

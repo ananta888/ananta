@@ -101,7 +101,12 @@ payload = {
     'priority': 'high',
     'task_kind': 'coding',
     'required_capabilities': ['coding', 'java', 'security', 'rag_helper', 'opencode'],
-    'worker_execution_context': {'context': {'context_text': context_text, 'worker_engine': 'opencode_full_e2e'}},
+    'worker_execution_context': {
+        'evidence_context': {
+            'context_text': context_text,
+            'worker_engine': 'opencode_full_e2e',
+        }
+    },
 }
 response = requests.post(f'{hub}/tasks/orchestration/ingest', json=payload, headers=headers, timeout=30)
 response.raise_for_status()

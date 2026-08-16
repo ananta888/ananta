@@ -120,6 +120,20 @@ def _run_ananta_native(task_payload: dict[str, Any], prompt: str, workspace: Pat
     }
 
 
+def _extract_context_text(task_payload: dict[str, Any]) -> str:
+    worker_execution_context = task_payload.get("worker_execution_context")
+    if isinstance(worker_execution_context, dict):
+        return (
+            str(
+                ((worker_execution_context.get("context") or {}).get("context_text") or "")
+            ).strip()
+            or str(
+                ((worker_execution_context.get("evidence_context") or {}).get("context_text") or "")
+            ).strip()
+        )
+    return ""
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--hub-url", required=True)
@@ -153,7 +167,7 @@ def main() -> None:
     claimed_task = ((claim.get("json") or {}).get("data") or {}).get("task") or selected
     _write_json(out_dir / "claimed-task.json", claimed_task)
 
-    context = ((claimed_task.get("worker_execution_context") or {}).get("context") or {}).get("context_text") or ""
+    context = _extract_context_text(claimed_task)
     prompt = (
         f"Daemon worker engine: {args.engine}\n"
         f"Task ID: {task_id}\n"
