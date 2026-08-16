@@ -11,6 +11,11 @@ on:
       - "worker/training/**"
       - "agent/services/ml_intern_*"
       - "agent/services/unsloth_*"
+      # The repository layer was missing here, so the gate did not run on the
+      # code its own tests exercise — the admission bug it should have caught
+      # sat red for days without a push ever triggering it.
+      - "agent/repositories/ml_intern_*"
+      - "agent/db_models/ml_intern_*"
       - "agent/routes/ml_intern_training*.py"
       - "agent/mcp/**"
       - "agent/studio/**"
