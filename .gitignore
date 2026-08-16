@@ -1,24 +1,188 @@
-```
-# Python
-__pycache__/
-*.pyc
-*.pyo
-*.pyd
+# Angular specific
+/dist/
+/out-tsc/
+/tmp/
+/coverage/
+/e2e/test-output/
+/.angular/
+.angular/
 
-# Logs and temp files
-*.log
-*.tmp
+# Node modules and dependency files
+/node_modules/
+/package-lock.json
+/yarn.lock
 
-# Environment
+# Environment and Secrets
 .env
-.env.local
-*.env.*
+mytoken.txt
+secrets/
+secrets/secret_key
+*.key
+**/token.json
 
-# Editors
-.vscode/
-.idea/
+# Logs
+/.angular-cli.json
+/.ng/
 
-# OS generated files
-.DS_Store
-Thumbs.db
-```
+# TypeScript cache
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+/app.log
+/audit.log
+
+# Data and Databases
+/data/ananta.db
+/data/alpha/ananta.db
+/data/beta/ananta.db
+/data/hub/ananta.db
+/data/hub/llm_log.jsonl
+/data/ai_log_Architect.json
+/data/summary_Architect.txt
+/blacklist.txt
+/control_log.json
+/data/*.jsonl
+/data/*/terminal_log.jsonl
+/data/*/tasks
+/data/tasks
+/data/*/tasks.json
+/data/*/stats_history.json
+
+# Frontend build artefacts
+/frontend/node_modules/
+/frontend/dist/
+/frontend/test-results/
+/frontend/playwright-report/
+
+# Python caches
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+
+# Prevent binary assets from being committed
+*.png
+!frontend-angular/src/assets/favicon.png
+!frontend-angular/android/app/src/main/res/mipmap-*/ic_launcher.png
+!frontend-angular/android/app/src/main/res/mipmap-*/ic_launcher_round.png
+!frontend-angular/android/app/src/main/res/drawable-nodpi/ic_launcher_foreground_image.png
+*.jpg
+*.jpeg
+*.gif
+*.pdf
+*.zip
+*.tar
+*.gz
+!frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz
+*.xz
+*.7z
+*.exe
+*.dll
+*.so
+*.dylib
+*.class
+/frontend-angular/node_modules/
+/frontend-angular/dist/
+/frontend-angular/src/**/*.js
+!/frontend-angular/src/assets/ananta-sfu-projection-trusted-keys.js
+/frontend-angular/src/**/*.js.map
+.aider*
+/data/alpha/db_init.lock
+/data/beta/db_init.lock
+/data/hub/db_init.lock
+/data/db_init.lock
+/frontend-angular/test-results/
+/.output.txt
+/data_test_e2e/
+/frontend-angular/tests/.pids.json
+/frontend-angular/tmp_trace/
+/docker/nginx/certs/*.pem
+/frontend-angular/test-results.json
+/test_out*.txt
+/prompts_history.txt
+
+/data/archive/tasks.json
+/data/archive/stats_history.json
+!secrets/
+!secrets/.gitkeep
+/config/secrets/
+
+/.gitleaks.toml
+/.venv
+/.ollama/
+/data/ananta.db-shm
+/data/ananta.db-wal
+/frontend-angular/.e2e-runtime/
+/data/artifacts/
+/rag-helper/.venv/
+/data/beta/worker-runtime/
+/data/alpha/worker-runtime/
+/data/beta/
+/data/alpha/
+/data/worker-runtime/
+/test-reports/
+/data/hub/
+/.artifacts/
+/frontend-angular/.nvmrc
+/frontend-angular/.node-version
+/client_surfaces/vscode_extension/node_modules/
+/.rag/
+/data/
+/.ananta/
+/tests/venv/
+/tests/.tmp-public-rendezvous-test.db
+/venv/
+/client_surfaces/eclipse_runtime/ananta_eclipse_plugin/build/
+/client_surfaces/eclipse_runtime/ananta_eclipse_plugin/.gradle/
+/frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz
+/.idea/
+/fibonacci_project/
+/fibonacci_test_v2/
+scripts/dyndns.conf
+
+# Temporary generated artifacts (terminal logo renders, svg-to-png output, etc.)
+/.tmp/
+
+# Runtime workspace outputs (generated per Goal/Task execution — not source)
+/project-workspaces/
+/models/
+/artifacts/*.json
+/artifacts/*.jsonl
+# Allow intentional test fixtures under tests/fixtures/
+!/tests/fixtures/
+# autoimport-state: only template Modelfiles are source; hash/logs are runtime
+/autoimport-state/hash/
+/autoimport-state/logs/
+/autoimport-state/modelfiles/[!a]*.Modelfile
+/data/
+!/data/
+/data/*
+!/data/client_surface_runtime_status.json
+!/data/client_surface_runtime_inventory.json
+!/data/client_surface_merge_readiness_report.json
+!/data/client_surface_post_test_cleanup_todo.json
+!/data/domain_runtime_inventory.json
+/rag-helper/out/
+# Root-level acceptance dumps are volatile, while the structured audit/gate
+# reports are intentional source artifacts (see AGENTS.md output boundary).
+/artifacts/*
+!/artifacts/domain/
+!/artifacts/domain/**
+!/artifacts/e2e/
+!/artifacts/e2e/**
+!/artifacts/test-gates/
+!/artifacts/test-gates/**
+/.claude/
+/.junie/
+/.opencode/
+/.junie/
+/.hermes/
+/test-results/
+/.coverage*
+/.*
+/frontend-angular/out-tsc/
