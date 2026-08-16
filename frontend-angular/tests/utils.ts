@@ -322,7 +322,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', token);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -342,7 +342,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
         if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
         localStorage.setItem('ananta.shell.mode', 'advanced');
       }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-      await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
+      await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
       await expect(dashboard).toBeVisible({ timeout: 30000 });
       return;
     }
@@ -365,7 +365,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -421,7 +421,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
   }
 
   await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -972,8 +972,18 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
  * lists legacy teams as pseudo-projects (status 'legacy_unclaimed'), and those
  * are never accepted -- so they must not be mistaken for a usable project.
  */
-export async function ensureActiveProjectId(): Promise<string> {
-  const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+async function browserSessionToken(page: Page): Promise<string> {
+  return page
+    .evaluate(() => localStorage.getItem('ananta.user.token') || '')
+    .catch(() => '');
+}
+
+export async function ensureActiveProjectId(sessionToken?: string): Promise<string> {
+  // The project must be visible to whoever is signed in in the browser. Using
+  // the admin token unconditionally handed back a project the signed-in user is
+  // no member of, and the project context rejected it -- which looks exactly
+  // like "no project" from the outside.
+  const token = sessionToken || await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
   const timeout = Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000');
   const response = await fetchWithTimeout(
     `${HUB_URL}/api/projects`,
@@ -1018,7 +1028,11 @@ export async function gotoProjectScopedRoute(
   path: string,
   options: { waitUntil?: 'domcontentloaded' | 'load' | 'networkidle' } = {},
 ): Promise<void> {
-  const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  // Resolve against the session that is actually signed in on the page: a
+  // project the browser user is no member of never reaches their catalogue, so
+  // the context refuses it and the route redirects anyway.
+  const sessionToken = await browserSessionToken(page);
+  const token = sessionToken || await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
   const response = await fetchWithTimeout(
     `${HUB_URL}/api/projects`,
     { headers: { Authorization: `Bearer ${token}` } },
