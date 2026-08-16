@@ -47,6 +47,20 @@ def _serialized_write(callback: Callable[_P, _R]) -> Callable[_P, _R]:
     return guarded
 
 
+def _is_slot_or_idempotency_conflict(exc: IntegrityError) -> bool:
+    """Whether this integrity failure means the slot is simply taken.
+
+    Slot contention and a replayed idempotency key both surface as a unique
+    constraint; everything else — a foreign key above all — is a different
+    fault that the capacity loop must not swallow.
+    """
+
+    text = str(getattr(exc, "orig", exc)).lower()
+    if "foreign key" in text:
+        return False
+    return "unique" in text or "duplicate" in text
+
+
 class MlInternTrainingRepositoryConflict(RuntimeError):
     pass
 
@@ -276,6 +290,12 @@ class MlInternTrainingRepository:
                 candidate = MlInternTrainingJobDB.model_validate(job.model_dump())
                 lease = MlInternTrainingCapacityLeaseDB(slot=slot, job_id=candidate.id)
                 session.add(candidate)
+                # The lease points at the job by foreign key, so the job row has
+                # to exist before the lease is inserted.  Without this flush the
+                # lease insert failed that key, and because every IntegrityError
+                # in this block reads as "slot taken", the loop burned through
+                # every slot and reported training_capacity_exhausted instead.
+                session.flush()
                 session.add(lease)
                 try:
                     with session.no_autoflush:
@@ -301,8 +321,16 @@ class MlInternTrainingRepository:
                     session.commit()
                     session.refresh(candidate)
                     return candidate, False
-                except IntegrityError:
+                except IntegrityError as exc:
                     session.rollback()
+                    # Only a taken slot or a duplicate idempotency key mean
+                    # "try the next slot".  Any other integrity failure is a
+                    # different fault and must not be retried into
+                    # training_capacity_exhausted, which is how a foreign-key
+                    # violation on the lease spent years looking like a full
+                    # queue.
+                    if not _is_slot_or_idempotency_conflict(exc):
+                        raise
                     existing = self._job_by_idempotency(
                         session,
                         principal,
