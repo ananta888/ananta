@@ -12,6 +12,9 @@ from typing import Any
 
 import requests
 
+_REQUEST_ATTEMPTS = 5
+_REQUEST_BASE_SLEEP = 0.75
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
@@ -45,6 +48,10 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _is_retryable_status(status: int | None) -> bool:
+    return status is None or status >= 500
+
+
 def _post(path: str, payload: dict[str, Any]) -> dict[str, Any]:
     return _request_with_retry("POST", path, payload, timeout=30)
 
@@ -59,8 +66,8 @@ def _request_with_retry(
     payload: dict[str, Any] | None = None,
     *,
     timeout: int = 30,
-    attempts: int = 5,
-    base_sleep: float = 0.75,
+    attempts: int = _REQUEST_ATTEMPTS,
+    base_sleep: float = _REQUEST_BASE_SLEEP,
 ) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {TOKEN}"}
     last_status: int | None = None
@@ -78,14 +85,20 @@ def _request_with_retry(
                     timeout=timeout,
                 )
             last_status = response.status_code
-            last_data = response.json() if response.text else {}
+            if response.text:
+                try:
+                    last_data = response.json()
+                except Exception:
+                    last_data = {"raw_body": response.text}
+                    if not isinstance(last_data["raw_body"], str):
+                        last_data = {}
             if response.status_code < 400:
                 return {"status_code": response.status_code, "json": last_data}
             if response.status_code < 500:
                 raise RuntimeError(f"{method} {path} failed: {response.status_code} {last_data}")
         except (requests.RequestException, RuntimeError) as exc:
             last_error = exc
-        if attempt < attempts and (last_status is None or last_status >= 500):
+        if attempt < attempts and _is_retryable_status(last_status):
             time.sleep(base_sleep * (2 ** (attempt - 1)))
             continue
         if last_status is None:

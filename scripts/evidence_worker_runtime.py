@@ -12,6 +12,22 @@ from typing import Any
 
 import requests
 
+_REQUEST_ATTEMPTS = 5
+_REQUEST_BASE_SLEEP = 0.75
+
+
+def _safe_json(payload_text: str) -> dict[str, Any]:
+    if not payload_text:
+        return {}
+    try:
+        loaded = json.loads(payload_text)
+    except Exception:
+        return {"raw_body": payload_text}
+    return loaded if isinstance(loaded, dict) else {}
+
+
+def _is_retryable_status(status: int | None) -> bool:
+    return status is None or status >= 500
 
 def _post_json(base_url: str, path: str, payload: dict[str, Any], token: str, *, timeout: int = 20) -> dict[str, Any]:
     return _request_with_retry("POST", base_url.rstrip("/"), path, payload, token=token, timeout=timeout)
@@ -24,10 +40,10 @@ def _request_with_retry(
     payload: dict[str, Any] | None = None,
     *,
     token: str | None = None,
-    timeout: int = 20,
-    attempts: int = 5,
-    base_sleep: float = 0.75,
-) -> dict[str, Any]:
+        timeout: int = 20,
+        attempts: int = _REQUEST_ATTEMPTS,
+        base_sleep: float = _REQUEST_BASE_SLEEP,
+    ) -> dict[str, Any]:
     headers = {"Authorization": f"Bearer {token}"} if token else {}
     last_error: Exception | None = None
     last_status: int | None = None
@@ -42,14 +58,14 @@ def _request_with_retry(
                 timeout=timeout,
             )
             last_status = response.status_code
-            last_data = response.json() if response.text else {}
+            last_data = _safe_json(response.text)
             if response.status_code < 400:
                 return {"status_code": response.status_code, "json": last_data}
             if response.status_code < 500:
                 raise RuntimeError(f"{method} {path} failed with {response.status_code}: {last_data}")
         except (requests.RequestException, RuntimeError) as exc:
             last_error = exc
-        if attempt < attempts and (last_status is None or last_status >= 500):
+        if attempt < attempts and _is_retryable_status(last_status):
             time.sleep(base_sleep * (2 ** (attempt - 1)))
             continue
         if last_status is None:

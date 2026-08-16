@@ -28,15 +28,26 @@ retry_post_json() {
   local base_sleep=0.75
 
   for attempt in $(seq 1 "${attempts}"); do
-    local response_file="${OUT_DIR}/orchestration/.tmp-response-$$-${attempt}.json"
-    local status
+    local response_file
+    response_file="$(mktemp "${OUT_DIR}/orchestration/.tmp-response-XXXXX.json")"
+    local status="000"
+    local curl_rc=0
+
+    set +e
     status=$(curl -sS -X POST \
       -H "Authorization: Bearer ${TOKEN}" \
       -H "Content-Type: application/json" \
       --data "@${payload_file}" \
       -o "${response_file}" \
       -w "%{http_code}" \
-      "${HUB_URL}${path}" || echo 000)
+      "${HUB_URL}${path}")
+    curl_rc=$?
+    set -e
+
+    if [[ "${curl_rc}" -ne 0 ]]; then
+      status="000"
+    fi
+
     if [[ "${status}" == 2* ]]; then
       if [[ "${include_status}" == "1" ]]; then
         python - "$status" "$out_file" "$response_file" <<'PY'
@@ -63,7 +74,7 @@ PY
       return 0
     fi
 
-    if [[ "${status}" -ge 500 ]] && [[ "${attempt}" -lt "${attempts}" ]]; then
+    if [[ "${attempt}" -lt "${attempts}" ]] && [[ "${status}" == "000" || "${status}" -ge 500 ]]; then
       sleep "$(awk -v a="${base_sleep}" -v n="${attempt}" 'BEGIN{printf "%.2f", a*(2^(n-1))}')"
       rm -f "${response_file}"
       continue
@@ -84,19 +95,30 @@ get_json() {
   local base_sleep=0.75
 
   for attempt in $(seq 1 "${attempts}"); do
-    local response_file="${OUT_DIR}/orchestration/.tmp-response-$$-${attempt}.json"
-    local status
+    local response_file
+    response_file="$(mktemp "${OUT_DIR}/orchestration/.tmp-response-XXXXX.json")"
+    local status="000"
+    local curl_rc=0
+
+    set +e
     status=$(curl -sS -X GET \
       -H "Authorization: Bearer ${TOKEN}" \
       -o "${response_file}" \
       -w "%{http_code}" \
-      "${HUB_URL}${path}" || echo 000)
+      "${HUB_URL}${path}")
+    curl_rc=$?
+    set -e
+
+    if [[ "${curl_rc}" -ne 0 ]]; then
+      status="000"
+    fi
+
     if [[ "${status}" == 2* ]]; then
       mv "${response_file}" "${out_file}"
       return 0
     fi
 
-    if [[ "${status}" -ge 500 ]] && [[ "${attempt}" -lt "${attempts}" ]]; then
+    if [[ "${attempt}" -lt "${attempts}" ]] && [[ "${status}" == "000" || "${status}" -ge 500 ]]; then
       sleep "$(awk -v a="${base_sleep}" -v n="${attempt}" 'BEGIN{printf "%.2f", a*(2^(n-1))}')"
       rm -f "${response_file}"
       continue

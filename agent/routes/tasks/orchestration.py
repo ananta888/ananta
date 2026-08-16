@@ -1,6 +1,12 @@
 from __future__ import annotations
 
+import logging
+import threading
+import time
+from contextlib import contextmanager
 import uuid
+from typing import Any
+from urllib.parse import urlparse
 
 from flask import Blueprint, g, request
 
@@ -25,10 +31,16 @@ from agent.services.vector_index_task_ingress_policy import (
     find_reserved_vector_index_marker,
     reserved_vector_index_ingress_error,
 )
+from agent.repository import agent_repo
+from agent.db_models import AgentInfoDB
 
 orchestration_bp = Blueprint("tasks_orchestration", __name__)
 
 _policy = DelegationPolicy(role_provider=settings, required_role="hub")
+_TASK_CLAIM_LOCKS: dict[str, threading.Lock] = {}
+_TASK_CLAIM_LOCKS_MUTEX = threading.Lock()
+_CLAIM_RETRY_ATTEMPTS = 3
+_CLAIM_RETRY_BASE_SLEEP = 0.3
 
 
 def _services():
@@ -49,6 +61,61 @@ def _parse_bool(value: str | None) -> bool | None:
     if normalized in {"0", "false", "no", "n", "off"}:
         return False
     return None
+
+
+def _normalize_worker_url(agent_url: str | None) -> str:
+    raw = str(agent_url or "").strip()
+    if not raw:
+        return ""
+    parsed = urlparse(raw)
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
+    return raw
+
+
+def _agent_display_name(agent_url: str) -> str:
+    parsed = urlparse(agent_url)
+    if parsed.hostname:
+        return f"evidence-worker-{parsed.hostname}"
+    return agent_url
+
+
+def _ensure_worker_agent_registered(agent_url: str) -> None:
+    """In evidence or bootstrap mode, ensure FK targets for assignment exist."""
+    if not agent_url:
+        return
+    try:
+        if agent_repo.get_by_url(agent_url) is not None:
+            return
+        agent_repo.save(
+            AgentInfoDB(
+                url=agent_url,
+                name=_agent_display_name(agent_url),
+                role="worker",
+            )
+        )
+    except Exception:
+        logging.exception("Failed to register worker for claim: %s", agent_url)
+
+
+@contextmanager
+def _claim_task_lock(task_id: str) -> object:
+    lock_key = str(task_id).strip()
+    if not lock_key:
+        yield
+        return
+    with _TASK_CLAIM_LOCKS_MUTEX:
+        lock = _TASK_CLAIM_LOCKS.setdefault(lock_key, threading.Lock())
+    with lock:
+        yield
+
+
+def _retryable_claim_error(exc: Exception) -> bool:
+    message = str(exc or "").lower()
+    return any(
+        marker in message
+        for marker in {"database is locked", "timeout", "connection", "lock", "sqlite"}
+    )
 
 
 @orchestration_bp.route("/tasks/<tid>/delegate", methods=["POST"])
@@ -179,14 +246,50 @@ def claim_task():
         data = TaskClaimRequest.model_validate(payload)
     except Exception:
         return api_response(status="error", message="task_id_and_agent_url_required", code=400)
-    result = _services().task_claim_service.claim_task(
-        task_id=data.task_id,
-        agent_url=data.agent_url,
-        requested_lease=int(data.lease_seconds or 120),
-        idempotency_key=str(data.idempotency_key or "").strip(),
-        policy=_policy,
-        task_queue_service=_services().task_queue_service,
-    )
+    normalized_agent_url = _normalize_worker_url(data.agent_url)
+    if normalized_agent_url != data.agent_url:
+        data = TaskClaimRequest(
+            task_id=data.task_id,
+            agent_url=normalized_agent_url,
+            lease_seconds=data.lease_seconds,
+            idempotency_key=data.idempotency_key,
+        )
+    claim_task_exception: Exception | None = None
+    result: dict[str, Any] | None = None
+    with _claim_task_lock(data.task_id):
+        for attempt in range(1, _CLAIM_RETRY_ATTEMPTS + 1):
+            try:
+                _ensure_worker_agent_registered(data.agent_url)
+                result = _services().task_claim_service.claim_task(
+                    task_id=data.task_id,
+                    agent_url=data.agent_url,
+                    requested_lease=int(data.lease_seconds or 120),
+                    idempotency_key=str(data.idempotency_key or "").strip(),
+                    policy=_policy,
+                    task_queue_service=_services().task_queue_service,
+                )
+                claim_task_exception = None
+                break
+            except Exception as exc:  # noqa: BLE001
+                claim_task_exception = exc
+                if attempt < _CLAIM_RETRY_ATTEMPTS and _retryable_claim_error(exc):
+                    time.sleep(_CLAIM_RETRY_BASE_SLEEP * (2 ** (attempt - 1)))
+                    continue
+                break
+
+    if claim_task_exception is not None or result is None:
+        return api_response(
+            status="error",
+            message="claim_request_failed",
+            data={
+                "error": (
+                    str(claim_task_exception)
+                    if claim_task_exception is not None
+                    else "claim_handler_unexpected_state"
+                )
+            },
+            code=500,
+        )
     if result.get("error"):
         return api_response(
             status="error",
