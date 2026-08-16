@@ -273,6 +273,10 @@ def test_sql_audio_scope_requires_current_tenant_consent_admission_and_lineage()
                 updated_at_ms=now,
             )
         )
+        # SQLAlchemy orders inserts by relationship, and these models declare
+        # none, so the mappers flush in name order and the attempt would be
+        # written before the job it points at. Flush the parent first.
+        session.flush()
         session.add(
             SpeechReconciliationAttemptDB(
                 id=job.attempt_id,
@@ -380,6 +384,10 @@ def test_tenant_resolving_ledger_requires_current_attempt_and_sequence() -> None
                 updated_at_ms=now,
             )
         )
+        # SQLAlchemy orders inserts by relationship, and these models declare
+        # none, so the mappers flush in name order and the attempt would be
+        # written before the job it points at. Flush the parent first.
+        session.flush()
         session.add(
             SpeechReconciliationAttemptDB(
                 id=job.attempt_id,
