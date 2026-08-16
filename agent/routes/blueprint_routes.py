@@ -557,6 +557,10 @@ def delete_team_blueprint(blueprint_id):
         )
     _repos().blueprint_artifact_repo.delete_by_blueprint(blueprint_id)
     _repos().blueprint_role_repo.delete_by_blueprint(blueprint_id)
+    # Workflow steps reference the blueprint too and were the one child left
+    # behind, so deleting a blueprint orphaned them. The Hub scans for orphans
+    # at startup, so one delete was enough to stop it coming up at all.
+    _repos().blueprint_workflow_step_repo.delete_by_blueprint(blueprint_id)
     if _repos().team_blueprint_repo.delete(blueprint_id):
         log_audit("team_blueprint_deleted", {"blueprint_id": blueprint_id})
         return api_response(data={"status": "deleted"})

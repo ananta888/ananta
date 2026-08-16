@@ -1,7 +1,7 @@
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import TeamBlueprintDB, TeamDB, TemplateDB
+from agent.db_models import AgentInfoDB, TeamBlueprintDB, TeamDB, TemplateDB
 from tests_support import admin_login_token as _login_admin
 
 
@@ -48,7 +48,26 @@ def _create_blueprint(client, auth_header, name: str, template_id: str) -> dict:
     return response.json["data"]
 
 
+MEMBER_AGENT_URL = "http://worker-dev"
+
+
+def _register_member_agent() -> None:
+    """Register the agent the members reference.
+
+    team_members.agent_url has a foreign key to agents.url, so instantiating a
+    blueprint against an unregistered agent failed that key. The endpoint
+    surfaced it as a 500 and left the blueprint half-written, whose orphaned
+    blueprint_workflow_steps then failed the Hub's startup integrity scan for
+    every later test in the shard.
+    """
+
+    with Session(engine) as session:
+        session.merge(AgentInfoDB(url=MEMBER_AGENT_URL, name="worker-dev", role="worker"))
+        session.commit()
+
+
 def _instantiate_blueprint_team(client, auth_header, blueprint: dict, team_name: str, custom_template_id: str | None = None) -> dict:
+    _register_member_agent()
     developer_role = next(role for role in blueprint["roles"] if role["name"] == "Developer")
     response = client.post(
         f"/teams/blueprints/{blueprint['id']}/instantiate",
@@ -57,7 +76,7 @@ def _instantiate_blueprint_team(client, auth_header, blueprint: dict, team_name:
             "activate": False,
             "members": [
                 {
-                    "agent_url": "http://worker-dev",
+                    "agent_url": MEMBER_AGENT_URL,
                     "blueprint_role_id": developer_role["id"],
                     "custom_template_id": custom_template_id,
                 }
