@@ -15,6 +15,12 @@ from agent.services.task_runtime_service import (
     compare_and_set_local_task_status,
     update_local_task_status,
 )
+from agent.services.task_organization_scope import (
+    goal_reference,
+    parent_reference,
+    resolve_ingest_scope,
+    states_any_scope,
+)
 from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.task_status_service import normalize_task_status
 
@@ -176,19 +182,57 @@ class TaskQueueService:
         details = {"source": source, "channel": event_channel, "tags": list(tags or [])}
         if isinstance(event_details, dict):
             details.update(event_details)
+        fields = dict(extra_fields or {})
+        scope, resolved_team = resolve_ingest_scope(self._scope_source(fields), fields, team_id)
+        fields.update(scope)
         update_local_task_status(
             task_id,
             normalize_task_status(status, default="todo"),
             title=(str(title or "")[:200] or None),
             description=description,
             priority=priority,
-            team_id=team_id,
+            team_id=resolved_team,
             tags=list(tags or []),
             event_type=event_type,
             event_actor=created_by or "unknown",
             event_details=details,
-            **dict(extra_fields or {}),
+            **fields,
         )
+
+    def _scope_source(self, fields: Dict[str, Any]) -> Any:
+        """What a new task should take its place in the organisation from.
+
+        Every derivation goes through ingestion, which is why the lookup sits
+        here rather than at each of the places that derive.  A caller that
+        already stated a scope is not looked up at all: it owns its answer.
+
+        The parent task comes first, and the goal second — a goal is where a
+        chain starts, and its first task has no parent to inherit from.
+        Without that step the organisation would only ever be filled in from
+        the second task onward, which is to say never.
+
+        A source that cannot be read costs the new task its scope and nothing
+        else: refusing to create work because its place could not be looked
+        up would be the worse failure.
+        """
+
+        if states_any_scope(fields):
+            return None
+        parent_id = parent_reference(fields)
+        if parent_id:
+            try:
+                parent = task_repo.get_by_id(parent_id)
+            except Exception:
+                parent = None
+            if parent is not None:
+                return parent
+        goal_id = goal_reference(fields)
+        if not goal_id:
+            return None
+        try:
+            return goal_repo.get_by_id(goal_id)
+        except Exception:
+            return None
 
     def lease_reserved_task(
         self,
