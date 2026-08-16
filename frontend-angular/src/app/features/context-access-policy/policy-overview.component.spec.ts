@@ -71,6 +71,20 @@ describe('PolicyOverviewComponent', () => {
     detailError,
     validationError,
     managementAuthorized: signal(true),
+    // The governance center grew a preview, an effective-matrix and a
+    // lifecycle-mutation surface; this double had stayed on the older shape,
+    // so every test died on `facade.matrixLoading is not a function` before it
+    // could assert anything.
+    preview: signal(null),
+    effectiveMatrix: signal([]),
+    matrixLoading: signal(false),
+    mutationLoading: signal(false),
+    matrixError: signal(null),
+    loadEffectiveMatrix: vi.fn(),
+    previewSelected: vi.fn(),
+    activateSelected: vi.fn(),
+    revokeSelected: vi.fn(),
+    rollbackSelected: vi.fn(),
     initialize: vi.fn(),
     reload: vi.fn(),
     loadLatest: vi.fn(),
@@ -118,20 +132,42 @@ describe('PolicyOverviewComponent', () => {
   });
 
   it('renders a bounded accessible matrix from server rows without an allow control', () => {
+    // The governance center renders the table from facade.effectiveMatrix(),
+    // one row per server-resolved source/destination pair.
+    facade.effectiveMatrix.set([{
+      schema: 'ananta.source-control.access-decision.v1',
+      source_revision_id: 'rev-server',
+      revision_digest: 'digest-server',
+      destination_id: 'dest-server',
+      operation: 'chat_context',
+      transformation: 'redaction_required',
+      purpose: 'review',
+      decision: 'deny',
+      reason_codes: ['policy_denied'],
+      matched_rule_path: ['rules', '0'],
+      default_applied: false,
+      approval_requirement: null,
+      policy_digest: 'policy-digest-server',
+    }]);
+    fixture.detectChanges();
+
     const matrix = fixture.nativeElement.querySelector('.matrix-section table') as HTMLTableElement;
-    expect(matrix.querySelector('caption')?.textContent).toContain('servergelieferte Regeln');
-    expect(matrix.textContent).toContain('native_ananta_worker');
-    expect(matrix.textContent).toContain('docker_container');
-    expect(matrix.textContent).toContain('private_remote');
+    expect(matrix.querySelector('caption')?.textContent).toContain('serverseitig ausgewertete');
+    expect(matrix.textContent).toContain('rev-server');
+    expect(matrix.textContent).toContain('dest-server');
+    expect(matrix.textContent).toContain('policy_denied');
+    // The UI never offers to grant access itself; only the server decides.
     expect(fixture.nativeElement.querySelector('[data-action="allow"]')).toBeNull();
   });
 
   it('keeps the grant assistant unavailable when the server has no catalogs or preview', () => {
     const grant = fixture.nativeElement.querySelector('.grant-section') as HTMLElement;
     const button = grant.querySelector('button') as HTMLButtonElement;
-    expect(button.disabled).toBeTrue();
-    expect(grant.textContent).toContain('keine Preview- oder Grant-Route');
-    expect(grant.textContent).toContain('lokal niemals erlaubt');
+    expect(button.disabled).toBe(true);
+    // Presets are the flow the Hub has no route for; preview does have one.
+    expect(grant.textContent).toContain('keinen Preset-Katalog');
+    // A grant mutation route still does not exist, and the assistant says so.
+    expect(grant.textContent).toContain('Grant-Mutationsroute fehlt');
   });
 
   it('offers only a safe reload action for a 409 conflict', () => {
@@ -165,7 +201,14 @@ describe('PolicyOverviewComponent', () => {
   });
 
   it('communicates lifecycle availability with text in addition to color', () => {
-    for (const flow of ['draft', 'preview', 'activate', 'revoke', 'rollback', 'grant']) {
+    // Colour alone would not be readable; each card has to say which it is.
+    // The Hub serves the lifecycle routes, so those must not read as absent.
+    for (const flow of ['draft', 'preview', 'activate', 'revoke', 'rollback']) {
+      const card = fixture.nativeElement.querySelector(`[data-flow="${flow}"]`) as HTMLElement;
+      expect(card.textContent).toContain('Route vorhanden');
+      expect(card.textContent).not.toContain('Nicht verfügbar');
+    }
+    for (const flow of ['presets', 'destinations', 'grant']) {
       const card = fixture.nativeElement.querySelector(`[data-flow="${flow}"]`) as HTMLElement;
       expect(card.textContent).toContain('Nicht verfügbar');
     }

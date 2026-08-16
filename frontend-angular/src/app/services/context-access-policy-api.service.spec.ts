@@ -104,8 +104,18 @@ describe('ContextAccessPolicyApiService contract', () => {
   });
 
   it('declares absent lifecycle and grant routes unavailable', () => {
-    for (const flow of ['draft', 'lint', 'preview', 'activate', 'revoke', 'rollback', 'presets', 'destinations', 'grant']) {
-      expect(CONTEXT_POLICY_ROUTE_CAPABILITIES.find((item) => item.flow === flow)?.routeAvailable).toBeFalse();
+    // Only these four have no v1 route. The lifecycle flows do — the Hub
+    // registers context_policy_draft, _lint, _preview, _activate, _revoke and
+    // _rollback in agent/routes/source_control_v1.py — so asserting them absent
+    // contradicted both the backend and the capability table this reads.
+    for (const flow of ['validate', 'presets', 'destinations', 'grant']) {
+      expect(CONTEXT_POLICY_ROUTE_CAPABILITIES.find((item) => item.flow === flow)?.routeAvailable).toBe(false);
+    }
+  });
+
+  it('declares the lifecycle routes the Hub actually serves as available', () => {
+    for (const flow of ['list', 'detail', 'create', 'version', 'draft', 'lint', 'preview', 'activate', 'revoke', 'rollback']) {
+      expect(CONTEXT_POLICY_ROUTE_CAPABILITIES.find((item) => item.flow === flow)?.routeAvailable).toBe(true);
     }
   });
 
@@ -128,7 +138,7 @@ describe('ContextAccessPolicyApiService contract', () => {
     service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
       next: () => done(new Error('expected fail-closed contract rejection')),
       error: (error) => {
-        expect(error instanceof ContextPolicyContractError).toBeTrue();
+        expect(error instanceof ContextPolicyContractError).toBe(true);
         expect(error.status).toBe(422);
         done();
       },

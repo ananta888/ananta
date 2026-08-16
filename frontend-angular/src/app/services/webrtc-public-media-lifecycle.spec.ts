@@ -970,7 +970,9 @@ describe('WebrtcSessionService Public media lifecycle', () => {
     await signalHandler?.(offer());
     expect(replacement.close).not.toHaveBeenCalled();
     await expect(signalHandler?.(offer())).rejects.toThrow('public_media_unexpected_sdp');
-    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('session-a');
+    // Recreation is bound to the exact security epoch, not just the session:
+    // asserting the session alone would pass even if the epoch were dropped.
+    expect(signaling.markSessionRecreationRequired).toHaveBeenCalledWith('session-a', expect.any(Number));
     signaling.status$.next('failed');
     expect(replacement.close).toHaveBeenCalledOnce();
     expect(service.auditLog).toContainEqual(expect.objectContaining({

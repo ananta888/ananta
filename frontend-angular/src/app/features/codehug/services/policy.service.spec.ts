@@ -64,9 +64,15 @@ describe('PolicyService', () => {
     expect(() => service.update({ allowedPaths: ['/tmp'] })).toThrow(ChServiceError);
   });
 
-  it('update: throws even when write-mode is active because legacy mutation is disabled', () => {
+  it('update: fails on subscribe when write-mode is active because legacy mutation is disabled', () => {
     service.armWriteMode(60_000);
-    expect(() => service.update({ allowedPaths: ['/tmp'] })).toThrow(ChServiceError);
+    // Past the write-mode gate the refusal is no longer synchronous: update()
+    // hands back a cold observable that errors, so callers handle it in the
+    // stream like any other transport failure.
+    let caught: unknown = null;
+    service.update({ allowedPaths: ['/tmp'] }).subscribe({ error: (err) => (caught = err) });
+    expect(caught).toBeInstanceOf(ChServiceError);
+    expect((caught as ChServiceError).code).toBe('validation_error');
   });
 
   it('setWriteModeTimeout with 0 resets to default', () => {

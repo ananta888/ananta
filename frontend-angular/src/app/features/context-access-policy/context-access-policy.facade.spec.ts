@@ -63,7 +63,7 @@ describe('ContextAccessPolicyFacade', () => {
     const facade = TestBed.inject(ContextAccessPolicyFacade);
     facade.initialize(null);
     expect(api.listPolicies).not.toHaveBeenCalled();
-    expect(facade.managementAuthorized()).toBeFalse();
+    expect(facade.managementAuthorized()).toBe(false);
     expect(facade.listError()?.state).toBe('not-found');
   });
 
@@ -76,7 +76,7 @@ describe('ContextAccessPolicyFacade', () => {
     expect(row.operations).toContain('read_allowed=true');
     expect(row.operations).toContain('write_allowed=false');
     expect(row.reasonData).toContain('server-tag');
-    expect(facade.managementAuthorized()).toBeTrue();
+    expect(facade.managementAuthorized()).toBe(true);
   });
 
   it('never loads detail for a client-invented policy ID', () => {
@@ -89,10 +89,10 @@ describe('ContextAccessPolicyFacade', () => {
   it('removes confirmed management permission on a forbidden reload', () => {
     const facade = TestBed.inject(ContextAccessPolicyFacade);
     facade.initialize('project-a');
-    expect(facade.managementAuthorized()).toBeTrue();
+    expect(facade.managementAuthorized()).toBe(true);
     api.listPolicies.mockReturnValue(throwError(() => ({ status: 403 })));
     facade.reload();
-    expect(facade.managementAuthorized()).toBeFalse();
+    expect(facade.managementAuthorized()).toBe(false);
     expect(facade.listError()?.state).toBe('forbidden');
   });
 
@@ -101,7 +101,7 @@ describe('ContextAccessPolicyFacade', () => {
     const facade = TestBed.inject(ContextAccessPolicyFacade);
     facade.initialize('project-a');
     expect(facade.policies()).toEqual([]);
-    expect(facade.managementAuthorized()).toBeFalse();
+    expect(facade.managementAuthorized()).toBe(false);
     expect(facade.listError()?.state).toBe('unprocessable');
     expect(facade.matrixRows()).toEqual([]);
   });
@@ -115,15 +115,15 @@ describe('contextPolicyUiError', () => {
     });
     expect(conflict.state).toBe('conflict');
     expect(conflict.reasonCode).toBe('server_version_conflict');
-    expect(conflict.conflict).toBeTrue();
-    expect(contextPolicyUiError({ status: 400 }).conflict).toBeFalse();
+    expect(conflict.conflict).toBe(true);
+    expect(contextPolicyUiError({ status: 400 }).conflict).toBe(false);
   });
 
   it('maps malformed successful snapshots to unprocessable without inventing a reason code', () => {
     const error = contextPolicyUiError(new ContextPolicyContractError());
     expect(error.state).toBe('unprocessable');
     expect(error.reasonCode).toBeUndefined();
-    expect(error.conflict).toBeFalse();
+    expect(error.conflict).toBe(false);
   });
 
   it('covers every fail-closed lifecycle transport state', () => {

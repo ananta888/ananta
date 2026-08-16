@@ -27,7 +27,7 @@
       "items": [
         {
           "id": "CI-001",
-          "status": "open",
+          "status": "partial",
           "workflow": "Visual Guide Tests",
           "workflow_job": "frontend-typecheck",
           "step": "frontend-typecheck",
@@ -40,12 +40,15 @@
             "frontend-angular/src/app/features/context-access-policy/policy-version-list.component.ts"
           ],
           "proposed_solution": "Service vollständig auf v1-Contract (`listContextPolicies` + `previewContextPolicy`/`activateContextPolicy`) umstellen und View-Layer auf `ContextPolicyRecord` vereinheitlichen.",
-          "implemented_solution": "Erfolgreich umgesetzt: `policy_id`/`version`-Weitergabe für Aktivierung korrigiert, `previewDecision` auf v1-Preview-Request ohne `purpose` reduziert und Decision-Mapping auf erlaubte Entscheidungen (`allow|deny|approval_required|unavailable`) angepasst.",
+          "implemented_solution": "Ursache war nicht der Service, sondern toter Code. Die fuenf Typfehler kamen ausschliesslich aus Komponenten, die seit dem Umbau auf das 'Angular governance center' (policy-overview.component.ts, 2026-07-30) unerreichbar sind: weder importiert noch per Selektor in lebendem Code verwendet - zweifach geprueft. Zuletzt angefasst wurden sie im Juni nur durch eine mechanische Template-Migration. Die 15 verwaisten Dateien wurden entfernt; geroutet und lebendig bleiben policy-overview, die Facade und die Routes. Zusaetzlich am Vertrag ausgerichtet: die Spec behauptete, die Lifecycle-Routen (draft/lint/preview/activate/revoke/rollback) seien nicht vorhanden, obwohl der Hub sie in agent/routes/source_control_v1.py registriert - korrigiert und um die Gegenprobe ergaenzt. Elf Jasmine-Matcher (toBeFalse/toBeTrue) liefen unter Vitest ins Leere und wurden auf toBe(false)/toBe(true) gebracht; das Facade-Double der Overview-Spec fehlten zehn Mitglieder des gewachsenen Governance-Centers.",
           "relevant_validations": [
             "Frontend-Typecheck-Äquivalent lokal via Angular TypeScript-Prüfpfad",
             "Direkter Blick auf vertraglich geparste Datenmodelle in `context-access-policy-api.service.ts`",
             "REGRESSIONSBEFUND 2026-08-16: als 'completed' gefuehrt, aber faktisch nie gruen. Fehlerbild bei Run 31942114409 (vor den heutigen Commits) und Run 31943267737 (danach) identisch: dieselben 5 Fehler, gleiche Dateien und Zeilen. Der Status wurde deshalb auf 'open' zurueckgesetzt.",
-            "Betrifft zwei Workflows: 'Visual Guide Tests' (frontend-typecheck) und 'Quality And Docs' (frontend-build -> Run frontend unit tests, wo dieselben context-access-policy-Specs fehlschlagen)."
+            "Betrifft zwei Workflows: 'Visual Guide Tests' (frontend-typecheck) und 'Quality And Docs' (frontend-build -> Run frontend unit tests, wo dieselben context-access-policy-Specs fehlschlagen).",
+            "Exakter CI-Befehl lokal reproduziert und danach gruen: 'npx tsc --noEmit' - vorher 5 Fehler, jetzt Exit 0. (Wichtig: tsconfig.app.json war bereits gruen, der CI nutzt aber die Wurzelkonfiguration - deshalb blieb der Fehler lokal lange unsichtbar.)",
+            "Vollstaendige Unit-Suite wie in Quality And Docs ('npm run test:unit'): 3326 passed, 1 skipped, 0 failed.",
+            "Erreichbarkeit der geloeschten Dateien zweifach belegt: keine Importe und keine Selektorverwendung aus lebendem Code."
           ],
           "dependencies": [],
           "commit_changes": [
@@ -76,7 +79,8 @@
             "Re-run von `pytest -q tests/test_autonomous_scrum_e2e.py::test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks`",
             "Re-run von `pytest -q tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal`",
             "REGRESSIONSBEFUND 2026-08-16: als 'completed' gefuehrt, aber faktisch nie gruen. Zaehlung bei Run 31942114417 (vor den heutigen Commits) und Run 31943267700 (danach) identisch: 2 failed / 47 passed / 2 skipped, gleiche Tests, gleiche Assertions, gleicher FOREIGN-KEY-Fehler. Der Status wurde auf 'open' zurueckgesetzt.",
-            "Gegenprobe: die Task-Scope-Vererbung aus Commit d4d9ac2a6 hat daran nichts geaendert - Zahlen und Fehlersignatur davor und danach byte-gleich."
+            "Gegenprobe: die Task-Scope-Vererbung aus Commit d4d9ac2a6 hat daran nichts geaendert - Zahlen und Fehlersignatur davor und danach byte-gleich.",
+            "Noch offen: der FOREIGN-KEY-Fehler im Autopilot-/Scrum-E2E ist unabhaengig vom Frontend-Cluster und noch nicht angegangen."
           ],
           "dependencies": [
             "CI-003"
@@ -543,8 +547,8 @@
     "total_items": 19,
     "by_status": {
       "completed": 6,
-      "partial": 2,
-      "open": 9,
+      "partial": 3,
+      "open": 8,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
