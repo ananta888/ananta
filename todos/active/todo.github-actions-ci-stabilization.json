@@ -530,12 +530,12 @@
           "severity": "low",
           "risk_assessment": "Niedrig: veralteter bzw. abgebrochener Lauf, Aussagekraft derzeit gering.",
           "observed_error": "Container Release Build: letzter Lauf 28298970270 vom 2026-06-27 mit failure, also seit Wochen ohne aktuellen Nachweis. Dogfood Evidence E2E: letzter Lauf 31939084068 wurde cancelled, kein Ergebnis.",
-          "root_cause": "Nicht ermittelt; zunaechst muss ein aktueller Lauf her.",
+          "root_cause": "Container Release Build laesst sich nicht sinnvoll nachstellen: der Workflow verlangt einen Pflichtinput 'tag' (HTTP 422 bei workflow_dispatch ohne ihn). Er ist an ein Release gebunden, ein Lauf ohne Release waere ohne Aussage. Der Fehlschlag vom 2026-06-27 ist damit kein laufender Defekt, sondern schlicht der letzte Release-Lauf. Dogfood Evidence E2E wurde neu ausgeloest, um ueberhaupt ein Ergebnis zu haben.",
           "affected_files_or_subsystems": [
             ".github/workflows/container-release.yml",
             ".github/workflows/dogfood-evidence.yml"
           ],
-          "proposed_solution": "Je einen aktuellen Lauf ausloesen und danach bewerten.",
+          "proposed_solution": "Container Release Build beim naechsten echten Release bewerten, nicht kuenstlich ausloesen. Dogfood Evidence E2E anhand des neuen Laufs beurteilen.",
           "expected_result": "Belastbarer aktueller Status statt veralteter bzw. abgebrochener Laeufe.",
           "relevant_validations": []
         },
