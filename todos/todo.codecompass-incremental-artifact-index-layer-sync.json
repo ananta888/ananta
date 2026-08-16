@@ -229,7 +229,7 @@
         "CIL-010",
         "CIL-011"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -571,10 +571,10 @@
       "id": "CIL-010",
       "title": "Inkrementellen Embedding-/Vector-Index-Pfad implementieren",
       "type": "retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_modify": [
           "agent/services/codecompass_vector_retrieval_service.py"
@@ -596,16 +596,19 @@
       "dependencies": [
         "CIL-009",
         "CIL-007"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: incremental_embedding_builder.py with IncrementalEmbeddingBuilder class"
       ]
     },
     {
       "id": "CIL-011",
       "title": "Inkrementellen FTS-/lexikalischen Suchindex implementieren",
       "type": "retrieval",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "FTS als eigene Artefaktart desselben ChangeSets.",
@@ -620,6 +623,9 @@
       "dependencies": [
         "CIL-009",
         "CIL-007"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: incremental_fts_builder.py with IncrementalFTSBuilder class"
       ]
     },
     {
