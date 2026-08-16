@@ -9,16 +9,23 @@ import signal
 from datetime import timedelta
 
 from example_public_material import (
+    EXAMPLE_COMMAND_KEY_ID,
     EXAMPLE_KEY_ID,
     EXAMPLE_TASK_QUEUE,
     example_bearer,
+    example_command_public_key,
     example_signing_key,
 )
 from temporalio.client import Client
 from temporalio.worker import Worker
 
+from ananta_contracts.runtime_authorization_crypto import Ed25519VerificationKeyRing
 from worker.temporal.activities import HubActivityGateway, probe_activity
 from worker.temporal.authorization import RuntimeAuthorizationVerifier
+from worker.temporal.command_authority import (
+    PublicKeyWorkflowCommandAuthorityVerifier,
+    WorkflowCommandAuthorityActivity,
+)
 from worker.temporal.health import WorkerHealthServer, WorkerHealthState
 from worker.temporal.hub_gateway import HttpHubTaskGateway
 from worker.temporal.workflows import (
@@ -52,11 +59,21 @@ async def run(health: WorkerHealthState | None = None) -> None:
         poll_seconds=0.1,
         activity_timeout_seconds=60,
     )
+    # AnantaWorkflow verifies every non-legacy command through this Local
+    # Activity.  Leaving it unregistered fails the update inside the workflow,
+    # not at startup, so the approval and cancel drills die mid-run.  The worker
+    # gets the public half only: it can verify a command but never issue one,
+    # which is the whole point of signing commands asymmetrically.
+    command_authority = WorkflowCommandAuthorityActivity(
+        PublicKeyWorkflowCommandAuthorityVerifier(
+            Ed25519VerificationKeyRing({EXAMPLE_COMMAND_KEY_ID: example_command_public_key()}),
+        ),
+    )
     worker = Worker(
         client,
         task_queue=EXAMPLE_TASK_QUEUE,
         workflows=[TemporalProbeWorkflow, TemporalRecoveryProbeWorkflow, AnantaWorkflow],
-        activities=[probe_activity, gateway.execute],
+        activities=[probe_activity, gateway.execute, command_authority.verify],
         build_id="ananta-workflow-runtime-example-v1",
         identity="ananta-workflow-runtime-example-worker",
         graceful_shutdown_timeout=timedelta(seconds=5),

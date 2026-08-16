@@ -12,16 +12,19 @@ from pathlib import Path
 from typing import Any
 
 from example_public_material import (
+    EXAMPLE_COMMAND_KEY_ID,
     EXAMPLE_KEY_ID,
     EXAMPLE_TASK_QUEUE,
     HUB_EVENTS_FILE,
     example_bearer,
+    example_command_signing_key,
     example_signing_key,
 )
 
 from agent.services.workflow_runtime.commands import SignedWorkflowCommand
 from agent.services.workflow_runtime.execution_plan import ExecutionPlan
 from agent.services.workflow_runtime.security import HmacKeyRing, RuntimeAuthorizationEnvelope
+from ananta_contracts.runtime_authorization_crypto import Ed25519SigningKeyRing
 from ananta_contracts.temporal_workflow import (
     ActivityClass,
     AnantaWorkflowInput,
@@ -50,6 +53,15 @@ def load_plan() -> ExecutionPlan:
 
 def example_key_ring() -> HmacKeyRing:
     return HmacKeyRing({EXAMPLE_KEY_ID: example_signing_key()}, active_key_id=EXAMPLE_KEY_ID)
+
+
+def example_command_key_ring() -> Ed25519SigningKeyRing:
+    """Issue commands under the same public-key authority the worker verifies."""
+
+    return Ed25519SigningKeyRing(
+        {EXAMPLE_COMMAND_KEY_ID: example_command_signing_key()},
+        active_key_id=EXAMPLE_COMMAND_KEY_ID,
+    )
 
 
 def temporal_workflow_id(scenario: str) -> str:
@@ -150,7 +162,7 @@ def signed_temporal_command(
     now: float | None = None,
 ) -> dict[str, Any]:
     command = SignedWorkflowCommand.issue(
-        key_ring=example_key_ring(),
+        key_ring=example_command_key_ring(),
         command_type=command_type,
         tenant_id=workflow_input.tenant_id,
         workflow_id=workflow_input.workflow_id,
@@ -236,6 +248,7 @@ __all__ = [
     "build_temporal_input",
     "evidence_boundary",
     "example_bearer",
+    "example_command_key_ring",
     "example_key_ring",
     "example_signing_key",
     "load_plan",

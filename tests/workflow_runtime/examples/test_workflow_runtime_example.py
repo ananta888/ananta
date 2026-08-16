@@ -159,6 +159,38 @@ def test_runner_has_no_pytest_dependency_and_compose_is_hardened() -> None:
     assert "temporal-runtime:" in compose
 
 
+def _registered_activities(source: str) -> str:
+    marker = "activities=["
+    start = source.index(marker) + len(marker)
+    return source[start : source.index("]", start)].strip()
+
+
+def test_example_worker_registers_the_same_activities_as_the_production_worker() -> None:
+    # The example hand-rolls its own Worker instead of calling build_worker, so
+    # an Activity added to production silently stays missing here.  That drift
+    # is invisible at startup: the workflow only fails once it calls the
+    # unregistered Activity, mid-run, inside an update handler.
+    production = (ROOT / "worker/temporal/runtime.py").read_text(encoding="utf-8")
+    example = (EXAMPLE_DIR / "temporal_worker.py").read_text(encoding="utf-8")
+
+    assert _registered_activities(example) == _registered_activities(production)
+
+
+def test_example_commands_are_verifiable_but_not_forgeable_by_the_worker() -> None:
+    from example_public_material import (
+        EXAMPLE_COMMAND_KEY_ID,
+        example_command_public_key,
+    )
+    from runtime_example_support import example_command_key_ring
+
+    # The worker is given the public half only, so the key it verifies with
+    # cannot issue commands.  Pinning the derivation keeps the pair together.
+    assert example_command_key_ring().public_keys()[EXAMPLE_COMMAND_KEY_ID] == example_command_public_key()
+
+    worker_source = (EXAMPLE_DIR / "temporal_worker.py").read_text(encoding="utf-8")
+    assert "example_command_signing_key" not in worker_source
+
+
 def test_optional_live_provider_overlay_is_secret_ref_only_and_not_control_plane() -> None:
     profile = json.loads((EXAMPLE_DIR / "live-provider-profile.v1.json").read_text(encoding="utf-8"))
     probe = (EXAMPLE_DIR / "live_provider_probe.py").read_text(encoding="utf-8")
