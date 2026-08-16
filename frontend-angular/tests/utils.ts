@@ -980,12 +980,31 @@ export async function gotoProjectScopedRoute(
     : Array.isArray(payload?.data?.items)
       ? payload.data.items
       : [];
-  const active = items.find((item) => item?.is_active === true || item?.status === 'active') ?? items[0];
+  // The guard only accepts an active project, so an archived one is no more
+  // use here than none at all.
+  let active = items.find((item) => item?.status === 'active' || item?.is_active === true);
+  if (!active) {
+    // A fresh environment has no project, and every project-scoped route then
+    // redirects. Creating one is the precondition these routes need, not a
+    // workaround for them.
+    const created = await fetchWithTimeout(
+      `${HUB_URL}/api/projects`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'E2E Default Project', description: 'Created for project-scoped routes' }),
+      },
+      Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000'),
+    );
+    if (!created.ok) {
+      throw new Error(`${path} needs a project and creating one failed: HTTP ${created.status}`);
+    }
+    const body = await created.json().catch(() => ({}));
+    active = body?.data?.project ?? body?.project ?? body?.data ?? body;
+  }
   const projectId = String(active?.id ?? '').trim();
   if (!projectId) {
-    throw new Error(
-      `${path} is project-scoped and the environment has no project, so the route redirects to /projects`,
-    );
+    throw new Error(`${path} is project-scoped and no usable project could be established`);
   }
   const separator = path.includes('?') ? '&' : '?';
   await page.goto(`${path}${separator}projectId=${encodeURIComponent(projectId)}`, {

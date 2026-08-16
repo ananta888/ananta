@@ -1,12 +1,13 @@
 import { expect, type Page } from '@playwright/test';
-import { gotoProjectScopedRoute } from './utils';
 
 export async function createProjectAndOpenJourney(
   page: Page,
   projectName: string,
   description: string,
 ): Promise<string> {
-  await gotoProjectScopedRoute(page, '/dashboard');
+  // Deliberately not the project-scoped route: this helper is what creates
+  // the first project, so it cannot require one to already exist.
+  await page.goto('/projects', { waitUntil: 'domcontentloaded' });
   await expect(page.locator('app-root')).toBeVisible();
   await clickMainNavigation(page, 'Projekte');
   await expect(page.getByRole('heading', { name: 'Projekte', exact: true })).toBeVisible();
