@@ -27,13 +27,13 @@
       "items": [
         {
           "id": "CI-001",
-          "status": "completed",
+          "status": "open",
           "workflow": "Visual Guide Tests",
           "workflow_job": "frontend-typecheck",
           "step": "frontend-typecheck",
           "severity": "high",
           "risk_assessment": "Niedrig: reine Frontend-Vertragsinkonsistenz, isoliert auf Kontext-Policy-UI-Service-Ebene.",
-          "observed_error": "TypeScript-Fehler wegen `ContextAccessPolicyApiService` ohne v1-kompatible Methoden und Typdrift (`ContextPolicyRecord` vs `ContextAccessPolicy`).",
+          "observed_error": "Weiterhin rot (Stand 2026-08-16, Run 31943267737, Job frontend-typecheck). 5 TypeScript-Fehler, unveraendert gegenueber dem Lauf vor der Behebung: TS2339 'getDiagnostics' fehlt (policy-diagnostics.component.ts:92), TS2339 'listTemplates' fehlt (policy-preset-selector.component.ts:72), TS2322 Observable<any[]|ContextPolicyRecord[]|ContextAccessPolicy[]> nicht zuweisbar an Observable<ContextAccessPolicy[]> (policy-version-list.component.ts:86), TS2339 'activatePolicy' fehlt (policy-version-list.component.ts:100), TS2339 'previewDecision' fehlt (preview-decision.component.ts:76) - jeweils auf ContextAccessPolicyApiService.",
           "root_cause": "Frontend-Adapter war historisch auf einen älteren Contract (`ContextAccessPolicy`) und alte Preview-Request-Felder ausgerichtet.",
           "affected_files_or_subsystems": [
             "frontend-angular/src/app/services/context-access-policy-api.service.ts",
@@ -43,7 +43,9 @@
           "implemented_solution": "Erfolgreich umgesetzt: `policy_id`/`version`-Weitergabe für Aktivierung korrigiert, `previewDecision` auf v1-Preview-Request ohne `purpose` reduziert und Decision-Mapping auf erlaubte Entscheidungen (`allow|deny|approval_required|unavailable`) angepasst.",
           "relevant_validations": [
             "Frontend-Typecheck-Äquivalent lokal via Angular TypeScript-Prüfpfad",
-            "Direkter Blick auf vertraglich geparste Datenmodelle in `context-access-policy-api.service.ts`"
+            "Direkter Blick auf vertraglich geparste Datenmodelle in `context-access-policy-api.service.ts`",
+            "REGRESSIONSBEFUND 2026-08-16: als 'completed' gefuehrt, aber faktisch nie gruen. Fehlerbild bei Run 31942114409 (vor den heutigen Commits) und Run 31943267737 (danach) identisch: dieselben 5 Fehler, gleiche Dateien und Zeilen. Der Status wurde deshalb auf 'open' zurueckgesetzt.",
+            "Betrifft zwei Workflows: 'Visual Guide Tests' (frontend-typecheck) und 'Quality And Docs' (frontend-build -> Run frontend unit tests, wo dieselben context-access-policy-Specs fehlschlagen)."
           ],
           "dependencies": [],
           "commit_changes": [
@@ -53,13 +55,13 @@
         },
         {
           "id": "CI-002",
-          "status": "completed",
+          "status": "open",
           "workflow": "Backend Isolated Flows",
           "workflow_job": "isolated-flows",
           "step": "pytest tests/test_autonomous_scrum_e2e.py + test_autopilot_integration.py",
           "severity": "high",
           "risk_assessment": "Mittel: betrifft ad-hoc Plan-Materialisierung, kann bei fehlendem Team-Metadaten-Setup lokal reproduzierbar fehlschlagen.",
-          "observed_error": "`sqlite3.IntegrityError: FOREIGN KEY constraint failed` beim Einfügen in `tasks` bei Materialisierung ohne existierende Team-Referenz.",
+          "observed_error": "Weiterhin rot (Stand 2026-08-16, Run 31943267700, Job isolated-flows): 2 failed, 47 passed, 2 skipped. Fehlschlagend: tests/test_autonomous_scrum_e2e.py::test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks und tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal. Assertions: 'assert 400 == 201' und 'assert 500 in [200, 201]'; darunter sqlalchemy/sqlite3 IntegrityError: FOREIGN KEY constraint failed.",
           "root_cause": "Bei ad-hoc Auto-Planner-Läufen (`goal_id=None`) wird eine nicht existente `team_id` (`team-local-llm`) unverändert durchgereicht, während kein gültiger Team-Datensatz vorhanden ist.",
           "affected_files_or_subsystems": [
             "tests/test_autonomous_scrum_e2e.py",
@@ -72,7 +74,9 @@
           "relevant_validations": [
             "Reproduktion der betroffenen Tests lokal im isolierten Testlauf",
             "Re-run von `pytest -q tests/test_autonomous_scrum_e2e.py::test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks`",
-            "Re-run von `pytest -q tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal`"
+            "Re-run von `pytest -q tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal`",
+            "REGRESSIONSBEFUND 2026-08-16: als 'completed' gefuehrt, aber faktisch nie gruen. Zaehlung bei Run 31942114417 (vor den heutigen Commits) und Run 31943267700 (danach) identisch: 2 failed / 47 passed / 2 skipped, gleiche Tests, gleiche Assertions, gleicher FOREIGN-KEY-Fehler. Der Status wurde auf 'open' zurueckgesetzt.",
+            "Gegenprobe: die Task-Scope-Vererbung aus Commit d4d9ac2a6 hat daran nichts geaendert - Zahlen und Fehlersignatur davor und danach byte-gleich."
           ],
           "dependencies": [
             "CI-003"
@@ -310,19 +314,203 @@
             "scripts/run_real_worker_runtime_evidence.py",
             "agent/routes/tasks/orchestration.py"
           ]
+        },
+        {
+          "dependencies": [
+            "CI-009"
+          ],
+          "commit_changes": [],
+          "id": "CI-010",
+          "status": "open",
+          "workflow": "Core Evidence Flow / Daemon Worker Runtime Evidence / Ananta Native Full E2E Evidence",
+          "workflow_job": "evidence scripts",
+          "step": "POST /tasks/orchestration/ingest",
+          "severity": "critical",
+          "risk_assessment": "Hoch: drei Evidenz-Workflows sind vollstaendig blockiert und liefern gar keine Evidenz mehr. Eine gemeinsame Ursache, daher voraussichtlich ein Fix fuer drei Workflows.",
+          "observed_error": "403 FORBIDDEN auf /tasks/orchestration/ingest. Im Core Evidence Flow (Run 31939080335) ist der Grund ausgeschrieben: reason_code 'context_bundle_reserved_ingress_forbidden', reserved_field 'worker_execution_context.context'. Daemon Worker Runtime Evidence (Run 31939082809) und Ananta Native Full E2E Evidence (Run 31939074467) scheitern an derselben Route mit 403.",
+          "root_cause": "Noch zu bestaetigen: der Hub weist bei Ingest ein reserviertes Feld unterhalb von worker_execution_context zurueck. 'OpenCode Full E2E Evidence' sendet an derselben Route 'worker_execution_context.evidence_context' und ist gruen - der Unterschied zwischen gruenem und rotem Payload ist der Ansatzpunkt.",
+          "affected_files_or_subsystems": [
+            "scripts/run_core_evidence_flow.py",
+            "scripts/run_daemon_worker_runtime_evidence.sh",
+            "scripts/run_ananta_native_full_e2e_evidence.sh",
+            "agent/routes/tasks/orchestration.py"
+          ],
+          "proposed_solution": "Reservierte Ingress-Felder im Hub identifizieren und die drei Skripte auf einen erlaubten Payload bringen, analog zum bereits gruenen OpenCode-Payload. Keine Aufweichung des Hub-Guards.",
+          "expected_result": "Alle drei Workflows kommen am Ingest vorbei und liefern wieder Evidenz.",
+          "relevant_validations": [
+            "Erste Ursache faktenbasiert aus Run 31939080335 (reason_code im Response-Body)."
+          ]
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-011",
+          "status": "open",
+          "workflow": "ananta-codecompass-review",
+          "workflow_job": "Build local CodeCompass graph",
+          "step": "Compute blast radius",
+          "severity": "medium",
+          "risk_assessment": "Niedrig-mittel: reine Abhaengigkeitsluecke im Job-Setup, kein Produktivpfad.",
+          "observed_error": "ModuleNotFoundError: No module named 'jsonschema' beim Import von ananta_codecompass.graph_store -> .file_type_classifier (Run 31939073421).",
+          "root_cause": "Noch zu bestaetigen: jsonschema fehlt in der im Job installierten Abhaengigkeitsmenge.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/ananta-codecompass-review.yml"
+          ],
+          "proposed_solution": "Fehlende Laufzeitabhaengigkeit im Job-Setup ergaenzen.",
+          "expected_result": "Der Blast-Radius-Schritt importiert wieder und der Workflow laeuft durch.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-012",
+          "status": "open",
+          "workflow": "Backend Deep Tests",
+          "workflow_job": "backend-deep-tests (e2e-rag-runtime)",
+          "step": "Run deep tests",
+          "severity": "high",
+          "risk_assessment": "Mittel-hoch: gesamter Workspace-Git-Sync-Pfad ist im E2E nicht mehr nachweisbar.",
+          "observed_error": "5 failed, 23 passed (Run 31939076789). Alle fuenf in tests/e2e/test_workspace_git_sync_flow.py mit derselben Ursache: agent.services.workspace_git_service.WorkspaceGitInitError: 'Git remote policy denied workspace initialization'.",
+          "root_cause": "Noch zu bestaetigen: Remote-Policy verweigert die Workspace-Initialisierung unter CI-Bedingungen.",
+          "affected_files_or_subsystems": [
+            "agent/services/workspace_git_service.py",
+            "tests/e2e/test_workspace_git_sync_flow.py"
+          ],
+          "proposed_solution": "Policy-Bedingung ermitteln und entweder die Testvorbedingung korrekt herstellen oder die Policy fuer den lokalen Testremote sauber zulassen - ohne die Policy generell aufzuweichen.",
+          "expected_result": "Die fuenf Git-Sync-E2E-Tests laufen wieder gruen.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-013",
+          "status": "open",
+          "workflow": "Coverage Report",
+          "workflow_job": "backend-coverage (operator-tui-01)",
+          "step": "Run backend coverage",
+          "severity": "medium",
+          "risk_assessment": "Mittel: Coverage-Nachweis fehlt; zusaetzlich melden Shards fehlende Testdateien.",
+          "observed_error": "Run 31939081442: FAILED tests/test_snake_oidc_binding.py::test_register_snake_accepts_strict_service_bearer sowie tests/test_tui_planning_track_commands.py::test_plan_track_adopt_and_reject_flow und ::test_plan_track_execute_next_starts_internal_task. Zusaetzlich Meldungen 'Shard <n> has no test files.' und 'Coverage file <data_file> was not written'.",
+          "root_cause": "Noch zu bestaetigen.",
+          "affected_files_or_subsystems": [
+            "tests/test_snake_oidc_binding.py",
+            "tests/test_tui_planning_track_commands.py",
+            ".github/workflows/coverage.yml"
+          ],
+          "proposed_solution": "Die drei Testfehler einzeln aufklaeren; getrennt davon die Shard-Aufteilung pruefen, die leere Shards erzeugt.",
+          "expected_result": "Coverage-Lauf gruen, keine leeren Shards.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-014",
+          "status": "open",
+          "workflow": "Quality And Docs",
+          "workflow_job": "workflow-runtime-example-compose / workflow-runtime-release-gate",
+          "step": "Validate and export example-only evidence / mandatory workflow-runtime release gate",
+          "severity": "high",
+          "risk_assessment": "Hoch: verpflichtendes Release-Gate ist rot.",
+          "observed_error": "Beide Jobs schlagen fehl (Run 31942877103). Konkrete Ursache noch nicht erhoben.",
+          "root_cause": "Noch zu ermitteln.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/quality-and-docs.yml"
+          ],
+          "proposed_solution": "Ursache aus den Jobprotokollen erheben und gezielt beheben.",
+          "expected_result": "Beide Jobs laufen wieder durch.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-015",
+          "status": "open",
+          "workflow": "E2E Compose",
+          "workflow_job": "e2e-compose (mehrere Shards)",
+          "step": "Run E2E shard",
+          "severity": "high",
+          "risk_assessment": "Hoch: mehrere E2E-Shards gleichzeitig rot.",
+          "observed_error": "Run 31942114359: mindestens die Shards compose-admin-core, compose-admin-entities, compose-goal-smoke und compose-goal-core schlagen fehl. Konkrete Ursache je Shard noch nicht erhoben.",
+          "root_cause": "Noch zu ermitteln.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/e2e-compose.yml"
+          ],
+          "proposed_solution": "Pro Shard die erste Fehlerursache erheben und auf gemeinsame Ursache pruefen.",
+          "expected_result": "E2E-Compose-Shards laufen wieder gruen.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-016",
+          "status": "open",
+          "workflow": "Unsloth Release Gate",
+          "workflow_job": "CPU contract and security / Angular contracts and Fake-Hub E2E",
+          "step": "Run deterministic Unsloth contracts and security boundaries / Run Angular model-training contracts",
+          "severity": "medium",
+          "risk_assessment": "Mittel: Release-Gate fuer Unsloth ist rot, seit 2026-08-14 unveraendert.",
+          "observed_error": "Run 31802241583. CPU-Job: agent.services.ml_intern_provenance_contract.MlInternTrainingContractError zur LoRA-Trainings- und Queue-Kapazitaet. Angular-Job: wiederholtes 'Error: AggregateError'.",
+          "root_cause": "Noch zu ermitteln.",
+          "affected_files_or_subsystems": [
+            "agent/services/ml_intern_provenance_contract.py",
+            ".github/workflows/unsloth-release-gate.yml"
+          ],
+          "proposed_solution": "Beide Jobs getrennt aufklaeren.",
+          "expected_result": "Unsloth Release Gate wieder gruen.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-017",
+          "status": "blocked_decision",
+          "workflow": "Quality And Docs",
+          "workflow_job": "backend-checks",
+          "step": "Source file line limit gate",
+          "severity": "medium",
+          "risk_assessment": "Mittel: das Gate ist rot, die Behebung ist aber eine breite Umstrukturierung vieler Dateien und bewusst einem eigenen Arbeitsgang vorbehalten.",
+          "observed_error": "Run 31942877103, Job backend-checks: source_file_line_count_audit.v1 meldet bei threshold 1000 ueber 9386 Dateien: failing_source_over_threshold 77, source_over_threshold 131, test_over_threshold 45, over_threshold 274. Exit code 1.",
+          "root_cause": "Historisch gewachsene Dateigroessen oberhalb der 1000-Zeilen-Schwelle.",
+          "affected_files_or_subsystems": [
+            "reports/source-files-over-1000-allowlist.json",
+            ".github/workflows/quality-and-docs.yml"
+          ],
+          "proposed_solution": "AUSDRUECKLICH ZURUECKGESTELLT auf Anweisung des Nutzers: wird in einem eigenen Arbeitsgang mit einem separaten Agenten geloest. Nicht im Rahmen der uebrigen CI-Punkte anfassen, insbesondere nicht durch Aufweichen der Schwelle oder Erweitern der Allowlist.",
+          "expected_result": "Offen, bis der separate Arbeitsgang laeuft.",
+          "relevant_validations": []
+        },
+        {
+          "dependencies": [],
+          "commit_changes": [],
+          "id": "CI-018",
+          "status": "open",
+          "workflow": "Container Release Build / Dogfood Evidence E2E",
+          "workflow_job": "-",
+          "step": "-",
+          "severity": "low",
+          "risk_assessment": "Niedrig: veralteter bzw. abgebrochener Lauf, Aussagekraft derzeit gering.",
+          "observed_error": "Container Release Build: letzter Lauf 28298970270 vom 2026-06-27 mit failure, also seit Wochen ohne aktuellen Nachweis. Dogfood Evidence E2E: letzter Lauf 31939084068 wurde cancelled, kein Ergebnis.",
+          "root_cause": "Nicht ermittelt; zunaechst muss ein aktueller Lauf her.",
+          "affected_files_or_subsystems": [
+            ".github/workflows/container-release.yml",
+            ".github/workflows/dogfood-evidence.yml"
+          ],
+          "proposed_solution": "Je einen aktuellen Lauf ausloesen und danach bewerten.",
+          "expected_result": "Belastbarer aktueller Status statt veralteter bzw. abgebrochener Laeufe.",
+          "relevant_validations": []
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 9,
+    "total_items": 18,
     "by_status": {
-      "completed": 8,
+      "completed": 6,
       "partial": 0,
-      "open": 0,
+      "open": 10,
       "in_progress": 0,
       "blocked": 0,
-      "blocked_decision": 0,
+      "blocked_decision": 1,
       "planned": 0,
       "done": 1
     },
@@ -333,18 +521,21 @@
       "Lokale Validationsergebnisse: `npm run test:unit -- src/app/services/context-access-policy-api.service.spec.ts` lief im aktuellen Setup fehl (jasmine-Umgebung fehlt), `npx tsc --noEmit` und `npm run build/lint` laufen in dieser Umgebung ohne zeitnahes Ende >120s bis zu Timeout.",
       "CI-009-Nachtrag (Schritt 9, Querblick auf gleichartige Evidence-Workflows): scripts/run_ananta_native_full_e2e_evidence.sh hatte dasselbe zu enge Diff-Fenster. Dort wird die Evidenz-Markdown erst nach dem Initial-Commit geschrieben, ist also untracked, weshalb der veroeffentlichte Check 'evidence_file_added' bei JEDEM erfolgreichen Run false meldete (lokal reproduziert). Der Workflow blieb gruen, weil nur die Existenz geprueft wurde - der falsche Wert ging still als Evidenz raus. Mit derselben minimalen Korrektur (staged diff) behoben. scripts/run_daemon_worker_runtime_evidence.sh erzeugt keinen Patch-Diff und ist von diesem Muster nicht betroffen.",
       "CI-009-Nebenbefund: der CI-009-Eintrag trug im rohen JSON zwei 'status'-Schluessel ('in_progress', danach 'partial'). JSON-Parser behalten den letzten, weshalb Werkzeuge 'partial' sahen; der Widerspruch war im Dateitext aber vorhanden. Beim Aktualisieren auf 'done' wurde der Eintrag auf einen einzigen status-Schluessel zusammengefuehrt.",
-      "Offen und ausserhalb CI-009 (nicht mitbehoben, damit der Scope eng bleibt): der Workflow 'Ananta Native Full E2E Evidence' (Run 31939074467) scheitert bereits vor dem Diff-Schritt mit '403 FORBIDDEN' auf /tasks/orchestration/ingest. Die dort vorgenommene Diff-Fenster-Korrektur ist deshalb lokal gegen die echte Fixture verifiziert, aber noch nicht durch einen gruenen CI-Run bestaetigt - das setzt voraus, dass zuvor der 403 auf dem Ingest-Pfad geklaert wird. Eigener Folgepunkt."
+      "Offen und ausserhalb CI-009 (nicht mitbehoben, damit der Scope eng bleibt): der Workflow 'Ananta Native Full E2E Evidence' (Run 31939074467) scheitert bereits vor dem Diff-Schritt mit '403 FORBIDDEN' auf /tasks/orchestration/ingest. Die dort vorgenommene Diff-Fenster-Korrektur ist deshalb lokal gegen die echte Fixture verifiziert, aber noch nicht durch einen gruenen CI-Run bestaetigt - das setzt voraus, dass zuvor der 403 auf dem Ingest-Pfad geklaert wird. Eigener Folgepunkt.",
+      "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand."
     ],
     "recommended_order": [
+      "CI-011",
+      "CI-010",
       "CI-001",
-      "CI-007",
+      "CI-012",
       "CI-002",
-      "CI-006",
-      "CI-003",
-      "CI-008",
-      "CI-005",
-      "CI-004",
-      "CI-009"
+      "CI-013",
+      "CI-014",
+      "CI-015",
+      "CI-016",
+      "CI-018",
+      "CI-017"
     ]
   }
 }
