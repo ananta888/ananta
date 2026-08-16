@@ -243,12 +243,14 @@
       "id": "HAC-004",
       "title": "Evidence-, Tenant-, Revision- und Security-Regeln auf Hierarchie anwenden",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
-        "files_to_create": [],
+        "files_to_create": [
+          "agent/services/codecompass_architecture_security.py"
+        ],
         "files_to_modify": [
           "agent/services/codecompass_context_service.py",
           "agent/services/tools/_evidence.py"
@@ -268,7 +270,9 @@
         "Negative Tests fuer Tenant-Sprung, Revision-Sprung, Secret-Inhalt und Prompt-Injection.",
         "Regression gegen bestehende Evidence-/Trust-Gates."
       ],
-      "dependencies": ["HAC-001"]
+      "dependencies": ["HAC-001"],
+      "completed_at": "2026-08-15",
+      "commit_hash": "75efdcd"
     },
     {
       "id": "HAC-005",
