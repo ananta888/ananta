@@ -305,7 +305,6 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
   // Try to normalize admin auth state in shared compose-lite runs.
   await normalizeExistingAdminAuthState(username, password);
   await prepareLoginPage(page);
-  const dashboard = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const passwordCandidates = username === ADMIN_USERNAME ? adminPasswordCandidates(password) : [password];
 
   if (USE_EXISTING_SERVICES && username === ADMIN_USERNAME) {
@@ -322,8 +321,8 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', token);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
-    await expect(dashboard).toBeVisible({ timeout: 30000 });
+    await gotoDashboardForSession(page);
+    await expectAuthenticatedShell(page);
     return;
   }
 
@@ -342,8 +341,8 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
         if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
         localStorage.setItem('ananta.shell.mode', 'advanced');
       }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-      await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
-      await expect(dashboard).toBeVisible({ timeout: 30000 });
+      await gotoDashboardForSession(page);
+      await expectAuthenticatedShell(page);
       return;
     }
     if (apiLogin?.mfaRequired) {
@@ -365,8 +364,8 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
-    await expect(dashboard).toBeVisible({ timeout: 30000 });
+    await gotoDashboardForSession(page);
+    await expectAuthenticatedShell(page);
     return;
   }
 
@@ -384,7 +383,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       await page.locator('input[name="password"]').fill(attemptPassword);
       await expect(submit).toBeEnabled({ timeout: 5000 });
       await submit.click();
-      await expect(dashboard).toBeVisible({ timeout: loginAttemptTimeoutMs });
+      await expectAuthenticatedShell(page);
       return;
     } catch (e: any) {
       console.warn(`Login attempt ${attempt + 1} failed: ${e.message}`);
@@ -421,10 +420,10 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId(await browserSessionToken(page)))}`, { waitUntil: 'domcontentloaded' });
+    await gotoDashboardForSession(page);
   }
 
-  await expect(dashboard).toBeVisible({ timeout: 30000 });
+  await expectAuthenticatedShell(page);
 }
 
 export async function loginFast(
@@ -972,6 +971,35 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
  * lists legacy teams as pseudo-projects (status 'legacy_unclaimed'), and those
  * are never accepted -- so they must not be mistaken for a usable project.
  */
+/**
+ * Assert the session is signed in, without demanding a project-scoped page.
+ *
+ * Only admins may create a project and there is no API to add a member, so a
+ * plain user can never satisfy projectContextGuard. Requiring the dashboard
+ * heading here asserted something the product does not grant; the app shell is
+ * what "logged in" actually means.
+ */
+export async function expectAuthenticatedShell(page: Page): Promise<void> {
+  const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
+  const appNav = page.locator('.app-nav');
+  const loginForm = page.locator('input[name="username"]');
+  await expect.poll(async () => {
+    if (await dashboardHeading.isVisible().catch(() => false)) return 'authenticated';
+    if (await appNav.isVisible().catch(() => false)) return 'authenticated';
+    if (/\/login(?:[?#]|$)/.test(page.url()) || await loginForm.isVisible().catch(() => false)) return 'login';
+    return 'pending';
+  }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
+}
+
+async function gotoDashboardForSession(page: Page): Promise<void> {
+  // /dashboard sits behind projectContextGuard. Scope it when this session can
+  // have a project; otherwise go plain and let the caller's own check decide,
+  // rather than inventing access the product does not grant.
+  const projectId = await ensureActiveProjectId(await browserSessionToken(page));
+  const target = projectId ? `/dashboard?projectId=${encodeURIComponent(projectId)}` : '/dashboard';
+  await page.goto(target, { waitUntil: 'domcontentloaded' });
+}
+
 async function browserSessionToken(page: Page): Promise<string> {
   return page
     .evaluate(() => localStorage.getItem('ananta.user.token') || '')
@@ -1010,6 +1038,13 @@ export async function ensureActiveProjectId(sessionToken?: string): Promise<stri
       },
       timeout,
     );
+    if (created.status === 403) {
+      // Creating a project is admin-only and there is no API to add a member
+      // afterwards, so a plain user can never own one. Report "none" instead of
+      // failing: routes behind projectContextGuard are simply out of reach for
+      // this session, and the caller decides what that means.
+      return '';
+    }
     if (!created.ok) {
       throw new Error(`No active project and creating one failed: HTTP ${created.status}`);
     }

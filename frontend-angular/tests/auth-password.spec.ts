@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { HUB_URL, createUserAsAdmin, deleteUserAsAdmin, gotoProjectScopedRoute, loginFast } from './utils';
+import { HUB_URL, createUserAsAdmin, deleteUserAsAdmin, expectAuthenticatedShell, loginFast } from './utils';
 
 test.describe('Password Change', () => {
   test('should change password and login with new password', async ({ page, request }) => {
@@ -36,9 +36,13 @@ test.describe('Password Change', () => {
       const newAccessToken = String(successPayload?.data?.access_token || '').trim();
       expect(newAccessToken.length).toBeGreaterThan(10);
 
+      // The subject here is the password change, and the question this asks is
+      // "is the new password a working UI session?". It must not be the
+      // dashboard: that route is behind projectContextGuard, only admins may
+      // create a project and no API adds a member, so this freshly created user
+      // can never reach it.
       await loginFast(page, request, username, newPassword);
-      await gotoProjectScopedRoute(page, '/dashboard');
-      await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
+      await expectAuthenticatedShell(page);
     } finally {
       await deleteUserAsAdmin(username);
     }
