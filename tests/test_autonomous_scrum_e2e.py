@@ -4,7 +4,8 @@ import pytest
 
 from agent.config import settings
 from agent.db_models import AgentInfoDB, ConfigDB
-from agent.repository import agent_repo, config_repo
+from agent.db_models.teams import TeamDB
+from agent.repository import agent_repo, config_repo, team_repo
 from agent.routes.tasks.autopilot import AUTOPILOT_STATE_KEY, AutonomousLoopManager, autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
@@ -129,6 +130,11 @@ def test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks(client,
 
     monkeypatch.setattr("agent.routes.tasks.auto_planner.generate_text", lambda **kwargs: llm_response)
 
+    # tasks.team_id references teams.id, so the team a plan is scoped to has to
+    # exist before its tasks can be written. The test named one without
+    # creating it, which failed that key during materialization.
+    team_repo.save(TeamDB(id="team-local-llm", name="Local LLM Team"))
+
     planned = client.post(
         "/tasks/auto-planner/plan",
         headers=admin_auth_header,
@@ -140,7 +146,7 @@ def test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks(client,
             "create_tasks": True,
         },
     )
-    assert planned.status_code == 201
+    assert planned.status_code == 201, planned.get_data(as_text=True)[:800]
     created_ids = planned.json["data"]["created_task_ids"]
     assert len(created_ids) == 3
 

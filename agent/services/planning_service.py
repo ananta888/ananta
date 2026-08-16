@@ -684,7 +684,13 @@ class PlanningService:
                 node.materialized_task_id = task_id
                 node.status = "materialized"
                 node.updated_at = time.time()
-                repos.plan_node_repo.save(node)
+                # A plan node is only persistable when its plan is: plan_nodes
+                # carries a foreign key to plans.id, and without a persisted
+                # plan the pipeline builds nodes under a stand-in id that
+                # references nothing. Without a plan these nodes are transient
+                # working state, so they are kept in memory and not written.
+                if plan is not None:
+                    repos.plan_node_repo.save(node)
                 planner._stats["tasks_created"] += 1
         except Exception as exc:
             logging.getLogger(__name__).warning("Plan materialization failed for plan %s: %s", plan.id if plan else "ad-hoc", exc)
@@ -1330,7 +1336,11 @@ class PlanningService:
                 node.materialized_task_id = None
                 node.status = "pending"
                 node.updated_at = time.time()
-                repos.plan_node_repo.save(node)
+                # Same rule as on the way in. Without this the rollback raised
+                # a second foreign-key error while cleaning up after the first,
+                # which is what surfaced in CI as the unhandled exception.
+                if plan is not None:
+                    repos.plan_node_repo.save(node)
         if plan:
             plan.status = "failed"
             plan.rationale = {

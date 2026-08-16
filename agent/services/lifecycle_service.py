@@ -275,7 +275,13 @@ class TaskLifecycleService:
                 "goal_id": goal_id,
                 "goal_trace_id": goal_trace_id,
                 "plan_id": plan_id,
-                "plan_node_id": node.id,
+                # tasks.plan_node_id carries a foreign key to plan_nodes, and a
+                # plan node is only persisted when its plan is. Pointing at a
+                # node that was never written fails that key, so without a plan
+                # the reference is left out; the same ids stay in
+                # worker_execution_context for tracing, where nothing enforces
+                # them.
+                "plan_node_id": node.id if plan_id else None,
                 "task_kind": rationale.get("task_kind"),
                 "retrieval_intent": rationale.get("retrieval_intent"),
                 "required_context_scope": rationale.get("required_context_scope"),
