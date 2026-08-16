@@ -322,7 +322,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', token);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token });
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -342,7 +342,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
         if (refreshToken) localStorage.setItem('ananta.user.refresh_token', refreshToken);
         localStorage.setItem('ananta.shell.mode', 'advanced');
       }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN, token: apiLogin.accessToken, refreshToken: apiLogin.refreshToken });
-      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+      await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
       await expect(dashboard).toBeVisible({ timeout: 30000 });
       return;
     }
@@ -365,7 +365,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
     await expect(dashboard).toBeVisible({ timeout: 30000 });
     return;
   }
@@ -421,7 +421,7 @@ export async function login(page: Page, username = ADMIN_USERNAME, password = AD
       localStorage.setItem('ananta.user.token', hubToken);
       localStorage.setItem('ananta.shell.mode', 'advanced');
     }, { hubUrl: HUB_URL, alphaUrl: ALPHA_URL, betaUrl: BETA_URL, hubToken: HUB_AGENT_TOKEN, alphaToken: ALPHA_AGENT_TOKEN, betaToken: BETA_AGENT_TOKEN });
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
   }
 
   await expect(dashboard).toBeVisible({ timeout: 30000 });
@@ -505,7 +505,7 @@ export async function loginFast(
 
   // Re-bootstrap the Angular app after token injection so auth services read the new storage state.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
 
   const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');
@@ -960,6 +960,55 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
  * over everything else. With no project at all the route genuinely cannot be
  * reached, and this says so instead of leaving a mystery locator error.
  */
+/**
+ * Resolve an active project id, creating one when the environment has none.
+ *
+ * /dashboard and every other project-scoped route sit behind projectContextGuard,
+ * which accepts a project only when its status is 'active'. /api/projects also
+ * lists legacy teams as pseudo-projects (status 'legacy_unclaimed'), and those
+ * are never accepted -- so they must not be mistaken for a usable project.
+ */
+export async function ensureActiveProjectId(): Promise<string> {
+  const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  const timeout = Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000');
+  const response = await fetchWithTimeout(
+    `${HUB_URL}/api/projects`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    timeout,
+  );
+  if (!response.ok) {
+    throw new Error(`Could not list projects: HTTP ${response.status}`);
+  }
+  const payload = await response.json().catch(() => ({}));
+  const items: Array<Record<string, unknown>> = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.data?.items)
+      ? payload.data.items
+      : [];
+  let active = items.find((item) => item?.status === 'active');
+  if (!active) {
+    const created = await fetchWithTimeout(
+      `${HUB_URL}/api/projects`,
+      {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'E2E Default Project', description: 'Created for project-scoped routes' }),
+      },
+      timeout,
+    );
+    if (!created.ok) {
+      throw new Error(`No active project and creating one failed: HTTP ${created.status}`);
+    }
+    const body = await created.json().catch(() => ({}));
+    active = body?.data?.project ?? body?.project ?? body?.data ?? body;
+  }
+  const projectId = String((active as Record<string, unknown>)?.id ?? '').trim();
+  if (!projectId) {
+    throw new Error('No usable project could be established');
+  }
+  return projectId;
+}
+
 export async function gotoProjectScopedRoute(
   page: Page,
   path: string,
@@ -980,9 +1029,13 @@ export async function gotoProjectScopedRoute(
     : Array.isArray(payload?.data?.items)
       ? payload.data.items
       : [];
-  // The guard only accepts an active project, so an archived one is no more
-  // use here than none at all.
-  let active = items.find((item) => item?.status === 'active' || item?.is_active === true);
+  // The guard only accepts a project whose status is 'active'. Matching on
+  // is_active as well was wrong: /api/projects also lists legacy teams as
+  // pseudo-projects with status 'legacy_unclaimed' and is_active true, so that
+  // fallback picked a team id, handed it over as projectId, and the project
+  // context refused it -- leaving every project-scoped route to redirect while
+  // this helper reported success.
+  let active = items.find((item) => item?.status === 'active');
   if (!active) {
     // A fresh environment has no project, and every project-scoped route then
     // redirects. Creating one is the precondition these routes need, not a
@@ -1010,6 +1063,13 @@ export async function gotoProjectScopedRoute(
   await page.goto(`${path}${separator}projectId=${encodeURIComponent(projectId)}`, {
     waitUntil: options.waitUntil ?? 'domcontentloaded',
   });
+
+  // The guard decides only after the project context has loaded its catalogue
+  // over HTTP, so any redirect lands after domcontentloaded. Reading the URL
+  // straight away reports the requested path even when the app is one tick
+  // from leaving it -- which is how a correct diagnosis of this very failure
+  // was once discarded as refuted. Let the navigation settle first.
+  await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => undefined);
 
   // Landing somewhere else means the context refused the project — it has to
   // be in the loaded catalogue for the guard to accept it. Saying so here

@@ -489,23 +489,26 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-015",
-          "status": "open",
+          "status": "in_progress",
           "workflow": "E2E Compose",
           "workflow_job": "e2e-compose (mehrere Shards)",
           "step": "Run E2E shard",
           "severity": "high",
           "risk_assessment": "Hoch: mehrere E2E-Shards gleichzeitig rot.",
           "observed_error": "Run 31942114359: mindestens die Shards compose-admin-core, compose-admin-entities, compose-goal-smoke und compose-goal-core schlagen fehl. Konkrete Ursache je Shard noch nicht erhoben.",
-          "root_cause": "NOCH UNBEKANNT. Zwei Hypothesen wurden aufgestellt und beide widerlegt. (1) 'Der projectContextGuard leitet ohne Projekt nach /projects um' - widerlegt: der Testlauf 31958355824 enthaelt eine Pruefung, die genau diese Umleitung meldet, und sie schlaegt nicht an. Die Seite ist auf /dashboard. (2) 'Der Projektkontext lehnt das Projekt ab' - ebenfalls nicht belegt, aus demselben Grund. Belegt ist nur: die Navigation erreicht /dashboard, und das Heading ist trotzdem nicht da. Der Text steht in dashboard.component.html und liegt im gebauten Bundle, PageIntroComponent ist importiert, und page-intro rendert ihn als <h2>. In der compose-foundation-auth-Shard bestehen 4 Tests und 12 scheitern, alle an dieser einen Zusicherung. Warum die Seite dort ohne ihr Heading rendert, ist offen und braucht den laufenden Stack - aus Logs und Artefakten allein war es nicht zu klaeren.",
+          "root_cause": "GEKLAERT, mit Seiten-Snapshot belegt (Lauf 31964336988, compose-foundation-auth). Die Seite ist NICHT das Dashboard, sondern /projects: der projectContextGuard leitet dorthin um, wenn kein Projekt aktiv ist. Der Snapshot zeigt die Projektauswahl auf 'Projekt auswaehlen' und drei gleichnamige Eintraege 'E2E Seed Scrum Team ...', alle als 'Archiviert' gelistet - kein einziger aktiv. Damit war die urspruengliche Hypothese (1) richtig; sie wurde nur deshalb faelschlich verworfen, weil die Umleitungspruefung in gotoProjectScopedRoute die URL direkt nach domcontentloaded liest, waehrend der Guard erst nach dem HTTP-Laden des Projektkatalogs entscheidet. Die Pruefung las also /dashboard, kurz bevor die App es verliess. Der tiefere Grund, warum trotz ?projectId= kein Kontext zustande kam: /api/projects listet Alt-Teams als Pseudo-Projekte mit status 'legacy_unclaimed' und is_active true (agent/routes/projects.py, _legacy_team_item). Der Helfer akzeptierte is_active als 'aktiv', uebergab damit eine TEAM-Id als projectId, und ProjectContextService.resolveInitialSelection lehnte sie ab - kein Projekt, Guard leitet um. Beide Defekte lagen im Testhelfer, nicht im Produkt.",
           "affected_files_or_subsystems": [
             ".github/workflows/e2e-compose.yml"
           ],
-          "proposed_solution": "Mit laufendem Compose-Stack aufnehmen, was die Seite stattdessen zeigt (Playwright-Trace oder Screenshot der fehlgeschlagenen Tests). Erst danach eine dritte Hypothese bilden - die ersten beiden wurden aus dem Code abgeleitet und waren beide falsch.",
+          "proposed_solution": "Behoben: gotoProjectScopedRoute akzeptiert nur noch status === 'active' (Alt-Teams sind nie ein brauchbares Projekt) und laesst die Navigation vor der Umleitungspruefung austrudeln. Die Vorbedingung ist als ensureActiveProjectId herausgezogen und wird jetzt auch von login() benutzt, das /dashboard bisher ohne Projektbezug ansteuerte - deshalb scheiterte permissions.spec.ts in utils.ts statt im Test. Bestaetigung durch den naechsten E2E-Lauf steht aus.",
           "expected_result": "E2E-Compose-Shards laufen wieder gruen.",
           "relevant_validations": [
             "Run 31958355824: Fehlschlag weiterhin an der Locator-Zusicherung, NICHT an der Umleitungspruefung - damit ist Hypothese (1) widerlegt.",
             "'Ananta starten' ist in src/app/components/dashboard.component.html und im Build (dist/.../chunk-AAIXJY2E.js) vorhanden.",
-            "compose-foundation-auth: 4 passed, 12 failed, alle an derselben Zusicherung."
+            "compose-foundation-auth: 4 passed, 12 failed, alle an derselben Zusicherung.",
+            "Die Beweiskette wurde erst moeglich, nachdem der globale Teardown die Artefakte nicht mehr loeschte: Screenshots, Videos, Traces und error-context.md liegen im Lauf 31964336988 vollstaendig vor, vorher enthielt das Artefakt nur junit-results.xml und results.json.",
+            "Bestaetigt durch das Bestehensmuster: alle bestandenen Tests der Shard sind solche, die sich nie erfolgreich anmelden (ungueltiger Login, gesperrtes Konto, Rate-Limit, Redirect ohne Anmeldung). Jeder gescheiterte Test meldet sich an und erwartet danach das Dashboard.",
+            "/dashboard traegt canActivate: [projectContextGuard] (features/control-plane/control-plane.routes.ts), der Guard verlangt hasProject()."
           ],
           "implemented_solution": "Nichts behoben. Beigetragen wurde nur Diagnosefaehigkeit: gotoProjectScopedRoute stellt den Projektkontext her (legt ein Projekt an, wenn keines aktiv ist) und meldet, wenn eine projektgebundene Route woanders landet - dadurch ist die Umleitungshypothese ueberhaupt erst widerlegbar geworden. Nebenbei korrigiert: die Hilfe, die das erste Projekt anlegt, war durch die projektgebundene Navigation zirkulaer geworden."
         },
