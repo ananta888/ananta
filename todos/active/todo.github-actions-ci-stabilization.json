@@ -2,15 +2,22 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-08-15",
-  "updated": "2026-08-15",
+  "updated": "2026-08-16",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "e49e2945a",
+    "reviewed_commit_range": "bec46329d",
     "review_goal": "Alle aktuell fehlgeschlagenen GitHub-Actions-Checks lokal reproduzierbar analysieren, echte Ursachen beheben und komplexe Punkte strukturiert nachhalten.",
     "reviewed_paths": [
       "frontend-angular/src/app/services/context-access-policy-api.service.ts",
       "frontend-angular/src/app/features/context-access-policy/policy-version-list.component.ts",
       ".github/workflows"
+    ],
+    "latest_failed_run_ids": [
+      "31941104698",
+      "31941105723"
+    ],
+    "latest_success_run_ids": [
+      "31941106905"
     ]
   },
   "categories": [
@@ -67,7 +74,9 @@
             "Re-run von `pytest -q tests/test_autonomous_scrum_e2e.py::test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks`",
             "Re-run von `pytest -q tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal`"
           ],
-          "dependencies": ["CI-003"],
+          "dependencies": [
+            "CI-003"
+          ],
           "commit_changes": [
             "agent/services/planning_service.py"
           ]
@@ -94,7 +103,10 @@
             "lokale Compose-Startup-Reproduktion mit kompletter DB-Migration",
             "Healthcheck nach Start erfolgreich bis 5xx-frei"
           ],
-          "dependencies": ["CI-004", "CI-007"],
+          "dependencies": [
+            "CI-004",
+            "CI-007"
+          ],
           "commit_changes": [
             "agent/database.py"
           ]
@@ -148,7 +160,9 @@
             "Gezielter Re-Run der Release-Gate-Token-Tests",
             "DB-Constraint-Beziehungstests für Refresh-Token-Pfade"
           ],
-          "dependencies": ["CI-003"],
+          "dependencies": [
+            "CI-003"
+          ],
           "commit_changes": [
             "agent/services/user_session_tokens.py",
             "agent/routes/_auth_session_routes.py"
@@ -176,7 +190,10 @@
             "Konkretisierung per Architektur-Import-Matrix",
             "Stufenweiser Re-Run von `backend-checks` nach jeder Teilmigration"
           ],
-          "dependencies": ["CI-008", "CI-011"],
+          "dependencies": [
+            "CI-008",
+            "CI-011"
+          ],
           "alternatives": [
             "Teilweise Ausnahme im Check (nicht empfohlen; würde Qualitätsziel senken)",
             "Layer-Adapter mit kompositorischen Ports, danach striktes Entfernen direkter Importe"
@@ -241,16 +258,64 @@
             "Migration-Check im Postgres-Contract-Testlauf",
             "Reproduktion im `workflow-runtime-postgres-contract`-Job"
           ],
-          "dependencies": ["CI-003"]
+          "dependencies": [
+            "CI-003"
+          ]
+        },
+        {
+          "id": "CI-009",
+          "status": "in_progress",
+          "workflow": "OpenCode Full E2E Evidence / Real Worker Runtime Evidence / Deploy www.ananta.de",
+          "workflow_job": "evidence scripts",
+          "step": "claims & Hub readiness in evidence workflows",
+          "severity": "critical",
+          "risk_assessment": "High: transient Hub 500s plus hub start failures block evidenzielle E2E/Worker-Workflows vollständig und verhindern verlässliche Release- und Operativ-Evidenz.",
+          "observed_error": "500 auf /tasks/orchestration/claim trotz Retry plus fehlender Hub-Readiness; OpenCode scheitert durch `Failed to connect` + Hub-500, Real Worker durch anonta_native claim-500 im Worker.",
+          "root_cause": "Hub-Claim-Endpunkt ist im evidenzbasierten Startpfad nicht resilient gegen Start- und Transientenfehler; Retry-Logik ist vorhanden, scheitert jedoch an fehlendem stabilen Startup/Retry-Scope und unzureichender Fehlerbehandlung bei Verbindungsabbrüchen in `run_opencode_full_e2e_evidence.sh`.",
+          "affected_files_or_subsystems": [
+            "scripts/run_opencode_full_e2e_evidence.sh",
+            "scripts/evidence_worker_runtime.py",
+            "scripts/run_real_worker_runtime_evidence.py",
+            "scripts/evidence_hub_server.py",
+            ".github/workflows/opencode-full-e2e-evidence.yml"
+          ],
+          "proposed_solution": "Hub-Startup deterministisch validieren und vor allen Claim/Complete-Requests Poll/Retry auf Verbindungs-/500-Fehler ausweiten; in Skripten temporäre response-Dateien robust behandeln; optional Hub-seitige Drosselung/Retry-Policy für claim endpoint ergänzen.",
+          "implemented_solution": "Hub-/Read-Model-Polling in `scripts/run_opencode_full_e2e_evidence.sh` mit robustem Retry für Verbindungsabbrüche/500er und stabiler temporärer Antwortdatei-Behandlung ergänzt; Claim/Complete-Wrapper in `scripts/evidence_worker_runtime.py` sowie POST/GET-Wrapper in `scripts/run_real_worker_runtime_evidence.py` auf begrenzte Retry+Backoff-Policy für Verbindungsfehler/500er-Ausfälle vereinheitlicht; optionaler Hub-Endpunktschutz für `/tasks/orchestration/claim` mit serialisiertem per-Task-Claim-Queueing und Retriable-Handling ergänzt.",
+          "relevant_validations": [
+            "Workflows mit neuen retry-Mechanismen erneut starten",
+            "Claim-Pfad (`/tasks/orchestration/claim`) in Evidenz-Workflows auf 500/Connect-Fehler robust behandeln",
+            "OpenCode-E2E: `31942116598` läuft bis Completion (aktuell failure: keine Patch-Diff erstellt)",
+            "Real Worker Runtime: `31942116635` läuft bis Completion (success)",
+            "Deploy www.ananta.de: `31942116585` läuft bis Completion (success)",
+            "OpenCode-Failurenotiz: `Failed to connect` wurde im Polling-Pfad robust abgefangen; verbleibend ist die OpenCode-Diff-Erzeugung.",
+            "Erfolgskriterien: OpenCode + Real Worker erfolgreich + stabiler Polling- und Claim-Pfad"
+          ],
+          "dependencies": [
+            "CI-003",
+            "CI-008"
+          ],
+          "expected_result": "Nachweislich stabilere Claim-/Completion-Pfade in evidenzbasierten Läufen; OpenCode und Real Worker sollen ohne Connect/500-Wiederholfehler laufen und Readiness/Polling deterministisch robust sein.",
+          "status": "partial",
+          "run_ids": [
+            "31942116598",
+            "31942116635",
+            "31942116585"
+          ],
+          "commit_changes": [
+            "scripts/run_opencode_full_e2e_evidence.sh",
+            "scripts/evidence_worker_runtime.py",
+            "scripts/run_real_worker_runtime_evidence.py",
+            "agent/routes/tasks/orchestration.py"
+          ]
         }
       ]
     }
   ],
-    "meta": {
-    "total_items": 8,
+  "meta": {
+    "total_items": 9,
     "by_status": {
       "completed": 8,
-      "partial": 0,
+      "partial": 1,
       "open": 0,
       "in_progress": 0,
       "blocked": 0,
@@ -272,7 +337,8 @@
       "CI-003",
       "CI-008",
       "CI-005",
-      "CI-004"
+      "CI-004",
+      "CI-009"
     ]
   }
 }
