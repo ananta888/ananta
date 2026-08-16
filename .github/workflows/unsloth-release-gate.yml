@@ -21,6 +21,10 @@ on:
       - "agent/studio/**"
       - "frontend-angular/src/app/features/model-training/**"
       - "frontend-angular/tests/unsloth-model-training-fake-hub.spec.ts"
+      # That spec imports tests/utils.ts, so a change there can break this
+      # gate without touching anything else it watches -- which is exactly
+      # how a green job was turned red unnoticed.
+      - "frontend-angular/tests/utils.ts"
       - "docker/compose-next/Dockerfile.lora-training-worker"
       - "docker/compose-next/compose.lora-training.yml"
       - "docker/compose-next/requirements.lora-training-*.txt"
@@ -62,6 +66,10 @@ on:
       - "agent/studio/**"
       - "frontend-angular/src/app/features/model-training/**"
       - "frontend-angular/tests/unsloth-model-training-fake-hub.spec.ts"
+      # That spec imports tests/utils.ts, so a change there can break this
+      # gate without touching anything else it watches -- which is exactly
+      # how a green job was turned red unnoticed.
+      - "frontend-angular/tests/utils.ts"
       - "docker/compose-next/requirements.lora-training-*.txt"
       - "docker/compose-next/Dockerfile.lora-training-worker"
       - "docker/compose-next/compose.lora-training.yml"
