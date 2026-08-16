@@ -321,7 +321,7 @@
           ],
           "commit_changes": [],
           "id": "CI-010",
-          "status": "open",
+          "status": "partial",
           "workflow": "Core Evidence Flow / Daemon Worker Runtime Evidence / Ananta Native Full E2E Evidence",
           "workflow_job": "evidence scripts",
           "step": "POST /tasks/orchestration/ingest",
@@ -336,16 +336,25 @@
             "agent/routes/tasks/orchestration.py"
           ],
           "proposed_solution": "Reservierte Ingress-Felder im Hub identifizieren und die drei Skripte auf einen erlaubten Payload bringen, analog zum bereits gruenen OpenCode-Payload. Keine Aufweichung des Hub-Guards.",
-          "expected_result": "Alle drei Workflows kommen am Ingest vorbei und liefern wieder Evidenz.",
+          "expected_result": "Zwei der drei Workflows sind gruen. Verbleibend nur Core Evidence Flow, dessen Restfehler als CI-019 getrennt gefuehrt wird.",
           "relevant_validations": [
-            "Erste Ursache faktenbasiert aus Run 31939080335 (reason_code im Response-Body)."
+            "Erste Ursache faktenbasiert aus Run 31939080335 (reason_code im Response-Body).",
+            "Neu ausgeloest gegen aktuellen main: Daemon Worker Runtime Evidence 31944320515 = success, Ananta Native Full E2E Evidence 31944321516 = success. Beide 403er sind weg.",
+            "Der Native-Lauf bestaetigt zugleich die Diff-Fenster-Korrektur aus CI-009 im CI.",
+            "Core Evidence Flow 31944319473 kommt am Ingest vorbei, scheitert nun aber an einer Folgeursache - siehe CI-019."
+          ],
+          "implemented_solution": "Keine Aenderung noetig: die drei 403er waren bereits durch Commit 835cb0961 ('relax evidence context ingress') behoben; die roten Laeufe stammten von davor. Am aktuellen Stand senden alle drei Skripte worker_execution_context.evidence_context, was der Guard in agent/services/context_bundle_ingress_policy.py erlaubt - lokal gegen find_reserved_context_bundle_marker() geprueft (Ergebnis: None).",
+          "run_ids": [
+            "31944320515",
+            "31944321516",
+            "31944319473"
           ]
         },
         {
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-011",
-          "status": "open",
+          "status": "partial",
           "workflow": "ananta-codecompass-review",
           "workflow_job": "Build local CodeCompass graph",
           "step": "Compute blast radius",
@@ -358,7 +367,12 @@
           ],
           "proposed_solution": "Fehlende Laufzeitabhaengigkeit im Job-Setup ergaenzen.",
           "expected_result": "Der Blast-Radius-Schritt importiert wieder und der Workflow laeuft durch.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "Erster Fehler (jsonschema) aus Run 31939073421, zweiter (pydantic) aus Run 31944318479 nach dem ersten Teilfix - belegt, dass Einzel-Nachruesten nicht traegt.",
+            "Geschlossene Menge statisch ueber die Importe von ananta_codecompass/*.py und ananta_contracts/*.py bestimmt: ['cryptography', 'jsonschema', 'pydantic'].",
+            "Verifikationslauf steht noch aus."
+          ],
+          "implemented_solution": "Der Job installiert mit --no-deps und ueberspringt damit echte Laufzeit-Abhaengigkeiten. Nach dem Nachziehen von jsonschema fiel als naechstes pydantic aus. Statt Modul fuer Modul nachzuruesten wurde die geschlossene Menge statisch ermittelt: cryptography, jsonschema, pydantic sind die einzigen Drittmodule, die von ananta_codecompass und ananta_contracts erreicht werden - genau der Importpfad des Blast-Radius-Schritts ueber worker/retrieval/codecompass_graph_store.py. Alle drei stehen bereits in pyproject.toml und werden nur genannt, weil --no-deps sie auslaesst."
         },
         {
           "dependencies": [],
@@ -498,16 +512,39 @@
           "proposed_solution": "Je einen aktuellen Lauf ausloesen und danach bewerten.",
           "expected_result": "Belastbarer aktueller Status statt veralteter bzw. abgebrochener Laeufe.",
           "relevant_validations": []
+        },
+        {
+          "id": "CI-019",
+          "status": "open",
+          "workflow": "Core Evidence Flow",
+          "workflow_job": "core-evidence-flow",
+          "step": "Run core evidence flow",
+          "severity": "high",
+          "risk_assessment": "Mittel-hoch: Folgefehler, der erst sichtbar wurde, nachdem der 403 aus CI-010 weg war.",
+          "observed_error": "Run 31944319473: FileNotFoundError auf <workspace>/.ananta/hub-context.md in scripts/run_core_evidence_flow.py Zeile 197.",
+          "root_cause": "Noch zu bestaetigen, aber die Kette ist erkennbar: hub-context.md wird in agent/services/_worker_workspace_context_writer.py nur geschrieben, wenn context_text vorliegt. Der Weg, auf dem das Skript diesen Text frueher lieferte (worker_execution_context.context), ist inzwischen als Hub-eigenes Feld gesperrt. Das Skript setzt die Datei aber weiterhin unbedingt voraus.",
+          "affected_files_or_subsystems": [
+            "scripts/run_core_evidence_flow.py",
+            "agent/services/_worker_workspace_context_writer.py",
+            "agent/services/context_bundle_ingress_policy.py"
+          ],
+          "proposed_solution": "Klaeren, woher der Kontext unter dem neuen Regime kommen soll. Entweder baut der Hub das Kontextbuendel aus evidence_context, oder das Skript darf die Datei nicht mehr unbedingt voraussetzen. Kein Aufweichen des Reserved-Field-Guards.",
+          "expected_result": "Core Evidence Flow laeuft wieder durch und weist echten Hub-Kontext nach.",
+          "relevant_validations": [],
+          "dependencies": [
+            "CI-010"
+          ],
+          "commit_changes": []
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 18,
+    "total_items": 19,
     "by_status": {
       "completed": 6,
-      "partial": 0,
-      "open": 10,
+      "partial": 2,
+      "open": 9,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
