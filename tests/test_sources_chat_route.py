@@ -3,8 +3,59 @@ from __future__ import annotations
 import pytest
 
 
+SOURCE_ID = "open-notebook-abc123def456"
+
+
+def _registered_descriptor() -> dict:
+    """Minimal descriptor so the route's authorization can resolve the source."""
+
+    return {
+        "schema": "source_descriptor.v1",
+        "source_id": SOURCE_ID,
+        "source_type": "open_notebook",
+        "display_name": "Survey",
+        "enabled": True,
+        "trust_level": "official_vendor_project",
+        "fetch_source": {
+            "url": "https://example.invalid/survey",
+            "method": "GET",
+            "refresh_interval": "24h",
+            "cache_policy": "respect_http_cache_headers",
+            "expected_format": "html",
+        },
+        "citation_source": {
+            "canonical_url": "https://example.invalid/survey",
+            "title": "Survey",
+            "publisher": "example.invalid",
+            "version_label": "latest",
+            "retrieved_at": "2026-05-26T00:00:00Z",
+            "license_ref": "license_unknown",
+            "citation_text": "Survey citation",
+        },
+        "license": {"name": "Unknown", "ref": "license_unknown"},
+        "snapshot_policy": {"immutable": True, "dedupe_by_hash": True},
+        "retention_policy": {"keep_latest": 10, "max_age_days": 365},
+    }
+
+
 @pytest.fixture
-def _chat_service(monkeypatch, tmp_path):
+def _registered_source(monkeypatch, tmp_path):
+    """The sources blueprint authorizes every request against the real registry.
+
+    Faking only the chat service left that lookup empty, so authorization
+    answered 404 before the view ran -- which is why even the missing-prompt
+    case, checked before any service call, came back as 404 instead of 400.
+    """
+
+    from agent.config import settings
+    from agent.sources.source_registry import SourceRegistry
+
+    monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    SourceRegistry().create_source(_registered_descriptor())
+
+
+@pytest.fixture
+def _chat_service(monkeypatch, tmp_path, _registered_source):
     """Install a SourceChatContextService with fake rag + registry as the route singleton."""
     from agent.services import source_chat_context_service as module
     from agent.services.source_chat_context_service import SourceChatContextService

@@ -229,8 +229,11 @@ def test_seed_template_catalog_loads_all_templates() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
     cat = get_seed_template_catalog()
     tpls = cat.get_all_templates()
-    assert len(tpls) == 31
+    assert len(tpls) == 95
     names = {t["name"] for t in tpls}
+    # A duplicated name would keep the count right while silently shadowing a
+    # template, so the count alone does not prove the catalog loaded whole.
+    assert len(names) == len(tpls)
     assert "Scrum - Product Owner" in names
     assert "TDD - Refactor Verifier" in names
     assert "Research Evolution - Review Gate Owner" in names
@@ -272,7 +275,15 @@ def test_seed_template_catalog_all_team_types_covered() -> None:
     from agent.services.seed_template_catalog import get_seed_template_catalog
     cat = get_seed_template_catalog()
     types = set(cat.known_team_types())
-    expected = {
+    # "Covered" is the claim in the name: every declared team type must own at
+    # least one template.  Freezing the exact set instead made every added team
+    # type a test failure, which is how this drifted to nine while the catalog
+    # carried sixteen.
+    assert types
+    for team_type in sorted(types):
+        assert cat.get_templates_for_team_type(team_type), f"{team_type} hat keine Templates"
+    # The originally guaranteed types must not quietly disappear.
+    assert {
         "Scrum",
         "Kanban",
         "Research",
@@ -282,8 +293,7 @@ def test_seed_template_catalog_all_team_types_covered() -> None:
         "Release-Prep",
         "Research-Evolution",
         "Story-Domain-Implementation",
-    }
-    assert expected == types
+    } <= types
 
 
 def test_seed_template_catalog_schema_validates() -> None:
