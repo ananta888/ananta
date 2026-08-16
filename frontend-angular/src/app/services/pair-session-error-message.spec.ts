@@ -22,7 +22,7 @@ describe('pairSessionErrorMessage', () => {
       headers: { get: () => '6' },
     };
     expect(pairSessionErrorMessage(error, 'Fallback')).toBe(
-      'Der Pair-Server ist ausgelastet. Automatischer neuer Versuch in 6 Sekunden.',
+      'Der Pair-Server ist ausgelastet. Bitte in 6 Sekunden erneut versuchen.',
     );
   });
 

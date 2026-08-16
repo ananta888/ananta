@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import {
   ContextAccessPolicyApiService,
@@ -37,18 +38,18 @@ describe('ContextAccessPolicyFacade', () => {
     raw: {},
   };
   const api = {
-    listPolicies: jasmine.createSpy().and.returnValue(of([policyRecord])),
-    getLatestPolicy: jasmine.createSpy().and.returnValue(of(policyRecord)),
-    validatePolicy: jasmine.createSpy().and.returnValue(of({ status: 'success', valid: true, errors: [] })),
+    listPolicies: vi.fn().mockReturnValue(of([policyRecord])),
+    getLatestPolicy: vi.fn().mockReturnValue(of(policyRecord)),
+    validatePolicy: vi.fn().mockReturnValue(of({ status: 'success', valid: true, errors: [] })),
   };
 
   beforeEach(() => {
-    api.listPolicies.calls.reset();
-    api.getLatestPolicy.calls.reset();
-    api.validatePolicy.calls.reset();
-    api.listPolicies.and.returnValue(of([policyRecord]));
-    api.getLatestPolicy.and.returnValue(of(policyRecord));
-    api.validatePolicy.and.returnValue(of({ status: 'success', valid: true, errors: [] }));
+    api.listPolicies.mockReset();
+    api.getLatestPolicy.mockReset();
+    api.validatePolicy.mockReset();
+    api.listPolicies.mockReturnValue(of([policyRecord]));
+    api.getLatestPolicy.mockReturnValue(of(policyRecord));
+    api.validatePolicy.mockReturnValue(of({ status: 'success', valid: true, errors: [] }));
     TestBed.configureTestingModule({
       providers: [
         ContextAccessPolicyFacade,
@@ -89,14 +90,14 @@ describe('ContextAccessPolicyFacade', () => {
     const facade = TestBed.inject(ContextAccessPolicyFacade);
     facade.initialize('project-a');
     expect(facade.managementAuthorized()).toBeTrue();
-    api.listPolicies.and.returnValue(throwError(() => ({ status: 403 })));
+    api.listPolicies.mockReturnValue(throwError(() => ({ status: 403 })));
     facade.reload();
     expect(facade.managementAuthorized()).toBeFalse();
     expect(facade.listError()?.state).toBe('forbidden');
   });
 
   it('fails closed when a 2xx snapshot violates the runtime contract', () => {
-    api.listPolicies.and.returnValue(throwError(() => new ContextPolicyContractError()));
+    api.listPolicies.mockReturnValue(throwError(() => new ContextPolicyContractError()));
     const facade = TestBed.inject(ContextAccessPolicyFacade);
     facade.initialize('project-a');
     expect(facade.policies()).toEqual([]);

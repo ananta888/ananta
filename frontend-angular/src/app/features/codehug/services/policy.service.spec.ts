@@ -1,22 +1,15 @@
 import { TestBed } from '@angular/core/testing';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { firstValueFrom, of } from 'rxjs';
 
 import { PolicyService } from './policy.service';
-import { HubApiCoreService } from '../../../services/hub-api-core.service';
-import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
 import { ChServiceError, DEFAULT_WRITE_MODE_TIMEOUT_MS } from '../models/codehug.models';
 
-function mockHubCore() {
+function mockSourceControl() {
   return {
-    get: vi.fn(() => of({})),
-    post: vi.fn(() => of({})),
-    patch: vi.fn(() => of({})),
-    delete: vi.fn(),
+    listContextPolicies: vi.fn(),
   };
 }
-
-function mockDir() { return { list: () => [{ role: 'hub', url: 'http://hub.test', name: 'h' }] }; }
 
 describe('PolicyService', () => {
   let service: PolicyService;
@@ -25,8 +18,7 @@ describe('PolicyService', () => {
     TestBed.configureTestingModule({
       providers: [
         PolicyService,
-        { provide: HubApiCoreService, useValue: mockHubCore() },
-        { provide: AgentDirectoryService, useValue: mockDir() },
+        { provide: SourceControlV1ApiClient, useValue: mockSourceControl() },
       ],
     });
     service = TestBed.inject(PolicyService);
@@ -72,9 +64,9 @@ describe('PolicyService', () => {
     expect(() => service.update({ allowedPaths: ['/tmp'] })).toThrow(ChServiceError);
   });
 
-  it('update: succeeds when write-mode is active', async () => {
+  it('update: throws even when write-mode is active because legacy mutation is disabled', () => {
     service.armWriteMode(60_000);
-    await firstValueFrom(service.update({ allowedPaths: ['/tmp'] }));
+    expect(() => service.update({ allowedPaths: ['/tmp'] })).toThrow(ChServiceError);
   });
 
   it('setWriteModeTimeout with 0 resets to default', () => {

@@ -1,90 +1,105 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
-import { HubApiCoreService } from './hub-api-core.service';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { SourceControlV1ApiClient } from './source-control-v1-api.client';
 import {
   CONTEXT_POLICY_ROUTE_CAPABILITIES,
   ContextAccessPolicyApiService,
   ContextPolicyContractError,
 } from './context-access-policy-api.service';
 
+function mockSourceControl() {
+  return {
+    listContextPolicies: vi.fn(),
+    listContextPolicyVersions: vi.fn(),
+    getContextPolicyVersion: vi.fn(),
+  };
+}
+
+function policyVersion(overrides: Record<string, unknown> = {}) {
+  return {
+    policy_id: 'policy-a',
+    version: 1,
+    project_id: 'project-a',
+    state: 'active',
+    created_at: '2026-01-01T00:00:00Z',
+    policy_digest: 'policy-digest-a',
+    etag: 'policy-etag-a',
+    document: {
+      policy_id: 'policy-a',
+      version: 1,
+      scope: 'project',
+      rules: [{
+        id: 'rule-a',
+        description: 'Server rule',
+      }],
+    },
+    ...overrides,
+  };
+}
+
 describe('ContextAccessPolicyApiService contract', () => {
   let service: ContextAccessPolicyApiService;
-  const core = {
-    get: jasmine.createSpy(),
-    post: jasmine.createSpy(),
-  };
+  let sourceControl: ReturnType<typeof mockSourceControl>;
 
   beforeEach(() => {
-    core.get.calls.reset();
-    core.post.calls.reset();
+    sourceControl = mockSourceControl();
+    sourceControl.listContextPolicies.mockReset();
+    sourceControl.listContextPolicyVersions.mockReset();
+    sourceControl.getContextPolicyVersion.mockReset();
     TestBed.configureTestingModule({
       providers: [
         ContextAccessPolicyApiService,
-        { provide: HubApiCoreService, useValue: core },
+        { provide: SourceControlV1ApiClient, useValue: sourceControl },
       ],
     });
     service = TestBed.inject(ContextAccessPolicyApiService);
   });
 
-  it('uses the real list route and preserves the authoritative project query', (done) => {
-    core.get.and.returnValue(of({
-      status: 'success',
-      data: [{
-        policy_id: 'policy-a',
-        version: 3,
-        project_id: 'project/a',
-        scope: 'project',
-        policy_json: { policy_id: 'policy-a', version: 3, scope: 'project', rules: [] },
-      }],
+  it('resolves canonical policy snapshots from the latest summary IDs', (done) => {
+    sourceControl.listContextPolicies.mockReturnValue(of({
+      items: [{ policy_id: 'policy-a', latest_version: 3, project_id: 'project/a' }],
+      next_cursor: null,
     }));
+    sourceControl.getContextPolicyVersion.mockReturnValue(of({
+      policy: policyVersion({ version: 3 }),
+    }));
+
     service.listPolicies('http://hub.test', 'project/a', 'token').subscribe((records) => {
+      expect(records).toHaveLength(1);
       expect(records[0].policy_id).toBe('policy-a');
-      expect(core.get).toHaveBeenCalledWith(
-        'http://hub.test/api/context-policy/policies?project_id=project%2Fa',
-        'http://hub.test',
-        'token',
-      );
+      expect(records[0].project_id).toBe('project/a');
+      expect(records[0].version).toBe(3);
+      expect(sourceControl.listContextPolicies).toHaveBeenCalledWith({ limit: 200 });
+      expect(sourceControl.getContextPolicyVersion).toHaveBeenCalledWith('policy-a', 3);
       done();
     });
   });
 
-  it('uses the real latest-detail route with an encoded server policy ID', (done) => {
-    core.get.and.returnValue(of({
-      status: 'success',
-      data: {
-        policy_id: 'policy/a',
-        version: 2,
-        scope: 'project',
-        policy_json: { policy_id: 'policy/a', version: 2, scope: 'project', rules: [] },
-      },
+  it('resolves latest detail from versions listing', (done) => {
+    sourceControl.listContextPolicyVersions.mockReturnValue(of({
+      items: [
+        { ...policyVersion({ policy_id: 'policy/a', version: 1, document: { ...policyVersion().document, version: 1, policy_id: 'policy/a' } }), },
+        { ...policyVersion({ policy_id: 'policy/a', version: 2, document: { ...policyVersion().document, version: 2, policy_id: 'policy/a' } }), },
+      ],
+      next_cursor: null,
     }));
     service.getLatestPolicy('http://hub.test', 'policy/a', 'token').subscribe(() => {
-      expect(core.get).toHaveBeenCalledWith(
-        'http://hub.test/api/context-policy/policies/policy%2Fa/latest',
-        'http://hub.test',
-        'token',
-      );
+      expect(sourceControl.listContextPolicyVersions).toHaveBeenCalledWith('policy/a', { limit: 200 });
       done();
     });
   });
 
-  it('maps validate without treating it as lint or preview', (done) => {
-    core.post.and.returnValue(of({
-      status: 'error',
-      valid: false,
-      errors: ['server validation error'],
-    }));
-    const policy = { policy_id: 'policy-a', version: 1, scope: 'project', rules: [] };
-    service.validatePolicy('http://hub.test', policy, 'token').subscribe((result) => {
-      expect(result.valid).toBeFalse();
-      expect(result.errors).toEqual(['server validation error']);
-      expect(core.post).toHaveBeenCalledWith(
-        'http://hub.test/api/context-policy/validate',
-        policy,
-        'http://hub.test',
-        'token',
-      );
-      done();
+  it('maps validate into validation error because remote validate endpoint is disabled in this workflow', (done) => {
+    const policy = policyVersion().document;
+    service.validatePolicy('http://hub.test', policy, 'token').subscribe({
+      next: () => done(new Error('expected validation to fail closed')),
+      error: (error) => {
+        expect(error instanceof ContextPolicyContractError).toBeTruthy();
+        expect(error.status).toBe(422);
+        expect(sourceControl.listContextPolicies).not.toHaveBeenCalled();
+        done();
+      },
     });
   });
 
@@ -94,24 +109,24 @@ describe('ContextAccessPolicyApiService contract', () => {
     }
   });
 
-  it('rejects a malformed successful snapshot before it reaches UI state', (done) => {
-    core.get.and.returnValue(of({
-      status: 'success',
-      data: [{
-        policy_id: 'policy-a',
-        version: 1,
-        project_id: 'project-a',
-        scope: 'project',
-        policy_json: {
+  it('rejects a malformed success snapshot before it reaches UI state', (done) => {
+    sourceControl.listContextPolicies.mockReturnValue(of({
+      items: [{ policy_id: 'policy-a', latest_version: 1, project_id: 'project-a' }],
+      next_cursor: null,
+    }));
+    sourceControl.getContextPolicyVersion.mockReturnValue(of({
+      policy: {
+        ...policyVersion({ version: 1 }),
+        document: {
           policy_id: 'policy-a',
           version: 1,
           scope: 'project',
           rules: [{ id: 'missing-description' }],
         },
-      }],
+      },
     }));
     service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
-      next: () => fail('expected fail-closed contract rejection'),
+      next: () => done(new Error('expected fail-closed contract rejection')),
       error: (error) => {
         expect(error instanceof ContextPolicyContractError).toBeTrue();
         expect(error.status).toBe(422);
@@ -121,14 +136,14 @@ describe('ContextAccessPolicyApiService contract', () => {
   });
 
   it('rejects unknown policy enum values in a 2xx snapshot', (done) => {
-    core.get.and.returnValue(of({
-      status: 'success',
-      data: [{
-        policy_id: 'policy-a',
-        version: 1,
-        project_id: 'project-a',
-        scope: 'project',
-        policy_json: {
+    sourceControl.listContextPolicies.mockReturnValue(of({
+      items: [{ policy_id: 'policy-a', latest_version: 1, project_id: 'project-a' }],
+      next_cursor: null,
+    }));
+    sourceControl.getContextPolicyVersion.mockReturnValue(of({
+      policy: {
+        ...policyVersion({ version: 1 }),
+        document: {
           policy_id: 'policy-a',
           version: 1,
           scope: 'project',
@@ -138,21 +153,10 @@ describe('ContextAccessPolicyApiService contract', () => {
             sensitivity: 'locally_invented_sensitivity',
           }],
         },
-      }],
+      },
     }));
     service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
-      next: () => fail('expected enum rejection'),
-      error: (error) => {
-        expect(error.status).toBe(422);
-        done();
-      },
-    });
-  });
-
-  it('rejects a malformed success envelope instead of treating it as an empty list', (done) => {
-    core.get.and.returnValue(of({ status: 'success' }));
-    service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
-      next: () => fail('expected envelope rejection'),
+      next: () => done(new Error('expected enum rejection')),
       error: (error) => {
         expect(error.status).toBe(422);
         done();

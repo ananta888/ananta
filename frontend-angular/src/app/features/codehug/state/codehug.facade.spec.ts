@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { of, throwError, firstValueFrom } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { CodeHugFacade } from './codehug.facade';
 import { CodeCompassService } from '../services/code-compass.service';
@@ -93,10 +93,11 @@ describe('CodeHugFacade', () => {
     expect(facade.currentProjectId()).toBeNull();
   });
 
-  it('triggerReindex calls cc.triggerReindex when project is set', () => {
+  it('triggerReindex blocks reindex because a profile catalog is still missing', () => {
     const cc = TestBed.inject(CodeCompassService) as any;
     facade.selectProject('p1');
     facade.triggerReindex();
-    expect(cc.triggerReindex).toHaveBeenCalledWith('p1');
+    expect(facade.projectError()).toContain('Re-Indexierung ist gesperrt');
+    expect(cc.triggerReindex).not.toHaveBeenCalled();
   });
 });
