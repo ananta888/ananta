@@ -50,7 +50,67 @@ LEGACY_DEFINITION_DEPENDENT_TABLES = ("team_blueprint_revisions",)
 RUNTIME_BINDING_DEPENDENT_TABLES = ("cross_team_task_dependencies",)
 DEFERRED_ORGANIZATION_TABLES = LEGACY_DEFINITION_DEPENDENT_TABLES + RUNTIME_BINDING_DEPENDENT_TABLES
 
-RUNTIME_BINDING_INDEXES = {
+# Columns the downgrade removes, per table.  SQLite rebuilds a table to drop a
+# column and recreates its indexes on the new table, so an index still pointing
+# at a dropped column fails that rebuild — which is how the downgrade broke on
+# ix_goals_goal_kind.  Both the drop list and the index list come from these
+# tuples, so an index can no longer outlive its own column.
+RUNTIME_BINDING_COLUMNS = {
+    "goals": ("organization_id", "unit_id", "goal_kind", "parent_goal_id"),
+    "plan_nodes": (
+        "tenant_id",
+        "project_id",
+        "organization_id",
+        "unit_id",
+        "team_id",
+        "role_slot_id",
+    ),
+    "tasks": ("organization_id", "unit_id", "role_slot_id"),
+    "archived_tasks": (
+        "tenant_id",
+        "project_id",
+        "organization_id",
+        "unit_id",
+        "role_slot_id",
+    ),
+}
+
+LEGACY_DEFINITION_COLUMNS = {
+    "templates": (
+        "definition_key",
+        "definition_version",
+        "definition_hash",
+        "prompt_hash",
+        "appendix_refs",
+        "template_metadata",
+        "definition_lifecycle",
+    ),
+    "team_blueprints": (
+        "definition_key",
+        "definition_version",
+        "definition_hash",
+        "definition_lifecycle",
+        "workflow_definition_key",
+        "workflow_definition_version",
+        "workflow_mode",
+        "workflow_default_failure_policy",
+        "workflow_checks",
+        "workflow_required_capabilities",
+    ),
+}
+
+
+def _index_names_for_dropped_columns(spec: dict) -> dict:
+    return {
+        table_name: tuple(f"ix_{table_name}_{column}" for column in columns)
+        for table_name, columns in spec.items()
+    }
+
+
+# Indexes this migration adds on columns that survive the downgrade.  They are
+# still its own additions, so it still removes them; they cannot be derived
+# from the dropped columns and are named explicitly.
+RETAINED_COLUMN_INDEXES = {
     "tasks": ("ix_tasks_team_id",),
     "archived_tasks": (
         "ix_archived_tasks_team_id",
@@ -59,6 +119,21 @@ RUNTIME_BINDING_INDEXES = {
         "ix_archived_tasks_plan_node_id",
     ),
 }
+
+
+def _merge_index_names(*specs: dict) -> dict:
+    merged: dict[str, tuple[str, ...]] = {}
+    for spec in specs:
+        for table_name, names in spec.items():
+            merged[table_name] = tuple(dict.fromkeys(merged.get(table_name, ()) + tuple(names)))
+    return merged
+
+
+RUNTIME_BINDING_INDEXES = _merge_index_names(
+    _index_names_for_dropped_columns(RUNTIME_BINDING_COLUMNS),
+    RETAINED_COLUMN_INDEXES,
+)
+LEGACY_DEFINITION_INDEXES = _index_names_for_dropped_columns(LEGACY_DEFINITION_COLUMNS)
 
 
 def upgrade() -> None:
@@ -425,7 +500,7 @@ def _create_runtime_binding_constraints() -> None:
         "goals",
         ["tenant_id", "project_id", "id"],
     )
-    for column in ("organization_id", "unit_id", "goal_kind", "parent_goal_id"):
+    for column in RUNTIME_BINDING_COLUMNS["goals"]:
         _ensure_index("goals", f"ix_goals_{column}", [column])
 
     _ensure_fk("plans", "fk_plans_goal_id", ["goal_id"], "goals", ["id"])
@@ -508,8 +583,7 @@ def _binding_fks_and_indexes(table_name: str, *, include_plan_node: bool) -> Non
         "unit_id",
         "team_id",
         "role_slot_id",
-        *(("plan_node_id",) if include_plan_node else ()),
-        *(("goal_id", "plan_id") if include_plan_node else ()),
+        *(("plan_node_id", "goal_id", "plan_id") if include_plan_node else ()),
     ]
     for column in columns:
         _ensure_index(table_name, f"ix_{table_name}_{column}", [column])
@@ -754,25 +828,7 @@ def _ensure_fk(table_name: str, name: str, columns: list[str], target: str, targ
 
 
 def _drop_runtime_binding_columns(bind) -> None:
-    specs = {
-        "goals": ["organization_id", "unit_id", "goal_kind", "parent_goal_id"],
-        "plan_nodes": [
-            "tenant_id",
-            "project_id",
-            "organization_id",
-            "unit_id",
-            "team_id",
-            "role_slot_id",
-        ],
-        "tasks": ["organization_id", "unit_id", "role_slot_id"],
-        "archived_tasks": [
-            "tenant_id",
-            "project_id",
-            "organization_id",
-            "unit_id",
-            "role_slot_id",
-        ],
-    }
+    specs = RUNTIME_BINDING_COLUMNS
     for table_name, columns in specs.items():
         existing = {column["name"] for column in sa.inspect(bind).get_columns(table_name)}
         with op.batch_alter_table(table_name) as batch:
@@ -860,29 +916,17 @@ def _drop_runtime_binding_constraints(bind) -> None:
 
 
 def _drop_legacy_definition_columns(bind) -> None:
-    specs = {
-        "templates": [
-            "definition_key",
-            "definition_version",
-            "definition_hash",
-            "prompt_hash",
-            "appendix_refs",
-            "template_metadata",
-            "definition_lifecycle",
-        ],
-        "team_blueprints": [
-            "definition_key",
-            "definition_version",
-            "definition_hash",
-            "definition_lifecycle",
-            "workflow_definition_key",
-            "workflow_definition_version",
-            "workflow_mode",
-            "workflow_default_failure_policy",
-            "workflow_checks",
-            "workflow_required_capabilities",
-        ],
-    }
+    specs = LEGACY_DEFINITION_COLUMNS
+    # Same rule as the runtime bindings: SQLite rebuilds the table to drop a
+    # column and recreates its indexes on the new table, so the indexes this
+    # migration added have to go first.
+    for table_name, names in LEGACY_DEFINITION_INDEXES.items():
+        if table_name not in set(sa.inspect(bind).get_table_names()):
+            continue
+        present = {index["name"] for index in sa.inspect(bind).get_indexes(table_name)}
+        for name in names:
+            if name in present:
+                op.drop_index(name, table_name=table_name)
     for table_name, columns in specs.items():
         existing = {column["name"] for column in sa.inspect(bind).get_columns(table_name)}
         with op.batch_alter_table(table_name) as batch:
