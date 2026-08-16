@@ -469,33 +469,35 @@
             "frontend-build ist im Lauf 31947384904 gruen - CI-001 wirkt auch hier.",
             "Neu beobachtet: workflow-transition-track fiel einmal mit workflow_transition_receipt_cas_conflict aus; lokal 3/3 gruen, also flaky unter CI-Last und nicht durch diese Aenderungen verursacht. Eigener Punkt CI-020.",
             "Quality And Docs 31951026587: workflow-runtime-release-gate ist gruen, ebenso frontend-build und workflow-transition-track. Rot bleiben nur workflow-runtime-example-compose (b) und backend-checks (CI-017, zurueckgestellt).",
-            "(b) genauer eingegrenzt: example_prepared_evidence_missing ist die Folge, nicht die Ursache - prepare() stirbt vorher an einem Temporal-RPCError ('Workflow Task in failed state') und schreibt prepared.json deshalb nie."
+            "(b) genauer eingegrenzt: example_prepared_evidence_missing ist die Folge, nicht die Ursache - prepare() stirbt vorher an einem Temporal-RPCError ('Workflow Task in failed state') und schreibt prepared.json deshalb nie.",
+            "Run 31958355818: Schritt 'Prepare' = success, Fehlschlag erst in 'Validate and export' - der maskierte Exit-Code ist damit belegt.",
+            "Dieselbe tee-Falle steckt an sechs weiteren Stellen derselben Datei (qdrant-integration, temporal-failure-gate) und wurde bewusst nicht mitgezogen: alle gleichzeitig scharfzuschalten wuerde jeden dort verborgenen Fehler auf einmal sichtbar machen und verdient einen eigenen Durchgang."
           ],
-          "implemented_solution": "(a) behoben: sync_task_from_hub kopierte plan_id in die lokale Worker-Datenbank, waehrend tasks.plan_id einen unbedingten Fremdschluessel auf plans.id traegt und die Plaene des Hubs dort nicht existieren. plan_id wird nicht mehr synchronisiert; goal_id und plan_node_id bleiben, weil ihre Schluessel zusammengesetzt ueber tenant und project sind, die ein synchronisierter Task nicht setzt. Der Bezug bleibt im Sync-Event und im worker_execution_context erhalten. (b) Temporal-RPCError im example-compose-Job: noch offen. (b) ist noch offen, aber jetzt diagnostizierbar: der Job gab die Worker-Logs nie aus, obwohl 'Workflow Task in failed state' bedeutet, dass der Worker eine Aufgabe abgelehnt hat und der Grund nur dort steht. Worker-, Hub- und Temporal-Logs werden bei Fehlschlag nun eingesammelt. Die Update-Retry-Logik wurde bewusst NICHT aufgeweitet: sie wiederholt nur 'workflow not ready', und 'task in failed state' kann ebenso ein echter Workflow-Fehler sein - blind zu wiederholen wuerde daraus einen langsamen, stillen machen."
+          "implemented_solution": "(a) behoben: sync_task_from_hub kopierte plan_id in die lokale Worker-Datenbank, waehrend tasks.plan_id einen unbedingten Fremdschluessel auf plans.id traegt und die Plaene des Hubs dort nicht existieren. plan_id wird nicht mehr synchronisiert; goal_id und plan_node_id bleiben, weil ihre Schluessel zusammengesetzt ueber tenant und project sind, die ein synchronisierter Task nicht setzt. Der Bezug bleibt im Sync-Event und im worker_execution_context erhalten. (b) Temporal-RPCError im example-compose-Job: noch offen. (b) ist noch offen, aber jetzt diagnostizierbar: der Job gab die Worker-Logs nie aus, obwohl 'Workflow Task in failed state' bedeutet, dass der Worker eine Aufgabe abgelehnt hat und der Grund nur dort steht. Worker-, Hub- und Temporal-Logs werden bei Fehlschlag nun eingesammelt. Die Update-Retry-Logik wurde bewusst NICHT aufgeweitet: sie wiederholt nur 'workflow not ready', und 'task in failed state' kann ebenso ein echter Workflow-Fehler sein - blind zu wiederholen wuerde daraus einen langsamen, stillen machen. KORREKTUR: der Temporal-RPCError ist nicht mehr die Ursache - der Prepare-Schritt laeuft inzwischen gruen. Der Job scheiterte trotzdem, weil 'run ... | tee' den Exit-Code von tee gelten laesst: ein fehlschlagender Runner meldete Erfolg, und der Fehler tauchte zwei Schritte spaeter als example_prepared_evidence_missing auf. Genau deshalb wurde dieser Job zweimal vom falschen Ende her diagnostiziert, und genau deshalb lief die eigens dafuer ergaenzte Log-Erfassung nie: sie wartete auf einen Schritt, der gruen aussah. Mit 'shell: bash' (pipefail) auf den beiden Runner-Schritten behoben."
         },
         {
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-015",
-          "status": "partial",
+          "status": "open",
           "workflow": "E2E Compose",
           "workflow_job": "e2e-compose (mehrere Shards)",
           "step": "Run E2E shard",
           "severity": "high",
           "risk_assessment": "Hoch: mehrere E2E-Shards gleichzeitig rot.",
           "observed_error": "Run 31942114359: mindestens die Shards compose-admin-core, compose-admin-entities, compose-goal-smoke und compose-goal-core schlagen fehl. Konkrete Ursache je Shard noch nicht erhoben.",
-          "root_cause": "Belegt aus dem Code, nicht geraten: /dashboard haengt am projectContextGuard, der ohne gewaehltes Projekt nach /projects umleitet. Die Auswahl loest sich zuerst aus der URL, dann aus localStorage, und automatisch nur, wenn genau ein aktives Projekt existiert - in einer frischen Umgebung also gar nicht. Die Tests pruefen deshalb gegen die Projektseite und melden ein fehlendes Heading statt der Umleitung. Alle acht Shards scheitern an derselben Zusicherung.",
+          "root_cause": "NOCH UNBEKANNT. Zwei Hypothesen wurden aufgestellt und beide widerlegt. (1) 'Der projectContextGuard leitet ohne Projekt nach /projects um' - widerlegt: der Testlauf 31958355824 enthaelt eine Pruefung, die genau diese Umleitung meldet, und sie schlaegt nicht an. Die Seite ist auf /dashboard. (2) 'Der Projektkontext lehnt das Projekt ab' - ebenfalls nicht belegt, aus demselben Grund. Belegt ist nur: die Navigation erreicht /dashboard, und das Heading ist trotzdem nicht da. Der Text steht in dashboard.component.html und liegt im gebauten Bundle, PageIntroComponent ist importiert, und page-intro rendert ihn als <h2>. In der compose-foundation-auth-Shard bestehen 4 Tests und 12 scheitern, alle an dieser einen Zusicherung. Warum die Seite dort ohne ihr Heading rendert, ist offen und braucht den laufenden Stack - aus Logs und Artefakten allein war es nicht zu klaeren.",
           "affected_files_or_subsystems": [
             ".github/workflows/e2e-compose.yml"
           ],
-          "proposed_solution": "Pro Shard die erste Fehlerursache erheben und auf gemeinsame Ursache pruefen.",
+          "proposed_solution": "Mit laufendem Compose-Stack aufnehmen, was die Seite stattdessen zeigt (Playwright-Trace oder Screenshot der fehlgeschlagenen Tests). Erst danach eine dritte Hypothese bilden - die ersten beiden wurden aus dem Code abgeleitet und waren beide falsch.",
           "expected_result": "E2E-Compose-Shards laufen wieder gruen.",
           "relevant_validations": [
-            "Ursache aus Guard, Aufloesungsreihenfolge und Template direkt gelesen; das Heading selbst wird von app-page-intro als <h2> gerendert und war nie das Problem.",
-            "Playwright parst alle geaenderten Specs.",
-            "CI ist die Verifikation - die Umleitung tritt nur in einer Umgebung ohne Projektkontext auf."
+            "Run 31958355824: Fehlschlag weiterhin an der Locator-Zusicherung, NICHT an der Umleitungspruefung - damit ist Hypothese (1) widerlegt.",
+            "'Ananta starten' ist in src/app/components/dashboard.component.html und im Build (dist/.../chunk-AAIXJY2E.js) vorhanden.",
+            "compose-foundation-auth: 4 passed, 12 failed, alle an derselben Zusicherung."
           ],
-          "implemented_solution": "gotoProjectScopedRoute listet die Projekte ueber die API und navigiert mit dem Projekt in der URL - der unterstuetzte Weg, der die beiden anderen Quellen schlaegt. Alle /dashboard-Navigationen der Suite laufen darueber. Hat die Umgebung wirklich kein Projekt, ist die Route nicht erreichbar, und die Hilfe sagt das, statt einen raetselhaften Locator-Fehler zu hinterlassen."
+          "implemented_solution": "Nichts behoben. Beigetragen wurde nur Diagnosefaehigkeit: gotoProjectScopedRoute stellt den Projektkontext her (legt ein Projekt an, wenn keines aktiv ist) und meldet, wenn eine projektgebundene Route woanders landet - dadurch ist die Umleitungshypothese ueberhaupt erst widerlegbar geworden. Nebenbei korrigiert: die Hilfe, die das erste Projekt anlegt, war durch die projektgebundene Navigation zirkulaer geworden."
         },
         {
           "dependencies": [],
@@ -624,8 +626,8 @@
     "total_items": 20,
     "by_status": {
       "completed": 6,
-      "partial": 5,
-      "open": 2,
+      "partial": 4,
+      "open": 3,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
