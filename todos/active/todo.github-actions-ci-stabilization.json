@@ -448,14 +448,17 @@
           "step": "Validate and export example-only evidence / mandatory workflow-runtime release gate",
           "severity": "high",
           "risk_assessment": "Hoch: verpflichtendes Release-Gate ist rot.",
-          "observed_error": "Beide Jobs schlagen fehl (Run 31942877103). Konkrete Ursache noch nicht erhoben.",
-          "root_cause": "Noch zu ermitteln.",
+          "observed_error": "Zwei getrennte Ursachen in einem Eintrag (Run 31942877103 / 31945072947). (a) workflow-runtime-release-gate: AssertionError in tests/security/workflow_runtime/test_recovery_task_manifest_sync.py:538, darunter 'Failed to sync task recovery-child-real-sync from hub' mit sqlite3.IntegrityError FOREIGN KEY constraint failed beim Task-Insert. (b) workflow-runtime-example-compose: temporalio.service.RPCError 'Unable to perform workflow execution update due to Workflow Task in failed state', danach RuntimeError('example_prepared_evidence_missing').",
+          "root_cause": "(a) Noch zu bestaetigen, aber die Spur ist deutlich: sync_task_from_hub in agent/services/task_runtime_service.py kopiert ueber _TASK_SYNC_FIELDS unter anderem goal_id, plan_id und plan_node_id vom Hub in die lokale Worker-Datenbank, in der es weder goals noch plans noch plan_nodes gibt - dieselbe Fehlerklasse wie CI-002, aber ein anderer Codepfad. Ob CI-002 hier bereits mitwirkt, muss ein frischer Lauf zeigen. (b) Noch offen; Temporal-seitig.",
           "affected_files_or_subsystems": [
             ".github/workflows/quality-and-docs.yml"
           ],
-          "proposed_solution": "Ursache aus den Jobprotokollen erheben und gezielt beheben.",
+          "proposed_solution": "(a) Denselben Grundsatz anwenden wie in CI-002: eine Referenz nur uebernehmen, wenn das Ziel lokal existiert. (b) Getrennt untersuchen; nicht mit (a) vermischen.",
           "expected_result": "Beide Jobs laufen wieder durch.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "Jobaufschluesselung von Quality And Docs erhoben: 13 von 17 Jobs gruen; rot sind backend-checks (CI-017, zurueckgestellt), workflow-runtime-release-gate, workflow-runtime-example-compose und - im Lauf vor den Frontend-Fixes - frontend-build.",
+            "frontend-build ist inzwischen ueber CI-001 behoben (npm run test:unit endet mit Exit 0); Bestaetigung durch den naechsten Quality-And-Docs-Lauf steht aus."
+          ]
         },
         {
           "dependencies": [],
