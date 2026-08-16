@@ -438,6 +438,12 @@ jobs:
             temporal-db temporal workflow-runtime-example-hub \
             workflow-runtime-example-temporal-worker
       - name: Prepare Failure, Approval, Cancel and durable crash checkpoint
+        # `| tee` makes the pipeline's status tee's, so a failing runner
+        # reported success and the failure only surfaced two steps later as
+        # "example_prepared_evidence_missing" — a missing file standing in for
+        # whatever actually went wrong. pipefail lets the runner's own exit
+        # code through.
+        shell: bash
         run: |
           timeout 240s docker compose \
             -f docker/compose-next/compose.temporal.yml \
@@ -484,6 +490,7 @@ jobs:
           test "$(docker inspect --format '{{.State.Status}}' "${worker_id}")" = "exited"
           test "$(docker inspect --format '{{.State.ExitCode}}' "${worker_id}")" = "137"
       - name: Replace worker and resume the same durable workflow
+        shell: bash
         run: |
           timeout 180s docker compose \
             -f docker/compose-next/compose.temporal.yml \
