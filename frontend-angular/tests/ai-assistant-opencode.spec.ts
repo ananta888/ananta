@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 import { ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant OpenCode Backend', () => {
   test('sends hybrid execute request with backend opencode', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     if (!(await hasAssistantDock(page))) {
       test.skip(true, 'Assistant dock not available in this environment.');
     }

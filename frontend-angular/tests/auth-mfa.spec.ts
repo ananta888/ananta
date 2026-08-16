@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginFast, resetAdminMfaState, resetUserAuthStateViaApi, ADMIN_USERNAME, ADMIN_PASSWORD, HUB_URL } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, gotoProjectScopedRoute, loginFast, resetAdminMfaState, resetUserAuthStateViaApi } from './utils';
 import { createHmac } from 'node:crypto';
 
 function decodeBase32Secret(secret: string): Buffer {
@@ -44,7 +44,7 @@ test.describe('MFA Flow', () => {
 
     try {
       await loginFast(page, request);
-      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+      await gotoProjectScopedRoute(page, '/dashboard');
 
       const accessToken = await page.evaluate(() => localStorage.getItem('ananta.user.token'));
       if (!accessToken) {

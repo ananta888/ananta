@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 import AxeBuilder from '@axe-core/playwright';
 
 test.describe('Accessibility Smoke Tests', () => {
@@ -16,7 +16,7 @@ test.describe('Accessibility Smoke Tests', () => {
   test('Dashboard should not have automatically detectable accessibility issues', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect(page.locator('app-root')).toBeVisible();
     

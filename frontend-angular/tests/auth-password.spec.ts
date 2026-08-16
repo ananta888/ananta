@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginFast, HUB_URL, createUserAsAdmin, deleteUserAsAdmin } from './utils';
+import { HUB_URL, createUserAsAdmin, deleteUserAsAdmin, gotoProjectScopedRoute, loginFast } from './utils';
 
 test.describe('Password Change', () => {
   test('should change password and login with new password', async ({ page, request }) => {
@@ -37,7 +37,7 @@ test.describe('Password Change', () => {
       expect(newAccessToken.length).toBeGreaterThan(10);
 
       await loginFast(page, request, username, newPassword);
-      await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+      await gotoProjectScopedRoute(page, '/dashboard');
       await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     } finally {
       await deleteUserAsAdmin(username);

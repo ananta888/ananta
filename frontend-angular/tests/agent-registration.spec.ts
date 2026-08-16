@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { clearLoginAttempts, loginFast } from './utils';
+import { clearLoginAttempts, gotoProjectScopedRoute, loginFast } from './utils';
 
 test.describe('Agent Registration', () => {
   test.beforeEach(() => {
@@ -26,7 +26,7 @@ test.describe('Agent Registration', () => {
     });
 
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
 
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect.poll(() => agentsRequested, { timeout: 15_000 }).toBeTruthy();

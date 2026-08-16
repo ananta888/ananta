@@ -945,3 +945,50 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
 
   throw new Error(`Could not clear auth rate limit for ${ip} within timeout`);
 }
+
+/**
+ * Open a route that needs a project, with the project it needs.
+ *
+ * `/dashboard` and its siblings sit behind `projectContextGuard`, which sends
+ * anyone without a selected project to `/projects`. The context resolves a
+ * selection from the URL first, then localStorage, and only auto-selects when
+ * exactly one active project exists — so in a fresh environment these routes
+ * redirect and the assertion fails on a missing heading rather than on the
+ * real cause.
+ *
+ * Passing the project in the URL is the supported way in and takes precedence
+ * over everything else. With no project at all the route genuinely cannot be
+ * reached, and this says so instead of leaving a mystery locator error.
+ */
+export async function gotoProjectScopedRoute(
+  page: Page,
+  path: string,
+  options: { waitUntil?: 'domcontentloaded' | 'load' | 'networkidle' } = {},
+): Promise<void> {
+  const token = await getAccessToken(ADMIN_USERNAME, ADMIN_PASSWORD);
+  const response = await fetchWithTimeout(
+    `${HUB_URL}/api/projects`,
+    { headers: { Authorization: `Bearer ${token}` } },
+    Number(process.env.E2E_API_LOGIN_TIMEOUT_MS || '15000'),
+  );
+  if (!response.ok) {
+    throw new Error(`Could not list projects for ${path}: HTTP ${response.status}`);
+  }
+  const payload = await response.json().catch(() => ({}));
+  const items: Array<Record<string, unknown>> = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload?.data?.items)
+      ? payload.data.items
+      : [];
+  const active = items.find((item) => item?.is_active === true || item?.status === 'active') ?? items[0];
+  const projectId = String(active?.id ?? '').trim();
+  if (!projectId) {
+    throw new Error(
+      `${path} is project-scoped and the environment has no project, so the route redirects to /projects`,
+    );
+  }
+  const separator = path.includes('?') ? '&' : '?';
+  await page.goto(`${path}${separator}projectId=${encodeURIComponent(projectId)}`, {
+    waitUntil: options.waitUntil ?? 'domcontentloaded',
+  });
+}

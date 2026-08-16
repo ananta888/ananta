@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
-import { assertNoUnhandledBrowserErrors, clearBrowserErrorGuards, loginFast } from './utils';
+import { assertNoUnhandledBrowserErrors, clearBrowserErrorGuards, gotoProjectScopedRoute, loginFast } from './utils';
 
 test.describe('Admin Core Journey', () => {
   test('navigates core areas', async ({ page, request }) => {
     test.setTimeout(120_000);
     clearBrowserErrorGuards(page);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByText(/System Dashboard|Ananta starten/i)).toBeVisible();
 
     await page.goto('/teams', { waitUntil: 'domcontentloaded' });

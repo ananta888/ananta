@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, TEST_LOGIN_IP, clearLoginAttempts, ensureLoginAttemptsCleared, loginFast, resetUserAuthStateViaApi } from './utils';
+import { ADMIN_PASSWORD, ADMIN_USERNAME, HUB_URL, TEST_LOGIN_IP, clearLoginAttempts, ensureLoginAttemptsCleared, gotoProjectScopedRoute, loginFast, resetUserAuthStateViaApi } from './utils';
 
 test.describe('Auth', () => {
   test.beforeEach(() => {
@@ -25,7 +25,7 @@ test.describe('Auth', () => {
     await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.evaluate(() => {
       localStorage.removeItem('ananta.user.token');
@@ -41,7 +41,7 @@ test.describe('Auth', () => {
     await resetUserAuthStateViaApi(ADMIN_USERNAME, ADMIN_PASSWORD);
     await ensureLoginAttemptsCleared(TEST_LOGIN_IP);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();

@@ -1,11 +1,12 @@
 import { expect, type Page } from '@playwright/test';
+import { gotoProjectScopedRoute } from './utils';
 
 export async function createProjectAndOpenJourney(
   page: Page,
   projectName: string,
   description: string,
 ): Promise<string> {
-  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+  await gotoProjectScopedRoute(page, '/dashboard');
   await expect(page.locator('app-root')).toBeVisible();
   await clickMainNavigation(page, 'Projekte');
   await expect(page.getByRole('heading', { name: 'Projekte', exact: true })).toBeVisible();

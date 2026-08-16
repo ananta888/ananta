@@ -1,11 +1,5 @@
 import { test, expect } from '@playwright/test';
-import {
-  assertErrorOverlaysInViewport,
-  assertNoUnhandledBrowserErrors,
-  clearBrowserErrorGuards,
-  login,
-  openTeamsAdminStudio,
-} from './utils';
+import { assertErrorOverlaysInViewport, assertNoUnhandledBrowserErrors, clearBrowserErrorGuards, gotoProjectScopedRoute, login, openTeamsAdminStudio } from './utils';
 
 test.describe('UI UX console and visibility', () => {
   test('core navigation has no browser console/page errors', async ({ page }) => {
@@ -79,7 +73,7 @@ test.describe('UI UX console and visibility', () => {
   test('dashboard, templates, and teams settle without stuck loading states', async ({ page }) => {
     await login(page);
 
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await expect.poll(async () => {
       const quickGoalVisible = await page.getByLabel(/Zielbeschreibung eingeben/i).isVisible().catch(() => false);
