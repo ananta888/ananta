@@ -180,6 +180,22 @@ shutil.copytree(source, workspace)
 PY
 
 WORKSPACE="${OUT_DIR}/workspace/mini-project"
+
+# The evidence file is created up front, as a tracked placeholder.
+#
+# Run 31942116598 aborted here: OpenCode reached for the markdown file with its
+# Edit tool, Edit requires the file to exist, the glob returned no matches and
+# OpenCode aborted the whole tool execution.  The Java change had only been
+# read at that point, so the run ended with an empty diff and no changes at
+# all.  A file that already exists takes the tool choice out of the model's
+# hands; the checks below then require it to have actually changed, so the
+# placeholder cannot pass for evidence on its own.
+cat > "${WORKSPACE}/OPENCODE_FULL_E2E_EVIDENCE.md" <<'MARKDOWN'
+# OpenCode Full E2E Evidence
+
+- placeholder, to be replaced by the OpenCode run
+MARKDOWN
+
 (
   cd "${WORKSPACE}"
   git init -q
@@ -238,12 +254,16 @@ Rules:
 - Do not commit or push.
 - Keep Java compiling with javac.
 
-Required changes:
+Required changes, in this order:
 1. In src/main/java/example/security/PolicyService.java add a public method:
    public boolean canAudit(String role)
    It should return true for role "admin" or "auditor".
-2. Add a file OPENCODE_FULL_E2E_EVIDENCE.md describing the change in 3 short bullet points.
+2. The file OPENCODE_FULL_E2E_EVIDENCE.md already exists in the project root and
+   currently holds a placeholder line. Replace its contents with 3 short bullet
+   points describing the change you made. Do not search for the file first.
 3. Do not change package names.
+
+Make the Java change first, so it is done even if a later step goes wrong.
 PROMPT
 
 (
@@ -257,7 +277,12 @@ PROMPT
 (
   cd "${WORKSPACE}"
   git status --short > "../git-status.txt"
-  git diff -- src OPENCODE_FULL_E2E_EVIDENCE.md > "../diff.patch" || true
+  # Staged, then diffed against the commit: a plain `git diff` shows only
+  # tracked files, so a helper file OpenCode adds under src/ would leave no
+  # trace in the evidence even on a successful run.  Staging is not committing,
+  # which the prompt forbids; the workspace is thrown away either way.
+  git add -A -- src OPENCODE_FULL_E2E_EVIDENCE.md
+  git diff --cached -- src OPENCODE_FULL_E2E_EVIDENCE.md > "../diff.patch" || true
   mkdir -p "../classes"
   javac -d "../classes" $(find src/main/java -name '*.java') > "../javac.stdout.txt" 2> "../javac.stderr.txt"
 )
@@ -274,6 +299,17 @@ if ! grep -q "canAudit" "${WORKSPACE}/src/main/java/example/security/PolicyServi
 fi
 if [[ ! -f "${WORKSPACE}/OPENCODE_FULL_E2E_EVIDENCE.md" ]]; then
   echo "Evidence markdown file missing" >&2
+  exit 1
+fi
+# The file is created up front, so its existence proves nothing.  What has to
+# hold is that the run replaced it: it must appear in the diff and no longer
+# read as the placeholder.
+if ! grep -q "OPENCODE_FULL_E2E_EVIDENCE.md" "${OUT_DIR}/workspace/diff.patch"; then
+  echo "Evidence markdown file was not changed by the run" >&2
+  exit 1
+fi
+if grep -q "placeholder, to be replaced by the OpenCode run" "${WORKSPACE}/OPENCODE_FULL_E2E_EVIDENCE.md"; then
+  echo "Evidence markdown file still holds the placeholder" >&2
   exit 1
 fi
 
