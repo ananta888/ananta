@@ -351,9 +351,18 @@ def get_local_task_status(tid: str) -> dict[str, Any] | None:
 
 # Fields synced from hub to worker — excludes FK-constrained columns
 # (assigned_agent_url, team_id, assigned_role_id) and execution-state fields.
+# What a worker may copy from a Hub manifest into its own database.
+#
+# plan_id is deliberately absent: tasks.plan_id carries an unconditional
+# foreign key to plans.id, and the Hub's plans do not exist in a worker's
+# database, so writing it fails the key outright.  goal_id and plan_node_id
+# stay because their keys are composite over tenant and project, which a
+# synced task does not set, so they correlate without claiming a row.  The
+# plan reference is not lost — it is recorded in the sync event and in
+# worker_execution_context, where nothing enforces it.
 _TASK_SYNC_FIELDS: frozenset[str] = frozenset({
     "title", "description", "priority", "task_kind",
-    "goal_id", "goal_trace_id", "plan_id", "plan_node_id",
+    "goal_id", "goal_trace_id", "plan_node_id",
     "retrieval_intent", "required_context_scope", "preferred_bundle_mode",
     "required_capabilities", "context_bundle_id",
     "worker_execution_context", "worker_execution_contract",
