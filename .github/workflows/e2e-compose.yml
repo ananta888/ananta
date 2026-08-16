@@ -120,6 +120,26 @@ jobs:
         run: |
           set -euo pipefail
           bash scripts/run_e2e_compose_shard.sh "${{ matrix.shard_name }}" "${{ matrix.specs }}"
+      - name: Dump Playwright page context
+        if: failure()
+        shell: bash
+        run: |
+          set -uo pipefail
+          results="frontend-angular/test-results"
+          # Playwright records what the page actually contained when the
+          # assertion failed.  Without this the only evidence is "element not
+          # found", which is the symptom and says nothing about the cause.
+          echo "=== test-results tree ===" >&2
+          ls -laR "$results" 2>&1 | head -80 >&2 || echo "no $results directory" >&2
+          found=0
+          while IFS= read -r context; do
+            found=1
+            echo "=== ${context} ===" >&2
+            head -120 "$context" >&2 || true
+          done < <(find "$results" -name error-context.md 2>/dev/null)
+          if [ "$found" -eq 0 ]; then
+            echo "no error-context.md found under $results" >&2
+          fi
       - name: Dump compose service logs
         if: failure()
         run: |
