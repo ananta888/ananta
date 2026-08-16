@@ -1,0 +1,274 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass.build_profile.v1",
+  "title": "CodeCompass Incremental Build Profile",
+  "description": "Configuration profile defining incremental build behavior, compatibility rules, and artifact settings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "version",
+    "created_at",
+    "compatibility_key",
+    "artifact_configs",
+    "incremental_policies",
+    "budget_constraints"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.build_profile.v1"},
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique human-readable profile identifier"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semantic version of the profile"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of profile creation"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of last update"
+    },
+    "description": {
+      "type": ["string", "null"],
+      "description": "Human-readable description"
+    },
+    "compatibility_key": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_versions",
+        "tool_versions",
+        "model_versions",
+        "hash_algorithm"
+      ],
+      "description": "Deterministic key for layer compatibility checking. Layers are reusable only if keys match.",
+      "properties": {
+        "schema_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "change_set",
+            "artifact_layer",
+            "layer_head",
+            "compaction_plan"
+          ],
+          "properties": {
+            "change_set": {"type": "string", "minLength": 1},
+            "artifact_layer": {"type": "string", "minLength": 1},
+            "layer_head": {"type": "string", "minLength": 1},
+            "compaction_plan": {"type": "string", "minLength": 1}
+          }
+        },
+        "tool_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["codecompass_core", "incremental_indexer"],
+          "properties": {
+            "codecompass_core": {"type": "string", "minLength": 1},
+            "incremental_indexer": {"type": "string", "minLength": 1},
+            "tree_sitter": {"type": ["string", "null"]},
+            "embedding_model_runner": {"type": ["string", "null"]}
+          }
+        },
+        "model_versions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["embedding_model"],
+          "properties": {
+            "embedding_model": {"type": "string", "minLength": 1},
+            "embedding_dimension": {"type": "integer", "minimum": 1},
+            "fts_tokenizer": {"type": "string", "minLength": 1},
+            "summary_llm": {"type": ["string", "null"]}
+          }
+        },
+        "hash_algorithm": {
+          "type": "string",
+          "enum": ["sha256", "blake3"],
+          "description": "Algorithm used for content addressing"
+        }
+      }
+    },
+    "artifact_configs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol_graph",
+        "semantic_chunks",
+        "embeddings",
+        "fts_index",
+        "hierarchical_nodes",
+        "architecture_summaries"
+      ],
+      "properties": {
+        "symbol_graph": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "parser_backend"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "parser_backend": {"enum": ["tree_sitter", "rojo", "clang"]},
+            "include_edges": {"type": "boolean"},
+            "edge_types": {
+              "type": "array",
+              "items": {"type": "string"}
+            },
+            "max_file_size_bytes": {"type": ["integer", "null"], "minimum": 0}
+          }
+        },
+        "semantic_chunks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "chunk_strategy"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "chunk_strategy": {
+              "enum": ["fixed_size", "semantic_boundary", "hybrid"]
+            },
+            "target_chunk_size": {"type": "integer", "minimum": 100},
+            "max_chunk_size": {"type": "integer", "minimum": 100},
+            "overlap_ratio": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        },
+        "embeddings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "model_id"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "model_id": {"type": "string", "minLength": 1},
+            "batch_size": {"type": "integer", "minimum": 1},
+            "normalize": {"type": "boolean"},
+            "quantization": {"enum": ["none", "int8", "binary"]}
+          }
+        },
+        "fts_index": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "tokenizer"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "tokenizer": {"type": "string", "minLength": 1},
+            "stemming": {"type": "boolean"},
+            "stop_words": {"type": "array", "items": {"type": "string"}},
+            "min_term_length": {"type": "integer", "minimum": 1}
+          }
+        },
+        "hierarchical_nodes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "levels"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "levels": {
+              "type": "array",
+              "items": {"type": "string"},
+              "minItems": 1
+            },
+            "include_evidence": {"type": "boolean"}
+          }
+        },
+        "architecture_summaries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["enabled", "cache_enabled"],
+          "properties": {
+            "enabled": {"type": "boolean"},
+            "cache_enabled": {"type": "boolean"},
+            "max_summary_length": {"type": "integer", "minimum": 50},
+            "llm_model": {"type": ["string", "null"]}
+          }
+        }
+      }
+    },
+    "incremental_policies": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "change_detection_strategy",
+        "impact_analysis_enabled",
+        "rebuild_thresholds",
+        "layer_retention"
+      ],
+      "properties": {
+        "change_detection_strategy": {
+          "enum": ["content_hash", "git_diff", "hybrid"],
+          "description": "Strategy for detecting file changes"
+        },
+        "impact_analysis_enabled": {
+          "type": "boolean",
+          "description": "Whether to compute dependency impact graphs"
+        },
+        "rebuild_thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["full_rebuild_if_changes_exceed"],
+          "properties": {
+            "full_rebuild_if_changes_exceed": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Ratio of changed files triggering full rebuild"
+            },
+            "skip_embedding_if_changes_below": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "Skip embedding rebuild if change ratio is below this"
+            }
+          }
+        },
+        "layer_retention": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_layers", "max_age_days"],
+          "properties": {
+            "max_layers": {"type": "integer", "minimum": 1},
+            "max_age_days": {"type": "integer", "minimum": 1},
+            "compact_after_layers": {"type": "integer", "minimum": 2}
+          }
+        }
+      }
+    },
+    "budget_constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_total_size_bytes", "max_build_duration_seconds"],
+      "properties": {
+        "max_total_size_bytes": {"type": "integer", "minimum": 0},
+        "max_build_duration_seconds": {"type": "number", "minimum": 0},
+        "max_artifacts_per_type": {
+          "type": "object",
+          "additionalProperties": {"type": "integer", "minimum": 0}
+        },
+        "priority_order": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "symbol_graph",
+              "semantic_chunks",
+              "embeddings",
+              "fts_index",
+              "hierarchical_nodes",
+              "architecture_summaries"
+            ]
+          },
+          "description": "Priority order when budget is exceeded (lower priority artifacts may be skipped)"
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Arbitrary metadata"
+    }
+  }
+}

@@ -1,0 +1,170 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass.artifact_layer.v1",
+  "title": "CodeCompass Artifact Layer",
+  "description": "Content-addressed immutable layer storing built artifacts for a specific snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "layer_id",
+    "snapshot_revision",
+    "profile_digest",
+    "created_at",
+    "artifacts",
+    "statistics"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.artifact_layer.v1"},
+    "layer_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA256 hash of canonical layer content (content-addressed)"
+    },
+    "snapshot_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Snapshot revision this layer was built from"
+    },
+    "profile_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA256 hash of the build profile used"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of layer creation"
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "symbol_graph",
+        "semantic_chunks",
+        "embeddings",
+        "fts_index",
+        "hierarchical_nodes",
+        "architecture_summaries"
+      ],
+      "properties": {
+        "symbol_graph": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "node_count", "edge_count", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "node_count": {"type": "integer", "minimum": 0},
+            "edge_count": {"type": "integer", "minimum": 0},
+            "storage_path": {"type": "string", "minLength": 1},
+            "format_version": {"type": "string", "minLength": 1},
+            "compression": {"enum": ["none", "gzip", "zstd"]}
+          }
+        },
+        "semantic_chunks": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "chunk_count", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "chunk_count": {"type": "integer", "minimum": 0},
+            "storage_path": {"type": "string", "minLength": 1},
+            "format_version": {"type": "string", "minLength": 1},
+            "avg_chunk_size": {"type": "number", "minimum": 0}
+          }
+        },
+        "embeddings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "vector_count", "dimension", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "vector_count": {"type": "integer", "minimum": 0},
+            "dimension": {"type": "integer", "minimum": 1},
+            "storage_path": {"type": "string", "minLength": 1},
+            "model_id": {"type": "string", "minLength": 1},
+            "format": {"enum": ["numpy", "parquet", "arrow"]}
+          }
+        },
+        "fts_index": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "document_count", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "document_count": {"type": "integer", "minimum": 0},
+            "storage_path": {"type": "string", "minLength": 1},
+            "format_version": {"type": "string", "minLength": 1},
+            "tokenizer": {"type": "string", "minLength": 1}
+          }
+        },
+        "hierarchical_nodes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "node_count", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "node_count": {"type": "integer", "minimum": 0},
+            "storage_path": {"type": "string", "minLength": 1},
+            "levels": {
+              "type": "array",
+              "items": {"type": "string"},
+              "description": "Hierarchy levels: system, subsystem, component, file, symbol"
+            }
+          }
+        },
+        "architecture_summaries": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["artifact_hash", "summary_count", "storage_path"],
+          "properties": {
+            "artifact_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "summary_count": {"type": "integer", "minimum": 0},
+            "storage_path": {"type": "string", "minLength": 1},
+            "cache_version": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "statistics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_artifact_size_bytes",
+        "build_duration_seconds",
+        "incremental_ratio",
+        "reused_from_layer"
+      ],
+      "properties": {
+        "total_artifact_size_bytes": {"type": "integer", "minimum": 0},
+        "build_duration_seconds": {"type": "number", "minimum": 0},
+        "incremental_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Ratio of artifacts rebuilt vs total (0.0 = full reuse, 1.0 = full rebuild)"
+        },
+        "reused_from_layer": {
+          "type": ["string", "null"],
+          "pattern": "^[a-f0-9]{64}$",
+          "description": "Layer ID from which artifacts were reused (null if full rebuild)"
+        },
+        "build_errors": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "List of error messages during build"
+        }
+      }
+    },
+    "parent_layers": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+      "description": "Layer IDs this layer is based on (for incremental builds)"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Arbitrary metadata for tooling and debugging"
+    }
+  }
+}

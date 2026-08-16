@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass.layer_head.v1",
+  "title": "CodeCompass Layer Head Reference",
+  "description": "Mutable pointer to the current effective layer for a profile, with generation tracking for CAS-based updates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "profile_id",
+    "profile_digest",
+    "current_layer_id",
+    "generation",
+    "updated_at",
+    "history"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.layer_head.v1"},
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Unique identifier for the build profile"
+    },
+    "profile_digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA256 hash of the current profile configuration"
+    },
+    "current_layer_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Layer ID this head points to (content-addressed)"
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Monotonically increasing generation number for optimistic locking"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of last update"
+    },
+    "snapshot_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Snapshot revision the current layer was built from"
+    },
+    "history": {
+      "type": "array",
+      "description": "Recent head changes (last N generations)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer_id", "generation", "timestamp", "operation"],
+        "properties": {
+          "layer_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "generation": {"type": "integer", "minimum": 0},
+          "timestamp": {"type": "string", "format": "date-time"},
+          "operation": {
+            "enum": ["created", "updated", "compacted", "rolled_back"],
+            "description": "Type of head operation"
+          },
+          "previous_layer_id": {
+            "type": ["string", "null"],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Previous layer ID (null for initial creation)"
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Human-readable reason for the operation"
+          }
+        }
+      },
+      "maxItems": 50
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Arbitrary metadata for tooling and debugging"
+    }
+  }
+}
