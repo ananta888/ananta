@@ -6,6 +6,7 @@ from flask import Flask
 
 import agent.routes.source_control_v1 as routes
 from agent.routes.source_control_v1 import create_source_control_v1_blueprint
+from agent.services.project_access_authority import AuthorizedProjectScope
 
 
 @dataclass(frozen=True)
@@ -33,6 +34,37 @@ class _Api:
         }
 
 
+class _ProjectAccessAuthority:
+    """Grant the principal's own scope, as the Hub does for a project owner.
+
+    codehug_mutation is an authoritative-project endpoint, so the route resolves
+    a project-bound principal before authorization. Without this extension the
+    Hub fails closed with 503 project_access_authority_unavailable and never
+    reaches the payload governance these tests are about.
+    """
+
+    def require(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        subject_id: str,
+        capability,
+        tenant_admin: bool = False,
+        include_archived: bool = False,
+    ):
+        return AuthorizedProjectScope(
+            tenant_id=tenant_id,
+            project_id=project_id,
+            team_id=None,
+            subject_id=subject_id,
+            role="owner",
+            status="active",
+            capability=capability,
+            lock_version=1,
+        )
+
+
 def _app(monkeypatch):
     api = _Api()
     monkeypatch.setattr(routes, "check_auth", lambda view: view)
@@ -41,6 +73,7 @@ def _app(monkeypatch):
     )
     monkeypatch.setattr(routes, "_principal", lambda: _Principal())
     app = Flask(__name__)
+    app.extensions["project_access_authority"] = _ProjectAccessAuthority()
     app.register_blueprint(create_source_control_v1_blueprint(api))
     return app, api
 

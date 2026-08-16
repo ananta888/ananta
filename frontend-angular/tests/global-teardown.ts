@@ -85,14 +85,18 @@ export default async function globalTeardown() {
   );
   const artifactsRoot = resolveResultsRoot();
 
-  // Keep screenshots, videos, and traces for evidence workflows that upload them after teardown.
+  // Keep screenshots, videos, traces and error-context.md for the workflows
+  // that upload them after teardown. Only Playwright's own scratch directories
+  // are swept here; per-test output is named after the test and the browser
+  // ("<spec>-chromium", "...-chromium-retry1"), so matching on "chromium" or
+  // "retry" deleted exactly the failure evidence this comment promises to
+  // keep. CI then uploaded an artifact that could only ever contain the
+  // reporter files, and every failing shard was diagnosable only down to
+  // "element not found". Playwright already clears outputDir at the start of
+  // each run, so nothing accumulates by leaving this alone.
   if (!shouldRetainEvidenceArtifacts() && fs.existsSync(artifactsRoot)) {
     for (const name of fs.readdirSync(artifactsRoot)) {
-      if (
-        name.startsWith(".playwright-artifacts-") ||
-        name.includes("chromium") ||
-        name.includes("retry")
-      ) {
+      if (name.startsWith(".playwright-artifacts-")) {
         try {
           await removeDirWithRetries(path.join(artifactsRoot, name));
         } catch {}
