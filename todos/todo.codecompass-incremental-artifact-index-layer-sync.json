@@ -229,7 +229,7 @@
         "CIL-010",
         "CIL-011"
       ],
-      "status": "todo"
+      "status": "partial"
     },
     {
       "id": "M4",
@@ -513,10 +513,10 @@
       "id": "CIL-008",
       "title": "Inkrementellen Symbol-/Code-Graph-Builder implementieren",
       "type": "graph",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Nur betroffene Dateien neu parsen.",
@@ -533,16 +533,19 @@
       "dependencies": [
         "CIL-006",
         "CIL-007"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: incremental_graph_builder.py with IncrementalGraphBuilder class"
       ]
     },
     {
       "id": "CIL-009",
       "title": "Inkrementellen Semantic-/Chunk-Artifact-Builder implementieren",
       "type": "rag",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Chunks nur fuer betroffene Dateien/Symbole neu erzeugen.",
@@ -559,6 +562,9 @@
       "dependencies": [
         "CIL-006",
         "CIL-007"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: incremental_chunk_builder.py with IncrementalChunkBuilder class"
       ]
     },
     {
@@ -1113,7 +1119,7 @@
         ]
       },
       "acceptance_criteria": [
-        "Keine ungeklärten Shadow-Abweichungen.",
+        "Keine ungekl\u00e4rten Shadow-Abweichungen.",
         "Rollback getestet.",
         "Default erst nach Security-, Equivalence- und Performance-Gates."
       ],
