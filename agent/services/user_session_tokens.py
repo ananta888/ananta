@@ -4,6 +4,7 @@ import secrets
 import time
 
 import jwt
+from sqlalchemy.exc import IntegrityError
 
 from agent.config import settings
 from agent.db_models import RefreshTokenDB
@@ -87,25 +88,34 @@ def issue_user_session_tokens(
     username: str,
     role: str,
     mfa_enabled: bool = False,
+    persist_refresh_token: bool = True,
 ) -> dict[str, str | bool]:
+    canonical_username = local_user_tenant_id(username)
     access_token = issue_user_access_token(
-        username=username,
+        username=canonical_username,
         role=role,
         mfa_enabled=mfa_enabled,
     )
 
-    refresh_token = secrets.token_urlsafe(64)
-    get_repository_registry().refresh_token_repo.save(
-        RefreshTokenDB(
-            token=refresh_token,
-            username=username,
-            expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
-        )
-    )
+    refresh_token = ""
+    if persist_refresh_token:
+        repos = get_repository_registry()
+        if repos.user_repo.get_by_username(canonical_username) is not None:
+            try:
+                refresh_token = secrets.token_urlsafe(64)
+                repos.refresh_token_repo.save(
+                    RefreshTokenDB(
+                        token=refresh_token,
+                        username=canonical_username,
+                        expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
+                    )
+                )
+            except IntegrityError:
+                refresh_token = ""
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "username": username,
+        "username": canonical_username,
         "role": role,
         "mfa_required": mfa_enabled,
     }

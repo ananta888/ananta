@@ -245,7 +245,8 @@ def workflow_runtime_auth_keyring_file(tmp_path, monkeypatch):
 def _db_runtime() -> dict[str, Any]:
     _ensure_test_db()
     from sqlalchemy import inspect
-    from sqlalchemy.exc import OperationalError
+    from sqlalchemy import text
+    from sqlalchemy.exc import IntegrityError, OperationalError
     from sqlmodel import Session, delete
 
     from agent.db_models import (
@@ -368,7 +369,9 @@ def _db_runtime() -> dict[str, Any]:
     return {
         "engine": _db_engine(),
         "inspect": inspect,
+        "text": text,
         "OperationalError": OperationalError,
+        "IntegrityError": IntegrityError,
         "Session": Session,
         "delete": delete,
         "models": (
@@ -701,15 +704,30 @@ def cleanup_db_and_runtime():
         session_cls = runtime["Session"]
         delete_stmt = runtime["delete"]
         operational_error = runtime["OperationalError"]
+        integrity_error = runtime["IntegrityError"]
+        is_sqlite = runtime["engine"].dialect.name == "sqlite"
 
         def _delete_if_table_exists(model):
             try:
                 if inspector.has_table(model.__tablename__):
                     with session_cls(runtime["engine"]) as session:
+                        if is_sqlite:
+                            session.exec(runtime["text"]("PRAGMA foreign_keys = OFF"))
                         session.exec(delete_stmt(model))
                         session.commit()
+                        if is_sqlite:
+                            session.exec(runtime["text"]("PRAGMA foreign_keys = ON"))
             except operational_error:
                 pass
+            except integrity_error:
+                if is_sqlite:
+                    try:
+                        with session_cls(runtime["engine"]) as session:
+                            session.exec(runtime["text"]("PRAGMA foreign_keys = ON"))
+                    except Exception:
+                        pass
+                    return
+                raise
 
         for model in runtime["models"]:
             _delete_if_table_exists(model)

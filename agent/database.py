@@ -83,7 +83,13 @@ def _is_postgresql(url: str) -> bool:
 
 
 def _wait_for_required_schema(max_retries: int, retry_delay: int) -> None:
-    required_tables = {"agents", "tasks", "users"}
+    required_tables = {
+        "agents",
+        "tasks",
+        "users",
+        "approval_requests",
+        "planning_artifact_revisions",
+    }
     last_exception = None
 
     for i in range(max_retries):

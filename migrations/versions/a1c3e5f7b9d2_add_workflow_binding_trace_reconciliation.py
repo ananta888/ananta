@@ -25,15 +25,11 @@ depends_on: str | Sequence[str] | None = None
 
 _TABLE = "workflow_control_bindings"
 _PENDING_INDEX = "ix_workflow_control_bindings_trace_pending"
-# Defaults are written as SQL literals rather than Python values because the
-# dialects disagree: PostgreSQL rejects the integer 0 as a boolean default,
-# while SQLite accepts it. Naming each literal here keeps that difference in
-# one visible place instead of inside a type check.
-_COLUMNS: tuple[tuple[str, sa.types.TypeEngine, str], ...] = (
-    ("trace_pending", sa.Boolean(), "false"),
+_COLUMNS: tuple[tuple[str, sa.types.TypeEngine, str | bool], ...] = (
+    ("trace_pending", sa.Boolean(), False),
     ("trace_pending_revision", sa.Integer(), "0"),
     ("trace_projected_revision", sa.Integer(), "0"),
-    ("trace_cursor", sa.String(256), "''"),
+    ("trace_cursor", sa.String(256), ""),
 )
 
 
@@ -56,7 +52,20 @@ def upgrade() -> None:
             continue
         op.add_column(
             _TABLE,
-            sa.Column(name, column_type, nullable=False, server_default=sa.text(server_default)),
+            sa.Column(
+                name,
+                column_type,
+                nullable=False,
+                server_default=(
+                    sa.text("'%s'" % server_default)
+                    if isinstance(column_type, sa.String)
+                    else (
+                        sa.false()
+                        if isinstance(column_type, sa.Boolean)
+                        else sa.text(server_default)
+                    )
+                ),
+            ),
         )
     if _PENDING_INDEX not in _existing_indexes(connection):
         op.create_index(_PENDING_INDEX, _TABLE, ["trace_pending", "tenant_id"])

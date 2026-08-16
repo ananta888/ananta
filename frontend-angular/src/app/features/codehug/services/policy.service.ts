@@ -8,6 +8,7 @@ import {
   ChPolicyDecisionReadModel,
   ChPolicySnapshotReadModel,
   ChPolicyUpdateRequest,
+  ChServiceErrorCode,
   ChServiceError,
   ChWriteMode,
   ChAuditEntry,
@@ -374,20 +375,27 @@ export class PolicyService {
   }
 
   private toChError(err: unknown, operation: string): ChServiceError {
-    let code: any = 'unknown';
+    let code: ChServiceErrorCode = 'unknown';
     let message = `${operation} failed`;
     if (err instanceof Error) {
       message = `${operation}: ${err.message}`;
       if (err.name === 'TimeoutError') code = 'timeout';
     }
     if (typeof err === 'object' && err !== null) {
-      const status = (err as any).status;
-      if (status === 401) code = 'unauthorized';
-      else if (status === 403) code = 'forbidden';
-      else if (status === 404) code = 'not_found';
-      else if (status === 422) code = 'validation_error';
-      else if (status === 0) code = 'network_error';
-      else if (typeof status === 'number' && status >= 500) code = 'backend_error';
+      const status = (err as { status?: unknown }).status;
+      if (status === 401) {
+        code = 'unauthorized';
+      } else if (status === 403) {
+        code = 'forbidden';
+      } else if (status === 404) {
+        code = 'not_found';
+      } else if (status === 422) {
+        code = 'validation_error';
+      } else if (status === 0) {
+        code = 'network_error';
+      } else if (typeof status === 'number' && status >= 500) {
+        code = 'backend_error';
+      }
     }
     return new ChServiceError(code, message, err);
   }

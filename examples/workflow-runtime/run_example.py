@@ -75,6 +75,27 @@ async def _wait_for(
     raise RuntimeError(f"{reason}:{last.get('status', 'unknown')}")
 
 
+def _is_temporal_not_ready(error: Exception) -> bool:
+    message = f"{error.__class__.__name__} {error}".lower()
+    return "workflownotready" in message or "not ready" in message and "workflow" in message
+
+
+async def _approve_update_with_retry(handle: Any, command: dict[str, Any], label: str) -> Any:
+    deadline = asyncio.get_running_loop().time() + 15
+    retry_delay = 0.25
+    last: Exception | None = None
+    while asyncio.get_running_loop().time() < deadline:
+        try:
+            return await handle.execute_update("command", command)
+        except Exception as exc:  # noqa: BLE001 - workflow readiness is transient in CI
+            if not _is_temporal_not_ready(exc):
+                raise
+            last = exc
+            await asyncio.sleep(retry_delay)
+            retry_delay = min(retry_delay * 2, 1.0)
+    raise RuntimeError(f"{label}:workflow_not_ready_retry_exhausted") from last
+
+
 async def _start(client: Client, workflow_input) -> Any:
     return await client.start_workflow(
         ANANTA_WORKFLOW_TYPE,
@@ -93,7 +114,7 @@ async def _approve(handle: Any, workflow_input, status: dict[str, Any], command_
         command_id=command_id,
         now=time.time() - 1,
     )
-    result = await handle.execute_update("command", command)
+    result = await _approve_update_with_retry(handle, command, f"example_temporal_approval_{command_id}")
     if not isinstance(result, dict) or result.get("accepted") is not True:
         raise RuntimeError("example_temporal_approval_rejected")
     return result
@@ -147,7 +168,7 @@ async def _run_cancel_scenario(client: Client, plan) -> dict[str, Any]:
         payload={"reason": "example_operator_cancelled"},
         now=time.time() - 1,
     )
-    accepted = await handle.execute_update("command", command)
+    accepted = await _approve_update_with_retry(handle, command, "example_temporal_cancel")
     result = await handle.result()
     if (
         not isinstance(accepted, dict)

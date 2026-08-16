@@ -3,33 +3,68 @@ import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { firstValueFrom, of, throwError } from 'rxjs';
 
 import { PolicyService } from './policy.service';
-import { HubApiCoreService } from '../../../services/hub-api-core.service';
-import { AgentDirectoryService } from '../../../services/agent-directory.service';
+import { SourceControlV1ApiClient } from '../../../services/source-control-v1-api.client';
+import { SourceControlAccessDecisionKind } from '../../../models/source-control-v1-api.model';
 
-function mockHub() {
+function mockSourceControl() {
   return {
-    get: vi.fn(() => of({})),
-    post: vi.fn(() => of({})),
-    patch: vi.fn(() => of({})),
-    delete: vi.fn(() => of({})),
-    put: vi.fn(() => of({})),
+    listContextPolicies: vi.fn(() => of({
+      items: [{
+        policy_id: 'policy-1',
+        latest_version: 1,
+        state: 'active',
+        etag: 'active:1',
+        policy_digest: 'a'.repeat(64),
+      }],
+      next_cursor: null,
+    })),
+    getActiveContextPolicy: vi.fn(() => of({
+      policy: {
+        policy_id: 'policy-1',
+        version: 1,
+        tenant_id: 't1',
+        project_id: 'p1',
+        state: 'active',
+        document: {},
+        policy_digest: 'b'.repeat(64),
+        etag: 'active:1',
+        created_by: 'test',
+        created_at: new Date().toISOString(),
+      },
+      etag: 'active:1',
+    })),
+    previewAccess: vi.fn(() => of({
+      schema: 'ananta.source-control.access-decision.v1',
+      source_revision_id: 'src',
+      revision_digest: 'rev',
+      destination_id: 'dst',
+      operation: 'tool_write',
+      transformation: 'redacted',
+      purpose: 'code_navigation',
+      decision: 'allow',
+      reason_codes: ['allow'],
+      matched_rule_path: ['r1'],
+      default_applied: false,
+      approval_requirement: null,
+      policy_digest: 'c'.repeat(64),
+    })),
+    loadAccessMatrix: vi.fn(() => of({
+      items: [],
+      source_next_cursor: null,
+      destination_next_cursor: null,
+    })),
   };
 }
 
-function mockDir() {
-  return { list: () => [{ role: 'hub', url: 'http://hub.test', name: 'h' }] };
-}
-
 function setup() {
-  const hub = mockHub();
+  const sourceControlApi = mockSourceControl();
   TestBed.configureTestingModule({
     providers: [
       PolicyService,
-      { provide: HubApiCoreService, useValue: hub },
-      { provide: AgentDirectoryService, useValue: mockDir() },
+      { provide: SourceControlV1ApiClient, useValue: sourceControlApi },
     ],
   });
-  return { svc: TestBed.inject(PolicyService), hub };
+  return { svc: TestBed.inject(PolicyService), sourceControlApi };
 }
 
 describe('PolicyService — Audit + Risk + RateLimit', () => {
@@ -105,34 +140,101 @@ describe('PolicyService — Audit + Risk + RateLimit', () => {
     expect(svc.checkRate('k1', 1).allowed).toBe(true);
   });
 
-  it.each([undefined, '', 'unknown', 'unavailable'])(
-    'treats missing or unsupported backend decision %s as deny',
-    async decision => {
-      const { svc, hub } = setup();
-      hub.post.mockReturnValue(of({ id: 'decision-1', decision }));
+  it('throws validation_error for missing action binding input', async () => {
+    const { svc, sourceControlApi } = setup();
+    sourceControlApi.previewAccess.mockReturnValue(of({
+      schema: 'ananta.source-control.access-decision.v1',
+      source_revision_id: 'src',
+      revision_digest: 'rev',
+      destination_id: 'dst',
+      operation: 'tool_write',
+      transformation: 'redacted',
+      purpose: 'code_navigation',
+      decision: 'allow',
+      reason_codes: ['allow'],
+      matched_rule_path: ['r1'],
+      default_applied: false,
+      approval_requirement: null,
+      policy_digest: 'c'.repeat(64),
+    }));
 
-      const result = await firstValueFrom(svc.checkAction({ actionType: 'tool_write' }));
+    await expect(
+      firstValueFrom(svc.checkAction({ actionType: 'tool_write' })),
+    ).rejects.toBeTruthy();
+  });
+
+  it.each(['unsupported', 'mystery'] as const)(
+    'maps unsupported backend decision %s to deny',
+    async decision => {
+      const { svc, sourceControlApi } = setup();
+      sourceControlApi.previewAccess.mockReturnValue(of({
+        schema: 'ananta.source-control.access-decision.v1',
+        source_revision_id: 'src',
+        revision_digest: 'rev',
+        destination_id: 'dst',
+        operation: 'tool_write',
+        transformation: 'redacted',
+        purpose: 'code_navigation',
+        decision: decision as unknown as SourceControlAccessDecisionKind,
+        reason_codes: [],
+        matched_rule_path: [],
+        default_applied: true,
+        approval_requirement: null,
+        policy_digest: 'c'.repeat(64),
+      }));
+
+      const result = await firstValueFrom(
+        svc.checkAction({
+          actionType: 'tool_write',
+          sourceRevisionId: 'src',
+          destinationId: 'dst',
+          transformation: 'redacted',
+          purpose: 'code_navigation',
+        }),
+      );
 
       expect(result.decision).toBe('deny');
-      expect(result.reason).toBe('invalid_or_missing_policy_decision');
+      expect(result.reason).toBe('no_reason_code');
     },
   );
 
   it('preserves an explicit backend allow decision', async () => {
-    const { svc, hub } = setup();
-    hub.post.mockReturnValue(of({ id: 'decision-1', decision: 'allow', reason: 'matched_allow_rule' }));
+    const { svc, sourceControlApi } = setup();
+    sourceControlApi.previewAccess.mockReturnValue(of({
+      schema: 'ananta.source-control.access-decision.v1',
+      source_revision_id: 'src',
+      revision_digest: 'rev',
+      destination_id: 'dst',
+      operation: 'tool_read',
+      transformation: 'redacted',
+      purpose: 'code_navigation',
+      decision: 'allow',
+      reason_codes: ['policy_rule'],
+      matched_rule_path: ['rule-a'],
+      default_applied: false,
+      approval_requirement: null,
+      policy_digest: 'c'.repeat(64),
+    }));
 
-    const result = await firstValueFrom(svc.checkAction({ actionType: 'tool_read' }));
+    const result = await firstValueFrom(
+      svc.checkAction({
+        actionType: 'tool_read',
+        sourceRevisionId: 'src',
+        destinationId: 'dst',
+        transformation: 'redacted',
+        purpose: 'code_navigation',
+      }),
+    );
 
     expect(result.decision).toBe('allow');
-    expect(result.reason).toBe('matched_allow_rule');
+    expect(result.reason).toBe('policy_rule');
   });
 
   it.each([401, 403, 404, 409, 422, 429, 500, 503])(
     'does not replace policy load failure %s with a local success snapshot',
     async status => {
-      const { svc, hub } = setup();
-      hub.get.mockReturnValue(throwError(() => ({ status })));
+      const { svc, sourceControlApi } = setup();
+      sourceControlApi.listContextPolicies = vi.fn(() => throwError(() => ({ status })));
 
       await expect(firstValueFrom(svc.loadCurrentSnapshot())).rejects.toBeInstanceOf(Error);
       expect(svc.getCachedSnapshot()).toBeNull();

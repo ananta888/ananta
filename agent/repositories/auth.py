@@ -114,6 +114,7 @@ class OidcIdentityLinkRepository:
                     )
 
                 session.add(user)
+                session.flush()
                 session.add(
                     OidcIdentityLinkDB(
                         username=user.username,

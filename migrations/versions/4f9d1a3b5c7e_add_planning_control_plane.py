@@ -30,6 +30,7 @@ PLANNING_TABLE_ORDER = (
 
 def upgrade() -> None:
     bind = op.get_bind()
+    _ensure_approval_requests_table(bind)
     _extend_approval_requests(bind)
     _sqlite_approval_scope_preflight(bind)
     _create_approval_scope_constraints(bind)
@@ -53,6 +54,15 @@ def downgrade() -> None:
 def _planning_tables() -> dict[str, sa.Table]:
     tables = enterprise_organization_tables_v1()
     return {name: tables[name] for name in PLANNING_TABLE_ORDER}
+
+
+def _ensure_approval_requests_table(bind) -> None:
+    if "approval_requests" in set(sa.inspect(bind).get_table_names()):
+        return
+    op.create_table(
+        "approval_requests",
+        sa.Column("id", sa.String(191), nullable=False, primary_key=True),
+    )
 
 
 def _create_planning_tables(bind) -> None:

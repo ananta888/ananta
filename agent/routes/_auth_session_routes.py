@@ -140,93 +140,95 @@ def register_routes(auth_bp) -> None:
             return api_response(status="error", message="Missing username or password", code=400)
 
         user = _repos().user_repo.get_by_username(username)
+        if not user:
+            record_attempt(ip)
+            _log().warning("Failed login attempt for user: %s from %s", username, ip)
+            log_audit("login_failed", {"username": username})
+            return api_response(status="error", message="Invalid credentials", code=401)
 
-        if user:
-            if user.lockout_until and user.lockout_until > time.time():
-                record_attempt(ip)
-                remaining = int(user.lockout_until - time.time())
-                return api_response(
-                    status="error", message=f"Account is locked. Please try again in {remaining} seconds.", code=403
-                )
-
-        if user and check_password_hash(user.password_hash, password):
-            local_user_tenant_id(user.username)
-
-            if user.mfa_enabled and not mfa_token:
-                return api_response(data={"mfa_required": True, "username": username})
-
-            if user.mfa_enabled and mfa_token:
-                is_valid_totp = verify_totp(decrypt_secret(user.mfa_secret), mfa_token)
-
-                is_valid_backup = False
-                if not is_valid_totp and user.mfa_backup_codes:
-                    for idx, hashed_code in enumerate(user.mfa_backup_codes):
-                        if check_password_hash(hashed_code, mfa_token):
-                            is_valid_backup = True
-                            user.mfa_backup_codes.pop(idx)
-                            log_audit("mfa_backup_code_used", {"username": username})
-                            break
-
-                if not is_valid_totp and not is_valid_backup:
-                    record_attempt(ip)
-                    user.failed_login_attempts += 1
-                    if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
-                        user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
-                        notify_lockout(username)
-                    _repos().user_repo.save(user)
-
-                    now = time.time()
-                    key = (username or "unknown", ip or "unknown")
-                    last_ts = MFA_WARN_LAST.get(key, 0)
-                    if now - last_ts > 60:
-                        _log().warning("Invalid MFA token for user: %s", username)
-                        MFA_WARN_LAST[key] = now
-                    else:
-                        _log().debug("Invalid MFA token (suppressed, rate-limited) for user: %s", username)
-                    return api_response(status="error", message="Invalid MFA token", code=401)
-
-            _repos().login_attempt_repo.delete_by_ip(ip)
-            user.failed_login_attempts = 0
-            user.lockout_until = None
-            _repos().user_repo.save(user)
-
-            token = issue_user_access_token(
-                username=user.username,
-                role=user.role,
-                mfa_enabled=user.mfa_enabled,
-            )
-            refresh_token = secrets.token_urlsafe(64)
-            _repos().refresh_token_repo.save(
-                RefreshTokenDB(
-                    token=refresh_token,
-                    username=username,
-                    expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
-                )
-            )
-
-            _log().info("User login successful: %s", username)
-            log_audit("login_success", {"username": username})
+        if user.lockout_until and user.lockout_until > time.time():
+            record_attempt(ip)
+            remaining = int(user.lockout_until - time.time())
             return api_response(
-                data={
-                    "access_token": token,
-                    "refresh_token": refresh_token,
-                    "username": username,
-                    "role": user.role,
-                    "mfa_required": user.mfa_enabled,
-                }
+                status="error", message=f"Account is locked. Please try again in {remaining} seconds.", code=403
             )
 
-        record_attempt(ip)
-        if user:
+        if not check_password_hash(user.password_hash, password):
+            record_attempt(ip)
             user.failed_login_attempts += 1
             if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
                 user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
                 notify_lockout(username)
             _repos().user_repo.save(user)
 
-        _log().warning("Failed login attempt for user: %s from %s", username, ip)
-        log_audit("login_failed", {"username": username})
-        return api_response(status="error", message="Invalid credentials", code=401)
+            _log().warning("Failed login attempt for user: %s from %s", username, ip)
+            log_audit("login_failed", {"username": username})
+            return api_response(status="error", message="Invalid credentials", code=401)
+
+        canonical_username = local_user_tenant_id(user.username)
+
+        if user.mfa_enabled:
+            if not mfa_token:
+                return api_response(data={"mfa_required": True, "username": username})
+
+            is_valid_totp = verify_totp(decrypt_secret(user.mfa_secret), mfa_token)
+            is_valid_backup = False
+            if not is_valid_totp and user.mfa_backup_codes:
+                for idx, hashed_code in enumerate(user.mfa_backup_codes):
+                    if check_password_hash(hashed_code, mfa_token):
+                        is_valid_backup = True
+                        user.mfa_backup_codes.pop(idx)
+                        log_audit("mfa_backup_code_used", {"username": username})
+                        break
+
+            if not is_valid_totp and not is_valid_backup:
+                record_attempt(ip)
+                user.failed_login_attempts += 1
+                if user.failed_login_attempts >= settings.auth_user_lockout_threshold:
+                    user.lockout_until = time.time() + settings.auth_user_lockout_duration_seconds
+                    notify_lockout(username)
+                _repos().user_repo.save(user)
+
+                now = time.time()
+                key = (username or "unknown", ip or "unknown")
+                last_ts = MFA_WARN_LAST.get(key, 0)
+                if now - last_ts > 60:
+                    _log().warning("Invalid MFA token for user: %s", username)
+                    MFA_WARN_LAST[key] = now
+                else:
+                    _log().debug("Invalid MFA token (suppressed, rate-limited) for user: %s", username)
+                return api_response(status="error", message="Invalid MFA token", code=401)
+
+        _repos().login_attempt_repo.delete_by_ip(ip)
+        user.failed_login_attempts = 0
+        user.lockout_until = None
+        _repos().user_repo.save(user)
+
+        token = issue_user_access_token(
+            username=canonical_username,
+            role=user.role,
+            mfa_enabled=user.mfa_enabled,
+        )
+        refresh_token = secrets.token_urlsafe(64)
+        _repos().refresh_token_repo.save(
+            RefreshTokenDB(
+                token=refresh_token,
+                username=canonical_username,
+                expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
+            )
+        )
+
+        _log().info("User login successful: %s", username)
+        log_audit("login_success", {"username": username})
+        return api_response(
+            data={
+                "access_token": token,
+                "refresh_token": refresh_token,
+                "username": canonical_username,
+                "role": user.role,
+                "mfa_required": user.mfa_enabled,
+            }
+        )
 
     @auth_bp.route("/refresh-token", methods=["POST"])
     def refresh():
@@ -301,12 +303,14 @@ def register_routes(auth_bp) -> None:
             mfa_enabled=user.mfa_enabled,
         )
 
+        canonical_username = local_user_tenant_id(user.username)
+
         _repos().refresh_token_repo.delete(refresh_token)
         new_refresh_token = secrets.token_urlsafe(64)
         _repos().refresh_token_repo.save(
             RefreshTokenDB(
                 token=new_refresh_token,
-                username=username,
+                username=canonical_username,
                 expires_at=time.time() + settings.auth_refresh_token_ttl_seconds,
             )
         )
@@ -315,7 +319,7 @@ def register_routes(auth_bp) -> None:
             data={
                 "access_token": new_token,
                 "refresh_token": new_refresh_token,
-                "username": username,
+                "username": canonical_username,
                 "role": user.role,
             }
         )
