@@ -3,6 +3,14 @@
 [![Quality And Docs](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/quality-and-docs.yml)
 [![Backend Isolated Flows](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml/badge.svg)](https://github.com/ananta888/ananta/actions/workflows/backend-isolated-flows.yml)
 
+
+<!-- ANANTA_RELEASES_START -->
+## Releases
+
+- **Latest release:** noch kein GitHub Release veroeffentlicht
+
+<!-- ANANTA_RELEASES_END -->
+
 @Sponsored by www.ananta.de
 
 **ANANTA** steht fuer **Autonomous Networked Agents Navigate Trusted Artifacts**.
