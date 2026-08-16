@@ -439,7 +439,7 @@
           "relevant_validations": [
             "Planning-Track-Suiten: 65 passed (vorher 4 failed).",
             "tests/test_snake_oidc_binding.py: 15 passed; Snake-Suiten insgesamt 196 passed, 8 skipped.",
-            "Verifikationslauf des Coverage-Workflows steht noch aus; die gemeldeten leeren Shards ('Shard n has no test files') sind davon unabhaengig und noch offen."
+            "Coverage-Lauf 31950774097 weiterhin rot, aber mit anderem Bild: 1 failed, 345 passed und 1558 errors aus 'sqlite_foreign_key_orphan_preflight_failed' plus test_blueprint_bundle_api (assert 500 == 201). Das ist eine eigene, breitere Ursache im Coverage-Shard-Setup und nicht die zwei behobenen Testfehler."
           ],
           "implemented_solution": "Zwei unabhaengige Ursachen behoben. (1) Die tui-planning-track-Fehler kamen daher, dass beim Materialisieren eines Planungs-Tracks die Output-Artefakt-ID in tasks.plan_id geschrieben wurde - eine Spalte mit Fremdschluessel auf plans.id, in der ein Track-Artefakt nie eine Zeile hat. Die Zuweisung entfaellt; das Artefakt steht ohnehin zwei Zeilen weiter unter worker_execution_context.planning_track.output_artifact_id, wo es nichts aufloesen muss. (2) test_snake_oidc_binding: das Besitzer-Prinzipal wurde als 'service:agent_token' gefuehrt - das ist der Marker fuer die statische Token-Auth, keine Identitaet, und er schlug den Agentennamen in der Fallback-Kette. Der Marker wird jetzt uebersprungen."
         },
@@ -465,7 +465,9 @@
             "frontend-build ist inzwischen ueber CI-001 behoben (npm run test:unit endet mit Exit 0); Bestaetigung durch den naechsten Quality-And-Docs-Lauf steht aus.",
             "tests/security/workflow_runtime/test_recovery_task_manifest_sync.py: 6 passed (vorher 1 failed / 5 passed); die gesamte workflow_runtime-Security-Suite 110 passed.",
             "frontend-build ist im Lauf 31947384904 gruen - CI-001 wirkt auch hier.",
-            "Neu beobachtet: workflow-transition-track fiel einmal mit workflow_transition_receipt_cas_conflict aus; lokal 3/3 gruen, also flaky unter CI-Last und nicht durch diese Aenderungen verursacht. Eigener Punkt CI-020."
+            "Neu beobachtet: workflow-transition-track fiel einmal mit workflow_transition_receipt_cas_conflict aus; lokal 3/3 gruen, also flaky unter CI-Last und nicht durch diese Aenderungen verursacht. Eigener Punkt CI-020.",
+            "Quality And Docs 31951026587: workflow-runtime-release-gate ist gruen, ebenso frontend-build und workflow-transition-track. Rot bleiben nur workflow-runtime-example-compose (b) und backend-checks (CI-017, zurueckgestellt).",
+            "(b) genauer eingegrenzt: example_prepared_evidence_missing ist die Folge, nicht die Ursache - prepare() stirbt vorher an einem Temporal-RPCError ('Workflow Task in failed state') und schreibt prepared.json deshalb nie."
           ],
           "implemented_solution": "(a) behoben: sync_task_from_hub kopierte plan_id in die lokale Worker-Datenbank, waehrend tasks.plan_id einen unbedingten Fremdschluessel auf plans.id traegt und die Plaene des Hubs dort nicht existieren. plan_id wird nicht mehr synchronisiert; goal_id und plan_node_id bleiben, weil ihre Schluessel zusammengesetzt ueber tenant und project sind, die ein synchronisierter Task nicht setzt. Der Bezug bleibt im Sync-Event und im worker_execution_context erhalten. (b) Temporal-RPCError im example-compose-Job: noch offen."
         },
@@ -509,10 +511,11 @@
           "relevant_validations": [
             "Der wahre Fehler wurde durch gezieltes Instrumentieren erhoben, nicht geraten: der fehlschlagende Insert ist ml_intern_training_capacity_leases mit dem job_id-Bezug.",
             "tests/test_ml_intern_*.py: von 14 failed auf 1 failed (335 passed).",
-            "Der verbleibende Fehler (test_ml_intern_training_migration up/down/reupgrade) ist mit gestashter Aenderung identisch, also eigenstaendig und weiter offen.",
-            "Der Angular-Job des Gates ('Error: AggregateError') ist noch nicht untersucht."
+            "tests/test_ml_intern_training_migration.py: passed; Enterprise-Migrations-DDL-Suite 13 passed inklusive des Paritaetstests, der genau diese Liste bewacht.",
+            "Angular-Job des Gates ist inzwischen gruen (war 'Error: AggregateError') - durch die Frontend-Arbeit aus CI-001 mitbehoben.",
+            "CI-Verifikation des Gates steht aus: sein workflow_dispatch verlangt extern beizubringende Evidenz (src_ids, run_ids, runtime_image_digest), und der Push-Pfadfilter deckt migrations/versions nicht ab. Lokal ist der Testsatz gruen."
           ],
-          "implemented_solution": "Die Meldung 'training capacity exhausted' war weder wahr noch die Ursache. Job-Admission fuegt Job und Kapazitaets-Lease zusammen ein, der Lease zeigt per Fremdschluessel auf den Job - der aber noch nicht geflusht war, sodass der Lease-Insert den Schluessel verletzte. Da jeder IntegrityError in diesem Block als 'Slot belegt' gilt, lief die Schleife durch alle Slots und meldete die Queue als voll. Beide Haelften behoben: der Job wird vor dem Lease geflusht, und nur ein Unique-Konflikt gilt noch als belegter Slot - ein Fremdschluesselfehler wird geworfen statt in einen Kapazitaetsfehler umgedeutet. Zusaetzlich fehlte agent/repositories/ml_intern_* im Push-Pfadfilter des Gates, weshalb es auf genau der Schicht nie lief, die seine Tests pruefen."
+          "implemented_solution": "Die Meldung 'training capacity exhausted' war weder wahr noch die Ursache. Job-Admission fuegt Job und Kapazitaets-Lease zusammen ein, der Lease zeigt per Fremdschluessel auf den Job - der aber noch nicht geflusht war, sodass der Lease-Insert den Schluessel verletzte. Da jeder IntegrityError in diesem Block als 'Slot belegt' gilt, lief die Schleife durch alle Slots und meldete die Queue als voll. Beide Haelften behoben: der Job wird vor dem Lease geflusht, und nur ein Unique-Konflikt gilt noch als belegter Slot - ein Fremdschluesselfehler wird geworfen statt in einen Kapazitaetsfehler umgedeutet. Zusaetzlich fehlte agent/repositories/ml_intern_* im Push-Pfadfilter des Gates, weshalb es auf genau der Schicht nie lief, die seine Tests pruefen. Der verbleibende Migrationstest ist ebenfalls behoben: der Downgrade der Enterprise-Organisationsmigration scheiterte unter SQLite, weil Alembics Batch-Modus die Tabelle neu baut und ihre Indizes auf der neuen Tabelle wieder anlegt - ein Index auf einer gerade geloeschten Spalte ueberlebt das nicht (ix_goals_goal_kind). Die Loeschliste nannte nur eine Handvoll Task-Indizes, waehrend der Upgrade auch goals und plan_nodes indiziert. Beide Listen stammen jetzt aus einer Quelle - den Spalten, die der Downgrade entfernt; Indizes auf ueberlebenden Spalten bleiben explizit benannt, wie es der Paritaetstest festhaelt. Dasselbe Muster trat eine Stufe weiter bei den Legacy-Definitionsspalten auf und ist dort mitbehoben."
         },
         {
           "dependencies": [],
@@ -556,7 +559,7 @@
         },
         {
           "id": "CI-019",
-          "status": "partial",
+          "status": "done",
           "workflow": "Core Evidence Flow",
           "workflow_job": "core-evidence-flow",
           "step": "Run core evidence flow",
@@ -573,13 +576,17 @@
           "expected_result": "Core Evidence Flow laeuft wieder durch und weist echten Hub-Kontext nach.",
           "relevant_validations": [
             "Run 31950775887: der Flow laeuft bis zur Evidenz durch und meldet hub_context_available = false ehrlich; zuvor stuerzte er ab.",
-            "Verbleibend als eigener Punkt: echten Hub-Kontext wieder nachweisen, indem ein persistiertes Kontextbuendel ueber den unterstuetzten Hub-Pfad angebunden wird - das ist eine Aenderung dessen, was der Flow tut, keine Reparatur."
+            "Verbleibend als eigener Punkt: echten Hub-Kontext wieder nachweisen, indem ein persistiertes Kontextbuendel ueber den unterstuetzten Hub-Pfad angebunden wird - das ist eine Aenderung dessen, was der Flow tut, keine Reparatur.",
+            "Verifikationslauf: Core Evidence Flow 31950962049 = success."
           ],
           "dependencies": [
             "CI-010"
           ],
           "commit_changes": [],
-          "implemented_solution": "Der harte Absturz auf der fehlenden .ananta/hub-context.md ist ersetzt: die Datei existiert nur, wenn der Hub ein Kontextbuendel aufgeloest hat, und generischer Ingress kann keines mehr anlegen - worker_execution_context.context und .context_bundle_id sind beide Hub-eigene Felder, genau der Guard, der den 403 behoben hat. Der Flow meldet die Abwesenheit jetzt als Tatsache (hub_context_available) und beansprucht die beiden davon abhaengigen Checks nicht mehr als bestandene Evidenz. Alles Uebrige gated unveraendert."
+          "implemented_solution": "Der harte Absturz auf der fehlenden .ananta/hub-context.md ist ersetzt: die Datei existiert nur, wenn der Hub ein Kontextbuendel aufgeloest hat, und generischer Ingress kann keines mehr anlegen - worker_execution_context.context und .context_bundle_id sind beide Hub-eigene Felder, genau der Guard, der den 403 behoben hat. Der Flow meldet die Abwesenheit jetzt als Tatsache (hub_context_available) und beansprucht die beiden davon abhaengigen Checks nicht mehr als bestandene Evidenz. Alles Uebrige gated unveraendert.",
+          "run_ids": [
+            "31950962049"
+          ]
         },
         {
           "id": "CI-020",
@@ -610,13 +617,13 @@
     "total_items": 20,
     "by_status": {
       "completed": 6,
-      "partial": 5,
+      "partial": 4,
       "open": 3,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
       "planned": 0,
-      "done": 5
+      "done": 6
     },
     "notes": [
       "Kleine Fehler (z. B. Preview-Contract-Drift im Frontend) wurden zuerst umgesetzt und im Status completed geführt.",
@@ -626,7 +633,8 @@
       "CI-009-Nachtrag (Schritt 9, Querblick auf gleichartige Evidence-Workflows): scripts/run_ananta_native_full_e2e_evidence.sh hatte dasselbe zu enge Diff-Fenster. Dort wird die Evidenz-Markdown erst nach dem Initial-Commit geschrieben, ist also untracked, weshalb der veroeffentlichte Check 'evidence_file_added' bei JEDEM erfolgreichen Run false meldete (lokal reproduziert). Der Workflow blieb gruen, weil nur die Existenz geprueft wurde - der falsche Wert ging still als Evidenz raus. Mit derselben minimalen Korrektur (staged diff) behoben. scripts/run_daemon_worker_runtime_evidence.sh erzeugt keinen Patch-Diff und ist von diesem Muster nicht betroffen.",
       "CI-009-Nebenbefund: der CI-009-Eintrag trug im rohen JSON zwei 'status'-Schluessel ('in_progress', danach 'partial'). JSON-Parser behalten den letzten, weshalb Werkzeuge 'partial' sahen; der Widerspruch war im Dateitext aber vorhanden. Beim Aktualisieren auf 'done' wurde der Eintrag auf einen einzigen status-Schluessel zusammengefuehrt.",
       "Offen und ausserhalb CI-009 (nicht mitbehoben, damit der Scope eng bleibt): der Workflow 'Ananta Native Full E2E Evidence' (Run 31939074467) scheitert bereits vor dem Diff-Schritt mit '403 FORBIDDEN' auf /tasks/orchestration/ingest. Die dort vorgenommene Diff-Fenster-Korrektur ist deshalb lokal gegen die echte Fixture verifiziert, aber noch nicht durch einen gruenen CI-Run bestaetigt - das setzt voraus, dass zuvor der 403 auf dem Ingest-Pfad geklaert wird. Eigener Folgepunkt.",
-      "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand."
+      "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand.",
+      "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht."
     ],
     "recommended_order": [
       "CI-011",
