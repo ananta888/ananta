@@ -27,7 +27,7 @@
       "items": [
         {
           "id": "CI-001",
-          "status": "partial",
+          "status": "done",
           "workflow": "Visual Guide Tests",
           "workflow_job": "frontend-typecheck",
           "step": "frontend-typecheck",
@@ -48,17 +48,22 @@
             "Betrifft zwei Workflows: 'Visual Guide Tests' (frontend-typecheck) und 'Quality And Docs' (frontend-build -> Run frontend unit tests, wo dieselben context-access-policy-Specs fehlschlagen).",
             "Exakter CI-Befehl lokal reproduziert und danach gruen: 'npx tsc --noEmit' - vorher 5 Fehler, jetzt Exit 0. (Wichtig: tsconfig.app.json war bereits gruen, der CI nutzt aber die Wurzelkonfiguration - deshalb blieb der Fehler lokal lange unsichtbar.)",
             "Vollstaendige Unit-Suite wie in Quality And Docs ('npm run test:unit'): 3326 passed, 1 skipped, 0 failed.",
-            "Erreichbarkeit der geloeschten Dateien zweifach belegt: keine Importe und keine Selektorverwendung aus lebendem Code."
+            "Erreichbarkeit der geloeschten Dateien zweifach belegt: keine Importe und keine Selektorverwendung aus lebendem Code.",
+            "Verifikationslauf: Visual Guide Tests 31945072880 = success (erstmals im gesamten einsehbaren Log-Fenster).",
+            "NACHTRAG - eigener Fehler korrigiert: ich hatte die Unit-Suite zunaechst durch grep gepipet und deshalb den echten Exit-Code nicht gesehen. 'npm run test:unit' endete trotz '3326 passed' mit Exit 1, weil vitest 5 unbehandelte Fehler meldete: eine Zusicherung, die in einem subscribe-Callback fehlschlug (der Datensatz kommt aus der Versionsantwort, die Zusicherung griff den Wert der Zusammenfassung ab), und vier done()-Callbacks, die vitest nicht unterstuetzt - dadurch liefen die Zusicherungen ausserhalb des Testlebenszyklus und der Test galt trotzdem als bestanden. Auf Promises umgestellt; 'npm run test:unit' endet jetzt mit Exit 0."
           ],
           "dependencies": [],
           "commit_changes": [
             "frontend-angular/src/app/features/context-access-policy/policy-version-list.component.ts",
             "frontend-angular/src/app/services/context-access-policy-api.service.ts"
+          ],
+          "run_ids": [
+            "31945072880"
           ]
         },
         {
           "id": "CI-002",
-          "status": "open",
+          "status": "done",
           "workflow": "Backend Isolated Flows",
           "workflow_job": "isolated-flows",
           "step": "pytest tests/test_autonomous_scrum_e2e.py + test_autopilot_integration.py",
@@ -73,14 +78,16 @@
             "agent/db_models/plan_node.py"
           ],
           "proposed_solution": "Ad-hoc Materialisierung nur dann mit `team_id` ausführen, wenn Team existiert; andernfalls bewusst ohne Team-ID materialisieren, damit FK-Constraints eingehalten werden.",
-          "implemented_solution": "In `_materialize_plan` wird für ad-hoc Aufrufe die übergebene `team_id` nur nach erfolgreichem `team_repo.get_by_id` übernommen, sonst wird mit Warnung `None` verwendet. Zusätzlich bleibt die goal-basierte Materialisierung unverändert und Team-Abhängigkeiten werden weiterhin vollständig validiert.",
+          "implemented_solution": "Drei verkettete Ursachen, jede von der vorherigen verdeckt. (1) Ohne persistierte Plaene baut die Pipeline Knoten unter 'goal_id or ad-hoc-plan' als plan_id - ein Platzhalter, der auf nichts zeigt, waehrend plan_nodes einen Fremdschluessel auf plans.id traegt. Der Rollback speicherte dieselben Knoten beim Aufraeumen erneut und loeste damit die zweite Verletzung innerhalb der Behandlung der ersten aus. Beide Stellen persistieren einen Knoten jetzt nur noch, wenn sein Plan existiert. (2) Dadurch wurde sichtbar, dass tasks.plan_node_id einen eigenen Schluessel auf plan_nodes hat - die Referenz entfaellt nun ohne Plan, bleibt aber im worker_execution_context zur Nachverfolgung. (3) Der Test plante gegen team_id 'team-local-llm', ohne dieses Team anzulegen, waehrend tasks.team_id auf teams.id verweist; das Team wird jetzt erzeugt. Zusaetzlich meldet die Zusicherung nun den Antwortkoerper statt nur '400 == 201'.",
           "relevant_validations": [
             "Reproduktion der betroffenen Tests lokal im isolierten Testlauf",
             "Re-run von `pytest -q tests/test_autonomous_scrum_e2e.py::test_e2e_first_goal_local_lmstudio_generates_and_executes_role_tasks`",
             "Re-run von `pytest -q tests/test_autopilot_integration.py::TestFullAutopilotLoop::test_auto_planner_creates_tasks_from_goal`",
             "REGRESSIONSBEFUND 2026-08-16: als 'completed' gefuehrt, aber faktisch nie gruen. Zaehlung bei Run 31942114417 (vor den heutigen Commits) und Run 31943267700 (danach) identisch: 2 failed / 47 passed / 2 skipped, gleiche Tests, gleiche Assertions, gleicher FOREIGN-KEY-Fehler. Der Status wurde auf 'open' zurueckgesetzt.",
             "Gegenprobe: die Task-Scope-Vererbung aus Commit d4d9ac2a6 hat daran nichts geaendert - Zahlen und Fehlersignatur davor und danach byte-gleich.",
-            "Noch offen: der FOREIGN-KEY-Fehler im Autopilot-/Scrum-E2E ist unabhaengig vom Frontend-Cluster und noch nicht angegangen."
+            "Noch offen: der FOREIGN-KEY-Fehler im Autopilot-/Scrum-E2E ist unabhaengig vom Frontend-Cluster und noch nicht angegangen.",
+            "tests/test_autopilot_integration.py + tests/test_autonomous_scrum_e2e.py: 13 passed, 1 skipped (vorher 2 failed).",
+            "Gegenprobe: die vier benachbarten tui-planning-track-Fehler sind mit gestashten Aenderungen identisch, also vorbestehend - gefuehrt unter CI-013."
           ],
           "dependencies": [
             "CI-003"
@@ -358,7 +365,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-011",
-          "status": "partial",
+          "status": "done",
           "workflow": "ananta-codecompass-review",
           "workflow_job": "Build local CodeCompass graph",
           "step": "Compute blast radius",
@@ -374,15 +381,18 @@
           "relevant_validations": [
             "Erster Fehler (jsonschema) aus Run 31939073421, zweiter (pydantic) aus Run 31944318479 nach dem ersten Teilfix - belegt, dass Einzel-Nachruesten nicht traegt.",
             "Geschlossene Menge statisch ueber die Importe von ananta_codecompass/*.py und ananta_contracts/*.py bestimmt: ['cryptography', 'jsonschema', 'pydantic'].",
-            "Verifikationslauf steht noch aus."
+            "Verifikationslauf: ananta-codecompass-review 31944553343 = success."
           ],
-          "implemented_solution": "Der Job installiert mit --no-deps und ueberspringt damit echte Laufzeit-Abhaengigkeiten. Nach dem Nachziehen von jsonschema fiel als naechstes pydantic aus. Statt Modul fuer Modul nachzuruesten wurde die geschlossene Menge statisch ermittelt: cryptography, jsonschema, pydantic sind die einzigen Drittmodule, die von ananta_codecompass und ananta_contracts erreicht werden - genau der Importpfad des Blast-Radius-Schritts ueber worker/retrieval/codecompass_graph_store.py. Alle drei stehen bereits in pyproject.toml und werden nur genannt, weil --no-deps sie auslaesst."
+          "implemented_solution": "Der Job installiert mit --no-deps und ueberspringt damit echte Laufzeit-Abhaengigkeiten. Nach dem Nachziehen von jsonschema fiel als naechstes pydantic aus. Statt Modul fuer Modul nachzuruesten wurde die geschlossene Menge statisch ermittelt: cryptography, jsonschema, pydantic sind die einzigen Drittmodule, die von ananta_codecompass und ananta_contracts erreicht werden - genau der Importpfad des Blast-Radius-Schritts ueber worker/retrieval/codecompass_graph_store.py. Alle drei stehen bereits in pyproject.toml und werden nur genannt, weil --no-deps sie auslaesst.",
+          "run_ids": [
+            "31944553343"
+          ]
         },
         {
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-012",
-          "status": "open",
+          "status": "done",
           "workflow": "Backend Deep Tests",
           "workflow_job": "backend-deep-tests (e2e-rag-runtime)",
           "step": "Run deep tests",
@@ -396,7 +406,16 @@
           ],
           "proposed_solution": "Policy-Bedingung ermitteln und entweder die Testvorbedingung korrekt herstellen oder die Policy fuer den lokalen Testremote sauber zulassen - ohne die Policy generell aufzuweichen.",
           "expected_result": "Die fuenf Git-Sync-E2E-Tests laufen wieder gruen.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "reason_code aus dem Lauf erhoben (git_remote_url_invalid), nicht geraten.",
+            "tests/e2e/test_workspace_git_sync_flow.py: 9 passed (vorher 5 failed / 23 passed).",
+            "Umgebende Git-Suites ohne Regression: 61 passed.",
+            "Verifikationslauf: Backend Deep Tests 31945332721 = success."
+          ],
+          "run_ids": [
+            "31945332721"
+          ],
+          "implemented_solution": "Eine file:///pfad-URL hat keinen Host, die Netzwerk-Remote-Policy verlangt aber einen - kein file://-Remote kann diesen Parser je passieren. Er soll ihn auch nicht erreichen: lokale Remotes haben einen eigenen Weg und werden akzeptiert, sobald das Bare-Repo per Markerdatei nachweist, dass es Ananta-verwaltet ist. Die Test-Fixture schrieb den Marker nie. Der letzte fehlschlagende Test legte dieselbe Luecke in der Produktion offen: HubGitRemoteService erzeugt das Goal-Repo und gibt eine file://-URL heraus, markierte es aber nicht - der Hub reichte also Remotes aus, die seine eigenen Worker anschliessend ablehnten. Er markiert sie jetzt, auch auf dem Pfad fuer bereits vorhandene Repos, sodass aeltere Repos geheilt statt dauerhaft unbrauchbar bleiben. Der Marker war auf beiden Seiten ein Literal und lebt jetzt als gemeinsame Konstante. Die Policy selbst bleibt unangetastet."
         },
         {
           "dependencies": [],
@@ -547,13 +566,13 @@
     "total_items": 19,
     "by_status": {
       "completed": 6,
-      "partial": 3,
-      "open": 8,
+      "partial": 1,
+      "open": 6,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
       "planned": 0,
-      "done": 1
+      "done": 5
     },
     "notes": [
       "Kleine Fehler (z. B. Preview-Contract-Drift im Frontend) wurden zuerst umgesetzt und im Status completed geführt.",

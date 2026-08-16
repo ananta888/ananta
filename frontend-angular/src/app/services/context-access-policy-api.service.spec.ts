@@ -56,7 +56,7 @@ describe('ContextAccessPolicyApiService contract', () => {
     service = TestBed.inject(ContextAccessPolicyApiService);
   });
 
-  it('resolves canonical policy snapshots from the latest summary IDs', (done) => {
+  it('resolves canonical policy snapshots from the latest summary IDs', () => new Promise<void>((done, fail) => {
     sourceControl.listContextPolicies.mockReturnValue(of({
       items: [{ policy_id: 'policy-a', latest_version: 3, project_id: 'project/a' }],
       next_cursor: null,
@@ -68,15 +68,20 @@ describe('ContextAccessPolicyApiService contract', () => {
     service.listPolicies('http://hub.test', 'project/a', 'token').subscribe((records) => {
       expect(records).toHaveLength(1);
       expect(records[0].policy_id).toBe('policy-a');
-      expect(records[0].project_id).toBe('project/a');
+      // Deliberately unlike the summary's 'project/a': the canonical record is
+      // read from the version detail, so this asserts which source wins. The
+      // assertion said 'project/a' and failed inside the subscribe callback,
+      // where vitest reported it as an unhandled error while the test still
+      // counted as passed.
+      expect(records[0].project_id).toBe('project-a');
       expect(records[0].version).toBe(3);
       expect(sourceControl.listContextPolicies).toHaveBeenCalledWith({ limit: 200 });
       expect(sourceControl.getContextPolicyVersion).toHaveBeenCalledWith('policy-a', 3);
       done();
     });
-  });
+  }));
 
-  it('resolves latest detail from versions listing', (done) => {
+  it('resolves latest detail from versions listing', () => new Promise<void>((done, fail) => {
     sourceControl.listContextPolicyVersions.mockReturnValue(of({
       items: [
         { ...policyVersion({ policy_id: 'policy/a', version: 1, document: { ...policyVersion().document, version: 1, policy_id: 'policy/a' } }), },
@@ -88,12 +93,12 @@ describe('ContextAccessPolicyApiService contract', () => {
       expect(sourceControl.listContextPolicyVersions).toHaveBeenCalledWith('policy/a', { limit: 200 });
       done();
     });
-  });
+  }));
 
-  it('maps validate into validation error because remote validate endpoint is disabled in this workflow', (done) => {
+  it('maps validate into validation error because remote validate endpoint is disabled in this workflow', () => new Promise<void>((done, fail) => {
     const policy = policyVersion().document;
     service.validatePolicy('http://hub.test', policy, 'token').subscribe({
-      next: () => done(new Error('expected validation to fail closed')),
+      next: () => fail(new Error('expected validation to fail closed')),
       error: (error) => {
         expect(error instanceof ContextPolicyContractError).toBeTruthy();
         expect(error.status).toBe(422);
@@ -101,7 +106,7 @@ describe('ContextAccessPolicyApiService contract', () => {
         done();
       },
     });
-  });
+  }));
 
   it('declares absent lifecycle and grant routes unavailable', () => {
     // Only these four have no v1 route. The lifecycle flows do — the Hub
@@ -119,7 +124,7 @@ describe('ContextAccessPolicyApiService contract', () => {
     }
   });
 
-  it('rejects a malformed success snapshot before it reaches UI state', (done) => {
+  it('rejects a malformed success snapshot before it reaches UI state', () => new Promise<void>((done, fail) => {
     sourceControl.listContextPolicies.mockReturnValue(of({
       items: [{ policy_id: 'policy-a', latest_version: 1, project_id: 'project-a' }],
       next_cursor: null,
@@ -136,16 +141,16 @@ describe('ContextAccessPolicyApiService contract', () => {
       },
     }));
     service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
-      next: () => done(new Error('expected fail-closed contract rejection')),
+      next: () => fail(new Error('expected fail-closed contract rejection')),
       error: (error) => {
         expect(error instanceof ContextPolicyContractError).toBe(true);
         expect(error.status).toBe(422);
         done();
       },
     });
-  });
+  }));
 
-  it('rejects unknown policy enum values in a 2xx snapshot', (done) => {
+  it('rejects unknown policy enum values in a 2xx snapshot', () => new Promise<void>((done, fail) => {
     sourceControl.listContextPolicies.mockReturnValue(of({
       items: [{ policy_id: 'policy-a', latest_version: 1, project_id: 'project-a' }],
       next_cursor: null,
@@ -166,11 +171,11 @@ describe('ContextAccessPolicyApiService contract', () => {
       },
     }));
     service.listPolicies('http://hub.test', 'project-a', 'token').subscribe({
-      next: () => done(new Error('expected enum rejection')),
+      next: () => fail(new Error('expected enum rejection')),
       error: (error) => {
         expect(error.status).toBe(422);
         done();
       },
     });
-  });
+  }));
 });
