@@ -991,4 +991,16 @@ export async function gotoProjectScopedRoute(
   await page.goto(`${path}${separator}projectId=${encodeURIComponent(projectId)}`, {
     waitUntil: options.waitUntil ?? 'domcontentloaded',
   });
+
+  // Landing somewhere else means the context refused the project — it has to
+  // be in the loaded catalogue for the guard to accept it. Saying so here
+  // keeps the next failure legible instead of surfacing as a missing element
+  // on a page the test never meant to be on.
+  const landed = new URL(page.url()).pathname;
+  if (!landed.startsWith(path.split('?')[0])) {
+    throw new Error(
+      `${path} redirected to ${landed} even with projectId=${projectId}: ` +
+      `the project context did not accept that project (${items.length} project(s) listed)`,
+    );
+  }
 }

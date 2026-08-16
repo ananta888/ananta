@@ -439,9 +439,11 @@
           "relevant_validations": [
             "Planning-Track-Suiten: 65 passed (vorher 4 failed).",
             "tests/test_snake_oidc_binding.py: 15 passed; Snake-Suiten insgesamt 196 passed, 8 skipped.",
-            "Coverage-Lauf 31950774097 weiterhin rot, aber mit anderem Bild: 1 failed, 345 passed und 1558 errors aus 'sqlite_foreign_key_orphan_preflight_failed' plus test_blueprint_bundle_api (assert 500 == 201). Das ist eine eigene, breitere Ursache im Coverage-Shard-Setup und nicht die zwei behobenen Testfehler."
+            "Coverage-Lauf 31950774097 weiterhin rot, aber mit anderem Bild: 1 failed, 345 passed und 1558 errors aus 'sqlite_foreign_key_orphan_preflight_failed' plus test_blueprint_bundle_api (assert 500 == 201). Das ist eine eigene, breitere Ursache im Coverage-Shard-Setup und nicht die zwei behobenen Testfehler.",
+            "Blueprint- und Team-Suiten: 207 passed (vorher 176 errors + 1 failed).",
+            "tests/test_blueprint_bundle_api.py: 6 passed (vorher 1 failed / 5 errors)."
           ],
-          "implemented_solution": "Zwei unabhaengige Ursachen behoben. (1) Die tui-planning-track-Fehler kamen daher, dass beim Materialisieren eines Planungs-Tracks die Output-Artefakt-ID in tasks.plan_id geschrieben wurde - eine Spalte mit Fremdschluessel auf plans.id, in der ein Track-Artefakt nie eine Zeile hat. Die Zuweisung entfaellt; das Artefakt steht ohnehin zwei Zeilen weiter unter worker_execution_context.planning_track.output_artifact_id, wo es nichts aufloesen muss. (2) test_snake_oidc_binding: das Besitzer-Prinzipal wurde als 'service:agent_token' gefuehrt - das ist der Marker fuer die statische Token-Auth, keine Identitaet, und er schlug den Agentennamen in der Fallback-Kette. Der Marker wird jetzt uebersprungen."
+          "implemented_solution": "Zwei unabhaengige Ursachen behoben. (1) Die tui-planning-track-Fehler kamen daher, dass beim Materialisieren eines Planungs-Tracks die Output-Artefakt-ID in tasks.plan_id geschrieben wurde - eine Spalte mit Fremdschluessel auf plans.id, in der ein Track-Artefakt nie eine Zeile hat. Die Zuweisung entfaellt; das Artefakt steht ohnehin zwei Zeilen weiter unter worker_execution_context.planning_track.output_artifact_id, wo es nichts aufloesen muss. (2) test_snake_oidc_binding: das Besitzer-Prinzipal wurde als 'service:agent_token' gefuehrt - das ist der Marker fuer die statische Token-Auth, keine Identitaet, und er schlug den Agentennamen in der Fallback-Kette. Der Marker wird jetzt uebersprungen. Die 1558 Errors sind ebenfalls behoben und hatten eine einzige Ursache: die Aufraeum-Fixture loescht pro Test Blueprint-Artefakte, -Rollen und die Blueprints selbst - mit abgeschalteten Fremdschluesseln -, aber nie die Workflow-Schritte. Der erste Test, der seedete, liess deren Schritte als Waisen zurueck, und der Hub scannt beim Start genau darauf; jeder folgende Test starb im Setup. Durch Ausschluss belegt: Seeden, Anlegen und Instanziieren eines Blueprints ausserhalb von pytest hinterlaesst null Waisen. Zusaetzlich verwiesen drei Testdateien auf nie registrierte Agenten (team_members.agent_url -> agents.url), und die Erwartungsliste des Seed-Katalog-Tests stand bei zehn Blueprints, waehrend der Katalog auf einundzwanzig gewachsen war."
         },
         {
           "dependencies": [],
@@ -469,26 +471,31 @@
             "Quality And Docs 31951026587: workflow-runtime-release-gate ist gruen, ebenso frontend-build und workflow-transition-track. Rot bleiben nur workflow-runtime-example-compose (b) und backend-checks (CI-017, zurueckgestellt).",
             "(b) genauer eingegrenzt: example_prepared_evidence_missing ist die Folge, nicht die Ursache - prepare() stirbt vorher an einem Temporal-RPCError ('Workflow Task in failed state') und schreibt prepared.json deshalb nie."
           ],
-          "implemented_solution": "(a) behoben: sync_task_from_hub kopierte plan_id in die lokale Worker-Datenbank, waehrend tasks.plan_id einen unbedingten Fremdschluessel auf plans.id traegt und die Plaene des Hubs dort nicht existieren. plan_id wird nicht mehr synchronisiert; goal_id und plan_node_id bleiben, weil ihre Schluessel zusammengesetzt ueber tenant und project sind, die ein synchronisierter Task nicht setzt. Der Bezug bleibt im Sync-Event und im worker_execution_context erhalten. (b) Temporal-RPCError im example-compose-Job: noch offen."
+          "implemented_solution": "(a) behoben: sync_task_from_hub kopierte plan_id in die lokale Worker-Datenbank, waehrend tasks.plan_id einen unbedingten Fremdschluessel auf plans.id traegt und die Plaene des Hubs dort nicht existieren. plan_id wird nicht mehr synchronisiert; goal_id und plan_node_id bleiben, weil ihre Schluessel zusammengesetzt ueber tenant und project sind, die ein synchronisierter Task nicht setzt. Der Bezug bleibt im Sync-Event und im worker_execution_context erhalten. (b) Temporal-RPCError im example-compose-Job: noch offen. (b) ist noch offen, aber jetzt diagnostizierbar: der Job gab die Worker-Logs nie aus, obwohl 'Workflow Task in failed state' bedeutet, dass der Worker eine Aufgabe abgelehnt hat und der Grund nur dort steht. Worker-, Hub- und Temporal-Logs werden bei Fehlschlag nun eingesammelt. Die Update-Retry-Logik wurde bewusst NICHT aufgeweitet: sie wiederholt nur 'workflow not ready', und 'task in failed state' kann ebenso ein echter Workflow-Fehler sein - blind zu wiederholen wuerde daraus einen langsamen, stillen machen."
         },
         {
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-015",
-          "status": "open",
+          "status": "partial",
           "workflow": "E2E Compose",
           "workflow_job": "e2e-compose (mehrere Shards)",
           "step": "Run E2E shard",
           "severity": "high",
           "risk_assessment": "Hoch: mehrere E2E-Shards gleichzeitig rot.",
           "observed_error": "Run 31942114359: mindestens die Shards compose-admin-core, compose-admin-entities, compose-goal-smoke und compose-goal-core schlagen fehl. Konkrete Ursache je Shard noch nicht erhoben.",
-          "root_cause": "Noch zu ermitteln.",
+          "root_cause": "Belegt aus dem Code, nicht geraten: /dashboard haengt am projectContextGuard, der ohne gewaehltes Projekt nach /projects umleitet. Die Auswahl loest sich zuerst aus der URL, dann aus localStorage, und automatisch nur, wenn genau ein aktives Projekt existiert - in einer frischen Umgebung also gar nicht. Die Tests pruefen deshalb gegen die Projektseite und melden ein fehlendes Heading statt der Umleitung. Alle acht Shards scheitern an derselben Zusicherung.",
           "affected_files_or_subsystems": [
             ".github/workflows/e2e-compose.yml"
           ],
           "proposed_solution": "Pro Shard die erste Fehlerursache erheben und auf gemeinsame Ursache pruefen.",
           "expected_result": "E2E-Compose-Shards laufen wieder gruen.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "Ursache aus Guard, Aufloesungsreihenfolge und Template direkt gelesen; das Heading selbst wird von app-page-intro als <h2> gerendert und war nie das Problem.",
+            "Playwright parst alle geaenderten Specs.",
+            "CI ist die Verifikation - die Umleitung tritt nur in einer Umgebung ohne Projektkontext auf."
+          ],
+          "implemented_solution": "gotoProjectScopedRoute listet die Projekte ueber die API und navigiert mit dem Projekt in der URL - der unterstuetzte Weg, der die beiden anderen Quellen schlaegt. Alle /dashboard-Navigationen der Suite laufen darueber. Hat die Umgebung wirklich kein Projekt, ist die Route nicht erreichbar, und die Hilfe sagt das, statt einen raetselhaften Locator-Fehler zu hinterlassen."
         },
         {
           "dependencies": [],
@@ -617,8 +624,8 @@
     "total_items": 20,
     "by_status": {
       "completed": 6,
-      "partial": 4,
-      "open": 3,
+      "partial": 5,
+      "open": 2,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 1,
