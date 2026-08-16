@@ -445,6 +445,22 @@ jobs:
             --profile temporal --profile workflow-runtime-example \
             run --rm --no-deps workflow-runtime-example-runner --mode prepare \
             | tee ci-artifacts/workflow-runtime-example/prepare.json
+      - name: Capture Temporal worker and Hub logs on failure
+        if: failure()
+        run: |
+          # The prepare step fails with "Workflow Task in failed state", which
+          # is the server reporting that the worker rejected a task — the
+          # reason lives in the worker, and this job never showed it. Without
+          # these logs the failure cannot be diagnosed from its own output.
+          for service in workflow-runtime-example-temporal-worker workflow-runtime-example-hub temporal; do
+            docker compose \
+              -f docker/compose-next/compose.temporal.yml \
+              -f docker/compose-next/compose.workflow-runtime-example.yml \
+              logs --no-color --tail 400 "${service}" \
+              > "ci-artifacts/workflow-runtime-example/${service}.log" 2>&1 || true
+            echo "===== ${service} ====="
+            tail -80 "ci-artifacts/workflow-runtime-example/${service}.log" || true
+          done
       - name: Hard-kill only the Temporal example worker
         run: |
           worker_id="$(docker compose \
