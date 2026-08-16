@@ -262,7 +262,24 @@ export class ProjectContextService {
   }
 
   private synchronizeUrl(projectId: string): Promise<boolean> {
-    const tree = this.router.parseUrl(this.router.url || '/');
+    // While a navigation is in flight -- which is exactly when a route guard
+    // resolves the project -- router.url still points at the page being left.
+    // On a direct load that is '/', and navigating there cancels the requested
+    // route and lands on the workspace redirect instead. Synchronise onto the
+    // URL being navigated to, not the one being left.
+    const navigation = this.router.getCurrentNavigation();
+    const pending = navigation?.finalUrl ?? navigation?.extractedUrl ?? null;
+    const tree = this.router.parseUrl(
+      pending ? this.router.serializeUrl(pending) : (this.router.url || '/'),
+    );
+    if (
+      String(tree.queryParams[PROJECT_QUERY_KEY] ?? '') === projectId
+      && tree.queryParams[LEGACY_PROJECT_QUERY_KEY] === undefined
+    ) {
+      // Already the requested context: re-navigating would restart the very
+      // navigation that is carrying it.
+      return Promise.resolve(true);
+    }
     tree.queryParams[PROJECT_QUERY_KEY] = projectId;
     delete tree.queryParams[LEGACY_PROJECT_QUERY_KEY];
     return this.router.navigateByUrl(tree, { replaceUrl: true });

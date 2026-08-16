@@ -505,7 +505,11 @@ export async function loginFast(
 
   // Re-bootstrap the Angular app after token injection so auth services read the new storage state.
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.goto(`/dashboard?projectId=${encodeURIComponent(await ensureActiveProjectId())}`, { waitUntil: 'domcontentloaded' });
+  // Deliberately not project-scoped: the poll below accepts the app shell as
+  // proof of authentication, so a redirect to /projects is fine here. Forcing
+  // a project would add a login round-trip and create one on the shared hub
+  // for every caller, including tests on routes that need no project at all.
+  await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
   const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');

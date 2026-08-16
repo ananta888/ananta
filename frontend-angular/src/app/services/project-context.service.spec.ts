@@ -40,6 +40,27 @@ describe('ProjectContextService', () => {
     expect(context.hasProject()).toBeFalsy();
   });
 
+  it('does not redirect an in-flight navigation to the root', async () => {
+    const context = TestBed.inject(ProjectContextService);
+    const router = TestBed.inject(Router);
+    // A guard resolves the project while the navigation is still running, so
+    // router.url is the page being left -- '/' on a direct load. Synchronising
+    // onto that used to cancel the requested route and land on the '' redirect.
+    vi.spyOn(router, 'getCurrentNavigation').mockReturnValue({
+      extractedUrl: router.parseUrl('/dashboard'),
+      finalUrl: router.parseUrl('/dashboard'),
+    } as ReturnType<Router['getCurrentNavigation']>);
+    const navigateByUrl = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+
+    await firstValueFrom(context.ensureLoaded());
+    context.selectProject('project-a');
+
+    expect(navigateByUrl).toHaveBeenCalled();
+    const target = String(navigateByUrl.mock.calls.at(-1)?.[0] ?? '');
+    expect(target.startsWith('/dashboard')).toBe(true);
+    expect(target).toContain('project-a');
+  });
+
   it('persists selection per tenant and user and synchronizes the query', async () => {
     const context = TestBed.inject(ProjectContextService);
     const router = TestBed.inject(Router);
