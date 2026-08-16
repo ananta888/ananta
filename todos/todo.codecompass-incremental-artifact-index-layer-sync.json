@@ -480,11 +480,14 @@
       "id": "CIL-007",
       "title": "Incremental-vs-Rebuild Decision Engine definieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
+        "files_created": [
+          "worker/incremental_index/decision_engine.py"
+        ],
         "notes": [
           "ChangeSet-Groesse, Impact, Compatibility, Delta-Tiefe und Builder-Faehigkeiten bewerten.",
           "Entscheidungen: noop, metadata_only, delta_build, partial_base_rebuild, artifact_kind_rebase, full_rebuild.",
@@ -499,6 +502,11 @@
       "dependencies": [
         "CIL-006",
         "CIL-002"
+      ],
+      "notes": [
+        "Implemented 2026-08-16: decision_engine.py with IncrementalBuildDecisionEngine class",
+        "Features: 6 decision types, multi-factor analysis, threshold-based logic, confidence scoring, recommendations",
+        "Tests passed: compatibility checks, model change detection, severity-based decisions, dry-run plan generation"
       ]
     },
     {
