@@ -412,7 +412,11 @@ class PlanningTrackTaskIntegrationService:
                 task_payload.tenant_id = getattr(goal_scope, "tenant_id", None)
                 task_payload.project_id = getattr(goal_scope, "project_id", None)
                 task_payload.team_id = getattr(goal_scope, "team_id", None)
-            task_payload.plan_id = output_artifact_id
+            # tasks.plan_id carries a foreign key to plans.id, and a planning
+            # track's output artifact is not a row in that table — assigning it
+            # here failed the key on every materialization. The artifact is
+            # recorded just below under planning_track.output_artifact_id,
+            # where it belongs and where nothing has to resolve it.
             task_payload.plan_node_id = plan_task_id
             workflow_task_kind = str(workflow_step.get("task_kind") or "").strip()
             task_payload.task_kind = workflow_task_kind or _normalize_task_kind(str(plan_task.get("type") or ""))

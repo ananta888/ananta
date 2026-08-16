@@ -115,9 +115,12 @@ def test_planning_track_materialization_and_execution_sync(monkeypatch, tmp_path
     first_plan_task_id, first_internal_task_id = next(iter(mapping.items()))
     internal_task = task_repo.get_by_id(first_internal_task_id)
     assert internal_task is not None
-    assert str(internal_task.plan_id) == output_id
+    # The output artifact is recorded in the planning-track context, not in
+    # tasks.plan_id: that column has a foreign key to plans.id, and a planning
+    # track's artifact is not a row there.
     assert str(internal_task.plan_node_id) == first_plan_task_id
-    assert "planning_track" in dict(internal_task.worker_execution_context or {})
+    planning_track = dict(internal_task.worker_execution_context or {}).get("planning_track") or {}
+    assert str(planning_track.get("output_artifact_id")) == output_id
 
     execution = integration.execute_next_plan_task(goal_id=goal_id, output_artifact_id=output_id, worker_id="worker-1")
     assert execution["internal_task_id"]
