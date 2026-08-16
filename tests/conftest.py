@@ -259,6 +259,7 @@ def _db_runtime() -> dict[str, Any]:
         BannedIPDB,
         BlueprintArtifactDB,
         BlueprintRoleDB,
+        BlueprintWorkflowStepDB,
         ConfigDB,
         ContextBundleDB,
         EvolutionProposalDB,
@@ -444,6 +445,11 @@ def _db_runtime() -> dict[str, Any]:
             TeamMemberDB,
             BlueprintArtifactDB,
             BlueprintRoleDB,
+            # Deleted alongside its siblings: this cleanup drops team_blueprints
+            # with foreign keys switched off, so a workflow step left behind
+            # becomes an orphan, and the Hub scans for orphans at startup —
+            # every later app in the session then failed to come up at all.
+            BlueprintWorkflowStepDB,
             TeamTypeRoleLink,
             ScheduledTaskDB,
             ArchivedTaskDB,

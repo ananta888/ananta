@@ -3,9 +3,22 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
+from agent.db_models import AgentInfoDB, BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
 from agent.repository import audit_repo
 from tests_support import admin_login_token as _login_admin
+
+
+@pytest.fixture(autouse=True)
+def _register_member_agents():
+    """Register the agent these tests attach to a team.
+
+    team_members.agent_url references agents.url, so instantiating against an
+    unregistered agent fails that key and the endpoint answers 500.
+    """
+
+    with Session(engine) as session:
+        session.merge(AgentInfoDB(url="http://worker-dev", name="worker-dev", role="worker"))
+        session.commit()
 
 
 

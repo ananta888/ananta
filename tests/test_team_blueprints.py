@@ -3,9 +3,24 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
-from agent.db_models import BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
+from agent.db_models import AgentInfoDB, BlueprintArtifactDB, BlueprintRoleDB, TaskDB, TeamBlueprintDB, TeamDB, TeamMemberDB
 from agent.repository import audit_repo
 from tests_support import admin_login_token as _login_admin
+
+
+@pytest.fixture(autouse=True)
+def _register_member_agents():
+    """Register the agents these tests attach to teams.
+
+    team_members.agent_url has a foreign key to agents.url, so instantiating a
+    blueprint against an unregistered agent fails that key and the endpoint
+    answers 500.
+    """
+
+    with Session(engine) as session:
+        for url in ("http://worker-dev", "http://worker-research", "http://worker-evolver"):
+            session.merge(AgentInfoDB(url=url, name=url.rsplit("/", 1)[-1], role="worker"))
+        session.commit()
 
 
 def test_seed_blueprints_are_listed(client):
