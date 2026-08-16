@@ -518,7 +518,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-016",
-          "status": "partial",
+          "status": "done",
           "workflow": "Unsloth Release Gate",
           "workflow_job": "CPU contract and security / Angular contracts and Fake-Hub E2E",
           "step": "Run deterministic Unsloth contracts and security boundaries / Run Angular model-training contracts",
@@ -537,7 +537,8 @@
             "tests/test_ml_intern_*.py: von 14 failed auf 1 failed (335 passed).",
             "tests/test_ml_intern_training_migration.py: passed; Enterprise-Migrations-DDL-Suite 13 passed inklusive des Paritaetstests, der genau diese Liste bewacht.",
             "Angular-Job des Gates ist inzwischen gruen (war 'Error: AggregateError') - durch die Frontend-Arbeit aus CI-001 mitbehoben.",
-            "CI-Verifikation des Gates steht aus: sein workflow_dispatch verlangt extern beizubringende Evidenz (src_ids, run_ids, runtime_image_digest), und der Push-Pfadfilter deckt migrations/versions nicht ab. Lokal ist der Testsatz gruen."
+            "CI-Verifikation des Gates steht aus: sein workflow_dispatch verlangt extern beizubringende Evidenz (src_ids, run_ids, runtime_image_digest), und der Push-Pfadfilter deckt migrations/versions nicht ab. Lokal ist der Testsatz gruen.",
+            "Lauf 31966731010 ist gruen: 'CPU contract and security' und 'Angular contracts and Fake-Hub E2E' bestehen beide. Der CPU-Job scheiterte an 'no such column: parent_goal_id' in tests/test_ml_intern_training_migration.py - bereits durch 2b6948000 behoben, nur lief das Gate seither nie, weil weder migrations/** noch die ml_intern-Repository-Pfade im push-Filter standen. Beides ergaenzt, dazu frontend-angular/tests/utils.ts, das der Gate-Spec importiert. Der manuelle GPU-Job bleibt uebersprungen: er verlangt echte SRC_*-Evidenz-IDs, die nicht erfunden werden."
           ],
           "implemented_solution": "Die Meldung 'training capacity exhausted' war weder wahr noch die Ursache. Job-Admission fuegt Job und Kapazitaets-Lease zusammen ein, der Lease zeigt per Fremdschluessel auf den Job - der aber noch nicht geflusht war, sodass der Lease-Insert den Schluessel verletzte. Da jeder IntegrityError in diesem Block als 'Slot belegt' gilt, lief die Schleife durch alle Slots und meldete die Queue als voll. Beide Haelften behoben: der Job wird vor dem Lease geflusht, und nur ein Unique-Konflikt gilt noch als belegter Slot - ein Fremdschluesselfehler wird geworfen statt in einen Kapazitaetsfehler umgedeutet. Zusaetzlich fehlte agent/repositories/ml_intern_* im Push-Pfadfilter des Gates, weshalb es auf genau der Schicht nie lief, die seine Tests pruefen. Der verbleibende Migrationstest ist ebenfalls behoben: der Downgrade der Enterprise-Organisationsmigration scheiterte unter SQLite, weil Alembics Batch-Modus die Tabelle neu baut und ihre Indizes auf der neuen Tabelle wieder anlegt - ein Index auf einer gerade geloeschten Spalte ueberlebt das nicht (ix_goals_goal_kind). Die Loeschliste nannte nur eine Handvoll Task-Indizes, waehrend der Upgrade auch goals und plan_nodes indiziert. Beide Listen stammen jetzt aus einer Quelle - den Spalten, die der Downgrade entfernt; Indizes auf ueberlebenden Spalten bleiben explizit benannt, wie es der Paritaetstest festhaelt. Dasselbe Muster trat eine Stufe weiter bei den Legacy-Definitionsspalten auf und ist dort mitbehoben."
         },
