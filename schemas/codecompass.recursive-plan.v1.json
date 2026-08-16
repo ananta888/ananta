@@ -1,0 +1,228 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://ananta.io/schemas/codecompass.recursive-plan.v1.json",
+  "title": "CodeCompass Recursive Plan v1",
+  "description": "Versionierter Contract für rekursive Query-Plans mit Budget-Tracking, Parent/Child-Beziehungen und Evidence-Vererbung",
+  "type": "object",
+  "required": [
+    "plan_id",
+    "node_id",
+    "depth",
+    "query",
+    "intent",
+    "budgets",
+    "state",
+    "revision",
+    "tenant_id"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Eindeutige ID für den gesamten rekursiven Plan-Baum"
+    },
+    "node_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Eindeutige ID für diesen spezifischen Knoten im Plan"
+    },
+    "parent_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "Parent-Knoten-ID (null für Root-Knoten)"
+    },
+    "depth": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10,
+      "description": "Rekursionstiefe dieses Knotens (0 = Root)"
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000,
+      "description": "Die Query für diesen Knoten"
+    },
+    "intent": {
+      "type": "string",
+      "enum": [
+        "architecture_overview",
+        "component_analysis",
+        "dependency_trace",
+        "symbol_lookup",
+        "test_coverage",
+        "refactor_impact",
+        "feature_location",
+        "bug_investigation",
+        "code_explanation",
+        "api_usage"
+      ],
+      "description": "Typisierte Intent für diesen Knoten"
+    },
+    "source_scope": {
+      "type": "object",
+      "required": ["source_refs"],
+      "properties": {
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "$ref": "https://ananta.io/schemas/source/source_ref.v2.json"
+          },
+          "minItems": 1
+        },
+        "include_patterns": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Glob-Patterns für einzuschließende Pfade"
+        },
+        "exclude_patterns": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Glob-Patterns für auszuschließende Pfade"
+        }
+      }
+    },
+    "revision": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Git Revision/Commit-Hash oder Branch-Name"
+    },
+    "tenant_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Tenant-ID für Multi-Tenant-Isolation"
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["token_budget", "max_nodes", "max_depth"],
+      "properties": {
+        "token_budget": {
+          "type": "integer",
+          "minimum": 100,
+          "maximum": 500000,
+          "description": "Maximale Token für diesen Knoten und alle Children"
+        },
+        "time_budget_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600,
+          "description": "Maximale Ausführungszeit in Sekunden"
+        },
+        "cost_budget_cents": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Optionales Kostenbudget in Cents"
+        },
+        "max_nodes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000,
+          "description": "Maximale Anzahl von Child-Knoten ab diesem Knoten"
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 10,
+          "description": "Maximale Rekursionstiefe ab diesem Knoten"
+        },
+        "max_fan_out": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50,
+          "description": "Maximale Anzahl direkter Children pro Knoten"
+        },
+        "remaining_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Verbleibende Token nach Abzug bereits verbrauchter Ressourcen"
+        }
+      }
+    },
+    "children": {
+      "type": "array",
+      "items": {
+        "$ref": "#"
+      },
+      "description": "Liste der Child-Knoten (rekursiv)"
+    },
+    "state": {
+      "type": "string",
+      "enum": ["pending", "planning", "retrieving", "synthesizing", "completed", "stopped", "failed"],
+      "description": "Aktueller Zustand dieses Knotens"
+    },
+    "stop_reason": {
+      "type": ["string", "null"],
+      "enum": [
+        null,
+        "max_depth_reached",
+        "max_nodes_exceeded",
+        "token_budget_exhausted",
+        "time_budget_exceeded",
+        "cost_budget_exceeded",
+        "repeated_query_detected",
+        "no_new_evidence",
+        "parent_stopped",
+        "error",
+        "manual_abort"
+      ],
+      "description": "Grund für das Stoppen (wenn state = stopped)"
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["evidence_id", "source_ref", "channel"],
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source_ref": {
+            "$ref": "https://ananta.io/schemas/source/source_ref.v2.json"
+          },
+          "channel": {
+            "type": "string",
+            "enum": ["fts", "vector", "symbol_graph", "architecture_query", "manual"]
+          },
+          "confidence_score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "excerpt": {
+            "type": "string",
+            "maxLength": 5000
+          },
+          "location": {
+            "type": "object",
+            "properties": {
+              "path": {"type": "string"},
+              "start_line": {"type": "integer"},
+              "end_line": {"type": "integer"},
+              "symbol_name": {"type": "string"}
+            }
+          }
+        }
+      },
+      "description": "Gesammelte Evidenz-Referenzen mit Provenance"
+    },
+    "query_fingerprint": {
+      "type": "string",
+      "description": "Normalisierter Query-Fingerprint zur Zykluserkennung"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Zusätzliche Metadaten für Debugging/Observability"
+    }
+  },
+  "additionalProperties": false
+}
