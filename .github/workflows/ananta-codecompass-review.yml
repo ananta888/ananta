@@ -56,6 +56,14 @@ jobs:
       - name: Install ananta dev extras (no network to upstream CRG/SPADE)
         run: |
           pip install --no-deps .
+          # --no-deps keeps upstream CRG/SPADE out, but it also skips the
+          # runtime dependencies this package genuinely imports.  The blast
+          # radius step died on `No module named 'jsonschema'`, reached via
+          # ananta_codecompass.graph_store -> ananta_contracts.file_type_support,
+          # which imports jsonschema.Draft202012Validator at module level.
+          # jsonschema is already declared in pyproject.toml; it is named here
+          # only because --no-deps refuses to install it.
+          pip install "jsonschema>=4.21,<5"
 
       - name: Import RIG snapshot (dry-run by default per CCRIG-DD-009)
         run: |
