@@ -264,14 +264,14 @@
         },
         {
           "id": "CI-009",
-          "status": "in_progress",
+          "status": "done",
           "workflow": "OpenCode Full E2E Evidence / Real Worker Runtime Evidence / Deploy www.ananta.de",
           "workflow_job": "evidence scripts",
           "step": "claims & Hub readiness in evidence workflows",
           "severity": "critical",
           "risk_assessment": "High: transient Hub 500s plus hub start failures block evidenzielle E2E/Worker-Workflows vollständig und verhindern verlässliche Release- und Operativ-Evidenz.",
           "observed_error": "500 auf /tasks/orchestration/claim trotz Retry plus fehlender Hub-Readiness; OpenCode scheitert durch `Failed to connect` + Hub-500, Real Worker durch anonta_native claim-500 im Worker.",
-          "root_cause": "Hub-Claim-Endpunkt ist im evidenzbasierten Startpfad nicht resilient gegen Start- und Transientenfehler; Retry-Logik ist vorhanden, scheitert jedoch an fehlendem stabilen Startup/Retry-Scope und unzureichender Fehlerbehandlung bei Verbindungsabbrüchen in `run_opencode_full_e2e_evidence.sh`.",
+          "root_cause": "Zwei getrennte Ursachen. (1) Behoben: Hub-Claim-Endpunkt war im evidenzbasierten Startpfad nicht resilient gegen Start- und Transientenfehler. (2) Verbleibende und eigentliche Fehlerursache des OpenCode-Runs: OpenCode legte die neue Datei OPENCODE_FULL_E2E_EVIDENCE.md mit dem Edit-Tool an; Edit setzt eine existierende Datei voraus, der Glob lieferte 0 Treffer, und der Fehlschlag brach die gesamte Tool-Ausfuehrung ab ('Tool execution aborted'). Die Java-Aenderung war zu diesem Zeitpunkt nur gelesen und kam deshalb nie zustande - Ergebnis: leerer Diff. Zusatzbefund: das Diff-Fenster 'git diff -- src FILE.md' sieht nur getrackte Dateien und haette eine neu angelegte Datei auch im Erfolgsfall nicht gezeigt.",
           "affected_files_or_subsystems": [
             "scripts/run_opencode_full_e2e_evidence.sh",
             "scripts/evidence_worker_runtime.py",
@@ -280,29 +280,32 @@
             ".github/workflows/opencode-full-e2e-evidence.yml"
           ],
           "proposed_solution": "Hub-Startup deterministisch validieren und vor allen Claim/Complete-Requests Poll/Retry auf Verbindungs-/500-Fehler ausweiten; in Skripten temporäre response-Dateien robust behandeln; optional Hub-seitige Drosselung/Retry-Policy für claim endpoint ergänzen.",
-          "implemented_solution": "Hub-/Read-Model-Polling in `scripts/run_opencode_full_e2e_evidence.sh` mit robustem Retry für Verbindungsabbrüche/500er und stabiler temporärer Antwortdatei-Behandlung ergänzt; Claim/Complete-Wrapper in `scripts/evidence_worker_runtime.py` sowie POST/GET-Wrapper in `scripts/run_real_worker_runtime_evidence.py` auf begrenzte Retry+Backoff-Policy für Verbindungsfehler/500er-Ausfälle vereinheitlicht; optionaler Hub-Endpunktschutz für `/tasks/orchestration/claim` mit serialisiertem per-Task-Claim-Queueing und Retriable-Handling ergänzt.",
+          "implemented_solution": "Hub-/Read-Model-Polling in `scripts/run_opencode_full_e2e_evidence.sh` mit robustem Retry für Verbindungsabbrüche/500er und stabiler temporärer Antwortdatei-Behandlung ergänzt; Claim/Complete-Wrapper in `scripts/evidence_worker_runtime.py` sowie POST/GET-Wrapper in `scripts/run_real_worker_runtime_evidence.py` auf begrenzte Retry+Backoff-Policy für Verbindungsfehler/500er-Ausfälle vereinheitlicht; optionaler Hub-Endpunktschutz für `/tasks/orchestration/claim` mit serialisiertem per-Task-Claim-Queueing und Retriable-Handling ergänzt. Zusaetzlich (Fix der eigentlichen OpenCode-Ursache): OPENCODE_FULL_E2E_EVIDENCE.md wird in scripts/run_opencode_full_e2e_evidence.sh vor dem Initial-Commit als getrackter Platzhalter angelegt, womit die Tool-Wahl (Edit vs. Write) keine Rolle mehr spielt; der Prompt benennt die Datei als bereits vorhanden und fordert die Java-Aenderung zuerst; die Diff-Erhebung staged vor dem Diff (git add -A + git diff --cached), sodass auch neu angelegte Dateien im Evidenz-Diff erscheinen; die Existenzpruefung wurde um zwei Pruefungen ergaenzt, dass die Datei tatsaechlich veraendert wurde (im Diff enthalten und nicht mehr der Platzhalter). Dieselbe Diff-Fenster-Korrektur wurde in scripts/run_ananta_native_full_e2e_evidence.sh nachgezogen.",
           "relevant_validations": [
-            "Workflows mit neuen retry-Mechanismen erneut starten",
-            "Claim-Pfad (`/tasks/orchestration/claim`) in Evidenz-Workflows auf 500/Connect-Fehler robust behandeln",
-            "OpenCode-E2E: `31942116598` läuft bis Completion (aktuell failure: keine Patch-Diff erstellt)",
-            "Real Worker Runtime: `31942116635` läuft bis Completion (success)",
-            "Deploy www.ananta.de: `31942116585` läuft bis Completion (success)",
-            "OpenCode-Failurenotiz: `Failed to connect` wurde im Polling-Pfad robust abgefangen; verbleibend ist die OpenCode-Diff-Erzeugung.",
-            "Erfolgskriterien: OpenCode + Real Worker erfolgreich + stabiler Polling- und Claim-Pfad"
+            "Fehlerursache faktenbasiert aus Run 31942116598 ermittelt (Artefakte statt Annahme): git-status.txt leer, diff.patch 0 Bytes, canAudit fehlt, Markdown-Datei nie erzeugt.",
+            "Claim-Pfad im Fehlerrun nachweislich gesund: orchestration/claim-response.json = {'claimed': true}, status_code 200 - die frueheren 500er sind behoben.",
+            "'Failed to connect'-Zeilen als Hub-Startup-Wartezeit der Readiness-Schleife identifiziert (get_json retryt 5x mit Backoff, aeusserer Loop bis 30x), kein Defekt.",
+            "Abbruchgrund exakt aus opencode-run.stderr.txt: Read PolicyService.java -> Glob OPENCODE_FULL_E2E_EVIDENCE.md 0 matches -> Edit failed -> Tool execution aborted.",
+            "Diff-Fenster-Defekt lokal gegen die echte Fixture tests/fixtures/mini_coding_project reproduziert: 'git diff' zeigt eine neu angelegte Datei nicht, 'git add -A' + 'git diff --cached' zeigt sie.",
+            "Fehlerfall bleibt rot: ohne Aenderung durch den Run greifen die neuen Pruefungen (Datei nicht im Diff / Platzhalter noch vorhanden) - lokal verifiziert.",
+            "OpenCode Full E2E Evidence: 31943042754 completed/success; Evidenz echt geprueft (diff.patch 1015 Bytes, canAudit_added/evidence_file_added/javac_passed/diff_created alle true, Platzhalter durch 3 Bullet Points ersetzt).",
+            "Real Worker Runtime Evidence: 31943043862 completed/success.",
+            "Deploy www.ananta.de: 31943044871 completed/success.",
+            "bash -n auf beiden geaenderten Skripten fehlerfrei."
           ],
           "dependencies": [
             "CI-003",
             "CI-008"
           ],
-          "expected_result": "Nachweislich stabilere Claim-/Completion-Pfade in evidenzbasierten Läufen; OpenCode und Real Worker sollen ohne Connect/500-Wiederholfehler laufen und Readiness/Polling deterministisch robust sein.",
-          "status": "partial",
+          "expected_result": "Claim-/Completion-/Readiness-Pfade in evidenzbasierten Laeufen sind stabil (nachgewiesen: claimed=true, 200) und der OpenCode-Run erzeugt wieder einen echten Patch: canAudit in PolicyService.java plus ersetzte Markdown-Evidenz, javac gruen. Der Evidenz-Diff bildet auch neu angelegte Dateien ab, und ein Run ohne echte Aenderung faellt durch, statt den vorab angelegten Platzhalter als Nachweis durchgehen zu lassen.",
           "run_ids": [
-            "31942116598",
-            "31942116635",
-            "31942116585"
+            "31943042754",
+            "31943043862",
+            "31943044871"
           ],
           "commit_changes": [
             "scripts/run_opencode_full_e2e_evidence.sh",
+            "scripts/run_ananta_native_full_e2e_evidence.sh",
             "scripts/evidence_worker_runtime.py",
             "scripts/run_real_worker_runtime_evidence.py",
             "agent/routes/tasks/orchestration.py"
@@ -315,19 +318,21 @@
     "total_items": 9,
     "by_status": {
       "completed": 8,
-      "partial": 1,
+      "partial": 0,
       "open": 0,
       "in_progress": 0,
       "blocked": 0,
       "blocked_decision": 0,
       "planned": 0,
-      "done": 0
+      "done": 1
     },
     "notes": [
       "Kleine Fehler (z. B. Preview-Contract-Drift im Frontend) wurden zuerst umgesetzt und im Status completed geführt.",
       "Komplexe Pipeline-/DB-/Migrationspunkte werden bewusst nicht über Umgehung der Checks behoben, sondern als open/blocked_decision nachgehalten.",
       "Es wurde keine neue Architektur- oder Qualitätsabsenkung eingeführt; alle Änderungen bleiben additive Kontrakttreue-fixierend.",
-      "Lokale Validationsergebnisse: `npm run test:unit -- src/app/services/context-access-policy-api.service.spec.ts` lief im aktuellen Setup fehl (jasmine-Umgebung fehlt), `npx tsc --noEmit` und `npm run build/lint` laufen in dieser Umgebung ohne zeitnahes Ende >120s bis zu Timeout."
+      "Lokale Validationsergebnisse: `npm run test:unit -- src/app/services/context-access-policy-api.service.spec.ts` lief im aktuellen Setup fehl (jasmine-Umgebung fehlt), `npx tsc --noEmit` und `npm run build/lint` laufen in dieser Umgebung ohne zeitnahes Ende >120s bis zu Timeout.",
+      "CI-009-Nachtrag (Schritt 9, Querblick auf gleichartige Evidence-Workflows): scripts/run_ananta_native_full_e2e_evidence.sh hatte dasselbe zu enge Diff-Fenster. Dort wird die Evidenz-Markdown erst nach dem Initial-Commit geschrieben, ist also untracked, weshalb der veroeffentlichte Check 'evidence_file_added' bei JEDEM erfolgreichen Run false meldete (lokal reproduziert). Der Workflow blieb gruen, weil nur die Existenz geprueft wurde - der falsche Wert ging still als Evidenz raus. Mit derselben minimalen Korrektur (staged diff) behoben. scripts/run_daemon_worker_runtime_evidence.sh erzeugt keinen Patch-Diff und ist von diesem Muster nicht betroffen.",
+      "CI-009-Nebenbefund: der CI-009-Eintrag trug im rohen JSON zwei 'status'-Schluessel ('in_progress', danach 'partial'). JSON-Parser behalten den letzten, weshalb Werkzeuge 'partial' sahen; der Widerspruch war im Dateitext aber vorhanden. Beim Aktualisieren auf 'done' wurde der Eintrag auf einen einzigen status-Schluessel zusammengefuehrt."
     ],
     "recommended_order": [
       "CI-001",

@@ -147,7 +147,13 @@ PY
 (
   cd "${WORKSPACE}"
   git status --short > "../git-status.txt"
-  git diff -- src ANANTA_NATIVE_FULL_E2E_EVIDENCE.md > "../diff.patch" || true
+  # Staged, then diffed against the commit: the evidence markdown is written
+  # after the initial commit, so it is untracked and a plain `git diff` never
+  # shows it.  This run publishes `evidence_file_added` off this diff, which
+  # therefore reported false on every successful run.  Staging is not
+  # committing, which the evidence contract forbids.
+  git add -A -- src ANANTA_NATIVE_FULL_E2E_EVIDENCE.md
+  git diff --cached -- src ANANTA_NATIVE_FULL_E2E_EVIDENCE.md > "../diff.patch" || true
   mkdir -p "../classes"
   javac -d "../classes" $(find src/main/java -name '*.java') > "../javac.stdout.txt" 2> "../javac.stderr.txt"
 )
