@@ -110,7 +110,7 @@
         "RLM-002",
         "RLM-003"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -247,7 +247,7 @@
       "id": "RLM-003",
       "title": "RLM-Eignungsentscheidung und Fallback definieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
