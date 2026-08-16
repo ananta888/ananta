@@ -83,11 +83,18 @@ def _authenticated_snake_control_auth() -> dict[str, Any]:
         return user_auth
 
     service_auth = dict(getattr(g, "auth_payload", {}) or {})
+    # The static agent token sets sub to the literal "agent_token", which names
+    # the authentication mode rather than an identity.  An owner principal has
+    # to record who owns something, not how they proved it, so that marker is
+    # skipped in favour of the agent's own name.
+    subject = str(service_auth.get("sub") or "").strip()
+    if subject == "agent_token":
+        subject = ""
     service_id = str(
         service_auth.get("service_id")
         or service_auth.get("agent_id")
         or service_auth.get("worker_id")
-        or service_auth.get("sub")
+        or subject
         or settings.agent_name
         or "hub"
     ).strip()
