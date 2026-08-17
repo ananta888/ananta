@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.rlm-recursive-plan.v1.json",
+  "title": "CodeCompass RLM Recursive Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "query", "steps", "status"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.rlm-recursive-plan.v1" },
+    "plan_id": { "type": "string" },
+    "query": { "type": "string" },
+    "status": { "type": "string", "enum": ["planned", "eligible_false", "executed", "stopped", "error"] },
+    "reason": { "type": "string" },
+    "steps": { "type": "array" },
+    "budgets": { "type": "object" },
+    "trace": { "type": "array" },
+    "merged": { "type": "object" },
+    "warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

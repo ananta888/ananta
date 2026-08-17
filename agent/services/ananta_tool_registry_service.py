@@ -272,6 +272,14 @@ _REGISTRY: dict[str, AnantaToolSpec] = {
             requires_workspace=False,
         ),
         _spec(
+            "codecompass.rlm_analyze",
+            CATEGORY_READ_ONLY,
+            RISK_READ,
+            "Optional recursive CodeCompass analysis with hard depth/fanout budgets. Falls back to hybrid retrieval for simple queries.",
+            {"query": {"type": "string"}, "enabled": {"type": "boolean"}, "max_depth": {"type": "integer"}, "max_fanout": {"type": "integer"}},
+            requires_workspace=False,
+        ),
+        _spec(
             "codecompass.architecture_diagram",
             CATEGORY_READ_ONLY,
             RISK_READ,

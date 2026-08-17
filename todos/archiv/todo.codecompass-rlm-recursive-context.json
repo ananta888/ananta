@@ -4,8 +4,8 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-rlm-recursive-context",
   "created": "2026-08-15",
-  "last_updated": "2026-08-15",
-  "status": "planned",
+  "last_updated": "2026-08-17",
+  "status": "done",
   "purpose": "RLM-Mechanismen (Recursive Language Model / recursive context execution) als optionale Orchestrierungsschicht in CodeCompass integrieren, damit sehr grosse Repositories und Dokumentmengen nicht als ein einzelner LLM-Kontext behandelt werden muessen, sondern rekursiv zerlegt, durchsucht, bewertet und wieder zusammengefuehrt werden koennen.",
   "goal": "CodeCompass soll fuer komplexe Repository-Fragen einen budgetierten, evidenzgebundenen rekursiven Analyseplan ausfuehren koennen: Query zerlegen, relevante Teilraeume ueber FTS/Vector/Symbol/Graph bestimmen, Subfragen getrennt bearbeiten, Ergebnisse mit Provenance zusammenfuehren und nur den verdichteten Kontext an das finale LLM geben. Bestehende Trust-, Evidence-, Tenant-, Revision- und Injection-Gates bleiben verbindlich.",
   "repo_alignment": {
@@ -112,7 +112,7 @@
         "RLM-002",
         "RLM-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -123,7 +123,7 @@
         "RLM-006",
         "RLM-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -134,7 +134,7 @@
         "RLM-010",
         "RLM-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -145,7 +145,7 @@
         "RLM-014",
         "RLM-015"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "critical_path_tasks": [
@@ -163,7 +163,7 @@
       "id": "RLM-001",
       "title": "Versionierten Recursive-Plan-Contract definieren",
       "type": "schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [],
@@ -186,7 +186,8 @@
         "files_to_modify": [],
         "notes": [
           "Felder mindestens: plan_id, node_id, parent_id, depth, query, intent, source_scope, revision, tenant_id, budgets, children, state, stop_reason, evidence_refs.",
-          "Keine frei erfundenen source_id/run_id-Werte zulassen."
+          "Keine frei erfundenen source_id/run_id-Werte zulassen.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -198,13 +199,14 @@
       "test_plan": [
         "JSON-Schema positive/negative Fixtures",
         "Tests fuer fehlende Parent-/Budget-/Revision-Felder"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-002",
       "title": "RLM-Budget- und Abbruchregeln in Context Planner integrieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -230,7 +232,8 @@
         ],
         "notes": [
           "Globales Budget wird auf Child-Knoten verteilt; Children duerfen das Parent-Restbudget nicht ueberziehen.",
-          "Harte Stop-Conditions fuer max_depth, max_nodes, timeout, token_budget, repeated_query und no_new_evidence."
+          "Harte Stop-Conditions fuer max_depth, max_nodes, timeout, token_budget, repeated_query und no_new_evidence.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -243,13 +246,14 @@
         "Unit-Tests Budgetaufteilung",
         "Depth-/Fan-out-Grenztests",
         "Regressionstests fuer normalen Planner"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-003",
       "title": "RLM-Eignungsentscheidung und Fallback definieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "dependencies": [
@@ -273,7 +277,8 @@
         ],
         "notes": [
           "Zunaechst deterministische Heuristiken: mehrere Module/Sprachen, sehr breite Query, dependency/blast-radius, Kontextueberlauf, mehrere getrennte Evidence-Cluster.",
-          "Kein separater LLM-Call nur fuer die Entscheidung in V1."
+          "Kein separater LLM-Call nur fuer die Entscheidung in V1.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -284,13 +289,14 @@
       "test_plan": [
         "Fixture-Matrix fuer einfache vs. komplexe Intents",
         "Fallback-Test bei deaktiviertem Flag"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-004",
       "title": "Recursive Query Planner implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -320,7 +326,8 @@
         "notes": [
           "Planner erzeugt kleine, begrenzte Child-Sets statt freien Agenten-Loop.",
           "Child-Queries muessen auf vorhandene Intents und Source-Scopes abgebildet werden.",
-          "Planer speichert Query-Fingerprint zur Zyklus-/Duplikaterkennung."
+          "Planer speichert Query-Fingerprint zur Zyklus-/Duplikaterkennung.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -333,13 +340,14 @@
         "Planner-Unit-Tests",
         "Cycle-/Duplicate-Tests",
         "Fan-out-Limit-Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-005",
       "title": "Multi-Channel Retrieval pro RLM-Knoten anbinden",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -367,7 +375,8 @@
         ],
         "notes": [
           "Bestehende Provider injizieren; keine neuen parallelen Indizes bauen.",
-          "Pro Knoten dokumentieren, welcher Retrieval-Kanal Treffer, no_results oder degraded geliefert hat."
+          "Pro Knoten dokumentieren, welcher Retrieval-Kanal Treffer, no_results oder degraded geliefert hat.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -380,13 +389,14 @@
         "Provider-Mock-Tests",
         "degraded/no_results Tests",
         "Tenant-/Revision-Negativtests"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-006",
       "title": "Graph-gesteuerte rekursive Expansion fuer Repository-Strukturen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -412,7 +422,8 @@
         ],
         "notes": [
           "Expansion nur ueber erlaubte Edge-/Node-Kinds und bestehende Query-Vertraege.",
-          "Priorisierung z.B. calls/imports/tests/dependency/build-target mit konfigurierbaren Hops."
+          "Priorisierung z.B. calls/imports/tests/dependency/build-target mit konfigurierbaren Hops.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -424,13 +435,14 @@
         "Graph-Fixture mit 1-3 Hops",
         "Budget-Cutoff-Test",
         "unverified Evidence-Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-007",
       "title": "Subresult-Artefakt und lokale Verdichtung pro Knoten",
       "type": "schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -457,7 +469,8 @@
         ],
         "notes": [
           "Resultat trennt claims, evidence_refs, unknowns, conflicts, discarded_items und budget_used.",
-          "Verdichtung darf Source-Refs nicht verlieren."
+          "Verdichtung darf Source-Refs nicht verlieren.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -469,13 +482,14 @@
         "Schema-Fixtures",
         "Grounded-vs-unverified Test",
         "Discard-Reason Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-008",
       "title": "Evidence-preserving Merge und finale Synthese implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -500,7 +514,8 @@
         "files_to_modify": [],
         "notes": [
           "Merge dedupliziert identische Evidence-Refs und Claims, aber verschmilzt widerspruechliche Aussagen nicht.",
-          "Finaler Kontext enthaelt nur budgetierte Claims + Evidence + Unknowns + Konflikte."
+          "Finaler Kontext enthaelt nur budgetierte Claims + Evidence + Unknowns + Konflikte.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -514,13 +529,14 @@
         "Conflict Fixture",
         "Duplicate Evidence Test",
         "Revision-Separation Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-009",
       "title": "Security-, Injection- und Tenant-Gates fuer jede Rekursionsebene erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -548,7 +564,8 @@
         ],
         "notes": [
           "Kein Child darf rohe, ungepruefte Retrieval-Inhalte direkt an ein Modell weitergeben.",
-          "High-Risk-Injection beendet den betroffenen Branch; Parent kann mit verbleibender Evidence weiterarbeiten."
+          "High-Risk-Injection beendet den betroffenen Branch; Parent kann mit verbleibender Evidence weiterarbeiten.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -562,13 +579,14 @@
         "stale Revision Test",
         "Prompt-Injection Fixture",
         "Secret Redaction Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-010",
       "title": "CodeCompass Tool fuer rekursive Analyse bereitstellen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -597,7 +615,8 @@
         ],
         "notes": [
           "Vorschlag Toolname: analyze_recursive oder plan_recursive_context.",
-          "Input erlaubt nur bekannte Intents/Scopes und harte Maximalwerte; keine beliebigen internen Planner-Parameter."
+          "Input erlaubt nur bekannte Intents/Scopes und harte Maximalwerte; keine beliebigen internen Planner-Parameter.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -610,13 +629,14 @@
         "Tool Contract Test",
         "Invalid Budget Test",
         "Feature-Flag Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-011",
       "title": "Persistierbaren RLM-Trace fuer Debugging und Audit einfuehren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -643,7 +663,8 @@
         ],
         "notes": [
           "Trace standardmaessig content-arm: IDs, Hashes, Intents, Provider, Counts, Budgets, Status, Stop-Reason.",
-          "Keine Secrets oder komplette proprietaere Source-Inhalte persistieren."
+          "Keine Secrets oder komplette proprietaere Source-Inhalte persistieren.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -655,13 +676,14 @@
         "Trace-Schema-Test",
         "Secret-Absence Test",
         "Parent/Child Integrity Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-012",
       "title": "Benchmark gegen normalen CodeCompass Context Planner aufbauen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -690,7 +712,8 @@
         ],
         "notes": [
           "Faelle: Single-Symbol, repo-weite Dependency, Blast-Radius, Doku-vs-Code-Konflikt, Multi-Modul, sehr grosse Dokumentmenge.",
-          "Messen: grounded precision proxy, evidence recall proxy, context tokens, model calls, wall time, branch count."
+          "Messen: grounded precision proxy, evidence recall proxy, context tokens, model calls, wall time, branch count.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -703,13 +726,14 @@
         "Deterministische Fixture-Laeufe",
         "Token-/Call-Zaehler",
         "Regression-Gate in CI"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-013",
       "title": "Metriken fuer Rekursionstiefe, Fan-out, Kosten und Nutzen erfassen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -731,7 +755,8 @@
           "agent/services/codecompass_recursive_planner_service.py"
         ],
         "notes": [
-          "Metriken: recursive_runs, fallback_runs, nodes_per_run, max_depth_reached, provider_calls, dedup_ratio, conflicts, stopped_by_budget, no_new_evidence, model_calls."
+          "Metriken: recursive_runs, fallback_runs, nodes_per_run, max_depth_reached, provider_calls, dedup_ratio, conflicts, stopped_by_budget, no_new_evidence, model_calls.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -742,13 +767,14 @@
       "test_plan": [
         "Metrics Counter Test",
         "No-Content Leakage Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-014",
       "title": "RLM-Trace im CodeCompass UI optional visualisieren",
       "type": "ux",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "dependencies": [
@@ -772,7 +798,8 @@
         ],
         "notes": [
           "Vor Implementierung konkreten Komponentenpfad des Graph Viewers erneut pruefen.",
-          "RLM-Plan als eigener View/Overlay oder generisches Graph-Modell darstellen; keine zweite Graph-Library einfuehren."
+          "RLM-Plan als eigener View/Overlay oder generisches Graph-Modell darstellen; keine zweite Graph-Library einfuehren.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -784,13 +811,14 @@
         "Angular Adapter Test",
         "Empty/partial Trace Fixture",
         "No-RLM Regression Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-015",
       "title": "Feature-Flag, Dokumentation, E2E und gestuften Rollout abschliessen",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -820,7 +848,8 @@
         ],
         "notes": [
           "RLM V1 default off; Aktivierung tenant-/deployment-konfigurierbar.",
-          "Dokumentation erklaert Unterschied normaler Planner vs. RLM, Limits, Kosten und Sicherheitsmodell."
+          "Dokumentation erklaert Unterschied normaler Planner vs. RLM, Limits, Kosten und Sicherheitsmodell.",
+          "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
         ]
       },
       "acceptance_criteria": [
@@ -834,7 +863,8 @@
         "Budget-stop E2E",
         "Conflict E2E",
         "Injection E2E"
-      ]
+      ],
+      "progress_percent": 100
     }
   ],
   "tasks_status_summary": {
@@ -885,12 +915,12 @@
     }
   },
   "progress_summary": {
-    "state": "planned",
-    "todo_remaining": 15,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 15
   },
   "summary_notes": [
     "RLM erweitert CodeCompass; es ersetzt weder das LLM noch FTS/Vector/Symbol/Graph Retrieval.",
@@ -898,6 +928,7 @@
     "Harte Budgets und Stop-Conditions sind P0, weil rekursive Modellaufrufe sonst unkontrollierte Kosten und Latenzen erzeugen koennen.",
     "Die erste Version soll deterministisch entscheiden koennen, wann normaler Context Planner ausreicht und wann RLM sinnvoll ist.",
     "Der bestehende CodeCompass Trust-/Policy-/Injection-Stack darf an keiner Rekursionsebene umgangen werden.",
-    "HAC-015-2026-08-17: Hierarchical Architecture Context ist der optionale Expansion Provider. RLM darf nur HAC-Handles/Budgets nutzen, keine freie Graphtraversierung."
+    "HAC-015-2026-08-17: Hierarchical Architecture Context ist der optionale Expansion Provider. RLM darf nur HAC-Handles/Budgets nutzen, keine freie Graphtraversierung.",
+    "COMPLETED-2026-08-17: Recursive planner, eligibility fallback, budgeted execution, evidence-preserving merge, tool/MCP, HAC-Handles, Tests."
   ]
 }

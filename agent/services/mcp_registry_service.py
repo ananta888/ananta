@@ -123,6 +123,21 @@ class MCPRegistryService:
             },
         ),
         MCPToolSpec(
+            name="codecompass.rlm_analyze",
+            description="Optional recursive CodeCompass analysis. Disabled queries fall back to hybrid retrieval.",
+            input_schema={
+                "type": "object",
+                "required": ["query"],
+                "additionalProperties": False,
+                "properties": {
+                    "query": {"type": "string"},
+                    "enabled": {"type": "boolean"},
+                    "max_depth": {"type": "integer"},
+                    "max_fanout": {"type": "integer"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.retrieve",
             description=(
                 "Retrieve budgeted CodeCompass evidence for a project question. "
@@ -348,6 +363,18 @@ class MCPRegistryService:
                 profile_id=str(args.get("profile_id") or "default"),
             )
             return {"content": [{"type": "json", "json": plan}]}
+
+        if name == "codecompass.rlm_analyze":
+            from agent.services.codecompass_rlm_service import get_codecompass_rlm_service
+
+            result = get_codecompass_rlm_service().analyze(
+                str(args.get("query") or ""),
+                capability=context.get("codecompass_capability") if isinstance(context.get("codecompass_capability"), dict) else None,
+                enabled=bool(args.get("enabled", False)),
+                max_depth=int(args.get("max_depth") or 3),
+                max_fanout=int(args.get("max_fanout") or 4),
+            )
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "codecompass.retrieve":
             from agent.services.codecompass_agentic_retrieval_service import (

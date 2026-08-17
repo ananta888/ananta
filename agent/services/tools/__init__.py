@@ -67,6 +67,28 @@ def execute_ananta_tool(
         if name == "codecompass.architecture_diagram":
             from agent.services.tools.codecompass_architecture_tools import codecompass_architecture_diagram
             return codecompass_architecture_diagram(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.rlm_analyze":
+            from agent.services.codecompass_rlm_service import get_codecompass_rlm_service
+            from agent.services.tools._evidence import build_tool_result
+
+            query = str(args.get("query") or "").strip()
+            if not query:
+                return build_tool_result(tool_name=name, tool_call_id=tool_call_id, status="error", error="query_required")
+            result = get_codecompass_rlm_service().analyze(
+                query,
+                capability=args.get("capability") if isinstance(args.get("capability"), dict) else None,
+                enabled=bool(cfg.get("codecompass_rlm_enabled", args.get("enabled", False))),
+                max_depth=int(args.get("max_depth") or 3),
+                max_fanout=int(args.get("max_fanout") or 4),
+            )
+            return build_tool_result(
+                tool_name=name,
+                tool_call_id=tool_call_id,
+                status="ok" if result.get("status") in {"executed", "eligible_false"} else "error",
+                data={"rlm": result},
+                warnings=list(result.get("warnings") or []),
+                error=result.get("reason") if result.get("status") == "error" else None,
+            )
         if name == "codecompass.resolve_context":
             from agent.services.tools.codecompass_tools import codecompass_resolve_context
             return codecompass_resolve_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)

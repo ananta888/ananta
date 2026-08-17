@@ -39,6 +39,7 @@ _CODECOMPASS_SPECS: dict[str, set[str]] = {
     "codecompass.symbol_context": {"query", "symbol", "revision"},
     "codecompass.architecture_evidence": {"query", "revision"},
     "codecompass.architecture_diagram": {"query", "diagram_kind", "profile"},
+    "codecompass.rlm_analyze": {"query", "enabled", "max_depth", "max_fanout"},
     "codecompass.search_symbols": {"query", "record_kinds", "path_globs", "domain_hint", "limit"},
     "codecompass.expand_graph": {"node", "seeds", "depth", "max_depth", "limit", "max_nodes"},
     "codecompass.get_file_context": {
