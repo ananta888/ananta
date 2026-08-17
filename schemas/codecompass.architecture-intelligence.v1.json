@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.architecture-intelligence.v1.json",
+  "title": "CodeCompass Architecture Intelligence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "snapshot_ref", "algorithm", "communities", "centrality", "smells"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.architecture-intelligence.v1" },
+    "snapshot_ref": { "type": "string" },
+    "revision": { "type": "string" },
+    "coverage": { "type": "string", "enum": ["complete", "partial", "unknown"] },
+    "algorithm": {
+      "type": "object",
+      "required": ["name", "version", "fingerprint"],
+      "properties": {
+        "name": { "type": "string" },
+        "version": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "parameters": { "type": "object" }
+      }
+    },
+    "communities": { "type": "array" },
+    "centrality": { "type": "array" },
+    "bridges": { "type": "array" },
+    "smells": { "type": "array" },
+    "health": { "type": "object" },
+    "diagnostics": { "type": "object" }
+  }
+}

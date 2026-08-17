@@ -123,6 +123,18 @@ class MCPRegistryService:
             },
         ),
         MCPToolSpec(
+            name="codecompass.architecture_intelligence",
+            description="Read-only architecture intelligence: communities, smells, health. Derived projection, not source evidence.",
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "snapshot_ref": {"type": "string"},
+                    "revision": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.analytics_query",
             description="Run a named CodeCompass DuckDB analytics template. No free SQL.",
             input_schema={
@@ -384,6 +396,20 @@ class MCPRegistryService:
                 profile_id=str(args.get("profile_id") or "default"),
             )
             return {"content": [{"type": "json", "json": plan}]}
+
+        if name == "codecompass.architecture_intelligence":
+            from agent.services.codecompass_architecture_intelligence_service import (
+                get_codecompass_architecture_intelligence_service,
+            )
+            from agent.services.tools.codecompass_architecture_tools import _load_architecture_graph
+
+            nodes, edges = _load_architecture_graph({})
+            result = get_codecompass_architecture_intelligence_service().analyze(
+                {"nodes": nodes, "edges": edges},
+                snapshot_ref=str(args.get("snapshot_ref") or ""),
+                revision=str(args.get("revision") or ""),
+            )
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "codecompass.analytics_query":
             from agent.services.codecompass_duckdb_analytics_service import (

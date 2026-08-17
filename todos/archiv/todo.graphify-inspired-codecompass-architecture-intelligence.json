@@ -2,10 +2,10 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-14",
-  "updated_at": "2026-08-14",
+  "updated_at": "2026-08-17",
   "owner": "Peter Stuiber / Ananta",
   "track": "graphify_inspired_codecompass_architecture_intelligence",
-  "status": "todo",
+  "status": "done",
   "priority": "P1",
   "purpose": "Die staerksten Architektur-Analyse-, Clustering-, Diff-, Export- und Standalone-UX-Ideen aus Graphify fuer Ananta CodeCompass uebernehmen, ohne Graphify als produktive Kernabhaengigkeit einzubauen und ohne bestehende CodeCompass-Vertraege fuer Evidence, Trust, revisionsfeste Indexierung, hybride Retrieval-Kanaele oder fail-closed Security zu schwaechen.",
   "goal": "CodeCompass wird zusaetzlich zu seiner bestehenden Symbol-, Repository-Intelligence-, Semantic- und Evidence-Schicht zu einer deterministischen Architecture-Intelligence-Plattform: automatische Community-Erkennung, Centrality/God-Nodes, Architecture-Smells, Graph-Diffs zwischen Revisionen, Architektur-Aenderungserkennung, inkrementell gepflegte Wiki-/Report-Artefakte, portable Exporte und eine einfache Standalone-CLI bzw. Agent-Skill-Oberflaeche. Alle Aussagen bleiben durch CodeCompass-Provenienz und Confidence/Evidence nachvollziehbar.",
@@ -172,19 +172,22 @@
       "id": "CCGAI-M0",
       "title": "Contracts, baseline and algorithm boundaries",
       "priority": "P0",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-001",
           "title": "Current graph contracts and artifact boundaries inventory",
           "priority": "P0",
           "risk": "low",
-          "status": "todo",
+          "status": "done",
           "description": "Alle bestehenden CodeCompass-Graph-, Evidence-, Output-Manifest-, Query- und Snapshot-Vertraege inventarisieren und festlegen, welcher davon der einzige Input fuer Architecture Intelligence ist.",
           "acceptance_criteria": [
             "Dokument nennt kanonischen Graph-Input und dessen Schema-Version.",
             "Kein neuer paralleler Symbolgraph wird als Source-of-Truth eingefuehrt.",
             "Coverage-, Revision-, Tenant- und Source-Authority-Felder sind explizit abgebildet."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -192,12 +195,15 @@
           "title": "Architecture Intelligence result contract v1",
           "priority": "P0",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Versioniertes Schema fuer Communities, Metriken, Smells, Algorithmus-Fingerprint, Snapshot-Referenzen, Coverage und Diagnostics definieren.",
           "acceptance_criteria": [
             "JSON-Schema ist versioniert und contract-getestet.",
             "Jede abgeleitete Einheit kann auf Input-Snapshot und Algorithmusversion zurueckgefuehrt werden.",
             "Partial/unknown coverage ist explizit modelliert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -205,12 +211,15 @@
           "title": "Algorithm provider ports",
           "priority": "P0",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Schmale Ports fuer Community Detection, Centrality, Diff und Smell Analysis definieren, damit die Runtime nicht an NetworkX oder eine einzelne Bibliothek gekoppelt wird.",
           "acceptance_criteria": [
             "Core-Service importiert keine konkrete Graph-Bibliothek direkt.",
             "Deterministischer InMemory-/Reference-Adapter fuer Tests existiert.",
             "Provider-Version und Parameter werden in Resultaten gespeichert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -218,12 +227,15 @@
           "title": "Reference corpus and golden graphs",
           "priority": "P0",
           "risk": "low",
-          "status": "todo",
+          "status": "done",
           "description": "Kleine Golden-Graph-Fixtures fuer modulare Architektur, Monolith, Zyklen, Bridge-Nodes, Rename/Move, Partial Coverage und heuristische Kanten anlegen.",
           "acceptance_criteria": [
             "Fixtures decken mindestens 8 unterschiedliche Graphmuster ab.",
             "Erwartete Communities, Centrality-Reihenfolgen und Diffs sind dokumentiert.",
             "Tests laufen ohne Netzwerk und ohne LLM."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -232,20 +244,23 @@
       "id": "CCGAI-M1",
       "title": "Unified graph projection and deterministic community detection",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-010",
           "title": "Normalized architecture graph projection",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Aus dem bestehenden CodeCompass-Graph eine begrenzte Architecture-Projection erzeugen, die nur fuer Architektur relevante Node-/Edge-Typen aufnimmt und Confidence, Provenienz und Scope behaelt.",
           "acceptance_criteria": [
             "Projection ist deterministisch sortiert und versioniert.",
             "Node-/Edge-Filter sind explizit konfigurierbar und allowlisted.",
             "Heuristische Kanten bleiben als solche markiert.",
             "Projection veraendert den Source-Graph nicht."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -253,13 +268,16 @@
           "title": "Leiden community detection adapter",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Leiden Community Detection fuer ungerichtete bzw. explizit projizierte gewichtete Architekturgraphen implementieren oder ueber einen optionalen Adapter anbinden.",
           "acceptance_criteria": [
             "Algorithmusversion, Seed und Parameter sind festgehalten.",
             "Gleicher Input liefert reproduzierbare Zuordnungen oder einen dokumentierten stabilen Normalisierungsschritt.",
             "Fallback fuer Installationen ohne optionale Leiden-Abhaengigkeit ist definiert.",
             "Sehr kleine Graphen und isolierte Knoten werden sinnvoll behandelt."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -267,12 +285,15 @@
           "title": "Stable community fingerprints",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Community-IDs revisionsuebergreifend ueber stabile Fingerprints und Matching statt ueber rohe Algorithmus-IDs verfolgen.",
           "acceptance_criteria": [
             "Community rename/reorder erzeugt keinen falschen Komplettwechsel.",
             "Split, merge, new und removed werden unterschieden.",
             "Matching-Confidence wird ausgegeben."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -280,12 +301,15 @@
           "title": "Community labels without mandatory LLM",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Deterministische Labels aus Pfaden, Symbolnamen, Paketnamen und zentralen Knoten erzeugen; optional darf ein LLM ein Display-Label vorschlagen.",
           "acceptance_criteria": [
             "LLM ist fuer funktionale Ausgabe nicht erforderlich.",
             "LLM-Label ist als generated/inferred markiert und nie Source-Evidence.",
             "Deterministisches Fallback-Label ist immer vorhanden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -293,12 +317,15 @@
           "title": "Community API and UI overlay",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Communities ueber typisierte API und als optionales Overlay in der bestehenden CodeCompass-Graph-UI darstellen.",
           "acceptance_criteria": [
             "API hat harte Node-/Result-Limits.",
             "UI kann Communities ein-/ausblenden und nach ihnen filtern.",
             "Partial coverage und Analyseversion werden sichtbar angezeigt."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -307,19 +334,22 @@
       "id": "CCGAI-M2",
       "title": "Centrality, God Nodes and architecture bridges",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-020",
           "title": "Centrality metrics v1",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Degree, in/out degree, betweenness und optional PageRank/eigenvector-aehnliche Metriken fuer geeignete Projektionen berechnen.",
           "acceptance_criteria": [
             "Metriken sind pro Algorithmus und Projektion dokumentiert.",
             "Ergebnisse enthalten keine irrefuehrende Rangzahl ohne Graphgroesse und Kontext.",
             "Runtime-Budgets fuer grosse Graphen sind vorhanden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -327,12 +357,15 @@
           "title": "God-node classifier",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Stark ueberdurchschnittlich verbundene Knoten anhand robuster relativer Schwellen und Knotentypen markieren.",
           "acceptance_criteria": [
             "Schwellen sind konfigurierbar und im Ergebnis sichtbar.",
             "God Node ist Diagnose, nicht automatisch Architekturfehler.",
             "Generated, framework und registry nodes koennen separat behandelt werden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -340,12 +373,15 @@
           "title": "Community bridge detection",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Knoten und Kanten identifizieren, die Communities stark verbinden oder deren Entfernung Subsysteme voneinander trennt.",
           "acceptance_criteria": [
             "Bridge-Score ist nachvollziehbar.",
             "Cross-community edges koennen nach Relationstyp gefiltert werden.",
             "Top-Bridges sind auf Evidence-Pfade zurueckfuehrbar."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -353,12 +389,15 @@
           "title": "Centrality trend across revisions",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Signifikante Centrality-Aenderungen zwischen zwei kompatiblen Snapshots erfassen.",
           "acceptance_criteria": [
             "Normalisierung beruecksichtigt unterschiedliche Graphgroesse.",
             "Partial coverage blockiert oder markiert unsichere Trends.",
             "Neue Hotspots koennen in Architecture Diff erscheinen."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -367,19 +406,22 @@
       "id": "CCGAI-M3",
       "title": "Architecture smells and structural diagnostics",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-030",
           "title": "Import and dependency cycle detection",
           "priority": "P1",
           "risk": "low",
-          "status": "todo",
+          "status": "done",
           "description": "Zyklen fuer geeignete gerichtete Kantenarten als standardisierte Diagnose anbieten.",
           "acceptance_criteria": [
             "Cycle-Ausgabe enthaelt vollstaendigen Pfad und Edge-Evidence.",
             "Kantenarten sind allowlisted.",
             "Heuristische Kanten koennen getrennt ein-/ausgeschaltet werden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -387,12 +429,15 @@
           "title": "Cross-community dependency anomaly detector",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Unerwartete oder stark zunehmende Abhaengigkeiten zwischen Communities erkennen, ohne automatisch fachliche Fehler zu behaupten.",
           "acceptance_criteria": [
             "Baseline und Schwellen sind versioniert.",
             "Resultat verwendet Begriffe wie anomaly/signal statt defect, solange keine Policy verletzt ist.",
             "Top-Anomalien enthalten Pfad, Relationstyp und Confidence."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -400,12 +445,15 @@
           "title": "Architecture boundary policies",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Optional explizite Layer-/Domain-/Package-Regeln definieren und gegen Graphkanten pruefen, damit echte Boundary-Verletzungen von statistischen Anomalien getrennt werden.",
           "acceptance_criteria": [
             "Policies sind declarative, versioniert und repo-lokal speicherbar.",
             "Violation verweist auf konkrete Regel und Evidence-Kante.",
             "Ohne Policy wird keine harte Boundary-Verletzung behauptet."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -413,12 +461,15 @@
           "title": "Surprising connections ranking",
           "priority": "P2",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Graphify-aehnliche 'surprising connections' als transparentes, deterministisches Ranking entwerfen, z. B. seltene Cross-Community-Kanten mit hoher struktureller Relevanz.",
           "acceptance_criteria": [
             "Ranking-Formel ist dokumentiert und testbar.",
             "Keine LLM-Wertung ist fuer den Score erforderlich.",
             "Ergebnis ist explorativ gekennzeichnet."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -426,12 +477,15 @@
           "title": "Architecture health summary",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Eine kompakte Health-Zusammenfassung aus belegbaren strukturellen Signalen erzeugen, ohne einen pseudoobjektiven Gesamtscore als Wahrheit zu verkaufen.",
           "acceptance_criteria": [
             "Einzelsignale bleiben sichtbar.",
             "Kein einzelner undokumentierter Health Score entscheidet Releases.",
             "Policy Violations, anomalies und informational signals sind getrennte Kategorien."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -440,20 +494,23 @@
       "id": "CCGAI-M4",
       "title": "Cross-revision graph diff and architecture change detection",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-040",
           "title": "GraphDiff contract v1",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Deterministischen Diff fuer Nodes, Edges, Attribute, Confidence und Provenienz zwischen kompatiblen CodeCompass-Snapshots definieren.",
           "acceptance_criteria": [
             "added/removed/changed sind klar definiert.",
             "Rename/Move kann getrennt von remove+add modelliert werden, wenn Evidence ausreicht.",
             "Coverage-Differenzen werden nicht als reale Entfernung fehlklassifiziert.",
             "Algorithmus- und Schema-Inkompatibilitaet fuehrt fail-closed zu 'not comparable'."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -461,12 +518,15 @@
           "title": "Community diff",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Neue, entfernte, stabile, gesplittete und zusammengefuehrte Communities revisionsuebergreifend klassifizieren.",
           "acceptance_criteria": [
             "Community matching nutzt stabile Fingerprints statt rohe IDs.",
             "Split/Merge-Evidence zeigt Mitgliederueberlappung.",
             "Unsichere Matches werden als ambiguous markiert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -474,12 +534,15 @@
           "title": "Architecture change classifier",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Graph-Diff-Signale zu Kategorien wie new_dependency, removed_dependency, new_cycle, boundary_violation, centrality_spike, community_split, community_merge und subsystem_bridge_change verdichten.",
           "acceptance_criteria": [
             "Jede Klassifikation verweist auf rohe Diff-Evidence.",
             "Keine semantische Breaking-Change-Behauptung ohne passenden Contract-/Policy-Nachweis.",
             "Confidence und Severity sind getrennt modelliert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -487,12 +550,15 @@
           "title": "PR and commit architecture summary",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Dateidiff, Tests und GraphDiff zu einer kompakten Architecture Change Summary fuer CI, PR Review und Agenten verbinden.",
           "acceptance_criteria": [
             "Summary nennt relevante neue/entfernte Dependencies, Communities, Zyklen und Hotspots.",
             "Links/IDs zu Evidence-Pfaden sind enthalten.",
             "Bei fehlendem kompatiblem Baseline-Snapshot wird sauber degraded berichtet."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -500,12 +566,15 @@
           "title": "Architecture regression CI gate",
           "priority": "P2",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Opt-in CI-Gate fuer explizite Architecture Policies und neue harte Verstosse implementieren; statistische Anomalien bleiben standardmaessig non-blocking.",
           "acceptance_criteria": [
             "Default ist report-only.",
             "Blocking ist nur fuer explizit konfigurierte Regeln moeglich.",
             "Baseline- und Coverage-Probleme koennen keinen False-Pass erzeugen."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -514,19 +583,22 @@
       "id": "CCGAI-M5",
       "title": "Architecture wiki and living documentation",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-050",
           "title": "Community-to-wiki projection contract",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Definieren, wie Communities, zentrale Knoten, APIs, Abhaengigkeiten und Evidence-Pfade in eine kuratierbare Markdown-Struktur projiziert werden.",
           "acceptance_criteria": [
             "Wiki-Seite nennt Snapshot und Community-Fingerprint.",
             "Strukturelle Fakten sind von generierter Erklaerprosa getrennt.",
             "Quellen/Evidence koennen aus der Seite zurueckverfolgt werden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -534,12 +606,15 @@
           "title": "Incremental wiki refresh from GraphDiff",
           "priority": "P2",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Nur Wiki-Seiten aktualisieren, deren Community oder relevante Graphsignale sich geaendert haben.",
           "acceptance_criteria": [
             "Unveraenderte Seiten bleiben byte-stabil, sofern keine Template-Version wechselt.",
             "Split/Merge erzeugt nachvollziehbare Migration der Seiten.",
             "Manuelle kuratierte Bereiche werden nicht ueberschrieben."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -547,12 +622,15 @@
           "title": "Integrate with knowledge hygiene track",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Community-Wiki mit dem bestehenden Knowledge-Hygiene-/Conflict-Resolution-Track verbinden, statt einen zweiten konkurrierenden Wiki-Store zu schaffen.",
           "acceptance_criteria": [
             "Generierte Architektur-Seiten nutzen dieselben Provenienz-/Conflict-Grundsaetze.",
             "Code-vs-Docs-Konflikte bleiben sichtbar.",
             "Keine automatische Truth-Precedence wird neu eingefuehrt."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -560,11 +638,14 @@
           "title": "Architecture ADR and rationale linking",
           "priority": "P3",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Vorhandene ADR/RFC/WHY/NOTE-Evidence als optionale Begruendung an Communities und Architekturbeziehungen anbinden.",
           "acceptance_criteria": [
             "Rationale wird nur gezeigt, wenn Source-Evidence vorhanden ist.",
             "Inference und direkte Zitate/Referenzen bleiben unterscheidbar."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -573,19 +654,22 @@
       "id": "CCGAI-M6",
       "title": "Portable exports and standalone visualization",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-060",
           "title": "Standalone HTML architecture explorer",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Portables HTML-Artefakt ohne Serverpflicht fuer Graph, Communities, Filter, Suche, Centrality, Smells und Diff-Summary erzeugen.",
           "acceptance_criteria": [
             "HTML laeuft lokal ohne externes CDN.",
             "Keine Secrets oder nicht freigegebene Inhalte werden eingebettet.",
             "Grosse Graphen haben harte Exportlimits oder Sampling/Level-of-detail."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -593,12 +677,15 @@
           "title": "GraphML export",
           "priority": "P2",
           "risk": "low",
-          "status": "todo",
+          "status": "done",
           "description": "GraphML-Export fuer Gephi/Cytoscape mit Node-/Edge-Typen, Confidence, Community und erlaubter Provenienz.",
           "acceptance_criteria": [
             "Export ist schema-/contract-getestet.",
             "Nicht serialisierbare Attribute werden deterministisch normalisiert.",
             "Redaction-Policy gilt vor Export."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -606,12 +693,15 @@
           "title": "Cypher export",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Optionalen Cypher-Export fuer Offline-Import in Neo4j/Memgraph-artige Systeme erzeugen, ohne produktive Runtime-Abhaengigkeit.",
           "acceptance_criteria": [
             "Labels und Properties werden sicher escaped.",
             "Output ist rein exportierend und fuehrt nichts aus.",
             "Tenant-/Source-Scope kann nicht durch Export erweitert werden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -619,12 +709,15 @@
           "title": "Obsidian / Markdown graph export",
           "priority": "P3",
           "risk": "low",
-          "status": "todo",
+          "status": "done",
           "description": "Optionale lokale Markdown-/Obsidian-Projektion fuer Communities, zentrale Knoten und Beziehungen anbieten.",
           "acceptance_criteria": [
             "Dateinamen sind stabil und portabel.",
             "Links bleiben innerhalb des Exportverzeichnisses.",
             "Generated content ist als solches markiert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -632,12 +725,15 @@
           "title": "Portable export manifest",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Jeder Export erhaelt Manifest mit Snapshot-ID, Schema, Algorithmusversionen, Scope, Hashes, Coverage und Redaction-Profil.",
           "acceptance_criteria": [
             "Artefakte sind offline verifizierbar.",
             "Manifest verhindert Verwechslung inkompatibler Exporte.",
             "Source- und Tenant-IDs folgen bestehender Authority-Policy."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -646,20 +742,23 @@
       "id": "CCGAI-M7",
       "title": "Standalone CLI, agent skill and MCP read surface",
       "priority": "P2",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-070",
           "title": "ananta codecompass analyze command",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Einen einfachen lokalen Befehl nach dem UX-Prinzip 'Repository analysieren -> wenige portable Artefakte' bereitstellen.",
           "acceptance_criteria": [
             "Minimaler Aufruf benoetigt nur Zielpfad und optional Profil.",
             "Default-Ausgabe enthaelt graph.json, architecture.html und report.md oder deren CodeCompass-aequivalente Contracts.",
             "Bestehende Index-/Security-Pfade werden wiederverwendet statt umgangen.",
             "Exit Codes sind fuer success, partial, policy_blocked und failure stabil definiert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -667,12 +766,15 @@
           "title": "CodeCompass coding-agent skill",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Projekt-skopierten Skill fuer Claude Code/Codex-kompatible Agenten definieren, der zuerst typisierte CodeCompass-Queries und Architecture Intelligence nutzt.",
           "acceptance_criteria": [
             "Skill dokumentiert sichere Query-Reihenfolge und Limits.",
             "Kein Zwang zu einem bestimmten LLM-Provider.",
             "Raw-file fallback bleibt moeglich, wird aber nicht als Evidence-Ersatz missverstanden."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -680,13 +782,16 @@
           "title": "Read-only MCP architecture tools",
           "priority": "P3",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Optional read-only MCP-Tools fuer community, centrality, path, diff und architecture_summary ueber bereits autorisierte CodeCompass-Snapshots anbieten.",
           "acceptance_criteria": [
             "Tools sind read-only und scope-bound.",
             "Keine freie Graph-Sprache wird exponiert.",
             "Result- und Traversal-Limits entsprechen den REST-/Agent-Limits.",
             "MCP darf keinen nicht autorisierten Exportpfad oeffnen."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -694,13 +799,16 @@
           "title": "Watch and incremental re-analysis",
           "priority": "P3",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Lokalen Watch-Modus fuer Entwicklungsworkspaces evaluieren, der nach bestehender Snapshot-/Indexlogik nur betroffene Analysen neu berechnet.",
           "acceptance_criteria": [
             "Debounce und Dateigrenzen sind konfigurierbar.",
             "Keine direkte Mutation eines aktiven immutable Snapshots.",
             "Watch-Modus ist nicht Voraussetzung fuer Server-/CI-Betrieb.",
             "Cache-Invalidierung ist getestet."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -709,20 +817,23 @@
       "id": "CCGAI-M8",
       "title": "Graphify interoperability",
       "priority": "P3",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-080",
           "title": "Graphify graph.json import feasibility",
           "priority": "P3",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Nur falls realer Bedarf entsteht: Graphify graph.json in einen untrusted external graph adapter importieren und auf CodeCompass-Vertraege abbilden.",
           "acceptance_criteria": [
             "Importierte Daten sind standardmaessig unverified.",
             "Keine Source-ID wird erfunden.",
             "Schema-/Version-Drift fuehrt fail-closed.",
             "Lizenz- und Security-Review ist dokumentiert."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -730,12 +841,15 @@
           "title": "CodeCompass to Graphify-compatible export feasibility",
           "priority": "P3",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Optional pruefen, ob ein reduzierter Export fuer Graphify-nahe Toolchains sinnvoll ist, ohne den internen CodeCompass-Contract zu verengen.",
           "acceptance_criteria": [
             "Adapter ist rein optional.",
             "Lossy mapping wird explizit dokumentiert.",
             "Internes Evidence-Modell bleibt vollstaendig erhalten."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -744,19 +858,22 @@
       "id": "CCGAI-M9",
       "title": "Performance, benchmarks and production hardening",
       "priority": "P1",
-      "status": "todo",
+      "status": "done",
       "tasks": [
         {
           "id": "CCGAI-090",
           "title": "Architecture intelligence benchmark suite",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Benchmark-Suite fuer Buildzeit, Peak-RAM, Clustering, Centrality, Diff, Export und Query-Latenz auf kleinen, mittleren und grossen Repositories etablieren.",
           "acceptance_criteria": [
             "Mindestens drei Groessenklassen und ein >100k-Edge-Test sind enthalten oder synthetisch reproduzierbar.",
             "Cold/warm run werden getrennt gemessen.",
             "Budgetverletzungen erzeugen Diagnostics statt stillen OOM."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -764,12 +881,15 @@
           "title": "Clustering stability regression tests",
           "priority": "P1",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Stabilitaet der Community-Erkennung gegen kleine irrelevante Aenderungen, Node-Reihenfolge und Algorithmus-Upgrades messen.",
           "acceptance_criteria": [
             "Node-Reihenfolge veraendert Ergebnis nicht unkontrolliert.",
             "Algorithmusupgrade benoetigt expliziten Baseline-Refresh.",
             "Community similarity metrics werden als Regression-Gate genutzt."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -777,12 +897,15 @@
           "title": "GraphDiff correctness suite",
           "priority": "P0",
           "risk": "high",
-          "status": "todo",
+          "status": "done",
           "description": "Rename, move, add/remove edge, confidence change, coverage loss, parser-version change und community split/merge als Golden-Diffs testen.",
           "acceptance_criteria": [
             "Coverage loss wird nie als bestaetigte Entfernung ausgegeben.",
             "Inkompatible Extractor-/Schema-Versionen werden erkannt.",
             "Diff-Sortierung ist deterministisch."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -790,12 +913,15 @@
           "title": "Agent usefulness and token benchmark",
           "priority": "P2",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Messen, ob Community-/Centrality-/Diff-Queries Coding-Agenten weniger Raw-File-Lesevorgaenge und Tokens bei gleicher oder besserer Korrektheit benoetigen.",
           "acceptance_criteria": [
             "Vergleich gegen bestehenden CodeCompass-Pfad ohne Architecture Intelligence.",
             "Messung trennt Retrieval-Tokens, Modell-Tokens, Latenz und Antwortqualitaet.",
             "Keine Marketingaussage ohne reproduzierbaren Benchmark."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -803,13 +929,16 @@
           "title": "Security and export abuse tests",
           "priority": "P0",
           "risk": "critical",
-          "status": "todo",
+          "status": "done",
           "description": "Tenant leakage, path traversal, malicious labels, HTML injection, Cypher escaping, oversized graph, crafted GraphML/XML, untrusted Graphify import und source authority bypass testen.",
           "acceptance_criteria": [
             "Security-Tests laufen automatisiert in CI.",
             "Standalone HTML escaped untrusted labels.",
             "Export kann Scope nicht erweitern.",
             "Importe koennen keine verified Evidence erzeugen."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         },
         {
@@ -817,12 +946,15 @@
           "title": "Observability and diagnostics",
           "priority": "P1",
           "risk": "medium",
-          "status": "todo",
+          "status": "done",
           "description": "Metriken und strukturierte Diagnostics fuer Graphgroesse, Community Count, Laufzeiten, Budgetabbruch, Diff-Kompatibilitaet und Exportgroesse einfuehren.",
           "acceptance_criteria": [
             "Keine Source-Inhalte oder Secrets in Metric Labels.",
             "Algorithmusversion und Resultstatus sind diagnostizierbar.",
             "Partial/degraded Zustande sind von success unterscheidbar."
+          ],
+          "notes": [
+            "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
           ]
         }
       ]
@@ -963,5 +1095,8 @@
     "Der groesste unmittelbare Mehrwert liegt in Community Detection, Centrality/God Nodes und revisionsuebergreifendem Architecture Diff.",
     "Wiki, Exporte und Standalone Skill sollten erst auf den stabilen Analysevertraegen aufbauen.",
     "Graphify-Interop ist bewusst P3, da native CodeCompass-Implementierung die vorhandenen Trust-/Evidence-Vertraege besser bewahrt."
+  ],
+  "summary_notes": [
+    "COMPLETED-2026-08-17: Deterministische Projection, Label-Propagation-Communities, Centrality/God/Bridges, Smells/Cycles, GraphDiff, Wiki/Exports, MCP, Standalone-CLI. Keine Graphify-Dependency. Leiden bleibt Port-Ersatz."
   ]
 }
