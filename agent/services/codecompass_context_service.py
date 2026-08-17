@@ -112,6 +112,24 @@ class CodeCompassContextService:
 
         return get_knowledge_index_retrieval_service()
 
+    def retrieve_agentic(
+        self,
+        payload: dict[str, Any] | None = None,
+        *,
+        capability: dict[str, Any] | None = None,
+        arguments: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Policy-bounded hybrid retrieval using the shared agent contract."""
+
+        from agent.services.codecompass_agentic_retrieval_service import (
+            get_codecompass_agentic_retrieval_service,
+        )
+
+        service = get_codecompass_agentic_retrieval_service()
+        if arguments is not None:
+            return service.retrieve_from_tool_args(arguments, capability=capability)
+        return service.retrieve(payload, capability=capability)
+
     def resolve_context(
         self,
         *,

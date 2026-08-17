@@ -139,7 +139,7 @@
         "AHR-003",
         "AHR-004"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -180,10 +180,10 @@
       "id": "AHR-001",
       "title": "Canonical Agentic Retrieval Contract definieren",
       "type": "schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "schemas/codecompass.agentic-retrieval.v1.json"
@@ -195,7 +195,8 @@
           "Request-Felder fuer query, workspace/source scope, revision, allowed paths, requested signals, top_k und context budget definieren.",
           "Response-Felder fuer ranked evidence, signal provenance, score breakdown, truncation, diagnostics und continuation/expansion handles definieren.",
           "Backend-spezifische Details wie Qdrant collection oder API credentials duerfen nicht Teil des externen Agent-Vertrags sein.",
-          "ALIGN-2026-08-17: Contract-Datei fehlt; verwandte interne Schemas existieren. Neu zu schaffen, nicht bestehende Pipeline-Contracts ersetzen."
+          "ALIGN-2026-08-17: Contract-Datei fehlt; verwandte interne Schemas existieren. Neu zu schaffen, nicht bestehende Pipeline-Contracts ersetzen.",
+          "M1-2026-08-17: schemas/codecompass.agentic-retrieval.v1.json plus Contract-Modul. Keine Backend-Felder im Agent-Vertrag."
         ]
       },
       "acceptance_criteria": [
@@ -209,10 +210,10 @@
       "id": "AHR-002",
       "title": "Hybrid Retrieval Query Planner vereinheitlichen",
       "type": "backend",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "implementation": {
         "files_to_modify": [
           "agent/services/codecompass_context_planner_service.py",
@@ -222,7 +223,8 @@
           "Planner soll pro Anfrage passende Signale waehlen: exact symbol/path, graph, repository map, vector semantic und optional weitere bestehende Engines.",
           "Simple queries sollen nicht unnoetig alle Retrieval-Engines ausloesen.",
           "Planner-Entscheidung in Diagnostics nachvollziehbar machen.",
-          "ALIGN-2026-08-17: ContextPlanner plant Editor/Range/Task-Kind-Buckets, nicht vector/exact/graph/hybrid Signal-Modi. RetrievalStrategy steuert nur Vector-Rerank."
+          "ALIGN-2026-08-17: ContextPlanner plant Editor/Range/Task-Kind-Buckets, nicht vector/exact/graph/hybrid Signal-Modi. RetrievalStrategy steuert nur Vector-Rerank.",
+          "M1-2026-08-17: CodeCompassAgenticRetrievalPlanner plant vector/exact/graph/hybrid deterministisch; ContextPlanner delegiert."
         ]
       },
       "acceptance_criteria": [
@@ -238,10 +240,10 @@
       "id": "AHR-003",
       "title": "Qdrant als transparentes VectorStore-Backend absichern",
       "type": "backend",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "implementation": {
         "files_to_modify": [
           "worker/retrieval/qdrant_vector_store.py",
@@ -252,7 +254,8 @@
           "Alle produktiven Reads muessen tenant/workspace/source/revision/allowed-path scope respektieren.",
           "VectorStore-Adapter soll keine Qdrant-spezifischen Typen ueber den CodeCompass-Servicevertrag leaken.",
           "Timeout, unavailable, stale index und dimension mismatch als typisierte Fehler modellieren.",
-          "ALIGN-2026-08-17: QdrantVectorStore+FilterBuilder+Factory+typed errors existieren. Luecke: Agent-Vertrag darf keine Qdrant-Typen sehen; stale-index Reason muss im Contract gemappt werden."
+          "ALIGN-2026-08-17: QdrantVectorStore+FilterBuilder+Factory+typed errors existieren. Luecke: Agent-Vertrag darf keine Qdrant-Typen sehen; stale-index Reason muss im Contract gemappt werden.",
+          "M1-2026-08-17: Qdrant bleibt hinter Ports; Reasons werden auf vector_* gemappt. Scope-Filter und fail-closed Unauthorized bleiben."
         ]
       },
       "acceptance_criteria": [
@@ -268,16 +271,17 @@
       "id": "AHR-004",
       "title": "Reranking, Deduplication und Cross-Engine-Signale standardisieren",
       "type": "retrieval",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 65,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Bestehenden HybridOrchestrator als einzigen Merge-/Rerank-Pfad verwenden.",
           "Gleiche Datei/Symbol-Evidence aus mehreren Engines deduplizieren und cross_engine_signals erhalten.",
           "Exact symbol/path/graph evidence standardmaessig nicht durch fuzzy semantic hits verdraengen lassen.",
-          "ALIGN-2026-08-17: HybridRetrievalService+ContextManager decken Merge/Dedup/Exact-Prioritaet bereits ab. Fehlt: einheitlicher Agent-Envelope und Tool-Pfad darueber."
+          "ALIGN-2026-08-17: HybridRetrievalService+ContextManager decken Merge/Dedup/Exact-Prioritaet bereits ab. Fehlt: einheitlicher Agent-Envelope und Tool-Pfad darueber.",
+          "M1-2026-08-17: Merge/Dedup ueber HybridRetrievalService. Regression: exact schlaegt fuzzy vector; gleiche Datei einmal mit signals."
         ]
       },
       "acceptance_criteria": [
@@ -629,13 +633,13 @@
   "tasks_status_summary": {
     "total": 16,
     "by_status": {
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
-      "partial": 11,
+      "partial": 8,
       "blocked": 0,
-      "done": 0
+      "done": 4
     },
-    "progress_percent_done": 34.4,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 10,
       "P1": 6,
@@ -650,15 +654,15 @@
     },
     "critical_path": {
       "total": 8,
-      "done": 0,
-      "remaining": 8
+      "done": 4,
+      "remaining": 4
     },
     "milestones": {
       "total": 4,
       "todo": 0,
-      "in_progress": 4,
+      "in_progress": 3,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -681,11 +685,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 5,
+    "todo_remaining": 4,
     "in_progress": 0,
-    "partial": 11,
+    "partial": 8,
     "blocked": 0,
-    "done": 0
+    "done": 4
   },
   "summary_notes": [
     "ALIGN-2026-08-17: Track ist Vereinheitlichung, kein Neubau. HybridOrchestrator, HybridRetrievalService, QdrantVectorStore, ContextPlanner und Worker-Tools existieren.",

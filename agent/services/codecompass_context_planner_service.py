@@ -864,6 +864,29 @@ class CodeCompassContextPlanner:
         core["bundle_id"] = self._stable_id("cc-unified", core)
         return core
 
+    def plan_agentic_retrieval(
+        self,
+        *,
+        query: str,
+        mode: str | None = None,
+        requested_signals: list[str] | None = None,
+        allowed_signals: list[str] | None = None,
+        task_kind: str | None = None,
+    ) -> dict[str, Any]:
+        """Delegate signal planning to the canonical agentic retrieval planner."""
+
+        from agent.services.codecompass_agentic_retrieval_planner import (
+            CodeCompassAgenticRetrievalPlanner,
+        )
+
+        return CodeCompassAgenticRetrievalPlanner().plan(
+            query=query,
+            mode=str(mode or "auto"),
+            requested_signals=requested_signals,
+            allowed_signals=allowed_signals,
+            task_kind=task_kind,
+        )
+
 
 _codecompass_context_planner = CodeCompassContextPlanner()
 

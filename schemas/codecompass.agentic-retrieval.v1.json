@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.agentic-retrieval.v1.json",
+  "title": "CodeCompass Agentic Retrieval Contract v1",
+  "description": "Shared Agent/MCP/n8n request and response envelope for hybrid CodeCompass retrieval. Backend identifiers such as Qdrant collections or credentials are forbidden.",
+  "$defs": {
+    "mode": {
+      "type": "string",
+      "enum": ["auto", "hybrid", "vector", "exact", "graph"]
+    },
+    "signal": {
+      "type": "string",
+      "enum": ["exact", "graph", "vector"]
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ok", "degraded", "error", "empty"]
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "workspace_id": { "type": "string" },
+        "repository_id": { "type": "string" },
+        "source_scope": { "type": "string" },
+        "revision": { "type": "string" },
+        "allowed_paths": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "maxItems": 64
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "top_k": { "type": "integer", "minimum": 1, "maximum": 20 },
+        "max_chars": { "type": "integer", "minimum": 256, "maximum": 32000 },
+        "max_tokens": { "type": "integer", "minimum": 64, "maximum": 200000 },
+        "candidate_limit": { "type": "integer", "minimum": 1, "maximum": 80 },
+        "graph_depth": { "type": "integer", "minimum": 0, "maximum": 4 }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "kind", "query"],
+      "properties": {
+        "schema": { "type": "string", "const": "codecompass.agentic-retrieval.v1" },
+        "kind": { "type": "string", "const": "request" },
+        "query": { "type": "string", "minLength": 1, "maxLength": 4000 },
+        "mode": { "$ref": "#/$defs/mode" },
+        "requested_signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal" },
+          "uniqueItems": true,
+          "maxItems": 3
+        },
+        "task_kind": { "type": "string" },
+        "scope": { "$ref": "#/$defs/scope" },
+        "budget": { "$ref": "#/$defs/budget" },
+        "continuation_handle": { "type": "string", "maxLength": 512 }
+      }
+    },
+    "evidence_item": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "revision", "signal_type", "signals", "score", "excerpt"],
+      "properties": {
+        "id": { "type": "string" },
+        "path": { "type": "string" },
+        "revision": { "type": "string" },
+        "signal_type": { "$ref": "#/$defs/signal" },
+        "signals": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/signal" },
+          "minItems": 1
+        },
+        "score": { "type": "number" },
+        "score_breakdown": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        },
+        "excerpt": { "type": "string" },
+        "symbol": { "type": "string" },
+        "kind": { "type": "string" },
+        "verification_status": {
+          "type": "string",
+          "enum": ["verified", "unverified", "failed"]
+        },
+        "source": { "type": "string" },
+        "truncated": { "type": "boolean" }
+      }
+    },
+    "engine_diagnostic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason"],
+      "properties": {
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "candidate_count": { "type": "integer", "minimum": 0 },
+        "selected_count": { "type": "integer", "minimum": 0 },
+        "latency_ms": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "kind", "status", "query", "plan", "evidence", "diagnostics"],
+      "properties": {
+        "schema": { "type": "string", "const": "codecompass.agentic-retrieval.v1" },
+        "kind": { "type": "string", "const": "response" },
+        "status": { "$ref": "#/$defs/status" },
+        "reason_code": { "type": "string" },
+        "query": { "type": "string" },
+        "plan": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "signals"],
+          "properties": {
+            "mode": { "$ref": "#/$defs/mode" },
+            "signals": {
+              "type": "array",
+              "items": { "$ref": "#/$defs/signal" }
+            },
+            "rationale": { "type": "string" }
+          }
+        },
+        "evidence": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/evidence_item" }
+        },
+        "truncated": { "type": "boolean" },
+        "continuation_handle": { "type": "string" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "diagnostics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["engines"],
+          "properties": {
+            "engines": {
+              "type": "object",
+              "additionalProperties": { "$ref": "#/$defs/engine_diagnostic" }
+            },
+            "index": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": { "type": "string" },
+                "reason": { "type": "string" },
+                "manifest_hash": { "type": "string" },
+                "model": { "type": "string" },
+                "dimensions": { "type": "integer" },
+                "embedding_text_profile": { "type": "string" }
+              }
+            },
+            "budget": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "scope": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "applied": { "type": "boolean" },
+                "tenant_id": { "type": "string" },
+                "workspace_id": { "type": "string" },
+                "revision": { "type": "string" },
+                "allowed_path_count": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "dedup": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "input_count": { "type": "integer", "minimum": 0 },
+                "output_count": { "type": "integer", "minimum": 0 },
+                "merged_count": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "fallback_reason": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/response" }
+  ]
+}
