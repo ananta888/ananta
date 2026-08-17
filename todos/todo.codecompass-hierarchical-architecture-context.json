@@ -4,8 +4,8 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-hierarchical-architecture-context",
   "created": "2026-08-15",
-  "last_updated": "2026-08-15",
-  "status": "todo",
+  "last_updated": "2026-08-17",
+  "status": "in_progress",
   "purpose": "CodeCompass soll neben feingranularem Retrieval eine begrenzte, hierarchische Architektursicht liefern. Agenten wie AI-Snake und Ananta-Worker erhalten initial eine kompakte System-/Subsystem-/Komponentensicht und koennen bei Bedarf ueber CodeCompass-Tools bzw. MCP gezielt tiefer in Komponenten, Dateien, Symbole, Abhaengigkeiten und Diagramme hineinzoomen.",
   "goal": "Eine token-budgetierte Hierarchie System -> Subsystem -> Komponente -> Datei -> Symbol aufbauen, die als vorbefuellter Architekturkontext und als on-demand abrufbarer Graph dient. Der Kontext muss Beziehungen und Verantwortlichkeiten erklaeren, statt nur Trefferlisten und Dateiauszuege zu liefern, und darf das Context Window nicht unkontrolliert vergroessern.",
   "source_review": {
@@ -61,6 +61,22 @@
       {
         "path": "todos/active/todo.visual-process-contextual-node-configuration-ai-snake-codecompass.json",
         "observation": "AI-Snake/CodeCompass-Integration ist direkter Nutzer fuer initiale Architektur-Prefill-Kontexte und spaetere Pull-Abfragen."
+      },
+      {
+        "path": "agent/services/codecompass_architecture_retrieval.py",
+        "observation": "ALIGN-2026-08-17: Consumer-Hook auf den kanonischen Agentic-Retrieval-Service existiert bereits; Hierarchie-Slice/Contract fehlen noch."
+      },
+      {
+        "path": "schemas/codecompass.hierarchical-architecture-context.v1.json",
+        "observation": "ALIGN-2026-08-17: Contract-Datei existiert nicht."
+      },
+      {
+        "path": "ananta_codecompass/architecture_query.py",
+        "observation": "ALIGN-2026-08-17: Whitelist-Queries (dto-impact, service-dependency-chain, ...) sind keine System->Symbol-Hierarchie."
+      },
+      {
+        "path": "todos/archiv/todo.agent-codecompass-hybrid-retrieval-qdrant-integration.json",
+        "observation": "ALIGN-2026-08-17: Hybrid Retrieval ist abgeschlossen; HAC muss denselben Service als Evidence-Pfad nutzen."
       }
     ],
     "design_constraints": [
@@ -115,33 +131,70 @@
       "rationale": "Hierarchische Architektur-Tools sollen bereits mit normalen Agent-Tool-Loops nutzbar sein."
     }
   ],
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Hierarchie-, Evidence- und Budget-Contracts",
-      "task_ids": ["HAC-001", "HAC-002", "HAC-003", "HAC-004"],
+      "task_ids": [
+        "HAC-001",
+        "HAC-002",
+        "HAC-003",
+        "HAC-004"
+      ],
       "status": "todo"
     },
     {
       "id": "M2",
       "title": "Hierarchische Graph-Slices und Planner-Integration",
-      "task_ids": ["HAC-005", "HAC-006", "HAC-007", "HAC-008"],
-      "status": "todo"
+      "task_ids": [
+        "HAC-005",
+        "HAC-006",
+        "HAC-007",
+        "HAC-008"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "M3",
       "title": "Agent-/MCP-Push-Pull und Diagramme",
-      "task_ids": ["HAC-009", "HAC-010", "HAC-011", "HAC-012"],
-      "status": "todo"
+      "task_ids": [
+        "HAC-009",
+        "HAC-010",
+        "HAC-011",
+        "HAC-012"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "M4",
       "title": "AI-Snake/Worker-Rollout, RLM-Anschluss, Tests und UX",
-      "task_ids": ["HAC-013", "HAC-014", "HAC-015", "HAC-016", "HAC-017"],
-      "status": "todo"
+      "task_ids": [
+        "HAC-013",
+        "HAC-014",
+        "HAC-015",
+        "HAC-016",
+        "HAC-017"
+      ],
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -161,7 +214,8 @@
         "notes": [
           "Contract fuer query, root_scope, levels, nodes, edges, summaries, evidence, budgets, truncation und expansion handles definieren.",
           "Level mindestens system, subsystem, component, file, symbol.",
-          "Jeder Node braucht stable id, level, title, short_summary, responsibilities, source_refs, confidence/trust und expandable flag."
+          "Jeder Node braucht stable id, level, title, short_summary, responsibilities, source_refs, confidence/trust und expandable flag.",
+          "ALIGN-2026-08-17: Schema fehlt."
         ]
       },
       "acceptance_criteria": [
@@ -204,7 +258,9 @@
         "Review gegen bestehende CodeCompass Graph-/Evidence-Contracts.",
         "Dokumentationsbeispiel gegen Repository-Struktur validieren."
       ],
-      "dependencies": ["HAC-001"]
+      "dependencies": [
+        "HAC-001"
+      ]
     },
     {
       "id": "HAC-003",
@@ -237,7 +293,9 @@
         "Unit-Tests fuer kleine, mittlere und uebergrosse Graphen.",
         "Property-Test: Resultat bleibt fuer alle Fixtures innerhalb der konfigurierten Limits."
       ],
-      "dependencies": ["HAC-001"]
+      "dependencies": [
+        "HAC-001"
+      ]
     },
     {
       "id": "HAC-004",
@@ -268,7 +326,9 @@
         "Negative Tests fuer Tenant-Sprung, Revision-Sprung, Secret-Inhalt und Prompt-Injection.",
         "Regression gegen bestehende Evidence-/Trust-Gates."
       ],
-      "dependencies": ["HAC-001"]
+      "dependencies": [
+        "HAC-001"
+      ]
     },
     {
       "id": "HAC-005",
@@ -301,16 +361,20 @@
         "Golden-Fixtures fuer System->Subsystem->Component->File->Symbol.",
         "Parity-Test JSON vs SQLite Store."
       ],
-      "dependencies": ["HAC-001", "HAC-002", "HAC-004"]
+      "dependencies": [
+        "HAC-001",
+        "HAC-002",
+        "HAC-004"
+      ]
     },
     {
       "id": "HAC-006",
       "title": "Query-relevanten Architecture Slice selektieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20,
       "implementation": {
         "files_to_create": [
           "agent/services/codecompass_architecture_slice_service.py"
@@ -322,7 +386,8 @@
         "notes": [
           "Query wie 'Was ist CodeCompass im Ananta-System?' soll zuerst relevante System-/Subsystemknoten waehlen und erst danach passende Komponenten/Dateien.",
           "Ranking kombiniert Query-Relevanz, Graph-Nachbarschaft, Node-Level, Trust/Evidence und Budgetkosten.",
-          "Keine reine Top-K-Dateisuche."
+          "Keine reine Top-K-Dateisuche.",
+          "ALIGN-2026-08-17: retrieve_architecture_context nutzt bereits den Hybrid-Service, liefert aber noch keinen Hierarchie-Slice."
         ]
       },
       "acceptance_criteria": [
@@ -334,7 +399,10 @@
         "Golden Queries fuer Systemfrage, Komponentenfrage und konkrete Symbolfrage.",
         "Regression: irrelevante grosse Subsysteme werden nicht komplett expandiert."
       ],
-      "dependencies": ["HAC-003", "HAC-005"]
+      "dependencies": [
+        "HAC-003",
+        "HAC-005"
+      ]
     },
     {
       "id": "HAC-007",
@@ -365,7 +433,10 @@
         "Test fuer summary_unavailable bei unzureichender Evidence.",
         "Tokenlimit-Test pro Summary."
       ],
-      "dependencies": ["HAC-004", "HAC-005"]
+      "dependencies": [
+        "HAC-004",
+        "HAC-005"
+      ]
     },
     {
       "id": "HAC-008",
@@ -396,7 +467,10 @@
         "Planner-Tests mit und ohne architecture_prefill.",
         "Budgetkonkurrenz Architecture vs Evidence testen."
       ],
-      "dependencies": ["HAC-006", "HAC-007"]
+      "dependencies": [
+        "HAC-006",
+        "HAC-007"
+      ]
     },
     {
       "id": "HAC-009",
@@ -426,23 +500,27 @@
         "Tool-Contract-Tests fuer alle neuen Operationen.",
         "Negative Tests fuer unbekannte/unerlaubte Node Handles."
       ],
-      "dependencies": ["HAC-006", "HAC-008"]
+      "dependencies": [
+        "HAC-006",
+        "HAC-008"
+      ]
     },
     {
       "id": "HAC-010",
       "title": "CodeCompass MCP fuer hierarchische Architektur exponieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 15,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [],
         "notes": [
           "Zuerst vorhandenen MCP-/Tool-Registry-Pfad im aktuellen Repo erneut lokalisieren und exakt dort dieselben Service-Operationen wie HAC-009 exponieren.",
           "Keine separate MCP-spezifische Architekturimplementierung.",
-          "MCP-Schemas muessen begrenzte depth/token/node/edge Parameter und continuation handles enthalten."
+          "MCP-Schemas muessen begrenzte depth/token/node/edge Parameter und continuation handles enthalten.",
+          "ALIGN-2026-08-17: MCP codecompass.retrieve existiert; Architecture-Tools noch nicht."
         ]
       },
       "acceptance_criteria": [
@@ -454,7 +532,9 @@
         "MCP Contract/E2E Test mit Overview -> Expand -> Evidence.",
         "Parity-Test internes Tool vs MCP."
       ],
-      "dependencies": ["HAC-009"]
+      "dependencies": [
+        "HAC-009"
+      ]
     },
     {
       "id": "HAC-011",
@@ -487,7 +567,9 @@
         "Parser-/Syntax-Test fuer Mermaid-Ausgabe.",
         "Negative Sequence-Fixture ohne ausreichende Evidence."
       ],
-      "dependencies": ["HAC-006"]
+      "dependencies": [
+        "HAC-006"
+      ]
     },
     {
       "id": "HAC-012",
@@ -517,7 +599,9 @@
         "Roundtrip Zoom-in/Zoom-out Test.",
         "Stale-handle Negative Test."
       ],
-      "dependencies": ["HAC-009"]
+      "dependencies": [
+        "HAC-009"
+      ]
     },
     {
       "id": "HAC-013",
@@ -545,23 +629,28 @@
         "E2E-Frage zum CodeCompass-Systemverstaendnis.",
         "E2E Folgefrage zu Context Planner mit Tool-Expansion."
       ],
-      "dependencies": ["HAC-008", "HAC-009", "HAC-012"]
+      "dependencies": [
+        "HAC-008",
+        "HAC-009",
+        "HAC-012"
+      ]
     },
     {
       "id": "HAC-014",
       "title": "Ananta Worker Tool Loop fuer hierarchische Architektur freischalten",
       "type": "integration",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [],
         "notes": [
           "Aktuelle Worker Tool Registry/Loop Dateien vor Umsetzung erneut verifizieren.",
           "Worker erhaelt initial nur Planner-gewaehlten Prefill und darf per Tool gezielt expandieren.",
-          "Tool-Loop muss kumulative Context-/Kosten-/Depth-Budgets ueber mehrere Expansionen verfolgen."
+          "Tool-Loop muss kumulative Context-/Kosten-/Depth-Budgets ueber mehrere Expansionen verfolgen.",
+          "ALIGN-2026-08-17: Worker Tool Loop und Registry existieren; Architecture-Tools noch nicht eingetragen."
         ]
       },
       "acceptance_criteria": [
@@ -573,7 +662,10 @@
         "Worker E2E mit mindestens zwei Architecture Tool Calls.",
         "Budget Exhaustion Test ueber mehrere Expansionen."
       ],
-      "dependencies": ["HAC-009", "HAC-012"]
+      "dependencies": [
+        "HAC-009",
+        "HAC-012"
+      ]
     },
     {
       "id": "HAC-015",
@@ -591,7 +683,8 @@
         "notes": [
           "RLM soll Hierarchie-Handles als kontrollierte Such-/Expansionsebene verwenden koennen.",
           "RLM darf nicht ausserhalb der HAC-Budgets oder Evidence-Gates eigene unbeschraenkte Graphtraversierung starten.",
-          "RLM entscheidet z.B. Level 1 -> Level 2 -> Level 3 nach Informationsbedarf."
+          "RLM entscheidet z.B. Level 1 -> Level 2 -> Level 3 nach Informationsbedarf.",
+          "ALIGN-2026-08-17: RLM-Todo muss HAC als Expansion Provider referenzieren."
         ]
       },
       "acceptance_criteria": [
@@ -603,7 +696,10 @@
         "RLM Fixture mit selektivem Zoom-in.",
         "Regression gegen unkontrollierte Fan-out Expansion."
       ],
-      "dependencies": ["HAC-012", "HAC-014"]
+      "dependencies": [
+        "HAC-012",
+        "HAC-014"
+      ]
     },
     {
       "id": "HAC-016",
@@ -633,7 +729,10 @@
         "Component Tests fuer Level-Filter und Expand.",
         "E2E mit serverseitig trunkierter Antwort."
       ],
-      "dependencies": ["HAC-010", "HAC-012"]
+      "dependencies": [
+        "HAC-010",
+        "HAC-012"
+      ]
     },
     {
       "id": "HAC-017",
@@ -664,7 +763,10 @@
         "Automatischer Benchmark-Lauf gegen gepinnten Snapshot.",
         "Security-/Evidence-Gates als Release-Blocker integrieren."
       ],
-      "dependencies": ["HAC-013", "HAC-014"]
+      "dependencies": [
+        "HAC-013",
+        "HAC-014"
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -682,13 +784,13 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 17,
+      "todo": 14,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 3,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 8.8,
     "by_priority": {
       "P0": 10,
       "P1": 5,
@@ -727,10 +829,10 @@
     }
   },
   "progress_summary": {
-    "state": "planned",
-    "todo_remaining": 17,
+    "state": "in_progress",
+    "todo_remaining": 14,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 3,
     "blocked": 0,
     "done": 0
   },
@@ -739,6 +841,7 @@
     "Initialer Push gibt dem Agenten eine kleine relevante Landkarte; Pull-Tools erlauben kontrolliertes Hineinzoomen.",
     "MCP und interner Worker-/AI-Snake-Zugriff muessen denselben Service- und Policy-Layer verwenden.",
     "Der Gesamtgraph wird nie vollstaendig in den Prompt serialisiert.",
-    "RLM kann spaeter auf genau diesen Hierarchieebenen rekursiv navigieren."
+    "RLM kann spaeter auf genau diesen Hierarchieebenen rekursiv navigieren.",
+    "ALIGN-2026-08-17: Keine zweite Wissensdatenbank. Projektion auf Graph + Agentic Retrieval."
   ]
 }
