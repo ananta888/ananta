@@ -4,8 +4,8 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "agent-codecompass-hybrid-retrieval-qdrant-integration",
   "created": "2026-08-15",
-  "last_updated": "2026-08-15",
-  "status": "todo",
+  "last_updated": "2026-08-17",
+  "status": "in_progress",
   "purpose": "Die bereits vorhandenen CodeCompass-, rag-helper-, Graph- und Qdrant-Bausteine zu einer klaren, produktiven Agentic-Retrieval-Pipeline zusammenziehen. Agenten, Ananta-Worker, MCP-Clients und n8n sollen nicht direkt einzelne Retrieval-Backends kennen muessen, sondern ueber einen stabilen CodeCompass-Service-/Tool-Layer semantische Suche, exakte Repository-Signale, Graph-Kontext und Evidence abrufen koennen.",
   "goal": "Einen einheitlichen Pfad Agent -> CodeCompass Tool/MCP -> Query Planning -> Hybrid Retrieval -> VectorStore/Qdrant + Graph/Repository Intelligence -> Reranking/Deduplication -> budgetierter Evidence-Kontext -> Agent etablieren, inklusive Routing, Capability-/Scope-Pruefung, Diagnostik, n8n-Anbindung und End-to-End-Tests.",
   "non_goals": [
@@ -47,6 +47,34 @@
       {
         "path": "todos/todo.codecompass-hierarchical-architecture-context.json",
         "observation": "Hierarchischer Prefill/Zoom ist ein separater Consumer dieser Pipeline und soll auf denselben Retrieval-/Tool-Vertraegen aufsetzen."
+      },
+      {
+        "path": "schemas/codecompass.agentic-retrieval.v1.json",
+        "observation": "ALIGN-2026-08-17: Datei existiert nicht. Es gibt verwandte Vertraege (retrieval_pipeline_contract.v1, codecompass_context_package.v1, HybridRetrievalService retrieve payload), aber keinen gemeinsamen Agent/MCP/n8n-Contract."
+      },
+      {
+        "path": "worker/retrieval/retrieval_service.py",
+        "observation": "ALIGN-2026-08-17: HybridRetrievalService ist der bestehende Merge-/Rerank-/Budget-Pfad mit Channel-Diagnostics und Graph-Expansion. Agent-Tools rufen ihn noch nicht kanonisch auf."
+      },
+      {
+        "path": "worker/retrieval/ranking.py",
+        "observation": "ALIGN-2026-08-17: Exact/FTS/Symbol-Kanaele haben hoehere Task-Weights als codecompass_vector. Dedup erfolgt ueber record_id/content_hash/path."
+      },
+      {
+        "path": "tests/test_codecompass_vector_reranking.py",
+        "observation": "ALIGN-2026-08-17: ContextManager-Regression existiert bereits: repository_map schlaegt fuzzy vector; gleiche Datei wird dedupliziert mit cross_engine_signals."
+      },
+      {
+        "path": "worker/retrieval/vector_store_fallback.py",
+        "observation": "ALIGN-2026-08-17: Fallback nur fuer qdrant_unavailable/qdrant_timeout; unauthorized/incompatible bleiben fail-closed. Kein ungescopter Fallback."
+      },
+      {
+        "path": "agent/services/tools/codecompass_tools.py",
+        "observation": "ALIGN-2026-08-17: codecompass.search geht direkt auf KnowledgeIndexRetrievalService.search_records, nicht ueber HybridRetrievalService/Qdrant-Plan. MCP exponiert kein CodeCompass-Tool."
+      },
+      {
+        "path": "tests/benchmarks/codecompass_worker/test_codecompass_hybrid_retrieval_benchmark.py",
+        "observation": "ALIGN-2026-08-17: Hybrid-Benchmark-Fixture existiert; Golden-Query-Vergleich vector/exact/hybrid ist noch nicht an den neuen Agent-Contract gebunden."
       }
     ]
   },
@@ -82,33 +110,69 @@
       "rationale": "Tool-Abstraktion ist zugleich Security- und Portabilitaetsgrenze."
     }
   ],
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Contracts und Retrieval-Orchestrierung",
-      "task_ids": ["AHR-001", "AHR-002", "AHR-003", "AHR-004"],
-      "status": "todo"
+      "task_ids": [
+        "AHR-001",
+        "AHR-002",
+        "AHR-003",
+        "AHR-004"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "M2",
       "title": "Agent-, MCP- und n8n-Zugriff",
-      "task_ids": ["AHR-005", "AHR-006", "AHR-007", "AHR-008"],
-      "status": "todo"
+      "task_ids": [
+        "AHR-005",
+        "AHR-006",
+        "AHR-007",
+        "AHR-008"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "M3",
       "title": "Security, Budgets und Observability",
-      "task_ids": ["AHR-009", "AHR-010", "AHR-011", "AHR-012"],
-      "status": "todo"
+      "task_ids": [
+        "AHR-009",
+        "AHR-010",
+        "AHR-011",
+        "AHR-012"
+      ],
+      "status": "in_progress"
     },
     {
       "id": "M4",
       "title": "End-to-End-Rollout und Benchmarks",
-      "task_ids": ["AHR-013", "AHR-014", "AHR-015", "AHR-016"],
-      "status": "todo"
+      "task_ids": [
+        "AHR-013",
+        "AHR-014",
+        "AHR-015",
+        "AHR-016"
+      ],
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -121,12 +185,17 @@
       "risk": "high",
       "progress_percent": 0,
       "implementation": {
-        "files_to_create": ["schemas/codecompass.agentic-retrieval.v1.json"],
-        "files_to_modify": ["docs/codecompass-tools.md"],
+        "files_to_create": [
+          "schemas/codecompass.agentic-retrieval.v1.json"
+        ],
+        "files_to_modify": [
+          "docs/codecompass-tools.md"
+        ],
         "notes": [
           "Request-Felder fuer query, workspace/source scope, revision, allowed paths, requested signals, top_k und context budget definieren.",
           "Response-Felder fuer ranked evidence, signal provenance, score breakdown, truncation, diagnostics und continuation/expansion handles definieren.",
-          "Backend-spezifische Details wie Qdrant collection oder API credentials duerfen nicht Teil des externen Agent-Vertrags sein."
+          "Backend-spezifische Details wie Qdrant collection oder API credentials duerfen nicht Teil des externen Agent-Vertrags sein.",
+          "ALIGN-2026-08-17: Contract-Datei fehlt; verwandte interne Schemas existieren. Neu zu schaffen, nicht bestehende Pipeline-Contracts ersetzen."
         ]
       },
       "acceptance_criteria": [
@@ -140,10 +209,10 @@
       "id": "AHR-002",
       "title": "Hybrid Retrieval Query Planner vereinheitlichen",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "implementation": {
         "files_to_modify": [
           "agent/services/codecompass_context_planner_service.py",
@@ -152,7 +221,8 @@
         "notes": [
           "Planner soll pro Anfrage passende Signale waehlen: exact symbol/path, graph, repository map, vector semantic und optional weitere bestehende Engines.",
           "Simple queries sollen nicht unnoetig alle Retrieval-Engines ausloesen.",
-          "Planner-Entscheidung in Diagnostics nachvollziehbar machen."
+          "Planner-Entscheidung in Diagnostics nachvollziehbar machen.",
+          "ALIGN-2026-08-17: ContextPlanner plant Editor/Range/Task-Kind-Buckets, nicht vector/exact/graph/hybrid Signal-Modi. RetrievalStrategy steuert nur Vector-Rerank."
         ]
       },
       "acceptance_criteria": [
@@ -160,16 +230,18 @@
         "Globale Such-Fallbacks bei ungueltigem Scope sind verboten.",
         "Plan bleibt innerhalb konfigurierter Latenz-/Context-Budgets."
       ],
-      "dependencies": ["AHR-001"]
+      "dependencies": [
+        "AHR-001"
+      ]
     },
     {
       "id": "AHR-003",
       "title": "Qdrant als transparentes VectorStore-Backend absichern",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "implementation": {
         "files_to_modify": [
           "worker/retrieval/qdrant_vector_store.py",
@@ -179,7 +251,8 @@
         "notes": [
           "Alle produktiven Reads muessen tenant/workspace/source/revision/allowed-path scope respektieren.",
           "VectorStore-Adapter soll keine Qdrant-spezifischen Typen ueber den CodeCompass-Servicevertrag leaken.",
-          "Timeout, unavailable, stale index und dimension mismatch als typisierte Fehler modellieren."
+          "Timeout, unavailable, stale index und dimension mismatch als typisierte Fehler modellieren.",
+          "ALIGN-2026-08-17: QdrantVectorStore+FilterBuilder+Factory+typed errors existieren. Luecke: Agent-Vertrag darf keine Qdrant-Typen sehen; stale-index Reason muss im Contract gemappt werden."
         ]
       },
       "acceptance_criteria": [
@@ -187,21 +260,24 @@
         "Scope-Filter werden vor jedem produktiven Read angewendet.",
         "Fehler fuehren nicht zu unbeschraenktem Fallback."
       ],
-      "dependencies": ["AHR-001"]
+      "dependencies": [
+        "AHR-001"
+      ]
     },
     {
       "id": "AHR-004",
       "title": "Reranking, Deduplication und Cross-Engine-Signale standardisieren",
       "type": "retrieval",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 65,
       "implementation": {
         "notes": [
           "Bestehenden HybridOrchestrator als einzigen Merge-/Rerank-Pfad verwenden.",
           "Gleiche Datei/Symbol-Evidence aus mehreren Engines deduplizieren und cross_engine_signals erhalten.",
-          "Exact symbol/path/graph evidence standardmaessig nicht durch fuzzy semantic hits verdraengen lassen."
+          "Exact symbol/path/graph evidence standardmaessig nicht durch fuzzy semantic hits verdraengen lassen.",
+          "ALIGN-2026-08-17: HybridRetrievalService+ContextManager decken Merge/Dedup/Exact-Prioritaet bereits ab. Fehlt: einheitlicher Agent-Envelope und Tool-Pfad darueber."
         ]
       },
       "acceptance_criteria": [
@@ -209,22 +285,29 @@
         "Score-/Signal-Herkunft bleibt diagnostizierbar.",
         "Regressionstest beweist Priorisierung exakter Treffer gegen nur semantisch aehnliche Treffer."
       ],
-      "dependencies": ["AHR-002", "AHR-003"]
+      "dependencies": [
+        "AHR-002",
+        "AHR-003"
+      ]
     },
     {
       "id": "AHR-005",
       "title": "CodeCompass Agent Tool als kanonischen Retrieval-Einstieg festlegen",
       "type": "agent",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 40,
       "implementation": {
-        "files_to_modify": ["agent/services/tools/codecompass_tools.py", "docs/codecompass-tools.md"],
+        "files_to_modify": [
+          "agent/services/tools/codecompass_tools.py",
+          "docs/codecompass-tools.md"
+        ],
         "notes": [
           "Bestehendes codecompass.search/resolve_context/plan_context so ausrichten, dass Hybrid Retrieval intern genutzt wird.",
           "Agent soll keine Kenntnis von Qdrant, Collection-Namen oder Embedding-Infrastruktur benoetigen.",
-          "Tool description muss dem LLM klar sagen, wann CodeCompass fuer internes Projektwissen zu verwenden ist."
+          "Tool description muss dem LLM klar sagen, wann CodeCompass fuer internes Projektwissen zu verwenden ist.",
+          "ALIGN-2026-08-17: Tools existieren; search nutzt nur KnowledgeIndex, nicht den Hybrid-Contract. Unbekannte Modes failen noch nicht typisiert."
         ]
       },
       "acceptance_criteria": [
@@ -232,7 +315,10 @@
         "Tool result enthaelt begrenzte Evidence und Diagnostics statt roher Store-Payloads.",
         "Unknown/invalid retrieval modes failen typisiert."
       ],
-      "dependencies": ["AHR-001", "AHR-004"]
+      "dependencies": [
+        "AHR-001",
+        "AHR-004"
+      ]
     },
     {
       "id": "AHR-006",
@@ -246,7 +332,8 @@
         "notes": [
           "MCP darf nur Adapter auf denselben versionierten Retrieval-/Policy-Layer sein.",
           "Tool schema, caps, tenant/revision scope und Result Envelope mit internem Worker Tool Loop angleichen.",
-          "Keine separaten MCP-Backend-Credentials oder direkten Qdrant-Tools einfuehren."
+          "Keine separaten MCP-Backend-Credentials oder direkten Qdrant-Tools einfuehren.",
+          "ALIGN-2026-08-17: MCPRegistryService hat keine CodeCompass-Tools. Neu als Adapter auf denselben Service."
         ]
       },
       "acceptance_criteria": [
@@ -254,7 +341,9 @@
         "MCP kann Scope nicht erweitern.",
         "Resultate respektieren identische Max-Results-/Chars-/Payload-Caps."
       ],
-      "dependencies": ["AHR-005"]
+      "dependencies": [
+        "AHR-005"
+      ]
     },
     {
       "id": "AHR-007",
@@ -265,11 +354,14 @@
       "risk": "medium",
       "progress_percent": 0,
       "implementation": {
-        "files_to_create": ["docs/codecompass-agentic-retrieval-n8n.md"],
+        "files_to_create": [
+          "docs/codecompass-agentic-retrieval-n8n.md"
+        ],
         "notes": [
           "Primaerer Weg: MCP Tool oder stabiler HTTP/API-Adapter gegen CodeCompass, nicht direkter Qdrant Node als Produktvertrag.",
           "Beispiel-Workflow fuer Frage -> CodeCompass retrieval -> LLM response dokumentieren.",
-          "Optional direkten Qdrant-Node nur als Debug-/Low-level-Alternative dokumentieren."
+          "Optional direkten Qdrant-Node nur als Debug-/Low-level-Alternative dokumentieren.",
+          "ALIGN-2026-08-17: Kein n8n-Consumer-Doc/HTTP-Adapter fuer Agentic Retrieval."
         ]
       },
       "acceptance_criteria": [
@@ -277,21 +369,24 @@
         "Workflow braucht keine Qdrant-Credentials, wenn CodeCompass/MCP verwendet wird.",
         "Evidence und Scope bleiben im standardisierten Result Contract erhalten."
       ],
-      "dependencies": ["AHR-006"]
+      "dependencies": [
+        "AHR-006"
+      ]
     },
     {
       "id": "AHR-008",
       "title": "rag-helper Index-Output und Retrieval-Refresh durchgaengig verbinden",
       "type": "indexing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "implementation": {
         "notes": [
           "embedding.json, manifest_hash, model/provider config, dimensions und embedding_text_profile als Index-State konsistent nutzen.",
           "Aenderungen muessen deterministisch Rebuild/Refresh ausloesen.",
-          "Stale oder inkompatible Vector-Indizes duerfen nicht still weiterverwendet werden."
+          "Stale oder inkompatible Vector-Indizes duerfen nicht still weiterverwendet werden.",
+          "ALIGN-2026-08-17: Manifest-Hash/provider/dimensions/embedding_text_profile invalidieren den Vector-Index bereits. Diagnostics muessen diesen State im Agent-Contract zeigen."
         ]
       },
       "acceptance_criteria": [
@@ -299,21 +394,24 @@
         "Manifest-/Embedding-Konfigurationsaenderung invalidiert alten Index.",
         "Retrieval Diagnostics zeigen Index-/Manifest-Zustand ohne Secrets."
       ],
-      "dependencies": ["AHR-003"]
+      "dependencies": [
+        "AHR-003"
+      ]
     },
     {
       "id": "AHR-009",
       "title": "Tenant-, Workspace-, Revision- und Path-Scope End-to-End erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 55,
       "implementation": {
         "notes": [
           "Scope vom Agent Tool/MCP Request bis Graph-/VectorStore-Read und finaler Prompt-Konstruktion unveraendert propagieren.",
           "Empty/invalid scope muss fail-closed sein.",
-          "Cross-tenant, stale revision und path escape explizit negativ testen."
+          "Cross-tenant, stale revision und path escape explizit negativ testen.",
+          "ALIGN-2026-08-17: Domain-Scope-Filter und Qdrant scope-required existieren. Fehlt: End-to-End vom Agent/MCP-Request inklusive Negativtests gegen Scope-Erweiterung."
         ]
       },
       "acceptance_criteria": [
@@ -321,21 +419,26 @@
         "Request-Felder koennen serverseitige Capability nicht erweitern.",
         "Negative Security-Fixtures sind Bestandteil der CI."
       ],
-      "dependencies": ["AHR-003", "AHR-005", "AHR-006"]
+      "dependencies": [
+        "AHR-003",
+        "AHR-005",
+        "AHR-006"
+      ]
     },
     {
       "id": "AHR-010",
       "title": "Context- und Retrieval-Budgets vereinheitlichen",
       "type": "performance",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "implementation": {
         "notes": [
           "Budgets fuer candidate count, top_k, graph depth, max excerpts, chars/tokens und Tool Payload definieren.",
           "Planner darf mehr Kandidaten intern betrachten als final an den Agenten geben.",
-          "Truncation und continuation explizit ausweisen."
+          "Truncation und continuation explizit ausweisen.",
+          "ALIGN-2026-08-17: CodeCompassContextBudget, HybridRetrievalService-Budgets und Tool-Caps existieren, sind aber nicht in einem Agent-Retrieval-Budget vereinheitlicht."
         ]
       },
       "acceptance_criteria": [
@@ -343,21 +446,25 @@
         "Grosse Repositories erzeugen begrenzte, nachvollziehbar gekuerzte Ergebnisse.",
         "Budget-Regressionstests fuer kleine, mittlere und grosse Fixtures existieren."
       ],
-      "dependencies": ["AHR-002", "AHR-004"]
+      "dependencies": [
+        "AHR-002",
+        "AHR-004"
+      ]
     },
     {
       "id": "AHR-011",
       "title": "Retrieval Diagnostics und Telemetrie vervollstaendigen",
       "type": "observability",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 45,
       "implementation": {
         "notes": [
           "Pro Engine Status, candidate count, selected count, latency, manifest/model metadata und fallback reason erfassen.",
           "Keine Secrets, Auth Header oder komplette Raw Chunks in Logs/Diagnostics.",
-          "Cross-engine ranking und dedup decisions fuer Debugging nachvollziehbar machen."
+          "Cross-engine ranking und dedup decisions fuer Debugging nachvollziehbar machen.",
+          "ALIGN-2026-08-17: retrieval_diagnostics.codecompass_vector und Channel-Diagnostics existieren. Fehlen strukturierte Plan-/Dedup-Entscheidungen im Agent-Envelope."
         ]
       },
       "acceptance_criteria": [
@@ -365,21 +472,25 @@
         "Qdrant-/Graph-Ausfall ist vom Agentenfehler unterscheidbar.",
         "Diagnostics bleiben auch ueber MCP/n8n strukturiert erhalten."
       ],
-      "dependencies": ["AHR-004", "AHR-005"]
+      "dependencies": [
+        "AHR-004",
+        "AHR-005"
+      ]
     },
     {
       "id": "AHR-012",
       "title": "Degraded Modes und Fallback-Matrix definieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "implementation": {
         "notes": [
           "Definieren, wann bei Qdrant-Ausfall exact/graph retrieval weiterlaufen darf und umgekehrt.",
           "Fallback darf nie Scope/Security lockern.",
-          "Antwort muss degraded status sichtbar machen statt still Qualitaet zu verlieren."
+          "Antwort muss degraded status sichtbar machen statt still Qualitaet zu verlieren.",
+          "ALIGN-2026-08-17: Vector-Store-Fallback und Channel-degraded existieren. Agent-Antwort muss degraded sichtbar machen und Scope nie lockern."
         ]
       },
       "acceptance_criteria": [
@@ -387,21 +498,25 @@
         "Graph unavailable kann optional zu vector/exact degraded mode fuehren.",
         "Kein Backend-Ausfall fuehrt zu globaler ungescopter Suche."
       ],
-      "dependencies": ["AHR-009", "AHR-011"]
+      "dependencies": [
+        "AHR-009",
+        "AHR-011"
+      ]
     },
     {
       "id": "AHR-013",
       "title": "End-to-End-Agentic-RAG-Testmatrix bauen",
       "type": "test",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "implementation": {
         "notes": [
           "Fixtures fuer symbol exact, semantische Konzeptfrage, Architekturfrage, gemischte Frage und no-result bauen.",
           "Jede Fixture ueber internen Worker Tool Loop und MCP testen.",
-          "Optional n8n contract test gegen denselben Service-Endpoint."
+          "Optional n8n contract test gegen denselben Service-Endpoint.",
+          "ALIGN-2026-08-17: Einzeltests/Benchmark vorhanden; keine gemeinsame Worker+MCP Fixture-Matrix gegen denselben Contract."
         ]
       },
       "acceptance_criteria": [
@@ -409,21 +524,27 @@
         "Worker und MCP liefern gleiche Evidence-Sets innerhalb definierter Toleranz.",
         "Security-/Budget-Negativfaelle laufen in CI."
       ],
-      "dependencies": ["AHR-006", "AHR-009", "AHR-010", "AHR-012"]
+      "dependencies": [
+        "AHR-006",
+        "AHR-009",
+        "AHR-010",
+        "AHR-012"
+      ]
     },
     {
       "id": "AHR-014",
       "title": "Retrieval-Qualitaetsbenchmark und Golden Queries etablieren",
       "type": "benchmark",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "implementation": {
         "notes": [
           "Golden Queries mit erwarteten Dateien/Symbolen/Graph-Beziehungen definieren.",
           "Vector-only, graph/exact-only und hybrid vergleichen.",
-          "Recall@k, MRR/nDCG, context precision, token cost und latency erfassen."
+          "Recall@k, MRR/nDCG, context precision, token cost und latency erfassen.",
+          "ALIGN-2026-08-17: Hybrid-Benchmark-Schema existiert; nicht an den neuen Contract und Golden-Query-Set gebunden."
         ]
       },
       "acceptance_criteria": [
@@ -431,7 +552,9 @@
         "Semantische Fragen zeigen messbaren Mehrwert des Vector-Signals.",
         "Benchmark ist reproduzierbar und CI-/Nightly-tauglich."
       ],
-      "dependencies": ["AHR-013"]
+      "dependencies": [
+        "AHR-013"
+      ]
     },
     {
       "id": "AHR-015",
@@ -445,7 +568,8 @@
         "notes": [
           "todo.codecompass-hierarchical-architecture-context.json soll auf diesem Retrieval-Service aufsetzen.",
           "Architecture prefill und expand/zoom muessen dieselben Scope-, Evidence-, Budget- und Diagnostics-Vertraege nutzen.",
-          "Keine zweite Vector-/Graph-Retrieval-Pipeline fuer Hierarchie aufbauen."
+          "Keine zweite Vector-/Graph-Retrieval-Pipeline fuer Hierarchie aufbauen.",
+          "ALIGN-2026-08-17: Hierarchical-Track ist noch geplant; dieser Track muss den Service als Consumer-Port bereitstellen."
         ]
       },
       "acceptance_criteria": [
@@ -453,7 +577,10 @@
         "Prefill und Pull-Expansion bleiben revisions-/tenantgebunden.",
         "Cross-track Integration ist in beiden Dokumentationen referenziert."
       ],
-      "dependencies": ["AHR-005", "AHR-010"]
+      "dependencies": [
+        "AHR-005",
+        "AHR-010"
+      ]
     },
     {
       "id": "AHR-016",
@@ -464,12 +591,18 @@
       "risk": "low",
       "progress_percent": 0,
       "implementation": {
-        "files_to_create": ["docs/architecture/agent-codecompass-hybrid-retrieval.md"],
-        "files_to_modify": ["docs/codecompass.md", "docs/worker/codecompass-vector-retrieval.md"],
+        "files_to_create": [
+          "docs/architecture/agent-codecompass-hybrid-retrieval.md"
+        ],
+        "files_to_modify": [
+          "docs/codecompass.md",
+          "docs/worker/codecompass-vector-retrieval.md"
+        ],
         "notes": [
           "Kanonischen Pfad Agent/Worker/n8n -> CodeCompass/MCP -> Planner -> HybridOrchestrator -> Qdrant + Graph -> Evidence Context dokumentieren.",
           "Explizit markieren, welche Komponenten bereits existieren und welche durch diesen Track vereinheitlicht werden.",
-          "Troubleshooting fuer Qdrant unavailable, stale index, empty scope und no-result aufnehmen."
+          "Troubleshooting fuer Qdrant unavailable, stale index, empty scope und no-result aufnehmen.",
+          "ALIGN-2026-08-17: Architekturdoc agent-codecompass-hybrid-retrieval.md fehlt."
         ]
       },
       "acceptance_criteria": [
@@ -477,7 +610,88 @@
         "Diagramm zeigt Qdrant als internes Backend und CodeCompass als Agent-Vertrag.",
         "n8n- und MCP-Nutzung sind mit demselben Contract dokumentiert."
       ],
-      "dependencies": ["AHR-007", "AHR-015"]
+      "dependencies": [
+        "AHR-007",
+        "AHR-015"
+      ]
     }
+  ],
+  "critical_path_tasks": [
+    "AHR-001",
+    "AHR-002",
+    "AHR-003",
+    "AHR-004",
+    "AHR-005",
+    "AHR-006",
+    "AHR-009",
+    "AHR-010"
+  ],
+  "tasks_status_summary": {
+    "total": 16,
+    "by_status": {
+      "todo": 5,
+      "in_progress": 0,
+      "partial": 11,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 34.4,
+    "by_priority": {
+      "P0": 10,
+      "P1": 6,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 4,
+      "high": 8,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 8,
+      "done": 0,
+      "remaining": 8
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 0,
+      "in_progress": 4,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 16,
+    "by_type": {
+      "schema": 1,
+      "backend": 2,
+      "retrieval": 1,
+      "agent": 1,
+      "integration": 3,
+      "indexing": 1,
+      "security": 1,
+      "performance": 1,
+      "observability": 1,
+      "reliability": 1,
+      "test": 1,
+      "benchmark": 1,
+      "documentation": 1
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 5,
+    "in_progress": 0,
+    "partial": 11,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "ALIGN-2026-08-17: Track ist Vereinheitlichung, kein Neubau. HybridOrchestrator, HybridRetrievalService, QdrantVectorStore, ContextPlanner und Worker-Tools existieren.",
+    "Primaere Luecke: versionierter Agent-Contract plus ein Service, den Tool-Loop, MCP und n8n gemeinsam nutzen.",
+    "codecompass.search darf den bestehenden Result-Envelope behalten und intern auf den neuen Service umgestellt werden.",
+    "Keine zweite Retrieval-Pipeline; Qdrant bleibt hinter VectorStore-Port unsichtbar.",
+    "Hierarchical-Track ist Consumer dieses Services und wird nicht in diesem Track nachgebaut."
   ]
 }
