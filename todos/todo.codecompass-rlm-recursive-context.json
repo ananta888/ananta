@@ -4,8 +4,8 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-rlm-recursive-context",
   "created": "2026-08-15",
-  "last_updated": "2026-08-16",
-  "status": "in_progress",
+  "last_updated": "2026-08-17",
+  "status": "done",
   "purpose": "RLM-Mechanismen (Recursive Language Model / recursive context execution) als optionale Orchestrierungsschicht in CodeCompass integrieren, damit sehr grosse Repositories und Dokumentmengen nicht als ein einzelner LLM-Kontext behandelt werden muessen, sondern rekursiv zerlegt, durchsucht, bewertet und wieder zusammengefuehrt werden koennen.",
   "goal": "CodeCompass soll fuer komplexe Repository-Fragen einen budgetierten, evidenzgebundenen rekursiven Analyseplan ausfuehren koennen: Query zerlegen, relevante Teilraeume ueber FTS/Vector/Symbol/Graph bestimmen, Subfragen getrennt bearbeiten, Ergebnisse mit Provenance zusammenfuehren und nur den verdichteten Kontext an das finale LLM geben. Bestehende Trust-, Evidence-, Tenant-, Revision- und Injection-Gates bleiben verbindlich.",
   "repo_alignment": {
@@ -121,7 +121,7 @@
         "RLM-006",
         "RLM-007"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -132,7 +132,7 @@
         "RLM-010",
         "RLM-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -143,7 +143,7 @@
         "RLM-014",
         "RLM-015"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "critical_path_tasks": [
@@ -191,7 +191,7 @@
         "Schema validiert Root- und Child-Knoten mit stabilen IDs und Parent-Referenz.",
         "Tiefe, Fan-out, Token-, Zeit- und optional Kostenbudget sind explizit modelliert.",
         "Source-Refs und Revision muessen unveraendert vererbbar sein.",
-        "Ung\u00fcltige oder fehlende Evidence-Felder koennen fail-closed abgewiesen werden."
+        "Ungültige oder fehlende Evidence-Felder koennen fail-closed abgewiesen werden."
       ],
       "test_plan": [
         "JSON-Schema positive/negative Fixtures",
@@ -288,7 +288,7 @@
       "id": "RLM-004",
       "title": "Recursive Query Planner implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -331,13 +331,14 @@
         "Planner-Unit-Tests",
         "Cycle-/Duplicate-Tests",
         "Fan-out-Limit-Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-005",
       "title": "Multi-Channel Retrieval pro RLM-Knoten anbinden",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -378,13 +379,14 @@
         "Provider-Mock-Tests",
         "degraded/no_results Tests",
         "Tenant-/Revision-Negativtests"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-006",
       "title": "Graph-gesteuerte rekursive Expansion fuer Repository-Strukturen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -422,13 +424,14 @@
         "Graph-Fixture mit 1-3 Hops",
         "Budget-Cutoff-Test",
         "unverified Evidence-Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-007",
       "title": "Subresult-Artefakt und lokale Verdichtung pro Knoten",
       "type": "schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -467,13 +470,14 @@
         "Schema-Fixtures",
         "Grounded-vs-unverified Test",
         "Discard-Reason Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-008",
       "title": "Evidence-preserving Merge und finale Synthese implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -512,13 +516,14 @@
         "Conflict Fixture",
         "Duplicate Evidence Test",
         "Revision-Separation Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-009",
       "title": "Security-, Injection- und Tenant-Gates fuer jede Rekursionsebene erzwingen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "dependencies": [
@@ -560,13 +565,14 @@
         "stale Revision Test",
         "Prompt-Injection Fixture",
         "Secret Redaction Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-010",
       "title": "CodeCompass Tool fuer rekursive Analyse bereitstellen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "dependencies": [
@@ -601,20 +607,21 @@
       "acceptance_criteria": [
         "Tool kann RLM-Analyse starten und liefert Root-Ergebnis plus kompakte Trace-Metadaten.",
         "Tool kann per Feature-Flag deaktiviert werden.",
-        "Ung\u00fcltige Budgetwerte werden vor Ausfuehrung abgewiesen.",
+        "Ungültige Budgetwerte werden vor Ausfuehrung abgewiesen.",
         "Tool-Antwort bleibt kompatibel zur vorhandenen Evidence-Mechanik."
       ],
       "test_plan": [
         "Tool Contract Test",
         "Invalid Budget Test",
         "Feature-Flag Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-011",
       "title": "Persistierbaren RLM-Trace fuer Debugging und Audit einfuehren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -653,13 +660,14 @@
         "Trace-Schema-Test",
         "Secret-Absence Test",
         "Parent/Child Integrity Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-012",
       "title": "Benchmark gegen normalen CodeCompass Context Planner aufbauen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -701,13 +709,14 @@
         "Deterministische Fixture-Laeufe",
         "Token-/Call-Zaehler",
         "Regression-Gate in CI"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-013",
       "title": "Metriken fuer Rekursionstiefe, Fan-out, Kosten und Nutzen erfassen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "dependencies": [
@@ -740,13 +749,14 @@
       "test_plan": [
         "Metrics Counter Test",
         "No-Content Leakage Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-014",
       "title": "RLM-Trace im CodeCompass UI optional visualisieren",
       "type": "ux",
-      "status": "todo",
+      "status": "done",
       "priority": "P3",
       "risk": "low",
       "dependencies": [
@@ -782,13 +792,14 @@
         "Angular Adapter Test",
         "Empty/partial Trace Fixture",
         "No-RLM Regression Test"
-      ]
+      ],
+      "progress_percent": 100
     },
     {
       "id": "RLM-015",
       "title": "Feature-Flag, Dokumentation, E2E und gestuften Rollout abschliessen",
       "type": "docs",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "dependencies": [
@@ -832,7 +843,8 @@
         "Budget-stop E2E",
         "Conflict E2E",
         "Injection E2E"
-      ]
+      ],
+      "progress_percent": 100
     }
   ],
   "tasks_status_summary": {
