@@ -32,6 +32,7 @@ Die relevanten versionierten Verträge sind:
 | `schemas/worker/knowledge_index_job_result.v1.json` | content-freies Worker-Ergebnis und Publish-Hashes |
 | `schemas/source/source_catalog.v2.json` | revisions- und tenantgebundener autoritativer Source-Katalog |
 | `schemas/source/source_ref.v2.json` | unveränderte, vom Hub bereitgestellte Source-Identität |
+| `schemas/codecompass.agentic-retrieval.v1.json` | gemeinsamer Agent/MCP/n8n-Retrieval-Vertrag; siehe [Hybrid Retrieval](architecture/agent-codecompass-hybrid-retrieval.md) |
 
 Große, nicht unterstützte oder budgetüberschreitende Dateien verschwinden
 nicht still: Manifest und Coverage-Gate führen sie mit stabilem Reason-Code.

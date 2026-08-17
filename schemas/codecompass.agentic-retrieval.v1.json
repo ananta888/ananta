@@ -91,7 +91,9 @@
           "enum": ["verified", "unverified", "failed"]
         },
         "source": { "type": "string" },
-        "truncated": { "type": "boolean" }
+        "truncated": { "type": "boolean" },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 }
       }
     },
     "engine_diagnostic": {

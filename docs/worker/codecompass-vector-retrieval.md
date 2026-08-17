@@ -2,6 +2,10 @@
 
 ## Flow
 
+Agent, MCP and n8n consumers must use the canonical
+[agentic retrieval contract](../architecture/agent-codecompass-hybrid-retrieval.md)
+instead of talking to Qdrant directly.
+
 CodeCompass vector retrieval is an optional hybrid-retrieval signal:
 
 ```text

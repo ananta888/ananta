@@ -19,7 +19,8 @@ frozen; new tools bump the major version.
 | `codecompass.search_symbols`           | existing    | Search symbol index.                                  |
 | `codecompass.get_file_context`         | existing    | Read bounded file context.                            |
 | `codecompass.get_domain_map`           | existing    | Domain map snapshot.                                  |
-| `codecompass.search`                   | existing    | Combined retrieval search.                            |
+| `codecompass.search`                   | existing    | Combined retrieval search (hybrid contract).          |
+| `codecompass.retrieve`                 | AHR-005     | Canonical agentic retrieval envelope.                 |
 | `codecompass.plan_context`             | existing    | Plan bounded path/range context.                      |
 | `codecompass.expand_graph`             | existing    | Expand the symbolgraph around a seed.                 |
 | `codecompass.architecture_query`       | existing    | Whitelisted architecture queries.                     |

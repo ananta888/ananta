@@ -413,27 +413,34 @@ class CodeCompassAgenticRetrievalService:
                 truncated_excerpt = excerpt[: max(1, room - 12)].rstrip() + "\n[truncated]"
                 item_truncated = True
             signals = self._signals_for_item(item)
-            evidence.append(
-                {
-                    "id": str(item.get("record_id") or item.get("path") or f"hit-{len(evidence)}"),
-                    "path": str(item.get("path") or ""),
-                    "revision": str(scope.get("revision") or ""),
-                    "signal_type": signals[0],
-                    "signals": signals,
-                    "score": float(item.get("final_score") or item.get("score") or 0.0),
-                    "score_breakdown": dict(item.get("channel_contributions") or {}),
-                    "excerpt": truncated_excerpt,
-                    "symbol": str(item.get("symbol_name") or ""),
-                    "kind": str((item.get("metadata") or {}).get("record_kind") or signals[0]),
-                    "verification_status": (
-                        "verified"
-                        if (item.get("metadata") or {}).get("source_id_verified")
-                        else "unverified"
-                    ),
-                    "source": str(item.get("channel") or item.get("source") or signals[0]),
-                    "truncated": item_truncated,
-                }
-            )
+            metadata = dict(item.get("metadata") or {})
+            line_start = item.get("line_start") or metadata.get("line_start") or metadata.get("start_line")
+            line_end = item.get("line_end") or metadata.get("line_end") or metadata.get("end_line")
+            entry = {
+                "id": str(item.get("record_id") or item.get("path") or f"hit-{len(evidence)}"),
+                "path": str(item.get("path") or ""),
+                "revision": str(scope.get("revision") or ""),
+                "signal_type": signals[0],
+                "signals": signals,
+                "score": float(item.get("final_score") or item.get("score") or 0.0),
+                "score_breakdown": dict(item.get("channel_contributions") or {}),
+                "excerpt": truncated_excerpt,
+                "symbol": str(item.get("symbol_name") or ""),
+                "kind": str(metadata.get("record_kind") or signals[0]),
+                "verification_status": (
+                    "verified" if metadata.get("source_id_verified") else "unverified"
+                ),
+                "source": str(item.get("channel") or item.get("source") or signals[0]),
+                "truncated": item_truncated,
+            }
+            try:
+                if line_start is not None:
+                    entry["line_start"] = int(line_start)
+                if line_end is not None:
+                    entry["line_end"] = int(line_end)
+            except (TypeError, ValueError):
+                pass
+            evidence.append(entry)
             used += len(truncated_excerpt)
         consumed = offset + len(evidence)
         truncated = consumed < len(selected) or any(item.get("truncated") for item in evidence)
@@ -575,7 +582,10 @@ class CodeCompassAgenticRetrievalService:
         limit: int,
         scope: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
-        raise AgenticRetrievalContractError(REASON_VECTOR_UNAVAILABLE)
+        # Unconfigured vector backend stays silent in auto/hybrid so exact
+        # repository evidence remains available. Explicit vector mode still
+        # surfaces an empty vector channel in diagnostics.
+        return []
 
     def _default_graph_search(
         self,
@@ -595,7 +605,7 @@ class CodeCompassAgenticRetrievalService:
             domain_scope=str(scope.get("source_scope") or "") or None,
         )
         if expansion.get("status") == "degraded":
-            raise AgenticRetrievalContractError(REASON_GRAPH_UNAVAILABLE)
+            return []
         rows: list[dict[str, Any]] = []
         for node in list(expansion.get("nodes") or [])[:limit]:
             if not isinstance(node, dict):
@@ -614,7 +624,9 @@ class CodeCompassAgenticRetrievalService:
         return rows
 
     def _default_index_state(self) -> dict[str, Any]:
-        return {"status": "unknown", "reason": ""}
+        from agent.services.codecompass_agentic_index_state import load_agentic_index_state
+
+        return load_agentic_index_state()
 
 
 _agentic_retrieval_service = CodeCompassAgenticRetrievalService()

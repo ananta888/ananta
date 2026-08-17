@@ -29,6 +29,11 @@ def _mcp_context() -> dict:
         "evolution_config": dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("evolution") or {}),
         "classroom_gateway": _classroom_gateway(),
         "classroom_card_service": _classroom_card_service(),
+        "codecompass_capability": (
+            ((current_app.config.get("AGENT_CONFIG", {}) or {}).get("codecompass_retrieval") or {}).get(
+                "capability"
+            )
+        ),
     }
 
 

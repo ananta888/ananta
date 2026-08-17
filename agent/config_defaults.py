@@ -530,6 +530,7 @@ def build_default_agent_config() -> dict:
                 "codecompass.resolve_context",
                 "codecompass.plan_context",
                 "codecompass.search",
+                "codecompass.retrieve",
                 "codecompass.search_symbols",
                 "codecompass.expand_graph",
                 "codecompass.get_file_context",

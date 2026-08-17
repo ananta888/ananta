@@ -287,6 +287,74 @@ def test_backend_reason_mapping_hides_qdrant() -> None:
     assert "qdrant" not in map_vector_backend_reason("qdrant_unavailable")
 
 
+def test_architecture_consumer_uses_shared_service(monkeypatch) -> None:
+    from agent.services import codecompass_architecture_retrieval as consumer
+
+    service = _service(
+        exact_search=lambda query, **_kwargs: [
+            {"id": "mod", "path": "src/billing/service.py", "content": "billing subsystem", "score": 0.7}
+        ],
+        graph_search=lambda query, **_kwargs: [
+            {"id": "sys", "path": "src/billing/service.py", "content": "BillingSystem", "score": 0.6}
+        ],
+        vector_search=lambda query, **_kwargs: [],
+    )
+    monkeypatch.setattr(consumer, "get_codecompass_agentic_retrieval_service", lambda: service)
+    result = consumer.retrieve_architecture_context(
+        query="billing subsystem",
+        level="subsystem",
+        expand=True,
+        capability=_capability(),
+    )
+    assert result["schema"] == SCHEMA_ID
+    assert result["plan"]["mode"] in {"hybrid", "graph"}
+    assert result["diagnostics"]["architecture_level"] == "subsystem"
+    assert result["diagnostics"]["scope"]["revision"] == "rev-abc"
+
+
+@pytest.mark.parametrize(
+    ("query", "mode", "exact_path", "vector_path", "expect_path"),
+    [
+        ("PaymentService", "exact", "src/payment_service.py", "docs/pay.md", "src/payment_service.py"),
+        ("retry policy concept", "vector", "src/payment_service.py", "docs/retry.md", "docs/retry.md"),
+        ("how is payment timeout implemented", "hybrid", "src/payment_service.py", "docs/pay.md", "src/payment_service.py"),
+    ],
+)
+def test_e2e_fixture_matrix(query, mode, exact_path, vector_path, expect_path) -> None:
+    result = _service(
+        exact_search=lambda q, **_kwargs: [
+            {"id": "ex", "path": exact_path, "content": "class PaymentService: timeout", "score": 0.6}
+        ],
+        vector_search=lambda q, **_kwargs: [
+            {"id": "ve", "path": vector_path, "content": "semantic retry policy", "score": 0.95}
+        ],
+        graph_search=lambda q, **_kwargs: [],
+    ).retrieve(_request(query=query, mode=mode))
+    assert result["status"] in {"ok", "degraded"}
+    assert result["evidence"][0]["path"] == expect_path
+
+
+def test_no_result_fixture() -> None:
+    result = _service(
+        exact_search=lambda *a, **k: [],
+        vector_search=lambda *a, **k: [],
+        graph_search=lambda *a, **k: [],
+    ).retrieve(_request(query="unknown symbol ZzNoSuchThing", mode="hybrid"))
+    assert result["status"] in {"empty", "degraded"}
+    assert result["evidence"] == []
+
+
+def test_index_state_invalidates_changed_manifest() -> None:
+    from agent.services.codecompass_agentic_index_state import load_agentic_index_state
+
+    state = load_agentic_index_state(
+        {"manifest_hash": "aaa", "model": "local_hash", "dimensions": 8},
+        expected={"manifest_hash": "bbb", "model": "local_hash", "dimensions": 8},
+    )
+    assert state["status"] == "stale"
+    assert state["reason"] == REASON_VECTOR_STALE
+
+
 def test_diagnostics_omit_secrets() -> None:
     result = _service(
         exact_search=lambda *a, **k: [{"id": "e", "path": "src/a.py", "content": "a", "score": 0.4}],

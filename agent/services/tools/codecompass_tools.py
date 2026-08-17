@@ -166,6 +166,69 @@ def codecompass_get_domain_map(*, workspace_dir: str, arguments: dict[str, Any],
     )
 
 
+def _capability_from_tool_args(arguments: dict[str, Any] | None) -> dict[str, Any] | None:
+    args = dict(arguments or {})
+    raw = args.get("capability")
+    if isinstance(raw, dict):
+        return dict(raw)
+    return None
+
+
+def _retrieval_status(result: dict[str, Any]) -> str:
+    status = str(result.get("status") or "error")
+    if status == "ok":
+        return "ok"
+    if status in {"degraded", "empty"}:
+        return "degraded" if result.get("evidence") else ("ok" if status == "empty" else "degraded")
+    return "error"
+
+
+def codecompass_retrieve(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+    args = dict(arguments or {})
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.retrieve",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="query_required",
+        )
+    from agent.services.codecompass_agentic_retrieval_service import (
+        get_codecompass_agentic_retrieval_service,
+    )
+
+    result = get_codecompass_agentic_retrieval_service().retrieve_from_tool_args(
+        args,
+        capability=_capability_from_tool_args(args),
+    )
+    evidence = []
+    for item in list(result.get("evidence") or [])[:10]:
+        entry, _ = build_evidence_entry(
+            kind=EVIDENCE_KIND_RETRIEVAL_CHUNK,
+            path=str(item.get("path") or ""),
+            line_start=item.get("line_start"),
+            line_end=item.get("line_end"),
+            excerpt=str(item.get("excerpt") or ""),
+            score=item.get("score"),
+            source=str(item.get("source") or "codecompass"),
+            max_excerpt_chars=1500,
+        )
+        evidence.append(entry)
+    warnings = list(result.get("warnings") or [])
+    if not result.get("evidence"):
+        warnings.append("no_results")
+    return build_tool_result(
+        tool_name="codecompass.retrieve",
+        tool_call_id=tool_call_id,
+        status=_retrieval_status(result),
+        evidence=evidence,
+        data={"retrieval": result},
+        warnings=warnings,
+        error=str(result.get("reason_code") or "") or None,
+        max_total_chars=12000,
+    )
+
+
 def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
     args = arguments or {}
     query = str(args.get("query") or "").strip()
@@ -174,50 +237,66 @@ def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_ca
             tool_name="codecompass.search", tool_call_id=tool_call_id, status="error", error="query_required"
         )
     limit = max(1, min(int(args.get("limit") or 8), _MAX_SEARCH_LIMIT))
-    try:
-        from agent.services.knowledge_index_retrieval_service import (
-            get_knowledge_index_retrieval_service,
-        )
+    search_args = dict(args)
+    search_args["limit"] = limit
+    from agent.services.codecompass_agentic_retrieval_service import (
+        get_codecompass_agentic_retrieval_service,
+    )
+    from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
 
-        chunks = get_knowledge_index_retrieval_service().search_records(
-            query,
-            limit=limit,
-        )
-    except Exception as exc:
+    result = get_codecompass_agentic_retrieval_service().retrieve_from_tool_args(
+        search_args,
+        capability=_capability_from_tool_args(search_args),
+    )
+    if result.get("status") == "error" and result.get("reason_code") not in {"no_result", ""}:
         return build_tool_result(
             tool_name="codecompass.search",
             tool_call_id=tool_call_id,
             status="error",
-            error=f"retrieval_unavailable:{exc}",
-            warnings=["codecompass_index_unavailable"],
+            error=str(result.get("reason_code") or "retrieval_unavailable"),
+            warnings=list(result.get("warnings") or []),
         )
-    from agent.services.codecompass_context_planner_service import get_codecompass_context_planner
-
     planner = get_codecompass_context_planner()
     evidence: list[dict[str, Any]] = []
     location_refs: list[dict[str, Any]] = []
-    for chunk in list(chunks or [])[:limit]:
-        if not isinstance(chunk, dict):
+    for item in list(result.get("evidence") or [])[:limit]:
+        if not isinstance(item, dict):
             continue
-        ref = planner.location_ref_from_hit(chunk)
+        ref = planner.location_ref_from_hit(
+            {
+                "path": item.get("path"),
+                "score": item.get("score"),
+                "symbol": item.get("symbol"),
+                "line_start": item.get("line_start"),
+                "line_end": item.get("line_end"),
+                "id": item.get("id"),
+            }
+        )
         if ref is not None:
             location_refs.append(ref)
         entry, _ = build_evidence_entry(
             kind=EVIDENCE_KIND_RETRIEVAL_CHUNK,
-            path=str(chunk.get("path") or chunk.get("source") or ""),
-            excerpt=str(chunk.get("content") or chunk.get("text") or chunk.get("snippet") or ""),
-            score=float(chunk.get("score") or 0.0),
-            source=str(chunk.get("source") or "codecompass"),
+            path=str(item.get("path") or ""),
+            excerpt=str(item.get("excerpt") or ""),
+            score=float(item.get("score") or 0.0),
+            source=str(item.get("source") or "codecompass"),
             max_excerpt_chars=1500,
         )
         evidence.append(entry)
+    warnings = list(result.get("warnings") or [])
+    if not evidence:
+        warnings.append("no_results")
     return build_tool_result(
         tool_name="codecompass.search",
         tool_call_id=tool_call_id,
-        status="ok",
+        status="ok" if result.get("status") != "error" else "error",
         evidence=evidence,
-        data={"hit_count": len(evidence), "location_refs": location_refs},
-        warnings=([] if evidence else ["no_results"]),
+        data={
+            "hit_count": len(evidence),
+            "location_refs": location_refs,
+            "retrieval": result,
+        },
+        warnings=warnings,
     )
 
 

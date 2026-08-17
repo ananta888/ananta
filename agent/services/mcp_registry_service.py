@@ -76,6 +76,36 @@ class MCPRegistryService:
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
         ),
         MCPToolSpec(
+            name="codecompass.retrieve",
+            description=(
+                "Retrieve budgeted CodeCompass evidence for a project question. "
+                "Uses the same hybrid retrieval contract as the Ananta worker. "
+                "Do not pass Qdrant collections or credentials."
+            ),
+            input_schema={
+                "type": "object",
+                "required": ["query"],
+                "additionalProperties": False,
+                "properties": {
+                    "query": {"type": "string"},
+                    "mode": {
+                        "type": "string",
+                        "enum": ["auto", "hybrid", "vector", "exact", "graph"],
+                    },
+                    "requested_signals": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["exact", "graph", "vector"]},
+                    },
+                    "task_kind": {"type": "string"},
+                    "revision": {"type": "string"},
+                    "allowed_paths": {"type": "array", "items": {"type": "string"}},
+                    "top_k": {"type": "integer", "minimum": 1, "maximum": 20},
+                    "max_chars": {"type": "integer", "minimum": 256, "maximum": 32000},
+                    "continuation_handle": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="evolution.providers.list",
             description="List Evolution providers, health and policy-visible configuration.",
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
@@ -237,6 +267,20 @@ class MCPRegistryService:
             collection_repo = context["knowledge_collection_repo"]
             items = [item.model_dump() for item in collection_repo.get_all()]
             return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
+
+        if name == "codecompass.retrieve":
+            from agent.services.codecompass_agentic_retrieval_service import (
+                get_codecompass_agentic_retrieval_service,
+            )
+
+            capability = context.get("codecompass_capability")
+            if isinstance(capability, dict) and not capability:
+                capability = None
+            result = get_codecompass_agentic_retrieval_service().retrieve_from_tool_args(
+                args,
+                capability=capability if isinstance(capability, dict) else None,
+            )
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "evolution.providers.list":
             evolution_service = context["evolution_service"]

@@ -24,7 +24,14 @@ _CODECOMPASS_SPECS: dict[str, set[str]] = {
         "domain_scope", "max_tokens", "max_files", "include_original_files",
         "include_jsonl_records", "include_graph", "llm_scope",
     },
-    "codecompass.search": {"query", "limit"},
+    "codecompass.search": {
+        "query", "limit", "mode", "requested_signals", "task_kind",
+        "revision", "allowed_paths", "max_chars",
+    },
+    "codecompass.retrieve": {
+        "query", "mode", "requested_signals", "task_kind", "scope",
+        "budget", "continuation_handle",
+    },
     "codecompass.search_symbols": {"query", "record_kinds", "path_globs", "domain_hint", "limit"},
     "codecompass.expand_graph": {"node", "seeds", "depth", "max_depth", "limit", "max_nodes"},
     "codecompass.get_file_context": {

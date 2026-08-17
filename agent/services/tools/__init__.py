@@ -43,6 +43,9 @@ def execute_ananta_tool(
         if name == "codecompass.search":
             from agent.services.tools.codecompass_tools import codecompass_search
             return codecompass_search(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.retrieve":
+            from agent.services.tools.codecompass_tools import codecompass_retrieve
+            return codecompass_retrieve(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "codecompass.resolve_context":
             from agent.services.tools.codecompass_tools import codecompass_resolve_context
             return codecompass_resolve_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
