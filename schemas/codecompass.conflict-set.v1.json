@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.conflict-set.v1.json",
+  "title": "CodeCompass ConflictSet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "conflicts"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.conflict-set.v1" },
+    "task_kind": { "type": "string" },
+    "conflicts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["claim_a", "claim_b", "status"],
+        "properties": {
+          "claim_a": { "type": "string" },
+          "claim_b": { "type": "string" },
+          "status": { "type": "string", "enum": ["unresolved", "explained", "rejected"] },
+          "evidence_ids": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

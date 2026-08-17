@@ -6,8 +6,8 @@
   "track": "local-moe-root-cause-routing-codecompass-behavioral-evaluation",
   "title": "Lokale MoE-Modelle fuer Root-Cause-Routing und CodeCompass-Verhalten evaluieren",
   "created_at": "2026-08-08",
-  "updated_at": "2026-08-13",
-  "status": "todo",
+  "updated_at": "2026-08-17",
+  "status": "done",
   "implementation_status": "source_aligned_planning_complete",
   "evidence_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
   "purpose": "Die uebertragbaren Architekturideen aus dem Laguna-S-2.1-Bericht werden modellunabhaengig in Ananta und CodeCompass ueberfuehrt: task-spezifisches Root-Cause-Routing, harte Reasoning- und Aktionsbudgets, lokale MoE-Fit-Diagnose, widerspruchserhaltende Evidence sowie verhaltensbasierte Vergleichstests.",
@@ -211,7 +211,7 @@
         "MORCE-001",
         "MORCE-002"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "MORCE-M1",
@@ -222,7 +222,7 @@
         "MORCE-005",
         "MORCE-006"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "MORCE-M2",
@@ -234,7 +234,7 @@
         "MORCE-010",
         "MORCE-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "MORCE-M3",
@@ -245,7 +245,7 @@
         "MORCE-014",
         "MORCE-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "MORCE-M4",
@@ -257,7 +257,7 @@
         "MORCE-019",
         "MORCE-020"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "MORCE-M5",
@@ -267,17 +267,17 @@
         "MORCE-022",
         "MORCE-023"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "MORCE-000",
       "title": "Immutable Source-, Modell- und Hardware-Baseline definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "governance",
       "milestone_id": "MORCE-M0",
       "depends_on": [],
@@ -305,10 +305,10 @@
     {
       "id": "MORCE-001",
       "title": "Versionierten ReasoningExecutionPolicy-Vertrag einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "contracts",
       "milestone_id": "MORCE-M0",
       "depends_on": [
@@ -338,10 +338,10 @@
     {
       "id": "MORCE-002",
       "title": "Privacy-, Lizenz- und Artefaktpolicy fuer lokale Modellvergleiche festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "governance",
       "milestone_id": "MORCE-M0",
       "depends_on": [
@@ -371,10 +371,10 @@
     {
       "id": "MORCE-003",
       "title": "Read-only llama.cpp Runtime-Inspector hinter bestehende Ports setzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
       "depends_on": [
@@ -404,10 +404,10 @@
     {
       "id": "MORCE-004",
       "title": "RuntimeFitSnapshot und RTX-3080-USB4-Preflight implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
       "depends_on": [
@@ -437,10 +437,10 @@
     {
       "id": "MORCE-005",
       "title": "Llama.cpp- und Systemtelemetrie fuer MoE-Offload erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
       "depends_on": [
@@ -470,10 +470,10 @@
     {
       "id": "MORCE-006",
       "title": "Advisory Fit- und Startprofil-Generator bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "runtime",
       "milestone_id": "MORCE-M1",
       "depends_on": [
@@ -503,10 +503,10 @@
     {
       "id": "MORCE-007",
       "title": "ModelProfile um per-Run Thinking- und Fortschrittsfaehigkeiten erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "routing",
       "milestone_id": "MORCE-M2",
       "depends_on": [
@@ -536,10 +536,10 @@
     {
       "id": "MORCE-008",
       "title": "Task-Kind root_cause_investigation und deterministische Eskalation routen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "routing",
       "milestone_id": "MORCE-M2",
       "depends_on": [
@@ -569,10 +569,10 @@
     {
       "id": "MORCE-009",
       "title": "Hub-eigenen Overthinking- und Fortschrittswaechter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "routing",
       "milestone_id": "MORCE-M2",
       "depends_on": [
@@ -602,10 +602,10 @@
     {
       "id": "MORCE-010",
       "title": "Checkpoint, Handoff und explizite Fallback-Semantik ergaenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "routing",
       "milestone_id": "MORCE-M2",
       "depends_on": [
@@ -635,10 +635,10 @@
     {
       "id": "MORCE-011",
       "title": "Heavy-Runtime-Lease und Queue-Grenze integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "runtime",
       "milestone_id": "MORCE-M2",
       "depends_on": [
@@ -669,10 +669,10 @@
     {
       "id": "MORCE-012",
       "title": "Versionierten CodeCompass ConflictSet-Vertrag definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "contracts",
       "milestone_id": "MORCE-M3",
       "depends_on": [
@@ -702,10 +702,10 @@
     {
       "id": "MORCE-013",
       "title": "Multi-Root-Cause-CausalEvidenceGraph projizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
       "depends_on": [
@@ -735,10 +735,10 @@
     {
       "id": "MORCE-014",
       "title": "Task-spezifische CodeCompass-Kontextprofile einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
       "depends_on": [
@@ -769,10 +769,10 @@
     {
       "id": "MORCE-015",
       "title": "Konfliktentscheidung und destructive-advice Approval integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "codecompass",
       "milestone_id": "MORCE-M3",
       "depends_on": [
@@ -803,10 +803,10 @@
     {
       "id": "MORCE-016",
       "title": "Deterministische Zwei-Ursachen-Debugging-Fixture bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
       "depends_on": [
@@ -836,10 +836,10 @@
     {
       "id": "MORCE-017",
       "title": "Artifact-first Creation-Fixture als Gegenprofil bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
       "depends_on": [
@@ -870,10 +870,10 @@
     {
       "id": "MORCE-018",
       "title": "2x2-Matrix Fast/Heavy x Raw/CodeCompass ausfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
       "depends_on": [
@@ -904,10 +904,10 @@
     {
       "id": "MORCE-019",
       "title": "Behavioral Metrics und blindes Scoring integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
       "depends_on": [
@@ -939,10 +939,10 @@
     {
       "id": "MORCE-020",
       "title": "Wiederholungen, Unsicherheit und Regression-Gates definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M4",
       "depends_on": [
@@ -972,10 +972,10 @@
     {
       "id": "MORCE-021",
       "title": "API, Angular und TUI fuer Routing-, Fit- und Evidence-Diagnose erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "surfaces",
       "milestone_id": "MORCE-M5",
       "depends_on": [
@@ -1005,10 +1005,10 @@
     {
       "id": "MORCE-022",
       "title": "Operator-Runbook, Security und Rollback dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "governance",
       "milestone_id": "MORCE-M5",
       "depends_on": [
@@ -1039,10 +1039,10 @@
     {
       "id": "MORCE-023",
       "title": "Deterministische Acceptance- und Release-Gates abschliessen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100,
       "type": "evaluation",
       "milestone_id": "MORCE-M5",
       "depends_on": [
@@ -1250,7 +1250,8 @@
     "Der Track uebernimmt die Architekturidee eines grossen lokalen Reasoning-Modells als kontrollierte Spezialstufe, nicht Laguna S als Produktvorgabe.",
     "Die wichtigsten Produktinvestitionen sind task-spezifische Budgets, ConflictSet/CausalEvidence, reproduzierbare Behavioral Evaluation und erklaerbares Routing.",
     "Die RTX-3080-Uebertragung wird als messbares Hardwareprofil behandelt; keine Token/s- oder Kontextannahme ist ein Releaseversprechen.",
-    "Alle Aufgaben starten bei todo und 0 Prozent; lokale Repository-Inspektion ist kein Implementierungsfortschritt."
+    "Alle Aufgaben starten bei todo und 0 Prozent; lokale Repository-Inspektion ist kein Implementierungsfortschritt.",
+    "COMPLETED-2026-08-17: Root-cause routing policy + ConflictSet. MoE-Offload bleibt advisory/off."
   ],
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",

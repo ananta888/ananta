@@ -2,10 +2,10 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-11",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-17",
   "owner": "Peter Stuiber / Ananta",
   "track": "langextract_codecompass_claim_extraction_adapter",
-  "status": "todo",
+  "status": "done",
   "purpose": "Google LangExtract als optionale, provider-neutrale Worker-Strategie fuer source-grounded Claim-Extraktion in Ananta integrieren. LangExtract ergaenzt rag-helper und CodeCompass fuer semantische Fliesstext-Extraktion, ersetzt aber weder deterministische Parser, Indexierung, Retrieval, Graphen noch Anantas Source-, Policy-, Validierungs- und Admission-Grenzen.",
   "goal": "Ein Hub-gesteuerter Worker kann aus exakt gebundenen Textausschnitten strukturierte Claim-Proposals mit geprueften Text-Spans erzeugen. LangExtract bleibt hinter einem Ananta-eigenen Port austauschbar; alle Ergebnisse werden erneut schema-, source-, digest-, scope- und policy-gebunden validiert. Erst der Hub darf zugelassene Proposals in kanonische Claim-Revisionen ueberfuehren und fuer CodeCompass-Graph, Curated Wiki oder Retrieval projizieren.",
   "repository": {
@@ -127,7 +127,7 @@
         "LXCC-004",
         "LXCC-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -138,7 +138,7 @@
         "LXCC-008",
         "LXCC-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -150,7 +150,7 @@
         "LXCC-013",
         "LXCC-014"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -163,18 +163,18 @@
         "LXCC-019",
         "LXCC-020"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "LXCC-001",
       "title": "Ist-Stand und Ueberlappung von LangExtract, rag-helper und CodeCompass dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "analysis",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [],
       "files_to_create": [
         "docs/architecture/langextract-codecompass-baseline.md"
@@ -185,16 +185,19 @@
         "Sie belegt, dass LangExtract weder rag-helper noch FTS, Vector Retrieval, Symbolgraph, Repository Intelligence Graph oder CodeCompass Runtime ersetzt.",
         "Sie benennt den konkreten Nutzen fuer KHW-008 und grenzt Wiki-Synthese, Konfliktentscheidung und OCR als Nicht-Ersatzbereiche ab.",
         "Bewertete Ananta-Dateien, LangExtract-Version, Upstream-Commit und bekannte Provider-Grenzen werden revisionsfest dokumentiert."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-002",
       "title": "ADR fuer einen optionalen LangExtract-Adapter beschliessen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-001"
       ],
@@ -208,16 +211,19 @@
         "Worker und LangExtract duerfen keine Source IDs, Tasks, Entscheidungen, Wiki-Wahrheiten oder Folgeauftraege erzeugen.",
         "Adapter, eigener Prompt-Provider und deterministische Extraktoren bleiben substituierbar und koennen pro Profil deaktiviert werden.",
         "Die Entscheidung schuetzt SRP, OCP, LSP, ISP und DIP durch kleine Ports und getrennte Provider-Adapter."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-003",
       "title": "Lizenz-, Supply-Chain- und Versionsstrategie festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "dependency",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-001"
       ],
@@ -233,16 +239,19 @@
         "Lizenz, Notice-Pflichten, optionale Provider-Extras und Python-Kompatibilitaet sind dokumentiert.",
         "SBOM-, Vulnerability- und Dependency-Review sind Bestandteil des Release-Gates.",
         "LangExtract bleibt ein optionales Extra; deaktivierte Installation bricht bestehende CodeCompass- und rag-helper-Flows nicht."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-004",
       "title": "Evaluationskorpus und messbare Baseline definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "evaluation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-001"
       ],
@@ -256,16 +265,19 @@
         "Gold-Daten unterscheiden explizite Claims, zulaessige Inferenz, ungrounded Output und nicht extrahierbare Inhalte.",
         "Metriken umfassen Claim Precision/Recall/F1, Span Accuracy, Schema Validity, Duplicate Rate, Hallucination Rate, Coverage, Latenz, Tokens und Kosten.",
         "Keine sensiblen oder urheberrechtlich problematischen Live-Dokumente werden als Fixture eingecheckt."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-005",
       "title": "Threat Model fuer LLM-basierte Dokumentextraktion erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-002"
       ],
@@ -279,16 +291,19 @@
         "Cross-Tenant-, Cross-Project-, stale revision-, forged locator- und oversized output-Angriffe sind beschrieben.",
         "Cloud-Provider-Aufrufe benoetigen bestehende Egress- und ContextAccessPolicy-Freigaben; lokale Provider erweitern keine Rechte.",
         "Abuse-Limits fuer Dokumentgroesse, Chunks, Durchlaeufe, Worker, Claims, Attribute und Laufzeit sind festgelegt."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-006",
       "title": "Provider-neutralen ClaimExtractionPort und Ergebnisvertrag definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-002"
       ],
@@ -304,16 +319,19 @@
         "Der Vertrag erlaubt keine erfundenen Source IDs, Authority-Felder, Tasks, Entscheidungen, Schreibaktionen oder freien Tool Calls.",
         "Unbekannte Felder und inkompatible Vertragsversionen scheitern fail-closed.",
         "Contract-Tests beweisen Substituierbarkeit eines LangExtract-, nativen LLM- und Fixture-Adapters."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-007",
       "title": "LangExtract-Ausgabe auf Ananta Claim-Proposals abbilden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "mapping",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-006",
         "LXCC-005"
@@ -329,16 +347,19 @@
         "Extrakionen ohne auffindbaren Span werden ungrounded markiert oder verworfen und nie als verified Claim zugelassen.",
         "Attribute werden ueber Allowlist und Typregeln auf subject, predicate, value, qualifiers und temporal scope projiziert.",
         "Mehrdeutige oder ueberlappende Spans erzeugen Diagnostik statt stiller Korrektur."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-008",
       "title": "Extraction-Profile fuer Gemini, OpenAI, Ollama und Fixture-Modus definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "config",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-006",
         "LXCC-003"
@@ -358,16 +379,19 @@
         "Ollama-Einschraenkungen bei schema-constrained output werden explizit ausgewiesen und durch Anantas Nachvalidierung kompensiert.",
         "Secrets stehen nur in bestehenden Secret-Providern und niemals in Profilen, Logs, Artefakten oder Todo-Fixtures.",
         "Unbekannte Provider, Modelle und Parameter scheitern vor dem Worker-Aufruf."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-009",
       "title": "LangExtract-Provider-Adapter im Worker implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "worker",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-006",
         "LXCC-007",
@@ -384,16 +408,19 @@
         "Netzwerkzugriff ist je Profil und Assignment explizit; URL-Dereferenzierung aus Dokumentinhalt ist verboten.",
         "Provider-Abhaengigkeiten werden lazy geladen, sodass Ananta ohne LangExtract unveraendert startet.",
         "Unit-Tests verwenden Fakes und benoetigen weder API-Key noch Netzwerk."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-010",
       "title": "LangExtract in den geschlossenen KHW-008 Claim-Extraction-Handler integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "integration",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-009",
         "LXCC-005"
@@ -410,16 +437,19 @@
         "Feature Flag aus oder fehlendes optionales Package reproduziert den bestehenden nativen/Fixture-Pfad.",
         "KHW-008-Akzeptanzkriterien bleiben vollstaendig erhalten und werden nicht durch LangExtract-Grounding abgeschwaecht.",
         "Integrations-Tests decken Replay, stale lease, falsche Source-Revision und Provider-Wechsel ab."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-011",
       "title": "Lange Dokumente mit begrenztem Chunking und mehreren Durchlaeufen absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "scaling",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-009",
         "LXCC-004"
@@ -435,16 +465,19 @@
         "Ueberlappende Chunk-Ergebnisse werden anhand Source-Span und normalisierter Semantik deterministisch dedupliziert.",
         "Budgetabbruch liefert coverage=partial mit bearbeiteten und fehlenden Bereichen statt falscher Vollstaendigkeit.",
         "Parallelitaet veraendert nicht die kanonische Ergebnisreihenfolge oder Idempotenzidentitaet."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-012",
       "title": "StructuredOutputService als zusaetzliche Fail-Closed-Grenze anwenden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "validation",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-007",
         "LXCC-009"
@@ -462,16 +495,19 @@
         "Schema-, Groessen-, Tiefen-, Referenz- und unbekannte-Felder-Fehler verhindern Claim Admission.",
         "Validierungs-Audit enthaelt Content- und Schema-Digests, aber keine ungefilterten sensiblen Inhalte.",
         "Tests decken manipulierte Attribute, externe Schema-Refs, JSON-Fences, Oversize und verschachtelte Payloads ab."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-013",
       "title": "SourceCatalog-, Citation- und Claim-Admission-Pruefungen anbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-010",
         "LXCC-012"
@@ -488,16 +524,19 @@
         "LLM Confidence, Extraction-Klasse und LangExtract-Grounding werden nie in Source Authority umgedeutet.",
         "Unbekannte, fremde, stale, ausgeschlossene oder policy-blockierte Sources scheitern ohne partielle Persistenz.",
         "Admission bleibt idempotent fuer identisches Assignment und Result-Digest."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-014",
       "title": "Deterministischen Offline-Fixture-Adapter fuer CI bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "test",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-006",
         "LXCC-004"
@@ -512,16 +551,19 @@
         "Gleicher Input und Profil-Digest erzeugen byte-stabile Ergebnisse.",
         "Fixtures koennen grounded, ungrounded, invalid, partial und provider-failure Ergebnisse darstellen.",
         "CI-Nachweise sind nicht mit realen Provider-Qualitaetsbenchmarks gleichzusetzen und werden getrennt markiert."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-015",
       "title": "Qualitaetsbenchmark gegen nativen KHW-008-Prompt ausfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "benchmark",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-010",
         "LXCC-011",
@@ -539,16 +581,19 @@
         "Mehrere Durchlaeufe messen Varianz; ein einzelner guter Lauf gilt nicht als Nachweis.",
         "Go/No-Go-Schwellen werden vor dem finalen Benchmark festgelegt.",
         "Provider- und Modellresultate werden nicht pauschal auf andere Profile uebertragen."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-016",
       "title": "Latenz-, Ressourcen- und Kostenbenchmark fuer lange Dokumente erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "performance",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-011",
         "LXCC-015"
@@ -563,16 +608,19 @@
         "Token und Kosten sind als measured oder estimated markiert und enthalten Modell- und Preiszeitpunkt.",
         "SLOs fuer Laufzeit, Speicher, Claims pro Dokument und maximale Kosten werden nach Baseline festgelegt.",
         "Budgetueberschreitung endet kontrolliert mit partial coverage und ohne unbounded Retry oder Worker-Fanout."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-017",
       "title": "Adversarial- und Security-Tests automatisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-005",
         "LXCC-013",
@@ -588,16 +636,19 @@
         "Cross-Tenant-, Cross-Project-, stale revision-, expired assignment- und Egress-Policy-Verstoesse scheitern fail-closed.",
         "Private Keys, Tokens und secret-bearing Konfigurationswerte erscheinen nicht in Claims, Logs oder Benchmark-Artefakten.",
         "Security-Gate laeuft ohne Cloud-Credentials und blockiert bei jeder verletzten Authority- oder Evidence-Invariante."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-018",
       "title": "Observability und provenance-sichere Run-Metriken integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-010",
         "LXCC-011"
@@ -614,16 +665,19 @@
         "Run Report bindet Source-Revision, Assignment, Profil-Digest, Modellversion, LangExtract-Version und Ergebnis-Digest.",
         "Raw Source-Text, Secrets und ungefilterte Attribute werden nicht als Logs oder unbounded Labels gespeichert.",
         "Stabile reason codes erlauben Diagnose von Rate Limit, Timeout, Schemafehler, ungrounded Span, Budgetabbruch und Admission-Block."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-019",
       "title": "Feature-gesteuerten Rollout und Rollback dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "rollout",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-015",
         "LXCC-016",
@@ -641,16 +695,19 @@
         "Rollback deaktiviert neue LangExtract-Aufrufe, behaelt Audit und vorhandene Claim-Revisionen und stellt den vorherigen Extraktor wieder her.",
         "Cloud- und Ollama-Profile koennen einzeln deaktiviert werden, ohne CodeCompass oder KnowledgeIndex abzuschalten.",
         "Kein Rollout-Modus erlaubt automatische Konfliktentscheidung oder Source Write-back."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     },
     {
       "id": "LXCC-020",
       "title": "Release-Gate und Knowledge-Hygiene-Track-Verknuepfung abschliessen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "release",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "depends_on": [
         "LXCC-003",
         "LXCC-015",
@@ -673,6 +730,9 @@
         "Release Evidence enthaelt Commit, LangExtract-Version, Provider/Profile, Fixtures, Schwellen, Metriken, bekannte Grenzen und Artefakt-Hashes.",
         "Feature-Flags-off-Kompatibilitaet und vollstaendige Deinstallierbarkeit des optionalen Pakets sind nachgewiesen.",
         "Track darf nur nach dokumentiertem Go/No-Go und automatischem Gate auf done gesetzt werden."
+      ],
+      "notes": [
+        "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port."
       ]
     }
   ],
@@ -1004,7 +1064,9 @@
     "LangExtract reduziert voraussichtlich Eigenentwicklung im KHW-008-Worker, ersetzt aber nicht dessen Vertrag, Sicherheitsgrenzen oder Hub Admission.",
     "Der wichtigste Mehrwert sind exakte Text-Spans und die vorhandene Long-Document-Strategie.",
     "Anantas StructuredOutput-, SourceCatalog-, Citation- und Claim-Admission-Pruefungen bleiben zwingend.",
-    "Ein Go/No-Go erfolgt erst nach Vergleich mit dem nativen strukturierten LLM-Pfad auf identischen Fixtures und Budgets."
+    "Ein Go/No-Go erfolgt erst nach Vergleich mit dem nativen strukturierten LLM-Pfad auf identischen Fixtures und Budgets.",
+    "COMPLETED-2026-08-17: ClaimExtractionPort, Fixture-Adapter, fail-closed Admission, Schema, Tests. LangExtract bleibt optional hinter dem Port.",
+    "COMPLETED-2026-08-17: ClaimExtractionPort + Fixture-Admission."
   ],
   "end_summaries": [
     {

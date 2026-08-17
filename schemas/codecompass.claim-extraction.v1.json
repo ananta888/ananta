@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.claim-extraction.v1.json",
+  "title": "CodeCompass Claim Extraction Proposal v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "source_ref", "claims", "status"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.claim-extraction.v1" },
+    "status": { "type": "string", "enum": ["ok", "rejected", "empty"] },
+    "reason": { "type": "string" },
+    "source_ref": { "type": "string" },
+    "revision": { "type": "string" },
+    "profile": { "type": "string" },
+    "provider": { "type": "string" },
+    "claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["text", "span_start", "span_end", "grounded"],
+        "properties": {
+          "text": { "type": "string" },
+          "span_start": { "type": "integer", "minimum": 0 },
+          "span_end": { "type": "integer", "minimum": 0 },
+          "grounded": { "type": "boolean" },
+          "label": { "type": "string" }
+        }
+      }
+    }
+  }
+}
