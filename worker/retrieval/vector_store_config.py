@@ -32,6 +32,7 @@ class VectorStoreConfigError(ValueError):
 class VectorStoreProvider(str, Enum):
     JSON = "json"
     QDRANT = "qdrant"
+    DUCKDB = "duckdb"
 
 
 class VectorStoreDistance(str, Enum):
@@ -562,6 +563,7 @@ class VectorStoreConfig:
     availability: AvailabilityPolicy = field(default_factory=AvailabilityPolicy)
     json: JsonVectorStoreConfig = field(default_factory=JsonVectorStoreConfig)
     qdrant: QdrantVectorStoreConfig | None = None
+    duckdb: Any | None = None
 
     def __post_init__(self) -> None:
         provider = (
@@ -578,6 +580,11 @@ class VectorStoreConfig:
             raise VectorStoreConfigError(
                 "vector_store_invalid_provider",
                 cause_reason="missing_qdrant_vector_store_config",
+            )
+        if provider == VectorStoreProvider.DUCKDB and self.duckdb is None:
+            raise VectorStoreConfigError(
+                "vector_store_invalid_provider",
+                cause_reason="missing_duckdb_vector_store_config",
             )
         object.__setattr__(self, "provider", provider)
 
@@ -596,7 +603,7 @@ class VectorStoreConfig:
             )
         _reject_unknown(
             payload,
-            {"provider", "availability", "json", "qdrant"},
+            {"provider", "availability", "json", "qdrant", "duckdb"},
             "unknown_vector_store_config_fields",
         )
         provider = _enum_value(
@@ -644,11 +651,21 @@ class VectorStoreConfig:
             if payload.get("qdrant") is not None
             else None
         )
+        duckdb_config = None
+        if payload.get("duckdb") is not None:
+            from worker.retrieval.duckdb_vector_store_config import DuckDBVectorStoreConfig
+
+            duckdb_config = DuckDBVectorStoreConfig.from_mapping(dict(payload.get("duckdb") or {}))
+        elif provider == VectorStoreProvider.DUCKDB:
+            from worker.retrieval.duckdb_vector_store_config import DuckDBVectorStoreConfig
+
+            duckdb_config = DuckDBVectorStoreConfig()
         return cls(
             provider=provider,
             availability=availability,
             json=json_config,
             qdrant=qdrant_config,
+            duckdb=duckdb_config,
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -657,6 +674,7 @@ class VectorStoreConfig:
             "availability": self.availability.as_dict(),
             "json": self.json.as_dict(),
             "qdrant": self.qdrant.as_dict() if self.qdrant else None,
+            "duckdb": self.duckdb.as_dict() if self.duckdb else None,
         }
 
     def config_hash(self) -> str:

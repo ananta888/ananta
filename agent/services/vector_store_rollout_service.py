@@ -25,10 +25,10 @@ from worker.retrieval.vector_store_config import (
 ROLLOUT_STATE_SCHEMA = "ananta.vector_store_rollout_state.v1"
 RESOLVED_CONFIG_SCHEMA = "ananta.vector_store_resolved_config.v1"
 _DOMAINS = frozenset({"codecompass", "wiki"})
-_PROVIDERS = frozenset({"json", "qdrant"})
+_PROVIDERS = frozenset({"json", "qdrant", "duckdb"})
 _LAYERS = frozenset({"profile", "workspace"})
 _ALLOWED_OVERRIDE_FIELDS = frozenset(
-    {"provider", "availability", "json", "qdrant"}
+    {"provider", "availability", "json", "qdrant", "duckdb"}
 )
 _SAFE_SECRET_REFERENCE_SUFFIXES = ("_ref", "_file", "_env")
 _SECRET_MARKERS = ("api_key", "password", "secret", "token", "authorization")

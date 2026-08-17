@@ -26,6 +26,7 @@ frozen; new tools bump the major version.
 | `codecompass.architecture_diagram`      | HAC-011     | Deterministic Mermaid view of the slice.              |
 | `codecompass.layers_heads`              | CIL-022     | Read incremental layer heads.                         |
 | `codecompass.layers_plan`               | CIL-022     | Dry-run incremental update plan.                      |
+| `codecompass.analytics_query`           | DDB-031     | Named DuckDB analytics template, no free SQL.         |
 | `codecompass.plan_context`             | existing    | Plan bounded path/range context.                      |
 | `codecompass.expand_graph`             | existing    | Expand the symbolgraph around a seed.                 |
 | `codecompass.architecture_query`       | existing    | Whitelisted architecture queries.                     |

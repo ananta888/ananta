@@ -123,6 +123,27 @@ class MCPRegistryService:
             },
         ),
         MCPToolSpec(
+            name="codecompass.analytics_query",
+            description="Run a named CodeCompass DuckDB analytics template. No free SQL.",
+            input_schema={
+                "type": "object",
+                "required": ["template"],
+                "additionalProperties": False,
+                "properties": {
+                    "template": {
+                        "type": "string",
+                        "enum": [
+                            "document_counts_by_kind",
+                            "paths_for_kind",
+                            "graph_relation_counts",
+                            "snapshot_identity",
+                        ],
+                    },
+                    "kind": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.rlm_analyze",
             description="Optional recursive CodeCompass analysis. Disabled queries fall back to hybrid retrieval.",
             input_schema={
@@ -363,6 +384,19 @@ class MCPRegistryService:
                 profile_id=str(args.get("profile_id") or "default"),
             )
             return {"content": [{"type": "json", "json": plan}]}
+
+        if name == "codecompass.analytics_query":
+            from agent.services.codecompass_duckdb_analytics_service import (
+                get_codecompass_duckdb_analytics_service,
+            )
+
+            capability = context.get("codecompass_capability")
+            result = get_codecompass_duckdb_analytics_service().query(
+                str(args.get("template") or ""),
+                capability=capability if isinstance(capability, dict) else None,
+                params={"kind": args.get("kind")} if args.get("kind") else None,
+            )
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "codecompass.rlm_analyze":
             from agent.services.codecompass_rlm_service import get_codecompass_rlm_service

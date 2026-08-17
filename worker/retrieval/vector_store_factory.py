@@ -61,6 +61,22 @@ class VectorStoreFactory:
             )
         if config.provider == VectorStoreProvider.JSON:
             return JsonVectorStore(index_path=config.json.index_path)
+        if config.provider == VectorStoreProvider.DUCKDB:
+            if config.duckdb is None:
+                raise VectorStoreConfigError("missing_duckdb_vector_store_config")
+            try:
+                module = importlib.import_module("worker.retrieval.duckdb_vector_store")
+                backend_type: Any = getattr(module, "DuckDBVectorStore")
+            except (ImportError, AttributeError) as exc:
+                raise VectorStoreConfigError(
+                    "duckdb_backend_not_installed: install the ananta[duckdb] extra"
+                ) from exc
+            store = backend_type.from_config(config.duckdb)
+            return self._with_availability_policy(
+                store,
+                config=config,
+                observer=observer,
+            )
         if config.provider == VectorStoreProvider.QDRANT:
             if config.qdrant is None:
                 raise VectorStoreConfigError("missing_qdrant_vector_store_config")
@@ -90,7 +106,7 @@ class VectorStoreFactory:
         config: VectorStoreConfig,
         observer: VectorStoreObserver | None = None,
     ) -> VectorStore:
-        if config.provider != VectorStoreProvider.QDRANT:
+        if config.provider not in {VectorStoreProvider.QDRANT, VectorStoreProvider.DUCKDB}:
             return store
         from worker.retrieval.vector_store_fallback import (
             AvailabilityManagedVectorStore,

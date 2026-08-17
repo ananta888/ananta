@@ -34,6 +34,7 @@ Die relevanten versionierten Verträge sind:
 | `schemas/source/source_ref.v2.json` | unveränderte, vom Hub bereitgestellte Source-Identität |
 | `schemas/codecompass.agentic-retrieval.v1.json` | gemeinsamer Agent/MCP/n8n-Retrieval-Vertrag; siehe [Hybrid Retrieval](architecture/agent-codecompass-hybrid-retrieval.md) |
 | `schemas/codecompass.hierarchical-architecture-context.v1.json` | budgetierter Architektur-Slice System→Symbol; siehe [Hierarchical Context](architecture/codecompass-hierarchical-architecture-context.md) |
+| `schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json` | optionaler DuckDB-Snapshot-Pointer; siehe [DuckDB Backend](architecture/duckdb-codecompass-backend.md) |
 
 Große, nicht unterstützte oder budgetüberschreitende Dateien verschwinden
 nicht still: Manifest und Coverage-Gate führen sie mit stabilem Reason-Code.

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json",
+  "title": "CodeCompass DuckDB Snapshot Pointer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "path", "schema_version", "workspace_id", "repository_id", "profile_name", "manifest_hash"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.duckdb_snapshot_pointer.v1" },
+    "path": { "type": "string" },
+    "schema_version": { "type": "string" },
+    "workspace_id": { "type": "string" },
+    "repository_id": { "type": "string" },
+    "profile_name": { "type": "string" },
+    "domain": { "type": "string" },
+    "manifest_hash": { "type": "string" },
+    "compatibility_fingerprint": { "type": "string" },
+    "source_revision": { "type": "string" },
+    "published_at": { "type": "string" }
+  }
+}

@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Mapping, Protocol
 
-VECTOR_STORE_BACKENDS = frozenset({"json", "qdrant"})
+VECTOR_STORE_BACKENDS = frozenset({"json", "qdrant", "duckdb"})
 VECTOR_STORE_OPERATIONS = frozenset(
     {
         "health",

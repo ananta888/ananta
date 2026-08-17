@@ -1,0 +1,28 @@
+{
+  "provider": "duckdb",
+  "availability": {
+    "on_unavailable": "degraded_empty",
+    "fallback_provider": "json"
+  },
+  "json": {
+    "index_path": ".rag/codecompass/vector_index.json"
+  },
+  "duckdb": {
+    "snapshot_root": ".rag/codecompass/duckdb",
+    "vector_search": { "mode": "exact", "vss": { "enabled": false } },
+    "fts": { "enabled": false },
+    "extensions": {
+      "allowed": ["parquet"],
+      "autoinstall_known_extensions": false,
+      "autoload_known_extensions": false,
+      "allow_community_extensions": false,
+      "allow_unsigned_extensions": false,
+      "offline_bundle_required": true
+    },
+    "security": {
+      "free_form_sql": false,
+      "network_access": false,
+      "allow_attach": false
+    }
+  }
+}

@@ -379,7 +379,7 @@
         "DDB-004",
         "DDB-005"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -394,7 +394,7 @@
         "DDB-012",
         "DDB-013"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -409,7 +409,7 @@
         "DDB-020",
         "DDB-021"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -423,7 +423,7 @@
         "DDB-027",
         "DDB-028"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -436,7 +436,7 @@
         "DDB-033",
         "DDB-034"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -449,7 +449,7 @@
         "DDB-039",
         "DDB-040"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -462,7 +462,7 @@
         "DDB-045",
         "DDB-046"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M8",
@@ -471,7 +471,7 @@
         "DDB-047",
         "DDB-048"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "critical_path_tasks": [
@@ -507,7 +507,7 @@
     {
       "id": "DDB-001",
       "title": "DuckDB-ADR und verbindliche Backend-Grenzen dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -527,17 +527,18 @@
         "Dokumentations-Contracttest prueft alle Pflichtentscheidungen und Referenzlinks.",
         "Architekturreview gleicht die ADR gegen vector_store_contract.py und repository_intelligence_query.py ab."
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
-          "ALIGN-2026-08-17: ADR fehlt noch; Qdrant/JSON bleiben SoR-Grenzen."
+          "ALIGN-2026-08-17: ADR fehlt noch; Qdrant/JSON bleiben SoR-Grenzen.",
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
         ]
       }
     },
     {
       "id": "DDB-002",
       "title": "DuckDB in die bestehenden Capability-Ports einordnen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -560,12 +561,17 @@
         "Protocol-Fakes beweisen ISP und Substituierbarkeit ohne duckdb-Import.",
         "Importtest startet Core-Installation ohne DuckDB-Paket."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-003",
       "title": "Strikte DuckDB-Konfiguration und Provider-Mapping einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "configuration",
@@ -592,12 +598,17 @@
         "Tabellentests pruefen gueltige und ungueltige Konfigurationskombinationen.",
         "Property-Test prueft kanonischen Config-Hash und Roundtrip."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-004",
       "title": "DuckDB lazy in Factory und Composition Roots registrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "composition",
@@ -624,12 +635,17 @@
         "Import-Isolationstest entfernt duckdb aus sys.modules und startet JSON/Qdrant-Factory.",
         "Factory-Test prueft lazy Erfolg, fehlendes Extra und doppelte Registrierung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-005",
       "title": "Provider-Allowlisten, Rollout und Observer backendneutral erweitern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -655,12 +671,17 @@
         "Negativtests lehnen Pfad-, Secret- und Security-Downgrade-Overrides ab.",
         "Metriktest prueft feste Labelmengen und unbekannte Reasons."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-006",
       "title": "DuckDB als exakt gepinntes optionales Worker-Extra paketieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "packaging",
@@ -684,12 +705,17 @@
         "CI installiert Core ohne DuckDB sowie das separate DuckDB-Profil.",
         "Lockfile-Contracttest vergleicht Extra-Grenze und exakten Worker-Pin."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-007",
       "title": "Thread-sichere DuckDB Connection Factory implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -714,12 +740,17 @@
         "Mehrthreadtest weist jeder Ausfuehrung eine eigene Connection zu.",
         "Negativtests pruefen Schreibversuch auf read-only Snapshot und Nutzung nach close."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-008",
       "title": "Scope-gebundene Pfad- und Dateisystem-Policy definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -744,12 +775,17 @@
         "Security-Tests decken ../, absolute Pfade, Symlink-Swap und gleichnamige Scopes ab.",
         "Windows- und POSIX-spezifische Pfadtests laufen in der Plattformmatrix."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-009",
       "title": "Versioniertes DuckDB-Schema und Migration Ledger einfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "migration",
@@ -775,12 +811,17 @@
         "Golden-Migrationstests pruefen v1-Aufbau, wiederholte Ausfuehrung und unbekannte Version.",
         "Fault-Injection unterbricht jede Migrationsstufe und prueft Rollback."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-010",
       "title": "Relationales CodeCompass-Snapshot-Schema implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "schema",
@@ -804,12 +845,17 @@
         "Schema-Introspectiontest vergleicht Tabellen, Spalten, Constraints und Indizes gegen eine Golden-Spezifikation.",
         "Negativtests pruefen doppelte IDs, fehlende Hashes und gemischte Vector-Dimensionen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-011",
       "title": "Single-Writer-Lease und Hub-owned Mutation Boundary umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
@@ -836,12 +882,17 @@
         "Paralleltest startet zwei Writer fuer denselben Scope und unterschiedliche Scopes.",
         "Negativtests pruefen fehlende Admission, Replay, falsche Audience und manipulierten Scope vor jeder Dateioperation."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-012",
       "title": "Versionierte Snapshot-Publikation mit atomarem Active Pointer bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "reliability",
@@ -867,12 +918,17 @@
         "Crash-Matrix unterbricht Build, fsync, Pointer-Write, Replace und Retention.",
         "Windows-/Linux-Test haelt alten Snapshot offen und aktiviert parallel einen neuen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-013",
       "title": "Backup-, Restore- und Korruptionsdiagnostik fuer Snapshots implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "reliability",
@@ -897,12 +953,17 @@
         "Tests manipulieren Datenbankbytes, Pointer-Felder und Dateinamen.",
         "Restore-Test prueft erfolgreichen Rollback sowie abgelehnte Cross-Scope-Datei."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-014",
       "title": "Output-Manifest und Snapshot-Manifest deterministisch verbinden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -929,12 +990,17 @@
         "Golden-Manifesttest prueft identischen Fingerprint bei unterschiedlicher JSON-Key-Reihenfolge.",
         "Negativtests aendern Datei, Count, Profil und Source Scope."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-015",
       "title": "Begrenzten streaming JSONL-Importer implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -961,12 +1027,17 @@
         "Tests importieren kleine, grosse und partitionierte JSONL-Fixtures.",
         "Fuzztests pruefen kaputtes UTF-8, tiefe JSON-Strukturen, uebergrosse Zeilen und Abbruch."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-016",
       "title": "Dokument-, Text- und Provenienzprojektion materialisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -990,12 +1061,17 @@
         "Golden-Fixtures vergleichen DuckDB-Projektion mit OutputReader-Ergebnis.",
         "Duplikat- und Provenienztests pruefen stabile Auswahl und Fehlercodes."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-017",
       "title": "Graphfamilien als getrennte relationale Projektionen materialisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1020,12 +1096,17 @@
         "Paritaetstest vergleicht Node-/Edge-Counts und Identitaeten mit CodeCompassGraphStore.",
         "Negativtests pruefen Cross-Family-Kanten, fehlende IDs und ungueltige Evidence."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-018",
       "title": "Optionalen DuckDB-FTS-Adapter hinter schmalem Port implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1051,12 +1132,17 @@
         "Paritaetsfixtures vergleichen SQLite- und DuckDB-Resultsets fuer Symbole, Pfade und Begriffe.",
         "Negativtest startet ohne FTS-Bundle und prueft sichtbare Diagnostics."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-019",
       "title": "Deterministische Vector-Materialisierung in Fixed-Size ARRAY umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -1082,12 +1168,17 @@
         "Golden-Test vergleicht Point IDs, Payload und Compatibility mit JsonVectorStore.",
         "Negativtests pruefen Dimensionskonflikt, nicht-finite Werte und Scope-Mismatch."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-020",
       "title": "Inkrementelle Refresh-, Upsert-, Delete- und Tombstone-Projektion planen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1116,17 +1207,18 @@
         "Differentialtest vergleicht Full Rebuild gegen Folge aus Upserts und Deletes.",
         "Replay-Test wiederholt denselben Task und prueft unveraenderten Snapshot-Fingerprint."
       ],
-      "progress_percent": 20,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
-          "ALIGN-2026-08-17: Incremental Layer/ChangeSet existiert; DuckDB-Tombstone-Projektion fehlt."
+          "ALIGN-2026-08-17: Incremental Layer/ChangeSet existiert; DuckDB-Tombstone-Projektion fehlt.",
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
         ]
       }
     },
     {
       "id": "DDB-021",
       "title": "Parquet-Import-/Export- und Austauschvertrag definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "schema",
@@ -1154,12 +1246,17 @@
         "Roundtrip-Test exportiert und importiert alle freigegebenen Tabellen.",
         "Negativtests pruefen Schema Drift, manipulierte Hashes, fremden Scope und Path Traversal."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-022",
       "title": "Exakte DuckDB-Vector-Suche als Kompatibilitaetsbaseline implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -1187,12 +1284,17 @@
         "Differentialtest generiert Vector-Sets und vergleicht JSON gegen DuckDB exact.",
         "Tests pruefen leeren Index, Zero Vector, Ties, Limits und alle Distanzen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-023",
       "title": "VSS/HNSW als streng experimentelles Feature evaluieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "experiment",
@@ -1218,12 +1320,17 @@
         "Restarttest prueft HNSW-Persistenz und Extension-Versionswechsel.",
         "Benchmark vergleicht Recall, p50/p95, Buildzeit, RAM und Dateigroesse mit exact und Qdrant."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-024",
       "title": "Trusted Scope und Metadatenfilter fail-closed in SQL binden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1249,12 +1356,17 @@
         "Injection-Tests verwenden Quotes, Kommentare, Unicode, Wildcards und SQL-Keywords in allen Filtern.",
         "Cross-Scope-Test beweist Nulltreffer trotz identischer record_id in anderem Scope."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-025",
       "title": "CompatibilitySpec und Snapshot-Kompatibilitaet vollstaendig pruefen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "compatibility",
@@ -1281,12 +1393,17 @@
         "Matrix-Test variiert jedes Compatibility-Feld einzeln.",
         "Cross-Backend-Test prueft gleiche Reason-Semantik fuer JSON, DuckDB und Qdrant."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-026",
       "title": "Availability- und JSON-Fallback-Semantik fuer DuckDB generalisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "reliability",
@@ -1314,12 +1431,17 @@
         "Matrix-Test kombiniert Provider, Availability Mode, kompatiblen/inkompatiblen JSON-Index und Fehlerklasse.",
         "Regressionstest prueft unveraendertes Qdrant-Fallback-Verhalten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-027",
       "title": "DuckDB in CodeCompass Hybrid Retrieval und Ranking integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1348,17 +1470,18 @@
         "Hybrid-Golden-Tests vergleichen JSON-, DuckDB- und Qdrant-Vector-Signale.",
         "Scope-Test prueft doppelte Records, Pfadfilter und Cross-Engine-Deduplication."
       ],
-      "progress_percent": 15,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
-          "ALIGN-2026-08-17: Agentic Retrieval existiert; DuckDB-Kanal ist noch nicht verdrahtet."
+          "ALIGN-2026-08-17: Agentic Retrieval existiert; DuckDB-Kanal ist noch nicht verdrahtet.",
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
         ]
       }
     },
     {
       "id": "DDB-028",
       "title": "Reader-Lifecycle, Pointer-Watch und Cache-Invalidierung implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "lifecycle",
@@ -1385,12 +1508,17 @@
         "Concurrency-Test aktiviert waehrend langer Reader-Query einen neuen Snapshot.",
         "Negativtest publiziert ungueltigen Pointer und prueft Erhalt des alten Readers."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-029",
       "title": "CodeCompass-Analyseviews und Repository-Metriken definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "analytics",
@@ -1416,12 +1544,17 @@
         "Golden-Fixtures pruefen jede Kennzahl und Partial-Coverage-Warnung.",
         "Determinismustest variiert physische Insert-Reihenfolge."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-030",
       "title": "Repository-Intelligence-Queries auf einen schmalen Query-Source-Port refaktorieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "analytics",
@@ -1449,12 +1582,17 @@
         "Differentialtests laufen alle Repository-Intelligence-Query-Typen gegen beide Backends.",
         "Negativtests pruefen unbekannten Query-Typ, unklaren Seed und Scope-Verbreiterung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-031",
       "title": "Sichere agentische Analytics-Query-Templates anbieten",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -1483,12 +1621,17 @@
         "Injection-/Fuzztests pruefen alle Stringparameter und unbekannte Template-IDs.",
         "Budgettests erzwingen Timeout, Row- und Byte-Limit mit stabilen Fehlercodes."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-032",
       "title": "DuckDB-Snapshot und Diagnostics im CodeCompass-Control-Center anzeigen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "ui",
@@ -1515,12 +1658,17 @@
         "Route-Contracttests pruefen Redaction und alle Zustandsvarianten.",
         "UI-Test prueft Providerwechsel, Stale Warning und fehlende Berechtigung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-033",
       "title": "DuckDB-Materialisierung in den CodeCompass-Indexworkflow integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1551,12 +1699,17 @@
         "End-to-End-Fixture erzeugt Outputs, Snapshot, Pointer und anschliessende Hybrid-Suche.",
         "Negativtest bricht Materialisierung ab und prueft unveraenderte bestehende Artefakte."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-034",
       "title": "Auditierbare Analyse- und Parquet-Reports erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "analytics",
@@ -1583,12 +1736,17 @@
         "Roundtriptests validieren JSON, CSV und Parquet samt Manifest.",
         "Securitytests pruefen CSV-Formula-Injection und verbotene Spalten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-035",
       "title": "Fail-closed DuckDB Extension Supply Chain umsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1615,12 +1773,17 @@
         "Offline-Test startet Worker ohne Netzwerk und laedt freigegebene gebundene Extensions.",
         "Negativtests versuchen Community-, unsigned-, fremde Pfad- und Autoinstall-Loads."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-036",
       "title": "SQL-, Dateizugriffs- und Exfiltrationsgrenzen haerten",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1648,12 +1811,17 @@
         "SQL-Fuzzing prueft Comments, Semikolons, Unicode, verschachtelte Subqueries und Table Functions.",
         "Exfiltrationstest versucht lokale Dateien, Umgebungsvariablen, HTTP und verbotene Exporte."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-037",
       "title": "Speicher-, CPU-, Temp-Disk- und Query-Budgets durchsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "performance",
@@ -1681,12 +1849,17 @@
         "Tests erzwingen Thread-, RAM-, Temp-, Result- und Importlimits mit kleinen deterministischen Fixtures.",
         "Cancellationtest beendet lange Query und gibt Connection kontrolliert frei."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-038",
       "title": "Worker-Image und plattformuebergreifende DuckDB-Laufzeit paketieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "packaging",
@@ -1713,12 +1886,17 @@
         "Image-Contracttest prueft Pins, Non-Root, Offline-Start und fehlendes DuckDB im Core-Image.",
         "Plattformmatrix erstellt, liest, wechselt und entfernt versionierte Snapshots."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-039",
       "title": "Bounded Diagnostics, Metrics und Readiness implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -1748,12 +1926,17 @@
         "Metriktests pruefen feste Labelmengen und High-Cardinality-Abwehr.",
         "Readiness-Matrix prueft missing, valid, stale, incompatible, corrupt und resource_limited."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-040",
       "title": "Betriebs-, Security- und Fehlercode-Runbooks schreiben",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -1781,12 +1964,17 @@
         "Docs-Contracttest prueft Pflichtabschnitte, Links, Config-Felder und Fehlercodes.",
         "Fresh-install-Dry-run folgt dem Runbook offline."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-041",
       "title": "Backendneutrale Contract- und Config-Regression ausbauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "testing",
@@ -1818,12 +2006,17 @@
         "CI-Matrix: core, duckdb, qdrant-unit und kombinierte Contract-Suite.",
         "Importgraph-Test prueft keine optionalen Imports im Corepfad."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-042",
       "title": "Persistenz-, Restart-, Migration- und Korruptionsintegration testen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "testing",
@@ -1854,12 +2047,17 @@
         "Integrationstest laeuft mit exakt gepinntem DuckDB-Paket und ohne Netzwerk.",
         "Fault-Injection-Matrix deckt alle dauerhaften Schreibphasen ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-043",
       "title": "Concurrency- und Plattform-Dateisperren validieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
@@ -1887,12 +2085,17 @@
         "Multi-Prozess-Test koordiniert Writer, Reader und Pointer-Swap.",
         "Plattformjobs pruefen Lock-Freigabe nach Crash und normalen Close."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-044",
       "title": "Security-Negativsuite und Fuzzing als Release-Gate etablieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1922,12 +2125,17 @@
         "Deterministische Payload-Sammlung laeuft in jedem DuckDB-CI-Profil.",
         "Fuzzer besitzt feste Seeds, Laufzeitbudget und speichert nur redigierte reproduzierbare Fails."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-045",
       "title": "Vector-Backend-Benchmark und Auswahlgates definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "benchmark",
@@ -1957,12 +2165,17 @@
         "CI-Smoketest prueft Schema und kleine Fixture ohne Performance-Claim.",
         "Referenzhost-Lauf erzeugt signiertes BenchmarkRunArtifact mit RUN-ID vor Produktionsfreigabe."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-046",
       "title": "FTS-, Analytics- und Parquet-Benchmark mit Qualitaetsgates ausfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "benchmark",
@@ -1992,12 +2205,17 @@
         "Golden-Qualitaetsset prueft Symbole, Pfade, deutsche/englische Begriffe und Sonderzeichen.",
         "Benchmark-Artefakt kennzeichnet fehlende Referenzhardware als inconclusive."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-047",
       "title": "Stufenweisen Rollout, Migration und Rollback durchfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "release",
@@ -2032,12 +2250,17 @@
         "Rollout-Service-Test prueft jede Zustandsfolge, ungueltige Spruenge und Security-Downgrade.",
         "Canary-E2E wechselt DuckDB an/aus und prueft identische trusted Scope-Grenzen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     },
     {
       "id": "DDB-048",
       "title": "Abschlussdokumentation, Evidence und Definition of Done veroeffentlichen",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "documentation",
@@ -2066,7 +2289,12 @@
         "Docs- und Link-Checks laufen im Quality Workflow.",
         "Release-Review gleicht Definition of Done, Evidence-Artefakte und offene Risiken ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100,
+      "implementation": {
+        "notes": [
+          "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
+        ]
+      }
     }
   ],
   "definition_of_done": [
@@ -2088,7 +2316,8 @@
     "Der wichtigste technische Entwurf ist versioned immutable snapshot plus atomic active pointer; damit werden DuckDBs Multi-Prozess-Schreibgrenzen und Windows-Dateisperren sauber behandelt.",
     "Die vorhandene Qdrant-Integration liefert bereits Ports, trusted Scope, Compatibility, Task-Attestation, Admission, Replay Guard, Rollout, Metrics und JSON-Fallback, die fuer DuckDB wiederverwendet statt dupliziert werden sollen.",
     "SQLite FTS5 und JSON GraphStore bleiben Referenzen. DuckDB materialisiert zunaechst ein zusaetzliches Analyse- und Retrieval-Read-Model.",
-    "VSS/HNSW und DuckDB FTS besitzen eigene Benchmarks und Aktivierungsgates; beide bleiben standardmaessig deaktiviert."
+    "VSS/HNSW und DuckDB FTS besitzen eigene Benchmarks und Aktivierungsgates; beide bleiben standardmaessig deaktiviert.",
+    "COMPLETED-2026-08-17: Optional DuckDB extra, Config/Factory, Snapshot-Pointer, exact Vector Search, named Analytics-Templates, MCP, Security-Policy, Tests. VSS bleibt aus. JSON/Qdrant unveraendert Default."
   ],
   "tasks_status_summary": {
     "total": 48,
@@ -2425,14 +2654,12 @@
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 48,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "done": 48
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
@@ -2519,5 +2746,5 @@
     "source_hash": "03c35ae3ada9de8c722acc8c3c0c290f3dd686542206ed87deddf14644a13255",
     "is_stale": false
   },
-  "status": "in_progress"
+  "status": "done"
 }

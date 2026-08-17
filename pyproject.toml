@@ -147,6 +147,11 @@ qdrant = [
     # Qdrant 1.18.x; core/JSON installations do not import this package.
     "qdrant-client>=1.18,<1.19",
 ]
+duckdb = [
+    # Optional local analytics/exact-vector snapshot. Core and JSON/Qdrant
+    # installs do not import this package.
+    "duckdb>=1.1,<2",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"
