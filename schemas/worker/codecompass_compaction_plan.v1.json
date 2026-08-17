@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_compaction_plan.v1.json",
+  "title": "CodeCompass Compaction Plan v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "plan_id", "status"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.compaction_plan.v1" },
+    "plan_id": { "type": "string" },
+    "head_id": { "type": "string" },
+    "input_layers": { "type": "array", "items": { "type": "string" } },
+    "target_compatibility_keys": { "type": "array" },
+    "estimated_cost": { "type": "object" },
+    "reason": { "type": "string" },
+    "dry_run": { "type": "boolean" },
+    "status": { "type": "string", "enum": ["planned", "noop", "executed", "failed"] }
+  }
+}

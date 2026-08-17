@@ -28,6 +28,7 @@ from agent.routes.codecompass_domain_scope import codecompass_domain_scope_bp
 from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.codecompass_retrieve import codecompass_retrieve_bp
+from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
 from agent.routes.context_policy import context_policy_bp
@@ -142,6 +143,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(codecompass_graph_bp)
     app.register_blueprint(codecompass_reload_bp)
     app.register_blueprint(codecompass_retrieve_bp)
+    app.register_blueprint(codecompass_layers_bp)
     app.register_blueprint(worker_tool_loop_diagnostics_bp)
     app.register_blueprint(hub_direct_diagnostics_bp)
     app.register_blueprint(approvals_bp)

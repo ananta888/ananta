@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_build_profile.v1.json",
+  "title": "CodeCompass Build Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile_id", "profile_digest"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.build_profile.v1" },
+    "profile_id": { "type": "string" },
+    "profile_name": { "type": "string" },
+    "profile_version": { "type": "string" },
+    "canonical_config": { "type": "object" },
+    "profile_digest": { "type": "string" },
+    "parent_profile_id": { "type": ["string", "null"] },
+    "enabled_artifact_kinds": { "type": "array", "items": { "type": "string" } },
+    "parser_registry_digest": { "type": "string" },
+    "extractor_registry_digest": { "type": "string" },
+    "embedding_profile": { "type": "object" },
+    "graph_profile": { "type": "object" },
+    "search_profile": { "type": "object" }
+  }
+}

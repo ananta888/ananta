@@ -24,6 +24,8 @@ frozen; new tools bump the major version.
 | `codecompass.architecture_overview`     | HAC-009     | Budgeted system/subsystem/component slice.            |
 | `codecompass.architecture_expand`       | HAC-009     | Expand one architecture handle.                       |
 | `codecompass.architecture_diagram`      | HAC-011     | Deterministic Mermaid view of the slice.              |
+| `codecompass.layers_heads`              | CIL-022     | Read incremental layer heads.                         |
+| `codecompass.layers_plan`               | CIL-022     | Dry-run incremental update plan.                      |
 | `codecompass.plan_context`             | existing    | Plan bounded path/range context.                      |
 | `codecompass.expand_graph`             | existing    | Expand the symbolgraph around a seed.                 |
 | `codecompass.architecture_query`       | existing    | Whitelisted architecture queries.                     |

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_artifact_layer.v1.json",
+  "title": "CodeCompass Artifact Layer v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "layer_id", "layer_kind", "artifact_kind", "content_digest"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.artifact_layer.v1" },
+    "layer_id": { "type": "string", "minLength": 16 },
+    "layer_kind": { "type": "string", "enum": ["base", "delta"] },
+    "artifact_kind": { "type": "string" },
+    "compatibility_key": { "type": "object" },
+    "source_revision": { "type": "string" },
+    "snapshot_revision": { "type": "string" },
+    "changeset_id": { "type": "string" },
+    "parent_layer_id": { "type": ["string", "null"] },
+    "content_digest": { "type": "string", "minLength": 16 },
+    "record_count": { "type": "integer", "minimum": 0 },
+    "tombstone_count": { "type": "integer", "minimum": 0 },
+    "coverage": { "type": "object" },
+    "build_status": { "type": "string", "enum": ["staging", "verified", "published"] },
+    "records": { "type": "array" }
+  }
+}

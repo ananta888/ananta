@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_changeset.v1.json",
+  "title": "CodeCompass ChangeSet v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "changeset_id", "from_snapshot_revision", "to_snapshot_revision", "changed_paths"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.changeset.v1" },
+    "changeset_id": { "type": "string", "minLength": 16 },
+    "workspace_id": { "type": ["string", "null"] },
+    "repository_id": { "type": ["string", "null"] },
+    "from_source_revision": { "type": ["string", "null"] },
+    "to_source_revision": { "type": ["string", "null"] },
+    "from_snapshot_revision": { "type": "string" },
+    "to_snapshot_revision": { "type": "string" },
+    "changed_paths": { "type": "array", "items": { "type": "string" } },
+    "file_changes": { "type": "array" },
+    "policy_transitions": { "type": "array" },
+    "impacted_entities": { "type": "array", "items": { "type": "string" } },
+    "reason_codes": { "type": "array", "items": { "type": "string" } }
+  }
+}

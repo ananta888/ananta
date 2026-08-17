@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/worker/codecompass_layer_head.v1.json",
+  "title": "CodeCompass Layer Head v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "head_id", "profile_id", "generation", "base_layer_set", "ordered_delta_sets"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.layer_head.v1" },
+    "head_id": { "type": "string" },
+    "workspace_id": { "type": "string" },
+    "repository_id": { "type": "string" },
+    "profile_id": { "type": "string" },
+    "artifact_set_revision": { "type": "string" },
+    "base_layer_set": { "type": "object" },
+    "ordered_delta_sets": { "type": "array" },
+    "effective_source_revision": { "type": "string" },
+    "generation": { "type": "integer", "minimum": 0 },
+    "published_at": { "type": "string" }
+  }
+}

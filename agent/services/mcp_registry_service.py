@@ -104,6 +104,25 @@ class MCPRegistryService:
             },
         ),
         MCPToolSpec(
+            name="codecompass.layers_heads",
+            description="List incremental CodeCompass layer heads/profiles. Read-only.",
+            input_schema={"type": "object", "additionalProperties": False, "properties": {"profile_id": {"type": "string"}}},
+        ),
+        MCPToolSpec(
+            name="codecompass.layers_plan",
+            description="Dry-run an incremental index update plan from two snapshot manifests.",
+            input_schema={
+                "type": "object",
+                "required": ["old_manifest", "new_manifest"],
+                "additionalProperties": False,
+                "properties": {
+                    "old_manifest": {"type": "object"},
+                    "new_manifest": {"type": "object"},
+                    "profile_id": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.retrieve",
             description=(
                 "Retrieve budgeted CodeCompass evidence for a project question. "
@@ -310,6 +329,25 @@ class MCPRegistryService:
             )
             result = handler(workspace_dir="", arguments=args, tool_call_id=f"mcp:{name}")
             return {"content": [{"type": "json", "json": result}]}
+
+        if name == "codecompass.layers_heads":
+            from agent.services.codecompass_layer_service import get_codecompass_layer_service
+
+            profile_id = str(args.get("profile_id") or "")
+            service = get_codecompass_layer_service()
+            payload = {"profiles": service.list_profiles(), "head": service.show_head(profile_id) if profile_id else None}
+            return {"content": [{"type": "json", "json": payload}]}
+
+        if name == "codecompass.layers_plan":
+            from agent.services.codecompass_layer_service import get_codecompass_layer_service
+
+            plan = get_codecompass_layer_service().plan_update(
+                old_manifest=args.get("old_manifest") or {},
+                new_manifest=args.get("new_manifest") or {},
+                profile={},
+                profile_id=str(args.get("profile_id") or "default"),
+            )
+            return {"content": [{"type": "json", "json": plan}]}
 
         if name == "codecompass.retrieve":
             from agent.services.codecompass_agentic_retrieval_service import (
