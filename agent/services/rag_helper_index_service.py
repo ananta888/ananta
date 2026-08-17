@@ -1033,9 +1033,9 @@ class RagHelperIndexService:
 
         ``persist_control_plane_records`` only controls the two Hub-owned
         database projections; output generation and returned models are
-        unchanged. Bound v2 Worker execution disables that persistence because
-        the Hub is their sole owner. The default preserves the legacy/Hub
-        behavior for direct callers.
+        unchanged. Worker execution always disables that persistence because
+        the Hub is their sole owner. The default preserves the Hub behavior
+        for direct callers.
         """
         from pathlib import Path as _Path
         _checkpoint(execution_deadline)

@@ -258,6 +258,50 @@ def _authorized_source_ids_from_environment() -> tuple[str, ...]:
     return tuple(sorted(supplied))
 
 
+class _IsolatedArtifactStoreDownloader:
+    """Copy Worker-published artifacts from the isolated gate store.
+
+    Generic ``/artifacts/<id>/content`` hides capability-bound worker
+    outputs. Production uses the internal output-capability route; this
+    in-process adapter reads the same published versions the Worker stored.
+    """
+
+    def download_to_path(
+        self,
+        *,
+        worker_url: str,
+        worker_token: str,
+        reference: Mapping[str, Any],
+        destination: Path,
+        source_access_manifest: Mapping[str, Any] | None = None,
+        job_id: str | None = None,
+        transfer_deadline: Any | None = None,
+    ) -> None:
+        del worker_url, worker_token, source_access_manifest, job_id, transfer_deadline
+        from agent.repository import artifact_repo, artifact_version_repo
+
+        artifact_id = str(reference.get("artifact_id") or "").strip()
+        expected_hash = str(reference.get("sha256") or "").lower()
+        expected_size = reference.get("size_bytes")
+        artifact = artifact_repo.get_by_id(artifact_id)
+        version_id = str(getattr(artifact, "latest_version_id", "") or "").strip()
+        version = artifact_version_repo.get_by_id(version_id) if version_id else None
+        storage_path = Path(str(getattr(version, "storage_path", "") or ""))
+        if artifact is None or version is None or not storage_path.is_file():
+            raise RuntimeError("codecompass_gate_worker_artifact_missing")
+        content = storage_path.read_bytes()
+        if (
+            not isinstance(expected_size, int)
+            or len(content) != expected_size
+            or hashlib.sha256(content).hexdigest() != expected_hash
+        ):
+            raise RuntimeError("codecompass_gate_worker_artifact_digest_mismatch")
+        if destination.exists() or destination.is_symlink():
+            raise RuntimeError("codecompass_gate_artifact_staging_conflict")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes(content)
+
+
 @contextmanager
 def _artifact_server(token: str) -> Iterator[str]:
     from flask import Flask
@@ -632,6 +676,7 @@ def build_gate_report(
         hub_materialized_root = runtime_root / "hub-materialized"
         artifact_service = KnowledgeIndexWorkerArtifactService(
             output_root=hub_materialized_root,
+            downloader=_IsolatedArtifactStoreDownloader(),
         )
         job_service = KnowledgeIndexJobService(worker_artifact_service=artifact_service)
         with _artifact_server(WORKER_TOKEN) as worker_url:

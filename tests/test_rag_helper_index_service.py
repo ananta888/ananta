@@ -332,6 +332,10 @@ def test_bound_v2_source_records_disable_worker_projection_persistence():
             "job_id": "bound-job",
             "job_type": "source_records",
             "created_by": "hub",
+            "authority_binding": {
+                "source_revision_id": "srev-test",
+                "source_revision_digest": "a" * 64,
+            },
             "payload": {
                 "source_scope": "repo_path",
                 "source_id": "revision-1",
@@ -344,7 +348,7 @@ def test_bound_v2_source_records_disable_worker_projection_persistence():
     assert captured["persist_control_plane_records"] is False
 
 
-def test_legacy_source_records_keep_default_persistence_contract():
+def test_legacy_source_records_do_not_persist_hub_projections():
     captured = {}
 
     class LegacyIndexService:
@@ -381,7 +385,7 @@ def test_legacy_source_records_keep_default_persistence_contract():
     )
 
     assert result["status"] == "completed"
-    assert "persist_control_plane_records" not in captured
+    assert captured["persist_control_plane_records"] is False
 
 
 def test_repo_source_records_build_deterministic_deep_code_graph(tmp_path):

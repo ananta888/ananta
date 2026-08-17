@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "visual-process-contextual-node-configuration-ai-snake-codecompass",
   "created": "2026-07-18",
-  "updated": "2026-07-18",
+  "updated": "2026-08-17",
   "status": "blocked",
   "priority": "P0",
   "status_scale": [
@@ -357,7 +357,7 @@
         "VPA-CC-008",
         "VPA-CC-009"
       ],
-      "status": "blocked"
+      "status": "partial"
     },
     {
       "id": "VPA-M3",
@@ -744,10 +744,10 @@
       "description": "Das Gate prueft den realen Hub-Worker-Index- und Retrievalpfad ohne Produkt-Fakes und verhindert eine erneute false-complete Integration.",
       "type": "acceptance-test",
       "milestone_id": "VPA-M2",
-      "status": "blocked",
-      "progress_percent": 80,
+      "status": "partial",
+      "progress_percent": 95,
       "blocked_reason_code": "authoritative_source_evidence_unavailable",
-      "blocked_on": "Ein externer Authority-Dienst muss mindestens eine gueltige SRC_*- oder RUN_*-ID fuer den opt-in Positivlauf bereitstellen; der Defaultlauf darf keine Identitaet erzeugen.",
+      "blocked_on": "Der Defaultlauf ist lokal gruen und erzeugt keine Identitaet. Der opt-in Positivlauf bleibt ohne bereitgestellte SRC_*- oder RUN_*-ID fail-closed.",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -759,9 +759,11 @@
         "VPA-CC-008"
       ],
       "affected_files": [
-        "tests/integration/codecompass/**",
-        "artifacts/test-gates/codecompass-editor-assistant.json",
-        "scripts/check_codecompass_editor_gate.py"
+        "scripts/generate_codecompass_e2e_gate.py",
+        "tests/test_codecompass_e2e_acceptance_gate.py",
+        "artifacts/test-gates/codecompass-e2e.json",
+        "worker/retrieval/knowledge_index_job_handler.py",
+        "agent/services/rag_helper_index_service.py"
       ],
       "acceptance_criteria": [
         "Zwei identische Fixture-Laeufe erzeugen byte-identisches Snapshot-Manifest, Records, Retrieval-Reihenfolge, Source-Katalog und Prompt-Evidence-Bundle.",
@@ -769,7 +771,17 @@
         "Das Gate schlaegt bei required_path missing, silently_skipped groesser null, leerem Produktionskanal, unbekannter Source-ID, stale Revision oder Prompt-Injection fehl.",
         "Der strukturierte Gate-Report enthaelt stabile Counts und Hashes, aber keine Zeitstempel, absolute Pfade, Repository-Volltexte oder Secrets.",
         "Bestehende kompatible CodeCompass-APIs bleiben ueber Adapter nutzbar und sind durch Regressionstests abgedeckt."
-      ]
+      ],
+      "verification_state": "local_verified_external_unverified",
+      "status_basis": "Das Default-Gate durchlaeuft Hub-Task, Worker-Ingestion ohne Control-Plane-Persistenz, atomare Hub-Materialisierung, Search-Port, fail-closed Source-Katalog und Evidence-Block. Zwei Generatorlaeufe sind byte-identisch; six Negativgates bestehen; release_allowed=false. Der opt-in Positivlauf bleibt ohne autorisierte SRC_*/RUN_*-ID skipped.",
+      "acceptance_evidence": {
+        "default_gate": "passed",
+        "byte_reproducible": true,
+        "release_allowed": false,
+        "source_ids_synthesized": false,
+        "positive_authority": "skipped_authoritative_source_evidence_unavailable",
+        "tests": "tests/test_codecompass_e2e_acceptance_gate.py 4 passed 1 skipped"
+      }
     },
     {
       "id": "VPA-ED-001",
@@ -1561,8 +1573,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 2,
+      "partial": 1,
+      "blocked": 1,
       "done": 36
     },
     "progress_percent_done": 94.74,
@@ -1587,8 +1599,8 @@
       "total": 7,
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 2,
+      "partial": 1,
+      "blocked": 1,
       "done": 5
     }
   },
@@ -1611,7 +1623,8 @@
     "tasks ist die einzige Source-of-Truth; Summary-Felder werden nach jeder Statusaenderung kanonisch neu berechnet.",
     "Der kritische Pfad verwendet Gleichgewichtung, bis belastbare Aufwandsschaetzungen vorliegen; das Taskset enthaelt beide gleich langen Parallelzweige ContextAssembler und Assistant-Contract vor ihrem Join.",
     "Feature-Flags werden mit den jeweiligen Implementierungen eingefuehrt und nicht erst im abschliessenden Rollouttask.",
-    "36 von 38 Tasks sind lokal vollstaendig abgenommen. VPA-CC-009 und VPA-QA-001 bleiben mit authoritative_source_evidence_unavailable blockiert; der Rollout ist deshalb weiterhin deaktiviert."
+    "36 von 38 Tasks sind lokal vollstaendig abgenommen. VPA-CC-009 und VPA-QA-001 bleiben mit authoritative_source_evidence_unavailable blockiert; der Rollout ist deshalb weiterhin deaktiviert.",
+    "2026-08-17: VPA-CC-009 Default-Gate lokal hergestellt. Worker persistieren keine Hub-KnowledgeIndex-Zeilen; die Materialisierung bindet Hub-seitig. Positivlauf und VPA-QA-001 bleiben ohne SRC_*/RUN_*-IDs blockiert."
   ],
   "tasks_type_summary": {
     "total": 38,
@@ -1763,16 +1776,16 @@
       "acceptance-test": {
         "total": 2,
         "done": 0,
-        "partial": 0,
-        "blocked": 2,
+        "partial": 1,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 80.0,
+        "progress_percent": 87.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 2,
+          "partial": 1,
+          "blocked": 1,
           "done": 0
         }
       },
@@ -2022,8 +2035,8 @@
     "state": "in_progress",
     "todo_remaining": 2,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 2,
+    "partial": 1,
+    "blocked": 1,
     "done": 36,
     "milestones_done": 5,
     "milestones_total": 7

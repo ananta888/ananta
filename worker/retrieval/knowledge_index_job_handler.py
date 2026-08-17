@@ -681,6 +681,9 @@ class RagHelperKnowledgeIndexExecution:
                 "reason_code": "knowledge_index_run_failed" if overall_status == "failed" else None,
             }
         if job_type == "source_records":
+            # Workers publish artifacts only. Hub materialization owns
+            # KnowledgeIndexDB/Run rows and their binding metadata. Sharing a
+            # database with persist=True collides with that admission check.
             knowledge_index, run = self._index_service.index_source_records(
                 source_scope=str(payload.get("source_scope") or ""),
                 source_id=str(payload.get("source_id") or ""),
@@ -689,11 +692,7 @@ class RagHelperKnowledgeIndexExecution:
                 profile_name=self._profile_name(job),
                 source_metadata=dict(payload.get("source_metadata") or {}),
                 codecompass_prerender=bool(payload.get("codecompass_prerender", False)),
-                **(
-                    {"persist_control_plane_records": False}
-                    if str(job.get("schema") or "") == BOUND_JOB_SCHEMA
-                    else {}
-                ),
+                persist_control_plane_records=False,
                 **deadline_kwargs,
             )
             self._checkpoint(execution_deadline)
