@@ -82,6 +82,9 @@ from agent.services.hub_git_authorization_provisioning import (
     UnavailableHubGitAuthorizationProvisioner,
     UnavailableHubGitSecretResolver,
 )
+from agent.services.hub_git_github_authorization_provider import (
+    compose_github_authorization_provisioner_from_env,
+)
 from agent.services.knowledge_index_payload_authorization import (
     KnowledgeIndexPayloadCapabilityAuthorizer,
 )
@@ -599,6 +602,16 @@ def register_source_control_api(app) -> None:
         index_profiles=get_rag_helper_index_service(),
     )
     app.extensions["source_control_read_catalogs"] = read_catalogs
+    if app.extensions.get("hub_git_authorization_provisioner") is None:
+        composed_github = compose_github_authorization_provisioner_from_env(
+            secret_resolver=secret_resolver,
+        )
+        if composed_github is not None:
+            github_provisioner, secret_resolver = composed_github
+            app.extensions["hub_git_authorization_provisioner"] = (
+                github_provisioner
+            )
+            app.extensions["hub_git_secret_resolver"] = secret_resolver
     git_authorizations = HubGitAuthorizationProvisioningService(
         repository=remote_catalog,
         provider=(

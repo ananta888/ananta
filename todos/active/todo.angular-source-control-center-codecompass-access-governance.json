@@ -811,7 +811,10 @@
         "agent/services/secret_store.py",
         "agent/sources/github_repository_connector.py",
         "agent/sources/git_source_connector_common.py",
-        "tests/test_git_source_connectors.py"
+        "tests/test_git_source_connectors.py",
+        "agent/services/hub_git_github_authorization_provider.py",
+        "tests/test_hub_git_github_authorization_provider.py",
+        "docs/source-control-git-authorization-onboarding.md"
       ],
       "acceptance_criteria": [
         "Organisation, Repository, Ref und Commit werden über eine serverseitig autorisierte GitHub-Installation aufgelöst.",
@@ -825,7 +828,7 @@
         "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
         "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
       ],
-      "status_basis": "Credential-freies Public Git/GitHub ist lokal vollstaendig verifiziert: Chromium bestand 1/1 ohne Retry ueber Validate, Create, immutable Commit-Pinning, Connection, Refresh, Scan, Hub-owned lokale Einmalfreigabe, Index-Run, Worker-Ausfuehrung und Aktivierung. Der private GitHub-App-/OAuth-Pfad bleibt fail-closed implementiert, aber reale externe Installation und OAuth-Grant fehlen. Nur diese externe Providergrenze haelt die Aufgabe auf partial.",
+      "status_basis": "Der serverseitige GitHub-App-/OAuth-Adapter ist lokal implementiert und getestet: Installation und Repo werden ohne Token-Rueckgabe aufgeloest, contents:read ist Pflicht, fehlende Grants und fehlende Contents-Permission bleiben fail-closed. Refresh/Index bleiben nach Revoke/Scope-loss authorization_required. Default-Provider bleibt unavailable, bis HUB_GIT_GITHUB_APP_ID und ein Secret-Ref gesetzt sind. Eine reale externe Installation oder ein OAuth-Grant ist weiterhin unverified.",
       "acceptance_evidence": {
         "persistent_connector_composition": "passed",
         "server_handle_only_api": "passed",
@@ -846,7 +849,10 @@
         "public_remote_ref": "master_resolved_to_immutable_commit",
         "private_provider_registration_count": 0,
         "public_remote_regression_gates": "passed_37_of_37_39_of_39_43_of_43_14_of_14",
-        "hub_owned_prepare_index_access": "passed"
+        "hub_owned_prepare_index_access": "passed",
+        "github_app_oauth_adapter": "implemented_fail_closed_default",
+        "github_app_oauth_unit_tests": "passed_11_of_11",
+        "token_returned_to_client": false
       }
     },
     {
@@ -2186,7 +2192,8 @@
     "Aktueller UX-Delta: Backend 136/136, 37/37, 39/39, 43/43 und 14/14; Frontend initial 32/32, final 6/6 sowie App-/Spec-Typecheck; Public-Git- und Workspace-Snapshot-Chromium jeweils 1/1 ohne Retry bis zur Aktivierung.",
     "Public Git/GitHub und Workspace-Snapshot sind lokal ueber das sichtbare Hauptmenue Quellen & Indexierung, den Projekt-CTA Git oder Ordner hinzufügen, den Project-Binding-Hinweis und die vier Quellkarten bis zur Aktivierung verifiziert. Beide nutzten genau den Hub-owned Prepare-Index-Access-Aggregatpfad; Worker orchestrierten keine Worker und der Browser keine Policy-/Grant-Sequenz.",
     "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden.",
-    "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert."
+    "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert.",
+    "2026-08-17: Built-in GitHub App/OAuth provisioner added. Default bleibt unavailable. Adapter loest github-installation:<id> und gespeicherte github-oauth-Grants serverseitig, fordert contents:read, persistiert keine Tokens und gibt keine Tokens an Angular. Live-Installation und OAuth-Grant bleiben extern unverified."
   ],
   "end_summaries": [
     {
@@ -2324,10 +2331,10 @@
     },
     {
       "capability": "private_github_app_oauth",
-      "backend": "provider_boundary_implemented_fail_closed",
+      "backend": "adapter_implemented_fail_closed_until_app_credentials",
       "angular": "authorization_ui_implemented",
       "external_private_provider": "not_configured",
-      "verification": "external_unverified"
+      "verification": "locally_verified_unit_adapter_external_installation_unverified"
     }
   ],
   "latest_verification_results": {

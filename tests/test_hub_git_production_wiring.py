@@ -36,3 +36,4 @@ def test_bootstrap_does_not_accept_git_provider_material_from_configuration():
     assert "GIT_REMOTE_URL" not in source
     assert "hub_git_authorization_provisioner" in source
     assert "hub_git_secret_resolver" in source
+    assert "compose_github_authorization_provisioner_from_env" in source

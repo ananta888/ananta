@@ -32,14 +32,25 @@ The Hub validates that result through `GitRemoteAccessPolicy`, requires
 through `SQLHubGitAuthorizationRepository`. The repository supplies CAS,
 immutable revision history and content-free audit records.
 
-Ananta intentionally ships an unavailable default provider and secret resolver.
-An operator must install both as application extensions:
+Ananta ships an unavailable default provider and secret resolver. Operators may
+install both as application extensions, or enable the built-in GitHub adapter
+with Hub-owned App credentials:
 
 - `hub_git_authorization_provisioner`
 - `hub_git_secret_resolver`
+- `HUB_GIT_GITHUB_APP_ID`
+- `HUB_GIT_GITHUB_APP_PRIVATE_KEY_REF` (opaque secret reference, never a token)
 
-Until then health remains unavailable and onboarding fails closed. No provider
-secret or endpoint is returned by list, detail, mutation or health responses.
+The adapter resolves a server-issued `github-installation:<id>` or stored
+`github-oauth:<handle>` against GitHub, requires `contents:read`, and returns
+only opaque credential references. Installation tokens are minted later by the
+secret resolver and never persist in the authorization registration or Angular
+payloads. OAuth still requires a prior server-side grant store; without one the
+path stays fail-closed.
+
+Until a provider is configured, health remains unavailable and onboarding fails
+closed. No provider secret or endpoint is returned by list, detail, mutation or
+health responses.
 
 ## Lifecycle
 
