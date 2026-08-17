@@ -4,17 +4,19 @@ import hashlib
 import json
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional, Dict, List
 
 from agent.services.codecompass_editor_context_contract import (
     CodeCompassEditorDetailLevel,
     CodeCompassEditorQueryInput,
 )
+from agent.services.codecompass_architecture_budget import ArchitectureBudgetPolicy
 
 SCHEMA_LOCATION_REF = "codecompass_location_ref.v1"
 SCHEMA_CONTEXT_BUNDLE = "codecompass_context_bundle.v1"
 SCHEMA_UNIFIED_CONTEXT = "codecompass_unified_context.v1"
 SCHEMA_EDITOR_CONTEXT_BUNDLE = "codecompass_editor_context_bundle.v1"
+SCHEMA_ARCHITECTURE_PREFILL = "codecompass_architecture_prefill.v1"
 
 _VERIFICATION_RANK = {"verified": 0, "unverified": 1, "failed": 2}
 _TRUST_RANK = {
@@ -863,6 +865,100 @@ class CodeCompassContextPlanner:
         }
         core["bundle_id"] = self._stable_id("cc-unified", core)
         return core
+
+    def plan_architecture_prefill(
+        self,
+        *,
+        query: str,
+        scope: str,
+        revision: str,
+        tenant: str,
+        budget: Optional[Dict[str, Any]] = None,
+        architecture_service: Optional[Any] = None,
+        include_architecture: bool = True,
+    ) -> Dict[str, Any]:
+        """Build context with optional architecture prefill.
+        
+        This method extends plan_context to optionally include a hierarchical
+        architecture slice before the fine-grained evidence snippets.
+        
+        Parameters
+        ----------
+        query
+            User query or task description
+        scope
+            Root scope for architecture projection
+        revision
+            Repository revision
+        tenant
+            Tenant identifier
+        budget
+            Context budget constraints
+        architecture_service
+            Architecture slice service instance
+        include_architecture
+            Whether to include architecture prefill (intent-dependent)
+            
+        Returns
+        -------
+        dict
+            Context bundle with optional architecture_context block
+        """
+        # Plan regular context
+        regular_context = self.plan_context(
+            query=query,
+            budget=budget,
+            include_neighbors=True
+        )
+        
+        # Add architecture prefill if requested and service available
+        architecture_context = None
+        if include_architecture and architecture_service:
+            try:
+                # Select architecture slice
+                arch_slice = architecture_service.select_slice(
+                    query=query,
+                    scope=scope,
+                    revision=revision,
+                    tenant=tenant,
+                    max_nodes=10,  # Default architecture budget
+                    max_tokens=500
+                )
+                
+                # Convert to architecture context format
+                architecture_context = {
+                    "schema": SCHEMA_ARCHITECTURE_PREFILL,
+                    "query": query,
+                    "scope": scope,
+                    "revision": revision,
+                    "nodes": list(arch_slice.nodes.values()),
+                    "edges": arch_slice.edges,
+                    "expandable_nodes": arch_slice.expandable_nodes,
+                    "truncation_reason": arch_slice.truncation_reason,
+                    "continuation_handle": arch_slice.continuation_handle,
+                    "budget_used": arch_slice.total_budget_used
+                }
+                
+            except Exception as e:
+                # Fail gracefully - architecture is optional enhancement
+                architecture_context = {
+                    "schema": SCHEMA_ARCHITECTURE_PREFILL,
+                    "error": str(e),
+                    "fallback_to_regular_context": True
+                }
+        
+        # Merge contexts
+        result = dict(regular_context)
+        if architecture_context:
+            result["architecture_context"] = architecture_context
+        
+        # Update diagnostics
+        if "diagnostics" not in result:
+            result["diagnostics"] = {}
+        result["diagnostics"]["architecture_included"] = architecture_context is not None
+        result["diagnostics"]["include_architecture_flag"] = include_architecture
+        
+        return result
 
 
 _codecompass_context_planner = CodeCompassContextPlanner()

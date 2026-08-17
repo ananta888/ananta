@@ -13,6 +13,7 @@ SCHEMA_SEARCH_RESULT = "codecompass_search_result.v1"
 SCHEMA_FILE_CONTEXT_RESULT = "codecompass_file_context_result.v1"
 SCHEMA_GRAPH_EXPANSION = "codecompass_graph_expansion.v1"
 SCHEMA_DOMAIN_MAP = "codecompass_domain_map.v1"
+SCHEMA_HIERARCHICAL_ARCH_CONTEXT = "codecompass_hierarchical_arch_context.v1"
 
 _SECRET_PATTERNS = [
     re.compile(r"(?i)(api[_-]?key|token|secret|password)\s*[:=]\s*['\"]?([^\s'\";]+)"),
@@ -712,3 +713,23 @@ _codecompass_context_service = CodeCompassContextService()
 
 def get_codecompass_context_service() -> CodeCompassContextService:
     return _codecompass_context_service
+
+
+# HAC-004: Architecture Security Integration
+def get_architecture_security_gate_for_context(
+    tenant: str,
+    workspace: str,
+    revision: str,
+    policy_config: dict[str, Any] | None = None,
+) -> "ArchitectureSecurityGate":
+    """Factory für ArchitectureSecurityGate im Context Service.
+    
+    Wird lazy importiert um zirkuläre Abhängigkeiten zu vermeiden.
+    """
+    from agent.services.codecompass_architecture_security import (
+        ArchitectureSecurityGate,
+        ArchitectureSecurityPolicy,
+    )
+    
+    policy = ArchitectureSecurityPolicy.from_raw(policy_config)
+    return ArchitectureSecurityGate(policy=policy)

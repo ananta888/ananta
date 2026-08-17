@@ -1096,3 +1096,432 @@ def codecompass_build_test_map(
             "warnings_dependencies": list(deps.warnings),
         },
     )
+
+
+def codecompass_architecture_overview(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Liefert eine hierarchische Architekturübersicht für eine Query.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: query, max_nodes, max_tokens, depth, include_summaries
+        tool_call_id: Tool-Call-ID für Evidence-Tracking
+        
+    Returns:
+        ToolResult mit Architecture Slice (nodes, edges, summaries, budgets)
+    """
+    args = arguments or {}
+    query = str(args.get("query") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.architecture_overview",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="query_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        slice_result = slice_service.select_architecture_slice(
+            query=query,
+            strategy="QUERY_RELEVANCE",
+            max_nodes=int(args.get("max_nodes", 20)),
+            max_tokens=int(args.get("max_tokens", 2000)),
+            max_depth=int(args.get("depth", 3)),
+            include_summaries=bool(args.get("include_summaries", True)),
+        )
+    except Exception as exc:
+        logger.exception("architecture_overview failed")
+        return build_tool_result(
+            tool_name="codecompass.architecture_overview",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.architecture_overview",
+        tool_call_id=tool_call_id,
+        status="ok" if slice_result.get("status") == "ok" else "degraded",
+        data={"architecture_slice": slice_result},
+        warnings=list(slice_result.get("warnings") or []),
+    )
+
+
+def codecompass_architecture_expand(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Expandiert einen Node aus einem Architecture Slice.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: node_handle, direction (children|parents|siblings), depth, budget
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit expandierten Nodes und Edges
+    """
+    args = arguments or {}
+    node_handle = str(args.get("node_handle") or "").strip()
+    if not node_handle:
+        return build_tool_result(
+            tool_name="codecompass.architecture_expand",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="node_handle_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        expansion = slice_service.expand_node(
+            node_handle=node_handle,
+            direction=str(args.get("direction", "children")),
+            depth=int(args.get("depth", 1)),
+            max_nodes=int(args.get("max_nodes", 10)),
+        )
+    except Exception as exc:
+        logger.exception("architecture_expand failed")
+        return build_tool_result(
+            tool_name="codecompass.architecture_expand",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.architecture_expand",
+        tool_call_id=tool_call_id,
+        status="ok" if expansion.get("status") == "ok" else "degraded",
+        data={"expansion": expansion},
+        warnings=list(expansion.get("warnings") or []),
+    )
+
+
+def codecompass_component_context(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Liefert den Kontext einer spezifischen Komponente.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: component_id, include_files, include_symbols, max_tokens
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit Komponenten-Kontext (files, symbols, dependencies)
+    """
+    args = arguments or {}
+    component_id = str(args.get("component_id") or "").strip()
+    if not component_id:
+        return build_tool_result(
+            tool_name="codecompass.component_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="component_id_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        context = slice_service.get_component_context(
+            component_id=component_id,
+            include_files=bool(args.get("include_files", True)),
+            include_symbols=bool(args.get("include_symbols", True)),
+            max_tokens=int(args.get("max_tokens", 1500)),
+        )
+    except Exception as exc:
+        logger.exception("component_context failed")
+        return build_tool_result(
+            tool_name="codecompass.component_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.component_context",
+        tool_call_id=tool_call_id,
+        status="ok" if context.get("status") == "ok" else "degraded",
+        data={"component_context": context},
+        warnings=list(context.get("warnings") or []),
+    )
+
+
+def codecompass_dependencies(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Liefert Abhängigkeiten eines Nodes.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: node_id, direction (incoming|outgoing|both), edge_types
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit Dependency-Liste
+    """
+    args = arguments or {}
+    node_id = str(args.get("node_id") or "").strip()
+    if not node_id:
+        return build_tool_result(
+            tool_name="codecompass.dependencies",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="node_id_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        deps = slice_service.get_dependencies(
+            node_id=node_id,
+            direction=str(args.get("direction", "both")),
+            edge_types=args.get("edge_types"),
+            max_results=int(args.get("max_results", 30)),
+        )
+    except Exception as exc:
+        logger.exception("dependencies failed")
+        return build_tool_result(
+            tool_name="codecompass.dependencies",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.dependencies",
+        tool_call_id=tool_call_id,
+        status="ok" if deps.get("status") == "ok" else "degraded",
+        data={"dependencies": deps},
+        warnings=list(deps.get("warnings") or []),
+    )
+
+
+def codecompass_symbol_context(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Liefert den Kontext eines Symbols.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: symbol_id, include_references, include_definitions
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit Symbol-Kontext
+    """
+    args = arguments or {}
+    symbol_id = str(args.get("symbol_id") or "").strip()
+    if not symbol_id:
+        return build_tool_result(
+            tool_name="codecompass.symbol_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="symbol_id_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        context = slice_service.get_symbol_context(
+            symbol_id=symbol_id,
+            include_references=bool(args.get("include_references", True)),
+            max_tokens=int(args.get("max_tokens", 1000)),
+        )
+    except Exception as exc:
+        logger.exception("symbol_context failed")
+        return build_tool_result(
+            tool_name="codecompass.symbol_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.symbol_context",
+        tool_call_id=tool_call_id,
+        status="ok" if context.get("status") == "ok" else "degraded",
+        data={"symbol_context": context},
+        warnings=list(context.get("warnings") or []),
+    )
+
+
+def codecompass_architecture_evidence(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-009: Liefert Evidence für einen Architecture Node.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: node_id, evidence_types
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit Evidence-Liste
+    """
+    args = arguments or {}
+    node_id = str(args.get("node_id") or "").strip()
+    if not node_id:
+        return build_tool_result(
+            tool_name="codecompass.architecture_evidence",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="node_id_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        evidence = slice_service.get_node_evidence(
+            node_id=node_id,
+            evidence_types=args.get("evidence_types"),
+        )
+    except Exception as exc:
+        logger.exception("architecture_evidence failed")
+        return build_tool_result(
+            tool_name="codecompass.architecture_evidence",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.architecture_evidence",
+        tool_call_id=tool_call_id,
+        status="ok" if evidence.get("status") == "ok" else "degraded",
+        data={"evidence": evidence},
+        warnings=list(evidence.get("warnings") or []),
+    )
+
+
+def codecompass_architecture_diagram(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-011: Generiert ein Diagramm aus einem Architecture Slice.
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: slice_data, diagram_type (component|dependency|system|sequence), format
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit Diagramm-Inhalt (Mermaid/PlantUML)
+    """
+    args = arguments or {}
+    slice_data = args.get("slice_data")
+    if not slice_data:
+        return build_tool_result(
+            tool_name="codecompass.architecture_diagram",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="slice_data_required",
+        )
+    
+    from agent.services.codecompass_architecture_diagram_service import get_architecture_diagram_service
+    
+    diagram_service = get_architecture_diagram_service()
+    
+    diagram_type = str(args.get("diagram_type", "component"))
+    format = str(args.get("format", "mermaid"))
+    
+    try:
+        diagram_result = diagram_service.generate_diagram(
+            slice_data=slice_data,
+            diagram_type=diagram_type,  # type: ignore
+            format=format,  # type: ignore
+            max_nodes=int(args.get("max_nodes", 50)),
+            max_edges=int(args.get("max_edges", 100)),
+        )
+    except Exception as exc:
+        logger.exception("architecture_diagram failed")
+        return build_tool_result(
+            tool_name="codecompass.architecture_diagram",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.architecture_diagram",
+        tool_call_id=tool_call_id,
+        status="ok" if not diagram_result.unavailable_reason else "degraded",
+        data={"diagram": diagram_result.as_dict()},
+        warnings=diagram_result.warnings,
+        error=diagram_result.unavailable_reason,
+    )
+
+
+def codecompass_navigation_handle(
+    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
+) -> dict[str, Any]:
+    """HAC-012: Navigiert in der Architekturhierarchie (Zoom-in/Zoom-out).
+    
+    Unterstützte Operationen:
+    - expand: Zoom-in zu Children
+    - parents: Zoom-out zu Parents
+    - siblings: Geschwister-Nodes
+    - dependencies: Abhängigkeiten
+    - collapse: Zurück zur Übersicht
+    
+    Args:
+        workspace_dir: Workspace-Verzeichnis
+        arguments: handle, operation, depth
+        tool_call_id: Tool-Call-ID
+        
+    Returns:
+        ToolResult mit navigiertem Slice
+    """
+    args = arguments or {}
+    handle = str(args.get("handle") or "").strip()
+    operation = str(args.get("operation", "expand")).strip()
+    
+    if not handle:
+        return build_tool_result(
+            tool_name="codecompass.navigation_handle",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="handle_required",
+        )
+    
+    from agent.services.codecompass_architecture_slice_service import get_architecture_slice_service
+    
+    slice_service = get_architecture_slice_service()
+    
+    try:
+        result = slice_service.navigate(
+            handle=handle,
+            operation=operation,
+            depth=int(args.get("depth", 1)),
+            max_nodes=int(args.get("max_nodes", 20)),
+        )
+    except Exception as exc:
+        logger.exception("navigation_handle failed")
+        return build_tool_result(
+            tool_name="codecompass.navigation_handle",
+            tool_call_id=tool_call_id,
+            status="error",
+            error=str(exc),
+        )
+    
+    return build_tool_result(
+        tool_name="codecompass.navigation_handle",
+        tool_call_id=tool_call_id,
+        status="ok" if result.get("status") == "ok" else "degraded",
+        data={"navigation_result": result},
+        warnings=list(result.get("warnings") or []),
+    )

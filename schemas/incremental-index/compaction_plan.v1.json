@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass.compaction_plan.v1",
+  "title": "CodeCompass Compaction Plan",
+  "description": "Plan for compacting multiple layers into a single optimized layer, including GC candidates",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "plan_id",
+    "profile_id",
+    "created_at",
+    "source_layers",
+    "target_layer_strategy",
+    "gc_candidates",
+    "estimated_savings"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.compaction_plan.v1"},
+    "plan_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA256 hash of canonical plan content"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Profile ID this compaction applies to"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of plan creation"
+    },
+    "source_layers": {
+      "type": "array",
+      "description": "Ordered list of layer IDs to compact (oldest to newest)",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      "minItems": 2
+    },
+    "target_layer_strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["strategy", "parameters"],
+      "properties": {
+        "strategy": {
+          "enum": ["merge_all", "keep_recent_n", "full_rebuild"],
+          "description": "Compaction strategy"
+        },
+        "parameters": {
+          "type": "object",
+          "additionalProperties": true,
+          "description": "Strategy-specific parameters"
+        },
+        "keep_last_n_layers": {
+          "type": ["integer", "null"],
+          "minimum": 1,
+          "description": "Number of recent layers to preserve (for keep_recent_n strategy)"
+        }
+      }
+    },
+    "gc_candidates": {
+      "type": "array",
+      "description": "Layer IDs eligible for garbage collection after compaction",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["layer_id", "reason", "referenced_by"],
+        "properties": {
+          "layer_id": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+          "reason": {
+            "enum": [
+              "superseded_by_compaction",
+              "orphaned_no_references",
+              "exceeded_retention_policy",
+              "corrupted_unrecoverable"
+            ],
+            "description": "Reason for GC eligibility"
+          },
+          "referenced_by": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+            "description": "List of head references or other layers still referencing this layer"
+          },
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "estimated_savings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_total_bytes", "projected_total_bytes", "reduction_ratio"],
+      "properties": {
+        "current_total_bytes": {"type": "integer", "minimum": 0},
+        "projected_total_bytes": {"type": "integer", "minimum": 0},
+        "reduction_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Expected storage reduction (0.0 = no savings, 1.0 = maximum savings)"
+        },
+        "layers_to_remove": {"type": "integer", "minimum": 0},
+        "artifacts_to_rebuild": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol_graph", "semantic_chunks", "embeddings", "fts_index"],
+          "properties": {
+            "symbol_graph": {"type": "boolean"},
+            "semantic_chunks": {"type": "boolean"},
+            "embeddings": {"type": "boolean"},
+            "fts_index": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "execution_plan": {
+      "type": "array",
+      "description": "Ordered steps to execute the compaction",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["step_id", "operation", "target"],
+        "properties": {
+          "step_id": {"type": "string", "minLength": 1},
+          "operation": {
+            "enum": [
+              "build_merged_layer",
+              "update_head_atomically",
+              "mark_layers_for_gc",
+              "execute_gc",
+              "verify_integrity",
+              "rollback_on_failure"
+            ]
+          },
+          "target": {"type": "string", "minLength": 1},
+          "dependencies": {
+            "type": "array",
+            "items": {"type": "string"},
+            "description": "Step IDs this step depends on"
+          },
+          "estimated_duration_seconds": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "status": {
+      "enum": ["planned", "in_progress", "completed", "failed", "rolled_back"],
+      "description": "Current execution status"
+    },
+    "executed_at": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Timestamp when compaction was executed (null if not yet executed)"
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Warnings, errors, or informational messages"
+    }
+  }
+}

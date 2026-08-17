@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.hierarchical-architecture-context.v1.json",
+  "title": "CodeCompass Hierarchical Architecture Context",
+  "description": "Contract für hierarchische Architektursichten im CodeCompass-System. Modelliert eine 5-level Hierarchie (System -> Subsystem -> Component -> File -> Symbol) mit Budget-Grenzen, Evidence-Tracking und Expandierbarkeit.",
+  "type": "object",
+  "required": [
+    "version",
+    "query",
+    "root_scope",
+    "levels",
+    "nodes",
+    "edges",
+    "budgets",
+    "metadata"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "const": "v1",
+      "description": "Schema-Version des Architekturkontexts."
+    },
+    "query": {
+      "type": "object",
+      "required": ["text", "timestamp"],
+      "additionalProperties": true,
+      "properties": {
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Die ursprüngliche Agenten-Anfrage."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 Zeitstempel der Anfrage."
+        },
+        "intent": {
+          "type": "string",
+          "enum": ["understand", "navigate", "modify", "debug", "extend"],
+          "description": "Intent der Anfrage zur Optimierung der Slice-Auswahl."
+        }
+      }
+    },
+    "root_scope": {
+      "type": "object",
+      "required": ["workspace_id", "revision", "tenant_id"],
+      "additionalProperties": true,
+      "properties": {
+        "workspace_id": {
+          "type": "string",
+          "description": "Eindeutige ID des Workspace/Repository."
+        },
+        "revision": {
+          "type": "string",
+          "description": "Git-Commit-Hash oder Branch-Name."
+        },
+        "tenant_id": {
+          "type": "string",
+          "description": "Mandanten-ID für Multi-Tenant-Isolation."
+        },
+        "source_catalog_scope": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Erlaubte Source Authorities."
+        }
+      }
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": ["system", "subsystem", "component", "file", "symbol"]
+      },
+      "description": "Die in diesem Slice enthaltenen Hierarchielevel."
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/architecture_node"
+      },
+      "description": "Liste der Architekturknoten."
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/architecture_edge"
+      },
+      "description": "Beziehungen zwischen Knoten."
+    },
+    "summaries": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "Optionale Zusammenfassungen pro Level."
+    },
+    "evidence": {
+      "type": "object",
+      "required": ["source_kind", "provenance"],
+      "additionalProperties": true,
+      "properties": {
+        "source_kind": {
+          "type": "string",
+          "enum": ["graph_projection", "manual_fixture", "extracted_from_code", "inferred"]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "trust_level": {
+          "$ref": "#/$defs/trust_level"
+        },
+        "verification_status": {
+          "type": "string",
+          "enum": ["verified", "unverified", "failed"]
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "required": ["token_budget", "node_budget", "edge_budget", "depth_budget"],
+      "additionalProperties": false,
+      "properties": {
+        "token_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximale Token für diesen Architekturkontext."
+        },
+        "node_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximale Anzahl Nodes."
+        },
+        "edge_budget": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Maximale Anzahl Edges."
+        },
+        "depth_budget": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Maximale Hierarchietiefe (1=System, 5=Symbol)."
+        },
+        "used": {
+          "type": "object",
+          "properties": {
+            "tokens": {"type": "integer", "minimum": 0},
+            "nodes": {"type": "integer", "minimum": 0},
+            "edges": {"type": "integer", "minimum": 0},
+            "depth": {"type": "integer", "minimum": 1, "maximum": 5}
+          }
+        },
+        "truncated": {
+          "type": "boolean",
+          "description": "true wenn Budget überschritten und Slice gekürzt wurde."
+        },
+        "continuation_handle": {
+          "type": "string",
+          "description": "Handle für fortgesetztes Expandieren bei Trunkierung."
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["generated_at", "generator_version"],
+      "additionalProperties": true,
+      "properties": {
+        "generated_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "generator_version": {
+          "type": "string"
+        },
+        "cache_key": {
+          "type": "string"
+        },
+        "ttl_seconds": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    }
+  },
+  "$defs": {
+    "architecture_node": {
+      "type": "object",
+      "required": ["id", "level", "title", "expandable"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stabile, eindeutige ID des Knotens."
+        },
+        "level": {
+          "type": "string",
+          "enum": ["system", "subsystem", "component", "file", "symbol"],
+          "description": "Hierarchielevel des Knotens."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Kurzer Titel/Name des Knotens."
+        },
+        "short_summary": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "Semantische Verantwortungserklärung (1-3 Sätze)."
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "description": "Liste der Hauptverantwortlichkeiten."
+        },
+        "source_refs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["path", "line_start"],
+            "properties": {
+              "path": {"type": "string"},
+              "line_start": {"type": "integer", "minimum": 1},
+              "line_end": {"type": "integer", "minimum": 1},
+              "symbol_name": {"type": "string"}
+            }
+          },
+          "description": "Referenzen auf konkrete Code-Stellen."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0,
+          "description": "Konfidenz 0.0-1.0 in die Klassifikation."
+        },
+        "trust": {
+          "$ref": "#/$defs/trust_level"
+        },
+        "expandable": {
+          "type": "boolean",
+          "description": "true wenn dieser Knoten weiter expandiert werden kann."
+        },
+        "expanded": {
+          "type": "boolean",
+          "description": "true wenn dieser Knoten bereits expandiert wurde."
+        },
+        "child_ids": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "IDs der direkten Kindknoten."
+        },
+        "parent_id": {
+          "type": "string",
+          "description": "ID des Elternknotens (falls vorhanden)."
+        },
+        "tags": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Optionale Tags zur Kategorisierung."
+        }
+      }
+    },
+    "architecture_edge": {
+      "type": "object",
+      "required": ["source_id", "target_id", "relationship"],
+      "additionalProperties": false,
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "description": "ID des Quellknotens."
+        },
+        "target_id": {
+          "type": "string",
+          "description": "ID des Zielknotens."
+        },
+        "relationship": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "uses",
+            "calls",
+            "depends_on",
+            "provides_context_to",
+            "implements",
+            "exposes_tool",
+            "stores",
+            "retrieves_from",
+            "governed_by",
+            "extends",
+            "imports",
+            "exports"
+          ],
+          "description": "Typ der Beziehung."
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 300,
+          "description": "Optionale Beschreibung der Beziehung."
+        },
+        "evidence_ref": {
+          "type": "string",
+          "description": "Referenz auf Evidence für diese Beziehung."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0.0,
+          "maximum": 1.0
+        },
+        "weight": {
+          "type": "number",
+          "description": "Optionales Gewicht für Ranking."
+        }
+      }
+    },
+    "trust_level": {
+      "type": "string",
+      "enum": ["deterministic", "extracted", "manual", "inferred", "ambiguous"],
+      "description": "Herkunft der Information: deterministic=Build-Artefakt, extracted=Tool-Output, manual=JSON-Fixture, inferred=heuristisch, ambiguous=nicht eindeutig."
+    },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "additionalProperties": true,
+      "properties": {
+        "source": {
+          "type": "string",
+          "enum": ["code-review-graph", "spade", "manual", "tree-sitter", "build-system", "tool-output", "graph-projection"]
+        },
+        "provider_id": {
+          "type": "string"
+        },
+        "provider_revision": {
+          "type": "string"
+        },
+        "import_run_id": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

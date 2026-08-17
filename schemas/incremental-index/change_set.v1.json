@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "codecompass.change_set.v1",
+  "title": "CodeCompass Incremental ChangeSet",
+  "description": "Captures file-level changes between two snapshots with dependency impact metadata",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "change_set_id",
+    "base_snapshot_revision",
+    "target_snapshot_revision",
+    "created_at",
+    "changes",
+    "impact_summary"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.change_set.v1"},
+    "change_set_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "SHA256 hash of canonical change set content"
+    },
+    "base_snapshot_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Source snapshot revision (parent)"
+    },
+    "target_snapshot_revision": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Target snapshot revision (child)"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp of change set creation"
+    },
+    "changes": {
+      "type": "array",
+      "description": "List of file-level changes",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path",
+          "change_type",
+          "old_content_sha256",
+          "new_content_sha256",
+          "old_byte_size",
+          "new_byte_size",
+          "detected_type",
+          "affected_artifacts"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Repository-relative file path"
+          },
+          "change_type": {
+            "enum": ["added", "modified", "deleted", "renamed"],
+            "description": "Type of file change"
+          },
+          "old_content_sha256": {
+            "type": ["string", "null"],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "Previous content hash (null for added files)"
+          },
+          "new_content_sha256": {
+            "type": ["string", "null"],
+            "pattern": "^[a-f0-9]{64}$",
+            "description": "New content hash (null for deleted files)"
+          },
+          "old_byte_size": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "Previous file size in bytes"
+          },
+          "new_byte_size": {
+            "type": ["integer", "null"],
+            "minimum": 0,
+            "description": "New file size in bytes"
+          },
+          "detected_type": {
+            "type": "string",
+            "minLength": 1,
+            "description": "MIME type or language identifier"
+          },
+          "old_path": {
+            "type": ["string", "null"],
+            "description": "Previous path for renamed files"
+          },
+          "affected_artifacts": {
+            "type": "array",
+            "description": "List of artifact types that need rebuilding",
+            "items": {
+              "enum": [
+                "symbol_graph",
+                "semantic_chunks",
+                "embeddings",
+                "fts_index",
+                "hierarchical_nodes",
+                "architecture_summaries"
+              ]
+            },
+            "minItems": 1
+          },
+          "dependency_impact": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["direct_dependents", "transitive_dependents"],
+            "properties": {
+              "direct_dependents": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Paths of directly dependent files"
+              },
+              "transitive_dependents": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Paths of transitively dependent files"
+              },
+              "impact_score": {
+                "type": "number",
+                "minimum": 0,
+                "description": "Normalized impact score (0.0-1.0)"
+              }
+            }
+          }
+        }
+      }
+    },
+    "impact_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total_changes",
+        "added_count",
+        "modified_count",
+        "deleted_count",
+        "renamed_count",
+        "high_impact_files",
+        "estimated_rebuild_cost"
+      ],
+      "properties": {
+        "total_changes": {"type": "integer", "minimum": 0},
+        "added_count": {"type": "integer", "minimum": 0},
+        "modified_count": {"type": "integer", "minimum": 0},
+        "deleted_count": {"type": "integer", "minimum": 0},
+        "renamed_count": {"type": "integer", "minimum": 0},
+        "high_impact_files": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Paths of files with impact_score > 0.7"
+        },
+        "estimated_rebuild_cost": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["symbol_graph", "semantic_chunks", "embeddings", "fts_index"],
+          "properties": {
+            "symbol_graph": {"type": "integer", "minimum": 0, "description": "Estimated nodes to rebuild"},
+            "semantic_chunks": {"type": "integer", "minimum": 0, "description": "Estimated chunks to rebuild"},
+            "embeddings": {"type": "integer", "minimum": 0, "description": "Estimated vectors to rebuild"},
+            "fts_index": {"type": "integer", "minimum": 0, "description": "Estimated documents to reindex"}
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Warning/error messages during change detection"
+    }
+  }
+}

@@ -1,0 +1,618 @@
+{
+  "$schema": "todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "free-coding-agent-cli-provider-integrations",
+  "created": "2026-08-16",
+  "last_updated": "2026-08-16",
+  "status": "todo",
+  "purpose": "Ananta neben den bereits vorgesehenen bzw. vorhandenen Codex-CLI-, Claude-CLI- und OpenCode-Pfaden um weitere kostenlose, Free-Tier- oder Open-Source-Coding-Agenten zu erweitern. Qwen Code/Qwen Coder hat dabei hoechste Prioritaet. Anbieter sollen nicht ueber Sonderlogik direkt in Worker eingebaut werden, sondern ueber einen gemeinsamen versionierten Coding-Agent-Adapter mit Capability Discovery, Auth-Status, Sessionsteuerung, Streaming, Quoten-/Kostenmetadaten und sauberer Fehlerbehandlung.",
+  "goal": "Einen gemeinsamen Coding-Agent-Provider-Layer etablieren, ueber den Ananta Codex CLI, Claude CLI, OpenCode und zusaetzlich Qwen Code/Qwen Coder, Google Jules, Google Antigravity/Gemini-Coding-CLI, GitHub Copilot Free, Windsurf, Cline, Aider und Kilo Code dort nutzen kann, wo ein technisch belastbarer automatisierbarer Zugriff existiert. Kostenlose Software/BYOK und wirklich kostenlos enthaltene Modellnutzung muessen in UI und Routing klar unterschieden werden.",
+  "non_goals": [
+    "Keine Umgehung von Rate Limits, Free-Tier-Limits, Authentifizierung, Nutzungsbedingungen oder Anbieter-Schutzmechanismen.",
+    "Keine Browser-Automation als Ersatz fuer fehlende offizielle CLI/API-/Agent-Schnittstellen.",
+    "Keine Behauptung, dass ein Open-Source-Client automatisch kostenlose Inferenz beinhaltet.",
+    "Keine harte Kopplung des Ananta Worker-Kerns an proprietaere Anbieterformate.",
+    "Keine Entfernung oder Regression der bestehenden Codex-CLI-, Claude-CLI- und OpenCode-Integration."
+  ],
+  "provider_scope": [
+    {
+      "id": "qwen-code",
+      "display_name": "Qwen Code / Qwen Coder",
+      "priority": "P0",
+      "integration_target": "CLI zuerst; Cloud-Coder nur bei offizieller automatisierbarer Schnittstelle",
+      "free_class": "free-tier-or-provider-auth",
+      "notes": [
+        "Explizit als erster neuer Provider integrieren.",
+        "Qwen Code CLI und coder.qwen.ai als getrennte Oberflaechen/Produkte behandeln.",
+        "Auth-Modi, Headless-Aufruf, Session Resume, Tool-Modus und aktuelle Quoten waehrend der Implementierung gegen offizielle Dokumentation pruefen."
+      ]
+    },
+    {
+      "id": "google-jules",
+      "display_name": "Google Jules",
+      "priority": "P1",
+      "integration_target": "GitHub-/Cloud-Agent, falls offizielle API/CLI fuer Automation verfuegbar",
+      "free_class": "free-tier",
+      "notes": [
+        "Nicht als lokale CLI vortaeuschen.",
+        "Wenn nur interaktive Web-/GitHub-Nutzung moeglich ist, Provider als external-agent kennzeichnen und nicht per Browser-Automation anbinden."
+      ]
+    },
+    {
+      "id": "google-antigravity-gemini",
+      "display_name": "Google Antigravity / Gemini Coding",
+      "priority": "P1",
+      "integration_target": "offizieller CLI-/Agent-Pfad",
+      "free_class": "free-tier",
+      "notes": [
+        "Aktuellen offiziellen CLI-Namen und Auth-Pfad bei Implementierung verifizieren.",
+        "Provider-Adapter nur auf dokumentierte nicht-interaktive Schnittstellen aufsetzen."
+      ]
+    },
+    {
+      "id": "github-copilot-free",
+      "display_name": "GitHub Copilot Free",
+      "priority": "P1",
+      "integration_target": "offizielle CLI-/Agent-Schnittstelle, sofern Free-Tier dafuer freigeschaltet",
+      "free_class": "free-tier-limited",
+      "notes": [
+        "Quoten nicht hardcoden; aktuelle Account-/Planinformationen nur ueber verfuegbare offizielle Signale darstellen.",
+        "GitHub-Repo-Kontext und Coding-Agent-Laufzeit getrennt von Anantas eigenem GitHub Connector behandeln."
+      ]
+    },
+    {
+      "id": "windsurf",
+      "display_name": "Windsurf",
+      "priority": "P2",
+      "integration_target": "Capability Check fuer CLI/headless agent",
+      "free_class": "free-or-limited-plan",
+      "notes": [
+        "IDE-orientierten Anbieter nur integrieren, wenn ein stabiler automatisierbarer offizieller Pfad existiert.",
+        "Sonst lediglich als externe Entwicklungsumgebung dokumentieren."
+      ]
+    },
+    {
+      "id": "cline",
+      "display_name": "Cline",
+      "priority": "P2",
+      "integration_target": "Capability Check fuer headless/CLI; sonst IDE-Integration",
+      "free_class": "open-source-client-byok",
+      "notes": [
+        "Kostenlose Software klar von kostenpflichtiger oder extern bereitgestellter Inferenz trennen.",
+        "Provider kann sinnvoll sein, wenn ein automatisierbarer Laufmodus existiert."
+      ]
+    },
+    {
+      "id": "aider",
+      "display_name": "Aider",
+      "priority": "P1",
+      "integration_target": "CLI adapter",
+      "free_class": "open-source-client-byok",
+      "notes": [
+        "Guter Referenzkandidat fuer einen generischen externen CLI-Adapter.",
+        "Kann mit kostenlosen oder lokalen Modellendpunkten kombiniert werden, ohne kostenlose Inferenz selbst zu versprechen."
+      ]
+    },
+    {
+      "id": "kilo-code",
+      "display_name": "Kilo Code",
+      "priority": "P2",
+      "integration_target": "Capability Check fuer CLI/headless; sonst IDE-Integration",
+      "free_class": "open-source-client-byok-or-free-tier",
+      "notes": [
+        "Aktuellen Headless-/CLI-Support und Provider-Modi vor Implementierung verifizieren."
+      ]
+    }
+  ],
+  "design_decisions": [
+    {
+      "id": "FCA-DD-001",
+      "decision": "Alle Coding-Agenten laufen hinter einem gemeinsamen CodingAgentProvider-Contract.",
+      "rationale": "Ananta darf Session-, Prozess-, Streaming- und Fehlerlogik nicht pro Anbieter neu implementieren."
+    },
+    {
+      "id": "FCA-DD-002",
+      "decision": "Provider werden nach integration_kind klassifiziert: cli, api, cloud_agent, ide_external.",
+      "rationale": "Jules, Windsurf oder Cline sind technisch nicht automatisch dasselbe wie Codex CLI oder Qwen Code."
+    },
+    {
+      "id": "FCA-DD-003",
+      "decision": "free_class wird getrennt erfasst: included_free_inference, free_tier_limited, open_source_byok, paid_or_unknown.",
+      "rationale": "Kostenlose Software und kostenlose Modellnutzung duerfen in UI und Router nicht verwechselt werden."
+    },
+    {
+      "id": "FCA-DD-004",
+      "decision": "Qwen Code wird als P0-End-to-End-Referenzintegration umgesetzt.",
+      "rationale": "Der Anbieter ist explizit gewuenscht und eignet sich als erster neuer CLI-Provider neben Codex, Claude und OpenCode."
+    },
+    {
+      "id": "FCA-DD-005",
+      "decision": "Fehlende offizielle Automation-Schnittstellen werden als unsupported capability modelliert statt durch Browser-Scraping ersetzt.",
+      "rationale": "Stabilitaet, Security und Terms-of-Service-Konformitaet."
+    },
+    {
+      "id": "FCA-DD-006",
+      "decision": "Quota-/Kosteninformationen sind zeitabhaengige Provider-Metadaten und werden nicht als dauerhaft fixe Zahlen im Core hinterlegt.",
+      "rationale": "Free-Tier-Regeln aendern sich haeufig."
+    }
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Bestehende CLI-Architektur inventarisieren und gemeinsamen Contract definieren",
+      "task_ids": ["FCA-001", "FCA-002", "FCA-003"],
+      "status": "todo"
+    },
+    {
+      "id": "M2",
+      "title": "Qwen Code als erste neue End-to-End-Integration",
+      "task_ids": ["FCA-004", "FCA-005", "FCA-006", "FCA-007"],
+      "status": "todo"
+    },
+    {
+      "id": "M3",
+      "title": "Weitere CLI- und Free-Tier-Provider",
+      "task_ids": ["FCA-008", "FCA-009", "FCA-010", "FCA-011"],
+      "status": "todo"
+    },
+    {
+      "id": "M4",
+      "title": "Cloud-/IDE-Agenten und Capability-Gates",
+      "task_ids": ["FCA-012", "FCA-013", "FCA-014", "FCA-015"],
+      "status": "todo"
+    },
+    {
+      "id": "M5",
+      "title": "Routing, UI, Quoten, Security und Tests",
+      "task_ids": ["FCA-016", "FCA-017", "FCA-018", "FCA-019", "FCA-020"],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "FCA-001",
+      "title": "Bestehende Codex-/Claude-/OpenCode-Integration als IST-Zustand kartieren",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Alle Process-Spawning-, PTY-, Session-, Workspace-, Auth-, Streaming-, Tool- und Permission-Pfade der bestehenden drei Integrationen erfassen.",
+          "Gemeinsame Logik und provider-spezifische Sonderfaelle markieren.",
+          "Vor Refactoring Regressionstests fuer vorhandenes Verhalten anlegen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Codex CLI, Claude CLI und OpenCode sind mit ihren Faehigkeiten und Sonderfaellen dokumentiert.",
+        "Kein Refactoring startet ohne Regression-Baseline."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "FCA-002",
+      "title": "CodingAgentProvider Contract und Capability-Modell definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Contract fuer detect/version/auth_status/start/resume/send/cancel/terminate/health/capabilities definieren.",
+          "Capabilities fuer tools, MCP, images, reasoning, session_resume, headless, git_changes, structured_output und sandbox deklarieren.",
+          "integration_kind und free_class als explizite Metadaten aufnehmen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Neue Provider koennen ohne Worker-Core-Sonderfall registriert werden.",
+        "Nicht unterstuetzte Faehigkeiten sind explizit und maschinenlesbar."
+      ],
+      "dependencies": ["FCA-001"]
+    },
+    {
+      "id": "FCA-003",
+      "title": "Generischen externen CLI Process Adapter extrahieren",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Gemeinsames Process Lifecycle Management fuer CLI-Agenten bereitstellen.",
+          "Working directory, Environment Allowlist, stdin/stdout/stderr streaming, PTY optional, timeout, cancellation, exit codes und signal handling standardisieren.",
+          "Secrets niemals in Logs oder Telemetrie schreiben."
+        ]
+      },
+      "acceptance_criteria": [
+        "Mindestens bestehender OpenCode-Pfad und neuer Qwen-Code-Pfad koennen denselben Prozessadapter verwenden.",
+        "Abbruch hinterlaesst keine Zombie-Prozesse."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-004",
+      "title": "Qwen Code CLI offiziell verifizieren und Capability Probe implementieren",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Aktuelle offizielle Installation, Binary-Namen, Version-Ausgabe, Auth-Modi und nicht-interaktive Aufrufe verifizieren.",
+          "Qwen Code CLI nicht mit coder.qwen.ai Cloud UI gleichsetzen.",
+          "Capability Probe muss ohne Task-Ausfuehrung feststellen koennen, ob der Provider einsatzbereit ist."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ananta erkennt Qwen Code installiert/nicht installiert und angemeldet/nicht angemeldet.",
+        "Unbekannte oder veraenderte CLI-Versionen fuehren zu klarer Diagnose statt stiller Fehlfunktion."
+      ],
+      "dependencies": ["FCA-003"]
+    },
+    {
+      "id": "FCA-005",
+      "title": "Qwen Code Provider Adapter implementieren",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Prompt-/Task-Start, Workspace-Bindung, Streaming und Exit-/Fehler-Mapping implementieren.",
+          "Session Resume nur aktivieren, wenn von der aktuellen CLI belastbar unterstuetzt.",
+          "Provider-spezifische Ausgabe frueh in kanonische Ananta Events normalisieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Qwen Code kann aus Ananta einen realen Repository-Task starten und Ergebnis/Logs zurueckliefern.",
+        "Cancellation und Timeout funktionieren deterministisch.",
+        "Keine Qwen-Credentials erscheinen in Logs."
+      ],
+      "dependencies": ["FCA-004"]
+    },
+    {
+      "id": "FCA-006",
+      "title": "Qwen Auth-, Free-Tier- und Quota-Zustaende modellieren",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Keine feste historische Free-Tier-Zahl in den Core schreiben.",
+          "Falls CLI/API maschinenlesbare Rate-Limit-/Quota-Signale liefert, diese normalisieren.",
+          "quota_exhausted, auth_required, provider_unavailable und paid_usage_required getrennt behandeln."
+        ]
+      },
+      "acceptance_criteria": [
+        "UI/Router kann kostenlosen/limitierten Zustand von BYOK/paid unterscheiden.",
+        "Quota-Erschoepfung kann einen konfigurierbaren Fallback ausloesen."
+      ],
+      "dependencies": ["FCA-005"]
+    },
+    {
+      "id": "FCA-007",
+      "title": "Qwen Code End-to-End- und Regressionstests",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Mock-CLI fuer deterministische CI-Tests bereitstellen.",
+          "Optionalen echten Smoke-Test hinter explizitem Secret/Auth-Gate halten.",
+          "Codex, Claude und OpenCode Regressionen parallel pruefen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Start, Stream, Fehler, Timeout, Cancel und Quota-Fall sind getestet.",
+        "Bestehende Provider bleiben gruen."
+      ],
+      "dependencies": ["FCA-005", "FCA-006"]
+    },
+    {
+      "id": "FCA-008",
+      "title": "Aider CLI Adapter integrieren",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Aider als Open-Source-CLI/BYOK kennzeichnen, nicht als automatisch kostenlose Inferenz.",
+          "Lokale und OpenAI-kompatible Modellendpunkte nach vorhandener Ananta-Provider-Konfiguration nutzbar machen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Aider ist ueber denselben Provider-Contract startbar.",
+        "Kosten-/Free-Class wird korrekt angezeigt."
+      ],
+      "dependencies": ["FCA-003"]
+    },
+    {
+      "id": "FCA-009",
+      "title": "Google Coding CLI/Antigravity Integrationspfad pruefen und anbinden",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Nur aktuellen offiziellen CLI-/Agent-Pfad implementieren.",
+          "Free-Tier/Auth/Quota-Faehigkeiten zum Implementierungszeitpunkt verifizieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Offizieller automatisierbarer Pfad ist dokumentiert und bei Eignung integriert.",
+        "Falls kein geeigneter Pfad existiert, Task endet mit dokumentiertem blocked/unsupported statt Workaround."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-010",
+      "title": "GitHub Copilot Free CLI/Agent Capability pruefen",
+      "type": "provider",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Pruefen, welche offiziellen CLI-/Agent-Funktionen im Free-Plan automatisierbar nutzbar sind.",
+          "Account- und Quota-Limits nicht umgehen oder durch parallele Sessions vervielfachen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Unterstuetzte Free-Tier-Faehigkeiten sind exakt abgegrenzt.",
+        "Bei geeigneter offizieller Schnittstelle existiert ein Provider Adapter."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-011",
+      "title": "Free-/Local-Model Kombinationen fuer OpenCode und Aider vereinheitlichen",
+      "type": "routing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "OpenCode/Aider sollen vorhandene Ananta OpenAI-kompatible, lokale oder Free-Tier-Endpunkte ueber deklarative Konfiguration nutzen koennen.",
+          "Client und Modellprovider als getrennte Routing-Dimensionen behandeln."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ein Coding-Client kann ohne Codeaenderung auf einen anderen erlaubten Modellprovider geroutet werden.",
+        "UI zeigt Client und Inferenzanbieter getrennt."
+      ],
+      "dependencies": ["FCA-002", "FCA-008"]
+    },
+    {
+      "id": "FCA-012",
+      "title": "Google Jules als Cloud-Agent Capability untersuchen",
+      "type": "spike",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Offizielle API/CLI, GitHub-Task-Uebergabe, Statusabfrage und Ergebnis-/PR-Rueckgabe pruefen.",
+          "Keine Browser-Automation einsetzen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Es gibt entweder einen dokumentierten offiziellen Integrationsweg oder einen expliziten unsupported-Entscheid."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-013",
+      "title": "Windsurf Capability Check",
+      "type": "spike",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Pruefen, ob stabiler offizieller Headless-/CLI-Agent existiert.",
+          "Reine IDE-Integration als ide_external registrieren, falls keine Automation-Schnittstelle existiert."
+        ]
+      },
+      "acceptance_criteria": [
+        "Windsurf wird nicht faelschlich als CLI-Provider angeboten."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-014",
+      "title": "Cline Capability Check und optionaler Adapter",
+      "type": "spike",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Headless-/CLI-Support pruefen; ansonsten externe IDE-Integration deklarieren.",
+          "BYOK-Inferenzkosten getrennt ausweisen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Cline-Klassifikation entspricht dem tatsaechlich verfuegbaren Automationspfad."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-015",
+      "title": "Kilo Code Capability Check und optionaler Adapter",
+      "type": "spike",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "low",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Offiziellen Headless-/CLI-Pfad und aktuelle Free-/BYOK-Modi verifizieren.",
+          "Nur belastbare Automation integrieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Kilo Code ist korrekt als CLI, Cloud-Agent oder externe IDE klassifiziert."
+      ],
+      "dependencies": ["FCA-002"]
+    },
+    {
+      "id": "FCA-016",
+      "title": "Provider Registry, Auto-Discovery und Health Status erweitern",
+      "type": "platform",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Alle Provider deklarativ registrieren.",
+          "Binary vorhanden, Version, Auth, Reachability, Quota-Hinweis und Capability-Satz separat erfassen.",
+          "Nicht installierte Provider duerfen die Worker-Initialisierung nicht blockieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ananta kann alle konfigurierten Provider mit Status auflisten.",
+        "Ein defekter optionaler Provider beeintraechtigt andere Provider nicht."
+      ],
+      "dependencies": ["FCA-002", "FCA-005"]
+    },
+    {
+      "id": "FCA-017",
+      "title": "UI fuer Coding-Agent-Auswahl, Free-Class und Faehigkeiten",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Codex CLI, Claude CLI, OpenCode und neue Provider in einer einheitlichen Auswahl zeigen.",
+          "Badges fuer kostenlos enthalten, Free-Tier limitiert, Open Source/BYOK, paid/unknown und unavailable vorsehen.",
+          "Auth required, quota exhausted und unsupported capability sichtbar machen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Nutzer erkennt vor Task-Start, welcher Client und welcher Inferenz-/Account-Typ verwendet wird.",
+        "Nicht verfuegbare Provider sind erklaert statt kommentarlos ausgeblendet."
+      ],
+      "dependencies": ["FCA-016"]
+    },
+    {
+      "id": "FCA-018",
+      "title": "Kosten-/Quota-bewusstes Fallback Routing",
+      "type": "routing",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Optionale Strategie free-first -> local -> paid konfigurieren.",
+          "Fallback nur auf Provider mit passenden Tool-/Context-/Coding-Capabilities.",
+          "Keine automatische paid-Nutzung ohne explizite Policy/Freigabe."
+        ]
+      },
+      "acceptance_criteria": [
+        "Quota-Erschoepfung eines Free-Providers kann kontrolliert auf einen erlaubten Ersatz wechseln.",
+        "Paid-Fallback kann global und je Workspace deaktiviert werden."
+      ],
+      "dependencies": ["FCA-006", "FCA-016"]
+    },
+    {
+      "id": "FCA-019",
+      "title": "Security- und Isolation-Policy fuer externe Coding-Agenten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Workspace-, Dateisystem-, Netzwerk-, Credential- und Tool-Rechte pro Provider explizit begrenzen.",
+          "Inherited environment minimieren und Secret Allowlist verwenden.",
+          "Agent-Ausgaben als untrusted data behandeln; keine Shell-Eskalation durch Ausgabeinhalte."
+        ]
+      },
+      "acceptance_criteria": [
+        "Provider erhaelt nur explizit erlaubte Credentials und Workspace-Rechte.",
+        "Security-Tests decken Secret Leakage, Path Escape, Process Escape und untrusted output ab."
+      ],
+      "dependencies": ["FCA-003"]
+    },
+    {
+      "id": "FCA-020",
+      "title": "Kompatibilitaetsmatrix, Benchmarks und Dokumentation",
+      "type": "docs-test",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "Matrix fuer install/auth/headless/session/tools/MCP/context/git/structured output/free class pflegen.",
+          "Einheitlichen Mini-Code-Task gegen verfuegbare Provider benchmarken: Erfolgsrate, Zeit, Prozessstabilitaet und sofern ermittelbar Usage.",
+          "Dokumentieren, welche Anbieter echte kostenlose Inferenz liefern und welche nur kostenlose Clients sind."
+        ]
+      },
+      "acceptance_criteria": [
+        "Dokumentation erlaubt eine belastbare Provider-Auswahl ohne Marketingannahmen.",
+        "Qwen Code ist als P0-Referenz vollstaendig dokumentiert und getestet.",
+        "Jeder weitere Kandidat ist entweder integriert oder mit technischem Grund als blocked/unsupported markiert."
+      ],
+      "dependencies": ["FCA-007", "FCA-008", "FCA-009", "FCA-010", "FCA-012", "FCA-013", "FCA-014", "FCA-015", "FCA-017", "FCA-018", "FCA-019"]
+    }
+  ],
+  "definition_of_done": [
+    "Qwen Code ist neben Codex CLI, Claude CLI und OpenCode als echter Ananta Coding-Agent-Provider nutzbar.",
+    "Weitere Kandidaten sind anhand offizieller automatisierbarer Schnittstellen integriert oder explizit als unsupported/ide_external klassifiziert.",
+    "Kostenlose Inferenz, Free-Tier, Open-Source/BYOK und paid/unknown sind im Datenmodell und UI getrennt.",
+    "Provider Discovery, Auth-Status, Capabilities, Start, Streaming, Cancel, Timeout und Fehler-Mapping verwenden gemeinsame Contracts.",
+    "Free-first Routing kann Quota-Erschoepfung behandeln, ohne ungefragt kostenpflichtige Nutzung zu starten.",
+    "Bestehende Codex-, Claude- und OpenCode-Pfade bleiben regressionstest-gruen.",
+    "Security-, Unit-, Integration- und mindestens optionale echte Smoke-Tests sind dokumentiert."
+  ],
+  "recommended_order": [
+    "FCA-001",
+    "FCA-002",
+    "FCA-003",
+    "FCA-004",
+    "FCA-005",
+    "FCA-006",
+    "FCA-007",
+    "FCA-016",
+    "FCA-019",
+    "FCA-008",
+    "FCA-009",
+    "FCA-010",
+    "FCA-012",
+    "FCA-013",
+    "FCA-014",
+    "FCA-015",
+    "FCA-011",
+    "FCA-017",
+    "FCA-018",
+    "FCA-020"
+  ]
+}

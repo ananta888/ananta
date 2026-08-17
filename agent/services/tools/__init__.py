@@ -76,6 +76,30 @@ def execute_ananta_tool(
         if name == "codecompass.python_translation_plan":
             from agent.services.tools.codecompass_tools import codecompass_python_translation_plan
             return codecompass_python_translation_plan(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.architecture_overview":
+            from agent.services.tools.codecompass_tools import codecompass_architecture_overview
+            return codecompass_architecture_overview(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.architecture_expand":
+            from agent.services.tools.codecompass_tools import codecompass_architecture_expand
+            return codecompass_architecture_expand(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.component_context":
+            from agent.services.tools.codecompass_tools import codecompass_component_context
+            return codecompass_component_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.dependencies":
+            from agent.services.tools.codecompass_tools import codecompass_dependencies
+            return codecompass_dependencies(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.symbol_context":
+            from agent.services.tools.codecompass_tools import codecompass_symbol_context
+            return codecompass_symbol_context(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.architecture_evidence":
+            from agent.services.tools.codecompass_tools import codecompass_architecture_evidence
+            return codecompass_architecture_evidence(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.architecture_diagram":
+            from agent.services.tools.codecompass_tools import codecompass_architecture_diagram
+            return codecompass_architecture_diagram(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+        if name == "codecompass.navigation_handle":
+            from agent.services.tools.codecompass_tools import codecompass_navigation_handle
+            return codecompass_navigation_handle(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "test.discover":
             from agent.services.tools.test_tools import test_discover
             return test_discover(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
