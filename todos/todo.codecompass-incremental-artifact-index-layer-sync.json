@@ -4,8 +4,8 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass-incremental-artifact-index-layer-sync",
   "created": "2026-08-16",
-  "last_updated": "2026-08-16",
-  "status": "in_progress",
+  "last_updated": "2026-08-17",
+  "status": "done",
   "purpose": "CodeCompass/rag-helper um einen revisionsfesten, leichtgewichtigen und inkrementellen Synchronisationsmechanismus fuer gebaute Graphen, Embedding-/Vector-Indizes, FTS-/Suchindizes und weitere abgeleitete Repository-Artefakte erweitern. Kleine Repository-Aenderungen sollen keinen vollstaendigen Rebuild aller Artefakte erzwingen. Stattdessen werden unveraenderliche Basis-Snapshots und geordnete Delta-Layer verwaltet, wobei Reads die neueste gueltige Schicht bis zur gemeinsamen Basis beruecksichtigen und Compaction/Merge die Schichten kontrolliert wieder zu einer neuen Basis zusammenfuehrt.",
   "goal": "Eine gemeinsame Artifact/Index Layer Store + Incremental Update Coordinator + Compaction Architecture etablieren, die unterschiedliche CodeCompass-Buildprofile und Konfigurationen versioniert, gemeinsame Basen dedupliziert, Datei-/Symbol-/Chunk-/Graph-Aenderungen gezielt invalidiert, Graph/FTS/Embeddings konsistent aktualisiert, manuell oder policy-gesteuert kompaktiert und ueber Hub/Worker/MCP/UI reproduzierbar auswaehlbar macht.",
   "non_goals": [
@@ -218,7 +218,7 @@
         "CIL-006",
         "CIL-007"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -240,7 +240,7 @@
         "CIL-014",
         "CIL-015"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -251,7 +251,7 @@
         "CIL-018",
         "CIL-019"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -262,7 +262,7 @@
         "CIL-022",
         "CIL-023"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -273,7 +273,7 @@
         "CIL-026",
         "CIL-027"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M8",
@@ -283,7 +283,7 @@
         "CIL-029",
         "CIL-030"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -632,10 +632,10 @@
       "id": "CIL-012",
       "title": "Layered Effective View Resolver implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Reads newest delta -> ... -> base.",
@@ -662,10 +662,10 @@
       "id": "CIL-013",
       "title": "Profil-/Buildvarianten-Auswahl und gemeinsame Basen implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Mehrere Profile pro Repo parallel verwalten.",
@@ -690,10 +690,10 @@
       "id": "CIL-014",
       "title": "Cross-artifact Synchronization Barrier einfuehren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Graph/FTS/Semantic/Vector eines ChangeSets zuerst staging.",
@@ -717,10 +717,10 @@
       "id": "CIL-015",
       "title": "Remote/mehrere Worker Synchronisation leichtgewichtig machen",
       "type": "sync",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Sync ueber Layer-Digests und Heads statt komplette Repos/Indizes.",
@@ -744,10 +744,10 @@
       "id": "CIL-016",
       "title": "Compaction Planner mit manuellen und automatischen Triggern implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Trigger: manuell, max_delta_layers, delta_bytes/base_bytes, changed_record_ratio, read_amplification, idle maintenance.",
@@ -769,10 +769,10 @@
       "id": "CIL-017",
       "title": "Semantisch verlustfreie Compaction Engine implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Base + Deltas in neue immutable Base materialisieren.",
@@ -795,10 +795,10 @@
       "id": "CIL-018",
       "title": "Reachability-basierte Garbage Collection implementieren",
       "type": "storage",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "GC erst nach Publish und Retention-Fenster.",
@@ -821,10 +821,10 @@
       "id": "CIL-019",
       "title": "Recovery, Rollback und Reconciliation implementieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Head->Layer-Ketten und Digests pruefen.",
@@ -848,10 +848,10 @@
       "id": "CIL-020",
       "title": "Hub Job- und Idempotenzmodell fuer Incremental Builds erweitern",
       "type": "backend",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Job um from_head, target_source_revision, profile_id, requested_mode und dry_run erweitern.",
@@ -874,10 +874,10 @@
       "id": "CIL-021",
       "title": "Worker Execution Contract fuer partielle Layer-Builds definieren",
       "type": "worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Worker erhaelt begrenzten BuildPlan.",
@@ -899,10 +899,10 @@
       "id": "CIL-022",
       "title": "CLI/API/MCP fuer Profile, Heads, Diff, Update und Compact bereitstellen",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Operationen: profiles list/show, heads list/show, diff, update --dry-run, update, compact --dry-run, compact, rollback.",
@@ -926,10 +926,10 @@
       "id": "CIL-023",
       "title": "UI fuer Buildprofile, Layer-Historie und Wartung vorsehen",
       "type": "ui",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Aktives Profil, Revision, Base, Delta-Anzahl und Status je Artefaktart zeigen.",
@@ -952,10 +952,10 @@
       "id": "CIL-024",
       "title": "Migration bestehender Full-Rebuild-Artefakte als Initial Base",
       "type": "migration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Bestehende Graph-/embedding.json-/Index-Zustaende als Base importieren.",
@@ -978,10 +978,10 @@
       "id": "CIL-025",
       "title": "Security- und Tenant-/Scope-Isolation fuer Layer Store pruefen",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Deduplizierung darf Existenz fremder Tenant-Inhalte nicht leaken.",
@@ -1005,10 +1005,10 @@
       "id": "CIL-026",
       "title": "Observability und Staleness-/Consistency-Diagnostics implementieren",
       "type": "observability",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Metrics: delta depth, changed files, impacted entities, reused artifacts, reembedded chunks, build/compaction latency, read amplification.",
@@ -1031,10 +1031,10 @@
       "id": "CIL-027",
       "title": "Performance-/Kostenbudgets und Auto-Compaction-Tuning definieren",
       "type": "performance",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Benchmarks fuer 1 Datei, 1%, 10%, 30% Repo-Aenderung und grossen Rename.",
@@ -1058,10 +1058,10 @@
       "id": "CIL-028",
       "title": "Deterministische Full-vs-Incremental Equivalence Test-Suite bauen",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Fixture-Repos mit sequentiellen Commits und erwarteten ChangeSets.",
@@ -1084,10 +1084,10 @@
       "id": "CIL-029",
       "title": "Crash-/Concurrency-/Chaos-Tests fuer Publish, Sync und Compaction",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Crash nach staging, waehrend build, vor/waehrend CAS publish und GC simulieren.",
@@ -1111,10 +1111,10 @@
       "id": "CIL-030",
       "title": "Stufenweisen Rollout mit Shadow Validation und Fallback durchfuehren",
       "type": "rollout",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Phase 1 Layer-Tracking im Shadow Mode neben Full Rebuild.",
@@ -1125,7 +1125,7 @@
         ]
       },
       "acceptance_criteria": [
-        "Keine ungekl\u00e4rten Shadow-Abweichungen.",
+        "Keine ungeklärten Shadow-Abweichungen.",
         "Rollback getestet.",
         "Default erst nach Security-, Equivalence- und Performance-Gates."
       ],
