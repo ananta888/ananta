@@ -22,6 +22,36 @@ import {
   MetricAvailability,
 } from '../models/graph-visual-metrics.model';
 
+export const ARCHITECTURE_LEVELS = ['system', 'subsystem', 'component', 'file', 'symbol'] as const;
+
+export function architectureLevelOf(metadata: Record<string, unknown> | undefined): string {
+  const value = String(metadata?.['architecture_level'] ?? metadata?.['level'] ?? '')
+    .trim()
+    .toLowerCase();
+  return (ARCHITECTURE_LEVELS as readonly string[]).includes(value) ? value : 'unknown';
+}
+
+export function filterGraphByArchitectureLevel(
+  model: GenericGraphModel,
+  level: string,
+): GenericGraphModel {
+  if (!level || level === 'all') {
+    return model;
+  }
+  const nodes = model.nodes.filter((node) => architectureLevelOf(node.metadata) === level);
+  const ids = new Set(nodes.map((node) => node.id));
+  return {
+    ...model,
+    nodes,
+    edges: model.edges.filter((edge) => ids.has(edge.source) && ids.has(edge.target)),
+    metadata: {
+      ...model.metadata,
+      architectureFilter: level,
+      truncated: nodes.length < model.nodes.length,
+    },
+  };
+}
+
 // Raw domain_graph_artifact.v1 shapes returned by GET /api/codecompass/graph.
 interface RawNode {
   node_id: string;
@@ -499,7 +529,10 @@ export class GraphAdapterService {
       domainId: this.optionalString(attrs['domain_id']),
       domainPath: this.optionalString(attrs['domain_path']),
       metrics: metricVector,
-      metadata: rest,
+      metadata: {
+        ...rest,
+        architecture_level: attrs['architecture_level'] ?? attrs['level'] ?? rest['architecture_level'],
+      },
     };
   }
 

@@ -24,7 +24,9 @@
       "schemas/source/source_catalog.v2.json",
       "schemas/source/source_ref.v2.json",
       "todos/todo.track.schema.json",
-      "todos/archiv/todo.codecompass-crg-rig-spade-integration.json"
+      "todos/archiv/todo.codecompass-crg-rig-spade-integration.json",
+      "agent/services/codecompass_architecture_slice_service.py",
+      "docs/architecture/codecompass-hierarchical-architecture-context.md"
     ],
     "reusable_components": [
       "CodeCompassContextPlannerService als vorhandener Planungs-/Budget-Anker",
@@ -82,32 +84,67 @@
       "rationale": "Einfache Fragen sollen nicht durch zusaetzliche Modellaufrufe verteuert oder verlangsamt werden."
     }
   ],
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Contracts, Limits und Planner-Integration",
-      "task_ids": ["RLM-001", "RLM-002", "RLM-003"],
+      "task_ids": [
+        "RLM-001",
+        "RLM-002",
+        "RLM-003"
+      ],
       "status": "todo"
     },
     {
       "id": "M2",
       "title": "Recursive Query Planning und Retrieval",
-      "task_ids": ["RLM-004", "RLM-005", "RLM-006", "RLM-007"],
+      "task_ids": [
+        "RLM-004",
+        "RLM-005",
+        "RLM-006",
+        "RLM-007"
+      ],
       "status": "todo"
     },
     {
       "id": "M3",
       "title": "Evidence-preserving Merge, Safety und Tooling",
-      "task_ids": ["RLM-008", "RLM-009", "RLM-010", "RLM-011"],
+      "task_ids": [
+        "RLM-008",
+        "RLM-009",
+        "RLM-010",
+        "RLM-011"
+      ],
       "status": "todo"
     },
     {
       "id": "M4",
       "title": "Evaluation, UI/Observability und Rollout",
-      "task_ids": ["RLM-012", "RLM-013", "RLM-014", "RLM-015"],
+      "task_ids": [
+        "RLM-012",
+        "RLM-013",
+        "RLM-014",
+        "RLM-015"
+      ],
       "status": "todo"
     }
   ],
@@ -131,12 +168,21 @@
       "risk": "high",
       "dependencies": [],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md", "schemas/worker/knowledge_index_job.v1.json", "schemas/source/source_ref.v2.json"],
-        "existing_patterns": ["versionierte Worker- und Source-Vertraege", "fail-closed Source-Identitaet"],
+        "checked_files": [
+          "docs/codecompass.md",
+          "schemas/worker/knowledge_index_job.v1.json",
+          "schemas/source/source_ref.v2.json"
+        ],
+        "existing_patterns": [
+          "versionierte Worker- und Source-Vertraege",
+          "fail-closed Source-Identitaet"
+        ],
         "gap": "Kein Vertrag fuer rekursive Query-Knoten, Parent/Child-Beziehungen, Tiefe, Budget, Stop-Reason und Evidence-Vererbung."
       },
       "implementation": {
-        "files_to_create": ["schemas/codecompass.recursive-plan.v1.json"],
+        "files_to_create": [
+          "schemas/codecompass.recursive-plan.v1.json"
+        ],
         "files_to_modify": [],
         "notes": [
           "Felder mindestens: plan_id, node_id, parent_id, depth, query, intent, source_scope, revision, tenant_id, budgets, children, state, stop_reason, evidence_refs.",
@@ -149,7 +195,10 @@
         "Source-Refs und Revision muessen unveraendert vererbbar sein.",
         "Ungültige oder fehlende Evidence-Felder koennen fail-closed abgewiesen werden."
       ],
-      "test_plan": ["JSON-Schema positive/negative Fixtures", "Tests fuer fehlende Parent-/Budget-/Revision-Felder"]
+      "test_plan": [
+        "JSON-Schema positive/negative Fixtures",
+        "Tests fuer fehlende Parent-/Budget-/Revision-Felder"
+      ]
     },
     {
       "id": "RLM-002",
@@ -158,15 +207,27 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["RLM-001"],
+      "dependencies": [
+        "RLM-001"
+      ],
       "repo_evidence": {
-        "checked_files": ["agent/services/codecompass_context_planner_service.py", "agent/services/codecompass_context_service.py"],
-        "existing_patterns": ["Context-Budgets", "getrennte selected/conversation Budgets", "Pfad- und Policy-Grenzen"],
+        "checked_files": [
+          "agent/services/codecompass_context_planner_service.py",
+          "agent/services/codecompass_context_service.py"
+        ],
+        "existing_patterns": [
+          "Context-Budgets",
+          "getrennte selected/conversation Budgets",
+          "Pfad- und Policy-Grenzen"
+        ],
         "gap": "Budgets gelten derzeit fuer einen Kontextplan, nicht fuer einen rekursiven Baum mehrerer Subqueries."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/codecompass_context_planner_service.py", "agent/services/codecompass_context_service.py"],
+        "files_to_modify": [
+          "agent/services/codecompass_context_planner_service.py",
+          "agent/services/codecompass_context_service.py"
+        ],
         "notes": [
           "Globales Budget wird auf Child-Knoten verteilt; Children duerfen das Parent-Restbudget nicht ueberziehen.",
           "Harte Stop-Conditions fuer max_depth, max_nodes, timeout, token_budget, repeated_query und no_new_evidence."
@@ -178,7 +239,11 @@
         "Jeder Abbruch liefert einen maschinenlesbaren stop_reason.",
         "Normale nicht-rekursive CodeCompass-Abfragen funktionieren unveraendert."
       ],
-      "test_plan": ["Unit-Tests Budgetaufteilung", "Depth-/Fan-out-Grenztests", "Regressionstests fuer normalen Planner"]
+      "test_plan": [
+        "Unit-Tests Budgetaufteilung",
+        "Depth-/Fan-out-Grenztests",
+        "Regressionstests fuer normalen Planner"
+      ]
     },
     {
       "id": "RLM-003",
@@ -187,15 +252,25 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "dependencies": ["RLM-001"],
+      "dependencies": [
+        "RLM-001"
+      ],
       "repo_evidence": {
-        "checked_files": ["agent/services/codecompass_context_planner_service.py", "docs/codecompass.md"],
-        "existing_patterns": ["typisierte Intents", "degraded/no_results statt implizit current"],
+        "checked_files": [
+          "agent/services/codecompass_context_planner_service.py",
+          "docs/codecompass.md"
+        ],
+        "existing_patterns": [
+          "typisierte Intents",
+          "degraded/no_results statt implizit current"
+        ],
         "gap": "Keine Policy entscheidet, wann Rekursion einen Mehrwert bietet und wann der normale Plan ausreicht."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/codecompass_context_planner_service.py"],
+        "files_to_modify": [
+          "agent/services/codecompass_context_planner_service.py"
+        ],
         "notes": [
           "Zunaechst deterministische Heuristiken: mehrere Module/Sprachen, sehr breite Query, dependency/blast-radius, Kontextueberlauf, mehrere getrennte Evidence-Cluster.",
           "Kein separater LLM-Call nur fuer die Entscheidung in V1."
@@ -206,7 +281,10 @@
         "Repository-weite Mehrschrittfragen koennen RLM aktivieren.",
         "Bei Unsicherheit oder deaktiviertem Feature-Flag wird der bestehende Planner genutzt."
       ],
-      "test_plan": ["Fixture-Matrix fuer einfache vs. komplexe Intents", "Fallback-Test bei deaktiviertem Flag"]
+      "test_plan": [
+        "Fixture-Matrix fuer einfache vs. komplexe Intents",
+        "Fallback-Test bei deaktiviertem Flag"
+      ]
     },
     {
       "id": "RLM-004",
@@ -215,15 +293,30 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["RLM-001", "RLM-002", "RLM-003"],
+      "dependencies": [
+        "RLM-001",
+        "RLM-002",
+        "RLM-003"
+      ],
       "repo_evidence": {
-        "checked_files": ["agent/services/codecompass_context_planner_service.py", "agent/services/tools/codecompass_tools.py"],
-        "existing_patterns": ["plan_context", "typisierte Intents", "Location-Refs/Patch-Targets"],
+        "checked_files": [
+          "agent/services/codecompass_context_planner_service.py",
+          "agent/services/tools/codecompass_tools.py"
+        ],
+        "existing_patterns": [
+          "plan_context",
+          "typisierte Intents",
+          "Location-Refs/Patch-Targets"
+        ],
         "gap": "Kein rekursiver Planer erzeugt Child-Queries aus einem uebergeordneten Analyseziel."
       },
       "implementation": {
-        "files_to_create": ["agent/services/codecompass_recursive_planner_service.py"],
-        "files_to_modify": ["agent/services/codecompass_context_planner_service.py"],
+        "files_to_create": [
+          "agent/services/codecompass_recursive_planner_service.py"
+        ],
+        "files_to_modify": [
+          "agent/services/codecompass_context_planner_service.py"
+        ],
         "notes": [
           "Planner erzeugt kleine, begrenzte Child-Sets statt freien Agenten-Loop.",
           "Child-Queries muessen auf vorhandene Intents und Source-Scopes abgebildet werden.",
@@ -236,7 +329,11 @@
         "Identische oder semantisch normalisierte wiederholte Subqueries werden gestoppt oder zusammengelegt.",
         "Planner kann ohne Modellzugriff in Tests mit deterministischen Fixtures betrieben werden."
       ],
-      "test_plan": ["Planner-Unit-Tests", "Cycle-/Duplicate-Tests", "Fan-out-Limit-Test"]
+      "test_plan": [
+        "Planner-Unit-Tests",
+        "Cycle-/Duplicate-Tests",
+        "Fan-out-Limit-Test"
+      ]
     },
     {
       "id": "RLM-005",
@@ -245,15 +342,29 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["RLM-004"],
+      "dependencies": [
+        "RLM-004"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md", "worker/retrieval/codecompass_graph_store.py", "worker/retrieval/codecompass_architecture_query.py"],
-        "existing_patterns": ["FTS-, Vector-, Symbol- und Graph-Provider", "whitelisted Architecture Queries", "GraphStore"],
+        "checked_files": [
+          "docs/codecompass.md",
+          "worker/retrieval/codecompass_graph_store.py",
+          "worker/retrieval/codecompass_architecture_query.py"
+        ],
+        "existing_patterns": [
+          "FTS-, Vector-, Symbol- und Graph-Provider",
+          "whitelisted Architecture Queries",
+          "GraphStore"
+        ],
         "gap": "Retrieval-Ergebnisse werden noch nicht als rekursionsfaehige Child-Evidence mit Parent- und Budgetbezug zusammengefuehrt."
       },
       "implementation": {
-        "files_to_create": ["agent/services/codecompass_recursive_retrieval_service.py"],
-        "files_to_modify": ["agent/services/codecompass_context_service.py"],
+        "files_to_create": [
+          "agent/services/codecompass_recursive_retrieval_service.py"
+        ],
+        "files_to_modify": [
+          "agent/services/codecompass_context_service.py"
+        ],
         "notes": [
           "Bestehende Provider injizieren; keine neuen parallelen Indizes bauen.",
           "Pro Knoten dokumentieren, welcher Retrieval-Kanal Treffer, no_results oder degraded geliefert hat."
@@ -265,7 +376,11 @@
         "Keine Evidence ausserhalb Tenant/Revision/Allowlist gelangt in Child-Kontexte.",
         "no_results darf nicht als negative Repository-Wahrheit interpretiert werden."
       ],
-      "test_plan": ["Provider-Mock-Tests", "degraded/no_results Tests", "Tenant-/Revision-Negativtests"]
+      "test_plan": [
+        "Provider-Mock-Tests",
+        "degraded/no_results Tests",
+        "Tenant-/Revision-Negativtests"
+      ]
     },
     {
       "id": "RLM-006",
@@ -274,15 +389,27 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "dependencies": ["RLM-005"],
+      "dependencies": [
+        "RLM-005"
+      ],
       "repo_evidence": {
-        "checked_files": ["worker/retrieval/codecompass_graph_store.py", "worker/retrieval/codecompass_sqlite_graph_store.py", "worker/retrieval/codecompass_architecture_query.py"],
-        "existing_patterns": ["outgoing/incoming Indizes", "Architecture Query Engine", "Symbol-/RIG-Schichten"],
+        "checked_files": [
+          "worker/retrieval/codecompass_graph_store.py",
+          "worker/retrieval/codecompass_sqlite_graph_store.py",
+          "worker/retrieval/codecompass_architecture_query.py"
+        ],
+        "existing_patterns": [
+          "outgoing/incoming Indizes",
+          "Architecture Query Engine",
+          "Symbol-/RIG-Schichten"
+        ],
         "gap": "Graph-Nachbarschaften koennen Kontext liefern, steuern aber noch keine begrenzte rekursive Untersuchung."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/codecompass_recursive_retrieval_service.py"],
+        "files_to_modify": [
+          "agent/services/codecompass_recursive_retrieval_service.py"
+        ],
         "notes": [
           "Expansion nur ueber erlaubte Edge-/Node-Kinds und bestehende Query-Vertraege.",
           "Priorisierung z.B. calls/imports/tests/dependency/build-target mit konfigurierbaren Hops."
@@ -293,7 +420,11 @@
         "Graph-Expansion respektiert globale Node- und Tokenbudgets.",
         "Nicht verifizierte externe Graphdaten werden nicht als harte Wahrheit behandelt."
       ],
-      "test_plan": ["Graph-Fixture mit 1-3 Hops", "Budget-Cutoff-Test", "unverified Evidence-Test"]
+      "test_plan": [
+        "Graph-Fixture mit 1-3 Hops",
+        "Budget-Cutoff-Test",
+        "unverified Evidence-Test"
+      ]
     },
     {
       "id": "RLM-007",
@@ -302,15 +433,28 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "dependencies": ["RLM-005"],
+      "dependencies": [
+        "RLM-005"
+      ],
       "repo_evidence": {
-        "checked_files": ["agent/services/tools/_evidence.py", "schemas/source/source_ref.v2.json"],
-        "existing_patterns": ["begrenzte Evidence-Excerpts", "Source-Refs", "content-begrenzte Tool-Resultate"],
+        "checked_files": [
+          "agent/services/tools/_evidence.py",
+          "schemas/source/source_ref.v2.json"
+        ],
+        "existing_patterns": [
+          "begrenzte Evidence-Excerpts",
+          "Source-Refs",
+          "content-begrenzte Tool-Resultate"
+        ],
         "gap": "Kein standardisiertes Child-Ergebnis fuer claim/evidence/unknown/conflict, das spaeter rekursiv zusammengefuehrt werden kann."
       },
       "implementation": {
-        "files_to_create": ["schemas/codecompass.recursive-result.v1.json"],
-        "files_to_modify": ["agent/services/tools/_evidence.py"],
+        "files_to_create": [
+          "schemas/codecompass.recursive-result.v1.json"
+        ],
+        "files_to_modify": [
+          "agent/services/tools/_evidence.py"
+        ],
         "notes": [
           "Resultat trennt claims, evidence_refs, unknowns, conflicts, discarded_items und budget_used.",
           "Verdichtung darf Source-Refs nicht verlieren."
@@ -321,7 +465,11 @@
         "Claims ohne Evidence koennen als unverified markiert werden, aber nicht als grounded gelten.",
         "Discarded Items werden content-frei mit Reason-Code protokolliert."
       ],
-      "test_plan": ["Schema-Fixtures", "Grounded-vs-unverified Test", "Discard-Reason Test"]
+      "test_plan": [
+        "Schema-Fixtures",
+        "Grounded-vs-unverified Test",
+        "Discard-Reason Test"
+      ]
     },
     {
       "id": "RLM-008",
@@ -330,14 +478,25 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["RLM-007"],
+      "dependencies": [
+        "RLM-007"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md", "agent/services/tools/_evidence.py"],
-        "existing_patterns": ["evidence_conflict", "verified/unverified Evidence", "Source-Autoritaet"],
+        "checked_files": [
+          "docs/codecompass.md",
+          "agent/services/tools/_evidence.py"
+        ],
+        "existing_patterns": [
+          "evidence_conflict",
+          "verified/unverified Evidence",
+          "Source-Autoritaet"
+        ],
         "gap": "Kein rekursiver Reducer fuehrt Child-Ergebnisse zusammen, ohne Provenance und Konflikte zu verlieren."
       },
       "implementation": {
-        "files_to_create": ["agent/services/codecompass_recursive_synthesis_service.py"],
+        "files_to_create": [
+          "agent/services/codecompass_recursive_synthesis_service.py"
+        ],
         "files_to_modify": [],
         "notes": [
           "Merge dedupliziert identische Evidence-Refs und Claims, aber verschmilzt widerspruechliche Aussagen nicht.",
@@ -350,7 +509,12 @@
         "Finale Synthese kann jeden grounded Claim auf mindestens eine autoritative Source-Ref zurueckfuehren.",
         "Duplikate werden reduziert, ohne unterschiedliche Revisionen oder Quellenidentitaeten zu verschmelzen."
       ],
-      "test_plan": ["Merge-Order-Stability Test", "Conflict Fixture", "Duplicate Evidence Test", "Revision-Separation Test"]
+      "test_plan": [
+        "Merge-Order-Stability Test",
+        "Conflict Fixture",
+        "Duplicate Evidence Test",
+        "Revision-Separation Test"
+      ]
     },
     {
       "id": "RLM-009",
@@ -359,15 +523,29 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "dependencies": ["RLM-005", "RLM-008"],
+      "dependencies": [
+        "RLM-005",
+        "RLM-008"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md", "agent/services/codecompass_context_service.py"],
-        "existing_patterns": ["Access-Policy", "Redaction", "Injection-Scan", "Tenant/Revision-Allowlist"],
+        "checked_files": [
+          "docs/codecompass.md",
+          "agent/services/codecompass_context_service.py"
+        ],
+        "existing_patterns": [
+          "Access-Policy",
+          "Redaction",
+          "Injection-Scan",
+          "Tenant/Revision-Allowlist"
+        ],
         "gap": "Die vorhandenen Gates muessen garantiert fuer Root und jedes Child erneut bzw. vererbt angewendet werden."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/codecompass_recursive_retrieval_service.py", "agent/services/codecompass_recursive_synthesis_service.py"],
+        "files_to_modify": [
+          "agent/services/codecompass_recursive_retrieval_service.py",
+          "agent/services/codecompass_recursive_synthesis_service.py"
+        ],
         "notes": [
           "Kein Child darf rohe, ungepruefte Retrieval-Inhalte direkt an ein Modell weitergeben.",
           "High-Risk-Injection beendet den betroffenen Branch; Parent kann mit verbleibender Evidence weiterarbeiten."
@@ -379,7 +557,12 @@
         "High-Risk-Prompt-Injection kann einen Branch stoppen und erzeugt einen auditierbaren Reason-Code.",
         "Ein kompromittierter Child-Branch kann keine Geschwister-Scopes erweitern."
       ],
-      "test_plan": ["Cross-Tenant Test", "stale Revision Test", "Prompt-Injection Fixture", "Secret Redaction Test"]
+      "test_plan": [
+        "Cross-Tenant Test",
+        "stale Revision Test",
+        "Prompt-Injection Fixture",
+        "Secret Redaction Test"
+      ]
     },
     {
       "id": "RLM-010",
@@ -388,15 +571,30 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "dependencies": ["RLM-004", "RLM-008", "RLM-009"],
+      "dependencies": [
+        "RLM-004",
+        "RLM-008",
+        "RLM-009"
+      ],
       "repo_evidence": {
-        "checked_files": ["agent/services/tools/codecompass_tools.py"],
-        "existing_patterns": ["resolve_context", "search_symbols", "get_file_context", "get_domain_map", "search", "plan_context"],
+        "checked_files": [
+          "agent/services/tools/codecompass_tools.py"
+        ],
+        "existing_patterns": [
+          "resolve_context",
+          "search_symbols",
+          "get_file_context",
+          "get_domain_map",
+          "search",
+          "plan_context"
+        ],
         "gap": "Kein explizites Tool fuer eine budgetierte rekursive Repository-Analyse."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/tools/codecompass_tools.py"],
+        "files_to_modify": [
+          "agent/services/tools/codecompass_tools.py"
+        ],
         "notes": [
           "Vorschlag Toolname: analyze_recursive oder plan_recursive_context.",
           "Input erlaubt nur bekannte Intents/Scopes und harte Maximalwerte; keine beliebigen internen Planner-Parameter."
@@ -408,7 +606,11 @@
         "Ungültige Budgetwerte werden vor Ausfuehrung abgewiesen.",
         "Tool-Antwort bleibt kompatibel zur vorhandenen Evidence-Mechanik."
       ],
-      "test_plan": ["Tool Contract Test", "Invalid Budget Test", "Feature-Flag Test"]
+      "test_plan": [
+        "Tool Contract Test",
+        "Invalid Budget Test",
+        "Feature-Flag Test"
+      ]
     },
     {
       "id": "RLM-011",
@@ -417,15 +619,28 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "dependencies": ["RLM-004", "RLM-008"],
+      "dependencies": [
+        "RLM-004",
+        "RLM-008"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md"],
-        "existing_patterns": ["content-freie discarded-item Protokollierung", "reproduzierbare Test-Gates"],
+        "checked_files": [
+          "docs/codecompass.md"
+        ],
+        "existing_patterns": [
+          "content-freie discarded-item Protokollierung",
+          "reproduzierbare Test-Gates"
+        ],
         "gap": "Rekursive Pfade, Stop-Gruende und Budgetverbrauch sind ohne Trace schwer nachvollziehbar."
       },
       "implementation": {
-        "files_to_create": ["schemas/codecompass.recursive-trace.v1.json"],
-        "files_to_modify": ["agent/services/codecompass_recursive_planner_service.py", "agent/services/codecompass_recursive_synthesis_service.py"],
+        "files_to_create": [
+          "schemas/codecompass.recursive-trace.v1.json"
+        ],
+        "files_to_modify": [
+          "agent/services/codecompass_recursive_planner_service.py",
+          "agent/services/codecompass_recursive_synthesis_service.py"
+        ],
         "notes": [
           "Trace standardmaessig content-arm: IDs, Hashes, Intents, Provider, Counts, Budgets, Status, Stop-Reason.",
           "Keine Secrets oder komplette proprietaere Source-Inhalte persistieren."
@@ -436,7 +651,11 @@
         "Abgebrochene Branches haben explizite Stop-Reason.",
         "Trace enthaelt standardmaessig keine unredigierten Source-Inhalte."
       ],
-      "test_plan": ["Trace-Schema-Test", "Secret-Absence Test", "Parent/Child Integrity Test"]
+      "test_plan": [
+        "Trace-Schema-Test",
+        "Secret-Absence Test",
+        "Parent/Child Integrity Test"
+      ]
     },
     {
       "id": "RLM-012",
@@ -445,15 +664,30 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["RLM-008", "RLM-009", "RLM-010"],
+      "dependencies": [
+        "RLM-008",
+        "RLM-009",
+        "RLM-010"
+      ],
       "repo_evidence": {
-        "checked_files": ["artifacts/test-gates/codecompass-e2e.json", "docs/codecompass.md"],
-        "existing_patterns": ["reproduzierbarer technischer CodeCompass E2E-Lauf", "release_allowed Gate"],
+        "checked_files": [
+          "artifacts/test-gates/codecompass-e2e.json",
+          "docs/codecompass.md"
+        ],
+        "existing_patterns": [
+          "reproduzierbarer technischer CodeCompass E2E-Lauf",
+          "release_allowed Gate"
+        ],
         "gap": "Kein Vergleich fuer Antwortqualitaet, Evidence-Coverage, Tokenverbrauch, Latenz und Kosten zwischen normalem und rekursivem Plan."
       },
       "implementation": {
-        "files_to_create": ["tests/benchmarks/codecompass_rlm_cases.json", "scripts/benchmark_codecompass_rlm.py"],
-        "files_to_modify": ["artifacts/test-gates/codecompass-e2e.json"],
+        "files_to_create": [
+          "tests/benchmarks/codecompass_rlm_cases.json",
+          "scripts/benchmark_codecompass_rlm.py"
+        ],
+        "files_to_modify": [
+          "artifacts/test-gates/codecompass-e2e.json"
+        ],
         "notes": [
           "Faelle: Single-Symbol, repo-weite Dependency, Blast-Radius, Doku-vs-Code-Konflikt, Multi-Modul, sehr grosse Dokumentmenge.",
           "Messen: grounded precision proxy, evidence recall proxy, context tokens, model calls, wall time, branch count."
@@ -465,7 +699,11 @@
         "Fuer mindestens einen breiten Multi-Modul-Fall wird nachvollziehbar gezeigt, ob RLM mehr relevante Evidence bei begrenztem finalem Kontext liefert.",
         "Security-/Evidence-Gates koennen durch Benchmark nicht uebersprungen werden."
       ],
-      "test_plan": ["Deterministische Fixture-Laeufe", "Token-/Call-Zaehler", "Regression-Gate in CI"]
+      "test_plan": [
+        "Deterministische Fixture-Laeufe",
+        "Token-/Call-Zaehler",
+        "Regression-Gate in CI"
+      ]
     },
     {
       "id": "RLM-013",
@@ -474,15 +712,24 @@
       "status": "todo",
       "priority": "P2",
       "risk": "medium",
-      "dependencies": ["RLM-011", "RLM-012"],
+      "dependencies": [
+        "RLM-011",
+        "RLM-012"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md"],
-        "existing_patterns": ["Metriken im CodeCompass-Integrationspfad"],
+        "checked_files": [
+          "docs/codecompass.md"
+        ],
+        "existing_patterns": [
+          "Metriken im CodeCompass-Integrationspfad"
+        ],
         "gap": "Keine RLM-spezifischen Betriebsmetriken."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["agent/services/codecompass_recursive_planner_service.py"],
+        "files_to_modify": [
+          "agent/services/codecompass_recursive_planner_service.py"
+        ],
         "notes": [
           "Metriken: recursive_runs, fallback_runs, nodes_per_run, max_depth_reached, provider_calls, dedup_ratio, conflicts, stopped_by_budget, no_new_evidence, model_calls."
         ]
@@ -492,7 +739,10 @@
         "Budget-Abbrueche und Fallbacks sind getrennt messbar.",
         "Metriken koennen fuer Benchmark und spaeteres UI verwendet werden."
       ],
-      "test_plan": ["Metrics Counter Test", "No-Content Leakage Test"]
+      "test_plan": [
+        "Metrics Counter Test",
+        "No-Content Leakage Test"
+      ]
     },
     {
       "id": "RLM-014",
@@ -501,15 +751,25 @@
       "status": "todo",
       "priority": "P3",
       "risk": "low",
-      "dependencies": ["RLM-011", "RLM-013"],
+      "dependencies": [
+        "RLM-011",
+        "RLM-013"
+      ],
       "repo_evidence": {
-        "checked_files": ["frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts"],
-        "existing_patterns": ["CodeCompass Graph Viewer", "GenericGraphModel"],
+        "checked_files": [
+          "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts"
+        ],
+        "existing_patterns": [
+          "CodeCompass Graph Viewer",
+          "GenericGraphModel"
+        ],
         "gap": "Kein UI fuer Root/Child-Analysebaum, Stop-Reasons und Evidence-Coverage eines RLM-Runs."
       },
       "implementation": {
         "files_to_create": [],
-        "files_to_modify": ["frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts"],
+        "files_to_modify": [
+          "frontend-angular/src/app/features/codecompass-graph/services/graph-adapter.service.ts"
+        ],
         "notes": [
           "Vor Implementierung konkreten Komponentenpfad des Graph Viewers erneut pruefen.",
           "RLM-Plan als eigener View/Overlay oder generisches Graph-Modell darstellen; keine zweite Graph-Library einfuehren."
@@ -520,7 +780,11 @@
         "Evidence-Inhalte werden nicht automatisch vollstaendig offengelegt.",
         "Viewer bleibt ohne RLM-Daten kompatibel."
       ],
-      "test_plan": ["Angular Adapter Test", "Empty/partial Trace Fixture", "No-RLM Regression Test"]
+      "test_plan": [
+        "Angular Adapter Test",
+        "Empty/partial Trace Fixture",
+        "No-RLM Regression Test"
+      ]
     },
     {
       "id": "RLM-015",
@@ -529,15 +793,31 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "dependencies": ["RLM-010", "RLM-012", "RLM-013"],
+      "dependencies": [
+        "RLM-010",
+        "RLM-012",
+        "RLM-013"
+      ],
       "repo_evidence": {
-        "checked_files": ["docs/codecompass.md", "artifacts/test-gates/codecompass-e2e.json"],
-        "existing_patterns": ["optionale Features", "reproduzierbare E2E-Gates", "Default-off fuer riskante Integrationen"],
+        "checked_files": [
+          "docs/codecompass.md",
+          "artifacts/test-gates/codecompass-e2e.json"
+        ],
+        "existing_patterns": [
+          "optionale Features",
+          "reproduzierbare E2E-Gates",
+          "Default-off fuer riskante Integrationen"
+        ],
         "gap": "Kein dokumentierter RLM-Betriebsmodus und kein Release-Gate."
       },
       "implementation": {
-        "files_to_create": ["docs/architecture/codecompass-rlm-recursive-context.md"],
-        "files_to_modify": ["docs/codecompass.md", "artifacts/test-gates/codecompass-e2e.json"],
+        "files_to_create": [
+          "docs/architecture/codecompass-rlm-recursive-context.md"
+        ],
+        "files_to_modify": [
+          "docs/codecompass.md",
+          "artifacts/test-gates/codecompass-e2e.json"
+        ],
         "notes": [
           "RLM V1 default off; Aktivierung tenant-/deployment-konfigurierbar.",
           "Dokumentation erklaert Unterschied normaler Planner vs. RLM, Limits, Kosten und Sicherheitsmodell."
@@ -549,7 +829,12 @@
         "docs/codecompass.md beschreibt RLM als optionale Orchestrierungsschicht und nicht als neues Basismodell.",
         "Release-Gate schlaegt fehl, wenn Evidence-/Tenant-/Budget-Invarianten verletzt werden."
       ],
-      "test_plan": ["E2E Feature-Flag off/on", "Budget-stop E2E", "Conflict E2E", "Injection E2E"]
+      "test_plan": [
+        "E2E Feature-Flag off/on",
+        "Budget-stop E2E",
+        "Conflict E2E",
+        "Injection E2E"
+      ]
     }
   ],
   "tasks_status_summary": {
@@ -612,6 +897,7 @@
     "Wichtigster Architekturpunkt ist Evidence-Vererbung ueber alle Rekursionsebenen.",
     "Harte Budgets und Stop-Conditions sind P0, weil rekursive Modellaufrufe sonst unkontrollierte Kosten und Latenzen erzeugen koennen.",
     "Die erste Version soll deterministisch entscheiden koennen, wann normaler Context Planner ausreicht und wann RLM sinnvoll ist.",
-    "Der bestehende CodeCompass Trust-/Policy-/Injection-Stack darf an keiner Rekursionsebene umgangen werden."
+    "Der bestehende CodeCompass Trust-/Policy-/Injection-Stack darf an keiner Rekursionsebene umgangen werden.",
+    "HAC-015-2026-08-17: Hierarchical Architecture Context ist der optionale Expansion Provider. RLM darf nur HAC-Handles/Budgets nutzen, keine freie Graphtraversierung."
   ]
 }

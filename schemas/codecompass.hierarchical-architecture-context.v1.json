@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.hierarchical-architecture-context.v1.json",
+  "title": "CodeCompass Hierarchical Architecture Context v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "query", "levels", "nodes", "edges", "budgets", "truncated"],
+  "properties": {
+    "schema": { "type": "string", "const": "codecompass.hierarchical-architecture-context.v1" },
+    "query": { "type": "string" },
+    "root_scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "tenant_id": { "type": "string" },
+        "workspace_id": { "type": "string" },
+        "revision": { "type": "string" },
+        "source_scope": { "type": "string" }
+      }
+    },
+    "levels": {
+      "type": "array",
+      "minItems": 5,
+      "items": {
+        "type": "string",
+        "enum": ["system", "subsystem", "component", "file", "symbol"]
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/node" }
+    },
+    "edges": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/edge" }
+    },
+    "summaries": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "type": "object", "additionalProperties": true }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["max_nodes", "max_edges", "max_depth", "max_tokens"]
+    },
+    "truncated": { "type": "boolean" },
+    "truncation_reason": {
+      "type": "string",
+      "enum": ["", "token_budget", "node_budget", "edge_budget", "depth_budget"]
+    },
+    "expansion_handles": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "warnings": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "prefill_included": { "type": "boolean" }
+  },
+  "$defs": {
+    "level": {
+      "type": "string",
+      "enum": ["system", "subsystem", "component", "file", "symbol", "unknown"]
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "level", "title", "short_summary", "responsibilities", "source_refs", "verification_status", "expandable"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "level": { "$ref": "#/$defs/level" },
+        "title": { "type": "string", "minLength": 1 },
+        "short_summary": { "type": "string" },
+        "responsibilities": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "source_refs": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "verification_status": {
+          "type": "string",
+          "enum": ["verified", "unverified", "failed"]
+        },
+        "trust_level": { "type": "string" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "expandable": { "type": "boolean" },
+        "handle": { "type": "string" },
+        "parent_id": { "type": "string" },
+        "path": { "type": "string" }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "source", "target", "relation", "origin"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "target": { "type": "string", "minLength": 1 },
+        "relation": {
+          "type": "string",
+          "enum": [
+            "contains",
+            "uses",
+            "calls",
+            "depends_on",
+            "provides_context_to",
+            "implements",
+            "exposes_tool",
+            "stores",
+            "retrieves_from",
+            "governed_by"
+          ]
+        },
+        "origin": {
+          "type": "string",
+          "enum": ["deterministic", "inferred"]
+        }
+      }
+    }
+  }
+}

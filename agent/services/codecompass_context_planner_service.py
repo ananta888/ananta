@@ -864,6 +864,34 @@ class CodeCompassContextPlanner:
         core["bundle_id"] = self._stable_id("cc-unified", core)
         return core
 
+    def plan_architecture_prefill(
+        self,
+        *,
+        query: str,
+        records: list[dict[str, Any]] | None = None,
+        edges: list[dict[str, Any]] | None = None,
+        capability: dict[str, Any] | None = None,
+        enabled: bool = True,
+        parent_max_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        """Attach a budgeted architecture slice beside finer evidence."""
+
+        if not enabled:
+            return {"schema": "codecompass.hierarchical-architecture-context.v1", "nodes": [], "disabled": True}
+        from agent.services.codecompass_architecture_slice_service import (
+            get_codecompass_architecture_slice_service,
+        )
+
+        return get_codecompass_architecture_slice_service().build_slice(
+            query=query,
+            records=list(records or []),
+            edges=list(edges or []),
+            capability=capability,
+            profile="overview",
+            parent_max_tokens=parent_max_tokens or self.editor_budget("conversation").max_tokens,
+            include_prefill=True,
+        )
+
     def plan_agentic_retrieval(
         self,
         *,

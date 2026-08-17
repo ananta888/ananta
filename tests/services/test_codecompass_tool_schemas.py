@@ -32,6 +32,13 @@ _CODECOMPASS_SPECS: dict[str, set[str]] = {
         "query", "mode", "requested_signals", "task_kind", "scope",
         "budget", "continuation_handle",
     },
+    "codecompass.architecture_overview": {"query", "profile", "revision"},
+    "codecompass.architecture_expand": {"handle", "node", "query", "revision"},
+    "codecompass.component_context": {"handle", "node", "revision"},
+    "codecompass.architecture_dependencies": {"handle", "query", "revision"},
+    "codecompass.symbol_context": {"query", "symbol", "revision"},
+    "codecompass.architecture_evidence": {"query", "revision"},
+    "codecompass.architecture_diagram": {"query", "diagram_kind", "profile"},
     "codecompass.search_symbols": {"query", "record_kinds", "path_globs", "domain_hint", "limit"},
     "codecompass.expand_graph": {"node", "seeds", "depth", "max_depth", "limit", "max_nodes"},
     "codecompass.get_file_context": {

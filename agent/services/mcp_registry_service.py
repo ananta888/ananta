@@ -76,6 +76,34 @@ class MCPRegistryService:
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
         ),
         MCPToolSpec(
+            name="codecompass.architecture_overview",
+            description="Budgeted hierarchical architecture overview for a project question.",
+            input_schema={
+                "type": "object",
+                "required": ["query"],
+                "additionalProperties": False,
+                "properties": {
+                    "query": {"type": "string"},
+                    "profile": {"type": "string"},
+                    "revision": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
+            name="codecompass.architecture_expand",
+            description="Expand one architecture handle from a previous overview.",
+            input_schema={
+                "type": "object",
+                "required": ["handle"],
+                "additionalProperties": False,
+                "properties": {
+                    "handle": {"type": "string"},
+                    "query": {"type": "string"},
+                    "revision": {"type": "string"},
+                },
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.retrieve",
             description=(
                 "Retrieve budgeted CodeCompass evidence for a project question. "
@@ -267,6 +295,21 @@ class MCPRegistryService:
             collection_repo = context["knowledge_collection_repo"]
             items = [item.model_dump() for item in collection_repo.get_all()]
             return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
+
+        if name in {"codecompass.architecture_overview", "codecompass.architecture_expand"}:
+            from agent.services.tools.codecompass_architecture_tools import (
+                codecompass_architecture_expand,
+                codecompass_architecture_overview,
+            )
+
+            args["capability"] = context.get("codecompass_capability")
+            handler = (
+                codecompass_architecture_overview
+                if name == "codecompass.architecture_overview"
+                else codecompass_architecture_expand
+            )
+            result = handler(workspace_dir="", arguments=args, tool_call_id=f"mcp:{name}")
+            return {"content": [{"type": "json", "json": result}]}
 
         if name == "codecompass.retrieve":
             from agent.services.codecompass_agentic_retrieval_service import (

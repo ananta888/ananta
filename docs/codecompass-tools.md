@@ -21,6 +21,9 @@ frozen; new tools bump the major version.
 | `codecompass.get_domain_map`           | existing    | Domain map snapshot.                                  |
 | `codecompass.search`                   | existing    | Combined retrieval search (hybrid contract).          |
 | `codecompass.retrieve`                 | AHR-005     | Canonical agentic retrieval envelope.                 |
+| `codecompass.architecture_overview`     | HAC-009     | Budgeted system/subsystem/component slice.            |
+| `codecompass.architecture_expand`       | HAC-009     | Expand one architecture handle.                       |
+| `codecompass.architecture_diagram`      | HAC-011     | Deterministic Mermaid view of the slice.              |
 | `codecompass.plan_context`             | existing    | Plan bounded path/range context.                      |
 | `codecompass.expand_graph`             | existing    | Expand the symbolgraph around a seed.                 |
 | `codecompass.architecture_query`       | existing    | Whitelisted architecture queries.                     |

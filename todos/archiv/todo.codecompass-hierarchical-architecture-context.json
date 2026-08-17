@@ -5,7 +5,7 @@
   "track": "codecompass-hierarchical-architecture-context",
   "created": "2026-08-15",
   "last_updated": "2026-08-17",
-  "status": "in_progress",
+  "status": "done",
   "purpose": "CodeCompass soll neben feingranularem Retrieval eine begrenzte, hierarchische Architektursicht liefern. Agenten wie AI-Snake und Ananta-Worker erhalten initial eine kompakte System-/Subsystem-/Komponentensicht und koennen bei Bedarf ueber CodeCompass-Tools bzw. MCP gezielt tiefer in Komponenten, Dateien, Symbole, Abhaengigkeiten und Diagramme hineinzoomen.",
   "goal": "Eine token-budgetierte Hierarchie System -> Subsystem -> Komponente -> Datei -> Symbol aufbauen, die als vorbefuellter Architekturkontext und als on-demand abrufbarer Graph dient. Der Kontext muss Beziehungen und Verantwortlichkeiten erklaeren, statt nur Trefferlisten und Dateiauszuege zu liefern, und darf das Context Window nicht unkontrolliert vergroessern.",
   "source_review": {
@@ -160,7 +160,7 @@
         "HAC-003",
         "HAC-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -171,7 +171,7 @@
         "HAC-007",
         "HAC-008"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -182,7 +182,7 @@
         "HAC-011",
         "HAC-012"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -194,7 +194,7 @@
         "HAC-016",
         "HAC-017"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -202,10 +202,10 @@
       "id": "HAC-001",
       "title": "Versionierten Hierarchical Architecture Context Contract definieren",
       "type": "schema",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "schemas/codecompass.hierarchical-architecture-context.v1.json"
@@ -215,7 +215,8 @@
           "Contract fuer query, root_scope, levels, nodes, edges, summaries, evidence, budgets, truncation und expansion handles definieren.",
           "Level mindestens system, subsystem, component, file, symbol.",
           "Jeder Node braucht stable id, level, title, short_summary, responsibilities, source_refs, confidence/trust und expandable flag.",
-          "ALIGN-2026-08-17: Schema fehlt."
+          "ALIGN-2026-08-17: Schema fehlt.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -233,10 +234,10 @@
       "id": "HAC-002",
       "title": "Semantisches Architektur-Knotenmodell und Beziehungstypen festlegen",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "docs/architecture/codecompass-hierarchical-architecture-context.md"
@@ -246,7 +247,8 @@
         ],
         "notes": [
           "Beziehungstypen initial: contains, uses, calls, depends_on, provides_context_to, implements, exposes_tool, stores, retrieves_from, governed_by.",
-          "Semantische Kurzbeschreibung muss aus Evidence/Graphdaten abgeleitet und revisionsgebunden gespeichert bzw. gecacht werden koennen."
+          "Semantische Kurzbeschreibung muss aus Evidence/Graphdaten abgeleitet und revisionsgebunden gespeichert bzw. gecacht werden koennen.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -266,10 +268,10 @@
       "id": "HAC-003",
       "title": "Token-, Node-, Edge- und Depth-Budget-Policy definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "agent/services/codecompass_architecture_budget.py"
@@ -281,7 +283,8 @@
         "notes": [
           "Separate Budgets fuer Systemuebersicht, Subsysteme, Komponenten und feingranulare Evidence.",
           "Policy muss harte Maxima und relative Verteilung unter Gesamt-Context-Budget unterstuetzen.",
-          "Bei Ueberschreitung priorisiert Planner relevante Verbindungen und erzeugt expandierbare Trunkierung statt stiller Abschneidung."
+          "Bei Ueberschreitung priorisiert Planner relevante Verbindungen und erzeugt expandierbare Trunkierung statt stiller Abschneidung.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -301,10 +304,10 @@
       "id": "HAC-004",
       "title": "Evidence-, Tenant-, Revision- und Security-Regeln auf Hierarchie anwenden",
       "type": "security",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -314,7 +317,8 @@
         "notes": [
           "Architekturzusammenfassungen duerfen nur aus freigegebener Evidence entstehen.",
           "Expansion muss denselben Tenant, Workspace, Revision und Source Catalog Scope beibehalten.",
-          "Injection-/Secret-/Redaction-Policies muessen vor Summary und vor Prompt-Freigabe greifen."
+          "Injection-/Secret-/Redaction-Policies muessen vor Summary und vor Prompt-Freigabe greifen.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -334,10 +338,10 @@
       "id": "HAC-005",
       "title": "Hierarchische Projektion aus bestehendem CodeCompass Graph erzeugen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "worker/retrieval/codecompass_hierarchical_architecture.py"
@@ -349,7 +353,8 @@
         "notes": [
           "GraphStore-Daten in stabile Abstraktionsebenen projizieren.",
           "Keine zweite persistente Wahrheit einfuehren; Hierarchie ist reproduzierbare View/Projection.",
-          "Unklassifizierbare Elemente bleiben unknown/unclassified statt heuristisch falsch einsortiert."
+          "Unklassifizierbare Elemente bleiben unknown/unclassified statt heuristisch falsch einsortiert.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -371,10 +376,10 @@
       "id": "HAC-006",
       "title": "Query-relevanten Architecture Slice selektieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "agent/services/codecompass_architecture_slice_service.py"
@@ -387,7 +392,8 @@
           "Query wie 'Was ist CodeCompass im Ananta-System?' soll zuerst relevante System-/Subsystemknoten waehlen und erst danach passende Komponenten/Dateien.",
           "Ranking kombiniert Query-Relevanz, Graph-Nachbarschaft, Node-Level, Trust/Evidence und Budgetkosten.",
           "Keine reine Top-K-Dateisuche.",
-          "ALIGN-2026-08-17: retrieve_architecture_context nutzt bereits den Hybrid-Service, liefert aber noch keinen Hierarchie-Slice."
+          "ALIGN-2026-08-17: retrieve_architecture_context nutzt bereits den Hybrid-Service, liefert aber noch keinen Hierarchie-Slice.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -408,10 +414,10 @@
       "id": "HAC-007",
       "title": "Semantische Kurzbeschreibungen fuer Architektur-Nodes erzeugen und cachen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "agent/services/codecompass_architecture_summary_service.py"
@@ -420,7 +426,8 @@
         "notes": [
           "Deterministische Metadaten zuerst; LLM-Summary nur wenn noetig und eindeutig als derived markiert.",
           "Cache-Key muss Snapshot/Revision, Node-ID, Evidence-Hashes, Modell-/Prompt-Version enthalten.",
-          "Summaries kurz halten und auf Verantwortlichkeit/Zusammenhang statt Dateiinhaltswiedergabe optimieren."
+          "Summaries kurz halten und auf Verantwortlichkeit/Zusammenhang statt Dateiinhaltswiedergabe optimieren.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -442,10 +449,10 @@
       "id": "HAC-008",
       "title": "Initialen Architecture Prefill in Context Planner integrieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -455,7 +462,8 @@
         "notes": [
           "Planner erzeugt einen architecture_context Block vor bzw. neben feineren Evidence-Snippets.",
           "Prefill ist intent-abhaengig abschaltbar und bekommt ein eigenes Teilbudget.",
-          "Resultat nennt explizit, welche Knoten expandierbar sind."
+          "Resultat nennt explizit, welche Knoten expandierbar sind.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -476,10 +484,10 @@
       "id": "HAC-009",
       "title": "Interne CodeCompass Architecture Tools bereitstellen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -488,7 +496,8 @@
         "notes": [
           "Mindestens architecture_overview, architecture_expand, component_context, dependencies, symbol_context und architecture_evidence.",
           "Jedes Tool akzeptiert explizite depth/budget-Parameter innerhalb serverseitiger Maxima.",
-          "Expansion ueber stable node/continuation handles statt vom Modell frei erfundener Dateipfade."
+          "Expansion ueber stable node/continuation handles statt vom Modell frei erfundener Dateipfade.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -509,10 +518,10 @@
       "id": "HAC-010",
       "title": "CodeCompass MCP fuer hierarchische Architektur exponieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 15,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [],
@@ -520,7 +529,8 @@
           "Zuerst vorhandenen MCP-/Tool-Registry-Pfad im aktuellen Repo erneut lokalisieren und exakt dort dieselben Service-Operationen wie HAC-009 exponieren.",
           "Keine separate MCP-spezifische Architekturimplementierung.",
           "MCP-Schemas muessen begrenzte depth/token/node/edge Parameter und continuation handles enthalten.",
-          "ALIGN-2026-08-17: MCP codecompass.retrieve existiert; Architecture-Tools noch nicht."
+          "ALIGN-2026-08-17: MCP codecompass.retrieve existiert; Architecture-Tools noch nicht.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -540,10 +550,10 @@
       "id": "HAC-011",
       "title": "Deterministische Mermaid-/PlantUML-/UML-Sichten aus Architecture Slice erzeugen",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "agent/services/codecompass_architecture_diagram_service.py"
@@ -554,7 +564,8 @@
         "notes": [
           "Diagrammtypen initial: component/dependency, container/system, sequence sofern call/evidence ausreichend.",
           "Renderer arbeitet nur auf dem bereits freigegebenen Slice.",
-          "Bei unzureichender Evidence kein erfundenes Sequence Diagram; stattdessen structured unavailable reason."
+          "Bei unzureichender Evidence kein erfundenes Sequence Diagram; stattdessen structured unavailable reason.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -575,10 +586,10 @@
       "id": "HAC-012",
       "title": "Architecture Navigation Handles und Zoom-in/Zoom-out Semantik definieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -587,7 +598,8 @@
         ],
         "notes": [
           "Agent soll expand(node), parents(node), siblings(node), dependencies(node) und collapse/overview(scope) ausdruecken koennen.",
-          "Handles enthalten keine frei editierbaren privilegierten Source-Informationen und sind revisionsgebunden."
+          "Handles enthalten keine frei editierbaren privilegierten Source-Informationen und sind revisionsgebunden.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -607,17 +619,18 @@
       "id": "HAC-013",
       "title": "AI-Snake mit Architecture Prefill und Pull-Expansion verbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [],
         "notes": [
           "Aktuelle AI-Snake-/CodeCompass-Integrationspfade vor Umsetzung aus dem aktiven Todo und Quellcode erneut ableiten.",
           "Bei geeigneten Aufgaben wird Architecture Prefill automatisch zusammen mit relevantem Retrieval in die initiale Anfrage gegeben.",
-          "AI-Snake kann spaeter Architecture Tools selbststaendig nutzen, ohne gesamten Graph zu erhalten."
+          "AI-Snake kann spaeter Architecture Tools selbststaendig nutzen, ohne gesamten Graph zu erhalten.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -639,10 +652,10 @@
       "id": "HAC-014",
       "title": "Ananta Worker Tool Loop fuer hierarchische Architektur freischalten",
       "type": "integration",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [],
@@ -650,7 +663,8 @@
           "Aktuelle Worker Tool Registry/Loop Dateien vor Umsetzung erneut verifizieren.",
           "Worker erhaelt initial nur Planner-gewaehlten Prefill und darf per Tool gezielt expandieren.",
           "Tool-Loop muss kumulative Context-/Kosten-/Depth-Budgets ueber mehrere Expansionen verfolgen.",
-          "ALIGN-2026-08-17: Worker Tool Loop und Registry existieren; Architecture-Tools noch nicht eingetragen."
+          "ALIGN-2026-08-17: Worker Tool Loop und Registry existieren; Architecture-Tools noch nicht eingetragen.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -671,10 +685,10 @@
       "id": "HAC-015",
       "title": "RLM Recursive Context mit Hierarchie als Expansion Space verbinden",
       "type": "integration",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -684,7 +698,8 @@
           "RLM soll Hierarchie-Handles als kontrollierte Such-/Expansionsebene verwenden koennen.",
           "RLM darf nicht ausserhalb der HAC-Budgets oder Evidence-Gates eigene unbeschraenkte Graphtraversierung starten.",
           "RLM entscheidet z.B. Level 1 -> Level 2 -> Level 3 nach Informationsbedarf.",
-          "ALIGN-2026-08-17: RLM-Todo muss HAC als Expansion Provider referenzieren."
+          "ALIGN-2026-08-17: RLM-Todo muss HAC als Expansion Provider referenzieren.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -705,10 +720,10 @@
       "id": "HAC-016",
       "title": "Graph Viewer um hierarchische Architektur-Slices und Level-Filter erweitern",
       "type": "ux",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [],
         "files_to_modify": [
@@ -717,7 +732,8 @@
         "notes": [
           "Vorhandenen Viewer wiederverwenden.",
           "Level-Filter, expand/collapse, Budget/Truncation-Anzeige und Evidence-Drilldown vorsehen.",
-          "UI darf nur serverseitig freigegebene Slices darstellen, nicht lokal unbeschraenkt Gesamtgraph laden."
+          "UI darf nur serverseitig freigegebene Slices darstellen, nicht lokal unbeschraenkt Gesamtgraph laden.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -738,10 +754,10 @@
       "id": "HAC-017",
       "title": "Qualitaetsbenchmark: Treffer-only Retrieval vs hierarchischer Architekturkontext",
       "type": "test",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "files_to_create": [
           "artifacts/test-gates/codecompass-hierarchical-architecture-e2e.json",
@@ -751,7 +767,8 @@
         "notes": [
           "Benchmark-Fragen muessen Systemverstaendnis, Komponentenverantwortung, Abhaengigkeit, Flow und konkrete Codefrage abdecken.",
           "Vergleichen: Baseline relevante Dateien+Snippets vs Architecture Prefill+Snippets vs Prefill+Pull Expansion.",
-          "Metriken: Answer grounding, relevante Ebenen, Evidence coverage, Prompt Tokens, Tool Calls, Latenz, Kosten, falsche Beziehungen."
+          "Metriken: Answer grounding, relevante Ebenen, Evidence coverage, Prompt Tokens, Tool Calls, Latenz, Kosten, falsche Beziehungen.",
+          "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
         ]
       },
       "acceptance_criteria": [
@@ -784,13 +801,13 @@
   "tasks_status_summary": {
     "total": 17,
     "by_status": {
-      "todo": 14,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 17
     },
-    "progress_percent_done": 8.8,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 10,
       "P1": 5,
@@ -805,15 +822,15 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 10,
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -829,12 +846,12 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 14,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 3,
+    "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 17
   },
   "summary_notes": [
     "Kernidee ist nicht mehr Retrieval allein, sondern Architecture Context plus Retrieval.",
@@ -842,6 +859,7 @@
     "MCP und interner Worker-/AI-Snake-Zugriff muessen denselben Service- und Policy-Layer verwenden.",
     "Der Gesamtgraph wird nie vollstaendig in den Prompt serialisiert.",
     "RLM kann spaeter auf genau diesen Hierarchieebenen rekursiv navigieren.",
-    "ALIGN-2026-08-17: Keine zweite Wissensdatenbank. Projektion auf Graph + Agentic Retrieval."
+    "ALIGN-2026-08-17: Keine zweite Wissensdatenbank. Projektion auf Graph + Agentic Retrieval.",
+    "COMPLETED-2026-08-17: Contract, Budget, Projektion, Slice, Summaries, Tools, MCP, Diagramme, Handles, Planner-Prefill, Viewer-Level-Filter, Gate-Report."
   ]
 }

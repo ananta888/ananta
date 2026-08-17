@@ -1,5 +1,9 @@
 import { TestBed } from '@angular/core/testing';
-import { GraphAdapterService } from './graph-adapter.service';
+import {
+  GraphAdapterService,
+  architectureLevelOf,
+  filterGraphByArchitectureLevel,
+} from './graph-adapter.service';
 import { MOCK_DOMAIN_GRAPH_ARTIFACT } from '../testing/mock-codecompass-graph';
 import { ALL_EDGE_TYPES, ALL_NODE_KINDS } from '../models/graph-filter.model';
 
@@ -683,5 +687,20 @@ describe('GraphAdapterService', () => {
       supplementDeclarationCount: 179,
     });
     expect(model.evidence?.window?.deliveryComplete).toBe(true);
+  });
+
+  it('filters hierarchical architecture levels without inventing nodes', () => {
+    const model = svc.fromDomainArtifact({
+      nodes: [
+        { node_id: 'sys', node_type: 'system', attributes: { name: 'Ananta', architecture_level: 'system' } },
+        { node_id: 'file', node_type: 'python_file', attributes: { name: 'x.py', architecture_level: 'file' } },
+      ],
+      edges: [{ source_id: 'sys', target_id: 'file', relation: 'contains' }],
+    });
+    expect(architectureLevelOf(model.nodes[0].metadata)).toBe('system');
+    const filtered = filterGraphByArchitectureLevel(model, 'system');
+    expect(filtered.nodes.map((node) => node.id)).toEqual(['sys']);
+    expect(filtered.edges.length).toBe(0);
+    expect(filtered.metadata['truncated']).toBe(true);
   });
 });

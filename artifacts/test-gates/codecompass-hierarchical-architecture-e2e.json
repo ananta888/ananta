@@ -1,0 +1,27 @@
+{
+  "schema": "codecompass_hierarchical_architecture_e2e.v1",
+  "created": "2026-08-17",
+  "recommended_default_profile": "overview",
+  "modes": ["snippets_only", "architecture_prefill", "prefill_plus_expand"],
+  "questions": [
+    "Was ist CodeCompass im Ananta-System?",
+    "Welche Verantwortung hat der Context Planner?",
+    "Welche Abhaengigkeiten hat CodeCompass zum Hybrid Retrieval?",
+    "Wie fliesst eine Query vom Agenten zum Graph?",
+    "Wo ist plan_architecture_prefill implementiert?",
+    "Welches Subsystem besitzt architecture_overview?",
+    "Welche Komponente erzeugt Mermaid-Diagramme?",
+    "Welche Datei definiert den Hierarchie-Contract?",
+    "Wie zoomt ein Worker von System auf Symbol?",
+    "Welche Budgets begrenzen einen Architecture Slice?"
+  ],
+  "release_blockers": [
+    "unbelegte Beziehungen mehr als Baseline",
+    "empty_scope nicht fail-closed",
+    "vollstaendiger Graph im Prompt"
+  ],
+  "notes": [
+    "Hierarchischer Modus darf keine Kanten erfinden, die nicht im Slice liegen.",
+    "Token-Tradeoff: overview-Profil ist der Default."
+  ]
+}
