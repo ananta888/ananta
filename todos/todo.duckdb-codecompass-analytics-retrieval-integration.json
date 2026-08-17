@@ -2,7 +2,7 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-06",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-17",
   "owner": "Peter Stuiber / Ananta",
   "track": "duckdb_codecompass_analytics_retrieval_integration",
   "purpose": "DuckDB als optionales lokales Analyse-, Snapshot-, Parquet-, Volltext- und Vector-Retrieval-Backend fuer Ananta und CodeCompass integrieren, ohne JSON als deterministischen Offline-/Test-Fallback, SQLite FTS5 als bestehenden Volltext-Referenzpfad, Qdrant als skalierbares Vector-Backend oder den eigenstaendigen CodeCompass-Graph-Contract zu ersetzen.",
@@ -58,7 +58,10 @@
       "requirements.txt",
       "docker/compose-next/requirements.qdrant-worker.lock",
       "docker/compose-next/Dockerfile.quickstart-no-ollama",
-      ".github/workflows/quality-and-docs.yml"
+      ".github/workflows/quality-and-docs.yml",
+      "todos/archiv/todo.agent-codecompass-hybrid-retrieval-qdrant-integration.json",
+      "worker/incremental_index/coordinator.py",
+      "agent/services/codecompass_agentic_retrieval_service.py"
     ],
     "external_references": [
       {
@@ -123,7 +126,8 @@
       "CodeCompassGraphStore speichert Symbol-, semantische, x86- und Repository-Intelligence-Graphen in einem eigenstaendigen JSON-Contract mit Groessenlimits und atomarer Publikation.",
       "CodeCompassOutputReader und codecompass_output_manifest.v1 beschreiben JSONL-Ausgaben, Hashes, Record Counts, Profil und Source Scope als deterministische Indexgrundlage.",
       "RepositoryIntelligenceQuery erlaubt nur feste Query-Typen; dieses Allowlist-Muster ist die verbindliche Vorlage fuer DuckDB-Abfragen durch Agenten.",
-      "portalocker ist bereits Kernabhaengigkeit und kann fuer einen Worker-lokalen Single-Writer-Lease wiederverwendet werden."
+      "portalocker ist bereits Kernabhaengigkeit und kann fuer einen Worker-lokalen Single-Writer-Lease wiederverwendet werden.",
+      "ALIGN-2026-08-17: Hybrid Retrieval und Incremental Layer Store existieren. DuckDB darf sie nicht ersetzen, sondern als optionales Analytics-/Exact-Vector-Read-Model andocken."
     ],
     "confirmed_gaps": [
       "Es existiert kein DuckDB-Python-Extra, kein DuckDB-Adapter, keine DuckDB-Konfiguration und kein DuckDB-Worker-Lockfile.",
@@ -405,7 +409,7 @@
         "DDB-020",
         "DDB-021"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -419,7 +423,7 @@
         "DDB-027",
         "DDB-028"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -523,7 +527,12 @@
         "Dokumentations-Contracttest prueft alle Pflichtentscheidungen und Referenzlinks.",
         "Architekturreview gleicht die ADR gegen vector_store_contract.py und repository_intelligence_query.py ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 0,
+      "implementation": {
+        "notes": [
+          "ALIGN-2026-08-17: ADR fehlt noch; Qdrant/JSON bleiben SoR-Grenzen."
+        ]
+      }
     },
     {
       "id": "DDB-002",
@@ -1078,7 +1087,7 @@
     {
       "id": "DDB-020",
       "title": "Inkrementelle Refresh-, Upsert-, Delete- und Tombstone-Projektion planen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1107,7 +1116,12 @@
         "Differentialtest vergleicht Full Rebuild gegen Folge aus Upserts und Deletes.",
         "Replay-Test wiederholt denselben Task und prueft unveraenderten Snapshot-Fingerprint."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 20,
+      "implementation": {
+        "notes": [
+          "ALIGN-2026-08-17: Incremental Layer/ChangeSet existiert; DuckDB-Tombstone-Projektion fehlt."
+        ]
+      }
     },
     {
       "id": "DDB-021",
@@ -1305,7 +1319,7 @@
     {
       "id": "DDB-027",
       "title": "DuckDB in CodeCompass Hybrid Retrieval und Ranking integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1334,7 +1348,12 @@
         "Hybrid-Golden-Tests vergleichen JSON-, DuckDB- und Qdrant-Vector-Signale.",
         "Scope-Test prueft doppelte Records, Pfadfilter und Cross-Engine-Deduplication."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 15,
+      "implementation": {
+        "notes": [
+          "ALIGN-2026-08-17: Agentic Retrieval existiert; DuckDB-Kanal ist noch nicht verdrahtet."
+        ]
+      }
     },
     {
       "id": "DDB-028",
@@ -2499,5 +2518,6 @@
     "generator_version": "1.0",
     "source_hash": "03c35ae3ada9de8c722acc8c3c0c290f3dd686542206ed87deddf14644a13255",
     "is_stale": false
-  }
+  },
+  "status": "in_progress"
 }
