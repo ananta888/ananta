@@ -1,0 +1,547 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "tiny-tool-router-action-model-adapter-integration",
+  "created": "2026-08-19",
+  "status": "todo",
+  "priority": "P0",
+  "title": "Tiny Tool Router / Action Model Adapter Layer: Needle, FunctionGemma, LFM and extensible alternatives",
+  "purpose": "Sehr kleine lokale Action-/Function-Calling-Modelle sollen einfache Tool-Auswahl und Argument-Extraktion extrem schnell und ressourcensparend uebernehmen koennen, ohne eine zweite Agenten- oder Tool-Infrastruktur neben Ananta aufzubauen.",
+  "goal": "Eine adapterbasierte, capability-gesteuerte Routing-Schicht schaffen, die Needle als erste Referenz nutzt, aber FunctionGemma, LFM, xLAM und kuenftige Tiny-Action-Modelle ueber bestehende Ananta Tool-Registry, ToolSchemaAdapter, ToolCallingModeResolver, Policy-Gates und UnifiedToolExecutor wiederverwendet.",
+  "architectural_decision": "Adapter-first und reuse-first: Modelle sind austauschbare Router/ActionModel-Backends. Tool-Definition, Autorisierung und Ausfuehrung bleiben zentral in Ananta. OpenAI-kompatible Transportpfade werden bevorzugt; Sonderadapter existieren nur fuer tatsaechlich abweichende Runtimes/Formate.",
+  "non_goals": [
+    "Needle oder andere Tiny-Modelle nicht als Ersatz fuer das allgemeine Haupt-LLM behandeln.",
+    "Keine zweite Tool-Registry und keinen zweiten Executor einfuehren.",
+    "Keine Tool-Autorisierung an das Modell delegieren.",
+    "Keine automatische Cloud-Ausleitung oder Modellinstallation.",
+    "Keine Herstellerbenchmarks ungeprueft als Produktionsentscheidung verwenden."
+  ],
+  "current_ananta_findings": {
+    "tool_calling_mode_service": "agent/services/tool_calling_mode_service.py besitzt bereits native_openai_tools, prompt_json_protocol und disabled sowie sicheren Fallback fuer unbekannte Backends.",
+    "unified_registry_track": "todos/archiv/todo.unified-ananta-tool-calling-registry.json beschreibt die zentrale Tool-Registry, ToolSchemaAdapter-Schicht und den einheitlichen Policy-/Execution-Pfad.",
+    "reuse_rule": "Diese Arbeit erweitert bestehende Schichten und darf sie nicht duplizieren."
+  },
+  "candidate_landscape": [
+    {
+      "model": "Cactus Compute Needle",
+      "class": "specialized tiny action model",
+      "parameters": "26M according to current upstream README",
+      "artifact": "14 MB stated by upstream repository",
+      "strength": "single-shot function/tool selection and argument assembly",
+      "integration_preference": "NeedleAdapter or CactusRuntimeAdapter",
+      "notes": "Experimental; own Ananta benchmark and likely domain finetuning required.",
+      "source": "https://github.com/cactus-compute/needle"
+    },
+    {
+      "model": "Google FunctionGemma",
+      "class": "specialized function-calling model",
+      "parameters": "270M",
+      "strength": "function calling for fast cost-effective agents",
+      "integration_preference": "reuse generic runtime/OpenAI-compatible transport where possible; profile/template adapter otherwise",
+      "notes": "Application-specific fine-tuning can be important for ambiguous tool sets.",
+      "source": "https://developers.googleblog.com/a-guide-to-fine-tuning-functiongemma/"
+    },
+    {
+      "model": "Liquid LFM2.5-350M",
+      "class": "small generalist with native tool calling",
+      "parameters": "350M",
+      "context": "32K",
+      "strength": "tool calling plus broader instruction/chat capability",
+      "integration_preference": "SGLang/OpenAI-compatible, llama.cpp, LM Studio or Ollama through existing provider paths",
+      "source": "https://docs.liquid.ai/lfm/models/lfm25-350m"
+    },
+    {
+      "model": "Liquid LFM2.5-1.2B-Instruct",
+      "class": "small generalist",
+      "parameters": "1.2B",
+      "context": "32K",
+      "strength": "stronger chat/instruction/tool-calling fallback tier",
+      "integration_preference": "existing OpenAI-compatible/local runtime paths",
+      "source": "https://docs.liquid.ai/lfm/models/lfm25-1.2b-instruct"
+    },
+    {
+      "model": "Salesforce xLAM-1b-fc-r",
+      "class": "specialized function-calling model",
+      "parameters": "1.35B",
+      "context": "16K",
+      "strength": "structured function calling and composition",
+      "integration_preference": "prompt-json/profile adapter or compatible serving runtime",
+      "license_note": "CC-BY-NC-4.0 shown on model card; commercial-use risk must be reviewed before enablement",
+      "source": "https://huggingface.co/Salesforce/xLAM-1b-fc-r"
+    },
+    {
+      "model": "future candidates",
+      "class": "profile-driven",
+      "examples": ["Qwen small tool-capable variants", "Granite small tool-capable variants", "future tiny action models"],
+      "integration_preference": "ModelProfile + existing transport + optional parser/template adapter; avoid core changes"
+    }
+  ],
+  "target_flow": [
+    "Request enters normal Agent/Worker path.",
+    "Eligibility gate decides whether the task is suitable for tiny routing.",
+    "Allowed tool subset is obtained from central Ananta registry/policy context.",
+    "ToolSchemaAdapter emits the model/runtime dialect.",
+    "TinyActionModelAdapter produces ToolCallCandidate(s) or abstain.",
+    "Strict normalizer and schema validator reject malformed, unknown or forbidden calls.",
+    "Confidence/quality gate accepts or escalates.",
+    "Existing policy gate authorizes or rejects.",
+    "Existing UnifiedToolExecutor executes allowed calls.",
+    "Complex, ambiguous or failing cases escalate to a larger model without duplicating execution."
+  ],
+  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
+  "priority_scale": ["P0", "P1", "P2", "P3"],
+  "risk_scale": ["low", "medium", "high", "critical"],
+  "milestones": [
+    {"id": "M1", "title": "Architecture and reuse baseline", "task_ids": ["TTR-001", "TTR-002", "TTR-003", "TTR-004"], "status": "todo"},
+    {"id": "M2", "title": "Reference adapters and candidate catalog", "task_ids": ["TTR-005", "TTR-006", "TTR-007", "TTR-008", "TTR-009"], "status": "todo"},
+    {"id": "M3", "title": "Routing, validation and safety", "task_ids": ["TTR-010", "TTR-011", "TTR-012", "TTR-013", "TTR-014"], "status": "todo"},
+    {"id": "M4", "title": "Benchmark, integration and rollout", "task_ids": ["TTR-015", "TTR-016", "TTR-017", "TTR-018", "TTR-019", "TTR-020"], "status": "todo"}
+  ],
+  "tasks": [
+    {
+      "id": "TTR-001",
+      "title": "IST-Analyse der bestehenden Provider-, Tool-Calling- und Registry-Pfade",
+      "type": "analysis",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "details": [
+        "Agent/Worker, SGPT, ToolCallingModeService, AnantaToolRegistryService, ToolSchemaAdapter, UnifiedToolExecutor und Provider-Konfiguration kartieren.",
+        "Pruefen, welche Teile aus todo.unified-ananta-tool-calling-registry bereits umgesetzt sind und nicht dupliziert werden duerfen.",
+        "OpenAI-kompatible Backends und direkte lokale Runtime-Pfade unterscheiden."
+      ],
+      "acceptance_criteria": [
+        "Es existiert eine belastbare Komponentenkarte mit reuse/extend/replace Entscheidung.",
+        "Keine neue parallele Tool-Registry wird eingefuehrt.",
+        "Alle neuen Tiny-Router-Pfade muenden in den bestehenden Policy-/Execution-Pfad."
+      ]
+    },
+    {
+      "id": "TTR-002",
+      "title": "Capability-Modell fuer Tiny Tool Router definieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-001"],
+      "details": [
+        "Capabilities normalisieren: tool_selection, argument_extraction, multi_tool, parallel_calls, no_tool, structured_json, native_openai_tools, prompt_json, context_limit, max_tools, quantization, runtime und device.",
+        "Langfristig capability-basierte Erkennung statt nur provider-namenbasierter Allowlist vorbereiten.",
+        "Confidence/score als optionale Capability behandeln und niemals voraussetzen."
+      ],
+      "acceptance_criteria": [
+        "Ein versioniertes Capability-Schema existiert.",
+        "ToolCallingModeService kann schrittweise auf Capability-Erkennung erweitert werden ohne bestehende Konfiguration zu brechen.",
+        "Unbekannte Backends fallen weiterhin sicher auf prompt_json_protocol oder disabled zurueck."
+      ]
+    },
+    {
+      "id": "TTR-003",
+      "title": "Generischen TinyActionModelAdapter entwerfen",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-001", "TTR-002"],
+      "files": ["agent/services/tiny_router/base.py", "agent/services/tiny_router/types.py"],
+      "details": [
+        "Ein Adapter-Interface fuer spezialisierte Action-/Function-Calling-Modelle statt Needle-spezifischem Core-Code definieren.",
+        "Normalisierte Eingabe: query/messages, freigegebene ToolSpecs, optional context/hints.",
+        "Normalisierte Ausgabe: zero/one/many ToolCallCandidate mit name, arguments, optional confidence, raw_output und diagnostics.",
+        "Adapter besitzt keine Tool-Ausfuehrungsrechte."
+      ],
+      "acceptance_criteria": [
+        "Needle, FunctionGemma, LFM und xLAM koennen ohne Aenderung des Executors ueber dasselbe Interface angebunden werden.",
+        "Native und JSON-Ausgaben werden in denselben ToolCallCandidate ueberfuehrt.",
+        "Policy-Gate und UnifiedToolExecutor bleiben autoritativ."
+      ]
+    },
+    {
+      "id": "TTR-004",
+      "title": "OpenAI-kompatiblen Transport konsequent wiederverwenden",
+      "type": "refactor",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["TTR-001", "TTR-002"],
+      "details": [
+        "Fuer Modelle hinter LM Studio, Ollama, SGLang, vLLM, LiteLLM oder OpenRouter bestehenden OpenAI-kompatiblen Pfad verwenden.",
+        "Nur Parser, Chat-Template oder Capability-Profil ergaenzen, wenn Semantik abweicht.",
+        "Direktadapter nur fuer Runtimes ohne brauchbare OpenAI-kompatible Schnittstelle."
+      ],
+      "acceptance_criteria": [
+        "Es gibt eine dokumentierte Entscheidungsmatrix generic transport vs custom adapter.",
+        "Doppelte HTTP-Clients und Providerkonfiguration werden vermieden."
+      ]
+    },
+    {
+      "id": "TTR-005",
+      "title": "Needle Adapter als erste Referenzintegration implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003"],
+      "files": ["agent/services/tiny_router/needle_adapter.py", "tests/services/tiny_router/test_needle_adapter.py"],
+      "details": [
+        "Cactus-Compute/needle als erste Referenzintegration behandeln.",
+        "Direkte Python/CLI/Runtime-Anbindung kapseln; Cactus Engine optional als eigener Runtime-Transport.",
+        "Tool-Schema aus zentraler Registry/ToolSchemaAdapter in Needle-Schema transformieren.",
+        "Needle-Ausgabe strikt gegen freigegebene Toolnamen und Argument-Schema validieren.",
+        "Needle nicht fuer allgemeines Chatten oder komplexe Agentenplanung verwenden."
+      ],
+      "acceptance_criteria": [
+        "Ein Needle-Aufruf kann einen gueltigen ToolCallCandidate erzeugen.",
+        "Halluzinierte Toolnamen werden verworfen.",
+        "Fehlende oder ungueltige Argumente fuehren nicht zur Ausfuehrung.",
+        "Ananta startet weiterhin ohne installierte Needle-Abhaengigkeiten."
+      ]
+    },
+    {
+      "id": "TTR-006",
+      "title": "Cactus Engine als optionalen Edge-Runtime-Adapter pruefen",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003"],
+      "details": [
+        "Cactus Engine getrennt vom Needle-Modell behandeln: Runtime und Modell bleiben austauschbar.",
+        "Lokales Tool Calling und Cactus-Unterstuetzung fuer mehrere kleine Modellfamilien bewerten.",
+        "Cloud handoff standardmaessig nicht automatisch aktivieren."
+      ],
+      "acceptance_criteria": [
+        "Needle kann optional ueber Cactus betrieben werden, sofern die Runtime stabil genug ist.",
+        "Runtime-Ausfall loest deterministischen Fallback aus.",
+        "Keine unbemerkte Cloud-Ausleitung lokaler Requests."
+      ]
+    },
+    {
+      "id": "TTR-007",
+      "title": "FunctionGemma 270M Adapter oder Modellprofil evaluieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003", "TTR-004"],
+      "details": [
+        "FunctionGemma als spezialisiertes 270M Function-Calling-Modell benchmarken.",
+        "Custom Chat Template und Fine-Tuning-Bedarf dokumentieren.",
+        "Wenn vorhandener OpenAI-kompatibler Server das Modell korrekt exposed, keinen separaten Transport bauen."
+      ],
+      "acceptance_criteria": [
+        "Go/No-Go und Integrationsweg sind dokumentiert.",
+        "Tool-Selection- und Argument-Accuracy werden gegen Needle gemessen."
+      ]
+    },
+    {
+      "id": "TTR-008",
+      "title": "LFM2.5-350M und LFM2.5-1.2B als Router-Fallback-Profile integrieren",
+      "type": "research",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003", "TTR-004"],
+      "details": [
+        "LFM2.5-350M wegen nativer Tool-Calling-Unterstuetzung und 32K Kontext als kompakte Generalisten-Alternative pruefen.",
+        "LFM2.5-1.2B-Instruct als staerkeren Fallback pruefen.",
+        "SGLang/OpenAI-compatible, llama.cpp, LM Studio und Ollama bevorzugen, sofern Toolformat korrekt erhalten bleibt.",
+        "Deprecated LFM2-1.2B-Tool nicht als Standard verwenden."
+      ],
+      "acceptance_criteria": [
+        "350M und 1.2B sind im gemeinsamen Benchmark erfasst.",
+        "Kein eigener Transport wird gebaut, wenn vorhandene Ananta-Providerpfade genuegen."
+      ]
+    },
+    {
+      "id": "TTR-009",
+      "title": "xLAM-1B und weitere Kandidaten ueber datengetriebene ModelProfile Registry abbilden",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-002", "TTR-003"],
+      "details": [
+        "xLAM-1b-fc-r technisch als spezialisiertes Function-Calling-Modell benchmarken; Lizenzrisiko separat kennzeichnen.",
+        "ModelProfile enthaelt model_id, family, purpose, tool_format, runtime compatibility, context, license, quantization, benchmark status und recommendation tier.",
+        "Neue Qwen-, Granite- oder andere Action Models sollen primaer durch Profil plus optionalen Parser/Template-Adapter hinzukommen.",
+        "Unverifizierte Marketingwerte explizit als unverifiziert markieren."
+      ],
+      "acceptance_criteria": [
+        "Neues Modell kann ohne Core-if/elif-Kette hinzugefuegt werden.",
+        "xLAM wird wegen CC-BY-NC-4.0 nicht still als kommerzieller Default ausgeliefert.",
+        "ModelProfile und Runtime-Adapter sind getrennte Konzepte."
+      ]
+    },
+    {
+      "id": "TTR-010",
+      "title": "Optionalen Tiny-Router Fast Path vor dem grossen Worker-LLM einfuehren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003", "TTR-005"],
+      "details": [
+        "Request -> Eligibility Gate -> Tiny Router -> validierter ToolCall -> Policy -> Tool -> Ergebnis oder Eskalation.",
+        "Nur geeignete Taskklassen: intent routing, single-shot tool selection, argument extraction, structured action.",
+        "Komplexes Reasoning, Code, offene Wissensfragen und lange Planung direkt zum Hauptmodell leiten."
+      ],
+      "acceptance_criteria": [
+        "Fast Path ist per Konfiguration deaktivierbar.",
+        "Fehlklassifikation kann kontrolliert auf Hauptmodell eskalieren.",
+        "Bestehendes Verhalten bleibt bei disabled identisch."
+      ]
+    },
+    {
+      "id": "TTR-011",
+      "title": "Confidence-, Validation- und Abstention-Gate implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-010"],
+      "details": [
+        "Akzeptanz niemals allein auf Modellconfidence stuetzen.",
+        "Deterministische Checks: Tool existiert, ist erlaubt, Argument-Schema gueltig, required vorhanden, enums/types/ranges korrekt und Policy erlaubt.",
+        "Optional kalibrierte Thresholds pro ModelProfile und Toolklasse.",
+        "Bei Unsicherheit abstain/escalate statt raten."
+      ],
+      "acceptance_criteria": [
+        "Low-confidence oder invalide Calls werden nie direkt ausgefuehrt.",
+        "Thresholds sind benchmarkbasiert und konfigurierbar.",
+        "Fallback-Entscheidungen sind telemetrierbar."
+      ]
+    },
+    {
+      "id": "TTR-012",
+      "title": "Tool-Vorauswahl fuer grosse Registry- und MCP-Toolsets integrieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-010"],
+      "details": [
+        "Nur relevante erlaubte Tools an Tiny Router geben statt immer gesamte Registry.",
+        "Heuristik, Embeddings oder CodeCompass-Kontext duerfen Kandidaten reduzieren, aber nie Sicherheits-Policy umgehen.",
+        "Top-K und Kategorien konfigurierbar machen."
+      ],
+      "acceptance_criteria": [
+        "Benchmark misst Accuracy bei 5, 20, 50 und 100 Tools.",
+        "Policy-blocked Tools gelangen nie in die Kandidatenliste.",
+        "Vorauswahl kann deaktiviert werden."
+      ]
+    },
+    {
+      "id": "TTR-013",
+      "title": "Mehrstufige Routing-Strategie Tiny -> Small -> Main modellieren",
+      "type": "architecture",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-010", "TTR-011"],
+      "details": [
+        "Tier 0 deterministic rules/cache, Tier 1 Needle/FunctionGemma, Tier 2 350M-1.2B Tool-Modell, Tier 3 Hauptmodell.",
+        "Escalation reasons: no_tool, ambiguity, invalid_args, unsupported_task, low_confidence und runtime_error.",
+        "Kosten, Latenz und Qualitaet als Routing-Ziele konfigurierbar machen."
+      ],
+      "acceptance_criteria": [
+        "Jede Eskalation hat einen maschinenlesbaren Grund.",
+        "Kein Endlosloop zwischen Tiers.",
+        "Max hops und timeout budget sind konfigurierbar."
+      ]
+    },
+    {
+      "id": "TTR-014",
+      "title": "Tool-Schema-Dialekte und Strict Output Normalizer erweitern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-003", "TTR-004"],
+      "details": [
+        "Canonical ToolSpec nach OpenAI tools, Needle compact schema, xLAM prompt schema und modellfamilien-spezifische Templates transformieren.",
+        "Required/default/enum/nested object/array/nullable Semantik testen.",
+        "JSON/tool_calls strikt parsen; leichte syntaktische Reparatur optional, aber niemals semantische Argumentwerte erfinden.",
+        "Unknown tools, duplicate calls und unsupported schema features kontrolliert ablehnen oder eskalieren."
+      ],
+      "acceptance_criteria": [
+        "Gleicher ToolSpec erzeugt semantisch aequivalente Dialekte.",
+        "Schema-Loss wird diagnostiziert statt still akzeptiert.",
+        "Fuzz-Tests fuer malformed JSON, extra prose, unknown tool und type confusion bestehen.",
+        "Repair erzeugt keine neuen Argumentwerte."
+      ]
+    },
+    {
+      "id": "TTR-015",
+      "title": "Safety- und Policy-Invarianten fuer Tiny Router festschreiben",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-010", "TTR-014"],
+      "details": [
+        "Tiny-Modell trifft nur Vorschlaege, niemals Autorisierung.",
+        "Mutation mode, workspace scope, allowed_tools, approvals und blocked categories bleiben ausserhalb des Modells.",
+        "Prompt Injection in Toolbeschreibungen und Argumenten testen.",
+        "Read/Write/Admin getrennt benchmarken; riskante Mutationen optional nie ueber Tiny Fast Path finalisieren."
+      ],
+      "acceptance_criteria": [
+        "Alle Toolcalls passieren bestehenden Policy-/Execution-Pfad.",
+        "Security regression tests zeigen keine Autorisierungsumgehung.",
+        "Tiny Router kann auf read-only Tools beschraenkt werden."
+      ]
+    },
+    {
+      "id": "TTR-016",
+      "title": "Ananta-eigene Benchmark-Suite fuer Tool Routing und Argument Extraction erstellen",
+      "type": "testing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-005", "TTR-007", "TTR-008", "TTR-009", "TTR-014"],
+      "details": [
+        "Eigene Ananta-, CodeCompass- und MCP-Toolsets statt nur Herstellerbenchmarks verwenden.",
+        "Faelle: exact tool, no-tool, ambiguous, missing required args, wrong types, similar names, 5/20/50/100 tools, Deutsch/Englisch und adversarial descriptions.",
+        "Metriken: tool accuracy, exact argument match, JSON validity, no-tool precision/recall, unsafe-call rate, latency p50/p95, RAM, model size und throughput soweit sinnvoll.",
+        "Herstellerangaben als Hypothese behandeln und lokal reproduzieren."
+      ],
+      "acceptance_criteria": [
+        "Alle Kandidaten laufen durch denselben reproduzierbaren Harness.",
+        "Ergebnisse koennen als JSON/CSV versioniert verglichen werden.",
+        "Go/No-Go basiert auf eigener Ananta-Evaluation."
+      ]
+    },
+    {
+      "id": "TTR-017",
+      "title": "Fine-Tuning- und Spezialisierungspfad fuer Ananta-Tools pruefen",
+      "type": "research",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-016"],
+      "details": [
+        "Needle-Finetuning auf Ananta-eigenen Tooldefinitionen und realistischen/paraphrasierten Requests pruefen.",
+        "Train/val/test strikt trennen und Eval-Leakage vermeiden.",
+        "Teacher-generierte Daten validieren und Policy-sensitive Tools kennzeichnen.",
+        "FunctionGemma Fine-Tuning als Vergleichspfad evaluieren."
+      ],
+      "acceptance_criteria": [
+        "Baseline vs finetuned Ergebnis ist reproduzierbar.",
+        "Dataset-Provenance und Lizenz sind dokumentiert.",
+        "Keine Secrets oder unredigierten privaten Toolresultate gelangen ins Training."
+      ]
+    },
+    {
+      "id": "TTR-018",
+      "title": "Observability, Shadow Mode und Quality Gates implementieren",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-010", "TTR-016"],
+      "details": [
+        "Tiny Router zunaechst im Shadow Mode gegen Hauptmodell/Produktionspfad vergleichen.",
+        "Telemetry: tier/model, candidate tool, validation result, escalation reason, latency und agreement/disagreement.",
+        "Keine Prompt-/Secret-Telemetrie ohne Redaction.",
+        "Profile erst als production_candidate markieren, wenn Mindestwerte erreicht sind."
+      ],
+      "acceptance_criteria": [
+        "Shadow Mode fuehrt keine Tiny-Router-Toolcalls aus.",
+        "Agreement und Fehlerklassen sind auswertbar.",
+        "Kein Modell wird nur wegen Parameterzahl oder Herstellerbenchmark zum Default."
+      ]
+    },
+    {
+      "id": "TTR-019",
+      "title": "CodeCompass/MCP-Integration, Runtime-Discovery und Failure Injection absichern",
+      "type": "implementation",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": ["TTR-012", "TTR-014", "TTR-018"],
+      "details": [
+        "CodeCompass agent-facing Tools als reale Routing-Domain nutzen; komplexe Planung bleibt Hauptagent.",
+        "Dynamische MCP-Tools durch dieselbe Registry-/Schema-Pipeline schicken.",
+        "LM Studio, Ollama, SGLang/OpenAI-compatible und Cactus optional discovern; erreichbar ist nicht gleich tool-capable.",
+        "Runtime down, model missing, timeout, OOM, malformed response und schema overflow simulieren.",
+        "Retry/Eskalation darf mutierende Toolaktionen niemals doppelt ausfuehren."
+      ],
+      "acceptance_criteria": [
+        "Kein separater CodeCompass-spezifischer Executor entsteht.",
+        "Capability-Probe kann pro Backend ueberschrieben werden.",
+        "Alle definierten Fehler fuehren zu kontrolliertem Fallback oder klarer Fehlermeldung.",
+        "Keine Doppelmutation nach Retry oder Eskalation."
+      ]
+    },
+    {
+      "id": "TTR-020",
+      "title": "Lizenz-/Supply-Chain-Pruefung und gestuften Rollout abschliessen",
+      "type": "release",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": ["TTR-015", "TTR-016", "TTR-018", "TTR-019"],
+      "details": [
+        "Modell-, Weight-, Runtime- und Dataset-Lizenzen pro Profil erfassen; non-commercial Modelle nicht als kommerziellen Default markieren.",
+        "Remote code, auto-downloads, model hashes und Provenance absichern.",
+        "Rollout: benchmark only -> shadow -> opt-in read-only -> opt-in low-risk -> optional default fuer passende Taskklassen.",
+        "Per-profile kill switch und globaler rollback switch vorsehen.",
+        "Production Default erst nach realen Ananta-Metriken."
+      ],
+      "acceptance_criteria": [
+        "Jedes production_candidate Profil hat Lizenz- und Provenance-Metadaten.",
+        "Downloads koennen per Hash/Version gepinnt werden.",
+        "Rollout kann ohne Code-Rollback deaktiviert werden.",
+        "Keine mutierende Toolklasse wird ohne explizite Freigabe im Fast Path aktiviert."
+      ]
+    }
+  ],
+  "critical_path_tasks": ["TTR-001", "TTR-002", "TTR-003", "TTR-004", "TTR-005", "TTR-010", "TTR-011", "TTR-014", "TTR-015", "TTR-016", "TTR-018", "TTR-020"],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0,
+    "by_priority": {"P0": 11, "P1": 7, "P2": 2, "P3": 0},
+    "by_risk": {"low": 5, "medium": 9, "high": 6, "critical": 0},
+    "critical_path": {"total": 12, "done": 0, "remaining": 12},
+    "milestones": {"total": 4, "todo": 4, "in_progress": 0, "blocked": 0, "done": 0}
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {"analysis": 1, "architecture": 5, "refactor": 1, "implementation": 7, "research": 4, "security": 1, "testing": 1, "release": 1}
+  },
+  "progress_summary": {"state": "not_started", "todo_remaining": 20, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+  "summary_notes": [
+    "Needle upstream currently describes 26M parameters and 14 MB; an earlier 45M claim must not be hard-coded.",
+    "Needle is attractive as Tier-1 single-shot router, while FunctionGemma und LFM groessere Fallback-Optionen bieten.",
+    "Tiny models suggest actions but never authorize or execute them.",
+    "Generic OpenAI-compatible transport wins over model-specific HTTP clients whenever semantics are preserved.",
+    "Benchmark against real Ananta/CodeCompass/MCP tools before selecting defaults."
+  ],
+  "end_summaries": [
+    {"summary_id": "S1", "title": "Architecture", "items": ["Reuse existing registry/schema/policy/executor.", "Add TinyActionModelAdapter and ModelProfile/Capability layers.", "Prefer generic transports and small dialect adapters."]},
+    {"summary_id": "S2", "title": "Candidate tiers", "items": ["Tier 1: Needle / FunctionGemma class.", "Tier 2: LFM2.5-350M or 1.2B class.", "Tier 3: existing main model.", "xLAM is useful for comparison but carries a non-commercial license concern."]},
+    {"summary_id": "S3", "title": "Release rule", "items": ["Benchmark -> shadow -> opt-in read-only -> opt-in low-risk -> optional default.", "Every failure or ambiguity must be able to escalate safely."]}
+  ]
+}
