@@ -47,5 +47,43 @@
     "reason": "The deterministic regression gate passes against the recorded source commit; deployment-adapter, concurrency and property-test acceptance gaps remain explicit in the TODO track."
   },
   "tested_source_commit": "07144cd1d4ddcf7da0f4fb27c9381da50187d7ec",
-  "tested_commit_range": "a570f75ace48421e1361b3776ddf607bdee51e71..07144cd1d4ddcf7da0f4fb27c9381da50187d7ec"
+  "tested_commit_range": "a570f75ace48421e1361b3776ddf607bdee51e71..07144cd1d4ddcf7da0f4fb27c9381da50187d7ec",
+  "completion_gate": {
+    "schema": "codecompass.post-7113d3f8.completion-gate.v1",
+    "status": "passed",
+    "source_state": "committed_implementation_and_tests",
+    "broad_regression": {
+      "command": "pytest -q tests/test_codecompass*.py tests/test_duckdb_codecompass_backend.py tests/test_hub_git_connector_providers.py tests/worker/test_codecompass*.py",
+      "collected": 1315,
+      "passed": 1312,
+      "skipped": 3,
+      "failed": 0
+    },
+    "completion_matrix": {
+      "command": "pytest -q tests/test_codecompass_hardening_completion.py",
+      "passed": 13,
+      "failed": 0
+    },
+    "focused_compatibility": {
+      "command": "pytest -q tests/test_codecompass_claim_extraction.py tests/test_codecompass_container_boundary.py tests/test_codecompass_range_context_planner.py tests/test_codecompass_hierarchical_architecture_context.py",
+      "passed": 22,
+      "failed": 0
+    },
+    "warnings": [
+      "langgraph_allowed_objects_pending_deprecation"
+    ],
+    "remaining_gaps": [],
+    "github_app_provider": {
+      "command": "pytest -q tests/test_hub_git_github_authorization_provider.py",
+      "passed": 11,
+      "failed": 0
+    },
+    "unique_totals": {
+      "collected": 1326,
+      "passed": 1323,
+      "skipped": 3,
+      "failed": 0
+    },
+    "source_commit": "19b57f69220fef83a53124ea7060e31d4e5dc54b"
+  }
 }

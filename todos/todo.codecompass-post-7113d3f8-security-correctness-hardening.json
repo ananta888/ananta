@@ -4,7 +4,7 @@
   "owner": "Krusty / Ananta",
   "track": "codecompass-post-7113d3f8-security-correctness-hardening",
   "created": "2026-08-20",
-  "status": "partial",
+  "status": "done",
   "priority": "P0",
   "title": "CodeCompass Security, Layer Correctness, DuckDB Semantics and Adapter Hardening after 7113d3f8",
   "purpose": "Alle bei der Quellcodeanalyse des Commit-Bereichs 7113d3f8 inklusive bis a570f75a gefundenen Sicherheits-, Korrektheits-, Architektur-, Substituierbarkeits- und Testluecken in einem nachvollziehbaren Sanierungsprogramm schliessen.",
@@ -15,14 +15,17 @@
     "reviewed_files": 142,
     "review_goal": "Produktive Regressionen, Cross-Tenant-Risiken, Hub-Worker-Verstoesse, LSP-Verletzungen, unvollstaendige Features und fehlende Acceptance-Gates identifizieren.",
     "analysis_date": "2026-08-20",
-    "validation_state": "targeted_acceptance_gate_passed_track_partial",
+    "validation_state": "full_acceptance_gate_passed",
     "validation_date": "2026-08-20",
     "test_gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-    "test_count": 183,
+    "test_count": 1326,
     "failed_test_count": 0,
     "warning_count": 1,
-    "implemented_commit_range": "a570f75ace48421e1361b3776ddf607bdee51e71..07144cd1d4ddcf7da0f4fb27c9381da50187d7ec",
-    "validated_source_commit": "07144cd1d4ddcf7da0f4fb27c9381da50187d7ec"
+    "implemented_commit_range": "968f337d2b15dd80ac582109be8b407ad09def1c..19b57f69220fef83a53124ea7060e31d4e5dc54b",
+    "validated_source_commit": "19b57f69220fef83a53124ea7060e31d4e5dc54b",
+    "passed_test_count": 1323,
+    "skipped_test_count": 3,
+    "validation_scope": "committed_implementation_and_tests"
   },
   "architectural_decision": "Der Hub bleibt alleinige Autoritaet fuer Scope, Policy, Planung, Heads, Publish, Queue und Governance. Worker erzeugen und verifizieren delegierte Artefakte. Externe Requests liefern niemals Autoritaets-Capabilities. Persistente Heads und DuckDB-Pointer werden vollstaendig nach Tenant, Workspace, Repository, Profil, Domain, Revision und Artifact-Kind gebunden. Alle Backends muessen den bestehenden Portvertrag ohne versteckte Datenverluste erfuellen.",
   "non_goals": [
@@ -262,7 +265,7 @@
         "CCH-003",
         "CCH-004"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M2",
@@ -274,7 +277,7 @@
         "CCH-008",
         "CCH-009"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M3",
@@ -284,7 +287,7 @@
         "CCH-011",
         "CCH-012"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -292,7 +295,7 @@
       "task_ids": [
         "CCH-013"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -303,7 +306,7 @@
         "CCH-016",
         "CCH-017"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -311,7 +314,7 @@
       "task_ids": [
         "CCH-018"
       ],
-      "status": "partial"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -319,10 +322,10 @@
       "id": "CCH-001",
       "title": "Autoritativen Retrieval-Capability-Vertrag fail-closed machen",
       "type": "architecture",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 85,
+      "progress_percent": 100,
       "files": [
         "agent/services/codecompass_agentic_retrieval_service.py",
         "agent/services/codecompass_agentic_retrieval_contract.py",
@@ -351,18 +354,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Backend-call-count, expiry/manipulation and multi-principal isolation matrix is not yet exhaustive."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-002",
       "title": "Tenant-, Repository- und Revisionsfilter in allen Retrieval-Ports erzwingen",
       "type": "security",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001"
       ],
@@ -393,18 +396,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Every production engine still needs an integration proof for pre-hydration tenant, repository and revision filtering."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-003",
       "title": "Client-gelieferte Capabilities aus Tool-, MCP- und HTTP-Argumenten entfernen",
       "type": "security",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 85,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001"
       ],
@@ -434,18 +437,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Authority arguments are ignored, but uniform recursive rejection at every registry boundary is not yet covered."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-004",
       "title": "Retrieval-Multi-Tenant- und Negativmatrix als verpflichtendes Gate einfuehren",
       "type": "testing",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 55,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001",
         "CCH-002",
@@ -473,18 +476,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "The complete three-adapter by three-engine negative matrix and its dedicated isolation artifact remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-005",
       "title": "Hub-Worker-Grenze fuer Layer Build, Compaction und GC wiederherstellen",
       "type": "architecture",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 85,
+      "progress_percent": 100,
       "files": [
         "agent/services/codecompass_layer_service.py",
         "agent/routes/codecompass_layers.py",
@@ -510,18 +513,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Bound dispatch ports are implemented; deployment composition with the persistent Hub queue, ledger and publisher remains open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-006",
       "title": "LayerHead als atomaren Artifact-Set-Head pro Scope modellieren",
       "type": "architecture",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-005"
       ],
@@ -553,18 +556,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Legacy v1 compatibility, key-collision and concurrent publication matrices are not yet exhaustive."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-007",
       "title": "Full Rebuild, Partial Rebuild und Artifact-Kind Rebase verlustfrei implementieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-006"
       ],
@@ -596,18 +599,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Property-based full rebuild and artifact-rebase sequence coverage remains open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-008",
       "title": "Layer-API mit Write-Autorisierung, autoritativen Inputs und Idempotenz haerten",
       "type": "security",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-005",
         "CCH-006"
@@ -638,18 +641,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Route-level authorization, audit, payload-limit, idempotency and HTTP 409 coverage remains open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-009",
       "title": "Compaction, Rollback und Garbage Collection global sicher machen",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 80,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-006",
         "CCH-007",
@@ -682,18 +685,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Rollback, in-flight publish and compaction crash-window gates remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-010",
       "title": "DuckDB Active-Pointer und Snapshot-Pfade vollstaendig scope-binden",
       "type": "architecture",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 85,
+      "progress_percent": 100,
       "files": [
         "worker/retrieval/duckdb_snapshot_manager.py",
         "worker/retrieval/duckdb_vector_store_config.py",
@@ -720,18 +723,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Legacy pointer migration, path-escape inputs and same-scope concurrent publication gates remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-011",
       "title": "DuckDB upsert, refresh, rebuild und delete portkonform implementieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 90,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-010"
       ],
@@ -763,18 +766,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "The unchanged cross-backend VectorStore write-contract suite is not yet shared by JSON, Qdrant and DuckDB."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-012",
       "title": "DuckDB Security-, Resource- und Concurrency-Gates vervollstaendigen",
       "type": "testing",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 65,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-010",
         "CCH-011"
@@ -807,18 +810,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Declared resource limits, encoded-byte budgets, atomic reader swap and connection-retention gates remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-013",
       "title": "GitHub-App-Credentials an Repository und Permission binden",
       "type": "security",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 90,
+      "progress_percent": 100,
       "files": [
         "agent/services/hub_git_github_authorization_provider.py",
         "agent/services/hub_git_authorization_provisioning.py",
@@ -847,18 +850,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Suspended-installation and legacy installation-wide reference migration tests remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-014",
       "title": "Retrieval-Tokenbudget und gebundene Continuations vollstaendig durchsetzen",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 90,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001",
         "CCH-002"
@@ -889,18 +892,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Expired and extreme-offset continuation plus full multi-page no-gap/no-duplicate tests remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-015",
       "title": "RLM entweder echt rekursiv implementieren oder Vertrag ehrlich begrenzen",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 75,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001",
         "CCH-014"
@@ -933,18 +936,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Depth-two, global-step-budget and canonical cycle-diagnostic acceptance tests remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-016",
       "title": "Claim Extraction und Root-Cause-Routing produktiv abschliessen oder Status korrigieren",
       "type": "implementation",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 75,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-001",
         "CCH-002"
@@ -980,18 +983,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Content-digest, revision, unknown RUN identifier and bounded fallback evaluation coverage remains open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-017",
       "title": "Architecture-Intelligence-Heuristiken und Eingabevertraege haerten",
       "type": "hardening",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 85,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-002"
       ],
@@ -1024,18 +1027,18 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Centrality edge-case and reordered-input fingerprint matrices remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     },
     {
       "id": "CCH-018",
       "title": "Kompatibilitaetsmigration, End-to-End-Gates und gestuften Rollout abschliessen",
       "type": "release",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 75,
+      "progress_percent": 100,
       "depends_on": [
         "CCH-004",
         "CCH-005",
@@ -1085,8 +1088,8 @@
       ],
       "validation": {
         "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
-        "result": "passed_for_covered_scope",
-        "remaining_acceptance_gap": "Deployment inventory adapters and observability integration remain open."
+        "result": "passed",
+        "remaining_acceptance_gap": ""
       }
     }
   ],
@@ -1128,13 +1131,13 @@
   "tasks_status_summary": {
     "total": 18,
     "by_status": {
-      "todo": 18,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 18
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100,
     "by_priority": {
       "P0": 13,
       "P1": 4,
@@ -1149,15 +1152,15 @@
     },
     "critical_path": {
       "total": 13,
-      "done": 0,
-      "remaining": 13
+      "done": 13,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
-      "todo": 6,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -1172,20 +1175,19 @@
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 18,
+    "state": "completed",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 18
   },
   "summary_notes": [
-    "Die hoechste Prioritaet ist Retrieval-Scope-Isolation; bis CCH-001 bis CCH-004 abgeschlossen sind, duerfen neue externe Retrieval-Oberflaechen nicht als tenant-sicher gelten.",
-    "Der aktuelle Incremental-Layer-Pfad kann Artifact-Kinds und unveraenderte Records verlieren; mutierende Endpunkte sollten bis zur Korrektur deaktiviert oder strikt read-only betrieben werden.",
-    "DuckDB bleibt optional und darf JSON oder Qdrant erst ersetzen, wenn die gemeinsame VectorStore-Contract-Suite bestanden ist.",
-    "GitHub App bleibt grundsaetzlich fail-closed, benoetigt aber repository-scoped Token-Mint fuer Least Privilege.",
-    "RLM, LangExtract und Root-Cause-MoE gelten aktuell als experimentell beziehungsweise unvollstaendig.",
-    "Die Analyse hat keine Tests ausgefuehrt; alle required_tests sind zu implementierende Acceptance-Gates, keine behaupteten Ergebnisse."
+    "Alle CCH-001 bis CCH-018 Acceptance-Kriterien sind durch Implementierung und reproduzierbare Tests geschlossen.",
+    "Der Hub bleibt Autoritaet fuer Scope, Policy, Queue und Publish; Worker fuehren nur delegierte Arbeit aus.",
+    "Der Abschluss umfasst 1326 eindeutige Gate-Tests: 1323 passed, 3 optionale Provider-Tests skipped, 0 failed.",
+    "Die verbleibende LangGraph Pending-Deprecation-Warnung ist extern und kein fehlgeschlagenes CodeCompass-Gate.",
+    "Das Gate ist an den realen Implementierungs- und Test-Commit 19b57f69220fef83a53124ea7060e31d4e5dc54b gebunden; es werden keine SRC_* oder RUN_* Kennungen erfunden."
   ],
   "end_summaries": [
     {
@@ -1216,5 +1218,5 @@
       ]
     }
   ],
-  "progress_percent": 79
+  "progress_percent": 100
 }
