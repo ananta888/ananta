@@ -249,6 +249,51 @@ class UnavailableGitHubOAuthGrantStore:
         )
 
 
+def _assert_installation_active(installation: Mapping[str, Any]) -> None:
+    state = str(installation.get("status") or installation.get("state") or "").strip().lower()
+    if (
+        installation.get("suspended_at")
+        or installation.get("suspended_by")
+        or installation.get("deleted_at")
+        or state in {"deleted", "disabled", "inactive", "suspended"}
+    ):
+        raise HubGitAuthorizationProvisioningError(
+            "git_authorization_github_installation_inactive",
+            status_code=403,
+        )
+
+
+def migrate_legacy_github_app_reference(
+    reference: str,
+    *,
+    repository: str | None = None,
+    dry_run: bool = True,
+) -> dict[str, str | bool]:
+    """Convert an installation-only legacy ref or explicitly invalidate it."""
+
+    value = str(reference or "").strip()
+    prefix = "secret://github-app/installation/"
+    if not value.startswith(prefix):
+        return {"status": "not_applicable", "reference": value, "changed": False}
+    remainder = value.removeprefix(prefix)
+    installation_id, separator, encoded_repository = remainder.partition("/repository/")
+    if not installation_id.isdigit():
+        return {"status": "invalidated", "reference": "", "changed": True}
+    if separator and unquote(encoded_repository):
+        return {"status": "current", "reference": value, "changed": False}
+    if not repository:
+        return {"status": "invalidated", "reference": "", "changed": True}
+    scoped = (
+        f"{prefix}{installation_id}/repository/"
+        f"{quote(_require_repository(repository), safe='')}"
+    )
+    return {
+        "status": "planned" if dry_run else "migrated",
+        "reference": scoped,
+        "changed": True,
+    }
+
+
 @dataclass(frozen=True)
 class GitHubAuthorizationProvisioner:
     """Resolve GitHub App installations and stored OAuth grants."""
@@ -304,6 +349,7 @@ class GitHubAuthorizationProvisioner:
             installation_id=installation_id,
             app_jwt=app_jwt,
         )
+        _assert_installation_active(installation)
         token_payload = self.api.create_installation_token(
             installation_id=installation_id,
             app_jwt=app_jwt,
@@ -420,9 +466,15 @@ class GitHubAppInstallationSecretResolver:
                     "git_secret_reference_invalid",
                     status_code=503,
                 )
+            app_jwt = self._jwt_issuer.issue()
+            installation = self._api.inspect_installation(
+                installation_id=installation_id,
+                app_jwt=app_jwt,
+            )
+            _assert_installation_active(installation)
             token_payload = self._api.create_installation_token(
                 installation_id=installation_id,
-                app_jwt=self._jwt_issuer.issue(),
+                app_jwt=app_jwt,
                 repository=_require_repository(repository),
             )
             token = str(token_payload.get("token") or "").strip()
