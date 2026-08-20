@@ -34,15 +34,18 @@ class GarbageCollector:
 
     def collect(self, profile_name: str, *, dry_run: bool = True) -> GCResult:
         reachable: set[str] = set()
-        for profile in ([profile_name] if profile_name else self.head_registry.list_profiles()):
+        # Reachability is always global.  profile_name scopes reporting, never
+        # the root set used to decide whether a shared layer may be deleted.
+        for profile in self.head_registry.list_profiles():
             head = self.head_registry.get_head(profile) or {}
-            base = str((head.get("base_layer_set") or {}).get("default") or head.get("layer_id") or "")
-            if base:
-                reachable.add(base)
-            reachable.update(str(item) for item in list(head.get("ordered_delta_sets") or []))
+            reachable.update(str(item) for item in dict(head.get("base_layer_set") or {}).values() if item)
+            for delta in list(head.get("ordered_delta_sets") or []):
+                normalized = dict(delta) if isinstance(delta, dict) else {"default": str(delta)}
+                reachable.update(str(item) for item in normalized.values() if item)
             for item in list(head.get("history") or []):
                 if item.get("layer_id"):
                     reachable.add(str(item["layer_id"]))
+                reachable.update(str(value) for value in dict(item.get("layer_set") or {}).values() if value)
         swept = 0
         reclaimed = 0
         for meta in self.layer_store.list_layers():

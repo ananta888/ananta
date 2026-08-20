@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -104,20 +105,25 @@ def build_artifact_layer(
     artifact_kind: str,
     changes: list[FileChange],
     compatibility_key: dict[str, Any] | None = None,
+    force_base: bool = False,
 ) -> dict[str, Any]:
     records = records_from_changes(changes, artifact_kind=artifact_kind)
-    return {
+    layer = {
         "schema": "codecompass.artifact_layer.v1",
-        "layer_kind": "delta" if parent_layer_id else "base",
+        "layer_kind": "base" if force_base or not parent_layer_id else "delta",
         "artifact_kind": artifact_kind,
         "compatibility_key": dict(compatibility_key or {}),
         "source_revision": snapshot_revision,
         "snapshot_revision": snapshot_revision,
         "changeset_id": changeset_id,
-        "parent_layer_id": parent_layer_id,
+        "parent_layer_id": None if force_base else parent_layer_id,
         "record_count": sum(1 for item in records if not item.get("tombstone")),
         "tombstone_count": sum(1 for item in records if item.get("tombstone")),
         "coverage": {"paths": [item.get("path") for item in records]},
         "build_status": "verified",
         "records": records,
     }
+    layer["content_digest"] = hashlib.sha256(
+        json.dumps(layer, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    return layer

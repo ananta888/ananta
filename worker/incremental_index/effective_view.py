@@ -70,9 +70,11 @@ class LayeredEffectiveViewResolver:
 
     def resolve_effective_view(self, head_name: str, artifact_types: list[str] | None = None) -> EffectiveView:
         head = self.head_registry.get_head(head_name) or {}
-        chain = [str(head.get("base_layer_set", {}).get("default") or head.get("layer_id") or "")]
-        chain.extend(str(item) for item in list(head.get("ordered_delta_sets") or []) if item)
-        chain = [item for item in chain if item]
+        base = dict(head.get("base_layer_set") or {})
+        chain = [str(value) for key, value in sorted(base.items()) if value]
+        for delta in list(head.get("ordered_delta_sets") or []):
+            normalized = dict(delta) if isinstance(delta, dict) else {"default": str(delta)}
+            chain.extend(str(value) for key, value in sorted(normalized.items()) if value)
         artifacts: dict[str, EffectiveArtifact] = {}
         scanned = 0
         for priority, layer_id in enumerate(chain):

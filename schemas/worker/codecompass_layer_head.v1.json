@@ -12,8 +12,17 @@
     "repository_id": { "type": "string" },
     "profile_id": { "type": "string" },
     "artifact_set_revision": { "type": "string" },
-    "base_layer_set": { "type": "object" },
-    "ordered_delta_sets": { "type": "array" },
+    "base_layer_set": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 16 }
+    },
+    "ordered_delta_sets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": { "type": "string", "minLength": 16 }
+      }
+    },
     "effective_source_revision": { "type": "string" },
     "generation": { "type": "integer", "minimum": 0 },
     "published_at": { "type": "string" }

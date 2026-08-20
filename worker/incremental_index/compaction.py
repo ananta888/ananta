@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -29,7 +30,7 @@ class CompactionPlan:
     strategy: str
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        compacted = {
             "schema": "codecompass.compaction_plan.v1",
             "plan_id": self.plan_id,
             "created_at": self.created_at,
@@ -91,3 +92,7 @@ class CompactionPlanner:
             "tombstone_count": 0,
             "build_status": "verified",
         }
+        compacted["content_digest"] = hashlib.sha256(
+            json.dumps(compacted, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return compacted

@@ -50,6 +50,7 @@ class IncrementalIndexCoordinator:
             "impact": impact.to_dict(),
             "decision": decision.to_dict(),
             "head": head,
+            "new_manifest": dict(new_manifest),
         }
 
     def apply(
@@ -66,7 +67,10 @@ class IncrementalIndexCoordinator:
             return {"status": "noop", "head": self.heads.get_head(profile_id)}
         kinds = list(artifact_kinds or decision.get("affected_artifact_kinds") or ["graph", "chunks", "embeddings", "fts"])
         head = self.heads.get_head(profile_id)
-        parent = None if not head else str(head.get("layer_id") or "")
+        effective_layers: dict[str, str] = dict((head or {}).get("base_layer_set") or {})
+        for delta in list((head or {}).get("ordered_delta_sets") or []):
+            normalized = dict(delta) if isinstance(delta, dict) else {"default": str(delta)}
+            effective_layers.update(normalized)
         published: dict[str, str] = {}
         from worker.incremental_index.snapshot_diff import FileChange
 
@@ -81,8 +85,22 @@ class IncrementalIndexCoordinator:
             for item in list(diff.get("file_changes") or [])
         ]
         snapshot = str(diff.get("to_snapshot_revision") or "")
-        last_layer = parent
+        append = decision["decision_type"] in {"delta_build", "metadata_only"}
+        if not append:
+            manifest_files = list((plan.get("new_manifest") or {}).get("files") or [])
+            changes = [
+                FileChange(
+                    operation="add",
+                    path=str(item.get("path") or ""),
+                    new_content_sha256=str(item.get("content_sha256") or "") or None,
+                    new_byte_size=item.get("byte_size"),
+                )
+                for item in manifest_files
+                if item.get("path")
+            ]
+        last_layer = None
         for kind in kinds:
+            parent = effective_layers.get(kind) if append else None
             layer = build_artifact_layer(
                 changeset_id=str(diff.get("changeset_id") or ""),
                 snapshot_revision=snapshot,
@@ -90,20 +108,29 @@ class IncrementalIndexCoordinator:
                 artifact_kind=kind,
                 changes=changes,
                 compatibility_key=compatibility_key(artifact_kind=kind, profile=profile),
+                force_base=not append,
             )
             layer_id, _created = self.store.store_layer(layer)
             published[kind] = layer_id
             last_layer = layer_id
         if head is None:
-            result = self.heads.create_head(profile_id, layer_id=last_layer or "", snapshot_revision=snapshot)
+            result = self.heads.create_head(
+                profile_id,
+                layer_id=last_layer or "",
+                layer_set=published,
+                snapshot_revision=snapshot,
+                workspace_id=str(diff.get("workspace_id") or ""),
+                repository_id=str(diff.get("repository_id") or ""),
+            )
         else:
-            append = decision["decision_type"] == "delta_build"
             result = self.heads.update_head(
                 profile_id,
                 expected_generation=int(head.get("generation") or 0),
                 new_layer_id=last_layer or "",
                 snapshot_revision=snapshot,
                 append_delta=append,
+                new_layer_set=published,
+                replace_artifact_kinds=[] if append else kinds,
             )
             if not result.success:
                 return {"status": "conflict", "error": result.error, "published": published}
@@ -111,26 +138,38 @@ class IncrementalIndexCoordinator:
 
     def compact(self, profile_id: str, *, dry_run: bool = True) -> dict[str, Any]:
         head = self.heads.get_head(profile_id) or {}
-        chain = [str((head.get("base_layer_set") or {}).get("default") or head.get("layer_id") or "")]
-        chain.extend(str(item) for item in list(head.get("ordered_delta_sets") or []))
-        layers = [self.store.get_layer(item) for item in chain if item and self.store.has_layer(item)]
-        plan = self.planner.create_plan(profile_id, delta_ids=[item for item in chain if item])
-        if dry_run or not layers:
-            return {"status": "noop" if len(layers) <= 1 else "planned", "plan": plan.to_dict()}
-        compacted = self.planner.compact_layers([item for item in layers if item])
-        layer_id, _ = self.store.store_layer(compacted)
+        chains: dict[str, list[str]] = {
+            key: [str(value)] for key, value in dict(head.get("base_layer_set") or {}).items() if value
+        }
+        for delta in list(head.get("ordered_delta_sets") or []):
+            normalized = dict(delta) if isinstance(delta, dict) else {"default": str(delta)}
+            for kind, layer_id in normalized.items():
+                if layer_id:
+                    chains.setdefault(kind, []).append(str(layer_id))
+        candidates = {kind: ids for kind, ids in chains.items() if len(ids) > 1}
+        plan = self.planner.create_plan(profile_id, delta_ids=[item for ids in candidates.values() for item in ids])
+        if dry_run or not candidates:
+            return {"status": "noop" if not candidates else "planned", "plan": plan.to_dict()}
+        published: dict[str, str] = {}
+        for kind, chain in candidates.items():
+            layers = [self.store.get_layer(item) for item in chain if self.store.has_layer(item)]
+            compacted = self.planner.compact_layers([item for item in layers if item])
+            layer_id, _ = self.store.store_layer(compacted)
+            published[kind] = layer_id
         result = self.heads.update_head(
             profile_id,
             expected_generation=int(head.get("generation") or 0),
-            new_layer_id=layer_id,
+            new_layer_id=next(iter(published.values()), ""),
+            new_layer_set=published,
             snapshot_revision=str(head.get("effective_source_revision") or ""),
             append_delta=False,
+            replace_artifact_kinds=list(published),
             reason="compact",
         )
-        return {"status": "executed" if result.success else "failed", "layer_id": layer_id, "error": result.error}
+        return {"status": "executed" if result.success else "failed", "layers": published, "error": result.error}
 
     @staticmethod
     def equivalent(full_records: list[dict[str, Any]], layered: list[dict[str, Any]]) -> bool:
         left = {str(item.get("id")): item for item in overlay_records(full_records)}
         right = {str(item.get("id")): item for item in overlay_records(layered)}
-        return set(left) == set(right)
+        return left == right
