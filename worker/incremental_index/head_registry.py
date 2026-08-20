@@ -29,6 +29,27 @@ class LayerHeadRegistry:
         self.base_path = Path(base_path)
         (self.base_path / "heads").mkdir(parents=True, exist_ok=True)
 
+    @staticmethod
+    def scoped_profile_id(
+        profile_id: str,
+        *,
+        tenant_id: str = "",
+        workspace_id: str = "",
+        repository_id: str = "",
+    ) -> str:
+        """Build a collision-resistant registry key without exposing raw scope data."""
+
+        payload = {
+            "tenant_id": str(tenant_id),
+            "workspace_id": str(workspace_id),
+            "repository_id": str(repository_id),
+            "profile_id": str(profile_id),
+        }
+        digest = hashlib.sha256(
+            json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        return f"scoped-{digest}"
+
     def _head_path(self, profile_id: str) -> Path:
         value = str(profile_id or "default")
         key = hashlib.sha256(value.encode("utf-8")).hexdigest()
@@ -173,6 +194,41 @@ class LayerHeadRegistry:
     def get_head_history(self, profile_id: str, limit: int = 20) -> list[dict[str, Any]]:
         head = self.get_head(profile_id) or {}
         return list(head.get("history") or [])[-max(1, int(limit)) :]
+
+    def rollback(
+        self,
+        profile_id: str,
+        *,
+        target_generation: int,
+        expected_generation: int,
+        reason: str = "rollback",
+    ) -> HeadUpdateResult:
+        """Restore a historical layer set through the normal monotone CAS path."""
+
+        history = self.get_head_history(profile_id, limit=10_000)
+        target = next(
+            (item for item in history if int(item.get("generation") or 0) == int(target_generation)),
+            None,
+        )
+        if target is None:
+            return HeadUpdateResult(False, expected_generation, error="target_generation_not_found")
+        layer_set = {
+            str(kind): str(layer_id)
+            for kind, layer_id in dict(target.get("layer_set") or {}).items()
+            if str(kind) and str(layer_id)
+        }
+        if not layer_set:
+            return HeadUpdateResult(False, expected_generation, error="target_layer_set_invalid")
+        primary = next(iter(layer_set.values()))
+        return self.update_head(
+            profile_id,
+            expected_generation=expected_generation,
+            new_layer_id=primary,
+            reason=reason,
+            append_delta=False,
+            new_layer_set=layer_set,
+            replace_artifact_kinds=list(layer_set),
+        )
 
     def delete_head(self, profile_id: str) -> bool:
         path = self._head_path(profile_id)

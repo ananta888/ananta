@@ -32,8 +32,14 @@ class GarbageCollector:
         self.layer_store = layer_store
         self.head_registry = head_registry
 
-    def collect(self, profile_name: str, *, dry_run: bool = True) -> GCResult:
-        reachable: set[str] = set()
+    def collect(
+        self,
+        profile_name: str,
+        *,
+        dry_run: bool = True,
+        protected_layer_ids: set[str] | frozenset[str] | tuple[str, ...] = (),
+    ) -> GCResult:
+        reachable: set[str] = {str(item) for item in protected_layer_ids if str(item)}
         # Reachability is always global.  profile_name scopes reporting, never
         # the root set used to decide whether a shared layer may be deleted.
         for profile in self.head_registry.list_profiles():
