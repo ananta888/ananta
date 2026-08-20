@@ -130,6 +130,14 @@ class CodeCompassAgenticRetrievalService:
         *,
         capability: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        from agent.services.codecompass_authority_policy import contains_client_authority
+
+        if contains_client_authority(payload):
+            return empty_response(
+                query=str((payload or {}).get("query") or ""),
+                status=STATUS_ERROR,
+                reason_code="client_authority_forbidden",
+            )
         try:
             request = validate_request(payload)
         except AgenticRetrievalContractError as exc:
@@ -146,6 +154,14 @@ class CodeCompassAgenticRetrievalService:
         *,
         capability: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
+        from agent.services.codecompass_authority_policy import contains_client_authority
+
+        if contains_client_authority(arguments):
+            return empty_response(
+                query=str((arguments or {}).get("query") or ""),
+                status=STATUS_ERROR,
+                reason_code="client_authority_forbidden",
+            )
         try:
             request = request_from_tool_args(arguments)
         except AgenticRetrievalContractError as exc:
@@ -269,6 +285,7 @@ class CodeCompassAgenticRetrievalService:
             item
             for item in selected
             if _path_allowed(str(item.get("path") or ""), scope["allowed_paths"])
+            and self._hit_matches_scope(item, scope)
         ]
         input_count = sum(len(rows) for rows in channel_results.values())
         merged_count = max(0, input_count - len(selected))
@@ -412,10 +429,39 @@ class CodeCompassAgenticRetrievalService:
                 "source_id": str(row.get("source_id") or metadata.get("source_id") or ""),
                 "source_version": str(row.get("source_version") or metadata.get("source_version") or ""),
                 "tenant_id": str(row.get("tenant_id") or metadata.get("tenant_id") or ""),
+                "workspace_id": str(row.get("workspace_id") or metadata.get("workspace_id") or ""),
+                "repository_id": str(row.get("repository_id") or metadata.get("repository_id") or ""),
+                "revision": str(
+                    row.get("revision")
+                    or row.get("source_revision")
+                    or metadata.get("revision")
+                    or metadata.get("source_revision")
+                    or ""
+                ),
+                "source_scope": str(row.get("source_scope") or metadata.get("source_scope") or ""),
             },
             "channel": signal_to_channel(signal),
             "source": str(row.get("source") or signal),
         }
+
+    @staticmethod
+    def _hit_matches_scope(
+        hit: Mapping[str, Any],
+        scope: Mapping[str, Any],
+    ) -> bool:
+        metadata = dict(hit.get("metadata") or {})
+        for field in (
+            "tenant_id",
+            "workspace_id",
+            "repository_id",
+            "revision",
+            "source_scope",
+        ):
+            observed = str(metadata.get(field) or hit.get(field) or "")
+            expected = str(scope.get(field) or "")
+            if observed and expected and observed != expected:
+                return False
+        return True
 
     def _budget_evidence(
         self,
@@ -772,6 +818,7 @@ class CodeCompassAgenticRetrievalService:
             task_kind=task_kind or None,
             source_scopes=source_scopes,
             allowed_index_ids=allowed_index_ids,
+            authoritative_scope=scope,
         )
 
     def _default_vector_search(

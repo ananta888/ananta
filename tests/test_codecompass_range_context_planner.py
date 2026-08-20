@@ -6,6 +6,9 @@ from agent.services.codecompass_context_planner_service import (
     SCHEMA_LOCATION_REF,
     get_codecompass_context_planner,
 )
+from agent.services.codecompass_retrieval_capability_service import (
+    bind_retrieval_capability,
+)
 from agent.services.tools import execute_ananta_tool
 from agent.services.tools.codecompass_tools import codecompass_search
 
@@ -63,10 +66,23 @@ def test_codecompass_search_adds_location_refs(monkeypatch, tmp_path):
             }
         ],
     )
+    capability = bind_retrieval_capability(
+        {
+            "workspace_id": "workspace-a",
+            "repository_id": "repository-a",
+            "source_scope": "repository",
+            "revision": "rev-a",
+            "allowed_paths": ["src"],
+            "allowed_index_ids": ["index-a"],
+        },
+        subject_id="user-a",
+        tenant_id="tenant-a",
+    )
     result = codecompass_search(
         workspace_dir=str(tmp_path),
         arguments={"query": "retry", "limit": 3},
         tool_call_id="tool_result:1",
+        config={"codecompass_capability": capability},
     )
     refs = result["data"]["location_refs"]
     assert result["status"] == "ok"

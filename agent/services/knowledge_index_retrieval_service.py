@@ -718,6 +718,7 @@ class KnowledgeIndexRetrievalService:
         retrieval_intent: str | None = None,
         source_scopes: set[str] | None = None,
         allowed_index_ids: set[str] | None = None,
+        authoritative_scope: Mapping[str, Any] | None = None,
         record_predicate: Callable[[dict[str, Any]], bool] | None = None,
     ) -> list[ContextChunk]:
         query_features = self._query_features(query)
@@ -726,6 +727,23 @@ class KnowledgeIndexRetrievalService:
         for knowledge_index in self._iter_completed_indices(
             allowed_index_ids=allowed_index_ids,
         ):
+            expected_scope = dict(authoritative_scope or {})
+            observed_scope = {
+                "tenant_id": getattr(knowledge_index, "tenant_id", ""),
+                "workspace_id": getattr(knowledge_index, "workspace_id", ""),
+                "repository_id": getattr(knowledge_index, "repository_id", ""),
+                "revision": (
+                    getattr(knowledge_index, "revision", "")
+                    or getattr(knowledge_index, "source_revision", "")
+                ),
+            }
+            if any(
+                str(observed_scope.get(field) or "")
+                and str(observed_scope.get(field)) != str(expected)
+                for field, expected in expected_scope.items()
+                if field in observed_scope and str(expected or "")
+            ):
+                continue
             source_scope = (
                 str(getattr(knowledge_index, "source_scope", "artifact") or "artifact")
                 .strip()
@@ -856,6 +874,7 @@ class KnowledgeIndexRetrievalService:
         retrieval_intent: str | None = None,
         source_scopes: set[str] | None = None,
         allowed_index_ids: set[str] | None = None,
+        authoritative_scope: Mapping[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
         """Stable dict projection for CodeCompass tools and context planners."""
 
@@ -866,10 +885,26 @@ class KnowledgeIndexRetrievalService:
             retrieval_intent=retrieval_intent,
             source_scopes=source_scopes,
             allowed_index_ids=allowed_index_ids,
+            authoritative_scope=authoritative_scope,
         )
         records: list[dict[str, Any]] = []
         for chunk in chunks:
             metadata = dict(chunk.metadata or {})
+            expected_scope = dict(authoritative_scope or {})
+            observed_scope = {
+                "tenant_id": metadata.get("tenant_id"),
+                "workspace_id": metadata.get("workspace_id"),
+                "repository_id": metadata.get("repository_id"),
+                "revision": metadata.get("revision") or metadata.get("source_revision"),
+                "source_scope": metadata.get("source_scope"),
+            }
+            if any(
+                str(observed_scope.get(key) or "")
+                and str(observed_scope.get(key)) != str(expected)
+                for key, expected in expected_scope.items()
+                if key in observed_scope and str(expected or "")
+            ):
+                continue
             records.append(
                 {
                     "id": str(metadata.get("record_id") or metadata.get("chunk_id") or ""),

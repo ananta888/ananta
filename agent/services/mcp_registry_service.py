@@ -315,6 +315,10 @@ class MCPRegistryService:
 
     def call_tool(self, *, name: str, arguments: dict[str, Any] | None, context: dict[str, Any]) -> dict[str, Any]:
         args = arguments if isinstance(arguments, dict) else {}
+        if name.startswith("codecompass."):
+            from agent.services.codecompass_authority_policy import assert_no_client_authority
+
+            assert_no_client_authority(args)
         if name == "health.get":
             basic_mode = bool(args.get("basic", True))
             health_builder = context["health_builder"]

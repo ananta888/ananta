@@ -41,15 +41,9 @@ def _authorize_codecompass_retrieve_surface():
 
 
 def _contains_authority_field(value) -> bool:
-    if isinstance(value, dict):
-        for key, nested in value.items():
-            if str(key).lower() in _FORBIDDEN_REQUEST_KEYS:
-                return True
-            if _contains_authority_field(nested):
-                return True
-    elif isinstance(value, list):
-        return any(_contains_authority_field(item) for item in value)
-    return False
+    from agent.services.codecompass_authority_policy import contains_client_authority
+
+    return contains_client_authority(value)
 
 
 def _server_capability(requested_scope: dict) -> dict | None:
