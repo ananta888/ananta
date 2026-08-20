@@ -15,7 +15,7 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol
-from urllib.parse import quote, urlsplit
+from urllib.parse import quote, unquote, urlsplit
 
 from agent.services.hub_git_authorization_provisioning import (
     GitAuthorizationProviderHealth,
@@ -48,7 +48,7 @@ class GitHubAuthorizationApiPort(Protocol):
     ) -> Mapping[str, Any]: ...
 
     def create_installation_token(
-        self, *, installation_id: str, app_jwt: str
+        self, *, installation_id: str, app_jwt: str, repository: str
     ) -> Mapping[str, Any]: ...
 
     def inspect_repository(
@@ -137,12 +137,17 @@ class HttpGitHubAuthorizationApi:
         )
 
     def create_installation_token(
-        self, *, installation_id: str, app_jwt: str
+        self, *, installation_id: str, app_jwt: str, repository: str
     ) -> Mapping[str, Any]:
+        repository_name = _require_repository(repository).split("/", 1)[1]
         return self._json(
             "POST",
             f"/app/installations/{quote(installation_id, safe='')}/access_tokens",
             bearer=app_jwt,
+            body={
+                "repositories": [repository_name],
+                "permissions": {"contents": "read"},
+            },
         )
 
     def inspect_repository(
@@ -166,9 +171,9 @@ class HttpGitHubAuthorizationApi:
         )
 
     def _json(
-        self, method: str, path: str, *, bearer: str
+        self, method: str, path: str, *, bearer: str, body: Mapping[str, Any] | None = None
     ) -> Mapping[str, Any]:
-        _headers, payload = self._request(method, path, bearer=bearer)
+        _headers, payload = self._request(method, path, bearer=bearer, body=body)
         if not isinstance(payload, Mapping):
             raise HubGitAuthorizationProvisioningError(
                 "git_authorization_github_response_invalid",
@@ -177,7 +182,7 @@ class HttpGitHubAuthorizationApi:
         return dict(payload)
 
     def _request(
-        self, method: str, path: str, *, bearer: str
+        self, method: str, path: str, *, bearer: str, body: Mapping[str, Any] | None = None
     ) -> tuple[Mapping[str, str], Any]:
         token = str(bearer or "").strip()
         if not token:
@@ -185,15 +190,24 @@ class HttpGitHubAuthorizationApi:
                 "git_authorization_github_credential_missing",
                 status_code=503,
             )
+        encoded_body = (
+            json.dumps(dict(body), separators=(",", ":")).encode("utf-8")
+            if body is not None
+            else None
+        )
+        headers = {
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "User-Agent": "ananta-hub-git-authorization",
+            "X-GitHub-Api-Version": "2022-11-28",
+        }
+        if encoded_body is not None:
+            headers["Content-Type"] = "application/json"
         request = urllib.request.Request(
             f"{self._origin}{path}",
             method=method,
-            headers={
-                "Accept": "application/vnd.github+json",
-                "Authorization": f"Bearer {token}",
-                "User-Agent": "ananta-hub-git-authorization",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
+            headers=headers,
+            data=encoded_body,
         )
         try:
             with self._opener.open(request, timeout=10) as response:
@@ -293,6 +307,7 @@ class GitHubAuthorizationProvisioner:
         token_payload = self.api.create_installation_token(
             installation_id=installation_id,
             app_jwt=app_jwt,
+            repository=repo,
         )
         access_token = str(token_payload.get("token") or "").strip()
         permissions = token_payload.get("permissions")
@@ -320,7 +335,10 @@ class GitHubAuthorizationProvisioner:
             connection_ref=handle,
             authorization_kind="github_app",
             remote_url=f"https://github.com/{repo}.git",
-            credential_ref=f"secret://github-app/installation/{installation_id}",
+            credential_ref=(
+                f"secret://github-app/installation/{installation_id}/repository/"
+                f"{quote(repo, safe='')}"
+            ),
             credential_username="x-access-token",
             authorization_state="active",
             granted_scopes=frozenset({"contents:read"}),
@@ -359,7 +377,10 @@ class GitHubAuthorizationProvisioner:
             connection_ref=handle,
             authorization_kind="github_oauth",
             remote_url=f"https://github.com/{repo}.git",
-            credential_ref=f"secret://github-oauth/grant/{grant}",
+            credential_ref=(
+                f"secret://github-oauth/grant/{grant}/repository/"
+                f"{quote(repo, safe='')}"
+            ),
             credential_username="x-access-token",
             authorization_state="active",
             granted_scopes=frozenset({"contents:read"}),
@@ -391,8 +412,10 @@ class GitHubAppInstallationSecretResolver:
         value = str(reference or "").strip()
         prefix = "secret://github-app/installation/"
         if value.startswith(prefix):
-            installation_id = value.removeprefix(prefix)
-            if not installation_id.isdigit():
+            remainder = value.removeprefix(prefix)
+            installation_id, separator, encoded_repository = remainder.partition("/repository/")
+            repository = unquote(encoded_repository) if separator else ""
+            if not installation_id.isdigit() or not repository:
                 raise HubGitAuthorizationProvisioningError(
                     "git_secret_reference_invalid",
                     status_code=503,
@@ -400,6 +423,7 @@ class GitHubAppInstallationSecretResolver:
             token_payload = self._api.create_installation_token(
                 installation_id=installation_id,
                 app_jwt=self._jwt_issuer.issue(),
+                repository=_require_repository(repository),
             )
             token = str(token_payload.get("token") or "").strip()
             if not token:
@@ -410,13 +434,25 @@ class GitHubAppInstallationSecretResolver:
             return token
         oauth_prefix = "secret://github-oauth/grant/"
         if value.startswith(oauth_prefix):
-            handle = f"github-oauth:{value.removeprefix(oauth_prefix)}"
+            remainder = value.removeprefix(oauth_prefix)
+            grant, separator, encoded_repository = remainder.partition("/repository/")
+            repository = unquote(encoded_repository) if separator else ""
+            if not grant or not repository:
+                raise HubGitAuthorizationProvisioningError(
+                    "git_secret_reference_invalid", status_code=503
+                )
+            handle = f"github-oauth:{grant}"
             token = str(self._oauth_grants.resolve_token(handle) or "").strip()
             if not token:
                 raise HubGitAuthorizationProvisioningError(
                     "git_authorization_oauth_grant_unavailable",
                     status_code=503,
                 )
+            inspected = self._api.inspect_repository(
+                repository=_require_repository(repository),
+                access_token=token,
+            )
+            _assert_repository_match(inspected, repository)
             return token
         raise HubGitAuthorizationProvisioningError(
             "git_secret_resolver_unavailable",

@@ -37,7 +37,7 @@ class _Api:
             "token": "ghs_should-never-escape",
             "permissions": {"contents": "read"},
         }
-        self.repository = {"full_name": "owner/repository"}
+        self.repository = {"id": 99, "full_name": "owner/repository"}
         self.oauth_scopes = frozenset({"repo"})
         self.token_calls = 0
 
@@ -46,9 +46,10 @@ class _Api:
         assert app_jwt == "app-jwt"
         return self.installation
 
-    def create_installation_token(self, *, installation_id, app_jwt):
+    def create_installation_token(self, *, installation_id, app_jwt, repository):
         assert installation_id == "42"
         assert app_jwt == "app-jwt"
+        assert repository == "owner/repository"
         self.token_calls += 1
         return self.token
 
@@ -109,7 +110,7 @@ def test_github_app_resolves_org_repo_without_returning_tokens():
     assert resolved.granted_scopes == frozenset({"contents:read"})
     assert resolved.repository == "owner/repository"
     assert resolved.remote_url == "https://github.com/owner/repository.git"
-    assert resolved.credential_ref == "secret://github-app/installation/42"
+    assert resolved.credential_ref == "secret://github-app/installation/42/repository/owner%2Frepository"
     assert "ghs_should-never-escape" not in encoded
     assert "ghs_should-never-escape" not in repr(resolved)
     assert provisioner.health(scope=_scope()).status == "healthy"
@@ -151,7 +152,7 @@ def test_github_oauth_uses_stored_grant_and_least_privilege_scopes():
 
     assert resolved.authorization_kind == "github_oauth"
     assert resolved.granted_scopes == frozenset({"contents:read"})
-    assert resolved.credential_ref == "secret://github-oauth/grant/user-1"
+    assert resolved.credential_ref == "secret://github-oauth/grant/user-1/repository/owner%2Frepository"
     assert "oauth-token" not in repr(resolved)
 
 
@@ -188,11 +189,11 @@ def test_secret_resolver_mints_installation_token_on_demand():
     api = _Api()
     resolver = GitHubAppInstallationSecretResolver(api=api, jwt_issuer=_Jwt())
 
-    token = resolver.resolve("secret://github-app/installation/42")
+    token = resolver.resolve("secret://github-app/installation/42/repository/owner%2Frepository")
 
     assert token == "ghs_should-never-escape"
     assert api.token_calls == 1
-    assert resolver.handles("secret://github-app/installation/42")
+    assert resolver.handles("secret://github-app/installation/42/repository/owner%2Frepository")
     assert not resolver.handles("secret://other/ref")
 
 
