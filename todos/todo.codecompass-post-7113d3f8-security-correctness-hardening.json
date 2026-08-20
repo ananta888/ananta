@@ -1,0 +1,1220 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "owner": "Krusty / Ananta",
+  "track": "codecompass-post-7113d3f8-security-correctness-hardening",
+  "created": "2026-08-20",
+  "status": "partial",
+  "priority": "P0",
+  "title": "CodeCompass Security, Layer Correctness, DuckDB Semantics and Adapter Hardening after 7113d3f8",
+  "purpose": "Alle bei der Quellcodeanalyse des Commit-Bereichs 7113d3f8 inklusive bis a570f75a gefundenen Sicherheits-, Korrektheits-, Architektur-, Substituierbarkeits- und Testluecken in einem nachvollziehbaren Sanierungsprogramm schliessen.",
+  "goal": "Die neuen CodeCompass-, Incremental-Layer-, DuckDB-, RLM-, Claim-Extraction- und GitHub-App-Pfade so haerten, dass Scope und Autoritaet fail-closed bleiben, Hub und Worker ihre vorgeschriebenen Rollen einhalten, alle Artifact-Kinds revisionskonsistent erhalten bleiben, VectorStore-Implementierungen substituierbar sind und archivierte Feature-Tracks nur durch reproduzierbare Acceptance-Gates als abgeschlossen gelten.",
+  "review_basis": {
+    "reviewed_commit_range": "7113d3f886983b0e15fe1b8e9f02686ce6ddfb80^..a570f75ace48421e1361b3776ddf607bdee51e71",
+    "reviewed_commits": 14,
+    "reviewed_files": 142,
+    "review_goal": "Produktive Regressionen, Cross-Tenant-Risiken, Hub-Worker-Verstoesse, LSP-Verletzungen, unvollstaendige Features und fehlende Acceptance-Gates identifizieren.",
+    "analysis_date": "2026-08-20",
+    "validation_state": "targeted_acceptance_gate_passed_track_partial",
+    "validation_date": "2026-08-20",
+    "test_gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+    "test_count": 183,
+    "failed_test_count": 0,
+    "warning_count": 1,
+    "implemented_commit_range": "a570f75ace48421e1361b3776ddf607bdee51e71..07144cd1d4ddcf7da0f4fb27c9381da50187d7ec",
+    "validated_source_commit": "07144cd1d4ddcf7da0f4fb27c9381da50187d7ec"
+  },
+  "architectural_decision": "Der Hub bleibt alleinige Autoritaet fuer Scope, Policy, Planung, Heads, Publish, Queue und Governance. Worker erzeugen und verifizieren delegierte Artefakte. Externe Requests liefern niemals Autoritaets-Capabilities. Persistente Heads und DuckDB-Pointer werden vollstaendig nach Tenant, Workspace, Repository, Profil, Domain, Revision und Artifact-Kind gebunden. Alle Backends muessen den bestehenden Portvertrag ohne versteckte Datenverluste erfuellen.",
+  "non_goals": [
+    "Keine Neuentwicklung einer zweiten Retrieval-, Task-, Tool- oder Autorisierungsinfrastruktur.",
+    "Keine Aufweichung bestehender fail-closed Source-Control- oder Knowledge-Index-Gates.",
+    "Keine Big-Bang-Migration bestehender JSON- oder Qdrant-Installationen.",
+    "Keine worker-to-worker Orchestrierung und keine Worker-eigene Task Queue.",
+    "Keine Behauptung, dass LangExtract, rekursives RLM oder lokales MoE produktiv fertig sind, bevor ihre produktiven Adapter und Gates existieren.",
+    "Keine erfundenen SRC_* oder RUN_* Kennungen; unbekannte oder fehlende Source-/Run-IDs bleiben unverified oder failed."
+  ],
+  "source_review": {
+    "observed": [
+      {
+        "path": "agent/services/codecompass_agentic_retrieval_service.py",
+        "lines": [
+          67,
+          68,
+          69,
+          481,
+          494,
+          495,
+          509,
+          511,
+          520,
+          557,
+          569,
+          576
+        ],
+        "observation": "Ohne Capability wird der Request-Scope uebernommen; leere allowed_paths sind unbeschraenkt. Der Default-Exact-Adapter uebergibt nur source_scope und bindet Suche nicht zwingend an Tenant, Workspace, Repository und Revision."
+      },
+      {
+        "path": "agent/routes/codecompass_retrieve.py",
+        "lines": [
+          42,
+          43,
+          44,
+          45,
+          76,
+          79
+        ],
+        "observation": "Die HTTP-Route verwendet eine optionale globale Konfigurations-Capability statt einer principal- und requestgebundenen Hub-Autoritaet."
+      },
+      {
+        "path": "agent/services/tools/codecompass_tools.py",
+        "lines": [
+          166,
+          174,
+          194,
+          247
+        ],
+        "observation": "Tool-Argumente koennen als Capability interpretiert werden; Worker-/Tool-Eingaben duerfen keine Autoritaet minten oder erweitern."
+      },
+      {
+        "path": "agent/routes/codecompass_layers.py",
+        "lines": [
+          15,
+          18,
+          45,
+          63,
+          67,
+          73
+        ],
+        "observation": "Read- und Write-Endpunkte verwenden gemeinsam SourceControlAction.query; Apply und Compaction mutieren persistent unter einer Read-Autorisierung."
+      },
+      {
+        "path": "agent/services/codecompass_layer_service.py",
+        "lines": [
+          8,
+          9,
+          16,
+          18,
+          32,
+          36,
+          58
+        ],
+        "observation": "Der Hub importiert konkrete Worker-Klassen und fuehrt Build-/Compaction-Logik ueber einen globalen lokalen Singleton aus."
+      },
+      {
+        "path": "worker/incremental_index/coordinator.py",
+        "lines": [
+          63,
+          67,
+          69,
+          85,
+          89,
+          94,
+          96,
+          100,
+          107,
+          112,
+          130
+        ],
+        "observation": "Mehrere Artifact-Kinds werden als Geschwister gebaut, aber nur der letzte Layer wird Head. Rebuild-Entscheidungen bauen nur das ChangeSet und ersetzen danach die Basis."
+      },
+      {
+        "path": "worker/incremental_index/head_registry.py",
+        "lines": [
+          29,
+          30,
+          57,
+          68,
+          77,
+          78,
+          98,
+          113,
+          118,
+          124
+        ],
+        "observation": "Der Head modelliert nur einen default Layer, create_head ist nicht unter demselben CAS-Lock und Head-Dateien werden nicht per Tempfile plus atomarem Replace publiziert."
+      },
+      {
+        "path": "worker/incremental_index/garbage_collector.py",
+        "lines": [
+          35,
+          37,
+          48,
+          49,
+          53,
+          54
+        ],
+        "observation": "Profilbezogene GC markiert nur ein Profil, durchsucht und loescht aber Layer aus dem gesamten Store."
+      },
+      {
+        "path": "worker/retrieval/duckdb_snapshot_manager.py",
+        "lines": [
+          52,
+          53,
+          55,
+          63,
+          81,
+          85,
+          141,
+          160
+        ],
+        "observation": "Scope-spezifische Snapshot-Dateien teilen einen einzigen globalen Active-Pointer."
+      },
+      {
+        "path": "worker/retrieval/duckdb_vector_store.py",
+        "lines": [
+          145,
+          151,
+          155,
+          181,
+          189,
+          194,
+          197,
+          221
+        ],
+        "observation": "rebuild, refresh und upsert laufen durch denselben leeren Snapshot-Aufbau; upsert und refresh koennen vorhandene Punkte verlieren und verletzen damit den VectorStore-Portvertrag."
+      },
+      {
+        "path": "agent/services/hub_git_github_authorization_provider.py",
+        "lines": [
+          293,
+          314,
+          318,
+          319,
+          323,
+          390,
+          400,
+          403
+        ],
+        "observation": "Das Onboarding prueft ein Repository, der Secret-Ref und spaetere Token-Mint sind jedoch nur an die Installation-ID gebunden."
+      },
+      {
+        "path": "worker/rlm/recursive_query_planner.py",
+        "lines": [
+          54,
+          56,
+          67,
+          68,
+          73,
+          80,
+          84
+        ],
+        "observation": "Der Planner erzeugt nur Depth 0 und 1 und erstellt aus Retrieval-Ergebnissen keine rekursiven Folgeschritte."
+      },
+      {
+        "path": "worker/knowledge_hygiene/claim_extraction_port.py",
+        "lines": [
+          43,
+          48,
+          53
+        ],
+        "observation": "Der LangExtract-Adapter ist ein expliziter Stub und wirft fuer jeden produktiven Aufruf."
+      },
+      {
+        "path": "agent/services/codecompass_root_cause_routing.py",
+        "lines": [
+          19,
+          23,
+          31,
+          37
+        ],
+        "observation": "Root-Cause-Routing liefert nur eine Policy-Beschreibung und fuehrt weder Modellrouting noch Evaluation aus."
+      }
+    ]
+  },
+  "invariants": [
+    "Kein externer Request, Tool-Call, MCP-Call oder Worker-Result darf eine Autoritaets-Capability liefern oder erweitern.",
+    "Jeder Retrieval-Hit muss vor Rueckgabe an Tenant, Workspace, Repository, Revision und erlaubte Pfade gebunden sein; Post-Filtering nach Pfad allein reicht nicht.",
+    "Ein SourceControlAction.query Grant autorisiert niemals persistente Mutation.",
+    "Ein publizierter Layer-Head beschreibt alle aktivierten Artifact-Kinds derselben Revision atomar oder wird nicht publiziert.",
+    "Full Rebuild und Artifact-Kind Rebase enthalten den vollstaendigen effektiven Zustand des betroffenen Scopes und nicht nur das letzte ChangeSet.",
+    "Compaction aendert den Effective-View-Hash nicht.",
+    "GC loescht keinen Layer, der von irgendeinem Head, Rollback-Fenster oder in-flight Publish referenziert wird.",
+    "DuckDB upsert, refresh, rebuild, delete und delete_scope erfuellen denselben beobachtbaren Vertrag wie JSON und Qdrant.",
+    "GitHub-Credentials besitzen nur die fuer das registrierte Repository erforderlichen Rechte.",
+    "Feature-Flags bleiben default-off, bis negative Tests, Rollback und Observability vorhanden sind."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Retrieval authority and tenant isolation",
+      "task_ids": [
+        "CCH-001",
+        "CCH-002",
+        "CCH-003",
+        "CCH-004"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M2",
+      "title": "Incremental layer correctness and Hub-Worker separation",
+      "task_ids": [
+        "CCH-005",
+        "CCH-006",
+        "CCH-007",
+        "CCH-008",
+        "CCH-009"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M3",
+      "title": "DuckDB VectorStore contract and scope safety",
+      "task_ids": [
+        "CCH-010",
+        "CCH-011",
+        "CCH-012"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M4",
+      "title": "GitHub App least privilege",
+      "task_ids": [
+        "CCH-013"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M5",
+      "title": "Budget and feature completeness",
+      "task_ids": [
+        "CCH-014",
+        "CCH-015",
+        "CCH-016",
+        "CCH-017"
+      ],
+      "status": "partial"
+    },
+    {
+      "id": "M6",
+      "title": "Migration, regression gates and rollout",
+      "task_ids": [
+        "CCH-018"
+      ],
+      "status": "partial"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "CCH-001",
+      "title": "Autoritativen Retrieval-Capability-Vertrag fail-closed machen",
+      "type": "architecture",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 85,
+      "files": [
+        "agent/services/codecompass_agentic_retrieval_service.py",
+        "agent/services/codecompass_agentic_retrieval_contract.py",
+        "agent/routes/codecompass_retrieve.py",
+        "agent/routes/mcp.py"
+      ],
+      "details": [
+        "Eine kleine Capability-Port-Abstraktion definieren, deren Implementierung der Hub aus authentifiziertem Principal, Source-Control-Grant, Workspace, Repository und aktueller Revision ableitet.",
+        "capability=None an HTTP, MCP oder Tool-Grenzen muss empty_scope oder authorization_required liefern und darf niemals globale Suche bedeuten.",
+        "Die bisherige globale AGENT_CONFIG Capability nur als explizit gekennzeichneten lokalen Kompatibilitaetsadapter behandeln oder entfernen; sie darf nicht mehrere Principals teilen.",
+        "Scope-Narrowing muss jedes Feld pruefen: tenant_id, workspace_id, repository_id, source_scope, revision und allowed_paths.",
+        "Der Capability-Vertrag enthaelt Ablauf, Subject/Principal-Bindung und einen Hub-verifizierbaren Digest; Worker duerfen ihn nur konsumieren."
+      ],
+      "acceptance_criteria": [
+        "POST /api/codecompass/retrieve ohne autoritativ aufgeloeste Capability antwortet mit einem stabilen 4xx-Fehler und fuehrt keinen Exact-, Graph- oder Vector-Backend-Aufruf aus.",
+        "Ein Request mit abweichendem tenant_id, workspace_id, repository_id, revision oder source_scope wird vor jedem Backend-Aufruf als scope_widening_denied abgelehnt.",
+        "Leere allowed_paths in einer gebundenen Capability werden als empty_scope abgelehnt und nicht als globale Freigabe interpretiert.",
+        "Zwei authentifizierte Principals mit unterschiedlichen Repository-Grants erhalten auch bei identischem Query-Text disjunkte Capabilities und disjunkte Ergebnisse.",
+        "Unit-Tests pruefen fehlende, abgelaufene, manipulierte, principal-fremde und revisionsfremde Capabilities sowie den Backend-call-count=0 fuer jeden Ablehnungsfall.",
+        "Bestehende interne Aufrufer muessen Capability explizit injizieren; kein produktiver Aufrufer darf still auf ungebundene Suche zurueckfallen."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_agentic_retrieval_service.py::test_missing_capability_fails_before_backend_access",
+        "tests/test_codecompass_agentic_retrieval_adapters.py::test_http_capability_is_principal_bound",
+        "tests/test_codecompass_agentic_retrieval_adapters.py::test_mcp_cannot_use_global_fallback_capability"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Backend-call-count, expiry/manipulation and multi-principal isolation matrix is not yet exhaustive."
+      }
+    },
+    {
+      "id": "CCH-002",
+      "title": "Tenant-, Repository- und Revisionsfilter in allen Retrieval-Ports erzwingen",
+      "type": "security",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 70,
+      "depends_on": [
+        "CCH-001"
+      ],
+      "files": [
+        "agent/services/codecompass_agentic_retrieval_service.py",
+        "agent/services/knowledge_index_retrieval_service.py",
+        "agent/services/codecompass_context_service.py",
+        "worker/retrieval/vector_store_contract.py"
+      ],
+      "details": [
+        "Exact-, Graph- und Vector-Ports erhalten denselben normalisierten, unveraenderlichen Scope statt einzelner optionaler Filter.",
+        "Backend-Abfragen filtern autoritativ vor dem Laden von Content nach Tenant, Workspace, Repository, Source Scope und Revision.",
+        "Pfadfilter bleibt Defense in Depth, darf aber keine fehlende Backend-Scope-Isolation kompensieren.",
+        "Hits ohne nachweisbare Scope-/Revision-Bindung werden verworfen und als unverified diagnostiziert."
+      ],
+      "acceptance_criteria": [
+        "Ein Fixture mit zwei Tenants und demselben Pfad src/service.py liefert fuer jeden Principal ausschliesslich dessen eigenen Content.",
+        "Ein Fixture mit zwei Revisionen desselben Repositories liefert ausschliesslich Records der angeforderten autoritativen Revision.",
+        "Exact-, Graph- und Vector-Testdoubles muessen den vollstaendigen Scope erhalten; ein Port, der Scope nicht akzeptiert, ist kein gueltiger produktiver Adapter.",
+        "Backend-Hits mit falschem tenant_id, workspace_id, repository_id oder revision werden auch dann verworfen, wenn ihr Pfad erlaubt ist.",
+        "Diagnostik enthaelt keine Tokens oder Content fremder Scopes und nennt einen stabilen scope_mismatch Reason-Code.",
+        "Integrationstests beweisen, dass die Isolation vor Content-Hydration stattfindet."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_agentic_retrieval_service.py::test_same_path_in_two_tenants_never_crosses_scope",
+        "tests/test_codecompass_agentic_retrieval_service.py::test_stale_revision_hit_is_rejected",
+        "tests/test_codecompass_agentic_retrieval_service.py::test_all_engines_receive_identical_scope"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Every production engine still needs an integration proof for pre-hydration tenant, repository and revision filtering."
+      }
+    },
+    {
+      "id": "CCH-003",
+      "title": "Client-gelieferte Capabilities aus Tool-, MCP- und HTTP-Argumenten entfernen",
+      "type": "security",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 85,
+      "depends_on": [
+        "CCH-001"
+      ],
+      "files": [
+        "agent/services/tools/codecompass_tools.py",
+        "agent/services/mcp_registry_service.py",
+        "agent/services/ananta_tool_registry_service.py",
+        "agent/routes/codecompass_retrieve.py"
+      ],
+      "details": [
+        "_capability_from_tool_args entfernen oder so umbauen, dass ausschliesslich ein bereits verifizierter ExecutionContext verwendet wird.",
+        "Tool-Schemas setzen additionalProperties=false und enthalten kein capability-Feld.",
+        "HTTP verbietet Authority-Felder rekursiv, nicht nur auf Top-Level; verschachtelte scope- oder budget-Strukturen duerfen keine Credentials oder Capabilities enthalten.",
+        "MCP bezieht Scope aus dem authentifizierten MCP-Context und nicht aus Tool-Arguments."
+      ],
+      "acceptance_criteria": [
+        "Ein Tool-Call mit capability, credentials, authorization, api_key oder collection an beliebiger Verschachtelungstiefe wird vor Service-Aufruf abgelehnt.",
+        "Ein MCP-Call kann seinen Workspace, sein Repository, seine Revision oder allowed_paths nicht ueber Arguments erweitern.",
+        "Der Worker-Toolpfad akzeptiert nur einen vom Hub gebundenen ExecutionContext; rohe Arguments koennen keine Autoritaet erzeugen.",
+        "Registry-, MCP- und HTTP-Schemas dokumentieren dieselben verbotenen Authority-Felder und werden durch Contract-Tests verglichen.",
+        "Negative Tests pruefen verschachtelte capability-Objekte, Gross-/Kleinschreibung und Aliasnamen."
+      ],
+      "required_tests": [
+        "tests/services/test_codecompass_tool_schemas.py::test_codecompass_tools_expose_no_authority_fields",
+        "tests/test_codecompass_agentic_retrieval_adapters.py::test_nested_capability_fields_are_rejected",
+        "tests/test_codecompass_agentic_retrieval_adapters.py::test_worker_arguments_cannot_mint_scope"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Authority arguments are ignored, but uniform recursive rejection at every registry boundary is not yet covered."
+      }
+    },
+    {
+      "id": "CCH-004",
+      "title": "Retrieval-Multi-Tenant- und Negativmatrix als verpflichtendes Gate einfuehren",
+      "type": "testing",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 55,
+      "depends_on": [
+        "CCH-001",
+        "CCH-002",
+        "CCH-003"
+      ],
+      "files": [
+        "tests/test_codecompass_agentic_retrieval_service.py",
+        "tests/test_codecompass_agentic_retrieval_adapters.py",
+        "artifacts/test-gates/codecompass-retrieval-scope-isolation.json"
+      ],
+      "details": [
+        "Eine deterministische Matrix fuer HTTP, MCP und Worker-Tool gegen Exact, Graph und Vector aufbauen.",
+        "Jeder Kanal wird mit erlaubtem Treffer, fremdem Tenant, fremdem Repository, falscher Revision, verbotenem Pfad, fehlender Capability und Backend-Fehler getestet.",
+        "Das Gate speichert nur stabile Counts, Reason-Codes und Digests, keine Secrets oder Repository-Inhalte."
+      ],
+      "acceptance_criteria": [
+        "Alle 3 Adapter mal 3 Engines decken positive und negative Scope-Faelle ab.",
+        "Jeder Denial-Fall beweist, dass kein fremder Content in Response, Warning, Diagnostics oder Logs enthalten ist.",
+        "Das strukturierte Gate ist deterministisch und enthaelt keine volatile Timestamp, zufaellige ID oder umgebungsspezifischen Pfad.",
+        "Der Gate-Report ist nur gruen, wenn alle Backend-call-count- und Leakage-Assertions erfuellt sind."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_agentic_retrieval_adapters.py",
+        "tests/test_codecompass_agentic_retrieval_service.py"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "The complete three-adapter by three-engine negative matrix and its dedicated isolation artifact remain open."
+      }
+    },
+    {
+      "id": "CCH-005",
+      "title": "Hub-Worker-Grenze fuer Layer Build, Compaction und GC wiederherstellen",
+      "type": "architecture",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 85,
+      "files": [
+        "agent/services/codecompass_layer_service.py",
+        "agent/routes/codecompass_layers.py",
+        "worker/incremental_index/coordinator.py",
+        "schemas/worker/codecompass_compaction_plan.v1.json"
+      ],
+      "details": [
+        "Der Hub darf Snapshot-Diff und Build-/Compaction-Ausfuehrung nicht durch direkte worker.* Imports lokal ausfuehren.",
+        "Hub-seitige Ports fuer Plan, Dispatch, Result Admission und atomaren Publish definieren; konkrete Builder bleiben im Worker.",
+        "Worker-Ergebnis wird an Task, Assignment, Dispatch Lease, Input-Revision, Profil-Digest und Artifact-Kinds gebunden.",
+        "Der Hub prueft Digests, Schemas, Vollstaendigkeit und aktuelle Autoritaet vor dem Publish aller Heads."
+      ],
+      "acceptance_criteria": [
+        "Production-Code unter agent/ importiert keine konkrete IncrementalIndexCoordinator-, GarbageCollector- oder DuckDB-Materializer-Klasse aus worker/.",
+        "Eine Layer-Mutation erzeugt zuerst einen Hub-owned Task/Dispatch und fuehrt vor akzeptiertem Worker-Result zu keiner Head-Aenderung.",
+        "Ein Worker kann weder Heads noch Queue noch Hub-Taskstatus direkt schreiben.",
+        "Stale, ungebundene, unvollstaendige oder digest-fremde Worker-Results werden fail-closed abgelehnt.",
+        "Der Hub kann als Worker nur ueber denselben delegierten Vertrag arbeiten; es existiert kein privilegierter In-Process-Sonderpfad."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_incremental_index_dispatch.py::test_hub_does_not_execute_worker_builder_directly",
+        "tests/test_codecompass_incremental_index_dispatch.py::test_bound_result_required_before_publish"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Bound dispatch ports are implemented; deployment composition with the persistent Hub queue, ledger and publisher remains open."
+      }
+    },
+    {
+      "id": "CCH-006",
+      "title": "LayerHead als atomaren Artifact-Set-Head pro Scope modellieren",
+      "type": "architecture",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 80,
+      "depends_on": [
+        "CCH-005"
+      ],
+      "files": [
+        "schemas/worker/codecompass_layer_head.v1.json",
+        "worker/incremental_index/head_registry.py",
+        "worker/incremental_index/effective_view.py",
+        "worker/incremental_index/coordinator.py"
+      ],
+      "details": [
+        "base_layer_set und ordered_delta_sets nach Artifact-Kind modellieren statt einen default-Layer fuer alles zu verwenden.",
+        "Head-Key umfasst Tenant, Workspace, Repository, Profil und Domain; Pfadnamen werden nicht durch kollidierende String-Ersetzung abgeleitet.",
+        "Alle aktivierten Artifact-Kinds einer Revision werden in einem CAS-Publish atomar sichtbar.",
+        "create und update verwenden denselben Lock-/CAS-Mechanismus und atomare Tempfile-plus-fsync-plus-replace-Persistenz.",
+        "Stale Lock Recovery und Multi-Prozess-Semantik werden explizit definiert."
+      ],
+      "acceptance_criteria": [
+        "Nach einem Build sind graph, chunks, embeddings und fts ueber denselben Artifact-Set-Head und dieselbe effective_source_revision erreichbar.",
+        "Kein Artifact-Kind wird nur deshalb unerreichbar, weil es nicht als letztes publiziert wurde.",
+        "Ein partieller Publish oder Prozessabbruch laesst den vorherigen vollstaendigen Head sichtbar.",
+        "Zwei parallele Publisher mit derselben expected_generation erzeugen exakt einen Gewinner und einen generation_conflict ohne Head-Korruption.",
+        "Profile a/b und a_b sowie unterschiedliche Tenants kollidieren weder im Speicherpfad noch in der Registry.",
+        "Schema- und Migrationstests lesen bestehende v1 default-Heads ueber einen Compatibility-Adapter, schreiben neue Heads aber nur im neuen Format."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_incremental_index.py::test_all_artifact_kinds_are_reachable_from_one_atomic_head",
+        "tests/test_codecompass_incremental_index.py::test_concurrent_head_publish_has_single_winner",
+        "tests/test_codecompass_incremental_index.py::test_profile_and_tenant_keys_do_not_collide"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Legacy v1 compatibility, key-collision and concurrent publication matrices are not yet exhaustive."
+      }
+    },
+    {
+      "id": "CCH-007",
+      "title": "Full Rebuild, Partial Rebuild und Artifact-Kind Rebase verlustfrei implementieren",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 80,
+      "depends_on": [
+        "CCH-006"
+      ],
+      "files": [
+        "worker/incremental_index/coordinator.py",
+        "worker/incremental_index/builders.py",
+        "worker/incremental_index/decision_engine.py",
+        "worker/incremental_index/effective_view.py"
+      ],
+      "details": [
+        "delta_build darf ChangeSet-Records erzeugen; full_rebuild muss den vollstaendigen autoritativen Snapshot bauen.",
+        "artifact_kind_rebase ersetzt ausschliesslich die betroffene Artefaktart und traegt unveraenderte Artifact-Kinds atomar weiter.",
+        "partial_base_rebuild definiert explizite Coverage und darf nicht still ungebaute Records verlieren.",
+        "layer_kind und parent_layer_id muessen zur tatsaechlichen Build-Semantik passen.",
+        "equivalent vergleicht kanonischen Record-Inhalt und nicht nur ID-Mengen."
+      ],
+      "acceptance_criteria": [
+        "Ein Full Rebuild nach Aenderung einer von zehn Dateien enthaelt danach alle zehn effektiven Dateien und alle erforderlichen Derived Records.",
+        "Ein Embedding-Rebase aendert nur den Embedding-Head; Graph-, Chunk- und FTS-Effective-View-Hashes bleiben identisch.",
+        "Ein Base-Layer besitzt parent_layer_id=null und layer_kind=base; ein Delta besitzt einen existierenden kompatiblen Parent.",
+        "Unvollstaendige Coverage verhindert Publish und liefert einen stabilen incomplete_rebuild Reason-Code.",
+        "equivalent liefert false, wenn zwei Views dieselben IDs, aber unterschiedliche content_hash-, path- oder tombstone-Semantik besitzen.",
+        "Property-basierte Sequenzen aus add, modify, delete, rename, rebase und compact ergeben denselben Effective View wie ein kanonischer Full Build."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_incremental_index.py::test_full_rebuild_preserves_unchanged_records",
+        "tests/test_codecompass_incremental_index.py::test_artifact_kind_rebase_preserves_other_heads",
+        "tests/test_codecompass_incremental_index.py::test_equivalent_compares_record_content"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Property-based full rebuild and artifact-rebase sequence coverage remains open."
+      }
+    },
+    {
+      "id": "CCH-008",
+      "title": "Layer-API mit Write-Autorisierung, autoritativen Inputs und Idempotenz haerten",
+      "type": "security",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 70,
+      "depends_on": [
+        "CCH-005",
+        "CCH-006"
+      ],
+      "files": [
+        "agent/routes/codecompass_layers.py",
+        "agent/services/source_control_access_policy.py",
+        "agent/bootstrap/routes.py"
+      ],
+      "details": [
+        "GET und reine Diff-Planung behalten Read/Query-Rechte; apply, compact, rollback und gc verlangen eine passende mutierende Action und Audit-Event.",
+        "Clients referenzieren Hub-owned Snapshot-/Profile-IDs statt beliebige Manifeste als Autoritaet zu senden.",
+        "dry_run wird strikt als JSON Boolean validiert; Arrays, Strings und ungueltige Objekte liefern 400 statt 500.",
+        "Mutation wird an expected_generation und einen deterministischen Idempotency-Key gebunden."
+      ],
+      "acceptance_criteria": [
+        "Ein Principal mit Query-Recht kann profiles, head und dry-run plan lesen, erhaelt fuer apply und compact jedoch 403.",
+        "Apply akzeptiert nur aktuelle, Hub-owned Snapshot- und Profilreferenzen; rohe oder manipulierte Manifeste werden abgelehnt.",
+        "Wiederholung derselben Mutation mit demselben Idempotency-Key erzeugt keinen zweiten Layer und keine zweite Head-Generation.",
+        "Ein stale expected_generation liefert 409 und publiziert keinen neuen Head.",
+        "Nicht-Objekt-JSON, dry_run='false', unbekannte Felder und zu grosse Payloads liefern stabile 4xx-Fehler.",
+        "Jede erfolgreiche oder abgelehnte Mutation erzeugt ein content-freies Audit-Event mit Principal, Scope, Action, Generation und Reason-Code."
+      ],
+      "required_tests": [
+        "tests/routes/test_codecompass_layers.py::test_query_grant_cannot_apply_or_compact",
+        "tests/routes/test_codecompass_layers.py::test_apply_requires_authoritative_snapshot_refs",
+        "tests/routes/test_codecompass_layers.py::test_apply_is_idempotent_and_generation_bound"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Route-level authorization, audit, payload-limit, idempotency and HTTP 409 coverage remains open."
+      }
+    },
+    {
+      "id": "CCH-009",
+      "title": "Compaction, Rollback und Garbage Collection global sicher machen",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 80,
+      "depends_on": [
+        "CCH-006",
+        "CCH-007",
+        "CCH-008"
+      ],
+      "files": [
+        "worker/incremental_index/compaction.py",
+        "worker/incremental_index/garbage_collector.py",
+        "worker/incremental_index/head_registry.py",
+        "agent/services/codecompass_layer_service.py"
+      ],
+      "details": [
+        "GC markiert immer Referenzen aller Heads und Scopes, auch wenn Sweep auf ein Profil begrenzt ist.",
+        "History-/Rollback-Fenster, in-flight Build/Compaction, Staging und noch nicht finalisierte Publish-Receipts werden als Roots behandelt.",
+        "Compaction erfolgt pro Artifact-Kind und prueft Kompatibilitaet, Parent-Kette und Effective-View-Hash vor CAS-Publish.",
+        "Rollback stellt die komplette Artifact-Set-Revision wieder her und verwendet deren damalige Source-Revision statt der aktuellen."
+      ],
+      "acceptance_criteria": [
+        "GC fuer Profil A loescht keinen von Profil B, einem anderen Tenant oder einem in-flight Publish referenzierten Layer.",
+        "Dry-run und Execute liefern dieselbe Kandidatenmenge; Execute entfernt ausschliesslich zum Sweep-Zeitpunkt weiterhin unerreichbare Layer.",
+        "Der Effective-View-Hash jedes Artifact-Kinds ist vor und nach Compaction identisch.",
+        "Ein Crash zwischen compacted-layer write und Head-CAS laesst den alten Head gueltig; der neue unerreichbare Layer kann spaeter sicher eingesammelt werden.",
+        "Rollback auf Generation N stellt Layer-Set und effective_source_revision von N wieder her und erzeugt eine neue monotone Generation.",
+        "Korruptes oder inkompatibles Layer-Input verhindert Compaction und veraendert keinen Head."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_incremental_index.py::test_gc_for_one_profile_preserves_all_other_heads",
+        "tests/test_codecompass_incremental_index.py::test_compaction_is_effective_view_equivalent",
+        "tests/test_codecompass_incremental_index.py::test_rollback_restores_complete_artifact_set"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Rollback, in-flight publish and compaction crash-window gates remain open."
+      }
+    },
+    {
+      "id": "CCH-010",
+      "title": "DuckDB Active-Pointer und Snapshot-Pfade vollstaendig scope-binden",
+      "type": "architecture",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 85,
+      "files": [
+        "worker/retrieval/duckdb_snapshot_manager.py",
+        "worker/retrieval/duckdb_vector_store_config.py",
+        "schemas/worker/codecompass_duckdb_snapshot_manifest.v1.json"
+      ],
+      "details": [
+        "Pointer pro kanonischem Scope-Key oder ein atomarer Pointer-Katalog mit Eintrag pro Tenant/Workspace/Repository/Profile/Domain einfuehren.",
+        "open_active verlangt den erwarteten Scope und validiert Pointer-Metadaten sowie snapshot_meta vor Rueckgabe einer Connection.",
+        "Scope-Komponenten werden fuer Dateipfade kanonisch kodiert und gegen Traversal, absolute Pfade, Separatoren und Kollisionen geprueft.",
+        "Bestehenden globalen Pointer nur ueber eine explizite Single-Scope-Migration lesen."
+      ],
+      "acceptance_criteria": [
+        "Publikation fuer Workspace B veraendert den aktiven Snapshot von Workspace A nicht.",
+        "open_active(scope=A) kann niemals einen Pointer oder Snapshot fuer Scope B oeffnen, auch wenn eine Pointer-Datei manipuliert wurde.",
+        "Tenant, Repository, Profil und Domain sind Teil des kanonischen Pointer-Keys und werden gegen snapshot_meta verglichen.",
+        "Scope-Werte mit .., Slash, Backslash, absolutem Pfad, Unicode-Normalisierungs- oder Encoding-Kollisionen werden abgelehnt oder kollisionsfrei kodiert.",
+        "Parallele Publikationen verschiedener Scopes bleiben unabhaengig; parallele Publikationen desselben Scopes verwenden CAS oder einen eindeutigen Gewinner.",
+        "Migrationstest uebernimmt einen gueltigen alten Single-Scope-Pointer einmalig und lehnt mehrdeutige Altzustaende ab."
+      ],
+      "required_tests": [
+        "tests/test_duckdb_codecompass_backend.py::test_active_pointer_is_scoped",
+        "tests/test_duckdb_codecompass_backend.py::test_pointer_scope_mismatch_fails_closed",
+        "tests/test_duckdb_codecompass_backend.py::test_scope_components_cannot_escape_snapshot_root"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Legacy pointer migration, path-escape inputs and same-scope concurrent publication gates remain open."
+      }
+    },
+    {
+      "id": "CCH-011",
+      "title": "DuckDB upsert, refresh, rebuild und delete portkonform implementieren",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 90,
+      "depends_on": [
+        "CCH-010"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_vector_store.py",
+        "worker/retrieval/duckdb_output_importer.py",
+        "worker/retrieval/vector_store_contract.py"
+      ],
+      "details": [
+        "Die Semantik des bestehenden VectorStore-Ports fuer jede Operation explizit dokumentieren und als gemeinsame Contract-Test-Suite ausfuehren.",
+        "rebuild erstellt einen vollstaendigen neuen Snapshot; refresh und upsert uebernehmen den vorherigen effektiven Zustand und wenden Aenderungen copy-on-write an.",
+        "delete und delete_scope erzeugen ebenfalls einen neuen immutable Snapshot statt den publizierten Snapshot in-place zu mutieren.",
+        "Alle Punkte eines Batches muessen denselben Scope, kompatible Dimensionen und dasselbe Profil besitzen, bevor irgendeine Datei publiziert wird.",
+        "Import und Publish laufen transaktional; bei Fehler bleibt der vorherige Pointer aktiv."
+      ],
+      "acceptance_criteria": [
+        "Nach upsert eines neuen Punktes bleiben alle vorherigen nicht ersetzten Punkte suchbar.",
+        "Upsert einer vorhandenen record_id ersetzt exakt diesen Punkt und laesst alle anderen unveraendert.",
+        "refresh erfuellt die im VectorStore-Port definierte Semantik und besitzt denselben Contract-Test wie JSON und Qdrant.",
+        "delete bindet an Tenant, Workspace, Repository, Profil und Domain und kann keinen gleichnamigen Record eines anderen Scopes loeschen.",
+        "Kein publizierter .duckdb Snapshot wird nach Pointer-Publish in-place veraendert.",
+        "Ein gemischter Scope- oder Dimensions-Batch wird vor dem ersten Write abgelehnt und veraendert weder Pointer noch Snapshot-Bestand.",
+        "Contract-Tests laufen unveraendert gegen JSON, Qdrant-Testdouble und DuckDB; backend-spezifische Ausnahmen sind nicht erlaubt."
+      ],
+      "required_tests": [
+        "tests/test_duckdb_codecompass_backend.py::test_upsert_preserves_existing_points",
+        "tests/test_duckdb_codecompass_backend.py::test_delete_is_copy_on_write_and_fully_scoped",
+        "tests/test_vector_store_contract.py::test_all_backends_share_write_semantics"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "The unchanged cross-backend VectorStore write-contract suite is not yet shared by JSON, Qdrant and DuckDB."
+      }
+    },
+    {
+      "id": "CCH-012",
+      "title": "DuckDB Security-, Resource- und Concurrency-Gates vervollstaendigen",
+      "type": "testing",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 65,
+      "depends_on": [
+        "CCH-010",
+        "CCH-011"
+      ],
+      "files": [
+        "worker/retrieval/duckdb_connection_factory.py",
+        "worker/retrieval/duckdb_extension_policy.py",
+        "worker/retrieval/duckdb_query_templates.py",
+        "worker/retrieval/duckdb_output_importer.py",
+        "tests/test_duckdb_codecompass_backend.py"
+      ],
+      "details": [
+        "query_timeout_ms, temp_directory und max_temp_directory_size wirksam anwenden oder aus dem Vertrag entfernen; deklarierte Limits duerfen nicht nur Konfiguration sein.",
+        "Importbudget anhand kanonischer Bytes statt Python-str-Laenge messen.",
+        "Alle Analytics-Templates muessen Scope entweder in SQL erzwingen oder ausschliesslich auf einem zuvor scope-verifizierten Snapshot laufen.",
+        "Thread-local Connections bei Pointer-Wechsel invalidieren und bounded schliessen."
+      ],
+      "acceptance_criteria": [
+        "Jedes dokumentierte Resource-Limit besitzt einen Test, der seine tatsaechliche Durchsetzung beweist.",
+        "Ein UTF-8- oder verschachtelter Payload kann max_import_bytes nicht durch Zeichen-/Byte-Differenzen umgehen.",
+        "ATTACH, INSTALL, LOAD, COPY ausserhalb des kontrollierten Parquet-Adapters, externe URLs und unbekannte Extensions bleiben fail-closed.",
+        "Analytics mit falschem Scope scheitert vor Query-Ausfuehrung, auch bei Templates ohne direkte Scope-Spalten.",
+        "Pointer-Swap unter parallelen Readern liefert entweder den vollstaendigen alten oder vollstaendigen neuen Snapshot, niemals einen partiellen Zustand.",
+        "Connection-Caches halten keine geloeschten Retention-Snapshots dauerhaft offen."
+      ],
+      "required_tests": [
+        "tests/test_duckdb_codecompass_backend.py::test_declared_resource_limits_are_enforced",
+        "tests/test_duckdb_codecompass_backend.py::test_import_budget_counts_encoded_bytes",
+        "tests/test_duckdb_codecompass_backend.py::test_reader_observes_atomic_pointer_swap"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Declared resource limits, encoded-byte budgets, atomic reader swap and connection-retention gates remain open."
+      }
+    },
+    {
+      "id": "CCH-013",
+      "title": "GitHub-App-Credentials an Repository und Permission binden",
+      "type": "security",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 90,
+      "files": [
+        "agent/services/hub_git_github_authorization_provider.py",
+        "agent/services/hub_git_authorization_provisioning.py",
+        "agent/bootstrap/source_control_api.py",
+        "tests/test_hub_git_github_authorization_provider.py"
+      ],
+      "details": [
+        "Opaque Credential-Refs an Installation-ID plus kanonische Repository-ID oder einen Hub-owned Registration-Identifier binden.",
+        "Installation-Token mit repository_ids und minimalen permissions anfordern; Repository-ID stammt aus inspect_repository und nicht aus Client-Input.",
+        "Secret-Resolver revalidiert aktive Registrierung, Repository-Bindung und aktuelle Installation vor jedem Mint.",
+        "Token-Caching ist optional, muss Ablauf und Repository-Bindung im Cache-Key enthalten und darf Tokens nie persistieren oder loggen.",
+        "OAuth-Grant-Resolver muss ebenfalls Grant, Repository und erforderlichen Read-Scope serverseitig binden."
+      ],
+      "acceptance_criteria": [
+        "Der GitHub create-installation-token Request enthaelt exakt die gepruefte repository_id und nur erforderliche contents:read Permissions.",
+        "Ein fuer Repository A erzeugter Credential-Ref kann nicht fuer Repository B aufgeloest oder wiederverwendet werden.",
+        "Eine geloeschte, suspendierte oder repository-fremde Installation scheitert beim spaeteren Resolve fail-closed.",
+        "Opaque Refs enthalten keinen Token und keine private Key-Daten; Logs, Exceptions und API-Responses bleiben secret-frei.",
+        "Tests decken Installationen mit mehreren Repositories ab und beweisen, dass der gemintete Token-Request nur das registrierte Repository umfasst.",
+        "Bestehende installationsweite Refs werden ueber eine klar dokumentierte Migration invalidiert oder sicher auf eine Registration-Bindung ueberfuehrt."
+      ],
+      "required_tests": [
+        "tests/test_hub_git_github_authorization_provider.py::test_installation_token_is_repository_scoped",
+        "tests/test_hub_git_github_authorization_provider.py::test_secret_ref_cannot_cross_repository",
+        "tests/test_hub_git_github_authorization_provider.py::test_suspended_installation_fails_on_resolve"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Suspended-installation and legacy installation-wide reference migration tests remain open."
+      }
+    },
+    {
+      "id": "CCH-014",
+      "title": "Retrieval-Tokenbudget und gebundene Continuations vollstaendig durchsetzen",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 90,
+      "depends_on": [
+        "CCH-001",
+        "CCH-002"
+      ],
+      "files": [
+        "agent/services/codecompass_agentic_retrieval_contract.py",
+        "agent/services/codecompass_agentic_retrieval_service.py",
+        "schemas/codecompass.agentic-retrieval.v1.json"
+      ],
+      "details": [
+        "max_tokens neben top_k und max_chars mit einem injizierbaren, deterministischen Estimator durchsetzen.",
+        "Continuation-Handles serverseitig signieren oder opaque speichern und an Principal, Scope-Digest, Query-Digest, Revision, Plan und Budget binden.",
+        "Abgelaufene, manipulierte oder fuer andere Query/Scopes verwendete Handles fail-closed ablehnen statt auf Offset 0 zurueckzufallen.",
+        "Truncation muss exakt nennen, welches Budget zuerst erschoepft wurde."
+      ],
+      "acceptance_criteria": [
+        "Keine Response ueberschreitet max_tokens oder max_chars nach dem dokumentierten Estimator; Metadaten-Overhead ist in der Budgetdefinition enthalten.",
+        "Ein einzelner zu grosser Treffer wird deterministisch gekuerzt oder ausgelassen, ohne das Gesamtbudget zu ueberschreiten.",
+        "Continuation fuer Query A, Principal A oder Revision A wird fuer jede abweichende Bindung abgelehnt.",
+        "Manipuliertes JSON, negativer Offset, extrem grosser Offset und abgelaufener Handle liefern stabile typed errors.",
+        "Pagination liefert ueber alle Seiten keine Duplikate und keine ausgelassenen Treffer, solange Revision und Plan unveraendert sind.",
+        "Diagnostics enthalten used_tokens, used_chars, returned, truncation_reason und keine geheimen Handle-Inhalte."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_agentic_retrieval_service.py::test_max_tokens_is_a_hard_budget",
+        "tests/test_codecompass_agentic_retrieval_service.py::test_continuation_is_query_scope_and_revision_bound",
+        "tests/test_codecompass_agentic_retrieval_service.py::test_tampered_continuation_fails_closed"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Expired and extreme-offset continuation plus full multi-page no-gap/no-duplicate tests remain open."
+      }
+    },
+    {
+      "id": "CCH-015",
+      "title": "RLM entweder echt rekursiv implementieren oder Vertrag ehrlich begrenzen",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 75,
+      "depends_on": [
+        "CCH-001",
+        "CCH-014"
+      ],
+      "files": [
+        "worker/rlm/recursive_query_planner.py",
+        "agent/services/codecompass_rlm_service.py",
+        "schemas/codecompass.rlm-recursive-plan.v1.json",
+        "tests/test_codecompass_rlm_service.py"
+      ],
+      "details": [
+        "Produktentscheidung dokumentieren: echte result-driven Rekursion oder Umbenennung in bounded multi-query fanout.",
+        "Bei echter Rekursion duerfen nur Retrieval-Ergebnisse innerhalb derselben Capability neue Teilfragen erzeugen; der Hub bleibt Orchestrator.",
+        "Gesamtbudgets fuer Tiefe, Fanout, Schritte, Tool Calls, Tokens, Zeichen und Zeit gelten ueber den gesamten Baum.",
+        "Cycle Detection verwendet kanonische Query-/Scope-/Node-Digests statt nur identischer Query-Strings.",
+        "Worker plant keine neuen Hub-Tasks und ruft keine anderen Worker auf."
+      ],
+      "acceptance_criteria": [
+        "Wenn das Feature recursive heisst, erzeugt ein kontrolliertes Fixture mindestens einen evidenzabhaengigen Schritt auf Depth 2 und respektiert max_depth exakt.",
+        "max_fanout gilt pro Parent und ein separates max_steps begrenzt den gesamten Baum.",
+        "Ein Zyklus A -> B -> A wird erkannt, terminiert und als cycle_detected diagnostiziert.",
+        "Scope- oder Budgetfehler eines Child-Schritts erweitern niemals Scope und erzeugen keine ungebundene Fallback-Suche.",
+        "Bei Entscheidung gegen echte Rekursion werden Klasse, Schema, Toolbeschreibung, Feature-Flag und Dokumentation konsistent auf bounded fanout umbenannt.",
+        "Feature bleibt default-off und besitzt einen deterministischen Fallback auf genau einen gebundenen Retrieval-Aufruf."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_rlm_service.py::test_result_driven_step_reaches_depth_two",
+        "tests/test_codecompass_rlm_service.py::test_global_step_budget_bounds_recursive_tree",
+        "tests/test_codecompass_rlm_service.py::test_cycle_terminates_without_scope_widening"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Depth-two, global-step-budget and canonical cycle-diagnostic acceptance tests remain open."
+      }
+    },
+    {
+      "id": "CCH-016",
+      "title": "Claim Extraction und Root-Cause-Routing produktiv abschliessen oder Status korrigieren",
+      "type": "implementation",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 75,
+      "depends_on": [
+        "CCH-001",
+        "CCH-002"
+      ],
+      "files": [
+        "worker/knowledge_hygiene/claim_extraction_port.py",
+        "agent/services/codecompass_claim_extraction_service.py",
+        "agent/services/codecompass_root_cause_routing.py",
+        "schemas/codecompass.claim-extraction.v1.json",
+        "schemas/codecompass.conflict-set.v1.json",
+        "todos/archiv/todo.langextract-codecompass-claim-extraction-adapter.json",
+        "todos/archiv/todo.local-moe-root-cause-routing-codecompass-behavioral-evaluation.json"
+      ],
+      "details": [
+        "LangExtract als optionalen echten Worker-Adapter mit explizitem Hub-Profil implementieren oder den archivierten Track auf partial/open korrigieren.",
+        "Claim-Proposals tragen ausschliesslich vorhandene, autoritativ zugelassene Source- und Run-IDs; fehlende IDs bleiben unverified und werden nie synthetisiert.",
+        "Hub Admission prueft Span, Content-Digest, Revision, Source-Allowlist und Provider-Provenance vor Persistenz.",
+        "Root-Cause-Routing braucht einen echten policy-gesteuerten Backend-Port, Eligibility, Budget, Fallback und Evaluation; ein Dictionary allein gilt nicht als Routing.",
+        "MoE-Offload bleibt default-off und darf keine Tool-/Scope-Rechte erweitern."
+      ],
+      "acceptance_criteria": [
+        "Ein produktives LangExtract-Profil liefert fuer ein deterministisches Fixture geerdete Spans oder einen stabilen optional_dependency_unavailable Fehler statt eines permanenten Stub-Fehlers.",
+        "Ein Span mit falschem Offset, Text, Content-Digest, Revision oder unbekannter SRC_*/RUN_* ID wird abgelehnt.",
+        "Kein Service erzeugt aus Pfaden, Record-IDs oder freien Strings neue SRC_* oder RUN_* Kennungen.",
+        "Root-Cause-Routing ruft fuer eligible Tasks den konfigurierten Port mit hartem Budget auf und fuer nicht eligible Tasks exakt den dokumentierten gebundenen Fallback.",
+        "Behavioral Evaluation misst Routing-Entscheidung, Budgeteinhaltung, Konflikterhalt und Fallback anhand stabiler Fixtures.",
+        "Wenn produktive Adapter fehlen, werden beide archivierten TODOs nachvollziehbar reaktiviert oder als partial markiert; done ist erst nach bestandenem Gate erlaubt."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_claim_extraction.py::test_unknown_source_and_run_ids_are_rejected",
+        "tests/test_codecompass_claim_extraction.py::test_langextract_adapter_is_optional_and_grounded",
+        "tests/test_codecompass_root_cause_routing.py::test_eligible_task_invokes_bounded_backend_port"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Content-digest, revision, unknown RUN identifier and bounded fallback evaluation coverage remains open."
+      }
+    },
+    {
+      "id": "CCH-017",
+      "title": "Architecture-Intelligence-Heuristiken und Eingabevertraege haerten",
+      "type": "hardening",
+      "status": "partial",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 85,
+      "depends_on": [
+        "CCH-002"
+      ],
+      "files": [
+        "ananta_codecompass/architecture_intelligence/graph_projection.py",
+        "ananta_codecompass/architecture_intelligence/centrality.py",
+        "ananta_codecompass/architecture_intelligence/community.py",
+        "ananta_codecompass/architecture_intelligence/diff.py",
+        "ananta_codecompass/architecture_intelligence/smells.py",
+        "tests/test_codecompass_architecture_intelligence.py"
+      ],
+      "details": [
+        "Nodes und Edges kanonisch deduplizieren; fehlende IDs duerfen keine 'None'- oder leeren Phantomknoten erzeugen.",
+        "Centrality-Normalisierung fuer gerichtete Graphen dokumentieren und in einem definierten Wertebereich halten.",
+        "Doppelte Edges duerfen Bridge- und Smell-Counts nicht aufblasen.",
+        "Diff-Klassifikation muss Coverage beachten und darf bei partial/unknown fehlende Nodes nicht automatisch als breaking_candidate behaupten.",
+        "Ergebnisse bleiben Heuristiken mit Algorithmus-/Coverage-Metadaten und werden nicht als verifizierte Quellclaims ausgegeben."
+      ],
+      "acceptance_criteria": [
+        "Doppelte Nodes und Edges erzeugen dieselbe Projektion, Centrality, Communities und Smells wie ihre deduplizierte Form.",
+        "Records ohne gueltige Node-ID werden verworfen und erscheinen weder als leere noch als 'None'-ID im Diff.",
+        "degree_centrality liegt im dokumentierten Bereich und besitzt Tests fuer leeren, Einzelknoten-, gerichteten und bidirektionalen Graphen.",
+        "Ein partial-coverage Diff meldet entfernte Architektur nur als unverified candidate und nicht als bestaetigten Breaking Change.",
+        "Algorithmus-Fingerprint ist bei semantisch identischem, anders sortiertem Input stabil."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_architecture_intelligence.py::test_duplicate_edges_do_not_change_metrics",
+        "tests/test_codecompass_architecture_intelligence.py::test_missing_ids_do_not_create_phantom_nodes",
+        "tests/test_codecompass_architecture_intelligence.py::test_partial_coverage_diff_is_unverified"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Centrality edge-case and reordered-input fingerprint matrices remain open."
+      }
+    },
+    {
+      "id": "CCH-018",
+      "title": "Kompatibilitaetsmigration, End-to-End-Gates und gestuften Rollout abschliessen",
+      "type": "release",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 75,
+      "depends_on": [
+        "CCH-004",
+        "CCH-005",
+        "CCH-006",
+        "CCH-007",
+        "CCH-008",
+        "CCH-009",
+        "CCH-010",
+        "CCH-011",
+        "CCH-012",
+        "CCH-013",
+        "CCH-014",
+        "CCH-015",
+        "CCH-016",
+        "CCH-017"
+      ],
+      "files": [
+        "docs/codecompass.md",
+        "docs/codecompass-incremental-artifact-layers.md",
+        "docs/architecture/duckdb-codecompass-backend.md",
+        "docs/source-control-git-authorization-onboarding.md",
+        "docs/release/codecompass-post-7113d3f8-hardening-rollout.md",
+        "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json"
+      ],
+      "details": [
+        "Bestehende v1 Layer-Heads, globale DuckDB-Pointer und installationsweite GitHub-Refs inventarisieren und mit dry-run-faehigen, idempotenten Migrationen behandeln.",
+        "Rollout getrennt pro Feature: shadow/read-only, opt-in write, begrenzte Production-Freigabe, Default erst nach stabilen Metriken.",
+        "Kill Switches fuer Layer Writes, DuckDB Provider, RLM, Claim Extraction und GitHub Adapter dokumentieren und testen.",
+        "Archivierte TODOs erst nach Source-, Test- und Gate-Abgleich erneut als done bestaetigen.",
+        "Keine Runtime-Dumps committen; nur deterministische strukturierte Gate-Artefakte unter artifacts/test-gates/."
+      ],
+      "acceptance_criteria": [
+        "Dry-run-Migration listet betroffene Heads, Pointer und Credential-Refs ohne Secrets oder Content und veraendert keinen Zustand.",
+        "Migration ist idempotent, crash-recoverable und erhaelt einen pruefbaren Rollback-Pfad auf den letzten konsistenten Read-only-Zustand.",
+        "Das E2E-Gate deckt Multi-Tenant Retrieval, alle Artifact-Kinds, Full Rebuild, Compaction, GC, DuckDB Multi-Scope und repository-scoped GitHub Mint ab.",
+        "Alle P0/P1 Tasks dieses Tracks sind done, bevor mutierende Layer- oder DuckDB-Pfade standardmaessig aktiviert werden.",
+        "Ein Kill Switch stoppt neue Writes ohne bestehende konsistente Reads zu zerstoeren.",
+        "Observability meldet Denials, CAS-Konflikte, stale revisions, incomplete artifact sets, Pointer-Mismatches, Migrationen und Fallbacks content- und secret-frei.",
+        "Der finale Gate-Report ist deterministisch, nennt getesteten Commit-Digest und enthaelt keine erfundenen SRC_* oder RUN_* IDs.",
+        "Dokumentation beschreibt Hub-/Worker-Verantwortung, API-Kompatibilitaet, Migration, Operator-Recovery und bekannte Restgrenzen."
+      ],
+      "required_tests": [
+        "tests/test_codecompass_post_7113d3f8_hardening_e2e.py",
+        "tests/test_duckdb_codecompass_backend.py",
+        "tests/test_hub_git_github_authorization_provider.py",
+        "tests/test_codecompass_incremental_index.py"
+      ],
+      "validation": {
+        "gate": "artifacts/test-gates/codecompass-post-7113d3f8-hardening.json",
+        "result": "passed_for_covered_scope",
+        "remaining_acceptance_gap": "Deployment inventory adapters and observability integration remain open."
+      }
+    }
+  ],
+  "critical_path_tasks": [
+    "CCH-001",
+    "CCH-002",
+    "CCH-003",
+    "CCH-004",
+    "CCH-005",
+    "CCH-006",
+    "CCH-007",
+    "CCH-008",
+    "CCH-009",
+    "CCH-010",
+    "CCH-011",
+    "CCH-013",
+    "CCH-018"
+  ],
+  "recommended_execution_order": [
+    "CCH-001",
+    "CCH-002",
+    "CCH-003",
+    "CCH-004",
+    "CCH-005",
+    "CCH-006",
+    "CCH-007",
+    "CCH-008",
+    "CCH-009",
+    "CCH-010",
+    "CCH-011",
+    "CCH-012",
+    "CCH-013",
+    "CCH-014",
+    "CCH-015",
+    "CCH-016",
+    "CCH-017",
+    "CCH-018"
+  ],
+  "tasks_status_summary": {
+    "total": 18,
+    "by_status": {
+      "todo": 18,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 13,
+      "P1": 4,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 7,
+      "critical": 9
+    },
+    "critical_path": {
+      "total": 13,
+      "done": 0,
+      "remaining": 13
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 6,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 18,
+    "by_type": {
+      "architecture": 4,
+      "security": 4,
+      "testing": 2,
+      "implementation": 6,
+      "hardening": 1,
+      "release": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 18,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Die hoechste Prioritaet ist Retrieval-Scope-Isolation; bis CCH-001 bis CCH-004 abgeschlossen sind, duerfen neue externe Retrieval-Oberflaechen nicht als tenant-sicher gelten.",
+    "Der aktuelle Incremental-Layer-Pfad kann Artifact-Kinds und unveraenderte Records verlieren; mutierende Endpunkte sollten bis zur Korrektur deaktiviert oder strikt read-only betrieben werden.",
+    "DuckDB bleibt optional und darf JSON oder Qdrant erst ersetzen, wenn die gemeinsame VectorStore-Contract-Suite bestanden ist.",
+    "GitHub App bleibt grundsaetzlich fail-closed, benoetigt aber repository-scoped Token-Mint fuer Least Privilege.",
+    "RLM, LangExtract und Root-Cause-MoE gelten aktuell als experimentell beziehungsweise unvollstaendig.",
+    "Die Analyse hat keine Tests ausgefuehrt; alle required_tests sind zu implementierende Acceptance-Gates, keine behaupteten Ergebnisse."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "S1",
+      "title": "Security boundary",
+      "items": [
+        "Authority comes only from the Hub and authenticated principal context.",
+        "All retrieval engines enforce the same tenant, repository and revision scope before content access.",
+        "Mutation requires explicit write policy, generation binding and audit."
+      ]
+    },
+    {
+      "summary_id": "S2",
+      "title": "Data correctness",
+      "items": [
+        "Artifact-set heads publish every enabled kind atomically.",
+        "Rebuild, compaction, rollback and GC preserve the complete effective state.",
+        "DuckDB implements the existing VectorStore contract without hidden replacement semantics."
+      ]
+    },
+    {
+      "summary_id": "S3",
+      "title": "Architecture and rollout",
+      "items": [
+        "Hub orchestrates and governs; Workers execute delegated builds only.",
+        "Compatibility adapters and staged migrations preserve existing APIs and data where safely possible.",
+        "No feature is marked done without deterministic negative, concurrency and end-to-end gates."
+      ]
+    }
+  ],
+  "progress_percent": 79
+}

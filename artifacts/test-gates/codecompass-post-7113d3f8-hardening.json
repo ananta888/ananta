@@ -1,0 +1,51 @@
+{
+  "schema": "ananta.test-gate.v1",
+  "gate": "codecompass-post-7113d3f8-hardening",
+  "reviewed_base_commit": "a570f75ace48421e1361b3776ddf607bdee51e71",
+  "status": "passed",
+  "source_ids": [],
+  "run_ids": [],
+  "suites": [
+    "tests/test_codecompass_agentic_retrieval_service.py",
+    "tests/test_codecompass_agentic_retrieval_adapters.py",
+    "tests/test_codecompass_incremental_index.py",
+    "tests/test_codecompass_incremental_index_dispatch.py",
+    "tests/test_duckdb_codecompass_backend.py",
+    "tests/test_hub_git_github_authorization_provider.py",
+    "tests/test_codecompass_rlm_service.py",
+    "tests/test_codecompass_claim_extraction.py",
+    "tests/test_codecompass_root_cause_routing.py",
+    "tests/test_codecompass_architecture_intelligence.py",
+    "tests/test_codecompass_post_7113d3f8_hardening_e2e.py",
+    "tests/services/test_codecompass_tool_schemas.py"
+  ],
+  "assertions": {
+    "hub_worker_boundary": "passed_for_covered_cases",
+    "retrieval_scope_isolation": "passed_for_covered_cases",
+    "artifact_set_atomicity": "passed_for_covered_cases",
+    "duckdb_multi_scope": "passed",
+    "duckdb_delete_idempotency": "passed",
+    "github_repository_scope": "passed_for_covered_cases",
+    "migration_dry_run_and_rollback": "passed"
+  },
+  "result": {
+    "collected": 183,
+    "passed": 183,
+    "failed": 0,
+    "warnings": 1,
+    "warning_codes": [
+      "LangChainPendingDeprecationWarning"
+    ]
+  },
+  "static_checks": {
+    "agent_has_no_concrete_worker_incremental_imports": "passed",
+    "tool_arguments_do_not_supply_capability": "passed"
+  },
+  "track_completion": {
+    "status": "partial",
+    "progress_percent": 79,
+    "reason": "The deterministic regression gate passes against the recorded source commit; deployment-adapter, concurrency and property-test acceptance gaps remain explicit in the TODO track."
+  },
+  "tested_source_commit": "07144cd1d4ddcf7da0f4fb27c9381da50187d7ec",
+  "tested_commit_range": "a570f75ace48421e1361b3776ddf607bdee51e71..07144cd1d4ddcf7da0f4fb27c9381da50187d7ec"
+}
