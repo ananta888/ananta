@@ -77,7 +77,7 @@ class DuckDBVectorStore:
         if query.scope is None:
             raise VectorStoreFailClosedError("vector_scope_required")
         try:
-            connection = self._snapshots.open_active(read_only=True)
+            connection = self._snapshots.open_active(query.scope, read_only=True)
         except (DuckDBNotInstalledError, VectorStoreError) as exc:
             self._last = VectorStoreDiagnostic(
                 status="degraded",
@@ -156,27 +156,122 @@ class DuckDBVectorStore:
 
     def delete(self, point_ids: Sequence[str], *, scope: VectorScope) -> IndexWriteResult:
         self._ensure_open()
-        connection = self._snapshots.open_active(read_only=False)
-        deleted = 0
-        for point_id in point_ids:
-            connection.execute(
-                "UPDATE documents SET tombstone = TRUE WHERE record_id = ? AND workspace_id = ?",
-                [str(point_id), scope.workspace_id],
+        try:
+            points, compatibility = self._read_active_points(scope)
+        except VectorStoreError as exc:
+            if exc.reason != "duckdb_snapshot_empty":
+                raise
+            return IndexWriteResult(
+                status="ok",
+                mode="delete",
+                reason="empty",
+                indexed_documents=0,
+                diagnostics={"deleted": 0},
             )
-            deleted += 1
-        return IndexWriteResult(status="ok", mode="delete", reason="ok", indexed_documents=0, diagnostics={"deleted": deleted})
+        deleted_ids = {str(point_id) for point_id in point_ids}
+        remaining = [point for point in points if point.record_id not in deleted_ids]
+        deleted = len(points) - len(remaining)
+        if not deleted:
+            return IndexWriteResult(
+                status="ok",
+                mode="delete",
+                reason="empty",
+                indexed_documents=len(points),
+                diagnostics={"deleted": 0},
+            )
+        result = self._write(
+            remaining,
+            compatibility=compatibility,
+            mode="delete",
+            scope_override=scope,
+        )
+        return IndexWriteResult(
+            status=result.status,
+            mode="delete",
+            reason=result.reason,
+            indexed_documents=result.indexed_documents,
+            diagnostics={**dict(result.diagnostics), "deleted": deleted},
+        )
 
     def delete_scope(self, scope: VectorScope) -> IndexWriteResult:
         self._ensure_open()
-        connection = self._snapshots.open_active(read_only=False)
-        connection.execute(
-            """
-            UPDATE documents SET tombstone = TRUE
-            WHERE workspace_id = ? AND repository_id = ? AND profile_name = ? AND domain = ?
-            """,
-            [scope.workspace_id, scope.repository_id, scope.profile_name, scope.domain],
+        try:
+            points, compatibility = self._read_active_points(scope)
+        except VectorStoreError as exc:
+            if exc.reason != "duckdb_snapshot_empty":
+                raise
+            return IndexWriteResult(
+                status="ok",
+                mode="delete_scope",
+                reason="empty",
+                indexed_documents=0,
+                diagnostics={"deleted": 0},
+            )
+        if not points:
+            return IndexWriteResult(
+                status="ok",
+                mode="delete_scope",
+                reason="empty",
+                indexed_documents=0,
+            )
+        result = self._write(
+            (),
+            compatibility=compatibility,
+            mode="delete_scope",
+            scope_override=scope,
         )
-        return IndexWriteResult(status="ok", mode="delete_scope", reason="ok", indexed_documents=0)
+        return IndexWriteResult(
+            status=result.status,
+            mode="delete_scope",
+            reason=result.reason,
+            indexed_documents=0,
+            diagnostics={**dict(result.diagnostics), "deleted": len(points)},
+        )
+
+    def _read_active_points(
+        self,
+        scope: VectorScope,
+    ) -> tuple[list[PreparedVectorPoint], CompatibilitySpec]:
+        connection = self._snapshots.open_active(scope, read_only=True)
+        rows = connection.execute(
+            """SELECT d.record_id, d.path, d.kind, d.symbol, d.text, d.source_hash,
+                      v.embedding, v.model
+               FROM documents d JOIN vectors v ON v.record_id = d.record_id
+               WHERE d.workspace_id = ? AND d.repository_id = ? AND d.profile_name = ?
+                 AND d.domain = ? AND d.tombstone = FALSE""",
+            [scope.workspace_id, scope.repository_id, scope.profile_name, scope.domain],
+        ).fetchall()
+        if not rows:
+            raise VectorStoreError("duckdb_snapshot_empty")
+        meta = connection.execute(
+            """SELECT manifest_hash, compatibility_fingerprint, source_revision
+               FROM snapshot_meta LIMIT 1"""
+        ).fetchone()
+        if not meta:
+            raise VectorStoreError("duckdb_snapshot_meta_missing")
+        points = [
+            PreparedVectorPoint(
+                record_id=str(row[0]),
+                vector=tuple(float(value) for value in list(row[6] or [])),
+                scope=scope,
+                payload={
+                    "path": str(row[1] or ""),
+                    "kind": str(row[2] or "record"),
+                    "symbol": str(row[3] or ""),
+                    "embedding_text": str(row[4] or ""),
+                },
+                source_hash=str(row[5] or ""),
+            )
+            for row in rows
+        ]
+        return points, CompatibilitySpec(
+            dimensions=len(points[0].vector),
+            provider="duckdb",
+            model=str(rows[0][7] or "local"),
+            config_hash=str(meta[1] or "default"),
+            schema_version=str(meta[2] or "vector_store.v1"),
+            manifest_hash=str(meta[0] or ""),
+        )
 
     def _write(
         self,
@@ -184,22 +279,48 @@ class DuckDBVectorStore:
         *,
         compatibility: CompatibilitySpec,
         mode: str,
+        scope_override: VectorScope | None = None,
     ) -> IndexWriteResult:
         self._ensure_open()
-        if not points:
+        if not points and scope_override is None:
             return IndexWriteResult(status="ok", mode=mode, reason="empty", indexed_documents=0)
-        scope = points[0].scope
+        scope = points[0].scope if points else scope_override
+        if scope is None:
+            raise VectorStoreError("vector_scope_required")
         version = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + uuid4().hex[:8]
         fingerprint = compatibility.config_hash or compatibility.manifest_hash or "default"
         staging = self._snapshots.create_staging(scope, fingerprint, version)
         connection = self._factory.connect(staging, read_only=False)
         records = []
+        if mode in {"upsert", "refresh"}:
+            try:
+                active = self._snapshots.open_active(scope, read_only=True)
+                existing = active.execute(
+                    """SELECT d.record_id, d.path, d.kind, d.symbol, d.text, d.source_hash,
+                              v.embedding, v.model
+                       FROM documents d JOIN vectors v ON v.record_id = d.record_id
+                       WHERE d.workspace_id = ? AND d.repository_id = ? AND d.profile_name = ?
+                         AND d.domain = ? AND d.tombstone = FALSE""",
+                    [scope.workspace_id, scope.repository_id, scope.profile_name, scope.domain],
+                ).fetchall()
+                records.extend(
+                    {
+                        "id": row[0], "path": row[1], "kind": row[2], "symbol": row[3],
+                        "text": row[4], "source_hash": row[5], "embedding": list(row[6] or []),
+                        "model": row[7],
+                    }
+                    for row in existing
+                )
+            except VectorStoreError as exc:
+                if exc.reason != "duckdb_snapshot_missing":
+                    raise
         for point in points:
             if point.scope != scope:
                 raise VectorStoreError("vector_scope_conflict")
             if len(point.vector) != int(compatibility.dimensions):
                 raise VectorStoreError("dimensions_mismatch")
             payload = dict(point.payload or {})
+            records = [item for item in records if str(item.get("id")) != point.record_id]
             records.append(
                 {
                     "id": point.record_id,

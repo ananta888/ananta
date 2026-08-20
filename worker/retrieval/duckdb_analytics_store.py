@@ -22,7 +22,7 @@ class DuckDBAnalyticsStore:
         scope: VectorScope,
         params: Mapping[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        connection = self._snapshots.open_active(read_only=True)
+        connection = self._snapshots.open_active(scope, read_only=True)
         return run_template(
             connection,
             name=name,

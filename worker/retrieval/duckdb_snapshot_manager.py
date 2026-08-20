@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import tempfile
 from datetime import datetime, timezone
@@ -49,8 +50,27 @@ class DuckDBSnapshotManager:
         self._config = config
         self._factory = factory or DuckDBConnectionFactory(config)
 
-    def pointer_path(self) -> Path:
-        return Path(self._config.snapshot_root) / self._config.active_pointer_name
+    @staticmethod
+    def _scope_key(scope: VectorScope) -> str:
+        raw = json.dumps(
+            {
+                "workspace_id": scope.workspace_id,
+                "repository_id": scope.repository_id,
+                "profile_name": scope.profile_name,
+                "domain": scope.domain,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
+    def pointer_path(self, scope: VectorScope) -> Path:
+        return (
+            Path(self._config.snapshot_root)
+            / "pointers"
+            / self._scope_key(scope)
+            / self._config.active_pointer_name
+        )
 
     def snapshot_path(self, scope: VectorScope, fingerprint: str, version: str) -> Path:
         return (
@@ -63,13 +83,25 @@ class DuckDBSnapshotManager:
             / f"{version}.duckdb"
         )
 
-    def read_pointer(self) -> dict[str, Any] | None:
-        path = self.pointer_path()
+    def read_pointer(self, scope: VectorScope) -> dict[str, Any] | None:
+        path = self.pointer_path(scope)
         if not path.exists():
             return None
         payload = json.loads(path.read_text(encoding="utf-8"))
         if not isinstance(payload, dict):
             raise VectorStoreError("duckdb_pointer_invalid")
+        expected = {
+            "workspace_id": scope.workspace_id,
+            "repository_id": scope.repository_id,
+            "profile_name": scope.profile_name,
+            "domain": scope.domain,
+        }
+        if any(str(payload.get(key) or "") != value for key, value in expected.items()):
+            raise VectorStoreError("vector_scope_conflict")
+        snapshot = Path(str(payload.get("path") or "")).resolve()
+        root = Path(self._config.snapshot_root).resolve()
+        if root not in snapshot.parents:
+            raise VectorStoreError("duckdb_pointer_path_outside_root")
         return payload
 
     def connect(self, path: str | Path, *, read_only: bool):
@@ -78,11 +110,22 @@ class DuckDBSnapshotManager:
     def close_connections(self) -> None:
         self._factory.close_thread()
 
-    def open_active(self, *, read_only: bool = True):
-        pointer = self.read_pointer()
+    def open_active(self, scope: VectorScope, *, read_only: bool = True):
+        pointer = self.read_pointer(scope)
         if pointer is None:
             raise VectorStoreError("duckdb_snapshot_missing")
-        return self.connect(pointer["path"], read_only=read_only)
+        connection = self.connect(pointer["path"], read_only=read_only)
+        rows = connection.execute(
+            "SELECT workspace_id, repository_id, profile_name, domain FROM snapshot_meta LIMIT 1"
+        ).fetchall()
+        if not rows or tuple(str(item) for item in rows[0]) != (
+            scope.workspace_id,
+            scope.repository_id,
+            scope.profile_name,
+            scope.domain,
+        ):
+            raise VectorStoreError("vector_scope_conflict")
+        return connection
 
     def create_staging(self, scope: VectorScope, fingerprint: str, version: str) -> Path:
         path = self.snapshot_path(scope, fingerprint, version)
@@ -134,12 +177,12 @@ class DuckDBSnapshotManager:
             compatibility_fingerprint=compatibility_fingerprint,
             source_revision=source_revision,
         )
-        self._write_pointer(pointer)
+        self._write_pointer(scope, pointer)
         self._retain(scope, compatibility_fingerprint)
         return pointer
 
-    def _write_pointer(self, payload: Mapping[str, Any]) -> None:
-        target = self.pointer_path()
+    def _write_pointer(self, scope: VectorScope, payload: Mapping[str, Any]) -> None:
+        target = self.pointer_path(scope)
         target.parent.mkdir(parents=True, exist_ok=True)
         handle = tempfile.NamedTemporaryFile(
             "w",

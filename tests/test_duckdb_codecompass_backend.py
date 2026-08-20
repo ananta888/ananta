@@ -124,3 +124,58 @@ def test_example_config_is_strict() -> None:
     config = VectorStoreConfig.from_mapping(payload)
     assert config.provider == VectorStoreProvider.DUCKDB
     assert config.duckdb.vss_enabled is False
+
+
+@pytest.mark.skipif(not DuckDBConnectionFactory.available(), reason="duckdb extra missing")
+def test_scoped_pointers_and_upsert_preserve_existing_points(tmp_path) -> None:
+    config = DuckDBVectorStoreConfig(snapshot_root=tmp_path / "duckdb")
+    store = DuckDBVectorStore(config=config)
+    first_scope = _scope()
+    second_scope = VectorScope(workspace_id="ws-2", repository_id="repo-2", profile_name="default", domain="codecompass")
+    compatibility = CompatibilitySpec(dimensions=2, provider="duckdb", manifest_hash="m1")
+    first = PreparedVectorPoint(record_id="first", vector=(1.0, 0.0), scope=first_scope, payload={"path": "a.py"}, source_hash="a")
+    second = PreparedVectorPoint(record_id="second", vector=(0.0, 1.0), scope=first_scope, payload={"path": "b.py"}, source_hash="b")
+    foreign = PreparedVectorPoint(record_id="foreign", vector=(1.0, 0.0), scope=second_scope, payload={"path": "a.py"}, source_hash="c")
+    store.rebuild([first], compatibility=compatibility)
+    store.upsert([second])
+    store.rebuild([foreign], compatibility=compatibility)
+    result = store.search_by_vector(VectorSearchQuery(query_vector=(1.0, 0.0), top_k=10, scope=first_scope))
+    assert {hit.record_id for hit in result.hits} == {"first", "second"}
+
+
+@pytest.mark.skipif(not DuckDBConnectionFactory.available(), reason="duckdb extra missing")
+def test_delete_and_delete_scope_are_idempotent_on_empty_snapshot(tmp_path) -> None:
+    store = DuckDBVectorStore(
+        config=DuckDBVectorStoreConfig(snapshot_root=tmp_path / "duckdb")
+    )
+    scope = _scope()
+    point = PreparedVectorPoint(
+        record_id="only",
+        vector=(1.0, 0.0),
+        scope=scope,
+        payload={"path": "only.py"},
+        source_hash="only",
+    )
+    store.rebuild(
+        [point],
+        compatibility=CompatibilitySpec(
+            dimensions=2,
+            provider="duckdb",
+            manifest_hash="delete-idempotency",
+        ),
+    )
+
+    first = store.delete(["only"], scope=scope)
+    repeated = store.delete(["only"], scope=scope)
+    scope_delete = store.delete_scope(scope)
+    repeated_scope_delete = store.delete_scope(scope)
+
+    assert first.status == "ok"
+    assert first.diagnostics["deleted"] == 1
+    assert repeated.reason == "empty"
+    assert scope_delete.reason == "empty"
+    assert repeated_scope_delete.reason == "empty"
+    result = store.search_by_vector(
+        VectorSearchQuery(query_vector=(1.0, 0.0), top_k=10, scope=scope)
+    )
+    assert result.hits == ()
