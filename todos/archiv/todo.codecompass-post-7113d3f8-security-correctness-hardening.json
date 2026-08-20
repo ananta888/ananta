@@ -1,5 +1,5 @@
 {
-  "$schema": "./todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Krusty / Ananta",
   "track": "codecompass-post-7113d3f8-security-correctness-hardening",
