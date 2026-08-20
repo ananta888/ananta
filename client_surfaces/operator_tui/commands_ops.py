@@ -11,17 +11,53 @@ from client_surfaces.common.workflow_runtime_projection import (
 )
 from client_surfaces.operator_tui.models import CommandResult, FocusPane, OperatorMode, OperatorState
 from client_surfaces.operator_tui.ops_api_client import OpsApiClient
+from client_surfaces.operator_tui.operation_policy_inventory import (
+    filter_operation_policy_inventory,
+    normalize_operation_policy_inventory,
+    render_operation_policy_rows,
+)
 
 
 def handle_ops_command(args: list[str], state: OperatorState) -> CommandResult:
     subcommand = str(args[0] if args else "status").lower()
     token = _token_from_state(state)
     client = OpsApiClient(state.endpoint, token=token)
-    if subcommand not in {"status", "git", "docker", "compose", "runtime"}:
-        return CommandResult(state, "ops status|git|docker|compose|runtime", handled=False)
+    if subcommand not in {"status", "git", "docker", "compose", "runtime", "policy"}:
+        return CommandResult(state, "ops status|git|docker|compose|runtime|policy", handled=False)
 
     if subcommand == "runtime":
         return _handle_runtime_ops(args[1:], state, client)
+    if subcommand == "policy":
+        filters = {
+            key: value
+            for token in args[1:]
+            if "=" in token
+            for key, value in [token.split("=", 1)]
+            if key in {"transport", "access", "status"}
+        }
+        inventory = filter_operation_policy_inventory(
+            normalize_operation_policy_inventory(client.operation_policy_inventory()),
+            transport=filters.get("transport", ""),
+            access_class=filters.get("access", ""),
+            status=filters.get("status", ""),
+        )
+        section_payloads = dict(state.section_payloads or {})
+        section_payloads["ops"] = {
+            "operation_policy": inventory,
+            "rows": render_operation_policy_rows(inventory),
+        }
+        status = f"operation policy {inventory['count']}/{inventory['registered_count']}"
+        return CommandResult(
+            state.with_updates(
+                mode=OperatorMode.NORMAL,
+                command_line="",
+                section_id="ops",
+                focus=FocusPane.CONTENT,
+                section_payloads=section_payloads,
+                status_message=status,
+            ),
+            status,
+        )
     if subcommand == "git":
         payload: dict[str, Any] = {"git": client.git_status()}
     elif subcommand == "docker":

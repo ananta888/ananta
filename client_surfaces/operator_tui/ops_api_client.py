@@ -53,6 +53,9 @@ class OpsApiClient:
         encoded = urllib.parse.quote(str(run_id), safe="")
         return self._get(f"/api/workflow-runtime/operations/runs/{encoded}")
 
+    def operation_policy_inventory(self) -> dict[str, Any]:
+        return self._get("/governance/operations")
+
     def snapshot(self, workspace_id: str = "repo") -> dict[str, Any]:
         git = self.git_status(workspace_id)
         docker = self.docker_status()

@@ -34,6 +34,7 @@
   <button (click)="state.save()" [disabled]="state.config.agent_offline_timeout < 10 || state.config.http_timeout < 1 || state.config.command_timeout < 1">Speichern</button>
 </div>
         </div>
+        <app-operation-policy-inventory [baseUrl]="state.hub?.url || ''" />
         <div class="card card-info mt-lg">
 <h3>Profile & Governance</h3>
 <p class="muted">Benannte Profile und Governance-Modi machen Kontrollniveau und Defaults explizit sichtbar. Das aendert nicht die Hub-Worker-Architektur, sondern setzt klare Standardentscheidungen.</p>
