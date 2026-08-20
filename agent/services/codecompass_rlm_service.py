@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Any, Mapping
 
 from agent.services.codecompass_agentic_retrieval_service import (
@@ -66,7 +68,11 @@ class CodeCompassRlmService:
                 "budgets": {"max_depth": max_depth, "max_fanout": max_fanout},
                 "trace": [],
             }
-        planner = RecursiveQueryPlanner(max_depth=max_depth, max_fanout=max_fanout, max_steps=max_steps)
+        planner = self._planner or RecursiveQueryPlanner(
+            max_depth=max_depth,
+            max_fanout=max_fanout,
+            max_steps=max_steps,
+        )
         handles = [str(item.get("handle") or "") for item in list((architecture_slice or {}).get("nodes") or []) if item.get("handle")]
         plan = planner.create_plan(query, graph=dict(architecture_slice or {}), root_handles=handles)
         seen: set[str] = set()
@@ -81,10 +87,30 @@ class CodeCompassRlmService:
             if step.depth > max_depth:
                 trace.append({"step_id": step.step_id, "stopped": "depth_budget"})
                 continue
-            if step.query in seen:
-                trace.append({"step_id": step.step_id, "stopped": "cycle_detected"})
+            cycle_key = hashlib.sha256(
+                json.dumps(
+                    {
+                        "query": " ".join(str(step.query).split()).casefold(),
+                        "node_handle": str(getattr(step, "node_handle", "") or ""),
+                        "capability_digest": hashlib.sha256(
+                            json.dumps(dict(capability or {}), sort_keys=True, default=str).encode("utf-8")
+                        ).hexdigest(),
+                    },
+                    sort_keys=True,
+                    separators=(",", ":"),
+                ).encode("utf-8")
+            ).hexdigest()
+            if cycle_key in seen:
+                trace.append(
+                    {
+                        "step_id": step.step_id,
+                        "depth": step.depth,
+                        "query_digest": cycle_key,
+                        "stopped": "cycle_detected",
+                    }
+                )
                 continue
-            seen.add(step.query)
+            seen.add(cycle_key)
             executed_steps += 1
             result = retrieval.retrieve(
                 {
@@ -117,14 +143,20 @@ class CodeCompassRlmService:
                 elif existing is None:
                     evidence.append(dict(item))
             queue.extend(
-                child
-                for child in planner.expand_step(
+                planner.expand_step(
                     step,
                     [dict(item) for item in list(result.get("evidence") or []) if isinstance(item, dict)],
                 )
-                if child.query not in seen
             )
-            trace.append({"step_id": step.step_id, "status": result.get("status"), "hits": len(result.get("evidence") or [])})
+            trace.append(
+                {
+                    "step_id": step.step_id,
+                    "depth": step.depth,
+                    "query_digest": cycle_key,
+                    "status": result.get("status"),
+                    "hits": len(result.get("evidence") or []),
+                }
+            )
         if queue:
             trace.append({"stopped": "step_budget", "remaining": len(queue)})
         return {

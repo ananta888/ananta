@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any, Protocol
 
@@ -81,8 +82,15 @@ def admit_claims(
     profile: str = "fixture",
     provider: str = "fixture",
     allowed_source_refs: set[str] | None = None,
+    run_ref: str = "",
+    content_digest: str = "",
+    allowed_run_refs: set[str] | None = None,
+    allowed_revisions: set[str] | None = None,
 ) -> dict[str, Any]:
     source_token = str(source_ref or "").strip()
+    run_token = str(run_ref or "").strip()
+    actual_digest = "sha256:" + hashlib.sha256(str(source_text).encode("utf-8")).hexdigest()
+    supplied_digest = str(content_digest or "").strip()
     identifier_like = source_token.startswith(("SRC_", "RUN_"))
     source_verified = bool(
         identifier_like
@@ -97,6 +105,30 @@ def admit_claims(
             "source_ref": source_token,
             "source_verification_status": "failed",
             "revision": revision,
+            "profile": profile,
+            "provider": provider,
+            "claims": [],
+        }
+    rejection_reason = ""
+    if run_token.startswith("RUN_") and (
+        allowed_run_refs is None or run_token not in allowed_run_refs
+    ):
+        rejection_reason = "unknown_run_reference"
+    elif allowed_revisions is not None and str(revision) not in allowed_revisions:
+        rejection_reason = "revision_not_allowed"
+    elif supplied_digest and supplied_digest != actual_digest:
+        rejection_reason = "content_digest_mismatch"
+    if rejection_reason:
+        return {
+            "schema": "codecompass.claim-extraction.v1",
+            "status": "rejected",
+            "reason": rejection_reason,
+            "source_ref": source_token,
+            "source_verification_status": "verified" if source_verified else "unverified",
+            "run_ref": run_token,
+            "run_verification_status": "failed" if run_token else "not_provided",
+            "revision": revision,
+            "content_digest": actual_digest,
             "profile": profile,
             "provider": provider,
             "claims": [],
@@ -121,7 +153,14 @@ def admit_claims(
         "reason": "" if accepted else "no_grounded_claims",
         "source_ref": source_ref,
         "source_verification_status": "verified" if source_verified else "unverified",
+        "run_ref": run_token,
+        "run_verification_status": (
+            "verified"
+            if run_token and allowed_run_refs is not None and run_token in allowed_run_refs
+            else "not_provided"
+        ),
         "revision": revision,
+        "content_digest": actual_digest,
         "profile": profile,
         "provider": provider,
         "claims": accepted,

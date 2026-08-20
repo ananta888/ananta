@@ -14,7 +14,16 @@
       "type": "string",
       "enum": ["verified", "unverified", "failed"]
     },
+    "run_ref": { "type": "string" },
+    "run_verification_status": {
+      "type": "string",
+      "enum": ["verified", "not_provided", "failed"]
+    },
     "revision": { "type": "string" },
+    "content_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "profile": { "type": "string" },
     "provider": { "type": "string" },
     "claims": {
