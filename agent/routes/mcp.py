@@ -10,6 +10,10 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.system_health_service import build_system_health_payload
 from agent.services.execution_audit_service import get_execution_audit_service
+from agent.auth import get_authenticated_source_control_principal
+from agent.services.codecompass_retrieval_capability_service import (
+    resolve_request_capability,
+)
 
 mcp_bp = Blueprint("mcp", __name__)
 
@@ -29,10 +33,10 @@ def _mcp_context() -> dict:
         "evolution_config": dict((current_app.config.get("AGENT_CONFIG", {}) or {}).get("evolution") or {}),
         "classroom_gateway": _classroom_gateway(),
         "classroom_card_service": _classroom_card_service(),
-        "codecompass_capability": (
-            ((current_app.config.get("AGENT_CONFIG", {}) or {}).get("codecompass_retrieval") or {}).get(
-                "capability"
-            )
+        "codecompass_capability": resolve_request_capability(
+            application=current_app,
+            principal=get_authenticated_source_control_principal(),
+            requested_scope={},
         ),
     }
 

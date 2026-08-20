@@ -42,10 +42,20 @@ def execute_ananta_tool(
             return git_diff_readonly(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
         if name == "codecompass.search":
             from agent.services.tools.codecompass_tools import codecompass_search
-            return codecompass_search(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+            return codecompass_search(
+                workspace_dir=workspace_dir,
+                arguments=args,
+                tool_call_id=tool_call_id,
+                config=cfg,
+            )
         if name == "codecompass.retrieve":
             from agent.services.tools.codecompass_tools import codecompass_retrieve
-            return codecompass_retrieve(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
+            return codecompass_retrieve(
+                workspace_dir=workspace_dir,
+                arguments=args,
+                tool_call_id=tool_call_id,
+                config=cfg,
+            )
         if name == "codecompass.architecture_overview":
             from agent.services.tools.codecompass_architecture_tools import codecompass_architecture_overview
             return codecompass_architecture_overview(workspace_dir=workspace_dir, arguments=args, tool_call_id=tool_call_id)
@@ -76,7 +86,11 @@ def execute_ananta_tool(
                 return build_tool_result(tool_name=name, tool_call_id=tool_call_id, status="error", error="query_required")
             result = get_codecompass_rlm_service().analyze(
                 query,
-                capability=args.get("capability") if isinstance(args.get("capability"), dict) else None,
+                capability=(
+                    cfg.get("codecompass_capability")
+                    if isinstance(cfg.get("codecompass_capability"), dict)
+                    else None
+                ),
                 enabled=bool(cfg.get("codecompass_rlm_enabled", args.get("enabled", False))),
                 max_depth=int(args.get("max_depth") or 3),
                 max_fanout=int(args.get("max_fanout") or 4),

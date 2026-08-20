@@ -7,7 +7,7 @@ credentials, collection names or a server capability.
 
 from __future__ import annotations
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, request
 
 from agent.auth import check_auth
 from agent.common.errors import BadRequestError, api_response
@@ -36,13 +36,32 @@ def _authorize_codecompass_retrieve_surface():
         action=SourceControlAction.query,
         resource_kind="task_context",
         collection=True,
+        require_project_scope=False,
     )
 
 
-def _server_capability() -> dict | None:
-    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    raw = (cfg.get("codecompass_retrieval") or {}).get("capability")
-    return dict(raw) if isinstance(raw, dict) else None
+def _contains_authority_field(value) -> bool:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            if str(key).lower() in _FORBIDDEN_REQUEST_KEYS:
+                return True
+            if _contains_authority_field(nested):
+                return True
+    elif isinstance(value, list):
+        return any(_contains_authority_field(item) for item in value)
+    return False
+
+
+def _server_capability(requested_scope: dict) -> dict | None:
+    from agent.services.codecompass_retrieval_capability_service import (
+        resolve_request_capability,
+    )
+
+    return resolve_request_capability(
+        application=current_app,
+        principal=getattr(g, "source_control_principal", None),
+        requested_scope=requested_scope,
+    )
 
 
 @codecompass_retrieve_bp.route("/api/codecompass/retrieve", methods=["POST"])
@@ -50,8 +69,7 @@ def retrieve_codecompass_context():
     body = request.get_json(silent=True) or {}
     if not isinstance(body, dict):
         raise BadRequestError("invalid_json_object")
-    forbidden = sorted(key for key in body if str(key).lower() in _FORBIDDEN_REQUEST_KEYS)
-    if forbidden:
+    if _contains_authority_field(body):
         raise BadRequestError("backend_fields_not_allowed")
     query = str(body.get("query") or "").strip()
     if not query:
@@ -75,7 +93,7 @@ def retrieve_codecompass_context():
         raise BadRequestError(str(getattr(exc, "reason", "") or exc)) from exc
     result = get_codecompass_agentic_retrieval_service().retrieve(
         request_payload,
-        capability=_server_capability(),
+        capability=_server_capability(request_payload.get("scope") or {}),
     )
     status = "success" if result.get("status") in {"ok", "degraded", "empty"} else "error"
     code = 200 if status == "success" else 400

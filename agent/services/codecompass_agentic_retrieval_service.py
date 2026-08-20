@@ -8,7 +8,11 @@ the vector port and never appears in the public envelope.
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import hmac
 import json
+import secrets
 import time
 from collections.abc import Callable, Mapping
 from typing import Any
@@ -19,6 +23,7 @@ from agent.services.codecompass_agentic_retrieval_contract import (
     REASON_EMPTY_SCOPE,
     REASON_EXACT_UNAVAILABLE,
     REASON_GRAPH_UNAVAILABLE,
+    REASON_INVALID_CONTINUATION,
     REASON_NO_RESULT,
     REASON_SCOPE_WIDENING,
     REASON_VECTOR_FAIL_CLOSED,
@@ -50,6 +55,12 @@ from worker.retrieval.vector_store_contract import VectorStoreError, VectorStore
 ChannelSearch = Callable[..., list[dict[str, Any]]]
 IndexStateFn = Callable[[], Mapping[str, Any]]
 GraphSearch = Callable[..., list[dict[str, Any]]]
+TokenEstimator = Callable[[str], int]
+_PROCESS_CONTINUATION_SECRET = secrets.token_bytes(32)
+
+
+def _default_token_estimator(value: str) -> int:
+    return (len(value) + 3) // 4
 
 
 def _secret_free(value: Any) -> str:
@@ -97,6 +108,10 @@ class CodeCompassAgenticRetrievalService:
         vector_search: ChannelSearch | None = None,
         graph_search: GraphSearch | None = None,
         index_state: IndexStateFn | None = None,
+        continuation_secret: bytes | None = None,
+        continuation_ttl_seconds: int = 900,
+        token_estimator: TokenEstimator | None = None,
+        clock: Callable[[], float] | None = None,
     ) -> None:
         self._planner = planner or CodeCompassAgenticRetrievalPlanner()
         self._hybrid = hybrid_service or HybridRetrievalService()
@@ -104,6 +119,10 @@ class CodeCompassAgenticRetrievalService:
         self._vector_search = vector_search
         self._graph_search = graph_search
         self._index_state = index_state
+        self._continuation_secret = continuation_secret or _PROCESS_CONTINUATION_SECRET
+        self._continuation_ttl_seconds = max(1, min(int(continuation_ttl_seconds), 3600))
+        self._token_estimator = token_estimator or _default_token_estimator
+        self._clock = clock or time.time
 
     def retrieve(
         self,
@@ -253,11 +272,21 @@ class CodeCompassAgenticRetrievalService:
         ]
         input_count = sum(len(rows) for rows in channel_results.values())
         merged_count = max(0, input_count - len(selected))
-        evidence, truncated, continuation = self._budget_evidence(
-            selected,
-            request=request,
-            scope=scope,
-        )
+        try:
+            evidence, truncated, continuation, budget_usage = self._budget_evidence(
+                selected,
+                request=request,
+                scope=scope,
+                plan=plan,
+            )
+        except AgenticRetrievalContractError as exc:
+            return empty_response(
+                query=request["query"],
+                status=STATUS_ERROR,
+                reason_code=exc.reason,
+                plan=plan,
+                diagnostics={"scope": self._scope_diag(scope)},
+            )
         selected_by_signal: dict[str, int] = {}
         for item in evidence:
             for signal in item["signals"]:
@@ -281,6 +310,7 @@ class CodeCompassAgenticRetrievalService:
                 **dict(request["budget"]),
                 "returned": len(evidence),
                 "truncated": truncated,
+                **budget_usage,
             },
             "scope": self._scope_diag(scope),
             "dedup": {
@@ -393,25 +423,39 @@ class CodeCompassAgenticRetrievalService:
         *,
         request: Mapping[str, Any],
         scope: Mapping[str, Any],
-    ) -> tuple[list[dict[str, Any]], bool, str]:
+        plan: Mapping[str, Any],
+    ) -> tuple[list[dict[str, Any]], bool, str, dict[str, Any]]:
         top_k = int(request["budget"]["top_k"])
         max_chars = int(request["budget"]["max_chars"])
-        offset = self._continuation_offset(request.get("continuation_handle"))
+        max_tokens = int(request["budget"]["max_tokens"])
+        offset = self._continuation_offset(
+            request.get("continuation_handle"),
+            request=request,
+            scope=scope,
+            plan=plan,
+        )
         remaining = selected[offset:]
         evidence: list[dict[str, Any]] = []
-        used = 0
+        truncation_reasons: set[str] = set()
+
+        def usage(rows: list[dict[str, Any]]) -> tuple[int, int]:
+            serialized = json.dumps(
+                rows,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+            return len(serialized), max(0, int(self._token_estimator(serialized)))
+
+        def fits(rows: list[dict[str, Any]]) -> bool:
+            chars, tokens = usage(rows)
+            return chars <= max_chars and tokens <= max_tokens
+
         for item in remaining:
             if len(evidence) >= top_k:
+                truncation_reasons.add("top_k")
                 break
             excerpt = str(item.get("content") or "")
-            room = max_chars - used
-            if room <= 0:
-                break
-            truncated_excerpt = excerpt
-            item_truncated = False
-            if len(excerpt) > room:
-                truncated_excerpt = excerpt[: max(1, room - 12)].rstrip() + "\n[truncated]"
-                item_truncated = True
             signals = self._signals_for_item(item)
             metadata = dict(item.get("metadata") or {})
             line_start = item.get("line_start") or metadata.get("line_start") or metadata.get("start_line")
@@ -424,14 +468,14 @@ class CodeCompassAgenticRetrievalService:
                 "signals": signals,
                 "score": float(item.get("final_score") or item.get("score") or 0.0),
                 "score_breakdown": dict(item.get("channel_contributions") or {}),
-                "excerpt": truncated_excerpt,
+                "excerpt": excerpt,
                 "symbol": str(item.get("symbol_name") or ""),
                 "kind": str(metadata.get("record_kind") or signals[0]),
                 "verification_status": (
                     "verified" if metadata.get("source_id_verified") else "unverified"
                 ),
                 "source": str(item.get("channel") or item.get("source") or signals[0]),
-                "truncated": item_truncated,
+                "truncated": False,
             }
             try:
                 if line_start is not None:
@@ -440,14 +484,51 @@ class CodeCompassAgenticRetrievalService:
                     entry["line_end"] = int(line_end)
             except (TypeError, ValueError):
                 pass
-            evidence.append(entry)
-            used += len(truncated_excerpt)
+            candidate = [*evidence, entry]
+            if fits(candidate):
+                evidence.append(entry)
+                continue
+
+            candidate_chars, candidate_tokens = usage(candidate)
+            if candidate_chars > max_chars:
+                truncation_reasons.add("max_chars")
+            if candidate_tokens > max_tokens:
+                truncation_reasons.add("max_tokens")
+
+            marker = "\n[truncated]"
+            low = 0
+            high = len(excerpt)
+            best: dict[str, Any] | None = None
+            while low <= high:
+                midpoint = (low + high) // 2
+                shortened = dict(entry)
+                shortened["excerpt"] = excerpt[:midpoint].rstrip() + marker
+                shortened["truncated"] = True
+                if fits([*evidence, shortened]):
+                    best = shortened
+                    low = midpoint + 1
+                else:
+                    high = midpoint - 1
+            if best is not None:
+                evidence.append(best)
+            break
         consumed = offset + len(evidence)
         truncated = consumed < len(selected) or any(item.get("truncated") for item in evidence)
         continuation = ""
         if consumed < len(selected):
-            continuation = json.dumps({"offset": consumed, "schema": SCHEMA_ID}, separators=(",", ":"))
-        return evidence, truncated, continuation
+            continuation = self._encode_continuation(
+                consumed,
+                request=request,
+                scope=scope,
+                plan=plan,
+            )
+        used_chars, used_tokens = usage(evidence)
+        return evidence, truncated, continuation, {
+            "used_chars": used_chars,
+            "used_tokens": used_tokens,
+            "token_estimator": getattr(self._token_estimator, "__name__", "injected"),
+            "truncation_reason": "+".join(sorted(truncation_reasons)),
+        }
 
     @staticmethod
     def _signals_for_item(item: Mapping[str, Any]) -> list[str]:
@@ -464,19 +545,98 @@ class CodeCompassAgenticRetrievalService:
             signals.insert(0, primary)
         return signals or [SIGNAL_EXACT]
 
-    @staticmethod
-    def _continuation_offset(handle: Any) -> int:
+    def _continuation_binding(
+        self,
+        *,
+        request: Mapping[str, Any],
+        scope: Mapping[str, Any],
+        plan: Mapping[str, Any],
+    ) -> str:
+        payload = {
+            "query": str(request.get("query") or ""),
+            "scope": dict(scope),
+            "budget": dict(request.get("budget") or {}),
+            "plan": {
+                "mode": str(plan.get("mode") or ""),
+                "signals": list(plan.get("signals") or []),
+            },
+        }
+        raw = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
+    def _encode_continuation(
+        self,
+        offset: int,
+        *,
+        request: Mapping[str, Any],
+        scope: Mapping[str, Any],
+        plan: Mapping[str, Any],
+    ) -> str:
+        issued_at = int(self._clock())
+        payload = json.dumps(
+            {
+                "offset": int(offset),
+                "schema": SCHEMA_ID,
+                "issued_at_epoch": issued_at,
+                "expires_at_epoch": issued_at + self._continuation_ttl_seconds,
+                "binding": self._continuation_binding(
+                    request=request,
+                    scope=scope,
+                    plan=plan,
+                ),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        encoded = base64.urlsafe_b64encode(payload).decode("ascii").rstrip("=")
+        signature = hmac.new(
+            self._continuation_secret,
+            encoded.encode("ascii"),
+            hashlib.sha256,
+        ).hexdigest()
+        return f"{encoded}.{signature}"
+
+    def _continuation_offset(
+        self,
+        handle: Any,
+        *,
+        request: Mapping[str, Any],
+        scope: Mapping[str, Any],
+        plan: Mapping[str, Any],
+    ) -> int:
         raw = str(handle or "").strip()
         if not raw:
             return 0
         try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError:
-            return 0
-        try:
-            return max(0, int((payload or {}).get("offset") or 0))
-        except (TypeError, ValueError):
-            return 0
+            encoded, signature = raw.split(".", 1)
+            expected = hmac.new(
+                self._continuation_secret,
+                encoded.encode("ascii"),
+                hashlib.sha256,
+            ).hexdigest()
+            if not hmac.compare_digest(signature, expected):
+                raise ValueError
+            padded = encoded + "=" * (-len(encoded) % 4)
+            payload = json.loads(base64.urlsafe_b64decode(padded).decode("utf-8"))
+            if payload.get("schema") != SCHEMA_ID:
+                raise ValueError
+            now = int(self._clock())
+            if int(payload.get("issued_at_epoch") or 0) <= 0:
+                raise ValueError
+            if int(payload.get("expires_at_epoch") or 0) <= now:
+                raise ValueError
+            if payload.get("binding") != self._continuation_binding(
+                request=request,
+                scope=scope,
+                plan=plan,
+            ):
+                raise ValueError
+            offset = int(payload.get("offset"))
+            if offset < 0 or offset > int(request["budget"]["candidate_limit"]):
+                raise ValueError
+            return offset
+        except (ValueError, TypeError, KeyError, json.JSONDecodeError, UnicodeError):
+            raise AgenticRetrievalContractError(REASON_INVALID_CONTINUATION) from None
 
     def _resolve_scope(
         self,
@@ -492,7 +652,16 @@ class CodeCompassAgenticRetrievalService:
             "allowed_paths": list(requested.get("allowed_paths") or []),
         }
         if capability is None:
-            return requested_scope
+            raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE)
+
+        from agent.services.codecompass_retrieval_capability_service import (
+            verify_retrieval_capability,
+        )
+
+        try:
+            capability = verify_retrieval_capability(capability, now_epoch=self._clock())
+        except (TypeError, ValueError):
+            raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE) from None
 
         bound = {
             "tenant_id": str(capability.get("tenant_id") or ""),
@@ -505,8 +674,26 @@ class CodeCompassAgenticRetrievalService:
                 for item in list(capability.get("allowed_paths") or [])
                 if _normalize_path(item)
             ],
+            "allowed_index_ids": tuple(
+                sorted(
+                    {
+                        str(item).strip()
+                        for item in list(capability.get("allowed_index_ids") or [])
+                        if str(item).strip()
+                    }
+                )
+            ),
+            "subject_id": str(capability.get("subject_id") or ""),
+            "capability_digest": str(capability.get("capability_digest") or ""),
+            "expires_at_epoch": int(capability.get("expires_at_epoch") or 0),
         }
-        if not bound["workspace_id"] or not bound["revision"]:
+        if (
+            not bound["tenant_id"]
+            or not bound["workspace_id"]
+            or not bound["repository_id"]
+            or not bound["source_scope"]
+            or not bound["revision"]
+        ):
             raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE)
         if not bound["allowed_paths"]:
             raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE)
@@ -527,6 +714,10 @@ class CodeCompassAgenticRetrievalService:
             "source_scope": bound["source_scope"] or requested_scope["source_scope"],
             "revision": bound["revision"],
             "allowed_paths": narrowed,
+            "allowed_index_ids": bound["allowed_index_ids"],
+            "subject_id": bound["subject_id"],
+            "capability_digest": bound["capability_digest"],
+            "expires_at_epoch": bound["expires_at_epoch"],
         }
 
     @staticmethod
@@ -567,12 +758,20 @@ class CodeCompassAgenticRetrievalService:
         )
 
         source_scope = str(scope.get("source_scope") or "").strip()
-        source_scopes = {source_scope} if source_scope else None
+        if not source_scope:
+            raise AgenticRetrievalContractError(REASON_EMPTY_SCOPE)
+        source_scopes = {source_scope}
+        allowed_index_ids = {
+            str(item)
+            for item in list(scope.get("allowed_index_ids") or [])
+            if str(item).strip()
+        } or None
         return get_knowledge_index_retrieval_service().search_records(
             query,
             limit=limit,
             task_kind=task_kind or None,
             source_scopes=source_scopes,
+            allowed_index_ids=allowed_index_ids,
         )
 
     def _default_vector_search(
@@ -595,33 +794,9 @@ class CodeCompassAgenticRetrievalService:
         scope: Mapping[str, Any],
         depth: int = 1,
     ) -> list[dict[str, Any]]:
-        from agent.services.codecompass_context_service import get_codecompass_context_service
-
-        seeds = [part for part in str(query).replace(",", " ").split() if part][:5]
-        expansion = get_codecompass_context_service().expand_graph(
-            seeds=seeds,
-            max_depth=depth,
-            max_nodes=max(1, limit),
-            domain_scope=str(scope.get("source_scope") or "") or None,
-        )
-        if expansion.get("status") == "degraded":
-            return []
-        rows: list[dict[str, Any]] = []
-        for node in list(expansion.get("nodes") or [])[:limit]:
-            if not isinstance(node, dict):
-                continue
-            rows.append(
-                {
-                    "id": str(node.get("id") or node.get("node_id") or ""),
-                    "path": str(node.get("path") or node.get("file") or ""),
-                    "content": str(node.get("label") or node.get("name") or node.get("id") or ""),
-                    "score": float(node.get("score") or 0.4),
-                    "kind": "graph_node",
-                    "symbol": str(node.get("symbol") or node.get("name") or ""),
-                    "metadata": dict(node),
-                }
-            )
-        return rows
+        # The legacy graph-store resolver has no repository/revision port.
+        # Keep it unavailable until a scoped GraphSearch adapter is injected.
+        raise AgenticRetrievalContractError(REASON_GRAPH_UNAVAILABLE)
 
     def _default_index_state(self) -> dict[str, Any]:
         from agent.services.codecompass_agentic_index_state import load_agentic_index_state

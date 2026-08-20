@@ -24,6 +24,9 @@ from agent.services.codecompass_agentic_retrieval_planner import (
 from agent.services.codecompass_agentic_retrieval_service import (
     CodeCompassAgenticRetrievalService,
 )
+from agent.services.codecompass_retrieval_capability_service import (
+    bind_retrieval_capability,
+)
 from agent.services.codecompass_context_planner_service import CodeCompassContextPlanner
 from worker.retrieval.vector_store_contract import VectorStoreFailClosedError
 
@@ -36,7 +39,20 @@ def _validate(payload: dict) -> None:
 
 
 def _service(**kwargs) -> CodeCompassAgenticRetrievalService:
-    return CodeCompassAgenticRetrievalService(**kwargs)
+    class _CapabilityBoundService(CodeCompassAgenticRetrievalService):
+        def retrieve(self, request, *, capability=None):
+            return super().retrieve(
+                request,
+                capability=_capability() if capability is None else capability,
+            )
+
+        def retrieve_from_tool_args(self, arguments, *, capability=None):
+            return super().retrieve_from_tool_args(
+                arguments,
+                capability=_capability() if capability is None else capability,
+            )
+
+    return _CapabilityBoundService(**kwargs)
 
 
 def _request(**overrides) -> dict:
@@ -57,11 +73,24 @@ def _capability(**overrides) -> dict:
         "tenant_id": "t1",
         "workspace_id": "ws-1",
         "repository_id": "repo-1",
+        "source_scope": "repo-1",
         "revision": "rev-abc",
         "allowed_paths": ["src"],
     }
     payload.update(overrides)
-    return payload
+    subject_id = str(payload.pop("subject_id", "principal-1"))
+    return bind_retrieval_capability(
+        payload,
+        subject_id=subject_id,
+        now_epoch=1_700_000_000,
+        ttl_seconds=2_000_000_000,
+    )
+
+
+def test_missing_server_capability_fails_closed() -> None:
+    result = CodeCompassAgenticRetrievalService().retrieve(_request())
+    assert result["status"] == "error"
+    assert result["reason_code"] == REASON_EMPTY_SCOPE
 
 
 def test_schema_rejects_backend_collection_fields() -> None:
@@ -232,12 +261,59 @@ def test_budget_truncates_and_sets_continuation() -> None:
         ]
 
     result = _service(exact_search=exact_search).retrieve(
-        _request(mode="exact", budget={"top_k": 2, "max_chars": 300, "candidate_limit": 8})
+        _request(mode="exact", budget={"top_k": 2, "max_chars": 2000, "candidate_limit": 8})
     )
     assert len(result["evidence"]) == 2
     assert result["truncated"] is True
     assert result["continuation_handle"]
     assert result["status"] == "degraded"
+
+
+def test_max_tokens_is_a_hard_budget() -> None:
+    service = _service(
+        exact_search=lambda query, **_kwargs: [
+            {"id": "large", "path": "src/large.py", "content": "x" * 2000, "score": 1.0}
+        ],
+        token_estimator=len,
+    )
+    result = service.retrieve(
+        _request(mode="exact", budget={"top_k": 4, "max_chars": 32000, "max_tokens": 500, "candidate_limit": 8})
+    )
+    assert result["diagnostics"]["budget"]["used_tokens"] <= 500
+    assert result["diagnostics"]["budget"]["used_chars"] <= 32000
+    assert result["diagnostics"]["budget"]["truncation_reason"] == "max_tokens"
+
+
+def test_continuation_is_query_scope_and_revision_bound() -> None:
+    hits = [
+        {"id": f"row-{index}", "path": f"src/f{index}.py", "content": "x", "score": 1.0}
+        for index in range(4)
+    ]
+    service = _service(exact_search=lambda query, **_kwargs: hits, continuation_secret=b"x" * 32)
+    first = service.retrieve(_request(mode="exact", budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
+    handle = first["continuation_handle"]
+    changed_query = service.retrieve(
+        _request(query="different", mode="exact", continuation_handle=handle, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8})
+    )
+    changed_revision = service.retrieve(
+        _request(mode="exact", continuation_handle=handle, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}),
+        capability=_capability(revision="rev-other"),
+    )
+    assert changed_query["reason_code"] == "invalid_continuation_handle"
+    assert changed_revision["reason_code"] == "invalid_continuation_handle"
+
+
+def test_tampered_continuation_fails_closed() -> None:
+    hits = [
+        {"id": "a", "path": "src/a.py", "content": "x", "score": 1.0},
+        {"id": "b", "path": "src/b.py", "content": "x", "score": 0.9},
+    ]
+    service = _service(exact_search=lambda query, **_kwargs: hits, continuation_secret=b"y" * 32)
+    first = service.retrieve(_request(mode="exact", budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
+    handle = first["continuation_handle"]
+    tampered = handle[:-1] + ("0" if handle[-1] != "0" else "1")
+    result = service.retrieve(_request(mode="exact", continuation_handle=tampered, budget={"top_k": 1, "max_chars": 1000, "candidate_limit": 8}))
+    assert result["reason_code"] == "invalid_continuation_handle"
 
 
 def test_vector_unavailable_degrades_to_exact() -> None:
@@ -329,7 +405,10 @@ def test_e2e_fixture_matrix(query, mode, exact_path, vector_path, expect_path) -
             {"id": "ve", "path": vector_path, "content": "semantic retry policy", "score": 0.95}
         ],
         graph_search=lambda q, **_kwargs: [],
-    ).retrieve(_request(query=query, mode=mode))
+        ).retrieve(
+            _request(query=query, mode=mode),
+            capability=_capability(allowed_paths=["src", "docs"]),
+        )
     assert result["status"] in {"ok", "degraded"}
     assert result["evidence"][0]["path"] == expect_path
 

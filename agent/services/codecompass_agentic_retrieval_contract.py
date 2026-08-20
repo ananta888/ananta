@@ -44,6 +44,7 @@ REASON_VECTOR_DIMENSIONS = "vector_dimensions_mismatch"
 REASON_VECTOR_FAIL_CLOSED = "vector_fail_closed"
 REASON_GRAPH_UNAVAILABLE = "graph_unavailable"
 REASON_EXACT_UNAVAILABLE = "exact_unavailable"
+REASON_INVALID_CONTINUATION = "invalid_continuation_handle"
 
 DEFAULT_TOP_K = 8
 MAX_TOP_K = 20

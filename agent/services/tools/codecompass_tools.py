@@ -10,7 +10,7 @@ error ToolResult with a warning instead of raising.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 from agent.services.tools._evidence import (
     EVIDENCE_KIND_GRAPH_PATH,
@@ -166,14 +166,6 @@ def codecompass_get_domain_map(*, workspace_dir: str, arguments: dict[str, Any],
     )
 
 
-def _capability_from_tool_args(arguments: dict[str, Any] | None) -> dict[str, Any] | None:
-    args = dict(arguments or {})
-    raw = args.get("capability")
-    if isinstance(raw, dict):
-        return dict(raw)
-    return None
-
-
 def _retrieval_status(result: dict[str, Any]) -> str:
     status = str(result.get("status") or "error")
     if status == "ok":
@@ -183,7 +175,22 @@ def _retrieval_status(result: dict[str, Any]) -> str:
     return "error"
 
 
-def codecompass_retrieve(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def _trusted_capability(config: Mapping[str, Any] | None) -> Mapping[str, Any] | None:
+    """Return authority injected by the hub, never authority from tool arguments."""
+
+    if not isinstance(config, Mapping):
+        return None
+    capability = config.get("codecompass_capability")
+    return capability if isinstance(capability, Mapping) else None
+
+
+def codecompass_retrieve(
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
+    config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     args = dict(arguments or {})
     query = str(args.get("query") or "").strip()
     if not query:
@@ -199,7 +206,7 @@ def codecompass_retrieve(*, workspace_dir: str, arguments: dict[str, Any], tool_
 
     result = get_codecompass_agentic_retrieval_service().retrieve_from_tool_args(
         args,
-        capability=_capability_from_tool_args(args),
+        capability=_trusted_capability(config),
     )
     evidence = []
     for item in list(result.get("evidence") or [])[:10]:
@@ -229,7 +236,13 @@ def codecompass_retrieve(*, workspace_dir: str, arguments: dict[str, Any], tool_
     )
 
 
-def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
+def codecompass_search(
+    *,
+    workspace_dir: str,
+    arguments: dict[str, Any],
+    tool_call_id: str,
+    config: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
     args = arguments or {}
     query = str(args.get("query") or "").strip()
     if not query:
@@ -246,7 +259,7 @@ def codecompass_search(*, workspace_dir: str, arguments: dict[str, Any], tool_ca
 
     result = get_codecompass_agentic_retrieval_service().retrieve_from_tool_args(
         search_args,
-        capability=_capability_from_tool_args(search_args),
+        capability=_trusted_capability(config),
     )
     if result.get("status") == "error" and result.get("reason_code") not in {"no_result", ""}:
         return build_tool_result(

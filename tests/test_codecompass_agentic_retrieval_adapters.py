@@ -4,6 +4,7 @@ from agent.services.codecompass_agentic_retrieval_contract import SCHEMA_ID
 from agent.services.codecompass_agentic_retrieval_service import (
     CodeCompassAgenticRetrievalService,
 )
+from agent.services.codecompass_retrieval_capability_service import bind_retrieval_capability
 from agent.services.mcp_registry_service import MCPRegistryService
 from agent.services.tools import execute_ananta_tool
 from agent.services.tools.codecompass_tools import codecompass_search
@@ -19,6 +20,27 @@ def _hits():
             "metadata": {"start_line": 4, "end_line": 12, "symbol": "PaymentService"},
         }
     ]
+
+
+def _capability():
+    return bind_retrieval_capability({
+        "tenant_id": "tenant-1",
+        "workspace_id": "workspace-1",
+        "repository_id": "repo-1",
+        "source_scope": "repo-1",
+        "revision": "rev-1",
+        "allowed_paths": ["src"],
+    }, subject_id="principal-1", now_epoch=1_700_000_000, ttl_seconds=2_000_000_000)
+
+
+class _CapabilityResolver:
+    def resolve(self, *, principal, **_kwargs):
+        return {
+            **_capability(),
+            "subject_id": str(principal.subject_id),
+            "tenant_id": str(principal.tenant_id or "tenant-1"),
+            "capability_digest": "",
+        }
 
 
 def _service_with_hits():
@@ -38,6 +60,7 @@ def test_search_tool_uses_agentic_contract(monkeypatch, tmp_path):
         workspace_dir=str(tmp_path),
         arguments={"query": "PaymentService", "limit": 4},
         tool_call_id="tool_result:1",
+        config={"codecompass_capability": _capability()},
     )
     assert result["status"] == "ok"
     assert result["data"]["hit_count"] == 1
@@ -52,6 +75,7 @@ def test_retrieve_tool_rejects_unknown_mode(tmp_path):
         arguments={"query": "x", "mode": "cypher"},
         workspace_dir=str(tmp_path),
         tool_call_id="tool_result:2",
+        config={"codecompass_capability": _capability()},
     )
     assert result["status"] == "error"
     assert result["error"] == "unknown_retrieval_mode"
@@ -67,11 +91,12 @@ def test_mcp_and_tool_share_evidence(monkeypatch, tmp_path):
         arguments={"query": "PaymentService", "mode": "exact"},
         workspace_dir=str(tmp_path),
         tool_call_id="tool_result:3",
+        config={"codecompass_capability": _capability()},
     )
     mcp = MCPRegistryService().call_tool(
         name="codecompass.retrieve",
         arguments={"query": "PaymentService", "mode": "exact"},
-        context={},
+        context={"codecompass_capability": _capability()},
     )
     tool_paths = [item["path"] for item in tool["data"]["retrieval"]["evidence"]]
     mcp_paths = [item["path"] for item in mcp["content"][0]["json"]["evidence"]]
@@ -99,11 +124,7 @@ def test_mcp_capability_cannot_be_widened_by_client_args(monkeypatch):
         name="codecompass.retrieve",
         arguments={"query": "x", "allowed_paths": ["secret"], "workspace_id": "other"},
         context={
-            "codecompass_capability": {
-                "workspace_id": "ws-1",
-                "revision": "rev-1",
-                "allowed_paths": ["src"],
-            }
+            "codecompass_capability": _capability()
         },
     )
     payload = result["content"][0]["json"]
@@ -126,6 +147,9 @@ def test_http_retrieve_returns_contract(client, admin_auth_header, monkeypatch):
     monkeypatch.setattr(
         "agent.services.codecompass_agentic_retrieval_service.get_codecompass_agentic_retrieval_service",
         _service_with_hits,
+    )
+    client.application.extensions["codecompass_retrieval_capability_resolver"] = (
+        _CapabilityResolver()
     )
     response = client.post(
         "/api/codecompass/retrieve",
