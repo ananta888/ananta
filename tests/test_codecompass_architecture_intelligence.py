@@ -65,3 +65,24 @@ def test_cycle_and_export_formats() -> None:
     assert "<graphml>" in service.export(result, fmt="graphml", records=_graph())
     assert "CREATE" in service.export(result, fmt="cypher", records=_graph())
     assert "[[" in service.export(result, fmt="obsidian")
+
+
+def test_duplicate_edges_and_missing_ids_are_canonicalized() -> None:
+    graph = _graph()
+    graph["edges"].append(dict(graph["edges"][0]))
+    graph["nodes"].append({"path": "missing.py"})
+    projection = project_graph(graph)
+    assert len(projection["edges"]) == len(_graph()["edges"])
+    assert all(node["id"] not in {"", "None"} for node in projection["nodes"])
+
+
+def test_partial_coverage_diff_is_unverified() -> None:
+    old = _graph()
+    new = _graph()
+    new["nodes"] = [node for node in new["nodes"] if node["id"] != "store"]
+    result = diff_graphs(old, new, old_coverage="complete", new_coverage="partial")
+    assert result["classifier"] == "unverified_breaking_candidate"
+    assert result["verification_status"] == "unverified"
+    complete = diff_graphs(old, new, old_coverage="complete", new_coverage="complete")
+    assert complete["classifier"] == "breaking_candidate"
+    assert complete["verification_status"] == "verified"

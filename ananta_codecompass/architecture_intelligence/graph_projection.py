@@ -10,26 +10,25 @@ def project_graph(records: Mapping[str, Any] | None = None, *, nodes=None, edges
     payload = dict(records or {})
     raw_nodes = list(nodes if nodes is not None else payload.get("nodes") or [])
     raw_edges = list(edges if edges is not None else payload.get("edges") or [])
-    projected_nodes = []
+    projected_by_id: dict[str, dict[str, str]] = {}
     for item in raw_nodes:
         if not isinstance(item, Mapping):
             continue
         node_id = str(item.get("id") or item.get("node_id") or "").strip()
         if not node_id:
             continue
-        projected_nodes.append(
-            {
+        projected_by_id[node_id] = {
                 "id": node_id,
                 "path": str(item.get("path") or item.get("file") or ""),
                 "kind": str(item.get("kind") or item.get("type") or "unknown"),
                 "title": str(item.get("title") or item.get("name") or node_id),
             }
-        )
+    projected_nodes = list(projected_by_id.values())
     projected_nodes.sort(key=lambda item: item["id"])
     known = {item["id"] for item in projected_nodes}
     adjacency: dict[str, set[str]] = defaultdict(set)
     incoming: dict[str, set[str]] = defaultdict(set)
-    projected_edges = []
+    edge_set: set[tuple[str, str, str]] = set()
     for item in raw_edges:
         if not isinstance(item, Mapping):
             continue
@@ -38,10 +37,13 @@ def project_graph(records: Mapping[str, Any] | None = None, *, nodes=None, edges
         if source not in known or target not in known or source == target:
             continue
         relation = str(item.get("relation") or item.get("type") or "related")
-        projected_edges.append({"source": source, "target": target, "relation": relation})
+        edge_set.add((source, target, relation))
         adjacency[source].add(target)
         incoming[target].add(source)
-    projected_edges.sort(key=lambda item: (item["source"], item["target"], item["relation"]))
+    projected_edges = [
+        {"source": source, "target": target, "relation": relation}
+        for source, target, relation in sorted(edge_set)
+    ]
     return {
         "nodes": projected_nodes,
         "edges": projected_edges,

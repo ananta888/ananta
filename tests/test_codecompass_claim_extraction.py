@@ -20,6 +20,7 @@ def test_fixture_extractor_grounds_spans() -> None:
     jsonschema.validate(result, schema)
     assert result["status"] == "ok"
     assert result["claims"][0]["grounded"] is True
+    assert result["source_verification_status"] == "unverified"
 
 
 def test_ungrounded_span_is_rejected() -> None:
@@ -28,3 +29,11 @@ def test_ungrounded_span_is_rejected() -> None:
     result = admit_claims(source, [fake], source_ref="x")
     assert result["status"] == "empty"
     assert result["claims"] == []
+
+
+def test_unknown_source_identifier_is_rejected() -> None:
+    source = "CodeCompass"
+    spans = FixtureClaimExtractor().extract(source)
+    result = admit_claims(source, spans, source_ref="SRC_UNKNOWN", allowed_source_refs={"SRC_ALLOWED"})
+    assert result["status"] == "rejected"
+    assert result["source_verification_status"] == "failed"

@@ -52,9 +52,10 @@ class RecursivePlan:
 
 
 class RecursiveQueryPlanner:
-    def __init__(self, max_depth: int = 3, max_fanout: int = 4) -> None:
+    def __init__(self, max_depth: int = 3, max_fanout: int = 4, max_steps: int = 24) -> None:
         self.max_depth = max(1, min(int(max_depth), 4))
         self.max_fanout = max(1, min(int(max_fanout), 8))
+        self.max_steps = max(1, min(int(max_steps), 64))
 
     def _generate_plan_id(self, query: str) -> str:
         raw = f"{query}:{datetime.now(timezone.utc).isoformat()}"
@@ -86,3 +87,31 @@ class RecursiveQueryPlanner:
             max_fanout=self.max_fanout,
             metadata={"created_at": datetime.now(timezone.utc).isoformat()},
         )
+
+    def expand_step(
+        self,
+        parent: RetrievalStep,
+        evidence: list[dict[str, Any]],
+    ) -> list[RetrievalStep]:
+        if parent.depth >= self.max_depth:
+            return []
+        children: list[RetrievalStep] = []
+        for item in evidence:
+            symbol = str(item.get("symbol") or "").strip()
+            path = str(item.get("path") or "").strip()
+            focus = symbol or path
+            if not focus:
+                continue
+            query = f"{parent.query} {focus}".strip()
+            children.append(
+                self._create_step(
+                    query,
+                    "hybrid",
+                    parent.depth + 1,
+                    [parent.step_id],
+                    focus,
+                )
+            )
+            if len(children) >= self.max_fanout:
+                break
+        return children

@@ -10,6 +10,10 @@
     "status": { "type": "string", "enum": ["ok", "rejected", "empty"] },
     "reason": { "type": "string" },
     "source_ref": { "type": "string" },
+    "source_verification_status": {
+      "type": "string",
+      "enum": ["verified", "unverified", "failed"]
+    },
     "revision": { "type": "string" },
     "profile": { "type": "string" },
     "provider": { "type": "string" },

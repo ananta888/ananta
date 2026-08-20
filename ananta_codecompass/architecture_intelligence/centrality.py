@@ -9,7 +9,7 @@ def compute_centrality(projection: dict[str, Any], communities: list[dict[str, A
     adjacency = {key: list(value) for key, value in dict(projection.get("adjacency") or {}).items()}
     incoming = {key: list(value) for key, value in dict(projection.get("incoming") or {}).items()}
     nodes = [str(item["id"]) for item in projection.get("nodes") or []]
-    n = max(1, len(nodes) - 1)
+    n = max(1, 2 * (len(nodes) - 1))
     rows = []
     for node in nodes:
         out_deg = len(adjacency.get(node, []))
