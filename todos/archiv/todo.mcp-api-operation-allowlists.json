@@ -1,12 +1,12 @@
 {
-  "$schema": "./todo.schema.json",
+  "$schema": "../todo.schema.json",
   "version": 1,
   "created": "2026-07-25",
-  "updated": "2026-07-25",
+  "updated": "2026-08-20",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "mcp_api_operation_allowlists",
-  "status": "todo",
+  "status": "done",
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "Repository working tree inspected on 2026-07-25; no commit range was supplied.",
@@ -68,12 +68,17 @@
         {
           "id": "MCPAPI-ARCH-001",
           "title": "Ist-Aufnahme und Operations-Namensraum verbindlich festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
           "depends_on": [],
-          "paths": ["agent/routes/mcp.py", "agent/services/mcp_registry_service.py", "agent/routes/", "docs/backend.md"],
+          "paths": [
+            "agent/routes/mcp.py",
+            "agent/services/mcp_registry_service.py",
+            "agent/routes/",
+            "docs/backend.md"
+          ],
           "acceptance_criteria": [
             "Ein ADR dokumentiert die MCP-Methoden, MCP-Tools, MCP-Resources und priorisierten REST-Operationen mit stabiler Operations-ID, Besitzer, Risikoklasse und Side-Effect-Klassifikation.",
             "Der Namensraum unterscheidet mindestens mcp.tool.*, mcp.resource.* und api.*; Kollisionen zwischen Transporten sind unmoeglich.",
@@ -84,12 +89,18 @@
         {
           "id": "MCPAPI-ARCH-002",
           "title": "Policy-Datenmodell, Matching-Semantik und Migration entwerfen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
-          "depends_on": ["MCPAPI-ARCH-001"],
-          "paths": ["agent/services/exposure_policy_service.py", "agent/services/platform_governance_service.py", "agent/routes/config/settings.py"],
+          "depends_on": [
+            "MCPAPI-ARCH-001"
+          ],
+          "paths": [
+            "agent/services/exposure_policy_service.py",
+            "agent/services/platform_governance_service.py",
+            "agent/routes/config/settings.py"
+          ],
           "acceptance_criteria": [
             "Ein versionierter Policy-Vertrag definiert getrennte allow_operations, deny_operations und optional erlaubte Auth-Quellen pro MCP und API.",
             "Deny gewinnt deterministisch gegen Allow; unbekannte IDs, leere Allowlists im Enforce-Modus und ungueltige Muster werden abgewiesen.",
@@ -100,12 +111,18 @@
         {
           "id": "MCPAPI-ARCH-003",
           "title": "Risiko- und Approval-Matrix fuer Exposure und Domain-Gates definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["MCPAPI-ARCH-001"],
-          "paths": ["agent/services/ananta_tool_policy_service.py", "agent/services/exposure_policy_service.py", "docs/backend.md"],
+          "depends_on": [
+            "MCPAPI-ARCH-001"
+          ],
+          "paths": [
+            "agent/services/ananta_tool_policy_service.py",
+            "agent/services/exposure_policy_service.py",
+            "docs/backend.md"
+          ],
           "acceptance_criteria": [
             "Die Matrix ordnet jeder Operation read, write oder admin sowie die bestehende notwendige Domain-Autorisierung zu.",
             "Write- und Admin-Operationen sind in Default-Policies nicht freigegeben und behalten vorhandene Approval-Gates bei.",
@@ -122,12 +139,19 @@
         {
           "id": "MCPAPI-POL-001",
           "title": "Zentralen OperationDescriptor und Registry-Port implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-ARCH-001", "MCPAPI-ARCH-002"],
-          "paths": ["agent/services/operation_registry_service.py", "agent/services/mcp_registry_service.py", "agent/services/service_registry.py"],
+          "depends_on": [
+            "MCPAPI-ARCH-001",
+            "MCPAPI-ARCH-002"
+          ],
+          "paths": [
+            "agent/services/operation_registry_service.py",
+            "agent/services/mcp_registry_service.py",
+            "agent/services/service_registry.py"
+          ],
           "acceptance_criteria": [
             "Ein fokussierter Descriptor traegt ID, Transport, Name oder Route, HTTP-Methode, Zugriffsklasse, Risikoklasse, Lifecycle und Beschreibung.",
             "MCPRegistryService liefert seine Tool- und Resource-Metadaten ueber den Registry-Port, ohne Dispatch-Logik in eine generische God-Class zu verschieben.",
@@ -138,12 +162,20 @@
         {
           "id": "MCPAPI-POL-002",
           "title": "OperationPolicyService als fail-closed Decision-Port implementieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
-          "depends_on": ["MCPAPI-ARCH-002", "MCPAPI-ARCH-003", "MCPAPI-POL-001"],
-          "paths": ["agent/services/operation_policy_service.py", "agent/services/exposure_policy_service.py", "tests/"],
+          "depends_on": [
+            "MCPAPI-ARCH-002",
+            "MCPAPI-ARCH-003",
+            "MCPAPI-POL-001"
+          ],
+          "paths": [
+            "agent/services/operation_policy_service.py",
+            "agent/services/exposure_policy_service.py",
+            "tests/"
+          ],
           "acceptance_criteria": [
             "Der Service nimmt ausschliesslich OperationDescriptor, effektive Policy und Auth-Kontext entgegen und erzeugt eine testbare Entscheidung ohne Flask- oder Repository-Nebenwirkungen.",
             "Default deny, deny-overrides-allow, Auth-Quellen, Adminpflicht, Lifecycle und Risiko-Vorgaben werden deterministisch ausgewertet.",
@@ -154,12 +186,19 @@
         {
           "id": "MCPAPI-POL-003",
           "title": "Konfigurationsschema, Normalisierung und persistente Migration ergaenzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-002"],
-          "paths": ["agent/routes/config/settings.py", "agent/services/config_read_model_service.py", "agent/services/exposure_policy_service.py", ".env.example"],
+          "depends_on": [
+            "MCPAPI-POL-002"
+          ],
+          "paths": [
+            "agent/routes/config/settings.py",
+            "agent/services/config_read_model_service.py",
+            "agent/services/exposure_policy_service.py",
+            ".env.example"
+          ],
           "acceptance_criteria": [
             "Die Konfiguration akzeptiert nur Listen stabiler Operations-IDs oder klar dokumentierte, begrenzte Gruppen-IDs; freie Regex oder unbekannte Wildcards sind nicht erlaubt.",
             "Alte exposure_policy.mcp-Werte werden normalisiert, ohne neue Tools implizit freizuschalten.",
@@ -176,12 +215,18 @@
         {
           "id": "MCPAPI-MCP-001",
           "title": "MCP capabilities und Listen auf effektive Allowlist filtern",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-002", "MCPAPI-POL-003"],
-          "paths": ["agent/routes/mcp.py", "agent/services/mcp_registry_service.py"],
+          "depends_on": [
+            "MCPAPI-POL-002",
+            "MCPAPI-POL-003"
+          ],
+          "paths": [
+            "agent/routes/mcp.py",
+            "agent/services/mcp_registry_service.py"
+          ],
           "acceptance_criteria": [
             "GET /v1/mcp/capabilities zaehlt nur effektiv sichtbare Tools und Resources und liefert die relevante Policy-Projektion ohne sensible Konfiguration.",
             "tools/list und resources/list enthalten ausschliesslich fuer den aktuellen Auth-Kontext erlaubte Deskriptoren.",
@@ -192,12 +237,18 @@
         {
           "id": "MCPAPI-MCP-002",
           "title": "MCP tools/call und resources/read vor Dispatch gate'n",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
-          "depends_on": ["MCPAPI-MCP-001"],
-          "paths": ["agent/routes/mcp.py", "agent/services/operation_policy_service.py", "agent/services/mcp_registry_service.py"],
+          "depends_on": [
+            "MCPAPI-MCP-001"
+          ],
+          "paths": [
+            "agent/routes/mcp.py",
+            "agent/services/operation_policy_service.py",
+            "agent/services/mcp_registry_service.py"
+          ],
           "acceptance_criteria": [
             "Jeder tools/call und resources/read prueft die aufgeloeste Operations-ID vor Zugriff auf den Registry-Dispatcher.",
             "Direkte JSON-RPC-Aufrufe eines unsichtbaren oder gesperrten Tool-Namens liefern einen konsistenten forbidden-Fehler statt tool_not_found-Leak oder Seiteneffekt.",
@@ -208,12 +259,19 @@
         {
           "id": "MCPAPI-MCP-003",
           "title": "MCP-Deskriptoren um Risiko, Lifecycle und sichtbaren Policy-Status erweitern",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "contract",
-          "depends_on": ["MCPAPI-POL-001", "MCPAPI-MCP-001"],
-          "paths": ["schemas/mcp/mcp_tool_descriptor.v1.json", "agent/services/mcp_tool_registry.py", "agent/services/mcp_registry_service.py"],
+          "depends_on": [
+            "MCPAPI-POL-001",
+            "MCPAPI-MCP-001"
+          ],
+          "paths": [
+            "schemas/mcp/mcp_tool_descriptor.v1.json",
+            "agent/services/mcp_tool_registry.py",
+            "agent/services/mcp_registry_service.py"
+          ],
           "acceptance_criteria": [
             "MCP-sichtbare Metadaten kennzeichnen Zugriffsklasse und Risiko ohne interne Implementierungsdetails preiszugeben.",
             "Disabled- und degraded-Lifecycle-Zustaende sind fuer Liste und Aufruf konsistent definiert.",
@@ -230,12 +288,18 @@
         {
           "id": "MCPAPI-API-001",
           "title": "REST-Operationen als additive Route-Metadaten inventarisieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-001"],
-          "paths": ["agent/routes/", "agent/services/operation_registry_service.py", "agent/routes/config/read_models.py"],
+          "depends_on": [
+            "MCPAPI-POL-001"
+          ],
+          "paths": [
+            "agent/routes/",
+            "agent/services/operation_registry_service.py",
+            "agent/routes/config/read_models.py"
+          ],
           "acceptance_criteria": [
             "Priorisierte Hub-Endpunkte erhalten deklarative Operations-IDs, ohne URL, HTTP-Methode oder vorhandene Response-Vertraege zu aendern.",
             "Read- und Mutation-Operationen werden getrennt registriert; ein GET-Grant erlaubt kein POST, PATCH oder DELETE.",
@@ -246,12 +310,19 @@
         {
           "id": "MCPAPI-API-002",
           "title": "Wiederverwendbaren Flask-Operation-Gate-Adapter bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-002", "MCPAPI-API-001"],
-          "paths": ["agent/routes/operation_gate.py", "agent/routes/", "agent/common/audit.py"],
+          "depends_on": [
+            "MCPAPI-POL-002",
+            "MCPAPI-API-001"
+          ],
+          "paths": [
+            "agent/routes/operation_gate.py",
+            "agent/routes/",
+            "agent/common/audit.py"
+          ],
           "acceptance_criteria": [
             "Ein schmaler Adapter prueft die Operations-ID nach Authentifizierung und vor der Domain-Route, ohne Business-Logik in Decorators zu verschieben.",
             "Die Ablehnung verwendet vorhandene API-Fehlerformate und keinen neuen parallelen Auth-Mechanismus.",
@@ -262,12 +333,20 @@
         {
           "id": "MCPAPI-API-003",
           "title": "Priorisierten API-Rollout mit Read-only Startprofil umsetzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-API-002", "MCPAPI-POL-003"],
-          "paths": ["agent/routes/config/", "agent/routes/tasks/", "agent/routes/governance/", "agent/services/platform_governance_service.py"],
+          "depends_on": [
+            "MCPAPI-API-002",
+            "MCPAPI-POL-003"
+          ],
+          "paths": [
+            "agent/routes/config/",
+            "agent/routes/tasks/",
+            "agent/routes/governance/",
+            "agent/services/platform_governance_service.py"
+          ],
           "acceptance_criteria": [
             "Das erste Profil umfasst nur explizit dokumentierte, risikoarme Read-Operationen; Mutationen bleiben standardmaessig ausserhalb der Allowlist.",
             "Je Domain gibt es Route-Tests fuer erlaubt, exposure-denied, domain-denied und approval-required.",
@@ -284,12 +363,19 @@
         {
           "id": "MCPAPI-UI-001",
           "title": "Admin-API fuer effektive Operationspolicy und Capability-Inventar bereitstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-003", "MCPAPI-API-001"],
-          "paths": ["agent/routes/config/read_models.py", "agent/routes/config/settings.py", "agent/services/config_read_model_service.py"],
+          "depends_on": [
+            "MCPAPI-POL-003",
+            "MCPAPI-API-001"
+          ],
+          "paths": [
+            "agent/routes/config/read_models.py",
+            "agent/routes/config/settings.py",
+            "agent/services/config_read_model_service.py"
+          ],
           "acceptance_criteria": [
             "Ein Admin-Read-Model zeigt registrierte Operations, effektive Entscheidung, Risikoklasse, Lifecycle und Regel-ID ohne Tokens oder Request-Inhalte.",
             "Konfigurationsmutationen validieren gegen die Registry und geben klare Fehler fuer nicht existente Operations-IDs zurueck.",
@@ -300,12 +386,18 @@
         {
           "id": "MCPAPI-UI-002",
           "title": "Angular- und TUI-Policyansicht als getrennte Read-only Clients integrieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P2",
           "risk": "medium",
           "type": "implementation",
-          "depends_on": ["MCPAPI-UI-001"],
-          "paths": ["frontend-angular/src/app/", "client_surfaces/operator_tui/", "tests/"],
+          "depends_on": [
+            "MCPAPI-UI-001"
+          ],
+          "paths": [
+            "frontend-angular/src/app/",
+            "client_surfaces/operator_tui/",
+            "tests/"
+          ],
           "acceptance_criteria": [
             "Angular zeigt registrierte und effektiv erlaubte MCP/API-Operationen mit Filter nach Transport, Zugriffsklasse und Status.",
             "Die TUI zeigt denselben serverseitigen Read-Model-Vertrag read-only und bietet keine lokale Policy-Umgehung.",
@@ -322,12 +414,21 @@
         {
           "id": "MCPAPI-OBS-001",
           "title": "Audit-, Metrik- und Diagnosevertraege fuer Policy-Entscheidungen ergaenzen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "observability",
-          "depends_on": ["MCPAPI-POL-002", "MCPAPI-MCP-002", "MCPAPI-API-002"],
-          "paths": ["agent/common/audit.py", "agent/services/execution_audit_service.py", "agent/routes/", "docs/"],
+          "depends_on": [
+            "MCPAPI-POL-002",
+            "MCPAPI-MCP-002",
+            "MCPAPI-API-002"
+          ],
+          "paths": [
+            "agent/common/audit.py",
+            "agent/services/execution_audit_service.py",
+            "agent/routes/",
+            "docs/"
+          ],
           "acceptance_criteria": [
             "Jede Exposure-Entscheidung ist mit Operations-ID, Transport, allow/deny, reason_code, Regel-ID und Trace-ID auditierbar.",
             "Metriken unterscheiden MCP und REST sowie allow, deny und Fehler, ohne high-cardinality Argumentwerte zu enthalten.",
@@ -338,12 +439,19 @@
         {
           "id": "MCPAPI-OBS-002",
           "title": "Konfigurationsaenderungen revisionssicher und rueckrollbar machen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "implementation",
-          "depends_on": ["MCPAPI-POL-003", "MCPAPI-OBS-001"],
-          "paths": ["agent/routes/config/settings.py", "agent/services/", "agent/repositories/"],
+          "depends_on": [
+            "MCPAPI-POL-003",
+            "MCPAPI-OBS-001"
+          ],
+          "paths": [
+            "agent/routes/config/settings.py",
+            "agent/services/",
+            "agent/repositories/"
+          ],
           "acceptance_criteria": [
             "Policy-Aenderungen speichern Version, vorherigen und neuen Hash, Akteur, Zeit und validierten Diff-Auszug.",
             "Ein autorisierter Rollback stellt eine fruehere valide Policy wieder her und auditert den Vorgang.",
@@ -354,12 +462,21 @@
         {
           "id": "MCPAPI-TEST-001",
           "title": "Vollstaendige Policy-, Registry- und Route-Testmatrix erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "testing",
-          "depends_on": ["MCPAPI-MCP-002", "MCPAPI-API-003", "MCPAPI-OBS-001"],
-          "paths": ["tests/test_mcp_route.py", "tests/test_mcp_tool_registry.py", "tests/", "scripts/"],
+          "depends_on": [
+            "MCPAPI-MCP-002",
+            "MCPAPI-API-003",
+            "MCPAPI-OBS-001"
+          ],
+          "paths": [
+            "tests/test_mcp_route.py",
+            "tests/test_mcp_tool_registry.py",
+            "tests/",
+            "scripts/"
+          ],
           "acceptance_criteria": [
             "Tests pruefen default deny, globale Deaktivierung, einzelne Tool- und Resource-Freigabe, deny-overrides-allow, User/Agent/Admin-Kontexte und Lifecycle-Zustaende.",
             "Direkte MCP- und REST-Aufrufe koennen Listenfilter nie umgehen und verursachen bei denied keinen Seiteneffekt.",
@@ -370,12 +487,18 @@
         {
           "id": "MCPAPI-TEST-002",
           "title": "Security- und Konfigurationsfuzzing fuer Operations-IDs ausfuehren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "testing",
-          "depends_on": ["MCPAPI-TEST-001"],
-          "paths": ["tests/", "schemas/mcp/mcp_tool_descriptor.v1.json", "agent/services/operation_policy_service.py"],
+          "depends_on": [
+            "MCPAPI-TEST-001"
+          ],
+          "paths": [
+            "tests/",
+            "schemas/mcp/mcp_tool_descriptor.v1.json",
+            "agent/services/operation_policy_service.py"
+          ],
           "acceptance_criteria": [
             "Property- oder table-driven Tests decken leere, falsch typisierte, Unicode-, Prefix- und aehnliche Operations-IDs ab.",
             "Keine Eingabe kann eine unbekannte ID als erlaubte bekannte ID normalisieren oder in einen Wildcard-Match verwandeln.",
@@ -386,12 +509,22 @@
         {
           "id": "MCPAPI-REL-001",
           "title": "Stufenweisen Rollout, Dokumentation und Betriebs-Gate abschliessen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "release",
-          "depends_on": ["MCPAPI-UI-002", "MCPAPI-OBS-002", "MCPAPI-TEST-001", "MCPAPI-TEST-002"],
-          "paths": ["docs/backend.md", "docs/", ".env.example", "artifacts/test-gates/"],
+          "depends_on": [
+            "MCPAPI-UI-002",
+            "MCPAPI-OBS-002",
+            "MCPAPI-TEST-001",
+            "MCPAPI-TEST-002"
+          ],
+          "paths": [
+            "docs/backend.md",
+            "docs/",
+            ".env.example",
+            "artifacts/test-gates/"
+          ],
           "acceptance_criteria": [
             "Dokumentation erklaert Default deny, Beispielkonfigurationen fuer read-only MCP und API-Operationen, Auth-Grenzen, Audit und Rollback.",
             "Ein Upgrade-Test startet mit einer alten globalen MCP-Policy und belegt, dass keine nicht vorher sichtbare Operation unbeabsichtigt sichtbar oder aufrufbar wird.",
@@ -405,18 +538,63 @@
   "meta": {
     "total_items": 19,
     "by_status": {
-      "completed": 0,
+      "completed": 19,
       "partial": 0,
-      "open": 19
+      "open": 0
     },
     "notes": [
       "Dieser Track ist ein Planungsartefakt und aktiviert keine Tools, API-Operationen oder Berechtigungen.",
       "Die bestehende globale MCP-Policy bleibt bis zur expliziten Migration der Runtime die wirksame Konfiguration.",
       "Neue Operations-IDs duerfen nur aus der zentralen Registry stammen; fehlende oder unbekannte IDs sind nicht verifiziert und muessen abgewiesen werden.",
-      "Die Reihenfolge bevorzugt zuerst Vertraege und fail-closed Kernlogik, danach transportspezifische Adapter und zuletzt Oberflaechen."
+      "Die Reihenfolge bevorzugt zuerst Vertraege und fail-closed Kernlogik, danach transportspezifische Adapter und zuletzt Oberflaechen.",
+      "Runtime, REST-Metadaten, Operator-Clients, Revisionierung, Audit und Rollout-Gate wurden am 2026-08-20 quellcodebasiert umgesetzt.",
+      "Validierung: 34 Python/TUI-Tests und 2 Angular-Contract-Tests bestanden; das deterministische Gate meldet passed."
     ],
     "recommended_order": [
-      "MCPAPI-ARCH-001", "MCPAPI-ARCH-002", "MCPAPI-ARCH-003", "MCPAPI-POL-001", "MCPAPI-POL-002", "MCPAPI-POL-003", "MCPAPI-MCP-001", "MCPAPI-MCP-002", "MCPAPI-MCP-003", "MCPAPI-API-001", "MCPAPI-API-002", "MCPAPI-API-003", "MCPAPI-UI-001", "MCPAPI-UI-002", "MCPAPI-OBS-001", "MCPAPI-OBS-002", "MCPAPI-TEST-001", "MCPAPI-TEST-002", "MCPAPI-REL-001"
+      "MCPAPI-ARCH-001",
+      "MCPAPI-ARCH-002",
+      "MCPAPI-ARCH-003",
+      "MCPAPI-POL-001",
+      "MCPAPI-POL-002",
+      "MCPAPI-POL-003",
+      "MCPAPI-MCP-001",
+      "MCPAPI-MCP-002",
+      "MCPAPI-MCP-003",
+      "MCPAPI-API-001",
+      "MCPAPI-API-002",
+      "MCPAPI-API-003",
+      "MCPAPI-UI-001",
+      "MCPAPI-UI-002",
+      "MCPAPI-OBS-001",
+      "MCPAPI-OBS-002",
+      "MCPAPI-TEST-001",
+      "MCPAPI-TEST-002",
+      "MCPAPI-REL-001"
     ]
+  },
+  "completed_at": "2026-08-20",
+  "completion_evidence": {
+    "status": "passed",
+    "gate_artifact": "artifacts/test-gates/mcp-api-operation-allowlists.json",
+    "commands": [
+      {
+        "command": "python -m pytest -q tests/test_operation_policy.py tests/test_mcp_route.py tests/test_mcp_tool_registry.py tests/client_surfaces/operator_tui/test_operation_policy_inventory.py",
+        "result": "34 passed"
+      },
+      {
+        "command": "cd frontend-angular && npm run test:unit -- src/app/services/operation-policy-api.service.spec.ts",
+        "result": "2 passed"
+      },
+      {
+        "command": "python scripts/check_mcp_api_operation_allowlists.py --tests-passed",
+        "result": "passed"
+      }
+    ],
+    "solid_review": {
+      "srp": "registry, pure decision, persistence, observability, Flask and clients remain separate",
+      "dip": "OperationPolicyService depends on OperationRegistryPort",
+      "hub_worker_boundary": "unchanged; all orchestration and policy decisions remain Hub-owned",
+      "preserved_violation": null
+    }
   }
 }

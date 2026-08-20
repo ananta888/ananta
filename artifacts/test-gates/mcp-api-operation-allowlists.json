@@ -1,0 +1,101 @@
+{
+  "artifact_hash": "b601ae8265508168f6e830c2eb4025e84e2fb2adfe114641b1ffa5af03d5a7b2",
+  "catalog": {
+    "groups": {
+      "api.admin.v1": [
+        "api.config.operation_policy.rollback.post",
+        "api.config.update.post"
+      ],
+      "api.read.v1": [
+        "api.config.get",
+        "api.governance.operations.get",
+        "api.governance.policy.get"
+      ],
+      "mcp.read.v1": [
+        "mcp.resource.artifacts.list",
+        "mcp.resource.evolution.providers",
+        "mcp.resource.knowledge.collections",
+        "mcp.resource.providers.models",
+        "mcp.resource.system.health",
+        "mcp.resource.tasks.recent",
+        "mcp.tool.artifacts.list",
+        "mcp.tool.codecompass.analytics_query",
+        "mcp.tool.codecompass.architecture_expand",
+        "mcp.tool.codecompass.architecture_intelligence",
+        "mcp.tool.codecompass.architecture_overview",
+        "mcp.tool.codecompass.layers_heads",
+        "mcp.tool.codecompass.layers_plan",
+        "mcp.tool.codecompass.retrieve",
+        "mcp.tool.codecompass.rlm_analyze",
+        "mcp.tool.evolution.proposals.list",
+        "mcp.tool.evolution.providers.list",
+        "mcp.tool.health.get",
+        "mcp.tool.knowledge.list_collections",
+        "mcp.tool.providers.list_models",
+        "mcp.tool.tasks.get",
+        "mcp.tool.tasks.list"
+      ],
+      "mcp.write.v1": [
+        "mcp.tool.classroom.reanalyze",
+        "mcp.tool.classroom.transcript_event",
+        "mcp.tool.evolution.analyze"
+      ]
+    },
+    "operation_count": 30
+  },
+  "effective_migration_policy": {
+    "allow_groups": [
+      "mcp.read.v1"
+    ],
+    "allow_operations": [],
+    "allowed_auth_sources": [
+      "agent_auth",
+      "user_jwt"
+    ],
+    "configuration_error": null,
+    "deny_groups": [],
+    "deny_operations": [],
+    "emit_audit_events": true,
+    "enabled": true,
+    "enforced_transports": [
+      "mcp.resource",
+      "mcp.tool"
+    ],
+    "history_count": 0,
+    "migration_source": "legacy_mcp_read_only_v1",
+    "policy_hash": "3619f755ef06a3143b4972a90dd8050e2448ae33d5db5b7b5075e838713b037d",
+    "require_admin_for_access_classes": [
+      "admin",
+      "write"
+    ],
+    "require_approval_for_risks": [
+      "critical",
+      "high"
+    ],
+    "revision": 0,
+    "schema_version": "1.0"
+  },
+  "gate_id": "mcp-api-operation-allowlists",
+  "no_bypass": {
+    "direct_dispatch_gate": "agent.routes.mcp._authorize_mcp_target",
+    "unknown_reason": "unknown_operation",
+    "write_reason": "operation_not_allowlisted"
+  },
+  "probes": {
+    "config_schema_valid": true,
+    "legacy_read_visible": true,
+    "legacy_write_default_denied": true,
+    "prioritized_routes_have_operation_ids": true,
+    "registry_ids_unique": true,
+    "selected_tests_passed": true,
+    "unknown_operation_fail_closed": true,
+    "versioned_groups_expand": true
+  },
+  "schema": "ananta.mcp_api_operation_allowlists_gate.v1",
+  "status": "passed",
+  "verification_commands": [
+    "python -m pytest -q tests/test_operation_policy.py tests/test_mcp_route.py tests/test_mcp_tool_registry.py tests/client_surfaces/operator_tui/test_operation_policy_inventory.py",
+    "cd frontend-angular && npm run test:unit -- src/app/services/operation-policy-api.service.spec.ts",
+    "python scripts/check_mcp_api_operation_allowlists.py --tests-passed"
+  ]
+}
