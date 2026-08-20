@@ -40,6 +40,7 @@ _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 
 def get_tool_loop_config() -> dict[str, Any]:
     cfg = dict(_get_agent_config().get("ananta_worker_tool_loop") or {})
+    tiny_router = cfg.get("tiny_router")
     return {
         "enabled": bool(cfg.get("enabled", False)),
         "max_iterations": max(1, min(int(cfg.get("max_iterations") or 6), 32)),
@@ -47,6 +48,7 @@ def get_tool_loop_config() -> dict[str, Any]:
         "max_tool_result_chars": max(500, min(int(cfg.get("max_tool_result_chars") or 8000), 100000)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
         "allowed_tools": [str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()],
+        "tiny_router": dict(tiny_router) if isinstance(tiny_router, dict) else {},
     }
 
 
@@ -245,6 +247,11 @@ def run_ananta_worker_tool_loop(
     tool_call_count = 0
     invalid_count = 0
     last_rc, last_out, last_err = 0, "", ""
+    tiny_router_cfg = (
+        dict(cfg.get("tiny_router") or {})
+        if isinstance(cfg.get("tiny_router"), dict)
+        else {}
+    )
 
     def _audit(action: str, *, tool_name: str, decision: str, risk: str, status: str | None = None, detail: str | None = None) -> None:
         try:
@@ -311,13 +318,49 @@ def run_ananta_worker_tool_loop(
             max_iterations=max_iterations,
             max_tool_result_chars=max_result_chars,
         )
-        rc, out, err = llm_runner(prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir)
+        message = None
+        tiny_candidate_used = False
+        if (
+            iteration == 1
+            and not tool_results
+            and str(tiny_router_cfg.get("mode") or "disabled").lower()
+            != "disabled"
+        ):
+            try:
+                from agent.services.tiny_router.service import (
+                    get_tiny_tool_router_service,
+                )
+
+                tiny_decision = get_tiny_tool_router_service().route(
+                    prompt=prompt,
+                    allowed_tools=cfg.get("allowed_tools"),
+                    config=tiny_router_cfg,
+                    mutation_mode=mutation_mode,
+                )
+                if tiny_decision.status == "candidate" and tiny_decision.candidate:
+                    message = {
+                        "kind": KIND_TOOL_REQUEST,
+                        "tool_name": tiny_decision.candidate.tool_name,
+                        "arguments": dict(tiny_decision.candidate.arguments),
+                        "reason": "tiny_router_candidate",
+                        "risk_hint": "read",
+                    }
+                    tiny_candidate_used = True
+            except Exception:
+                log.warning(
+                    "tiny tool router failed, escalating to main model",
+                    exc_info=True,
+                )
+        if message is None:
+            rc, out, err = llm_runner(prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir)
+            message = parse_worker_tool_output(out)
+        else:
+            rc, out, err = 0, json.dumps(message, ensure_ascii=False), ""
         last_rc, last_out, last_err = rc, out, err
         if rc != 0 and not out:
             _write_report("llm_failed")
             return rc, out, err
 
-        message = parse_worker_tool_output(out)
         if message is None:
             invalid_count += 1
             report_iterations.append({"iteration": iteration, "kind": "invalid_output"})
@@ -381,6 +424,7 @@ def run_ananta_worker_tool_loop(
                 "tool_name": tool_name,
                 "policy_decision": decision.decision,
                 "policy_reason": decision.reason,
+                "router_source": "tiny" if tiny_candidate_used else "main",
             }
         )
         from agent.common.audit import (
@@ -440,14 +484,30 @@ def run_ananta_worker_tool_loop(
         else:
             # UTCR-009: validate arguments and attach warnings to result
             arg_warnings = _validate_tool_arguments(registry.get_tool(tool_name), arguments)
-            result = execute_ananta_tool(
-                tool_name=tool_name,
-                arguments=arguments,
-                workspace_dir=str(workdir or "."),
-                tool_call_id=tool_call_id,
-                config=cfg,
-            )
-            result["policy_decision"] = decision.as_dict()
+            if tiny_candidate_used:
+                from agent.services.unified_tool_execution_service import (
+                    get_unified_tool_execution_service,
+                )
+
+                result = get_unified_tool_execution_service().execute(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    allowed_tools=cfg.get("allowed_tools"),
+                    mutation_mode=mutation_mode,
+                    task_id=task_id,
+                    workspace_dir=str(workdir or "."),
+                    tool_call_id=tool_call_id,
+                    config=cfg,
+                )
+            else:
+                result = execute_ananta_tool(
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    workspace_dir=str(workdir or "."),
+                    tool_call_id=tool_call_id,
+                    config=cfg,
+                )
+                result["policy_decision"] = decision.as_dict()
             if arg_warnings:
                 existing = list(result.get("warnings") or [])
                 result["warnings"] = sorted(set(existing) | set(arg_warnings))

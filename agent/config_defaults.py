@@ -547,6 +547,20 @@ def build_default_agent_config() -> dict:
                 "test.discover",
                 "test.run",
             ],
+            # TTR-010: candidate-only fast path; disabled preserves old behavior.
+            "tiny_router": {
+                "mode": "disabled",
+                "kill_switch": False,
+                "profile_order": [],
+                "top_k": 5,
+                "max_hops": 2,
+                "max_total_ms": 1500,
+                "max_prompt_chars": 4000,
+                "min_confidence": None,
+                "allowed_risk_classes": ["read"],
+                "commercial_use": True,
+                "allow_research_only": False,
+            },
         },
         # HDE-002: hub-direct execution before worker/LLM. Disabled by
         # default. The hub only decides, authorizes and audits (control
