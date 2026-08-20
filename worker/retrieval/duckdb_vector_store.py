@@ -289,6 +289,11 @@ class DuckDBVectorStore:
             raise VectorStoreError("vector_scope_required")
         version = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S") + "-" + uuid4().hex[:8]
         fingerprint = compatibility.config_hash or compatibility.manifest_hash or "default"
+        # Validate the complete batch before creating a staging snapshot.  A
+        # rejected mixed-dimension batch must not leave a publishable artifact.
+        for point in points:
+            if len(point.vector) != int(compatibility.dimensions):
+                raise VectorStoreError("dimensions_mismatch")
         staging = self._snapshots.create_staging(scope, fingerprint, version)
         connection = self._factory.connect(staging, read_only=False)
         records = []

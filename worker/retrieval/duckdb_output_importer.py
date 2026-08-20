@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import Any, Iterable, Mapping
 
 from worker.retrieval.duckdb_vector_store_config import DuckDBVectorStoreConfig
@@ -30,7 +31,15 @@ class DuckDBOutputImporter:
             if not isinstance(raw, Mapping):
                 continue
             payload = dict(raw)
-            used += len(str(payload))
+            used += len(
+                json.dumps(
+                    payload,
+                    ensure_ascii=False,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                ).encode("utf-8")
+            )
             if used > budget:
                 raise VectorStoreError("duckdb_import_budget_exceeded")
             record_id = str(payload.get("id") or payload.get("record_id") or "").strip()
