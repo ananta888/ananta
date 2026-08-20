@@ -13,7 +13,7 @@ from agent.services.codecompass_architecture_budget import (
 from agent.services.codecompass_architecture_summary_service import (
     CodeCompassArchitectureSummaryService,
 )
-from worker.retrieval.codecompass_hierarchical_architecture import (
+from ananta_contracts.codecompass_hierarchical_architecture import (
     LEVELS,
     project_hierarchy,
 )
