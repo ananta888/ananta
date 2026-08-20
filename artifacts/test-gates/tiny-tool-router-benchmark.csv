@@ -1,0 +1,10 @@
+metric,value
+total,8
+selection_accuracy,1.0
+argument_exact_match,1.0
+abstention_recall,1.0
+unsafe_acceptance_rate,0.0
+catalog_size_5,5
+catalog_size_20,5
+catalog_size_50,5
+catalog_size_100,5

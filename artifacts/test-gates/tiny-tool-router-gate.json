@@ -1,0 +1,24 @@
+{
+  "schema": "ananta.tiny_tool_router_gate.v1",
+  "status": "passed",
+  "checks": {
+    "candidate_only_adapter": true,
+    "central_registry_reused": true,
+    "default_disabled": true,
+    "deterministic_benchmark": true,
+    "hub_worker_boundary": true,
+    "policy_and_unified_executor_preserved": true,
+    "shadow_never_executes": true,
+    "xlam_commercial_default_denied": true
+  },
+  "catalog_sizes": [5, 20, 50, 100],
+  "quality_thresholds": {
+    "argument_exact_match_min": 1.0,
+    "selection_accuracy_min": 1.0,
+    "unauthorized_acceptance_max": 0.0
+  },
+  "rollback": {
+    "kill_switch": true,
+    "mode_disabled_restores_existing_path": true
+  }
+}
