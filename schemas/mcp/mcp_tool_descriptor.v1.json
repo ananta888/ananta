@@ -15,11 +15,11 @@
   "properties": {
     "tool_id": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
     },
     "tool_name": {
       "type": "string",
-      "minLength": 1
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
     },
     "description": {
       "type": "string",
@@ -54,6 +54,18 @@
       "enum": ["enabled", "degraded", "disabled"],
       "default": "enabled"
     },
+    "operation_id": {
+      "type": "string",
+      "pattern": "^mcp\\.tool\\.[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+    },
+    "transport": {
+      "type": "string",
+      "const": "mcp.tool"
+    },
+    "policy_status": {
+      "type": "string",
+      "enum": ["allowed", "denied"]
+    },
     "health": {
       "type": "object",
       "additionalProperties": true,
@@ -73,4 +85,3 @@
     }
   }
 }
-

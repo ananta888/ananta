@@ -11,6 +11,18 @@ from agent.services.service_registry import get_core_services
 from agent.services.system_health_service import build_system_health_payload
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.auth import get_authenticated_source_control_principal
+from agent.services.operation_policy_observability_service import (
+    get_operation_policy_observability_service,
+)
+from agent.services.operation_policy_service import (
+    OperationAuthContext,
+    OperationPolicyDecision,
+    get_operation_policy_service,
+)
+from agent.services.operation_registry_service import (
+    OperationDescriptor,
+    get_operation_registry_service,
+)
 from agent.services.codecompass_retrieval_capability_service import (
     resolve_request_capability,
 )
@@ -86,6 +98,125 @@ def _enforce_mcp_policy(operation: str):
     )
 
 
+def _operation_auth_context() -> OperationAuthContext:
+    is_admin = bool(getattr(g, "is_admin", False))
+    return OperationAuthContext(
+        auth_source=get_exposure_policy_service().resolve_auth_source(
+            is_agent_auth=bool(getattr(g, "auth_payload", None)),
+            is_user_auth=bool(getattr(g, "user", None)),
+        ),
+        is_admin=is_admin,
+        approval_granted=is_admin,
+    )
+
+
+def _resolved_operation_policy() -> dict:
+    return get_operation_policy_service().resolve_policy(current_app.config.get("AGENT_CONFIG", {}) or {})
+
+
+def _decorate_visible_item(item: dict, descriptor: OperationDescriptor) -> dict:
+    annotations = dict(item.get("annotations") or {})
+    annotations.update(
+        {
+            "ananta/operationId": descriptor.operation_id,
+            "ananta/accessClass": descriptor.access_class,
+            "ananta/riskClass": descriptor.risk_class,
+            "ananta/lifecycle": descriptor.lifecycle,
+            "ananta/policyStatus": "allowed",
+        }
+    )
+    return {**item, "annotations": annotations}
+
+
+def _visible_mcp_tools() -> list[dict]:
+    mcp_registry = get_core_services().mcp_registry_service
+    operation_registry = get_operation_registry_service()
+    policy_service = get_operation_policy_service()
+    policy = _resolved_operation_policy()
+    auth = _operation_auth_context()
+    visible: list[dict] = []
+    for item in mcp_registry.list_tools():
+        descriptor = operation_registry.get_for_target(
+            transport="mcp.tool",
+            target=str(item.get("name") or ""),
+        )
+        decision = policy_service.decide(descriptor, policy, auth)
+        if decision.allowed and descriptor is not None:
+            visible.append(_decorate_visible_item(item, descriptor))
+    return visible
+
+
+def _visible_mcp_resources() -> list[dict]:
+    mcp_registry = get_core_services().mcp_registry_service
+    operation_registry = get_operation_registry_service()
+    policy_service = get_operation_policy_service()
+    policy = _resolved_operation_policy()
+    auth = _operation_auth_context()
+    visible: list[dict] = []
+    for item in mcp_registry.list_resources():
+        descriptor = operation_registry.get_for_target(
+            transport="mcp.resource",
+            target=str(item.get("uri") or ""),
+        )
+        decision = policy_service.decide(descriptor, policy, auth)
+        if decision.allowed and descriptor is not None:
+            visible.append(_decorate_visible_item(item, descriptor))
+    return visible
+
+
+def _emit_policy_execution_audit(
+    decision: OperationPolicyDecision,
+    *,
+    params: dict,
+    trace_id: str | None,
+) -> None:
+    get_execution_audit_service().emit_tool_call(
+        trace_id=trace_id,
+        parent_trace_id=str(params.get("trace_id") or request.headers.get("X-Parent-Trace-ID") or "").strip() or None,
+        tool_name=decision.operation_id or "unknown_operation",
+        target_scope={},
+        outcome="allowed" if decision.allowed else "blocked",
+        task_id=str(params.get("task_id") or "").strip() or None,
+        goal_id=str(params.get("goal_id") or "").strip() or None,
+        actor_role="mcp",
+        details={
+            "transport": decision.transport,
+            "reason_code": decision.reason_code,
+            "rule_id": decision.matched_rule_id,
+        },
+    )
+
+
+def _authorize_mcp_target(
+    *,
+    transport: str,
+    target: str,
+    params: dict,
+    trace_id: str | None,
+    req_id,
+) -> tuple[OperationDescriptor | None, OperationPolicyDecision, tuple | None]:
+    descriptor = get_operation_registry_service().get_for_target(transport=transport, target=target)
+    policy_service = get_operation_policy_service()
+    policy = _resolved_operation_policy()
+    decision = policy_service.decide(descriptor, policy, _operation_auth_context())
+    get_operation_policy_observability_service().record(
+        decision,
+        trace_id=trace_id,
+        surface="mcp",
+        emit_audit_event=bool(policy.get("emit_audit_events", True)),
+    )
+    _emit_policy_execution_audit(decision, params=params, trace_id=trace_id)
+    if decision.allowed:
+        return descriptor, decision, None
+    return descriptor, decision, _jsonrpc_error(
+        req_id=req_id,
+        code=-32000,
+        message="forbidden",
+        data={"details": "operation_forbidden", "trace_id": trace_id},
+        http_status=403,
+    )
+
+
 @mcp_bp.route("/v1/mcp/capabilities", methods=["GET"])
 @check_auth
 def mcp_capabilities():
@@ -93,7 +224,9 @@ def mcp_capabilities():
     if blocked:
         return blocked
     policy = get_exposure_policy_service().resolve_mcp_policy(current_app.config.get("AGENT_CONFIG", {}) or {})
-    registry = get_core_services().mcp_registry_service
+    tools = _visible_mcp_tools()
+    resources = _visible_mcp_resources()
+    operation_policy = _resolved_operation_policy()
     adapters = get_core_services().integration_registry_service.list_exposure_adapters(
         cfg=current_app.config.get("AGENT_CONFIG", {}) or {}
     )
@@ -102,14 +235,15 @@ def mcp_capabilities():
         "object": "ananta.mcp.capabilities",
         "exposure_mode": "mcp",
         "policy": policy,
+        "operation_policy": get_operation_policy_service().capability_projection(operation_policy),
         "features": {
             "tools": True,
             "resources": True,
             "jsonrpc": True,
         },
         "counts": {
-            "tools": len(registry.list_tools()),
-            "resources": len(registry.list_resources()),
+            "tools": len(tools),
+            "resources": len(resources),
         },
         "adapter_registry": adapter_entry or {},
     }
@@ -140,18 +274,30 @@ def mcp_jsonrpc():
     trace_id = get_correlation_id()
     try:
         if method == "tools/list":
-            result = {"tools": registry.list_tools()}
+            result = {"tools": _visible_mcp_tools()}
         elif method == "resources/list":
-            result = {"resources": registry.list_resources()}
+            result = {"resources": _visible_mcp_resources()}
         elif method == "tools/call":
             tool_name = str(params.get("name") or "").strip()
             if not tool_name:
                 return _jsonrpc_error(
                     req_id=req_id, code=-32602, message="invalid_params", data={"details": "name_required"}
                 )
+            descriptor, policy_decision, denied = _authorize_mcp_target(
+                transport="mcp.tool",
+                target=tool_name,
+                params=params,
+                trace_id=trace_id,
+                req_id=req_id,
+            )
+            if denied:
+                return denied
             arguments = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
             result = registry.call_tool(name=tool_name, arguments=arguments, context=_mcp_context())
-            log_audit("mcp_tool_called", {"tool": tool_name, "trace_id": trace_id})
+            log_audit(
+                "mcp_tool_called",
+                {"tool": tool_name, "trace_id": trace_id, "operation_id": descriptor.operation_id if descriptor else None},
+            )
             get_execution_audit_service().emit_tool_call(
                 trace_id=trace_id,
                 parent_trace_id=str(params.get("trace_id") or request.headers.get("X-Parent-Trace-ID") or "").strip()
@@ -162,7 +308,11 @@ def mcp_jsonrpc():
                 task_id=str(params.get("task_id") or "").strip() or None,
                 goal_id=str(params.get("goal_id") or "").strip() or None,
                 actor_role="mcp",
-                details={"method": method},
+                details={
+                    "method": method,
+                    "operation_id": descriptor.operation_id if descriptor else None,
+                    "policy_reason": policy_decision.reason_code,
+                },
             )
         elif method == "resources/read":
             resource_uri = str(params.get("uri") or "").strip()
@@ -170,8 +320,20 @@ def mcp_jsonrpc():
                 return _jsonrpc_error(
                     req_id=req_id, code=-32602, message="invalid_params", data={"details": "uri_required"}
                 )
+            descriptor, policy_decision, denied = _authorize_mcp_target(
+                transport="mcp.resource",
+                target=resource_uri,
+                params=params,
+                trace_id=trace_id,
+                req_id=req_id,
+            )
+            if denied:
+                return denied
             result = registry.read_resource(uri=resource_uri, context=_mcp_context())
-            log_audit("mcp_resource_read", {"uri": resource_uri, "trace_id": trace_id})
+            log_audit(
+                "mcp_resource_read",
+                {"uri": resource_uri, "trace_id": trace_id, "operation_id": descriptor.operation_id if descriptor else None},
+            )
             get_execution_audit_service().emit_tool_call(
                 trace_id=trace_id,
                 parent_trace_id=str(params.get("trace_id") or request.headers.get("X-Parent-Trace-ID") or "").strip()
@@ -182,7 +344,11 @@ def mcp_jsonrpc():
                 task_id=str(params.get("task_id") or "").strip() or None,
                 goal_id=str(params.get("goal_id") or "").strip() or None,
                 actor_role="mcp",
-                details={"method": method},
+                details={
+                    "method": method,
+                    "operation_id": descriptor.operation_id if descriptor else None,
+                    "policy_reason": policy_decision.reason_code,
+                },
             )
         else:
             return _jsonrpc_error(req_id=req_id, code=-32601, message="method_not_found")

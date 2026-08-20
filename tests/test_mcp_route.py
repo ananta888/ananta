@@ -44,6 +44,27 @@ def _enable_mcp(app, *, require_admin_for_user_auth=True):
         }
 
 
+def _set_operation_policy(app, *, allow_operations=None, allow_groups=None, enforced_transports=None):
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            **(app.config.get("AGENT_CONFIG") or {}),
+            "operation_policy": {
+                "schema_version": "1.0",
+                "enabled": True,
+                "revision": 0,
+                "enforced_transports": list(enforced_transports or ["mcp.tool", "mcp.resource"]),
+                "allow_operations": list(allow_operations or []),
+                "deny_operations": [],
+                "allow_groups": list(allow_groups or []),
+                "deny_groups": [],
+                "allowed_auth_sources": ["agent_auth", "user_jwt"],
+                "require_admin_for_access_classes": ["admin", "write"],
+                "require_approval_for_risks": ["critical", "high"],
+                "emit_audit_events": True,
+            },
+        }
+
+
 def test_mcp_capabilities_blocked_when_exposure_disabled(client, app, admin_auth_header):
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -214,6 +235,7 @@ def test_mcp_tool_calls_emit_audit_events(client, app, admin_auth_header):
 
 def test_mcp_evolution_tools_list_analyze_and_read_proposals(client, app, admin_auth_header):
     _enable_mcp(app)
+    _set_operation_policy(app, allow_groups=["mcp.read.v1", "mcp.write.v1"])
     task_repo.save(TaskDB(id="mcp-evolution-task", title="MCP Evolution Task", status="failed"))
     registry = get_evolution_provider_registry()
     registry.clear()
@@ -278,3 +300,124 @@ def test_mcp_evolution_tools_list_analyze_and_read_proposals(client, app, admin_
     proposals_payload = proposals_res.get_json()["result"]["content"][0]["json"]
     assert proposals_payload["task_id"] == "mcp-evolution-task"
     assert proposals_payload["proposal_count"] == 1
+
+
+def test_mcp_allowlist_filters_lists_and_blocks_direct_dispatch_without_side_effect(
+    client,
+    app,
+    admin_auth_header,
+    monkeypatch,
+):
+    from agent.services.service_registry import get_core_services
+
+    _enable_mcp(app)
+    _set_operation_policy(app, allow_operations=["mcp.tool.health.get"])
+    called = []
+    with app.app_context():
+        registry = get_core_services().mcp_registry_service
+    monkeypatch.setattr(registry, "call_tool", lambda **kwargs: called.append(kwargs) or {"unexpected": True})
+
+    listed = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={"jsonrpc": "2.0", "id": "allow-list", "method": "tools/list"},
+    )
+    names = [item["name"] for item in listed.get_json()["result"]["tools"]]
+    assert names == ["health.get"]
+    assert listed.get_json()["result"]["tools"][0]["annotations"]["ananta/operationId"] == "mcp.tool.health.get"
+
+    denied = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={
+            "jsonrpc": "2.0",
+            "id": "direct-deny",
+            "method": "tools/call",
+            "params": {"name": "tasks.get", "arguments": {"task_id": "secret-task"}},
+        },
+    )
+    assert denied.status_code == 403
+    assert denied.get_json()["error"]["message"] == "forbidden"
+    assert denied.get_json()["error"]["data"]["details"] == "operation_forbidden"
+    assert called == []
+
+
+def test_mcp_unknown_direct_target_is_forbidden_not_disclosed(client, app, admin_auth_header):
+    _enable_mcp(app)
+    _set_operation_policy(app, allow_operations=["mcp.tool.health.get"])
+    response = client.post(
+        "/v1/mcp",
+        headers=admin_auth_header,
+        json={
+            "jsonrpc": "2.0",
+            "id": "unknown-deny",
+            "method": "tools/call",
+            "params": {"name": "unknown.probe", "arguments": {}},
+        },
+    )
+    assert response.status_code == 403
+    assert response.get_json()["error"]["message"] == "forbidden"
+    assert response.get_json()["error"]["data"]["details"] == "operation_forbidden"
+
+
+def test_operation_inventory_is_admin_only_and_uses_registry_decisions(client, app, admin_auth_header):
+    from agent.auth import generate_token
+    from agent.config import settings
+
+    admin_response = client.get("/governance/operations?transport=mcp.tool&access_class=read", headers=admin_auth_header)
+    assert admin_response.status_code == 200
+    payload = admin_response.get_json()["data"]
+    assert payload["schema"] == "ananta.operation_policy_inventory.v1"
+    assert payload["items"]
+    assert all(item["transport"] == "mcp.tool" and item["access_class"] == "read" for item in payload["items"])
+
+    user_token = generate_token(
+        {"sub": "user-operation-reader", "role": "user", "mfa_enabled": False},
+        settings.secret_key,
+        expires_in=3600,
+    )
+    user_response = client.get(
+        "/governance/operations",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert user_response.status_code == 403
+
+
+def test_rest_operation_rollout_denies_unlisted_prioritized_route(client, app, admin_auth_header):
+    _set_operation_policy(
+        app,
+        allow_operations=["api.config.get"],
+        enforced_transports=["api"],
+    )
+    response = client.get("/governance/operations", headers=admin_auth_header)
+    assert response.status_code == 403
+    assert response.get_json()["message"] == "operation_forbidden"
+
+
+def test_invalid_operation_policy_update_is_atomic(client, app, admin_auth_header):
+    with app.app_context():
+        before = dict(app.config.get("AGENT_CONFIG") or {})
+        before.pop("operation_policy", None)
+        app.config["AGENT_CONFIG"] = before
+    response = client.post(
+        "/config",
+        headers=admin_auth_header,
+        json={
+            "operation_policy": {
+                "schema_version": "1.0",
+                "enabled": True,
+                "revision": 0,
+                "expected_revision": 0,
+                "enforced_transports": ["mcp.tool"],
+                "allow_operations": ["mcp.tool.does_not_exist"],
+                "deny_operations": [],
+                "allow_groups": [],
+                "deny_groups": [],
+                "allowed_auth_sources": ["user_jwt"],
+            }
+        },
+    )
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "operation_policy_operation_unknown"
+    with app.app_context():
+        assert "operation_policy" not in (app.config.get("AGENT_CONFIG") or {})

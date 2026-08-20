@@ -13,6 +13,12 @@ from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
 from agent.services.integration_registry_service import get_integration_registry_service
 from agent.services.operations_observability_service import get_operations_observability_service
+from agent.services.operation_policy_observability_service import get_operation_policy_observability_service
+from agent.services.operation_policy_service import (
+    OperationAuthContext,
+    get_operation_policy_service,
+)
+from agent.services.operation_registry_service import get_operation_registry_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.task_context_bundle_access_service import (
@@ -23,6 +29,60 @@ from agent.services.task_state_machine_service import build_task_state_machine_c
 
 class ConfigReadModelService:
     """Read-model builders for assistant and dashboard configuration views."""
+
+    def operation_policy_read_model(
+        self,
+        *,
+        cfg: dict,
+        auth_source: str,
+        is_admin: bool,
+        transport: str = "",
+        access_class: str = "",
+        lifecycle: str = "",
+        decision_filter: str = "",
+    ) -> dict:
+        registry = get_operation_registry_service()
+        service = get_operation_policy_service()
+        policy = service.resolve_policy(cfg)
+        auth = OperationAuthContext(
+            auth_source=auth_source,
+            is_admin=is_admin,
+            approval_granted=is_admin,
+        )
+        items: list[dict] = []
+        for descriptor in registry.list_descriptors():
+            decision = service.decide(descriptor, policy, auth)
+            decision_status = "allowed" if decision.allowed else "denied"
+            if transport and descriptor.transport != transport:
+                continue
+            if access_class and descriptor.access_class != access_class:
+                continue
+            if lifecycle and descriptor.lifecycle != lifecycle:
+                continue
+            if decision_filter and decision_status != decision_filter:
+                continue
+            items.append(
+                {
+                    **descriptor.as_dict(group_ids=registry.groups_for(descriptor.operation_id)),
+                    "decision": decision.as_dict(),
+                    "policy_status": decision_status,
+                }
+            )
+        return {
+            "schema": "ananta.operation_policy_inventory.v1",
+            "policy": service.public_projection(policy, include_history=True),
+            "groups": {key: list(value) for key, value in registry.list_groups().items()},
+            "filters": {
+                "transport": transport or None,
+                "access_class": access_class or None,
+                "lifecycle": lifecycle or None,
+                "decision": decision_filter or None,
+            },
+            "items": items,
+            "count": len(items),
+            "registered_count": len(registry.list_descriptors()),
+            "metrics": get_operation_policy_observability_service().snapshot(),
+        }
 
     def _build_model_routing_read_model(self, cfg: dict, *, task_kind: str) -> dict:
         try:

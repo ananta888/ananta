@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, g, request
 
-from agent.auth import check_auth
+from agent.auth import admin_required, check_auth
 from agent.common.errors import api_response
 from agent.governance_modes import governance_mode_catalog
 from agent.research_backend import get_research_backend_preflight, resolve_research_backend_config
@@ -17,6 +17,7 @@ from agent.services.service_registry import get_core_services
 from agent.services.system_contract_service import get_system_contract_service
 from agent.services.system_health_service import build_system_health_payload
 from agent.services.config_profile_service import get_config_profile_service
+from agent.routes.operation_gate import operation_gate
 from agent.services.text_quality.config import text_quality_read_model
 from agent.tool_capabilities import build_capability_contract, describe_capabilities, resolve_allowed_tools
 
@@ -265,9 +266,32 @@ def assistant_read_model():
 
 @read_models_bp.route("/governance/policy", methods=["GET"])
 @check_auth
+@operation_gate("api.governance.policy.get")
 def governance_policy_read_model():
     cfg = shared.sanitize_assistant_config(current_app.config.get("AGENT_CONFIG", {}) or {})
     return api_response(data=get_platform_governance_service().build_policy_read_model(cfg))
+
+
+@read_models_bp.route("/governance/operations", methods=["GET"])
+@admin_required
+@operation_gate("api.governance.operations.get")
+def operation_policy_inventory_read_model():
+    cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    auth_source = get_exposure_policy_service().resolve_auth_source(
+        is_agent_auth=bool(getattr(g, "auth_payload", None)),
+        is_user_auth=bool(getattr(g, "user", None)),
+    )
+    return api_response(
+        data=get_core_services().config_read_model_service.operation_policy_read_model(
+            cfg=cfg,
+            auth_source=auth_source,
+            is_admin=bool(getattr(g, "is_admin", False)),
+            transport=str(request.args.get("transport") or "").strip(),
+            access_class=str(request.args.get("access_class") or "").strip(),
+            lifecycle=str(request.args.get("lifecycle") or "").strip(),
+            decision_filter=str(request.args.get("decision") or "").strip(),
+        )
+    )
 
 
 @read_models_bp.route("/dashboard/read-model", methods=["GET"])

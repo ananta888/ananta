@@ -59,3 +59,10 @@ def test_mcp_tool_registry_rejects_unsafe_default_for_write_admin() -> None:
             )
         )
 
+
+def test_mcp_tool_registry_returns_deeply_isolated_projections() -> None:
+    registry = MCPToolRegistry(schema_path=SCHEMA_PATH)
+    registry.register(_descriptor())
+    projection = registry.list_descriptors()
+    projection[0]["allowed_scopes"].append("mutated")
+    assert registry.get("tasks.get")["allowed_scopes"] == ["tasks"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -27,7 +28,7 @@ class MCPToolRegistry:
         default_enabled = bool(descriptor.get("default_enabled", False))
         if default_enabled and access_class in {"write", "admin"}:
             raise ValueError(f"unsafe_default_enabled:{tool_id}")
-        normalized = dict(descriptor)
+        normalized = deepcopy(descriptor)
         normalized["tool_id"] = tool_id
         normalized["access_class"] = access_class
         normalized["risk_class"] = str(descriptor.get("risk_class") or "").strip().lower()
@@ -42,10 +43,10 @@ class MCPToolRegistry:
     def get(self, tool_id: str) -> dict[str, Any] | None:
         key = str(tool_id or "").strip()
         descriptor = self._descriptors.get(key)
-        return dict(descriptor) if isinstance(descriptor, dict) else None
+        return deepcopy(descriptor) if isinstance(descriptor, dict) else None
 
     def list_descriptors(self) -> list[dict[str, Any]]:
-        return [dict(self._descriptors[key]) for key in sorted(self._descriptors)]
+        return [deepcopy(self._descriptors[key]) for key in sorted(self._descriptors)]
 
     def is_tool_available(self, tool_id: str, *, scope: str | None = None) -> bool:
         descriptor = self.get(tool_id)
@@ -105,4 +106,3 @@ mcp_tool_registry = MCPToolRegistry()
 
 def get_mcp_tool_registry() -> MCPToolRegistry:
     return mcp_tool_registry
-

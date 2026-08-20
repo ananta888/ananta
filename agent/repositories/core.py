@@ -1,3 +1,7 @@
+import json
+
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.database import engine
@@ -133,6 +137,38 @@ class ConfigRepository:
             session.commit()
             session.refresh(merged)
             return merged
+
+    def compare_and_swap_json(self, *, key: str, expected_revision: int, value_json: str) -> bool:
+        """Atomically replace one revisioned JSON config value across Hub processes."""
+        with Session(engine) as session:
+            current = session.get(ConfigDB, key)
+            if current is None:
+                if expected_revision != 0:
+                    return False
+                try:
+                    session.add(ConfigDB(key=key, value_json=value_json))
+                    session.commit()
+                    return True
+                except IntegrityError:
+                    session.rollback()
+                    return False
+            try:
+                parsed = json.loads(current.value_json or "{}")
+                revision = int(parsed.get("revision") or 0) if isinstance(parsed, dict) else 0
+            except (TypeError, ValueError, json.JSONDecodeError):
+                revision = 0
+            if revision != expected_revision:
+                return False
+            result = session.execute(
+                update(ConfigDB)
+                .where(ConfigDB.key == key, ConfigDB.value_json == current.value_json)
+                .values(value_json=value_json)
+            )
+            if result.rowcount != 1:
+                session.rollback()
+                return False
+            session.commit()
+            return True
 
 
 class PlaybookRepository:

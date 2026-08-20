@@ -14,6 +14,10 @@ class MCPToolSpec:
     name: str
     description: str
     input_schema: dict[str, Any]
+    access_class: str = "read"
+    risk_class: str = "low"
+    lifecycle: str = "enabled"
+    default_enabled: bool = False
 
 
 @dataclass(frozen=True)
@@ -22,6 +26,8 @@ class MCPResourceSpec:
     name: str
     description: str
     mime_type: str = "application/json"
+    risk_class: str = "low"
+    lifecycle: str = "enabled"
 
 
 class MCPRegistryService:
@@ -219,6 +225,8 @@ class MCPRegistryService:
                 "required": ["task_id"],
                 "additionalProperties": False,
             },
+            access_class="write",
+            risk_class="high",
         ),
         # CTA-013: classroom transcript assistant triggers. External
         # transcript/room systems (or n8n) push segments here; the
@@ -245,6 +253,8 @@ class MCPRegistryService:
                 "required": ["event_id", "session_id", "text_segment"],
                 "additionalProperties": False,
             },
+            access_class="write",
+            risk_class="high",
         ),
         MCPToolSpec(
             name="classroom.reanalyze",
@@ -255,6 +265,8 @@ class MCPRegistryService:
                 "required": ["card_id"],
                 "additionalProperties": False,
             },
+            access_class="write",
+            risk_class="high",
         ),
         MCPToolSpec(
             name="evolution.proposals.list",
@@ -291,6 +303,12 @@ class MCPRegistryService:
             description="Evolution provider discovery and health.",
         ),
     )
+
+    def tool_specs(self) -> tuple[MCPToolSpec, ...]:
+        return tuple(self._TOOLS)
+
+    def resource_specs(self) -> tuple[MCPResourceSpec, ...]:
+        return tuple(self._RESOURCES)
 
     def list_tools(self) -> list[dict[str, Any]]:
         return [

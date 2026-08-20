@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/policies/operation_policy.v1.json",
+  "title": "Ananta Operation Policy v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "enabled",
+    "revision",
+    "enforced_transports",
+    "allow_operations",
+    "deny_operations",
+    "allow_groups",
+    "deny_groups",
+    "allowed_auth_sources"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "enabled": {"type": "boolean"},
+    "revision": {"type": "integer", "minimum": 0},
+    "expected_revision": {"type": "integer", "minimum": 0},
+    "enforced_transports": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["mcp.tool", "mcp.resource", "api"]}
+    },
+    "allow_operations": {"$ref": "#/$defs/operationIds"},
+    "deny_operations": {"$ref": "#/$defs/operationIds"},
+    "allow_groups": {"$ref": "#/$defs/groupIds"},
+    "deny_groups": {"$ref": "#/$defs/groupIds"},
+    "allowed_auth_sources": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["agent_auth", "user_jwt"]}
+    },
+    "require_admin_for_access_classes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["read", "write", "admin"]}
+    },
+    "require_approval_for_risks": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["low", "medium", "high", "critical"]}
+    },
+    "emit_audit_events": {"type": "boolean"},
+    "policy_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+  },
+  "$defs": {
+    "operationIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(mcp\\.(tool|resource)|api)\\.[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
+      }
+    },
+    "groupIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^(mcp|api)\\.[a-z][a-z0-9_]*\\.v[1-9][0-9]*$"}
+    }
+  }
+}
