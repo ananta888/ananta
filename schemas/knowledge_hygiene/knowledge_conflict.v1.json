@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge_hygiene/knowledge_conflict.v1.json",
+  "title": "KnowledgeConflict v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "conflict_id",
+    "project_id",
+    "left_claim_id",
+    "left_claim_revision",
+    "left_claim_digest",
+    "right_claim_id",
+    "right_claim_revision",
+    "right_claim_digest",
+    "conflict_type",
+    "severity",
+    "evidence",
+    "coverage",
+    "state",
+    "version",
+    "created_at",
+    "updated_at",
+    "resolved_by_run_id",
+    "basis_digest"
+  ],
+  "properties": {
+    "conflict_id": {"type": "string", "pattern": "^KHC_[0-9a-f]{24}$"},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "left_claim_id": {"type": "string", "pattern": "^KCL_[0-9a-f]{24}$"},
+    "left_claim_revision": {"type": "integer", "minimum": 1},
+    "left_claim_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "right_claim_id": {"type": "string", "pattern": "^KCL_[0-9a-f]{24}$"},
+    "right_claim_revision": {"type": "integer", "minimum": 1},
+    "right_claim_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "conflict_type": {"enum": ["numeric", "negation", "status", "deterministic_value", "semantic_candidate"]},
+    "severity": {"enum": ["none", "unknown", "low", "medium", "high", "critical"]},
+    "evidence": {"type": "array", "maxItems": 100, "items": {"type": "string", "maxLength": 500}},
+    "coverage": {"enum": ["complete", "partial", "unknown"]},
+    "state": {"enum": ["open", "pending_reingest", "resolved", "reopened"]},
+    "version": {"type": "integer", "minimum": 1},
+    "created_at": {"type": "number", "minimum": 0},
+    "updated_at": {"type": "number", "minimum": 0},
+    "resolved_by_run_id": {"type": ["string", "null"], "pattern": "^RUN_[0-9]{4}$"}
+    ,"basis_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

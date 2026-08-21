@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge_hygiene/knowledge_hygiene_run.v1.json",
+  "title": "KnowledgeHygieneRun v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "run_id",
+    "project_id",
+    "state",
+    "source_bindings",
+    "policy_version",
+    "profile_name",
+    "budgets",
+    "actor_id",
+    "coverage",
+    "assignment_digest",
+    "result_digest",
+    "checkpoint",
+    "lease_owner",
+    "lease_expires_at",
+    "created_at",
+    "updated_at",
+    "failure_reason"
+  ],
+  "properties": {
+    "run_id": {"type": "string", "pattern": "^RUN_[0-9]{4}$"},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "state": {"enum": ["pending", "dispatched", "running", "partial", "completed", "failed", "cancelled"]},
+    "source_bindings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source_id", "source_revision", "content_sha256", "allowed_locators"],
+        "properties": {
+          "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"},
+          "source_revision": {"type": "string", "minLength": 1, "maxLength": 500},
+          "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "allowed_locators": {"type": "array", "minItems": 1, "maxItems": 10000, "items": {"type": "string", "minLength": 1, "maxLength": 4096}}
+        }
+      }
+    },
+    "policy_version": {"type": "string", "minLength": 1, "maxLength": 200},
+    "profile_name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "budgets": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer", "minimum": 0}},
+    "actor_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "coverage": {"enum": ["complete", "partial", "unknown"]},
+    "assignment_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "result_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "checkpoint": {"type": "integer", "minimum": 0},
+    "lease_owner": {"type": ["string", "null"], "maxLength": 200},
+    "lease_expires_at": {"type": ["number", "null"], "minimum": 0},
+    "created_at": {"type": "number", "minimum": 0},
+    "updated_at": {"type": "number", "minimum": 0},
+    "failure_reason": {"type": ["string", "null"], "maxLength": 500}
+  }
+}

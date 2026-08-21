@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge_hygiene/curated_wiki_page.v1.json",
+  "title": "CuratedWikiPage v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "page_id",
+    "project_id",
+    "slug",
+    "title",
+    "revision",
+    "body_markdown",
+    "claim_refs",
+    "conflict_refs",
+    "source_refs",
+    "aliases",
+    "coverage",
+    "created_at",
+    "content_hash"
+  ],
+  "properties": {
+    "page_id": {"type": "string", "pattern": "^KWP_[0-9a-f]{24}$"},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "slug": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"},
+    "title": {"type": "string", "minLength": 1, "maxLength": 500},
+    "revision": {"type": "integer", "minimum": 1},
+    "body_markdown": {"type": "string", "maxLength": 2000000},
+    "claim_refs": {
+      "type": "array",
+      "maxItems": 10000,
+      "items": {
+        "type": "array",
+        "prefixItems": [
+          {"type": "string", "pattern": "^KCL_[0-9a-f]{24}$"},
+          {"type": "integer", "minimum": 1}
+        ],
+        "items": false
+      }
+    },
+    "conflict_refs": {"type": "array", "maxItems": 10000, "items": {"type": "string", "pattern": "^KHC_[0-9a-f]{24}$"}},
+    "source_refs": {"type": "array", "maxItems": 10000, "items": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"}},
+    "aliases": {"type": "array", "maxItems": 1000, "items": {"type": "string", "maxLength": 500}},
+    "coverage": {"enum": ["complete", "partial", "unknown"]},
+    "created_at": {"type": "number", "minimum": 0},
+    "content_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

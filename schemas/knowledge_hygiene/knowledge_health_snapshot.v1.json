@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge_hygiene/knowledge_health_snapshot.v1.json",
+  "title": "KnowledgeHealthSnapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["snapshot_id", "project_id", "as_of", "scope_version", "coverage", "counts", "oldest_open_age_seconds", "trend", "basis_digest"],
+  "properties": {
+    "snapshot_id": {"type": "string", "pattern": "^KHS_[0-9a-f]{24}$"},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "as_of": {"type": "number", "minimum": 0},
+    "scope_version": {"type": "string", "minLength": 1, "maxLength": 200},
+    "coverage": {"enum": ["complete", "partial", "unknown"]},
+    "counts": {"type": "object", "additionalProperties": {"type": ["integer", "null"], "minimum": 0}},
+    "oldest_open_age_seconds": {"type": ["number", "null"], "minimum": 0},
+    "trend": {"type": "object", "additionalProperties": {"type": ["number", "null"]}},
+    "basis_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

@@ -6,7 +6,14 @@ from collections.abc import Collection
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, runtime_checkable
 
-SOURCE_TYPES: tuple[str, ...] = ("repo", "artifact", "task_memory", "wiki", "open_notebook")
+SOURCE_TYPES: tuple[str, ...] = (
+    "repo",
+    "artifact",
+    "task_memory",
+    "wiki",
+    "open_notebook",
+    "curated_wiki",
+)
 _SOURCE_TYPE_SET = set(SOURCE_TYPES)
 _NORMALIZE_SPACES = re.compile(r"\s+")
 _SENSITIVITY_CLASSES = {
@@ -34,6 +41,7 @@ _SOURCE_ORIGIN_CLASSES = {
     "external_research",
     "task_memory",
     "open_notebook",
+    "curated_wiki",
 }
 _MISSING_SOURCE_ID_VALUES = frozenset({"", "unknown", "unverified", "none", "null", "n/a"})
 _GROUNDED_SOURCE_ID_PATTERN = re.compile(r"^(?:SRC|RUN)_[0-9]{4}$")
@@ -46,6 +54,7 @@ _SOURCE_ID_KEYS_BY_TYPE: dict[str, tuple[str, ...]] = {
         "open_notebook_source_id",
         "artifact_id",
     ),
+    "curated_wiki": ("page_id",),
     "repo": (),
 }
 
@@ -131,6 +140,8 @@ def enabled_source_types_from_settings(settings) -> frozenset[str]:
         enabled.add("wiki")
     if bool(getattr(settings, "rag_source_open_notebook_enabled", False)):
         enabled.add("open_notebook")
+    if bool(getattr(settings, "rag_source_curated_wiki_enabled", False)):
+        enabled.add("curated_wiki")
     return frozenset(enabled)
 
 
@@ -158,6 +169,8 @@ def infer_source_type(*, engine: str, metadata: Mapping[str, Any] | None) -> str
         return "wiki"
     if source_scope == "open_notebook":
         return "open_notebook"
+    if source_scope == "curated_wiki":
+        return "curated_wiki"
     if source_scope in {"artifact", "knowledge"}:
         return "artifact"
     if source_scope in {"repo", "repo_path", "repository"}:
@@ -244,6 +257,8 @@ def source_scopes_for_types(source_types: set[str] | frozenset[str]) -> set[str]
         scopes.add("wiki")
     if "open_notebook" in source_types:
         scopes.add("open_notebook")
+    if "curated_wiki" in source_types:
+        scopes.add("curated_wiki")
     return scopes
 
 
@@ -288,6 +303,13 @@ def build_citation(
         citation["artifact_id"] = payload.get("artifact_id")
         citation["record_kind"] = payload.get("record_kind")
         citation["canonical_url"] = payload.get("canonical_url") or payload.get("file_path")
+    elif source_type == "curated_wiki":
+        citation["page_id"] = payload.get("page_id")
+        citation["revision"] = payload.get("page_revision") or payload.get("revision")
+        citation["claim_refs"] = payload.get("claim_refs")
+        citation["conflict_refs"] = payload.get("conflict_refs")
+        citation["coverage"] = payload.get("coverage")
+        citation["authority"] = "supplement_only"
     return citation
 
 

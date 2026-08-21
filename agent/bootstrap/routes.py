@@ -112,6 +112,7 @@ from agent.routes.webrtc_sfu_node_enrollment import webrtc_sfu_node_enrollment_b
 from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observations_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.wiki_graph import wiki_graph_bp
+from agent.routes.knowledge_hygiene import knowledge_hygiene_bp
 from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
 from agent.routes.workflow_adapters import workflow_adapters_bp
@@ -148,6 +149,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(hub_direct_diagnostics_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
+    app.register_blueprint(knowledge_hygiene_bp)
     app.register_blueprint(ml_intern_training_bp)
     app.register_blueprint(model_intelligence_bp)
     app.register_blueprint(ml_intern_lora_runtime_bp)

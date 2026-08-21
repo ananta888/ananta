@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge_hygiene/knowledge_correction.v1.json",
+  "title": "KnowledgeCorrection v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "correction_id",
+    "project_id",
+    "conflict_id",
+    "source_id",
+    "source_revision",
+    "source_locator",
+    "base_content_sha256",
+    "proposed_content",
+    "proposal_digest",
+    "proposed_by_run_id",
+    "created_at",
+    "writeback_approved_by",
+    "writeback_approved_at"
+  ],
+  "properties": {
+    "correction_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "project_id": {"type": "string", "minLength": 1, "maxLength": 200},
+    "conflict_id": {"type": "string", "pattern": "^KHC_[0-9a-f]{24}$"},
+    "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[0-9]{4}$"},
+    "source_revision": {"type": "string", "minLength": 1, "maxLength": 500},
+    "source_locator": {"type": "string", "minLength": 1, "maxLength": 4096},
+    "base_content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "proposed_content": {"type": "string", "maxLength": 1000000},
+    "proposal_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "proposed_by_run_id": {"type": "string", "pattern": "^RUN_[0-9]{4}$"},
+    "created_at": {"type": "number", "minimum": 0},
+    "writeback_approved_by": {"type": ["string", "null"], "maxLength": 200},
+    "writeback_approved_at": {"type": ["number", "null"], "minimum": 0}
+  }
+}

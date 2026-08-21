@@ -73,6 +73,16 @@ from .knowledge import (
     KnowledgeIndexRunDB,
     KnowledgeLinkDB,
 )
+from .knowledge_hygiene import (
+    CuratedWikiPageDB,
+    KnowledgeClaimDB,
+    KnowledgeConflictDB,
+    KnowledgeConflictDecisionDB,
+    KnowledgeCorrectionDB,
+    KnowledgeHealthSnapshotDB,
+    KnowledgeHygieneAuditEventDB,
+    KnowledgeHygieneRunDB,
+)
 from .knowledge_index_execution import KnowledgeIndexExecutionBindingDB
 from .knowledge_index_worker_dispatch import (
     KnowledgeIndexWorkerDispatchReceiptDB,

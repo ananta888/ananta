@@ -516,6 +516,20 @@ def build_default_agent_config() -> dict:
         },
         # AWTCL-004: hub-controlled tool calling loop for ananta-worker.
         # Disabled by default; the existing context batch loop stays the fallback.
+        "knowledge_hygiene": {
+            "enabled": False,
+            "mode": "disabled",
+            "auto_run_enabled": False,
+            "source_writeback_enabled": False,
+            "require_dual_approval": False,
+            "max_claims_per_run": 10000,
+            "max_candidate_pairs": 50000,
+            "max_pages_per_run": 500,
+            "max_patch_bytes": 1000000,
+            "semantic_similarity_threshold": 0.92,
+            "projection_dir": "artifacts/domain/knowledge-hygiene/wiki",
+            "allowed_obsidian_roots": [],
+        },
         "ananta_worker_tool_loop": {
             "enabled": False,
             "schema": "ananta_worker_tool_loop.v1",
