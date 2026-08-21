@@ -2,22 +2,50 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-02",
-  "last_reviewed": "2026-08-02",
+  "last_reviewed": "2026-08-21",
   "owner": "Peter Stuiber / Ananta",
   "track": "dspy-optimization-evaluation-engine-integration",
-  "status": "planned",
+  "status": "blocked",
   "purpose": "DSPy als optionale, isolierte Optimierungs- und Evaluations-Engine in Ananta integrieren. DSPy soll versionierte Prompt-Programme anhand freigegebener Datensaetze und Metriken optimieren, ohne Anantas Hub-Worker-Orchestrierung, Provider-Routing, CodeCompass-Retrieval, Policies, Budgets, Audit oder Artifact-Promotion zu umgehen.",
   "goal": "Ananta kann fuer klar begrenzte Planungs-, strukturierte Ausgabe- und RAG-Aufgaben reproduzierbare DSPy-Experimente ausfuehren, Baseline und Kandidat vergleichen, sichere JSON-Programm-Artefakte erzeugen und erfolgreiche Kandidaten nach expliziter Freigabe ausrollen oder zurueckrollen. DSPy bleibt optional, standardmaessig deaktiviert und aus dem Ananta-Kern sowie dem normalen Inferenz-Hot-Path entkoppelt.",
   "source_review": {
-    "reviewed_at": "2026-08-02",
+    "reviewed_at": "2026-08-21",
     "grounding_status": "repository_inspected_without_provided_source_or_run_ids",
     "ananta_repository": "https://github.com/ananta888/ananta",
-    "ananta_reviewed_commit": "585593cdc9e21aa85ecc986f0d9a45a34c49edf0",
+    "ananta_reviewed_commit": "d54f0e9b2553c9514146eaca7483dca803b7244a",
     "dspy_repository": "https://github.com/stanfordnlp/dspy",
     "dspy_reviewed_commit": "c69136b29aca4c00ca6da7667f7b80783188980e",
     "observed_dspy_project_version": "3.3.0b1",
     "observed_dspy_license": "MIT",
-    "note": "Die Repositories und genannten Commits wurden ueber GitHub inspiziert. Es wurden keine SRC_* oder RUN_* IDs bereitgestellt. Deshalb gelten die Beobachtungen nicht als source-grounded Release-Evidence; Release-, Kompatibilitaets-, Kosten- und Leistungsclaims muessen spaeter mit bereitgestellten unveraenderlichen Evidenz-IDs belegt werden."
+    "note": "Die historische Upstream-Beobachtung bleibt unverified. Auch beim erneuten Ananta-Abgleich am 2026-08-21 wurden keine SRC_* oder RUN_* IDs bereitgestellt und weder DSPy-Produktionscode noch ein DSPy-Dependency-Pin oder gebundener Source Catalog gefunden. Deshalb gelten die Beobachtungen nicht als source-grounded Release-Evidence; Release-, Kompatibilitaets-, Kosten- und Leistungsclaims muessen mit bereitgestellten unveraenderlichen Evidenz-IDs belegt werden.",
+    "blocked_audit": {
+      "status": "blocked",
+      "reason_codes": [
+        "immutable_upstream_source_evidence_missing",
+        "assignment_bound_source_catalog_missing",
+        "allowed_source_refs_empty",
+        "allowed_run_refs_empty"
+      ],
+      "unverified_navigation_observations": [
+        "No DSPy production namespace, optional dependency pin, adapter, contract, schema, or test was found in the current Ananta source tree.",
+        "The Hub-owned Organization Source Catalog and Category Research pipeline is the available authority path for a future grounded research revision.",
+        "DSPY-001 is a root dependency and DSPY-040 explicitly keeps release completion partial or blocked without provided evidence IDs."
+      ],
+      "required_unblock_input": "A Hub-published source catalog binding the immutable DSPy upstream revision, license and dependency baseline plus assignment-bound SRC_* refs; release completion additionally requires assignment-bound RUN_* refs for the declared gates."
+    },
+    "reviewed_paths": [
+      "pyproject.toml",
+      "requirements.txt",
+      "agent/",
+      "worker/",
+      "tests/",
+      "schemas/",
+      "docker/",
+      "docs/planning-pipeline.md",
+      "agent/services/organization_source_catalog_publisher_service.py",
+      "agent/services/organization_category_research_service.py",
+      "agent/services/planning_category_pipeline_service.py"
+    ]
   },
   "status_scale": [
     "todo",
