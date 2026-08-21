@@ -46,6 +46,9 @@ jobs:
       - name: WFG-028 workflow-gates quality gate
         run: python scripts/check_workflow_gates.py
 
+      - name: Knowledge Hygiene release gate
+        run: python scripts/check_knowledge_hygiene_release_gate.py
+
   qdrant-integration:
     runs-on: ubuntu-latest
     timeout-minutes: 25

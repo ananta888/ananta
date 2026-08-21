@@ -1,0 +1,66 @@
+{
+  "benchmark": {
+    "coverage": "complete",
+    "f1": 1.0,
+    "false_positive_rate": 0.0,
+    "latency_slo_passed": true,
+    "latency_slo_seconds": 10.0,
+    "precision": 1.0,
+    "provider": null,
+    "recall": 1.0,
+    "status": "passed",
+    "tokens": null
+  },
+  "checks": {
+    "api_has_project_and_idempotency_binding": true,
+    "default_disabled": true,
+    "ui_exposes_coverage_and_both_sides": true,
+    "worker_has_no_queue_or_followup": true,
+    "writeback_hash_race_guard": true,
+    "writeback_root_and_symlink_guards": true,
+    "writeback_separate_default": true
+  },
+  "configuration": {
+    "auto_run": false,
+    "default_mode": "disabled",
+    "semantic_profile": "deterministic_offline_profile",
+    "source_writeback": false
+  },
+  "fixture": {
+    "path": "tests/fixtures/knowledge_hygiene/benchmark.v1.json",
+    "profile": "release-2000-notes-4000-files",
+    "sha256": "8e39e8b2493d291c465721c20a2b04f95a7b6e248c85989061a50cd438e59805"
+  },
+  "implementation_commit": "containing_git_commit",
+  "limits": {
+    "api_page": 500,
+    "candidate_pairs": 50000,
+    "claims_per_run": 10000,
+    "pages_per_run": 500,
+    "patch_bytes": 1000000
+  },
+  "schema": "knowledge_hygiene_release_gate.v1",
+  "schema_hashes": {
+    "curated_wiki_page.v1.json": "d8457279dc32b978d09b88b46aa5e9df177906a6c6c786e47ba4e386dffa818d",
+    "knowledge_claim.v1.json": "8a20939f7a32f230fdd69b1b82c90bae6fa9c3da6f13d166ac10bcc86ee210ea",
+    "knowledge_conflict.v1.json": "36e7a0a1c70a13d6ab3d3e06d5629299fbf9efa08fb480b7c516f8ee2a8d9f3a",
+    "knowledge_conflict_decision.v1.json": "50b5c8e300cc4ce0d7eec660f90dc9528715c17b57a18a1d33a567602662ef80",
+    "knowledge_correction.v1.json": "b54c235d8193c1746ab57c6d402dd860d4a8d64243314afb4ce0cd69b1363ab0",
+    "knowledge_health_snapshot.v1.json": "a6024c6c57e95b8fe899ea25b6fd49f73509aef34686bcbf79aa04e6af1a5857",
+    "knowledge_hygiene_run.v1.json": "ec6d0d8c55f81bd5b2335ceb068181d588bbe978b6700e49fa8db32f877c2e06"
+  },
+  "source_hashes": {
+    "agent/services/knowledge_hygiene/analysis.py": "a5d510d7626ac7be15fd36c48ea805e71bce9df2ac5f66cc885964e92ed39b60",
+    "agent/services/knowledge_hygiene/service.py": "54b1523950aedde547dd0bdb3e8b4702663eacad7925e99bea9e0194fcea0742",
+    "ananta_contracts/knowledge_claim_precedence.py": "b7e450279e2821aafd46e18caea9d9d738748a015b6e943b690839e4d350673e",
+    "ananta_contracts/knowledge_hygiene.py": "bbeb97ffa17ee31d0e288233afa103d4dd4b211f0ecf354319e94817ae60c74e",
+    "worker/knowledge_hygiene/handlers.py": "edc9ea0d5125fab838618c1755b5c778ecd4dd0236d07c4c0be7e643a5a0fe5c"
+  },
+  "status": "passed",
+  "todo": {
+    "all_done": true,
+    "milestones": 6,
+    "tasks": 42
+  },
+  "track": "knowledge-hygiene-curated-markdown-wiki-conflict-resolution"
+}

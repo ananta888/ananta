@@ -1,0 +1,16 @@
+{
+  "schema": "knowledge_hygiene_benchmark.v1",
+  "profile": "release-2000-notes-4000-files",
+  "notes": 2000,
+  "files": 4000,
+  "claims": 4000,
+  "confirmations": 1500,
+  "expected_conflicts": 500,
+  "max_candidate_pairs": 5000,
+  "thresholds": {
+    "precision": 1.0,
+    "recall": 1.0,
+    "false_positive_rate_max": 0.0,
+    "latency_seconds_max": 10.0
+  }
+}
