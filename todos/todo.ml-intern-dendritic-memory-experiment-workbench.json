@@ -4,8 +4,43 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ml-intern-dendritic-memory-experiment-workbench",
   "created": "2026-07-18",
-  "updated": "2026-07-18",
-  "status": "todo",
+  "updated": "2026-08-21",
+  "status": "blocked",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD@28b04d107527641d924cc9b3c597740f44766f7a plus working tree inspected on 2026-08-21",
+    "review_goal": "Dendritic-Memory-Experimenttrack gegen den aktuellen ml_intern-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "grounding_status": "unverified",
+    "release_status": "blocked_missing_implementation_and_run_evidence",
+    "grounding_note": "Im aktuellen Quellbaum wurden keine Dendritic-Memory-Produktionskomponenten oder Evidenzbindungen gefunden. Externe Inspiration und praktische Release-, GPU-, Staging-, Security- und Benchmarkaussagen bleiben ohne bereitgestellte SRC_* beziehungsweise RUN_* IDs unverified.",
+    "blocked_audit": {
+      "date": "2026-08-21",
+      "status": "blocked",
+      "reason_codes": [
+        "dendritic_implementation_absent",
+        "allowed_source_refs_empty",
+        "allowed_run_refs_empty",
+        "required_complex_release_runs_not_grounded"
+      ],
+      "unverified_navigation_observations": [
+        "No dendritic_memory production namespace, contract, schema, Worker backend, Memory Pack registry, frontend integration, or test was found.",
+        "The current TODO has no later implementation commit after its original addition.",
+        "The existing ml_intern LoRA path remains a review target and must not be semantically overloaded by an ungrounded experiment."
+      ],
+      "required_unblock_input": "Hub-provided SRC_* refs for any external architecture, dependency and license claims, plus assignment-bound RUN_* refs for the required security, benchmark, GPU/staging, rollback, revoke and deletion gates."
+    },
+    "reviewed_paths": [
+      "agent/",
+      "worker/",
+      "frontend-angular/",
+      "ananta_contracts/",
+      "schemas/",
+      "scripts/",
+      "tests/",
+      "docker/"
+    ]
+  },
   "priority": "P0",
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2"],
