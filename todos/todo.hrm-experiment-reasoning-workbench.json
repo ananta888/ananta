@@ -2,20 +2,36 @@
   "$schema": "./todo.schema.json",
   "version": 2,
   "created": "2026-07-29",
-  "updated": "2026-08-03",
+  "updated": "2026-08-21",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "hrm_experiment_reasoning_workbench_research",
   "status": "open",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@85cc48be9ad9d61168f8bcec84cd68b58397174c plus working tree inspected on 2026-08-03",
+    "reviewed_commit_range": "HEAD@ffa6295e7462f4317c3108a77046ee44fe3d6b52 plus working tree inspected on 2026-08-21",
     "review_goal": "Die bisherige gemischte HRM-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo ueberfuehren, vorhandene Ananta-Training-, Worker-, Artifact-, API- und UI-Komponenten zuerst auf Wiederverwendung pruefen und erst nach Promotion einen separaten Planning Track erzeugen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
     "promotion_status": "non_promotable_unverified_sources",
-    "grounding_note": "Fuer diese statische Korrektur wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs uebergeben. Repository-Pfade und externe URLs sind Navigations- beziehungsweise Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausfuehrung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "grounding_note": "Auch beim erneuten Abgleich am 2026-08-21 wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs uebergeben und kein HRM-gebundener Source Catalog in den lokalen Hub-Stores gefunden. Repository-Pfade, Testfixtures und externe URLs sind Navigations- beziehungsweise Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausfuehrung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "blocked_audit": {
+      "date": "2026-08-21",
+      "reviewed_commit": "ffa6295e7462f4317c3108a77046ee44fe3d6b52",
+      "status": "blocked",
+      "reason_codes": [
+        "assignment_bound_source_catalog_missing",
+        "allowed_source_refs_empty",
+        "allowed_run_refs_empty"
+      ],
+      "unverified_navigation_observations": [
+        "No HRM production namespace was found; current HRM references outside documentation and TODOs are Organization planning test data.",
+        "Organization Source Catalog publication and Category Research Hub services now exist and must be evaluated by the bound research assignment as additive reuse candidates.",
+        "No local SQLite Ananta store exposed a persisted Organization Source Catalog table at review time."
+      ],
+      "required_unblock_input": "A Hub-published source_catalog_id and source_catalog_hash plus the exact assignment-bound allowed_source_refs and allowed_run_refs."
+    },
     "reviewed_paths": [
       "AGENTS.md",
       "docs/planning-pipeline.md",
@@ -23,6 +39,10 @@
       "todos/todo.track.schema.json",
       "schemas/planning/category_todo_quality_profile.v1.json",
       "schemas/answers/grounded_answer.v1.json",
+      "agent/services/planning_category_pipeline_service.py",
+      "agent/services/organization_source_catalog_publisher_service.py",
+      "agent/services/organization_category_research_readiness_service.py",
+      "agent/services/organization_category_research_service.py",
       "agent/db_models/ml_intern_training.py",
       "agent/db_models/workers.py",
       "agent/repositories/ml_intern_training.py",
@@ -1093,6 +1113,7 @@
       "Die alte Hybridstruktur aus Epics, Implementierungs-Tasks und recommended_milestones wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
       "Vorhandene ml_intern_training-, Artifact-, API/SSE- und Angular-Komponenten sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
       "Alle 32 Research-Items sind open. Die statische Korrektur erfindet keine SRC_*- oder RUN_*-IDs und ist deshalb absichtlich non-promotable.",
+      "Blocked audit 2026-08-21: Die neue Hub-eigene Organization-Source-Catalog-/Category-Research-Pipeline ist ein Reviewkandidat, liefert ohne publizierten Katalog und Assignment-Allowlist aber keine gueltige HRM-Evidenz.",
       "Komplexe GPU-, Multi-Container-, End-to-End-, grosse Download-/Dataset- und reale Provider-Tests bleiben bis zur ausdruecklichen Freigabe unausgefuehrt.",
       "Der spaetere Track muss den Release-DAG explizit schliessen; Milestone-Mitgliedschaft oder Prosa ersetzt keine Abhaengigkeit."
     ],
