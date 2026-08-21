@@ -5,7 +5,7 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "decentralized-webrtc-peer-media-overlay",
-  "status": "todo",
+  "status": "blocked",
   "created_at": "2026-08-09",
   "updated_at": "2026-08-13",
   "parents": [
@@ -24,8 +24,8 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "d881754a3",
-    "reviewed_at": "2026-08-09",
+    "reviewed_commit": "7123f24c1e6a27d3c76d6805b4f552268faced7b",
+    "reviewed_at": "2026-08-21",
     "reviewed_paths": [
       "AGENTS.md",
       "docs/planning-pipeline.md",
@@ -39,6 +39,7 @@
       "frontend-angular/src/app/services/sfu-broadcast-group-key.port.ts",
       "frontend-angular/src/app/services/sfu-broadcast-data-fanout.service.ts",
       "agent/services/media_topology_policy.py",
+      "agent/services/sfu_fanout_route_lifecycle.py",
       "agent/routes/pair_groups.py"
     ],
     "standards": [
@@ -50,7 +51,26 @@
       "https://datatracker.ietf.org/doc/html/rfc9420",
       "https://datatracker.ietf.org/doc/html/rfc8828"
     ],
-    "evidence_policy": "Repositorypfade und Standards sind Reviewgrundlagen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktive Browser-, Kapazitaets-, Security- und Releaseclaims bleiben bis zu reproduzierbaren, registrierten Gates unverified und fail-closed."
+    "evidence_policy": "Repositorypfade und Standards sind Reviewgrundlagen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktive Browser-, Kapazitaets-, Security- und Releaseclaims bleiben bis zu reproduzierbaren, registrierten Gates unverified und fail-closed.",
+    "blocked_audit": {
+      "status": "blocked",
+      "reason_codes": [
+        "browser_forwarding_feasibility_run_missing",
+        "multi_peer_and_peer_dag_implementation_absent",
+        "registered_browser_nat_security_run_evidence_missing",
+        "allowed_run_refs_empty"
+      ],
+      "unverified_navigation_observations": [
+        "Direct public audio/video E2EE, revocable outbound consent and reconnect/epoch hardening were added after the prior review.",
+        "MediaTopologyPolicy can select ordinary_mesh, but WebrtcSessionService still owns one RTCPeerConnection and no Multi-PeerConnection manager or Peer-DAG production path was found.",
+        "The Hub SFU fanout lifecycle already models policy, membership, key, route and topology epochs with fencing, but it is not a Peer-DAG implementation.",
+        "Commit 7123f24c1 adds a strict highest-counter replay window and in-flight duplicate reservation to the generic media E2EE transform; its new specs were not executed in this session."
+      ],
+      "partial_task_observations": {
+        "DPM-CRYPTO-002": "Existing Direct-E2EE replay handling was hardened, but the task remains open because DPM-CRYPTO-001, complete parity tests and registered gate evidence are unresolved."
+      },
+      "required_unblock_input": "Assignment-bound RUN_* refs for the standards/browser forwarding decision, Chromium/Firefox mesh measurements, NAT/churn matrix, malicious-relay/E2EE negatives and global release gate; missing evidence remains no_go as required by DPM-QA-002 and DPM-QA-004."
+    }
   },
   "baseline": {
     "implemented_foundation": [
