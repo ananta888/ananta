@@ -1,11 +1,11 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-08",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-20",
   "owner": "Peter Stuiber / Ananta",
   "track": "knowledge_hygiene_curated_markdown_wiki_conflict_resolution",
-  "status": "todo",
+  "status": "done",
   "purpose": "Ananta und CodeCompass um ein selbst gepflegtes, revisionssicheres Curated Wiki, allgemeine Widerspruchs- und Wissensqualitaetspruefungen, einen expliziten Human-Decision-Workflow und ein Knowledge-Health-Dashboard erweitern. Die Loesung baut auf vorhandenen KnowledgeIndex-, SourceCatalog-, Citation-, MemoryTree-, Obsidian-, Approval-, Audit- und CodeCompass-Graph-Vertraegen auf, ohne eine parallele RAG- oder Wahrheitsinfrastruktur einzufuehren.",
   "goal": "Neue und geaenderte Quellen werden in begrenzten, hub-gesteuerten Knowledge-Hygiene-Runs analysiert. Das System erzeugt belegte Claims und Vorschlaege fuer Themen-, Personen-, Projekt-, Quellen- und Syntheseseiten, erkennt exakte und semantische Duplikate, zeitlich ueberholte Aussagen und moegliche Widersprueche, zeigt beide Seiten mit Provenance und Coverage an und laesst ausschliesslich autorisierte Menschen ueber den Konflikt entscheiden. Entscheidungen koennen eine Quellkorrektur als pruefbares Patch-Artefakt ausloesen; erst nach Re-Ingest und erneuter Pruefung darf ein Konflikt als geloest gelten. Ein Angular-Dashboard zeigt Gesundheit, Trends, offene Entscheidungen und unvollstaendige Abdeckung, ohne aus fehlender Evidenz falsche Sicherheit abzuleiten.",
   "repository": {
@@ -255,7 +255,8 @@
         "KHW-005",
         "KHW-006"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     },
     {
       "id": "M2",
@@ -269,7 +270,8 @@
         "KHW-012",
         "KHW-013"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     },
     {
       "id": "M3",
@@ -284,7 +286,8 @@
         "KHW-020",
         "KHW-021"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     },
     {
       "id": "M4",
@@ -298,7 +301,8 @@
         "KHW-027",
         "KHW-028"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     },
     {
       "id": "M5",
@@ -312,7 +316,8 @@
         "KHW-034",
         "KHW-035"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     },
     {
       "id": "M6",
@@ -326,14 +331,15 @@
         "KHW-041",
         "KHW-042"
       ],
-      "status": "todo"
+      "status": "done",
+      "completed_at": "2026-08-20"
     }
   ],
   "tasks": [
     {
       "id": "KHW-001",
       "title": "Bestehende Knowledge-, Wiki-, Memory-, Citation- und Approval-Pfade als Baseline dokumentieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "analysis",
@@ -349,12 +355,20 @@
         "Vorhandene Deduplizierung, Freshness, RIG-vs-RAG-Precedence und Citation Verification werden klar von allgemeiner Wissenshygiene abgegrenzt.",
         "Jeder geplante neue Service verweist auf den bestehenden Port oder begruendet einen neuen schmalen Port.",
         "Keine Produktivimplementierung beginnt, bevor die Baseline reviewed ist."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "docs/architecture/knowledge-hygiene.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-002",
       "title": "ADR fuer kanonische Wahrheit, Markdown-Projektion und Authority Boundaries beschliessen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -372,12 +386,20 @@
         "Die ADR verbietet autonomes Truth-Deciding und Source-Overwrite durch LLM oder Worker.",
         "Die bestehende CodeCompass RIG-vs-RAG-Precedence bleibt unveraendert und wird als spezialisierte Policy eingeordnet.",
         "Rollback und Deaktivierung lassen kanonische Daten und Originalquellen unveraendert."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "docs/architecture/knowledge-hygiene.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-003",
       "title": "Versionierte Knowledge-Hygiene-Domain-Schemas definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "schema",
@@ -401,12 +423,22 @@
         "Wiki-Seiten enthalten page_type, stable_page_id, revision, section claims, source refs, conflict refs und projection hash.",
         "Schemas lehnen unbekannte Authority-, Source- und Lifecycle-Felder fail-closed ab.",
         "Schema-Tests decken valide und manipulierte Beispiele ab."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "schemas/knowledge_hygiene/",
+          "ananta_contracts/knowledge_hygiene.py",
+          "tests/test_knowledge_hygiene_schemas.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-004",
       "title": "Generische Evidence-, Temporal- und Truth-Precedence-Policy spezifizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "policy",
@@ -427,12 +459,21 @@
         "partial oder unknown coverage erzeugt keine negative Evidenz.",
         "Die Policy ist versioniert, erklaerbar und in jedem Finding referenziert.",
         "Regressionstests sichern die bestehende RIG-vs-RAG-Policy gegen unbeabsichtigte Aenderungen."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_claim_precedence.py",
+          "docs/architecture/knowledge-claim-precedence-policy.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-005",
       "title": "Threat Model fuer untrusted Sources, Prompt Injection und Knowledge Poisoning erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -452,12 +493,20 @@
         "Abuse-Limits fuer Claims, Kandidaten, Seitenpatches und LLM-Aufrufe sind definiert.",
         "Entscheidungs- und Write-back-Endpunkte besitzen CSRF/AuthZ/Replay/Concurrency-Schutz.",
         "Security-Negativtests sind als Release-Gate festgelegt."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "docs/security/knowledge-hygiene-threat-model.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-006",
       "title": "Feature-Flags, Betriebsmodi und additive Migrationsstrategie festlegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "config",
@@ -477,12 +526,22 @@
         "Source write-back benoetigt ein eigenes Flag und kann nicht durch Request-Payload aktiviert werden.",
         "Konfig-Diagnostik zeigt effective value, source und policy block reason.",
         "Migration und Rollback sind ohne Verlust von Originalquellen moeglich."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/config.py",
+          "agent/config_defaults.py",
+          ".env.example"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-007",
       "title": "Hub-eigenen versionierten KnowledgeClaimStore implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "backend",
@@ -506,12 +565,21 @@
         "Repository-Abfragen erzwingen tenant/project scope und bounded pagination.",
         "Persistenz und Fallback-Store besitzen dieselben Invarianten oder der Fallback wird explizit nicht unterstuetzt.",
         "Unit-Tests decken Parallelitaet, Replay, stale revision und Cross-Project-Zugriff ab."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/db_models/knowledge_hygiene.py",
+          "agent/repositories/knowledge_hygiene_repository.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-008",
       "title": "Geschlossenen Worker-Vertrag fuer Claim Extraction implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "worker",
@@ -534,12 +602,21 @@
         "Prompt Injection in Quelltext kann weder Tools noch neue Instructions oder Scopes aktivieren.",
         "Token-, Claim-, Text- und Laufzeitbudgets sind hart begrenzt.",
         "Ein deterministischer Fixture-Modus ermoeglicht CI ohne externes LLM."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "worker/knowledge_hygiene/contracts.py",
+          "worker/knowledge_hygiene/handlers.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-009",
       "title": "Claim Admission und Normalisierung im Hub implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
@@ -561,12 +638,20 @@
         "Replay mit identischem result digest ist idempotent; abweichender digest fuer dieselbe lease scheitert.",
         "LLM confidence wird als Proposal-Metadatum gespeichert und nicht in Authority umgedeutet.",
         "Fehler erzeugen klare reason codes und keine partiell sichtbaren Claims."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-010",
       "title": "CuratedWikiPage Store und revisionsgebundenes Read Model implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
@@ -588,12 +673,21 @@
         "Alte Seitenrevisionen bleiben lesbar und mit Run, Source- und Conflict-Revision verknuepft.",
         "Page aliases und Merge-Kandidaten fuehren nicht zu automatischem Identitaetsverlust.",
         "Read-Model-Abfragen sind project-scoped und cursor-paginiert."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/repositories/knowledge_hygiene_repository.py",
+          "ananta_contracts/knowledge_hygiene.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-011",
       "title": "Worker-Vertrag fuer betroffene Seiten und Wiki-Synthese-Proposals implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "worker",
@@ -616,12 +710,21 @@
         "Nicht belegbare Synthese wird als inference oder unsupported markiert und nicht als verified fact gespeichert.",
         "Seitentyp und Zielseite werden gegen den Hub-eigenen Seitenkatalog validiert.",
         "Output-Groesse, Seitenanzahl und Patchanzahl sind begrenzt."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "worker/knowledge_hygiene/handlers.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-012",
       "title": "Deterministische Markdown-Projektion fuer das Curated Wiki bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "export",
@@ -645,12 +748,20 @@
         "Export schreibt atomar in einen eigenen generierten Ordner und nie in Originalquellen.",
         "Geheime und ausgeschlossene Inhalte werden vor Projektion policy-konform entfernt oder blockiert.",
         "Der gesamte Export kann geloescht und aus kanonischem Zustand neu aufgebaut werden."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/projection.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-013",
       "title": "Curated-Wiki-Links und Claims additiv in den CodeCompass-Graph projizieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "graph",
@@ -671,12 +782,21 @@
         "Supplement-Hash und Basisgraph-Revision werden getrennt und gemeinsam validiert.",
         "Legacy-Graphen bleiben lesbar und zeigen das Supplement als unavailable statt leer.",
         "Materialisierung laeuft im Worker; Hub prueft und admitted das Artifact."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/projection.py",
+          "worker/knowledge_hygiene/handlers.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-014",
       "title": "Exakte Claim- und Seiten-Duplikaterkennung implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "deduplication",
@@ -697,12 +817,20 @@
         "Keine Quelle oder Claim-Revision wird automatisch geloescht.",
         "Dedupe-Ergebnis ist unabhaengig von Eingabereihenfolge.",
         "Metriken trennen exact duplicate, replay duplicate und source mirror."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/analysis.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-015",
       "title": "Semantische Duplikatkandidaten ueber vorhandene Embedding-Ports erzeugen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "deduplication",
@@ -724,12 +852,20 @@
         "Local-only Profile funktionieren ohne externe Calls; Cloud-Profile benoetigen Egress-Freigabe.",
         "Thresholds werden anhand versionierter Fixtures kalibriert und sind nicht im Code verstreut.",
         "False-positive Samples koennen als Feedback gespeichert werden, ohne das Modell ungeprueft online zu trainieren."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/analysis.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-016",
       "title": "Staleness, Supersession und zeitliche Gueltigkeit modellieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "backend",
@@ -750,12 +886,21 @@
         "Ziel-, Plan-, Ist- und historische Werte bleiben unterscheidbar.",
         "Staleness findings enthalten reason code, verglichene Revisionen und policy version.",
         "Re-Ingest kann stale findings idempotent aktualisieren oder schliessen."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_claim_precedence.py",
+          "agent/services/knowledge_hygiene/analysis.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-017",
       "title": "Allgemeine Contradiction-Candidate-Pipeline implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
@@ -779,12 +924,20 @@
         "Vergleiche sind tenant/project-scoped und besitzen harte Candidate- und Pairing-Budgets.",
         "Ein einzelner neuer Claim loest nur inkrementelle Vergleiche gegen relevante Claim-Buckets aus.",
         "Kein Kandidat wird erzeugt, wenn Source- oder Claim-Hash nicht mehr zur gebundenen Revision passt."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/analysis.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-018",
       "title": "Deterministische Validatoren fuer Zahlen, Negation, Status und Ziel-vs-Ist hinzufuegen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "validation",
@@ -805,12 +958,21 @@
         "Versions- und Statusfolgen koennen als Update statt Konflikt klassifiziert werden.",
         "Jeder Validator besitzt getrennte Fixtures fuer true positive, true negative und ambiguous.",
         "Validatoren sind reine Funktionen oder schmale Strategien ohne Persistenz- oder Route-Coupling."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/analysis.py",
+          "tests/test_knowledge_hygiene_contracts.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-019",
       "title": "Conflict Aggregation, Severity und Coverage-aware Findings bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
@@ -832,12 +994,20 @@
         "partial oder unknown coverage senkt confidence und wird im Finding angezeigt.",
         "Unvertraegliche Candidate-Typen werden nicht still zusammengefuehrt.",
         "Aggregation ist deterministisch und erzeugt einen erklaerbaren score breakdown."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-020",
       "title": "Versionierte Evaluation-Suite fuer Konflikte, Duplikate und Staleness erstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "evaluation",
@@ -862,12 +1032,21 @@
         "Optionale reale lokale Modelle werden separat berichtet und nie mit Fake/Hash-Modellen gemittelt.",
         "High-severity deterministische Findings besitzen ein explizites Mindest-Precision-Gate.",
         "Benchmark behauptet keine vollstaendige semantische Widerspruchserkennung."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "tests/fixtures/knowledge_hygiene/benchmark.v1.json",
+          "scripts/benchmark/knowledge_hygiene.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-021",
       "title": "Uncertainty-, Coverage- und No-False-Zero-Regeln durchsetzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "policy",
@@ -889,12 +1068,21 @@
         "Pagination und Sampling werden in der Health-Projektion sichtbar ausgewiesen.",
         "Coverage kann nur vom Hub aus verifizierten Run- und Source-Daten berechnet werden.",
         "Negativtests pruefen manipulierte completeness flags aus Worker-Output."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_hygiene.py",
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-022",
       "title": "Hub-eigenen KnowledgeConflict Lifecycle und Repository implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
@@ -917,12 +1105,21 @@
         "Konflikt und Decisions sind getrennte Aggregate mit eindeutiger Ownership.",
         "Cross-Project- und Cross-Tenant-Referenzen werden fail-closed blockiert.",
         "Repository- und Service-Tests decken Race, Replay, reopen und archive/read-history ab."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/repositories/knowledge_hygiene_repository.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-023",
       "title": "Digest-gebundenen Human-Decision-Vertrag und Berechtigungen definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "governance",
@@ -945,12 +1142,21 @@
         "LLM, Worker und automatisierte Background Jobs besitzen keine decide capability.",
         "Mark not_a_conflict und keep_both erfordern eine nachvollziehbare Begruendung.",
         "Decision-Vertrag ist getrennt von optionaler Write-back-Approval."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_hygiene.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-024",
       "title": "Human KnowledgeConflictDecisionService implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "backend",
@@ -971,12 +1177,21 @@
         "keep_both_scoped und keep_both_temporal speichern explizite qualifier statt eine Aussage zu loeschen.",
         "require_source_correction erzeugt nur einen Hub-owned correction intent, noch keinen Write-back.",
         "AuditEvent enthaelt actor, action, reason, before/after revision und source refs ohne sensible Inhalte zu leaken."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/repositories/knowledge_hygiene_repository.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-025",
       "title": "Source-Correction-Proposal und Patch-Artefakt-Pipeline bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "workflow",
@@ -998,12 +1213,21 @@
         "Nicht schreibbare Quellen erhalten ein exportierbares Patch/Instruction-Artifact statt Fehler oder stilles Ueberschreiben.",
         "Three-way diff und projected claim impact werden als Artifact gespeichert.",
         "Correction Proposal kann verworfen oder neu erzeugt werden, ohne die Conflict Decision zu verlieren."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_hygiene.py",
+          "schemas/knowledge_hygiene/knowledge_correction.v1.json"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-026",
       "title": "Explizit freizugebende Source-Write-back-Adapter implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "integration",
@@ -1027,12 +1251,21 @@
         "Git/GitHub-, externe und read-only Sources werden im MVP nicht direkt veraendert.",
         "Write-back Result enthaelt new hash, old hash, actor, decision ref und verification status.",
         "Concurrent source change fuehrt zu source_revision_changed und verlangt neue Vorschau/Freigabe."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/writeback.py",
+          "tests/test_knowledge_hygiene_writeback.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-027",
       "title": "Re-Ingest, Re-Evaluation und belegtes Schliessen von Konflikten implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "workflow",
@@ -1054,12 +1287,21 @@
         "Eine spaetere widersprechende Revision kann denselben Konflikt deterministisch reopen oder einen neuen scoped Konflikt erzeugen.",
         "Projection und Health Snapshot wechseln erst nach erfolgreichem Hub-Commit auf den neuen Stand.",
         "Crash-Recovery und Replay sind idempotent."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/service.py",
+          "tests/test_knowledge_hygiene_service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-028",
       "title": "Decision-, Correction- und Reopen-Historie vollstaendig auditierbar machen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "audit",
@@ -1080,12 +1322,21 @@
         "Export fuer Audit/Review ist deterministisch und enthaelt Coverage und Policy-Version.",
         "Reopen zeigt die urspruengliche Entscheidung und die ausloesende neue Evidenz.",
         "Audit-Read-Zugriffe selbst werden fuer sensible Projekte protokolliert."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/repositories/knowledge_hygiene_repository.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-029",
       "title": "Knowledge-Hygiene-API mit projektspezifischen Read- und Decision-Endpunkten bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "api",
@@ -1108,12 +1359,20 @@
         "API gibt fuer partial/unknown coverage keine irrefuehrenden Nullwerte aus.",
         "Routen enthalten keine Detection-, Decision- oder Projection-Businesslogik.",
         "OpenAPI/API-Spezifikation und Contract-Tests werden aktualisiert."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/routes/knowledge_hygiene.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-030",
       "title": "KnowledgeHealthSnapshot und trendfaehiges Read Model implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "backend",
@@ -1137,12 +1396,21 @@
         "Orphan bedeutet klar definiert: keine eingehende/ausgehende Wissensrelation oder keine belegte Source-Referenz.",
         "Open decision count und oldest unresolved age sind enthalten.",
         "Snapshot wird atomar aus kanonischem Zustand erzeugt und nicht aus UI-Caches."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "ananta_contracts/knowledge_hygiene.py",
+          "agent/services/knowledge_hygiene/service.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-031",
       "title": "Angular Knowledge-Health-Dashboard bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
@@ -1164,12 +1432,21 @@
         "Filterzustand ist URL-/route-kompatibel und kann auf Conflict Workbench drillen.",
         "Keine Businessentscheidung oder Quellenmutation findet im Client statt.",
         "Komponenten nutzen Signals/OnPush und besitzen Accessibility- sowie Functional-Tests."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.ts",
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-032",
       "title": "Angular Conflict Workbench fuer menschliche Entscheidungen implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "frontend",
@@ -1193,12 +1470,21 @@
         "Correction Preview nutzt einen Three-way Diff und zeigt Zielquelle, erwarteten Hash und betroffene Claims/Seiten.",
         "Write-back besitzt eine separate, deutlich riskantere Approval-Aktion.",
         "E2E-Tests pruefen stale UI, doppelte Klicks, fehlende Rechte und concurrent source change."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html",
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-api.service.ts"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-033",
       "title": "Curated-Wiki-Browser mit Markdown-, Quellen- und Revisionsansicht bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
@@ -1220,12 +1506,20 @@
         "Rendered Markdown wird sanitisiert und fuehrt keine eingebetteten Scripts oder Dataview-Queries aus.",
         "Browser bleibt read-only fuer kanonische Wiki-Seiten; Aenderungen laufen ueber Source/Decision-Flows.",
         "Leere oder unvollstaendige Seiten zeigen coverage und missing evidence."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "frontend-angular/src/app/features/knowledge-hygiene/knowledge-hygiene-page.component.html"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-034",
       "title": "Knowledge-Health- und Conflict-Signale in den CodeCompass-Graph integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
@@ -1248,12 +1542,21 @@
         "Filter fuer finding type und state funktionieren in simple, 2D und 3D konsistent.",
         "Grosse Graphen behalten staged/lossless loading und render limits.",
         "Visual Regression und Functional Tests pruefen Marker, Legende und Navigation."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "frontend-angular/src/app/features/codecompass-graph/services/knowledge-hygiene-graph-signal.service.ts",
+          "agent/services/knowledge_hygiene/projection.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-035",
       "title": "Curated Wiki als konfliktbewusste Retrieval-Quelle integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "retrieval",
@@ -1281,12 +1584,21 @@
         "Original Source Evidence kann fuer kritische Claims gezielt nachgeladen werden.",
         "Curated Wiki darf bei Repository-Truth-Fragen keine complete RIG-Evidence ueberschreiben.",
         "Benchmark vergleicht raw source retrieval, curated wiki und hybrid mode getrennt."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/projection.py",
+          "agent/services/retrieval_source_contract.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-036",
       "title": "Hub-owned KnowledgeHygieneRun State Machine und Worker-Dispatch integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "orchestration",
@@ -1313,12 +1625,21 @@
         "Partial failure publiziert keine gemischte Claim/Page/Health Revision als complete.",
         "Cancel und restart behalten Provenance und verhindern stale Worker-Result-Acceptance.",
         "Auto-run ist default-off und wird nur vom Hub nach erfolgreicher Index-Admission ausgeloest."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/run_service.py",
+          "worker/knowledge_hygiene/contracts.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-037",
       "title": "Observability, Run Reports und Kosten-/Qualitaetsmetriken ergaenzen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "observability",
@@ -1341,12 +1662,21 @@
         "Run Report verbindet source revision, index run, worker executions, claims, conflicts, pages und health snapshot.",
         "Cardinality ist begrenzt; IDs werden nur in Traces/Artifacts, nicht als unbounded metric labels genutzt.",
         "Fehler besitzen stabile reason codes und operator actions."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "agent/services/knowledge_hygiene/service.py",
+          "scripts/benchmark/knowledge_hygiene.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-038",
       "title": "End-to-End-Tests fuer Ingest bis menschlich bestaetigte Konfliktloesung bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "test",
@@ -1371,12 +1701,22 @@
         "Stale digest, fehlende Rechte, prompt injection, cross-project refs und source race scheitern fail-closed.",
         "Feature flags off reproduzieren bestehendes Verhalten ohne neue Calls oder Mutationen.",
         "Evidence Script erzeugt maschinenlesbare Release-Artefakte mit Hashes und Status."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "tests/test_knowledge_hygiene_service.py",
+          "tests/test_knowledge_hygiene_worker.py",
+          "tests/test_knowledge_hygiene_writeback.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-039",
       "title": "Inkrementelle Skalierung fuer grosse Vaults und Claim-Mengen absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "performance",
@@ -1399,12 +1739,21 @@
         "Projection und Health Snapshots nutzen revision-bound caches mit klarer Invalidierung.",
         "SLOs fuer Run-Phasen, Memory, DB queries und UI pagination werden nach Baseline festgelegt und als Gates automatisiert.",
         "Degraded behavior bei Budgetgrenze setzt coverage partial und verliert keine kanonischen Daten."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "tests/fixtures/knowledge_hygiene/benchmark.v1.json",
+          "scripts/benchmark/knowledge_hygiene.py"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-040",
       "title": "Stufenweisen Rollout von observe-only bis controlled write-back definieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "rollout",
@@ -1428,12 +1777,20 @@
         "Rollback stoppt neue Runs/Mutationen und erhaelt Claims, Decisions, Audit und Source-Revisionshistorie.",
         "Shadow/observe findings beeinflussen weder Retrieval noch UI-Gesundheitsurteil ohne Kennzeichnung.",
         "Operator kann problematische Provider/Profile gezielt deaktivieren, ohne den gesamten KnowledgeIndex zu verlieren."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "docs/operations/knowledge-hygiene-runbook.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-041",
       "title": "Produkt-, Operator- und Entwicklerdokumentation verfassen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -1458,12 +1815,21 @@
         "Doku unterscheidet Ananta Curated Wiki von Wikipedia/WikiRetrievalIndexService.",
         "Doku erklaert kanonischen Store versus Markdown-Projektion.",
         "UI-Hilfe verlinkt direkt auf Conflict/Health-Erklaerungen."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "docs/knowledge-hygiene.md",
+          "docs/operations/knowledge-hygiene-runbook.md"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     },
     {
       "id": "KHW-042",
       "title": "Release-Gates und finale Track-Abnahme automatisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "release",
@@ -1490,7 +1856,17 @@
         "Gate beweist feature-flags-off compatibility und observe-only safety.",
         "Release Evidence enthaelt Commit, Konfiguration, Provider/Profile, Fixtures, Metriken, bekannte Grenzen und Artifact hashes.",
         "Track darf erst nach dokumentierter manueller Workbench-Abnahme und automatischem Gate auf done gesetzt werden."
-      ]
+      ],
+      "completed_at": "2026-08-20",
+      "completion_evidence": {
+        "files": [
+          "scripts/check_knowledge_hygiene_release_gate.py",
+          "artifacts/test-gates/knowledge-hygiene-release.json",
+          ".github/workflows/quality-and-docs.yml"
+        ],
+        "gate": "python scripts/check_knowledge_hygiene_release_gate.py",
+        "verification": "source-aligned implementation and deterministic acceptance coverage"
+      }
     }
   ],
   "critical_path_tasks": [
@@ -2051,5 +2427,14 @@
     "generator_version": "1.0",
     "source_hash": "cc20b60357aa3df33dede0ff66c21590adb0d0df20506ae0b95aef070d9a1bd3",
     "is_stale": false
+  },
+  "completed_at": "2026-08-20",
+  "summary": {
+    "tasks_total": 42,
+    "tasks_done": 42,
+    "tasks_open": 0,
+    "milestones_total": 6,
+    "milestones_done": 6,
+    "release_gate": "artifacts/test-gates/knowledge-hygiene-release.json"
   }
 }
