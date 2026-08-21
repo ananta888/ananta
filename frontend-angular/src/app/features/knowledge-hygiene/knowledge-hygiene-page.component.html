@@ -1,0 +1,157 @@
+<main class="hygiene-shell" aria-labelledby="knowledge-hygiene-title">
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">PROJECT {{ projectId() }}</p>
+      <h1 id="knowledge-hygiene-title">Knowledge Hygiene</h1>
+      <p class="lede">Quellengebundene Claims, sichtbare Konflikte und menschliche Entscheidungen.</p>
+    </div>
+    @if (health(); as snapshot) {
+      <div class="coverage-stamp" [attr.data-coverage]="snapshot.coverage">
+        <span>Coverage</span>
+        <strong>{{ coverageLabel(snapshot.coverage) }}</strong>
+      </div>
+    }
+  </header>
+
+  <nav class="tab-rail" aria-label="Knowledge-Hygiene-Bereiche">
+    <button type="button" [class.active]="activeTab() === 'health'" (click)="selectTab('health')">Health</button>
+    <button type="button" [class.active]="activeTab() === 'conflicts'" (click)="selectTab('conflicts')">Konflikte <span>{{ conflicts().length }}</span></button>
+    <button type="button" [class.active]="activeTab() === 'wiki'" (click)="selectTab('wiki')">Curated Wiki <span>{{ wikiPages().length }}</span></button>
+  </nav>
+
+  @if (error(); as message) {
+    <div class="error-banner" role="alert">{{ message }}</div>
+  }
+  @if (loading()) {
+    <p class="loading" aria-live="polite">Projektwissen wird geladen...</p>
+  } @else {
+    @if (activeTab() === 'health') {
+      <section class="health-grid" aria-labelledby="health-heading">
+        <h2 id="health-heading" class="sr-only">Knowledge Health</h2>
+        <article class="metric-card signal"><span>Claims</span><strong>{{ displayCount('claims') }}</strong></article>
+        <article class="metric-card warning"><span>Offene Konflikte</span><strong>{{ displayCount('open_conflicts') }}</strong></article>
+        <article class="metric-card"><span>Wiki-Seiten</span><strong>{{ displayCount('wiki_pages') }}</strong></article>
+        <article class="metric-card"><span>Verwaiste Claims</span><strong>{{ displayCount('orphan_claims') }}</strong></article>
+        <aside class="coverage-note" [attr.data-coverage]="health()?.coverage">
+          <strong>Interpretationsgrenze</strong>
+          <p>{{ coverageMessage() }}</p>
+          <small>Stand: {{ (health()?.as_of ?? 0) * 1000 | date:'medium' }} | Scope {{ health()?.scope_version }}</small>
+        </aside>
+      </section>
+    }
+
+    @if (activeTab() === 'conflicts') {
+      <section class="split-workbench" aria-labelledby="conflicts-heading">
+        <div class="index-panel">
+          <h2 id="conflicts-heading">Konflikt-Inbox</h2>
+          @for (conflict of conflicts(); track conflict.conflict_id) {
+            <button type="button" class="conflict-row" (click)="selectConflict(conflict)" [class.selected]="selectedConflict()?.conflict?.conflict_id === conflict.conflict_id">
+              <span class="severity" [attr.data-severity]="conflict.severity">{{ conflict.severity }}</span>
+              <strong>{{ conflict.conflict_type }}</strong>
+              <small>{{ conflict.state }} | v{{ conflict.version }}</small>
+            </button>
+          } @empty {
+            <p class="empty">Keine beobachteten Konflikte. Coverage beachten.</p>
+          }
+        </div>
+
+        <div class="detail-panel">
+          @if (selectedConflict(); as detail) {
+            <header class="detail-heading">
+              <div><span>CONFLICT</span><h2>{{ detail.conflict.conflict_id }}</h2></div>
+              <span class="coverage-chip" [attr.data-coverage]="detail.conflict.coverage">{{ coverageLabel(detail.conflict.coverage) }}</span>
+            </header>
+            <div class="claim-duel">
+              <article>
+                <p>LINKS | {{ detail.left_claim?.source_id }} @ {{ detail.left_claim?.source_revision }}</p>
+                <h3>{{ detail.left_claim?.subject }} / {{ detail.left_claim?.predicate }}</h3>
+                <pre>{{ detail.left_claim?.value | json }}</pre>
+                <small>{{ detail.left_claim?.source_locator }}</small>
+              </article>
+              <div class="versus" aria-hidden="true">VS</div>
+              <article>
+                <p>RECHTS | {{ detail.right_claim?.source_id }} @ {{ detail.right_claim?.source_revision }}</p>
+                <h3>{{ detail.right_claim?.subject }} / {{ detail.right_claim?.predicate }}</h3>
+                <pre>{{ detail.right_claim?.value | json }}</pre>
+                <small>{{ detail.right_claim?.source_locator }}</small>
+              </article>
+            </div>
+            <form class="decision-form" (ngSubmit)="submitDecision()">
+              <label>Entscheidung
+                <select name="decision" [ngModel]="decision()" (ngModelChange)="decision.set($event)">
+                  <option value="keep_both">Beide mit Qualifier behalten</option>
+                  <option value="keep_left">Linke Aussage bevorzugen</option>
+                  <option value="keep_right">Rechte Aussage bevorzugen</option>
+                  <option value="request_correction">Quellkorrektur anfordern</option>
+                  <option value="dismiss_not_conflict">Kein Konflikt</option>
+                </select>
+              </label>
+              <label>Begruendung
+                <textarea name="rationale" rows="4" required [ngModel]="rationale()" (ngModelChange)="rationale.set($event)"></textarea>
+              </label>
+              <label>Qualifier, einer pro Zeile
+                <textarea name="qualifiers" rows="3" [ngModel]="qualifiers()" (ngModelChange)="qualifiers.set($event)"></textarea>
+              </label>
+              <label class="check"><input type="checkbox" name="writeback" [ngModel]="requestWriteback()" (ngModelChange)="requestWriteback.set($event)"> Separaten Korrekturvorschlag anfordern</label>
+              <p class="guard-note">Eine Entscheidung schreibt nie automatisch in die Quelle. Writeback benoetigt eine eigene Freigabe.</p>
+              <button class="primary" type="submit" [disabled]="actionPending() || !rationale().trim()">Digest-gebunden entscheiden</button>
+            </form>
+            <section class="writeback-panel" aria-labelledby="writeback-heading">
+              <h3 id="writeback-heading">Separate Quellschreibfreigabe</h3>
+              <div class="correction-lookup">
+                <label for="correction-id">Korrektur-ID</label>
+                <input id="correction-id" name="correctionId" [ngModel]="correctionId()" (ngModelChange)="correctionId.set($event)">
+                <button type="button" (click)="loadCorrection()">Vorschlag laden</button>
+              </div>
+              @if (correctionDetail(); as correction) {
+                <dl class="hash-grid">
+                  <dt>Base</dt><dd><code>{{ correction.three_way.base_sha256 }}</code></dd>
+                  <dt>Current</dt><dd><code>{{ correction.three_way.current_sha256 }}</code></dd>
+                  <dt>Proposed</dt><dd><code>{{ correction.three_way.proposed_sha256 }}</code></dd>
+                </dl>
+                <p>Status: <strong>{{ correction.three_way.status }}</strong> | {{ correction.state }}</p>
+                <pre class="patch-preview">{{ correction.three_way.diff }}</pre>
+                <button class="primary" type="button" (click)="approveCorrection()" [disabled]="actionPending() || correction.state !== 'proposed' || correction.three_way.status !== 'clean'">Writeback separat freigeben</button>
+              }
+            </section>
+          } @else {
+            <p class="empty">Konflikt auswaehlen, um beide Quellen und die Historie zu sehen.</p>
+          }
+        </div>
+      </section>
+    }
+
+    @if (activeTab() === 'wiki') {
+      <section class="split-workbench wiki-workbench" aria-labelledby="wiki-heading">
+        <div class="index-panel">
+          <h2 id="wiki-heading">Kuratierte Seiten</h2>
+          @for (page of wikiPages(); track page.page_id + ':' + page.revision) {
+            <button type="button" class="wiki-row" (click)="selectPage(page)" [class.selected]="selectedPage()?.page_id === page.page_id">
+              <strong>{{ page.title }}</strong>
+              <small>v{{ page.revision }} | {{ coverageLabel(page.coverage) }}</small>
+              @if (page.conflict_refs.length) { <span>{{ page.conflict_refs.length }} Warnungen</span> }
+            </button>
+          } @empty {
+            <p class="empty">Noch keine kuratierten Projektionen.</p>
+          }
+        </div>
+        <article class="detail-panel wiki-page">
+          @if (selectedPage(); as page) {
+            <header class="detail-heading"><div><span>CURATED / REVISION {{ page.revision }}</span><h2>{{ page.title }}</h2></div></header>
+            @if (page.conflict_refs.length) {
+              <aside class="wiki-warning" role="status">Offene Konflikte: {{ page.conflict_refs.join(', ') }}</aside>
+            }
+            <pre class="markdown-source">{{ page.body_markdown }}</pre>
+            <footer>
+              <span>Claims {{ page.claim_refs.length }}</span>
+              <span>Quellen {{ page.source_refs.join(', ') }}</span>
+              <code>{{ page.content_hash }}</code>
+            </footer>
+          } @else {
+            <p class="empty">Eine Revision auswaehlen. Markdown wird als Text dargestellt und nicht als unsicheres HTML ausgefuehrt.</p>
+          }
+        </article>
+      </section>
+    }
+  }
+</main>
