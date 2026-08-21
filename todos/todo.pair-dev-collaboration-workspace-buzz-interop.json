@@ -5,7 +5,7 @@
   "version": "1.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "pair-dev-collaboration-workspace-buzz-interop",
-  "status": "todo",
+  "status": "blocked",
   "created_at": "2026-08-06",
   "updated_at": "2026-08-13",
   "architecture_document": "docs/architecture/pair-dev-collaboration-workspace.md",
@@ -40,8 +40,8 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "e046211d4c6ad069a8be96c3e1436b90182b6602",
-    "reviewed_at": "2026-08-13",
+    "reviewed_commit": "3d34c21057031980fa83c8b83aff637adfaa1458",
+    "reviewed_at": "2026-08-21",
     "reviewed_paths": [
       "AGENTS.md",
       "CONTRIBUTING.md",
@@ -69,7 +69,31 @@
       "https://github.com/block/buzz/blob/main/VISION_AGENT.md",
       "https://github.com/block/buzz/blob/main/VISION_PROJECTS.md"
     ],
-    "evidence_policy": "Die Pfade sind Quell-Audit-Referenzen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktions- und Release-Claims bleiben bis zu reproduzierbaren Gates unverified beziehungsweise fail-closed."
+    "evidence_policy": "Die Pfade sind Quell-Audit-Referenzen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktions- und Release-Claims bleiben bis zu reproduzierbaren Gates unverified beziehungsweise fail-closed.",
+    "blocked_audit": {
+      "status": "blocked",
+      "reason_codes": [
+        "native_workspace_core_implementation_absent",
+        "native_browser_and_load_run_evidence_missing",
+        "multi_participant_live_run_evidence_missing",
+        "buzz_source_and_conformance_evidence_missing"
+      ],
+      "lane_status": {
+        "native_core": "blocked_missing_implementation_and_run_evidence",
+        "multi_participant_live": "blocked_missing_real_browser_run_evidence",
+        "buzz_bridge": "blocked_missing_source_and_runtime_evidence"
+      },
+      "unverified_navigation_observations": [
+        "No CollaborationWorkspace, CollaborationRoom, WorkspaceEventV1, WorkspaceActorBinding, append-only Workspace Event Store, permission-aware Workspace Search, or CollaborationBridge production implementation was found.",
+        "Recent Pair-Dev work adds quick-share session switching, active catalog-session reopen and epoch-fenced reconnect behavior to the existing Pair-Session path; it is not a durable native Workspace Core.",
+        "No Buzz or Nostr production adapter and no PDCW-bound SRC_* or RUN_* evidence was found."
+      ],
+      "required_unblock_input": {
+        "native_core": "Assignment-bound RUN_* refs for the focused native browser E2E and native-only load/rebuild gate after implementation.",
+        "multi_participant_live": "Assignment-bound RUN_* refs for real multi-identity browser, revocation, chaos and backpressure gates.",
+        "buzz_bridge": "Hub-provided SRC_* refs binding a pinned compatible Buzz revision plus RUN_* refs for two reconnect/replay cycles and bridge conformance."
+      }
+    }
   },
   "baseline": {
     "preserve": [
