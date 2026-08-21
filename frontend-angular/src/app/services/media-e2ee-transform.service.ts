@@ -15,6 +15,12 @@ export interface MediaEncodedFrame {
   readonly type?: string;
 }
 
+interface MediaReplayWindow {
+  highest: bigint;
+  readonly accepted: Set<bigint>;
+  readonly pending: Set<bigint>;
+}
+
 const MAGIC = Uint8Array.of(0x41, 0x4e, 0x4d, 0x45); // ANME
 const HEADER_BYTES = 32;
 const MAX_FRAME_BYTES = 8 * 1024 * 1024;
@@ -30,7 +36,7 @@ const REPLAY_WINDOW = 2_048;
 export class MediaE2eeTransformService {
   private readonly sendCounters = new Map<string, bigint>();
   private readonly noncePrefixes = new Map<string, Uint8Array>();
-  private readonly received = new Map<string, Set<bigint>>();
+  private readonly received = new Map<string, MediaReplayWindow>();
 
   supportsEncodedTransform(): boolean {
     const scope = globalThis as typeof globalThis & {
@@ -109,29 +115,49 @@ export class MediaE2eeTransformService {
     const nonce = arrayBufferBackedBytes(frame.slice(20, 32));
     if (readUint64(nonce, 4) !== counter) throw new Error('media_e2ee_nonce_binding_invalid');
     const binding = contextKey(context);
-    const seen = this.received.get(binding) ?? new Set<bigint>();
-    if (seen.has(counter)) throw new Error('media_e2ee_replay');
+    const replay = this.received.get(binding) ?? {
+      highest: 0n,
+      accepted: new Set<bigint>(),
+      pending: new Set<bigint>(),
+    };
+    if (outsideReplayWindow(counter, replay.highest)) throw new Error('media_e2ee_replay_too_old');
+    if (replay.accepted.has(counter) || replay.pending.has(counter)) throw new Error('media_e2ee_replay');
+    replay.pending.add(counter);
+    this.received.set(binding, replay);
+    let plaintext: ArrayBuffer;
     try {
       const additionalData = arrayBufferBackedBytes(aad(context, counter, frameType));
-      const plaintext = await crypto.subtle.decrypt(
+      plaintext = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: nonce, additionalData, tagLength: 128 },
         key,
         frame.slice(HEADER_BYTES),
       );
-      seen.add(counter);
-      while (seen.size > REPLAY_WINDOW) seen.delete(seen.values().next().value!);
-      this.received.set(binding, seen);
-      return plaintext;
     } catch (error) {
+      replay.pending.delete(counter);
+      if (replay.highest === 0n && replay.accepted.size === 0 && replay.pending.size === 0) {
+        this.received.delete(binding);
+      }
       if (error instanceof Error && error.message.startsWith('media_e2ee_')) throw error;
       throw new Error('media_e2ee_authentication_failed');
     }
+    replay.pending.delete(counter);
+    if (outsideReplayWindow(counter, replay.highest)) throw new Error('media_e2ee_replay_too_old');
+    replay.highest = counter > replay.highest ? counter : replay.highest;
+    replay.accepted.add(counter);
+    for (const acceptedCounter of replay.accepted) {
+      if (outsideReplayWindow(acceptedCounter, replay.highest)) replay.accepted.delete(acceptedCounter);
+    }
+    return plaintext;
   }
 
   forgetEpoch(context: Readonly<MediaE2eeFrameContext>): void {
     const binding = contextKey(context);
     this.sendCounters.delete(binding); this.noncePrefixes.delete(binding); this.received.delete(binding);
   }
+}
+
+function outsideReplayWindow(counter: bigint, highest: bigint): boolean {
+  return highest > 0n && counter + BigInt(REPLAY_WINDOW) <= highest;
 }
 
 function arrayBufferBackedBytes(value: Uint8Array): Uint8Array<ArrayBuffer> {

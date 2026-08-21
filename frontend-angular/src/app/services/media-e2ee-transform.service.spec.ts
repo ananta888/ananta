@@ -39,6 +39,34 @@ describe('MediaE2eeTransformService', () => {
       .rejects.toThrow('media_e2ee_authentication_failed');
   });
 
+  it('admits a ciphertext only once when concurrent opens race', async () => {
+    const sender = new MediaE2eeTransformService(); const receiver = new MediaE2eeTransformService();
+    const aes = await key();
+    const encrypted = await sender.seal(context(), aes, Uint8Array.of(1, 2, 3).buffer, 'delta');
+    const results = await Promise.allSettled([
+      receiver.open(context(), aes, encrypted, 'delta'),
+      receiver.open(context(), aes, encrypted, 'delta'),
+    ]);
+    expect(results.filter(result => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter(result => result.status === 'rejected')).toHaveLength(1);
+    expect(String((results.find(result => result.status === 'rejected') as PromiseRejectedResult).reason))
+      .toContain('media_e2ee_replay');
+  });
+
+  it('permanently rejects an unseen frame older than the strict sliding window', async () => {
+    const sender = new MediaE2eeTransformService(); const receiver = new MediaE2eeTransformService();
+    const aes = await key();
+    const oldUnseen = await sender.seal(context(), aes, Uint8Array.of(1).buffer, 'delta');
+    for (let index = 0; index < 2_049; index += 1) {
+      const encrypted = await sender.seal(
+        context(), aes, Uint8Array.of(index & 0xff).buffer, 'delta',
+      );
+      await receiver.open(context(), aes, encrypted, 'delta');
+    }
+    await expect(receiver.open(context(), aes, oldUnseen, 'delta'))
+      .rejects.toThrow('media_e2ee_replay_too_old');
+  });
+
   it('requires a non-extractable AES-GCM key', async () => {
     const extractable = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
     await expect(new MediaE2eeTransformService().seal(
