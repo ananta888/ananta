@@ -2,20 +2,36 @@
   "$schema": "./todo.schema.json",
   "version": 2,
   "created": "2026-07-18",
-  "updated": "2026-08-08",
+  "updated": "2026-08-21",
   "project": "ananta",
   "owner": "Peter Stuiber / Ananta",
   "track": "spreadsheet_lora_libreoffice_feedback_studio_research",
   "status": "open",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@c995de012fdac78c3bd62da7d67da959076382cb plus working tree inspected on 2026-08-08",
+    "reviewed_commit_range": "HEAD@6d5109d52b8ad28bb3e1d0985d8d6a73685aa4ff plus working tree inspected on 2026-08-21",
     "review_goal": "Die bisherige gemischte Spreadsheet-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo überführen. Vor einer Track-Promotion werden vorhandene Artifact-, Worker-, ml_intern-, Unsloth-, Consent-, API-, Angular- und Compose-Bausteine auf Wiederverwendung geprüft und die LibreOffice-, Dokument-, Action-, Validierungs-, Datenschutz-, Trainings- und Betriebsgrenzen verbindlich entschieden.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
     "promotion_status": "non_promotable_unverified_sources",
-    "grounding_note": "Für diese statische Korrektur wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs übergeben. Repository-Pfade, Commit-Hashes und externe URLs sind Navigations- und Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausführung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "grounding_note": "Auch beim erneuten Abgleich am 2026-08-21 wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs übergeben und kein Spreadsheet-/LibreOffice-gebundener Source Catalog gefunden. Repository-Pfade, Commit-Hashes, Testfixtures und externe URLs sind Navigations- und Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausführung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "blocked_audit": {
+      "date": "2026-08-21",
+      "reviewed_commit": "6d5109d52b8ad28bb3e1d0985d8d6a73685aa4ff",
+      "status": "blocked",
+      "reason_codes": [
+        "assignment_bound_source_catalog_missing",
+        "allowed_source_refs_empty",
+        "allowed_run_refs_empty"
+      ],
+      "unverified_navigation_observations": [
+        "No Spreadsheet Studio or LibreOffice production namespace was found outside documentation and TODOs.",
+        "No commits since the prior review date were found in the declared Artifact, ml_intern, Worker training, Angular model-training, or LoRA Compose review paths.",
+        "Organization Source Catalog publication and Category Research Hub services now exist and must be evaluated by the bound research assignment as additive reuse candidates."
+      ],
+      "required_unblock_input": "A Hub-published source_catalog_id and source_catalog_hash plus the exact assignment-bound allowed_source_refs and allowed_run_refs."
+    },
     "reviewed_paths": [
       "AGENTS.md",
       "docs/planning-pipeline.md",
@@ -23,6 +39,10 @@
       "todos/todo.track.schema.json",
       "schemas/planning/category_todo_quality_profile.v1.json",
       "schemas/answers/grounded_answer.v1.json",
+      "agent/services/planning_category_pipeline_service.py",
+      "agent/services/organization_source_catalog_publisher_service.py",
+      "agent/services/organization_category_research_readiness_service.py",
+      "agent/services/organization_category_research_service.py",
       "todos/archiv/todo.mlintern-lora-training-control-center.json",
       "agent/routes/artifacts.py",
       "agent/services/ingestion_service.py",
@@ -963,6 +983,7 @@
       "Die alte Hybridstruktur aus Implementierungs-Tasks, Milestones und manuell gepflegten Track-Summaries wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
       "Repository-Pfade und das archivierte LoRA-Control-Center sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
       "Alle 33 Research-Items sind open. Die statische Korrektur erfindet keine SRC_*- oder RUN_*-IDs und ist deshalb absichtlich non-promotable.",
+      "Blocked audit 2026-08-21: Die Hub-eigene Organization-Source-Catalog-/Category-Research-Pipeline ist ein Reviewkandidat, liefert ohne publizierten Katalog und Assignment-Allowlist aber keine gültige Spreadsheet-Evidenz.",
       "Security, Consent, Dokumentversionen und Hub-Worker-Verträge werden vor abhängiger Implementierung erforscht; Worker publizieren keine finalen Dokumentversionen.",
       "Komplexe GPU-, Multi-Container-, End-to-End-, große Dokument- und reale Provider-Tests bleiben bis zur ausdrücklichen Freigabe unausgeführt."
     ],
