@@ -2,10 +2,52 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-15",
+  "last_reviewed": "2026-08-21",
   "updated_at": "2026-08-15",
   "owner": "Peter Stuiber / Ananta",
   "track": "agent_defense_in_depth_adversarial_escape_safety",
-  "status": "todo",
+  "status": "blocked",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD@bd1e99657ca83c6e89b69dd49f5aff08831b63a5 plus working tree inspected on 2026-08-21",
+    "review_goal": "Defense-in-Depth-Track gegen aktuelle Sandbox-Ports, Policy-Admission, Terminalgrenzen, Worker-Prozesskontrolle, Kill-Switch-Muster und source-grounded Safety-Gates abgleichen.",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "grounding_status": "unverified",
+    "release_status": "blocked_missing_safety_controls_and_authorized_run_evidence",
+    "blocked_audit": {
+      "status": "blocked",
+      "reason_codes": [
+        "production_sandbox_safety_control_absent",
+        "generic_safety_event_and_incident_freeze_absent",
+        "authorized_adversarial_scope_and_run_evidence_missing",
+        "opaque_sentinel_source_and_training_evidence_missing"
+      ],
+      "unverified_navigation_observations": [
+        "SandboxBackend currently exposes an execution port and FakeSandbox but no generic production backend in that module.",
+        "SandboxPolicyService classifies commands and selected callers enforce admission decisions; policy normalization alone is not OS, container, filesystem or network containment.",
+        "Training process termination and domain-specific kill switches are reusable patterns, not a run-wide Agent Safety Control implementation.",
+        "No generic SafetyEvent, incident freeze, emergency egress fence, run credential revocation, boundary telemetry, escape replay or patch-before-retry production path was found."
+      ],
+      "local_progress": {
+        "ADS-001": "docs/security/agent-defense-in-depth-baseline.md records the static REUSE/EXTEND/NEW/REJECT inventory and SOLID target seams; runtime properties remain unverified.",
+        "documentation_correction": "docs/security/sandbox-operations-guide.md now distinguishes policy/admission checks from technical backend containment."
+      },
+      "required_unblock_input": "Hub-provided SRC_* refs for adopted sentinel, training and external safety claims; an explicit Hub-authorized isolated target scope; and assignment-bound RUN_* refs for freeze/terminate/isolate, egress cut-off, credential revocation, incident capture, multi-Agent stop, escape replay and complete chaos/safety gates."
+    },
+    "reviewed_paths": [
+      "agent/services/sandbox_backend.py",
+      "agent/services/sandbox_policy_service.py",
+      "agent/services/segment_preflight_validator.py",
+      "agent/services/terminal_policy_service.py",
+      "agent/services/ssh_terminal_wrapper.py",
+      "worker/training/process_control.py",
+      "worker/training/subprocess_executor.py",
+      "tests/test_sandbox_backend.py",
+      "tests/test_sandbox_escape_regression.py",
+      "docs/security/sandbox-operations-guide.md",
+      "docs/security/agent-defense-in-depth-baseline.md"
+    ]
+  },
   "purpose": "Ananta um eine mehrschichtige Sicherheitsarchitektur für autonome Agenten erweitern, die präventive Verhaltensregeln nicht mit technischer Isolation verwechselt und nach einem Boundary-Crossing den Schaden begrenzt, vollständige Telemetrie sichert und reproduzierbare Security-Regressions erzeugt.",
   "goal": "Präventive Policy bzw. Training bleibt optional und vollständig deaktivierbar. Unabhängig davon können technische Sandbox-Grenzen, ein externer Hub-kontrollierter Kill-Switch, hochauflösende Telemetrie, Incident Freeze und Replay aktiv bleiben. Zusätzlich werden offene Sicherheits-Trigger sowie ein rotierender semantisch opaker Hash-/Pseudonym-Sentinel untersucht, dessen Ausführung dem Modell mit absoluter Priorität antrainiert werden kann, ohne dem Modell den realen Zweck des Triggers zu verraten. Parallel ausführbare Red-Team-Agenten dürfen ausschließlich in autorisierten isolierten Testumgebungen gezielt versuchen, Sicherheitsgrenzen zu überwinden. Jeder erfolgreiche oder vermutete Escape wird gestoppt/eingefroren, forensisch gebündelt, klassifiziert, behoben und als Regressionstest konserviert.",
   "repository": {
