@@ -6,7 +6,17 @@
 
 ## Overview
 
-Ananta's execution sandbox enforces three isolation classes for command execution, filesystem access, and network egress. The sandbox is enforced at the `SandboxPolicyService` and `TerminalPolicyService` layers.
+Ananta currently classifies three isolation classes and applies them at selected
+Hub admission and terminal-policy boundaries. `SandboxPolicyService` evaluates
+command classes, while `TerminalPolicyService` and the managed SSH wrapper
+enforce their own terminal decisions. These policy checks are not an OS- or
+container-level sandbox by themselves.
+
+`agent/services/sandbox_backend.py` currently defines a port and an in-memory
+test fake; it does not provide a production sandbox backend. A deployment may
+claim technical containment only when a concrete backend and its filesystem,
+network, process, namespace and resource controls have separate runtime
+evidence.
 
 ## Isolation Classes
 
@@ -18,17 +28,23 @@ Ananta's execution sandbox enforces three isolation classes for command executio
 
 The default isolation class is `bounded-mutable`. Change it in `worker_runtime.default_isolation_class` in the hub config.
 
-## Filesystem Controls
+## Filesystem Policy Inputs
 
-- Only paths under `allowed_workspace_roots` (default: `/workspace`, `/project-workspaces`) are writable.
-- `blocked_path_fragments` rejects any path containing `/.ssh`, `/etc/`, `/proc/`, `/sys/`.
-- `enforce_workspace_boundary: true` is the default and must not be disabled in production.
+- `allowed_workspace_roots` defaults to `/workspace` and `/project-workspaces`.
+- `blocked_path_fragments` defaults to `/.ssh`, `/etc/`, `/proc/`, `/sys/`.
+- `enforce_workspace_boundary: true` is the normalized policy default.
+- The managed SSH wrapper performs its own path containment checks. The generic
+  policy object alone does not make arbitrary process filesystem access safe.
 
-## Network Egress Controls
+## Network Egress Policy Inputs
 
-- `egress_mode: restricted` (default) — only explicitly allowlisted domains/CIDRs.
-- `egress_mode: open` — unrestricted outbound; use only in isolated lab environments.
+- `egress_mode: restricted` is the normalized default.
+- `egress_mode: open` expresses an operator policy request and must be used only
+  in isolated lab environments.
 - Configure `allowed_domains` and `allowed_cidrs` in the sandbox policy config.
+- A production containment claim additionally requires enforcement at the
+  concrete network namespace, proxy or firewall boundary. String normalization
+  is not egress enforcement.
 
 ## Terminal Access Policy
 
@@ -41,16 +57,19 @@ Terminal sessions are controlled by `TerminalPolicyService`:
 ## Running in Hardened Mode
 
 1. Set `worker_runtime.default_isolation_class: hardened-high-risk` in hub config.
-2. Confirm via **Admin-Diagnose** in the UI that the sandbox class shows `hardened-high-risk`.
+2. Confirm via **Admin-Diagnose** that admission reports `hardened-high-risk`.
 3. Test with the regression suite: `pytest tests/test_sandbox_escape_regression.py -v`.
 4. Review `docs/security/kritis-sandbox-isolation-classes.md` for the full class taxonomy.
 5. Enable mutation gate approval (`propose_policy.require_approval: true`) before deploying.
+6. Independently verify the concrete container/process/filesystem/network
+   backend. Selecting the class does not create those boundaries.
 
 ## Tradeoffs and Limitations
 
 - `hardened-high-risk` blocks commands requiring elevated privileges unless the agent explicitly requests this class.
 - `low-risk-readonly` does not support any file writes; tasks that produce artifacts will fail unless the workspace root is excluded from the restriction.
-- Sandbox policy enforcement is advisory for the hub's own process space — it applies to agent-issued commands, not to the hub's internal Flask process.
+- Sandbox class policy is an admission control for covered call paths, not a
+  general containment boundary for the Hub process or every Worker subprocess.
 - Network CIDR matching is pattern-based string comparison; use a dedicated network-level firewall for cryptographic enforcement in critical environments.
 
 ## Known Compatibility Issues
@@ -63,9 +82,13 @@ Terminal sessions are controlled by `TerminalPolicyService`:
 
 Run: `pytest tests/test_sandbox_policy_service.py tests/test_sandbox_escape_regression.py -v`
 
-The suite verifies:
+The suite verifies policy normalization and admission decisions:
 - Default normalization produces safe defaults.
 - `sudo`/`docker`/container commands require `hardened-high-risk` and are denied under `bounded-mutable`.
 - Filesystem boundary violations are rejected.
 - Network egress decisions respect `egress_mode` and allowlists.
 - Hardened profiles cannot be silently weakened by config omissions.
+
+It does not prove namespace, syscall, mount, network, credential or process
+containment. Those properties require backend-specific integration and runtime
+gates.
