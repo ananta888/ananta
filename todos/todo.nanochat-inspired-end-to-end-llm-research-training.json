@@ -4,8 +4,42 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "nanochat-inspired-end-to-end-llm-research-training",
   "created": "2026-08-16",
+  "updated": "2026-08-21",
   "last_updated": "2026-08-16",
-  "status": "todo",
+  "status": "blocked",
+  "review_basis": {
+    "reviewed_commit_range": "HEAD@d7d37ab87e6c2c79efb639e0496b5cd82a58b382 plus working tree inspected on 2026-08-21",
+    "review_goal": "Nanochat-inspirierten Research-Training-Track gegen den aktuellen LoRA-Control-Plane-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "grounding_status": "unverified",
+    "release_status": "blocked_missing_upstream_and_run_evidence",
+    "blocked_audit": {
+      "status": "blocked",
+      "reason_codes": [
+        "nanochat_upstream_evidence_missing",
+        "research_training_implementation_absent",
+        "allowed_source_refs_empty",
+        "allowed_run_refs_empty"
+      ],
+      "unverified_navigation_observations": [
+        "No Nanochat or generic Research Training production namespace, tokenizer-training backend, from-scratch pretraining backend, full-model SFT path, or RL backend was found.",
+        "The only matching checkpoint-manager wording belongs to the existing LoRA/Unsloth backend and is not Nanochat implementation evidence.",
+        "The current TODO has no later implementation commit after its original addition."
+      ],
+      "required_unblock_input": "Hub-provided SRC_* refs binding the immutable Nanochat revision, license, dependencies and adopted design claims, plus assignment-bound RUN_* refs for tokenizer, pretraining, DDP, SFT, RL, sandbox, recovery, benchmark and promotion gates."
+    },
+    "reviewed_paths": [
+      "agent/",
+      "worker/training/",
+      "frontend-angular/",
+      "ananta_contracts/",
+      "schemas/",
+      "scripts/",
+      "tests/",
+      "docker/"
+    ]
+  },
   "purpose": "Anantas bestehende, sichere LoRA/QLoRA-Training-Control-Plane um einen optionalen End-to-End-Research-Pfad nach den uebertragbaren Prinzipien von karpathy/nanochat erweitern. Der neue Pfad soll Tokenizer-Training, From-Scratch-Pretraining, Base-Model-Evaluation, SFT, taskbasierte Evaluation, optionales RL/Post-Training, Inferenz-Benchmarking und reproduzierbare Modellserien abdecken, ohne Anantas Hub/Worker-, Policy-, Audit-, Dataset- und Registry-Architektur zu umgehen.",
   "goal": "Ein klar isoliertes Research Training Harness etablieren, das kleine und mittlere Open-Weight-/From-Scratch-Experimente reproduzierbar ueber Ananta ausfuehren kann, nanochat-artige Einfachheit pro Experiment bewahrt, aber Ressourcen, Datenherkunft, Artefakte, Policies, Freigaben, Evaluation und Promotion ueber Anantas vorhandene Control Plane verwaltet.",
   "non_goals": [
@@ -19,6 +53,10 @@
     "Keine Aufgabe von Anantas tenant-, owner-, policy-, idempotency- und auditgebundenen Trainingsvertraegen."
   ],
   "source_review": {
+    "grounding_status": "unverified_missing_assignment_refs",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "grounding_note": "Die nachfolgenden historischen Pfadbeobachtungen sind Navigation und keine verifizierte Evidenz. Ohne Hub-bereitgestellte SRC_* und RUN_* IDs duerfen daraus keine Upstream-, Implementierungs-, Kompatibilitaets-, Performance- oder Releaseclaims abgeleitet werden.",
     "nanochat": [
       {
         "path": "README.md",
