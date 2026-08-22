@@ -1,0 +1,373 @@
+{
+  "version": "1.0.1",
+  "owner": "Ananta maintainers",
+  "track": "hrm-experiment-reasoning-workbench-implementation",
+  "purpose": "Implement the promoted HRM research decisions incrementally without weakening Hub authority, container isolation, source grounding, or existing APIs.",
+  "goal": "Deliver a default-disabled, secure HRM experiment domain beginning with a bounded Sudoku vertical slice and ending with evidence-gated release readiness.",
+  "source_category_item_ids": [
+    "HRM-RESEARCH-REVIEW-001"
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "medium",
+    "high",
+    "critical"
+  ],
+  "milestones": [
+    {
+      "id": "HRMI-M01",
+      "title": "Control plane and isolation contracts",
+      "task_ids": [
+        "HRMI-001",
+        "HRMI-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "HRMI-M02",
+      "title": "Secure data and bounded Sudoku runtime",
+      "task_ids": [
+        "HRMI-003",
+        "HRMI-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "HRMI-M03",
+      "title": "Plugins, evaluation and clients",
+      "task_ids": [
+        "HRMI-005",
+        "HRMI-006"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "HRMI-M04",
+      "title": "Adversarial and release gates",
+      "task_ids": [
+        "HRMI-007"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "HRMI-001",
+      "title": "Add the feature-flagged HRM control-plane domain and closed contracts",
+      "status": "completed",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "depends_on": [],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-GND-001",
+        "HRMR-GND-002",
+        "HRMR-GND-003",
+        "HRMR-FIT-001",
+        "HRMR-FIT-002",
+        "HRMR-FIT-003",
+        "HRMR-FIT-004",
+        "HRMR-PLAN-001"
+      ],
+      "paths": [
+        "agent/services/hrm_experiments/",
+        "agent/db_models/",
+        "agent/routes/",
+        "docs/contracts/hrm-experiments.openapi.yaml",
+        "schemas/hrm-experiments/contracts.v1.json"
+      ],
+      "acceptance_criteria": [
+        "A default-disabled HRM domain exposes narrow Hub-side ports for admission, persistence, dispatch, events, artifacts and evaluation without changing existing LoRA or chat contracts.",
+        "Hub-owned IDs, tenant/project scope, idempotency, CAS/lease fencing and fail-closed policy checks are represented by closed request/result contracts.",
+        "Workers cannot create queue entries, select other workers, project authoritative Hub status or communicate worker-to-worker.",
+        "Focused contract and service tests cover disabled mode, scope isolation, stale revision, unknown fields and replay behavior."
+      ]
+    },
+    {
+      "id": "HRMI-002",
+      "title": "Build the pinned and isolated HRM worker runtime boundary",
+      "status": "completed",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "depends_on": [
+        "HRMI-001"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-SEC-000",
+        "HRMR-SEC-001",
+        "HRMR-SEC-002",
+        "HRMR-SEC-003",
+        "HRMR-SEC-004",
+        "HRMR-SEC-005",
+        "HRMR-RUN-001",
+        "HRMR-RUN-002"
+      ],
+      "paths": [
+        "worker/hrm_experiments/",
+        "docker/compose-next/",
+        "docs/operations/"
+      ],
+      "acceptance_criteria": [
+        "The HRM worker runs in its own non-root container with read-only root, cap-drop-all, no-new-privileges, bounded tmpfs/workspace and no Docker socket or host namespace access.",
+        "Dependencies and base images are digest/version pinned with deterministic build metadata; network and telemetry are denied by default.",
+        "Execution is assignment-, WorkerJob-, dispatch-lease-, attempt-, deadline- and digest-bound with process-group cancellation and bounded cleanup.",
+        "Preflight denies missing isolation, incompatible hardware/runtime and stale or widened authority with stable reason codes."
+      ]
+    },
+    {
+      "id": "HRMI-003",
+      "title": "Implement secure dataset, checkpoint and artifact admission",
+      "status": "completed",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "depends_on": [
+        "HRMI-001",
+        "HRMI-002"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-SEC-006",
+        "HRMR-SEC-007",
+        "HRMR-DATA-001",
+        "HRMR-ART-001"
+      ],
+      "paths": [
+        "agent/services/hrm_experiments/",
+        "worker/hrm_experiments/",
+        "agent/services/ml_intern_artifact_security_service.py"
+      ],
+      "acceptance_criteria": [
+        "Dataset and checkpoint manifests bind scope, digest, byte size, schema, license state and provenance before visibility or execution.",
+        "Checkpoint admission is safetensors-only; pickle, torch.load, custom classes, dynamic imports, object hooks and trust_remote_code are denied.",
+        "Archive traversal, links, bombs, tenant/path escape, SSRF, redirect/DNS rebinding and unbounded streams fail closed.",
+        "Artifact publication crosses the Worker boundary only through verified relative paths, size/hash checks and current dispatch leases."
+      ]
+    },
+    {
+      "id": "HRMI-004",
+      "title": "Deliver the bounded Sudoku end-to-end vertical slice",
+      "status": "completed",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "HRMI-002",
+        "HRMI-003"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-FIT-005",
+        "HRMR-RUN-003",
+        "HRMR-RUN-004",
+        "HRMR-DATA-002",
+        "HRMR-EVAL-001"
+      ],
+      "paths": [
+        "agent/services/hrm_experiments/",
+        "worker/hrm_experiments/",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "The Hub can admit, dispatch, observe, cancel, reconcile and accept one bounded Sudoku experiment through the existing task/WorkerJob control plane.",
+        "The deterministic 9x9 fixture validator enforces shape, range, givens, rows, columns, boxes and canonical solution equality.",
+        "Events are monotonic, paginated and integrity-bound; retry, cancel/result races and stale ingress have deterministic tests.",
+        "Mock and contract profiles pass locally while CPU/GPU performance and accuracy remain unclaimed without their own RUN evidence."
+      ]
+    },
+    {
+      "id": "HRMI-005",
+      "title": "Add independently gated Maze and ARC puzzle plugins",
+      "status": "completed",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "HRMI-003",
+        "HRMI-004"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-DATA-003"
+      ],
+      "paths": [
+        "agent/services/hrm_experiments/plugins/",
+        "worker/hrm_experiments/plugins/",
+        "tests/"
+      ],
+      "acceptance_criteria": [
+        "Maze and ARC use separate narrow codec, normalizer and validator ports and cannot dynamically load untrusted plugin code.",
+        "Maze defines bounded grids, start/goal, obstacles, path validity, shortest-path semantics and unsolvable cases.",
+        "ARC defines bounded colors/grids, train/test structure, output validation, license state and egress suitability.",
+        "Either plugin may remain disabled or deferred without blocking the Sudoku domain."
+      ]
+    },
+    {
+      "id": "HRMI-006",
+      "title": "Expose evaluation, reports and consistent Hub client surfaces",
+      "status": "completed",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "client",
+      "depends_on": [
+        "HRMI-004",
+        "HRMI-005"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-EVAL-002",
+        "HRMR-UX-001",
+        "HRMR-UX-002",
+        "HRMR-UX-003"
+      ],
+      "paths": [
+        "agent/routes/hrm_experiments/",
+        "frontend-angular/src/app/features/model-training/",
+        "client_surfaces/operator_tui/",
+        "agent/ananta_cli.py"
+      ],
+      "acceptance_criteria": [
+        "Hub APIs implement the published HRM OpenAPI contract with stable pagination, sorting, idempotency, authorization and error codes.",
+        "Evaluation and offline comparison reports preserve dataset/checkpoint/run provenance and never infer accuracy from documentation.",
+        "Angular, Visual Process, TUI and CLI use only Hub IDs and APIs and expose no Worker URLs, server paths or local checkpoint paths.",
+        "The UI is explicitly experimental, accessible and bounded for loading, empty, error, cancel and stale-event states."
+      ]
+    },
+    {
+      "id": "HRMI-007",
+      "title": "Close adversarial, compatibility and experimental release gates",
+      "status": "completed",
+      "priority": "P0",
+      "risk": "high",
+      "type": "governance",
+      "depends_on": [
+        "HRMI-006"
+      ],
+      "source_category_item_ids": [
+        "HRM-RESEARCH-REVIEW-001"
+      ],
+      "research_decision_ids": [
+        "HRMR-PLAN-002",
+        "HRMR-PLAN-003"
+      ],
+      "paths": [
+        "tests/",
+        "artifacts/test-gates/",
+        "docs/operations/"
+      ],
+      "acceptance_criteria": [
+        "Contract, security, tenant-isolation, replay, cancellation, recovery and backward-compatibility gates pass with stable audit artifacts.",
+        "Any CPU, GPU, performance, accuracy, checkpoint-portability or remote-provider claim is backed by an explicitly approved assignment-bound RUN reference.",
+        "Critical and high threat-register entries have verified deny/mitigate controls and named owners; unresolved evidence remains release-blocking.",
+        "The experimental feature remains default-disabled and requires an explicit Hub approval for release enablement."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "HRMI-001",
+    "HRMI-002",
+    "HRMI-003",
+    "HRMI-004",
+    "HRMI-005",
+    "HRMI-006",
+    "HRMI-007"
+  ],
+  "tasks_status_summary": {
+    "total": 7,
+    "by_status": {
+      "todo": 7,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 5,
+      "P1": 2
+    },
+    "by_risk": {
+      "medium": 1,
+      "high": 3,
+      "critical": 3
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 0,
+      "remaining": 7
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 7,
+    "by_type": {
+      "architecture": 1,
+      "security": 2,
+      "implementation": 2,
+      "client": 1,
+      "governance": 1
+    }
+  },
+  "progress_summary": {
+    "state": "not_started",
+    "todo_remaining": 7,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "All 32 HRM research decision IDs are mapped exactly once across the seven implementation tasks.",
+    "The Track is passive until separate Hub adoption and materialization transitions succeed.",
+    "Runtime, GPU, performance and accuracy are not claimed by this plan.",
+    "Adoption requires an approval decision by a canonical principal distinct from the Hub actor that derived this Track revision."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "HRMI-S01",
+      "title": "Experimental HRM release handoff",
+      "items": [
+        "Hub-controlled bounded Sudoku path",
+        "Fail-closed isolation and artifact controls",
+        "Evidence-bound evaluation and clients",
+        "Default-disabled release gate"
+      ]
+    }
+  ],
+  "metadata": {
+    "status": "completed",
+    "updated_at": "2026-08-22"
+  }
+}
