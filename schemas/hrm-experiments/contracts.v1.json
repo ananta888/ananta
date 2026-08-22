@@ -1,0 +1,421 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/hrm-experiments/contracts.v1.json",
+  "title": "Ananta HRM experiment boundary contracts",
+  "oneOf": [
+    {"$ref": "#/$defs/capability_probe"},
+    {"$ref": "#/$defs/preflight_result"},
+    {"$ref": "#/$defs/puzzle_dataset_manifest"},
+    {"$ref": "#/$defs/checkpoint_manifest"},
+    {"$ref": "#/$defs/run_request"},
+    {"$ref": "#/$defs/run_status"},
+    {"$ref": "#/$defs/event_page"},
+    {"$ref": "#/$defs/cancel_request"},
+    {"$ref": "#/$defs/run_result"},
+    {"$ref": "#/$defs/evaluation_report"}
+  ],
+  "$defs": {
+    "identifier": {"type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "safe_text": {"type": "string", "maxLength": 1024, "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"},
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tenant_id", "project_id"],
+      "properties": {
+        "tenant_id": {"$ref": "#/$defs/identifier"},
+        "project_id": {"$ref": "#/$defs/identifier"},
+        "goal_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "authority_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "assignment_id", "worker_job_id", "dispatch_lease_id", "attempt_id", "epoch", "deadline_epoch_ms", "policy_digest", "schema_digest", "payload_digest"],
+      "properties": {
+        "task_id": {"$ref": "#/$defs/identifier"},
+        "assignment_id": {"$ref": "#/$defs/identifier"},
+        "worker_job_id": {"$ref": "#/$defs/identifier"},
+        "dispatch_lease_id": {"$ref": "#/$defs/identifier"},
+        "attempt_id": {"$ref": "#/$defs/identifier"},
+        "epoch": {"type": "integer", "minimum": 1},
+        "deadline_epoch_ms": {"type": "integer", "minimum": 1},
+        "policy_digest": {"$ref": "#/$defs/sha256"},
+        "schema_digest": {"$ref": "#/$defs/sha256"},
+        "payload_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "resource_limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_millis", "memory_bytes", "pids", "wallclock_seconds", "scratch_bytes", "output_bytes", "log_bytes", "event_count", "retries", "gpu_device_ids", "vram_bytes"],
+      "properties": {
+        "cpu_millis": {"type": "integer", "minimum": 100, "maximum": 64000},
+        "memory_bytes": {"type": "integer", "minimum": 67108864, "maximum": 1099511627776},
+        "pids": {"type": "integer", "minimum": 1, "maximum": 4096},
+        "wallclock_seconds": {"type": "integer", "minimum": 1, "maximum": 604800},
+        "scratch_bytes": {"type": "integer", "minimum": 0, "maximum": 1099511627776},
+        "output_bytes": {"type": "integer", "minimum": 0, "maximum": 10737418240},
+        "log_bytes": {"type": "integer", "minimum": 0, "maximum": 1073741824},
+        "event_count": {"type": "integer", "minimum": 0, "maximum": 1000000},
+        "retries": {"type": "integer", "minimum": 0, "maximum": 8},
+        "gpu_device_ids": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "vram_bytes": {"type": "integer", "minimum": 0, "maximum": 343597383680}
+      }
+    },
+    "runtime_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_version", "image_digest", "python_version", "torch_version", "cuda_version", "flash_attention_version"],
+      "properties": {
+        "engine_version": {"$ref": "#/$defs/identifier"},
+        "image_digest": {"$ref": "#/$defs/sha256"},
+        "python_version": {"$ref": "#/$defs/identifier"},
+        "torch_version": {"type": ["string", "null"], "maxLength": 128},
+        "cuda_version": {"type": ["string", "null"], "maxLength": 128},
+        "flash_attention_version": {"type": ["string", "null"], "maxLength": 128}
+      }
+    },
+    "capability_probe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "worker_id", "feature_enabled", "runtime", "device", "isolation", "supported_profiles", "capability_digest"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.capability.v1"},
+        "worker_id": {"$ref": "#/$defs/identifier"},
+        "feature_enabled": {"type": "boolean"},
+        "runtime": {"$ref": "#/$defs/runtime_identity"},
+        "device": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "device_ids", "vram_bytes"],
+          "properties": {
+            "kind": {"enum": ["cpu", "nvidia"]},
+            "device_ids": {"type": "array", "maxItems": 8, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+            "vram_bytes": {"type": "integer", "minimum": 0, "maximum": 343597383680}
+          }
+        },
+        "isolation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["profile_version", "non_root", "no_new_privileges", "cap_drop_all", "read_only_rootfs", "network_denied", "cgroup_limits", "seccomp", "mac_policy"],
+          "properties": {
+            "profile_version": {"$ref": "#/$defs/identifier"},
+            "non_root": {"type": "boolean"},
+            "no_new_privileges": {"type": "boolean"},
+            "cap_drop_all": {"type": "boolean"},
+            "read_only_rootfs": {"type": "boolean"},
+            "network_denied": {"type": "boolean"},
+            "cgroup_limits": {"type": "boolean"},
+            "seccomp": {"type": "boolean"},
+            "mac_policy": {"type": "boolean"}
+          }
+        },
+        "supported_profiles": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "capability_digest": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "preflight_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "allowed", "reason_codes", "profile_id", "capability_digest", "policy_digest", "effective_limits"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.preflight.v1"},
+        "allowed": {"type": "boolean"},
+        "reason_codes": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "profile_id": {"$ref": "#/$defs/identifier"},
+        "capability_digest": {"$ref": "#/$defs/sha256"},
+        "policy_digest": {"$ref": "#/$defs/sha256"},
+        "effective_limits": {"$ref": "#/$defs/resource_limits"}
+      }
+    },
+    "plugin_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["plugin_id", "version", "digest", "signature_verified"],
+      "properties": {
+        "plugin_id": {"$ref": "#/$defs/identifier"},
+        "version": {"$ref": "#/$defs/identifier"},
+        "digest": {"$ref": "#/$defs/sha256"},
+        "signature_verified": {"type": "boolean"}
+      }
+    },
+    "puzzle_dataset_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "dataset_id", "scope", "puzzle_type", "source", "split", "record_count", "dimensions", "canonical_content_digest", "generator_parameters", "codec_version", "normalizer_version", "validator_version", "plugin", "provenance"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.puzzle-dataset.v1"},
+        "dataset_id": {"$ref": "#/$defs/identifier"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "puzzle_type": {"enum": ["sudoku", "maze", "arc"]},
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "locator", "version", "digest", "license_spdx"],
+          "properties": {
+            "kind": {"enum": ["generated", "imported", "fixture"]},
+            "locator": {"type": "string", "minLength": 1, "maxLength": 1024},
+            "version": {"type": "string", "minLength": 1, "maxLength": 128},
+            "digest": {"$ref": "#/$defs/sha256"},
+            "license_spdx": {"type": "string", "minLength": 1, "maxLength": 128}
+          }
+        },
+        "split": {"enum": ["train", "validation", "test", "contract-smoke"]},
+        "record_count": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "dimensions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_rows", "max_columns", "max_elements"],
+          "properties": {
+            "max_rows": {"type": "integer", "minimum": 1, "maximum": 1000},
+            "max_columns": {"type": "integer", "minimum": 1, "maximum": 1000},
+            "max_elements": {"type": "integer", "minimum": 1, "maximum": 1000000}
+          }
+        },
+        "canonical_content_digest": {"$ref": "#/$defs/sha256"},
+        "generator_parameters": {"type": "object", "additionalProperties": false, "properties": {"seed": {"type": "integer", "minimum": 0}, "augmentation_count": {"type": "integer", "minimum": 0, "maximum": 1000000}}},
+        "codec_version": {"$ref": "#/$defs/identifier"},
+        "normalizer_version": {"$ref": "#/$defs/identifier"},
+        "validator_version": {"$ref": "#/$defs/identifier"},
+        "plugin": {"$ref": "#/$defs/plugin_binding"},
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["imported_at", "importer_version", "policy_digest"],
+          "properties": {
+            "imported_at": {"type": "string", "format": "date-time"},
+            "importer_version": {"$ref": "#/$defs/identifier"},
+            "policy_digest": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      }
+    },
+    "checkpoint_manifest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "checkpoint_id", "scope", "state", "origin", "architecture_id", "engine_version", "code_digest", "dataset_digest", "run_digest", "format", "size_bytes", "content_digest", "shape_digest", "dtype_allowlist", "license_spdx", "compatibility"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.checkpoint.v1"},
+        "checkpoint_id": {"$ref": "#/$defs/identifier"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "state": {"enum": ["quarantined", "incomplete", "verified", "deprecated"]},
+        "origin": {"enum": ["local_run", "imported"]},
+        "architecture_id": {"$ref": "#/$defs/identifier"},
+        "engine_version": {"$ref": "#/$defs/identifier"},
+        "code_digest": {"$ref": "#/$defs/sha256"},
+        "dataset_digest": {"$ref": "#/$defs/sha256"},
+        "run_digest": {"$ref": "#/$defs/sha256"},
+        "format": {"const": "safetensors"},
+        "size_bytes": {"type": "integer", "minimum": 1, "maximum": 107374182400},
+        "content_digest": {"$ref": "#/$defs/sha256"},
+        "shape_digest": {"$ref": "#/$defs/sha256"},
+        "dtype_allowlist": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"enum": ["float32", "float16", "bfloat16", "int64", "int32", "int16", "int8", "uint8", "bool"]}},
+        "license_spdx": {"type": "string", "minLength": 1, "maxLength": 128},
+        "compatibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dataset_types", "runtime_digest", "verified"],
+          "properties": {
+            "dataset_types": {"type": "array", "maxItems": 3, "uniqueItems": true, "items": {"enum": ["sudoku", "maze", "arc"]}},
+            "runtime_digest": {"$ref": "#/$defs/sha256"},
+            "verified": {"type": "boolean"}
+          }
+        }
+      }
+    },
+    "run_parameters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "epochs": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "batch_size": {"type": "integer", "minimum": 1, "maximum": 1000000},
+        "learning_rate": {"type": "number", "exclusiveMinimum": 0, "maximum": 10},
+        "early_stopping_metric": {"enum": ["loss", "exact_accuracy"]},
+        "early_stopping_patience": {"type": "integer", "minimum": 1, "maximum": 100000},
+        "early_stopping_threshold": {"type": "number", "minimum": 0},
+        "reject_non_finite": {"const": true},
+        "gradient_norm_max": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000}
+      }
+    },
+    "run_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "scope", "authority", "profile_id", "mode", "runtime", "dataset_id", "dataset_digest", "checkpoint_id", "checkpoint_digest", "limits", "seed", "precision", "parameters"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.run-request.v1"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "authority": {"$ref": "#/$defs/authority_binding"},
+        "profile_id": {"$ref": "#/$defs/identifier"},
+        "mode": {"enum": ["mock", "train", "inference"]},
+        "runtime": {"$ref": "#/$defs/runtime_identity"},
+        "dataset_id": {"$ref": "#/$defs/identifier"},
+        "dataset_digest": {"$ref": "#/$defs/sha256"},
+        "checkpoint_id": {"type": ["string", "null"], "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "checkpoint_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "limits": {"$ref": "#/$defs/resource_limits"},
+        "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "precision": {"enum": ["float32", "float16", "bfloat16"]},
+        "parameters": {"$ref": "#/$defs/run_parameters"}
+      }
+    },
+    "metric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value", "unit"],
+      "properties": {
+        "name": {"enum": ["loss", "exact_accuracy", "learning_rate", "step", "epoch", "runtime_seconds", "gpu_memory_bytes"]},
+        "value": {"type": "number"},
+        "unit": {"enum": ["ratio", "count", "seconds", "bytes", "scalar"]}
+      }
+    },
+    "run_status": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "attempt_id", "epoch", "status", "last_sequence", "reason_code"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.run-status.v1"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "attempt_id": {"$ref": "#/$defs/identifier"},
+        "epoch": {"type": "integer", "minimum": 1},
+        "status": {"enum": ["queued", "assigned", "running", "cancel_requested", "completed", "failed", "cancelled"]},
+        "last_sequence": {"type": "integer", "minimum": 0},
+        "reason_code": {"type": ["string", "null"], "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sequence", "event_type", "timestamp_epoch_ms", "message", "metrics", "reason_code"],
+      "properties": {
+        "sequence": {"type": "integer", "minimum": 1},
+        "event_type": {"enum": ["accepted", "status", "progress", "metric", "checkpoint", "warning", "terminal"]},
+        "timestamp_epoch_ms": {"type": "integer", "minimum": 1},
+        "message": {"type": ["string", "null"], "maxLength": 1024, "pattern": "^[^\\u0000-\\u0008\\u000b\\u000c\\u000e-\\u001f\\u007f]*$"},
+        "metrics": {"type": "array", "maxItems": 16, "items": {"$ref": "#/$defs/metric"}},
+        "reason_code": {"type": ["string", "null"], "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+      }
+    },
+    "event_page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "attempt_id", "epoch", "events", "next_cursor"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.event-page.v1"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "attempt_id": {"$ref": "#/$defs/identifier"},
+        "epoch": {"type": "integer", "minimum": 1},
+        "events": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/event"}},
+        "next_cursor": {"type": ["string", "null"], "maxLength": 2048}
+      }
+    },
+    "cancel_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "expected_epoch", "idempotency_key", "reason"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.cancel.v1"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "expected_epoch": {"type": "integer", "minimum": 1},
+        "idempotency_key": {"type": "string", "minLength": 8, "maxLength": 191, "pattern": "^[^\\s]+$"},
+        "reason": {"$ref": "#/$defs/safe_text"}
+      }
+    },
+    "artifact_metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_id", "kind", "state", "content_digest", "size_bytes", "media_type"],
+      "properties": {
+        "artifact_id": {"$ref": "#/$defs/identifier"},
+        "kind": {"enum": ["checkpoint", "result", "report", "log"]},
+        "state": {"enum": ["incomplete", "verified"]},
+        "content_digest": {"$ref": "#/$defs/sha256"},
+        "size_bytes": {"type": "integer", "minimum": 0, "maximum": 107374182400},
+        "media_type": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "run_error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["class", "reason_code", "retryable", "message"],
+      "properties": {
+        "class": {"enum": ["domain", "parser", "timeout", "cancel", "resource", "policy", "runtime"]},
+        "reason_code": {"$ref": "#/$defs/identifier"},
+        "retryable": {"type": "boolean"},
+        "message": {"$ref": "#/$defs/safe_text"}
+      }
+    },
+    "run_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "run_id", "attempt_id", "epoch", "status", "result_digest", "metrics", "artifacts", "error"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.run-result.v1"},
+        "run_id": {"$ref": "#/$defs/identifier"},
+        "attempt_id": {"$ref": "#/$defs/identifier"},
+        "epoch": {"type": "integer", "minimum": 1},
+        "status": {"enum": ["completed", "failed", "cancelled"]},
+        "result_digest": {"$ref": "#/$defs/sha256"},
+        "metrics": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/metric"}},
+        "artifacts": {"type": "array", "maxItems": 64, "items": {"$ref": "#/$defs/artifact_metadata"}},
+        "error": {"anyOf": [{"$ref": "#/$defs/run_error"}, {"type": "null"}]}
+      }
+    },
+    "evaluation_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "evaluation_id", "scope", "puzzle_type", "dataset_digest", "run_digest", "checkpoint_digest", "evaluator_version", "runtime_digest", "hardware_digest", "policy_digest", "sample_count", "counts", "statistics", "reproducibility", "content_digest"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.evaluation-report.v1"},
+        "evaluation_id": {"$ref": "#/$defs/identifier"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "puzzle_type": {"enum": ["sudoku", "maze", "arc"]},
+        "dataset_digest": {"$ref": "#/$defs/sha256"},
+        "run_digest": {"$ref": "#/$defs/sha256"},
+        "checkpoint_digest": {"type": ["string", "null"], "pattern": "^[a-f0-9]{64}$"},
+        "evaluator_version": {"$ref": "#/$defs/identifier"},
+        "runtime_digest": {"$ref": "#/$defs/sha256"},
+        "hardware_digest": {"$ref": "#/$defs/sha256"},
+        "policy_digest": {"$ref": "#/$defs/sha256"},
+        "sample_count": {"type": "integer", "minimum": 1, "maximum": 10000000},
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["exact_correct", "domain_wrong", "parser_error", "timeout", "cancelled", "runtime_error"],
+          "properties": {
+            "exact_correct": {"type": "integer", "minimum": 0},
+            "domain_wrong": {"type": "integer", "minimum": 0},
+            "parser_error": {"type": "integer", "minimum": 0},
+            "timeout": {"type": "integer", "minimum": 0},
+            "cancelled": {"type": "integer", "minimum": 0},
+            "runtime_error": {"type": "integer", "minimum": 0}
+          }
+        },
+        "statistics": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["accuracy", "runtime_seconds", "cost", "energy"],
+          "properties": {
+            "accuracy": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "runtime_seconds": {"type": ["number", "null"], "minimum": 0},
+            "cost": {"type": ["number", "null"], "minimum": 0},
+            "energy": {"type": ["number", "null"], "minimum": 0}
+          }
+        },
+        "reproducibility": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["canonical_manifest_digest", "repeat_count", "tolerance", "status"],
+          "properties": {
+            "canonical_manifest_digest": {"$ref": "#/$defs/sha256"},
+            "repeat_count": {"type": "integer", "minimum": 1, "maximum": 1000},
+            "tolerance": {"type": "number", "minimum": 0},
+            "status": {"enum": ["not_run", "passed", "failed", "unavailable"]}
+          }
+        },
+        "content_digest": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

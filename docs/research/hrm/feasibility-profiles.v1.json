@@ -1,0 +1,144 @@
+{
+  "schema": "ananta.hrm-feasibility-profiles.v1",
+  "global_policy": {
+    "feature_default": "disabled",
+    "network_default": "deny",
+    "telemetry_default": "disabled",
+    "runtime_package_installation": "forbidden",
+    "user_limits_may_only_reduce_server_limits": true,
+    "unverified_hardware_is_unsupported": true
+  },
+  "profiles": [
+    {
+      "id": "schema-contract-only",
+      "class": "contract",
+      "status": "specified",
+      "max_seconds": 30,
+      "cpu_millis": 1000,
+      "memory_bytes": 268435456,
+      "gpu_devices": 0,
+      "network": "deny",
+      "expected_codes": ["completed", "hrm_contract_invalid"],
+      "evidence_artifacts": ["hrm-research-gate.v1.json"]
+    },
+    {
+      "id": "mock-worker",
+      "class": "mock",
+      "status": "specified_not_executed",
+      "max_seconds": 60,
+      "cpu_millis": 1000,
+      "memory_bytes": 536870912,
+      "gpu_devices": 0,
+      "network": "deny",
+      "expected_codes": ["completed", "cancelled", "hrm_lease_stale"],
+      "evidence_artifacts": ["run_manifest", "event_page", "run_result"]
+    },
+    {
+      "id": "cpu-minimal",
+      "class": "cpu_smoke",
+      "status": "unsupported_pending_locked_runtime_and_run_evidence",
+      "max_seconds": 300,
+      "cpu_millis": 4000,
+      "memory_bytes": 4294967296,
+      "gpu_devices": 0,
+      "network": "deny",
+      "expected_codes": ["completed", "hrm_runtime_unsupported", "hrm_timeout"],
+      "evidence_artifacts": ["capability_probe", "preflight", "run_manifest", "run_result"]
+    },
+    {
+      "id": "sudoku-bounded-smoke",
+      "class": "first_live_candidate",
+      "status": "pending_explicit_approval_and_run_evidence",
+      "max_seconds": 600,
+      "cpu_millis": 8000,
+      "memory_bytes": 8589934592,
+      "gpu_devices": 1,
+      "network": "deny",
+      "expected_codes": ["completed", "hrm_capability_mismatch", "hrm_resource_denied", "hrm_timeout", "cancelled"],
+      "evidence_artifacts": ["capability_probe", "preflight", "dataset_manifest", "run_manifest", "checkpoint_manifest", "evaluation_report"]
+    },
+    {
+      "id": "nvidia-small",
+      "class": "gpu_smoke",
+      "status": "pending_explicit_approval_and_hardware_specific_run_evidence",
+      "max_seconds": 900,
+      "gpu_devices": 1,
+      "network": "deny",
+      "expected_codes": ["completed", "hrm_gpu_isolation_unavailable", "hrm_vram_reservation_denied"],
+      "evidence_artifacts": ["isolation_probe", "capability_probe", "run_manifest", "run_result"]
+    },
+    {
+      "id": "maze-plugin",
+      "class": "complex",
+      "status": "deferred",
+      "reason": "separate dataset license, validator and run evidence required"
+    },
+    {
+      "id": "arc-plugin",
+      "class": "complex",
+      "status": "deferred",
+      "reason": "separate ARC source, license, egress, validator and run evidence required"
+    },
+    {
+      "id": "multi-gpu-or-large-training",
+      "class": "complex",
+      "status": "deferred",
+      "reason": "explicit approval, capacity policy, isolation and multi-container E2E evidence required"
+    },
+    {
+      "id": "remote-llm-baseline",
+      "class": "complex",
+      "status": "deferred",
+      "reason": "provider, model, endpoint, dataset digest, field allowlist, consent and cost grant required"
+    }
+  ],
+  "sudoku_fixture": {
+    "id": "ananta-sudoku-contract-001",
+    "origin": "deterministic_ananta_fixture",
+    "size": 9,
+    "blank": 0,
+    "normal_form": "row_major_integer_grid",
+    "split": "contract-smoke",
+    "puzzle": [
+      [1, 2, 0, 4, 5, 0, 7, 8, 0],
+      [4, 0, 6, 7, 0, 9, 1, 0, 3],
+      [0, 8, 9, 0, 2, 3, 0, 5, 6],
+      [2, 3, 0, 5, 6, 0, 8, 9, 0],
+      [5, 0, 7, 8, 0, 1, 2, 0, 4],
+      [0, 9, 1, 0, 3, 4, 0, 6, 7],
+      [3, 4, 0, 6, 7, 0, 9, 1, 0],
+      [6, 0, 8, 9, 0, 2, 3, 0, 5],
+      [0, 1, 2, 0, 4, 5, 0, 7, 8]
+    ],
+    "solution": [
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      [4, 5, 6, 7, 8, 9, 1, 2, 3],
+      [7, 8, 9, 1, 2, 3, 4, 5, 6],
+      [2, 3, 4, 5, 6, 7, 8, 9, 1],
+      [5, 6, 7, 8, 9, 1, 2, 3, 4],
+      [8, 9, 1, 2, 3, 4, 5, 6, 7],
+      [3, 4, 5, 6, 7, 8, 9, 1, 2],
+      [6, 7, 8, 9, 1, 2, 3, 4, 5],
+      [9, 1, 2, 3, 4, 5, 6, 7, 8]
+    ],
+    "evaluation": {
+      "correct": "output equals the canonical solution and preserves every given cell",
+      "domain_error": "well-formed grid violates row, column, box or givens",
+      "parser_error": "output is not one bounded 9x9 integer grid",
+      "no_model_accuracy_claim": true
+    }
+  },
+  "negative_profiles": [
+    "malicious_checkpoint",
+    "ssrf_redirect_dns_rebinding",
+    "archive_bomb_and_traversal",
+    "cross_tenant_idor",
+    "path_symlink_inode_swap",
+    "secret_and_ansi_injection",
+    "resource_limit_exhaustion",
+    "cancel_result_retry_race",
+    "stale_lease_ingress",
+    "supply_chain_tamper",
+    "admin_approval_bypass"
+  ]
+}

@@ -1,0 +1,228 @@
+openapi: 3.1.0
+info:
+  title: Ananta HRM Experiments Hub API
+  version: 1.0.0-experimental
+  description: >-
+    Additive, default-disabled Hub API. Workers are never exposed to clients
+    and this contract does not grant runtime authority.
+servers:
+  - url: /
+paths:
+  /api/hrm-experiments/capabilities:
+    get:
+      operationId: listHrmExperimentCapabilities
+      responses:
+        '200': {$ref: '#/components/responses/CapabilityResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/preflight:
+    post:
+      operationId: preflightHrmExperiment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [project_id, profile_id]
+              properties:
+                project_id: {type: string, maxLength: 128}
+                profile_id: {type: string, maxLength: 128}
+      responses:
+        '200': {$ref: '#/components/responses/PreflightResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+        '409': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/datasets:
+    get:
+      operationId: listHrmPuzzleDatasets
+      parameters:
+        - {$ref: '#/components/parameters/ProjectId'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/PageResponse'}
+    post:
+      operationId: registerHrmPuzzleDataset
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/puzzle_dataset_manifest'}
+      responses:
+        '201': {$ref: '#/components/responses/ObjectResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+        '409': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/runs:
+    get:
+      operationId: listHrmExperimentRuns
+      parameters:
+        - {$ref: '#/components/parameters/ProjectId'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/PageResponse'}
+    post:
+      operationId: startHrmExperimentRun
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/run_request'}
+      responses:
+        '202': {$ref: '#/components/responses/ObjectResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+        '409': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/runs/{run_id}:
+    get:
+      operationId: getHrmExperimentRun
+      parameters:
+        - {$ref: '#/components/parameters/RunId'}
+      responses:
+        '200':
+          description: Hub-owned run status
+          content:
+            application/json:
+              schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/run_status'}
+        '404': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/runs/{run_id}/events:
+    get:
+      operationId: listHrmExperimentRunEvents
+      parameters:
+        - {$ref: '#/components/parameters/RunId'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200':
+          description: Bounded replay page
+          content:
+            application/json:
+              schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/event_page'}
+        '404': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/runs/{run_id}/cancel:
+    post:
+      operationId: cancelHrmExperimentRun
+      parameters:
+        - {$ref: '#/components/parameters/RunId'}
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/cancel_request'}
+      responses:
+        '200': {$ref: '#/components/responses/ObjectResponse'}
+        '409': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/checkpoints:
+    get:
+      operationId: listHrmCheckpoints
+      parameters:
+        - {$ref: '#/components/parameters/ProjectId'}
+        - {$ref: '#/components/parameters/Cursor'}
+        - {$ref: '#/components/parameters/Limit'}
+      responses:
+        '200': {$ref: '#/components/responses/PageResponse'}
+    post:
+      operationId: admitHrmCheckpoint
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/checkpoint_manifest'}
+      responses:
+        '202': {$ref: '#/components/responses/ObjectResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+        '409': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/evaluations:
+    post:
+      operationId: createHrmEvaluation
+      parameters:
+        - {$ref: '#/components/parameters/IdempotencyKey'}
+      responses:
+        '202': {$ref: '#/components/responses/ObjectResponse'}
+        '403': {$ref: '#/components/responses/ProblemResponse'}
+  /api/hrm-experiments/reports/{report_id}:
+    get:
+      operationId: getHrmEvaluationReport
+      parameters:
+        - name: report_id
+          in: path
+          required: true
+          schema: {type: string, maxLength: 128}
+      responses:
+        '200':
+          description: Bounded report
+          content:
+            application/json:
+              schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/evaluation_report'}
+        '404': {$ref: '#/components/responses/ProblemResponse'}
+components:
+  parameters:
+    ProjectId:
+      name: project_id
+      in: query
+      required: true
+      schema: {type: string, maxLength: 128}
+    RunId:
+      name: run_id
+      in: path
+      required: true
+      schema: {type: string, maxLength: 128}
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      schema: {type: string, maxLength: 2048}
+    Limit:
+      name: limit
+      in: query
+      required: false
+      schema: {type: integer, minimum: 1, maximum: 200, default: 50}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: {type: string, minLength: 8, maxLength: 191}
+  responses:
+    CapabilityResponse:
+      description: Worker-independent Hub capability projection
+      content:
+        application/json:
+          schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/capability_probe'}
+    PreflightResponse:
+      description: Hub policy and capability decision
+      content:
+        application/json:
+          schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/preflight_result'}
+    PageResponse:
+      description: Stable sort is created_at ascending then id ascending
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [items, next_cursor]
+            properties:
+              items: {type: array, maxItems: 200, items: {type: object}}
+              next_cursor: {type: [string, 'null'], maxLength: 2048}
+    ObjectResponse:
+      description: Tenant and project scoped object
+      content:
+        application/json:
+          schema: {type: object}
+    ProblemResponse:
+      description: Structured, redacted and non-enumerating error
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [status, reason_code]
+            properties:
+              status: {const: error}
+              reason_code: {type: string, maxLength: 128}

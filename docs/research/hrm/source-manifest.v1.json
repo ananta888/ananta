@@ -1,0 +1,110 @@
+{
+  "schema": "ananta.hrm-research-source-manifest.v1",
+  "captured_on": "2026-08-22",
+  "policy": {
+    "immutable_sources_only": true,
+    "runtime_claims_require_run_evidence": true,
+    "unknown_source_ids_are_invalid": true,
+    "redistribute_external_payloads": false
+  },
+  "upstream_repository": {
+    "locator": "https://github.com/sapientinc/HRM",
+    "commit_sha": "ac15626f8db096a63c775b84c9dc868776a6feda",
+    "tree_sha": "a3d5454a2ff1d438781b3146054b00ef663579d1",
+    "archive_sha256": "f1b4750d77c4648ec5cd238adaca38e4d6397c5b4b6382b5132225f3033c49a3",
+    "license": {
+      "spdx": "Apache-2.0",
+      "file_sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+      "notice_file_present": false,
+      "distribution_rule": "Preserve license and attribution for copied or modified upstream material; record modifications and third-party notices separately."
+    },
+    "selected_files": [
+      {"path": "README.md", "sha256": "d1993106eba686f763276d6d7cf0e9bef6f80ca835d51c3687a37e3f78ef60e0"},
+      {"path": "requirements.txt", "sha256": "8af89825fd7f4ab6beb46ff8e6e27933ba4864287bc761abf3cf1fb02fe8f349"},
+      {"path": ".gitmodules", "sha256": "36a59de59e36c6e1348982055c152d79b9b2e0a60e499a42b4d84ecc67b6b29f"},
+      {"path": "pretrain.py", "sha256": "2190b9fd82f817f57278071192df9de93be107dc488bf1977b1b009b220070ab"},
+      {"path": "evaluate.py", "sha256": "84b9f625e783baae57e500dfc4bb7e7746f57a1a9de153068eec065e6d256480"},
+      {"path": "puzzle_dataset.py", "sha256": "de7ecb74019d6cd33f043bc12514c7094aea5584bd0f5bf15bfc955a87e09684"},
+      {"path": "dataset/build_sudoku_dataset.py", "sha256": "8f29e858b939648520f2458df5e0a953b08ec1d42c8326e76fbae8a52f79d1c9"},
+      {"path": "dataset/build_maze_dataset.py", "sha256": "15fa84c6810f2e3bf95a14d7f08d82b406cc6418a1cace0b910b2da9efcfa8fc"},
+      {"path": "dataset/build_arc_dataset.py", "sha256": "dd7cc3bd68a7a00045c24f2b7923e92186ac6a483e32f969746a886795f7e446"},
+      {"path": "models/hrm/hrm_act_v1.py", "sha256": "b9c5195fc14c6f451569434905cd16849d6c56ff7723f5844604b48065ebfd39"}
+    ],
+    "gitlinks": [
+      {"path": "dataset/raw-data/ARC-AGI", "commit_sha": "399030444e0ab0cc8b4e199870fb20b863846f34"},
+      {"path": "dataset/raw-data/ARC-AGI-2", "commit_sha": "f3283f727488ad98fe575ea6a5ac981e4a188e49"},
+      {"path": "dataset/raw-data/ConceptARC", "commit_sha": "b22ef526b4656679816b7811e78f55cc24d736d7"}
+    ]
+  },
+  "paper": {
+    "locator": "https://arxiv.org/abs/2506.21734v3",
+    "identifier": "arXiv:2506.21734",
+    "selected_revision": "v3",
+    "submitted_at": "2025-06-26T19:39:54Z",
+    "selected_revision_at": "2025-08-04T08:45:08Z",
+    "title": "Hierarchical Reasoning Model",
+    "authors": [
+      "Guan Wang",
+      "Jin Li",
+      "Yuhao Sun",
+      "Xing Chen",
+      "Changling Liu",
+      "Yue Wu",
+      "Meng Lu",
+      "Sen Song",
+      "Yasin Abbasi Yadkori"
+    ],
+    "license": {
+      "spdx": "CC-BY-4.0",
+      "locator": "https://creativecommons.org/licenses/by/4.0/",
+      "distribution_rule": "Credit the authors, link the license, and identify modifications."
+    },
+    "pdf_pages": 24,
+    "revision_digests": [
+      {"revision": "v1", "sha256": "264f834a128e690d35f5c3293c9e1765325c87b76b1fb20db98d64e9fd7accb5"},
+      {"revision": "v2", "sha256": "5359ade1c48e186d357f863e5d3c93060b053cba014857c9e4aa25cc93788ca8"},
+      {"revision": "v3", "sha256": "81b05b03ebd92748b1bc0e59d4b6e0d8271e1e56b84d1d589a03430db79b6e25"}
+    ]
+  },
+  "upstream_dependency_observation": {
+    "requirements": [
+      "torch",
+      "adam-atan2",
+      "einops",
+      "tqdm",
+      "coolname",
+      "pydantic",
+      "argdantic",
+      "wandb",
+      "omegaconf",
+      "hydra-core",
+      "huggingface_hub"
+    ],
+    "all_versions_pinned": false,
+    "uses_torch_load_for_evaluation": true,
+    "uses_runtime_wandb": true,
+    "dataset_builders_use_huggingface_downloads": true,
+    "live_admission": "denied",
+    "reason_codes": [
+      "hrm_dependency_lock_missing",
+      "hrm_tensor_only_checkpoint_loader_missing",
+      "hrm_runtime_egress_not_bounded",
+      "hrm_supply_chain_attestation_missing"
+    ]
+  },
+  "dataset_license_state": {
+    "local_sudoku_fixture": "ananta-owned deterministic fixture; no external payload",
+    "upstream_sudoku_dataset": "unverified",
+    "upstream_maze_dataset": "unverified",
+    "arc_agi": "deferred_pending_exact_license_and_egress_binding",
+    "arc_agi_2": "deferred_pending_exact_license_and_egress_binding",
+    "conceptarc": "deferred_pending_exact_license_and_egress_binding"
+  },
+  "hub_source_binding": {
+    "source_catalog_id": null,
+    "source_catalog_hash": null,
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "status": "pending_new_hub_catalog"
+  }
+}

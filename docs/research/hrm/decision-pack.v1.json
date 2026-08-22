@@ -1,0 +1,668 @@
+{
+  "schema": "ananta.hrm-research-decision-pack.v1",
+  "version": "1.0.0",
+  "created": "2026-08-22",
+  "ananta_baseline_commit": "509cd5c4a",
+  "source_manifest": "docs/research/hrm/source-manifest.v1.json",
+  "threat_model": "docs/research/hrm/threat-model.v1.json",
+  "contract_schema": "schemas/hrm-experiments/contracts.v1.json",
+  "api_contract": "docs/contracts/hrm-experiments.openapi.yaml",
+  "feasibility_profiles": "docs/research/hrm/feasibility-profiles.v1.json",
+  "architecture": {
+    "style": "additive_hub_worker_experiment_domain",
+    "hub_owns": [
+      "admission",
+      "task_queue",
+      "routing",
+      "policy",
+      "approval",
+      "leases",
+      "fencing",
+      "status_projection",
+      "result_acceptance"
+    ],
+    "worker_owns": [
+      "delegated_process_group",
+      "local_capability_probe",
+      "bounded_execution",
+      "local_cleanup",
+      "untrusted_observations"
+    ],
+    "clients": [
+      "angular",
+      "visual_process",
+      "operator_tui",
+      "cli"
+    ],
+    "client_rule": "hub_api_only",
+    "forbidden": [
+      "second_queue",
+      "worker_orchestration",
+      "hub_local_ml",
+      "chat_provider_adapter",
+      "lora_contract_overload"
+    ]
+  },
+  "fit_gap": [
+    {
+      "capability": "hub_tasks_worker_jobs_leases_outbox_reconciliation",
+      "classification": "REUSE",
+      "paths": [
+        "agent/db_models/workers.py",
+        "agent/services/worker_job_service.py",
+        "agent/services/worker_pool_scheduler_service.py",
+        "agent/services/worker_result_callback_service.py"
+      ]
+    },
+    {
+      "capability": "generic_capacity_attempt_event_mechanics",
+      "classification": "EXTEND",
+      "paths": [
+        "agent/db_models/ml_intern_training.py",
+        "agent/services/ml_intern_training_reconciliation_service.py"
+      ],
+      "constraint": "extract generic mechanics; do not reuse LoRA semantic fields"
+    },
+    {
+      "capability": "hrm_worker_port_and_contract",
+      "classification": "NEW",
+      "paths": [
+        "schemas/hrm-experiments/contracts.v1.json"
+      ],
+      "constraint": "small transport-independent port; no TrainingBackend substitution"
+    },
+    {
+      "capability": "safe_blob_archive_hash_preview_split",
+      "classification": "EXTEND",
+      "paths": [
+        "agent/services/ml_intern_artifact_security_service.py",
+        "agent/services/ml_intern_dataset_preview_service.py",
+        "agent/services/ml_intern_dataset_split_service.py"
+      ],
+      "constraint": "reuse security primitives through narrow ports"
+    },
+    {
+      "capability": "puzzle_dataset_domain",
+      "classification": "NEW",
+      "paths": [
+        "schemas/hrm-experiments/contracts.v1.json"
+      ],
+      "constraint": "codec, normalizer, validator, split and visualization projection remain segregated"
+    },
+    {
+      "capability": "hrm_checkpoint_registry",
+      "classification": "NEW",
+      "paths": [
+        "schemas/hrm-experiments/contracts.v1.json"
+      ],
+      "constraint": "never rename or overload the PEFT adapter registry"
+    },
+    {
+      "capability": "comparison_and_report_primitives",
+      "classification": "EXTEND",
+      "paths": [
+        "agent/services/model_intelligence_evaluation_service.py",
+        "agent/services/model_intelligence_report_service.py"
+      ],
+      "constraint": "task validators and HRM provenance remain domain-specific"
+    },
+    {
+      "capability": "hub_api_sse_angular_visual_process_tui_cli",
+      "classification": "EXTEND",
+      "paths": [
+        "docs/contracts/hrm-experiments.openapi.yaml",
+        "frontend-angular/src/app/features/model-training",
+        "client_surfaces/operator_tui/ops_api_client.py",
+        "agent/ananta_cli.py"
+      ],
+      "constraint": "shared read models only; no worker URL or server path"
+    },
+    {
+      "capability": "lora_training_backend_instruction_dataset_peft_adapter",
+      "classification": "REJECT",
+      "paths": [
+        "worker/training/backends/base.py",
+        "worker/training/contracts.py"
+      ],
+      "constraint": "not substitutable for puzzle and HRM checkpoint semantics"
+    },
+    {
+      "capability": "hrm_as_chat_or_openai_provider",
+      "classification": "REJECT",
+      "paths": [],
+      "constraint": "HRM is an experiment engine, not a chat provider"
+    }
+  ],
+  "items": [
+    {
+      "id": "HRMR-GND-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "Use the exact upstream commit/tree/archive and arXiv v3 PDF digests. Apache-2.0 and CC-BY-4.0 obligations are recorded; external dataset licenses remain deferred.",
+      "owner": "hub_source_governance",
+      "track_slice": "grounding",
+      "required_gates": [
+        "HRM-GATE-CATALOG"
+      ]
+    },
+    {
+      "id": "HRMR-GND-002",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "One claim is required per materially independent acceptance statement; source facts, tool results, inferences and unknowns remain distinct.",
+      "owner": "planning_contract",
+      "track_slice": "grounding",
+      "required_gates": [
+        "HRM-GATE-CATALOG",
+        "HRM-GATE-CLAIMS"
+      ]
+    },
+    {
+      "id": "HRMR-GND-003",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Adopt a bounded experiment domain and reject ChatProvider semantics. Runtime claims, success and abort thresholds are measurable and profile-specific.",
+      "owner": "architecture",
+      "track_slice": "grounding",
+      "required_gates": [
+        "HRM-GATE-DECISION-PACK"
+      ]
+    },
+    {
+      "id": "HRMR-FIT-001",
+      "research_status": "decided",
+      "classification": [
+        "REUSE",
+        "EXTEND",
+        "NEW"
+      ],
+      "decision": "Reuse Hub Task/WorkerJob/lease/outbox authority, extract only generic capacity/attempt/event mechanics, and add HRM-domain run records without a second queue.",
+      "owner": "hub_control_plane",
+      "track_slice": "control-plane",
+      "required_gates": [
+        "HRM-GATE-RACE"
+      ]
+    },
+    {
+      "id": "HRMR-FIT-002",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REUSE",
+        "REJECT"
+      ],
+      "decision": "Create a small HrmWorkerPort over shared authenticated HTTP/process primitives; reject TrainingBackend substitution and keep process groups worker-local.",
+      "owner": "worker_runtime",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-WORKER-CONTRACT"
+      ]
+    },
+    {
+      "id": "HRMR-FIT-003",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND",
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Reuse secure blob/archive/hash/preview/split ports, add puzzle/checkpoint/evaluator semantics, and reject instruction-dataset or PEFT-adapter aliases.",
+      "owner": "artifact_domain",
+      "track_slice": "datasets-artifacts",
+      "required_gates": [
+        "HRM-GATE-SEC-ARCHIVE",
+        "HRM-GATE-DATASET"
+      ]
+    },
+    {
+      "id": "HRMR-FIT-004",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND"
+      ],
+      "decision": "Extend existing Hub API/SSE and model-training surfaces with shared experiment read models; TUI and CLI remain thin Hub clients.",
+      "owner": "hub_surfaces",
+      "track_slice": "surfaces",
+      "required_gates": [
+        "HRM-GATE-API"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-000",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "The versioned threat register defines seven trust boundaries, twelve required threats, owners, controls, verification and fail-closed dispositions.",
+      "owner": "security",
+      "track_slice": "hardening-release",
+      "required_gates": [
+        "HRM-GATE-THREAT-MODEL"
+      ]
+    },
+    {
+      "id": "HRMR-FIT-005",
+      "research_status": "decided",
+      "classification": [
+        "REUSE",
+        "EXTEND",
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Use an additive default-disabled hrm_experiments domain with Hub authority, an isolated worker and no changes to existing LoRA/chat contracts.",
+      "owner": "architecture",
+      "track_slice": "control-plane",
+      "required_gates": [
+        "HRM-GATE-FEATURE-POLICY"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Allow only preverified bounded tensor-only formats. Reject upstream torch.load, Pickle, custom classes, hooks, dynamic imports and trust_remote_code.",
+      "owner": "artifact_security",
+      "track_slice": "checkpoints",
+      "required_gates": [
+        "HRM-GATE-SEC-CHECKPOINT"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-002",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND"
+      ],
+      "decision": "All downloads use a Hub-approved default-deny egress port with per-hop DNS/IP/TLS checks, streaming limits, quarantine and bounded archive extraction.",
+      "owner": "egress_security",
+      "track_slice": "hardening-release",
+      "required_gates": [
+        "HRM-GATE-SEC-SSRF",
+        "HRM-GATE-SEC-ARCHIVE"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-003",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "The mandatory worker profile is non-root, cap-drop-all, no-new-privileges, read-only, namespace/cgroup/MAC constrained and network-denied; unenforceable isolation denies admission.",
+      "owner": "worker_platform",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-ISOLATION"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-004",
+      "research_status": "decided",
+      "classification": [
+        "REUSE",
+        "EXTEND"
+      ],
+      "decision": "Resolve tenant/project/role authority in the Hub before object access or CAS; content-addressed blobs and scoped one-shot grants never trust worker or planner scope fields.",
+      "owner": "hub_authorization",
+      "track_slice": "control-plane",
+      "required_gates": [
+        "HRM-GATE-SEC-TENANT",
+        "HRM-GATE-SEC-IDOR"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-005",
+      "research_status": "decided",
+      "classification": [
+        "REUSE",
+        "EXTEND"
+      ],
+      "decision": "Reuse Hub leases and fencing, add domain resource reservations and require one atomic terminal winner with digest-idempotent ingress and cleanup before capacity release.",
+      "owner": "hub_control_plane",
+      "track_slice": "control-plane",
+      "required_gates": [
+        "HRM-GATE-RACE",
+        "HRM-GATE-RESOURCE",
+        "HRM-GATE-STALE-INGRESS"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-007",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Live builds are denied because upstream dependencies are unpinned. A future offline build requires digest locks, SBOM, signature, provenance attestation, vulnerability snapshot and license gate.",
+      "owner": "supply_chain",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-SUPPLY-CHAIN"
+      ]
+    },
+    {
+      "id": "HRMR-DATA-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "EXTEND"
+      ],
+      "decision": "The closed manifest separates content digest from provenance time and uses segregated codec, normalizer, validator, split and visualization ports with signed build-time plugin IDs.",
+      "owner": "puzzle_dataset",
+      "track_slice": "datasets-artifacts",
+      "required_gates": [
+        "HRM-GATE-DATASET",
+        "HRM-GATE-SEC-PLUGIN"
+      ]
+    },
+    {
+      "id": "HRMR-SEC-006",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "All egress is purpose/scope/time bound. W&B and remote LLM are default-disabled; secrets are handles and logs/events are bounded, redacted and control-safe.",
+      "owner": "egress_security",
+      "track_slice": "hardening-release",
+      "required_gates": [
+        "HRM-GATE-SEC-EGRESS"
+      ]
+    },
+    {
+      "id": "HRMR-RUN-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "The closed JSON Schema defines capability, preflight, run request/status/events/cancel/result, artifacts, metrics and stable errors without Flask, PyTorch, paths or secrets.",
+      "owner": "worker_contract",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-WORKER-CONTRACT"
+      ]
+    },
+    {
+      "id": "HRMR-RUN-002",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "No live compatibility row is allowed yet. CPU, Ampere and Hopper remain unsupported until exact image/dependency locks, isolation and hardware-specific RUN evidence exist.",
+      "owner": "worker_platform",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-SUPPLY-CHAIN",
+        "HRM-GATE-ISOLATION"
+      ]
+    },
+    {
+      "id": "HRMR-ART-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "REJECT"
+      ],
+      "decision": "Create an HRM checkpoint registry with quarantine, tensor-only validation, atomic promotion, provenance, compatibility and reference-aware retention; never overload PEFT adapters.",
+      "owner": "checkpoint_domain",
+      "track_slice": "checkpoints",
+      "required_gates": [
+        "HRM-GATE-SEC-CHECKPOINT",
+        "HRM-GATE-PORTABILITY"
+      ]
+    },
+    {
+      "id": "HRMR-RUN-003",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "The separate hrm_experiments namespace is default-disabled; mock, CPU and GPU profiles have conservative admission and stable deny reasons without automatic mutation.",
+      "owner": "hub_policy",
+      "track_slice": "worker-runtime",
+      "required_gates": [
+        "HRM-GATE-FEATURE-POLICY",
+        "HRM-GATE-PREFLIGHT"
+      ]
+    },
+    {
+      "id": "HRMR-RUN-004",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "Contract, mock, CPU, Sudoku GPU, negative security and complex profiles are separate. Only contract validation is currently executable; every live profile remains pending explicit evidence.",
+      "owner": "verification",
+      "track_slice": "sudoku-vertical",
+      "required_gates": [
+        "HRM-GATE-PROFILES"
+      ]
+    },
+    {
+      "id": "HRMR-DATA-002",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "The first bounded slice is one deterministic local 9x9 Sudoku fixture with integer normal form, given preservation, row/column/box validation and exact canonical output.",
+      "owner": "sudoku_plugin",
+      "track_slice": "sudoku-vertical",
+      "required_gates": [
+        "HRM-GATE-SUDOKU-CONTRACT"
+      ]
+    },
+    {
+      "id": "HRMR-DATA-003",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "Maze and ARC require independent plugins, licenses, formats, bounds and validators and are deferred without blocking Sudoku.",
+      "owner": "puzzle_plugins",
+      "track_slice": "maze-arc",
+      "required_gates": [
+        "HRM-GATE-MAZE",
+        "HRM-GATE-ARC"
+      ]
+    },
+    {
+      "id": "HRMR-EVAL-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "EXTEND"
+      ],
+      "decision": "Task-specific validators classify exact correct, domain wrong, parser, timeout, cancel and runtime errors. LLM baselines use identical authorized examples and explicit provider consent.",
+      "owner": "evaluation",
+      "track_slice": "evaluation-baseline",
+      "required_gates": [
+        "HRM-GATE-EVALUATION"
+      ]
+    },
+    {
+      "id": "HRMR-EVAL-002",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND"
+      ],
+      "decision": "Reports bind all dataset/run/checkpoint/evaluator/hardware/runtime/policy digests, units, sample counts and uncertainty; unavailable data remains explicit and CSV is formula-safe.",
+      "owner": "evaluation",
+      "track_slice": "evaluation-baseline",
+      "required_gates": [
+        "HRM-GATE-REPRODUCIBILITY",
+        "HRM-GATE-REPORT"
+      ]
+    },
+    {
+      "id": "HRMR-UX-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW",
+        "EXTEND"
+      ],
+      "decision": "Use additive /api/hrm-experiments Hub endpoints and common paginated read models. Start is idempotent and status/events/cancel reuse Hub-owned attempts and event authority.",
+      "owner": "hub_api",
+      "track_slice": "surfaces",
+      "required_gates": [
+        "HRM-GATE-API"
+      ]
+    },
+    {
+      "id": "HRMR-UX-002",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND"
+      ],
+      "decision": "Extend the existing model-training feature and visual process with experimental labels, bounded accessible puzzle projections and Hub IDs; do not build a second control center.",
+      "owner": "angular_visual_process",
+      "track_slice": "surfaces",
+      "required_gates": [
+        "HRM-GATE-ANGULAR",
+        "HRM-GATE-VISUAL-PROCESS"
+      ]
+    },
+    {
+      "id": "HRMR-UX-003",
+      "research_status": "decided",
+      "classification": [
+        "EXTEND"
+      ],
+      "decision": "Add thin TUI/CLI commands over the same Hub DTOs with pagination, safe previews, nonblocking events and server-enforced approvals and policy.",
+      "owner": "operator_clients",
+      "track_slice": "surfaces",
+      "required_gates": [
+        "HRM-GATE-TUI",
+        "HRM-GATE-CLI"
+      ]
+    },
+    {
+      "id": "HRMR-PLAN-001",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "Seven scope-preserving candidate slices are defined; this pack creates no Track, task, queue entry, grant, worker address, tool or budget.",
+      "owner": "hub_planning",
+      "track_slice": "planning",
+      "required_gates": [
+        "HRM-GATE-DECISION-PACK"
+      ]
+    },
+    {
+      "id": "HRMR-PLAN-002",
+      "research_status": "decided",
+      "classification": [
+        "NEW"
+      ],
+      "decision": "Static, unit/mock, adversarial, CPU, GPU, multi-container, provider and manual release gates have distinct classes; complex gates require explicit approval and missing runs are not passes.",
+      "owner": "release_governance",
+      "track_slice": "hardening-release",
+      "required_gates": [
+        "HRM-GATE-RELEASE-MATRIX"
+      ]
+    },
+    {
+      "id": "HRMR-PLAN-003",
+      "research_status": "pending_hub_promotion",
+      "classification": [
+        "REUSE"
+      ],
+      "decision": "Promotion must use the exact new catalog/revision/digests and verified claims. Only the Hub may then create one bound Track-planning task.",
+      "owner": "hub_governance",
+      "track_slice": "planning",
+      "required_gates": [
+        "HRM-GATE-CATALOG",
+        "HRM-GATE-CLAIMS",
+        "HRM-GATE-PROMOTION"
+      ]
+    }
+  ],
+  "candidate_track_slices": [
+    {
+      "id": "hrm-control-plane",
+      "source_category_item_ids": [
+        "HRMR-FIT-001",
+        "HRMR-FIT-005",
+        "HRMR-SEC-004",
+        "HRMR-SEC-005"
+      ]
+    },
+    {
+      "id": "hrm-worker-runtime",
+      "source_category_item_ids": [
+        "HRMR-FIT-002",
+        "HRMR-SEC-003",
+        "HRMR-SEC-007",
+        "HRMR-RUN-001",
+        "HRMR-RUN-002",
+        "HRMR-RUN-003"
+      ]
+    },
+    {
+      "id": "hrm-sudoku-vertical",
+      "source_category_item_ids": [
+        "HRMR-RUN-004",
+        "HRMR-DATA-001",
+        "HRMR-DATA-002",
+        "HRMR-EVAL-001"
+      ]
+    },
+    {
+      "id": "hrm-maze-arc",
+      "source_category_item_ids": [
+        "HRMR-DATA-003"
+      ]
+    },
+    {
+      "id": "hrm-checkpoint-evaluation",
+      "source_category_item_ids": [
+        "HRMR-SEC-001",
+        "HRMR-SEC-002",
+        "HRMR-SEC-006",
+        "HRMR-ART-001",
+        "HRMR-EVAL-002"
+      ]
+    },
+    {
+      "id": "hrm-hub-surfaces",
+      "source_category_item_ids": [
+        "HRMR-FIT-004",
+        "HRMR-UX-001",
+        "HRMR-UX-002",
+        "HRMR-UX-003"
+      ]
+    },
+    {
+      "id": "hrm-hardening-release",
+      "source_category_item_ids": [
+        "HRMR-SEC-000",
+        "HRMR-PLAN-001",
+        "HRMR-PLAN-002",
+        "HRMR-PLAN-003"
+      ]
+    }
+  ],
+  "promotion": {
+    "status": "blocked_pending_new_hub_catalog_and_assignment_run",
+    "completed_item_decisions": 31,
+    "pending_item_decisions": 1,
+    "does_not_claim": [
+      "live_hrm_runtime",
+      "gpu_support",
+      "model_accuracy",
+      "external_dataset_license",
+      "checkpoint_portability",
+      "remote_llm_baseline"
+    ]
+  }
+}
