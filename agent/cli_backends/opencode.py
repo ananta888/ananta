@@ -120,6 +120,7 @@ def _build_opencode_theless_agent_config() -> dict[str, object]:
     return {
         "description": "Toolless worker for structured JSON replies",
         "prompt": "Return concise structured answers. Never call tools.",
+        "temperature": 0.1,
         "tools": {
             "bash": False,
             "read": False,
@@ -150,11 +151,19 @@ def _normalize_opencode_execution_mode(value: str | None) -> str:
     return "live_terminal"
 
 
-def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, object]:
+def resolve_opencode_runtime_config(
+    model: str | None = None,
+    *,
+    tool_mode: str | None = None,
+    context_token_limit: int | None = None,
+    output_token_limit: int | None = None,
+) -> dict[str, object]:
     agent_cfg = _get_agent_config()
     provider_urls = _get_runtime_provider_urls()
     opencode_runtime_cfg = agent_cfg.get("opencode_runtime") if isinstance(agent_cfg.get("opencode_runtime"), dict) else {}
-    tool_mode = _normalize_opencode_tool_mode(opencode_runtime_cfg.get("tool_mode"))
+    tool_mode = _normalize_opencode_tool_mode(
+        tool_mode or opencode_runtime_cfg.get("tool_mode")
+    )
     execution_mode = _normalize_opencode_execution_mode(opencode_runtime_cfg.get("execution_mode"))
     target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
     forced_target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
@@ -181,6 +190,15 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         or str(settings.opencode_default_model or "").strip()
     )
     default_provider = str(agent_cfg.get("default_provider") or _get_runtime_default_provider() or "").strip() or None
+    known_provider_prefixes = _native_passthrough | {
+        "ollama",
+        "lmstudio",
+        *{
+            str(provider_id).strip().lower()
+            for provider_id in provider_urls
+            if str(provider_id).strip()
+        },
+    }
     raw_model = normalize_legacy_model_name(
         str(model or configured_default_model or "").strip() or None,
         provider=forced_target_provider or default_provider,
@@ -188,6 +206,16 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     explicit_provider, explicit_model = _split_cli_model_identifier(raw_model)
     if forced_target_provider and explicit_provider in {"ollama", "lmstudio"} and explicit_provider != forced_target_provider:
         raw_model = str(explicit_model or raw_model or "").strip() or None
+        explicit_provider = None
+        explicit_model = None
+    elif (
+        explicit_provider
+        and explicit_provider not in known_provider_prefixes
+        and (forced_target_provider or default_provider) in {"ollama", "lmstudio"}
+    ):
+        # Local OpenAI-compatible servers commonly expose vendor-namespaced
+        # model IDs (for example ``qwen/qwen3.5-9b``).  An unknown prefix is
+        # part of that model ID, not an OpenCode provider identifier.
         explicit_provider = None
         explicit_model = None
     inference_timeout = max(1, min(int(getattr(settings, "http_timeout", 120) or 120), 5))
@@ -273,9 +301,25 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
     provider_config = None
     cli_model = raw_model
     if target_provider and target_model and base_url:
+        model_entry: dict[str, object] = {}
+        if output_token_limit is not None and context_token_limit is not None:
+            try:
+                normalized_output_token_limit = int(output_token_limit)
+                normalized_context_token_limit = int(context_token_limit)
+            except (TypeError, ValueError):
+                normalized_output_token_limit = 0
+                normalized_context_token_limit = 0
+            if (
+                normalized_output_token_limit > 0
+                and normalized_context_token_limit > 0
+            ):
+                model_entry["limit"] = {
+                    "context": normalized_context_token_limit,
+                    "output": normalized_output_token_limit,
+                }
         provider_entry = {
             "npm": "@ai-sdk/openai-compatible",
-            "models": {str(target_model): {}},
+            "models": {str(target_model): model_entry},
             "options": {"baseURL": base_url},
         }
         provider_config = {
@@ -288,7 +332,7 @@ def resolve_opencode_runtime_config(model: str | None = None) -> dict[str, objec
         }
         provider_config["model"] = f"{target_provider}/{target_model}"
         provider_config["small_model"] = f"{target_provider}/{target_model}"
-        if target_provider == "ollama" and tool_mode == "toolless":
+        if target_provider in {"ollama", "lmstudio"} and tool_mode == "toolless":
             provider_config["agent"]["ananta-worker"] = _build_opencode_theless_agent_config()
             provider_config["default_agent"] = "ananta-worker"
         cli_model = f"{target_provider}/{target_model}"
@@ -318,6 +362,9 @@ def run_opencode_command(
     timeout: int = 60,
     session: dict | None = None,
     workdir: str | None = None,
+    tool_mode: str | None = None,
+    context_token_limit: int | None = None,
+    output_token_limit: int | None = None,
 ) -> tuple[int, str, str]:
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
     budget_error = check_prompt_budget(
@@ -378,6 +425,9 @@ def run_opencode_command(
         timeout=timeout,
         workdir=workdir,
         output_format=None,
+        tool_mode=tool_mode,
+        context_token_limit=context_token_limit,
+        output_token_limit=output_token_limit,
     )
     return rc, out, err
 
@@ -389,6 +439,9 @@ def _run_opencode_subprocess(
     timeout: int,
     workdir: str | None,
     output_format: str | None,
+    tool_mode: str | None = None,
+    context_token_limit: int | None = None,
+    output_token_limit: int | None = None,
 ) -> tuple[int, str, str, str]:
     opencode_bin = settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
@@ -400,7 +453,12 @@ def _run_opencode_subprocess(
         if not ticket.acquired:
             return -1, "", "Backend 'opencode' ist ausgelastet (semaphore_exhausted)", opencode_bin
         env = os.environ.copy()
-        runtime_cfg = resolve_opencode_runtime_config(model=model)
+        runtime_cfg = resolve_opencode_runtime_config(
+            model=model,
+            tool_mode=tool_mode,
+            context_token_limit=context_token_limit,
+            output_token_limit=output_token_limit,
+        )
         args = [opencode_resolved, "run"]
         selected_model = str(runtime_cfg.get("model") or "").strip()
         if selected_model:

@@ -19,7 +19,7 @@ services:
     environment:
       AGENT_NAME: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_ALPHA_ID:-ananta-worker-1}
-      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_provider_id":"${CODEX_MODEL_PROVIDER_ID:-codex}","model_ids":["${CODEX_DEFAULT_MODEL:-gpt-5-codex}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
+      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-alpha","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-alpha:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"
@@ -40,7 +40,7 @@ services:
     environment:
       AGENT_NAME: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
       ANANTA_KNOWLEDGE_INDEX_WORKER_ID: ${ANANTA_WORKER_BETA_ID:-ananta-worker-2}
-      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"codex","model_provider_id":"${CODEX_MODEL_PROVIDER_ID:-codex}","model_ids":["${CODEX_DEFAULT_MODEL:-gpt-5-codex}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
+      ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON: '{"runtime_target_id":"source-index-beta","runtime_id":"codecompass-index","runtime_kind":"docker_container","provider_id":"opencode","model_provider_id":"${ANANTA_SOURCE_INDEX_MODEL_PROVIDER_ID:-lmstudio}","model_ids":["${ANANTA_SOURCE_INDEX_MODEL_ID:-qwen2.5-3b-instruct}"],"provider_location":"local_container","data_residency":"local","model_class":"code","source_access_authorized":true,"global_source_access":true,"enabled":true,"worker_kind":"worker"}'
       AGENT_URL: http://ai-agent-beta:5000
       HUB_URL: http://ai-agent-hub:5000
       DATABASE_URL: "postgresql://${POSTGRES_USER:-ananta}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-ananta}"

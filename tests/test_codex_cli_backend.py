@@ -545,6 +545,50 @@ def test_resolve_opencode_runtime_config_builds_lmstudio_provider_for_inferred_l
     assert resolved["provider_config"]["model"] == "lmstudio/qwen2.5-coder-7b-instruct"
 
 
+def test_resolve_opencode_runtime_config_preserves_namespaced_lmstudio_model(app):
+    from agent.cli_backends.sgpt import resolve_opencode_runtime_config
+
+    with app.app_context():
+        app.config["AGENT_CONFIG"] = {
+            "default_provider": "lmstudio",
+            "default_model": "qwen/qwen3.5-9b",
+            "opencode_runtime": {"tool_mode": "toolless"},
+        }
+        app.config["PROVIDER_URLS"] = {
+            "lmstudio": "http://127.0.0.1:1234/v1"
+        }
+        with (
+            patch("agent.cli_backends.opencode.settings") as mock_settings,
+            patch(
+                "agent.cli_backends.opencode._infer_local_opencode_target",
+                return_value=("lmstudio", "qwen/qwen3.5-9b"),
+            ),
+        ):
+            mock_settings.default_provider = "lmstudio"
+            mock_settings.opencode_default_model = ""
+            mock_settings.lmstudio_url = "http://127.0.0.1:1234/v1"
+            mock_settings.http_timeout = 30
+            resolved = resolve_opencode_runtime_config(
+                model="qwen/qwen3.5-9b",
+                context_token_limit=32768,
+                output_token_limit=4096,
+            )
+
+    assert resolved["target_provider"] == "lmstudio"
+    assert resolved["target_model"] == "qwen/qwen3.5-9b"
+    assert resolved["model"] == "lmstudio/qwen/qwen3.5-9b"
+    assert resolved["provider_config"]["model"] == (
+        "lmstudio/qwen/qwen3.5-9b"
+    )
+    assert resolved["provider_config"]["default_agent"] == "ananta-worker"
+    assert resolved["provider_config"]["agent"]["ananta-worker"]["tools"][
+        "bash"
+    ] is False
+    assert resolved["provider_config"]["provider"]["lmstudio"]["models"][
+        "qwen/qwen3.5-9b"
+    ]["limit"] == {"context": 32768, "output": 4096}
+
+
 def test_resolve_opencode_runtime_config_defaults_to_general_model_for_ollama(app):
     from agent.cli_backends.sgpt import resolve_opencode_runtime_config
 

@@ -368,6 +368,16 @@ def run_llm_cli_command(
                 timeout=timeout,
                 session=session,
                 workdir=workdir,
+                tool_mode=str(
+                    (routing_policy or {}).get("opencode_tool_mode") or ""
+                ).strip()
+                or None,
+                context_token_limit=(routing_policy or {}).get(
+                    "opencode_context_token_limit"
+                ),
+                output_token_limit=(routing_policy or {}).get(
+                    "opencode_output_token_limit"
+                ),
             )
         elif name == "claude_code":
             rc, out, err = run_claude_command(prompt=prompt, model=model, timeout=timeout, workdir=workdir)
