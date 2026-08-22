@@ -86,6 +86,25 @@ export function migratedHubOriginForBrowser(
 }
 
 /**
+ * A browser behind the standard HTTPS edge talks only to the Hub. Workers are
+ * Hub-owned execution targets and must never become direct browser network
+ * destinations, especially when stale storage contains LAN addresses.
+ */
+export function publicEdgeAgents(
+  agents: readonly AgentEntry[],
+  publicHubOrigin: string | null,
+): AgentEntry[] {
+  if (!publicHubOrigin) return agents.map(agent => ({ ...agent }));
+  const configuredHub = agents.find(agent => agent.role === 'hub' || agent.name === 'hub');
+  return [{
+    name: configuredHub?.name || 'hub',
+    role: 'hub',
+    url: publicHubOrigin,
+    token: configuredHub?.url === publicHubOrigin ? configuredHub.token : '',
+  }];
+}
+
+/**
  * Accepts only an HTTP(S) origin suitable as a Hub trust boundary.
  *
  * In particular, login data must never be smuggled into the URL and API
@@ -184,6 +203,7 @@ export class AgentDirectoryService {
     this.load();
     this.normalizeLoopbackUrls();
     this.applyRuntimeDefaults();
+    this.applyPublicEdgeBoundary();
     if (this.agents.length === 0) {
       this.agents = this.defaultAgentsForCurrentHost();
       this.save();
@@ -193,6 +213,7 @@ export class AgentDirectoryService {
   list(): AgentEntry[] {
     this.load();
     this.normalizeLoopbackUrls();
+    this.applyPublicEdgeBoundary();
     return [...this.agents];
   }
   get(name: string): AgentEntry | undefined { return this.agents.find(a => a.name === name); }
@@ -307,6 +328,16 @@ export class AgentDirectoryService {
     if (!this.isComposeInternalFrontendHost() || this.agents.length === 0) return;
 
     const normalized = composeRuntimeAgents(this.agents);
+    if (JSON.stringify(normalized) !== JSON.stringify(this.agents)) {
+      this.agents = normalized;
+      this.save();
+    }
+  }
+
+  private applyPublicEdgeBoundary(): void {
+    const publicHubOrigin = this.standardHttpsOrigin();
+    if (!publicHubOrigin || this.isComposeInternalFrontendHost()) return;
+    const normalized = publicEdgeAgents(this.agents, publicHubOrigin);
     if (JSON.stringify(normalized) !== JSON.stringify(this.agents)) {
       this.agents = normalized;
       this.save();

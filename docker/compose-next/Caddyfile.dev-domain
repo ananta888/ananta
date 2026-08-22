@@ -8,6 +8,7 @@ http://{$ANANTA_DEV_DOMAIN} {
 
 https://{$ANANTA_DEV_DOMAIN} {
 	encode zstd gzip
+	header Permissions-Policy "local-network=(), loopback-network=(), local-network-access=()"
 
 	# Browser navigations belong to the Angular router. API clients do not send
 	# an Accept: text/html preference and therefore fall through to the Hub.

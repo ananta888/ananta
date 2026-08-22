@@ -4,9 +4,27 @@ import {
   composeRuntimeAgents,
   hostBasedAgentOrigin,
   migratedHubOriginForBrowser,
+  publicEdgeAgents,
   normalizeHubOrigin,
   usesEmbeddedAndroidHub,
 } from './agent-directory.service';
+
+describe('publicEdgeAgents', () => {
+  it('keeps only the same-origin Hub and drops stale private worker targets', () => {
+    expect(publicEdgeAgents([
+      { name: 'hub', role: 'hub', url: 'http://192.168.178.103:5000', token: 'old' },
+      { name: 'alpha', role: 'worker', url: 'http://192.168.178.103:5001' },
+      { name: 'beta', role: 'worker', url: 'http://127.0.0.1:5002' },
+    ], 'https://minipc.ananta.de')).toEqual([
+      { name: 'hub', role: 'hub', url: 'https://minipc.ananta.de', token: '' },
+    ]);
+  });
+
+  it('does not alter non-edge runtimes', () => {
+    const agents = [{ name: 'worker', role: 'worker' as const, url: 'http://127.0.0.1:5000' }];
+    expect(publicEdgeAgents(agents, null)).toEqual(agents);
+  });
+});
 
 describe('hostBasedAgentOrigin', () => {
   it('keeps browser HTTPS when resolving LAN agent ports', () => {
