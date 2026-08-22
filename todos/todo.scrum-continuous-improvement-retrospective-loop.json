@@ -1,6 +1,6 @@
 {
   "$schema": "../todo.schema.json",
-  "version": 1,
+  "version": 2,
   "created": "2026-08-22",
   "updated": "2026-08-22",
   "project": "ananta",
@@ -10,7 +10,7 @@
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "main@509cd5c4aac1b00faf0fbaabb9839cdec396366b",
-    "review_goal": "Den vorhandenen Scrum-, Hub-, Worker-Task-Proposal- und Evolution/Evolver-Unterbau zu einem geschlossenen Continuous-Improvement-Zyklus erweitern: Sprint ausführen, Ergebnis und Zusammenarbeit auswerten, konkrete Verbesserungen ableiten, kontrolliert übernehmen, im nächsten Sprint verpflichtend anwenden und ihre Wirkung messen.",
+    "review_goal": "Den vorhandenen Scrum-, Hub-, Worker-Task-Proposal- und Evolution/Evolver-Unterbau zu zwei getrennten geschlossenen Feedback-Loops erweitern: während eines laufenden Sprints den Fortschritt zum Sprint Goal beobachten und bei Abweichungen den Kurs anpassen; nach einem Sprint die Arbeitsweise retrospektiv untersuchen, konkrete Verbesserungen ableiten, kontrolliert in den nächsten Sprint übernehmen und ihre Wirkung messen.",
     "reviewed_paths": [
       "config/blueprints/standard/blueprints.json",
       "docs/standard-blueprints.md",
@@ -32,22 +32,29 @@
       "Worker können Folgearbeit als begrenzte Proposal an den Hub melden.",
       "Der Hub bleibt Control Plane für Tasks, Routing, Policies, Freigaben, Audit und Zustandsübergänge."
     ],
-    "design_conclusion": "Continuous Improvement soll nicht als separates zweites Evolutionssystem implementiert werden. Die Scrum-Retrospektive wird als fachliche zyklusbezogene Schicht auf die bereits vorhandene EvolutionEngine, Proposal-, Review-, Validation-, Apply-, Planning- und Hub-Infrastruktur gesetzt."
+    "design_conclusion": "Continuous Improvement soll nicht als separates zweites Evolutionssystem implementiert werden. Die Scrum-Retrospektive wird als fachliche zyklusbezogene Schicht auf die bereits vorhandene EvolutionEngine, Proposal-, Review-, Validation-, Apply-, Planning- und Hub-Infrastruktur gesetzt. Zusätzlich erhält der laufende Sprint einen eigenständigen Sprint-Goal-Control-Loop, der funktional den inspect-and-adapt-Zweck eines Daily Scrum abbildet, ohne ein kalendarisches Meeting zu simulieren."
   },
-  "purpose": "Ananta soll für agentische Scrum-Teams einen echten geschlossenen Lern- und Verbesserungszyklus besitzen. Ein Sprint darf nicht lediglich mit einem technischen Review oder Definition-of-Done-Gate enden. Das Team muss anschließend anhand der tatsächlichen Sprint-Evidenz seine Arbeitsweise untersuchen, konkrete Verbesserungen vorschlagen, diese kontrolliert übernehmen und ihre Wirkung in nachfolgenden Iterationen nachvollziehbar messen können.",
-  "goal": "Ein Scrum-Team kann Sprint N vollständig ausführen und danach eine Retrospektive durchführen. Die Retrospektive erzeugt evidenzgebundene Improvement Proposals für Teamprozess, Prompts, Rollenverhalten, Workflow, Planning-Regeln, Handoffs oder andere zulässige Konfigurationen. Nach Policy-, Review- und Validierungsprüfung können ausgewählte Änderungen als versionierte Improvement Commitments für Sprint N+1 aktiviert werden. Sprint N+1 bindet diese Änderungen explizit ein. Nach Abschluss wird gemessen, ob die Änderungen die vorgesehenen Kennzahlen verbessert, verschlechtert oder nicht beeinflusst haben.",
+  "purpose": "Ananta soll für agentische Scrum-Teams sowohl kurzfristige Kurskorrektur innerhalb eines Sprints als auch langfristiges Continuous Improvement zwischen Sprints unterstützen. Während eines laufenden Sprints wird geprüft, ob das Sprint Goal mit dem aktuellen Plan noch erreichbar ist, und der Sprint Backlog kann kontrolliert angepasst werden. Nach dem Sprint untersucht das Team anhand tatsächlicher Evidenz seine Arbeitsweise, beschließt Verbesserungen und misst deren Wirkung in Folgeiterationen.",
+  "goal": "Ein Scrum-Team kann Sprint N mit einem expliziten Sprint Goal ausführen. Während des Sprints prüft ein ereignis- oder intervallgesteuerter Sprint-Goal-Control-Loop den aktuellen Zustand und ermöglicht bei Abweichungen kontrollierte Anpassungen von Sprint Backlog, Reihenfolge, Task-Slicing, Handoffs und anderen zulässigen Ausführungsentscheidungen, ohne das Sprint Goal stillschweigend umzuschreiben. Nach Abschluss führt das Team eine evidenzgebundene Retrospektive durch. Improvement Proposals können Teamprozess, Prompts, Rollenverhalten, Workflow, Planning-Regeln, Handoffs oder andere zulässige Konfigurationen betreffen. Nach Policy-, Review- und Validierungsprüfung werden ausgewählte Änderungen als versionierte Improvement Commitments für Sprint N+1 aktiviert und anschließend gemessen.",
   "non_goals": [
     "Kein autonomes unkontrolliertes Umschreiben von Systemprompts, Policies oder Sicherheitsgrenzen.",
     "Keine direkte Worker-zu-Worker-Orchestrierung.",
     "Keine automatische Freigabe sicherheitskritischer Evolutionsvorschläge.",
     "Keine Verpflichtung, menschliche Scrum-Zeitintervalle wie zwei oder vier Wochen unverändert auf Agenten zu übertragen.",
-    "Keine Simulation eines Daily Scrum als reines Meeting-Theater.",
+    "Keine Simulation eines Daily Scrum als reines Meeting-Theater oder starres tägliches Zeitereignis.",
     "Keine zweite parallele EvolutionEngine speziell für Scrum.",
     "Keine Vermischung von Product Review und Retrospektive.",
+    "Keine Vermischung von Sprint-Goal-Kurskorrektur während des Sprints mit Retrospektivenänderungen der generellen Arbeitsweise.",
     "Keine Behauptung, jedes EvolutionProposal sei automatisch eine Scrum-Retrospektivenmaßnahme.",
-    "Keine automatische Änderung globaler Rollen- oder Organisationsdefinitionen aufgrund eines einzelnen Sprint-Ergebnisses."
+    "Keine automatische Änderung globaler Rollen- oder Organisationsdefinitionen aufgrund eines einzelnen Sprint-Ergebnisses.",
+    "Keine selbstmodifizierende Mutation des Hub-Kerncodes, seiner Sicherheitsinvarianten oder seiner autoritativen State-Machine durch einen Sprint- oder Retrospektivenlauf."
   ],
   "architecture_principles": [
+    "Sprint Goal, Product Goal und einzelne Tasks sind getrennte fachliche Ebenen.",
+    "Während eines laufenden Sprints gilt inspect-and-adapt: Fortschritt zum Sprint Goal beobachten und den ausführbaren Sprint Backlog bei Bedarf kontrolliert anpassen.",
+    "Der Sprint-Goal-Control-Loop ist funktional Daily-Scrum-nahe Synchronisation, muss für Agenten aber weder täglich noch als Meeting ausgeführt werden; Trigger können Ereignisse, relevante Zustandsänderungen oder konfigurierbare Intervalle sein.",
+    "Der Hub sammelt und synchronisiert autoritative Zustände, führt deterministische Checks aus und materialisiert freigegebene Anpassungen; er ersetzt nicht die fachliche Einschätzung des Scrum-Teams, ob eine Kurskorrektur sinnvoll ist.",
+    "Das Sprint Goal darf durch Routine-Kurskorrekturen nicht stillschweigend verändert werden. Eine echte Sprint-Goal-Änderung benötigt eine explizite, auditierte Entscheidung gemäß Scrum-/Projektpolicy.",
     "Sprint Review bewertet primär Produkt-/Increment-Ergebnis; Retrospektive bewertet primär Zusammenarbeit und Arbeitsprozess.",
     "Retrospektiven basieren auf beobachtbarer Sprint-Evidenz und nicht ausschließlich auf freien LLM-Meinungen.",
     "Ein Improvement Proposal ist zunächst eine Hypothese, keine Wahrheit.",
@@ -57,6 +64,8 @@
     "Nachfolgende Sprint-Metriken werden gegen eine Baseline verglichen.",
     "Verschlechterungen müssen Rollback oder erneute Retrospektive ermöglichen.",
     "Der Hub synchronisiert und erzwingt Lifecycle-/Policy-Grenzen; er ersetzt nicht die fachliche Reflexion der Agenten.",
+    "Hub-Kernlogik und Sicherheitsinvarianten sind keine normalen Evolution-Ziele. Evolvierbar sind versionierte, policy-gesteuerte Konfigurationen und Definitionen, die der Hub interpretiert, etwa Workflow, Planning Rules, Routing-Profile, Handoff-Verträge oder Quality Checks.",
+    "Wenn eine Retrospektive eine Änderung am Hub-Kerncode nahelegt, entsteht daraus höchstens ein normales, separat geprüftes Engineering-/Architecture-Change-Proposal; kein Evolver darf den laufenden Hub selbst umschreiben.",
     "Evolver ist ein möglicher Analyseprovider, aber die fachliche Retrospektiven-Semantik bleibt providerunabhängig.",
     "Mehrere Agenten dürfen unterschiedliche Einschätzungen liefern; Dissens wird erhalten und nicht vorzeitig von einem einzelnen Modell zusammengefasst.",
     "Continuous Improvement umfasst Team-, Workflow- und Rollenlernen und ist nicht auf Prompt-Optimierung beschränkt."
@@ -127,6 +136,106 @@
       ]
     },
     {
+      "name": "sprint_goal_control_loop",
+      "label": "Sprint Goal Inspect-and-Adapt / Daily-Control-Loop",
+      "items": [
+        {
+          "id": "SCI-019",
+          "title": "Autoritativen Sprint Progress Snapshot definieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-001", "SCI-003"],
+          "tasks": [
+            "Für aktive Sprints einen revisionsgebundenen Progress Snapshot aus Sprint Goal, geplantem Sprint Backlog, aktuellem Task-DAG, Done/In-Progress/Blocked-Zuständen, Handoffs, Gates, Fehlversuchen, Rework, Budget- und Zeitverbrauch erzeugen.",
+            "Verbleibende Arbeit und kritischen Pfad ableiten, ohne LLM-Schätzungen als autoritative Fakten zu behandeln.",
+            "Sprint-Goal-relevante Risiken, Blocker und Abhängigkeiten separat markieren.",
+            "Planänderungen seit Sprint-Start als Delta erhalten.",
+            "Snapshot darf keine Secrets oder unnötigen vollständigen Artefaktinhalte enthalten."
+          ],
+          "acceptance_criteria": [
+            "Jede Inspect-and-Adapt-Ausführung arbeitet auf einem eindeutigen, reproduzierbaren Sprint-Zustand.",
+            "Der ursprüngliche Sprint Scope und alle späteren Anpassungen bleiben unterscheidbar."
+          ]
+        },
+        {
+          "id": "SCI-020",
+          "title": "Adaptive Trigger statt starrem Daily Meeting",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-019"],
+          "tasks": [
+            "Triggerarten interval, task_completed, task_failed, blocked, handoff_rejected, gate_failed, budget_threshold, scope_change und manual vorsehen.",
+            "Konfigurierbare Mindestabstände und Debounce-Regeln einführen, damit Agententeams nicht nach jedem trivialen Event neu planen.",
+            "Für schnelle Agententeams kurze Intervalle erlauben, ohne Scrum semantisch an 24-Stunden-Zyklen zu binden.",
+            "Bei unverändertem Zustand idempotent no_change zurückgeben.",
+            "Trigger-Policy pro Team/Blueprint versionieren."
+          ],
+          "acceptance_criteria": [
+            "Der funktionale Daily-Zweck kann mehrfach pro Tag, seltener oder ereignisgesteuert stattfinden.",
+            "Unveränderte Zustände erzeugen keine endlosen Replanning-Loops."
+          ]
+        },
+        {
+          "id": "SCI-021",
+          "title": "Sprint-Goal-Erreichbarkeit und Kursabweichung bewerten",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-019", "SCI-020"],
+          "tasks": [
+            "Deterministische Signale wie blockierte kritische Abhängigkeiten, fehlgeschlagene Gates, Budgetgrenzen und verbleibende offene Arbeit getrennt von agentischer Prognose erfassen.",
+            "Beteiligte Developers bzw. dafür konfigurierte Scrum-Rollen dürfen eine bounded Einschätzung goal_on_track, at_risk, off_track oder unknown liefern.",
+            "Begründungen müssen auf Snapshot-Evidenz verweisen.",
+            "Dissens zwischen Rollen erhalten und bei relevanten Konflikten Review/Eskalation ermöglichen.",
+            "Scrum Master kann den Prozess moderieren, besitzt aber nicht automatisch alleinige inhaltliche Entscheidungsgewalt.",
+            "Hub darf aus technischen Zuständen nicht stillschweigend eine fachliche Sprint-Goal-Änderung ableiten."
+          ],
+          "acceptance_criteria": [
+            "Ananta kann während eines laufenden Sprints explizit beantworten, ob das Sprint Goal noch auf Kurs, gefährdet, nicht erreichbar oder unbekannt ist.",
+            "Die Einschätzung ist evidenzgebunden und von deterministischen Messwerten unterscheidbar."
+          ]
+        },
+        {
+          "id": "SCI-022",
+          "title": "Kontrollierte Sprint-Backlog-Kurskorrektur",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-021"],
+          "tasks": [
+            "Bei at_risk oder off_track bounded Adaptation Proposals zulassen.",
+            "Zulässige Änderungen mindestens für Priorisierung, Task-Reihenfolge, Task-Slicing, Parallelisierung, Handoff-Sequenz, Umsetzungspfad, Tool-/Model-Auswahl innerhalb bestehender Policies sowie Hinzufügen/Entfernen nicht goal-kritischer Sprint-Backlog-Arbeit modellieren.",
+            "Jede Anpassung muss begründen, wie sie das unveränderte Sprint Goal besser erreichbar macht.",
+            "Änderungen an Security, Rechten, globalen Policies oder Hub-Kerninvarianten aus diesem Pfad verbieten.",
+            "Konflikte mit Planning Tracks, Dependencies, Budgets, Gates und Separation of Duties Hub-seitig prüfen.",
+            "Akzeptierte Änderungen als versioniertes Sprint Backlog Amendment materialisieren.",
+            "Verworfene Alternativen und Begründungen auditierbar erhalten."
+          ],
+          "acceptance_criteria": [
+            "Ein laufender Sprint kann seinen Kurs verändern, ohne seine Historie zu überschreiben.",
+            "Sprint Goal und Sprint Backlog Amendment sind fachlich und technisch getrennt.",
+            "Der Hub setzt nur policy-konforme, explizit akzeptierte Anpassungen um."
+          ]
+        },
+        {
+          "id": "SCI-023",
+          "title": "Expliziter Ausnahmeprozess für Sprint-Goal-Änderung oder Sprint-Abbruch",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-021"],
+          "tasks": [
+            "Wenn das Sprint Goal sachlich obsolet oder unerreichbar geworden ist, nicht durch gewöhnliche Backlog-Anpassung kaschieren.",
+            "Separate Entscheidung für keep_goal, renegotiate_goal oder cancel_sprint modellieren.",
+            "Product-Owner-/Projektpolicy und erforderliche Human-/Governance-Gates konfigurierbar einbinden.",
+            "Neue Goal-Revision oder Sprint-Abbruch mit Ursache und Evidenz persistieren.",
+            "Solche Ereignisse zwingend in Review und Retrospective Evidence aufnehmen."
+          ],
+          "acceptance_criteria": [
+            "Routine-Replanning kann das Sprint Goal nicht heimlich ändern.",
+            "Sprint-Abbruch und echte Goal-Neuverhandlung sind explizite, auditierbare Ausnahmeereignisse."
+          ]
+        }
+      ]
+    },
+    {
       "name": "retrospective_evidence",
       "label": "Retrospektive und Evidenz",
       "items": [
@@ -142,7 +251,8 @@
             "Handoff-Ablehnungen und needs_changes-Zyklen aufnehmen.",
             "Review-/Gate-Ergebnisse aufnehmen.",
             "Token-, Kosten- und Laufzeitdaten aufnehmen.",
-            "Planning-Abweichungen und ungeplante Folgearbeit aufnehmen.",
+            "Planning-Abweichungen, Sprint Backlog Amendments und ungeplante Folgearbeit aufnehmen.",
+            "Sprint-Goal-Control-Loop-Entscheidungen einschließlich no_change, at_risk/off_track und verworfener Kurskorrekturen aufnehmen.",
             "Tool-/Provider-Ausfälle getrennt von fachlichen Fehlern erfassen.",
             "Agent-/Rolleninformationen datenschutz- und sicherheitskonform referenzieren.",
             "Artefaktinhalte nicht unnötig kopieren; bevorzugt unveränderliche Referenzen und Digests nutzen."
@@ -226,10 +336,13 @@
             "Security-/Governance-Änderungen separat klassifizieren.",
             "Scope team, role, workflow, project und global unterscheiden.",
             "Risk-Level und Reversibility speichern.",
-            "Explizit kennzeichnen, ob Änderung sofort, nächster Sprint oder nur experimentell gelten soll."
+            "Explizit kennzeichnen, ob Änderung sofort, nächster Sprint oder nur experimentell gelten soll.",
+            "Hub-interpreted configuration changes von Hub-core engineering changes unterscheiden.",
+            "Hub-core engineering changes ausschließlich als separat freizugebende Engineering-Proposals klassifizieren; sie dürfen nicht durch Evolution Apply direkt auf den laufenden Hub angewendet werden."
           ],
           "acceptance_criteria": [
-            "Ein Proposal kann präzise beschreiben, was verändert werden soll, ohne bereits die Änderung durchzuführen."
+            "Ein Proposal kann präzise beschreiben, was verändert werden soll, ohne bereits die Änderung durchzuführen.",
+            "Aus dem Proposal ist eindeutig erkennbar, ob eine versionierte Prozesskonfiguration oder echter Hub-Kerncode betroffen wäre."
           ]
         },
         {
@@ -242,13 +355,15 @@
             "Bestehenden Evolution Review-/Validation-Lifecycle wiederverwenden.",
             "Low-Risk-Teamprozessänderungen optional agentisch freigeben lassen.",
             "Security-, Rechte-, Tool- und globale Policy-Änderungen strengere Gates erhalten lassen.",
+            "Hub-Kerncode, Hub-State-Machine-Invarianten und Security-Kernmechanismen niemals über normalen Evolution Apply verändern; daraus ausschließlich Engineering Change Proposals erzeugen.",
             "Self-approval bei relevanten Interessenkonflikten verhindern.",
             "Separation of Duties berücksichtigen.",
             "Rejected Proposals inklusive Begründung erhalten."
           ],
           "acceptance_criteria": [
             "Retrospektive kann keine Sicherheitsgrenze indirekt durch eine Prozessverbesserung umgehen.",
-            "Freigabe ist revisions- und proposal-digest-gebunden."
+            "Freigabe ist revisions- und proposal-digest-gebunden.",
+            "Der laufende Hub kann sich nicht über den Retrospektiven-/Evolver-Pfad selbst umprogrammieren."
           ]
         }
       ]
@@ -334,6 +449,7 @@
             "Defect-/Regression-Evidence messen.",
             "Blocked-Time messen.",
             "Plan-vs-Actual-Abweichung messen.",
+            "Anzahl und Wirkung von Sprint Backlog Amendments sowie at_risk/off_track-Ereignissen messen.",
             "Metriken nicht isoliert optimieren; Qualitäts- und Sicherheitsmetriken als Gegenindikatoren berücksichtigen."
           ],
           "acceptance_criteria": [
@@ -384,30 +500,33 @@
       "items": [
         {
           "id": "SCI-016",
-          "title": "Scrum-Workflow um Retrospective erweitern",
+          "title": "Scrum-Workflow um Retrospective und Sprint-Goal-Control-Loop erweitern",
           "status": "open",
           "priority": "P0",
-          "depends_on": ["SCI-007"],
+          "depends_on": ["SCI-007", "SCI-020", "SCI-022"],
           "tasks": [
             "Standard Scrum Blueprint erweitern.",
+            "Scrum-OpenCode Workflow um einen laufzeitbegleitenden inspect-and-adapt-Pfad ergänzen, ohne ihn als sequenziellen Pflichtschritt nach jedem Task zu modellieren.",
             "Scrum-OpenCode Workflow nach review_gate um retrospective-Schritt erweitern.",
             "Retrospective Evidence Bundle konsumieren.",
             "Retrospective Report und Improvement Proposals produzieren.",
-            "Retrospective nicht mit Definition of Done verschmelzen.",
+            "Retrospective nicht mit Definition of Done oder laufendem Sprint-Replanning verschmelzen.",
             "Product Owner nicht automatisch als Retrospektivenmoderator oder Prozessentscheider einsetzen.",
-            "Scrum Master als Facilitator modellieren, ohne ihm automatische Hoheit über Improvement Apply zu geben."
+            "Scrum Master als Facilitator modellieren, ohne ihm automatische Hoheit über Improvement Apply oder jede Sprint-Backlog-Anpassung zu geben."
           ],
           "acceptance_criteria": [
-            "Scrum-Blueprint bildet Review und Retrospektive als getrennte Prozessschritte ab."
+            "Scrum-Blueprint bildet laufendes Inspect-and-Adapt, Review und Retrospektive als getrennte Mechanismen ab."
           ]
         },
         {
           "id": "SCI-017",
-          "title": "Continuous Improvement UI",
+          "title": "Continuous Improvement und Sprint Control UI",
           "status": "open",
           "priority": "P1",
-          "depends_on": ["SCI-010", "SCI-014"],
+          "depends_on": ["SCI-010", "SCI-014", "SCI-022"],
           "tasks": [
+            "Sprint Goal und aktuellen On-Track-/Risk-Status anzeigen.",
+            "Sprint Backlog Amendments und deren Begründung anzeigen.",
             "Sprint History anzeigen.",
             "Retrospective Findings anzeigen.",
             "Improvement Proposals mit Evidenz und Status anzeigen.",
@@ -418,7 +537,7 @@
             "Manuelle Freigaben direkt an bestehende Approval UI anbinden."
           ],
           "acceptance_criteria": [
-            "Nutzer können vom Sprint-Ergebnis bis zur daraus entstandenen und später gemessenen Prozessänderung navigieren."
+            "Nutzer können sowohl laufende Kurskorrekturen als auch langfristige Prozessverbesserungen nachvollziehen."
           ]
         },
         {
@@ -437,13 +556,23 @@
             "SCI-011",
             "SCI-013",
             "SCI-014",
-            "SCI-016"
+            "SCI-016",
+            "SCI-019",
+            "SCI-020",
+            "SCI-021",
+            "SCI-022",
+            "SCI-023"
           ],
           "scenario": [
-            "Sprint 1 plant ein kleines Feature mit Sprint Goal.",
-            "Während der Umsetzung entstehen mehrfach Reworks wegen unklarer Acceptance Criteria.",
+            "Sprint 1 plant ein kleines Feature mit explizitem Sprint Goal.",
+            "Während der Umsetzung wird eine kritische Abhängigkeit blockiert.",
+            "Sprint-Goal-Control-Loop bewertet den Sprint als at_risk.",
+            "Das Team schlägt eine policy-konforme Umpriorisierung und ein kleineres Task-Slicing vor.",
+            "Der Hub validiert Dependencies, Gates, Rechte und Budget und materialisiert ein versioniertes Sprint Backlog Amendment.",
+            "Das Sprint Goal bleibt unverändert und der Sprint läuft weiter.",
+            "Während der weiteren Umsetzung entstehen mehrfach Reworks wegen unklarer Acceptance Criteria.",
             "Review akzeptiert das Produktinkrement.",
-            "Retrospektive erkennt erhöhte Rework-Rate.",
+            "Retrospektive erkennt erhöhte Rework-Rate und berücksichtigt auch die während des Sprints erfolgte Kurskorrektur.",
             "Product Owner, Developer und Scrum Master liefern getrennte Perspektiven.",
             "EvolutionEngine erzeugt Proposal: Acceptance-Criteria-Review vor Implementierung.",
             "Proposal wird geprüft und als Improvement Commitment akzeptiert.",
@@ -456,6 +585,7 @@
           ],
           "acceptance_criteria": [
             "Der komplette Zyklus ist ohne manuelle Datenbankänderungen durchführbar.",
+            "Laufende Sprint-Kurskorrektur und nachgelagerte Retrospektivenverbesserung sind getrennt auditierbar.",
             "Jede Zustandsänderung ist auditierbar.",
             "Sprint 2 enthält einen kryptografisch/revisionsgebundenen Nachweis der angewendeten Verbesserung.",
             "Regression kann zurückgerollt werden.",
@@ -467,27 +597,35 @@
   ],
   "cross_cutting_requirements": {
     "security": [
-      "Retrospektiven dürfen keine Secrets oder vollständigen sensitiven Prompt-/Artifact-Bodies an externe Evolution Provider übertragen.",
+      "Retrospektiven und Sprint-Control-Analysen dürfen keine Secrets oder vollständigen sensitiven Prompt-/Artifact-Bodies an externe Provider übertragen.",
       "Provider-Kontext muss vor Übergabe redigiert werden.",
       "Evolution Apply bleibt policy- und capability-gated.",
       "Änderungen an Security Gates, Berechtigungen und Tool-Rechten benötigen erhöhte Freigabe.",
-      "Worker dürfen Continuous Improvement nicht als Umweg zur Rechteausweitung verwenden."
+      "Worker dürfen Continuous Improvement oder Sprint-Replanning nicht als Umweg zur Rechteausweitung verwenden.",
+      "Hub-Kerncode und Security-Invarianten sind kein zulässiges direktes Evolution-Apply-Ziel."
     ],
     "auditability": [
-      "Sprint, Retro, Proposal, Review, Validation, Commitment, Apply und Evaluation müssen über stabile IDs verkettet sein.",
+      "Sprint, Sprint-Control-Run, Sprint Backlog Amendment, Retro, Proposal, Review, Validation, Commitment, Apply und Evaluation müssen über stabile IDs verkettet sein.",
       "Jede Änderung benötigt vorher/nachher Revision oder Digest.",
-      "Retrospektiven-Evidenz bleibt immutable."
+      "Retrospektiven-Evidenz und historische Sprint-Snapshots bleiben immutable."
     ],
     "determinism": [
       "Lifecycle-Transitions und Policy-Entscheidungen deterministisch halten.",
       "LLM-Ausgaben nur als Vorschläge oder Klassifikationen behandeln.",
-      "Messwerte serverseitig neu berechnen."
+      "Messwerte serverseitig neu berechnen.",
+      "Der Hub entscheidet deterministisch über Zulässigkeit und Materialisierung; die fachliche Adaptation Proposal kann agentisch erzeugt werden."
     ],
     "provider_independence": [
       "Evolver bleibt Adapter hinter EvolutionEngine.",
       "Scrum-Domänenmodelle enthalten keine Evolver-spezifischen Gene-/Capsule-/GEP-Felder."
     ],
     "observability": [
+      "sprint_control_runs_total",
+      "sprint_goal_at_risk_total",
+      "sprint_goal_off_track_total",
+      "sprint_backlog_amendments_total",
+      "sprint_goal_renegotiations_total",
+      "sprint_cancellations_total",
       "retro_runs_total",
       "retro_findings_total",
       "improvement_proposals_total",
@@ -500,6 +638,10 @@
   "test_strategy": {
     "unit": [
       "Sprint Lifecycle",
+      "Sprint Progress Snapshot",
+      "Sprint Goal Risk Classification",
+      "Sprint Backlog Amendment Validation",
+      "Sprint Goal Change Guard",
       "Evidence Snapshot",
       "Proposal Classification",
       "Commitment Binding",
@@ -508,6 +650,9 @@
       "Policy Enforcement"
     ],
     "integration": [
+      "active Sprint -> Sprint Control Trigger -> Goal Assessment",
+      "Goal Assessment -> Adaptation Proposal -> Hub Validation -> Sprint Backlog Amendment",
+      "Sprint Backlog Amendment -> continued execution",
       "Sprint -> Review -> Retro",
       "Retro -> EvolutionEngine",
       "EvolutionProposal -> Review/Validation",
@@ -515,9 +660,13 @@
       "Sprint completion -> Effect Evaluation"
     ],
     "negative": [
+      "Routine-Replanning versucht Sprint Goal stillschweigend zu ändern",
+      "Sprint Adaptation versucht Security- oder Rechteausweitung",
+      "Sprint Adaptation versucht Hub-Kerncode zu mutieren",
       "Proposal versucht Rechteausweitung",
       "falsche sprint_id",
       "stale Proposal Revision",
+      "stale Sprint Progress Snapshot",
       "Manipulation alter Retrospektiven-Evidenz",
       "nicht genehmigtes Apply",
       "Provider-Ausfall",
@@ -532,6 +681,11 @@
     "SCI-001",
     "SCI-002",
     "SCI-003",
+    "SCI-019",
+    "SCI-020",
+    "SCI-021",
+    "SCI-022",
+    "SCI-023",
     "SCI-004",
     "SCI-005",
     "SCI-006",
@@ -550,8 +704,13 @@
   ],
   "definition_of_done": [
     "Scrum-Iteration ist explizit und revisionsgebunden modelliert.",
+    "Sprint Goal und Sprint Backlog sind getrennte Konzepte.",
+    "Ein laufender Sprint besitzt einen ereignis-/intervallgesteuerten Inspect-and-Adapt-Control-Loop.",
+    "Der Control-Loop kann erkennen, ob das Sprint Goal on_track, at_risk, off_track oder unknown ist.",
+    "Das Team kann policy-konforme Sprint-Backlog-Kurskorrekturen vorschlagen und der Hub kann sie revisionsgebunden validieren und materialisieren.",
+    "Routine-Kurskorrekturen dürfen das Sprint Goal nicht stillschweigend ändern.",
     "Review und Retrospektive sind getrennte Lifecycle-Schritte.",
-    "Retrospektive basiert auf tatsächlicher Sprint-Evidenz.",
+    "Retrospektive basiert auf tatsächlicher Sprint-Evidenz einschließlich der während des Sprints erfolgten Kurskorrekturen.",
     "Mehrere Agenten können sich gegenseitig und selbst kritisch evaluieren.",
     "Verbesserungsvorschläge laufen über die vorhandene EvolutionEngine.",
     "Akzeptierte Verbesserungen werden als versionierte Improvement Commitments gespeichert.",
@@ -559,25 +718,29 @@
     "Die Wirkung wird nach Abschluss quantitativ und qualitativ bewertet.",
     "Schlechte Änderungen können zurückgerollt werden.",
     "Die nächste Retrospektive erhält die Ergebnisse vorheriger Verbesserungsversuche als Evidenz.",
+    "Evolvierbare Arbeitsweise ist explizit auf versionierte Prozess-/Rollen-/Workflow-/Planning-/Routing-/Handoff-/Quality-Konfigurationen begrenzt; Hub-Kerncode und Security-Invarianten werden nicht vom laufenden Evolver selbst mutiert.",
     "Security-, Hub- und Approval-Grenzen werden nicht geschwächt.",
-    "Ein vollständiger Sprint-N -> Retro -> Improvement -> Sprint-N+1 -> Measurement-Zyklus ist durch einen E2E-Test abgesichert."
+    "Ein vollständiger In-Sprint-Inspect-and-Adapt-Loop sowie ein Sprint-N -> Retro -> Improvement -> Sprint-N+1 -> Measurement-Zyklus sind durch E2E-Tests abgesichert."
   ],
   "meta": {
-    "total_items": 18,
+    "total_items": 23,
     "by_status": {
       "completed": 0,
       "partial": 0,
-      "open": 18
+      "open": 23
     },
     "notes": [
       "Die vorhandene Evolution-/Evolver-Infrastruktur ist ausdrücklich wiederzuverwenden.",
-      "Der wichtigste neue Baustein ist nicht die Analyse selbst, sondern die revisionsgebundene Rückkopplung einer beschlossenen Verbesserung in den nächsten Sprint.",
-      "Damit wird aus allgemeiner Evolution ein nachvollziehbarer Scrum-Continuous-Improvement-Zyklus.",
+      "Der wichtigste Retrospektiven-Baustein ist die revisionsgebundene Rückkopplung einer beschlossenen Verbesserung in den nächsten Sprint.",
+      "Der wichtigste In-Sprint-Baustein ist die getrennte Inspect-and-Adapt-Schleife zum Sprint Goal: Zustand beobachten, Goal-Erreichbarkeit prüfen, Sprint Backlog kontrolliert anpassen und erneut beobachten.",
+      "Damit wird aus allgemeiner Evolution ein nachvollziehbarer Scrum-Continuous-Improvement-Zyklus und aus Hub-Synchronisation kein bloßes Daily-Etikett, sondern ein expliziter Sprint-Goal-Control-Mechanismus.",
       "Sprint-Dauer für Agenten soll konfigurierbar und nicht dogmatisch an menschliche Zwei-/Vier-Wochen-Zyklen gebunden sein.",
-      "Daily Scrum und Retrospektive sind fachlich getrennt von Hub-Synchronisation zu betrachten."
+      "Daily-/Inspect-and-Adapt und Retrospektive sind zwei unterschiedliche Feedback-Loops.",
+      "Der Hub ist technische Control Plane. Seine interpretierten Prozessdefinitionen können versioniert angepasst werden; der Hub-Kern selbst ist kein unkontrolliertes Evolver-Mutationsziel."
     ],
     "recommended_order": [
       "sprint_iteration_model",
+      "sprint_goal_control_loop",
       "retrospective_evidence",
       "improvement_proposals",
       "measurement_and_feedback",
