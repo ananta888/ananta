@@ -231,6 +231,10 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="FEATURE_TUI_MODEL_MENU_ENABLED",
     )
+    hrm_experiments_enabled: bool = Field(
+        default=False,
+        validation_alias="HRM_EXPERIMENTS_ENABLED",
+    )
     terminal_feature_enabled: bool = Field(default=False, validation_alias="TERMINAL_FEATURE_ENABLED")
     terminal_hub_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_TARGET_ENABLED")
     terminal_hub_as_worker_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_AS_WORKER_TARGET_ENABLED")

@@ -239,6 +239,10 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         SemanticComputeWorkerConfigurationError,
         build_semantic_compute_task_handler,
     )
+    from worker.hrm_experiments.task_handler import (
+        HrmExperimentWorkerConfigurationError,
+        build_hrm_experiment_task_handler,
+    )
     from worker.visual_process_assistant import (
         VisualProcessAssistantInferenceHandler,
         VisualProcessAssistantRetrievalHandler,
@@ -547,6 +551,71 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         app.extensions[
             "workflow_adapter_worker_registration"
         ] = workflow_registration
+    try:
+        if os.environ.get("ANANTA_HRM_EXPERIMENT_WORKER_ENABLED", "").strip().lower() not in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }:
+            raise HrmExperimentWorkerConfigurationError("hrm_experiment_worker_disabled")
+        hrm_experiment_handler = build_hrm_experiment_task_handler()
+    except HrmExperimentWorkerConfigurationError as exc:
+        app.extensions["hrm_experiment_worker_registration"] = {
+            "ready": False,
+            "reason_code": exc.reason_code,
+        }
+    else:
+        hrm_projection = hrm_experiment_handler.capability()
+        hrm_capabilities = [
+            "hrm_experiment",
+            "hrm_experiment.mock",
+            "hrm_experiment.isolated_runner",
+            *[
+                f"hrm_experiment.profile.{profile_id}"
+                for profile_id in hrm_projection.get("supported_profiles", [])
+            ],
+        ]
+        register_task_handler(
+            "hrm_experiment",
+            hrm_experiment_handler,
+            app=app,
+            capabilities=hrm_capabilities,
+            safety_flags={
+                "worker_only": True,
+                "hub_delegation_required": True,
+                "peer_network_forbidden": True,
+                "child_task_creation_forbidden": True,
+                "networkless_runner_required": True,
+            },
+            verification_hooks=[
+                "hrm_run_request_v1",
+                "hrm_run_result_v1",
+                "authority_binding",
+                "lease_fencing",
+                "artifact_digest_verification",
+            ],
+        )
+        registered.append("hrm_experiment")
+        app.extensions["hrm_experiment_worker_registration"] = {
+            "ready": True,
+            "reason_code": None,
+            "capability_digest": hrm_projection.get("capability_digest"),
+            "supported_profiles": list(hrm_projection.get("supported_profiles") or []),
+        }
+        app.extensions["hrm_experiment_capability_heartbeat"] = (
+            hrm_experiment_handler.capability_heartbeat
+        )
+        workflow_registration = dict(
+            app.extensions.get("workflow_adapter_worker_registration") or {}
+        )
+        workflow_registration["capabilities"] = sorted(
+            {
+                *(workflow_registration.get("capabilities") or []),
+                *hrm_capabilities,
+            }
+        )
+        app.extensions["workflow_adapter_worker_registration"] = workflow_registration
     try:
         if os.environ.get("ANANTA_SEMANTIC_COMPUTE_WORKER_ENABLED", "").strip().lower() not in {
             "1",

@@ -103,6 +103,15 @@ from .ml_intern_training import (
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
 )
+from .hrm_experiments import (
+    HrmCheckpointDB,
+    HrmDatasetDB,
+    HrmEvaluationReportDB,
+    HrmRunDB,
+    HrmRunEventDB,
+    HrmWorkerCapabilityDB,
+)
+from .hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 from .organization_runtime import (
     OrganizationBudgetReservationDB,
     OrganizationBudgetUsageDB,
@@ -427,6 +436,13 @@ __all__ = [
     "LoginAttemptDB",
     "OidcIdentityLinkDB",
     "MemoryEntryDB",
+    "HrmCheckpointDB",
+    "HrmDatasetDB",
+    "HrmEvaluationReportDB",
+    "HrmIdempotencyReceiptDB",
+    "HrmRunDB",
+    "HrmRunEventDB",
+    "HrmWorkerCapabilityDB",
     "MlInternDatasetDB",
     "MlInternSpeechAdapterDB",
     "MlInternSpeechAdapterLegacyImportDB",

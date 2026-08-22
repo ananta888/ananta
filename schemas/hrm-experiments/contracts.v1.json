@@ -7,6 +7,7 @@
     {"$ref": "#/$defs/preflight_result"},
     {"$ref": "#/$defs/puzzle_dataset_manifest"},
     {"$ref": "#/$defs/checkpoint_manifest"},
+    {"$ref": "#/$defs/run_intent"},
     {"$ref": "#/$defs/run_request"},
     {"$ref": "#/$defs/run_status"},
     {"$ref": "#/$defs/event_page"},
@@ -236,6 +237,23 @@
         "early_stopping_threshold": {"type": "number", "minimum": 0},
         "reject_non_finite": {"const": true},
         "gradient_norm_max": {"type": "number", "exclusiveMinimum": 0, "maximum": 1000000}
+      }
+    },
+    "run_intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "scope", "profile_id", "mode", "dataset_id", "checkpoint_id", "limits", "seed", "precision", "parameters"],
+      "properties": {
+        "schema": {"const": "ananta.hrm-experiments.run-intent.v1"},
+        "scope": {"$ref": "#/$defs/scope"},
+        "profile_id": {"$ref": "#/$defs/identifier"},
+        "mode": {"enum": ["mock", "train", "inference"]},
+        "dataset_id": {"$ref": "#/$defs/identifier"},
+        "checkpoint_id": {"type": ["string", "null"], "maxLength": 128, "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+        "limits": {"$ref": "#/$defs/resource_limits"},
+        "seed": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+        "precision": {"enum": ["float32", "float16", "bfloat16"]},
+        "parameters": {"$ref": "#/$defs/run_parameters"}
       }
     },
     "run_request": {

@@ -1,0 +1,84 @@
+name: ananta-hrm-experiments
+
+services:
+  hrm-experiment-worker:
+    profiles: ["hrm-experiments"]
+    image: ${ANANTA_WORKER_IMAGE:-ananta-worker:local}
+    command: ["python", "-m", "agent.ai_agent"]
+    user: "65532:65532"
+    read_only: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      ROLE: worker
+      AGENT_NAME: ${ANANTA_HRM_WORKER_NAME:-hrm-experiment-worker}
+      AGENT_URL: ${ANANTA_HRM_WORKER_URL:-http://hrm-experiment-worker:5011}
+      HUB_URL: ${HUB_URL:-http://hub:5000}
+      PORT: "5011"
+      HRM_EXPERIMENTS_ENABLED: "1"
+      ANANTA_HRM_EXPERIMENT_WORKER_ENABLED: "1"
+      ANANTA_HRM_RUNNER_SOCKET: /run/ananta-hrm/runner.sock
+    volumes:
+      - hrm-runner-socket:/run/ananta-hrm
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,uid=65532,gid=65532
+    networks: ["hrm-control"]
+    depends_on:
+      hrm-experiment-runner:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+          pids: 96
+    restart: unless-stopped
+
+  hrm-experiment-runner:
+    profiles: ["hrm-experiments"]
+    build:
+      context: .
+      dockerfile: docker/hrm-experiment-runner.Dockerfile
+    image: ananta/hrm-experiment-runner:0.1.0
+    user: "65532:65532"
+    read_only: true
+    network_mode: none
+    cap_drop: ["ALL"]
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      AGENT_NAME: ${ANANTA_HRM_WORKER_NAME:-hrm-experiment-worker}
+      ANANTA_HRM_RUNNER_SOCKET: /run/ananta-hrm/runner.sock
+      ANANTA_HRM_RUNTIME_IMAGE_DIGEST: ${ANANTA_HRM_RUNTIME_IMAGE_DIGEST:?Set the approved runner image SHA-256}
+      ANANTA_HRM_ENGINE_VERSION: hrm-runner-v1
+      ANANTA_HRM_ISOLATION_ATTESTED: "1"
+      ANANTA_HRM_ISOLATION_PROFILE_VERSION: hrm-container-v1
+    volumes:
+      - hrm-runner-socket:/run/ananta-hrm
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=32m,uid=65532,gid=65532
+      - /workspace:rw,noexec,nosuid,nodev,size=4g,uid=65532,gid=65532
+    pids_limit: 128
+    mem_limit: 4g
+    memswap_limit: 4g
+    mem_swappiness: 0
+    cpus: 4.0
+    ulimits:
+      nofile: {soft: 4096, hard: 4096}
+      nproc: {soft: 128, hard: 128}
+      core: {soft: 0, hard: 0}
+    healthcheck:
+      test: ["CMD", "python", "-m", "worker.hrm_experiments.healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+volumes:
+  hrm-runner-socket:
+
+networks:
+  hrm-control:
+    name: ${ANANTA_HRM_CONTROL_NETWORK:-ananta-hrm-control}
+    external: true

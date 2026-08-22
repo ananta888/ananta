@@ -31,6 +31,7 @@ KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE = (
     "knowledge.index.task_snapshot.read"
 )
 SEMANTIC_COMPUTE_WORKER_SCOPE = "semantic.compute.execute"
+HRM_EXPERIMENT_WORKER_SCOPE = "hrm.experiment.execute"
 SPEECH_EVIDENCE_CURATION_WORKER_SCOPE = "speech.evidence.curate"
 RECOVERY_TASK_DISPATCH_SCOPE = "task.recovery.dispatch"
 RECOVERY_TASK_MANIFEST_SCOPE = "task.recovery.manifest.read"
@@ -62,6 +63,12 @@ _SCOPE_CAPABILITIES = {
             "semantic_compute.visual_validate",
             "semantic_compute.speech_features",
             "semantic_compute.speech_validate",
+        }
+    ),
+    HRM_EXPERIMENT_WORKER_SCOPE: frozenset(
+        {
+            "hrm_experiment",
+            "hrm_experiment.isolated_runner",
         }
     ),
     SPEECH_EVIDENCE_CURATION_WORKER_SCOPE: frozenset({"speech_evidence_curation"}),
@@ -802,6 +809,7 @@ __all__ = [
     "KNOWLEDGE_INDEX_PAYLOAD_SCOPE",
     "KNOWLEDGE_INDEX_TASK_SNAPSHOT_SCOPE",
     "SEMANTIC_COMPUTE_WORKER_SCOPE",
+    "HRM_EXPERIMENT_WORKER_SCOPE",
     "SPEECH_EVIDENCE_CURATION_WORKER_SCOPE",
     "WORKFLOW_TEMPORAL_TASK_SCOPE",
     "WORKFLOW_WORKER_COMMAND_SCOPE",

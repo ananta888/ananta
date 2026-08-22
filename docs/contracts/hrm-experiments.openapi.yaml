@@ -13,7 +13,10 @@ paths:
       operationId: listHrmExperimentCapabilities
       responses:
         '200': {$ref: '#/components/responses/CapabilityResponse'}
+        '400': {$ref: '#/components/responses/ProblemResponse'}
+        '401': {$ref: '#/components/responses/ProblemResponse'}
         '403': {$ref: '#/components/responses/ProblemResponse'}
+        '503': {$ref: '#/components/responses/ProblemResponse'}
   /api/hrm-experiments/preflight:
     post:
       operationId: preflightHrmExperiment
@@ -30,8 +33,12 @@ paths:
                 profile_id: {type: string, maxLength: 128}
       responses:
         '200': {$ref: '#/components/responses/PreflightResponse'}
+        '400': {$ref: '#/components/responses/ProblemResponse'}
+        '401': {$ref: '#/components/responses/ProblemResponse'}
         '403': {$ref: '#/components/responses/ProblemResponse'}
         '409': {$ref: '#/components/responses/ProblemResponse'}
+        '415': {$ref: '#/components/responses/ProblemResponse'}
+        '503': {$ref: '#/components/responses/ProblemResponse'}
   /api/hrm-experiments/datasets:
     get:
       operationId: listHrmPuzzleDatasets
@@ -71,7 +78,7 @@ paths:
         required: true
         content:
           application/json:
-            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/run_request'}
+            schema: {$ref: '../../schemas/hrm-experiments/contracts.v1.json#/$defs/run_intent'}
       responses:
         '202': {$ref: '#/components/responses/ObjectResponse'}
         '403': {$ref: '#/components/responses/ProblemResponse'}
@@ -81,6 +88,7 @@ paths:
       operationId: getHrmExperimentRun
       parameters:
         - {$ref: '#/components/parameters/RunId'}
+        - {$ref: '#/components/parameters/ProjectId'}
       responses:
         '200':
           description: Hub-owned run status
@@ -93,6 +101,7 @@ paths:
       operationId: listHrmExperimentRunEvents
       parameters:
         - {$ref: '#/components/parameters/RunId'}
+        - {$ref: '#/components/parameters/ProjectId'}
         - {$ref: '#/components/parameters/Cursor'}
         - {$ref: '#/components/parameters/Limit'}
       responses:
@@ -107,6 +116,7 @@ paths:
       operationId: cancelHrmExperimentRun
       parameters:
         - {$ref: '#/components/parameters/RunId'}
+        - {$ref: '#/components/parameters/ProjectId'}
         - {$ref: '#/components/parameters/IdempotencyKey'}
       requestBody:
         required: true
@@ -143,6 +153,17 @@ paths:
       operationId: createHrmEvaluation
       parameters:
         - {$ref: '#/components/parameters/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [project_id, run_id]
+              properties:
+                project_id: {type: string, maxLength: 128}
+                run_id: {type: string, maxLength: 128}
       responses:
         '202': {$ref: '#/components/responses/ObjectResponse'}
         '403': {$ref: '#/components/responses/ProblemResponse'}
@@ -154,6 +175,7 @@ paths:
           in: path
           required: true
           schema: {type: string, maxLength: 128}
+        - {$ref: '#/components/parameters/ProjectId'}
       responses:
         '200':
           description: Bounded report

@@ -44,6 +44,7 @@ from agent.routes.effective_workflow import effective_workflow_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.freecad_client_surface import freecad_client_surface_bp
 from agent.routes.goal_artifacts import goal_artifacts_bp
+from agent.routes.hrm_experiments import hrm_experiments_bp
 from agent.routes.hub_benchmark import hub_benchmark_bp
 from agent.routes.hub_direct_diagnostics import hub_direct_diagnostics_bp
 from agent.routes.instruction_layers import instruction_layers_bp
@@ -194,6 +195,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(sources_bp)
     register_source_control_api(app)
     app.register_blueprint(goal_artifacts_bp)
+    app.register_blueprint(hrm_experiments_bp)
     app.register_blueprint(sgpt_bp, url_prefix="/api/sgpt")
     app.register_blueprint(semantic_media_contracts_bp)
     app.register_blueprint(semantic_media_debug_bp)
