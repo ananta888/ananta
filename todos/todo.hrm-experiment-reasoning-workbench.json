@@ -2,35 +2,84 @@
   "$schema": "./todo.schema.json",
   "version": 2,
   "created": "2026-07-29",
-  "updated": "2026-08-21",
+  "updated": "2026-08-22",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "hrm_experiment_reasoning_workbench_research",
-  "status": "open",
+  "status": "in_progress",
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "HEAD@ffa6295e7462f4317c3108a77046ee44fe3d6b52 plus working tree inspected on 2026-08-21",
     "review_goal": "Die bisherige gemischte HRM-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo ueberfuehren, vorhandene Ananta-Training-, Worker-, Artifact-, API- und UI-Komponenten zuerst auf Wiederverwendung pruefen und erst nach Promotion einen separaten Planning Track erzeugen.",
-    "allowed_source_refs": [],
-    "allowed_run_refs": [],
-    "grounding_status": "unverified",
-    "promotion_status": "non_promotable_unverified_sources",
-    "grounding_note": "Auch beim erneuten Abgleich am 2026-08-21 wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs uebergeben und kein HRM-gebundener Source Catalog in den lokalen Hub-Stores gefunden. Repository-Pfade, Testfixtures und externe URLs sind Navigations- beziehungsweise Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausfuehrung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "allowed_source_refs": [
+      "SRC_0001",
+      "SRC_0002",
+      "SRC_0003",
+      "SRC_0004",
+      "SRC_0005",
+      "SRC_0006",
+      "SRC_0007",
+      "SRC_0008",
+      "SRC_0009",
+      "SRC_0010",
+      "SRC_0011",
+      "SRC_0012",
+      "SRC_0013",
+      "SRC_0014",
+      "SRC_0015",
+      "SRC_0016",
+      "SRC_0017",
+      "SRC_0018",
+      "SRC_0019",
+      "SRC_0020",
+      "SRC_0021",
+      "SRC_0022",
+      "SRC_0023",
+      "SRC_0024",
+      "SRC_0025",
+      "SRC_0026",
+      "SRC_0027",
+      "SRC_0028",
+      "SRC_0029",
+      "SRC_0030",
+      "SRC_0031",
+      "SRC_0032",
+      "SRC_0033",
+      "SRC_0034",
+      "SRC_0035",
+      "SRC_0036",
+      "SRC_0037",
+      "SRC_0038",
+      "SRC_0039",
+      "SRC_0040",
+      "SRC_0041",
+      "SRC_0042",
+      "SRC_0043",
+      "SRC_0044",
+      "SRC_0045",
+      "SRC_0046",
+      "SRC_0047"
+    ],
+    "allowed_run_refs": [
+      "RUN_0001"
+    ],
+    "grounding_status": "verified",
+    "promotion_status": "promoted",
+    "grounding_note": "Der Hub hat die Assignment-gebundene Category-Research-Ausfuehrung gegen den exakten Source-Katalog sowie RUN_0001 verifiziert. Unbekannte IDs wurden nicht akzeptiert.",
     "blocked_audit": {
-      "date": "2026-08-21",
-      "reviewed_commit": "ffa6295e7462f4317c3108a77046ee44fe3d6b52",
-      "status": "blocked",
-      "reason_codes": [
-        "assignment_bound_source_catalog_missing",
-        "allowed_source_refs_empty",
-        "allowed_run_refs_empty"
+      "status": "resolved",
+      "resolved_at": "2026-08-22",
+      "prior_blocker": "missing_assignment_bound_source_and_run_refs",
+      "resolution": "Source-Katalog, Source-Refs und Run-Ref wurden vom Hub publiziert, an das Assignment gebunden, vom Worker verwendet und durch den Hub gegen die persistierte WorkerResult-Ausgabe verifiziert.",
+      "source_catalog_id": "catalog-5ec632692c6ff83f",
+      "source_catalog_hash": "5ec632692c6ff83f7a3a96379e04835b987846a8de2f3eeab3f36d585e8e8ce5",
+      "allowed_source_ref_count": 47,
+      "allowed_run_refs": [
+        "RUN_0001"
       ],
-      "unverified_navigation_observations": [
-        "No HRM production namespace was found; current HRM references outside documentation and TODOs are Organization planning test data.",
-        "Organization Source Catalog publication and Category Research Hub services now exist and must be evaluated by the bound research assignment as additive reuse candidates.",
-        "No local SQLite Ananta store exposed a persisted Organization Source Catalog table at review time."
-      ],
-      "required_unblock_input": "A Hub-published source_catalog_id and source_catalog_hash plus the exact assignment-bound allowed_source_refs and allowed_run_refs."
+      "assignment_binding_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
+      "category_revision_id": "pcat-65c5f88839fe8823fb252e1e",
+      "promotion_receipt_id": "0421f895-9423-4dd3-80d9-f87560787faa"
     },
     "reviewed_paths": [
       "AGENTS.md",
@@ -115,7 +164,7 @@
     "passive": true,
     "creates_worker_tasks": false,
     "creates_queue_entries": false,
-    "promotion_state": "blocked_until_assignment_bound_grounding",
+    "promotion_state": "promoted",
     "research_result_requirements": [
       "Die Hub-gebundene Research-Ausfuehrung uebernimmt die exakte source_catalog_id, den source_catalog_hash sowie die erlaubten Source- und Run-Refs aus ihrem Assignment-Kontext.",
       "Jeder belegte Item-Claim verweist ueber evidence_claim_refs auf genau einen maschinenlesbaren Claim des Quality Profiles.",
@@ -138,19 +187,34 @@
       "id": "HYP-HRM-001",
       "statement": "HRM passt fachlich als strukturierte Experiment-Engine und nicht als allgemeiner ChatProvider.",
       "status": "unverified",
-      "validation_items": ["HRMR-GND-002", "HRMR-GND-003", "HRMR-FIT-005"]
+      "validation_items": [
+        "HRMR-GND-002",
+        "HRMR-GND-003",
+        "HRMR-FIT-005"
+      ]
     },
     {
       "id": "HYP-HRM-002",
       "statement": "Hub-Queue, Leases, Events, Artifact-Sicherheit und Teile der bestehenden Modelltraining-Oberflaeche koennen additiv wiederverwendet oder ueber schmale generische Ports erweitert werden.",
       "status": "unverified",
-      "validation_items": ["HRMR-FIT-001", "HRMR-FIT-002", "HRMR-FIT-003", "HRMR-FIT-004", "HRMR-FIT-005"]
+      "validation_items": [
+        "HRMR-FIT-001",
+        "HRMR-FIT-002",
+        "HRMR-FIT-003",
+        "HRMR-FIT-004",
+        "HRMR-FIT-005"
+      ]
     },
     {
       "id": "HYP-HRM-003",
       "statement": "Ein kleiner Sudoku-Vertikalschnitt ist der guenstigste erste Runtime- und Evaluationsnachweis; Maze und ARC koennen danach als unabhaengige Plugins folgen.",
       "status": "unverified",
-      "validation_items": ["HRMR-RUN-004", "HRMR-DATA-002", "HRMR-DATA-003", "HRMR-EVAL-001"]
+      "validation_items": [
+        "HRMR-RUN-004",
+        "HRMR-DATA-002",
+        "HRMR-DATA-003",
+        "HRMR-EVAL-001"
+      ]
     }
   ],
   "candidate_external_sources": [
@@ -190,11 +254,20 @@
     ]
   },
   "evidence_policy": {
-    "accepted_reference_namespaces": ["SRC_*", "RUN_*"],
+    "accepted_reference_namespaces": [
+      "SRC_*",
+      "RUN_*"
+    ],
     "origin": "hub_provided_assignment_manifest",
     "exact_allowlist_membership_required": true,
     "workers_may_create_identifiers": false,
-    "navigation_is_not_evidence": ["repository paths", "URLs", "commit text", "artifact names", "free-text citations"],
+    "navigation_is_not_evidence": [
+      "repository paths",
+      "URLs",
+      "commit text",
+      "artifact names",
+      "free-text citations"
+    ],
     "claim_rules": {
       "source_fact": "benoetigt mindestens eine erlaubte Source-Referenz",
       "tool_result": "benoetigt mindestens eine erlaubte Run-Referenz",
@@ -209,212 +282,402 @@
     "source_version": "1.0.0",
     "migration_rule": "Die alten HRM-IDs werden nicht als ausfuehrbare Tasks uebernommen. Ihr Scope wird in Research-Fragen konsolidiert; erst ein spaeterer Track darf neue Task-IDs mit source_category_item_ids erzeugen.",
     "legacy_scope_groups": {
-      "architecture_config_runtime": ["HRM-001", "HRM-002", "HRM-003", "HRM-010", "HRM-011", "HRM-012", "HRM-020", "HRM-021", "HRM-022"],
-      "datasets_training_checkpoints": ["HRM-030", "HRM-031", "HRM-032", "HRM-033", "HRM-034", "HRM-040", "HRM-041", "HRM-042", "HRM-043", "HRM-044", "HRM-050", "HRM-051", "HRM-052"],
-      "evaluation_api_surfaces": ["HRM-060", "HRM-061", "HRM-062", "HRM-063", "HRM-070", "HRM-071", "HRM-080", "HRM-081", "HRM-082", "HRM-083", "HRM-084", "HRM-090", "HRM-091"],
-      "tests_docs_release": ["HRM-100", "HRM-101", "HRM-102", "HRM-103", "HRM-104"]
+      "architecture_config_runtime": [
+        "HRM-001",
+        "HRM-002",
+        "HRM-003",
+        "HRM-010",
+        "HRM-011",
+        "HRM-012",
+        "HRM-020",
+        "HRM-021",
+        "HRM-022"
+      ],
+      "datasets_training_checkpoints": [
+        "HRM-030",
+        "HRM-031",
+        "HRM-032",
+        "HRM-033",
+        "HRM-034",
+        "HRM-040",
+        "HRM-041",
+        "HRM-042",
+        "HRM-043",
+        "HRM-044",
+        "HRM-050",
+        "HRM-051",
+        "HRM-052"
+      ],
+      "evaluation_api_surfaces": [
+        "HRM-060",
+        "HRM-061",
+        "HRM-062",
+        "HRM-063",
+        "HRM-070",
+        "HRM-071",
+        "HRM-080",
+        "HRM-081",
+        "HRM-082",
+        "HRM-083",
+        "HRM-084",
+        "HRM-090",
+        "HRM-091"
+      ],
+      "tests_docs_release": [
+        "HRM-100",
+        "HRM-101",
+        "HRM-102",
+        "HRM-103",
+        "HRM-104"
+      ]
     },
     "status_rule": "Vorhandener Plattformcode wird nicht automatisch als completed gewertet. Reuse-, Extend- und New-Entscheidungen bleiben open, bis sie assignment-bound belegt und vom Hub promotet wurden.",
     "legacy_scope_map": {
       "HRM-001": {
         "source_title": "Ananta-Erweiterungspunkte analysieren",
         "retained_scope": "Backend-, Control-Plane-, Worker-, API-, Angular-, Visual-Process-, TUI- und CLI-Erweiterungspunkte sowie Zielarchitektur inventarisieren.",
-        "category_item_ids": ["HRMR-GND-003", "HRMR-FIT-001", "HRMR-FIT-002", "HRMR-FIT-003", "HRMR-FIT-004", "HRMR-FIT-005"]
+        "category_item_ids": [
+          "HRMR-GND-003",
+          "HRMR-FIT-001",
+          "HRMR-FIT-002",
+          "HRMR-FIT-003",
+          "HRMR-FIT-004",
+          "HRMR-FIT-005"
+        ]
       },
       "HRM-002": {
         "source_title": "Upstream-Version und Lizenznachweise festlegen",
         "retained_scope": "Unveraenderliche Upstream-/Paper-Revision, Digests, Lizenz, NOTICE und uebernommene Artefakte belegen.",
-        "category_item_ids": ["HRMR-GND-001"]
+        "category_item_ids": [
+          "HRMR-GND-001"
+        ]
       },
       "HRM-003": {
         "source_title": "Threat Model fuer Modelle, Datensaetze und Checkpoints erstellen",
         "retained_scope": "Trust Boundaries, Risk Register, untrusted Code/Artifacts, Downloads, Isolation, AuthZ, Leases, Egress und Supply Chain fail-closed entscheiden.",
-        "category_item_ids": ["HRMR-SEC-000", "HRMR-SEC-001", "HRMR-SEC-002", "HRMR-SEC-003", "HRMR-SEC-004", "HRMR-SEC-005", "HRMR-SEC-006", "HRMR-SEC-007"]
+        "category_item_ids": [
+          "HRMR-SEC-000",
+          "HRMR-SEC-001",
+          "HRMR-SEC-002",
+          "HRMR-SEC-003",
+          "HRMR-SEC-004",
+          "HRMR-SEC-005",
+          "HRMR-SEC-006",
+          "HRMR-SEC-007"
+        ]
       },
       "HRM-010": {
         "source_title": "Experimental-Feature-Flag hinzufuegen",
         "retained_scope": "Default-disabled Feature- und Policy-Gate auf Hub-Admission, Dispatch, Mutationen und Oberflaechen spezifizieren.",
-        "category_item_ids": ["HRMR-FIT-005", "HRMR-RUN-003", "HRMR-UX-001"]
+        "category_item_ids": [
+          "HRMR-FIT-005",
+          "HRMR-RUN-003",
+          "HRMR-UX-001"
+        ]
       },
       "HRM-011": {
         "source_title": "Typisierte HRM-Konfiguration definieren",
         "retained_scope": "Eigenen typisierten HRM-Konfigurationsnamespace, Defaults, Validation, Secret-Handles und Ressourcenprofile entscheiden.",
-        "category_item_ids": ["HRMR-RUN-003", "HRMR-SEC-006"]
+        "category_item_ids": [
+          "HRMR-RUN-003",
+          "HRMR-SEC-006"
+        ]
       },
       "HRM-012": {
         "source_title": "Hardware- und Runtime-Preflight implementieren",
         "retained_scope": "Source- und Run-grounded Kompatibilitaetsmatrix, Capability Probe, Preflight, Profile und konkrete Fehlercodes vorbereiten.",
-        "category_item_ids": ["HRMR-RUN-002", "HRMR-RUN-003", "HRMR-RUN-004"]
+        "category_item_ids": [
+          "HRMR-RUN-002",
+          "HRMR-RUN-003",
+          "HRMR-RUN-004"
+        ]
       },
       "HRM-020": {
         "source_title": "Reproduzierbares Runtime-Image oder Environment erstellen",
         "retained_scope": "Ausschliesslich ein gepinntes, attestiertes, non-root und fail-closed isoliertes Worker-Image als spaetere Runtime zulassen.",
-        "category_item_ids": ["HRMR-SEC-003", "HRMR-SEC-007", "HRMR-RUN-002"]
+        "category_item_ids": [
+          "HRMR-SEC-003",
+          "HRMR-SEC-007",
+          "HRMR-RUN-002"
+        ]
       },
       "HRM-021": {
         "source_title": "HRM-Prozessadapter implementieren",
         "retained_scope": "Kleinen Hub-Port und geschlossenen Worker-Vertrag fuer Start, Status, Events, Cancel, Result und Prozessgruppen-Cleanup definieren.",
-        "category_item_ids": ["HRMR-FIT-002", "HRMR-SEC-005", "HRMR-RUN-001"]
+        "category_item_ids": [
+          "HRMR-FIT-002",
+          "HRMR-SEC-005",
+          "HRMR-RUN-001"
+        ]
       },
       "HRM-022": {
         "source_title": "Ressourcenlimits und Job-Warteschlange ergaenzen",
         "retained_scope": "Vorhandene Hub-Queue und Leases wiederverwenden, atomare Admission und harte Ressourcenbudgets fuer HRM erweitern.",
-        "category_item_ids": ["HRMR-FIT-001", "HRMR-SEC-005", "HRMR-UX-001"]
+        "category_item_ids": [
+          "HRMR-FIT-001",
+          "HRMR-SEC-005",
+          "HRMR-UX-001"
+        ]
       },
       "HRM-030": {
         "source_title": "Gemeinsames Dataset-Manifest definieren",
         "retained_scope": "Geschlossenes Puzzle-Manifest, deterministischen Content-Digest, getrennte Provenance und sichere Migration spezifizieren.",
-        "category_item_ids": ["HRMR-DATA-001"]
+        "category_item_ids": [
+          "HRMR-DATA-001"
+        ]
       },
       "HRM-031": {
         "source_title": "Sudoku-Dataset-Builder integrieren",
         "retained_scope": "Sudoku-Quelle/Builder, Normalform, Split, Validator und kleine deterministische Fixture als ersten Vertikalschnitt entscheiden.",
-        "category_item_ids": ["HRMR-DATA-001", "HRMR-DATA-002"]
+        "category_item_ids": [
+          "HRMR-DATA-001",
+          "HRMR-DATA-002"
+        ]
       },
       "HRM-032": {
         "source_title": "Maze-Dataset-Builder integrieren",
         "retained_scope": "Maze-Format, Builder/Importer, Bounds, Pfadvalidator und unloesbare Faelle als eigenes Plugin erforschen.",
-        "category_item_ids": ["HRMR-DATA-001", "HRMR-DATA-003"]
+        "category_item_ids": [
+          "HRMR-DATA-001",
+          "HRMR-DATA-003"
+        ]
       },
       "HRM-033": {
         "source_title": "ARC-AGI-Dataset-Importer integrieren",
         "retained_scope": "ARC-Format, Import, Lizenz/Egress, Bounds, Normalisierung und Validator als eigenes Plugin erforschen.",
-        "category_item_ids": ["HRMR-DATA-001", "HRMR-DATA-003"]
+        "category_item_ids": [
+          "HRMR-DATA-001",
+          "HRMR-DATA-003"
+        ]
       },
       "HRM-034": {
         "source_title": "Generische Dataset-Plugin-Schnittstelle erstellen",
         "retained_scope": "Kleine Codec-, Normalizer-, Validator-, Split- und Visualization-Ports mit build-time gepinnter Hub-Registry entscheiden.",
-        "category_item_ids": ["HRMR-FIT-003", "HRMR-DATA-001"]
+        "category_item_ids": [
+          "HRMR-FIT-003",
+          "HRMR-DATA-001"
+        ]
       },
       "HRM-040": {
         "source_title": "Versioniertes Run-Manifest definieren",
         "retained_scope": "Geschlossenes unveraenderliches Run-Manifest mit effektiven Werten, Digests, Hardware, Limits, Policy und sicherem Replay spezifizieren.",
-        "category_item_ids": ["HRMR-RUN-001", "HRMR-RUN-004", "HRMR-DATA-001"]
+        "category_item_ids": [
+          "HRMR-RUN-001",
+          "HRMR-RUN-004",
+          "HRMR-DATA-001"
+        ]
       },
       "HRM-041": {
         "source_title": "Trainingsprofile bereitstellen",
         "retained_scope": "Offengelegte editierbare Mock-, Smoke-, Sudoku-, Maze-, ARC-, CPU- und GPU-Profile mit evidenzgebundenen Schaetzungen entscheiden.",
-        "category_item_ids": ["HRMR-RUN-003", "HRMR-RUN-004", "HRMR-DATA-002", "HRMR-DATA-003"]
+        "category_item_ids": [
+          "HRMR-RUN-003",
+          "HRMR-RUN-004",
+          "HRMR-DATA-002",
+          "HRMR-DATA-003"
+        ]
       },
       "HRM-042": {
         "source_title": "Training starten, ueberwachen und abbrechen",
         "retained_scope": "Ein Manifest ueber Hub-API/Clients starten, typisierte Loss/Accuracy/LR/Step/Epoch/Runtime/VRAM-Metriken und replaybare Logs beobachten, Cancel unterscheiden und Partial-Checkpoints sperren.",
-        "category_item_ids": ["HRMR-SEC-005", "HRMR-RUN-001", "HRMR-RUN-004", "HRMR-UX-001", "HRMR-UX-003"]
+        "category_item_ids": [
+          "HRMR-SEC-005",
+          "HRMR-RUN-001",
+          "HRMR-RUN-004",
+          "HRMR-UX-001",
+          "HRMR-UX-003"
+        ]
       },
       "HRM-043": {
         "source_title": "Early Stopping und numerische Schutzmassnahmen ergaenzen",
         "retained_scope": "Metrik/Patience/Threshold, NaN/Inf/explodierende Gradienten, letzten gueltigen Checkpoint, strukturierten Abbruchgrund und evidenzbasierte Genauigkeitsschwellen entscheiden.",
-        "category_item_ids": ["HRMR-RUN-001", "HRMR-RUN-004", "HRMR-ART-001"]
+        "category_item_ids": [
+          "HRMR-RUN-001",
+          "HRMR-RUN-004",
+          "HRMR-ART-001"
+        ]
       },
       "HRM-044": {
         "source_title": "Optionale W&B-Anbindung abstrahieren",
         "retained_scope": "Optionalen TelemetrySink mit Secret-Ref, Offline-Modus, bounded/redacted Payload, fail-open innerhalb Hub-Policy und autoritativen lokalen Events entscheiden.",
-        "category_item_ids": ["HRMR-SEC-006", "HRMR-RUN-001"]
+        "category_item_ids": [
+          "HRMR-SEC-006",
+          "HRMR-RUN-001"
+        ]
       },
       "HRM-050": {
         "source_title": "Checkpoint-Metadaten und Registry implementieren",
         "retained_scope": "HRM-spezifische versionierte Registry mit Herkunft, Lizenz, Kompatibilitaet, Digests, Referenzen und Retention entscheiden.",
-        "category_item_ids": ["HRMR-FIT-003", "HRMR-ART-001"]
+        "category_item_ids": [
+          "HRMR-FIT-003",
+          "HRMR-ART-001"
+        ]
       },
       "HRM-051": {
         "source_title": "Sicheren Checkpoint-Import implementieren",
         "retained_scope": "Format-Allowlist, pre-parse Verifikation, Quarantaene, atomare Promotion, Consent und adversariale Import-Gates entscheiden.",
-        "category_item_ids": ["HRMR-SEC-001", "HRMR-SEC-002", "HRMR-SEC-004", "HRMR-ART-001"]
+        "category_item_ids": [
+          "HRMR-SEC-001",
+          "HRMR-SEC-002",
+          "HRMR-SEC-004",
+          "HRMR-ART-001"
+        ]
       },
       "HRM-052": {
         "source_title": "Checkpoint-Export und Portabilitaet ergaenzen",
         "retained_scope": "Content-addressed, hashverifizierten, pfad-/secretfreien Export mit Provenance/Lizenz und spaeterem Clean-Instance-Portabilitaetsgate entscheiden.",
-        "category_item_ids": ["HRMR-SEC-004", "HRMR-ART-001", "HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-SEC-004",
+          "HRMR-ART-001",
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-060": {
         "source_title": "Einheitliche Evaluationsschnittstelle implementieren",
         "retained_scope": "Kleinen Evaluator-Port mit taskspezifischen Validatoren, Exact Accuracy, getrennten Fehlerklassen und bounded Per-Sample-Trace definieren.",
-        "category_item_ids": ["HRMR-EVAL-001"]
+        "category_item_ids": [
+          "HRMR-EVAL-001"
+        ]
       },
       "HRM-061": {
         "source_title": "LLM-Baseline-Adapter ergaenzen",
         "retained_scope": "Provider-/Modell-, Prompt-, Sampling-, Kontext-, Parser-, Normalisierungs-, Egress- und Kostenvertrag fuer faire Baselines entscheiden.",
-        "category_item_ids": ["HRMR-SEC-006", "HRMR-EVAL-001"]
+        "category_item_ids": [
+          "HRMR-SEC-006",
+          "HRMR-EVAL-001"
+        ]
       },
       "HRM-062": {
         "source_title": "Vergleichsbericht erzeugen",
         "retained_scope": "Schema-, provenance-, statistik-, ressourcen-, kosten- und exportsicheren Vergleichsreport spezifizieren.",
-        "category_item_ids": ["HRMR-EVAL-002"]
+        "category_item_ids": [
+          "HRMR-EVAL-002"
+        ]
       },
       "HRM-063": {
         "source_title": "Reproduzierbarkeitstest automatisieren",
         "retained_scope": "Identische kanonische Manifeste, Wiederholungen, Toleranzen, nichtdeterministische Einfluesse und Run-Evidence-Gates definieren.",
-        "category_item_ids": ["HRMR-EVAL-002", "HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-EVAL-002",
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-070": {
         "source_title": "Versionierte HRM-Experiment-API erstellen",
         "retained_scope": "Additive tenant-/projektgebundene Hub-API mit Capabilities, Datasets, Runs, Checkpoints, Evaluation, Reports, Idempotenz und OpenAPI schneiden.",
-        "category_item_ids": ["HRMR-FIT-004", "HRMR-UX-001"]
+        "category_item_ids": [
+          "HRMR-FIT-004",
+          "HRMR-UX-001"
+        ]
       },
       "HRM-071": {
         "source_title": "Run-Ereignisstream bereitstellen",
         "retained_scope": "Monotone, bounded, redigierte, lease- und tenantgebundene Events mit Replay, Cursorintegritaet und Slow-Client-Verhalten definieren.",
-        "category_item_ids": ["HRMR-SEC-005", "HRMR-SEC-006", "HRMR-RUN-001", "HRMR-UX-001"]
+        "category_item_ids": [
+          "HRMR-SEC-005",
+          "HRMR-SEC-006",
+          "HRMR-RUN-001",
+          "HRMR-UX-001"
+        ]
       },
       "HRM-080": {
         "source_title": "Experiment-Landingpage erstellen",
         "retained_scope": "Bestehendes Angular-Control-Center additiv um eine klar experimentell markierte HRM-Einstiegsprojektion erweitern.",
-        "category_item_ids": ["HRMR-FIT-004", "HRMR-UX-002"]
+        "category_item_ids": [
+          "HRMR-FIT-004",
+          "HRMR-UX-002"
+        ]
       },
       "HRM-081": {
         "source_title": "Run-Assistent implementieren",
         "retained_scope": "Capability-/Policy-gebundenen Wizard fuer Dataset, Profil, Checkpoint, effektive Parameter, Consent und idempotenten Start entwerfen.",
-        "category_item_ids": ["HRMR-UX-001", "HRMR-UX-002"]
+        "category_item_ids": [
+          "HRMR-UX-001",
+          "HRMR-UX-002"
+        ]
       },
       "HRM-082": {
         "source_title": "Live-Monitoring und Run-Detailseite erstellen",
         "retained_scope": "Hub-Read-Model fuer Queue, Status, Metriken, Events, Logs, Cancel, Checkpoints und Resultat in Angular wiederverwenden oder erweitern.",
-        "category_item_ids": ["HRMR-RUN-001", "HRMR-UX-001", "HRMR-UX-002"]
+        "category_item_ids": [
+          "HRMR-RUN-001",
+          "HRMR-UX-001",
+          "HRMR-UX-002"
+        ]
       },
       "HRM-083": {
         "source_title": "Puzzle- und Ergebnisvisualisierung integrieren",
         "retained_scope": "Bounded, paginierte, accessible Sudoku-, Maze- und ARC-VisualizationProjections ohne Domain-/UI-Kopplung entwerfen.",
-        "category_item_ids": ["HRMR-DATA-001", "HRMR-DATA-002", "HRMR-DATA-003", "HRMR-UX-002"]
+        "category_item_ids": [
+          "HRMR-DATA-001",
+          "HRMR-DATA-002",
+          "HRMR-DATA-003",
+          "HRMR-UX-002"
+        ]
       },
       "HRM-084": {
         "source_title": "Benchmark-Vergleichsansicht erstellen",
         "retained_scope": "Statistisch ehrliche, bounded und exportgebundene HRM-/LLM-Vergleichsprojektion im bestehenden Angular-Scope entwerfen.",
-        "category_item_ids": ["HRMR-EVAL-002", "HRMR-UX-002"]
+        "category_item_ids": [
+          "HRMR-EVAL-002",
+          "HRMR-UX-002"
+        ]
       },
       "HRM-090": {
         "source_title": "CLI-Befehle ergaenzen",
         "retained_scope": "Duenne Hub-API-CLI fuer Preflight, Datasets, Runs, Checkpoints, Evaluation und Reports spezifizieren.",
-        "category_item_ids": ["HRMR-UX-003"]
+        "category_item_ids": [
+          "HRMR-UX-003"
+        ]
       },
       "HRM-091": {
         "source_title": "Maus- und tastatursteuerbare TUI ergaenzen",
         "retained_scope": "Vollstaendige Tastatur- plus optionale Mausnavigation, non-blocking Live-Ansichten, Bestaetigung und schmale Terminaldarstellung spezifizieren.",
-        "category_item_ids": ["HRMR-UX-003"]
+        "category_item_ids": [
+          "HRMR-UX-003"
+        ]
       },
       "HRM-100": {
         "source_title": "Unit- und Contract-Tests erstellen",
         "retained_scope": "Schema-, Unit-, Contract-, Mock- und Fehlerpfadgates mit kleinen lokalen Fixtures als spaeteren Track-Scope definieren.",
-        "category_item_ids": ["HRMR-RUN-004", "HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-RUN-004",
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-101": {
         "source_title": "GPU-Integrationstests erstellen",
         "retained_scope": "Explizit freizugebende kleine CUDA-/Ampere-, VRAM-, Cancel-, Fehler- und Cleanup-Run-Gates mit exakter Hardwareidentitaet definieren.",
-        "category_item_ids": ["HRMR-SEC-003", "HRMR-RUN-004", "HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-SEC-003",
+          "HRMR-RUN-004",
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-102": {
         "source_title": "End-to-End-Tests fuer Angular, TUI und CLI erstellen",
         "retained_scope": "Explizit freizugebende Cross-Surface-E2E-Gates fuer Dataset, Run, Events, Cancel, Result, Feature-Deny und fehlende GPU definieren.",
-        "category_item_ids": ["HRMR-UX-002", "HRMR-UX-003", "HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-UX-002",
+          "HRMR-UX-003",
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-103": {
         "source_title": "Benutzer- und Entwicklerdokumentation schreiben",
         "retained_scope": "Benutzer-, Entwickler- und Betriebsdokumentation fuer Grenzen, Setup, Preflight, Datasets, Runs, Checkpoints, Evaluation, Export, Telemetrie und Troubleshooting planen.",
-        "category_item_ids": ["HRMR-PLAN-002"]
+        "category_item_ids": [
+          "HRMR-PLAN-002"
+        ]
       },
       "HRM-104": {
         "source_title": "Experimentelle Freigabe vorbereiten",
         "retained_scope": "Grounded Decision Pack, geschlossenen Release-DAG, bekannte Grenzen, Security-/Portability-/Reproducibility-Gates, Dokumentation und experimentelle Kennzeichnung sichern.",
-        "category_item_ids": ["HRMR-PLAN-001", "HRMR-PLAN-002", "HRMR-PLAN-003"]
+        "category_item_ids": [
+          "HRMR-PLAN-001",
+          "HRMR-PLAN-002",
+          "HRMR-PLAN-003"
+        ]
       }
     }
   },
@@ -431,8 +694,15 @@
           "risk": "high",
           "type": "research",
           "depends_on": [],
-          "paths": ["schemas/planning/category_todo_quality_profile.v1.json", "schemas/answers/grounded_answer.v1.json", "docs/planning-pipeline.md"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "paths": [
+            "schemas/planning/category_todo_quality_profile.v1.json",
+            "schemas/answers/grounded_answer.v1.json",
+            "docs/planning-pipeline.md"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Der Source Catalog bindet das HRM-Repository an eine exakte unveraenderliche Commit-SHA und einen Inhaltsdigest; ein Branchname wie main ist nicht zulaessig.",
             "Paper und weitere externe Dokumente sind an eine exakte Revision und einen Digest gebunden; zitierte technische Aussagen besitzen Claim-Level-Source-Referenzen.",
@@ -448,9 +718,20 @@
           "priority": "P0",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-GND-001"],
-          "paths": ["schemas/planning/category_todo_quality_profile.v1.json", "schemas/answers/grounded_answer.v1.json", "agent/services/planning_category_contract_service.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference", "uncertain"],
+          "depends_on": [
+            "HRMR-GND-001"
+          ],
+          "paths": [
+            "schemas/planning/category_todo_quality_profile.v1.json",
+            "schemas/answers/grounded_answer.v1.json",
+            "agent/services/planning_category_contract_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference",
+            "uncertain"
+          ],
           "acceptance_criteria": [
             "Jede relevante Architektur-, Runtime-, Hardware-, Dataset-, Accuracy-, Security- und Lizenzbehauptung besitzt eine eindeutige Claim-Zeile mit Claim-Typ, erforderlicher Evidenzart, erlaubten Referenzen, Confidence und Gap-Reason.",
             "Jede materiell unabhaengige Acceptance- oder Entscheidungsbehauptung wird im gebundenen Research-Ergebnis auf mindestens einen passenden Claim abgebildet; ein pauschaler Item-Claim darf keine fachlich unabhaengigen Aussagen zusammenfassen.",
@@ -466,9 +747,19 @@
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
-          "depends_on": ["HRMR-GND-002"],
-          "paths": ["AGENTS.md", "docs/planning-pipeline.md", "agent/llm_integration.py", "agent/cli_backends/"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-002"
+          ],
+          "paths": [
+            "AGENTS.md",
+            "docs/planning-pipeline.md",
+            "agent/llm_integration.py",
+            "agent/cli_backends/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Decision Record trennt bestaetigte Fakten, Projektinvarianten und noch offene Hypothesen, insbesondere Experiment-Engine versus ChatProvider.",
             "Fuer Reuse, Extend, New und Reject existieren eindeutige Kriterien zu Semantik, Kopplung, Migration, Betrieb, Security und Testbarkeit.",
@@ -489,9 +780,27 @@
           "priority": "P0",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-GND-003"],
-          "paths": ["agent/db_models/workers.py", "agent/db_models/ml_intern_training.py", "agent/repositories/ml_intern_training.py", "agent/services/worker_job_service.py", "agent/services/worker_pool_scheduler_service.py", "agent/services/worker_result_callback_service.py", "agent/services/ml_intern_training_worker_job_projection.py", "agent/services/ml_intern_training_repository_port.py", "agent/services/ml_intern_training_control_service.py", "agent/services/ml_intern_training_control_execution.py", "agent/services/ml_intern_training_reconciliation_service.py", "agent/services/background/ml_intern_training_reconciler.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-003"
+          ],
+          "paths": [
+            "agent/db_models/workers.py",
+            "agent/db_models/ml_intern_training.py",
+            "agent/repositories/ml_intern_training.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/worker_pool_scheduler_service.py",
+            "agent/services/worker_result_callback_service.py",
+            "agent/services/ml_intern_training_worker_job_projection.py",
+            "agent/services/ml_intern_training_repository_port.py",
+            "agent/services/ml_intern_training_control_service.py",
+            "agent/services/ml_intern_training_control_execution.py",
+            "agent/services/ml_intern_training_reconciliation_service.py",
+            "agent/services/background/ml_intern_training_reconciler.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Dataset-, Job-, CapacityLease-, ExecutionLease-, Attempt-, Event-, Repository-, Scheduler- und Reconciler-Faehigkeiten sind mit exakten Verantwortungsgrenzen inventarisiert.",
             "Der kanonische Lifecycle TaskDB zu WorkerJobDB/WorkerSlotLeaseDB zu HRM-Domain-Run/Attempt ist mit CAS-, Outbox-, Dispatch-, Callback- und Reconciliation-Grenzen abgebildet und legt genau eine autoritative Hub-Task-/Run-Statusprojektion fest.",
@@ -507,9 +816,23 @@
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
-          "depends_on": ["HRMR-GND-003", "HRMR-FIT-001"],
-          "paths": ["agent/services/ml_intern_training_worker_port.py", "agent/services/ml_intern_training_worker_contract.py", "worker/training/process_control.py", "worker/training/subprocess_executor.py", "worker/training/backends/base.py", "worker/training/contracts.py", "worker/runtime/lora_training_app.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-003",
+            "HRMR-FIT-001"
+          ],
+          "paths": [
+            "agent/services/ml_intern_training_worker_port.py",
+            "agent/services/ml_intern_training_worker_contract.py",
+            "worker/training/process_control.py",
+            "worker/training/subprocess_executor.py",
+            "worker/training/backends/base.py",
+            "worker/training/contracts.py",
+            "worker/runtime/lora_training_app.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Fit/Gap-Dokument trennt wiederverwendbare HTTP-, Auth-, Event-, Artifact-, Prozess- und Telemetrie-Primitiven von LoRA-spezifischen TrainingContext- und Adapter-Semantiken.",
             "Die Entscheidung waehlt entweder einen kleinen generischen ExperimentExecutionPort oder einen separaten HrmWorkerPort mit gemeinsamem Transport-Support und begruendet LSP, ISP und DIP.",
@@ -524,9 +847,25 @@
           "priority": "P0",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-GND-003", "HRMR-FIT-001"],
-          "paths": ["agent/services/ml_intern_dataset_catalog_service.py", "agent/services/ml_intern_dataset_validation_service.py", "agent/services/ml_intern_dataset_split_service.py", "agent/services/ml_intern_artifact_security_service.py", "agent/services/ml_intern_adapter_import_service.py", "agent/services/ml_intern_adapter_export_service.py", "agent/services/ml_intern_lora_eval_service.py", "agent/services/model_intelligence_evaluation_service.py", "agent/services/model_intelligence_report_service.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-003",
+            "HRMR-FIT-001"
+          ],
+          "paths": [
+            "agent/services/ml_intern_dataset_catalog_service.py",
+            "agent/services/ml_intern_dataset_validation_service.py",
+            "agent/services/ml_intern_dataset_split_service.py",
+            "agent/services/ml_intern_artifact_security_service.py",
+            "agent/services/ml_intern_adapter_import_service.py",
+            "agent/services/ml_intern_adapter_export_service.py",
+            "agent/services/ml_intern_lora_eval_service.py",
+            "agent/services/model_intelligence_evaluation_service.py",
+            "agent/services/model_intelligence_report_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Katalog, Blob-Storage, Upload, Hashing, Preview, Split, Validierung, Quarantaene, Import/Export, Evaluation und Report sind einzeln als REUSE, EXTEND, NEW oder REJECT klassifiziert.",
             "Instruction-/Chat-Dataset- und PEFT-Adapter-Semantik wird nicht als generischer Puzzle- oder HRM-Checkpoint-Vertrag ausgegeben.",
@@ -541,9 +880,24 @@
           "priority": "P1",
           "risk": "medium",
           "type": "research",
-          "depends_on": ["HRMR-GND-003", "HRMR-FIT-001"],
-          "paths": ["agent/routes/ml_intern_training.py", "agent/routes/ml_intern_training_adapter_routes.py", "frontend-angular/src/app/features/model-training/README.md", "frontend-angular/src/app/features/model-training/model-training-api.service.ts", "frontend-angular/src/app/features/model-training/model-training.facade.ts", "frontend-angular/src/app/features/visual-process/", "client_surfaces/operator_tui/ops_api_client.py", "agent/ananta_cli.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-003",
+            "HRMR-FIT-001"
+          ],
+          "paths": [
+            "agent/routes/ml_intern_training.py",
+            "agent/routes/ml_intern_training_adapter_routes.py",
+            "frontend-angular/src/app/features/model-training/README.md",
+            "frontend-angular/src/app/features/model-training/model-training-api.service.ts",
+            "frontend-angular/src/app/features/model-training/model-training.facade.ts",
+            "frontend-angular/src/app/features/visual-process/",
+            "client_surfaces/operator_tui/ops_api_client.py",
+            "agent/ananta_cli.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Vorhandene Capabilities-, Dataset-, Job-, Event-Replay-, Cancel-, Evaluation-, Adapter- und Angular-Control-Center-Faehigkeiten sind exakt inventarisiert.",
             "Fuer API-Namespace, gemeinsames Read-Model, SSE-Ereignisse und Angular-Komponenten liegt eine additive Reuse-/Extraction-Entscheidung ohne Worker-URL- oder Serverpfad-Leak vor.",
@@ -558,9 +912,24 @@
           "priority": "P0",
           "risk": "critical",
           "type": "architecture",
-          "depends_on": ["HRMR-FIT-001", "HRMR-FIT-002", "HRMR-FIT-003", "HRMR-FIT-004", "HRMR-SEC-000"],
-          "paths": ["AGENTS.md", "docs/operations/lora-training.md", "agent/services/", "worker/", "frontend-angular/src/app/features/model-training/"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-FIT-001",
+            "HRMR-FIT-002",
+            "HRMR-FIT-003",
+            "HRMR-FIT-004",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "AGENTS.md",
+            "docs/operations/lora-training.md",
+            "agent/services/",
+            "worker/",
+            "frontend-angular/src/app/features/model-training/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein ADR zeigt Hub, gemeinsame Control-Plane-Ports, HRM-Domain-Services, HrmWorkerPort, isolierten Worker-Container, Artifact-Storage und Hub-only Clients mit eindeutiger Ownership.",
             "SRP, OCP, LSP, ISP und DIP sind je Grenze geprueft; breite API-, Queue-, Runtime- und Registry-Verantwortlichkeiten werden in kleine Ports beziehungsweise Services getrennt.",
@@ -582,9 +951,27 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-GND-003", "HRMR-FIT-001", "HRMR-FIT-002", "HRMR-FIT-003", "HRMR-FIT-004"],
-          "paths": ["AGENTS.md", "agent/db_models/workers.py", "agent/db_models/ml_intern_training.py", "agent/services/ml_intern_training_worker_port.py", "agent/services/ml_intern_artifact_security_service.py", "docker/compose-next/compose.lora-training.yml", "docs/operations/lora-training.md"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-003",
+            "HRMR-FIT-001",
+            "HRMR-FIT-002",
+            "HRMR-FIT-003",
+            "HRMR-FIT-004"
+          ],
+          "paths": [
+            "AGENTS.md",
+            "agent/db_models/workers.py",
+            "agent/db_models/ml_intern_training.py",
+            "agent/services/ml_intern_training_worker_port.py",
+            "agent/services/ml_intern_artifact_security_service.py",
+            "docker/compose-next/compose.lora-training.yml",
+            "docs/operations/lora-training.md"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Datenfluss- und Trust-Boundary-Modell umfasst Benutzer und Clients, Hub, Taskqueue, WorkerJob/Lease, HRM-Worker-Container, Prozessgruppe, GPU, Workspace, Dataset-/Checkpoint-/Artifact-Registry, Import/Export, Downloader, W&B und lokale beziehungsweise entfernte LLM-Provider.",
             "Das Risk Register enthaelt je Szenario Asset, Akteur, Entry Point, Voraussetzungen, Impact, Likelihood, Severity, Control Owner, fail-closed Control, Verifikation und Disposition.",
@@ -600,9 +987,21 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-GND-002", "HRMR-FIT-003", "HRMR-SEC-000"],
-          "paths": ["agent/services/ml_intern_artifact_security_service.py", "agent/services/ml_intern_adapter_import_service.py", "agent/services/ml_intern_adapter_export_service.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-002",
+            "HRMR-FIT-003",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "agent/services/ml_intern_artifact_security_service.py",
+            "agent/services/ml_intern_adapter_import_service.py",
+            "agent/services/ml_intern_adapter_export_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Eine Formatmatrix klassifiziert Safetensors, PyTorch/Pickle und upstream-spezifische Varianten nach Codeausfuehrungsrisiko, Parser, Metadaten sowie Groessen-, Shape- und Dtype-Grenzen.",
             "Die Entscheidung definiert eine exakte Allowlist; Custom Classes, Object Hooks, trust_remote_code, dynamische Imports und uneingeschraenktes torch.load sind default-deny.",
@@ -619,9 +1018,21 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-GND-002", "HRMR-FIT-003", "HRMR-SEC-000"],
-          "paths": ["agent/services/ml_intern_artifact_security_service.py", "agent/services/source_control_artifact_download.py", "agent/services/browser_artifact_service.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-002",
+            "HRMR-FIT-003",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "agent/services/ml_intern_artifact_security_service.py",
+            "agent/services/source_control_artifact_download.py",
+            "agent/services/browser_artifact_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Eine exakte default-deny HTTPS-, Host- und Port-Allowlist revalidiert jeden Redirect-Hop, bindet DNS-Aufloesung und Ziel-IP unmittelbar beim Connect erneut, validiert TLS-Hostname und Zertifikat und blockiert Loopback, private, link-local, Metadata-, IPv4-in-IPv6-, DNS-Rebinding-, file-, Unix-Socket- sowie Environment-Proxy-Bypass-Ziele.",
             "Konkrete serverseitige Maxima existieren fuer Redirects, DNS-/Connect-/Read-/Total-Timeout, Streambytes, parallele Downloads und Retry-Budget; Content-Length allein gilt nicht als Grenze.",
@@ -637,9 +1048,23 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-GND-001", "HRMR-FIT-002", "HRMR-SEC-000"],
-          "paths": ["docker/compose-next/compose.lora-training.yml", "docker/compose-next/Dockerfile.lora-training-worker", "worker/training/runtime.py", "worker/training/process_control.py", "agent/services/private_container_network_policy.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-001",
+            "HRMR-FIT-002",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "docker/compose-next/compose.lora-training.yml",
+            "docker/compose-next/Dockerfile.lora-training-worker",
+            "worker/training/runtime.py",
+            "worker/training/process_control.py",
+            "agent/services/private_container_network_policy.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Das Pflichtprofil umfasst non-root UID/GID, no-new-privileges, CapDrop-all, read-only rootfs, tmpfs scratch, Mount-Allowlist, kein Docker-Socket, kein Host-PID/-IPC, kein Host-Network und harte PID-/CPU-/RAM-/Disk-Limits.",
             "Seccomp und AppArmor/SELinux oder ein nachgewiesen gleichwertiges MAC-Profil, User- und Device-Namespaces, begrenzte /proc-Sicht, Child-Environment und verbotene Host-Namespaces sind explizit entschieden und versioniert.",
@@ -656,9 +1081,23 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-FIT-001", "HRMR-FIT-003", "HRMR-FIT-004", "HRMR-SEC-000"],
-          "paths": ["agent/routes/ml_intern_training.py", "agent/routes/ml_intern_training_adapter_routes.py", "agent/services/ml_intern_artifact_security_service.py", "agent/common/audit.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-FIT-001",
+            "HRMR-FIT-003",
+            "HRMR-FIT-004",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "agent/routes/ml_intern_training.py",
+            "agent/routes/ml_intern_training_adapter_routes.py",
+            "agent/services/ml_intern_artifact_security_service.py",
+            "agent/common/audit.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Eine Action-mal-Resource-Matrix umfasst Preflight, Dataset-Import/Read/Delete, Run-Start/Read/Cancel/Retry, Checkpoint-Import/Read/Export/Delete, Evaluation, Report sowie Log-/Eventstream mit Scope, Rolle, Approval und Audit.",
             "Listen, Objektzugriffe, Cursor, Event-IDs und Exporte sind tenant- und project-scoped; fremde IDs erzeugen weder Daten- noch Existenzleaks oder Seiteneffekte.",
@@ -677,9 +1116,29 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-FIT-001", "HRMR-FIT-002", "HRMR-SEC-000"],
-          "paths": ["agent/db_models/workers.py", "agent/db_models/ml_intern_training.py", "agent/services/worker_job_service.py", "agent/services/worker_result_callback_service.py", "agent/services/ml_intern_training_worker_job_projection.py", "agent/services/ml_intern_training_control_execution.py", "agent/services/ml_intern_training_reconciliation_service.py", "agent/services/ml_intern_training_result_publisher.py", "worker/training/process_control.py", "worker/training/runtime.py", "worker/training/runtime_artifact_service.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-FIT-001",
+            "HRMR-FIT-002",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "agent/db_models/workers.py",
+            "agent/db_models/ml_intern_training.py",
+            "agent/services/worker_job_service.py",
+            "agent/services/worker_result_callback_service.py",
+            "agent/services/ml_intern_training_worker_job_projection.py",
+            "agent/services/ml_intern_training_control_execution.py",
+            "agent/services/ml_intern_training_reconciliation_service.py",
+            "agent/services/ml_intern_training_result_publisher.py",
+            "worker/training/process_control.py",
+            "worker/training/runtime.py",
+            "worker/training/runtime_artifact_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Numerische serverseitige Maxima existieren fuer CPU, RAM, PIDs, GPU-Slots beziehungsweise VRAM soweit erzwingbar, Wallclock, Scratch/Disk, Dateien, Dataset, Checkpoint, Output, Download, Logs, Events, Queue und Retries pro Run, Tenant/Projekt und global; Nutzerwerte duerfen Limits nur reduzieren.",
             "Reservierung und Queue-Admission committen atomar und ueberbuchungsfrei pro Run, Tenant/Projekt und global; nicht hart begrenzbares VRAM verwendet eine konservative exklusive Device-Reservation oder Deny statt best effort.",
@@ -697,9 +1156,24 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-SEC-000", "HRMR-SEC-003", "HRMR-SEC-004"],
-          "paths": ["agent/services/private_container_network_policy.py", "agent/llm_integration.py", "agent/cli_backends/", "agent/common/audit.py", "agent/services/ml_intern_training_worker_support.py", "agent/services/ml_intern_training_result_publisher.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-SEC-000",
+            "HRMR-SEC-003",
+            "HRMR-SEC-004"
+          ],
+          "paths": [
+            "agent/services/private_container_network_policy.py",
+            "agent/llm_integration.py",
+            "agent/cli_backends/",
+            "agent/common/audit.py",
+            "agent/services/ml_intern_training_worker_support.py",
+            "agent/services/ml_intern_training_result_publisher.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Eine default-deny Destination-Matrix umfasst Upstream-, Modell- und Dataset-Downloads, Package-Registries, W&B, DNS/Proxy sowie lokale und entfernte LLM-Provider; Allow ist tenant-, projekt-, run-, destination-, purpose- und zeitgebunden.",
             "Jede Destination besitzt eine feldgenaue Payload- und Datenklassifikations-Allowlist sowie Redaction vor Egress. Remote-LLM-Consent bindet Provider, Modell, Endpoint, Dataset-/Sample-Digest, erlaubte Felder und Kostenlimit.",
@@ -716,9 +1190,22 @@
           "priority": "P0",
           "risk": "critical",
           "type": "security",
-          "depends_on": ["HRMR-GND-001", "HRMR-FIT-002", "HRMR-SEC-000"],
-          "paths": ["docker/compose-next/Dockerfile.lora-training-worker", "docker/compose-next/requirements.lora-training-runtime.txt", "docker/compose-next/requirements.lora-training-cpu.txt", "docker/compose-next/requirements.lora-training-nvidia.txt"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-001",
+            "HRMR-FIT-002",
+            "HRMR-SEC-000"
+          ],
+          "paths": [
+            "docker/compose-next/Dockerfile.lora-training-worker",
+            "docker/compose-next/requirements.lora-training-runtime.txt",
+            "docker/compose-next/requirements.lora-training-cpu.txt",
+            "docker/compose-next/requirements.lora-training-nvidia.txt"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Upstream-Commit und Tree, OCI-Basis- und Zielimage, direkte und transitive Python-/Systemdependencies, Wheels, Compiler, CUDA, FlashAttention und native Extensions sind an Versionen und Digests gebunden; Runtime-Installation und bewegliche Tags sind verboten.",
             "Git-Submodule, LFS, Build-/Install-Hooks, native Toolchains, Setup-Downloads und transitive Downloadquellen sind inventarisiert und einer expliziten Netzwerk-/Sandboxpolicy zugeordnet.",
@@ -740,9 +1227,27 @@
           "priority": "P0",
           "risk": "critical",
           "type": "contract",
-          "depends_on": ["HRMR-FIT-005", "HRMR-SEC-003", "HRMR-SEC-005"],
-          "paths": ["agent/services/ml_intern_training_worker_contract.py", "agent/services/ml_intern_training_worker_support.py", "agent/services/ml_intern_training_contract.py", "agent/services/ml_intern_training_worker_port.py", "agent/services/ml_intern_training_result_publisher.py", "docs/contracts/mlintern-lora-training-request.v1.schema.json", "docs/contracts/mlintern-lora-training-event.v1.schema.json", "docs/contracts/mlintern-lora-training-result.v1.schema.json", "worker/training/contracts.py", "worker/training/runtime_artifact_service.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-FIT-005",
+            "HRMR-SEC-003",
+            "HRMR-SEC-005"
+          ],
+          "paths": [
+            "agent/services/ml_intern_training_worker_contract.py",
+            "agent/services/ml_intern_training_worker_support.py",
+            "agent/services/ml_intern_training_contract.py",
+            "agent/services/ml_intern_training_worker_port.py",
+            "agent/services/ml_intern_training_result_publisher.py",
+            "docs/contracts/mlintern-lora-training-request.v1.schema.json",
+            "docs/contracts/mlintern-lora-training-event.v1.schema.json",
+            "docs/contracts/mlintern-lora-training-result.v1.schema.json",
+            "worker/training/contracts.py",
+            "worker/training/runtime_artifact_service.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Versionierte geschlossene Schemas definieren Capability Probe, Run Request, Status, Event Page, Cancel, Result und Artifact-Metadaten mit unbekannten Feldern default-deny an Sicherheitsgrenzen.",
             "Der Request bindet Task, Assignment, Lease, Attempt, Tenant-Scope, Policy-/Schema-/Payload-Digest, Engine-Version, Dataset- und Checkpoint-Refs sowie effektive Limits, aber keine Serverpfade oder Secrets.",
@@ -761,9 +1266,23 @@
           "priority": "P0",
           "risk": "critical",
           "type": "research",
-          "depends_on": ["HRMR-GND-001", "HRMR-FIT-002", "HRMR-SEC-003", "HRMR-SEC-007"],
-          "paths": ["docker/compose-next/Dockerfile.lora-training-worker", "docker/compose-next/compose.lora-training.yml", "docker/compose-next/requirements.lora-training-runtime.txt", "worker/training/runtime.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-001",
+            "HRMR-FIT-002",
+            "HRMR-SEC-003",
+            "HRMR-SEC-007"
+          ],
+          "paths": [
+            "docker/compose-next/Dockerfile.lora-training-worker",
+            "docker/compose-next/compose.lora-training.yml",
+            "docker/compose-next/requirements.lora-training-runtime.txt",
+            "worker/training/runtime.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Die Spezifikation bindet Basisimage, Python, PyTorch, CUDA, FlashAttention, Compiler, native Extensions und HRM-Upstream an Versionen und Digests; bewegliche Tags und Runtime-Installation sind ausgeschlossen.",
             "CPU, NVIDIA/Ampere, NVIDIA/Hopper und unsupported Kombinationen besitzen getrennte, source-grounded Capability-Eintraege ohne Hardwaregarantie aus Marketing- oder README-Text.",
@@ -779,9 +1298,21 @@
           "priority": "P0",
           "risk": "high",
           "type": "contract",
-          "depends_on": ["HRMR-RUN-001", "HRMR-RUN-002"],
-          "paths": ["agent/services/ml_intern_training_config_service.py", "worker/training/runtime.py", "worker/training/vram_admission.py", "agent/routes/ml_intern_training.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-RUN-001",
+            "HRMR-RUN-002"
+          ],
+          "paths": [
+            "agent/services/ml_intern_training_config_service.py",
+            "worker/training/runtime.py",
+            "worker/training/vram_admission.py",
+            "agent/routes/ml_intern_training.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein typisierter, eigener hrm_experiments-Konfigurationsnamespace definiert Feature-Flag, Offline-/Egress-Policy, Runtime, Device, Precision, Seed, Profile und harte Limits ohne LoRA-Konfiguration aufzublaehen.",
             "Capability und Preflight melden normalisierte Runtime-, Package-, CUDA-, GPU-, VRAM-, Isolation- und Profilinformationen und veraendern das System niemals automatisch.",
@@ -797,9 +1328,26 @@
           "priority": "P0",
           "risk": "critical",
           "type": "research",
-          "depends_on": ["HRMR-RUN-003", "HRMR-SEC-001", "HRMR-SEC-002", "HRMR-SEC-004", "HRMR-SEC-005", "HRMR-SEC-006", "HRMR-SEC-007"],
-          "paths": ["scripts/run_lora_training_smoke.py", "scripts/run-lora-training-e2e.sh", "docs/operations/lora-training.md", "artifacts/test-gates/"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-RUN-003",
+            "HRMR-SEC-001",
+            "HRMR-SEC-002",
+            "HRMR-SEC-004",
+            "HRMR-SEC-005",
+            "HRMR-SEC-006",
+            "HRMR-SEC-007"
+          ],
+          "paths": [
+            "scripts/run_lora_training_smoke.py",
+            "scripts/run-lora-training-e2e.sh",
+            "docs/operations/lora-training.md",
+            "artifacts/test-gates/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Testdesign trennt schema-/contract-only, mock, CPU-Minimal, kleine NVIDIA-GPU, Cancel/Crash und negative Security-Profile mit jeweils Fixture, Maximaldauer, Ressourcenbudget, erwarteten Codes und Evidence-Artefakten.",
             "Der erste spaetere Live-Nachweis ist ein begrenzter Sudoku-Smoke; Maze, ARC, grosse Trainingslaeufe und Mehr-GPU sind davon getrennte, spaeter freizugebende Profile.",
@@ -823,9 +1371,22 @@
           "priority": "P0",
           "risk": "high",
           "type": "contract",
-          "depends_on": ["HRMR-GND-002", "HRMR-FIT-003", "HRMR-SEC-002", "HRMR-SEC-004"],
-          "paths": ["agent/services/ml_intern_dataset_catalog_service.py", "agent/services/ml_intern_dataset_validation_service.py", "agent/services/ml_intern_dataset_split_service.py", "docs/contracts/mlintern-dataset-record.schema.json"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-GND-002",
+            "HRMR-FIT-003",
+            "HRMR-SEC-002",
+            "HRMR-SEC-004"
+          ],
+          "paths": [
+            "agent/services/ml_intern_dataset_catalog_service.py",
+            "agent/services/ml_intern_dataset_validation_service.py",
+            "agent/services/ml_intern_dataset_split_service.py",
+            "docs/contracts/mlintern-dataset-record.schema.json"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein versioniertes geschlossenes Manifest bindet Puzzle-Typ, Quelle, Lizenz, Version, Split, Count, kanonischen Content-Digest, Generatorparameter, Parser-/Validator-Version und Tenant-/Projekt-Scope.",
             "Der deterministische Content-Fingerprint enthaelt keine volatile Erstellungszeit; Provenance-Zeit und Importereignis werden getrennt vom Inhaltsdigest gespeichert.",
@@ -842,9 +1403,20 @@
           "priority": "P0",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-DATA-001", "HRMR-RUN-004"],
-          "paths": ["agent/services/ml_intern_dataset_catalog_service.py", "agent/services/model_intelligence_evaluation_service.py", "frontend-angular/src/app/features/model-training/"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-DATA-001",
+            "HRMR-RUN-004"
+          ],
+          "paths": [
+            "agent/services/ml_intern_dataset_catalog_service.py",
+            "agent/services/model_intelligence_evaluation_service.py",
+            "frontend-angular/src/app/features/model-training/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Das Profil definiert eine kleine deterministische Fixture, erlaubte Boardgroesse, Normalform, Splitregel, Validator, Exact-Match-Semantik und erwartete Fehlercodes.",
             "Dataset-Erstellung beziehungsweise Import, Hub-Admission, Worker-Run, Events, Cancel, Checkpoint-Ref, Evaluation und Report bilden einen einzigen bounded End-to-End-Scope ohne grosse externe Downloads.",
@@ -859,9 +1431,20 @@
           "priority": "P1",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-DATA-001", "HRMR-RUN-004"],
-          "paths": ["agent/services/model_intelligence_evaluation_service.py", "agent/services/model_intelligence_report_service.py", "frontend-angular/src/app/features/visual-process/"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-DATA-001",
+            "HRMR-RUN-004"
+          ],
+          "paths": [
+            "agent/services/model_intelligence_evaluation_service.py",
+            "agent/services/model_intelligence_report_service.py",
+            "frontend-angular/src/app/features/visual-process/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Maze und ARC besitzen jeweils einen eigenen Format-, Dimensions-, Generator/Importer-, Validator-, Normalisierungs- und Visualisierungsentscheid statt eines catch-all Puzzle-Parsers.",
             "Fuer Maze sind Start/Ziel, Hindernisse, Pfadgueltigkeit, kuerzeste-Loesung-Semantik und unloesbare Faelle eindeutig definiert.",
@@ -876,9 +1459,24 @@
           "priority": "P0",
           "risk": "critical",
           "type": "architecture",
-          "depends_on": ["HRMR-DATA-001", "HRMR-RUN-001", "HRMR-SEC-001", "HRMR-SEC-002", "HRMR-SEC-004"],
-          "paths": ["agent/services/ml_intern_artifact_security_service.py", "agent/services/ml_intern_adapter_import_service.py", "agent/services/ml_intern_adapter_export_service.py", "agent/repositories/artifacts.py"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-DATA-001",
+            "HRMR-RUN-001",
+            "HRMR-SEC-001",
+            "HRMR-SEC-002",
+            "HRMR-SEC-004"
+          ],
+          "paths": [
+            "agent/services/ml_intern_artifact_security_service.py",
+            "agent/services/ml_intern_adapter_import_service.py",
+            "agent/services/ml_intern_adapter_export_service.py",
+            "agent/repositories/artifacts.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Das Zielmodell bindet Checkpoint-Versionen an Architektur, Engine-/Codeversion, Dataset-/Run-Digest, Metriken, Herkunft, Lizenz, Format, Groesse, Digest, Kompatibilitaet und Tenant-/Projekt-Scope.",
             "Lokale und importierte Checkpoints bleiben unterscheidbar; Import beginnt in Quarantaene und eine Registry-Version wird erst nach vollstaendiger Format-, Digest-, Shape-, Dtype- und Kompatibilitaetspruefung atomar sichtbar.",
@@ -894,9 +1492,24 @@
           "priority": "P0",
           "risk": "high",
           "type": "contract",
-          "depends_on": ["HRMR-DATA-001", "HRMR-DATA-002", "HRMR-ART-001", "HRMR-RUN-004", "HRMR-SEC-006"],
-          "paths": ["agent/services/model_intelligence_evaluation_service.py", "agent/services/ml_intern_lora_eval_service.py", "agent/llm_integration.py", "agent/cli_backends/"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-DATA-001",
+            "HRMR-DATA-002",
+            "HRMR-ART-001",
+            "HRMR-RUN-004",
+            "HRMR-SEC-006"
+          ],
+          "paths": [
+            "agent/services/model_intelligence_evaluation_service.py",
+            "agent/services/ml_intern_lora_eval_service.py",
+            "agent/llm_integration.py",
+            "agent/cli_backends/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Evaluator-Port waehlt explizite Sudoku-, Maze- oder ARC-Validatoren und zaehlt exact correct, fachlich falsch, Parserfehler, Timeout, Cancel und Runtimefehler getrennt.",
             "Per-Sample-Trace bindet Eingabe- und Output-Digests, Validator-Version und begrenzte redigierte Vorschau, ohne private Rohdaten in Listen, Logs oder Reports zu leaken.",
@@ -912,9 +1525,21 @@
           "priority": "P1",
           "risk": "high",
           "type": "research",
-          "depends_on": ["HRMR-DATA-003", "HRMR-EVAL-001", "HRMR-RUN-003"],
-          "paths": ["agent/services/model_intelligence_report_service.py", "agent/services/model_intelligence_artifact_store.py", "schemas/model-intelligence/evaluation_run.v1.json"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-DATA-003",
+            "HRMR-EVAL-001",
+            "HRMR-RUN-003"
+          ],
+          "paths": [
+            "agent/services/model_intelligence_report_service.py",
+            "agent/services/model_intelligence_artifact_store.py",
+            "schemas/model-intelligence/evaluation_run.v1.json"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Der Report trennt Training und Inferenz sowie Paper-Claims und lokal reproduzierte Resultate und bindet Dataset-, Run-, Checkpoint-, Evaluator-, Hardware-, Runtime- und Policy-Digests.",
             "Accuracy, Parser-/Runtimefehler, Laufzeit, Kosten und Ressourcen- beziehungsweise Energiemessung besitzen Einheiten, Messmethode, Stichprobengroesse, Unsicherheit und einen expliziten unavailable-Wert statt soweit verfuegbar.",
@@ -936,9 +1561,24 @@
           "priority": "P0",
           "risk": "high",
           "type": "contract",
-          "depends_on": ["HRMR-FIT-004", "HRMR-FIT-005", "HRMR-RUN-001", "HRMR-DATA-001", "HRMR-ART-001", "HRMR-EVAL-001"],
-          "paths": ["agent/routes/ml_intern_training.py", "agent/routes/ml_intern_training_adapter_routes.py", "agent/services/ml_intern_training_read_model_service.py", "agent/services/ml_intern_training_worker_port.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-FIT-004",
+            "HRMR-FIT-005",
+            "HRMR-RUN-001",
+            "HRMR-DATA-001",
+            "HRMR-ART-001",
+            "HRMR-EVAL-001"
+          ],
+          "paths": [
+            "agent/routes/ml_intern_training.py",
+            "agent/routes/ml_intern_training_adapter_routes.py",
+            "agent/services/ml_intern_training_read_model_service.py",
+            "agent/services/ml_intern_training_worker_port.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Eine additive Namespace-Entscheidung vergleicht eine domain-neutrale Experiment-API mit einer HRM-spezifischen Hub-API und erhaelt bestehende Modelltraining-Vertraege unveraendert.",
             "Capabilities, Preflight, Puzzle-Datasets, Runs, Checkpoints, Evaluationen und Reports besitzen tenant-/projektgebundene DTOs, Pagination, dokumentierte stabile Sortierschluessel und strukturierte Fehlercodes.",
@@ -954,9 +1594,20 @@
           "priority": "P1",
           "risk": "medium",
           "type": "design",
-          "depends_on": ["HRMR-UX-001", "HRMR-DATA-002", "HRMR-EVAL-001"],
-          "paths": ["frontend-angular/src/app/features/model-training/", "frontend-angular/src/app/features/visual-process/", "frontend-angular/src/app/features/codecompass-graph/"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-UX-001",
+            "HRMR-DATA-002",
+            "HRMR-EVAL-001"
+          ],
+          "paths": [
+            "frontend-angular/src/app/features/model-training/",
+            "frontend-angular/src/app/features/visual-process/",
+            "frontend-angular/src/app/features/codecompass-graph/"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Ein Komponentenplan klassifiziert bestehende Dataset-, Wizard-, Job-, Event-, Metrics-, Evaluation- und Download-Komponenten als reuse, extract oder HRM-specific extension.",
             "HRM bleibt deutlich als Experiment gekennzeichnet; Feature aus, fehlende Capability, Policy-Deny, Queue, Running, Cancel, Failure und Result besitzen konsistente Hub-Zustaende.",
@@ -972,9 +1623,20 @@
           "priority": "P1",
           "risk": "medium",
           "type": "design",
-          "depends_on": ["HRMR-UX-001"],
-          "paths": ["client_surfaces/operator_tui/ops_api_client.py", "client_surfaces/operator_tui/commands.py", "client_surfaces/operator_tui/commands_run_control.py", "agent/ananta_cli.py", "agent/cli_goals.py"],
-          "evidence_requirements": ["source_fact", "inference"],
+          "depends_on": [
+            "HRMR-UX-001"
+          ],
+          "paths": [
+            "client_surfaces/operator_tui/ops_api_client.py",
+            "client_surfaces/operator_tui/commands.py",
+            "client_surfaces/operator_tui/commands_run_control.py",
+            "agent/ananta_cli.py",
+            "agent/cli_goals.py"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "inference"
+          ],
           "acceptance_criteria": [
             "CLI und TUI decken nur die von der versionierten Hub-API angebotenen Capabilities ab und implementieren weder eigene Queue-, Prozess-, Pfad- noch Checkpointlogik.",
             "Preflight, Datasetliste, Run-Start/Status/Events/Cancel, Checkpointliste, Evaluation und Report verwenden gemeinsame DTOs, Status- und Fehlercodes.",
@@ -998,9 +1660,34 @@
           "priority": "P0",
           "risk": "high",
           "type": "planning",
-          "depends_on": ["HRMR-GND-002", "HRMR-FIT-005", "HRMR-SEC-000", "HRMR-SEC-001", "HRMR-SEC-002", "HRMR-SEC-003", "HRMR-SEC-004", "HRMR-SEC-005", "HRMR-SEC-006", "HRMR-SEC-007", "HRMR-RUN-004", "HRMR-DATA-003", "HRMR-ART-001", "HRMR-EVAL-002", "HRMR-UX-002", "HRMR-UX-003"],
-          "paths": ["todos/todo.track.schema.json", "docs/architecture/planning-track-contract.md", "docs/planning-pipeline.md"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-GND-002",
+            "HRMR-FIT-005",
+            "HRMR-SEC-000",
+            "HRMR-SEC-001",
+            "HRMR-SEC-002",
+            "HRMR-SEC-003",
+            "HRMR-SEC-004",
+            "HRMR-SEC-005",
+            "HRMR-SEC-006",
+            "HRMR-SEC-007",
+            "HRMR-RUN-004",
+            "HRMR-DATA-003",
+            "HRMR-ART-001",
+            "HRMR-EVAL-002",
+            "HRMR-UX-002",
+            "HRMR-UX-003"
+          ],
+          "paths": [
+            "todos/todo.track.schema.json",
+            "docs/architecture/planning-track-contract.md",
+            "docs/planning-pipeline.md"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Das Decision Pack enthaelt je Item Ergebnis, REUSE/EXTEND/NEW/REJECT, Claim-Referenzen, offene Luecken, Owner und empfohlene Track-Zuordnung.",
             "Kandidaten-Slices trennen mindestens gemeinsame Control-Plane-Seams, HRM-Worker-Runtime, Sudoku-Vertikalschnitt, Maze/ARC-Erweiterungen, Evaluation/Baseline, Hub-Surfaces und Hardening/Release.",
@@ -1016,9 +1703,21 @@
           "priority": "P0",
           "risk": "critical",
           "type": "test_design",
-          "depends_on": ["HRMR-PLAN-001"],
-          "paths": ["tests/", "scripts/run_lora_training_smoke.py", "scripts/run-lora-training-e2e.sh", "artifacts/test-gates/", "docs/operations/lora-training.md"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-PLAN-001"
+          ],
+          "paths": [
+            "tests/",
+            "scripts/run_lora_training_smoke.py",
+            "scripts/run-lora-training-e2e.sh",
+            "artifacts/test-gates/",
+            "docs/operations/lora-training.md"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Die Matrix trennt statische Schema-/DAG-Pruefung, Unit/Contract/Mock, adversariale Security-Tests, CPU-Smoke, GPU-Smoke, Multi-Container-E2E, reale Provider-Baseline und manuellen Release-Lauf.",
             "GPU-, Multi-Container-, grosse Dataset-/Download-, reale Provider- und vollstaendige E2E-Gates sind als complex klassifiziert und duerfen erst nach ausdruecklicher Freigabe ausgefuehrt werden.",
@@ -1037,9 +1736,21 @@
           "priority": "P0",
           "risk": "critical",
           "type": "governance",
-          "depends_on": ["HRMR-PLAN-002"],
-          "paths": ["agent/services/planning_category_contract_service.py", "agent/services/planning_category_pipeline_service.py", "agent/services/organization_category_research_service.py", "agent/services/category_to_planning_track_service.py", "docs/planning-pipeline.md"],
-          "evidence_requirements": ["source_fact", "tool_result", "inference"],
+          "depends_on": [
+            "HRMR-PLAN-002"
+          ],
+          "paths": [
+            "agent/services/planning_category_contract_service.py",
+            "agent/services/planning_category_pipeline_service.py",
+            "agent/services/organization_category_research_service.py",
+            "agent/services/category_to_planning_track_service.py",
+            "docs/planning-pipeline.md"
+          ],
+          "evidence_requirements": [
+            "source_fact",
+            "tool_result",
+            "inference"
+          ],
           "acceptance_criteria": [
             "Das Research-Ergebnis validiert gegen todo.schema.json und category_todo_quality_profile.v1; Item-DAG, Meta-Summary und recommended_order werden Hub-seitig deterministisch neu berechnet.",
             "Source Catalog ID und Hash sowie Source-/Run-Allowlist stimmen exakt mit der gebundenen Assignment-Autoritaet ueberein; alle Item-Claims loesen auf erlaubte Evidenz auf und grounding_status ist verified.",
@@ -1053,7 +1764,7 @@
     }
   ],
   "track_planning_hints": {
-    "status": "deferred_until_category_promotion",
+    "status": "ready_for_track_derivation",
     "candidate_slices": [
       "Gemeinsame additive Experiment-Control-Plane-Seams und Compatibility-Adapter",
       "Gepinntes HRM-Worker-Image, HrmWorkerPort und Capability/Preflight",
@@ -1103,19 +1814,24 @@
     "dag_summary": {
       "nodes": 32,
       "edges": 106,
-      "roots": ["HRMR-GND-001"],
-      "leaves": ["HRMR-PLAN-003"],
+      "roots": [
+        "HRMR-GND-001"
+      ],
+      "leaves": [
+        "HRMR-PLAN-003"
+      ],
       "maximum_dependency_depth": 16
     },
-    "promotion_status": "non_promotable_unverified_sources",
+    "promotion_status": "promoted",
     "notes": [
       "Diese Datei ist ein passiver, handgepflegter Category-Research-Backlog-Seed und kein bereits gebundenes Research-Ergebnis.",
       "Die alte Hybridstruktur aus Epics, Implementierungs-Tasks und recommended_milestones wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
       "Vorhandene ml_intern_training-, Artifact-, API/SSE- und Angular-Komponenten sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
-      "Alle 32 Research-Items sind open. Die statische Korrektur erfindet keine SRC_*- oder RUN_*-IDs und ist deshalb absichtlich non-promotable.",
-      "Blocked audit 2026-08-21: Die neue Hub-eigene Organization-Source-Catalog-/Category-Research-Pipeline ist ein Reviewkandidat, liefert ohne publizierten Katalog und Assignment-Allowlist aber keine gueltige HRM-Evidenz.",
       "Komplexe GPU-, Multi-Container-, End-to-End-, grosse Download-/Dataset- und reale Provider-Tests bleiben bis zur ausdruecklichen Freigabe unausgefuehrt.",
-      "Der spaetere Track muss den Release-DAG explizit schliessen; Milestone-Mitgliedschaft oder Prosa ersetzt keine Abhaengigkeit."
+      "Der spaetere Track muss den Release-DAG explizit schliessen; Milestone-Mitgliedschaft oder Prosa ersetzt keine Abhaengigkeit.",
+      "Der fruehere Grounding-Blocker ist aufgeloest: Die Assignment-gebundene Revision pcat-65c5f88839fe8823fb252e1e wurde nach bestandenem Gate und expliziter Approval promoviert.",
+      "Der assignment-gebundene Category-Research-Seed ist promoviert; die 32 HRM-Research- und Implementierungsvorbereitungsitems bleiben bis zu ihrer eigenen Evidenz und Abnahme offen.",
+      "Die TODO bleibt im aktiven todos/-Ordner und darf erst archiviert werden, wenn alle 32 Item-Acceptance-Criteria erfuellt oder explizit mit belegter Disposition abgeschlossen sind."
     ],
     "recommended_order": [
       "HRMR-GND-001",
@@ -1151,5 +1867,147 @@
       "HRMR-PLAN-002",
       "HRMR-PLAN-003"
     ]
+  },
+  "research_seed_transition": {
+    "status": "promoted",
+    "completed_at": "2026-08-22",
+    "disposition": "category_research_seed_promoted",
+    "semantic_boundary": "Promoviert ist nur der Hub-gesteuerte, quellgebundene Category-Research-Seed. Die 32 HRM-Items sind damit weder implementiert noch fachlich abgeschlossen.",
+    "source_catalog": {
+      "task_id": "source-catalog-task-92e3542f83c1d26405f62930",
+      "source_catalog_id": "catalog-5ec632692c6ff83f",
+      "source_catalog_hash": "5ec632692c6ff83f7a3a96379e04835b987846a8de2f3eeab3f36d585e8e8ce5",
+      "repo_revision": "35dc96fc2d8e7d2fdaa00bedd031351b0ddc4111da15224e6dff5605fc70fb7a",
+      "manifest_digest": "80862aa57fe5fa34e2c6c51a154430e119f3fac288b747d9e6780d218d7fbde4",
+      "allowed_source_refs": [
+        "SRC_0001",
+        "SRC_0002",
+        "SRC_0003",
+        "SRC_0004",
+        "SRC_0005",
+        "SRC_0006",
+        "SRC_0007",
+        "SRC_0008",
+        "SRC_0009",
+        "SRC_0010",
+        "SRC_0011",
+        "SRC_0012",
+        "SRC_0013",
+        "SRC_0014",
+        "SRC_0015",
+        "SRC_0016",
+        "SRC_0017",
+        "SRC_0018",
+        "SRC_0019",
+        "SRC_0020",
+        "SRC_0021",
+        "SRC_0022",
+        "SRC_0023",
+        "SRC_0024",
+        "SRC_0025",
+        "SRC_0026",
+        "SRC_0027",
+        "SRC_0028",
+        "SRC_0029",
+        "SRC_0030",
+        "SRC_0031",
+        "SRC_0032",
+        "SRC_0033",
+        "SRC_0034",
+        "SRC_0035",
+        "SRC_0036",
+        "SRC_0037",
+        "SRC_0038",
+        "SRC_0039",
+        "SRC_0040",
+        "SRC_0041",
+        "SRC_0042",
+        "SRC_0043",
+        "SRC_0044",
+        "SRC_0045",
+        "SRC_0046",
+        "SRC_0047"
+      ],
+      "allowed_run_refs": [
+        "RUN_0001"
+      ]
+    },
+    "assignment": {
+      "project_id": "61eb9cae-e997-4933-8831-1f260bb7918a",
+      "organization_id": "4b5c6a3b-fc5c-4d89-8ed1-0fb7c1f5a5bb",
+      "goal_id": "orggoal-7167fb07ec8baa048c334344",
+      "assignment_binding_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
+      "parent_task_id": "presearch-f997505f753b0215a7058e55",
+      "child_task_id": "sub-242ebb9a-910e-4064-8448-f82ace5745f8",
+      "job_id": "423d953b-931b-4ba4-9fc3-984d0bdd3e66",
+      "worker_result_id": "796cf1de-75ba-499c-9558-b924c1e8f5de",
+      "origin_context_bundle_id": "catalog-context-fde2616716d98a02e27974a0",
+      "delegated_context_bundle_id": "delegated-context-dff279cb289cb01d2778684d185cfd7b",
+      "destination_id": "dst_6e5fe03ce439ae12939f01a9fb708e9b811cf101d58bff939e4a97f19d2450f0",
+      "runtime_target": "source-index-alpha",
+      "model": "qwen/qwen3.5-9b"
+    },
+    "result": {
+      "artifact_id": "pcategory-ff859508c30852babbfe79aa",
+      "revision_id": "pcat-65c5f88839fe8823fb252e1e",
+      "revision": 1,
+      "artifact_status": "promoted",
+      "content_digest": "40b35605e361c1b63ae31c5e5d7f53150afbbbf9aa79da8f07e84178071ac55d",
+      "result_payload_digest": "2a7d502be36d0ff9f8244e924e4f2a2601519363c7524ea736b30b1fe80d39ff",
+      "valid": true,
+      "promotable": true,
+      "issues": []
+    },
+    "run_evidence": {
+      "source_id": "RUN_0001",
+      "run_id": "category-run-03c1bd01d44647ec483bb4091c67d8e7",
+      "binding_digest": "213f02d9a737e4a27a44b52bb91382a80b38c04bb7644639768d5cd60baa0170",
+      "evidence_digest": "4f755287b7af6c985ee7ddef4e453f935a59eddca2e1469bbd87e900aeeb823b"
+    },
+    "governance": {
+      "approval_request_id": "b3f0328f-d866-4b1e-b7c1-42f2667199e9",
+      "approval_status": "approved",
+      "promotion_receipt_id": "0421f895-9423-4dd3-80d9-f87560787faa"
+    },
+    "verification": {
+      "grounding_status": "verified",
+      "verified_claim_count": 5,
+      "gate_check_count": 12,
+      "gate_passed": true,
+      "focused_tests": {
+        "command": "pytest -q tests/test_planning_category_todo_pipeline_service.py tests/test_organization_category_research_task_handler.py",
+        "result": "16 passed, 1 warning"
+      }
+    },
+    "open_research_scope": {
+      "preserved_item_count": 32,
+      "item_status": "open",
+      "external_sources_status": "unverified",
+      "hypotheses_status": "unverified",
+      "next_authoritative_step": "Ein separater, Hub-gesteuerter Track muss aus der promovierten Category-Revision abgeleitet, gebunden, ausgefuehrt und verifiziert werden."
+    },
+    "architecture_check": {
+      "hub_owns_orchestration": true,
+      "worker_executes_delegated_task_only": true,
+      "worker_to_worker_orchestration": false,
+      "container_boundaries_preserved": true,
+      "unknown_source_ids_rejected": true
+    },
+    "solid_check": {
+      "srp": "Evidence-Anpassung bleibt im Worker-Handler; Binding, Validierung, Persistenz und Promotion bleiben getrennte Hub-Service-Verantwortungen.",
+      "ocp": "Die Recovery erweitert den bestehenden Callback-Pfad additiv.",
+      "lsp": "Bestehende Erfolgs- und Fehlervertraege bleiben erhalten.",
+      "isp": "Keine neue breite Schnittstelle wurde eingefuehrt.",
+      "dip": "Worker-Ausfuehrung bleibt ueber das bestehende Runtime-/Delegation-Port-Modell entkoppelt.",
+      "known_preserved_issue": "Das bestehende opencode.py-Modul bleibt breit geschnitten; diese Aenderung erweitert dessen Verantwortungsumfang nicht."
+    }
+  },
+  "implementation_progress": {
+    "status": "not_started",
+    "total_items": 32,
+    "completed_items": 0,
+    "in_progress_items": 0,
+    "open_items": 32,
+    "authoritative_rule": "Item-Status wird erst nach quellcodeabgeglichenem Acceptance-Gate und erforderlicher SRC-/RUN-Evidenz geaendert."
   }
 }
