@@ -574,11 +574,12 @@ class HubSourceControlOperationsAdapter:
             knowledge_index_repository=_SingleIndexRepository(index),
             knowledge_link_repository=_EmptyKnowledgeLinks(),
         )
-        chunks = retrieval.search(
+        chunks = retrieval.search_records(
             query,
-            top_k=limit,
+            limit=limit,
             task_kind="code_review",
             retrieval_intent="fuzzy_semantic",
+            allowed_index_ids={str(index.id)},
         )
         matches = [_public(chunk) for chunk in chunks]
         return {
@@ -1012,12 +1013,17 @@ class ScopedWorkerModelDestinationCatalog:
                     or ""
                 )
                 provider_id = str(target.get("provider_id") or "")
+                model_provider_id = str(
+                    target.get("model_provider_id") or provider_id
+                )
                 model_ids = target.get("model_ids")
                 if not isinstance(model_ids, list):
                     model_ids = [target.get("model_id")]
                 for raw_model_id in model_ids:
                     model_id = str(raw_model_id or "")
-                    model = model_index.get((provider_id, model_id))
+                    model = model_index.get(
+                        (model_provider_id, model_id)
+                    )
                     if (
                         not runtime_id
                         or not runtime_kind

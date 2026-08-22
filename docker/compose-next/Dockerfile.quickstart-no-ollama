@@ -116,6 +116,13 @@ RUN cd services/evolver_bridge && npm ci --no-audit --no-fund
 
 # Den Rest des Codes kopieren
 COPY . .
+
+# Runtime artifact projections are written by the unprivileged application
+# user. Keep the directory present even when artifacts are excluded from the
+# Docker build context.
+RUN mkdir -p /app/artifacts \
+    && chown -R "${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}" /app/artifacts \
+    && chmod 0700 /app/artifacts
 RUN chmod +x /app/scripts/quickstart-single-image-entrypoint.sh
 
 EXPOSE 5000 5001 4200 8080

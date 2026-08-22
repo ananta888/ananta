@@ -112,6 +112,48 @@ def _graph_adapter(
     return adapter, projection
 
 
+def test_query_authorizes_only_the_hub_resolved_active_index(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[dict] = []
+
+    class _Retrieval:
+        def __init__(self, *_args, **_kwargs) -> None:
+            pass
+
+        def search_records(self, query, **kwargs):
+            calls.append({"query": query, **kwargs})
+            return []
+
+    index = type("Index", (), {"id": "index-authorized"})()
+    adapter = object.__new__(HubSourceControlOperationsAdapter)
+    adapter._active_index = lambda **_kwargs: index
+    adapter._artifact_projection = lambda _index: {
+        "state": "available",
+        "knowledge_index_id": index.id,
+    }
+    monkeypatch.setattr(
+        "agent.services.source_control_production_adapters."
+        "KnowledgeIndexRetrievalService",
+        _Retrieval,
+    )
+
+    result = adapter.query(
+        parameters={"query": "organization source catalog", "limit": 5}
+    )
+
+    assert result["matches"] == []
+    assert calls == [
+        {
+            "query": "organization source catalog",
+            "limit": 5,
+            "task_kind": "code_review",
+            "retrieval_intent": "fuzzy_semantic",
+            "allowed_index_ids": {"index-authorized"},
+        }
+    ]
+
+
 def _domain_scope_key(
     payload: dict,
     *,
@@ -812,6 +854,56 @@ def test_destination_catalog_requires_server_scope_and_model_evidence() -> None:
         )
         == allowed[0]
     )
+
+
+def test_destination_catalog_separates_execution_and_model_provider() -> None:
+    engine = _engine()
+    with Session(engine) as db:
+        db.add(
+            AgentInfoDB(
+                url="http://worker.test",
+                name="worker-example",
+                role="worker",
+                status="online",
+                registration_validated=True,
+                runtime_targets=[
+                    {
+                        "runtime_id": "runtime-example",
+                        "runtime_kind": "docker_container",
+                        "provider_id": "codex",
+                        "model_provider_id": "lmstudio",
+                        "model_id": "qwen/qwen3.5-9b",
+                        "model_class": "code",
+                        "provider_location": "local_container",
+                        "data_residency": "local",
+                        "source_access_authorized": True,
+                        "global_source_access": True,
+                    }
+                ],
+            )
+        )
+        db.commit()
+    catalog = ScopedWorkerModelDestinationCatalog(
+        engine=engine,
+        model_supplier=lambda: (
+            _Model(
+                provider_id="lmstudio",
+                model_id="qwen/qwen3.5-9b",
+            ),
+        ),
+    )
+
+    destinations, _ = catalog.list(
+        tenant_id="tenant-example",
+        project_id="project-example",
+        cursor=None,
+        limit=10,
+        filters={},
+    )
+
+    assert len(destinations) == 1
+    assert destinations[0].provider_id == "codex"
+    assert destinations[0].model_id == "qwen/qwen3.5-9b"
 
 
 def test_effective_access_uses_scoped_destination_and_persistent_grant() -> None:

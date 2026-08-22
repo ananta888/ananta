@@ -17,6 +17,9 @@ from typing import Any
 SOURCE_INDEX_RUNTIME_TARGET_ENV = "ANANTA_SOURCE_INDEX_RUNTIME_TARGET_JSON"
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_MODEL_IDENTIFIER = re.compile(
+    r"^(?!.*://)[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$"
+)
 _PROVIDER_LOCATIONS = {
     "local_container",
     "private_network",
@@ -28,6 +31,7 @@ _ALLOWED_KEYS = {
     "runtime_id",
     "runtime_kind",
     "provider_id",
+    "model_provider_id",
     "model_ids",
     "provider_location",
     "data_residency",
@@ -107,7 +111,8 @@ def load_source_index_runtime_target(
         not isinstance(model_ids, list)
         or not model_ids
         or any(
-            not isinstance(model_id, str) or not _IDENTIFIER.fullmatch(model_id)
+            not isinstance(model_id, str)
+            or not _MODEL_IDENTIFIER.fullmatch(model_id)
             for model_id in model_ids
         )
     ):
@@ -142,7 +147,11 @@ def load_source_index_runtime_target(
         raise ValueError("enabled must be a boolean")
     target["enabled"] = enabled
 
-    for optional_identifier in ("model_class", "worker_kind"):
+    for optional_identifier in (
+        "model_provider_id",
+        "model_class",
+        "worker_kind",
+    ):
         if target.get(optional_identifier) is not None:
             target[optional_identifier] = _required_identifier(
                 target, optional_identifier

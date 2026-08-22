@@ -17,6 +17,7 @@ from ananta_contracts.knowledge_index_dispatch import (
 )
 from ananta_contracts.knowledge_index_execution import (
     KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS,
+    KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON,
     KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA,
     KnowledgeIndexExecutionContractError,
     parse_execution_job,
@@ -79,10 +80,38 @@ def resolve_knowledge_index_forward_budget_seconds(
     if bound_schema != KNOWLEDGE_INDEX_EXECUTION_JOB_SCHEMA:
         raise ValueError("knowledge_index_execution_binding_schema_unknown")
     parsed_job = _validated_execution_job(task)
-    return (
+    full_budget_seconds = (
         parsed_job.resources.max_runtime_seconds
         + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
     )
+    manifest = bound_job.get(SOURCE_ACCESS_MANIFEST_FIELD)
+    if not isinstance(manifest, Mapping):
+        return full_budget_seconds
+    grant_expires_epoch_ms = manifest.get(
+        "grant_expires_at_epoch_ms"
+    )
+    if grant_expires_epoch_ms is None:
+        return full_budget_seconds
+    if (
+        isinstance(grant_expires_epoch_ms, bool)
+        or not isinstance(grant_expires_epoch_ms, int)
+    ):
+        raise ValueError(
+            "knowledge_index_exact_retry_authority_window_invalid"
+        )
+    remaining_authority_ms = (
+        min(
+            parsed_job.assignment.lease_expires_epoch_ms,
+            grant_expires_epoch_ms,
+        )
+        - int(time.time() * 1000)
+    )
+    remaining_budget_seconds = remaining_authority_ms // 1000
+    if remaining_budget_seconds < 1:
+        raise ValueError(
+            KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
+        )
+    return min(full_budget_seconds, remaining_budget_seconds)
 
 
 def resolve_knowledge_index_forward_deadline(

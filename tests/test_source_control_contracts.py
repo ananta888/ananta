@@ -120,6 +120,43 @@ def test_provider_or_model_change_produces_a_new_destination_identity() -> None:
     )
 
 
+def test_destination_descriptor_accepts_namespaced_model_identifier() -> None:
+    descriptor = DestinationDescriptor.create(
+        worker_id="worker-example",
+        worker_kind="worker",
+        runtime_id="runtime-example",
+        runtime_kind="docker_container",
+        provider_id="codex",
+        model_id="qwen/qwen3.5-9b",
+        model_class="code",
+        provider_location="local_container",
+        data_residency="local",
+    )
+
+    assert descriptor.model_id == "qwen/qwen3.5-9b"
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    ["https://models.example/qwen", "qwen model", "/qwen/model"],
+)
+def test_destination_descriptor_rejects_unsafe_model_identifier(
+    model_id: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        DestinationDescriptor.create(
+            worker_id="worker-example",
+            worker_kind="worker",
+            runtime_id="runtime-example",
+            runtime_kind="docker_container",
+            provider_id="codex",
+            model_id=model_id,
+            model_class="code",
+            provider_location="local_container",
+            data_residency="local",
+        )
+
+
 def test_source_revision_contract_is_immutable() -> None:
     payload = _json(VALID_FIXTURE)["contracts"]["source_revision"]
     revision = SourceRevision.model_validate(payload)

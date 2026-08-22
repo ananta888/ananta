@@ -46,7 +46,7 @@ class HubKnowledgeIndexTaskSnapshotClient:
         worker_id: str,
         worker_url: str,
         token_provider: Callable[[], str | None],
-        timeout_seconds: float = 10.0,
+        timeout_seconds: float = 30.0,
         get: Callable[..., Any] | None = None,
         monotonic_clock: Callable[[], float] = time.monotonic,
     ) -> None:

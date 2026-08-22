@@ -105,15 +105,20 @@ class _BindingGate:
     def __init__(self, envelope):
         self.envelope = envelope
         self.claim_calls = []
+        self.state = "assigned"
+        self.lock_version = 1
 
     def validate_before_dispatch(self, **_kwargs):
         return SimpleNamespace(
             job=_BoundJob(self.envelope),
-            lock_version=1,
+            lock_version=self.lock_version,
+            state=self.state,
         )
 
     def claim_dispatch(self, **values):
         self.claim_calls.append(values)
+        self.state = "running"
+        self.lock_version += 1
 
 
 class _GrantResolver:
@@ -360,6 +365,26 @@ def test_persisted_dispatch_manifest_is_revalidated_without_second_consumption()
 
     assert second == first
     assert len(consumptions.calls) == 1
+    assert len(service._execution_binding_service.claim_calls) == 1
+
+
+def test_running_dispatch_replay_requires_persisted_manifest() -> None:
+    service, consumptions = _composition()
+    service._execution_binding_service.state = "running"
+
+    with pytest.raises(
+        ValueError,
+        match="knowledge_index_running_dispatch_manifest_missing",
+    ):
+        service.authorize_bound_worker_dispatch(
+            job_id="knowledge-index-bound-destination",
+            authenticated_worker_id="worker-index-01",
+            destination_selection=_selection("model-a").__dict__,
+            dispatch_phase="execute",
+        )
+
+    assert consumptions.calls == []
+    assert service._execution_binding_service.claim_calls == []
 
 
 def test_tampered_persisted_dispatch_manifest_is_rejected() -> None:

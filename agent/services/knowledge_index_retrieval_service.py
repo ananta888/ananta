@@ -776,7 +776,9 @@ class KnowledgeIndexRetrievalService:
                 source = str(
                     record.get("file")
                     or record.get("path")
-                    or getattr(knowledge_index, "artifact_id", "knowledge-index")
+                    or record.get("id")
+                    or artifact_id
+                    or "knowledge-index"
                 )
                 record_text = self._record_text(record)
                 if not record_text:
@@ -908,7 +910,10 @@ class KnowledgeIndexRetrievalService:
             records.append(
                 {
                     "id": str(metadata.get("record_id") or metadata.get("chunk_id") or ""),
-                    "path": str(metadata.get("repo_relative_path") or chunk.source or ""),
+                    # Keep the immutable record locator distinct from the
+                    # display source. An id-only record has no path and must
+                    # remain hydratable with an empty path selector.
+                    "path": str(metadata.get("repo_relative_path") or ""),
                     "source": str(chunk.source or ""),
                     "content": str(chunk.content or ""),
                     "score": float(chunk.score or 0.0),

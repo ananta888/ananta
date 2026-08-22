@@ -599,6 +599,41 @@ def test_worker_snapshot_accepts_complete_connection_close_response() -> None:
         assert client.fetch(task_id="task-alpha") == data
 
 
+def test_worker_snapshot_default_deadline_allows_bounded_hub_latency() -> None:
+    data = {"task_id": "task-alpha"}
+    encoded = json.dumps(
+        {"status": "success", "data": data},
+        separators=(",", ":"),
+    ).encode("utf-8")
+
+    class Response:
+        status_code = 200
+        headers = {}
+
+        def iter_content(self, **_kwargs):
+            yield encoded
+
+        def close(self):
+            return None
+
+    request_options = {}
+
+    def get(_url, **kwargs):
+        request_options.update(kwargs)
+        return Response()
+
+    client = HubKnowledgeIndexTaskSnapshotClient(
+        hub_url="http://hub:5000",
+        worker_id=_WORKER_ID,
+        worker_url=_WORKER_URL,
+        token_provider=lambda: "t" * 32,
+        get=get,
+    )
+
+    assert client.fetch(task_id="task-alpha") == data
+    assert request_options["timeout"] == pytest.approx((5.0, 30.0))
+
+
 def test_worker_snapshot_rejects_connection_close_before_declared_length() -> None:
     encoded = json.dumps(
         {"status": "success", "data": {"task_id": "task-alpha"}},

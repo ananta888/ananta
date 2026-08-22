@@ -31,6 +31,32 @@ def test_deadline_comes_from_fully_bound_persisted_v2_job() -> None:
     assert deadline.connect_timeout_seconds == 5.0
 
 
+def test_exact_replay_deadline_is_capped_by_remaining_grant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    task = build_execution_task(
+        max_runtime_seconds=900,
+        include_manifest=True,
+    )
+    task["worker_execution_context"]["knowledge_index_job"][
+        "source_access_enforcement_manifest"
+    ]["grant_expires_at_epoch_ms"] = 150_000
+    monkeypatch.setattr(
+        "agent.services.knowledge_index_forward_timeout.time.time",
+        lambda: 100.0,
+    )
+
+    deadline = resolve_knowledge_index_forward_deadline(
+        task,
+        dispatch_phase="execute",
+        monotonic_clock=lambda: 10.0,
+    )
+
+    assert deadline is not None
+    assert deadline.budget_seconds == 50
+    assert deadline.expires_at_monotonic == 60.0
+
+
 def test_v2_budget_tampering_fails_full_contract_parsing() -> None:
     task = build_execution_task(max_runtime_seconds=900)
     tampered = copy.deepcopy(task)

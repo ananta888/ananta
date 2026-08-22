@@ -1132,12 +1132,8 @@ class SQLSourceControlOperationStore:
         with Session(self._engine) as db:
             owner_filters = []
             if claim_token is not None:
-                owner_filters.extend(
-                    (
-                        SourceControlOperationDB.claim_token == claim_token,
-                        SourceControlOperationDB.lease_expires_at_epoch
-                        > float(self._clock()),
-                    )
+                owner_filters.append(
+                    SourceControlOperationDB.claim_token == claim_token
                 )
             mutation = db.exec(
                 update(SourceControlOperationDB)

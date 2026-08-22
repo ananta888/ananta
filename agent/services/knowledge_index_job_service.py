@@ -597,6 +597,20 @@ class KnowledgeIndexJobService:
             raise ValueError(
                 "knowledge_index_execution_queue_context_stale"
             )
+        exact_dispatch_replay = bool(
+            normalized_dispatch_phase == "execute"
+            and str(getattr(authorized, "state", "assigned"))
+            .strip()
+            .lower()
+            == "running"
+        )
+        if (
+            exact_dispatch_replay
+            and persisted_enforcement_manifest is None
+        ):
+            raise ValueError(
+                "knowledge_index_running_dispatch_manifest_missing"
+            )
         authority = dict(
             current_envelope.get("authority_binding") or {}
         )
@@ -645,7 +659,10 @@ class KnowledgeIndexJobService:
             return {"knowledge_index_job": current_envelope}
 
         required_dispatch_window_ms = (
-            self._assert_dispatch_runtime_window(current_envelope)
+            self._assert_dispatch_runtime_window(
+                current_envelope,
+                exact_replay=exact_dispatch_replay,
+            )
         )
 
         enforcement = self._source_access_enforcement_service
@@ -659,13 +676,14 @@ class KnowledgeIndexJobService:
                     "knowledge_index_source_access_enforcement_unavailable"
                 )
             worker_envelope = current_envelope
-            self._claim_execution_dispatch(
-                service=service,
-                authorized_record=authorized,
-                job_id=str(job_id),
-                authenticated_worker_id=str(authenticated_worker_id),
-                dispatch_phase=normalized_dispatch_phase,
-            )
+            if not exact_dispatch_replay:
+                self._claim_execution_dispatch(
+                    service=service,
+                    authorized_record=authorized,
+                    job_id=str(job_id),
+                    authenticated_worker_id=str(authenticated_worker_id),
+                    dispatch_phase=normalized_dispatch_phase,
+                )
             return {"knowledge_index_job": worker_envelope}
 
         from dataclasses import asdict
@@ -748,13 +766,14 @@ class KnowledgeIndexJobService:
                     verified_manifest
                 ),
             }
-            self._claim_execution_dispatch(
-                service=service,
-                authorized_record=authorized,
-                job_id=str(job_id),
-                authenticated_worker_id=str(authenticated_worker_id),
-                dispatch_phase=normalized_dispatch_phase,
-            )
+            if not exact_dispatch_replay:
+                self._claim_execution_dispatch(
+                    service=service,
+                    authorized_record=authorized,
+                    job_id=str(job_id),
+                    authenticated_worker_id=str(authenticated_worker_id),
+                    dispatch_phase=normalized_dispatch_phase,
+                )
             return {"knowledge_index_job": worker_envelope}
         source_dispatch = enforcement.authorize(
             request,
@@ -785,8 +804,10 @@ class KnowledgeIndexJobService:
     def _assert_dispatch_runtime_window(
         self,
         envelope: Mapping[str, Any],
+        *,
+        exact_replay: bool = False,
     ) -> int:
-        """Reject execute dispatch before consuming its one-time authority."""
+        """Require full execution time or a bounded exact-replay window."""
 
         assignment = envelope.get("assignment")
         resources = envelope.get("resources")
@@ -817,10 +838,15 @@ class KnowledgeIndexJobService:
             raise ValueError(
                 KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON
             ) from exc
-        required_window_ms = (
-            max_runtime_seconds
-            + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
-        ) * 1000
+        required_window_seconds = (
+            KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+            if exact_replay
+            else (
+                max_runtime_seconds
+                + KNOWLEDGE_INDEX_DISPATCH_TRANSPORT_MARGIN_SECONDS
+            )
+        )
+        required_window_ms = required_window_seconds * 1000
         if lease_expires_epoch_ms - now_epoch_ms < required_window_ms:
             raise ValueError(
                 KNOWLEDGE_INDEX_DISPATCH_WINDOW_INSUFFICIENT_REASON

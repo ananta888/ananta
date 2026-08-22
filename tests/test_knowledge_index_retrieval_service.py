@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 from types import SimpleNamespace
@@ -59,6 +60,61 @@ def test_knowledge_index_retrieval_service_reads_completed_outputs(tmp_path):
     assert "timeout" in chunks[0].content.lower()
     assert chunks[0].metadata["knowledge_index_id"] == "idx-1"
     assert chunks[0].metadata["record_kind"] == "md_section"
+
+
+def test_id_only_record_keeps_exact_empty_path_locator(tmp_path):
+    output_dir = tmp_path / "knowledge-index"
+    output_dir.mkdir()
+    (output_dir / "index.jsonl").write_text(
+        json.dumps(
+            {
+                "id": "migrations/organization_schema.py",
+                "kind": "source_file",
+                "content": "organization source catalog planning research",
+            }
+        ),
+        encoding="utf-8",
+    )
+    index = SimpleNamespace(
+        id="idx-id-only",
+        artifact_id=None,
+        source_scope="artifact",
+        profile_name="default",
+        output_dir=str(output_dir),
+        status="completed",
+    )
+    service = KnowledgeIndexRetrievalService(
+        knowledge_index_repository=SimpleNamespace(
+            list_completed=lambda: [index]
+        )
+    )
+
+    records = service.search_records(
+        "organization source catalog",
+        limit=1,
+    )
+
+    assert len(records) == 1
+    assert records[0]["id"] == "migrations/organization_schema.py"
+    assert records[0]["path"] == ""
+    assert records[0]["source"] == "migrations/organization_schema.py"
+    binding = {
+        "source_id": "SRC_ID_ONLY",
+        "record_file": "index.jsonl",
+        "record_id": records[0]["id"],
+        "path": None,
+        "line_start": None,
+        "line_end": None,
+        "content_hash": hashlib.sha256(
+            records[0]["content"].encode("utf-8")
+        ).hexdigest(),
+    }
+    assert len(
+        service.load_bound_records(
+            knowledge_index=index,
+            bindings=[binding],
+        )
+    ) == 1
 
 
 def test_knowledge_index_retrieval_service_can_filter_by_artifact_id(tmp_path):

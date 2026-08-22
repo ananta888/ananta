@@ -22,6 +22,7 @@ from pydantic import (
     Field,
     StringConstraints,
     ValidationError,
+    field_validator,
     model_validator,
 )
 
@@ -52,6 +53,15 @@ Identifier = Annotated[
         min_length=1,
         max_length=128,
         pattern=r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$",
+    ),
+]
+ModelIdentifier = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=191,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,190}$",
     ),
 ]
 Purpose = Annotated[
@@ -453,10 +463,17 @@ class DestinationDescriptor(_ClosedHubContract):
     runtime_id: Identifier
     runtime_kind: Identifier
     provider_id: Identifier
-    model_id: Identifier
+    model_id: ModelIdentifier
     model_class: Identifier
     provider_location: ProviderLocation
     data_residency: Identifier
+
+    @field_validator("model_id")
+    @classmethod
+    def _model_id_is_not_a_url(cls, value: str) -> str:
+        if "://" in value:
+            raise ValueError("model_id must be a model identifier, not a URL")
+        return value
 
     @model_validator(mode="after")
     def _identity_matches_coordinates(self) -> "DestinationDescriptor":
