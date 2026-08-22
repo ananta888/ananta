@@ -1,0 +1,588 @@
+{
+  "$schema": "../todo.schema.json",
+  "version": 1,
+  "created": "2026-08-22",
+  "updated": "2026-08-22",
+  "project": "ananta",
+  "owner": "Ananta maintainers",
+  "track": "scrum_continuous_improvement_retrospective_loop",
+  "status": "open",
+  "priority": "P0",
+  "review_basis": {
+    "reviewed_commit_range": "main@509cd5c4aac1b00faf0fbaabb9839cdec396366b",
+    "review_goal": "Den vorhandenen Scrum-, Hub-, Worker-Task-Proposal- und Evolution/Evolver-Unterbau zu einem geschlossenen Continuous-Improvement-Zyklus erweitern: Sprint ausführen, Ergebnis und Zusammenarbeit auswerten, konkrete Verbesserungen ableiten, kontrolliert übernehmen, im nächsten Sprint verpflichtend anwenden und ihre Wirkung messen.",
+    "reviewed_paths": [
+      "config/blueprints/standard/blueprints.json",
+      "docs/standard-blueprints.md",
+      "docs/enterprise-agentic-scrum-organizations.md",
+      "docs/architecture/worker-task-proposals.md",
+      "docs/evolver-adapter.md",
+      "docs/evolution-rollout.md",
+      "agent/services/planning_prompt_evolver_service.py",
+      "plugins/evolver_adapter/",
+      "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json",
+      "todos/todo.schema.json"
+    ],
+    "existing_evidence": [
+      "Scrum und Scrum-OpenCode besitzen bereits Product Owner, Scrum Master, Developer, Backlog-/Planning-Artefakte sowie einen Review/Definition-of-Done-Schritt.",
+      "Scrum-OpenCode endet aktuell nach Implementation und Review-Gate; eine explizite Retrospektive mit Rückkopplung in die nächste Iteration ist nicht Teil des Workflows.",
+      "Ananta besitzt bereits eine generische EvolutionEngine-Abstraktion.",
+      "Evolver ist als optionaler Evolution-Provider integriert.",
+      "EvolutionProposal, Review, Validation und zukünftiges Apply sind bereits als Lifecycle vorgesehen.",
+      "Worker können Folgearbeit als begrenzte Proposal an den Hub melden.",
+      "Der Hub bleibt Control Plane für Tasks, Routing, Policies, Freigaben, Audit und Zustandsübergänge."
+    ],
+    "design_conclusion": "Continuous Improvement soll nicht als separates zweites Evolutionssystem implementiert werden. Die Scrum-Retrospektive wird als fachliche zyklusbezogene Schicht auf die bereits vorhandene EvolutionEngine, Proposal-, Review-, Validation-, Apply-, Planning- und Hub-Infrastruktur gesetzt."
+  },
+  "purpose": "Ananta soll für agentische Scrum-Teams einen echten geschlossenen Lern- und Verbesserungszyklus besitzen. Ein Sprint darf nicht lediglich mit einem technischen Review oder Definition-of-Done-Gate enden. Das Team muss anschließend anhand der tatsächlichen Sprint-Evidenz seine Arbeitsweise untersuchen, konkrete Verbesserungen vorschlagen, diese kontrolliert übernehmen und ihre Wirkung in nachfolgenden Iterationen nachvollziehbar messen können.",
+  "goal": "Ein Scrum-Team kann Sprint N vollständig ausführen und danach eine Retrospektive durchführen. Die Retrospektive erzeugt evidenzgebundene Improvement Proposals für Teamprozess, Prompts, Rollenverhalten, Workflow, Planning-Regeln, Handoffs oder andere zulässige Konfigurationen. Nach Policy-, Review- und Validierungsprüfung können ausgewählte Änderungen als versionierte Improvement Commitments für Sprint N+1 aktiviert werden. Sprint N+1 bindet diese Änderungen explizit ein. Nach Abschluss wird gemessen, ob die Änderungen die vorgesehenen Kennzahlen verbessert, verschlechtert oder nicht beeinflusst haben.",
+  "non_goals": [
+    "Kein autonomes unkontrolliertes Umschreiben von Systemprompts, Policies oder Sicherheitsgrenzen.",
+    "Keine direkte Worker-zu-Worker-Orchestrierung.",
+    "Keine automatische Freigabe sicherheitskritischer Evolutionsvorschläge.",
+    "Keine Verpflichtung, menschliche Scrum-Zeitintervalle wie zwei oder vier Wochen unverändert auf Agenten zu übertragen.",
+    "Keine Simulation eines Daily Scrum als reines Meeting-Theater.",
+    "Keine zweite parallele EvolutionEngine speziell für Scrum.",
+    "Keine Vermischung von Product Review und Retrospektive.",
+    "Keine Behauptung, jedes EvolutionProposal sei automatisch eine Scrum-Retrospektivenmaßnahme.",
+    "Keine automatische Änderung globaler Rollen- oder Organisationsdefinitionen aufgrund eines einzelnen Sprint-Ergebnisses."
+  ],
+  "architecture_principles": [
+    "Sprint Review bewertet primär Produkt-/Increment-Ergebnis; Retrospektive bewertet primär Zusammenarbeit und Arbeitsprozess.",
+    "Retrospektiven basieren auf beobachtbarer Sprint-Evidenz und nicht ausschließlich auf freien LLM-Meinungen.",
+    "Ein Improvement Proposal ist zunächst eine Hypothese, keine Wahrheit.",
+    "Jede übernommene Verbesserung besitzt eine erwartete Wirkung und messbare Erfolgskriterien.",
+    "Änderungen werden versioniert und an einen konkreten Folgesprint gebunden.",
+    "Sprint N+1 muss nachvollziehbar dokumentieren, welche Improvement Commitments aus Sprint N aktiv waren.",
+    "Nachfolgende Sprint-Metriken werden gegen eine Baseline verglichen.",
+    "Verschlechterungen müssen Rollback oder erneute Retrospektive ermöglichen.",
+    "Der Hub synchronisiert und erzwingt Lifecycle-/Policy-Grenzen; er ersetzt nicht die fachliche Reflexion der Agenten.",
+    "Evolver ist ein möglicher Analyseprovider, aber die fachliche Retrospektiven-Semantik bleibt providerunabhängig.",
+    "Mehrere Agenten dürfen unterschiedliche Einschätzungen liefern; Dissens wird erhalten und nicht vorzeitig von einem einzelnen Modell zusammengefasst.",
+    "Continuous Improvement umfasst Team-, Workflow- und Rollenlernen und ist nicht auf Prompt-Optimierung beschränkt."
+  ],
+  "categories": [
+    {
+      "name": "sprint_iteration_model",
+      "label": "Sprint- und Iterationsmodell",
+      "items": [
+        {
+          "id": "SCI-001",
+          "title": "Explizite Sprint-Entität bzw. revisionsgebundene Iteration einführen",
+          "status": "open",
+          "priority": "P0",
+          "problem": "Tasks, Planning Tracks und Goals existieren, aber Continuous Improvement benötigt eine eindeutige Grenze zwischen Sprint N und Sprint N+1.",
+          "tasks": [
+            "Bestehende Goal-, Track-, Task- und Organization-Modelle auf eine geeignete Iterationsbindung prüfen.",
+            "Entscheiden, ob Sprint als eigene persistente Entität oder als versionierte Projection über bestehende Planning-Strukturen modelliert wird.",
+            "Eine stabile sprint_id einführen.",
+            "Sprint-Sequenznummer und Vorgänger-/Nachfolgerbeziehung speichern.",
+            "Sprint Goal als eigenständiges Feld von Product Goal und einzelnen Tasks trennen.",
+            "started_at, closed_at und lifecycle_state vorsehen.",
+            "Sprint darf nicht zwingend über kalendarische Wochen definiert sein.",
+            "Zeit-, Task-, Token-, Kosten- oder Goal-basierte Sprint-Grenzen zulassen."
+          ],
+          "acceptance_criteria": [
+            "Jeder Retrospektivenlauf kann exakt einem abgeschlossenen Sprint zugeordnet werden.",
+            "Sprint N+1 kann eindeutig auf Sprint N verweisen.",
+            "Sprint Goal ist nicht mit Product Goal identisch.",
+            "Das Modell erzwingt keine menschliche Zwei-/Vier-Wochen-Dauer."
+          ]
+        },
+        {
+          "id": "SCI-002",
+          "title": "Sprint Lifecycle definieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-001"],
+          "tasks": [
+            "Lifecycle mindestens mit planned, active, review, retrospective, improvement_pending und closed definieren.",
+            "Übergänge Hub-seitig validieren.",
+            "Review und Retrospective als getrennte Zustände behandeln.",
+            "Sprint N+1 darf abhängig von Policy bereits geplant werden, aber Improvement Commitments müssen vor seiner endgültigen Aktivierung aufgelöst sein.",
+            "Idempotente Lifecycle-Transitions implementieren."
+          ],
+          "acceptance_criteria": [
+            "Produktreview und Prozessretrospektive sind technisch unterscheidbar.",
+            "Retrospektive kann nicht versehentlich für einen laufenden falschen Sprint angewendet werden."
+          ]
+        },
+        {
+          "id": "SCI-003",
+          "title": "Sprint Goal und begrenztes Arbeitspaket explizit machen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-001"],
+          "tasks": [
+            "Aus Product Backlog / Planning Tracks ein explizites Sprint-Paket ableiten.",
+            "Sprint Goal separat speichern.",
+            "Tasks und Stories dem Sprint revisionsgebunden zuordnen.",
+            "Scope-Änderungen während des Sprints auditierbar machen.",
+            "Ungeplante Folgearbeit separat markieren."
+          ],
+          "acceptance_criteria": [
+            "Es ist jederzeit nachvollziehbar, was Sprint N erreichen sollte und welche Arbeit ursprünglich Bestandteil des Sprints war."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "retrospective_evidence",
+      "label": "Retrospektive und Evidenz",
+      "items": [
+        {
+          "id": "SCI-004",
+          "title": "Retrospective Evidence Bundle erzeugen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-002"],
+          "tasks": [
+            "Beim Eintritt in retrospective automatisch ein unveränderliches Evidence Bundle erzeugen.",
+            "Task-Ergebnisse, Fehlversuche, Retries, Rework, Blocker und Eskalationen aufnehmen.",
+            "Handoff-Ablehnungen und needs_changes-Zyklen aufnehmen.",
+            "Review-/Gate-Ergebnisse aufnehmen.",
+            "Token-, Kosten- und Laufzeitdaten aufnehmen.",
+            "Planning-Abweichungen und ungeplante Folgearbeit aufnehmen.",
+            "Tool-/Provider-Ausfälle getrennt von fachlichen Fehlern erfassen.",
+            "Agent-/Rolleninformationen datenschutz- und sicherheitskonform referenzieren.",
+            "Artefaktinhalte nicht unnötig kopieren; bevorzugt unveränderliche Referenzen und Digests nutzen."
+          ],
+          "acceptance_criteria": [
+            "Eine Retrospektive kann ausschließlich aus dem gebundenen Sprint-Snapshot reproduziert werden.",
+            "Spätere Änderungen an Tasks verändern nicht rückwirkend die Evidenz von Sprint N."
+          ]
+        },
+        {
+          "id": "SCI-005",
+          "title": "Mehrperspektivische Agenten-Retrospektive",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-004"],
+          "tasks": [
+            "Beteiligte Rollen erhalten jeweils eine begrenzte Reflexionsaufgabe.",
+            "Jede Rolle analysiert aus ihrer eigenen Verantwortlichkeit, was gut und schlecht funktionierte.",
+            "Agenten dürfen Fehler anderer Rollen benennen, müssen diese aber mit Sprint-Evidenz referenzieren.",
+            "Selbstkritik und Cross-Role-Kritik getrennt erfassen.",
+            "Keine Rolle darf allein die Retrospektive final entscheiden.",
+            "Widersprüchliche Einschätzungen erhalten statt sie beim ersten LLM-Pass zu glätten.",
+            "Optional unabhängigen Reviewer für strittige Ursachenanalyse unterstützen."
+          ],
+          "acceptance_criteria": [
+            "Mindestens zwei unterschiedliche Perspektiven können in einer Retrospektive nebeneinander bestehen.",
+            "Behauptungen über Prozessfehler sind auf konkrete Sprint-Ereignisse oder Artefakte rückführbar."
+          ]
+        },
+        {
+          "id": "SCI-006",
+          "title": "Root-Cause- und Improvement-Hypothesen ableiten",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-005"],
+          "tasks": [
+            "Symptom, vermutete Ursache und Verbesserung strikt trennen.",
+            "Alternative Ursachen zulassen.",
+            "Confidence pro Ursache und Improvement Proposal speichern.",
+            "Gegenhypothesen erzeugen lassen.",
+            "Unklare Fälle als insufficient_evidence kennzeichnen.",
+            "Keine automatische Prozessmutation aus bloßer Korrelation."
+          ],
+          "acceptance_criteria": [
+            "Jede vorgeschlagene Verbesserung enthält Problem, Evidenz, Ursachenhypothese und erwarteten Mechanismus."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "improvement_proposals",
+      "label": "Verbesserungsvorschläge und Evolution",
+      "items": [
+        {
+          "id": "SCI-007",
+          "title": "Scrum Retrospective an EvolutionEngine anbinden",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-006"],
+          "tasks": [
+            "Retrospektivenanalyse als neuen Evolution-Trigger modellieren.",
+            "Bestehende EvolutionEngine-SPI wiederverwenden.",
+            "Evolver als optionalen Provider unterstützen.",
+            "Auch lokale/interne Provider zulassen.",
+            "Retrospective Context als begrenzten providerneutralen Input definieren.",
+            "Provider-Rohdaten nicht Bestandteil der Scrum-Domäne machen."
+          ],
+          "acceptance_criteria": [
+            "Retrospektive funktioniert auch ohne Evolver-spezifische Domänenobjekte.",
+            "Evolver kann Improvement Proposals aus Retrospektiven erzeugen."
+          ]
+        },
+        {
+          "id": "SCI-008",
+          "title": "Improvement Proposal Taxonomie definieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-007"],
+          "tasks": [
+            "Mindestens Kategorien prompt, instruction, workflow, planning_rule, handoff, role_behavior, tool_selection, model_routing, quality_check und team_policy vorsehen.",
+            "Security-/Governance-Änderungen separat klassifizieren.",
+            "Scope team, role, workflow, project und global unterscheiden.",
+            "Risk-Level und Reversibility speichern.",
+            "Explizit kennzeichnen, ob Änderung sofort, nächster Sprint oder nur experimentell gelten soll."
+          ],
+          "acceptance_criteria": [
+            "Ein Proposal kann präzise beschreiben, was verändert werden soll, ohne bereits die Änderung durchzuführen."
+          ]
+        },
+        {
+          "id": "SCI-009",
+          "title": "Improvement Proposal Review und Policy Gates",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-008"],
+          "tasks": [
+            "Bestehenden Evolution Review-/Validation-Lifecycle wiederverwenden.",
+            "Low-Risk-Teamprozessänderungen optional agentisch freigeben lassen.",
+            "Security-, Rechte-, Tool- und globale Policy-Änderungen strengere Gates erhalten lassen.",
+            "Self-approval bei relevanten Interessenkonflikten verhindern.",
+            "Separation of Duties berücksichtigen.",
+            "Rejected Proposals inklusive Begründung erhalten."
+          ],
+          "acceptance_criteria": [
+            "Retrospektive kann keine Sicherheitsgrenze indirekt durch eine Prozessverbesserung umgehen.",
+            "Freigabe ist revisions- und proposal-digest-gebunden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "next_sprint_application",
+      "label": "Übernahme in den nächsten Sprint",
+      "items": [
+        {
+          "id": "SCI-010",
+          "title": "Improvement Commitment als eigenes versioniertes Objekt",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-009"],
+          "tasks": [
+            "Aus akzeptiertem Improvement Proposal ein Improvement Commitment erzeugen.",
+            "source_sprint_id speichern.",
+            "target_sprint_id speichern.",
+            "Betroffene Rollen/Workflows/Prompts/Policies referenzieren.",
+            "Erwartete Wirkung speichern.",
+            "Baseline-Metriken speichern.",
+            "Success-, Neutral- und Regression-Kriterien speichern.",
+            "Rollback-Informationen speichern."
+          ],
+          "acceptance_criteria": [
+            "Es ist exakt nachvollziehbar, welche Verbesserung aus Sprint N in Sprint N+1 getestet wird."
+          ]
+        },
+        {
+          "id": "SCI-011",
+          "title": "Sprint N+1 bindet Improvement Commitments",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-010"],
+          "tasks": [
+            "Beim Aktivieren eines neuen Sprints alle gültigen Improvement Commitments auflösen.",
+            "Konfigurationsrevision und Digests im Sprint Snapshot speichern.",
+            "Prompts/Instructions/Workflows nur über bestehende kontrollierte Overlay-/Versionierungsmechanismen verändern.",
+            "Nicht anwendbare oder konfliktbehaftete Commitments blockieren oder zur erneuten Review schicken.",
+            "Mehrere Commitments deterministisch priorisieren."
+          ],
+          "acceptance_criteria": [
+            "Sprint N+1 kann beweisen, dass die beschlossene Änderung tatsächlich aktiv war.",
+            "Ein später veränderter globaler Prompt verfälscht nicht die Rekonstruktion des Sprint-Kontexts."
+          ]
+        },
+        {
+          "id": "SCI-012",
+          "title": "Experimentelle Verbesserungen und A/B-artige Vergleiche",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["SCI-011"],
+          "tasks": [
+            "Improvement Commitments optional als experiment markieren.",
+            "Kontroll- oder historische Baseline verwenden.",
+            "Bei mehreren vergleichbaren Teams kontrollierte Varianten ermöglichen.",
+            "Keine unzulässige Vermischung sicherheitskritischer Policies zulassen.",
+            "Konfidenz und Stichprobengröße in der Bewertung berücksichtigen."
+          ],
+          "acceptance_criteria": [
+            "Ananta kann zwischen 'wir haben etwas geändert' und 'die Änderung hat wahrscheinlich geholfen' unterscheiden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "measurement_and_feedback",
+      "label": "Wirkungsmessung und Rückkopplung",
+      "items": [
+        {
+          "id": "SCI-013",
+          "title": "Continuous-Improvement-Metriken definieren",
+          "status": "open",
+          "priority": "P0",
+          "tasks": [
+            "Rework-Rate messen.",
+            "Retry-/Failure-Rate messen.",
+            "Gate-Rejection-Rate messen.",
+            "Handoff needs_changes/rejected messen.",
+            "Task Cycle Time messen.",
+            "Token-/Kostenverbrauch normalisiert messen.",
+            "Ungeplante Follow-up-Tasks messen.",
+            "Defect-/Regression-Evidence messen.",
+            "Blocked-Time messen.",
+            "Plan-vs-Actual-Abweichung messen.",
+            "Metriken nicht isoliert optimieren; Qualitäts- und Sicherheitsmetriken als Gegenindikatoren berücksichtigen."
+          ],
+          "acceptance_criteria": [
+            "Jedes Improvement Commitment kann mindestens eine Zielmetrik und mindestens eine Guardrail-Metrik besitzen."
+          ]
+        },
+        {
+          "id": "SCI-014",
+          "title": "Post-Sprint Effect Evaluation",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-010", "SCI-013"],
+          "tasks": [
+            "Nach Abschluss des Ziel-Sprints Improvement Commitments evaluieren.",
+            "Baseline und aktuelle Messwerte vergleichen.",
+            "Outcome improved, neutral, regressed oder inconclusive bestimmen.",
+            "Unsicherheit explizit speichern.",
+            "LLM-Einschätzung von deterministischen Messwerten trennen.",
+            "Ergebnisse wiederum als Evidenz für die nächste Retrospektive verfügbar machen."
+          ],
+          "acceptance_criteria": [
+            "Eine Änderung gilt nicht allein deshalb als erfolgreich, weil ein Agent sie positiv bewertet."
+          ]
+        },
+        {
+          "id": "SCI-015",
+          "title": "Rollback und erneute Verbesserungsschleife",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-014"],
+          "tasks": [
+            "Bei regressed ein Rollback Proposal erzeugen können.",
+            "Automatischen Rollback nur für explizit reversible Low-Risk-Änderungen zulassen.",
+            "Andernfalls Review/Gate verlangen.",
+            "Fehlgeschlagene Improvement-Hypothesen als Lernhistorie behalten.",
+            "Verhindern, dass dieselbe erfolglose Änderung ohne neue Evidenz wiederholt vorgeschlagen wird."
+          ],
+          "acceptance_criteria": [
+            "Continuous Improvement kann sich selbst korrigieren.",
+            "Historisch schlechte Änderungen verschwinden nicht aus der Evidenz."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "scrum_blueprint_integration",
+      "label": "Scrum-Blueprint und UI",
+      "items": [
+        {
+          "id": "SCI-016",
+          "title": "Scrum-Workflow um Retrospective erweitern",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["SCI-007"],
+          "tasks": [
+            "Standard Scrum Blueprint erweitern.",
+            "Scrum-OpenCode Workflow nach review_gate um retrospective-Schritt erweitern.",
+            "Retrospective Evidence Bundle konsumieren.",
+            "Retrospective Report und Improvement Proposals produzieren.",
+            "Retrospective nicht mit Definition of Done verschmelzen.",
+            "Product Owner nicht automatisch als Retrospektivenmoderator oder Prozessentscheider einsetzen.",
+            "Scrum Master als Facilitator modellieren, ohne ihm automatische Hoheit über Improvement Apply zu geben."
+          ],
+          "acceptance_criteria": [
+            "Scrum-Blueprint bildet Review und Retrospektive als getrennte Prozessschritte ab."
+          ]
+        },
+        {
+          "id": "SCI-017",
+          "title": "Continuous Improvement UI",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["SCI-010", "SCI-014"],
+          "tasks": [
+            "Sprint History anzeigen.",
+            "Retrospective Findings anzeigen.",
+            "Improvement Proposals mit Evidenz und Status anzeigen.",
+            "Improvement Commitments für nächsten Sprint anzeigen.",
+            "Baseline und Ergebnisvergleich visualisieren.",
+            "Rollback-/Regression-Status anzeigen.",
+            "Agenten-Dissens sichtbar machen.",
+            "Manuelle Freigaben direkt an bestehende Approval UI anbinden."
+          ],
+          "acceptance_criteria": [
+            "Nutzer können vom Sprint-Ergebnis bis zur daraus entstandenen und später gemessenen Prozessänderung navigieren."
+          ]
+        },
+        {
+          "id": "SCI-018",
+          "title": "End-to-End Continuous Improvement Acceptance Scenario",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SCI-001",
+            "SCI-002",
+            "SCI-004",
+            "SCI-005",
+            "SCI-007",
+            "SCI-009",
+            "SCI-010",
+            "SCI-011",
+            "SCI-013",
+            "SCI-014",
+            "SCI-016"
+          ],
+          "scenario": [
+            "Sprint 1 plant ein kleines Feature mit Sprint Goal.",
+            "Während der Umsetzung entstehen mehrfach Reworks wegen unklarer Acceptance Criteria.",
+            "Review akzeptiert das Produktinkrement.",
+            "Retrospektive erkennt erhöhte Rework-Rate.",
+            "Product Owner, Developer und Scrum Master liefern getrennte Perspektiven.",
+            "EvolutionEngine erzeugt Proposal: Acceptance-Criteria-Review vor Implementierung.",
+            "Proposal wird geprüft und als Improvement Commitment akzeptiert.",
+            "Sprint 2 bindet die neue Workflow-Regel.",
+            "Implementation darf erst nach Acceptance-Criteria-Review starten.",
+            "Sprint 2 wird abgeschlossen.",
+            "Effect Evaluation vergleicht Rework, Laufzeit, Kosten und Qualität mit Sprint 1.",
+            "Verbesserung wird als improved, neutral, regressed oder inconclusive klassifiziert.",
+            "Ergebnis fließt als Evidenz in Retrospektive von Sprint 2."
+          ],
+          "acceptance_criteria": [
+            "Der komplette Zyklus ist ohne manuelle Datenbankänderungen durchführbar.",
+            "Jede Zustandsänderung ist auditierbar.",
+            "Sprint 2 enthält einen kryptografisch/revisionsgebundenen Nachweis der angewendeten Verbesserung.",
+            "Regression kann zurückgerollt werden.",
+            "Security- und Approval-Grenzen bleiben erhalten."
+          ]
+        }
+      ]
+    }
+  ],
+  "cross_cutting_requirements": {
+    "security": [
+      "Retrospektiven dürfen keine Secrets oder vollständigen sensitiven Prompt-/Artifact-Bodies an externe Evolution Provider übertragen.",
+      "Provider-Kontext muss vor Übergabe redigiert werden.",
+      "Evolution Apply bleibt policy- und capability-gated.",
+      "Änderungen an Security Gates, Berechtigungen und Tool-Rechten benötigen erhöhte Freigabe.",
+      "Worker dürfen Continuous Improvement nicht als Umweg zur Rechteausweitung verwenden."
+    ],
+    "auditability": [
+      "Sprint, Retro, Proposal, Review, Validation, Commitment, Apply und Evaluation müssen über stabile IDs verkettet sein.",
+      "Jede Änderung benötigt vorher/nachher Revision oder Digest.",
+      "Retrospektiven-Evidenz bleibt immutable."
+    ],
+    "determinism": [
+      "Lifecycle-Transitions und Policy-Entscheidungen deterministisch halten.",
+      "LLM-Ausgaben nur als Vorschläge oder Klassifikationen behandeln.",
+      "Messwerte serverseitig neu berechnen."
+    ],
+    "provider_independence": [
+      "Evolver bleibt Adapter hinter EvolutionEngine.",
+      "Scrum-Domänenmodelle enthalten keine Evolver-spezifischen Gene-/Capsule-/GEP-Felder."
+    ],
+    "observability": [
+      "retro_runs_total",
+      "retro_findings_total",
+      "improvement_proposals_total",
+      "improvement_commitments_total",
+      "improvement_applies_total",
+      "improvement_regressions_total",
+      "improvement_rollbacks_total"
+    ]
+  },
+  "test_strategy": {
+    "unit": [
+      "Sprint Lifecycle",
+      "Evidence Snapshot",
+      "Proposal Classification",
+      "Commitment Binding",
+      "Metric Comparison",
+      "Rollback Decision",
+      "Policy Enforcement"
+    ],
+    "integration": [
+      "Sprint -> Review -> Retro",
+      "Retro -> EvolutionEngine",
+      "EvolutionProposal -> Review/Validation",
+      "Commitment -> next Sprint",
+      "Sprint completion -> Effect Evaluation"
+    ],
+    "negative": [
+      "Proposal versucht Rechteausweitung",
+      "falsche sprint_id",
+      "stale Proposal Revision",
+      "Manipulation alter Retrospektiven-Evidenz",
+      "nicht genehmigtes Apply",
+      "Provider-Ausfall",
+      "widersprüchliche Commitments",
+      "fehlende Baseline",
+      "nicht reproduzierbare Verbesserung",
+      "Worker versucht direkten Worker-Aufruf"
+    ],
+    "e2e_reference": "SCI-018"
+  },
+  "recommended_implementation_order": [
+    "SCI-001",
+    "SCI-002",
+    "SCI-003",
+    "SCI-004",
+    "SCI-005",
+    "SCI-006",
+    "SCI-007",
+    "SCI-008",
+    "SCI-009",
+    "SCI-013",
+    "SCI-010",
+    "SCI-011",
+    "SCI-016",
+    "SCI-014",
+    "SCI-015",
+    "SCI-017",
+    "SCI-012",
+    "SCI-018"
+  ],
+  "definition_of_done": [
+    "Scrum-Iteration ist explizit und revisionsgebunden modelliert.",
+    "Review und Retrospektive sind getrennte Lifecycle-Schritte.",
+    "Retrospektive basiert auf tatsächlicher Sprint-Evidenz.",
+    "Mehrere Agenten können sich gegenseitig und selbst kritisch evaluieren.",
+    "Verbesserungsvorschläge laufen über die vorhandene EvolutionEngine.",
+    "Akzeptierte Verbesserungen werden als versionierte Improvement Commitments gespeichert.",
+    "Der nächste Sprint verwendet diese Commitments nachweisbar.",
+    "Die Wirkung wird nach Abschluss quantitativ und qualitativ bewertet.",
+    "Schlechte Änderungen können zurückgerollt werden.",
+    "Die nächste Retrospektive erhält die Ergebnisse vorheriger Verbesserungsversuche als Evidenz.",
+    "Security-, Hub- und Approval-Grenzen werden nicht geschwächt.",
+    "Ein vollständiger Sprint-N -> Retro -> Improvement -> Sprint-N+1 -> Measurement-Zyklus ist durch einen E2E-Test abgesichert."
+  ],
+  "meta": {
+    "total_items": 18,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 18
+    },
+    "notes": [
+      "Die vorhandene Evolution-/Evolver-Infrastruktur ist ausdrücklich wiederzuverwenden.",
+      "Der wichtigste neue Baustein ist nicht die Analyse selbst, sondern die revisionsgebundene Rückkopplung einer beschlossenen Verbesserung in den nächsten Sprint.",
+      "Damit wird aus allgemeiner Evolution ein nachvollziehbarer Scrum-Continuous-Improvement-Zyklus.",
+      "Sprint-Dauer für Agenten soll konfigurierbar und nicht dogmatisch an menschliche Zwei-/Vier-Wochen-Zyklen gebunden sein.",
+      "Daily Scrum und Retrospektive sind fachlich getrennt von Hub-Synchronisation zu betrachten."
+    ],
+    "recommended_order": [
+      "sprint_iteration_model",
+      "retrospective_evidence",
+      "improvement_proposals",
+      "measurement_and_feedback",
+      "next_sprint_application",
+      "scrum_blueprint_integration"
+    ]
+  }
+}
