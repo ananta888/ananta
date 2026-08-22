@@ -25,6 +25,66 @@ export function hostBasedAgentOrigin(
   return `${safeProtocol}//${safeHostname}:${port}`;
 }
 
+/** Resolve a Hub reached through the standard HTTPS reverse-proxy origin. */
+export function browserHubOrigin(
+  protocol: string,
+  hostname: string,
+  browserPort: string,
+): string | null {
+  if (protocol !== 'https:' || (browserPort && browserPort !== '443')) return null;
+  const normalizedHostname = String(hostname || '').trim();
+  if (!normalizedHostname) return null;
+  const safeHostname = normalizedHostname.includes(':')
+    && !normalizedHostname.startsWith('[')
+    ? `[${normalizedHostname}]`
+    : normalizedHostname;
+  return `https://${safeHostname}`;
+}
+
+function isPrivateBrowserHostname(hostname: string): boolean {
+  const normalized = String(hostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+  if (!normalized) return false;
+  if (normalized === 'localhost' || normalized.endsWith('.localhost') || normalized.endsWith('.local')) {
+    return true;
+  }
+  if (normalized === '::1' || normalized.startsWith('fc') || normalized.startsWith('fd')) return true;
+  if (/^fe[89ab][0-9a-f]:/.test(normalized)) return true;
+
+  const octets = normalized.split('.').map(part => Number(part));
+  if (octets.length !== 4 || octets.some(value => !Number.isInteger(value) || value < 0 || value > 255)) {
+    return false;
+  }
+  return octets[0] === 10
+    || octets[0] === 127
+    || (octets[0] === 169 && octets[1] === 254)
+    || (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31)
+    || (octets[0] === 192 && octets[1] === 168);
+}
+
+/**
+ * Replace a stale local Hub boundary when the UI is served by a standard
+ * HTTPS edge. Public remote Hub origins remain an explicit user choice.
+ */
+export function migratedHubOriginForBrowser(
+  configuredUrl: string,
+  browserProtocol: string,
+  browserHostname: string,
+  browserPort: string,
+): string | null {
+  const publicOrigin = browserHubOrigin(browserProtocol, browserHostname, browserPort);
+  if (!publicOrigin) return null;
+  try {
+    const configured = new URL(String(configuredUrl || '').trim());
+    if (!['http:', 'https:'].includes(configured.protocol)) return null;
+    const sameBrowserHost = configured.hostname.toLowerCase().replace(/^\[|\]$/g, '')
+      === String(browserHostname || '').trim().toLowerCase().replace(/^\[|\]$/g, '');
+    if (!sameBrowserHost && !isPrivateBrowserHostname(configured.hostname)) return null;
+    return configured.origin === publicOrigin ? null : publicOrigin;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Accepts only an HTTP(S) origin suitable as a Hub trust boundary.
  *
@@ -191,6 +251,15 @@ export class AgentDirectoryService {
     return hostBasedAgentOrigin(protocol, this.currentHostname(), port);
   }
 
+  private standardHttpsOrigin(): string | null {
+    try {
+      const location = globalThis?.location;
+      return browserHubOrigin(location?.protocol, location?.hostname, location?.port);
+    } catch {
+      return null;
+    }
+  }
+
   private defaultAgentsForCurrentHost(): AgentEntry[] {
     if (Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android') {
       return [
@@ -208,8 +277,9 @@ export class AgentDirectoryService {
     const host = this.currentHostname();
     const useHostAddress = host && !this.isLoopbackHost(host);
     if (useHostAddress) {
+      const publicHubOrigin = this.standardHttpsOrigin();
       return [
-        { name: 'hub', url: this.hostBasedUrl(5000), token: '', role: 'hub' },
+        { name: 'hub', url: publicHubOrigin ?? this.hostBasedUrl(5000), token: '', role: 'hub' },
         { name: 'alpha', url: this.hostBasedUrl(5001), token: '', role: 'worker' },
         { name: 'beta', url: this.hostBasedUrl(5002), token: '', role: 'worker' }
       ];
@@ -277,9 +347,24 @@ export class AgentDirectoryService {
       if (!raw) return a;
       try {
         const parsed = new URL(raw);
+        const migratedHubOrigin = a.role === 'hub' || a.name === 'hub'
+          ? migratedHubOriginForBrowser(
+              raw,
+              globalThis.location.protocol,
+              host,
+              globalThis.location.port,
+            )
+          : null;
+        if (migratedHubOrigin) {
+          rewritten = true;
+          return { ...a, url: migratedHubOrigin, token: '' };
+        }
         if (!this.isLoopbackHost(parsed.hostname)) return a;
+        const publicHubOrigin = a.role === 'hub' || a.name === 'hub'
+          ? this.standardHttpsOrigin()
+          : null;
         const preferredPort = parsed.port || (parsed.protocol === 'https:' ? '443' : '80');
-        const next = `http://${host}:${preferredPort}`;
+        const next = publicHubOrigin ?? `${globalThis.location.protocol}//${host}:${preferredPort}`;
         rewritten = true;
         return { ...a, url: next, token: '' };
       } catch {

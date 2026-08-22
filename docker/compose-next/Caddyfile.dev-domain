@@ -1,0 +1,34 @@
+{
+	admin off
+}
+
+http://{$ANANTA_DEV_DOMAIN} {
+	redir https://{$ANANTA_DEV_DOMAIN}{uri} permanent
+}
+
+https://{$ANANTA_DEV_DOMAIN} {
+	encode zstd gzip
+
+	# Browser navigations belong to the Angular router. API clients do not send
+	# an Accept: text/html preference and therefore fall through to the Hub.
+	@angular_navigation {
+		method GET HEAD
+		header Accept *text/html*
+	}
+	handle @angular_navigation {
+		reverse_proxy angular-frontend:4200
+	}
+
+	# Angular's development server serves versioned assets and uses this socket
+	# for live reload. Keep these paths independent of Hub API route names.
+	@angular_development path /assets/* /*.js /*.mjs /*.css /*.map /*.ico /*.png /*.svg /*.woff /*.woff2 /ng-cli-ws /@vite/* /@fs/*
+	handle @angular_development {
+		reverse_proxy angular-frontend:4200
+	}
+
+	# Everything that is not an Angular navigation or asset is control-plane
+	# traffic. Workers remain reachable only inside the Compose network.
+	handle {
+		reverse_proxy ai-agent-hub:5000
+	}
+}

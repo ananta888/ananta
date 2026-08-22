@@ -1,7 +1,9 @@
 import {
   androidRuntimeAgents,
+  browserHubOrigin,
   composeRuntimeAgents,
   hostBasedAgentOrigin,
+  migratedHubOriginForBrowser,
   normalizeHubOrigin,
   usesEmbeddedAndroidHub,
 } from './agent-directory.service';
@@ -14,6 +16,57 @@ describe('hostBasedAgentOrigin', () => {
 
   it('defaults unknown protocols to HTTP and brackets IPv6 hosts', () => {
     expect(hostBasedAgentOrigin('file:', '::1', 5000)).toBe('http://[::1]:5000');
+  });
+});
+
+describe('browserHubOrigin', () => {
+  it('uses the same origin behind the standard HTTPS development edge', () => {
+    expect(browserHubOrigin('https:', 'minipc.ananta.de', '')).toBe('https://minipc.ananta.de');
+    expect(browserHubOrigin('https:', 'minipc.ananta.de', '443')).toBe('https://minipc.ananta.de');
+  });
+
+  it('keeps non-standard and non-HTTPS deployments on their explicit Hub port', () => {
+    expect(browserHubOrigin('https:', 'minipc.ananta.de', '4200')).toBeNull();
+    expect(browserHubOrigin('http:', 'minipc.ananta.de', '')).toBeNull();
+  });
+});
+
+describe('migratedHubOriginForBrowser', () => {
+  it.each([
+    'http://localhost:5000',
+    'http://127.0.0.1:5000',
+    'http://192.168.178.103:5000',
+    'http://10.0.0.8:5000',
+    'http://172.18.0.2:5000',
+    'http://device.local:5000',
+    'http://[fd00::8]:5000',
+    'http://[fe80::8]:5000',
+    'https://minipc.ananta.de:5000',
+  ])('moves a stale local Hub to the standard HTTPS edge: %s', (configuredUrl) => {
+    expect(migratedHubOriginForBrowser(
+      configuredUrl,
+      'https:',
+      'minipc.ananta.de',
+      '',
+    )).toBe('https://minipc.ananta.de');
+  });
+
+  it('preserves an explicitly configured public remote Hub', () => {
+    expect(migratedHubOriginForBrowser(
+      'https://hub.example.org',
+      'https:',
+      'minipc.ananta.de',
+      '',
+    )).toBeNull();
+  });
+
+  it('does not rewrite local deployments served without standard HTTPS', () => {
+    expect(migratedHubOriginForBrowser(
+      'http://192.168.178.103:5000',
+      'http:',
+      '192.168.178.103',
+      '4200',
+    )).toBeNull();
   });
 });
 

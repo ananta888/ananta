@@ -1,0 +1,59 @@
+services:
+  ai-agent-hub:
+    environment:
+      CORS_ORIGINS: "https://${ANANTA_DEV_DOMAIN:-minipc.ananta.de}"
+    ports: !reset []
+
+  ai-agent-alpha:
+    ports: !reset []
+
+  ai-agent-beta:
+    ports: !reset []
+
+  angular-frontend:
+    ports: !reset []
+    # The domain development edge needs a writable parent mount so Docker can
+    # create the isolated node_modules and Angular cache mountpoints below it.
+    # This is development-only; production keeps immutable frontend sources.
+    volumes: !override
+      - ../../frontend-angular:/app/frontend-angular:rw
+      - frontend-node-modules:/app/frontend-angular/node_modules
+      - frontend-angular-cache:/app/frontend-angular/.angular
+
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  dev-domain-edge:
+    image: caddy:2.10.2-alpine@sha256:d8c17a862962def15cde69863a3a463f25a2664942eafd7bdbf050e9c3116b83
+    restart: unless-stopped
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      ANANTA_DEV_DOMAIN: "${ANANTA_DEV_DOMAIN:-minipc.ananta.de}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile.dev-domain:/etc/caddy/Caddyfile:ro
+      - dev-domain-caddy-data:/data
+      - dev-domain-caddy-config:/config
+    tmpfs:
+      - /tmp
+    depends_on:
+      ai-agent-hub:
+        condition: service_healthy
+      angular-frontend:
+        condition: service_started
+
+volumes:
+  dev-domain-caddy-data:
+  dev-domain-caddy-config:
