@@ -1,0 +1,25 @@
+{
+  "schema": "ananta.hrm-experiments.test-gate-report.v1",
+  "subject": "hrm-experiment-runtime",
+  "status": "passed",
+  "release_gate": {
+    "command": "python scripts/check_hrm_experiments_release_gate.py",
+    "passed": true,
+    "checks_passed": 17,
+    "checks_failed": 0
+  },
+  "tests": {
+    "command": "pytest -q tests/test_hrm*.py",
+    "passed": 20,
+    "failed": 0,
+    "warnings": 1,
+    "warning_scope": "third-party LangGraph pending deprecation"
+  },
+  "architecture_assertions": {
+    "hub_owns_orchestration": true,
+    "worker_task_creation_forbidden": true,
+    "runner_network_disabled": true,
+    "feature_default_off": true,
+    "source_identifier_generation_forbidden": true
+  }
+}
