@@ -19,21 +19,60 @@
       "distribution_rule": "Preserve license and attribution for copied or modified upstream material; record modifications and third-party notices separately."
     },
     "selected_files": [
-      {"path": "README.md", "sha256": "d1993106eba686f763276d6d7cf0e9bef6f80ca835d51c3687a37e3f78ef60e0"},
-      {"path": "requirements.txt", "sha256": "8af89825fd7f4ab6beb46ff8e6e27933ba4864287bc761abf3cf1fb02fe8f349"},
-      {"path": ".gitmodules", "sha256": "36a59de59e36c6e1348982055c152d79b9b2e0a60e499a42b4d84ecc67b6b29f"},
-      {"path": "pretrain.py", "sha256": "2190b9fd82f817f57278071192df9de93be107dc488bf1977b1b009b220070ab"},
-      {"path": "evaluate.py", "sha256": "84b9f625e783baae57e500dfc4bb7e7746f57a1a9de153068eec065e6d256480"},
-      {"path": "puzzle_dataset.py", "sha256": "de7ecb74019d6cd33f043bc12514c7094aea5584bd0f5bf15bfc955a87e09684"},
-      {"path": "dataset/build_sudoku_dataset.py", "sha256": "8f29e858b939648520f2458df5e0a953b08ec1d42c8326e76fbae8a52f79d1c9"},
-      {"path": "dataset/build_maze_dataset.py", "sha256": "15fa84c6810f2e3bf95a14d7f08d82b406cc6418a1cace0b910b2da9efcfa8fc"},
-      {"path": "dataset/build_arc_dataset.py", "sha256": "dd7cc3bd68a7a00045c24f2b7923e92186ac6a483e32f969746a886795f7e446"},
-      {"path": "models/hrm/hrm_act_v1.py", "sha256": "b9c5195fc14c6f451569434905cd16849d6c56ff7723f5844604b48065ebfd39"}
+      {
+        "path": "README.md",
+        "sha256": "d1993106eba686f763276d6d7cf0e9bef6f80ca835d51c3687a37e3f78ef60e0"
+      },
+      {
+        "path": "requirements.txt",
+        "sha256": "8af89825fd7f4ab6beb46ff8e6e27933ba4864287bc761abf3cf1fb02fe8f349"
+      },
+      {
+        "path": ".gitmodules",
+        "sha256": "36a59de59e36c6e1348982055c152d79b9b2e0a60e499a42b4d84ecc67b6b29f"
+      },
+      {
+        "path": "pretrain.py",
+        "sha256": "2190b9fd82f817f57278071192df9de93be107dc488bf1977b1b009b220070ab"
+      },
+      {
+        "path": "evaluate.py",
+        "sha256": "84b9f625e783baae57e500dfc4bb7e7746f57a1a9de153068eec065e6d256480"
+      },
+      {
+        "path": "puzzle_dataset.py",
+        "sha256": "de7ecb74019d6cd33f043bc12514c7094aea5584bd0f5bf15bfc955a87e09684"
+      },
+      {
+        "path": "dataset/build_sudoku_dataset.py",
+        "sha256": "8f29e858b939648520f2458df5e0a953b08ec1d42c8326e76fbae8a52f79d1c9"
+      },
+      {
+        "path": "dataset/build_maze_dataset.py",
+        "sha256": "15fa84c6810f2e3bf95a14d7f08d82b406cc6418a1cace0b910b2da9efcfa8fc"
+      },
+      {
+        "path": "dataset/build_arc_dataset.py",
+        "sha256": "dd7cc3bd68a7a00045c24f2b7923e92186ac6a483e32f969746a886795f7e446"
+      },
+      {
+        "path": "models/hrm/hrm_act_v1.py",
+        "sha256": "b9c5195fc14c6f451569434905cd16849d6c56ff7723f5844604b48065ebfd39"
+      }
     ],
     "gitlinks": [
-      {"path": "dataset/raw-data/ARC-AGI", "commit_sha": "399030444e0ab0cc8b4e199870fb20b863846f34"},
-      {"path": "dataset/raw-data/ARC-AGI-2", "commit_sha": "f3283f727488ad98fe575ea6a5ac981e4a188e49"},
-      {"path": "dataset/raw-data/ConceptARC", "commit_sha": "b22ef526b4656679816b7811e78f55cc24d736d7"}
+      {
+        "path": "dataset/raw-data/ARC-AGI",
+        "commit_sha": "399030444e0ab0cc8b4e199870fb20b863846f34"
+      },
+      {
+        "path": "dataset/raw-data/ARC-AGI-2",
+        "commit_sha": "f3283f727488ad98fe575ea6a5ac981e4a188e49"
+      },
+      {
+        "path": "dataset/raw-data/ConceptARC",
+        "commit_sha": "b22ef526b4656679816b7811e78f55cc24d736d7"
+      }
     ]
   },
   "paper": {
@@ -61,9 +100,18 @@
     },
     "pdf_pages": 24,
     "revision_digests": [
-      {"revision": "v1", "sha256": "264f834a128e690d35f5c3293c9e1765325c87b76b1fb20db98d64e9fd7accb5"},
-      {"revision": "v2", "sha256": "5359ade1c48e186d357f863e5d3c93060b053cba014857c9e4aa25cc93788ca8"},
-      {"revision": "v3", "sha256": "81b05b03ebd92748b1bc0e59d4b6e0d8271e1e56b84d1d589a03430db79b6e25"}
+      {
+        "revision": "v1",
+        "sha256": "264f834a128e690d35f5c3293c9e1765325c87b76b1fb20db98d64e9fd7accb5"
+      },
+      {
+        "revision": "v2",
+        "sha256": "5359ade1c48e186d357f863e5d3c93060b053cba014857c9e4aa25cc93788ca8"
+      },
+      {
+        "revision": "v3",
+        "sha256": "81b05b03ebd92748b1bc0e59d4b6e0d8271e1e56b84d1d589a03430db79b6e25"
+      }
     ]
   },
   "upstream_dependency_observation": {
@@ -101,10 +149,94 @@
     "conceptarc": "deferred_pending_exact_license_and_egress_binding"
   },
   "hub_source_binding": {
-    "source_catalog_id": null,
-    "source_catalog_hash": null,
-    "allowed_source_refs": [],
-    "allowed_run_refs": [],
-    "status": "pending_new_hub_catalog"
+    "status": "verified_promoted",
+    "source_catalog_task_id": "source-catalog-task-01aff92644107edfe955229a",
+    "source_catalog_id": "catalog-6c38177316f67dfd",
+    "source_catalog_hash": "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5",
+    "repository_revision": "ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd",
+    "source_manifest_hash": "15b61843ff32a85213d89aad4f1e4e8300413c46b2101dd6a36c1dcac818e18f",
+    "source_allowlist_version": "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5",
+    "source_scope": "organization:4b5c6a3b-fc5c-4d89-8ed1-0fb7c1f5a5bb",
+    "allowed_source_refs": [
+      "SRC_0001",
+      "SRC_0002",
+      "SRC_0003",
+      "SRC_0004",
+      "SRC_0005",
+      "SRC_0006",
+      "SRC_0007"
+    ],
+    "cited_source_refs": [
+      "SRC_0003"
+    ],
+    "allowed_run_refs": [
+      "RUN_0001"
+    ],
+    "source_records": [
+      {
+        "source_id": "SRC_0003",
+        "source_type": "repo_file",
+        "record_id": "docs/research/hrm/decision-pack.v1.json",
+        "source_version": "ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd",
+        "content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+        "provenance_digest": "11a264d54b818068479dff5b3e009c9910dfb5b02994fd0c070a57b69d7a738f",
+        "allowed_for_llm_scope": true
+      }
+    ],
+    "source_index": {
+      "source_revision_id": "srev_626c63a04210d7755110921a39a6f0fd01f8534d26dbe537c4ea0f9c27c0e540",
+      "source_revision_digest": "ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd",
+      "admission_digest": "26865af5dcb7334122811bc0cf649c5cf1fad033746c6d4b39e5d18dfb25d09f",
+      "index_id": "15293a14-26ee-4644-bd72-299375682817",
+      "index_manifest_hash": "15b61843ff32a85213d89aad4f1e4e8300413c46b2101dd6a36c1dcac818e18f",
+      "index_policy_digest": "4af41b23b9e17565048925e6d4a308ee9cf9a3f4407401789d23ab2eba6915be",
+      "activation_generation": 7
+    },
+    "assignment": {
+      "project_id": "61eb9cae-e997-4933-8831-1f260bb7918a",
+      "organization_id": "4b5c6a3b-fc5c-4d89-8ed1-0fb7c1f5a5bb",
+      "goal_id": "orggoal-7167fb07ec8baa048c334344",
+      "organization_assignment_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
+      "parent_task_id": "presearch-f105567da15c80014c1c768d",
+      "worker_assignment_id": "sub-8a28f95b-03a1-4c41-a0dd-0867090d1ed8",
+      "dispatch_lease_id": "105b7f2b-c0f8-4323-834c-4020df1e670c",
+      "worker_id": "http://ai-agent-alpha:5000",
+      "origin_context_bundle_id": "catalog-context-23163c1365e0dc348cf28196",
+      "delegated_context_bundle_id": "delegated-context-c90f1121a06e589dcdab0378bc044577"
+    },
+    "run_evidence": {
+      "source_id": "RUN_0001",
+      "run_id": "category-run-b55dda8fe5241e753bbf648037b91bc4",
+      "tool_name": "delegated_category_research",
+      "command": "execute_assignment_bound_category_research",
+      "exit_code": 0,
+      "raw_output_digest": "9ee0daf26996a74305a75a04171e87c39c327c5ecdf74807dc17e295f00bfe17",
+      "result_payload_digest": "sha256:9ee0daf26996a74305a75a04171e87c39c327c5ecdf74807dc17e295f00bfe17",
+      "binding_digest": "8a50ad091670a2c3144c4c3dc7b5ebc55bac1b2a44444cccf0519d0a77754b7b",
+      "evidence_digest": "1dfd00989096aabdad1641c9ce4f06a96457c5b9187b473e6d6ae1b83866bb4f"
+    },
+    "planning_revision": {
+      "artifact_id": "pcategory-ff859508c30852babbfe79aa",
+      "id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+      "revision": 3,
+      "status": "promoted",
+      "content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+      "schema_hash": "5fe6b61fc33ffd79546ef16b40a2311ba206e8ecbc806a735f42d6ce54af8d54",
+      "prompt_hash": "107bd2fef4a580138c9c11ec868e3fabefc238913077f5612a5c657f907ac258",
+      "policy_hash": "1a012988e0133ff5b19ace997a42bbf117ead59b6b779d967ddee455fc41efba",
+      "validation": {
+        "valid": true,
+        "promotable": true,
+        "grounding_status": "verified",
+        "verified_claim_count": 2,
+        "unverified_claim_count": 0,
+        "issues": []
+      }
+    },
+    "governance": {
+      "approval_request_id": "30650f79-3389-439a-9b01-28dd42ca0ac9",
+      "approval_status": "granted",
+      "promotion_receipt_id": "98939c6e-ab88-4de1-b405-77a6a66204d4"
+    }
   }
 }

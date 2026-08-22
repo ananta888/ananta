@@ -1,11 +1,12 @@
 # HRM experiment research decision pack
 
-Status: research decisions prepared; Hub grounding and promotion pending.
+Status: 32/32 research decisions completed; Hub grounding and promotion verified.
 
-This pack resolves the research questions in
-`todos/todo.hrm-experiment-reasoning-workbench.json`. It does not install,
-train or execute HRM. Runtime, GPU, containment, performance and accuracy are
-not verified without assignment-bound `RUN_*` evidence.
+This pack resolves the research questions formerly tracked in
+`todos/todo.hrm-experiment-reasoning-workbench.json`, now archived below
+`todos/archiv/`. It does not install, train or execute HRM. `RUN_0001` proves
+the assignment-bound research execution and promotion only; runtime, GPU,
+containment, performance and accuracy remain unverified.
 
 ## Immutable evidence baseline
 
@@ -19,9 +20,10 @@ The repository license is Apache-2.0. The selected paper is
 licensed CC-BY-4.0.
 
 The exact file and gitlink digests are in `source-manifest.v1.json`. External
-payloads are not committed. The Hub must publish the manifest and relevant
-Ananta source records into a new catalog before any claim receives a `SRC_*`
-reference.
+payloads are not committed. Hub catalog `catalog-6c38177316f67dfd` binds the
+pre-promotion decision pack at repository revision `ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd`
+as `SRC_0003`; the exact catalog, assignment, run and promotion digests are
+recorded in the manifest.
 
 ## Material upstream findings
 
@@ -157,8 +159,10 @@ from the exact promoted Category revision.
 
 ## Completion boundary
 
-Thirty-one item decisions are prepared. `HRMR-PLAN-003` remains open until a
-new Hub catalog includes this pack, a bound research execution maps its claims
-only to allowed `SRC_*`/`RUN_*` references, the Category gate passes, and the
-exact revision receives explicit promotion. Live runtime and complex release
-gates remain future implementation evidence even after research promotion.
+All 32 item decisions are complete. `HRMR-PLAN-003` closed when the Hub
+validated and explicitly promoted Category revision
+`pcat-ca9b68c8fbc9e84ca3a7b1e2` with `SRC_0003`, `RUN_0001`, approval
+`30650f79-3389-439a-9b01-28dd42ca0ac9` and promotion receipt
+`98939c6e-ab88-4de1-b405-77a6a66204d4`. This completes the research-decision
+phase only. Live runtime and complex release gates remain future implementation
+evidence.

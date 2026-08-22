@@ -12,7 +12,7 @@ from jsonschema import Draft202012Validator
 
 
 ROOT = Path(__file__).resolve().parents[1]
-TODO_PATH = ROOT / "todos" / "todo.hrm-experiment-reasoning-workbench.json"
+TODO_PATH = ROOT / "todos" / "archiv" / "todo.hrm-experiment-reasoning-workbench.json"
 PACK_PATH = ROOT / "docs" / "research" / "hrm" / "decision-pack.v1.json"
 SOURCE_PATH = ROOT / "docs" / "research" / "hrm" / "source-manifest.v1.json"
 THREAT_PATH = ROOT / "docs" / "research" / "hrm" / "threat-model.v1.json"
@@ -22,6 +22,21 @@ OPENAPI_PATH = ROOT / "docs" / "contracts" / "hrm-experiments.openapi.yaml"
 
 SHA256 = re.compile(r"^[a-f0-9]{64}$")
 ALLOWED_DECISIONS = {"REUSE", "EXTEND", "NEW", "REJECT"}
+EXPECTED_CATALOG_ID = "catalog-6c38177316f67dfd"
+EXPECTED_CATALOG_HASH = "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5"
+EXPECTED_REPOSITORY_REVISION = "ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd"
+EXPECTED_SOURCE_REFS = tuple(f"SRC_{index:04d}" for index in range(1, 8))
+EXPECTED_CITED_SOURCE_REFS = ("SRC_0003",)
+EXPECTED_RUN_REFS = ("RUN_0001",)
+EXPECTED_SOURCE_CONTENT_HASH = "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5"
+EXPECTED_SOURCE_PROVENANCE_DIGEST = "11a264d54b818068479dff5b3e009c9910dfb5b02994fd0c070a57b69d7a738f"
+EXPECTED_RUN_ID = "category-run-b55dda8fe5241e753bbf648037b91bc4"
+EXPECTED_RUN_BINDING_DIGEST = "8a50ad091670a2c3144c4c3dc7b5ebc55bac1b2a44444cccf0519d0a77754b7b"
+EXPECTED_RUN_EVIDENCE_DIGEST = "1dfd00989096aabdad1641c9ce4f06a96457c5b9187b473e6d6ae1b83866bb4f"
+EXPECTED_REVISION_ID = "pcat-ca9b68c8fbc9e84ca3a7b1e2"
+EXPECTED_REVISION_DIGEST = "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59"
+EXPECTED_APPROVAL_ID = "30650f79-3389-439a-9b01-28dd42ca0ac9"
+EXPECTED_PROMOTION_RECEIPT_ID = "98939c6e-ab88-4de1-b405-77a6a66204d4"
 
 
 def _reject_duplicate_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -96,6 +111,7 @@ def validate_pack() -> dict[str, Any]:
     todo_items = [item for category in todo["categories"] for item in category["items"]]
     expected_ids = todo["meta"]["recommended_order"]
     actual_ids = [item["id"] for item in pack["items"]]
+    decisions_by_id = {item["id"]: item for item in pack["items"]}
     if len(todo_items) != 32 or len(set(expected_ids)) != 32:
         raise ValueError("todo_item_set_invalid")
     if actual_ids != expected_ids:
@@ -106,10 +122,37 @@ def validate_pack() -> dict[str, Any]:
             raise ValueError(f"decision_classification_invalid:{item['id']}")
         if not item["owner"] or not item["required_gates"]:
             raise ValueError(f"decision_owner_or_gate_missing:{item['id']}")
-    if pack["promotion"]["completed_item_decisions"] != 31:
-        raise ValueError("prepared_decision_count_invalid")
-    if [item["id"] for item in pack["items"] if item["research_status"] != "decided"] != ["HRMR-PLAN-003"]:
+    promotion = pack["promotion"]
+    if promotion["status"] != "completed_hub_grounded_and_promoted":
+        raise ValueError("promotion_status_invalid")
+    if promotion["completed_item_decisions"] != 32 or promotion["pending_item_decisions"] != 0:
+        raise ValueError("completed_decision_count_invalid")
+    if any(item["research_status"] != "decided" for item in pack["items"]):
         raise ValueError("promotion_boundary_invalid")
+
+    if todo["status"] != "completed" or todo["implementation_progress"]["completed_items"] != 32:
+        raise ValueError("archived_todo_completion_invalid")
+    if todo["meta"]["by_status"] != {"completed": 32, "partial": 0, "open": 0}:
+        raise ValueError("archived_todo_summary_invalid")
+    for item in todo_items:
+        if item["status"] != "completed":
+            raise ValueError(f"archived_todo_item_open:{item['id']}")
+        evidence = item.get("acceptance_evidence")
+        decision = decisions_by_id[item["id"]]
+        if not isinstance(evidence, dict) or evidence.get("status") != "accepted_research_disposition":
+            raise ValueError(f"acceptance_evidence_missing:{item['id']}")
+        if evidence.get("decision_pack_item_id") != item["id"]:
+            raise ValueError(f"acceptance_decision_binding_invalid:{item['id']}")
+        if evidence.get("classification") != decision["classification"] or evidence.get("research_disposition") != decision["decision"]:
+            raise ValueError(f"acceptance_disposition_mismatch:{item['id']}")
+        if evidence.get("reviewed_acceptance_criteria") != len(item["acceptance_criteria"]):
+            raise ValueError(f"acceptance_criteria_count_mismatch:{item['id']}")
+        if tuple(evidence.get("source_refs", ())) != EXPECTED_CITED_SOURCE_REFS:
+            raise ValueError(f"acceptance_source_binding_invalid:{item['id']}")
+        if tuple(evidence.get("governance_run_refs", ())) != EXPECTED_RUN_REFS:
+            raise ValueError(f"acceptance_run_binding_invalid:{item['id']}")
+        if evidence.get("hub_category_revision_id") != EXPECTED_REVISION_ID:
+            raise ValueError(f"acceptance_revision_binding_invalid:{item['id']}")
 
     repository = source["upstream_repository"]
     paper = source["paper"]
@@ -124,8 +167,40 @@ def validate_pack() -> dict[str, Any]:
     if dependency["all_versions_pinned"] or dependency["live_admission"] != "denied":
         raise ValueError("unpinned_dependency_policy_not_fail_closed")
     binding = source["hub_source_binding"]
-    if binding["status"] == "pending_new_hub_catalog" and (binding["allowed_source_refs"] or binding["allowed_run_refs"]):
-        raise ValueError("pending_catalog_contains_invented_refs")
+    if binding["status"] != "verified_promoted":
+        raise ValueError("hub_source_binding_status_invalid")
+    if binding["source_catalog_id"] != EXPECTED_CATALOG_ID or binding["source_catalog_hash"] != EXPECTED_CATALOG_HASH:
+        raise ValueError("hub_catalog_binding_invalid")
+    if binding["repository_revision"] != EXPECTED_REPOSITORY_REVISION:
+        raise ValueError("hub_repository_revision_invalid")
+    if tuple(binding["allowed_source_refs"]) != EXPECTED_SOURCE_REFS:
+        raise ValueError("hub_source_allowlist_invalid")
+    if tuple(binding["cited_source_refs"]) != EXPECTED_CITED_SOURCE_REFS:
+        raise ValueError("hub_cited_source_refs_invalid")
+    if tuple(binding["allowed_run_refs"]) != EXPECTED_RUN_REFS:
+        raise ValueError("hub_run_allowlist_invalid")
+    source_record = binding["source_records"][0]
+    if source_record["source_id"] != "SRC_0003" or source_record["record_id"] != "docs/research/hrm/decision-pack.v1.json":
+        raise ValueError("hub_source_record_invalid")
+    if source_record["content_hash"] != EXPECTED_SOURCE_CONTENT_HASH or source_record["provenance_digest"] != EXPECTED_SOURCE_PROVENANCE_DIGEST:
+        raise ValueError("hub_source_record_digest_invalid")
+    run_evidence = binding["run_evidence"]
+    if run_evidence["source_id"] != "RUN_0001" or run_evidence["run_id"] != EXPECTED_RUN_ID or run_evidence["exit_code"] != 0:
+        raise ValueError("hub_run_evidence_invalid")
+    if run_evidence["binding_digest"] != EXPECTED_RUN_BINDING_DIGEST or run_evidence["evidence_digest"] != EXPECTED_RUN_EVIDENCE_DIGEST:
+        raise ValueError("hub_run_evidence_digest_invalid")
+    planning_revision = binding["planning_revision"]
+    if planning_revision["id"] != EXPECTED_REVISION_ID or planning_revision["content_digest"] != EXPECTED_REVISION_DIGEST or planning_revision["status"] != "promoted":
+        raise ValueError("hub_planning_revision_invalid")
+    governance = binding["governance"]
+    if governance["approval_request_id"] != EXPECTED_APPROVAL_ID or governance["promotion_receipt_id"] != EXPECTED_PROMOTION_RECEIPT_ID:
+        raise ValueError("hub_promotion_governance_invalid")
+    if promotion["source_catalog_id"] != binding["source_catalog_id"] or promotion["source_catalog_hash"] != binding["source_catalog_hash"]:
+        raise ValueError("pack_catalog_binding_mismatch")
+    if tuple(promotion["allowed_source_refs"]) != EXPECTED_SOURCE_REFS or tuple(promotion["allowed_run_refs"]) != EXPECTED_RUN_REFS:
+        raise ValueError("pack_allowlist_binding_mismatch")
+    if promotion["artifact_revision_id"] != EXPECTED_REVISION_ID or promotion["content_digest"] != EXPECTED_REVISION_DIGEST:
+        raise ValueError("pack_revision_binding_mismatch")
 
     risks = threat["risks"]
     required_scenarios = {
@@ -187,9 +262,11 @@ def validate_pack() -> dict[str, Any]:
     return {
         "schema": "ananta.hrm-research-gate.v1",
         "status": "passed",
+        "archived_todo": True,
         "item_count": len(actual_ids),
-        "prepared_decisions": 31,
-        "pending_promotion_decisions": 1,
+        "prepared_decisions": 32,
+        "pending_promotion_decisions": 0,
+        "hub_grounding": "verified_promoted",
         "threat_count": len(risks),
         "closed_contract_count": len(required_contracts),
         "sudoku_fixture": "valid",

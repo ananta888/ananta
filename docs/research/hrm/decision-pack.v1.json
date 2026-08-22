@@ -573,18 +573,30 @@
     },
     {
       "id": "HRMR-PLAN-003",
-      "research_status": "pending_hub_promotion",
+      "research_status": "decided",
       "classification": [
         "REUSE"
       ],
-      "decision": "Promotion must use the exact new catalog/revision/digests and verified claims. Only the Hub may then create one bound Track-planning task.",
+      "decision": "The Hub validated and promoted exact Category revision pcat-ca9b68c8fbc9e84ca3a7b1e2 against catalog-6c38177316f67dfd, SRC_0003 and RUN_0001. Any Track derivation remains a separate Hub-only governance decision.",
       "owner": "hub_governance",
       "track_slice": "planning",
       "required_gates": [
         "HRM-GATE-CATALOG",
         "HRM-GATE-CLAIMS",
         "HRM-GATE-PROMOTION"
-      ]
+      ],
+      "completion_evidence": {
+        "source_refs": [
+          "SRC_0003"
+        ],
+        "run_refs": [
+          "RUN_0001"
+        ],
+        "artifact_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+        "content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+        "approval_request_id": "30650f79-3389-439a-9b01-28dd42ca0ac9",
+        "promotion_receipt_id": "98939c6e-ab88-4de1-b405-77a6a66204d4"
+      }
     }
   ],
   "candidate_track_slices": [
@@ -653,9 +665,9 @@
     }
   ],
   "promotion": {
-    "status": "blocked_pending_new_hub_catalog_and_assignment_run",
-    "completed_item_decisions": 31,
-    "pending_item_decisions": 1,
+    "status": "completed_hub_grounded_and_promoted",
+    "completed_item_decisions": 32,
+    "pending_item_decisions": 0,
     "does_not_claim": [
       "live_hrm_runtime",
       "gpu_support",
@@ -663,6 +675,37 @@
       "external_dataset_license",
       "checkpoint_portability",
       "remote_llm_baseline"
-    ]
+    ],
+    "source_catalog_id": "catalog-6c38177316f67dfd",
+    "source_catalog_hash": "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5",
+    "allowed_source_refs": [
+      "SRC_0001",
+      "SRC_0002",
+      "SRC_0003",
+      "SRC_0004",
+      "SRC_0005",
+      "SRC_0006",
+      "SRC_0007"
+    ],
+    "cited_source_refs": [
+      "SRC_0003"
+    ],
+    "allowed_run_refs": [
+      "RUN_0001"
+    ],
+    "artifact_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+    "artifact_revision": 3,
+    "content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+    "run_evidence": {
+      "source_id": "RUN_0001",
+      "run_id": "category-run-b55dda8fe5241e753bbf648037b91bc4",
+      "binding_digest": "8a50ad091670a2c3144c4c3dc7b5ebc55bac1b2a44444cccf0519d0a77754b7b",
+      "evidence_digest": "1dfd00989096aabdad1641c9ce4f06a96457c5b9187b473e6d6ae1b83866bb4f"
+    },
+    "governance": {
+      "approval_request_id": "30650f79-3389-439a-9b01-28dd42ca0ac9",
+      "approval_status": "granted",
+      "promotion_receipt_id": "98939c6e-ab88-4de1-b405-77a6a66204d4"
+    }
   }
 }

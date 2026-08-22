@@ -1,15 +1,15 @@
 {
-  "$schema": "./todo.schema.json",
+  "$schema": "../todo.schema.json",
   "version": 2,
   "created": "2026-07-29",
   "updated": "2026-08-22",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "hrm_experiment_reasoning_workbench_research",
-  "status": "in_progress",
+  "status": "completed",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@ffa6295e7462f4317c3108a77046ee44fe3d6b52 plus working tree inspected on 2026-08-21",
+    "reviewed_commit_range": "Hub source revision ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd plus promoted research revision pcat-ca9b68c8fbc9e84ca3a7b1e2",
     "review_goal": "Die bisherige gemischte HRM-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo ueberfuehren, vorhandene Ananta-Training-, Worker-, Artifact-, API- und UI-Komponenten zuerst auf Wiederverwendung pruefen und erst nach Promotion einen separaten Planning Track erzeugen.",
     "allowed_source_refs": [
       "SRC_0001",
@@ -18,68 +18,33 @@
       "SRC_0004",
       "SRC_0005",
       "SRC_0006",
-      "SRC_0007",
-      "SRC_0008",
-      "SRC_0009",
-      "SRC_0010",
-      "SRC_0011",
-      "SRC_0012",
-      "SRC_0013",
-      "SRC_0014",
-      "SRC_0015",
-      "SRC_0016",
-      "SRC_0017",
-      "SRC_0018",
-      "SRC_0019",
-      "SRC_0020",
-      "SRC_0021",
-      "SRC_0022",
-      "SRC_0023",
-      "SRC_0024",
-      "SRC_0025",
-      "SRC_0026",
-      "SRC_0027",
-      "SRC_0028",
-      "SRC_0029",
-      "SRC_0030",
-      "SRC_0031",
-      "SRC_0032",
-      "SRC_0033",
-      "SRC_0034",
-      "SRC_0035",
-      "SRC_0036",
-      "SRC_0037",
-      "SRC_0038",
-      "SRC_0039",
-      "SRC_0040",
-      "SRC_0041",
-      "SRC_0042",
-      "SRC_0043",
-      "SRC_0044",
-      "SRC_0045",
-      "SRC_0046",
-      "SRC_0047"
+      "SRC_0007"
     ],
     "allowed_run_refs": [
       "RUN_0001"
     ],
     "grounding_status": "verified",
     "promotion_status": "promoted",
-    "grounding_note": "Der Hub hat die Assignment-gebundene Category-Research-Ausfuehrung gegen den exakten Source-Katalog sowie RUN_0001 verifiziert. Unbekannte IDs wurden nicht akzeptiert.",
+    "grounding_note": "SRC_0003 bindet den indexierten Decision-Pack-Stand. RUN_0001 belegt die assignment-bound Research-Ausfuehrung und die promovierte Revision, nicht eine HRM-Runtime-Ausfuehrung.",
     "blocked_audit": {
       "status": "resolved",
       "resolved_at": "2026-08-22",
       "prior_blocker": "missing_assignment_bound_source_and_run_refs",
-      "resolution": "Source-Katalog, Source-Refs und Run-Ref wurden vom Hub publiziert, an das Assignment gebunden, vom Worker verwendet und durch den Hub gegen die persistierte WorkerResult-Ausgabe verifiziert.",
-      "source_catalog_id": "catalog-5ec632692c6ff83f",
-      "source_catalog_hash": "5ec632692c6ff83f7a3a96379e04835b987846a8de2f3eeab3f36d585e8e8ce5",
-      "allowed_source_ref_count": 47,
+      "resolution": "Der Hub publizierte den fokussierten Katalog, band die Allowlist an das Worker-Assignment, validierte die Claims und promovierte exakt Revision 3 nach expliziter Approval.",
+      "source_catalog_task_id": "source-catalog-task-01aff92644107edfe955229a",
+      "source_catalog_id": "catalog-6c38177316f67dfd",
+      "source_catalog_hash": "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5",
+      "allowed_source_ref_count": 7,
+      "cited_source_refs": [
+        "SRC_0003"
+      ],
       "allowed_run_refs": [
         "RUN_0001"
       ],
-      "assignment_binding_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
-      "category_revision_id": "pcat-65c5f88839fe8823fb252e1e",
-      "promotion_receipt_id": "0421f895-9423-4dd3-80d9-f87560787faa"
+      "organization_assignment_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
+      "worker_assignment_id": "sub-8a28f95b-03a1-4c41-a0dd-0867090d1ed8",
+      "category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+      "promotion_receipt_id": "98939c6e-ab88-4de1-b405-77a6a66204d4"
     },
     "reviewed_paths": [
       "AGENTS.md",
@@ -143,6 +108,9 @@
       "docs/contracts/mlintern-lora-training-event.v1.schema.json",
       "docs/contracts/mlintern-lora-training-result.v1.schema.json",
       "docs/operations/lora-training.md"
+    ],
+    "cited_source_refs": [
+      "SRC_0003"
     ]
   },
   "purpose": "Vor jeder HRM-Implementierung belastbar feststellen, welche externen Aussagen und Artefakte verifiziert werden koennen, welche vorhandenen Ananta-Control-Plane-Bausteine wiederverwendet oder additiv generalisiert werden sollen und welche HRM-spezifischen Runtime-, Puzzle-, Checkpoint-, Evaluations- und Oberflaechenfaehigkeiten spaeter als Planning Tracks geplant werden duerfen.",
@@ -689,7 +657,7 @@
         {
           "id": "HRMR-GND-001",
           "title": "Upstream-Revision, Paper und Lizenzkette assignment-bound verifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "research",
@@ -709,12 +677,36 @@
             "Der Hub-kuratierte Katalog enthaelt fuer jede verwendete externe Format-, Framework-, CUDA-, FlashAttention-, OCI/Base-Image-, Telemetrie-, Provider-, Dataset-, Checkpoint- und Lizenzentscheidung einen passenden unveraenderlichen Source-Eintrag; fehlende Eintraege lassen genau die betroffene Entscheidung unverified.",
             "Lizenz, NOTICE-Pflichten, uebernommene Dateien, Daten- und Checkpoint-Lizenzen sowie die Trennung zu Anantas Lizenzierung sind mit erlaubter Evidenz bewertet.",
             "Unbekannte oder inkompatible Lizenz- beziehungsweise Herkunftsluecken bleiben promotion-blocking und werden nicht durch Freitextannahmen geschlossen."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-GND-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "hub_source_governance",
+            "required_gates": [
+              "HRM-GATE-CATALOG"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Use the exact upstream commit/tree/archive and arXiv v3 PDF digests. Apache-2.0 and CC-BY-4.0 obligations are recorded; external dataset licenses remain deferred.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-GND-002",
           "title": "Claim-, Evidence- und Unsicherheitsmatrix erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "research",
@@ -738,12 +730,37 @@
             "Source-Fakten, Tool-Ergebnisse, Inferences und Unsicherheiten sind getrennt; Pfade, URLs und frei formulierte Quellen ersetzen keine erlaubten Referenzen.",
             "Runtime-, Performance-, Containment-, Race- und Ressourcenfreigabe-Claims verlangen Run-Evidenz, wenn sie als beobachtetes Verhalten bezeichnet werden.",
             "Nicht belegte Claims bleiben unverified; unbekannte, orphaned oder nicht allowlistete Referenzen ergeben failed und blockieren Promotion."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-GND-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "planning_contract",
+            "required_gates": [
+              "HRM-GATE-CATALOG",
+              "HRM-GATE-CLAIMS"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "One claim is required per materially independent acceptance statement; source facts, tool results, inferences and unknowns remain distinct.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-GND-003",
           "title": "Research-Scope, Hypothesen und messbare Entscheidungsgrenzen festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
@@ -765,7 +782,32 @@
             "Fuer Reuse, Extend, New und Reject existieren eindeutige Kriterien zu Semantik, Kopplung, Migration, Betrieb, Security und Testbarkeit.",
             "Sudoku-, Maze-, ARC-, LLM-Baseline-, Angular-, TUI- und CLI-Scope sind als Research-Fragen erfasst, ohne vorzeitig Implementierungsstatus zu behaupten.",
             "Erfolg, Abbruch und Nicht-Machbarkeit besitzen messbare Entscheidungskriterien; unbestimmte Formulierungen wie soweit moeglich oder annaehernd werden ausgeschlossen."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-GND-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "architecture",
+            "required_gates": [
+              "HRM-GATE-DECISION-PACK"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "Adopt a bounded experiment domain and reject ChatProvider semantics. Runtime claims, success and abort thresholds are measurable and profile-specific.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -776,7 +818,7 @@
         {
           "id": "HRMR-FIT-001",
           "title": "Hub-Control-Plane, Persistenz, Queue und Lease-Mechanik klassifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "research",
@@ -807,12 +849,38 @@
             "Jede benoetigte HRM-Faehigkeit ist als REUSE, EXTEND, NEW oder REJECT klassifiziert und nennt die semantische Begruendung statt nur einen aehnlichen Dateinamen.",
             "Die Entscheidung vergleicht eine additive generische Experiment-Control-Plane-Seam mit HRM-spezifischen Tabellen und verbietet die semantische Ueberladung LoRA-spezifischer Felder.",
             "Keine Variante erzeugt eine zweite Queue, Worker-eigene Routingentscheidung oder einen autoritativen Hub-Task-/Run-Statuswrite ausserhalb der Hub-Autoritaet; Worker-lokale Attempt-Status, Events und Cleanup-Zustaende bleiben untrusted observations und werden erst nach Hub-Validierung projiziert."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-FIT-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "REUSE",
+              "EXTEND",
+              "NEW"
+            ],
+            "decision_owner": "hub_control_plane",
+            "required_gates": [
+              "HRM-GATE-RACE"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Reuse Hub Task/WorkerJob/lease/outbox authority, extract only generic capacity/attempt/event mechanics, and add HRM-domain run records without a second queue.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-FIT-002",
           "title": "Worker-Transport, Prozesssteuerung und substituierbare Ports bewerten",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "architecture",
@@ -838,12 +906,38 @@
             "Die Entscheidung waehlt entweder einen kleinen generischen ExperimentExecutionPort oder einen separaten HrmWorkerPort mit gemeinsamem Transport-Support und begruendet LSP, ISP und DIP.",
             "Start, Status, Events, Cancel und Result werden als Hub-Portoperationen modelliert; nur der Worker verwaltet Python-/CUDA-Prozessgruppen und TERM-zu-KILL-Cleanup.",
             "Ein inkompatibles HRM-Backend wird nicht in TrainingBackend gezwungen und keine neue God-Class oder switch-lastige zentrale Engine entsteht."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-FIT-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REUSE",
+              "REJECT"
+            ],
+            "decision_owner": "worker_runtime",
+            "required_gates": [
+              "HRM-GATE-WORKER-CONTRACT"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "Create a small HrmWorkerPort over shared authenticated HTTP/process primitives; reject TrainingBackend substitution and keep process groups worker-local.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-FIT-003",
           "title": "Dataset-, Artifact-, Checkpoint- und Evaluationsbausteine auf Wiederverwendung pruefen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "research",
@@ -871,12 +965,39 @@
             "Instruction-/Chat-Dataset- und PEFT-Adapter-Semantik wird nicht als generischer Puzzle- oder HRM-Checkpoint-Vertrag ausgegeben.",
             "Die Analyse entscheidet, ob ein kleiner generischer Dataset-/Artifact-Kern extrahiert oder ein HRM-Domain-Adapter auf denselben sicheren Storage-Ports gesetzt wird.",
             "Provenance-, Digest- und Kompatibilitaetsfelder werden einmalig modelliert und nicht getrennt in Dataset-, Run- und Checkpoint-Aufgaben widerspruechlich dupliziert."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-FIT-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND",
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "artifact_domain",
+            "required_gates": [
+              "HRM-GATE-SEC-ARCHIVE",
+              "HRM-GATE-DATASET"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "Reuse secure blob/archive/hash/preview/split ports, add puzzle/checkpoint/evaluator semantics, and reject instruction-dataset or PEFT-adapter aliases.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-FIT-004",
           "title": "Hub-API, SSE, Angular, Visual Process, TUI und CLI rebaselinen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "research",
@@ -903,12 +1024,36 @@
             "Fuer API-Namespace, gemeinsames Read-Model, SSE-Ereignisse und Angular-Komponenten liegt eine additive Reuse-/Extraction-Entscheidung ohne Worker-URL- oder Serverpfad-Leak vor.",
             "TUI und CLI werden als duenne Hub-API-Clients bewertet; fehlende aktuelle HRM- oder Modelltraining-Kommandos werden als Gap und nicht als bestehende Funktion ausgewiesen.",
             "Visual-Process-Integration verwendet dieselben Hub-Dataset- und Job-IDs und besitzt keine parallele Runtime- oder Statuswahrheit."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-FIT-004",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND"
+            ],
+            "decision_owner": "hub_surfaces",
+            "required_gates": [
+              "HRM-GATE-API"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "Extend existing Hub API/SSE and model-training surfaces with shared experiment read models; TUI and CLI remain thin Hub clients.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-FIT-005",
           "title": "Additive HRM-Zielarchitektur und Migrationsseams entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "architecture",
@@ -936,7 +1081,34 @@
             "Bestehende LoRA-, Chat-, Provider-, API- und UI-Vertraege bleiben kompatibel; notwendige Generalisierungen erfolgen additiv mit Compatibility-Adaptern und Migration statt Big-Bang-Umbenennung.",
             "HRM ist standardmaessig deaktiviert. Der Hub revalidiert dasselbe revisionierte Feature-/Policy-Read-Model bei Admission, Attempt-Erzeugung, Dispatch und Mutationen; der Worker prueft nur das materialisierte Assignment, Lease/Fencing, Deadline sowie lokale Capability und Ressourcen fail-closed.",
             "Die Entscheidung nennt fuer jede geplante Schicht REUSE, EXTEND oder NEW und weist explizit nach, dass keine zweite Queue oder Orchestrierung entsteht."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-FIT-005",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "REUSE",
+              "EXTEND",
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "architecture",
+            "required_gates": [
+              "HRM-GATE-FEATURE-POLICY"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Use an additive default-disabled hrm_experiments domain with Hub authority, an isolated worker and no changes to existing LoRA/chat contracts.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -947,7 +1119,7 @@
         {
           "id": "HRMR-SEC-000",
           "title": "Trust Boundaries und systematisches Threat Register erstellen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -978,12 +1150,36 @@
             "Mindestens Checkpoint-RCE, untrusted Code/Plugin, SSRF/DNS-Rebinding, Archiv-Bombe/Traversal, Path-/Tenant-Escape, IDOR, Lease-/Cancel-/Result-Race, stale Ingress, Secret-/Egress-Leak, Supply-Chain-Manipulation und Ressourcenerschoepfung sind bewertet.",
             "Jedes Critical- und High-Risiko ist mitigate, deny oder conditional mit Owner, Ablauf und spaeterem Gate; unknown, ownerlos oder unbegruendet akzeptiert blockiert HRMR-PLAN-003.",
             "Worker-zu-Worker-Orchestrierung, Worker-eigene Queue-/Policy-Entscheidungen und Hub-lokale untrusted ML-Ausfuehrung sind explizit als unzulaessige Kontrollpfade markiert."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-000",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "security",
+            "required_gates": [
+              "HRM-GATE-THREAT-MODEL"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "The versioned threat register defines seven trust boundaries, twelve required threats, owners, controls, verification and fail-closed dispositions.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-001",
           "title": "Checkpoint- und Modellformatpolicy fail-closed entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1009,12 +1205,37 @@
             "Die Signaturpolicy benennt Pflichtfaelle, Identitaet und Trust Root, erlaubte Algorithmen sowie Revocation und Expiry; fehlende oder ungueltige Signaturen fallen nicht auf permissives Laden zurueck.",
             "Eine optionale Legacy-Konvertierung bleibt verboten, solange keine disposable, secret-freie, netzwerklose Sandbox samt Run-Evidenz nachgewiesen ist; Output-Digest und Provenance bleiben dabei an den exakten Input gebunden.",
             "Unknown format, digest mismatch, schema/shape/dtype violation, incomplete file und incompatible architecture erhalten stabile Fehlercodes ohne permissiven Fallback."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "artifact_security",
+            "required_gates": [
+              "HRM-GATE-SEC-CHECKPOINT"
+            ],
+            "reviewed_acceptance_criteria": 6,
+            "research_disposition": "Allow only preverified bounded tensor-only formats. Reject upstream torch.load, Pickle, custom classes, hooks, dynamic imports and trust_remote_code.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-002",
           "title": "Download-, SSRF-, DNS- und Archivgrenzen festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1039,12 +1260,37 @@
             "Archive sind nach Dateizahl, entpackten Bytes, Ratio, Tiefe und Pfadlaenge begrenzt; verschluesselte und sparse Eintraege sowie absolute und Parent-Pfade, NUL, Symlink, Hardlink, Device, FIFO, Socket, Duplicate und Case-Kollision werden fail-closed abgelehnt.",
             "Die State Machine bindet Zustimmung an exakte URL, Digest und Scope, verwendet Quarantaene sowie atomare Promotion und bereinigt beziehungsweise isoliert Partialdaten nach Fehlern.",
             "Behauptete SSRF-, Rebinding-, Bomb- und Traversal-Abweisung verlangt adversariale Run-Evidenz."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND"
+            ],
+            "decision_owner": "egress_security",
+            "required_gates": [
+              "HRM-GATE-SEC-SSRF",
+              "HRM-GATE-SEC-ARCHIVE"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "All downloads use a Hub-approved default-deny egress port with per-hop DNS/IP/TLS checks, streaming limits, quarantine and bounded archive extraction.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-003",
           "title": "Container-, Prozess- und GPU-Isolationsprofil entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1072,12 +1318,36 @@
             "GPU-Zugriff ist auf reservierte Device-IDs beschraenkt; fehlende erzwingbare Isolation fuehrt zu einem stabilen Admission-Deny statt best effort.",
             "Kann die Plattform das vollstaendige Profil nicht erzwingen, verweigert der Hub untrusted Import, Plugin und Live-Run mit stabilem Reason Code.",
             "Ein eigenes Run-Gate weist UID/GID, Capabilities, Syscalls/MAC, Namespaces, Mounts, /proc, Netzwerk, GPU-Devices und cgroup-Limits auf der tatsaechlichen Zielplattform nach."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "worker_platform",
+            "required_gates": [
+              "HRM-GATE-ISOLATION"
+            ],
+            "reviewed_acceptance_criteria": 6,
+            "research_disposition": "The mandatory worker profile is non-root, cap-drop-all, no-new-privileges, read-only, namespace/cgroup/MAC constrained and network-denied; unenforceable isolation denies admission.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-004",
           "title": "Tenant-, Projekt-, Rollen- und Artifact-Autorisierung modellieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1107,12 +1377,38 @@
             "Import, Netzwerk, W&B, Feature-Flag, Policy- und Supply-Chain-Ausnahmen sind admin- beziehungsweise approval-gebunden; UI-Ausblendung ersetzt keine Serverautorisierung.",
             "Allow und Deny fuer Start, Cancel, Import, Export, Delete und Policy-Ausnahmen werden mit Actor, Tenant/Projekt, Objekt, Operation, Policy-Hash, Approval/Grant, Trace und redigiertem Reason Code auditiert; Argument- und Secretwerte werden nicht gespeichert.",
             "Worker- oder Planner-Felder fuer Tenant, Team, Rolle, Agent, Tools oder Budgets sind advisory und werden vor CAS beziehungsweise Dispatch Hub-seitig neu aufgeloest."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-004",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "REUSE",
+              "EXTEND"
+            ],
+            "decision_owner": "hub_authorization",
+            "required_gates": [
+              "HRM-GATE-SEC-TENANT",
+              "HRM-GATE-SEC-IDOR"
+            ],
+            "reviewed_acceptance_criteria": 8,
+            "research_disposition": "Resolve tenant/project/role authority in the Hub before object access or CAS; content-addressed blobs and scoped one-shot grants never trust worker or planner scope fields.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-005",
           "title": "Harte Ressourcenbudgets, Leases, Cancellation und Result-Fencing entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1147,12 +1443,39 @@
             "Verifizierte Outputs werden zunaechst non-terminal gestaged; result_accepted-Proof und autoritativer Terminalstatus committen atomar. Reconciler, Cleanup und Outbox reparieren Crashfenster idempotent, ohne eine alte Ausfuehrung wieder zu autorisieren.",
             "Cancel-vs-result, timeout-vs-result, retry-vs-old-worker und PID-Reuse besitzen je genau einen atomaren Gewinner und stabile Reason Codes.",
             "Cancel, Ablauf und Crash beenden Prozessgruppe beziehungsweise cgroup, widerrufen Capabilities und geben GPU/Locks erst nach verifiziertem Cleanup frei; OOM, disk-full, queue-full und GPU-unavailable besitzen getrennte terminal/retryable Codes und behauptetes Verhalten verlangt Run-Evidenz."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-005",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "REUSE",
+              "EXTEND"
+            ],
+            "decision_owner": "hub_control_plane",
+            "required_gates": [
+              "HRM-GATE-RACE",
+              "HRM-GATE-RESOURCE",
+              "HRM-GATE-STALE-INGRESS"
+            ],
+            "reviewed_acceptance_criteria": 7,
+            "research_disposition": "Reuse Hub leases and fencing, add domain resource reservations and require one atomic terminal winner with digest-idempotent ingress and cleanup before capacity release.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-006",
           "title": "Secret-, Egress-, Telemetry- und Logpolicy entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1181,12 +1504,37 @@
             "W&B-Config, Tags, Prompts, Samples und Hostinformationen sind explizit allowlisted; TLS-, DNS-, Proxy- und Revocation-Policy gelten genauso fuer Telemetrie und Provider wie fuer Downloads.",
             "Secrets werden spaet und minimal als Handles injiziert und erscheinen nie in CLI-Argumenten, Manifesten, vollstaendigen Env-Dumps, Child-Env, /proc, Mounts, Logs, Events, UI, Exporten oder Crashdumps.",
             "Logs und Events werden vor Persistenz redigiert und besitzen Byte-, Rate-, Buffer- und Retention-Limits sowie sichere UTF-8-/Control-/ANSI-Behandlung; langsame Clients erhalten bounded Drop-/Reconnect-Semantik statt Worker-Backpressure."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-006",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "egress_security",
+            "required_gates": [
+              "HRM-GATE-SEC-EGRESS"
+            ],
+            "reviewed_acceptance_criteria": 6,
+            "research_disposition": "All egress is purpose/scope/time bound. W&B and remote LLM are default-disabled; secrets are handles and logs/events are bounded, redacted and control-safe.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-SEC-007",
           "title": "Runtime-Supply-Chain und attestierte Buildpolicy entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -1212,7 +1560,32 @@
             "Die Policy benennt SBOM-Format, Signer und Trust Root, erforderliche Attestation-Praedikate, Vulnerability-DB-Snapshot und Freshness, blockierende Severity/Exploitability sowie Lizenz-Allow-/Deny-Regeln.",
             "Jede Ausnahme besitzt Owner, Grund, engen Scope und Ablauf; fehlende oder veraltete SBOM-, Signatur-, Attestation-, Vulnerability- oder Lizenz-Evidenz blockiert den Build beziehungsweise Live-Run.",
             "Reproduzierbarer Offline-Build, erzeugte SBOM, Signaturverifikation, Scan und Tamper-Rejection erhalten jeweils eigene Run-Evidence-Gates."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-SEC-007",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "supply_chain",
+            "required_gates": [
+              "HRM-GATE-SUPPLY-CHAIN"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Live builds are denied because upstream dependencies are unpinned. A future offline build requires digest locks, SBOM, signature, provenance attestation, vulnerability snapshot and license gate.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -1223,7 +1596,7 @@
         {
           "id": "HRMR-RUN-001",
           "title": "Geschlossenen HRM-Worker- und Run-Vertrag entwerfen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "contract",
@@ -1257,12 +1630,36 @@
             "Pagination- und Event-Reconnect-Tokens sind integritaetsgeschuetzt und an Tenant, Ressource, Query, Cursor und Ablauf gebunden; Policy- oder Lease-Revocation macht sie ungueltig.",
             "Result- und Error-Vertraege unterscheiden fachliche Fehler, Parserfehler, Timeout, Cancel, Ressourcenfehler und Policy-Deny und interpretieren stdout niemals als autoritatives Ergebnis.",
             "Die Portgrenzen bleiben klein und unabhaengig von Flask, PyTorch und konkreter Worker-Transportimplementierung."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-RUN-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "worker_contract",
+            "required_gates": [
+              "HRM-GATE-WORKER-CONTRACT"
+            ],
+            "reviewed_acceptance_criteria": 8,
+            "research_disposition": "The closed JSON Schema defines capability, preflight, run request/status/events/cancel/result, artifacts, metrics and stable errors without Flask, PyTorch, paths or secrets.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-RUN-002",
           "title": "Gepinntes HRM-Worker-Image und Kompatibilitaetsmatrix spezifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "research",
@@ -1289,12 +1686,38 @@
             "Build, SBOM, Signatur beziehungsweise Attestation, License Scan und Vulnerability Gate sind offline reproduzierbar beschrieben und besitzen eindeutige Blocker-Reason-Codes.",
             "Das Image erbt das verpflichtende Sandboxprofil und besitzt nur read-only Model-/Dataset-Mounts sowie einen begrenzten eigenen State-/Scratch-Bereich.",
             "Eine behauptete lauffaehige Kombination verlangt einen expliziten Run-Nachweis auf genau der beschriebenen Runtime- und Hardwareidentitaet."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-RUN-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "worker_platform",
+            "required_gates": [
+              "HRM-GATE-SUPPLY-CHAIN",
+              "HRM-GATE-ISOLATION"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "No live compatibility row is allowed yet. CPU, Ampere and Hopper remain unsupported until exact image/dependency locks, isolation and hardware-specific RUN evidence exist.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-RUN-003",
           "title": "Capability-, Preflight- und Profilvertrag festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
@@ -1319,12 +1742,37 @@
             "Mock-, CPU-, kleine NVIDIA- und explizit unsupported Profile besitzen konkrete Admission-Regeln, konservative Grenzen und stabile Fehlercodes.",
             "Fehlende beziehungsweise widerspruechliche Informationen, nicht erlaubte Kombinationen oder ein deaktiviertes Feature fuehren bei Hub-Admission, Attempt-Erzeugung und Dispatch zu fail-closed Deny; der Worker verweigert lokal ein ungueltiges, abgelaufenes oder capability-/resource-inkompatibles Assignment.",
             "Support-Aussagen fuer konkrete GPUs werden erst nach passender Run-Evidenz auf diese Hardwareidentitaet gesetzt."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-RUN-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "hub_policy",
+            "required_gates": [
+              "HRM-GATE-FEATURE-POLICY",
+              "HRM-GATE-PREFLIGHT"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "The separate hrm_experiments namespace is default-disabled; mock, CPU and GPU profiles have conservative admission and stable deny reasons without automatic mutation.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-RUN-004",
           "title": "Kleine Machbarkeits- und Evidenzprofile vor dem Track definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "research",
@@ -1356,7 +1804,31 @@
             "Replay behandelt das Manifest als unveraenderliche Provenienz, aber nicht als Autoritaet: Der Hub loest aktuelle Policy, Limits, Scopes und Artifact-Digests vor einer neuen Admission erneut auf.",
             "Nicht ausgefuehrte komplexe Profile werden als pending approval beziehungsweise missing RUN evidence ausgewiesen und niemals als bestanden oder unterstuetzt bezeichnet.",
             "Abbruchkriterien fuer OOM, Timeout, fehlende Isolation, Supply-Chain-Fehler, untrusted Artifact und nicht reproduzierbare Ergebnisse sind vor jeder Ausfuehrung festgelegt."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-RUN-004",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "verification",
+            "required_gates": [
+              "HRM-GATE-PROFILES"
+            ],
+            "reviewed_acceptance_criteria": 7,
+            "research_disposition": "Contract, mock, CPU, Sudoku GPU, negative security and complex profiles are separate. Only contract validation is currently executable; every live profile remains pending explicit evidence.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -1367,7 +1839,7 @@
         {
           "id": "HRMR-DATA-001",
           "title": "Geschlossenen Puzzle-Dataset- und Provenance-Vertrag entwerfen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
@@ -1394,12 +1866,38 @@
             "Nur build-time gepinnte und signierte Implementierungen aus einer Hub-kontrollierten Plugin-Registry sind zulaessig; Dataset oder Manifest duerfen keine Python-Entry-Points, Modulpfade, Commands oder dynamischen Code bestimmen, und unbekannte Plugin-ID, Version oder Digest ist default-deny.",
             "Records, Dimensionen, Tiefe, Elementzahl, Strings, Preview und Gesamtgroesse besitzen numerische serverseitige Grenzen; Parser fuehren keinen Code und keine Hooks aus.",
             "Migrationen sind explizit versioniert, deterministisch und veraendern niemals stillschweigend den fachlichen Inhalt."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-DATA-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "EXTEND"
+            ],
+            "decision_owner": "puzzle_dataset",
+            "required_gates": [
+              "HRM-GATE-DATASET",
+              "HRM-GATE-SEC-PLUGIN"
+            ],
+            "reviewed_acceptance_criteria": 6,
+            "research_disposition": "The closed manifest separates content digest from provenance time and uses segregated codec, normalizer, validator, split and visualization ports with signed build-time plugin IDs.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-DATA-002",
           "title": "Sudoku als ersten begrenzten Vertikalschnitt spezifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "research",
@@ -1422,12 +1920,36 @@
             "Dataset-Erstellung beziehungsweise Import, Hub-Admission, Worker-Run, Events, Cancel, Checkpoint-Ref, Evaluation und Report bilden einen einzigen bounded End-to-End-Scope ohne grosse externe Downloads.",
             "Upstream-Bezeichnungen oder Mengenangaben werden nur bei erlaubter Source-Evidenz uebernommen; lokale Resultate besitzen eigene Run-Evidenz.",
             "Der Vertikalschnitt benennt minimale Reuse-, Extend- und New-Komponenten und bleibt unabhaengig von Maze-, ARC-, TUI- und Remote-LLM-Fertigstellung."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-DATA-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "sudoku_plugin",
+            "required_gates": [
+              "HRM-GATE-SUDOKU-CONTRACT"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "The first bounded slice is one deterministic local 9x9 Sudoku fixture with integer normal form, given preservation, row/column/box validation and exact canonical output.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-DATA-003",
           "title": "Maze- und ARC-Plugins getrennt auf Machbarkeit und Grenzen pruefen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "research",
@@ -1450,12 +1972,37 @@
             "Fuer Maze sind Start/Ziel, Hindernisse, Pfadgueltigkeit, kuerzeste-Loesung-Semantik und unloesbare Faelle eindeutig definiert.",
             "Fuer ARC sind Grid-Dimensionen, Farbwerte, Task-/Train-/Test-Struktur, Outputvalidierung und Dataset-Lizenz beziehungsweise Egress-Eignung entschieden.",
             "Nicht ausreichend belegte oder zu teure Varianten werden aus dem ersten Track deferred, ohne den Sudoku-Vertikalschnitt zu blockieren."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-DATA-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "puzzle_plugins",
+            "required_gates": [
+              "HRM-GATE-MAZE",
+              "HRM-GATE-ARC"
+            ],
+            "reviewed_acceptance_criteria": 4,
+            "research_disposition": "Maze and ARC require independent plugins, licenses, formats, bounds and validators and are deferred without blocking Sudoku.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-ART-001",
           "title": "HRM-Checkpoint-Registry, Kompatibilitaet und Portabilitaet entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "architecture",
@@ -1483,12 +2030,38 @@
             "Export ist content-addressed, hashverifiziert, secret- und pfadfrei und propagiert Provenance, Lizenz sowie Nutzungsrestriktionen; Import in eine saubere Instanz ist als spaeteres Run-Gate definiert.",
             "Delete, Deprecation und Retention pruefen Run-, Result-, Export- und Lease-Referenzen; ein Client kann keine Serverpfade oder Commands aus Manifesten replayen.",
             "Die bestehende PEFT-Adapter-Registry wird nicht umbenannt oder semantisch als HRM-Checkpoint-Registry missbraucht."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-ART-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "REJECT"
+            ],
+            "decision_owner": "checkpoint_domain",
+            "required_gates": [
+              "HRM-GATE-SEC-CHECKPOINT",
+              "HRM-GATE-PORTABILITY"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Create an HRM checkpoint registry with quarantine, tensor-only validation, atomic promotion, provenance, compatibility and reference-aware retention; never overload PEFT adapters.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-EVAL-001",
           "title": "Taskspezifische Evaluator- und LLM-Baseline-Vertraege definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
@@ -1516,12 +2089,37 @@
             "LLM-Baselines speichern Provider-/Modellrevision, Prompt, Sampling, Kontextlimit, Parser und Normalisierung und verwenden exakt dieselben autorisierten Beispiele und fachlichen Validatoren.",
             "Remote-Provider erhalten private oder lizenzbeschraenkte Beispiele nur nach Dataset-, Provider-, Egress-, Kostenbudget- und expliziter run-bound Zustimmung.",
             "Native HRM-Ausgabe und textuelle LLM-Ausgabe werden nur ueber taskspezifische geschlossene Normalisierer verglichen; Parserfehler gelten nicht als fachlich falsche Loesung."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-EVAL-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "EXTEND"
+            ],
+            "decision_owner": "evaluation",
+            "required_gates": [
+              "HRM-GATE-EVALUATION"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Task-specific validators classify exact correct, domain wrong, parser, timeout, cancel and runtime errors. LLM baselines use identical authorized examples and explicit provider consent.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-EVAL-002",
           "title": "Reproduzierbarkeits-, Statistik- und Vergleichsreportvertrag festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "research",
@@ -1546,7 +2144,32 @@
             "Vergleiche markieren unterschiedliche Hardware, Software, Splits, Budgets und Providerbedingungen; wo sinnvoll sind Wiederholungen, Streuung und Konfidenzintervalle definiert.",
             "Reproduzierbarkeit vergleicht zwei identische kanonische Manifeste mit taskspezifischen Toleranzen und dokumentiert bekannte deterministische und nichtdeterministische Einfluesse.",
             "JSON und CSV sind schema-, groessen- und tenant-gebunden; CSV neutralisiert Formeln und kontrollierte Zeichen und enthaelt keine Secrets oder absoluten Pfade."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-EVAL-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND"
+            ],
+            "decision_owner": "evaluation",
+            "required_gates": [
+              "HRM-GATE-REPRODUCIBILITY",
+              "HRM-GATE-REPORT"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Reports bind all dataset/run/checkpoint/evaluator/hardware/runtime/policy digests, units, sample counts and uncertainty; unavailable data remains explicit and CSV is formula-safe.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -1557,7 +2180,7 @@
         {
           "id": "HRMR-UX-001",
           "title": "Versionierte Hub-API, Read-Models und Ereignisse schneiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "contract",
@@ -1585,12 +2208,37 @@
             "Start ist idempotent; Cancel, Status und Replay verwenden dasselbe Hub-owned Job-/Attempt-/Event-Read-Model und kein zweites Ereignissystem.",
             "Feature- und Security-Policy werden Hub-seitig bei Admission, Attempt-Erzeugung, Dispatch, direkter Mutation und Eventstream revalidiert; der Worker akzeptiert nur das materialisierte gebundene Assignment und lokale Capability/Resource-Admission. Deaktiviert bedeutet keine neue Ausfuehrung und definierte Drain-/Cancel-Semantik.",
             "OpenAPI und Clientvertraege enthalten keine Worker-URLs, Serverpfade, Secretwerte oder unbounded Rohdaten."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-UX-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW",
+              "EXTEND"
+            ],
+            "decision_owner": "hub_api",
+            "required_gates": [
+              "HRM-GATE-API"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Use additive /api/hrm-experiments Hub endpoints and common paginated read models. Start is idempotent and status/events/cancel reuse Hub-owned attempts and event authority.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-UX-002",
           "title": "Angular- und Visual-Process-Erweiterung statt Greenfield-Control-Center entwerfen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "design",
@@ -1614,12 +2262,37 @@
             "Sudoku-, Maze- und ARC-Visualisierungen haben harte Dimensions-/Sample-Grenzen, Virtualisierung beziehungsweise Pagination, Tastaturbedienung, Screenreader-Texte und sichere Textdarstellung.",
             "Visual-Process-Nodes referenzieren dieselben Hub-Dataset-, Run-, Checkpoint- und Evaluation-IDs; Canvasposition und UI-State sind keine Runtime- oder Orchestrierungswahrheit.",
             "Browserdownloads verwenden nur Hub-autorisierte, kurzlebige beziehungsweise gebundene Exportvertraege und niemals lokale Serverpfade."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-UX-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND"
+            ],
+            "decision_owner": "angular_visual_process",
+            "required_gates": [
+              "HRM-GATE-ANGULAR",
+              "HRM-GATE-VISUAL-PROCESS"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Extend the existing model-training feature and visual process with experimental labels, bounded accessible puzzle projections and Hub IDs; do not build a second control center.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-UX-003",
           "title": "TUI und CLI als duenne Hub-Clients spezifizieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "risk": "medium",
           "type": "design",
@@ -1645,7 +2318,32 @@
             "Schmale Terminals erhalten eine reduzierte, weiterhin voll bedienbare Ansicht; Live-Logs und Metriken blockieren Eingabe und Navigation nicht.",
             "Gefaehrliche Aktionen zeigen eine lokale Bestaetigung, ohne dadurch serverseitige Rollen-, Approval-, Idempotency- oder Policy-Gates zu ersetzen.",
             "Mutationen verlangen dieselben serverseitigen Rollen, Approvals, Idempotency- und Feature-Gates wie Angular und direkte API-Aufrufe."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-UX-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "EXTEND"
+            ],
+            "decision_owner": "operator_clients",
+            "required_gates": [
+              "HRM-GATE-TUI",
+              "HRM-GATE-CLI"
+            ],
+            "reviewed_acceptance_criteria": 7,
+            "research_disposition": "Add thin TUI/CLI commands over the same Hub DTOs with pagination, safe previews, nonblocking events and server-enforced approvals and policy.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     },
@@ -1656,7 +2354,7 @@
         {
           "id": "HRMR-PLAN-001",
           "title": "Decision Pack und scope-erhaltende Track-Slices vorbereiten",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "high",
           "type": "planning",
@@ -1694,12 +2392,36 @@
             "Sudoku kann als erster kleiner Track geplant werden; Maze, ARC, Remote-Provider und komplexe Oberflaechen werden nur bei belegter Machbarkeit und vertretbarem Risiko aufgenommen.",
             "Jeder spaetere Track-Kandidat bildet ausschliesslich nicht-deferred source_category_item_ids der exakt promoteten Revision ab und besitzt task-level priority, risk, depends_on, milestone und pruefbare Acceptance Criteria.",
             "Das Decision Pack erzeugt selbst weder Planning Track noch interne Tasks, Queue-Eintraege, Grants, Worker-Adressen, Tools, Budgets oder Berechtigungen."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-PLAN-001",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "hub_planning",
+            "required_gates": [
+              "HRM-GATE-DECISION-PACK"
+            ],
+            "reviewed_acceptance_criteria": 5,
+            "research_disposition": "Seven scope-preserving candidate slices are defined; this pack creates no Track, task, queue entry, grant, worker address, tool or budget.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-PLAN-002",
           "title": "Test-, Security- und Release-Gates mit Freigabeklassen festlegen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "test_design",
@@ -1727,12 +2449,36 @@
             "Jedes Gate ist eindeutig als Category-Promotion-, Track-Adoption- oder Release-Blocker klassifiziert; ein spaeteres Gate darf keine fuer die aktuelle Research-Entscheidung notwendige Evidenz vortaeuschen.",
             "Der spaetere Release-Scope umfasst versionierte Benutzer-, Entwickler- und Betriebsdokumentation fuer Zweck, Grenzen, Setup, Preflight, Datasets, Runs, Checkpoints, Evaluation, Export, optionale Telemetrie und Troubleshooting; Hardwarebeispiele bleiben evidenzgebundene Beispiele statt Garantien.",
             "Release kann nicht allein durch Prosa wie alle P0-Tasks abgeschlossen passieren; der spaetere Track-DAG muss jeden erforderlichen Security-, Portability-, Reproducibility-, Surface- und Report-Gate transitiv einschliessen."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-PLAN-002",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "NEW"
+            ],
+            "decision_owner": "release_governance",
+            "required_gates": [
+              "HRM-GATE-RELEASE-MATRIX"
+            ],
+            "reviewed_acceptance_criteria": 8,
+            "research_disposition": "Static, unit/mock, adversarial, CPU, GPU, multi-container, provider and manual release gates have distinct classes; complex gates require explicit approval and missing runs are not passes.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         },
         {
           "id": "HRMR-PLAN-003",
           "title": "Category-Promotion fail-closed entscheiden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "risk": "critical",
           "type": "governance",
@@ -1758,7 +2504,33 @@
             "Nicht ausgefuehrte komplexe Tests werden als zukuenftige Track-/Release-Evidence ausgewiesen und nicht als bestanden dargestellt; ein fuer die aktuelle Research-Entscheidung erforderlicher fehlender Run blockiert bereits Promotion.",
             "Promotion ist revision- und digestgebunden. Aenderungen an Category, Evidence, Schema oder Policy invalidieren Promotion und alle abgeleiteten Track-Kandidaten.",
             "Nach Promotion darf nur der Hub genau eine gebundene Track-Planungsaufgabe erzeugen; Worker koennen weder promoten noch adoptieren, materialisieren, routen oder Berechtigungen erweitern."
-          ]
+          ],
+          "acceptance_evidence": {
+            "status": "accepted_research_disposition",
+            "decision_pack_item_id": "HRMR-PLAN-003",
+            "decision_pack_path": "docs/research/hrm/decision-pack.v1.json",
+            "classification": [
+              "REUSE"
+            ],
+            "decision_owner": "hub_governance",
+            "required_gates": [
+              "HRM-GATE-CATALOG",
+              "HRM-GATE-CLAIMS",
+              "HRM-GATE-PROMOTION"
+            ],
+            "reviewed_acceptance_criteria": 6,
+            "research_disposition": "The Hub validated and promoted exact Category revision pcat-ca9b68c8fbc9e84ca3a7b1e2 against catalog-6c38177316f67dfd, SRC_0003 and RUN_0001. Any Track derivation remains a separate Hub-only governance decision.",
+            "source_refs": [
+              "SRC_0003"
+            ],
+            "source_record_content_hash": "b5aba5f983e74fdb1af0a57f351120c00e9f217db5da6a06e8b44ca4a3d801f5",
+            "governance_run_refs": [
+              "RUN_0001"
+            ],
+            "hub_category_revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+            "hub_category_content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
+            "acceptance_scope": "Abgeschlossen ist die source-grounded Research-Disposition mit benannten spaeteren Gates; Runtime-Implementierung und Live-Gate-Ausfuehrung werden nicht behauptet."
+          }
         }
       ]
     }
@@ -1787,9 +2559,9 @@
   "meta": {
     "total_items": 32,
     "by_status": {
-      "completed": 0,
+      "completed": 32,
       "partial": 0,
-      "open": 32
+      "open": 0
     },
     "by_priority": {
       "P0": 27,
@@ -1824,14 +2596,11 @@
     },
     "promotion_status": "promoted",
     "notes": [
-      "Diese Datei ist ein passiver, handgepflegter Category-Research-Backlog-Seed und kein bereits gebundenes Research-Ergebnis.",
-      "Die alte Hybridstruktur aus Epics, Implementierungs-Tasks und recommended_milestones wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
-      "Vorhandene ml_intern_training-, Artifact-, API/SSE- und Angular-Komponenten sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
-      "Komplexe GPU-, Multi-Container-, End-to-End-, grosse Download-/Dataset- und reale Provider-Tests bleiben bis zur ausdruecklichen Freigabe unausgefuehrt.",
-      "Der spaetere Track muss den Release-DAG explizit schliessen; Milestone-Mitgliedschaft oder Prosa ersetzt keine Abhaengigkeit.",
-      "Der fruehere Grounding-Blocker ist aufgeloest: Die Assignment-gebundene Revision pcat-65c5f88839fe8823fb252e1e wurde nach bestandenem Gate und expliziter Approval promoviert.",
-      "Der assignment-gebundene Category-Research-Seed ist promoviert; die 32 HRM-Research- und Implementierungsvorbereitungsitems bleiben bis zu ihrer eigenen Evidenz und Abnahme offen.",
-      "Die TODO bleibt im aktiven todos/-Ordner und darf erst archiviert werden, wenn alle 32 Item-Acceptance-Criteria erfuellt oder explizit mit belegter Disposition abgeschlossen sind."
+      "Alle 32 Items sind als Research-Disposition abgeschlossen und mit dem zugehoerigen Decision-Pack-Eintrag abgeglichen.",
+      "SRC_0003 bindet den vor der Promotion indexierten Decision-Pack-Stand; RUN_0001 belegt nur die assignment-bound Research-Ausfuehrung und Governance-Transition.",
+      "Die Hub-Revision pcat-ca9b68c8fbc9e84ca3a7b1e2 wurde nach validierter Grounding-Pruefung und expliziter Approval promoviert.",
+      "Completed bedeutet nicht, dass HRM installiert, trainiert, auf GPU ausgefuehrt, auf Genauigkeit bewertet oder fuer Release freigegeben wurde.",
+      "Spaetere Implementierung darf nur ueber einen separaten Hub-gesteuerten Track mit den in jeder Disposition benannten Gates erfolgen."
     ],
     "recommended_order": [
       "HRMR-GND-001",
@@ -1869,16 +2638,16 @@
     ]
   },
   "research_seed_transition": {
-    "status": "promoted",
+    "status": "completed",
     "completed_at": "2026-08-22",
-    "disposition": "category_research_seed_promoted",
-    "semantic_boundary": "Promoviert ist nur der Hub-gesteuerte, quellgebundene Category-Research-Seed. Die 32 HRM-Items sind damit weder implementiert noch fachlich abgeschlossen.",
+    "disposition": "category_research_decisions_promoted_and_archived",
+    "semantic_boundary": "Alle 32 HRM-Items besitzen eine abgeschlossene Research-Disposition mit expliziten spaeteren Gates. HRM-Runtime, GPU-Support, Modellgenauigkeit und Release-Reife sind weder implementiert noch behauptet.",
     "source_catalog": {
-      "task_id": "source-catalog-task-92e3542f83c1d26405f62930",
-      "source_catalog_id": "catalog-5ec632692c6ff83f",
-      "source_catalog_hash": "5ec632692c6ff83f7a3a96379e04835b987846a8de2f3eeab3f36d585e8e8ce5",
-      "repo_revision": "35dc96fc2d8e7d2fdaa00bedd031351b0ddc4111da15224e6dff5605fc70fb7a",
-      "manifest_digest": "80862aa57fe5fa34e2c6c51a154430e119f3fac288b747d9e6780d218d7fbde4",
+      "task_id": "source-catalog-task-01aff92644107edfe955229a",
+      "source_catalog_id": "catalog-6c38177316f67dfd",
+      "source_catalog_hash": "6c38177316f67dfdcdba3c5426397aa90ced87f6648951dd1a3c4e8533251ca5",
+      "repository_revision": "ddd471a4dc8ce63da4c4308e927b6a524985a93ca97f3aa5ce9ee2b11b8975dd",
+      "manifest_hash": "15b61843ff32a85213d89aad4f1e4e8300413c46b2101dd6a36c1dcac818e18f",
       "allowed_source_refs": [
         "SRC_0001",
         "SRC_0002",
@@ -1886,47 +2655,10 @@
         "SRC_0004",
         "SRC_0005",
         "SRC_0006",
-        "SRC_0007",
-        "SRC_0008",
-        "SRC_0009",
-        "SRC_0010",
-        "SRC_0011",
-        "SRC_0012",
-        "SRC_0013",
-        "SRC_0014",
-        "SRC_0015",
-        "SRC_0016",
-        "SRC_0017",
-        "SRC_0018",
-        "SRC_0019",
-        "SRC_0020",
-        "SRC_0021",
-        "SRC_0022",
-        "SRC_0023",
-        "SRC_0024",
-        "SRC_0025",
-        "SRC_0026",
-        "SRC_0027",
-        "SRC_0028",
-        "SRC_0029",
-        "SRC_0030",
-        "SRC_0031",
-        "SRC_0032",
-        "SRC_0033",
-        "SRC_0034",
-        "SRC_0035",
-        "SRC_0036",
-        "SRC_0037",
-        "SRC_0038",
-        "SRC_0039",
-        "SRC_0040",
-        "SRC_0041",
-        "SRC_0042",
-        "SRC_0043",
-        "SRC_0044",
-        "SRC_0045",
-        "SRC_0046",
-        "SRC_0047"
+        "SRC_0007"
+      ],
+      "cited_source_refs": [
+        "SRC_0003"
       ],
       "allowed_run_refs": [
         "RUN_0001"
@@ -1936,55 +2668,38 @@
       "project_id": "61eb9cae-e997-4933-8831-1f260bb7918a",
       "organization_id": "4b5c6a3b-fc5c-4d89-8ed1-0fb7c1f5a5bb",
       "goal_id": "orggoal-7167fb07ec8baa048c334344",
-      "assignment_binding_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
-      "parent_task_id": "presearch-f997505f753b0215a7058e55",
-      "child_task_id": "sub-242ebb9a-910e-4064-8448-f82ace5745f8",
-      "job_id": "423d953b-931b-4ba4-9fc3-984d0bdd3e66",
-      "worker_result_id": "796cf1de-75ba-499c-9558-b924c1e8f5de",
-      "origin_context_bundle_id": "catalog-context-fde2616716d98a02e27974a0",
-      "delegated_context_bundle_id": "delegated-context-dff279cb289cb01d2778684d185cfd7b",
-      "destination_id": "dst_6e5fe03ce439ae12939f01a9fb708e9b811cf101d58bff939e4a97f19d2450f0",
-      "runtime_target": "source-index-alpha",
-      "model": "qwen/qwen3.5-9b"
+      "organization_assignment_id": "417316b5-1114-5fc7-b1d5-b356d883262e",
+      "parent_task_id": "presearch-f105567da15c80014c1c768d",
+      "worker_assignment_id": "sub-8a28f95b-03a1-4c41-a0dd-0867090d1ed8",
+      "dispatch_lease_id": "105b7f2b-c0f8-4323-834c-4020df1e670c",
+      "origin_context_bundle_id": "catalog-context-23163c1365e0dc348cf28196",
+      "delegated_context_bundle_id": "delegated-context-c90f1121a06e589dcdab0378bc044577",
+      "model": "qwen2.5-3b-instruct"
     },
     "result": {
       "artifact_id": "pcategory-ff859508c30852babbfe79aa",
-      "revision_id": "pcat-65c5f88839fe8823fb252e1e",
-      "revision": 1,
+      "revision_id": "pcat-ca9b68c8fbc9e84ca3a7b1e2",
+      "revision": 3,
       "artifact_status": "promoted",
-      "content_digest": "40b35605e361c1b63ae31c5e5d7f53150afbbbf9aa79da8f07e84178071ac55d",
-      "result_payload_digest": "2a7d502be36d0ff9f8244e924e4f2a2601519363c7524ea736b30b1fe80d39ff",
+      "content_digest": "6e512f797ba43d322b17e5068ef70e7b00d66fd0628f1217f18219d66dc6df59",
       "valid": true,
       "promotable": true,
+      "grounding_status": "verified",
+      "verified_claim_count": 2,
+      "unverified_claim_count": 0,
       "issues": []
     },
     "run_evidence": {
       "source_id": "RUN_0001",
-      "run_id": "category-run-03c1bd01d44647ec483bb4091c67d8e7",
-      "binding_digest": "213f02d9a737e4a27a44b52bb91382a80b38c04bb7644639768d5cd60baa0170",
-      "evidence_digest": "4f755287b7af6c985ee7ddef4e453f935a59eddca2e1469bbd87e900aeeb823b"
+      "run_id": "category-run-b55dda8fe5241e753bbf648037b91bc4",
+      "result_payload_digest": "sha256:9ee0daf26996a74305a75a04171e87c39c327c5ecdf74807dc17e295f00bfe17",
+      "binding_digest": "8a50ad091670a2c3144c4c3dc7b5ebc55bac1b2a44444cccf0519d0a77754b7b",
+      "evidence_digest": "1dfd00989096aabdad1641c9ce4f06a96457c5b9187b473e6d6ae1b83866bb4f"
     },
     "governance": {
-      "approval_request_id": "b3f0328f-d866-4b1e-b7c1-42f2667199e9",
-      "approval_status": "approved",
-      "promotion_receipt_id": "0421f895-9423-4dd3-80d9-f87560787faa"
-    },
-    "verification": {
-      "grounding_status": "verified",
-      "verified_claim_count": 5,
-      "gate_check_count": 12,
-      "gate_passed": true,
-      "focused_tests": {
-        "command": "pytest -q tests/test_planning_category_todo_pipeline_service.py tests/test_organization_category_research_task_handler.py",
-        "result": "16 passed, 1 warning"
-      }
-    },
-    "open_research_scope": {
-      "preserved_item_count": 32,
-      "item_status": "open",
-      "external_sources_status": "unverified",
-      "hypotheses_status": "unverified",
-      "next_authoritative_step": "Ein separater, Hub-gesteuerter Track muss aus der promovierten Category-Revision abgeleitet, gebunden, ausgefuehrt und verifiziert werden."
+      "approval_request_id": "30650f79-3389-439a-9b01-28dd42ca0ac9",
+      "approval_status": "granted",
+      "promotion_receipt_id": "98939c6e-ab88-4de1-b405-77a6a66204d4"
     },
     "architecture_check": {
       "hub_owns_orchestration": true,
@@ -1994,20 +2709,20 @@
       "unknown_source_ids_rejected": true
     },
     "solid_check": {
-      "srp": "Evidence-Anpassung bleibt im Worker-Handler; Binding, Validierung, Persistenz und Promotion bleiben getrennte Hub-Service-Verantwortungen.",
-      "ocp": "Die Recovery erweitert den bestehenden Callback-Pfad additiv.",
-      "lsp": "Bestehende Erfolgs- und Fehlervertraege bleiben erhalten.",
-      "isp": "Keine neue breite Schnittstelle wurde eingefuehrt.",
-      "dip": "Worker-Ausfuehrung bleibt ueber das bestehende Runtime-/Delegation-Port-Modell entkoppelt.",
-      "known_preserved_issue": "Das bestehende opencode.py-Modul bleibt breit geschnitten; diese Aenderung erweitert dessen Verantwortungsumfang nicht."
+      "srp": "Research-Evidence bleibt in Pack und Archiv; Hub-Binding, Worker-Ausfuehrung, Validierung und Promotion bleiben getrennte Verantwortungen.",
+      "ocp": "Der Abschluss erweitert die vorhandenen Planning-Artefakte additiv und aendert keine Laufzeit-API.",
+      "lsp": "HRM wird weder als ChatProvider noch als LoRA-TrainingBackend substituiert.",
+      "isp": "Keine neue breite Runtime-Schnittstelle wurde eingefuehrt.",
+      "dip": "Die Forschungsentscheidung bleibt an Hub-Control-Plane-Abstraktionen statt an einen konkreten Worker-Prozess gebunden."
     }
   },
   "implementation_progress": {
-    "status": "not_started",
+    "status": "research_decisions_completed",
     "total_items": 32,
-    "completed_items": 0,
+    "completed_items": 32,
     "in_progress_items": 0,
-    "open_items": 32,
-    "authoritative_rule": "Item-Status wird erst nach quellcodeabgeglichenem Acceptance-Gate und erforderlicher SRC-/RUN-Evidenz geaendert."
+    "open_items": 0,
+    "runtime_implementation_status": "not_started_not_claimed",
+    "authoritative_rule": "Completed bezeichnet die source-grounded Research-Disposition einschliesslich expliziter Future-Gates; es behauptet keine HRM-Runtime-, GPU-, Accuracy- oder Release-Implementierung."
   }
 }
