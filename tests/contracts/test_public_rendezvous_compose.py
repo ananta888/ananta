@@ -107,25 +107,28 @@ def test_public_tui_client_explicitly_allows_pair_dev_origins():
         "http://127.0.0.1:4200",
         "https://localhost",
         "https://127.0.0.1",
+        "https://minipc.ananta.de",
     ]
     assert "+" not in tui_client["webOrigins"]
     assert "*" not in tui_client["webOrigins"]
     assert tui_client["fullScopeAllowed"] is False
     assert tui_client["attributes"]["pkce.code.challenge.method"] == "S256"
     assert 'webOrigins=["+"]' not in setup
-    expected_setup_origins = (
-        'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]'
-    )
-    assert setup.count(expected_setup_origins) == 2
+    assert 'PUBLIC_BROWSER_ORIGIN="${ANANTA_PUBLIC_BROWSER_ORIGIN:-https://minipc.ananta.de}"' in setup
+    assert setup.count('${PUBLIC_BROWSER_ORIGIN}\\\"]"') == 2
     assert setup.count('-s "fullScopeAllowed=false"') == 2
     assert setup.count('-s "attributes.\\"pkce.code.challenge.method\\"=S256"') == 2
 
     for redirect_uri in (
         "https://localhost/oidc-callback",
         "https://127.0.0.1/oidc-callback",
+        "https://minipc.ananta.de/oidc-callback",
     ):
         assert redirect_uri in tui_client["redirectUris"]
-        assert setup.count(redirect_uri) == 2
+        if redirect_uri == "https://minipc.ananta.de/oidc-callback":
+            assert setup.count('${PUBLIC_BROWSER_ORIGIN}/oidc-callback') == 2
+        else:
+            assert setup.count(redirect_uri) == 2
 
 
 def test_local_https_edge_pins_the_supported_public_authorities():

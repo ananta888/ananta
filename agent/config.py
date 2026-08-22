@@ -364,6 +364,22 @@ class Settings(BaseSettings):
     auth_password_history_limit: int = Field(default=3, validation_alias="AUTH_PASSWORD_HISTORY_LIMIT")
     auth_mfa_backup_code_count: int = Field(default=10, validation_alias="AUTH_MFA_BACKUP_CODE_COUNT")
     auth_test_endpoints_enabled: bool = Field(default=False, validation_alias="AUTH_TEST_ENDPOINTS_ENABLED")
+    hub_self_registration_enabled: bool = Field(default=False, validation_alias="HUB_SELF_REGISTRATION_ENABLED")
+    hub_self_registration_require_admin_approval: bool = Field(
+        default=False, validation_alias="HUB_SELF_REGISTRATION_REQUIRE_ADMIN_APPROVAL"
+    )
+    hub_registration_public_base_url: str = Field(
+        default="", validation_alias="HUB_REGISTRATION_PUBLIC_BASE_URL"
+    )
+    hub_registration_verification_ttl_seconds: int = Field(
+        default=86400, validation_alias="HUB_REGISTRATION_VERIFICATION_TTL_SECONDS"
+    )
+    hub_registration_smtp_host: str = Field(default="", validation_alias="HUB_REGISTRATION_SMTP_HOST")
+    hub_registration_smtp_port: int = Field(default=587, validation_alias="HUB_REGISTRATION_SMTP_PORT")
+    hub_registration_smtp_username: str = Field(default="", validation_alias="HUB_REGISTRATION_SMTP_USERNAME")
+    hub_registration_smtp_password: str = Field(default="", validation_alias="HUB_REGISTRATION_SMTP_PASSWORD")
+    hub_registration_smtp_from: str = Field(default="", validation_alias="HUB_REGISTRATION_SMTP_FROM")
+    hub_registration_smtp_starttls: bool = Field(default=True, validation_alias="HUB_REGISTRATION_SMTP_STARTTLS")
     workflow_runtime_test_context: str = Field(default="", validation_alias="ANANTA_WORKFLOW_RUNTIME_TEST_CONTEXT")
 
     # Optional Hub↔OIDC account linking (default off).

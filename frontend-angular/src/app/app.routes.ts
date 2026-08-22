@@ -22,6 +22,8 @@ import { publicPairGuard } from './guards/public-pair.guard';
 
 export const routes: Routes = [
   { path: 'login', component: LoginComponent },
+  { path: 'register', loadComponent: () => import('./components/register.component').then(m => m.RegisterComponent) },
+  { path: 'verify-email', loadComponent: () => import('./components/verify-email.component').then(m => m.VerifyEmailComponent) },
   { path: 'oidc-callback', component: OidcCallbackComponent },
   {
     path: 'pair-dev',

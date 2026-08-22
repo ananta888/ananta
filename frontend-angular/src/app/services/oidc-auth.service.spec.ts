@@ -162,46 +162,40 @@ describe('OidcAuthService', () => {
   });
 
   describe('registrationUrl', () => {
-    it('returns the standard keycloak /login-actions/registration URL for the configured issuer', () => {
+    const expectedRegistrationUrl = () =>
+      `${PUBLIC_OIDC_ISSUER}/protocol/openid-connect/auth?client_id=ananta-tui&redirect_uri=${encodeURIComponent(`${location.origin}/oidc-callback`)}&response_type=code&scope=openid&kc_action=register`;
+
+    it('returns the Keycloak authorization endpoint with the registration action', () => {
       buildSvc();
-      expect(svc.registrationUrl()).toBe(
-        'https://keycloak.ananta.de/realms/ananta/login-actions/registration',
-      );
+      expect(svc.registrationUrl()).toBe(expectedRegistrationUrl());
     });
 
     it('strips a trailing slash from the issuer before appending the path', () => {
       buildSvc({ issuer: 'https://keycloak.ananta.de/realms/ananta/' });
-      expect(svc.registrationUrl()).toBe(
-        'https://keycloak.ananta.de/realms/ananta/login-actions/registration',
-      );
+      expect(svc.registrationUrl()).toBe(expectedRegistrationUrl());
     });
 
     it('does not adopt a missing or mutable public-profile issuer', () => {
       buildSvc({ issuer: 'https://attacker.invalid/realms/phish' });
-      expect(svc.registrationUrl()).toBe(
-        `${PUBLIC_OIDC_ISSUER}/login-actions/registration`,
-      );
+      expect(svc.registrationUrl()).toBe(expectedRegistrationUrl());
     });
   });
 
   describe('registerWithKeycloak', () => {
+    const expectedRegistrationUrl = () =>
+      `${PUBLIC_OIDC_ISSUER}/protocol/openid-connect/auth?client_id=ananta-tui&redirect_uri=${encodeURIComponent(`${location.origin}/oidc-callback`)}&response_type=code&scope=openid&kc_action=register`;
+
     it('opens the registration URL in a new tab via window.open', () => {
       buildSvc();
       svc.registerWithKeycloak();
-      expect(openSpy).toHaveBeenCalledWith(
-        'https://keycloak.ananta.de/realms/ananta/login-actions/registration',
-        '_blank',
-      );
+      expect(openSpy).toHaveBeenCalledWith(expectedRegistrationUrl(), '_blank');
     });
 
     it('selects public Pair and ignores a Hub-supplied registration issuer', () => {
       buildSvc({ issuer: 'https://attacker.invalid/realms/phish' });
       svc.registerWithKeycloak();
       expect(profiles.enablePublicPair).toHaveBeenCalledOnce();
-      expect(openSpy).toHaveBeenCalledWith(
-        `${PUBLIC_OIDC_ISSUER}/login-actions/registration`,
-        '_blank',
-      );
+      expect(openSpy).toHaveBeenCalledWith(expectedRegistrationUrl(), '_blank');
     });
   });
 

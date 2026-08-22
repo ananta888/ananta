@@ -12,7 +12,7 @@
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
   "rememberMe": true,
-  "verifyEmail": false,
+  "verifyEmail": true,
   "accessTokenLifespan": 3600,
   "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 86400,
@@ -54,13 +54,15 @@
         "http://127.0.0.1:*",
         "https://localhost/oidc-callback",
         "https://127.0.0.1/oidc-callback",
+        "https://minipc.ananta.de/oidc-callback",
         "ananta://*"
       ],
       "webOrigins": [
         "http://localhost:4200",
         "http://127.0.0.1:4200",
         "https://localhost",
-        "https://127.0.0.1"
+        "https://127.0.0.1",
+        "https://minipc.ananta.de"
       ],
       "protocol": "openid-connect",
       "fullScopeAllowed": false,

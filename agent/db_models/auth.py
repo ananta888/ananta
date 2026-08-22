@@ -18,6 +18,12 @@ class UserDB(SQLModel, table=True):
     mfa_backup_codes: List[str] = Field(default=[], sa_column=Column(JSON))
     failed_login_attempts: int = Field(default=0)
     lockout_until: Optional[float] = Field(default=None)
+    email: Optional[str] = Field(default=None, index=True, unique=True)
+    email_verified_at: Optional[float] = Field(default=None)
+    admin_approved_at: Optional[float] = Field(default=None)
+    registration_requires_admin: bool = Field(default=False)
+    email_verification_token_hash: Optional[str] = Field(default=None, index=True, unique=True)
+    email_verification_expires_at: Optional[float] = Field(default=None)
 
 
 class OidcIdentityLinkDB(SQLModel, table=True):

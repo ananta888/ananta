@@ -234,7 +234,7 @@ export class OidcAuthService implements OnDestroy {
   // ── T12: PKCE Authorization redirect ────────────────────────────────
 
   /**
-   * Returns the standard Keycloak self-registration URL for the configured
+   * Returns Keycloak's authorization endpoint with the registration action.
    * issuer, or an empty string if no issuer is configured.
    *
    * This URL is opened in a new tab via window.open() — there is no PKCE
@@ -254,7 +254,14 @@ export class OidcAuthService implements OnDestroy {
       .trim()
       .replace(/\/$/, '');
     if (!issuer) return '';
-    return `${issuer}/login-actions/registration`;
+    const params = new URLSearchParams({
+      client_id: PUBLIC_OIDC_CLIENT_ID,
+      redirect_uri: `${location.origin}/oidc-callback`,
+      response_type: 'code',
+      scope: 'openid',
+      kc_action: 'register',
+    });
+    return `${issuer}/protocol/openid-connect/auth?${params.toString()}`;
   }
 
   /**

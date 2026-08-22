@@ -28,6 +28,26 @@ class UserRepository:
         with Session(engine) as session:
             return session.get(UserDB, username)
 
+    def get_by_email(self, email: str) -> Optional[UserDB]:
+        with Session(engine) as session:
+            return session.exec(select(UserDB).where(UserDB.email == email)).first()
+
+    def get_by_verification_token_hash(self, token_hash: str) -> Optional[UserDB]:
+        with Session(engine) as session:
+            return session.exec(
+                select(UserDB).where(UserDB.email_verification_token_hash == token_hash)
+            ).first()
+
+    def get_pending_approval(self):
+        with Session(engine) as session:
+            return session.exec(
+                select(UserDB).where(
+                    UserDB.email.is_not(None),
+                    UserDB.registration_requires_admin.is_(True),
+                    UserDB.admin_approved_at.is_(None),
+                )
+            ).all()
+
     def save(self, user: UserDB):
         with Session(engine) as session:
             session.add(user)

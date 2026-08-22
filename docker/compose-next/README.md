@@ -52,6 +52,54 @@ Die Dev-Varianten sind für Entwicklung ausgelegt:
   Hub- oder Worker-Container gelangen. Nur `project-workspaces` ist für
   delegierte Arbeitsartefakte schreibbar.
 
+### Development über eine öffentliche HTTPS-Domain
+
+Das additive Overlay `compose.dev-domain.yml` veröffentlicht ausschließlich
+Caddy öffentlich auf den Standardports 80 und 443. Port 80 leitet dauerhaft auf HTTPS um;
+Caddy bezieht und erneuert das öffentliche Zertifikat automatisch. Hub,
+Worker und Angular behalten ihre internen HTTP-Endpunkte und ihre bestehenden
+Live-Reload-Mechanismen, werden mit diesem Overlay aber nicht direkt auf
+Host-Ports veröffentlicht.
+
+Voraussetzungen:
+
+- `minipc.ananta.de` (oder der Wert von `ANANTA_DEV_DOMAIN`) zeigt per DNS auf
+  diesen Host.
+- Eingehendes TCP 80/443 und UDP 443 erreicht den Docker-Host. UDP 443 ist nur
+  für HTTP/3 nötig; HTTPS über TCP funktioniert auch ohne UDP-Freigabe.
+- Kein anderer Prozess belegt Host-Port 80 oder 443.
+
+Beispiel mit Ollama:
+
+```bash
+ANANTA_DEV_DOMAIN=minipc.ananta.de \
+INITIAL_ADMIN_PASSWORD=... POSTGRES_PASSWORD=... \
+docker compose --env-file .env \
+  -f docker/compose-next/compose.dev.ollama.yml \
+  -f docker/compose-next/compose.dev-domain.yml \
+  up -d --build
+```
+
+Für LM Studio wird lediglich `compose.dev.ollama.yml` durch
+`compose.dev.lmstudio.yml` ersetzt. Danach ist die Anwendung unter
+`https://minipc.ananta.de/` erreichbar. Der Edge unterscheidet
+Angular-Navigation und Development-Assets von Hub-API-Verkehr; Worker bleiben
+gemäß Hub–Worker-Architektur ausschließlich intern erreichbar.
+
+Für einen anderen Hostnamen werden `ANANTA_DEV_DOMAIN` und
+`HUB_REGISTRATION_PUBLIC_BASE_URL=https://<hostname>` in `.env` angepasst.
+Keycloak erhält denselben Ursprung beim Ausführen von `setup.sh` über
+`ANANTA_PUBLIC_BROWSER_ORIGIN=https://<hostname>`. DNS sowie die
+Portweiterleitungen 80/443 müssen ebenfalls auf den neuen Host zeigen.
+
+Die Hub-Selbstregistrierung wird mit `HUB_SELF_REGISTRATION_ENABLED=true`
+aktiviert. E-Mail-Verifikation ist dabei immer verpflichtend. Optional kann
+`HUB_SELF_REGISTRATION_REQUIRE_ADMIN_APPROVAL=true` als zweite, zusätzliche
+Freigabeschranke gesetzt werden. Für den Versand müssen
+`HUB_REGISTRATION_SMTP_HOST`, `HUB_REGISTRATION_SMTP_FROM` und gegebenenfalls
+SMTP-Benutzer/Passwort gesetzt sein; ohne funktionsfähigen Versand schlägt die
+Registrierung sicher fehl und hinterlässt kein halbfertiges Konto.
+
 ## WSL2-Docker-Daemon
 
 Unter aktuellem WSL2 soll genau das native, über `/etc/wsl.conf` aktivierte

@@ -165,6 +165,11 @@ def register_routes(auth_bp) -> None:
             log_audit("login_failed", {"username": username})
             return api_response(status="error", message="Invalid credentials", code=401)
 
+        if user.email and not user.email_verified_at:
+            return api_response(status="error", message="email_verification_required", code=403)
+        if user.email and user.registration_requires_admin and not user.admin_approved_at:
+            return api_response(status="error", message="admin_approval_required", code=403)
+
         canonical_username = local_user_tenant_id(user.username)
 
         if user.mfa_enabled:

@@ -40,6 +40,7 @@ _ensure_test_endpoint_enabled = _helpers._ensure_test_endpoint_enabled
 MFA_WARN_LAST = _helpers.MFA_WARN_LAST
 
 from agent.routes._auth_mfa_routes import register_routes as _register_mfa
+from agent.routes._auth_registration_routes import register_routes as _register_registration
 from agent.routes._auth_session_routes import register_routes as _register_session
 from agent.routes._auth_test_routes import register_routes as _register_test
 from agent.routes._auth_users_routes import register_routes as _register_users
@@ -48,6 +49,7 @@ auth_bp = Blueprint("auth", __name__)
 
 # Attach every sub-module's routes onto the shared blueprint.
 _register_session(auth_bp)
+_register_registration(auth_bp)
 _register_mfa(auth_bp)
 _register_users(auth_bp)
 _register_test(auth_bp)

@@ -21,6 +21,7 @@ KC_ADMIN="${KC_BOOTSTRAP_ADMIN_USERNAME:-${KEYCLOAK_ADMIN:-admin}}"
 KC_ADMIN_PASSWORD="${KC_BOOTSTRAP_ADMIN_PASSWORD:-${KEYCLOAK_ADMIN_PASSWORD:-}}"
 REALM="ananta"
 CLIENT_ID="ananta-tui"
+PUBLIC_BROWSER_ORIGIN="${ANANTA_PUBLIC_BROWSER_ORIGIN:-https://minipc.ananta.de}"
 
 KCADM="${KCADM:-/opt/keycloak/bin/kcadm.sh}"
 
@@ -63,7 +64,7 @@ else
     -s "loginWithEmailAllowed=true" \
     -s "duplicateEmailsAllowed=false" \
     -s "resetPasswordAllowed=true" \
-    -s "verifyEmail=false" \
+    -s "verifyEmail=true" \
     -s "rememberMe=true" \
     -s "bruteForceProtected=true" \
     -s "sslRequired=external" \
@@ -127,8 +128,8 @@ if [ -n "$EXISTING_CLIENT" ]; then
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
     -s "attributes.\"pkce.code.challenge.method\"=S256" \
-    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
-    -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]'
+    -s "redirectUris=[\"http://localhost:*\",\"http://127.0.0.1:*\",\"https://localhost/oidc-callback\",\"https://127.0.0.1/oidc-callback\",\"${PUBLIC_BROWSER_ORIGIN}/oidc-callback\",\"ananta://*\"]" \
+    -s "webOrigins=[\"http://localhost:4200\",\"http://127.0.0.1:4200\",\"https://localhost\",\"https://127.0.0.1\",\"${PUBLIC_BROWSER_ORIGIN}\"]"
 else
   echo "Erstelle Client '$CLIENT_ID'..."
   $KCADM create clients -r "$REALM" \
@@ -141,8 +142,8 @@ else
     -s "attributes.\"oauth2.device.authorization.grant.enabled\"=true" \
     -s "attributes.\"oauth2.device.polling.interval\"=5" \
     -s "attributes.\"pkce.code.challenge.method\"=S256" \
-    -s 'redirectUris=["http://localhost:*","http://127.0.0.1:*","https://localhost/oidc-callback","https://127.0.0.1/oidc-callback","ananta://*"]' \
-    -s 'webOrigins=["http://localhost:4200","http://127.0.0.1:4200","https://localhost","https://127.0.0.1"]' \
+    -s "redirectUris=[\"http://localhost:*\",\"http://127.0.0.1:*\",\"https://localhost/oidc-callback\",\"https://127.0.0.1/oidc-callback\",\"${PUBLIC_BROWSER_ORIGIN}/oidc-callback\",\"ananta://*\"]" \
+    -s "webOrigins=[\"http://localhost:4200\",\"http://127.0.0.1:4200\",\"https://localhost\",\"https://127.0.0.1\",\"${PUBLIC_BROWSER_ORIGIN}\"]" \
     -s "fullScopeAllowed=false"
   CLIENT_UUID="$(find_client_id)"
   if [ -z "$CLIENT_UUID" ]; then

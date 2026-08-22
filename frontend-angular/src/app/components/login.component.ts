@@ -3,6 +3,7 @@ import { Component, inject, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { ActivatedRoute, Router } from '@angular/router';
+import { RouterLink } from '@angular/router';
 import { Capacitor } from '@capacitor/core';
 import { firstValueFrom, timeout } from 'rxjs';
 import { UserAuthService } from '../services/user-auth.service';
@@ -21,7 +22,7 @@ import { NetworkProfileService } from '../services/network-profile.service';
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink],
 template: `
     <div class="login-container">
       <div class="card login-card">
@@ -149,6 +150,7 @@ template: `
               }
             }
             @if (!mfaRequired) {
+              <div class="forgot-password"><a routerLink="/register">Neues Hub-Konto anlegen</a></div>
               <div class="forgot-password">
                 <a
                   href="#"
