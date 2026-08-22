@@ -1,0 +1,403 @@
+{
+  "$schema": "../todo.schema.json",
+  "version": 1,
+  "created": "2026-08-22",
+  "updated": "2026-08-22",
+  "project": "ananta",
+  "owner": "Ananta maintainers",
+  "track": "agent_cognitive_style_role_profiles",
+  "status": "open",
+  "priority": "P1",
+  "review_basis": {
+    "reviewed_commit_range": "main",
+    "review_goal": "Agenten nicht nur nach Modell, Kosten und Fähigkeiten zu routen, sondern zusätzlich nach rollenbezogenen Arbeits- und Denkstilen. Als verständliche Heuristik dienen drei Dueck-inspirierte Dimensionen: richtig = regel-/prozess-/korrektheitsorientiert, wahr = explorativ-/sinn-/annahmenkritisch, natürlich = initiativ-/durchsetzungs-/konfrontationsbereit. Die Typen sind keine psychologische Wahrheit über Modelle, sondern messbare, konfigurierbare Verhaltensdimensionen für Agentenrollen.",
+    "reviewed_paths": [
+      "config/blueprints/standard/blueprints.json",
+      "docs/standard-blueprints.md",
+      "agent/services/ollama_benchmark_service.py",
+      "agent/services/planning_prompt_evolver_service.py",
+      "plugins/evolver_adapter/",
+      "todos/todo.schema.json"
+    ],
+    "design_conclusion": "Ananta soll keine Hersteller- oder Modellnamen dauerhaft einem Menschentyp zuordnen. Stattdessen werden beobachtbare Verhaltensdimensionen benchmark-basiert als Model/Agent Style Profile gespeichert und pro Rolle mit Zielprofilen abgeglichen. Prompts, Instructions, Modelle und Routing können gemeinsam genutzt werden, um gewünschte Mischprofile zu erreichen."
+  },
+  "purpose": "Unterschiedliche Agentenrollen profitieren von unterschiedlichen Arbeitsstilen. Ein Implementierer soll häufig zuverlässig, regelkonform und reproduzierbar arbeiten; Research-, Architektur- und Reviewer-Rollen sollen stärker Annahmen hinterfragen; Challenger-, Red-Team- oder Ideation-Rollen sollen mehr Initiative und Gegenpositionen einbringen. Ananta soll diese Unterschiede explizit modellieren, messen und beim Routing verwenden können.",
+  "goal": "Für jede Agentenrolle kann ein gewünschtes Cognitive/Behavior Style Profile definiert werden. Modelle und Agentenkonfigurationen erhalten empirisch gemessene Style Scores. Der Hub berücksichtigt diese Scores zusammen mit Capability, Kosten, Latenz, Sicherheit und Verfügbarkeit beim Routing. Evolver und Retrospektiven können später prüfen, ob ein Rollenprofil zu besseren Ergebnissen führt und kontrollierte Anpassungen vorschlagen.",
+  "non_goals": [
+    "Keine Behauptung, ein Modell sei objektiv ein 'richtiger', 'wahrer' oder 'natürlicher Mensch'.",
+    "Keine feste Zuordnung wie Gemini=wahr oder Grok=natürlich im Produktcode.",
+    "Keine Verwendung der Typologie als Ersatz für Capability-, Safety- oder Qualitätsbenchmarks.",
+    "Keine Erlaubnis für sicherheitskritische Eigenmächtigkeit durch hohe Initiative-Scores.",
+    "Keine Änderung von Hub-Sicherheitsinvarianten durch Style Profiles.",
+    "Keine Persönlichkeitsdiagnose menschlicher Nutzer oder Mitarbeiter."
+  ],
+  "style_dimensions": {
+    "rule_correctness": {
+      "label": "Richtig",
+      "description": "Regel-, Prozess-, Schema-, Qualitäts- und Reproduzierbarkeitsorientierung.",
+      "positive_examples": [
+        "hält Format- und Tool-Verträge zuverlässig ein",
+        "arbeitet Checklisten vollständig ab",
+        "vermeidet unnötige Abweichungen",
+        "liefert reproduzierbare Ergebnisse"
+      ],
+      "risks_at_high_values": [
+        "zu starres Befolgen schlechter Vorgaben",
+        "zu wenig Hinterfragen falscher Prämissen",
+        "lokale Optimierung statt Systemverständnis"
+      ]
+    },
+    "truth_exploration": {
+      "label": "Wahr",
+      "description": "Explorations-, Sinn-, Ursachen-, Evidenz- und Annahmenkritik-Orientierung.",
+      "positive_examples": [
+        "hinterfragt Prämissen",
+        "erzeugt Gegenhypothesen",
+        "sucht alternative Erklärungen",
+        "trennt Evidenz von Vermutung"
+      ],
+      "risks_at_high_values": [
+        "Overthinking",
+        "unnötige Exploration",
+        "zu geringe Abschlussorientierung"
+      ]
+    },
+    "initiative_assertiveness": {
+      "label": "Natürlich",
+      "description": "Initiative-, Eigenständigkeits-, Challenger- und Durchsetzungsorientierung innerhalb expliziter Rechte und Grenzen.",
+      "positive_examples": [
+        "spricht Probleme früh an",
+        "schlägt selbstständig Alternativen vor",
+        "widerspricht schwachen Lösungen",
+        "erkennt fehlende Folgearbeit"
+      ],
+      "risks_at_high_values": [
+        "unnötige Konfrontation",
+        "Scope Creep",
+        "zu viele eigeninitiierte Änderungen",
+        "Überschreiten fachlicher Zuständigkeiten ohne Gates"
+      ]
+    }
+  },
+  "categories": [
+    {
+      "name": "domain_model",
+      "label": "Style-Profil-Domänenmodell",
+      "items": [
+        {
+          "id": "ACS-001",
+          "title": "AgentStyleProfile Schema definieren",
+          "status": "open",
+          "priority": "P0",
+          "tasks": [
+            "Providerneutrales AgentStyleProfile mit rule_correctness, truth_exploration und initiative_assertiveness definieren.",
+            "Scores auf normierte Skala 0..1 festlegen.",
+            "Confidence, sample_count, benchmark_revision und measured_at speichern.",
+            "Quelle unterscheiden: measured, inferred, configured, temporary_override.",
+            "Zusätzliche zukünftige Dimensionen schema-kompatibel erlauben.",
+            "Style Profile klar von Capability Profile und Permission Profile trennen."
+          ],
+          "acceptance_criteria": [
+            "Ein Style Score verleiht niemals zusätzliche Rechte.",
+            "Jeder gemessene Score besitzt Benchmark- und Evidenzreferenz."
+          ]
+        },
+        {
+          "id": "ACS-002",
+          "title": "RoleStyleTarget Schema definieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["ACS-001"],
+          "tasks": [
+            "Pro Rolle Zielbereiche statt einzelner Idealwerte definieren.",
+            "Gewichtung je Dimension unterstützen.",
+            "Must-have, preferred und avoid_ranges unterscheiden.",
+            "Profile in Team- und Organization-Blueprints referenzierbar machen.",
+            "Projektbezogene Overrides erlauben, ohne Standardprofile zu mutieren."
+          ],
+          "acceptance_criteria": [
+            "Eine Rolle kann beispielsweise hohe Regelorientierung und mittlere Explorationsstärke gleichzeitig verlangen.",
+            "Profile sind keine exklusiven Typklassen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "benchmarking",
+      "label": "Empirische Style-Benchmarks",
+      "items": [
+        {
+          "id": "ACS-003",
+          "title": "Behavior Style Benchmark Suite erstellen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["ACS-001"],
+          "tasks": [
+            "Benchmarkaufgaben für Regelbefolgung, Prämissenkritik und Initiative definieren.",
+            "Mehrere semantisch äquivalente Varianten pro Testfall verwenden.",
+            "Prompt-Sensitivität getrennt messen.",
+            "Modelle mehrfach mit unterschiedlichen Seeds/Temperaturen testen.",
+            "Deterministische Kriterien soweit möglich serverseitig auswerten.",
+            "LLM-Judge nur ergänzend und mit unabhängiger Kalibrierung verwenden.",
+            "Safety-bedingte Verweigerung nicht fälschlich als geringe Initiative bewerten."
+          ],
+          "acceptance_criteria": [
+            "Scores entstehen aus mehreren Aufgaben und Wiederholungen.",
+            "Ein einzelnes auffälliges Chatbeispiel genügt nicht zur Modellklassifikation."
+          ]
+        },
+        {
+          "id": "ACS-004",
+          "title": "Provider- und Modellprofile automatisch aktualisieren",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-003"],
+          "tasks": [
+            "Style Benchmark an bestehende Model-Benchmark-Infrastruktur anbinden.",
+            "Scores nach Provider, Modellversion, Quantisierung und Runtime-Konfiguration trennen.",
+            "Version Drift erkennen und Rebenchmark auslösen.",
+            "Historische Profile erhalten.",
+            "Unsichere oder veraltete Scores im Routing abwerten."
+          ],
+          "acceptance_criteria": [
+            "Ein Modellupdate überschreibt nicht stillschweigend das alte Verhaltenprofil."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "role_profiles",
+      "label": "Rollenabhängige Zielprofile",
+      "items": [
+        {
+          "id": "ACS-005",
+          "title": "Standardrollen mit Style-Zielprofilen ausstatten",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["ACS-002"],
+          "tasks": [
+            "Developer/Implementer standardmäßig stärker rule_correctness-orientiert profilieren.",
+            "QA/Verifier mit hoher rule_correctness und erhöhter truth_exploration profilieren.",
+            "Research/Architecture/Reviewer stärker truth_exploration-orientiert profilieren.",
+            "Challenger/Red-Team mit hoher truth_exploration und initiative_assertiveness profilieren.",
+            "Product/Planning Rollen als balancierte Mischprofile definieren.",
+            "Scrum Master/Coordinator nicht automatisch maximal regelorientiert definieren, sondern Facilitation, Goal-Fokus und Anpassungsfähigkeit berücksichtigen.",
+            "Alle Defaults als konfigurierbare Startwerte dokumentieren."
+          ],
+          "acceptance_criteria": [
+            "Keine Rolle wird auf einen einzelnen Typ reduziert.",
+            "Jede Standardrolle besitzt nachvollziehbare Begründung für ihre Zielbereiche."
+          ]
+        },
+        {
+          "id": "ACS-006",
+          "title": "Team-Diversität statt Agenten-Monokultur berücksichtigen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-005"],
+          "tasks": [
+            "Team-weite Style-Verteilung berechnen.",
+            "Warnen, wenn alle Rollen nahezu identische Style-Profile besitzen.",
+            "Optional komplementäre Reviewer/Challenger bevorzugen.",
+            "Diversität nie gegen Capability oder Security erzwingen.",
+            "Mehrere ähnliche Agenten zulassen, wenn Aufgabe Determinismus erfordert."
+          ],
+          "acceptance_criteria": [
+            "Ananta kann anzeigen, ob ein Team stark regelorientiert, stark explorativ oder ausgewogen zusammengesetzt ist."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "routing",
+      "label": "Style-aware Routing",
+      "items": [
+        {
+          "id": "ACS-007",
+          "title": "Style Fit in Hub-Routing integrieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": ["ACS-004", "ACS-005"],
+          "tasks": [
+            "Style Fit als zusätzlichen Rankingfaktor nach harten Capability-/Permission-/Safety-Filtern berechnen.",
+            "Gewichtung projekt- und rollenbezogen konfigurieren.",
+            "Kosten, Latenz, Context Window, Tool-Fähigkeit und Verfügbarkeit weiterhin berücksichtigen.",
+            "Routingentscheidung inklusive Style-Beitrag auditierbar machen.",
+            "Fallback definieren, wenn kein Style Profile verfügbar ist."
+          ],
+          "acceptance_criteria": [
+            "Ein stilistisch passender Agent kann niemals fehlende Pflicht-Capabilities kompensieren.",
+            "Routing bleibt deterministisch erklärbar."
+          ]
+        },
+        {
+          "id": "ACS-008",
+          "title": "Prompt- und Instruction-Overlays zur Stilkalibrierung",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-002"],
+          "tasks": [
+            "Rollen-Overlays definieren, die gewünschte Dimensionen verstärken oder abschwächen.",
+            "Regelorientierung durch Checklisten/Definition-of-Done stärken.",
+            "Exploration durch Gegenhypothesen, Prämissenprüfung und Evidenzanforderungen stärken.",
+            "Initiative durch explizite Proposal-Rechte innerhalb bestehender Grenzen fördern.",
+            "Benchmark vor/nach Overlay vergleichen.",
+            "Prompt-Overlays dürfen Permission Layer nicht erweitern."
+          ],
+          "acceptance_criteria": [
+            "Dasselbe Basismodell kann durch unterschiedliche Rollen-Overlays messbar verschiedene Style-Profile zeigen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "learning_and_evolution",
+      "label": "Evolver und Continuous Improvement",
+      "items": [
+        {
+          "id": "ACS-009",
+          "title": "Style-Mismatch als Retrospektiven-Evidenz erfassen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-007"],
+          "tasks": [
+            "Rework, Overthinking, Regelverletzungen, fehlende Initiative und unnötige Scope-Ausweitung mit Style-Hypothesen korrelieren.",
+            "Korrelation nicht als Kausalität behandeln.",
+            "Retrospektive darf Style-Mismatch als Improvement-Hypothese vorschlagen.",
+            "Alternative Ursachen parallel erhalten."
+          ],
+          "acceptance_criteria": [
+            "Ein Agent wird nicht allein aufgrund eines Fehlers automatisch umklassifiziert."
+          ]
+        },
+        {
+          "id": "ACS-010",
+          "title": "Evolver darf Style- und Rollenänderungen vorschlagen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-009"],
+          "tasks": [
+            "EvolutionProposal-Typen für style_target, role_overlay und model_routing ergänzen.",
+            "Änderungen als Hypothese mit erwarteter Wirkung behandeln.",
+            "Review/Validation vor Apply verlangen.",
+            "Änderung auf nächsten Sprint oder Experiment binden können.",
+            "Wirkung über vorhandenen Continuous-Improvement-Loop messen.",
+            "Rollback bei Regression ermöglichen."
+          ],
+          "acceptance_criteria": [
+            "Style-Evolution nutzt denselben Proposal-/Review-/Apply-Lifecycle wie andere kontrollierte Verbesserungen."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ui_and_validation",
+      "label": "UI, Erklärbarkeit und Tests",
+      "items": [
+        {
+          "id": "ACS-011",
+          "title": "Style Profiles in Team- und Agenten-UI sichtbar machen",
+          "status": "open",
+          "priority": "P2",
+          "depends_on": ["ACS-001", "ACS-005"],
+          "tasks": [
+            "Drei Dimensionen als kontinuierliche Scores darstellen.",
+            "Keine vereinfachende Badge 'dieser Agent ist ein wahrer Typ' als alleinige Darstellung verwenden.",
+            "Confidence und Benchmarkalter anzeigen.",
+            "Role Target vs. Agent Profile vergleichen.",
+            "Routingbegründung anzeigen.",
+            "Hinweis aufnehmen, dass es sich um operative Heuristiken und nicht um psychologische Diagnosen handelt."
+          ],
+          "acceptance_criteria": [
+            "Nutzer können nachvollziehen, warum ein Agent für eine Rolle empfohlen wurde."
+          ]
+        },
+        {
+          "id": "ACS-012",
+          "title": "E2E-Szenario mit komplementären Agentenrollen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": ["ACS-003", "ACS-005", "ACS-007", "ACS-008"],
+          "scenario": [
+            "Ein Feature wird von einem stark regelorientierten Implementer umgesetzt.",
+            "Ein explorativer Reviewer hinterfragt Prämissen und entdeckt einen konzeptionellen Fehler.",
+            "Ein Challenger schlägt eine alternative Lösung vor, ohne direkte Orchestrierungsrechte zu erhalten.",
+            "Der Hub routet alle Schritte nach Capability, Permission und Style Fit.",
+            "Ein zweiter Lauf mit ungeeigneter homogener Rollenbesetzung dient als Vergleich.",
+            "Qualität, Rework, Kosten, Zeit und Gate-Ergebnisse werden verglichen."
+          ],
+          "acceptance_criteria": [
+            "Der Test zeigt messbar, ob Style-aware Routing gegenüber Capability-only Routing einen Mehrwert liefert.",
+            "Ein negatives Ergebnis darf die Hypothese falsifizieren und muss dokumentiert werden."
+          ]
+        }
+      ]
+    }
+  ],
+  "cross_cutting_requirements": {
+    "safety": [
+      "initiative_assertiveness verleiht niemals zusätzliche Tools, Credentials oder Rechte.",
+      "Hub-, Approval- und Security-Gates bleiben unabhängig vom Style Profile autoritativ.",
+      "Red-Team-/Challenger-Rollen bleiben auf erlaubte Scope- und Proposal-Kanäle beschränkt."
+    ],
+    "scientific_hygiene": [
+      "Dueck-Begriffe nur als intuitive Labels für technische Dimensionen verwenden.",
+      "Modellhersteller nicht aufgrund subjektiver Einzelbeobachtungen fest typisieren.",
+      "Alle Routingvorteile durch Benchmarks und kontrollierte Vergleiche falsifizierbar machen.",
+      "Modellversionen und Promptkonfigurationen getrennt betrachten."
+    ],
+    "observability": [
+      "agent_style_benchmarks_total",
+      "agent_style_routing_decisions_total",
+      "agent_style_mismatch_events_total",
+      "agent_style_evolution_proposals_total",
+      "agent_style_experiments_total"
+    ]
+  },
+  "recommended_implementation_order": [
+    "ACS-001",
+    "ACS-002",
+    "ACS-003",
+    "ACS-004",
+    "ACS-005",
+    "ACS-007",
+    "ACS-008",
+    "ACS-006",
+    "ACS-009",
+    "ACS-010",
+    "ACS-011",
+    "ACS-012"
+  ],
+  "definition_of_done": [
+    "Ananta besitzt providerneutrale, kontinuierliche AgentStyleProfiles.",
+    "Rollen können gewünschte Style-Zielbereiche definieren.",
+    "Style Scores werden empirisch statt anhand von Modellnamen vergeben.",
+    "Hub-Routing kann Style Fit als weichen Faktor berücksichtigen.",
+    "Rollen-Overlays können Verhalten messbar kalibrieren.",
+    "Teamzusammensetzung kann komplementäre Arbeitsstile berücksichtigen.",
+    "Retrospektive und Evolver können Style-Mismatch als überprüfbare Verbesserungshypothese behandeln.",
+    "Security- und Permission-Grenzen bleiben unabhängig vom Style unangetastet.",
+    "Ein E2E-Vergleich kann die Hypothese, dass Style-aware Routing bessere Ergebnisse liefert, bestätigen oder falsifizieren."
+  ],
+  "meta": {
+    "total_items": 12,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 12
+    },
+    "notes": [
+      "Die Begriffe Richtig/Wahr/Natürlich sind Dueck-inspirierte Merkhilfen; produktiv entscheidend sind die drei messbaren Dimensionen.",
+      "Subjektive Beobachtungen wie 'Modell X wirkt eher natürlich' dienen nur als Hypothesen für Benchmarks, nicht als Seed-Wahrheit.",
+      "Für Ananta ist besonders relevant, dass unterschiedliche Rollen unterschiedliche Mischprofile benötigen und nicht jeder Agent maximal regelkonform sein sollte."
+    ],
+    "recommended_order": [
+      "domain_model",
+      "benchmarking",
+      "role_profiles",
+      "routing",
+      "learning_and_evolution",
+      "ui_and_validation"
+    ]
+  }
+}
