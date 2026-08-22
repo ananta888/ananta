@@ -215,6 +215,7 @@ class OrganizationResearchAssignmentBindingService:
                     select(TaskDB).where(
                         TaskDB.assigned_agent_url == agent_url,
                         TaskDB.status.in_(_ACTIVE_TASK_STATUSES),
+                        TaskDB.id != authoritative.id,
                     )
                 ).all()
             )

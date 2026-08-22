@@ -52,6 +52,23 @@ class PlanningCategoryContractService:
         tool_run_catalog: list[Mapping[str, Any]] | None = None,
     ) -> dict[str, Any]:
         candidate = json.loads(json.dumps(dict(payload or {})))
+        if evidence_context is not None:
+            quality = self._quality_profile(candidate)
+            if quality:
+                # These values are Hub authority, not Worker-authored claims.
+                quality.update(
+                    {
+                        "source_catalog_id": evidence_context.source_catalog_id,
+                        "source_catalog_hash": evidence_context.source_catalog_hash,
+                        "allowed_source_refs": sorted(
+                            evidence_context.allowed_source_refs
+                        ),
+                        "allowed_run_refs": sorted(
+                            evidence_context.allowed_run_refs
+                        ),
+                    }
+                )
+                candidate["planning_quality_profile"] = quality
         issues = self._schema_issues(candidate)
         items = self._items(candidate)
         issues.extend(self._semantic_issues(candidate, items))

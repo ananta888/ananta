@@ -9,6 +9,7 @@ from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import get_result_memory_service
 from agent.services.execution_audit_service import get_execution_audit_service
 from agent.services.task_runtime_service import update_local_task_status
+from agent.services.task_state_machine_service import TERMINAL_TASK_STATUSES
 from agent.services.worker_job_service import get_worker_job_service
 from agent.services.task_execution_metrics import (
     build_control_layer_observability_snapshot as _build_control_layer_observability_snapshot,
@@ -19,7 +20,7 @@ from agent.services._task_execution_tracking_artifact_flow import (
     build_artifact_flow_read_model as _build_artifact_flow_read_model,
 )
 
-_TASK_TERMINAL_STATUSES = {"completed", "failed"}
+_TASK_TERMINAL_STATUSES = TERMINAL_TASK_STATUSES
 _JOB_ACTIVE_STATUSES = {"created", "delegated", "assigned", "in_progress", "running"}
 _JOB_TERMINAL_STATUSES = {"completed", "failed", "cancelled", "blocked"}
 

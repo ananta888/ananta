@@ -772,6 +772,30 @@ def subtask_callback(tid):
         except ValueError as exc:
             return api_response(status="error", message=str(exc), code=409)
     try:
+        if isinstance(capability, dict):
+            from agent.services.organization_category_research_callback_adapter import (
+                OrganizationCategoryResearchCallbackAdapter,
+                OrganizationCategoryResearchCallbackError,
+            )
+
+            try:
+                category_result = (
+                    OrganizationCategoryResearchCallbackAdapter().accept_if_applicable(
+                        source_task_id=tid,
+                        payload=payload,
+                        capability_claims=capability,
+                    )
+                )
+            except OrganizationCategoryResearchCallbackError as exc:
+                return api_response(
+                    status="error",
+                    message=exc.reason_code,
+                    data={"reason_code": exc.reason_code},
+                    code=409,
+                )
+            if category_result is not None:
+                return api_response(data=category_result)
+
         from agent.services.worker_result_callback_service import (
             WorkerResultCallbackError,
             WorkerResultCallbackService,

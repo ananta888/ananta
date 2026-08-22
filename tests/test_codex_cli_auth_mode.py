@@ -195,8 +195,6 @@ def test_run_codex_command_api_key_remote_requires_key():
 def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     """CCA-002 acceptance: chatgpt_login mode runs codex without
     OPENAI_API_KEY being set, even for a remote base_url."""
-    import subprocess as subprocess_module
-
     from agent.cli_backends import opencode as opencode_mod
     from agent.cli_backends import sgpt as sgpt_mod
 
@@ -229,11 +227,13 @@ def test_run_codex_command_chatgpt_login_skips_api_key_for_remote():
     # configured remote.
     assert env_passed.get("OPENAI_BASE_URL") == "https://api.openai.com/v1"
     assert env_passed.get("OPENAI_API_BASE") == "https://api.openai.com/v1"
-    assert call_kwargs.get("stdin") is subprocess_module.DEVNULL
+    assert "stdin" not in call_kwargs
+    assert call_kwargs.get("input") == "hi"
     command = mock_run.call_args.args[0]
+    assert 'openai_base_url="https://api.openai.com/v1"' in command
     assert "--model" not in command
     assert command[command.index("--sandbox") + 1] == "read-only"
-    assert command[-1] == "hi"
+    assert command[-1] == "-"
 
 
 def test_run_codex_command_chatgpt_login_local_works_without_any_key():
@@ -262,6 +262,7 @@ def test_run_codex_command_chatgpt_login_local_works_without_any_key():
     env_passed = mock_run.call_args.kwargs.get("env") or {}
     assert "OPENAI_API_KEY" not in env_passed
     assert env_passed.get("OPENAI_BASE_URL") == "http://localhost:8317/v1"
+    assert mock_run.call_args.kwargs.get("input") == "hi"
 
 
 # ---------------------------------------------------------------------------

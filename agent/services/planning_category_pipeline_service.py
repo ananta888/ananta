@@ -6,7 +6,15 @@ import time
 from collections.abc import Callable, Mapping
 from typing import Any
 
-from agent.db_models import PlanningArtifactRevisionDB, TaskDB, WorkerJobDB
+from sqlmodel import select
+
+from agent.db_models import (
+    PlanningArtifactRevisionDB,
+    TaskDB,
+    WorkerJobDB,
+    WorkerResultDB,
+    WorkerSlotLeaseDB,
+)
 from agent.services.planning_category_contract_service import (
     PlanningCategoryContractService,
     stable_planning_digest,
@@ -93,13 +101,36 @@ class PlanningCategoryPipelineService:
             artifact_hashes=runtime_artifact_hashes,
         )
 
+        resolved_tool_run_catalog = [
+            dict(row)
+            for row in list(tool_run_catalog or [])
+            if isinstance(row, Mapping)
+        ]
+        if require_authoritative_task and evidence_context.allowed_run_refs:
+            from agent.services.organization_category_run_evidence_service import (
+                OrganizationCategoryRunEvidenceService,
+            )
+
+            resolved_tool_run_catalog = (
+                OrganizationCategoryRunEvidenceService().build_catalog(
+                    task_id=task_id,
+                    assignment_id=assignment_id,
+                    dispatch_lease_id=dispatch_lease_id,
+                    worker_id=worker_id,
+                    raw_output=raw_output,
+                    raw_output_digest=str(raw_output_digest or ""),
+                    allowed_run_refs=evidence_context.allowed_run_refs,
+                    runtime_artifact_hashes=runtime_artifact_hashes,
+                )
+            )
+
         candidate, parse_issues = self._parse(raw_output)
         result = (
             self._contract.validate_and_recompute(
                 candidate,
                 evidence_context=evidence_context,
                 source_catalog=source_catalog,
-                tool_run_catalog=tool_run_catalog,
+                tool_run_catalog=resolved_tool_run_catalog,
             )
             if candidate is not None
             else {"valid": False, "promotable": False, "issues": parse_issues, "payload": {}}
@@ -122,7 +153,7 @@ class PlanningCategoryPipelineService:
                     repaired,
                     evidence_context=evidence_context,
                     source_catalog=source_catalog,
-                    tool_run_catalog=tool_run_catalog,
+                    tool_run_catalog=resolved_tool_run_catalog,
                 )
                 if repaired is not None
                 else {
@@ -149,6 +180,7 @@ class PlanningCategoryPipelineService:
             "artifact_hashes": dict(sorted(evidence_context.artifact_hashes.items())),
             "result_idempotency_key": str(result_idempotency_key or ""),
             "raw_output_digest": str(raw_output_digest or ""),
+            "tool_run_catalog": resolved_tool_run_catalog,
         }
         with planning_scope_lock(f"planning-category-revision:{artifact_id}"), self._uow_factory() as uow:
             assert uow.planning is not None
@@ -214,9 +246,22 @@ class PlanningCategoryPipelineService:
                     if prior is None:
                         raise ValueError("category_result_receipt_missing")
                     return self._revision_response(prior, replayed=True)
+                active_job = (
+                    str(authoritative_job.status or "") in {"delegated", "running"}
+                    and authoritative_job.finished_at is None
+                )
+                completed_result_recovery = (
+                    str(authoritative_job.status or "") == "completed"
+                    and authoritative_job.finished_at is not None
+                    and self._has_matching_completed_worker_result(
+                        uow.session,
+                        dispatch_lease_id=dispatch_lease_id,
+                        assignment_id=assignment_id,
+                        raw_output_digest=str(raw_output_digest or ""),
+                    )
+                )
                 if (
-                    str(authoritative_job.status or "") not in {"delegated", "running"}
-                    or authoritative_job.finished_at is not None
+                    (not active_job and not completed_result_recovery)
                     or str(authoritative_task.status or "") == "completed"
                 ):
                     raise ValueError("category_authoritative_task_lease_inactive")
@@ -269,6 +314,8 @@ class PlanningCategoryPipelineService:
                 worker_context["planning_research_binding"] = binding
                 authoritative_task.worker_execution_context = worker_context
                 authoritative_task.status = "completed"
+                authoritative_task.last_output = raw_output
+                authoritative_task.last_exit_code = 0
                 authoritative_task.updated_at = now
                 authoritative_task.history = [
                     *list(authoritative_task.history or []),
@@ -286,6 +333,58 @@ class PlanningCategoryPipelineService:
                 authoritative_job.status = "completed"
                 authoritative_job.finished_at = authoritative_job.finished_at or now
                 authoritative_job.updated_at = now
+                assignment_task = uow.session.get(TaskDB, assignment_id)
+                if assignment_task is not None:
+                    if (
+                        str(assignment_task.parent_task_id or "")
+                        != str(authoritative_task.id or "")
+                        or str(assignment_task.current_worker_job_id or "")
+                        != str(authoritative_job.id or "")
+                        or str(assignment_task.status or "")
+                        not in {
+                            "todo",
+                            "assigned",
+                            "in_progress",
+                            "blocked_by_dependency",
+                            "completed",
+                        }
+                    ):
+                        raise ValueError("category_assignment_task_binding_invalid")
+                    assignment_task.status = "completed"
+                    assignment_task.last_output = raw_output
+                    assignment_task.last_exit_code = 0
+                    assignment_task.updated_at = now
+                    assignment_task.history = [
+                        *list(assignment_task.history or []),
+                        {
+                            "timestamp": now,
+                            "status": "completed",
+                            "event_type": "organization_category_research_assignment_completed",
+                            "actor": "hub:organization_planning",
+                            "details": {
+                                "source_task_id": authoritative_task.id,
+                                "worker_job_id": authoritative_job.id,
+                                "artifact_revision_id": revision.id,
+                            },
+                        },
+                    ]
+                    uow.session.add(assignment_task)
+                if authoritative_job.slot_lease_id:
+                    slot_lease = uow.session.get(
+                        WorkerSlotLeaseDB,
+                        str(authoritative_job.slot_lease_id),
+                    )
+                    if slot_lease is None or (
+                        str(slot_lease.parent_task_id or "")
+                        not in {"", str(authoritative_task.id or "")}
+                        or str(slot_lease.worker_job_id or "")
+                        not in {"", str(authoritative_job.id or "")}
+                    ):
+                        raise ValueError("category_dispatch_slot_lease_invalid")
+                    if str(slot_lease.status or "") == "active":
+                        slot_lease.status = "released"
+                        slot_lease.released_at = now
+                        uow.session.add(slot_lease)
                 uow.session.add(authoritative_task)
                 uow.session.add(authoritative_job)
         return self._revision_response(revision, replayed=False)
@@ -315,7 +414,14 @@ class PlanningCategoryPipelineService:
             # Generic delegation currently preserves ``todo`` while binding
             # current_worker_job_id.  The exact WorkerJob checks below are the
             # authority boundary; status alone never admits a result.
-            or str(task.status or "") not in {"todo", "assigned", "in_progress", "completed"}
+            or str(task.status or "")
+            not in {
+                "todo",
+                "assigned",
+                "in_progress",
+                "blocked_by_dependency",
+                "completed",
+            }
             or str(task.current_worker_job_id or "") != dispatch_lease_id
             or job is None
             or str(job.parent_task_id or "") != task_id
@@ -324,6 +430,29 @@ class PlanningCategoryPipelineService:
         ):
             raise ValueError("category_authoritative_task_binding_invalid")
         return task, job
+
+    @staticmethod
+    def _has_matching_completed_worker_result(
+        session,
+        *,
+        dispatch_lease_id: str,
+        assignment_id: str,
+        raw_output_digest: str,
+    ) -> bool:
+        if len(raw_output_digest) != 64:
+            return False
+        rows = session.exec(
+            select(WorkerResultDB).where(
+                WorkerResultDB.worker_job_id == dispatch_lease_id,
+                WorkerResultDB.task_id == assignment_id,
+                WorkerResultDB.status == "completed",
+            )
+        ).all()
+        return any(
+            hashlib.sha256(str(row.output or "").encode("utf-8")).hexdigest()
+            == raw_output_digest
+            for row in rows
+        )
 
     @staticmethod
     def _revision_response(

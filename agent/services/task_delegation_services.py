@@ -252,6 +252,8 @@ class TaskDelegationPlanner:
             worker_runtime_decision=worker_runtime_decision,
         )
 
+    PLANNING_RESEARCH_CALLBACK_TTL_SECONDS = 3600
+
     @staticmethod
     def _preferred_backend(effective_task_kind: str | None, goal_id: str | None = None) -> str | None:
         scoped = get_goal_config_runtime_service().get_effective_config(goal_id=goal_id, task_id=None)
@@ -784,11 +786,18 @@ class WorkerExecutionContextFactory:
         dispatch_lease_id = str(
             dict(worker_execution_context.get("task_proposal_binding") or {}).get("dispatch_lease_id") or ""
         )
+        callback_capability_kwargs = {
+            "worker_id": plan.agent_url,
+            "source_task_id": task_id,
+            "assignment_id": subtask_id,
+            "dispatch_lease_id": dispatch_lease_id,
+        }
+        if plan.effective_task_kind == "planning_research":
+            callback_capability_kwargs["ttl_seconds"] = (
+                TaskDelegationPlanner.PLANNING_RESEARCH_CALLBACK_TTL_SECONDS
+            )
         callback_capability = WorkerResultCapabilityService().issue(
-            worker_id=plan.agent_url,
-            source_task_id=task_id,
-            assignment_id=subtask_id,
-            dispatch_lease_id=dispatch_lease_id,
+            **callback_capability_kwargs,
         )
         return {
             "id": subtask_id,

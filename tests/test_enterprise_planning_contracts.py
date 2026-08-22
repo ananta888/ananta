@@ -115,7 +115,49 @@ def test_category_contract_recomputes_caches_and_fails_closed_without_grounding(
     assert result["promotable"] is False
     assert result["payload"]["meta"]["total_items"] == 1
     assert result["payload"]["meta"]["recommended_order"] == ["ITEM-1"]
-    assert result["grounding"]["reason"] == "category_claims_unverified"
+    assert result["grounding"]["reason"] == "invalid_grounded_answer_schema"
+
+
+def test_category_contract_replaces_worker_binding_with_hub_authority() -> None:
+    payload, context, catalog = _category_fixture()
+    payload["planning_quality_profile"].update(
+        {
+            "source_catalog_id": "worker-catalog",
+            "source_catalog_hash": "f" * 64,
+            "allowed_source_refs": ["SRC_9999"],
+            "allowed_run_refs": ["RUN_9999"],
+        }
+    )
+    authoritative = AssignmentEvidenceContext(
+        task_id=context.task_id,
+        assignment_id=context.assignment_id,
+        dispatch_lease_id=context.dispatch_lease_id,
+        tenant_id=context.tenant_id,
+        scope=context.scope,
+        source_catalog_id="catalog-authoritative",
+        source_catalog_hash="b" * 64,
+        allowed_source_refs=frozenset({"SRC_0001"}),
+        allowed_run_refs=frozenset({"RUN_0001"}),
+        artifact_hashes={},
+    )
+    catalog = {
+        "source_catalog_id": "catalog-authoritative",
+        "source_catalog_hash": "b" * 64,
+        "sources": [],
+    }
+
+    result = PlanningCategoryContractService().validate_and_recompute(
+        payload,
+        evidence_context=authoritative,
+        source_catalog=catalog,
+        tool_run_catalog=[],
+    )
+
+    quality = result["payload"]["planning_quality_profile"]
+    assert quality["source_catalog_id"] == "catalog-authoritative"
+    assert quality["source_catalog_hash"] == "b" * 64
+    assert quality["allowed_source_refs"] == ["SRC_0001"]
+    assert quality["allowed_run_refs"] == ["RUN_0001"]
 
 
 def _proposal_policy() -> dict:

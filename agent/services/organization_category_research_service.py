@@ -56,7 +56,9 @@ _PROMPT_PATH = _ROOT / "prompts" / "planning" / "category_research_planning.j2"
 # while attaching the authoritative WorkerJob lease.  ``todo`` is therefore
 # an admissible callback state only together with the exact current-job,
 # assignment and Worker checks below; it is not sufficient on its own.
-_ACTIVE_RESULT_TASK_STATES = frozenset({"todo", "assigned", "in_progress", "completed"})
+_ACTIVE_RESULT_TASK_STATES = frozenset(
+    {"todo", "assigned", "in_progress", "blocked_by_dependency", "completed"}
+)
 
 
 class OrganizationCategoryResearchService:
@@ -109,7 +111,11 @@ class OrganizationCategoryResearchService:
         )
         source_ids = sorted(row.source_id for row in resolved.source_refs)
         source_refs = [value for value in source_ids if value.startswith("SRC_")]
-        run_refs = [value for value in source_ids if value.startswith("RUN_")]
+        from agent.services.organization_category_run_evidence_service import (
+            OrganizationCategoryRunEvidenceService,
+        )
+
+        run_refs = OrganizationCategoryRunEvidenceService.reserved_refs()
         prompt_hash = hashlib.sha256(_PROMPT_PATH.read_bytes()).hexdigest()
         destination_policy = category_research_destination_policy()
         request_binding = {

@@ -573,7 +573,15 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
     if codex_resolved is None:
         return -1, "", (f"Codex binary '{codex_bin}' not found. Install with: npm i -g @openai/codex")
 
-    args = [codex_resolved, "exec", "--skip-git-repo-check"]
+    args = [
+        codex_resolved,
+        "exec",
+        "--skip-git-repo-check",
+        "--disable",
+        "multi_agent",
+        "-c",
+        'web_search="disabled"',
+    ]
 
     with _acquire_backend_permit("codex", timeout=timeout) as ticket:
         if not ticket.acquired:
@@ -585,6 +593,30 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         diagnostics = list(runtime_cfg.get("diagnostics") or [])
         # CCA-002: chatgpt_login mode skips the api_key requirement.
         auth_mode = str(runtime_cfg.get("auth_mode") or "api_key").strip().lower()
+        target_provider = str(runtime_cfg.get("target_provider") or "").strip().lower()
+        if target_provider == "lmstudio" and bool(runtime_cfg.get("is_local")):
+            args.extend(["--oss", "--local-provider", "lmstudio"])
+            env["CODEX_OSS_BASE_URL"] = base_url
+        elif auth_mode == "chatgpt_login":
+            args.extend(["-c", f"openai_base_url={json.dumps(base_url)}"])
+        else:
+            provider_id = "ananta_openai_compatible"
+            args.extend(
+                [
+                    "-c",
+                    f'model_provider="{provider_id}"',
+                    "-c",
+                    f'model_providers.{provider_id}.name="Ananta OpenAI-compatible"',
+                    "-c",
+                    f"model_providers.{provider_id}.base_url={json.dumps(base_url)}",
+                    "-c",
+                    f'model_providers.{provider_id}.env_key="OPENAI_API_KEY"',
+                    "-c",
+                    f'model_providers.{provider_id}.wire_api="responses"',
+                    "-c",
+                    f"model_providers.{provider_id}.supports_websockets=false",
+                ]
+            )
         selected_model = (
             model
             if auth_mode == "chatgpt_login"
@@ -593,7 +625,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
         if selected_model:
             args.extend(["--model", selected_model])
         args.extend(["--sandbox", str(runtime_cfg["sandbox_mode"])])
-        args.append(prompt)
+        args.append("-")
         if not base_url:
             return -1, "", "Codex runtime target is not configured: missing OpenAI-compatible base_url"
         if not api_key and not bool(runtime_cfg.get("is_local")) and auth_mode != "chatgpt_login":
@@ -615,7 +647,7 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
             log.info(f"Zentraler Codex-Aufruf: {args}")
             result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
                 args,
-                stdin=subprocess.DEVNULL,
+                input=prompt,
                 capture_output=True,
                 text=True,
                 encoding="utf-8",

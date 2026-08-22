@@ -510,6 +510,7 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         assert task.context_bundle_id == worker_context["context_bundle_id"]
         assert worker_context["llm_scope"] == "local_only"
         assert research_binding["catalog_task_id"] == "catalog-task-1"
+        assert research_binding["allowed_run_refs"] == ["RUN_0001"]
         assert research_binding["llm_scope"] == "local_only"
         assert research_binding["context_bundle_id"] == task.context_bundle_id
         assert research_binding["context_bundle_digest"] == source_policy[
@@ -533,6 +534,13 @@ def test_start_persists_authoritative_context_and_destination_policy(engine) -> 
         assert organization_routing["assignment_binding_digest"] == (
             assignment_binding["binding_digest"]
         )
+        agent = session.get(AgentInfoDB, "http://worker.test")
+        assert agent is not None
+        agent.execution_limits = {"max_concurrent_tasks": 1}
+        task.status = "assigned"
+        session.add(agent)
+        session.add(task)
+        session.flush()
         task_payload = task.model_dump()
         session.add(
             WorkerJobDB(

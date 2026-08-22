@@ -221,8 +221,10 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     from agent.adapters.vector_store_metrics_adapter import (
         PrometheusVectorStoreObserver,
     )
+    from agent.cli_backends.sgpt import run_llm_cli_command
     from worker.core.model_provider import build_model_provider
     from worker.mail_task_execution import build_mail_task_handler
+    from worker.planning import OrganizationCategoryResearchTaskHandler
     from worker.retrieval.vector_index_execution import (
         ConfiguredVectorIndexExecution,
     )
@@ -241,6 +243,40 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         VisualProcessAssistantInferenceHandler,
         VisualProcessAssistantRetrievalHandler,
     )
+
+    planning_research_capabilities = [
+        "analysis",
+        "planning",
+        "research",
+        "source_analysis",
+        "structured_output",
+    ]
+    register_task_handler(
+        "planning_research",
+        OrganizationCategoryResearchTaskHandler(
+            cli_runner=run_llm_cli_command,
+            agent_config=dict(app.config.get("AGENT_CONFIG") or {}),
+        ),
+        app=app,
+        capabilities=planning_research_capabilities,
+        safety_flags={
+            "requires_review": False,
+            "worker_only": True,
+            "hub_delegation_required": True,
+            "worker_orchestration_forbidden": True,
+            "peer_network_forbidden": True,
+            "mutation_forbidden": True,
+            "source_catalog_binding_required": True,
+        },
+        verification_hooks=[
+            "todo_schema",
+            "category_todo_quality_profile_v1",
+            "source_catalog_binding",
+            "assignment_reference_allowlist",
+            "context_bundle_integrity",
+        ],
+    )
+    _advertise_worker_capabilities(app, planning_research_capabilities)
 
     knowledge_index_registered = False
     try:
@@ -438,6 +474,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         verification_hooks=["help_response_v1", "workflow_patch_v1", "source_ref_v2"],
     )
     registered = [
+        "planning_research",
         *(
             ["codecompass_index_build"]
             if knowledge_index_registered

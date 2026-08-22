@@ -3,6 +3,7 @@ from agent.services.task_state_machine_service import (
     build_task_status_contract,
     can_autopilot_dispatch,
     can_transition,
+    can_transition_to,
     resolve_next_status,
 )
 
@@ -30,3 +31,22 @@ def test_state_machine_helpers_honor_assignment_and_manual_override():
     assert reason == ""
     assert resolve_next_status("retry", "failed", assigned_agent_url="http://worker") == "assigned"
     assert can_autopilot_dispatch("todo", manual_override_active=True) is False
+
+
+def test_assignment_promoted_targets_are_persistable():
+    for action, current_status in (
+        ("resume", "paused"),
+        ("retry", "failed"),
+        ("retry", "cancelled"),
+        ("retry", "verification_failed"),
+        ("approve", "waiting_for_review"),
+        ("resolve_dependency", "blocked_by_dependency"),
+    ):
+        target = resolve_next_status(
+            action,
+            current_status,
+            assigned_agent_url="http://worker",
+        )
+
+        assert target == "assigned"
+        assert can_transition_to(current_status, target) == (True, "")

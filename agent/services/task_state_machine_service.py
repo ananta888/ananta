@@ -65,6 +65,15 @@ _ACTION_TRANSITIONS = {
     "resolve_dependency": {"from": {TaskStatus.BLOCKED_BY_DEPENDENCY.value}, "to": TaskStatus.TODO.value},
 }
 
+_ASSIGNMENT_PROMOTION_ACTIONS = frozenset(
+    {"resume", "retry", "approve", "resolve_dependency"}
+)
+_ASSIGNMENT_PROMOTION_FROM_STATUSES = frozenset(
+    status
+    for action in _ASSIGNMENT_PROMOTION_ACTIONS
+    for status in _ACTION_TRANSITIONS[action]["from"]
+)
+
 
 def can_transition(action: str, current_status: str | None) -> tuple[bool, str]:
     current = normalize_task_status(current_status, default="")
@@ -111,7 +120,7 @@ def can_transition_to(current_status: str | None, next_status: str | None) -> tu
             TaskStatus.ASSIGNED.value,
             TaskStatus.PROPOSING.value,
             TaskStatus.UPDATED.value,
-        }:
+        } | _ASSIGNMENT_PROMOTION_FROM_STATUSES:
             return True, ""
 
     # Spezialfall: Abschluss/Fehler (Großzügiger für Legacy/Tests)
@@ -171,7 +180,7 @@ def resolve_next_status(action: str, current_status: str | None, assigned_agent_
     ok, _ = can_transition(action, current)
     if not ok:
         return current
-    if action in {"resume", "retry", "approve", "resolve_dependency"} and assigned_agent_url:
+    if action in _ASSIGNMENT_PROMOTION_ACTIONS and assigned_agent_url:
         return TaskStatus.ASSIGNED.value
     return str(_ACTION_TRANSITIONS[action]["to"])
 

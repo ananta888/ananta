@@ -46,7 +46,15 @@ def test_run_codex_command_injects_lmstudio_openai_compatible_env():
     assert err == ""
     args = mock_run.call_args[0][0]
     assert args[:3] == [r"C:\tools\codex.cmd", "exec", "--skip-git-repo-check"]
+    assert args[args.index("--disable") + 1] == "multi_agent"
+    assert 'web_search="disabled"' in args
+    assert args[args.index("--local-provider") + 1] == "lmstudio"
+    assert "--oss" in args
+    assert args[-1] == "-"
+    assert mock_run.call_args[1]["input"] == "analyze repository"
+    assert "stdin" not in mock_run.call_args[1]
     env = mock_run.call_args[1]["env"]
+    assert env["CODEX_OSS_BASE_URL"] == "http://127.0.0.1:1234/v1"
     assert env["OPENAI_BASE_URL"] == "http://127.0.0.1:1234/v1"
     assert env["OPENAI_API_BASE"] == "http://127.0.0.1:1234/v1"
     assert env["OPENAI_API_KEY"] == "sk-no-key-needed"
@@ -89,6 +97,14 @@ def test_run_codex_command_prefers_explicit_codex_cli_runtime_from_agent_config(
     assert rc == 0
     assert out == "ok"
     assert err == ""
+    args = mock_run.call_args[0][0]
+    assert 'model_provider="ananta_openai_compatible"' in args
+    assert (
+        'model_providers.ananta_openai_compatible.base_url="http://192.168.1.10:1234/v1"'
+        in args
+    )
+    assert args[-1] == "-"
+    assert mock_run.call_args[1]["input"] == "review repository"
     env = mock_run.call_args[1]["env"]
     assert env["OPENAI_BASE_URL"] == "http://192.168.1.10:1234/v1"
     assert env["OPENAI_API_BASE"] == "http://192.168.1.10:1234/v1"
