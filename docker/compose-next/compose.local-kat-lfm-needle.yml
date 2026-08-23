@@ -8,6 +8,7 @@ services:
       ANANTA_NEEDLE_TOKEN: ${ANANTA_NEEDLE_TOKEN:?set ANANTA_NEEDLE_TOKEN}
       ANANTA_TINY_ROUTER_MODE: shadow
       ANANTA_TINY_ROUTER_PROFILES: needle-2-45m,lfm2.5-2.6b-agentic
+      ANANTA_AI_SNAKE_PROFILE_ROUTING: "true"
 
   ai-agent-alpha:
     environment: *local_model_environment

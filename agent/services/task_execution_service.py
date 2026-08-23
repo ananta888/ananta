@@ -164,6 +164,19 @@ class TaskExecutionService:
         if direct_response is not None:
             return direct_response
 
+        if str(request_data.provider or "").strip().lower() == "ananta_profile":
+            from agent.services.profile_routed_step_proposal_service import (
+                get_profile_routed_step_proposal_service,
+            )
+
+            task_kind = str(request_data.routing_task_kind or "classification").strip().lower()
+            raw = get_profile_routed_step_proposal_service().propose(
+                prompt,
+                task_kind=task_kind,
+                agent_config=agent_cfg,
+            )
+            return TaskStepProposeResponse(**build_proposal_payload(raw)).model_dump()
+
         if request_data.providers:
             results: dict[str, dict] = {}
 

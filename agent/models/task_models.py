@@ -15,6 +15,7 @@ class TaskStepProposeRequest(SQLModel):
     provider: Optional[str] = None
     providers: Optional[List[str]] = None
     model: Optional[str] = None
+    routing_task_kind: Optional[str] = None
     temperature: Optional[float] = None
     strategy_mode: Optional[str] = None
     task_id: Optional[str] = None

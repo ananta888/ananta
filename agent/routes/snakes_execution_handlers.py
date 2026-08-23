@@ -596,24 +596,48 @@ def _spawn_ai_chat_reply(
                           },
                           input_preview=grounded_prompt)
 
-            answer = generate_text(
-                prompt=_with_answer_budget_instruction(
-                    grounded_prompt,
-                    _answer_chars_limit,
-                    policy=_answer_overflow_policy(),
-                ),
-                provider=provider,
-                model=model,
-                base_url=api_base,
-                history=[{"role": "system", "content": _effective_system_prompt}, *conversation_history],
-                timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+            budgeted_prompt = _with_answer_budget_instruction(
+                grounded_prompt,
+                _answer_chars_limit,
+                policy=_answer_overflow_policy(),
             )
+            delegated_context = "\n".join(
+                f"[{str(item.get('role') or 'context')}]: {str(item.get('content') or '')}"
+                for item in conversation_history
+                if isinstance(item, dict) and str(item.get("content") or "").strip()
+            )
+            delegated_prompt = (
+                f"[system]: {_effective_system_prompt}\n"
+                + (f"{delegated_context}\n" if delegated_context else "")
+                + f"[user]: {budgeted_prompt}"
+            )
+            answer, delegated_trace = _worker_propose(
+                delegated_prompt,
+                None,
+                provider=provider,
+                limits=SnakeAskLimits(
+                    answer_chars=_answer_chars_limit,
+                    answer_overflow_policy=_answer_overflow_policy(),
+                    never_truncate_answers=_chat_never_truncate_answers(),
+                ),
+                worker_picker=_pick_worker_for_ask,
+            )
+            if not answer:
+                answer = generate_text(
+                    prompt=budgeted_prompt,
+                    provider=provider,
+                    model=model,
+                    base_url=api_base,
+                    history=[{"role": "system", "content": _effective_system_prompt}, *conversation_history],
+                    timeout=min(int(getattr(settings, "http_timeout", 120) or 120), 180),
+                )
 
             llm_ms = (time.time() - llm_start) * 1000
             if rec:
                 rec.event("llm_call_completed", "LLM-Aufruf abgeschlossen", status="completed",
                           duration_ms=llm_ms,
                           summary=f"{len(str(answer or ''))} Zeichen Antwort in {round(llm_ms / 1000, 1)}s",
+                          details={"delegated_routing": delegated_trace},
                           output_preview=str(answer or ""))
 
             text = str(answer or "").strip()
@@ -1377,6 +1401,7 @@ def snake_ask():
         provider=provider,
         limits=limits,
         retrieval_profile_trace=rag_trace.get("retrieval_profile") if isinstance(rag_trace.get("retrieval_profile"), dict) else None,
+        allow_profile_routing=request_model is None,
         worker_picker=_pick_worker_for_ask,
         model_resolver=_resolve_lmstudio_model_for_worker,
     )

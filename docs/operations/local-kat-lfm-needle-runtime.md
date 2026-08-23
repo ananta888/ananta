@@ -41,6 +41,15 @@ Containers address `host.docker.internal`; no container treats its own
 `127.0.0.1` as the host runtime. LFM, KAT and Needle require bearer auth, and
 Colibrì additionally restricts the accepted Host header.
 
+With `ANANTA_AI_SNAKE_PROFILE_ROUTING=true`, `/snake/ask` and ordinary Snake
+room replies delegate inference to a Worker through the existing
+`/step/propose` boundary. The Hub classifies lightweight explanation/intent as
+`classification` (LFM) and code, debugging or repository questions as the
+corresponding heavy task kind (KAT). Before the main-model call, the Worker
+records a Needle decision only when Tiny Router mode is `shadow`; that
+candidate has no execution path. An explicit `model` in a `/snake/ask` request
+retains the legacy override behavior for API compatibility.
+
 ## Start, inspect and recover
 
 ```bash

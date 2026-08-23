@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import secrets
 from typing import Any
 
@@ -11,6 +12,32 @@ from flask import request
 from agent.config import settings
 
 from .snakes_chat_helpers import SnakeAskLimits, _fit_answer_to_chars
+
+
+_HEAVY_SNAKE_TERMS = frozenset(
+    {
+        "architecture", "architektur", "bug", "code", "coding", "debug",
+        "datei", "file", "funktion", "implement", "klasse", "migration",
+        "repo", "repository", "refactor", "stacktrace", "test",
+    }
+)
+
+
+def resolve_snake_routing_task_kind(prompt: str) -> str:
+    """Hub-owned, deterministic classification for delegated Snake inference."""
+    normalized = str(prompt or "").lower()
+    tokens = {token.strip(".,:;!?()[]{}\"'") for token in normalized.split()}
+    if tokens & _HEAVY_SNAKE_TERMS:
+        if tokens & {"bug", "debug", "stacktrace"}:
+            return "debugging"
+        return "repo_analysis"
+    return "classification"
+
+
+def snake_profile_routing_enabled() -> bool:
+    return str(os.environ.get("ANANTA_AI_SNAKE_PROFILE_ROUTING") or "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }
 
 
 def _get_snakes() -> dict:
@@ -89,6 +116,7 @@ def _worker_propose(
     provider: str = "lmstudio",
     limits: SnakeAskLimits | None = None,
     retrieval_profile_trace: dict[str, Any] | None = None,
+    allow_profile_routing: bool = True,
     worker_picker: Any = None,
     model_resolver: Any = None,
 ) -> tuple[str, dict[str, Any]]:
@@ -103,7 +131,12 @@ def _worker_propose(
         trace["error"] = "no_online_worker"
         return "", trace
 
-    resolved_model = (model_resolver or _resolve_lmstudio_model_for_worker)(model)
+    use_profile_routing = snake_profile_routing_enabled() and allow_profile_routing
+    resolved_model = (
+        None
+        if use_profile_routing
+        else (model_resolver or _resolve_lmstudio_model_for_worker)(model)
+    )
     trace["model_requested"] = model
     trace["model_resolved"] = resolved_model
     payload: dict[str, Any] = {
@@ -115,7 +148,12 @@ def _worker_propose(
         "answer_overflow_policy": effective_limits.answer_overflow_policy,
         "never_truncate_answers": effective_limits.never_truncate_answers,
     }
-    if resolved_model:
+    if use_profile_routing:
+        payload["provider"] = "ananta_profile"
+        payload["routing_task_kind"] = resolve_snake_routing_task_kind(grounded_prompt)
+        trace["routing_task_kind"] = payload["routing_task_kind"]
+        trace["routing_source"] = "hub_snake_profile_policy"
+    elif resolved_model:
         payload["model"] = resolved_model
     if effective_limits.max_tokens is not None:
         payload["max_tokens"] = effective_limits.max_tokens
