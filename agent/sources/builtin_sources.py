@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 def load_builtin_source_descriptors() -> list[dict[str, Any]]:
     descriptors: list[dict[str, Any]] = []
     for path in (
+        ROOT / "sources" / "ananta" / "ananta-project.source_descriptor.json",
         ROOT / "sources" / "eclipse" / "eclipse-platform.source_descriptor.json",
         ROOT / "sources" / "eclipse" / "eclipse-jdt-core.source_descriptor.json",
         ROOT / "sources" / "eclipse" / "eclipse-pde.source_descriptor.json",

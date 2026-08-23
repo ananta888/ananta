@@ -433,6 +433,17 @@ def worker_chat_rag_iterative(
                 + ("\n[... abgeschnitten nach {:,} Zeichen ...]\n".format(_catalog_max_chars) if _truncated else "\n")
             )
 
+        from agent.services.snake_codecompass_architecture_context_service import (
+            get_snake_codecompass_architecture_context_service,
+        )
+
+        _architecture_section, _architecture_trace = (
+            get_snake_codecompass_architecture_context_service().build(
+                retrieval_question,
+                max_chars=min(8000, max(3000, _catalog_max_chars // 2)),
+            )
+        )
+
         _context_budget_chars = max_input_tokens * 4
         _history_chars = sum(len(str(m.get("content") or "")) for m in llm_history)
         _reserved_chars = (
@@ -440,6 +451,7 @@ def worker_chat_rag_iterative(
             + len(question)
             + len(budget_instruction)
             + len(_catalog_section)
+            + len(_architecture_section)
             + 6000  # file list, instructions, message framing
             + max(4000, int(_context_budget_chars * 0.10))
         )
@@ -500,6 +512,7 @@ def worker_chat_rag_iterative(
             + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
             + _catalog_section
             + "\n"
+            + (_architecture_section + "\n\n" if _architecture_section else "")
             + (_symbol_context_section + "\n\n" if _symbol_context_section else "")
             + (_packed_files_section + "\n\n" if _packed_files_section else "")
             + _file_list_section
@@ -544,6 +557,7 @@ def worker_chat_rag_iterative(
                     "initial_context_reserved_chars": _context_pack.reserved_chars,
                     "catalog_chars": len(_catalog_section),
                     "catalog_loaded": _catalog_path.exists(),
+                    "architecture_context": _architecture_trace,
                     "max_tool_calls": max_tool_calls,
                     "model": model,
                     "provider": provider,
@@ -609,6 +623,7 @@ def worker_chat_rag_iterative(
         trace["initial_context_file_budget_chars"] = _context_pack.file_budget_chars
         trace["initial_context_used_file_chars"] = _context_pack.used_file_chars
         trace["catalog_chars"] = len(_catalog_section)
+        trace["architecture_context"] = _architecture_trace
         if rec:
             rec.event(
                 "rag_iterative_tool_loop_done",

@@ -1,0 +1,40 @@
+{
+  "schema": "source_descriptor.v1",
+  "source_id": "ananta-project",
+  "source_type": "local_dump",
+  "display_name": "Ananta Local Project Repository",
+  "enabled": true,
+  "trust_level": "local_project_workspace",
+  "fetch_source": {
+    "url": "file:///app",
+    "method": "GET",
+    "refresh_interval": "manual",
+    "cache_policy": "immutable_content_snapshot",
+    "expected_format": "codecompass.repository-records.v1"
+  },
+  "citation_source": {
+    "canonical_url": "https://github.com/ananta888/ananta",
+    "title": "Ananta local project repository",
+    "publisher": "Ananta project",
+    "version_label": "git-revision",
+    "retrieved_at": "2026-08-23T00:00:00Z",
+    "license_ref": "repository-license",
+    "citation_text": "Local Ananta repository snapshot indexed by the Hub-controlled CodeCompass pipeline."
+  },
+  "license": {
+    "name": "repository-license",
+    "ref": "LICENSE"
+  },
+  "snapshot_policy": {
+    "immutable": true,
+    "dedupe_by_hash": true
+  },
+  "retention_policy": {
+    "keep_latest": 5
+  },
+  "extensions": {
+    "source_system": "ananta_repository",
+    "index_profile": "deep_code",
+    "architecture_context": true
+  }
+}
