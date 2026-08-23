@@ -449,6 +449,9 @@ class HybridOrchestrator:
             estimate_tokens=self.context_manager.estimate_tokens,
             retrieval_diagnostics=self._retrieval_diagnostics(),
         )
+        ranking_trace = getattr(self.repository_engine, "ranking_trace", None)
+        if callable(ranking_trace):
+            result["source_ranking"] = ranking_trace()
         if scope_active:
             from agent.codecompass.domain_scope_filter import (
                 build_no_match_guidance,

@@ -116,3 +116,30 @@ def test_repository_map_shadow_does_not_change_active_selection(monkeypatch) -> 
     assert [item.source for item in selected] == trace["shadow"]["universal_paths"]
     assert trace["strategy"] == "shadow"
     assert trace["shadow"]["comparison_digest"]
+
+
+def test_repository_map_uses_evidenced_import_graph_features(tmp_path) -> None:
+    package = tmp_path / "src" / "payments"
+    package.mkdir(parents=True)
+    (package / "routes.py").write_text(
+        "from src.payments.service import PaymentService\n"
+        "def register_payment_route(): pass\n",
+        encoding="utf-8",
+    )
+    (package / "service.py").write_text(
+        "class PaymentService: pass\n",
+        encoding="utf-8",
+    )
+
+    from agent.repository_map_engine import RepositoryMapEngine
+
+    engine = RepositoryMapEngine(tmp_path)
+    engine.search("payment route architecture", top_k=2)
+    trace = engine.ranking_trace()
+
+    assert trace["graph_feature_coverage"]["edge_count"] == 1
+    assert trace["graph_feature_coverage"]["evidenced_candidates"] == 2
+    assert any(
+        row["candidate"]["relation_evidence"]
+        for row in trace["ranked"]
+    )

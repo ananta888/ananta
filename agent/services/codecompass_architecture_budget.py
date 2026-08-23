@@ -13,11 +13,11 @@ LEVELS = ("system", "subsystem", "component", "file", "symbol")
 
 _PROFILES = {
     "overview": {
-        "max_nodes": 12,
-        "max_edges": 16,
-        "max_depth": 2,
-        "max_tokens": 1200,
-        "level_caps": {"system": 1, "subsystem": 4, "component": 5, "file": 2, "symbol": 0},
+        "max_nodes": 20,
+        "max_edges": 28,
+        "max_depth": 3,
+        "max_tokens": 2000,
+        "level_caps": {"system": 1, "subsystem": 5, "component": 8, "file": 4, "symbol": 2},
     },
     "subsystem": {
         "max_nodes": 18,

@@ -298,6 +298,12 @@ def _spawn_ai_chat_reply(
                             else "session_provider_config"
                         ),
                         "session_metadata_advisory": snake_profile_routing_enabled(),
+                        "effective_provider": (
+                            "hub_worker_profile" if snake_profile_routing_enabled() else provider
+                        ),
+                        "effective_model": (
+                            "resolved_per_task" if snake_profile_routing_enabled() else model
+                        ),
                         "expected_research_profile": (
                             "local_lfm25_agentic_fast"
                             if snake_profile_routing_enabled()
@@ -579,6 +585,7 @@ def _spawn_ai_chat_reply(
                         "chunk_count": len(chunk_meta),
                         "grounded_chars": len(grounded_prompt),
                         "chunks": chunk_meta,
+                        "source_ranking": _domain_info.get("source_ranking"),
                     },
                     output_preview=chunk_meta if chunk_meta else None,
                 )
@@ -615,10 +622,16 @@ def _spawn_ai_chat_reply(
             llm_start = time.time()
             if rec:
                 rec.event("llm_call_started", "LLM-Aufruf gestartet", status="running",
-                          summary=f"{provider} / {model or 'default'} — {len(grounded_prompt)} Zeichen Eingabe",
+                          summary=(
+                              "lokales Hub-Worker-Profil — "
+                              if snake_profile_routing_enabled()
+                              else f"{provider} / {model or 'default'} — "
+                          ) + f"{len(grounded_prompt)} Zeichen Eingabe",
                           details={
                               "provider": provider,
                               "model": model,
+                              "requested_provider_advisory": provider if snake_profile_routing_enabled() else None,
+                              "requested_model_advisory": model if snake_profile_routing_enabled() else None,
                               "prompt_chars": len(grounded_prompt),
                               "system_prompt_chars": len(_effective_system_prompt),
                               "conversation_history_messages": len(conversation_history),

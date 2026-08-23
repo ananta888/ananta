@@ -298,6 +298,9 @@ def _build_grounded_snake_prompt(
         )
         chunks = list(bundle.get("chunks") or [])
         domain_scope_info = _domain_scope_response(domain_scope, bundle.get("domain_scope"))
+        source_ranking = bundle.get("source_ranking")
+        if isinstance(source_ranking, dict) and source_ranking:
+            domain_scope_info["source_ranking"] = source_ranking
         if chunks:
             src_type_counts: dict[str, int] = {}
             chunk_meta: list[dict[str, Any]] = []

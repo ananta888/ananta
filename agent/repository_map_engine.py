@@ -6,7 +6,7 @@ import json
 import re
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from agent.codecompass.file_type_telemetry import (
     FileTypeTelemetryPort,
@@ -110,6 +110,7 @@ class RepositoryMapEngine:
         self.max_files = max_files
         self.max_symbols_per_file = max_symbols_per_file
         self._symbol_graph: dict[str, list[str]] = {}
+        self._import_graph: dict[str, tuple[str, ...]] = {}
         self._file_state: dict[str, tuple[float, int]] = {}
         self._tree_sitter_parser_cache: dict[str, object | None] = {}
         self._file_type_registry = _load_repository_file_type_registry(self.repo_root)
@@ -435,10 +436,12 @@ class RepositoryMapEngine:
                         fallback_reason = "parser_fallback"
                 budget.check_time()
                 budget.check_record_count(len(symbols))
+                self._import_graph[rel] = self._extract_import_references(rel, text)
             except ParserGuardViolation as exc:
                 logging.debug("Skipping repository-map input '%s': %s", file_path, exc)
                 self._parser_diagnostics[rel] = exc.as_diagnostic(path=rel)
                 self._symbol_graph.pop(rel, None)
+                self._import_graph.pop(rel, None)
                 self._observe_parser_result(
                     path=rel,
                     started=parse_started,
@@ -460,6 +463,7 @@ class RepositoryMapEngine:
                     "line": None,
                 }
                 self._symbol_graph.pop(rel, None)
+                self._import_graph.pop(rel, None)
                 self._observe_parser_result(
                     path=rel,
                     started=parse_started,
@@ -486,7 +490,45 @@ class RepositoryMapEngine:
         for rel in removed:
             self._file_state.pop(rel, None)
             self._symbol_graph.pop(rel, None)
+            self._import_graph.pop(rel, None)
             self._parser_diagnostics.pop(rel, None)
+
+    @staticmethod
+    def _extract_import_references(source_path: str, text: str) -> tuple[str, ...]:
+        """Extract bounded, explicit source dependency evidence.
+
+        This deliberately records only import/include declarations present in
+        source text. Directory proximity is not treated as graph evidence.
+        """
+        refs: set[str] = set()
+        suffix = Path(source_path).suffix.lower()
+        if suffix == ".py":
+            for match in re.finditer(r"(?m)^\s*(?:from\s+([.\w]+)\s+import|import\s+([\w.]+))", text):
+                refs.add(str(match.group(1) or match.group(2) or ""))
+        elif suffix in {".js", ".jsx", ".ts", ".tsx"}:
+            for match in re.finditer(r"(?:from\s+|import\s*\()[\"']([^\"']+)[\"']", text):
+                refs.add(str(match.group(1) or ""))
+        elif suffix in {".c", ".cpp", ".h", ".hpp"}:
+            refs.update(match.group(1) for match in re.finditer(r"(?m)^\s*#include\s*[<\"]([^>\"]+)[>\"]", text))
+        return tuple(sorted(ref for ref in refs if ref))[:100]
+
+    @staticmethod
+    def _resolve_import_target(source: str, imported: str, paths: set[str]) -> str | None:
+        normalized = imported.replace(".", "/").strip("/")
+        candidates: list[str] = []
+        if imported.startswith("."):
+            level = len(imported) - len(imported.lstrip("."))
+            base = list(PurePosixPath(source).parent.parts)
+            if level > 1:
+                base = base[: -(level - 1)]
+            normalized = imported.lstrip(".").replace(".", "/")
+            candidates.append("/".join([*base, normalized]).strip("/"))
+        else:
+            candidates.append(normalized)
+        expanded: list[str] = []
+        for candidate in candidates:
+            expanded.extend((candidate, candidate + ".py", candidate + ".ts", candidate + ".tsx", candidate + "/__init__.py"))
+        return next((candidate for candidate in expanded if candidate in paths), None)
 
     def _observe_parser_result(
         self,
@@ -641,12 +683,39 @@ class RepositoryMapEngine:
                 (path, symbols) for path, symbols in symbol_items
                 if is_path_within(path, allowed_paths)
             ]
+        from ananta_codecompass.ranking.graph_features import derive_graph_features
+
+        candidate_paths = {path for path, _symbols in symbol_items}
+        edges: list[dict[str, str]] = []
+        for source, imports in sorted(self._import_graph.items()):
+            if source not in candidate_paths:
+                continue
+            for imported in imports:
+                target = self._resolve_import_target(source, imported, candidate_paths)
+                if target and target != source:
+                    edges.append({"source": source, "target": target, "source_ref": f"{source}:import:{imported}"})
+        query_tokens = {
+            token.lower() for token in re.findall(r"[A-Za-z0-9_]+", query)
+            if len(token) >= 3 and token.lower() not in self._REPO_STOP_TOKENS
+        }
+        query_nodes = {
+            path for path, symbols in symbol_items
+            if any(token in path.lower() or any(token in symbol.lower() for symbol in symbols) for token in query_tokens)
+        }
+        graph_features = derive_graph_features(
+            nodes=[{"id": path} for path in sorted(candidate_paths)],
+            edges=edges,
+            query_node_ids=query_nodes,
+        )
         candidates = tuple(
             RankingCandidate(
                 canonical_id=path,
                 path=path,
                 symbols=tuple(sorted(str(symbol) for symbol in symbols)),
                 language=language_for_path(path),
+                centrality=graph_features[path].centrality if graph_features[path].evidence_refs else None,
+                graph_distance=graph_features[path].query_distance if graph_features[path].evidence_refs else None,
+                relation_evidence=graph_features[path].evidence_refs,
             )
             for path, symbols in symbol_items
         )
@@ -669,6 +738,11 @@ class RepositoryMapEngine:
             top_k=top_k,
         )
         self._last_ranking_trace = result.as_dict()
+        self._last_ranking_trace["graph_feature_coverage"] = {
+            "edge_count": len(edges),
+            "evidenced_candidates": sum(1 for item in graph_features.values() if item.evidence_refs),
+            "candidate_count": len(candidates),
+        }
         return [
             ContextChunk(
                 engine="repository_map",
