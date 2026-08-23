@@ -270,6 +270,18 @@ import { ChatSessionsPanelComponent } from '../../components/chat-sessions-panel
                    (ngModelChange)="patchSetting('chat_code_questions_repo_first', $event)" />
             Code-Fragen: Repo bevorzugen
           </label>
+          <label class="sl">Codefragen: max. Tool-Aufrufe
+            <input type="number" min="0" max="100"
+                   [ngModel]="getSetting('chat_code_question_max_tool_calls', '12')"
+                   (ngModelChange)="patchSetting('chat_code_question_max_tool_calls', +$event)" />
+            <small>0 = unbegrenzt</small>
+          </label>
+          <label class="sl">Codefragen: max. Such-Aufrufe
+            <input type="number" min="0" max="100"
+                   [ngModel]="getSetting('chat_code_question_max_search_calls', '1')"
+                   (ngModelChange)="patchSetting('chat_code_question_max_search_calls', +$event)" />
+            <small>0 = unbegrenzt</small>
+          </label>
           <label class="sl" data-waypoint="chat.system-prompt">System-Prompt
             <textarea rows="6" [ngModel]="selected.system_prompt"
                       (ngModelChange)="patchPromptDebounced($event)"

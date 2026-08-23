@@ -310,6 +310,9 @@ def worker_chat_rag_iterative(
     conversation_history: list[dict[str, str]] | None = None,
     cancel_event: Any | None = None,
     system_prompt: str | None = None,
+    max_tool_calls_override: int | None = None,
+    max_search_calls_override: int | None = None,
+    final_task_kind: str = "repo_analysis",
 ) -> tuple[str, dict[str, Any]]:
     """Iterative RAG: fetch relevant files, read fully, batch → LLM → synthesize."""
     trace: dict[str, Any] = {"mode": "rag_iterative"}
@@ -414,10 +417,14 @@ def worker_chat_rag_iterative(
             cfg.get("rag_iterative_max_tool_calls") if cfg.get("rag_iterative_max_tool_calls") is not None
             else _cfg_settings.rag_iterative_max_tool_calls
         ))
+        if max_tool_calls_override is not None:
+            max_tool_calls = max(0, int(max_tool_calls_override))
         _max_search_calls = max(0, int(
             cfg.get("rag_iterative_max_search_calls") if cfg.get("rag_iterative_max_search_calls") is not None
             else _cfg_settings.rag_iterative_max_search_calls
         ))
+        if max_search_calls_override is not None:
+            _max_search_calls = max(0, int(max_search_calls_override))
         _tool_chars_per_file = max(4000, min(200000, int(
             cfg.get("rag_iterative_tool_chars_per_file") if cfg.get("rag_iterative_tool_chars_per_file") is not None
             else _cfg_settings.rag_iterative_tool_chars_per_file
@@ -639,6 +646,11 @@ def worker_chat_rag_iterative(
                 for item in _context_pack.included_files
             ],
             cancel_event=cancel_event,
+            final_task_kind=final_task_kind,
+            lock_tool_budgets=(
+                max_tool_calls_override is not None
+                or max_search_calls_override is not None
+            ),
         )
         trace["tool_loop"] = tl_trace
         trace["available_files"] = available_files

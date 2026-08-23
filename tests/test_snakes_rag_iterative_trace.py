@@ -124,11 +124,20 @@ def test_rag_iterative_tool_mode_filters_generated_codecompass_outputs(tmp_path,
     monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
     monkeypatch.setattr("agent.routes.snakes_rag_tool_loop.run_rag_chat_tool_loop", _fake_tool_loop)
 
-    answer, trace = mod.worker_chat_rag_iterative("erklaere CodeCompass")
+    answer, trace = mod.worker_chat_rag_iterative(
+        "erklaere CodeCompass",
+        max_tool_calls_override=12,
+        max_search_calls_override=1,
+        final_task_kind="classification",
+    )
 
     assert answer == "answer"
     assert captured["initial_files"] == ["agent/codecompass_context.py"]
     assert trace["available_files"] == ["agent/codecompass_context.py"]
+    assert captured["max_tool_calls"] == 12
+    assert captured["max_search_calls"] == 1
+    assert captured["final_task_kind"] == "classification"
+    assert captured["lock_tool_budgets"] is True
 
 
 def test_rag_iterative_followup_retrieval_uses_conversation_history(tmp_path, monkeypatch):

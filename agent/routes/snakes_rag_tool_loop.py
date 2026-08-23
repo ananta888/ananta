@@ -341,6 +341,8 @@ def run_rag_chat_tool_loop(
     initial_evidence: list[dict[str, Any]] | None = None,
     architecture_context: str = "",
     cancel_event: Any | None = None,
+    final_task_kind: str = "repo_analysis",
+    lock_tool_budgets: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     """
     Agentic loop: send messages to LLM, handle tool calls, return final answer.
@@ -683,14 +685,14 @@ def run_rag_chat_tool_loop(
         try:
             routed, retry_trace = _worker_profile_chat(
                 current_messages,
-                task_kind="repo_analysis",
+                task_kind=final_task_kind,
                 tools=None,
                 timeout_seconds=min(360, max(300, timeout)),
             )
         except Exception as exc:
             routed = None
             retry_trace = {
-                "routing_task_kind": "repo_analysis",
+                "routing_task_kind": final_task_kind,
                 "routing_source": "hub_snake_profile_policy",
                 "timeout_seconds": min(360, max(300, timeout)),
                 "error": str(exc)[:200],
@@ -812,7 +814,7 @@ def run_rag_chat_tool_loop(
                 )
             return "", trace
 
-        if config_provider is not None:
+        if config_provider is not None and not lock_tool_budgets:
             try:
                 _live = config_provider()
                 _new_max_tc = max(0, int(_live.get("rag_iterative_max_tool_calls") or 0))
@@ -895,7 +897,7 @@ def run_rag_chat_tool_loop(
             if use_profile_routing:
                 # LFM performs the bounded tool decision; KAT handles the
                 # tool-free repository synthesis. Both execute on a worker.
-                routed_kind = "classification" if use_tools else "repo_analysis"
+                routed_kind = "classification" if use_tools else final_task_kind
                 data, routed_trace = _worker_profile_chat(
                     current_messages,
                     task_kind=routed_kind,
@@ -1197,7 +1199,7 @@ def run_rag_chat_tool_loop(
                     status="completed",
                     details={
                         "research_model": (routed_trace.get("inference") or {}).get("model"),
-                        "next_task_kind": "repo_analysis",
+                        "next_task_kind": final_task_kind,
                     },
                 )
             continue
@@ -1411,7 +1413,7 @@ def run_rag_chat_tool_loop(
                     status="completed",
                     details={
                         "duplicate_calls_blocked": duplicate_calls_blocked,
-                        "next_task_kind": "repo_analysis" if use_profile_routing else "legacy_final",
+                        "next_task_kind": final_task_kind if use_profile_routing else "legacy_final",
                     },
                 )
 

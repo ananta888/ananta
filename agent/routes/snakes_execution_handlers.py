@@ -367,7 +367,10 @@ def _spawn_ai_chat_reply(
             _answer_chars_limit = _chat_answer_chars_limit()
             try:
                 from agent.routes.ai_snake_config import _current_config
-                from agent.services.retrieval_profile_service import _is_full_scan_intent, _is_rag_iterative_intent
+                from agent.services.retrieval_profile_service import _is_full_scan_intent
+                from agent.services.snake_agentic_tool_policy import (
+                    resolve_snake_agentic_tool_decision,
+                )
                 _cfg = _current_config()
                 # Apply session-level setting overrides so they take precedence over global config.
                 # For ananta-settings: force disable RAG/code-analysis regardless of persisted values,
@@ -432,10 +435,21 @@ def _spawn_ai_chat_reply(
                         store.complete_trace(trace_id)
                     return
 
-                if _is_rag_iterative_intent(_cfg):
+                _tool_decision = resolve_snake_agentic_tool_decision(prompt, _cfg)
+                if _tool_decision.enabled:
+                    _bounded_simple_tools = _tool_decision.max_tool_calls is not None
                     if rec:
                         rec.event("rag_iterative_detected", "RAG-Iterativ erkannt", status="running",
-                                  summary="Iterative Datei-Analyse wird gestartet")
+                                  summary=(
+                                      "Begrenzte agentische Code-Recherche wird gestartet"
+                                      if _bounded_simple_tools
+                                      else "Iterative Datei-Analyse wird gestartet"
+                                  ),
+                                  details={
+                                      "trigger": _tool_decision.trigger,
+                                      "profile_id": _tool_decision.profile_id,
+                                      "tool_budget": _tool_decision.max_tool_calls,
+                                  })
                     t0 = time.time()
                     _cancel_keys = ["room"] + ([snake_id] if snake_id else [])
                     _cancel_event = register_chat_cancel(_cancel_keys)
@@ -454,6 +468,9 @@ def _spawn_ai_chat_reply(
                             conversation_history=conversation_history,
                             cancel_event=_cancel_event,
                             system_prompt=_active_session_prompt,
+                            max_tool_calls_override=_tool_decision.max_tool_calls,
+                            max_search_calls_override=_tool_decision.max_search_calls,
+                            final_task_kind=_tool_decision.final_task_kind,
                         )
                     finally:
                         unregister_chat_cancel(_cancel_keys, _cancel_event)

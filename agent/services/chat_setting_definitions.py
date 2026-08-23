@@ -67,6 +67,8 @@ _SCHEMA_KEYS: frozenset[str] = frozenset(
         "rag_iterative_tool_calls_enabled",
         "rag_iterative_max_tool_calls",
         "rag_iterative_max_search_calls",
+        "chat_code_question_max_tool_calls",
+        "chat_code_question_max_search_calls",
         "rag_iterative_import_depth",
         "rag_iterative_symbol_expand_max",
         "rag_iterative_catalog_chars",
@@ -149,6 +151,9 @@ _DEFAULTS: dict[str, Any] = {
     "rag_iterative_tool_calls_enabled": True,
     "rag_iterative_max_tool_calls": 0,
     "rag_iterative_max_search_calls": 0,
+    # Automatic tool use for ordinary code questions. Zero means unlimited.
+    "chat_code_question_max_tool_calls": 12,
+    "chat_code_question_max_search_calls": 1,
     "rag_iterative_import_depth": 0,
     "rag_iterative_symbol_expand_max": 0,
     "rag_iterative_catalog_chars": 20000,

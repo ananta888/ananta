@@ -818,7 +818,7 @@ def test_failed_kat_synthesis_returns_marked_lfm_research_fallback(tmp_path, mon
         "repo_analysis",
         "repo_analysis",
     ]
-    assert calls[-1]["timeout_seconds"] == 60
+    assert calls[-1]["timeout_seconds"] == 300
 
 
 def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):

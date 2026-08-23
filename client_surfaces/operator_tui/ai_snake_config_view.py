@@ -234,6 +234,22 @@ def ai_snake_config_items(game: dict[str, object]) -> list[dict[str, object]]:
             "group": "Kontext / RAG",
         },
         {
+            "key": "chat_code_question_max_tool_calls",
+            "label": "Codefragen: Max. Tool-Aufrufe (0=unbegrenzt)",
+            "type": "choice",
+            "value": str(game.get("chat_code_question_max_tool_calls", 12)),
+            "options": ["0", "1", "2", "3", "4", "6", "8", "12"],
+            "group": "Kontext / RAG",
+        },
+        {
+            "key": "chat_code_question_max_search_calls",
+            "label": "Codefragen: Max. Such-Aufrufe (0=unbegrenzt)",
+            "type": "choice",
+            "value": str(game.get("chat_code_question_max_search_calls", 1)),
+            "options": ["0", "1", "2", "3", "4", "6"],
+            "group": "Kontext / RAG",
+        },
+        {
             "key": "chat_full_scan_source_only",
             "label": "Full-Scan: Nur Quellcode",
             "type": "bool",
@@ -739,6 +755,15 @@ def apply_ai_snake_config_value(game: dict[str, object], *, key: str, value: str
         game[key] = raw_value
         _persist_tui_chat_settings(game)
         return f"ai config: {label} -> {raw_value}"
+
+    if key in {"chat_code_question_max_tool_calls", "chat_code_question_max_search_calls"}:
+        try:
+            value_int = int(raw_value)
+        except ValueError:
+            return f"ai config: {label} erwartet zahl"
+        game[key] = max(0, min(100, value_int))
+        _persist_tui_chat_settings(game)
+        return f"ai config: {label} -> {game[key]}"
 
     if key == "chat_full_scan_source_only":
         bool_val = str(raw_value).lower() not in {"false", "0", "nein", "no", "off"}

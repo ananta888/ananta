@@ -59,6 +59,8 @@ _PERSISTENT_TUI_CONFIG_KEYS = {
     "chat_codecompass_trigger_mode",
     "chat_code_questions_repo_first",
     "chat_architecture_analysis_mode",
+    "chat_code_question_max_tool_calls",
+    "chat_code_question_max_search_calls",
     "chat_full_scan_source_only",
     "chat_full_scan_max_batches",
     "chat_full_scan_files_per_batch",
