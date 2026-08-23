@@ -44,12 +44,13 @@ def test_worker_propose_delegates_hub_routing_kind_without_legacy_model(monkeypa
 def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch) -> None:
     calls = {}
 
-    def invoke(prompt, **kwargs):
+    def invoke(prompt, tools, **kwargs):
+        assert tools == []
         calls.update(prompt=prompt, routing_ctx=kwargs["routing_ctx"])
-        return "profil routed answer"
+        return {"content": "profil routed answer", "tool_calls": [], "metadata": {}}
 
     monkeypatch.setattr(
-        "agent.services.model_invocation_service.ModelInvocationService.invoke", invoke,
+        "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools", invoke,
     )
     monkeypatch.setattr(
         "agent.services.tiny_router.snake_shadow.observe_snake_candidate",
@@ -117,7 +118,11 @@ def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
         assert token == "token"
         return {"data": {"reason": "", "tool_calls": [
             {"id": "call-1", "name": "read_file", "args": {"path": "agent/config.py"}}
-        ]}}
+        ], "inference": {
+            "profile_id": "local_lfm25_agentic_fast",
+            "provider": "llamacpp",
+            "model": "lfm2.5-2.6b-agentic-q8_0",
+        }}}
 
     monkeypatch.setattr("agent.services.task_runtime_service.forward_to_worker", forward)
     response, trace = _worker_profile_chat(
@@ -131,6 +136,7 @@ def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
     assert call["function"]["name"] == "read_file"
     assert '"agent/config.py"' in call["function"]["arguments"]
     assert trace["routing_source"] == "hub_snake_profile_policy"
+    assert trace["inference"]["model"] == "lfm2.5-2.6b-agentic-q8_0"
 
 
 def test_snake_shadow_observation_is_forced_candidate_only(monkeypatch) -> None:

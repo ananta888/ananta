@@ -179,15 +179,25 @@ class TaskExecutionService:
                     agent_config=agent_cfg,
                 )
                 content = str(routed.get("content") or "").strip()
-                return TaskStepProposeResponse(
-                    reason=content,
-                    raw=content,
-                    tool_calls=list(routed.get("tool_calls") or []),
-                ).model_dump()
-            raw = profile_service.propose(
-                prompt, task_kind=task_kind, agent_config=agent_cfg
-            )
-            return TaskStepProposeResponse(**build_proposal_payload(raw)).model_dump()
+            else:
+                routed = profile_service.propose_detailed(
+                    prompt, task_kind=task_kind, agent_config=agent_cfg
+                )
+            content = str(routed.get("content") or "").strip()
+            metadata = routed.get("metadata") if isinstance(routed.get("metadata"), dict) else {}
+            resolution = metadata.get("resolution_info") if isinstance(metadata.get("resolution_info"), dict) else {}
+            return TaskStepProposeResponse(
+                reason=content,
+                raw=content,
+                tool_calls=list(routed.get("tool_calls") or []),
+                inference={
+                    "profile_id": resolution.get("profile_id"),
+                    "provider": routed.get("provider") or resolution.get("provider_id"),
+                    "model": routed.get("model") or resolution.get("model"),
+                    "task_kind": task_kind,
+                    "cloud_allowed": False,
+                },
+            ).model_dump()
 
         if request_data.providers:
             results: dict[str, dict] = {}

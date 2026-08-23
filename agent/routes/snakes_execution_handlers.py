@@ -114,6 +114,7 @@ from .snakes_worker_routing import (
     _resolve_lmstudio_model_for_worker,
     _verify_token,
     _worker_propose,
+    snake_profile_routing_enabled,
 )
 
 # In-memory UI state pushed by the browser via PUT /snakes/<id>/ui-state.
@@ -278,12 +279,17 @@ def _spawn_ai_chat_reply(
             if rec:
                 rec.event(
                     "config_loaded",
-                    "Provider-Konfiguration geladen",
+                    "Angeforderte Session-Konfiguration geladen",
                     status="completed",
                     details={
-                        "provider": provider,
-                        "model": model,
+                        "requested_provider": provider,
+                        "requested_model": model,
                         "backend": _effective_provider_config.get("chat_backend"),
+                        "effective_runtime": (
+                            "hub_worker_profile_routing"
+                            if snake_profile_routing_enabled()
+                            else "legacy_direct_provider"
+                        ),
                         "session_id": _active_session_id,
                         "conversation_history_messages": len(conversation_history),
                     },

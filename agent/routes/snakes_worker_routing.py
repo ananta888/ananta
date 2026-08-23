@@ -230,7 +230,6 @@ def _worker_profile_chat(
     if not worker_url:
         trace["error"] = "no_online_worker"
         return None, trace
-
     prompt = "\n\n".join(
         f"[{str(item.get('role') or 'user').upper()}]\n{str(item.get('content') or '')}"
         for item in messages
@@ -254,6 +253,9 @@ def _worker_profile_chat(
     if not isinstance(data, dict):
         trace["error"] = "invalid_worker_response"
         return None, trace
+    inference = data.get("inference") if isinstance(data.get("inference"), dict) else {}
+    if inference:
+        trace["inference"] = dict(inference)
     normalized_calls = []
     for index, call in enumerate(data.get("tool_calls") or []):
         if not isinstance(call, dict):

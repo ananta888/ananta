@@ -247,6 +247,8 @@ def run_rag_chat_tool_loop(
     force_final_next = False
     final_repair_attempts = 0
     last_non_tool_content = ""
+    duplicate_call_streak = 0
+    duplicate_calls_blocked = 0
 
     def _cancelled() -> bool:
         if not is_chat_cancelled(cancel_event):
@@ -456,6 +458,39 @@ def run_rag_chat_tool_loop(
         current_messages[:] = [msg for msg in current_messages if not _is_evidence_message(msg)]
         current_messages.append({"role": "user", "content": evidence_text})
 
+    def _retire_initial_next_step_instruction() -> None:
+        """Remove the one-shot first-read hint after research has started."""
+        for msg in current_messages:
+            if msg.get("role") != "user":
+                continue
+            content = str(msg.get("content") or "")
+            updated = re.sub(
+                r"\nNaechster Schritt: Beginne mit read_file\([^\n]+\) — lies diese Datei als erstes\.",
+                "",
+                content,
+                count=1,
+            )
+            if updated != content:
+                msg["content"] = updated
+                trace["initial_next_step_instruction_retired"] = True
+                return
+
+    def _prepare_profile_final_synthesis_context() -> None:
+        """Give KAT a bounded evidence handoff instead of the full research transcript."""
+        evidence = _evidence_prompt()
+        research_hint = last_non_tool_content[:2500].strip()
+        synthesis_prompt = (
+            "Du bist das finale Coding-Synthesemodell. Beantworte die Nutzerfrage verbindlich, "
+            "konkret und ausschliesslich aus der folgenden Recherche-Evidenz. Fuehre keine "
+            "Tool-Aufrufe aus.\n\n"
+            f"Nutzerfrage: {question[:1000]}\n\n"
+            f"{evidence[:20000]}"
+        )
+        if research_hint:
+            synthesis_prompt += f"\n\nVorlaeufiger LFM-Recherchehinweis:\n{research_hint}"
+        current_messages[:] = [{"role": "user", "content": synthesis_prompt}]
+        trace["final_synthesis_context_chars"] = len(synthesis_prompt)
+
     _register_initial_evidence()
     _compact_initial_packed_context()
     _replace_or_append_evidence_message(_evidence_prompt())
@@ -558,7 +593,7 @@ def run_rag_chat_tool_loop(
     # defensive iteration cap so ambiguous-path hints can be resolved without
     # risking an infinite LLM/tool loop.
     _max_iterations = max_tool_calls + 2 if max_tool_calls > 0 else _UNLIMITED_TOOL_LOOP_MAX_ITERATIONS
-    for _iteration in range(_max_iterations):
+    for _iteration in range(_max_iterations + 1):
         if _cancelled():
             if rec:
                 rec.event(
@@ -583,6 +618,10 @@ def run_rag_chat_tool_loop(
             except Exception:
                 pass
 
+        if _iteration == _max_iterations:
+            force_final_next = True
+            trace["forced_final_reason"] = "defensive_iteration_cap"
+
         search_only_exhausted = (
             max_search_calls > 0
             and search_call_count >= max_search_calls
@@ -590,6 +629,8 @@ def run_rag_chat_tool_loop(
         )
         if search_only_exhausted:
             force_final_next = True
+        if force_final_next and use_profile_routing:
+            _prepare_profile_final_synthesis_context()
         use_tools = (max_tool_calls == 0 or tool_call_count < max_tool_calls) and not force_final_next
         llm_call_count += 1
         payload: dict[str, Any] = {
@@ -745,6 +786,7 @@ def run_rag_chat_tool_loop(
                     "tool_calls_requested": tc_names,
                     "tool_call_details": tc_details,
                     "answer_chars": len(content),
+                    "runtime_inference": routed_trace.get("inference") if use_profile_routing else None,
                 },
                 output_preview=content if content else (
                     "\n".join(
@@ -788,13 +830,22 @@ def run_rag_chat_tool_loop(
                     if fn_name == "read_file":
                         _req_path = str(args.get("path") or "").strip()
                         if _req_path in _already_read:
-                            result = _already_read[_req_path]
+                            duplicate_calls_blocked += 1
+                            duplicate_call_streak += 1
+                            trace["duplicate_calls_blocked"] = duplicate_calls_blocked
+                            result = (
+                                f"[Duplikat blockiert: {_req_path} wurde bereits gelesen. "
+                                "Nutze die vorhandene Evidenz, waehle eine ANDERE Datei oder "
+                                "beende die Recherche mit einer finalen Antwort.]"
+                            )
                         else:
+                            duplicate_call_streak = 0
                             result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
                             if not result.startswith("[Fehler"):
                                 if summarize_reads:
                                     result = _summarize_file(_req_path, result)
                                 _cache_read_result(_req_path, result, source="textual_read")
+                        _retire_initial_next_step_instruction()
                     elif fn_name == "search_codebase":
                         search_call_count += 1
                         _query = str(args.get("query") or "").strip().lower()
@@ -849,6 +900,10 @@ def run_rag_chat_tool_loop(
                 evidence_text = _evidence_prompt()
                 if evidence_text:
                     _replace_or_append_evidence_message(evidence_text)
+                if duplicate_call_streak >= 2:
+                    force_final_next = True
+                    trace["forced_final_reason"] = "repeated_duplicate_tool_call"
+                    trace["duplicate_calls_blocked"] = duplicate_calls_blocked
                 continue
 
             # No parseable calls or use_tools=False — single repair attempt, then bail
@@ -878,6 +933,33 @@ def run_rag_chat_tool_loop(
             )
             trace["final_finish_reason"] = "rejected_tool_request_fallback"
             return fallback, trace
+
+        if use_profile_routing and use_tools and (
+            not tool_calls or finish_reason == "stop"
+        ):
+            force_final_next = True
+            trace["forced_final_reason"] = "research_complete"
+            if content:
+                current_messages.append({
+                    "role": "assistant",
+                    "content": "[LFM-Recherchehinweis]\n" + content,
+                })
+            _replace_or_append_evidence_message(
+                _evidence_prompt()
+                + "\n\nDie Recherchephase ist abgeschlossen. Erzeuge jetzt als Coding-Modell "
+                "die verbindliche finale Antwort aus der gesammelten Evidenz."
+            )
+            if rec:
+                rec.event(
+                    "tool_loop_research_complete_handoff",
+                    "LFM-Recherche abgeschlossen — Übergabe an KAT-Synthese",
+                    status="completed",
+                    details={
+                        "research_model": (routed_trace.get("inference") or {}).get("model"),
+                        "next_task_kind": "repo_analysis",
+                    },
+                )
+            continue
 
         if not tool_calls or finish_reason == "stop" or not use_tools:
             trace["final_finish_reason"] = finish_reason
@@ -911,8 +993,16 @@ def run_rag_chat_tool_loop(
                 iteration_read_calls += 1
                 _req_path = str(args.get("path") or "").strip()
                 if _req_path in _already_read:
-                    result = _already_read[_req_path]
+                    duplicate_calls_blocked += 1
+                    duplicate_call_streak += 1
+                    trace["duplicate_calls_blocked"] = duplicate_calls_blocked
+                    result = (
+                        f"[Duplikat blockiert: {_req_path} wurde bereits gelesen. "
+                        "Nutze die vorhandene Evidenz, waehle eine ANDERE Datei oder beende die "
+                        "Recherche mit einer finalen Antwort.]"
+                    )
                 else:
+                    duplicate_call_streak = 0
                     result = _dispatch_tool(
                         fn_name, args,
                         repo_root=repo_root,
@@ -938,6 +1028,7 @@ def run_rag_chat_tool_loop(
                                     output_preview=result,
                                 )
                         _cache_read_result(_req_path, result, source="tool_read")
+                _retire_initial_next_step_instruction()
             elif fn_name == "search_codebase":
                 iteration_search_calls += 1
                 search_call_count += 1
@@ -998,7 +1089,9 @@ def run_rag_chat_tool_loop(
 
         _compact_initial_packed_context()
         evidence_text = _evidence_prompt()
-        if evidence_text and tool_calls and tool_call_count < max_tool_calls:
+        if evidence_text and tool_calls and (
+            max_tool_calls == 0 or tool_call_count < max_tool_calls
+        ):
             _replace_or_append_evidence_message(evidence_text)
             if rec:
                 rec.event(
@@ -1007,6 +1100,26 @@ def run_rag_chat_tool_loop(
                     status="completed",
                     details={"files": list(_evidence.keys())},
                     input_preview=evidence_text,
+                )
+
+        if duplicate_call_streak >= 2:
+            force_final_next = True
+            trace["forced_final_reason"] = "repeated_duplicate_tool_call"
+            trace["duplicate_calls_blocked"] = duplicate_calls_blocked
+            _replace_or_append_evidence_message(
+                _evidence_prompt()
+                + "\n\nDie Recherchephase ist beendet, weil derselbe Tool-Aufruf wiederholt wurde. "
+                "Erzeuge jetzt zwingend eine normale abschliessende Antwort aus der vorhandenen Evidenz."
+            )
+            if rec:
+                rec.event(
+                    "tool_loop_repeated_duplicate_handoff",
+                    "Wiederholtes Duplikat blockiert — Übergabe an finale Synthese",
+                    status="completed",
+                    details={
+                        "duplicate_calls_blocked": duplicate_calls_blocked,
+                        "next_task_kind": "repo_analysis" if use_profile_routing else "legacy_final",
+                    },
                 )
 
         if (

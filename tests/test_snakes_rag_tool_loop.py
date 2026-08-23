@@ -221,7 +221,8 @@ def test_tool_loop_caches_auto_corrected_path_alias(tmp_path, monkeypatch):
 
     assert answer == "final answer"
     assert trace["tool_calls_made"] == 2
-    assert trace["tools_used"][0]["result_chars"] == trace["tools_used"][1]["result_chars"]
+    assert trace["tools_used"][0]["result_chars"] != trace["tools_used"][1]["result_chars"]
+    assert trace["duplicate_calls_blocked"] == 1
     assert trace["evidence"][0]["path"] == "worker/retrieval/codecompass_architecture_query.py"
     assert len(trace["evidence"]) == 1
 
@@ -764,5 +765,67 @@ def test_tool_loop_profile_route_never_calls_legacy_provider(tmp_path, monkeypat
     )
 
     assert answer == "local final answer"
-    assert routed_kinds == [("classification", True)]
+    assert routed_kinds == [
+        ("classification", True),
+        ("repo_analysis", False),
+    ]
     assert trace["inference_route"] == "hub_worker_local_profiles"
+    assert trace["forced_final_reason"] == "research_complete"
+
+
+def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "true")
+    calls = []
+
+    def routed(messages, *, task_kind, tools=None):
+        calls.append({"task_kind": task_kind, "tools": bool(tools), "messages": copy.deepcopy(messages)})
+        if tools:
+            return {
+                "choices": [{
+                    "finish_reason": "tool_calls",
+                    "message": {
+                        "content": "",
+                        "tool_calls": [{
+                            "id": f"call-{len(calls)}",
+                            "type": "function",
+                            "function": {"name": "read_file", "arguments": '{"path":"agent/config.py"}'},
+                        }],
+                    },
+                }]
+            }, {"inference": {"model": "lfm2.5-2.6b-agentic-q8_0"}}
+        return {
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "KAT finalisiert aus der Evidenz.", "tool_calls": []},
+            }]
+        }, {"inference": {"model": "kat-coder-v2.5-dev"}}
+
+    monkeypatch.setattr("agent.routes.snakes_worker_routing._worker_profile_chat", routed)
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{
+            "role": "user",
+            "content": (
+                "Frage: Erkläre CodeCompass\n"
+                "Naechster Schritt: Beginne mit read_file('agent/config.py') — lies diese Datei als erstes."
+            ),
+        }],
+        provider="lmstudio",
+        model="legacy",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+        initial_evidence=[{
+            "path": "agent/config.py", "summary": "Konfiguration", "source": "initial_context"
+        }],
+        question="Erkläre CodeCompass",
+    )
+
+    assert answer == "KAT finalisiert aus der Evidenz."
+    assert [(item["task_kind"], item["tools"]) for item in calls] == [
+        ("classification", True),
+        ("classification", True),
+        ("repo_analysis", False),
+    ]
+    assert trace["duplicate_calls_blocked"] == 2
+    assert trace["forced_final_reason"] == "repeated_duplicate_tool_call"

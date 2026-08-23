@@ -34,6 +34,7 @@ class TaskStepProposeResponse(SQLModel):
     tool_calls: Optional[List[dict]] = None
     raw: str
     comparisons: Optional[dict] = None
+    inference: Optional[dict] = None
 
 
 class TaskStepExecuteRequest(SQLModel):
