@@ -745,7 +745,7 @@ def test_tool_loop_profile_route_never_calls_legacy_provider(tmp_path, monkeypat
     )
     routed_kinds = []
 
-    def routed(_messages, *, task_kind, tools=None):
+    def routed(_messages, *, task_kind, tools=None, timeout_seconds=None):
         routed_kinds.append((task_kind, bool(tools)))
         return {
             "choices": [{
@@ -773,13 +773,61 @@ def test_tool_loop_profile_route_never_calls_legacy_provider(tmp_path, monkeypat
     assert trace["forced_final_reason"] == "research_complete"
 
 
+def test_failed_kat_synthesis_returns_marked_lfm_research_fallback(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "true")
+    calls = []
+
+    def routed(messages, *, task_kind, tools=None, timeout_seconds=None):
+        calls.append({
+            "task_kind": task_kind,
+            "tools": bool(tools),
+            "timeout_seconds": timeout_seconds,
+            "prompt_chars": len(str(messages[0].get("content") or "")),
+        })
+        if tools:
+            return {
+                "choices": [{
+                    "finish_reason": "stop",
+                    "message": {
+                        "content": "LFM hat die belegte Rechercheantwort erstellt.",
+                        "tool_calls": [],
+                    },
+                }]
+            }, {"inference": {"model": "lfm2.5-2.6b-agentic-q8_0"}}
+        raise TimeoutError("KAT synthesis timeout")
+
+    monkeypatch.setattr("agent.routes.snakes_worker_routing._worker_profile_chat", routed)
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Erkläre CodeCompass"}],
+        provider="lmstudio",
+        model="legacy",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+        question="Erkläre CodeCompass",
+        architecture_context="=== Architektur ===\nHub -> Worker",
+    )
+
+    assert answer == "LFM hat die belegte Rechercheantwort erstellt."
+    assert trace["final_synthesis_status"] == "completed_degraded"
+    assert trace["fallback_answer_source"] == "research_answer"
+    assert trace["final_synthesis_retry_attempted"] is True
+    assert [call["task_kind"] for call in calls] == [
+        "classification",
+        "repo_analysis",
+        "repo_analysis",
+    ]
+    assert calls[-1]["timeout_seconds"] == 60
+
+
 def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):
     from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
 
     monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "true")
     calls = []
 
-    def routed(messages, *, task_kind, tools=None):
+    def routed(messages, *, task_kind, tools=None, timeout_seconds=None):
         calls.append({"task_kind": task_kind, "tools": bool(tools), "messages": copy.deepcopy(messages)})
         if tools:
             return {

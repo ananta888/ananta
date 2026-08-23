@@ -112,10 +112,11 @@ def test_worker_executes_profile_routed_tool_selection(monkeypatch) -> None:
 
 
 def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
-    def forward(_worker_url, _path, payload, *, token):
+    def forward(_worker_url, _path, payload, *, token, timeout=None):
         assert payload["provider"] == "ananta_profile"
         assert payload["routing_tools"]
         assert token == "token"
+        assert timeout is None
         return {"data": {"reason": "", "tool_calls": [
             {"id": "call-1", "name": "read_file", "args": {"path": "agent/config.py"}}
         ], "inference": {

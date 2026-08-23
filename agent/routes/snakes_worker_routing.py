@@ -217,6 +217,7 @@ def _worker_profile_chat(
     task_kind: str,
     tools: list[dict[str, Any]] | None = None,
     worker_picker: Any = None,
+    timeout_seconds: int | None = None,
 ) -> tuple[dict[str, Any] | None, dict[str, Any]]:
     """Delegate a profile-routed chat/tool decision and preserve tool calls."""
     from agent.services.task_runtime_service import forward_to_worker
@@ -227,6 +228,7 @@ def _worker_profile_chat(
     }
     worker_url, token = (worker_picker or _pick_worker_for_ask)()
     trace["worker_url"] = worker_url
+    trace["timeout_seconds"] = timeout_seconds
     if not worker_url:
         trace["error"] = "no_online_worker"
         return None, trace
@@ -243,9 +245,21 @@ def _worker_profile_chat(
     if tools:
         payload["routing_tools"] = tools
     try:
-        result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
+        result = forward_to_worker(
+            worker_url,
+            "/step/propose",
+            payload,
+            token=token,
+            timeout=timeout_seconds,
+        )
         if result is None and token:
-            result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
+            result = forward_to_worker(
+                worker_url,
+                "/step/propose",
+                payload,
+                token=None,
+                timeout=timeout_seconds,
+            )
     except Exception as exc:
         trace["error"] = str(exc)[:160]
         return None, trace
@@ -256,6 +270,9 @@ def _worker_profile_chat(
     inference = data.get("inference") if isinstance(data.get("inference"), dict) else {}
     if inference:
         trace["inference"] = dict(inference)
+        trace["effective_provider"] = inference.get("provider")
+        trace["effective_model"] = inference.get("model")
+        trace["effective_profile_id"] = inference.get("profile_id")
     normalized_calls = []
     for index, call in enumerate(data.get("tool_calls") or []):
         if not isinstance(call, dict):

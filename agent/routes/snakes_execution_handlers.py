@@ -284,11 +284,29 @@ def _spawn_ai_chat_reply(
                     details={
                         "requested_provider": provider,
                         "requested_model": model,
+                        "session_requested_provider": provider,
+                        "session_requested_model": model,
                         "backend": _effective_provider_config.get("chat_backend"),
                         "effective_runtime": (
                             "hub_worker_profile_routing"
                             if snake_profile_routing_enabled()
                             else "legacy_direct_provider"
+                        ),
+                        "routing_authority": (
+                            "local_model_profile"
+                            if snake_profile_routing_enabled()
+                            else "session_provider_config"
+                        ),
+                        "session_metadata_advisory": snake_profile_routing_enabled(),
+                        "expected_research_profile": (
+                            "local_lfm25_agentic_fast"
+                            if snake_profile_routing_enabled()
+                            else None
+                        ),
+                        "expected_synthesis_profile": (
+                            "local_kat_coder_v25_heavy"
+                            if snake_profile_routing_enabled()
+                            else None
                         ),
                         "session_id": _active_session_id,
                         "conversation_history_messages": len(conversation_history),
@@ -450,8 +468,13 @@ def _spawn_ai_chat_reply(
                             file_names += f" +{len(file_list) - 6}"
                         scan_summary = f"rag_iterative: {batches_done} Batches, {files_found} Dateien" + (f" ({file_names})" if file_names else "")
                     if rec:
+                        _synthesis_degraded = (
+                            _tl.get("final_synthesis_status") == "completed_degraded"
+                        )
+                        if _synthesis_degraded:
+                            scan_summary += " — KAT-Synthese degradiert, LFM-Rechercheantwort verwendet"
                         rec.event("rag_iterative_completed", "RAG-Iterativ abgeschlossen",
-                                  status="cancelled" if scan_trace.get("cancelled") or _tl.get("cancelled") else ("completed" if answer else "failed"),
+                                  status="cancelled" if scan_trace.get("cancelled") or _tl.get("cancelled") else ("warning" if _synthesis_degraded else ("completed" if answer else "failed")),
                                   summary=scan_summary, duration_ms=(time.time() - t0) * 1000,
                                   details=scan_trace)
                     if not answer:

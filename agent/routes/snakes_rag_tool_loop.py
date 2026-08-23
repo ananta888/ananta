@@ -638,10 +638,14 @@ def run_rag_chat_tool_loop(
                 trace["initial_next_step_instruction_retired"] = True
                 return
 
-    def _prepare_profile_final_synthesis_context() -> None:
+    def _prepare_profile_final_synthesis_context(*, retry: bool = False) -> None:
         """Give KAT a bounded evidence handoff instead of the full research transcript."""
         evidence = _evidence_prompt()
-        research_hint = last_non_tool_content[:2500].strip()
+        architecture_budget = 1800 if retry else 3000
+        tool_budget = 2200 if retry else 4000
+        evidence_budget = 1800 if retry else 3500
+        hint_budget = 800 if retry else 1200
+        research_hint = last_non_tool_content[:hint_budget].strip()
         synthesis_prompt = (
             "Du bist das finale Coding-Synthesemodell. Beantworte die Nutzerfrage verbindlich, "
             "konkret und ausschliesslich aus der folgenden Recherche-Evidenz. Fuehre keine "
@@ -649,24 +653,50 @@ def run_rag_chat_tool_loop(
             f"Nutzerfrage: {question[:1000]}\n\n"
             + (
                 "Architektur-Evidenz:\n"
-                + architecture_context[:8000]
+                + architecture_context[:architecture_budget]
                 + "\n\n"
                 if architecture_context.strip()
                 else ""
             )
             + (
                 "Weitere CodeCompass-Tool-Evidenz:\n"
-                + "\n\n".join(_codecompass_evidence)[-12000:]
+                + "\n\n".join(_codecompass_evidence)[-tool_budget:]
                 + "\n\n"
                 if _codecompass_evidence
                 else ""
             )
-            + f"{evidence[:20000]}"
+            + f"{evidence[:evidence_budget]}"
         )
         if research_hint:
             synthesis_prompt += f"\n\nVorlaeufiger LFM-Recherchehinweis:\n{research_hint}"
+        synthesis_prompt += (
+            "\n\nAntworte auf Deutsch mit hoechstens 700 Woertern. "
+            "Nenne nur Beziehungen, die in der Evidenz belegt sind."
+        )
         current_messages[:] = [{"role": "user", "content": synthesis_prompt}]
         trace["final_synthesis_context_chars"] = len(synthesis_prompt)
+        trace["final_synthesis_context_mode"] = "retry_compact" if retry else "bounded"
+
+    def _retry_profile_final_synthesis() -> tuple[dict[str, Any] | None, dict[str, Any]]:
+        _prepare_profile_final_synthesis_context(retry=True)
+        try:
+            routed, retry_trace = _worker_profile_chat(
+                current_messages,
+                task_kind="repo_analysis",
+                tools=None,
+                timeout_seconds=min(60, max(30, timeout)),
+            )
+        except Exception as exc:
+            routed = None
+            retry_trace = {
+                "routing_task_kind": "repo_analysis",
+                "routing_source": "hub_snake_profile_policy",
+                "timeout_seconds": min(60, max(30, timeout)),
+                "error": str(exc)[:200],
+            }
+        trace.setdefault("worker_routes", []).append(retry_trace)
+        trace["final_synthesis_retry_attempted"] = True
+        return routed, retry_trace
 
     _register_initial_evidence()
     _compact_initial_packed_context()
@@ -869,6 +899,9 @@ def run_rag_chat_tool_loop(
                     current_messages,
                     task_kind=routed_kind,
                     tools=_CHAT_TOOLS if use_tools else None,
+                    timeout_seconds=(
+                        min(90, max(45, timeout)) if not use_tools else min(90, timeout)
+                    ),
                 )
                 trace.setdefault("worker_routes", []).append(routed_trace)
                 if not data:
@@ -887,24 +920,36 @@ def run_rag_chat_tool_loop(
                 return "", trace
         except Exception as exc:
             _log.warning("tool_loop: LLM call failed: %s", exc)
-            trace["error"] = f"llm_call_failed: {exc}"
-            log_llm_entry(
-                event="llm_call_end",
-                provider=provider,
-                model=model or "auto",
-                success=False,
-                tool_loop_call=llm_call_count,
-                response="",
-                error=str(exc),
-            )
-            if rec:
-                rec.event(
-                    f"tool_loop_llm_{llm_call_count}_done",
-                    f"{label} — Fehler",
-                    status="failed",
-                    details={"error": str(exc)},
+            if use_profile_routing and not use_tools and last_non_tool_content:
+                data, routed_trace = _retry_profile_final_synthesis()
+                if data:
+                    trace["final_synthesis_primary_error"] = str(exc)[:200]
+                else:
+                    trace["final_synthesis_status"] = "completed_degraded"
+                    trace["final_synthesis_error"] = (
+                        routed_trace.get("error") or str(exc)[:200]
+                    )
+                    trace["fallback_answer_source"] = "research_answer"
+                    return last_non_tool_content, trace
+            else:
+                trace["error"] = f"llm_call_failed: {exc}"
+                log_llm_entry(
+                    event="llm_call_end",
+                    provider=provider,
+                    model=model or "auto",
+                    success=False,
+                    tool_loop_call=llm_call_count,
+                    response="",
+                    error=str(exc),
                 )
-            return last_content, trace
+                if rec:
+                    rec.event(
+                        f"tool_loop_llm_{llm_call_count}_done",
+                        f"{label} — Fehler",
+                        status="failed",
+                        details={"error": str(exc)},
+                    )
+                return last_content, trace
 
         try:
             choice = (data.get("choices") or [{}])[0]
@@ -916,6 +961,24 @@ def run_rag_chat_tool_loop(
 
         content = str(msg.get("content") or "").strip()
         tool_calls = list(msg.get("tool_calls") or [])
+        if use_profile_routing and not use_tools and not content and last_non_tool_content:
+            retry_data, retry_trace = _retry_profile_final_synthesis()
+            if retry_data:
+                retry_choice = (retry_data.get("choices") or [{}])[0]
+                retry_msg = retry_choice.get("message") or {}
+                content = str(retry_msg.get("content") or "").strip()
+                tool_calls = list(retry_msg.get("tool_calls") or [])
+                finish_reason = str(retry_choice.get("finish_reason") or finish_reason)
+                routed_trace = retry_trace
+            if not content:
+                trace["final_synthesis_status"] = "completed_degraded"
+                trace["final_synthesis_error"] = (
+                    retry_trace.get("error") or "empty_final_synthesis"
+                )
+                trace["fallback_answer_source"] = "research_answer"
+                return last_non_tool_content, trace
+        if use_profile_routing and not use_tools:
+            trace["final_synthesis_status"] = "completed"
         last_content = content or last_content
         textual_tool_request = _looks_like_tool_request(content)
         if content and not textual_tool_request:
@@ -1239,6 +1302,28 @@ def run_rag_chat_tool_loop(
                 if fn_name in _CODECOMPASS_CHAT_TOOL_MAP:
                     _codecompass_evidence.append(
                         f"[{fn_name}]\n{result[:6000]}"
+                    )
+                if fn_name == "codecompass_architecture_overview":
+                    symbol_result = _dispatch_tool(
+                        "codecompass_symbol_context",
+                        {"query": str(args.get("query") or question)},
+                        repo_root=repo_root,
+                        max_chars_per_file=max_chars_per_file,
+                    )
+                    tool_call_count += 1
+                    trace["tools_used"].append({
+                        "iteration": _iteration,
+                        "name": "codecompass_symbol_context",
+                        "args": {"query": str(args.get("query") or question)[:120]},
+                        "result_chars": len(symbol_result),
+                        "automatic_companion": True,
+                    })
+                    _codecompass_evidence.append(
+                        "[codecompass_symbol_context]\n" + symbol_result[:6000]
+                    )
+                    result += (
+                        "\n\n[AUTOMATISCHE CODECOMPASS-SYMBOL-EVIDENZ]\n"
+                        + symbol_result[:6000]
                     )
 
             trace["tools_used"].append({

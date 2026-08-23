@@ -1121,8 +1121,16 @@ def _update_local_task_status_unlocked(
     return task, old_status, persisted_status
 
 
-def forward_to_worker(worker_url: str, endpoint: str, data: dict, token: str | None = None) -> Any:
-    return get_worker_gateway().forward_task(worker_url, endpoint, data, token=token)
+def forward_to_worker(
+    worker_url: str,
+    endpoint: str,
+    data: dict,
+    token: str | None = None,
+    timeout: int | None = None,
+) -> Any:
+    return get_worker_gateway().forward_task(
+        worker_url, endpoint, data, token=token, timeout=timeout
+    )
 
 
 def apply_artifact_first_completion(
