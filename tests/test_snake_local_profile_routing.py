@@ -18,7 +18,7 @@ def test_snake_task_kind_routes_code_to_heavy_and_chat_to_fast() -> None:
 def test_worker_propose_delegates_hub_routing_kind_without_legacy_model(monkeypatch) -> None:
     captured = {}
 
-    def forward(worker_url, path, payload, *, token):
+    def forward(worker_url, path, payload, *, token, timeout=None):
         captured.update(worker_url=worker_url, path=path, payload=payload, token=token)
         return {"data": {"reason": "ok"}}
 
@@ -44,7 +44,7 @@ def test_worker_propose_delegates_hub_routing_kind_without_legacy_model(monkeypa
 def test_worker_propose_fails_over_when_first_worker_rejects_auth(monkeypatch) -> None:
     calls = []
 
-    def forward(worker_url, path, payload, *, token):
+    def forward(worker_url, path, payload, *, token, timeout=None):
         calls.append((worker_url, token))
         if worker_url == "http://alpha:5000":
             return {"status": "error", "message": "worker_forward_failed", "http_status": 401}
@@ -62,6 +62,28 @@ def test_worker_propose_fails_over_when_first_worker_rejects_auth(monkeypatch) -
     assert answer == "beta answer"
     assert calls == [("http://alpha:5000", "stale"), ("http://beta:5000", "valid")]
     assert trace["worker_failover"]["reason"] == "worker_auth_rejected"
+
+
+def test_worker_propose_routes_from_explicit_original_question(monkeypatch) -> None:
+    captured = {}
+
+    def forward(_worker_url, _path, payload, *, token, timeout=None):
+        captured.update(payload=payload, timeout=timeout)
+        return {"data": {"reason": "fast answer"}}
+
+    monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "true")
+    monkeypatch.setattr("agent.services.task_runtime_service.forward_to_worker", forward)
+
+    answer, trace = _worker_propose(
+        "A huge grounded prompt containing code repository architecture",
+        None,
+        routing_task_kind=resolve_snake_routing_task_kind("Erkläre mir CodeCompass"),
+        worker_picker=lambda: ("http://worker:5000", "token"),
+    )
+
+    assert answer == "fast answer"
+    assert trace["routing_task_kind"] == "classification"
+    assert captured["timeout"] == 90
 
 
 def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch) -> None:

@@ -122,6 +122,7 @@ def _worker_propose(
     allow_profile_routing: bool = True,
     worker_picker: Any = None,
     model_resolver: Any = None,
+    routing_task_kind: str | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """Forward prompt to worker /step/propose. Returns (answer, trace)."""
     from agent.services.task_runtime_service import forward_to_worker
@@ -153,7 +154,10 @@ def _worker_propose(
     }
     if use_profile_routing:
         payload["provider"] = "ananta_profile"
-        payload["routing_task_kind"] = resolve_snake_routing_task_kind(grounded_prompt)
+        payload["routing_task_kind"] = (
+            str(routing_task_kind or "").strip()
+            or resolve_snake_routing_task_kind(grounded_prompt)
+        )
         trace["routing_task_kind"] = payload["routing_task_kind"]
         trace["routing_source"] = "hub_snake_profile_policy"
     elif resolved_model:
@@ -183,22 +187,43 @@ def _worker_propose(
         }
 
     try:
-        result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
-        auth_failed = (
+        request_timeout = 300 if payload.get("routing_task_kind") in {"repo_analysis", "debugging"} else 90
+        def _forward(url: str, credential: str | None):
+            try:
+                return forward_to_worker(
+                    url, "/step/propose", payload, token=credential, timeout=request_timeout,
+                )
+            except TypeError as exc:
+                # Compatibility seam for injected/legacy gateway adapters that
+                # still implement the pre-timeout call signature.
+                if "unexpected keyword argument 'timeout'" not in str(exc):
+                    raise
+                return forward_to_worker(url, "/step/propose", payload, token=credential)
+
+        result = _forward(worker_url, token)
+        retryable_worker_failure = result is None or (
             isinstance(result, dict)
-            and int(result.get("http_status") or 0) in {401, 403}
+            and (
+                int(result.get("http_status") or 0) in {401, 403, 408, 429, 500, 502, 503, 504}
+                or str(result.get("status") or "").lower() == "error"
+            )
         )
-        if auth_failed and (worker_picker is None or worker_picker is _pick_worker_for_ask):
+        if retryable_worker_failure and (worker_picker is None or worker_picker is _pick_worker_for_ask):
             fallback_url, fallback_token = _pick_worker_for_ask(exclude_urls={worker_url})
             if fallback_url:
+                reason = (
+                    "worker_auth_rejected"
+                    if isinstance(result, dict) and int(result.get("http_status") or 0) in {401, 403}
+                    else "worker_unavailable"
+                )
                 trace["worker_failover"] = {
                     "from": worker_url,
                     "to": fallback_url,
-                    "reason": "worker_auth_rejected",
+                    "reason": reason,
                 }
                 worker_url, token = fallback_url, fallback_token
                 trace["worker_url"] = worker_url
-                result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
+                result = _forward(worker_url, token)
     except Exception as exc:
         logging.getLogger(__name__).debug("snake-ask worker forward failed: %s", exc)
         trace["error"] = str(exc)[:120]
@@ -216,6 +241,12 @@ def _worker_propose(
         trace["error"] = str(data.get("message") or "worker_error")[:200]
         trace["http_status"] = data.get("http_status")
         return "", trace
+    inference = data.get("inference") if isinstance(data.get("inference"), dict) else {}
+    if inference:
+        trace["inference"] = dict(inference)
+        trace["effective_provider"] = inference.get("provider")
+        trace["effective_model"] = inference.get("model")
+        trace["effective_profile_id"] = inference.get("profile_id")
     text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
     text = _fit_answer_to_chars(
         text,

@@ -114,6 +114,7 @@ from .snakes_worker_routing import (
     _resolve_lmstudio_model_for_worker,
     _verify_token,
     _worker_propose,
+    resolve_snake_routing_task_kind,
     snake_profile_routing_enabled,
 )
 
@@ -663,8 +664,9 @@ def _spawn_ai_chat_reply(
                     never_truncate_answers=_chat_never_truncate_answers(),
                 ),
                 worker_picker=_pick_worker_for_ask,
+                routing_task_kind=resolve_snake_routing_task_kind(prompt),
             )
-            if not answer:
+            if not answer and not snake_profile_routing_enabled():
                 answer = generate_text(
                     prompt=budgeted_prompt,
                     provider=provider,
