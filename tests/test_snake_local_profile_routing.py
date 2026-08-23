@@ -140,6 +140,22 @@ def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
     assert trace["inference"]["model"] == "lfm2.5-2.6b-agentic-q8_0"
 
 
+def test_profile_chat_marks_empty_worker_response_as_error(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "agent.services.task_runtime_service.forward_to_worker",
+        lambda *_args, **_kwargs: {"data": {"reason": "", "tool_calls": []}},
+    )
+
+    response, trace = _worker_profile_chat(
+        [{"role": "user", "content": "synthesize"}],
+        task_kind="repo_analysis",
+        worker_picker=lambda: ("http://worker:5000", "token"),
+    )
+
+    assert response is None
+    assert trace["error"] == "empty_worker_response"
+
+
 def test_snake_shadow_observation_is_forced_candidate_only(monkeypatch) -> None:
     captured = {}
 

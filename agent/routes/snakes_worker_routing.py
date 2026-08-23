@@ -285,6 +285,13 @@ def _worker_profile_chat(
                 "arguments": json.dumps(call.get("args") or {}),
             },
         })
+    worker_error = str(data.get("error") or "").strip()
+    if worker_error:
+        trace["error"] = worker_error[:200]
+        return None, trace
+    if not str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip() and not normalized_calls:
+        trace["error"] = "empty_worker_response"
+        return None, trace
     return {
         "choices": [{
             "message": {
