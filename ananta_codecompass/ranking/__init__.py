@@ -6,6 +6,7 @@ from .contracts import (
     RankingProfile,
     RankingResult,
     ScoreContribution,
+    SourceRankerPort,
 )
 from .universal import UniversalSourceRanker
 
@@ -15,5 +16,6 @@ __all__ = [
     "RankingProfile",
     "RankingResult",
     "ScoreContribution",
+    "SourceRankerPort",
     "UniversalSourceRanker",
 ]

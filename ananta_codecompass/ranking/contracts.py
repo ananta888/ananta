@@ -5,7 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Mapping, Sequence
+from typing import Mapping, Protocol, Sequence
 
 from .profiles import UNIVERSAL_SOURCE_WEIGHTS
 
@@ -90,3 +90,7 @@ class RankingResult:
 
     def canonical_json(self) -> str:
         return json.dumps(self.as_dict(), ensure_ascii=True, sort_keys=True, separators=(",", ":"))
+
+
+class SourceRankerPort(Protocol):
+    def rank(self, ranking_input: RankingInput, *, top_k: int) -> RankingResult: ...

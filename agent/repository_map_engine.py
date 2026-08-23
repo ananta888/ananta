@@ -104,6 +104,7 @@ class RepositoryMapEngine:
         *,
         limits: ParserLimits | None = None,
         telemetry: FileTypeTelemetryPort | None = None,
+        source_ranker=None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.max_files = max_files
@@ -117,6 +118,11 @@ class RepositoryMapEngine:
         self._parser_diagnostics: dict[str, dict[str, object]] = {}
         self._last_scan_ts = 0.0
         self._last_ranking_trace: dict[str, object] = {}
+        if source_ranker is None:
+            from ananta_codecompass.ranking import UniversalSourceRanker
+
+            source_ranker = UniversalSourceRanker()
+        self._source_ranker = source_ranker
 
     def parser_diagnostics(self) -> tuple[dict[str, object], ...]:
         """Return deterministic, bounded diagnostics from the latest file states."""
@@ -624,7 +630,6 @@ class RepositoryMapEngine:
         from ananta_codecompass.ranking import (
             RankingCandidate,
             RankingInput,
-            UniversalSourceRanker,
         )
         from ananta_codecompass.ranking.file_roles import language_for_path
 
@@ -651,7 +656,7 @@ class RepositoryMapEngine:
             separators=(",", ":"),
         )
         index_digest = hashlib.sha256(digest_payload.encode("utf-8")).hexdigest()
-        result = UniversalSourceRanker().rank(
+        result = self._source_ranker.rank(
             RankingInput(
                 query=query,
                 candidates=candidates,
