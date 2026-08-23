@@ -726,6 +726,23 @@ class RepositoryMapEngine:
                 # else: top_segment in {scripts, public-rendezvous, …} → Ananta
             if is_third_party:
                 score *= 0.2
+            if "codecompass" in tokens:
+                overview_entrypoint = rel_path.startswith((
+                    "agent/services/tools/codecompass_",
+                    "agent/services/codecompass_context_service.py",
+                    "agent/services/codecompass_context_planner_service.py",
+                    "agent/services/codecompass_agentic_retrieval_service.py",
+                    "agent/services/codecompass_architecture_",
+                    "worker/retrieval/codecompass_",
+                ))
+                if overview_entrypoint:
+                    score += 30.0
+                if rel_path.startswith("rag-helper/"):
+                    score *= 0.35
+                if rel_path.startswith("agent/codecompass/x86/") and not (
+                    tokens & {"x86", "malware", "binary", "disassembly"}
+                ):
+                    score *= 0.15
             if self._path_in_focus(rel_path, path_focus):
                 score *= 2.4
                 if self._path_in_focus(rel_path, path_focus, preferred_only=True):

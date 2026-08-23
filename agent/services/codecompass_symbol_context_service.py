@@ -1,6 +1,7 @@
 """Build bounded symbol-level context from CodeCompass detail and relation outputs."""
 from __future__ import annotations
 
+import ast
 import json
 import pathlib as _pl
 import re
@@ -107,6 +108,37 @@ def _detail_output_dir(repo_root: _pl.Path) -> _pl.Path:
     return repo_root / "rag-helper" / "out"
 
 
+def _python_ast_records(
+    repo_root: _pl.Path,
+    ranked_sources: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build source-grounded symbol records when generated detail files are absent."""
+
+    records: list[dict[str, Any]] = []
+    for source in ranked_sources[:12]:
+        path = str(source.get("source") or source.get("path") or "").strip()
+        if not path.endswith(".py"):
+            continue
+        candidate = repo_root / path
+        try:
+            tree = ast.parse(candidate.read_text(encoding="utf-8", errors="replace"))
+        except (OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            kind = "python_class" if isinstance(node, ast.ClassDef) else "python_function"
+            records.append({
+                "id": f"ast:{path}:{int(node.lineno)}:{node.name}",
+                "file": path,
+                "name": node.name,
+                "kind": kind,
+                "line": int(node.lineno),
+                "end_line": int(getattr(node, "end_lineno", node.lineno) or node.lineno),
+            })
+    return records
+
+
 def build_codecompass_symbol_context(
     *,
     repo_root: _pl.Path,
@@ -140,6 +172,15 @@ def build_codecompass_symbol_context(
             score = _score_record(record, query_tokens=query_tokens, source_scores=source_scores)
             if file_path not in ranked_paths and score <= 0:
                 continue
+            detail_records.append({**record, "_cc_score": score})
+
+    if not detail_records:
+        for record in _python_ast_records(repo_root, ranked_sources):
+            score = _score_record(
+                record,
+                query_tokens=query_tokens,
+                source_scores=source_scores,
+            )
             detail_records.append({**record, "_cc_score": score})
 
     if not detail_records:
@@ -200,7 +241,10 @@ def build_codecompass_symbol_context(
             if line > start:
                 next_line = line
                 break
-        end = start + max(1, max_lines_per_snippet) - 1
+        end = min(
+            start + max(1, max_lines_per_snippet) - 1,
+            max(start, int(record.get("end_line") or start + max_lines_per_snippet - 1)),
+        )
         if next_line is not None:
             end = min(end, max(start, next_line - 1))
         content = _read_range(repo_root, path, start, end)

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from agent.services.tools._evidence import build_evidence_entry, build_tool_result
@@ -185,12 +186,58 @@ def codecompass_architecture_dependencies(*, workspace_dir: str, arguments: dict
 
 
 def codecompass_symbol_context(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
-    return _slice_result(
+    from agent.services.codecompass_symbol_context_service import (
+        build_codecompass_symbol_context,
+        format_symbol_context_section,
+    )
+
+    query = str((arguments or {}).get("query") or (arguments or {}).get("symbol") or "").strip()
+    if not query:
+        return build_tool_result(
+            tool_name="codecompass.symbol_context",
+            tool_call_id=tool_call_id,
+            status="error",
+            error="query_required",
+        )
+    records, _edges = _load_architecture_graph(arguments)
+    ranked_sources = [
+        {
+            "source": str(node.get("path") or ""),
+            "score": float(node.get("score") or (100 - index)),
+        }
+        for index, node in enumerate(records)
+        if str(node.get("path") or "").endswith((".py", ".ts", ".tsx", ".js", ".java"))
+    ][:20]
+    snippets = build_codecompass_symbol_context(
+        repo_root=Path(workspace_dir),
+        query=query,
+        ranked_sources=ranked_sources,
+        max_snippets=8,
+    )
+    evidence = []
+    for snippet in snippets:
+        entry, _ = build_evidence_entry(
+            kind="symbol",
+            path=snippet.path,
+            line_start=snippet.line_start,
+            line_end=snippet.line_end,
+            excerpt=snippet.content,
+            source=snippet.source,
+            max_excerpt_chars=1200,
+        )
+        evidence.append(entry)
+    return build_tool_result(
         tool_name="codecompass.symbol_context",
         tool_call_id=tool_call_id,
-        query=str((arguments or {}).get("query") or (arguments or {}).get("symbol") or ""),
-        profile="evidence",
-        arguments=arguments,
+        status="ok" if snippets else "degraded",
+        warnings=[] if snippets else ["symbol_context_unavailable"],
+        evidence=evidence,
+        data={
+            "query": query,
+            "symbol_count": len(snippets),
+            "formatted_context": format_symbol_context_section(snippets),
+        },
+        max_total_chars=10000,
     )
 
 

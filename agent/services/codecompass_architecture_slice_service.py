@@ -184,6 +184,14 @@ class CodeCompassArchitectureSliceService:
             if relevance <= 0:
                 continue
             path = str(node.get("path") or "").replace("\\", "/").lower()
+            broad_codecompass_overview = (
+                "codecompass" in tokens
+                and not (tokens & {"x86", "malware", "binary", "disassembly"})
+            )
+            if broad_codecompass_overview and path.startswith(
+                ("agent/codecompass/x86", "frontend-angular/")
+            ):
+                continue
             if path.startswith(("artifacts/", "tests/", "docs/", "reference_sources/")):
                 relevance *= 0.2
             elif path.startswith(("agent/", "worker/", "frontend-angular/", "rag-helper/")):

@@ -288,6 +288,17 @@ def _retrieval_user_question(question: str) -> str:
     ).strip()
 
 
+def _is_codecompass_overview_question(question: str) -> bool:
+    normalized = _retrieval_user_question(question).lower()
+    if "codecompass" not in normalized:
+        return False
+    specific_terms = {
+        "x86", "malware", "migration", "fehler", "bug", "funktion",
+        "klasse", "datei", "symbol", "timeout", "test",
+    }
+    return not any(term in normalized for term in specific_terms)
+
+
 def worker_chat_rag_iterative(
     question: str,
     *,
@@ -477,8 +488,9 @@ def worker_chat_rag_iterative(
             max_lines_per_snippet=_symbol_max_lines,
         )
         _symbol_context_section = format_symbol_context_section(_symbol_snippets)
-        _pack_min_files = 0 if _symbol_snippets else _initial_min_files
-        _pack_max_files = 0 if _symbol_snippets else _initial_max_files
+        _overview_question = _is_codecompass_overview_question(retrieval_question)
+        _pack_min_files = 0 if (_symbol_snippets or _overview_question) else _initial_min_files
+        _pack_max_files = 0 if (_symbol_snippets or _overview_question) else _initial_max_files
         _context_pack = build_rag_context_pack(
             chunks=chunks,
             repo_root=repo_root,

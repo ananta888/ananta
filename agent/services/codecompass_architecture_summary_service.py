@@ -7,13 +7,23 @@ from typing import Any, Mapping
 
 _CACHE: dict[str, dict[str, Any]] = {}
 
+_PATH_RESPONSIBILITIES = {
+    "agent/services": "Hub-seitige CodeCompass-Domaendienste und Orchestrierungsadapter.",
+    "worker/retrieval": "Worker-seitige, vom Hub delegierte Index- und Retrieval-Ausfuehrung.",
+    "ananta_codecompass": "Wiederverwendbare CodeCompass-Kernbibliothek fuer Graph und Architekturanalyse.",
+    "agent/services/tools/codecompass_tools.py": "Oeffentliche read-only CodeCompass-Toolfassade fuer Retrieval und Graphzugriff.",
+    "agent/services/tools/codecompass_architecture_tools.py": "Toolfassade fuer Architekturuebersicht, Expansion und Abhaengigkeiten.",
+    "agent/services/codecompass_agentic_retrieval_service.py": "Fuehrt Exact-, Graph- und Vektorsignale in einem begrenzten Retrievalvertrag zusammen.",
+    "agent/services/codecompass_architecture_slice_service.py": "Waehlt einen fragebezogenen, budgetierten Ausschnitt des Architekturgraphen.",
+}
+
 
 def summary_cache_key(
     *,
     revision: str,
     node_id: str,
     evidence_hash: str,
-    prompt_version: str = "det-v1",
+    prompt_version: str = "det-v2",
 ) -> str:
     raw = "|".join([revision, node_id, evidence_hash, prompt_version])
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
@@ -49,9 +59,13 @@ class CodeCompassArchitectureSummaryService:
         title = str(node.get("title") or node.get("id") or "node")
         level = str(node.get("level") or "unknown")
         path = str(node.get("path") or (refs[0] if refs else ""))
-        text = f"{title} is a {level}"
-        if path:
-            text += f" grounded in {path}"
+        responsibility = _PATH_RESPONSIBILITIES.get(path)
+        if responsibility:
+            text = responsibility
+        else:
+            text = f"{title}: struktureller {level}-Knoten"
+            if path:
+                text += f" aus {path}"
         if excerpt:
             text += f": {excerpt[:160]}"
         result = {
