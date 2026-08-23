@@ -209,6 +209,26 @@ def test_hybrid_preserves_one_successful_graph_result() -> None:
     assert any("graph" in row["signals"] for row in result["evidence"])
 
 
+def test_hybrid_preserves_graph_signal_when_all_graph_paths_are_deduplicated() -> None:
+    result = _service(
+        exact_search=lambda *_args, **_kwargs: [{
+            "id": "exact",
+            "path": "src/payment.py",
+            "content": "PaymentService",
+            "score": 10.0,
+        }],
+        vector_search=lambda *_args, **_kwargs: [],
+        graph_search=lambda *_args, **_kwargs: [{
+            "id": "graph",
+            "path": "src/payment.py",
+            "content": "PaymentService graph node",
+            "score": 1.0,
+        }],
+    ).retrieve(_request(query="architecture of payment", mode="auto"))
+
+    assert any("graph" in row["signals"] for row in result["evidence"])
+
+
 def test_duplicate_path_is_deduplicated_with_cross_engine_signals() -> None:
     def exact_search(query, **_kwargs):
         return [

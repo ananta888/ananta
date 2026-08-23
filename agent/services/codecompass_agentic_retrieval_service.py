@@ -291,23 +291,53 @@ class CodeCompassAgenticRetrievalService:
         if (
             SIGNAL_GRAPH in plan["signals"]
             and channel_results.get(graph_channel)
-            and not any(item.get("channel") == graph_channel for item in selected)
         ):
             # Preserve one bounded structural result when graph retrieval was
             # requested and succeeded. Exact evidence remains first, while the
             # merger can no longer silently erase the entire graph channel.
+            existing_graph_positions = [
+                index
+                for index, item in enumerate(selected)
+                if item.get("channel") == graph_channel
+                or graph_channel in dict(item.get("channel_contributions") or {})
+            ]
+            if existing_graph_positions:
+                graph_item = selected.pop(existing_graph_positions[0])
+                selected.insert(min(1, len(selected)), graph_item)
+                existing_graph_positions = []
             selected_paths = {str(item.get("path") or "") for item in selected}
             novel_graph_hits = [
                 item
                 for item in channel_results[graph_channel]
                 if str(item.get("path") or "") not in selected_paths
             ]
-            if novel_graph_hits:
+            if not any(
+                item.get("channel") == graph_channel
+                or graph_channel in dict(item.get("channel_contributions") or {})
+                for item in selected[:2]
+            ) and novel_graph_hits:
                 graph_hit = max(
                     novel_graph_hits,
                     key=lambda item: float(item.get("score") or 0.0),
                 )
                 selected.insert(min(1, len(selected)), graph_hit)
+            elif not any(
+                item.get("channel") == graph_channel
+                or graph_channel in dict(item.get("channel_contributions") or {})
+                for item in selected[:2]
+            ):
+                graph_by_path = {
+                    str(item.get("path") or ""): item
+                    for item in channel_results[graph_channel]
+                }
+                for item in selected:
+                    graph_hit = graph_by_path.get(str(item.get("path") or ""))
+                    if graph_hit is None:
+                        continue
+                    contributions = dict(item.get("channel_contributions") or {})
+                    contributions[graph_channel] = float(graph_hit.get("score") or 0.0)
+                    item["channel_contributions"] = contributions
+                    break
         input_count = sum(len(rows) for rows in channel_results.values())
         merged_count = max(0, input_count - len(selected))
         try:
