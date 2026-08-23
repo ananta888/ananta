@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import os
 import secrets
 from typing import Any
@@ -208,3 +209,69 @@ def _worker_propose(
     )
     trace["answer_chars"] = len(text)
     return text, trace
+
+
+def _worker_profile_chat(
+    messages: list[dict[str, Any]],
+    *,
+    task_kind: str,
+    tools: list[dict[str, Any]] | None = None,
+    worker_picker: Any = None,
+) -> tuple[dict[str, Any] | None, dict[str, Any]]:
+    """Delegate a profile-routed chat/tool decision and preserve tool calls."""
+    from agent.services.task_runtime_service import forward_to_worker
+
+    trace: dict[str, Any] = {
+        "routing_task_kind": task_kind,
+        "routing_source": "hub_snake_profile_policy",
+    }
+    worker_url, token = (worker_picker or _pick_worker_for_ask)()
+    trace["worker_url"] = worker_url
+    if not worker_url:
+        trace["error"] = "no_online_worker"
+        return None, trace
+
+    prompt = "\n\n".join(
+        f"[{str(item.get('role') or 'user').upper()}]\n{str(item.get('content') or '')}"
+        for item in messages
+        if isinstance(item, dict) and item.get("content") is not None
+    )
+    payload: dict[str, Any] = {
+        "prompt": prompt,
+        "provider": "ananta_profile",
+        "routing_task_kind": task_kind,
+    }
+    if tools:
+        payload["routing_tools"] = tools
+    try:
+        result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
+        if result is None and token:
+            result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
+    except Exception as exc:
+        trace["error"] = str(exc)[:160]
+        return None, trace
+    data = result.get("data") if isinstance(result, dict) and isinstance(result.get("data"), dict) else result
+    if not isinstance(data, dict):
+        trace["error"] = "invalid_worker_response"
+        return None, trace
+    normalized_calls = []
+    for index, call in enumerate(data.get("tool_calls") or []):
+        if not isinstance(call, dict):
+            continue
+        normalized_calls.append({
+            "id": call.get("id") or f"snake-tool-{index + 1}",
+            "type": "function",
+            "function": {
+                "name": str(call.get("name") or ""),
+                "arguments": json.dumps(call.get("args") or {}),
+            },
+        })
+    return {
+        "choices": [{
+            "message": {
+                "content": str(data.get("reason") or data.get("raw") or ""),
+                "tool_calls": normalized_calls,
+            },
+            "finish_reason": "tool_calls" if normalized_calls else "stop",
+        }]
+    }, trace

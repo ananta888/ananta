@@ -201,6 +201,10 @@ def run_rag_chat_tool_loop(
     import requests
 
     from agent.llm_integration import _runtime_api_key, _runtime_provider_urls
+    from agent.routes.snakes_worker_routing import (
+        _worker_profile_chat,
+        snake_profile_routing_enabled,
+    )
 
     # 0 = truly unlimited; the loop still exits when the model stops calling tools
     _effective_max = max_tool_calls if max_tool_calls > 0 else 0
@@ -220,7 +224,10 @@ def run_rag_chat_tool_loop(
     base_url = str(api_base or urls.get(provider) or "").rstrip("/")
     api_key = _runtime_api_key(provider)
 
-    if not base_url:
+    use_profile_routing = snake_profile_routing_enabled()
+    trace["inference_route"] = "hub_worker_local_profiles" if use_profile_routing else "legacy_direct_provider"
+
+    if not base_url and not use_profile_routing:
         trace["error"] = f"no_url_for_provider:{provider}"
         return "", trace
 
@@ -300,18 +307,29 @@ def run_rag_chat_tool_loop(
             f"Falls nichts relevant: '[nicht relevant]'."
         )
         try:
-            import requests as _req
-            resp = _req.post(
-                endpoint,
-                json={"model": model or "auto", "messages": [{"role": "user", "content": summary_prompt}]},
-                headers=headers,
-                timeout=min(timeout, 120),
-            )
-            resp.raise_for_status()
+            if use_profile_routing:
+                routed, routed_trace = _worker_profile_chat(
+                    [{"role": "user", "content": summary_prompt}],
+                    task_kind="summarization",
+                )
+                trace.setdefault("worker_routes", []).append(routed_trace)
+                if not routed:
+                    raise RuntimeError(routed_trace.get("error") or "worker_profile_summary_failed")
+                response_data = routed
+            else:
+                import requests as _req
+                resp = _req.post(
+                    endpoint,
+                    json={"model": model or "auto", "messages": [{"role": "user", "content": summary_prompt}]},
+                    headers=headers,
+                    timeout=min(timeout, 120),
+                )
+                resp.raise_for_status()
+                response_data = resp.json()
             if _cancelled():
                 return "[Abgebrochen]"
             summary = str(
-                ((resp.json().get("choices") or [{}])[0].get("message") or {}).get("content") or ""
+                ((response_data.get("choices") or [{}])[0].get("message") or {}).get("content") or ""
             ).strip()
             if summary:
                 return f"[Zusammenfassung von {path}]\n{summary[:max_summary_chars]}"
@@ -625,8 +643,22 @@ def run_rag_chat_tool_loop(
         log_llm_entry(**_log_kwargs)
 
         try:
-            resp = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
-            resp.raise_for_status()
+            if use_profile_routing:
+                # LFM performs the bounded tool decision; KAT handles the
+                # tool-free repository synthesis. Both execute on a worker.
+                routed_kind = "classification" if use_tools else "repo_analysis"
+                data, routed_trace = _worker_profile_chat(
+                    current_messages,
+                    task_kind=routed_kind,
+                    tools=_CHAT_TOOLS if use_tools else None,
+                )
+                trace.setdefault("worker_routes", []).append(routed_trace)
+                if not data:
+                    raise RuntimeError(routed_trace.get("error") or "worker_profile_chat_failed")
+            else:
+                resp = requests.post(endpoint, json=payload, headers=headers, timeout=timeout)
+                resp.raise_for_status()
+                data = resp.json()
             if _cancelled():
                 if rec:
                     rec.event(
@@ -635,7 +667,6 @@ def run_rag_chat_tool_loop(
                         status="cancelled",
                     )
                 return "", trace
-            data = resp.json()
         except Exception as exc:
             _log.warning("tool_loop: LLM call failed: %s", exc)
             trace["error"] = f"llm_call_failed: {exc}"

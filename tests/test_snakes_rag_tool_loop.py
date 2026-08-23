@@ -3,6 +3,14 @@ from __future__ import annotations
 import copy
 import threading
 
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def _legacy_direct_provider_by_default(monkeypatch):
+    """Existing unit cases exercise the explicitly supported legacy route."""
+    monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "false")
+
 
 class _FakeResponse:
     def __init__(self, payload: dict) -> None:
@@ -724,3 +732,37 @@ def test_search_codebase_filters_generated_codecompass_outputs(tmp_path, monkeyp
 
     assert "agent/real.py" in result
     assert "rag-helper/out/index_by_kind/python_file.jsonl" not in result
+
+
+def test_tool_loop_profile_route_never_calls_legacy_provider(tmp_path, monkeypatch):
+    from agent.routes.snakes_rag_tool_loop import run_rag_chat_tool_loop
+
+    monkeypatch.setenv("ANANTA_AI_SNAKE_PROFILE_ROUTING", "true")
+    monkeypatch.setattr(
+        "requests.post",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("legacy provider called")),
+    )
+    routed_kinds = []
+
+    def routed(_messages, *, task_kind, tools=None):
+        routed_kinds.append((task_kind, bool(tools)))
+        return {
+            "choices": [{
+                "finish_reason": "stop",
+                "message": {"content": "local final answer", "tool_calls": []},
+            }]
+        }, {"worker_url": "http://worker:5000"}
+
+    monkeypatch.setattr("agent.routes.snakes_worker_routing._worker_profile_chat", routed)
+    answer, trace = run_rag_chat_tool_loop(
+        messages=[{"role": "user", "content": "Erkläre dieses Repository"}],
+        provider="openai",
+        model="gpt-4o-mini",
+        api_base="https://api.openai.com/v1",
+        repo_root=tmp_path,
+        max_tool_calls=0,
+    )
+
+    assert answer == "local final answer"
+    assert routed_kinds == [("classification", True)]
+    assert trace["inference_route"] == "hub_worker_local_profiles"

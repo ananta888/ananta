@@ -34,6 +34,32 @@ class ProfileRoutedStepProposalService:
             ),
         )
 
+    def propose_with_tools(
+        self,
+        prompt: str,
+        tools: list[dict],
+        *,
+        task_kind: str,
+        agent_config: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Execute a Hub-authorized tool-selection inference on this worker."""
+        from agent.services.model_invocation_service import ModelInvocationService
+        from agent.services.model_profile_resolver import RoutingContext
+        from agent.services.tiny_router.snake_shadow import observe_snake_candidate
+
+        normalized_kind = str(task_kind or "classification").strip().lower()
+        observe_snake_candidate(prompt, agent_config=agent_config)
+        return ModelInvocationService.invoke_with_tools(
+            prompt,
+            tools,
+            routing_ctx=RoutingContext(
+                task_kind=normalized_kind,
+                model_role="any",
+                context_text=prompt,
+                allow_cloud=False,
+            ),
+        )
+
 
 _SERVICE = ProfileRoutedStepProposalService()
 

@@ -94,7 +94,9 @@ _DEFAULTS: dict[str, Any] = {
     "chat_panel_open": True,
     "chat_backend": "ananta-worker",
     "chat_backend_model": "",
-    "chat_backend_api_base": "http://localhost:1234/v1",
+    # Empty for ananta-worker: the Hub routes to authenticated worker-local
+    # profiles, so the browser must not own or display a provider endpoint.
+    "chat_backend_api_base": "",
     "chat_ask_timeout_s": 180,
     "chat_use_codecompass": True,
     "chat_include_local_project": True,
@@ -172,11 +174,12 @@ _OPTIONS: dict[str, list[str]] = {
     "ai_snake_provider_preference": ["lmstudio", "opencode", "hermes", "worker-propose"],
     "chat_backend": ["ananta-worker", "opencode", "lmstudio", "ollama", "hermes", "openai"],
     "chat_backend_api_base": [
-        "https://api.openai.com/v1",
-        "http://localhost:1234/v1",
-        "http://localhost:8080/v1",
+        "http://localhost:8081/v1",
+        "http://localhost:8082/v1",
         "http://localhost:11434/v1",
+        "http://localhost:1234/v1",
         "http://127.0.0.1:1234/v1",
+        "https://api.openai.com/v1",
     ],
     "chat_ask_timeout_s": ["20", "30", "45", "60", "90", "120", "180", "300", "600", "1200", "1800"],
     "chat_source_pack_id": ["ananta-dev-default", "ananta-default", "ananta-local-only"],

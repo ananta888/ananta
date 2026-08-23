@@ -170,10 +170,22 @@ class TaskExecutionService:
             )
 
             task_kind = str(request_data.routing_task_kind or "classification").strip().lower()
-            raw = get_profile_routed_step_proposal_service().propose(
-                prompt,
-                task_kind=task_kind,
-                agent_config=agent_cfg,
+            profile_service = get_profile_routed_step_proposal_service()
+            if request_data.routing_tools:
+                routed = profile_service.propose_with_tools(
+                    prompt,
+                    request_data.routing_tools,
+                    task_kind=task_kind,
+                    agent_config=agent_cfg,
+                )
+                content = str(routed.get("content") or "").strip()
+                return TaskStepProposeResponse(
+                    reason=content,
+                    raw=content,
+                    tool_calls=list(routed.get("tool_calls") or []),
+                ).model_dump()
+            raw = profile_service.propose(
+                prompt, task_kind=task_kind, agent_config=agent_cfg
             )
             return TaskStepProposeResponse(**build_proposal_payload(raw)).model_dump()
 

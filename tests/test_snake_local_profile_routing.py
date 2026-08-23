@@ -1,6 +1,7 @@
 from agent.models import TaskStepProposeRequest
 from agent.routes.snakes_chat_helpers import SnakeAskLimits
 from agent.routes.snakes_worker_routing import (
+    _worker_profile_chat,
     _worker_propose,
     resolve_snake_routing_task_kind,
 )
@@ -70,6 +71,66 @@ def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch
     assert calls["routing_ctx"].task_kind == "repo_analysis"
     assert calls["routing_ctx"].model_role == "coder"
     assert result["raw"] == "profil routed answer"
+
+
+def test_worker_executes_profile_routed_tool_selection(monkeypatch) -> None:
+    captured = {}
+
+    def invoke_with_tools(prompt, tools, **kwargs):
+        captured.update(prompt=prompt, tools=tools, routing_ctx=kwargs["routing_ctx"])
+        return {
+            "content": "",
+            "tool_calls": [{"name": "read_file", "args": {"path": "agent/config.py"}}],
+        }
+
+    monkeypatch.setattr(
+        "agent.services.model_invocation_service.ModelInvocationService.invoke_with_tools",
+        invoke_with_tools,
+    )
+    monkeypatch.setattr(
+        "agent.services.tiny_router.snake_shadow.observe_snake_candidate",
+        lambda prompt, *, agent_config: "shadow_candidate_validated",
+    )
+    tools = [{"type": "function", "function": {"name": "read_file", "parameters": {}}}]
+    result = TaskExecutionService().propose_direct_step(
+        TaskStepProposeRequest(
+            prompt="choose a repository tool",
+            provider="ananta_profile",
+            routing_task_kind="classification",
+            routing_tools=tools,
+        ),
+        agent_cfg={"hub_direct_execution": {"enabled": False}},
+        provider_urls={},
+        openai_api_key=None,
+        agent_name="worker",
+    )
+
+    assert captured["routing_ctx"].allow_cloud is False
+    assert captured["tools"] == tools
+    assert result["tool_calls"][0]["name"] == "read_file"
+
+
+def test_profile_chat_preserves_worker_tool_calls(monkeypatch) -> None:
+    def forward(_worker_url, _path, payload, *, token):
+        assert payload["provider"] == "ananta_profile"
+        assert payload["routing_tools"]
+        assert token == "token"
+        return {"data": {"reason": "", "tool_calls": [
+            {"id": "call-1", "name": "read_file", "args": {"path": "agent/config.py"}}
+        ]}}
+
+    monkeypatch.setattr("agent.services.task_runtime_service.forward_to_worker", forward)
+    response, trace = _worker_profile_chat(
+        [{"role": "user", "content": "inspect config"}],
+        task_kind="classification",
+        tools=[{"type": "function", "function": {"name": "read_file"}}],
+        worker_picker=lambda: ("http://worker:5000", "token"),
+    )
+
+    call = response["choices"][0]["message"]["tool_calls"][0]
+    assert call["function"]["name"] == "read_file"
+    assert '"agent/config.py"' in call["function"]["arguments"]
+    assert trace["routing_source"] == "hub_snake_profile_policy"
 
 
 def test_snake_shadow_observation_is_forced_candidate_only(monkeypatch) -> None:
