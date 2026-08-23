@@ -819,6 +819,7 @@ def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):
             "path": "agent/config.py", "summary": "Konfiguration", "source": "initial_context"
         }],
         question="Erkläre CodeCompass",
+        architecture_context="=== Architektur ===\nHub -> Worker",
     )
 
     assert answer == "KAT finalisiert aus der Evidenz."
@@ -829,3 +830,17 @@ def test_repeated_duplicate_hands_off_from_lfm_to_kat(tmp_path, monkeypatch):
     ]
     assert trace["duplicate_calls_blocked"] == 2
     assert trace["forced_final_reason"] == "repeated_duplicate_tool_call"
+    assert "=== Architektur ===" in calls[-1]["messages"][0]["content"]
+
+
+def test_snake_tool_catalog_exposes_governed_codecompass_tools() -> None:
+    from agent.routes.snakes_rag_tool_loop import _CHAT_TOOLS
+
+    names = {item["function"]["name"] for item in _CHAT_TOOLS}
+    assert {
+        "codecompass_retrieve",
+        "codecompass_architecture_overview",
+        "codecompass_architecture_expand",
+        "codecompass_architecture_dependencies",
+        "codecompass_symbol_context",
+    }.issubset(names)

@@ -610,7 +610,10 @@ class RepositoryMapEngine:
                 if token in path_lower:
                     score += 1.4
                     path_token_hits += 1
-                score += sum(1.0 for sym in sym_lower if token in sym)
+                # Repeated generated/helper symbols must not overwhelm a
+                # direct path/stem match. Eight hits retain useful density
+                # evidence without turning symbol count into relevance.
+                score += min(8.0, sum(1.0 for sym in sym_lower if token in sym))
             if score <= 0:
                 continue
             # Boost files whose filename stem matches ≥2 distinct query tokens:

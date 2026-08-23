@@ -10,6 +10,7 @@ iteratively when they exceed the context budget.
 from __future__ import annotations
 
 import logging
+import re
 import pathlib as _pl
 from time import time as _time
 from typing import Any
@@ -255,7 +256,7 @@ def _build_followup_retrieval_query(
     max_history_chars: int = 2400,
 ) -> str:
     """Build a retrieval-only query that preserves follow-up context."""
-    current = str(question or "").strip()
+    current = _retrieval_user_question(question)
     history = list(conversation_history or [])
     if not current or not history:
         return current
@@ -272,6 +273,19 @@ def _build_followup_retrieval_query(
         used += len(snippet)
         parts.append(snippet)
     return "\n\n".join(parts)
+
+
+def _retrieval_user_question(question: str) -> str:
+    """Remove presentation-only UI hints from repository retrieval text."""
+
+    current = str(question or "").strip()
+    return re.sub(
+        r"^\[UI-Kontext:[^\n]*\]\s*",
+        "",
+        current,
+        count=1,
+        flags=re.IGNORECASE,
+    ).strip()
 
 
 def worker_chat_rag_iterative(
@@ -500,15 +514,19 @@ def worker_chat_rag_iterative(
             "\nNaechster Schritt: Beginne mit read_file('{}') — lies diese Datei als erstes.".format(
                 _first_unread
             )
-            if _first_unread else ""
+            if _first_unread and not _architecture_section else ""
         )
+        _effective_question = _retrieval_user_question(question)
         _symbol_instruction = (
-            "1. Nutze den Symbol-Kontext oben als Einstieg; er zeigt die wichtigsten Stellen.\n"
+            "1. Nutze den Architektur- und Symbol-Kontext als Einstieg. Verwende fuer offene "
+            "Architekturfragen zuerst codecompass_architecture_overview oder "
+            "codecompass_retrieve und expandiere relevante Handles gezielt.\n"
             if _symbol_context_section else
-            "1. Lies zuerst die relevantesten Dateien aus der Dateiliste (nach Relevanz sortiert).\n"
+            "1. Nutze zuerst codecompass_retrieve oder codecompass_architecture_overview; "
+            "lies danach nur die fachlich relevanten Dateien aus der Dateiliste.\n"
         )
         user_message = (
-            "Frage: {}\n\n".format(question)
+            "Frage: {}\n\n".format(_effective_question)
             + ("{}\n\n".format(budget_instruction) if budget_instruction else "")
             + _catalog_section
             + "\n"
@@ -583,7 +601,8 @@ def worker_chat_rag_iterative(
             timeout=timeout_s,
             rec=rec,
             initial_files=available_files,
-            question=question,
+            question=_effective_question,
+            architecture_context=_architecture_section,
             summarize_reads=_summarize_reads,
             max_summary_chars=_summary_chars,
             initial_evidence=[

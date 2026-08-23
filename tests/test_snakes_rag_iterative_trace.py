@@ -8,6 +8,17 @@ class _RecordingTrace:
         self.events.append({"phase": phase, "title": title, **kwargs})
 
 
+def test_retrieval_question_removes_light_ui_context() -> None:
+    from agent.routes.snakes_rag_iterative import _build_followup_retrieval_query
+
+    query = _build_followup_retrieval_query(
+        "[UI-Kontext: /chats | chat.settings-tab|]\n\nerkläre mir den codecompass",
+        None,
+    )
+
+    assert query == "erkläre mir den codecompass"
+
+
 def test_rag_iterative_trace_records_full_batch_prompt_before_recorder_limit(tmp_path, monkeypatch):
     source = tmp_path / "docs" / "system-komponenten.md"
     source.parent.mkdir()

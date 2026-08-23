@@ -67,7 +67,137 @@ _CHAT_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "codecompass_retrieve",
+            "description": "Retrieve grounded, hybrid CodeCompass evidence for a repository question.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "codecompass_architecture_overview",
+            "description": "Load a hierarchical System/Subsystem/Component architecture overview.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "codecompass_architecture_expand",
+            "description": "Expand an architecture handle returned by an overview.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "handle": {"type": "string"},
+                    "query": {"type": "string"},
+                },
+                "required": ["handle"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "codecompass_architecture_dependencies",
+            "description": "Inspect bounded dependencies for an architecture handle.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "handle": {"type": "string"},
+                    "query": {"type": "string"},
+                },
+                "required": ["handle"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "codecompass_symbol_context",
+            "description": "Load grounded symbol-level CodeCompass evidence for a query.",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+            },
+        },
+    },
 ]
+
+_CODECOMPASS_CHAT_TOOL_MAP = {
+    "codecompass_retrieve": "codecompass.retrieve",
+    "codecompass_architecture_overview": "codecompass.architecture_overview",
+    "codecompass_architecture_expand": "codecompass.architecture_expand",
+    "codecompass_architecture_dependencies": "codecompass.architecture_dependencies",
+    "codecompass_symbol_context": "codecompass.symbol_context",
+}
+
+
+def _snake_codecompass_capability(repo_root: _pl.Path) -> dict[str, Any] | None:
+    """Issue a short-lived Hub-owned read scope for the active local index."""
+
+    try:
+        from agent.services.codecompass_retrieval_capability_service import (
+            bind_retrieval_capability,
+        )
+        from agent.services.repository_registry import get_repository_registry
+        from agent.services.tools.codecompass_tools import _resolve_graph_store
+
+        _store, index_id = _resolve_graph_store({})
+        if not index_id:
+            return None
+        index = get_repository_registry().knowledge_index_repo.get_by_id(index_id)
+        metadata = dict(getattr(index, "index_metadata", None) or {})
+        graph_binding = dict(metadata.get("graph_artifacts") or {})
+        revision = str(
+            graph_binding.get("graph_revision")
+            or metadata.get("codecompass_snapshot_revision")
+            or ""
+        ).strip()
+        source_id = str(
+            getattr(index, "source_path", None)
+            or metadata.get("source_id")
+            or repo_root.name
+        ).strip()
+        if not revision or not source_id:
+            return None
+        return bind_retrieval_capability(
+            {
+                "workspace_id": f"snake:{repo_root.name}",
+                "repository_id": source_id,
+                "source_scope": "repo_path",
+                "revision": revision,
+                "allowed_paths": [
+                    "agent",
+                    "worker",
+                    "ananta_codecompass",
+                    "rag-helper",
+                    "frontend-angular",
+                    "config",
+                    "docs",
+                    "scripts",
+                    "tests",
+                ],
+                "allowed_index_ids": [index_id],
+                "allowed_signals": ["exact", "graph", "vector"],
+            },
+            subject_id="ai-snake",
+            tenant_id="local",
+            ttl_seconds=300,
+        )
+    except Exception:
+        return None
 
 
 def _resolve_file(path: str, repo_root: _pl.Path) -> _pl.Path | None:
@@ -157,6 +287,37 @@ def _dispatch_tool(
         if not query:
             return "[Fehler: kein Suchbegriff angegeben]"
         return _tool_search_codebase(query, max_r, repo_root)
+    mapped_name = _CODECOMPASS_CHAT_TOOL_MAP.get(name)
+    if mapped_name:
+        from agent.services.ananta_tool_policy_service import (
+            get_ananta_tool_policy_service,
+        )
+        from agent.services.tools import execute_ananta_tool
+
+        decision = get_ananta_tool_policy_service().evaluate(
+            tool_name=mapped_name,
+            arguments=dict(args or {}),
+            allowed_tools=list(_CODECOMPASS_CHAT_TOOL_MAP.values()),
+            mutation_mode="read_only",
+        )
+        if not decision.allowed:
+            return json.dumps(
+                {"status": "blocked", "policy": decision.as_dict()},
+                ensure_ascii=False,
+                sort_keys=True,
+            )
+        result = execute_ananta_tool(
+            tool_name=mapped_name,
+            arguments=dict(args or {}),
+            workspace_dir=str(repo_root),
+            tool_call_id=f"snake-{name}",
+            config=(
+                {"codecompass_capability": _snake_codecompass_capability(repo_root)}
+                if mapped_name == "codecompass.retrieve"
+                else None
+            ),
+        )
+        return json.dumps(result, ensure_ascii=False, sort_keys=True)[:20_000]
     return f"[Unbekanntes Tool: {name}]"
 
 
@@ -178,6 +339,7 @@ def run_rag_chat_tool_loop(
     summarize_reads: bool = False,
     max_summary_chars: int = 600,
     initial_evidence: list[dict[str, Any]] | None = None,
+    architecture_context: str = "",
     cancel_event: Any | None = None,
 ) -> tuple[str, dict[str, Any]]:
     """
@@ -249,6 +411,7 @@ def run_rag_chat_tool_loop(
     last_non_tool_content = ""
     duplicate_call_streak = 0
     duplicate_calls_blocked = 0
+    _codecompass_evidence: list[str] = []
 
     def _cancelled() -> bool:
         if not is_chat_cancelled(cancel_event):
@@ -484,7 +647,21 @@ def run_rag_chat_tool_loop(
             "konkret und ausschliesslich aus der folgenden Recherche-Evidenz. Fuehre keine "
             "Tool-Aufrufe aus.\n\n"
             f"Nutzerfrage: {question[:1000]}\n\n"
-            f"{evidence[:20000]}"
+            + (
+                "Architektur-Evidenz:\n"
+                + architecture_context[:8000]
+                + "\n\n"
+                if architecture_context.strip()
+                else ""
+            )
+            + (
+                "Weitere CodeCompass-Tool-Evidenz:\n"
+                + "\n\n".join(_codecompass_evidence)[-12000:]
+                + "\n\n"
+                if _codecompass_evidence
+                else ""
+            )
+            + f"{evidence[:20000]}"
         )
         if research_hint:
             synthesis_prompt += f"\n\nVorlaeufiger LFM-Recherchehinweis:\n{research_hint}"
@@ -1059,6 +1236,10 @@ def run_rag_chat_tool_loop(
                     repo_root=repo_root,
                     max_chars_per_file=max_chars_per_file,
                 )
+                if fn_name in _CODECOMPASS_CHAT_TOOL_MAP:
+                    _codecompass_evidence.append(
+                        f"[{fn_name}]\n{result[:6000]}"
+                    )
 
             trace["tools_used"].append({
                 "iteration": _iteration,
