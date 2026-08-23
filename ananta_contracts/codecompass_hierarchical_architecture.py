@@ -23,6 +23,10 @@ _RELATION_MAP = {
     "retrieves_from": "retrieves_from",
     "governed_by": "governed_by",
     "provides_context_to": "provides_context_to",
+    # Canonical persisted graph vocabulary.
+    "contains_file": "contains",
+    "contains_directory": "contains",
+    "declares": "contains",
 }
 
 _INFERRED_RELATIONS = frozenset({"calls_probable_target"})
@@ -52,6 +56,13 @@ def classify_level(record: Mapping[str, Any]) -> str:
         for part in kind.replace("-", "_").replace(".", "_").split("_")
         if part
     }
+    if kind == "repository":
+        return "system"
+    if kind == "directory":
+        depth = len([part for part in path.replace("\\", "/").split("/") if part])
+        return "subsystem" if depth <= 1 else "component"
+    if kind == "source_file":
+        return "file"
     if kind.startswith(("python_", "java_", "ts_")) or tokens & {
         "function",
         "class",
@@ -141,10 +152,19 @@ def project_hierarchy(
     for edge in list(edges or []):
         if not isinstance(edge, Mapping):
             continue
-        source = str(edge.get("source") or edge.get("from") or "").strip()
-        target = str(edge.get("target") or edge.get("to") or "").strip()
+        source = str(
+            edge.get("source") or edge.get("source_id") or edge.get("from") or ""
+        ).strip()
+        target = str(
+            edge.get("target") or edge.get("target_id") or edge.get("to") or ""
+        ).strip()
         relation, origin = map_relation(
-            str(edge.get("type") or edge.get("relation") or "")
+            str(
+                edge.get("type")
+                or edge.get("edge_type")
+                or edge.get("relation")
+                or ""
+            )
         )
         if not source or not target or relation is None:
             continue
@@ -152,7 +172,11 @@ def project_hierarchy(
             continue
         projected_edges.append(
             {
-                "id": str(edge.get("id") or f"e-{source}-{target}-{relation}"),
+                "id": str(
+                    edge.get("id")
+                    or edge.get("edge_id")
+                    or f"e-{source}-{target}-{relation}"
+                ),
                 "source": source,
                 "target": target,
                 "relation": relation,

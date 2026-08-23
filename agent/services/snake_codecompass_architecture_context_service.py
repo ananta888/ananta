@@ -45,14 +45,37 @@ class SnakeCodeCompassArchitectureContextService:
         if not nodes:
             return "", {"status": "degraded", "reason": "empty_architecture_slice"}
         rows = ["=== CodeCompass Hierarchischer Architektur-Kontext ==="]
+        node_titles: dict[str, str] = {}
         for item in nodes:
+            node_id = str(item.get("id") or "").strip()
             level = str(item.get("level") or "unknown")
             title = str(item.get("title") or item.get("id") or "unknown")
+            if node_id:
+                node_titles[node_id] = title
             path = str(item.get("path") or "")
             summary = str(item.get("short_summary") or "summary_unavailable")
             handle = str(item.get("handle") or "")
             suffix = f" | path: {path}" if path else ""
             rows.append(f"- [{level}] {title}{suffix}\n  {summary}\n  handle: {handle}")
+        edges = [item for item in architecture.get("edges") or [] if isinstance(item, dict)]
+        relation_rows: list[str] = []
+        for item in edges:
+            source_id = str(item.get("source") or item.get("source_id") or "").strip()
+            target_id = str(item.get("target") or item.get("target_id") or "").strip()
+            if not source_id or not target_id:
+                continue
+            relation = str(
+                item.get("relation")
+                or item.get("type")
+                or item.get("edge_type")
+                or "contains"
+            ).strip()
+            source = node_titles.get(source_id, source_id)
+            target = node_titles.get(target_id, target_id)
+            relation_rows.append(f"- {source} --{relation}--> {target}")
+        if relation_rows:
+            rows.append("Beziehungen:")
+            rows.extend(relation_rows)
         text = "\n".join(rows)
         if len(text) > max_chars:
             text = text[:max_chars].rstrip() + "\n[Architektur-Kontext budgetbedingt gekuerzt]"
@@ -60,7 +83,7 @@ class SnakeCodeCompassArchitectureContextService:
             "status": "ok",
             "schema": architecture.get("schema"),
             "node_count": len(nodes),
-            "edge_count": len(architecture.get("edges") or []),
+            "edge_count": len(edges),
             "levels": list(architecture.get("levels") or []),
             "truncated": bool(architecture.get("truncated")) or len(text) >= max_chars,
             "warnings": list(architecture.get("warnings") or []),

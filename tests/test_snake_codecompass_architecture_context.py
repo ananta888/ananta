@@ -10,15 +10,29 @@ def test_architecture_prefill_projects_hierarchical_slice() -> None:
             "data": {"architecture": {
                 "schema": "codecompass.hierarchical-architecture-context.v1",
                 "levels": ["system", "subsystem", "component", "file", "symbol"],
-                "nodes": [{
-                    "id": "component:retrieval",
-                    "level": "component",
-                    "title": "Retrieval",
-                    "path": "agent/services",
-                    "short_summary": "Builds grounded context.",
-                    "handle": "hac:revision:component:retrieval",
+                "nodes": [
+                    {
+                        "id": "system",
+                        "level": "system",
+                        "title": "Ananta",
+                        "path": ".",
+                        "short_summary": "Repository root.",
+                        "handle": "hac:revision:system",
+                    },
+                    {
+                        "id": "component:retrieval",
+                        "level": "component",
+                        "title": "Retrieval",
+                        "path": "agent/services",
+                        "short_summary": "Builds grounded context.",
+                        "handle": "hac:revision:component:retrieval",
+                    },
+                ],
+                "edges": [{
+                    "source": "system",
+                    "target": "component:retrieval",
+                    "type": "contains",
                 }],
-                "edges": [{"source": "system", "target": "component:retrieval"}],
                 "truncated": False,
                 "warnings": [],
             }},
@@ -30,8 +44,10 @@ def test_architecture_prefill_projects_hierarchical_slice() -> None:
 
     assert "Hierarchischer Architektur-Kontext" in text
     assert "[component] Retrieval" in text
+    assert "Ananta --contains--> Retrieval" in text
     assert trace["status"] == "ok"
-    assert trace["node_count"] == 1
+    assert trace["node_count"] == 2
+    assert trace["edge_count"] == 1
     assert trace["levels"] == ["system", "subsystem", "component", "file", "symbol"]
 
 

@@ -86,6 +86,29 @@ def test_projection_is_deterministic_and_keeps_unknown() -> None:
     assert first["unknown_count"] >= 1
 
 
+def test_projection_adapts_persisted_graph_vocabulary() -> None:
+    projected = project_hierarchy(
+        records=[
+            {"id": "repo", "kind": "repository", "name": "Ananta"},
+            {"id": "agent", "kind": "directory", "name": "agent", "file": "agent"},
+            {"id": "service", "kind": "directory", "name": "services", "file": "agent/services"},
+            {"id": "file", "kind": "source_file", "name": "codecompass.py", "file": "agent/services/codecompass.py"},
+        ],
+        edges=[
+            {"source_id": "repo", "target_id": "agent", "edge_type": "contains_directory", "edge_id": "e1"},
+            {"source_id": "agent", "target_id": "service", "edge_type": "contains_directory", "edge_id": "e2"},
+            {"source_id": "service", "target_id": "file", "edge_type": "contains_file", "edge_id": "e3"},
+        ],
+        revision="rev",
+    )
+
+    assert [node["level"] for node in projected["nodes"]] == [
+        "system", "subsystem", "component", "file"
+    ]
+    assert len(projected["edges"]) == 3
+    assert {edge["relation"] for edge in projected["edges"]} == {"contains"}
+
+
 def test_budget_never_exceeds_caps() -> None:
     huge = _records() * 8
     slice_payload = CodeCompassArchitectureSliceService().build_slice(
@@ -128,6 +151,21 @@ def test_system_question_prefers_system_before_files() -> None:
     first_levels = [node["level"] for node in slice_payload["nodes"][:3]]
     assert "system" in first_levels or "subsystem" in first_levels
     assert slice_payload["nodes"][0]["level"] in {"system", "subsystem", "component"}
+
+
+def test_broad_codecompass_query_prefers_explanatory_entrypoints() -> None:
+    records = [
+        {"id": "migration", "kind": "source_file", "name": "codecompass_hardening.py", "file": "agent/services/codecompass_hardening.py"},
+        {"id": "architecture", "kind": "source_file", "name": "codecompass_architecture_slice_service.py", "file": "agent/services/codecompass_architecture_slice_service.py"},
+    ]
+
+    payload = CodeCompassArchitectureSliceService().build_slice(
+        query="Erkläre CodeCompass",
+        records=records,
+        capability={"workspace_id": "ws-1", "revision": "rev-1"},
+    )
+
+    assert payload["nodes"][0]["id"] == "architecture"
 
 
 def test_summary_cache_invalidates_on_revision_change() -> None:

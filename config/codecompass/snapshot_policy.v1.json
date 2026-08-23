@@ -24,6 +24,26 @@
       "minimum_indexed": 1
     },
     {
+      "pattern": "agent/services/codecompass*.py",
+      "minimum_indexed": 30
+    },
+    {
+      "pattern": "agent/services/knowledge_index*.py",
+      "minimum_indexed": 10
+    },
+    {
+      "pattern": "agent/routes/snakes*.py",
+      "minimum_indexed": 8
+    },
+    {
+      "pattern": "worker/retrieval/codecompass*.py",
+      "minimum_indexed": 12
+    },
+    {
+      "pattern": "ananta_codecompass/**",
+      "minimum_indexed": 15
+    },
+    {
       "pattern": "frontend-angular/src/app/features/visual-process/**",
       "minimum_indexed": 1
     },

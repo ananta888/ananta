@@ -20,6 +20,18 @@ from ananta_contracts.codecompass_hierarchical_architecture import (
 
 SCHEMA_ID = "codecompass.hierarchical-architecture-context.v1"
 
+# Stable entry points that explain the subsystem itself.  Broad queries such
+# as "what is CodeCompass" should not be decided by filename ordering among
+# hundreds of equally matching implementation and migration files.
+_CODECOMPASS_OVERVIEW_ENTRYPOINTS = (
+    "agent/services/tools/codecompass_",
+    "agent/services/codecompass_architecture_",
+    "agent/services/codecompass_agentic_retrieval",
+    "agent/services/codecompass_context_planner",
+    "worker/retrieval/codecompass_",
+    "ananta_codecompass/architecture_intelligence",
+)
+
 
 def encode_handle(*, revision: str, node_id: str) -> str:
     payload = json.dumps({"r": revision, "n": node_id}, separators=(",", ":"), sort_keys=True)
@@ -68,6 +80,11 @@ class CodeCompassArchitectureSliceService:
             ]
         projected = project_hierarchy(records=records, edges=edges, revision=revision)
         ranked = self._rank_nodes(projected["nodes"], query=query, focus_node_id=focus_node_id)
+        ranked = self._include_ancestor_context(
+            ranked,
+            nodes=projected["nodes"],
+            edges=projected["edges"],
+        )
         budget = resolve_architecture_budget(profile=profile, parent_max_tokens=parent_max_tokens)
         applied = apply_architecture_budget(nodes=ranked, edges=projected["edges"], budget=budget)
         nodes = []
@@ -163,9 +180,82 @@ class CodeCompassArchitectureSliceService:
             parent_bonus = 3.0 if focus_node_id and node.get("id") and node.get("parent_id") == focus_node_id else 0.0
             if focus_node_id and node.get("id") == focus_node_id:
                 parent_bonus += 3.0
-            scored.append((overlap * 4 + level_bonus + focus + parent_bonus, node))
+            relevance = overlap * 4 + focus + parent_bonus
+            if relevance <= 0:
+                continue
+            path = str(node.get("path") or "").replace("\\", "/").lower()
+            if path.startswith(("artifacts/", "tests/", "docs/", "reference_sources/")):
+                relevance *= 0.2
+            elif path.startswith(("agent/", "worker/", "frontend-angular/", "rag-helper/")):
+                relevance *= 1.5
+            if path.startswith(
+                (
+                    "agent/services/codecompass",
+                    "agent/services/knowledge_index",
+                    "agent/routes/snakes",
+                    "worker/retrieval/codecompass",
+                    "ananta_codecompass/",
+                )
+            ):
+                relevance *= 2.0
+            if "codecompass" in tokens and path.startswith(
+                _CODECOMPASS_OVERVIEW_ENTRYPOINTS
+            ):
+                relevance += 18.0
+            scored.append((relevance + level_bonus, node))
         scored.sort(key=lambda item: (-item[0], item[1].get("id")))
-        return [item[1] for item in scored]
+        if scored:
+            return [item[1] for item in scored]
+        # A query without any graph token still receives a bounded structural
+        # overview instead of an arbitrary empty result.
+        return sorted(
+            nodes,
+            key=lambda node: (
+                -{"system": 5, "subsystem": 4, "component": 3, "file": 1}.get(
+                    str(node.get("level")), 0
+                ),
+                str(node.get("id") or ""),
+            ),
+        )
+
+    @staticmethod
+    def _include_ancestor_context(
+        ranked: list[dict[str, Any]],
+        *,
+        nodes: list[dict[str, Any]],
+        edges: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Prepend real containment ancestors for the strongest matches."""
+
+        by_id = {str(node.get("id") or ""): node for node in nodes}
+        parent_by_child = {
+            str(edge.get("target") or ""): str(edge.get("source") or "")
+            for edge in edges
+            if edge.get("relation") == "contains"
+        }
+        ancestor_ids: set[str] = set()
+        for seed in ranked[:8]:
+            current = str(seed.get("id") or "")
+            visited: set[str] = set()
+            while current in parent_by_child and current not in visited:
+                visited.add(current)
+                current = parent_by_child[current]
+                if current in by_id:
+                    ancestor_ids.add(current)
+        level_order = {"system": 0, "subsystem": 1, "component": 2, "file": 3, "symbol": 4}
+        ancestors = sorted(
+            (by_id[node_id] for node_id in ancestor_ids),
+            key=lambda node: (
+                level_order.get(str(node.get("level")), 9),
+                len(str(node.get("path") or "").split("/")),
+                str(node.get("id") or ""),
+            ),
+        )
+        seen = {str(node.get("id") or "") for node in ancestors}
+        return [
+            *ancestors,
+            *(node for node in ranked if str(node.get("id") or "") not in seen),
+        ]
 
 
 def _path_allowed(path: str, allowed: list[str]) -> bool:
