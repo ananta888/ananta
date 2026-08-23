@@ -1,0 +1,379 @@
+{
+  "$schema": "todo.schema.json",
+  "version": 1,
+  "created": "2026-08-23",
+  "updated": "2026-08-23",
+  "project": "ananta",
+  "owner": "Ananta maintainers",
+  "track": "codecompass_universal_deterministic_source_ranking",
+  "status": "completed",
+  "priority": "P0",
+  "review_basis": {
+    "reviewed_commit_range": "main@8be541fb9e887d532b0f8620b881bea2638e9089",
+    "review_goal": "Das derzeit teilweise repository- und domain-spezifisch gewichtete CodeCompass-Ranking zu einem universellen, deterministischen, erklaerbaren Source-Ranking fuer beliebige Quellcode-Repositories weiterentwickeln. Das Ergebnis darf fuer normale Nutzung weder Benutzer-Tuning noch projektspezifische Pfadnamen, Domain-Sonderfaelle oder wiederholte manuelle Gewichtsanpassungen benoetigen.",
+    "reviewed_paths": [
+      "agent/repository_map_engine.py",
+      "agent/config.py",
+      "agent/services/codecompass_ranking_config_service.py",
+      "agent/services/codecompass_retrieval_strategy.py",
+      "agent/services/codecompass_symbol_context_service.py",
+      "worker/retrieval/ranking.py",
+      "worker/retrieval/reranker.py",
+      "worker/retrieval/codecompass_fts_store.py",
+      "tests/test_repository_map_source_first_selector.py"
+    ],
+    "observed_manual_ranking_points": [
+      "RepositoryMapEngine verwendet fest codierte Pfad-, Symbol-, Test-, Drittanbieter- und Source-first-Gewichte.",
+      "RepositoryMapEngine enthaelt einen expliziten Sonderfall fuer das Query-Token codecompass und konkrete Ananta-Pfade.",
+      "RAG_PATH_FOCUS_ALIASES erlaubt manuelle, deployment-spezifische Pfad-Aliase und Anchor-Boosts.",
+      "CodeCompassRankingConfig erlaubt manuelle score_weights fuer Embedding, Graph, Symbole, Transformer-Reranking und Policy-Penalty.",
+      "worker/retrieval/ranking.py enthaelt fest codierte Kanalgewichte fuer bugfix, feature und bootstrap.",
+      "FTS, Symbolkontext und optionale Reranker besitzen weitere lokal definierte Score-Komponenten."
+    ],
+    "design_conclusion": "Manuelle Gewichte duerfen nur als versionierte, allgemeine Algorithmus-Defaults oder explizite experimentelle Overrides existieren. Repository-, Produkt-, Domain- und Pfadnamen duerfen im normalen Ranking-Hot-Path keine Sonderbehandlung erhalten. Strukturrollen, Produktionscode, Tests, generierte Dateien, Einstiegspunkte und Zentralitaet muessen aus dem indexierten Quellcode und seinem Graphen abgeleitet werden. Jeder finale Score muss in normalisierte, nachvollziehbare Beitraege zerlegbar sein."
+  },
+  "purpose": "CodeCompass soll beim ersten Lauf auf einem unbekannten Repository ohne Benutzerkonfiguration relevante Implementierungsdateien, Symbole und Architektur-Einstiegspunkte reproduzierbar finden. Manuelle Korrekturen fuer einzelne Repositories sollen durch automatisch abgeleitete Struktur-, Graph-, Symbol-, Lexical- und Semantiksignale ersetzt werden.",
+  "goal": "Eine identische Query auf einem identischen Repository-Snapshot und derselben Ranking-Version erzeugt immer dieselbe Reihenfolge. Das Ranking benoetigt keine projektspezifischen Namen oder Pfadlisten, erklaert jeden Treffer durch maschinenlesbare Score-Beitraege und erreicht auf sprach- und repository-uebergreifenden Golden Sets eine nachweisbar bessere oder mindestens gleichwertige Relevanz als die bisherige Heuristik.",
+  "non_goals": [
+    "Kein LLM als alleinige oder nicht reproduzierbare Ranking-Autoritaet.",
+    "Keine benutzerspezifischen versteckten Boosts im Standardpfad.",
+    "Keine CodeCompass-, Ananta-, x86-, rag-helper- oder sonstigen Produktnamen im universellen Ranking-Algorithmus.",
+    "Keine Entfernung von Security-, Scope-, Berechtigungs- oder Policy-Filtern; diese bleiben harte Zulassungsgrenzen und sind keine Relevanzsignale.",
+    "Keine Worker-zu-Worker-Orchestrierung; der Hub bleibt Eigentuemer von Query-Planung, Ranking-Policy und Auswahl.",
+    "Keine Big-Bang-Abloesung ohne Shadow-Vergleich, Rollback und kompatiblen Migrationspfad.",
+    "Keine Behauptung allgemeiner Ranking-Qualitaet ohne mehrsprachige und multi-repository Evaluation."
+  ],
+  "ranking_contract": {
+    "determinism": [
+      "Repository-Snapshot, Query, erlaubter Scope, Ranking-Version und Konfiguration bilden den vollstaendigen deterministischen Input.",
+      "Sortiergleichstaende werden ueber stabile kanonische Schluessel aufgeloest, niemals ueber Iterations-, Thread- oder Dateisystemreihenfolge.",
+      "Optionale Modell-Reranker muessen digest-gebunden sein; ohne exakt gebundenes Modell faellt das System deterministisch auf den Baseline-Ranker zurueck."
+    ],
+    "automatic_signals": [
+      "lexikalische Uebereinstimmung in Pfad, Dateiname, Symbol, Signatur und begrenztem Quelltext",
+      "exakte Symbol- und qualifizierte Namensuebereinstimmung",
+      "Import-, Export-, Deklarations-, Aufruf-, Vererbungs- und Datenflussnaehe",
+      "Graphdistanz zu Query-Symbolen und automatisch erkannte Zentralitaet",
+      "automatisch klassifizierte Dateirolle wie production, test, generated, vendored, docs, fixture oder build-output",
+      "automatisch erkannte Einstiegspunkte, oeffentliche APIs, Adapter, Ports, Routen und Tool-Registrierungen",
+      "normalisierte semantische Aehnlichkeit aus einem gebundenen lokalen Embedding-Profil",
+      "Diversitaet und Abdeckung, damit Top-K nicht aus nahezu identischen Dateien desselben Unterbaums besteht"
+    ],
+    "manual_controls_policy": "Manuelle Overrides sind standardmaessig deaktiviert, explizit benannt, versioniert, im Trace sichtbar, scope-gebunden und duerfen niemals stillschweigend aus Benutzerhistorie oder Repository-Namen entstehen."
+  },
+  "categories": [
+    {
+      "name": "inventory_and_contract",
+      "label": "Bestandsaufnahme und Rankingvertrag",
+      "items": [
+        {
+          "id": "UDSR-001",
+          "title": "Alle Score-, Boost-, Penalty- und Filterpunkte inventarisieren",
+          "status": "completed",
+          "priority": "P0",
+          "tasks": [
+            "RepositoryMapEngine, FTS, Hybrid-Merge, Graph-Ranking, Symbolkontext, Restricted-Reranker und Context-Packer auf Score-Manipulationen untersuchen.",
+            "Jeden Wert als harte Sicherheitsgrenze, universelle Heuristik, task-type Default, deployment Override oder repository-spezifischen Sonderfall klassifizieren.",
+            "Aktuelle Defaults, Konfigurationsschluessel, Aufrufer und Trace-Sichtbarkeit dokumentieren.",
+            "Explizit erfassen, welche Gewichte im Code, in config.json, Config Graph, Umgebungsvariablen oder Profilen gesetzt werden koennen."
+          ],
+          "acceptance_criteria": [
+            "Es existiert eine vollstaendige maschinenlesbare Inventarliste aller Ranking-Eingriffe.",
+            "Jeder Eingriff besitzt Owner, Quelle, Default, Gueltigkeitsbereich und geplanten Zielzustand.",
+            "Security-Filter sind klar von Relevanzranking getrennt."
+          ]
+        },
+        {
+          "id": "UDSR-002",
+          "title": "Versionierten universellen Rankingvertrag definieren",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-001"],
+          "tasks": [
+            "Ein kleines RankingInput-, RankingCandidate-, ScoreContribution- und RankingResult-Contract-Set definieren.",
+            "Stabile Tie-Breaker, Normalisierung, fehlende Signale, Teilindizes und Fallbackverhalten festlegen.",
+            "Ranking-Version, Repository-Revision, Index-Digest und optionale Modell-Digests im Ergebnis binden.",
+            "Policy-/Scope-Ausschluesse als vorgelagerten Eligibility-Schritt modellieren."
+          ],
+          "acceptance_criteria": [
+            "Gleiche Inputs liefern byte-stabil dieselbe geordnete Kandidatenliste und Score-Aufschluesselung.",
+            "Ein Kandidat kann keine Punkte aus einem unbekannten oder nicht deklarierten Signal erhalten.",
+            "Hub- und Worker-Verantwortung sind getrennt und testbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "universal_feature_extraction",
+      "label": "Universelle automatische Merkmale",
+      "items": [
+        {
+          "id": "UDSR-003",
+          "title": "Repository-unabhaengige Dateirollen ableiten",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-002"],
+          "tasks": [
+            "Production-, Test-, Fixture-, Generated-, Vendored-, Documentation- und Build-Output-Rollen aus Sprachkonventionen, Manifesten, Importgraph, Dateiinhalten und generierten Markern ableiten.",
+            "Unsichere Klassifikationen mit Confidence und Gruenden statt harter unbekannter Top-Level-Allowlist ausgeben.",
+            "Sprachadapter fuer Python, TypeScript/JavaScript und Java zuerst implementieren; unbekannte Sprachen neutral behandeln."
+          ],
+          "acceptance_criteria": [
+            "Die Klassifikation benoetigt keine Ananta-spezifischen Verzeichnisnamen.",
+            "Unbekannte Verzeichnisse werden nicht pauschal als Drittanbieter abgewertet.",
+            "Test- und Generated-Erkennung ist auf synthetischen und realen Fremdrepositories reproduzierbar."
+          ]
+        },
+        {
+          "id": "UDSR-004",
+          "title": "Struktur-, Einstiegspunkt- und Zentralitaetssignale erzeugen",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-002", "UDSR-003"],
+          "tasks": [
+            "Import-, Export-, Deklarations-, Aufruf-, Vererbungs- und Registrierungsbeziehungen aus vorhandenen CodeCompass-Adaptern vereinheitlichen.",
+            "Oeffentliche APIs, CLI-Einstiege, Web-Routen, Tool-Registrierungen, Service-Ports und Adapter automatisch erkennen.",
+            "In-/Out-Degree, PageRank-aehnliche Zentralitaet, Community-Zugehoerigkeit und Query-nahe Graphdistanz deterministisch berechnen.",
+            "Fehlende Graphabdeckung explizit kennzeichnen und niemals durch erfundene Beziehungen ersetzen."
+          ],
+          "acceptance_criteria": [
+            "Ein Einstiegspunkt wird wegen seiner Struktur und Beziehungen priorisiert, nicht wegen eines bekannten Pfadnamens.",
+            "Jede verwendete Relation verweist auf vorhandene Quell- oder Graphbelege.",
+            "Teilgraphen fuehren zu markierter reduzierter Confidence statt zu instabiler Uebergewichtung."
+          ]
+        },
+        {
+          "id": "UDSR-005",
+          "title": "Lexikalische, Symbol- und semantische Scores kanalweise normalisieren",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-002"],
+          "tasks": [
+            "BM25/FTS-, Pfad-, Dateinamen-, Symbol-, Graph- und Embedding-Scores vor der Fusion auf dokumentierte Wertebereiche normalisieren.",
+            "Symbolhaeufigkeit so saettigen, dass generierte Helfer- oder Testdateien das Ranking nicht allein durch Trefferanzahl dominieren.",
+            "Query-Intent nur aus allgemeinen Klassen wie symbol_lookup, implementation, architecture, debugging oder tests ableiten.",
+            "Fehlende Kanaele neutral behandeln und den Nenner beziehungsweise die Gewichtung nachvollziehbar anpassen."
+          ],
+          "acceptance_criteria": [
+            "Rohscores verschiedener Engines werden nicht unnormalisiert addiert.",
+            "Kein einzelner Kanal dominiert aufgrund seiner willkuerlichen Rohscore-Skala.",
+            "Jeder finale Score ist aus gespeicherten normalisierten Beitraegen rekonstruierbar."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "ranking_and_diversification",
+      "label": "Fusion, Diversitaet und Erklaerbarkeit",
+      "items": [
+        {
+          "id": "UDSR-006",
+          "title": "Deterministischen universellen Fusion-Ranker implementieren",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-003", "UDSR-004", "UDSR-005"],
+          "tasks": [
+            "Den Ranker als austauschbare Strategie hinter einem schmalen Port implementieren.",
+            "Allgemeine versionierte Default-Gewichte aus einem zentralen RankingProfile beziehen.",
+            "Task-Intent-Varianten auf wenige allgemeine Profile reduzieren und deren Unterschiede evaluieren.",
+            "Stabile kanonische Tie-Breaker nach Score, Evidenzqualitaet und Pfad verwenden."
+          ],
+          "acceptance_criteria": [
+            "Der Ranker importiert keine Ananta-Domainservices und kennt keine Repository- oder Produktnamen.",
+            "RankingProfile sind unveraenderlich, versioniert und im Trace ausgewiesen.",
+            "Eine Baseline ohne Embedding- oder Rerank-Modell funktioniert vollstaendig lokal und deterministisch."
+          ]
+        },
+        {
+          "id": "UDSR-007",
+          "title": "Top-K-Diversitaet und Architekturabdeckung einfuehren",
+          "status": "completed",
+          "priority": "P1",
+          "depends_on": ["UDSR-006"],
+          "tasks": [
+            "Nahezu identische Kandidaten, generierte Varianten und Dateien desselben engen Unterbaums erkennen.",
+            "Deterministische Diversifikation ueber Subsystem, Dateirolle, Sprache und Evidenztyp anwenden.",
+            "Direkte Relevanz nicht durch starre Quoten verdraengen; Diversitaetsabschlaege als eigene Score-Beitraege ausweisen."
+          ],
+          "acceptance_criteria": [
+            "Top-K wird bei breiten Architekturfragen nicht durch einen einzigen Hilfs-Unterbaum monopolisiert.",
+            "Exakte Symbolfragen behalten den exakten Treffer auf Rang eins.",
+            "Diversifikation ist abschaltbar und im A/B-Vergleich messbar."
+          ]
+        },
+        {
+          "id": "UDSR-008",
+          "title": "Vollstaendige Ranking-Erklaerung und Trace-Vertrag bereitstellen",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-006"],
+          "tasks": [
+            "Pro Kandidat Rohsignal, Normalisierung, Gewicht, Beitrag, Penalty, Filterentscheidung und Tie-Breaker speichern.",
+            "Anzeigen, ob Defaults, experimentelle Overrides oder ein digest-gebundener Reranker verwendet wurden.",
+            "Ein read-only Diagnosekommando beziehungsweise API-Feld fuer Ranking-Erklaerungen vorsehen.",
+            "Keine geheimen Inhalte, Tokens oder nicht freigegebenen Pfade in Traces aufnehmen."
+          ],
+          "acceptance_criteria": [
+            "Operatoren koennen ohne Codelekture beantworten, warum Datei A vor Datei B steht.",
+            "Manuelle Overrides sind im Trace unuebersehbar.",
+            "Ein finaler Score kann aus der Trace-Aufschluesselung reproduziert werden."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "manual_override_governance",
+      "label": "Governance manueller Ranking-Eingriffe",
+      "items": [
+        {
+          "id": "UDSR-009",
+          "title": "Manuelle Ranking-Konfiguration zentralisieren und absichern",
+          "status": "completed",
+          "priority": "P1",
+          "depends_on": ["UDSR-001", "UDSR-002"],
+          "tasks": [
+            "codecompass_ranking.score_weights, RAG_PATH_FOCUS_ALIASES, Task-Kanalgewichte und weitere Overrides in einem versionierten RankingProfile-Vertrag inventarisieren und zusammenfuehren.",
+            "Standardbetrieb auf universal-default ohne repository-spezifische Overrides setzen.",
+            "Overrides nur als explizite experimentelle oder deploymentweite Konfiguration mit Begruendung, Ablaufdatum und Audit zulassen.",
+            "Query-, Benutzer- oder Session-seitige Gewichtsveraenderungen im normalen Produktpfad verbieten."
+          ],
+          "acceptance_criteria": [
+            "Es gibt genau eine dokumentierte Quelle fuer veraenderbare Ranking-Gewichte.",
+            "Das Default-Profil enthaelt keine Repository-, Produkt-, Domain- oder Pfadnamen.",
+            "Jeder Override besitzt Scope, Version, Owner, Reason und Trace-Marker."
+          ]
+        },
+        {
+          "id": "UDSR-010",
+          "title": "CodeCompass- und Ananta-spezifische Hot-Path-Sonderfaelle entfernen",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-006", "UDSR-008"],
+          "tasks": [
+            "Den expliziten if-codecompass-Rankingblock aus RepositoryMapEngine entfernen.",
+            "Konkrete Bonuspfade fuer agent/services/tools, worker/retrieval, rag-helper und x86 durch automatisch erkannte Rollen und Strukturmerkmale ersetzen.",
+            "Unbekannte Top-Level-Verzeichnisse nicht mehr aufgrund einer Ananta-Allowlist pauschal als third-party behandeln.",
+            "Bestehende Source-first-Testheuristiken nur behalten, wenn sie auf multi-repository Evaluation allgemein tragen; andernfalls durch Dateirollen ersetzen."
+          ],
+          "acceptance_criteria": [
+            "Der universelle Ranking-Hot-Path enthaelt keine Zeichenketten fuer codecompass, ananta, rag-helper oder konkrete Ananta-Subsysteme.",
+            "Der vorherige Ananta-CodeCompass-Golden-Case bleibt ohne Sonderregel mindestens gleich gut.",
+            "Fremdrepositories werden nicht aufgrund unbekannter Verzeichnisnamen systematisch abgewertet."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evaluation_and_rollout",
+      "label": "Evaluation, Migration und Rollout",
+      "items": [
+        {
+          "id": "UDSR-011",
+          "title": "Sprach- und repository-uebergreifendes Ranking-Golden-Set aufbauen",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-001"],
+          "tasks": [
+            "Deterministische kleine Fixtures fuer Python-, TypeScript/JavaScript-, Java- und gemischte Repositories erstellen.",
+            "Query-Klassen fuer exakte Symbole, Implementierungsfragen, Architektur, Debugging, Tests und Dokumentation abdecken.",
+            "Erwartete relevante Mengen und Rangpraeferenzen statt fragiler vollstaendiger Ranglisten definieren.",
+            "Ananta als einen Evaluationsfall unter mehreren behandeln, nicht als Trainingsziel des Algorithmus."
+          ],
+          "acceptance_criteria": [
+            "Mindestens drei strukturell unterschiedliche Repositories und drei Sprachen sind abgedeckt.",
+            "Fixtures sind klein, deterministisch und frei von volatilen IDs oder Pfaden.",
+            "MRR, Recall@K, nDCG@K, Architekturabdeckung und deterministische Wiederholbarkeit werden gemessen."
+          ]
+        },
+        {
+          "id": "UDSR-012",
+          "title": "Shadow-Vergleich gegen bestehendes Ranking implementieren",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-006", "UDSR-007", "UDSR-008", "UDSR-011"],
+          "tasks": [
+            "Legacy- und Universal-Ranker fuer denselben gebundenen Input parallel auswerten, ohne die aktive Auswahl zunaechst zu veraendern.",
+            "Rangverschiebungen, Top-K-Ueberschneidung, Latenz, fehlende Signale und Qualitaetsmetriken als strukturierte Artefakte erfassen.",
+            "Regressionen nach Query-Klasse, Sprache und Repository-Struktur auswerten.",
+            "Keine Nutzerinhalte oder Repository-Quellen ueber autorisierte Scopes hinaus persistieren."
+          ],
+          "acceptance_criteria": [
+            "Shadow-Ranking beeinflusst keine produktive Antwort.",
+            "Vergleichsartefakte sind revisions- und Rankingversions-gebunden.",
+            "P0-Regressionen blockieren die Aktivierung des Universal-Rankers."
+          ]
+        },
+        {
+          "id": "UDSR-013",
+          "title": "Additiven Rollout mit Rollback abschliessen",
+          "status": "completed",
+          "priority": "P0",
+          "depends_on": ["UDSR-009", "UDSR-010", "UDSR-012"],
+          "tasks": [
+            "Universal-Ranker ueber eine Hub-eigene versionierte Strategieauswahl aktivieren.",
+            "Legacy-Ranker waehrend einer begrenzten Migrationsphase als expliziten Rollbackpfad erhalten.",
+            "Caches an Ranking-Version, Index-Digest und Konfigurationsdigest binden.",
+            "Nach erfolgreicher Abnahme alte repository-spezifische Konfigurationen und tote Gewichte entfernen."
+          ],
+          "acceptance_criteria": [
+            "Rollout und Rollback benoetigen keine Worker-zu-Worker-Kommunikation und keine API-Breaks.",
+            "Produktive Traces nennen aktive Ranking-Version und Profil.",
+            "Der Universal-Ranker besteht Golden Sets, deterministische Wiederholung, Latenzbudget und produktiven CodeCompass-Smoke-Test."
+          ]
+        }
+      ]
+    }
+  ],
+  "completion_evidence": {
+    "UDSR-001": ["docs/codecompass-ranking-inventory.json"],
+    "UDSR-002": ["ananta_codecompass/ranking/contracts.py", "schemas/codecompass/universal_source_ranking.v1.json"],
+    "UDSR-003": ["ananta_codecompass/ranking/file_roles.py", "tests/test_universal_source_ranking.py"],
+    "UDSR-004": ["ananta_codecompass/ranking/graph_features.py", "tests/test_universal_source_ranking.py::test_graph_features_require_evidence_and_mark_partial_coverage"],
+    "UDSR-005": ["ananta_codecompass/ranking/universal.py", "worker/retrieval/ranking.py"],
+    "UDSR-006": ["ananta_codecompass/ranking/universal.py", "agent/repository_map_engine.py"],
+    "UDSR-007": ["ananta_codecompass/ranking/universal.py", "tests/test_universal_source_ranking.py::test_ranking_is_byte_stable_and_contributions_reconstruct_score"],
+    "UDSR-008": ["agent/routes/snakes_rag_iterative.py", "agent/repository_map_engine.py::ranking_trace"],
+    "UDSR-009": ["ananta_codecompass/ranking/profiles.py", "agent/services/codecompass_universal_ranking_profile_service.py", "agent/services/codecompass_ranking_config_service.py"],
+    "UDSR-010": ["agent/repository_map_engine.py::_search_universal", "tests/test_repository_map_generic_source_first.py"],
+    "UDSR-011": ["tests/fixtures/scenarios/universal_source_ranking.v1.json", "scripts/evaluate_universal_source_ranking.py"],
+    "UDSR-012": ["ananta_codecompass/ranking/shadow.py", "tests/test_universal_source_ranking.py::test_repository_map_shadow_does_not_change_active_selection"],
+    "UDSR-013": ["docs/codecompass-universal-ranking.md", "agent/services/codecompass_universal_ranking_profile_service.py"]
+  },
+  "solid_review": {
+    "srp": "Feature-Extraktion, Eligibility/Policy, Normalisierung, Fusion, Diversifikation, Erklaerung und Konfiguration werden getrennte Verantwortlichkeiten.",
+    "ocp": "Neue Sprach- und Signalsadapter erweitern Ports; der zentrale Ranker wird nicht mit neuen Domain-Sonderfaellen gepatcht.",
+    "lsp": "Baseline-, optionaler Modell- und experimenteller Ranker liefern denselben RankingResult-Vertrag und dieselben Determinismusmetadaten.",
+    "isp": "Konsumenten erhalten kleine Ports fuer Kandidatenerzeugung, Ranking und Erklaerung statt Zugriff auf eine breite RepositoryMapEngine-God-API.",
+    "dip": "Hub-Orchestrierung haengt von Ranking- und Feature-Ports ab; konkrete FTS-, Graph-, Embedding- und Sprachadapter werden injiziert.",
+    "known_violation_to_remove": "Der aktuelle RepositoryMapEngine.search-Hot-Path mischt Tokenisierung, Feature-Extraktion, Repository-Klassifikation, Domain-Sonderfaelle, Score-Fusion, Pfadfokus und Ergebniswahl und verletzt damit insbesondere SRP und OCP."
+  },
+  "meta": {
+    "total_items": 13,
+    "by_status": {
+      "completed": 13,
+      "partial": 0,
+      "open": 0
+    },
+    "notes": [
+      "Der universelle Ranker ist der Standardpfad; Legacy bleibt als expliziter, deploymentweiter Rollback erhalten.",
+      "Rankingqualitaet ist fuer das gebundene dreisprachige Golden-Set und den produktiven Smoke-Test belegt, nicht pauschal fuer alle externen Repositories.",
+      "Manuelle Rankingwerte werden nur mit vollstaendigen Governance-Metadaten und Ablaufdatum aktiviert.",
+      "Fehlende SRC_* oder RUN_* IDs werden nicht erfunden; externe oder produktive Qualitaetsclaims bleiben bis zu gebundener Evidenz unverified."
+    ],
+    "recommended_order": [
+      "UDSR-001",
+      "UDSR-002",
+      "UDSR-011",
+      "UDSR-003",
+      "UDSR-004",
+      "UDSR-005",
+      "UDSR-006",
+      "UDSR-008",
+      "UDSR-007",
+      "UDSR-009",
+      "UDSR-012",
+      "UDSR-010",
+      "UDSR-013"
+    ]
+  }
+}
