@@ -269,3 +269,49 @@ def test_graph_store_default_selection_excludes_unscoped_v2_indices(
     assert index_id == projected.id
     assert resolver.resolved == [projected]
     assert store.load()["rig_index"]["node_count"] == 2
+
+
+def test_graph_store_diagnostics_explain_rejected_completed_index(monkeypatch):
+    from agent.services import repository_registry
+    from agent.services.tools import codecompass_tools
+    from agent.services import codecompass_graph_artifact_resolver
+
+    candidate = SimpleNamespace(id="idx-broken", status="completed")
+
+    class Resolver:
+        def resolve_artifacts(self, _candidate):
+            raise ValueError("graph_artifact_hash_drift")
+
+    monkeypatch.setattr(
+        codecompass_graph_artifact_resolver,
+        "get_codecompass_graph_artifact_resolver",
+        lambda: Resolver(),
+    )
+    monkeypatch.setattr(
+        repository_registry,
+        "get_repository_registry",
+        lambda: SimpleNamespace(
+            knowledge_index_repo=SimpleNamespace(
+                get_by_id=lambda _index_id: candidate,
+                list_completed=lambda: [candidate],
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        "agent.services.knowledge_index_consumption_policy."
+        "get_knowledge_index_consumption_policy",
+        lambda: SimpleNamespace(can_consume=lambda *_args, **_kwargs: True),
+    )
+
+    store, index_id, diagnostics = (
+        codecompass_tools._resolve_graph_store_diagnostics({})
+    )
+
+    assert store is None
+    assert index_id is None
+    assert diagnostics == [
+        {
+            "knowledge_index_id": "idx-broken",
+            "reason": "graph_artifact_hash_drift",
+        }
+    ]

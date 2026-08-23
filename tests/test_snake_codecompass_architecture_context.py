@@ -42,9 +42,20 @@ def test_architecture_prefill_degrades_without_graph() -> None:
             "status": "degraded",
             "error": "architecture_graph_unavailable",
             "warnings": ["architecture_graph_unavailable"],
+            "data": {
+                "resolution_diagnostics": [
+                    {
+                        "knowledge_index_id": "idx-1",
+                        "reason": "graph_file_missing",
+                    }
+                ]
+            },
         },
     )
 
     assert text == ""
     assert trace["status"] == "degraded"
     assert trace["reason"] == "architecture_graph_unavailable"
+    assert trace["resolution_diagnostics"] == [
+        {"knowledge_index_id": "idx-1", "reason": "graph_file_missing"}
+    ]

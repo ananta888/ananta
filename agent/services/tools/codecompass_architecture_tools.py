@@ -12,16 +12,29 @@ def _capability(arguments: dict[str, Any] | None) -> dict[str, Any] | None:
     return dict(raw) if isinstance(raw, dict) else None
 
 
-def _load_architecture_graph(arguments: dict[str, Any] | None = None) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    from agent.services.tools.codecompass_tools import _resolve_graph_store
+def _load_architecture_graph(
+    arguments: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    records, edges, _diagnostics = _load_architecture_graph_diagnostics(arguments)
+    return records, edges
 
-    store, _index_id = _resolve_graph_store(arguments or {})
+
+def _load_architecture_graph_diagnostics(
+    arguments: dict[str, Any] | None = None,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, str]]]:
+    from agent.services.tools.codecompass_tools import (
+        _resolve_graph_store_diagnostics,
+    )
+
+    store, _index_id, diagnostics = _resolve_graph_store_diagnostics(
+        arguments or {}
+    )
     if store is None:
-        return [], []
+        return [], [], diagnostics
     payload = store.load() if hasattr(store, "load") else {}
     nodes = [dict(item) for item in list((payload or {}).get("nodes") or []) if isinstance(item, dict)]
     edges = [dict(item) for item in list((payload or {}).get("edges") or []) if isinstance(item, dict)]
-    return nodes, edges
+    return nodes, edges, diagnostics
 
 
 def _slice_result(
@@ -41,12 +54,16 @@ def _slice_result(
 
     records, edges = _load_architecture_graph(arguments)
     if not records:
+        _records, _edges, resolution_diagnostics = (
+            _load_architecture_graph_diagnostics(arguments)
+        )
         return build_tool_result(
             tool_name=tool_name,
             tool_call_id=tool_call_id,
             status="degraded",
             error="architecture_graph_unavailable",
             warnings=["architecture_graph_unavailable"],
+            data={"resolution_diagnostics": resolution_diagnostics},
         )
     capability = _capability(arguments) or {}
     revision = str(capability.get("revision") or (arguments or {}).get("revision") or "local")

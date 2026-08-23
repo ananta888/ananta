@@ -31,10 +31,14 @@ class SnakeCodeCompassArchitectureContextService:
         except Exception as exc:
             return "", {"status": "degraded", "reason": str(exc)[:160]}
         if not isinstance(result, dict) or result.get("status") != "ok":
+            data = (result or {}).get("data")
             return "", {
                 "status": "degraded",
                 "reason": str((result or {}).get("error") or "architecture_graph_unavailable"),
                 "warnings": list((result or {}).get("warnings") or []),
+                "resolution_diagnostics": list(
+                    (data or {}).get("resolution_diagnostics") or []
+                ) if isinstance(data, dict) else [],
             }
         architecture = ((result.get("data") or {}).get("architecture") or {})
         nodes = [item for item in architecture.get("nodes") or [] if isinstance(item, dict)]

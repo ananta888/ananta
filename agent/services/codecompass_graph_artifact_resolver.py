@@ -336,20 +336,24 @@ class CodeCompassGraphArtifactResolver:
         return value.startswith("sha256:") and cls._plain_sha256(value[7:])
 
 
-_resolver = CodeCompassGraphArtifactResolver(
-    artifact_root=Path(settings.data_dir) / "knowledge_indices",
-    allow_legacy=bool(
-        getattr(
-            settings,
-            "source_control_legacy_codecompass_artifacts_enabled",
-            True,
-        )
-    ),
-)
-
-
 def get_codecompass_graph_artifact_resolver() -> CodeCompassGraphArtifactResolver:
-    return _resolver
+    """Build a resolver from the current runtime configuration.
+
+    Index artifacts can be materialized after process startup. Keeping the
+    path policy in a module singleton would freeze import-time configuration
+    and make long-running Hub requests disagree with freshly started tools.
+    """
+
+    return CodeCompassGraphArtifactResolver(
+        artifact_root=Path(settings.data_dir) / "knowledge_indices",
+        allow_legacy=bool(
+            getattr(
+                settings,
+                "source_control_legacy_codecompass_artifacts_enabled",
+                True,
+            )
+        ),
+    )
 
 
 __all__ = [

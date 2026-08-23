@@ -30,6 +30,23 @@ def _index(path: Path, *, digest: str):
     )
 
 
+def test_default_resolver_uses_current_runtime_data_dir(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from agent.services import codecompass_graph_artifact_resolver as module
+
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    monkeypatch.setattr(module.settings, "data_dir", str(first), raising=False)
+    first_resolver = module.get_codecompass_graph_artifact_resolver()
+    monkeypatch.setattr(module.settings, "data_dir", str(second), raising=False)
+    second_resolver = module.get_codecompass_graph_artifact_resolver()
+
+    assert first_resolver._artifact_root == (first / "knowledge_indices").resolve()
+    assert second_resolver._artifact_root == (second / "knowledge_indices").resolve()
+
+
 def test_admitted_graph_must_remain_under_artifact_root(tmp_path: Path) -> None:
     root = tmp_path / "indices"
     root.mkdir()

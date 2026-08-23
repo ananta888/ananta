@@ -235,14 +235,34 @@ def test_rag_iterative_tool_mode_prefers_symbol_context_over_full_files(tmp_path
 
     monkeypatch.setattr("agent.hybrid_orchestrator.RepositoryMapEngine", _FakeRepositoryMapEngine)
     monkeypatch.setattr("agent.routes.snakes_rag_tool_loop.run_rag_chat_tool_loop", _fake_tool_loop)
+    monkeypatch.setattr(
+        "agent.services.snake_codecompass_architecture_context_service."
+        "get_snake_codecompass_architecture_context_service",
+        lambda: type(
+            "ArchitectureContext",
+            (),
+            {
+                "build": lambda self, *_args, **_kwargs: (
+                    "=== CodeCompass Hierarchischer Architektur-Kontext ===\n"
+                    "- [component] Retrieval",
+                    {"status": "ok", "node_count": 1},
+                )
+            },
+        )(),
+    )
 
     answer, trace = mod.worker_chat_rag_iterative("plan context")
 
     prompt = str(captured["messages"][-1]["content"])
     assert answer == "answer"
+    assert "=== CodeCompass Hierarchischer Architektur-Kontext ===" in prompt
     assert "=== CodeCompass Symbol-/Graph-Kontext ===" in prompt
+    assert prompt.index("Hierarchischer Architektur-Kontext") < prompt.index(
+        "Symbol-/Graph-Kontext"
+    )
     assert "def plan_context" in prompt
     assert "=== Bereits gelesene CodeCompass-Top-Treffer ===" not in prompt
     assert captured["initial_evidence"] == []
     assert trace["initial_context_files"] == []
     assert trace["symbol_context_refs"][0]["symbol"] == "plan_context"
+    assert trace["architecture_context"] == {"status": "ok", "node_count": 1}

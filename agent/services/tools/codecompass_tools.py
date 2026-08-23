@@ -390,6 +390,19 @@ def _resolve_graph_store(
     allowed_index_ids: set[str] | None = None,
 ):
     """Open a consumable graph store within a Hub-derived index scope."""
+    store, index_id, _diagnostics = _resolve_graph_store_diagnostics(
+        arguments,
+        allowed_index_ids=allowed_index_ids,
+    )
+    return store, index_id
+
+
+def _resolve_graph_store_diagnostics(
+    arguments: dict[str, Any],
+    *,
+    allowed_index_ids: set[str] | None = None,
+):
+    """Resolve a graph and retain bounded per-index rejection evidence."""
     from agent.services.codecompass_graph_artifact_resolver import (
         get_codecompass_graph_artifact_resolver,
     )
@@ -410,29 +423,48 @@ def _resolve_graph_store(
             candidates = [index]
     else:
         candidates = list(repo.list_completed() or [])
+    diagnostics: list[dict[str, str]] = []
     for index in candidates:
+        candidate_id = str(getattr(index, "id", "") or "")
         if not consumption_policy.can_consume(
             index,
             allowed_index_ids=allowed_index_ids,
         ):
+            diagnostics.append(
+                {"knowledge_index_id": candidate_id, "reason": "consumption_denied"}
+            )
             continue
         try:
             index_path, visual_metrics_path = resolver.resolve_artifacts(index)
             if not index_path.exists():
                 index_path = resolver.resolve_legacy_tool_graph(index)
                 visual_metrics_path = None
-        except ValueError:
+        except ValueError as exc:
+            diagnostics.append(
+                {
+                    "knowledge_index_id": candidate_id,
+                    "reason": str(exc)[:160] or "graph_artifact_invalid",
+                }
+            )
             continue
         if not index_path.exists():
+            diagnostics.append(
+                {"knowledge_index_id": candidate_id, "reason": "graph_file_missing"}
+            )
             continue
         return (
             CodeCompassGraphStore(
                 index_path=index_path,
                 visual_metrics_path=visual_metrics_path,
             ),
-            str(getattr(index, "id", "") or ""),
+            candidate_id,
+            diagnostics[-8:],
         )
-    return None, None
+    if not candidates:
+        diagnostics.append(
+            {"knowledge_index_id": "", "reason": "no_completed_indices"}
+        )
+    return None, None, diagnostics[-8:]
 
 
 def codecompass_expand_graph(*, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str) -> dict[str, Any]:
