@@ -440,6 +440,15 @@ class HybridOrchestrator:
             max_tokens=self.max_context_tokens,
         )
 
+        from agent.services.codecompass_hybrid_source_ranking_service import (
+            get_codecompass_hybrid_source_ranking_service,
+        )
+
+        best, hybrid_ranking_trace = get_codecompass_hybrid_source_ranking_service().rank(
+            query=query,
+            chunks=list(best),
+        )
+
         result = serialize_context_result(
             query=query,
             quotas=quotas,
@@ -449,9 +458,8 @@ class HybridOrchestrator:
             estimate_tokens=self.context_manager.estimate_tokens,
             retrieval_diagnostics=self._retrieval_diagnostics(),
         )
-        ranking_trace = getattr(self.repository_engine, "ranking_trace", None)
-        if callable(ranking_trace):
-            result["source_ranking"] = ranking_trace()
+        if hybrid_ranking_trace:
+            result["source_ranking"] = hybrid_ranking_trace
         if scope_active:
             from agent.codecompass.domain_scope_filter import (
                 build_no_match_guidance,

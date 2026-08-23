@@ -130,6 +130,17 @@ class RagService:
             bundle["chunks"] = fallback_chunks
             bundle["chunk_count"] = len(fallback_chunks)
         chunks = list(bundle.get("chunks") or [])
+        from agent.services.codecompass_hybrid_source_ranking_service import (
+            get_codecompass_hybrid_source_ranking_service,
+        )
+
+        chunks, source_ranking = get_codecompass_hybrid_source_ranking_service().rank(
+            query=query,
+            chunks=chunks,
+        )
+        bundle["chunks"] = chunks
+        if source_ranking:
+            bundle["source_ranking"] = source_ranking
         explainability = dict(bundle.get("explainability") or {})
         engines = sorted({str(chunk.get("engine") or "unknown") for chunk in chunks})
         explainability["engines"] = engines
