@@ -23,4 +23,20 @@ else
   exit 1
 fi
 
-curl -fsS --connect-timeout 10 --max-time 15 "$URL"
+case "$URL" in
+  *$'\r'*|*$'\n'*)
+    echo "ERROR: DynDNS URL contains a line break." >&2
+    exit 1
+    ;;
+esac
+
+# Keep credentials out of curl's process arguments. The temporary curl
+# configuration is private to this invocation and removed on every exit.
+CURL_CONFIG="$(mktemp "${TMPDIR:-/tmp}/ananta-dyndns.XXXXXX")"
+trap 'unlink -- "$CURL_CONFIG"' EXIT
+chmod 600 "$CURL_CONFIG"
+ESCAPED_URL="${URL//\\/\\\\}"
+ESCAPED_URL="${ESCAPED_URL//\"/\\\"}"
+printf 'url = "%s"\n' "$ESCAPED_URL" >"$CURL_CONFIG"
+
+curl -fsS --connect-timeout 10 --max-time 15 --config "$CURL_CONFIG"
