@@ -116,6 +116,23 @@ def merge_db_config_overrides(default_cfg: dict) -> None:
 
 
 def apply_env_config_overrides(cfg: dict) -> None:
+    tool_loop_cfg = cfg.get("ananta_worker_tool_loop")
+    if isinstance(tool_loop_cfg, dict):
+        tiny_cfg = tool_loop_cfg.get("tiny_router")
+        if isinstance(tiny_cfg, dict):
+            forced_tiny_mode = str(os.environ.get("ANANTA_TINY_ROUTER_MODE") or "").strip().lower()
+            if forced_tiny_mode in {"disabled", "shadow", "active"}:
+                tiny_cfg["mode"] = forced_tiny_mode
+            profile_order = [
+                value.strip()
+                for value in str(os.environ.get("ANANTA_TINY_ROUTER_PROFILES") or "").split(",")
+                if value.strip()
+            ]
+            if profile_order:
+                tiny_cfg["profile_order"] = profile_order
+            tool_loop_cfg["tiny_router"] = tiny_cfg
+        cfg["ananta_worker_tool_loop"] = tool_loop_cfg
+
     runtime_cfg = cfg.get("opencode_runtime") if isinstance(cfg.get("opencode_runtime"), dict) else {}
     forced_execution_mode = str(os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "").strip().lower()
     if forced_execution_mode in {"backend", "live_terminal", "interactive_terminal"}:

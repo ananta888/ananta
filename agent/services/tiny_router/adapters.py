@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import time
+import urllib.request
 from typing import Any, Callable, Mapping, Sequence
 
 from agent.services.tiny_router.base import ToolInvocationTransport
@@ -108,26 +109,77 @@ class CactusNeedleRuntime:
         return agent.complete(prompt)
 
 
+class HttpNeedleRuntime:
+    """Authenticated transport to the host-side candidate-only runtime."""
+
+    def __init__(self, *, opener: Callable[..., Any] = urllib.request.urlopen) -> None:
+        self._opener = opener
+
+    @staticmethod
+    def _settings(profile: TinyActionModelProfile) -> tuple[str, str]:
+        endpoint_env = str(profile.metadata.get("endpoint_env") or "").strip()
+        token_env = str(profile.metadata.get("token_env") or "").strip()
+        endpoint = str(os.environ.get(endpoint_env) if endpoint_env else "").strip()
+        token = str(os.environ.get(token_env) if token_env else "").strip()
+        return endpoint.rstrip("/"), token
+
+    def is_available(self, profile: TinyActionModelProfile) -> tuple[bool, str]:
+        endpoint, token = self._settings(profile)
+        if not endpoint:
+            return False, "needle_endpoint_missing"
+        if len(token) < 24:
+            return False, "needle_token_missing"
+        return True, "needle_sidecar_configured"
+
+    def complete(
+        self, *, prompt: str, tools: list[dict[str, Any]],
+        profile: TinyActionModelProfile, timeout_ms: int,
+    ) -> Mapping[str, Any]:
+        endpoint, token = self._settings(profile)
+        body = json.dumps({"prompt": prompt, "tools": tools}).encode("utf-8")
+        request = urllib.request.Request(
+            endpoint + "/internal/v1/candidates",
+            data=body,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        with self._opener(request, timeout=max(0.001, timeout_ms / 1000.0)) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        if not isinstance(payload, Mapping) or "candidate" not in payload:
+            raise ValueError("needle_sidecar_response_invalid")
+        candidate = payload["candidate"]
+        if not isinstance(candidate, Mapping):
+            raise ValueError("needle_sidecar_candidate_invalid")
+        return candidate
+
+
 class NeedleCandidateAdapter:
     adapter_id = "needle"
 
     def __init__(
-        self, runtime: CactusNeedleRuntime | Any | None = None, *,
+        self, runtime: CactusNeedleRuntime | HttpNeedleRuntime | Any | None = None, *,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self._runtime = runtime or CactusNeedleRuntime()
+        self._runtime = runtime
         self._clock = clock
         self._dialects = ToolSchemaDialectAdapter()
 
     def is_available(self, profile: TinyActionModelProfile) -> tuple[bool, str]:
         if profile.adapter != self.adapter_id:
             return False, "adapter_profile_mismatch"
-        return self._runtime.is_available()
+        runtime = self._runtime or self._runtime_for(profile)
+        if isinstance(runtime, HttpNeedleRuntime):
+            return runtime.is_available(profile)
+        return runtime.is_available()
 
     def propose(self, request: AdapterRequest) -> AdapterResult:
         started = self._clock()
         projection = self._dialects.project(request.tools, dialect="needle")
-        payload = self._runtime.complete(
+        runtime = self._runtime or self._runtime_for(request.profile)
+        payload = runtime.complete(
             prompt=request.prompt, tools=[dict(item) for item in projection.tools],
             profile=request.profile, timeout_ms=request.timeout_ms,
         )
@@ -135,3 +187,11 @@ class NeedleCandidateAdapter:
             "candidate", payload, "adapter_completed",
             (self._clock() - started) * 1000.0,
         )
+
+    @staticmethod
+    def _runtime_for(
+        profile: TinyActionModelProfile,
+    ) -> CactusNeedleRuntime | HttpNeedleRuntime:
+        if profile.metadata.get("endpoint_env"):
+            return HttpNeedleRuntime()
+        return CactusNeedleRuntime()

@@ -27,7 +27,7 @@
   },
   "escalation_rules": [
     {"trigger": "provider_unavailable", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {}},
-    {"trigger": "provider_timeout", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {}},
+    {"trigger": "timeout", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {}},
     {"trigger": "schema_validation_failed", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {"requires_json": true}}
   ]
 }

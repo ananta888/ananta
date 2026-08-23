@@ -11,8 +11,13 @@ LLAMA_BIN_DIR="${ANANTA_LLAMA_BIN_DIR:-$RUNTIME_ROOT/llama.cpp/build-cuda/bin}"
 CUDA_LIB_DIR="${ANANTA_CUDA_LIB_DIR:-$RUNTIME_ROOT/colibri/.cuda-toolkit/lib}"
 NEEDLE_PYTHON="${ANANTA_NEEDLE_PYTHON:-$RUNTIME_ROOT/.venv-needle/bin/python}"
 NEEDLE_WEIGHTS="${ANANTA_NEEDLE_WEIGHTS:-$RUNTIME_ROOT/models/needle2/needle2.cact}"
+NEEDLE_SIDECAR="${ANANTA_NEEDLE_SIDECAR:-/home/krusty/ananta/scripts/needle-candidate-sidecar.py}"
 LFM_PORT="${ANANTA_LFM_PORT:-8081}"
 KAT_PORT="${ANANTA_KAT_PORT:-8082}"
+NEEDLE_PORT="${ANANTA_NEEDLE_PORT:-8083}"
+MODEL_BIND_HOST="${ANANTA_LOCAL_MODEL_BIND_HOST:-127.0.0.1}"
+MODEL_API_KEY="${ANANTA_LOCAL_MODEL_API_KEY:-}"
+NEEDLE_TOKEN="${ANANTA_NEEDLE_TOKEN:-$MODEL_API_KEY}"
 LFM_CTX="${ANANTA_LFM_CTX:-32768}"
 KAT_CTX="${ANANTA_KAT_CTX:-32768}"
 # The original exclusive KAT baseline used 8 GiB.  In the measured shared
@@ -43,7 +48,9 @@ wait_ready() {
     local name="$1" url="$2" attempts="${3:-120}"
     local count
     for ((count=1; count<=attempts; count++)); do
-        if curl --silent --fail --max-time 2 "$url" >/dev/null 2>&1; then
+        if curl --silent --fail --max-time 2 \
+            --header "Authorization: Bearer $MODEL_API_KEY" \
+            "$url" >/dev/null 2>&1; then
             info "$name ready at $url"
             return 0
         fi
@@ -62,7 +69,12 @@ preflight() {
     require_file "$KAT_DIR/config.json"
     require_file "$KAT_DIR/heat.bin"
     require_file "$NEEDLE_WEIGHTS"
+    require_file "$NEEDLE_SIDECAR"
     command -v nvidia-smi >/dev/null || fail "nvidia-smi is unavailable"
+    if [ "$MODEL_BIND_HOST" != "127.0.0.1" ] && [ "$MODEL_BIND_HOST" != "::1" ]; then
+        [ "${#MODEL_API_KEY}" -ge 24 ] || fail "non-loopback binding requires ANANTA_LOCAL_MODEL_API_KEY with at least 24 characters"
+    fi
+    [ "${#NEEDLE_TOKEN}" -ge 24 ] || fail "ANANTA_NEEDLE_TOKEN (or model API key) must contain at least 24 characters"
     local free_mib required_mib
     free_mib="$(nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits | head -n 1 | tr -d ' ')"
     required_mib=$((KAT_EXPERT_GB * 1024 + 3072 + VRAM_RESERVE_MIB))
@@ -76,11 +88,12 @@ start_lfm() {
     nohup env LD_LIBRARY_PATH="$LLAMA_BIN_DIR:$CUDA_LIB_DIR:${LD_LIBRARY_PATH:-}" \
             "$LLAMA_BIN_DIR/llama-server" \
             --model "$LFM_MODEL" --alias lfm2.5-2.6b-agentic-q8_0 \
-            --host 127.0.0.1 --port "$LFM_PORT" --ctx-size "$LFM_CTX" \
+            --host "$MODEL_BIND_HOST" --port "$LFM_PORT" --ctx-size "$LFM_CTX" \
             --parallel 1 --n-gpu-layers 99 --no-mmap \
+            --api-key "$MODEL_API_KEY" \
             >"$STATE_DIR/lfm.log" 2>&1 &
     printf '%s\n' "$!" > "$STATE_DIR/lfm.pid"
-    wait_ready lfm "http://127.0.0.1:$LFM_PORT/v1/models"
+    wait_ready lfm "http://$MODEL_BIND_HOST:$LFM_PORT/v1/models"
 }
 
 start_kat() {
@@ -90,11 +103,29 @@ start_kat() {
             CUDA_EXPERT_GB="$KAT_EXPERT_GB" CUDA_RESERVE_GB=2 \
             HEAT_FILE="$KAT_DIR/heat.bin" \
             OMP_NUM_THREADS="${ANANTA_KAT_THREADS:-12}" \
-            "$COLI_DIR/coli" serve --host 127.0.0.1 --port "$KAT_PORT" \
+            "$COLI_DIR/coli" serve --host "$MODEL_BIND_HOST" --port "$KAT_PORT" \
             --model-id kat-coder-v2.5-dev --ctx "$KAT_CTX" --cap 256 \
+            --allowed-host host.docker.internal \
+            --api-key "$MODEL_API_KEY" \
             >"$STATE_DIR/kat.log" 2>&1 &
     printf '%s\n' "$!" > "$STATE_DIR/kat.pid"
-    wait_ready kat "http://127.0.0.1:$KAT_PORT/v1/models" 180
+    wait_ready kat "http://$MODEL_BIND_HOST:$KAT_PORT/v1/models" 180
+}
+
+start_needle() {
+    pid_alive needle && { info "Needle already running"; return; }
+    mkdir -p "$STATE_DIR"
+    nohup env ANANTA_NEEDLE_BIND_HOST="$MODEL_BIND_HOST" \
+            ANANTA_NEEDLE_PORT="$NEEDLE_PORT" \
+            ANANTA_NEEDLE_TOKEN="$NEEDLE_TOKEN" \
+            ANANTA_NEEDLE_WEIGHTS="$NEEDLE_WEIGHTS" \
+            "$NEEDLE_PYTHON" "$NEEDLE_SIDECAR" \
+            >"$STATE_DIR/needle.log" 2>&1 &
+    printf '%s\n' "$!" > "$STATE_DIR/needle.pid"
+    local saved_key="$MODEL_API_KEY"
+    MODEL_API_KEY="$NEEDLE_TOKEN"
+    wait_ready needle "http://$MODEL_BIND_HOST:$NEEDLE_PORT/ready"
+    MODEL_API_KEY="$saved_key"
 }
 
 check_needle() {
@@ -124,7 +155,7 @@ stop_one() {
 
 status() {
     local name
-    for name in lfm kat; do
+    for name in lfm kat needle; do
         if pid_alive "$name"; then info "$name: running"; else info "$name: stopped"; fi
     done
     check_needle
@@ -138,10 +169,11 @@ case "${1:-status}" in
         # Placement invariant: reserve the dense LFM allocation before KAT's expert tier.
         start_lfm
         start_kat
-        check_needle
+        start_needle
         status
         ;;
     stop)
+        stop_one needle
         stop_one kat
         stop_one lfm
         status

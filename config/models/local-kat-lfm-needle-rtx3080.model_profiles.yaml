@@ -3,7 +3,7 @@ _note: "Local-only KAT/LFM profiles. Needle is a candidate-only sidecar configur
 
 profiles:
   - profile_id: local_lfm25_agentic_fast
-    provider_id: lfm_llamacpp
+    provider_id: llamacpp
     model: lfm2.5-2.6b-agentic-q8_0
     model_role: any
     local: true
@@ -27,11 +27,12 @@ profiles:
     retry_budget: 1
     fallback_group: local_lfm_to_kat
     fallback_rank: 10
-    base_url: "http://127.0.0.1:8081/v1"
+    api_key_env: ANANTA_LOCAL_MODEL_API_KEY
+    base_url: "http://host.docker.internal:8081/v1"
     enabled: true
 
   - profile_id: local_kat_coder_v25_heavy
-    provider_id: kat_colibri
+    provider_id: openai_compatible
     model: kat-coder-v2.5-dev
     model_role: coder
     local: true
@@ -41,8 +42,8 @@ profiles:
     supports_tools: false
     supports_json: true
     supports_streaming: true
-    context_tokens: 65536
-    max_context_for_profile: 65536
+    context_tokens: 32768
+    max_context_for_profile: 32768
     max_output_tokens: 8192
     timeout_seconds: 300
     temperature: 0.1
@@ -55,5 +56,6 @@ profiles:
     retry_budget: 0
     fallback_group: local_lfm_to_kat
     fallback_rank: 20
-    base_url: "http://127.0.0.1:8082/v1"
+    api_key_env: ANANTA_LOCAL_MODEL_API_KEY
+    base_url: "http://host.docker.internal:8082/v1"
     enabled: true

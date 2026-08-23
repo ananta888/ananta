@@ -6,6 +6,7 @@ import pytest
 
 from agent.services.tiny_router.adapters import (
     CactusNeedleRuntime,
+    HttpNeedleRuntime,
     NeedleCandidateAdapter,
     OpenAICompatibleActionAdapter,
 )
@@ -227,6 +228,51 @@ def test_cactus_runtime_resolves_deployment_weights_from_environment(monkeypatch
 
     assert captured["weights"] == "/models/needle2.cact"
     assert result["type"] == "abstain"
+
+
+def test_http_needle_runtime_uses_authenticated_candidate_endpoint(monkeypatch):
+    captured = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def read(self):
+            return b'{"candidate":{"type":"abstain"}}'
+
+    def open_request(request, *, timeout):
+        captured.update(
+            url=request.full_url,
+            authorization=request.headers["Authorization"],
+            timeout=timeout,
+        )
+        return Response()
+
+    monkeypatch.setenv("TEST_NEEDLE_ENDPOINT", "http://host.docker.internal:8083/")
+    monkeypatch.setenv("TEST_NEEDLE_TOKEN", "x" * 24)
+    runtime = HttpNeedleRuntime(opener=open_request)
+    needle_profile = profile(
+        adapter="needle", dialect="needle",
+        metadata={
+            "endpoint_env": "TEST_NEEDLE_ENDPOINT",
+            "token_env": "TEST_NEEDLE_TOKEN",
+        },
+    )
+
+    assert runtime.is_available(needle_profile) == (True, "needle_sidecar_configured")
+    result = runtime.complete(
+        prompt="status", tools=[], profile=needle_profile, timeout_ms=250,
+    )
+
+    assert result == {"type": "abstain"}
+    assert captured == {
+        "url": "http://host.docker.internal:8083/internal/v1/candidates",
+        "authorization": "Bearer " + "x" * 24,
+        "timeout": 0.25,
+    }
 
 
 class Transport:

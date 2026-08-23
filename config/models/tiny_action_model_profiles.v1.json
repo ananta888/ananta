@@ -22,6 +22,8 @@
       "metadata": {
         "runtime_dependency": "cactus-needle",
         "weights_env": "ANANTA_NEEDLE_WEIGHTS",
+        "endpoint_env": "ANANTA_NEEDLE_ENDPOINT",
+        "token_env": "ANANTA_NEEDLE_TOKEN",
         "deployment_scope": "local-rtx3080"
       }
     },
@@ -105,7 +107,7 @@
       "artifact_sha256": "1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9",
       "metadata": {
         "profile_status": "evaluation",
-        "provider_id": "lfm_llamacpp",
+        "provider_id": "llamacpp",
         "inference_format": "gguf-q8_0",
         "sft_requires_transformers_snapshot": true
       }
