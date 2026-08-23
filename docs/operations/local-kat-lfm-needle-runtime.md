@@ -61,6 +61,17 @@ readiness check prints the bounded log tail and stops; it does not enter an
 unbounded restart loop. On memory pressure, stop both providers, retry with
 `ANANTA_LFM_CTX=16384`, and only then lower `ANANTA_KAT_EXPERT_GB`.
 
+For session-independent operation install the supplied user service. User
+lingering must be enabled so the runtime survives logout:
+
+```bash
+systemctl --user enable --now ananta-local-model-runtime.service
+systemctl --user status ananta-local-model-runtime.service
+```
+
+The service supervises all three child processes and restarts the complete,
+resource-checked group if one runtime exits.
+
 ## Measured evidence on this RTX 3080
 
 The earlier exclusive tests measured KAT at about 12.14 tok/s with an 8 GiB

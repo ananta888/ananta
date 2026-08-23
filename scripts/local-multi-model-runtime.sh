@@ -86,11 +86,11 @@ start_lfm() {
     pid_alive lfm && { info "LFM already running"; return; }
     mkdir -p "$STATE_DIR"
     nohup env LD_LIBRARY_PATH="$LLAMA_BIN_DIR:$CUDA_LIB_DIR:${LD_LIBRARY_PATH:-}" \
+            LLAMA_API_KEY="$MODEL_API_KEY" \
             "$LLAMA_BIN_DIR/llama-server" \
             --model "$LFM_MODEL" --alias lfm2.5-2.6b-agentic-q8_0 \
             --host "$MODEL_BIND_HOST" --port "$LFM_PORT" --ctx-size "$LFM_CTX" \
             --parallel 1 --n-gpu-layers 99 --no-mmap \
-            --api-key "$MODEL_API_KEY" \
             >"$STATE_DIR/lfm.log" 2>&1 &
     printf '%s\n' "$!" > "$STATE_DIR/lfm.pid"
     wait_ready lfm "http://$MODEL_BIND_HOST:$LFM_PORT/v1/models"
@@ -100,13 +100,13 @@ start_kat() {
     pid_alive kat && { info "KAT already running"; return; }
     mkdir -p "$STATE_DIR"
     nohup env COLI_MODEL="$KAT_DIR" COLI_GPUS=0 COLI_CUDA=1 \
+            COLI_API_KEY="$MODEL_API_KEY" \
             CUDA_EXPERT_GB="$KAT_EXPERT_GB" CUDA_RESERVE_GB=2 \
             HEAT_FILE="$KAT_DIR/heat.bin" \
             OMP_NUM_THREADS="${ANANTA_KAT_THREADS:-12}" \
             "$COLI_DIR/coli" serve --host "$MODEL_BIND_HOST" --port "$KAT_PORT" \
             --model-id kat-coder-v2.5-dev --ctx "$KAT_CTX" --cap 256 \
             --allowed-host host.docker.internal \
-            --api-key "$MODEL_API_KEY" \
             >"$STATE_DIR/kat.log" 2>&1 &
     printf '%s\n' "$!" > "$STATE_DIR/kat.pid"
     wait_ready kat "http://$MODEL_BIND_HOST:$KAT_PORT/v1/models" 180
@@ -162,6 +162,19 @@ status() {
     nvidia-smi --query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu --format=csv,noheader
 }
 
+supervise() {
+    trap 'stop_one needle; stop_one kat; stop_one lfm' EXIT INT TERM
+    preflight
+    start_lfm
+    start_kat
+    start_needle
+    status
+    while pid_alive lfm && pid_alive kat && pid_alive needle; do
+        sleep 10
+    done
+    fail "one or more local model processes exited"
+}
+
 case "${1:-status}" in
     preflight) preflight ;;
     start)
@@ -179,6 +192,7 @@ case "${1:-status}" in
         status
         ;;
     restart) "$0" stop; "$0" start ;;
+    supervise) supervise ;;
     status) status ;;
-    *) fail "usage: $0 {preflight|start|stop|restart|status}" ;;
+    *) fail "usage: $0 {preflight|start|stop|restart|supervise|status}" ;;
 esac

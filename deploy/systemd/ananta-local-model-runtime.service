@@ -1,0 +1,19 @@
+[Unit]
+Description=Ananta local KAT, LFM and Needle runtime
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ananta
+EnvironmentFile=%h/ananta/data/local-model-runtime/service.env
+ExecStart=%h/ananta/scripts/local-multi-model-runtime.sh supervise
+ExecStop=%h/ananta/scripts/local-multi-model-runtime.sh stop
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=300
+TimeoutStopSec=60
+KillMode=control-group
+
+[Install]
+WantedBy=default.target
