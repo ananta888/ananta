@@ -41,6 +41,29 @@ def test_worker_propose_delegates_hub_routing_kind_without_legacy_model(monkeypa
     assert trace["routing_source"] == "hub_snake_profile_policy"
 
 
+def test_worker_propose_fails_over_when_first_worker_rejects_auth(monkeypatch) -> None:
+    calls = []
+
+    def forward(worker_url, path, payload, *, token):
+        calls.append((worker_url, token))
+        if worker_url == "http://alpha:5000":
+            return {"status": "error", "message": "worker_forward_failed", "http_status": 401}
+        return {"data": {"reason": "beta answer"}}
+
+    picks = [("http://alpha:5000", "stale"), ("http://beta:5000", "valid")]
+    monkeypatch.setattr("agent.services.task_runtime_service.forward_to_worker", forward)
+    monkeypatch.setattr(
+        "agent.routes.snakes_worker_routing._pick_worker_for_ask",
+        lambda **_kwargs: picks.pop(0),
+    )
+
+    answer, trace = _worker_propose("repo code", None, worker_picker=None)
+
+    assert answer == "beta answer"
+    assert calls == [("http://alpha:5000", "stale"), ("http://beta:5000", "valid")]
+    assert trace["worker_failover"]["reason"] == "worker_auth_rejected"
+
+
 def test_worker_executes_profile_routed_request_via_model_invocation(monkeypatch) -> None:
     calls = {}
 

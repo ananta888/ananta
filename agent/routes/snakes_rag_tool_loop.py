@@ -685,14 +685,14 @@ def run_rag_chat_tool_loop(
                 current_messages,
                 task_kind="repo_analysis",
                 tools=None,
-                timeout_seconds=min(60, max(30, timeout)),
+                timeout_seconds=min(360, max(300, timeout)),
             )
         except Exception as exc:
             routed = None
             retry_trace = {
                 "routing_task_kind": "repo_analysis",
                 "routing_source": "hub_snake_profile_policy",
-                "timeout_seconds": min(60, max(30, timeout)),
+                "timeout_seconds": min(360, max(300, timeout)),
                 "error": str(exc)[:200],
             }
         trace.setdefault("worker_routes", []).append(retry_trace)
@@ -901,7 +901,7 @@ def run_rag_chat_tool_loop(
                     task_kind=routed_kind,
                     tools=_CHAT_TOOLS if use_tools else None,
                     timeout_seconds=(
-                        min(90, max(45, timeout)) if not use_tools else min(90, timeout)
+                        min(360, max(300, timeout)) if not use_tools else min(90, timeout)
                     ),
                 )
                 trace.setdefault("worker_routes", []).append(routed_trace)

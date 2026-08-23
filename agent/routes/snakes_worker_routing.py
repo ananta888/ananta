@@ -62,7 +62,7 @@ def _verify_token(snake_id: str) -> bool:
     return token is not None and secrets.compare_digest(str(snake.get("token") or ""), token)
 
 
-def _pick_worker_for_ask() -> tuple[str, str | None]:
+def _pick_worker_for_ask(*, exclude_urls: set[str] | None = None) -> tuple[str, str | None]:
     """Return (worker_url, token) for the first online worker, or ("", None)."""
     try:
         from agent.services.agent_registry_service import get_agent_registry_service
@@ -71,17 +71,19 @@ def _pick_worker_for_ask() -> tuple[str, str | None]:
         agents = get_agent_registry_service().get_online_agents()
         if not agents:
             return "", None
-        agent = agents[0]
-        worker_url = str(getattr(agent, "url", "") or "").strip()
-        if not worker_url:
-            return "", None
-        token: str | None = None
-        try:
-            db_agent = get_repository_registry().agent_repo.get_by_url(worker_url)
-            token = str(getattr(db_agent, "token", "") or "").strip() or None
-        except Exception:
-            pass
-        return worker_url, token
+        excluded = set(exclude_urls or ())
+        for agent in agents:
+            worker_url = str(getattr(agent, "url", "") or "").strip()
+            if not worker_url or worker_url in excluded:
+                continue
+            token: str | None = None
+            try:
+                db_agent = get_repository_registry().agent_repo.get_by_url(worker_url)
+                token = str(getattr(db_agent, "token", "") or "").strip() or None
+            except Exception:
+                pass
+            return worker_url, token
+        return "", None
     except Exception:
         return "", None
 
@@ -182,8 +184,21 @@ def _worker_propose(
 
     try:
         result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
-        if result is None and token:
-            result = forward_to_worker(worker_url, "/step/propose", payload, token=None)
+        auth_failed = (
+            isinstance(result, dict)
+            and int(result.get("http_status") or 0) in {401, 403}
+        )
+        if auth_failed and (worker_picker is None or worker_picker is _pick_worker_for_ask):
+            fallback_url, fallback_token = _pick_worker_for_ask(exclude_urls={worker_url})
+            if fallback_url:
+                trace["worker_failover"] = {
+                    "from": worker_url,
+                    "to": fallback_url,
+                    "reason": "worker_auth_rejected",
+                }
+                worker_url, token = fallback_url, fallback_token
+                trace["worker_url"] = worker_url
+                result = forward_to_worker(worker_url, "/step/propose", payload, token=token)
     except Exception as exc:
         logging.getLogger(__name__).debug("snake-ask worker forward failed: %s", exc)
         trace["error"] = str(exc)[:120]
@@ -196,6 +211,10 @@ def _worker_propose(
     data = result.get("data") if isinstance(result.get("data"), dict) else result
     if not isinstance(data, dict):
         trace["error"] = "no_data_field"
+        return "", trace
+    if str(data.get("status") or "").lower() == "error":
+        trace["error"] = str(data.get("message") or "worker_error")[:200]
+        trace["http_status"] = data.get("http_status")
         return "", trace
     text = str(data.get("reason") or data.get("raw") or data.get("answer") or "").strip()
     text = _fit_answer_to_chars(
