@@ -180,6 +180,27 @@ def test_hybrid_keeps_exact_hit_ahead_of_stronger_vector_hit() -> None:
     _validate(result)
 
 
+def test_hybrid_preserves_one_successful_graph_result() -> None:
+    result = _service(
+        exact_search=lambda *_args, **_kwargs: [{
+            "id": "exact",
+            "path": "src/payment.py",
+            "content": "PaymentService",
+            "score": 10.0,
+        }],
+        vector_search=lambda *_args, **_kwargs: [],
+        graph_search=lambda *_args, **_kwargs: [{
+            "id": "graph",
+            "path": "src/payment_graph.py",
+            "content": "PaymentService calls RetryPolicy",
+            "score": 0.1,
+        }],
+    ).retrieve(_request())
+
+    assert result["evidence"][0]["path"] == "src/payment.py"
+    assert any("graph" in row["signals"] for row in result["evidence"])
+
+
 def test_duplicate_path_is_deduplicated_with_cross_engine_signals() -> None:
     def exact_search(query, **_kwargs):
         return [

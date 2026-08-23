@@ -287,6 +287,24 @@ class CodeCompassAgenticRetrievalService:
             if _path_allowed(str(item.get("path") or ""), scope["allowed_paths"])
             and self._hit_matches_scope(item, scope)
         ]
+        graph_channel = signal_to_channel(SIGNAL_GRAPH)
+        if (
+            SIGNAL_GRAPH in plan["signals"]
+            and channel_results.get(graph_channel)
+            and not any(item.get("channel") == graph_channel for item in selected)
+        ):
+            # Preserve one bounded structural result when graph retrieval was
+            # requested and succeeded. Exact evidence remains first, while the
+            # merger can no longer silently erase the entire graph channel.
+            graph_hit = max(
+                channel_results[graph_channel],
+                key=lambda item: float(item.get("score") or 0.0),
+            )
+            if not any(
+                str(item.get("path") or "") == str(graph_hit.get("path") or "")
+                for item in selected
+            ):
+                selected.insert(min(1, len(selected)), graph_hit)
         input_count = sum(len(rows) for rows in channel_results.values())
         merged_count = max(0, input_count - len(selected))
         try:
