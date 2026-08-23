@@ -1,7 +1,7 @@
 """add HRM experiment control plane
 
-Revision ID: d4f6a8c0e2b5
-Revises: c3e5a7b9d1f4
+Revision ID: d4f6a8c0e2b6
+Revises: d4f6a8c0e2b5
 """
 
 from __future__ import annotations
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision: str = "d4f6a8c0e2b5"
-down_revision: str | Sequence[str] | None = "c3e5a7b9d1f4"
+revision: str = "d4f6a8c0e2b6"
+down_revision: str | Sequence[str] | None = "d4f6a8c0e2b5"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
@@ -131,7 +131,7 @@ def upgrade() -> None:
         ("ix_hrm_report_scope_created", "hrm_evaluation_reports", ["tenant_id", "project_id", "created_at", "id"]),
     )
     for name, table, columns in indexes:
-        op.create_index(name, table, columns, unique=False)
+        op.create_index(name, table, columns, unique=False, if_not_exists=True)
 
 
 def downgrade() -> None:
