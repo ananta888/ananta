@@ -352,12 +352,22 @@ def worker_chat_rag_iterative(
         _engine = RepositoryMapEngine(repo_root)
         raw_chunks = _engine.search(retrieval_question, top_k=_rag_max)
         chunks = [
-            {"source": ch.source, "metadata": {"file_path": ch.source}, "score": ch.score}
+            {
+                "source": ch.source,
+                "metadata": {
+                    "file_path": ch.source,
+                    **dict(getattr(ch, "metadata", None) or {}),
+                },
+                "score": ch.score,
+            }
             for ch in raw_chunks
         ]
         trace["retrieval_top_scores"] = [
             {"source": ch.source, "score": round(ch.score, 2)} for ch in raw_chunks[:10]
         ]
+        ranking_trace = getattr(_engine, "ranking_trace", None)
+        if callable(ranking_trace):
+            trace["source_ranking"] = ranking_trace()
     except Exception as exc:
         _log.warning("rag_iterative: retrieval failed: %s", exc)
         trace["error"] = f"retrieval_failed: {exc}"

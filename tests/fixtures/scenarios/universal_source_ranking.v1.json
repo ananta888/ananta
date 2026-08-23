@@ -1,0 +1,42 @@
+{
+  "schema": "codecompass.universal-ranking-golden.v1",
+  "purpose": "Minimal deterministic multi-language ranking fixture used only by tests/test_universal_source_ranking.py.",
+  "repositories": [
+    {
+      "id": "python-service",
+      "language": "python",
+      "candidates": [
+        {"path":"src/catalog/routes.py","symbols":["register_catalog_routes","get_catalog"]},
+        {"path":"tests/test_catalog_routes.py","symbols":["test_get_catalog"]},
+        {"path":"vendor/sdk/catalog.py","symbols":["get_catalog"]}
+      ],
+      "queries": [
+        {"query":"catalog routes architecture","relevant":["src/catalog/routes.py"],"k":3}
+      ]
+    },
+    {
+      "id": "typescript-client",
+      "language": "typescript",
+      "candidates": [
+        {"path":"src/api/user-client.ts","symbols":["UserClient","fetchUser"]},
+        {"path":"src/api/user-client.spec.ts","symbols":["fetchUser test"]},
+        {"path":"docs/user-api.md","symbols":["User API"]}
+      ],
+      "queries": [
+        {"query":"fetchUser implementation","relevant":["src/api/user-client.ts"],"k":3}
+      ]
+    },
+    {
+      "id": "java-application",
+      "language": "java",
+      "candidates": [
+        {"path":"src/main/java/example/OrderController.java","symbols":["OrderController","createOrder"]},
+        {"path":"src/test/java/example/OrderControllerTest.java","symbols":["createOrder test"]},
+        {"path":"target/generated/OrderSchema.java","symbols":["OrderSchema"]}
+      ],
+      "queries": [
+        {"query":"OrderController createOrder","relevant":["src/main/java/example/OrderController.java"],"k":3}
+      ]
+    }
+  ]
+}

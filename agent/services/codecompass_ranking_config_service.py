@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import datetime as dt
 from typing import Any
 
 from agent.services.codecompass_retrieval_strategy import (
@@ -10,23 +11,15 @@ from agent.services.codecompass_retrieval_strategy import (
     STRATEGY_SEMANTIC_PREFILTER,
     RetrievalStrategyConfig,
 )
+from ananta_codecompass.ranking.profiles import (
+    HYBRID_SCORE_WEIGHTS,
+    HYBRID_TRANSFORMER_WEIGHTS,
+)
 
-DEFAULT_SCORE_WEIGHTS = {
-    "embedding_score": 0.45,
-    "graph_score": 0.20,
-    "symbol_score": 0.20,
-    "transformer_rerank_score": 0.0,
-    "policy_penalty": -0.20,
-}
+DEFAULT_SCORE_WEIGHTS = dict(HYBRID_SCORE_WEIGHTS)
 
 # Score weights preset for strategies that enable transformer reranking.
-TRANSFORMER_RERANK_WEIGHTS = {
-    "embedding_score": 0.30,
-    "graph_score": 0.15,
-    "symbol_score": 0.15,
-    "transformer_rerank_score": 0.40,
-    "policy_penalty": -0.20,
-}
+TRANSFORMER_RERANK_WEIGHTS = dict(HYBRID_TRANSFORMER_WEIGHTS)
 
 
 @dataclass(frozen=True)
@@ -41,6 +34,8 @@ class CodeCompassRankingConfig:
     semantic_prefilter_threshold: float = 0.25
     semantic_prefilter_top_k_multiplier: int = 2
     semantic_prefilter_min_results: int = 1
+    override_status: str = "disabled"
+    override_metadata: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_config(cls, config: dict[str, Any] | None) -> "CodeCompassRankingConfig":
@@ -51,7 +46,25 @@ class CodeCompassRankingConfig:
         if not raw.get("retrieval_strategy") and top.get("chat_retrieval_strategy"):
             raw["retrieval_strategy"] = top["chat_retrieval_strategy"]
         weights = dict(DEFAULT_SCORE_WEIGHTS)
-        for key, value in dict(raw.get("score_weights") or {}).items():
+        override_metadata = dict(raw.get("override_metadata") or {})
+        required_override_fields = {"owner", "reason", "scope", "version", "expires_at"}
+        override_status = "disabled"
+        governed_override = False
+        if raw.get("score_weights"):
+            if required_override_fields <= set(override_metadata):
+                try:
+                    expires = dt.datetime.fromisoformat(
+                        str(override_metadata["expires_at"]).replace("Z", "+00:00")
+                    )
+                    if expires.tzinfo is None:
+                        expires = expires.replace(tzinfo=dt.timezone.utc)
+                    governed_override = expires > dt.datetime.now(dt.timezone.utc)
+                    override_status = "active_experimental_override" if governed_override else "rejected_expired"
+                except ValueError:
+                    override_status = "rejected_invalid_expiry"
+            else:
+                override_status = "rejected_missing_governance"
+        for key, value in dict(raw.get("score_weights") or {}).items() if governed_override else ():
             if key not in weights:
                 continue
             try:
@@ -99,6 +112,8 @@ class CodeCompassRankingConfig:
             semantic_prefilter_threshold=threshold,
             semantic_prefilter_top_k_multiplier=multiplier,
             semantic_prefilter_min_results=min_results,
+            override_status=override_status,
+            override_metadata={key: str(value) for key, value in override_metadata.items()} if governed_override else {},
         )
 
     def to_strategy_config(self) -> RetrievalStrategyConfig:
@@ -131,6 +146,8 @@ class CodeCompassRankingConfig:
             "semantic_prefilter_threshold": self.semantic_prefilter_threshold,
             "semantic_prefilter_top_k_multiplier": self.semantic_prefilter_top_k_multiplier,
             "semantic_prefilter_min_results": self.semantic_prefilter_min_results,
+            "override_status": self.override_status,
+            "override_metadata": dict(self.override_metadata),
             "diagnostics": self.diagnostics(),
         }
 

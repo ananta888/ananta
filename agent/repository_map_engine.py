@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import hashlib
+import json
 import re
 import time
 from dataclasses import dataclass, field
@@ -114,6 +116,7 @@ class RepositoryMapEngine:
         self._telemetry = telemetry or observe_file_type_parser_result
         self._parser_diagnostics: dict[str, dict[str, object]] = {}
         self._last_scan_ts = 0.0
+        self._last_ranking_trace: dict[str, object] = {}
 
     def parser_diagnostics(self) -> tuple[dict[str, object], ...]:
         """Return deterministic, bounded diagnostics from the latest file states."""
@@ -565,6 +568,141 @@ class RepositoryMapEngine:
         top_k: int = 5,
         allowed_paths: list[str] | None = None,
     ) -> list[ContextChunk]:
+        """Rank repository sources through the versioned universal strategy.
+
+        Eligibility remains a hard pre-ranking scope boundary. The legacy
+        strategy is retained only as an explicit deployment rollback or
+        read-only shadow comparison.
+        """
+        from agent.services.codecompass_universal_ranking_profile_service import (
+            get_codecompass_universal_ranking_profile_service,
+        )
+
+        policy = get_codecompass_universal_ranking_profile_service().resolve()
+        strategy = policy.strategy
+        if strategy == "legacy":
+            return self._search_legacy(query, top_k=top_k, allowed_paths=allowed_paths)
+        started = time.perf_counter()
+        universal = self._search_universal(
+            query,
+            top_k=top_k,
+            allowed_paths=allowed_paths,
+            profile=policy.profile,
+        )
+        universal_latency_ms = (time.perf_counter() - started) * 1000.0
+        self._last_ranking_trace["strategy"] = strategy
+        self._last_ranking_trace["override_status"] = policy.override_status
+        self._last_ranking_trace["latency_ms"] = round(universal_latency_ms, 3)
+        if strategy == "shadow":
+            from ananta_codecompass.ranking.shadow import compare_rankings
+
+            baseline_started = time.perf_counter()
+            legacy = self._search_legacy(query, top_k=top_k, allowed_paths=allowed_paths)
+            baseline_latency_ms = (time.perf_counter() - baseline_started) * 1000.0
+            self._last_ranking_trace["shadow"] = compare_rankings(
+                universal_paths=[item.source for item in universal],
+                baseline_paths=[item.source for item in legacy],
+                repository_revision=str(self._last_ranking_trace.get("repository_revision") or "unknown"),
+                index_digest=str(self._last_ranking_trace.get("index_digest") or "unknown"),
+                ranking_version=str(self._last_ranking_trace.get("ranking_version") or "unknown"),
+                latency_ms_universal=universal_latency_ms,
+                latency_ms_baseline=baseline_latency_ms,
+            ).as_dict()
+        return universal
+
+    def ranking_trace(self) -> dict[str, object]:
+        return json.loads(json.dumps(self._last_ranking_trace, sort_keys=True))
+
+    def _search_universal(
+        self,
+        query: str,
+        *,
+        top_k: int,
+        allowed_paths: list[str] | None,
+        profile,
+    ) -> list[ContextChunk]:
+        from ananta_codecompass.ranking import (
+            RankingCandidate,
+            RankingInput,
+            UniversalSourceRanker,
+        )
+        from ananta_codecompass.ranking.file_roles import language_for_path
+
+        self.build()
+        symbol_items = sorted(self._symbol_graph.items())
+        if allowed_paths is not None:
+            from agent.codecompass.domain_scope import is_path_within
+            symbol_items = [
+                (path, symbols) for path, symbols in symbol_items
+                if is_path_within(path, allowed_paths)
+            ]
+        candidates = tuple(
+            RankingCandidate(
+                canonical_id=path,
+                path=path,
+                symbols=tuple(sorted(str(symbol) for symbol in symbols)),
+                language=language_for_path(path),
+            )
+            for path, symbols in symbol_items
+        )
+        digest_payload = json.dumps(
+            [(candidate.path, candidate.symbols) for candidate in candidates],
+            ensure_ascii=True,
+            separators=(",", ":"),
+        )
+        index_digest = hashlib.sha256(digest_payload.encode("utf-8")).hexdigest()
+        result = UniversalSourceRanker().rank(
+            RankingInput(
+                query=query,
+                candidates=candidates,
+                index_digest=index_digest,
+                profile=profile,
+                allowed_scope_digest=hashlib.sha256(
+                    json.dumps(allowed_paths, sort_keys=True).encode("utf-8")
+                ).hexdigest() if allowed_paths is not None else "unrestricted",
+            ),
+            top_k=top_k,
+        )
+        self._last_ranking_trace = result.as_dict()
+        return [
+            ContextChunk(
+                engine="repository_map",
+                source=item.candidate.path,
+                content=(
+                    f"{item.candidate.path}\nSymbols: "
+                    + ", ".join(item.candidate.symbols[:20])
+                ),
+                score=item.score * 100.0,
+                metadata={
+                    "symbol_count": str(len(item.candidate.symbols)),
+                    "ranking_version": result.ranking_version,
+                    "ranking_profile": result.profile_id,
+                    "ranking_profile_digest": result.profile_digest,
+                    "file_role": item.file_role,
+                    "ranking_explanation": json.dumps(
+                        [
+                            {
+                                "signal": contribution.signal,
+                                "normalized": contribution.normalized_value,
+                                "weight": contribution.weight,
+                                "contribution": contribution.contribution,
+                            }
+                            for contribution in item.contributions
+                        ],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            )
+            for item in result.ranked
+        ]
+
+    def _search_legacy(
+        self,
+        query: str,
+        top_k: int = 5,
+        allowed_paths: list[str] | None = None,
+    ) -> list[ContextChunk]:
         self.build()
         if not self._symbol_graph:
             return []
@@ -726,29 +864,10 @@ class RepositoryMapEngine:
                 # else: top_segment in {scripts, public-rendezvous, …} → Ananta
             if is_third_party:
                 score *= 0.2
-            if "codecompass" in tokens:
-                overview_entrypoint = rel_path.startswith((
-                    "agent/services/tools/codecompass_",
-                    "agent/services/codecompass_context_service.py",
-                    "agent/services/codecompass_context_planner_service.py",
-                    "agent/services/codecompass_agentic_retrieval_service.py",
-                    "agent/services/codecompass_architecture_",
-                    "worker/retrieval/codecompass_",
-                ))
-                if overview_entrypoint:
-                    score += 30.0
-                if rel_path.startswith("rag-helper/"):
-                    score *= 0.08
-                if rel_path.startswith("agent/codecompass/x86/") and not (
-                    tokens & {"x86", "malware", "binary", "disassembly"}
-                ):
-                    score *= 0.15
             if self._path_in_focus(rel_path, path_focus):
                 score *= 2.4
                 if self._path_in_focus(rel_path, path_focus, preferred_only=True):
                     score *= 1.35
-            if "codecompass" in tokens and rel_path.startswith("rag-helper/"):
-                score = min(score, 20.0)
             preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
@@ -819,11 +938,6 @@ class RepositoryMapEngine:
                     )
                 )
                 candidates_by_source[anchor_path] = candidates[-1]
-
-        if "codecompass" in tokens:
-            for candidate in candidates:
-                if str(candidate.source or "").startswith("rag-helper/"):
-                    candidate.score = min(float(candidate.score or 0.0), 20.0)
 
         ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
         if not path_focus:

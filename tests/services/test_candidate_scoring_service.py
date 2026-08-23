@@ -13,7 +13,14 @@ def test_candidate_scoring_weighting_and_trace() -> None:
                 "symbol_score": 0.0,
                 "transformer_rerank_score": 0.5,
                 "policy_penalty": -0.2,
-            }
+            },
+            "override_metadata": {
+                "owner": "ranking-test",
+                "reason": "candidate scoring contract",
+                "scope": "test",
+                "version": "test-v1",
+                "expires_at": "2099-01-01T00:00:00Z",
+            },
         }
     })
     ranked = CandidateScoringService(config=cfg).rank(

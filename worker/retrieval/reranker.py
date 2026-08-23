@@ -8,9 +8,10 @@ from typing import Any
 class Reranker:
     enabled: bool = False
     weight: float = 0.15
+    model_digest: str | None = None
 
     def rerank(self, *, query: str, candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        if not self.enabled:
+        if not self.enabled or not self.model_digest:
             return [dict(item) for item in list(candidates or [])]
         query_tokens = {token.lower() for token in str(query or "").split() if token.strip()}
         scored: list[dict[str, Any]] = []
@@ -23,6 +24,12 @@ class Reranker:
             boosted = dict(item)
             boosted["final_score"] = float(item.get("final_score") or 0.0) + overlap * float(self.weight)
             boosted["rerank_overlap"] = overlap
+            boosted["reranker_model_digest"] = self.model_digest
             scored.append(boosted)
-        return sorted(scored, key=lambda candidate: float(candidate.get("final_score") or 0.0), reverse=True)
-
+        return sorted(
+            scored,
+            key=lambda candidate: (
+                -float(candidate.get("final_score") or 0.0),
+                str(candidate.get("record_id") or candidate.get("path") or ""),
+            ),
+        )

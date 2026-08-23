@@ -3,40 +3,19 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
+from ananta_codecompass.ranking.profiles import (
+    WORKER_CHANNEL_WEIGHTS,
+    WORKER_TASK_PROFILE_ALIASES,
+)
 from worker.retrieval.retrieval_contract import VALID_CHANNELS, normalize_channel_name
-
-_TASK_WEIGHTS = {
-    "bugfix": {
-        "dense": 0.28,
-        "lexical": 0.2,
-        "symbol": 0.14,
-        "codecompass_fts": 0.2,
-        "codecompass_vector": 0.1,
-        "codecompass_graph": 0.08,
-    },
-    "feature": {
-        "dense": 0.24,
-        "lexical": 0.16,
-        "symbol": 0.2,
-        "codecompass_fts": 0.18,
-        "codecompass_vector": 0.12,
-        "codecompass_graph": 0.1,
-    },
-    "bootstrap": {
-        "dense": 0.2,
-        "lexical": 0.22,
-        "symbol": 0.12,
-        "codecompass_fts": 0.2,
-        "codecompass_vector": 0.14,
-        "codecompass_graph": 0.12,
-    },
-}
 
 _PROFILE_MULTIPLIER = {
     "safe": 0.9,
     "balanced": 1.0,
     "fast": 1.1,
 }
+
+WORKER_RANKING_VERSION = "universal-channel-fusion.v1"
 
 
 def _normalize_scores(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -63,8 +42,12 @@ def merge_rank_candidates(
     normalized_candidates = _normalize_scores([item for item in list(candidates or []) if isinstance(item, dict)])
     if not normalized_candidates:
         return []
-    task_weights = _TASK_WEIGHTS.get(str(task_type or "").strip().lower(), _TASK_WEIGHTS["bugfix"])
+    requested_intent = str(task_type or "").strip().lower()
+    intent = WORKER_TASK_PROFILE_ALIASES.get(requested_intent, requested_intent)
+    task_weights = WORKER_CHANNEL_WEIGHTS.get(intent, WORKER_CHANNEL_WEIGHTS["debugging"])
     profile_multiplier = _PROFILE_MULTIPLIER.get(str(profile or "").strip().lower(), 1.0)
+    active_channels = {str(item.get("channel") or "dense") for item in normalized_candidates}
+    active_weight_total = sum(float(task_weights.get(channel) or 0.08) for channel in active_channels) or 1.0
     merged: dict[str, dict[str, Any]] = {}
     for candidate in normalized_candidates:
         channel = str(candidate.get("channel") or "dense")
@@ -80,7 +63,7 @@ def merge_rank_candidates(
         )
         if not key:
             continue
-        weight = float(task_weights.get(channel) or 0.08)
+        weight = float(task_weights.get(channel) or 0.08) / active_weight_total
         contribution = float(candidate.get("normalized_score") or 0.0) * weight * profile_multiplier
         existing = merged.get(key)
         if existing is None:
@@ -88,11 +71,32 @@ def merge_rank_candidates(
                 **dict(candidate),
                 "final_score": contribution,
                 "channel_contributions": {channel: contribution},
+                "ranking_version": WORKER_RANKING_VERSION,
+                "score_explanation": {channel: {
+                    "raw_score": float(candidate.get("score") or 0.0),
+                    "normalized_score": float(candidate.get("normalized_score") or 0.0),
+                    "weight": weight,
+                    "contribution": contribution,
+                }},
             }
             continue
         existing["final_score"] = float(existing.get("final_score") or 0.0) + contribution
         contributions = dict(existing.get("channel_contributions") or {})
         contributions[channel] = float(contributions.get(channel) or 0.0) + contribution
         existing["channel_contributions"] = contributions
-    ranked = sorted(merged.values(), key=lambda item: float(item.get("final_score") or 0.0), reverse=True)
+        explanation = dict(existing.get("score_explanation") or {})
+        explanation[channel] = {
+            "raw_score": float(candidate.get("score") or 0.0),
+            "normalized_score": float(candidate.get("normalized_score") or 0.0),
+            "weight": weight,
+            "contribution": contribution,
+        }
+        existing["score_explanation"] = explanation
+    ranked = sorted(
+        merged.values(),
+        key=lambda item: (
+            -float(item.get("final_score") or 0.0),
+            str(item.get("record_id") or item.get("path") or item.get("content_hash") or ""),
+        ),
+    )
     return ranked[: max(1, int(top_k))]

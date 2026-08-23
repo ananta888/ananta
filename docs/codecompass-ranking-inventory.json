@@ -1,0 +1,16 @@
+{
+  "schema": "codecompass.ranking-inventory.v1",
+  "ranking_version": "universal-source-ranking.v1",
+  "entries": [
+    {"owner":"RepositoryMapEngine","source":"agent/repository_map_engine.py","control":"legacy path/symbol/stem boosts","category":"legacy_heuristic","scope":"explicit rollback only","default":"inactive","target":"remove after migration","trace":"shadow.legacy_paths"},
+    {"owner":"UniversalSourceRanker","source":"ananta_codecompass/ranking/universal.py","control":"normalized declared contributions","category":"universal_default","scope":"all repositories","default":"universal-default","target":"retain","trace":"ranked[].contributions"},
+    {"owner":"FileRoleClassifier","source":"ananta_codecompass/ranking/file_roles.py","control":"role score and penalty","category":"universal_heuristic","scope":"language conventions","default":"unknown-neutral","target":"retain","trace":"file_role, role_reasons"},
+    {"owner":"RepositoryMapEngine","source":"agent/config.py","control":"RAG_PATH_FOCUS_ALIASES","category":"deployment_override","scope":"legacy only","default":"empty","target":"remove after migration","trace":"legacy path_focus_anchor"},
+    {"owner":"CandidateScoringService","source":"agent/services/codecompass_ranking_config_service.py","control":"hybrid score_weights","category":"governed_deployment_override","scope":"post-merge hybrid retrieval","default":"profiles.HYBRID_SCORE_WEIGHTS","target":"retain governed profile","trace":"override_status and candidate score breakdown"},
+    {"owner":"WorkerRetrievalRanking","source":"worker/retrieval/ranking.py","control":"task channel weights","category":"general_intent_default","scope":"worker delegated retrieval merge","default":"profiles.WORKER_CHANNEL_WEIGHTS","target":"retain shared defaults","trace":"score_explanation"},
+    {"owner":"CodeCompassFtsStore","source":"worker/retrieval/codecompass_fts_store.py","control":"BM25 rank and exact boost","category":"engine_raw_score","scope":"FTS candidates","default":"exact=3.0","target":"normalize before fusion","trace":"boost_breakdown"},
+    {"owner":"RestrictedReranker","source":"worker/retrieval/reranker.py","control":"lexical rerank overlap","category":"optional_reranker","scope":"bound worker profile","default":"disabled","target":"require model/config digest","trace":"rerank_overlap"},
+    {"owner":"SymbolContextService","source":"agent/services/codecompass_symbol_context_service.py","control":"source and query symbol score","category":"candidate_generation","scope":"bounded symbol context","default":"source+token overlap","target":"consume normalized ranking result","trace":"symbol_context_refs"},
+    {"owner":"EligibilityPolicy","source":"agent/codecompass/domain_scope.py","control":"allowed path scope","category":"security_filter","scope":"authorized repository scope","default":"fail closed when scoped","target":"retain before ranking","trace":"allowed_scope_digest"}
+  ]
+}

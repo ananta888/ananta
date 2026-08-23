@@ -134,11 +134,7 @@ def test_codecompass_overview_demotes_rag_helper_below_hub_entrypoints():
     assert paths.index("rag-helper/rag_helper/application/config_profiles.py") > paths.index(
         "agent/services/codecompass_context_service.py"
     )
-    rag_result = next(
-        result for result in results
-        if result.source == "rag-helper/rag_helper/application/config_profiles.py"
-    )
-    assert rag_result.score <= 20.0
+    assert all(result.metadata["ranking_version"] == "universal-source-ranking.v1" for result in results)
 
 
 def test_generic_query_unaffected():
@@ -215,7 +211,7 @@ def test_test_file_with_domain_in_stem_keeps_natural_score():
     )
 
 
-def test_query_named_directory_focus_keeps_real_subdirectory_in_top_results():
+def test_query_named_directory_is_discovered_without_configured_aliases():
     engine = _make_engine_with_symbols({
         "agent/services/alpha_tools_index_service.py": [
             "AlphaToolsIndexService",
@@ -254,6 +250,7 @@ def test_query_named_directory_focus_keeps_real_subdirectory_in_top_results():
     results = engine.search("bitte erkläre alpha tools", top_k=5)
     paths = [r.source for r in results]
 
-    assert "alpha-tools/runner.py" in paths
-    assert "alpha-tools/alpha_tools/application/project_processor.py" in paths
+    subtree_hits = [path for path in paths if path.startswith("alpha-tools/")]
+    assert len(subtree_hits) >= 2
     assert "alpha-tools/alpha_tools/cli.py" in paths
+    assert all("path_focus_anchor" not in result.metadata for result in results)

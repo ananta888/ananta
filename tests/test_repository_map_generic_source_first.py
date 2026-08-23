@@ -10,11 +10,8 @@ boost on source files (tests/test_repository_map_source_first_selector.py).
 
 This file covers two additional generic correctness rules:
 
-1. Third-party client_surfaces (blender/, freecad/, eclipse_runtime/,
-   nvim_runtime/, vim_compat/, vscode_extension/) must not outrank
-   Ananta-core source files when both match the same token by accident
-   (e.g. blender/addon/tasks.py has nothing to do with Ananta's task
-   system even though the filename matches).
+1. Vendored source trees are classified from universal directory
+   conventions rather than from repository-specific allowlists.
 
 2. Frontend test files (*.spec.ts, *.spec.js) must be detected as
    tests so they do not outrank the components they verify for
@@ -42,23 +39,19 @@ def _make_engine_with_symbols(symbol_graph: dict[str, list[str]]) -> RepositoryM
 
 # --- Third-party client_surfaces ------------------------------------------
 
-def test_third_party_client_surface_demoted_below_ananta_core():
+def test_conventional_vendor_tree_is_demoted_below_production_source():
     """
-    Query "tasks" must return Ananta's task system on top, not
-    blender/addon/tasks.py or freecad/workbench/tasks.py which are
-    third-party integrations that happen to be named "tasks".
+    A conventional vendor tree must not outrank production code merely
+    because both paths contain the same query token.
     """
     engine = _make_engine_with_symbols({
-        # Ananta-core source: token in stem
-        "agent/routes/tasks/management.py": [
+        "src/routes/tasks/management.py": [
             "create_task", "list_tasks", "task_admin_service",
         ],
-        # Third-party blender integration: same token in stem
-        "client_surfaces/blender/addon/tasks.py": [
+        "vendor/blender/addon/tasks.py": [
             "blender_task_callback", "register_tasks_panel",
         ],
-        # Third-party freecad integration: same token in stem
-        "client_surfaces/freecad/workbench/tasks.py": [
+        "third_party/freecad/workbench/tasks.py": [
             "freecad_task_handler",
         ],
     })
@@ -66,44 +59,37 @@ def test_third_party_client_surface_demoted_below_ananta_core():
     results = engine.search("erkläre tasks", top_k=5)
     paths = [r.source for r in results]
 
-    assert paths[0] == "agent/routes/tasks/management.py", (
-        f"top-1 must be Ananta-core, got: {paths[0]}"
+    assert paths[0] == "src/routes/tasks/management.py", (
+        f"top-1 must be production source, got: {paths[0]}"
     )
-    # The Ananta-core file must score strictly above every third-party
-    # file that matched the same token by accident. The ×0.2 demote on
-    # third-party client_surfaces guarantees this.
-    ananta_score = next(r.score for r in results if r.source == "agent/routes/tasks/management.py")
+    production_score = next(r.score for r in results if r.source == "src/routes/tasks/management.py")
     for r in results:
-        if r.source.startswith(("client_surfaces/blender/", "client_surfaces/freecad/")):
-            assert ananta_score > r.score, (
-                f"Ananta-core ({ananta_score}) must outrank third-party "
+        if r.source.startswith(("vendor/", "third_party/")):
+            assert production_score > r.score, (
+                f"production ({production_score}) must outrank vendored "
                 f"{r.source} ({r.score})"
             )
 
 
-def test_ananta_client_surface_not_demoted():
+def test_unknown_top_level_directories_are_role_neutral_and_deterministic():
     """
-    Ananta's own client_surfaces subdirs (operator_tui/, tui_runtime/,
-    common/) must NOT be demoted — they are first-party code shipped
-    with Ananta.
+    Unknown repository directories are neutral. Equal evidence is resolved
+    by the canonical path rather than a product-specific allowlist.
     """
     engine = _make_engine_with_symbols({
-        "client_surfaces/operator_tui/snake_persistence.py": [
+        "extensions/alpha/snake_persistence.py": [
             "save_snake_state", "load_snake_state",
         ],
-        "client_surfaces/blender/addon/snake_persistence.py": [
-            "blender_snake_persistence_bridge",
+        "modules/beta/snake_persistence.py": [
+            "save_snake_state", "load_snake_state",
         ],
     })
 
     results = engine.search("snake persistence", top_k=5)
     paths = [r.source for r in results]
 
-    # The operator_tui file is first-party and must rank above the
-    # blender bridge which is third-party.
-    assert paths[0] == "client_surfaces/operator_tui/snake_persistence.py", (
-        f"operator_tui (Ananta) must outrank blender (third-party): {paths[0]}"
-    )
+    assert paths == sorted(paths)
+    assert {result.metadata["file_role"] for result in results} == {"production"}
 
 
 # --- Frontend test files -------------------------------------------------

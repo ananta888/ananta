@@ -26,7 +26,7 @@ def test_hybrid_retrieval_merges_channels_with_rationale() -> None:
 
 
 def test_optional_reranker_can_reorder_candidates() -> None:
-    service = HybridRetrievalService(reranker=Reranker(enabled=True, weight=1.0))
+    service = HybridRetrievalService(reranker=Reranker(enabled=True, weight=1.0, model_digest="sha256:test-model"))
     payload = service.retrieve(
         query="auth login",
         pipeline_contract={"channels": ["dense", "lexical"], "fallback_order": ["dense", "lexical"]},
