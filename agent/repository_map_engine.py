@@ -747,6 +747,8 @@ class RepositoryMapEngine:
                 score *= 2.4
                 if self._path_in_focus(rel_path, path_focus, preferred_only=True):
                     score *= 1.35
+            if "codecompass" in tokens and rel_path.startswith("rag-helper/"):
+                score = min(score, 20.0)
             preview = ", ".join(symbols[:20])
             candidates.append(
                 ContextChunk(
@@ -817,6 +819,11 @@ class RepositoryMapEngine:
                     )
                 )
                 candidates_by_source[anchor_path] = candidates[-1]
+
+        if "codecompass" in tokens:
+            for candidate in candidates:
+                if str(candidate.source or "").startswith("rag-helper/"):
+                    candidate.score = min(float(candidate.score or 0.0), 20.0)
 
         ranked = sorted(candidates, key=lambda c: c.score, reverse=True)
         if not path_focus:

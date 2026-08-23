@@ -134,6 +134,11 @@ def test_codecompass_overview_demotes_rag_helper_below_hub_entrypoints():
     assert paths.index("rag-helper/rag_helper/application/config_profiles.py") > paths.index(
         "agent/services/codecompass_context_service.py"
     )
+    rag_result = next(
+        result for result in results
+        if result.source == "rag-helper/rag_helper/application/config_profiles.py"
+    )
+    assert rag_result.score <= 20.0
 
 
 def test_generic_query_unaffected():
