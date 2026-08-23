@@ -347,6 +347,7 @@ def _spawn_ai_chat_reply(
                 active_session_id=_active_session_id,
                 active_session_group=_active_session_group,
                 active_session_settings=_active_session_settings,
+                prompt=_original_prompt,
             ):
                 # Lightweight UI context for sessions that explicitly benefit from UI state.
                 _light_ui = (ui_context or {}) or (_snake_ui_state.get(snake_id or "") if snake_id else {}) or {}

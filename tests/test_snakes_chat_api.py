@@ -297,7 +297,7 @@ def test_light_ui_context_can_be_disabled_per_session(client):
     ) is False
 
 
-def test_light_ui_context_still_allowed_for_plain_custom_session(client):
+def test_light_ui_context_is_omitted_for_plain_content_question(client):
     import agent.routes.snakes_execution_routes as ser
 
     del client
@@ -306,6 +306,33 @@ def test_light_ui_context_still_allowed_for_plain_custom_session(client):
         active_session_id="custom",
         active_session_group="",
         active_session_settings={},
+        prompt="Erkläre mir den CodeCompass",
+    ) is False
+
+
+def test_light_ui_context_is_used_for_navigation_question(client):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+
+    assert ser._should_include_light_ui_context(
+        active_session_id="custom",
+        active_session_group="",
+        active_session_settings={},
+        prompt="Wo finde ich den Einstellungen-Tab?",
+    ) is True
+
+
+def test_light_ui_context_can_be_explicitly_enabled(client):
+    import agent.routes.snakes_execution_routes as ser
+
+    del client
+
+    assert ser._should_include_light_ui_context(
+        active_session_id="custom",
+        active_session_group="",
+        active_session_settings={"chat_include_ui_context": True},
+        prompt="Erkläre mir den CodeCompass",
     ) is True
 
 

@@ -495,8 +495,9 @@ def _should_include_light_ui_context(
     active_session_id: str,
     active_session_group: str = "",
     active_session_settings: dict[str, Any] | None = None,
+    prompt: str = "",
 ) -> bool:
-    """Whether a normal chat session should receive the lightweight UI hint."""
+    """Whether UI location is relevant enough to enter the model prompt."""
     sid = str(active_session_id or "").strip()
     if not sid or sid in {"ananta-settings", "ananta-visual"}:
         return False
@@ -505,4 +506,12 @@ def _should_include_light_ui_context(
         return False
     if str(active_session_group or "").strip().lower() == "architektur":
         return False
-    return True
+    if settings.get("chat_include_ui_context") is True:
+        return True
+    normalized = str(prompt or "").lower()
+    navigation_terms = (
+        "wo finde", "wo ist", "wie komme ich", "navig", "klick", "öffne",
+        "oeffne", "button", "menü", "menu", "tab", "ansicht", "oberfläche",
+        "oberflaeche", "ui ", "route",
+    )
+    return any(term in normalized for term in navigation_terms)
