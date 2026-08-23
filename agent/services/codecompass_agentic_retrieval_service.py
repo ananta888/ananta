@@ -296,14 +296,17 @@ class CodeCompassAgenticRetrievalService:
             # Preserve one bounded structural result when graph retrieval was
             # requested and succeeded. Exact evidence remains first, while the
             # merger can no longer silently erase the entire graph channel.
-            graph_hit = max(
-                channel_results[graph_channel],
-                key=lambda item: float(item.get("score") or 0.0),
-            )
-            if not any(
-                str(item.get("path") or "") == str(graph_hit.get("path") or "")
-                for item in selected
-            ):
+            selected_paths = {str(item.get("path") or "") for item in selected}
+            novel_graph_hits = [
+                item
+                for item in channel_results[graph_channel]
+                if str(item.get("path") or "") not in selected_paths
+            ]
+            if novel_graph_hits:
+                graph_hit = max(
+                    novel_graph_hits,
+                    key=lambda item: float(item.get("score") or 0.0),
+                )
                 selected.insert(min(1, len(selected)), graph_hit)
         input_count = sum(len(rows) for rows in channel_results.values())
         merged_count = max(0, input_count - len(selected))

@@ -189,12 +189,20 @@ def test_hybrid_preserves_one_successful_graph_result() -> None:
             "score": 10.0,
         }],
         vector_search=lambda *_args, **_kwargs: [],
-        graph_search=lambda *_args, **_kwargs: [{
-            "id": "graph",
-            "path": "src/payment_graph.py",
-            "content": "PaymentService calls RetryPolicy",
-            "score": 0.1,
-        }],
+        graph_search=lambda *_args, **_kwargs: [
+            {
+                "id": "duplicate",
+                "path": "src/payment.py",
+                "content": "PaymentService graph node",
+                "score": 1.0,
+            },
+            {
+                "id": "graph",
+                "path": "src/payment_graph.py",
+                "content": "PaymentService calls RetryPolicy",
+                "score": 0.1,
+            },
+        ],
     ).retrieve(_request())
 
     assert result["evidence"][0]["path"] == "src/payment.py"
