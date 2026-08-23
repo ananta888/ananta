@@ -738,7 +738,7 @@ class RepositoryMapEngine:
                 if overview_entrypoint:
                     score += 30.0
                 if rel_path.startswith("rag-helper/"):
-                    score *= 0.35
+                    score *= 0.08
                 if rel_path.startswith("agent/codecompass/x86/") and not (
                     tokens & {"x86", "malware", "binary", "disassembly"}
                 ):

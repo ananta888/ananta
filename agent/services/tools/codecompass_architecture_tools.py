@@ -200,14 +200,29 @@ def codecompass_symbol_context(*, workspace_dir: str, arguments: dict[str, Any],
             error="query_required",
         )
     records, _edges = _load_architecture_graph(arguments)
+    provided_sources = list((arguments or {}).get("ranked_sources") or [])
     ranked_sources = [
         {
-            "source": str(node.get("path") or ""),
-            "score": float(node.get("score") or (100 - index)),
+            "source": str(item.get("source") or item.get("path") or ""),
+            "score": float(item.get("score") or (100 - index)),
         }
-        for index, node in enumerate(records)
-        if str(node.get("path") or "").endswith((".py", ".ts", ".tsx", ".js", ".java"))
+        for index, item in enumerate(provided_sources)
+        if isinstance(item, dict)
+        and str(item.get("source") or item.get("path") or "").endswith(
+            (".py", ".ts", ".tsx", ".js", ".java")
+        )
     ][:20]
+    if not ranked_sources:
+        ranked_sources = [
+            {
+                "source": str(node.get("path") or ""),
+                "score": float(node.get("score") or (100 - index)),
+            }
+            for index, node in enumerate(records)
+            if str(node.get("path") or "").endswith(
+                (".py", ".ts", ".tsx", ".js", ".java")
+            )
+        ][:20]
     snippets = build_codecompass_symbol_context(
         repo_root=Path(workspace_dir),
         query=query,

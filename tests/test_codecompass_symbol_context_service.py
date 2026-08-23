@@ -114,10 +114,9 @@ def test_symbol_tool_returns_actual_symbol_evidence(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "agent.services.tools.codecompass_architecture_tools._load_architecture_graph",
         lambda _arguments=None: ([{
-            "id": "file:entry",
-            "path": "agent/codecompass_entry.py",
-            "kind": "file",
-            "score": 90.0,
+            "id": "subsystem:agent",
+            "path": "agent",
+            "kind": "directory",
         }], []),
     )
 
@@ -127,7 +126,13 @@ def test_symbol_tool_returns_actual_symbol_evidence(tmp_path, monkeypatch):
 
     result = codecompass_symbol_context(
         workspace_dir=str(tmp_path),
-        arguments={"query": "CodeCompass context"},
+        arguments={
+            "query": "CodeCompass context",
+            "ranked_sources": [{
+                "source": "agent/codecompass_entry.py",
+                "score": 90.0,
+            }],
+        },
         tool_call_id="call-symbol",
     )
 

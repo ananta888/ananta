@@ -412,6 +412,7 @@ def run_rag_chat_tool_loop(
     duplicate_call_streak = 0
     duplicate_calls_blocked = 0
     _codecompass_evidence: list[str] = []
+    _completed_codecompass_calls: set[str] = set()
 
     def _cancelled() -> bool:
         if not is_chat_cancelled(cancel_event):
@@ -1294,19 +1295,45 @@ def run_rag_chat_tool_loop(
                         max_chars_per_file=max_chars_per_file,
                     )
             else:
-                result = _dispatch_tool(
-                    fn_name, args,
-                    repo_root=repo_root,
-                    max_chars_per_file=max_chars_per_file,
+                codecompass_call_key = (
+                    f"{fn_name}:{json.dumps(args, ensure_ascii=False, sort_keys=True)}"
+                    if fn_name in _CODECOMPASS_CHAT_TOOL_MAP
+                    else ""
                 )
-                if fn_name in _CODECOMPASS_CHAT_TOOL_MAP:
+                duplicate_codecompass_call = bool(
+                    codecompass_call_key
+                    and codecompass_call_key in _completed_codecompass_calls
+                )
+                if duplicate_codecompass_call:
+                    duplicate_calls_blocked += 1
+                    trace["duplicate_calls_blocked"] = duplicate_calls_blocked
+                    result = (
+                        "[Duplikat blockiert: Dieses CodeCompass-Tool wurde mit identischen "
+                        "Argumenten bereits ausgefuehrt. Nutze die vorhandene Evidenz oder "
+                        "expandiere einen konkreten Architektur-Handle.]"
+                    )
+                else:
+                    if codecompass_call_key:
+                        _completed_codecompass_calls.add(codecompass_call_key)
+                    result = _dispatch_tool(
+                        fn_name, args,
+                        repo_root=repo_root,
+                        max_chars_per_file=max_chars_per_file,
+                    )
+                if fn_name in _CODECOMPASS_CHAT_TOOL_MAP and not duplicate_codecompass_call:
                     _codecompass_evidence.append(
                         f"[{fn_name}]\n{result[:6000]}"
                     )
-                if fn_name == "codecompass_architecture_overview":
+                if fn_name == "codecompass_architecture_overview" and not duplicate_codecompass_call:
                     symbol_result = _dispatch_tool(
                         "codecompass_symbol_context",
-                        {"query": str(args.get("query") or question)},
+                        {
+                            "query": str(args.get("query") or question),
+                            "ranked_sources": [
+                                {"source": path, "score": 100 - index}
+                                for index, path in enumerate(initial_files or [])
+                            ],
+                        },
                         repo_root=repo_root,
                         max_chars_per_file=max_chars_per_file,
                     )

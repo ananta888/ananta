@@ -112,6 +112,30 @@ def test_unrelated_test_files_get_demoted():
     )
 
 
+def test_codecompass_overview_demotes_rag_helper_below_hub_entrypoints():
+    engine = _make_engine_with_symbols({
+        "rag-helper/rag_helper/application/config_profiles.py": [
+            f"codecompass_profile_{index}" for index in range(20)
+        ],
+        "agent/services/tools/codecompass_tools.py": [
+            "codecompass_retrieve",
+        ],
+        "agent/services/codecompass_context_service.py": [
+            "build_codecompass_context",
+        ],
+    })
+
+    results = engine.search("Erkläre CodeCompass Architektur", top_k=3)
+    paths = [result.source for result in results]
+
+    assert paths.index("rag-helper/rag_helper/application/config_profiles.py") > paths.index(
+        "agent/services/tools/codecompass_tools.py"
+    )
+    assert paths.index("rag-helper/rag_helper/application/config_profiles.py") > paths.index(
+        "agent/services/codecompass_context_service.py"
+    )
+
+
 def test_generic_query_unaffected():
     """
     A query with no clear domain token must not change behaviour: the
