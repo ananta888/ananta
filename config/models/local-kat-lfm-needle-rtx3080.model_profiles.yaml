@@ -1,0 +1,59 @@
+version: "1.0"
+_note: "Local-only KAT/LFM profiles. Needle is a candidate-only sidecar configured separately."
+
+profiles:
+  - profile_id: local_lfm25_agentic_fast
+    provider_id: lfm_llamacpp
+    model: lfm2.5-2.6b-agentic-q8_0
+    model_role: any
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: true
+    supports_json: true
+    supports_streaming: true
+    context_tokens: 32768
+    max_context_for_profile: 32768
+    max_output_tokens: 4096
+    timeout_seconds: 90
+    temperature: 0.1
+    cost_class: free
+    quality_class: medium
+    estimated_latency_class: local_fast
+    json_reliability_class: usable
+    tool_calling_mode: both
+    preferred_for: [classification, summarization, preprocessing, simple_code]
+    retry_budget: 1
+    fallback_group: local_lfm_to_kat
+    fallback_rank: 10
+    base_url: "http://127.0.0.1:8081/v1"
+    enabled: true
+
+  - profile_id: local_kat_coder_v25_heavy
+    provider_id: kat_colibri
+    model: kat-coder-v2.5-dev
+    model_role: coder
+    local: true
+    cloud: false
+    cloud_allowed: false
+    block_secret_context: false
+    supports_tools: false
+    supports_json: true
+    supports_streaming: true
+    context_tokens: 65536
+    max_context_for_profile: 65536
+    max_output_tokens: 8192
+    timeout_seconds: 300
+    temperature: 0.1
+    cost_class: free
+    quality_class: high
+    estimated_latency_class: local_heavy
+    json_reliability_class: usable
+    tool_calling_mode: prompt_json
+    preferred_for: [architecture, coding, debugging, planning, reasoning, repo_analysis]
+    retry_budget: 0
+    fallback_group: local_lfm_to_kat
+    fallback_rank: 20
+    base_url: "http://127.0.0.1:8082/v1"
+    enabled: true

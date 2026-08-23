@@ -5,6 +5,7 @@ import json
 import pytest
 
 from agent.services.tiny_router.adapters import (
+    CactusNeedleRuntime,
     NeedleCandidateAdapter,
     OpenAICompatibleActionAdapter,
 )
@@ -201,6 +202,31 @@ def test_needle_adapter_requests_candidates_without_execution():
     ))
     assert runtime.complete_calls == 1
     assert result.payload["function_calls"][0]["name"] == "repo.search"
+
+
+def test_cactus_runtime_resolves_deployment_weights_from_environment(monkeypatch):
+    captured = {}
+
+    class Needle:
+        def __init__(self, *, tools, weights):
+            captured.update(tools=tools, weights=weights)
+
+        def complete(self, prompt):
+            return {"type": "abstain", "prompt": prompt}
+
+    monkeypatch.setenv("TEST_NEEDLE_WEIGHTS", "/models/needle2.cact")
+    monkeypatch.setitem(__import__("sys").modules, "needle", type("Module", (), {"Needle": Needle}))
+    result = CactusNeedleRuntime().complete(
+        prompt="status", tools=[],
+        profile=profile(
+            adapter="needle", dialect="needle",
+            metadata={"weights_env": "TEST_NEEDLE_WEIGHTS"},
+        ),
+        timeout_ms=100,
+    )
+
+    assert captured["weights"] == "/models/needle2.cact"
+    assert result["type"] == "abstain"
 
 
 class Transport:

@@ -18,8 +18,12 @@
       "min_confidence": 0.9,
       "local_only": true,
       "enabled_by_default": false,
-      "artifact_sha256": "",
-      "metadata": {"runtime_dependency": "cactus-needle"}
+      "artifact_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "metadata": {
+        "runtime_dependency": "cactus-needle",
+        "weights_env": "ANANTA_NEEDLE_WEIGHTS",
+        "deployment_scope": "local-rtx3080"
+      }
     },
     {
       "profile_id": "functiongemma-270m",
@@ -80,6 +84,31 @@
       "enabled_by_default": false,
       "artifact_sha256": "",
       "metadata": {"profile_status": "evaluation"}
+    },
+    {
+      "profile_id": "lfm2.5-2.6b-agentic",
+      "model_id": "lfm2.5-2.6b-agentic-q8_0",
+      "tier": "small",
+      "adapter": "openai_compatible",
+      "dialect": "openai",
+      "license_id": "LFM-1.0",
+      "source_url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base",
+      "commercial_use_allowed": true,
+      "research_only": false,
+      "supports_confidence": false,
+      "supports_parallel_tools": false,
+      "max_tools": 100,
+      "context_window": 32768,
+      "min_confidence": 0,
+      "local_only": true,
+      "enabled_by_default": false,
+      "artifact_sha256": "1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9",
+      "metadata": {
+        "profile_status": "evaluation",
+        "provider_id": "lfm_llamacpp",
+        "inference_format": "gguf-q8_0",
+        "sft_requires_transformers_snapshot": true
+      }
     },
     {
       "profile_id": "xlam-1b-fc-r",

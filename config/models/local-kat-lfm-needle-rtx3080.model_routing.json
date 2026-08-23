@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "_note": "Hub-owned local routing. Needle candidates never gain task or worker authority.",
+  "security_policy": {
+    "block_cloud_with_secrets": true,
+    "allowed_cloud_providers": []
+  },
+  "routing_rules": [
+    {"rule_id": "lfm-classification", "task_kind": "classification", "profile_id": "local_lfm25_agentic_fast", "enabled": true},
+    {"rule_id": "lfm-summarization", "task_kind": "summarization", "profile_id": "local_lfm25_agentic_fast", "enabled": true},
+    {"rule_id": "lfm-preprocessing", "task_kind": "preprocess", "profile_id": "local_lfm25_agentic_fast", "enabled": true},
+    {"rule_id": "kat-coding", "task_kind": "coding", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-debugging", "task_kind": "debugging", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-planning", "task_kind": "planning", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-analysis", "task_kind": "repo_analysis", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "lfm-general-default", "model_role": "any", "profile_id": "local_lfm25_agentic_fast", "enabled": true}
+  ],
+  "fallback_chain": ["local_lfm25_agentic_fast", "local_kat_coder_v25_heavy"],
+  "fallback_groups": {
+    "local_lfm_to_kat": {
+      "ordered_profiles": ["local_lfm25_agentic_fast", "local_kat_coder_v25_heavy"],
+      "max_total_retries": 1,
+      "stop_on_policy_block": true,
+      "stop_on_success": true,
+      "cost_policy": {"max_estimated_cost_per_step": 0.0}
+    }
+  },
+  "escalation_rules": [
+    {"trigger": "provider_unavailable", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {}},
+    {"trigger": "provider_timeout", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {}},
+    {"trigger": "schema_validation_failed", "from_profile": "local_lfm25_agentic_fast", "to_profile": "local_kat_coder_v25_heavy", "condition": {"requires_json": true}}
+  ]
+}

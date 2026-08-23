@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import time
 from typing import Any, Callable, Mapping, Sequence
 
@@ -97,7 +98,12 @@ class CactusNeedleRuntime:
     ) -> Mapping[str, Any]:
         del timeout_ms
         import needle
-        weights = str(profile.metadata.get("weights") or "").strip() or None
+        weights_env = str(profile.metadata.get("weights_env") or "").strip()
+        weights = str(
+            (os.environ.get(weights_env) if weights_env else None)
+            or profile.metadata.get("weights")
+            or ""
+        ).strip() or None
         agent = needle.Needle(tools=tools, weights=weights)
         return agent.complete(prompt)
 
