@@ -8,25 +8,38 @@ Hub-authorized tool, but Needle never creates Tasks or starts Workers.
 
 | Runtime | Endpoint/device | Context | Local artifact SHA-256 |
 |---|---|---:|---|
-| KAT-Coder v2.5 / Colibrì | `127.0.0.1:8082`, CUDA + RAM | 32k request default, 64k server maximum | heat profile `987a1524e33a8c3ea70391275d5d9c782f762a2ccfd8d3935bdb072c5219f160` |
-| LFM2.5-2.6B agentic Q8_0 / llama.cpp | `127.0.0.1:8081`, CUDA | 32k; reduce to 16k under pressure | `1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9` |
-| Needle 2 / cactus-needle | CPU, in-process candidate adapter | 256 | `b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba` |
+| KAT-Coder v2.5 / Colibrì | Docker bridge `:8082`, CUDA + RAM | 32k | heat profile `987a1524e33a8c3ea70391275d5d9c782f762a2ccfd8d3935bdb072c5219f160` |
+| LFM2.5-2.6B agentic Q8_0 / llama.cpp | Docker bridge `:8081`, CUDA | 32k; reduce to 16k under pressure | `1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9` |
+| Needle 2 / cactus-needle | Docker bridge `:8083`, CPU sidecar | 256 | `b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba` |
 
 The hashes identify the files installed on this host. They are not invented
 `SRC_*` or `RUN_*` evidence identifiers.
 
-Configure Hub routing with:
+Generate local credentials, bind only to the Docker bridge and start the
+providers. Never commit or print the generated token:
 
 ```bash
-export MODEL_PROFILES_PATH=config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml
-export MODEL_ROUTING_PATH=config/models/local-kat-lfm-needle-rtx3080.model_routing.json
-export ANANTA_NEEDLE_WEIGHTS=/home/krusty/moe-test/models/needle2/needle2.cact
+export ANANTA_LOCAL_MODEL_API_KEY='<random value with at least 24 characters>'
+export ANANTA_NEEDLE_TOKEN="$ANANTA_LOCAL_MODEL_API_KEY"
+export ANANTA_LOCAL_MODEL_BIND_HOST=172.17.0.1
+scripts/local-multi-model-runtime.sh start
 ```
 
-The corresponding `local_openai_backends` entries are `kat_colibri` at
-`http://127.0.0.1:8082/v1` and `lfm_llamacpp` at
-`http://127.0.0.1:8081/v1`. Containers must address an explicitly configured
-host gateway instead of treating their own `127.0.0.1` as the host runtime.
+Deploy the additive overlay together with the compose files already used by
+the instance. It sets profile routing in Hub and Workers and enables Needle in
+shadow mode; it does not replace existing LM-Studio or Ollama files:
+
+```bash
+docker compose --env-file .env \
+  -f docker/compose-next/compose.base.yml \
+  -f docker/compose-next/compose.dev.lmstudio.yml \
+  -f docker/compose-next/compose.dev-domain.yml \
+  -f docker/compose-next/compose.local-kat-lfm-needle.yml up -d
+```
+
+Containers address `host.docker.internal`; no container treats its own
+`127.0.0.1` as the host runtime. LFM, KAT and Needle require bearer auth, and
+Colibrì additionally restricts the accepted Host header.
 
 ## Start, inspect and recover
 

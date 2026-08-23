@@ -84,13 +84,13 @@
       "Ein Operator-Skript führt Artefakt-, Binary- und VRAM-Preflight aus und startet LFM vor KAT.",
       "Der gemeinsame KAT-, LFM- und Needle-Smoke lief mit 4 GiB KAT-Expert-Tier innerhalb der geforderten VRAM-Reserve.",
       "Colibrì verwendete COLI_GPUS=0, einen festen CUDA_EXPERT_GB-Wert, heat.bin und den aktiven CUDA-Expert-Tier.",
-      "37 fokussierte Runtime-, Lifecycle- und Tiny-Router-Tests sowie drei Worker-Modellrouting-Tests bestanden."
+      "Mindestens 38 fokussierte Runtime-, Lifecycle- und Tiny-Router-Tests sowie drei Worker-Modellrouting-Tests bestanden.",
+      "Die produktive Compose-Topologie routet LFM- und KAT-Aufrufe aus Hub/Workern; Needle ist authentifiziert im Shadow-Modus erreichbar."
     ],
     "implemented_but_not_productively_wired": [
       "LocalModelPlacementPolicy modelliert Startreihenfolge, feste Budgets, Reserve und 32k-zu-16k-LFM-Degradation, wird aber noch nicht vom Hub-Runtime-Lifecycle aufgerufen.",
       "LocalModelRoutingPolicy modelliert Needle-, LFM- und KAT-Entscheidungen, wird aber noch nicht in den produktiven ModelProfileResolver-Consumer eingebunden.",
       "LocalAdapterPromotionPolicy und LocalAdapterRollbackPolicy bilden harte Gates ab, besitzen aber noch keinen persistenten Lifecycle-Controller.",
-      "Lokale Modellprofile und Routingregeln sind vorhanden, aber noch nicht als produktive Deployment-Konfiguration aktiviert und containerseitig adressiert.",
       "Der Trainingsstarter begrenzt Needle-CPU-Training und erzeugt einen Hub-Jobentwurf für LFM, ersetzt aber keinen Dataset-, Shadow-, Canary- oder Promotion-Controller."
     ],
     "existing_ananta_foundation": [
@@ -102,7 +102,7 @@
       "Hub-eigene Task-, Assignment-, Lease-, Audit- und Worker-Delegationsgrenzen."
     ],
     "primary_gaps": [
-      "Keine produktive Hub-Komposition der neuen lokalen Placement- und Routing-Policies.",
+      "Die eigenständige PlacementPolicy ist noch nicht als persistenter Hub-Ressourcencontroller verdrahtet; Startreihenfolge und Budgets werden derzeit vom Operator-Adapter erzwungen.",
       "Kein vollständiger Providervertrag für getrennte Health-, Readiness-, Ressourcen-, Context- und Cancellation-Readmodels aller drei Runtimes.",
       "Keine automatisch kuratierte, zeitbasierte und provenance-gebundene Interaktions-Dataset-Pipeline.",
       "Keine persistente Offline-, Shadow-, Canary-, Promotion- und Rollback-State-Machine für Needle und LFM.",
@@ -154,11 +154,10 @@
       "evidence": ["Peak 7933 MiB, frei 1945 MiB, 2421 KAT-Expert-Blöcke im 4-GiB-Tier.", "Bounded Local Smoke vom 2026-08-23; keine registrierte RUN_* Evidenz."]
     },
     {
-      "id": "LMM-PROV-001", "title": "Lokale KAT- und LFM-Modellprofile sowie Fallbackregeln bereitstellen", "status": "partial", "priority": "P0", "risk": "medium", "type": "configuration", "milestone_id": "M02", "depends_on": ["LMM-BASE-001"], "progress_percent": 70,
-      "description": "Profile und Routingdatei sind vorhanden und schema-/loadergeprüft, aber noch nicht in der produktiven Containerkonfiguration aktiviert.",
+      "id": "LMM-PROV-001", "title": "Lokale KAT- und LFM-Modellprofile sowie Fallbackregeln bereitstellen", "status": "done", "priority": "P0", "risk": "medium", "type": "configuration", "milestone_id": "M02", "depends_on": ["LMM-BASE-001"], "progress_percent": 100,
+      "description": "Profile und Routingdatei sind schema-/loadergeprüft und über ein additives Compose-Overlay in Hub und beiden Workern aktiviert.",
       "acceptance_criteria": ["MODEL_PROFILES_PATH und MODEL_ROUTING_PATH werden deploymentseitig gesetzt.", "Beide Provider sind aus Hub- und Worker-Containern über explizite interne Adressen erreichbar.", "Ollama- und LM-Studio-Kompatibilitätstests bleiben grün."],
-      "remaining_work": ["Host-Gateway oder dedizierte Runtime-Container konfigurieren.", "Deployment-Feature-Flag default-off ergänzen.", "Config-Readmodel mit effektiven Profilen verifizieren."],
-      "evidence": ["config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml", "config/models/local-kat-lfm-needle-rtx3080.model_routing.json"]
+      "evidence": ["config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml", "config/models/local-kat-lfm-needle-rtx3080.model_routing.json", "docker/compose-next/compose.local-kat-lfm-needle.yml", "Produktiver LFM- und KAT-Aufruf aus Hub/Worker am 2026-08-23; keine registrierte RUN_* Evidenz."]
     },
     {
       "id": "LMM-PROV-002", "title": "Fokussierten Provider-Statusvertrag für KAT, LFM und Needle integrieren", "status": "todo", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M02", "depends_on": ["LMM-PROV-001"], "progress_percent": 0,
@@ -183,20 +182,23 @@
       "acceptance_criteria": ["Jede Entscheidung besitzt stabile Reason-Codes.", "Token- und Latenzmetriken werden providerneutral normalisiert.", "Prompt- und Argumentinhalte werden nicht in Low-Cardinality-Telemetrie gespeichert.", "Fallback-Ketten sind pro Hub-Task korrelierbar."]
     },
     {
-      "id": "LMM-ROUTE-001", "title": "Deterministische lokale Modellrouting-Policy implementieren", "status": "partial", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M03", "depends_on": ["LMM-BASE-001"], "progress_percent": 60,
-      "description": "Eine reine getestete Policy unterscheidet sichere Needle-Toolkandidaten, begrenzte leichte LFM-Aufgaben und komplexe beziehungsweise unklare KAT-Aufgaben; der produktive Consumer fehlt.",
+      "id": "LMM-ROUTE-001", "title": "Deterministische lokale Modellrouting-Policy implementieren", "status": "done", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M03", "depends_on": ["LMM-BASE-001"], "progress_percent": 100,
+      "description": "Die reine getestete Policy und die produktiven Hub-Routingregeln unterscheiden Needle-Kandidaten, leichte LFM-Aufgaben und komplexe KAT-Aufgaben.",
       "acceptance_criteria": ["Komplexes Coding, Debugging, Planung und Repository-Analyse routen zu KAT.", "Kurze Klassifikation, Zusammenfassung und Vorverarbeitung können zu LFM routen.", "Fehlende oder niedrige Confidence bei Toolbedarf eskaliert konservativ.", "Die Policy startet keine Worker und führt keine Tools aus."],
-      "remaining_work": ["Policy in die bestehende Hub-Resolution- und Invocation-Kette injizieren.", "RoutingContext um begrenzte Needle- und Promptkomplexitätsfakten erweitern."]
+      "evidence": ["agent/services/local_multi_model_runtime.py", "config/models/local-kat-lfm-needle-rtx3080.model_routing.json"]
     },
     {
-      "id": "LMM-ROUTE-002", "title": "Lokale Policy in ModelProfileResolver und Invocation-Fallback verdrahten", "status": "todo", "priority": "P0", "risk": "critical", "type": "integration", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-001", "LMM-PROV-001"], "progress_percent": 0,
+      "id": "LMM-ROUTE-002", "title": "Lokale Policy in ModelProfileResolver und Invocation-Fallback verdrahten", "status": "done", "priority": "P0", "risk": "critical", "type": "integration", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-001", "LMM-PROV-001"], "progress_percent": 100,
       "description": "Der Hub muss die reine Policy als Eingabe für bestehende Profile und Fallbackgruppen verwenden, ohne einen parallelen Router zu schaffen.",
-      "acceptance_criteria": ["Genau ein Hub-eigener Entscheidungspfad besitzt die finale Modellwahl.", "Bestehende Security-, Secret-, Cost- und Capability-Gates behalten Vorrang.", "Profile bleiben substituierbar und providerneutral.", "Legacy-Defaults funktionieren bei deaktiviertem Feature unverändert."]
+      "acceptance_criteria": ["Genau ein Hub-eigener Entscheidungspfad besitzt die finale Modellwahl.", "Bestehende Security-, Secret-, Cost- und Capability-Gates behalten Vorrang.", "Profile bleiben substituierbar und providerneutral.", "Legacy-Defaults funktionieren bei deaktiviertem Feature unverändert."],
+      "evidence": ["ModelProfileResolver wählte task_override_map für LFM/KAT; ModelInvocationService lieferte LFM_OK und KAT_OK am 2026-08-23. Keine registrierte RUN_* Evidenz."]
     },
     {
-      "id": "LMM-ROUTE-003", "title": "Needle-Kandidatenpfad an Hub-Policy und bestehenden Tool-Gateway binden", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-002"], "progress_percent": 0,
+      "id": "LMM-ROUTE-003", "title": "Needle-Kandidatenpfad an Hub-Policy und bestehenden Tool-Gateway binden", "status": "partial", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-002"], "progress_percent": 75,
       "description": "Needle darf nur aus einem bereits Hub-autorisierten Toolsubset auswählen; der Hub validiert Schema, Risiko, Confidence-Ersatzgate und Dispatch-Autorität.",
-      "acceptance_criteria": ["Unbekannte Tools, falsche Typen, unbekannte Argumente und Mehrfachaufrufe werden abgelehnt.", "Nur read-, idempotent- oder simuliert klassifizierte Tools sind im ersten Active-Rollout erlaubt.", "Shadow-Candidates führen niemals Tools aus.", "Exakt-einmalige Ausführung erfolgt ausschließlich über den vorhandenen Hub-/Worker-Gateway."]
+      "acceptance_criteria": ["Unbekannte Tools, falsche Typen, unbekannte Argumente und Mehrfachaufrufe werden abgelehnt.", "Nur read-, idempotent- oder simuliert klassifizierte Tools sind im ersten Active-Rollout erlaubt.", "Shadow-Candidates führen niemals Tools aus.", "Exakt-einmalige Ausführung erfolgt ausschließlich über den vorhandenen Hub-/Worker-Gateway."],
+      "remaining_work": ["Active-Modus erst nach unabhängiger Evaluation, Failure-Injection und Promotion-Gates freigeben."],
+      "evidence": ["scripts/needle-candidate-sidecar.py", "Needle-Adapter im Beta-Worker authentifiziert und mode=shadow am 2026-08-23; keine registrierte RUN_* Evidenz."]
     },
     {
       "id": "LMM-ROUTE-004", "title": "Provider-Ausfall-, Timeout- und Schema-Fallback Ende-zu-Ende testen", "status": "todo", "priority": "P0", "risk": "high", "type": "test", "milestone_id": "M03", "depends_on": ["LMM-ROUTE-002", "LMM-ROUTE-003"], "progress_percent": 0,
@@ -261,9 +263,11 @@
       "acceptance_criteria": ["Schema, Tools, Required Fields und Typen werden deterministisch geprüft.", "Needle-confidence=null wird nicht als hohe Sicherheit behandelt.", "Externe Kalibrierung verwendet ausschließlich Holdout-Daten.", "Golden-, OOD-, Abstain-, Injection- und malformed-schema-Slices bestehen.", "Seed-, Latenz- und Speichergrenzen sind reproduzierbar."]
     },
     {
-      "id": "LMM-LIFE-003", "title": "Side-effect-freien Shadow-Controller implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M06", "depends_on": ["LMM-LIFE-002"], "progress_percent": 0,
+      "id": "LMM-LIFE-003", "title": "Side-effect-freien Shadow-Controller implementieren", "status": "partial", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M06", "depends_on": ["LMM-LIFE-002"], "progress_percent": 40,
       "description": "Produktive und Candidate-Entscheidungen werden parallel verglichen; nur der produktive Pfad darf eine autorisierte Ausführung anstoßen.",
-      "acceptance_criteria": ["Candidate-Shadow besitzt technisch keine Tool-Execution-Capability.", "Entscheidung, normalisierte Argumente, Latenz und Outcome werden ohne Rohsecrets verglichen.", "Eine konfigurierbare Mindestzahl unabhängiger Beispiele ist erforderlich.", "Shadow-Evidenz ist dataset-, candidate- und policy-hashgebunden."]
+      "acceptance_criteria": ["Candidate-Shadow besitzt technisch keine Tool-Execution-Capability.", "Entscheidung, normalisierte Argumente, Latenz und Outcome werden ohne Rohsecrets verglichen.", "Eine konfigurierbare Mindestzahl unabhängiger Beispiele ist erforderlich.", "Shadow-Evidenz ist dataset-, candidate- und policy-hashgebunden."],
+      "remaining_work": ["Persistenten Vergleichscontroller, Mindeststichprobe und hashgebundene Shadow-Evidenz implementieren."],
+      "evidence": ["ANANTA_TINY_ROUTER_MODE=shadow im produktiven Overlay; Sidecar besitzt keine Execution-Schnittstelle."]
     },
     {
       "id": "LMM-LIFE-004", "title": "Risikoarmen Canary-Controller mit Dry-run und Fencing implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M06", "depends_on": ["LMM-LIFE-003"], "progress_percent": 0,
@@ -292,9 +296,11 @@
       "acceptance_criteria": ["OOM reduziert zuerst den LFM-Kontext auf 16k oder lehnt fail-closed ab.", "Kein Fehler erzeugt eine unendliche Neustartschleife.", "Stale Candidate-Prozesse können nach Rollback keine Tools ausführen.", "Jeder Fehler besitzt einen stabilen Audit-Reason-Code."]
     },
     {
-      "id": "LMM-QA-004", "title": "Containerisierte Ende-zu-Ende-Topologie und Netzwerkgrenzen verifizieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "e2e", "milestone_id": "M07", "depends_on": ["LMM-PROV-004", "LMM-ROUTE-004", "LMM-LIFE-005"], "progress_percent": 0,
+      "id": "LMM-QA-004", "title": "Containerisierte Ende-zu-Ende-Topologie und Netzwerkgrenzen verifizieren", "status": "partial", "priority": "P0", "risk": "critical", "type": "e2e", "milestone_id": "M07", "depends_on": ["LMM-PROV-004", "LMM-ROUTE-004", "LMM-LIFE-005"], "progress_percent": 70,
       "description": "Hub und Worker greifen ausschließlich über explizite interne Provideradressen und delegierte Verträge auf lokale Runtimes zu.",
-      "acceptance_criteria": ["Kein Container verlässt sich auf Host-127.0.0.1.", "Worker kann keine Routingpolicy, Taskqueue oder Promotion mutieren.", "Provider- und Trainingsnetze folgen Least Privilege.", "Bestehende Ollama-/LM-Studio-E2E-Pfade bleiben grün.", "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf ist reproduzierbar belegt."]
+      "acceptance_criteria": ["Kein Container verlässt sich auf Host-127.0.0.1.", "Worker kann keine Routingpolicy, Taskqueue oder Promotion mutieren.", "Provider- und Trainingsnetze folgen Least Privilege.", "Bestehende Ollama-/LM-Studio-E2E-Pfade bleiben grün.", "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf ist reproduzierbar belegt."],
+      "remaining_work": ["LM-Studio-/Ollama-Regression und vollständigen Goal-bis-Verification-Lauf mit registrierter RUN_* Evidenz ausführen."],
+      "evidence": ["Hub, Alpha und Beta erreichten alle drei authentifizierten Provider über host.docker.internal am 2026-08-23; keine registrierte RUN_* Evidenz."]
     },
     {
       "id": "LMM-QA-005", "title": "Betrieb, Recovery, Messwerte und bekannte Grenzen dokumentieren", "status": "done", "priority": "P1", "risk": "low", "type": "documentation", "milestone_id": "M07", "depends_on": ["LMM-BASE-004"], "progress_percent": 100,
@@ -311,11 +317,11 @@
   ],
   "tasks_status_summary": {
     "total": 31,
-    "by_status": {"todo": 17, "in_progress": 0, "partial": 5, "blocked": 3, "done": 6},
-    "progress_percent_done": 19.4,
+    "by_status": {"todo": 13, "in_progress": 0, "partial": 6, "blocked": 3, "done": 9},
+    "progress_percent_done": 29.0,
     "by_priority": {"P0": 28, "P1": 3, "P2": 0},
     "by_risk": {"low": 1, "medium": 4, "high": 12, "critical": 14},
-    "critical_path": {"total": 16, "done": 0, "remaining": 16},
+    "critical_path": {"total": 16, "done": 1, "remaining": 15},
     "milestones": {"total": 7, "todo": 1, "in_progress": 0, "partial": 4, "blocked": 1, "done": 1}
   },
   "tasks_type_summary": {
@@ -343,29 +349,29 @@
   },
   "progress_summary": {
     "state": "partial",
-    "percent_complete": 28.39,
-    "todo_remaining": 17,
+    "percent_complete": 39.19,
+    "todo_remaining": 13,
     "in_progress": 0,
-    "partial": 5,
+    "partial": 6,
     "blocked": 3,
-    "done": 6
+    "done": 9
   },
   "execution_stage_summary": {
     "runtime_smoke": "done_bounded",
-    "production_provider_integration": "partial",
-    "hub_routing_integration": "partial_policy_only",
+    "production_provider_integration": "active_local_overlay",
+    "hub_routing_integration": "done_profiles_and_fallback",
     "dataset_pipeline": "todo",
     "needle_training": "blocked_missing_base_checkpoint_and_dataset",
     "lfm_training": "blocked_missing_agentic_transformers_snapshot_and_dataset",
     "offline_evaluation": "todo",
-    "shadow": "todo",
+    "shadow": "partial_runtime_enabled_evidence_controller_missing",
     "canary": "todo",
     "automatic_promotion_and_rollback": "partial_policy_only",
     "production_release": "blocked"
   },
   "summary_notes": [
-    "Die bereits angelegten Python-Policies sind echte getestete Implementierungen, aber ohne produktiven Consumer noch keine vollständige Integration.",
-    "Die Runtime-Skripte sind operativ funktionsfähig; Prozesssupervision und Containeradressierung müssen vor Produktion in die Deploymentstruktur überführt werden.",
+    "Placement-, Promotion- und Rollback-Policies benötigen noch persistente Hub-Consumer; Modellrouting ist über den bestehenden Resolver produktiv verdrahtet.",
+    "Runtime-Skripte, authentifizierte Docker-Bridge und Compose-Overlay sind operativ aktiv; dauerhafte Prozesssupervision bleibt offen.",
     "Anantas vorhandene Provider-, Tiny-Router- und LoRA-Subsysteme werden wiederverwendet; es wird kein paralleles Hub- oder Worker-Orchestrierungssystem geschaffen.",
     "Das Todo gilt erst als done, wenn reale Base-Checkpoints und Datasets vorliegen, alle Lifecycle-Stufen verdrahtet sind und registrierte Release-Evidenz besteht."
   ],
@@ -378,19 +384,19 @@
         "Operator-Preflight und kontrollierter Parallelstart",
         "Erfolgreicher gemeinsamer Hardware-Smoke mit sicherem 4-GiB-KAT-Tier",
         "Reine Placement-, Routing-, Promotion- und Rollback-Policies mit fokussierten Tests",
-        "Lokale Profile, Routingregeln, Trainingsstarter und Betriebsdokumentation"
+        "Produktiv aktivierte Profile und Routingregeln, authentifizierter Needle-Sidecar im Shadow-Modus sowie Trainingsstarter und Betriebsdokumentation"
       ]
     },
     {
       "summary_id": "not-yet-integrated",
       "title": "Noch nicht produktiv integriert",
       "items": [
-        "Hub-Consumer für Placement- und Routing-Policy",
+        "Persistenter Hub-Consumer für Placement-Policy",
         "Einheitliches Provider-Readmodel und Audit",
         "Interaktionscollector und immutable zeitbasierte Datasets",
         "Reale Needle- und LFM-Trainingsläufe",
         "Persistente Offline-, Shadow-, Canary-, Promotion- und Rollback-State-Machine",
-        "Container-E2E, Soak, Failure-Injection und registrierte Release-Evidenz"
+        "Vollständiger Goal-E2E, Soak, Failure-Injection und registrierte Release-Evidenz"
       ]
     }
   ]
