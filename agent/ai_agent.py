@@ -305,6 +305,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             or "knowledge_index_worker_composition_invalid",
         }
     else:
+        from agent.auth import resolve_configured_agent_token
         from agent.services.repository_registry import get_repository_registry
         from agent.services.source_access_manifest_signing import (
             WorkerSourceAccessManifestVerifier,
@@ -314,6 +315,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         )
         from worker.retrieval.knowledge_index_output_authorization import (
             KnowledgeIndexWorkerOutputCapabilityAuthorizer,
+            LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer,
         )
 
         app.extensions[
@@ -328,6 +330,14 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             ),
             worker_id=knowledge_index_security.worker_id,
             worker_url=str(settings.agent_url or ""),
+        )
+        app.extensions[
+            "legacy_knowledge_index_worker_output_assignment_authorizer"
+        ] = LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer(
+            task_repository=get_repository_registry().task_repo,
+            worker_id=knowledge_index_security.worker_id,
+            worker_url=str(settings.agent_url or ""),
+            secret=str(resolve_configured_agent_token(app.config) or ""),
         )
         register_task_handler(
             "codecompass_index_build",

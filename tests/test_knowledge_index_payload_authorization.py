@@ -13,6 +13,7 @@ from agent.config import settings
 from agent.services.knowledge_index_payload_authorization import (
     KnowledgeIndexPayloadAuthorizationError,
     KnowledgeIndexPayloadCapabilityAuthorizer,
+    LegacyKnowledgeIndexPayloadAssignmentAuthorizer,
 )
 from agent.services.workflow_worker_service_auth import (
     STRICT_WORKER_REGISTRATION_PROVENANCE,
@@ -733,3 +734,59 @@ def test_v2_payload_resolution_never_falls_back_to_legacy_loader():
             object(),
             payload_loader=AuthorizedLoader(),
         )._resolve_payload(without_capability)
+
+
+def test_legacy_payload_authorizer_accepts_exact_assigned_worker() -> None:
+    task = SimpleNamespace(
+        model_dump=lambda: {
+            "id": "knowledge-index-legacy",
+            "task_kind": "codecompass_index_build",
+            "assigned_agent_url": WORKER_URL,
+            "worker_execution_context": {
+                "knowledge_index_job": {
+                    "schema": "ananta.knowledge_index_job.v1",
+                    "payload": {
+                        "payload_artifact_ref": {"artifact_id": ARTIFACT_ID}
+                    },
+                }
+            },
+        }
+    )
+    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(
+        task_repository=SimpleNamespace(get_all=lambda: [task])
+    )
+
+    assert service.authorize(
+        artifact_id=ARTIFACT_ID,
+        worker_id=WORKER_ID,
+        worker_url=WORKER_URL,
+    ) == "knowledge-index-legacy"
+
+
+def test_legacy_payload_authorizer_rejects_other_worker() -> None:
+    task = {
+        "id": "knowledge-index-legacy",
+        "task_kind": "codecompass_index_build",
+        "assigned_agent_url": WORKER_URL,
+        "worker_execution_context": {
+            "knowledge_index_job": {
+                "schema": "ananta.knowledge_index_job.v1",
+                "payload": {
+                    "payload_artifact_ref": {"artifact_id": ARTIFACT_ID}
+                },
+            }
+        },
+    }
+    service = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(
+        task_repository=SimpleNamespace(get_all=lambda: [task])
+    )
+
+    with pytest.raises(
+        KnowledgeIndexPayloadAuthorizationError,
+        match="knowledge_index_legacy_payload_assignment_invalid",
+    ):
+        service.authorize(
+            artifact_id=ARTIFACT_ID,
+            worker_id="worker-2",
+            worker_url="http://worker-2:5000",
+        )

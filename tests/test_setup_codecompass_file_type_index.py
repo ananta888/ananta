@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import ast
 from pathlib import Path
 
 import pytest
@@ -20,6 +21,36 @@ def _configure_scan(monkeypatch, tmp_path: Path, registry, paths: list[str]) -> 
     monkeypatch.setattr(setup_index, "_load_registry", lambda: registry)
     monkeypatch.setattr(setup_index, "_repository_paths", lambda: paths)
     monkeypatch.setattr(setup_index, "_runtime_availability", lambda value: {})
+
+
+def test_post_index_declares_repository_scope_for_graph_materialization(monkeypatch):
+    captured: dict[str, object] = {}
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return b'{"data":{"job":{"job_id":"job-1"}}}'
+
+    def urlopen(request, timeout):
+        captured["payload"] = json.loads(request.data)
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr(setup_index.urllib.request, "urlopen", urlopen)
+
+    setup_index._post_index(
+        "http://hub",
+        "token",
+        [{"file": "agent/app.py", "content": "pass"}],
+        "ananta-revision",
+    )
+
+    assert captured["payload"]["source_scope"] == "repo_path"
 
 
 def test_scan_reports_exact_names_unknown_text_binary_and_secrets(monkeypatch, tmp_path, registry):
@@ -134,6 +165,23 @@ def test_record_builder_redacts_secret_values_and_persists_registry_evidence(
     assert record["file_type"]["registry_version"] == registry.registry_version
     file_coverage = next(item for item in coverage.as_dict()["files"] if item["path"] == "config.yaml")
     assert "secret_value_redacted" in file_coverage["diagnostics"]
+
+
+def test_secret_redaction_preserves_python_parser_input():
+    source = '''\
+API_TOKEN: str = "sensitive"
+SECOND_TOKEN = "sensitive"
+
+def validate_token_file(metadata: object) -> bool:
+    return metadata is not None
+'''
+
+    redacted, changed = setup_index._redact_sensitive_values(source)
+
+    assert changed is True
+    assert "sensitive" not in redacted
+    assert redacted.count("[REDACTED]") == 2
+    ast.parse(redacted)
 
 
 def test_semantic_builder_uses_registry_for_typescript_and_honours_record_limit(

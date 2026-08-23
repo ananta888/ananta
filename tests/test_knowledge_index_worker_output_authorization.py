@@ -26,9 +26,13 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
     encode_knowledge_index_output_capability,
 )
+from ananta_contracts.knowledge_index_legacy_output_capability import (
+    encode_legacy_output_capability,
+)
 from worker.retrieval.knowledge_index_output_authorization import (
     KnowledgeIndexWorkerOutputAuthorizationError,
     KnowledgeIndexWorkerOutputCapabilityAuthorizer,
+    LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer,
 )
 
 JOB_ID = "knowledge-index-" + "a" * 32
@@ -155,6 +159,82 @@ def authorize(service, *, metadata=None, role="manifest"):
         run_id="run-1",
         output_role=role,
     )
+
+
+def test_legacy_output_authorizer_accepts_exact_assigned_worker_and_binding():
+    stored = task()
+    stored["task_kind"] = "codecompass_index_build"
+    stored["worker_execution_context"]["knowledge_index_job"]["schema"] = (
+        "ananta.knowledge_index_job.v1"
+    )
+    service = LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer(
+        task_repository=Repository(stored),
+        worker_id="worker-a",
+        worker_url="http://worker-a:5000",
+        secret="worker-secret",
+    )
+
+    binding = {
+        "artifact_id": "artifact-1",
+        "job_id": JOB_ID,
+        "knowledge_index_id": "idx-1",
+        "run_id": "run-1",
+        "output_role": "manifest",
+        "sha256": "b" * 64,
+        "size_bytes": 42,
+        "media_type": "application/json",
+    }
+    service.authorize(
+        artifact_metadata={
+            "system_artifact_kind": "knowledge_index_worker_output",
+            "knowledge_index_job_id": JOB_ID,
+            "knowledge_index_id": "idx-1",
+            "knowledge_index_run_id": "run-1",
+            "output_role": "manifest",
+        },
+        job_id=JOB_ID,
+        knowledge_index_id="idx-1",
+        run_id="run-1",
+        output_role="manifest",
+        artifact_id="artifact-1",
+        artifact_sha256="b" * 64,
+        artifact_size_bytes="42",
+        artifact_media_type="application/json",
+        encoded_capability=encode_legacy_output_capability(
+            binding, secret="worker-secret"
+        ),
+    )
+
+
+def test_legacy_output_authorizer_rejects_other_worker():
+    stored = task()
+    stored["task_kind"] = "codecompass_index_build"
+    stored["worker_execution_context"]["knowledge_index_job"]["schema"] = (
+        "ananta.knowledge_index_job.v1"
+    )
+    service = LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer(
+        task_repository=Repository(stored),
+        worker_id="worker-a",
+        worker_url="http://worker-a:5000",
+        secret="worker-secret",
+    )
+
+    with pytest.raises(
+        KnowledgeIndexWorkerOutputAuthorizationError,
+        match="knowledge_index_legacy_output_assignment_invalid",
+    ):
+        service.authorize(
+            artifact_metadata={},
+            job_id=JOB_ID,
+            knowledge_index_id="idx-1",
+            run_id="run-1",
+            output_role="manifest",
+            artifact_id="artifact-1",
+            artifact_sha256="b" * 64,
+            artifact_size_bytes="42",
+            artifact_media_type="application/json",
+            encoded_capability="invalid",
+        )
 
 
 def test_authorizes_exact_live_worker_job_and_artifact_binding() -> None:

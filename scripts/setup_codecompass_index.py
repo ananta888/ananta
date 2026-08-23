@@ -56,6 +56,7 @@ MAX_FILE_BYTES = 48_000  # skip files larger than this
 MAX_RECORDS = 2000       # hard cap to avoid overwhelming the indexer
 MAX_SNAPSHOT_HASH_BYTES = 8_000_000
 SNAPSHOT_POLICY_PATH = ROOT / "config" / "codecompass" / "snapshot_policy.v1.json"
+SOURCE_SCOPE = "repo_path"
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,7 +123,7 @@ Kern-Python-Dateien von CodeCompass:
 ## Knowledge Index
 Der Knowledge Index speichert Datei-Inhalte als Vektoren (Embeddings).
 Queries liefern die N ähnlichsten Chunks zurück (top_k).
-Source scope "artifact" = indizierte Projekt-Dateien.
+Source scope "repo_path" = indizierte Projekt-Dateien samt Architekturgraph.
 
 ## RAG (Retrieval Augmented Generation)
 Vor jeder LLM-Anfrage werden relevante Datei-Inhalte aus dem Index geholt
@@ -487,17 +488,55 @@ def _redact_sensitive_values(content: str) -> tuple[str, bool]:
     import re
 
     key_pattern = re.compile(
-        r"(?im)^(?P<prefix>\s*[\"']?[^\n:=\"']*"
-        r"(?:password|passwd|token|api[_-]?key|private[_-]?key|secret)"
-        r"[^\n:=\"']*[\"']?\s*[:=]\s*)(?P<value>[^\n]+)$"
+        r"(?im)^(?P<indent>\s*)(?P<quote>[\"']?)(?P<key>[a-z_][a-z0-9_.-]*)"
+        r"(?P=quote)(?P<separator>\s*(?::(?!=)|(?<![=!<>])=(?!=))\s*)"
+        r"(?P<value>[^\n(){}\[\]]+)$"
     )
-    redacted, count = key_pattern.subn(lambda match: f"{match.group('prefix')}[REDACTED]", content)
+    redaction_count = 0
+
+    def redact_assignment(match: re.Match[str]) -> str:
+        # A quoted placeholder remains valid in scalar Python assignments,
+        # annotations, JSON, YAML and TOML. Container/call expressions are
+        # deliberately excluded by the pattern so multiline source structure
+        # cannot be orphaned. Preserve a mapping/list comma as well.
+        nonlocal redaction_count
+        key = match.group("key").lower()
+        key_segments = {part for part in re.split(r"[_.-]+", key) if part}
+        is_sensitive = (
+            any(
+                marker in key
+                for marker in (
+                    "password",
+                    "passwd",
+                    "api_key",
+                    "api-key",
+                    "private_key",
+                    "private-key",
+                    "secret",
+                )
+            )
+            or "token" in key_segments
+        )
+        if not is_sensitive:
+            return match.group(0)
+        redaction_count += 1
+        suffix = "," if match.group("value").rstrip().endswith(",") else ""
+        prefix = (
+            match.group("indent")
+            + match.group("quote")
+            + match.group("key")
+            + match.group("quote")
+            + match.group("separator")
+        )
+        return f'{prefix}"[REDACTED]"{suffix}'
+
+    redacted = key_pattern.sub(redact_assignment, content)
     private_key_pattern = re.compile(
         r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?-----END [^-\n]*PRIVATE KEY-----",
         re.DOTALL,
     )
     redacted, private_count = private_key_pattern.subn("[REDACTED PRIVATE KEY]", redacted)
-    return redacted, bool(count or private_count)
+    return redacted, bool(redaction_count or private_count)
 
 
 def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeCoverageReport]:
@@ -733,7 +772,7 @@ def _post_index(
     source_metadata: dict | None = None,
 ) -> dict:
     payload = json.dumps({
-        "source_scope": "artifact",
+        "source_scope": SOURCE_SCOPE,
         "source_id": source_id,
         "records": records,
         # Index builds are delegated to the persistent Hub task queue.  The

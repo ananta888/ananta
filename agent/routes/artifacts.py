@@ -46,6 +46,9 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
     decode_knowledge_index_output_capability,
 )
+from ananta_contracts.knowledge_index_legacy_output_capability import (
+    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
+)
 
 artifacts_bp = Blueprint("artifacts", __name__)
 _KNOWLEDGE_INDEX_PAYLOAD_MEDIA_TYPE = "application/vnd.ananta.knowledge-index-job+json"
@@ -142,16 +145,35 @@ def _check_knowledge_index_payload_access(target):
             or ""
         ).strip()
         if not encoded_capability:
-            return api_response(
-                status="error",
-                message="unauthorized",
-                data={
-                    "reason_code": (
-                        "knowledge_index_payload_capability_required"
+            try:
+                identity = dict(getattr(g, "service_identity", {}) or {})
+                authorizer = current_app.extensions.get(
+                    "legacy_knowledge_index_payload_assignment_authorizer"
+                )
+                if authorizer is None:
+                    raise ValueError(
+                        "legacy_knowledge_index_payload_authorizer_unavailable"
                     )
-                },
-                code=401,
-            )
+                authorizer.authorize(
+                    artifact_id=artifact_id,
+                    worker_id=str(identity.get("worker_id") or ""),
+                    worker_url=str(identity.get("worker_url") or ""),
+                )
+            except Exception as exc:
+                reason_code = str(
+                    getattr(exc, "reason_code", "")
+                    or "knowledge_index_payload_capability_required"
+                )
+                status_code = int(getattr(exc, "status_code", 401) or 401)
+                return api_response(
+                    status="error",
+                    message=(
+                        "forbidden" if status_code == 403 else "unauthorized"
+                    ),
+                    data={"reason_code": reason_code},
+                    code=status_code,
+                )
+            return target(artifact_id, *args, **kwargs)
         try:
             manifest = decode_knowledge_index_payload_capability(
                 encoded_capability
@@ -211,15 +233,10 @@ def _check_knowledge_index_payload_access(target):
 def _check_knowledge_index_worker_output_access(target):
     @wraps(target)
     def wrapper(artifact_id: str, *args, **kwargs):
+        encoded_capability = str(
+            request.headers.get(KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER) or ""
+        ).strip()
         try:
-            manifest = decode_knowledge_index_output_capability(
-                str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER
-                    )
-                    or ""
-                )
-            )
             artifact = _artifact_repo().get_by_id(artifact_id)
             metadata = dict(
                 getattr(artifact, "artifact_metadata", None) or {}
@@ -239,45 +256,79 @@ def _check_knowledge_index_worker_output_access(target):
                 raise ValueError(
                     "knowledge_index_output_authorizer_unavailable"
                 )
-            authorizer.authorize(
-                artifact_id=artifact_id,
-                artifact_sha256=str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER
-                    )
-                    or ""
-                ),
-                artifact_size_bytes=str(
-                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
-                    or ""
-                ),
-                artifact_media_type=str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER
-                    )
-                    or ""
-                ),
-                artifact_metadata=metadata,
-                manifest=manifest,
-                job_id=str(
+            request_binding = {
+                "job_id": str(
                     request.headers.get(KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER)
                     or ""
                 ),
-                knowledge_index_id=str(
-                    request.headers.get(
-                        KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER
-                    )
+                "knowledge_index_id": str(
+                    request.headers.get(KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER)
                     or ""
                 ),
-                run_id=str(
+                "run_id": str(
                     request.headers.get(KNOWLEDGE_INDEX_OUTPUT_RUN_ID_HEADER)
                     or ""
                 ),
-                output_role=str(
+                "output_role": str(
                     request.headers.get(KNOWLEDGE_INDEX_OUTPUT_ROLE_HEADER)
                     or ""
                 ),
-            )
+            }
+            if not encoded_capability:
+                legacy = current_app.extensions.get(
+                    "legacy_knowledge_index_worker_output_assignment_authorizer"
+                )
+                if legacy is None:
+                    raise ValueError("knowledge_index_output_authorizer_unavailable")
+                legacy.authorize(
+                    artifact_id=artifact_id,
+                    artifact_sha256=str(
+                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER)
+                        or ""
+                    ),
+                    artifact_size_bytes=str(
+                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
+                        or ""
+                    ),
+                    artifact_media_type=str(
+                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER)
+                        or ""
+                    ),
+                    artifact_metadata=metadata,
+                    encoded_capability=str(
+                        request.headers.get(
+                            KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER
+                        )
+                        or ""
+                    ),
+                    **request_binding,
+                )
+            else:
+                manifest = decode_knowledge_index_output_capability(
+                    encoded_capability
+                )
+                authorizer.authorize(
+                    artifact_id=artifact_id,
+                    artifact_sha256=str(
+                        request.headers.get(
+                            KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER
+                        )
+                        or ""
+                    ),
+                    artifact_size_bytes=str(
+                        request.headers.get(KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER)
+                        or ""
+                    ),
+                    artifact_media_type=str(
+                        request.headers.get(
+                            KNOWLEDGE_INDEX_OUTPUT_MEDIA_TYPE_HEADER
+                        )
+                        or ""
+                    ),
+                    artifact_metadata=metadata,
+                    manifest=manifest,
+                    **request_binding,
+                )
             if (
                 str(version.sha256 or "").lower()
                 != str(

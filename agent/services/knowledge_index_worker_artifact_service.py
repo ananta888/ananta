@@ -53,6 +53,10 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
     encode_knowledge_index_output_capability,
 )
+from ananta_contracts.knowledge_index_legacy_output_capability import (
+    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
+    encode_legacy_output_capability,
+)
 
 _MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
 _MAX_UNIT_ARTIFACT_BYTES = 384 * 1024 * 1024
@@ -149,6 +153,8 @@ class KnowledgeIndexArtifactTransferDeadlinePort(Protocol):
 
 class HttpKnowledgeIndexWorkerArtifactDownloader:
     """Download one bounded artifact from the assigned worker only."""
+
+    supports_assignment_bound_legacy_transport = True
 
     def __init__(self, *, opener: Any | None = None) -> None:
         self._opener = opener or urllib.request.build_opener(
@@ -390,13 +396,10 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
         encoded_id = urllib.parse.quote(artifact_id, safe="")
         normalized_token = str(worker_token or "").strip()
         normalized_job_id = str(job_id or "").strip()
-        capability_requested = (
-            source_access_manifest is not None or job_id is not None
-        )
-        if capability_requested:
+        internal_transport_requested = job_id is not None
+        if internal_transport_requested:
             if (
-                not isinstance(source_access_manifest, Mapping)
-                or not _JOB_ID.fullmatch(normalized_job_id)
+                not _JOB_ID.fullmatch(normalized_job_id)
             ):
                 raise ValueError(
                     "knowledge_index_worker_artifact_transport_unavailable"
@@ -406,11 +409,6 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                 f"{encoded_id}"
             )
             headers = {
-                KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER: (
-                    encode_knowledge_index_output_capability(
-                        source_access_manifest
-                    )
-                ),
                 KNOWLEDGE_INDEX_OUTPUT_JOB_ID_HEADER: normalized_job_id,
                 KNOWLEDGE_INDEX_OUTPUT_INDEX_ID_HEADER: str(
                     reference.get("knowledge_index_id") or ""
@@ -427,6 +425,32 @@ class HttpKnowledgeIndexWorkerArtifactDownloader:
                     reference.get("media_type") or ""
                 ),
             }
+            if source_access_manifest is not None:
+                if not isinstance(source_access_manifest, Mapping):
+                    raise ValueError(
+                        "knowledge_index_worker_artifact_transport_unavailable"
+                    )
+                headers[KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER] = (
+                    encode_knowledge_index_output_capability(
+                        source_access_manifest
+                    )
+                )
+            elif normalized_token:
+                legacy_binding = {
+                    "artifact_id": artifact_id,
+                    "job_id": normalized_job_id,
+                    "knowledge_index_id": str(reference.get("knowledge_index_id") or ""),
+                    "run_id": str(reference.get("run_id") or ""),
+                    "output_role": str(reference.get("role") or ""),
+                    "sha256": expected_hash,
+                    "size_bytes": raw_size,
+                    "media_type": str(reference.get("media_type") or ""),
+                }
+                headers[KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER] = (
+                    encode_legacy_output_capability(
+                        legacy_binding, secret=normalized_token
+                    )
+                )
             if normalized_token:
                 headers["Authorization"] = (
                     f"Bearer {normalized_token}"
@@ -1495,13 +1519,16 @@ class KnowledgeIndexWorkerArtifactService:
                 "reference": reference,
                 "destination": destination,
             }
-            if source_access_manifest is not None:
-                transport.update(
-                    {
-                        "source_access_manifest": source_access_manifest,
-                        "job_id": job_id,
-                    }
+            if source_access_manifest is not None or bool(
+                getattr(
+                    self._downloader,
+                    "supports_assignment_bound_legacy_transport",
+                    False,
                 )
+            ):
+                transport["job_id"] = job_id
+            if source_access_manifest is not None:
+                transport["source_access_manifest"] = source_access_manifest
             if transfer_deadline is not None:
                 transport["transfer_deadline"] = transfer_deadline
             streaming_download(
@@ -1515,13 +1542,16 @@ class KnowledgeIndexWorkerArtifactService:
             "worker_token": worker_token,
             "reference": reference,
         }
-        if source_access_manifest is not None:
-            transport.update(
-                {
-                    "source_access_manifest": source_access_manifest,
-                    "job_id": job_id,
-                }
+        if source_access_manifest is not None or bool(
+            getattr(
+                self._downloader,
+                "supports_assignment_bound_legacy_transport",
+                False,
             )
+        ):
+            transport["job_id"] = job_id
+        if source_access_manifest is not None:
+            transport["source_access_manifest"] = source_access_manifest
         if transfer_deadline is not None:
             transport["transfer_deadline"] = transfer_deadline
         content = self._downloader.download(**transport)

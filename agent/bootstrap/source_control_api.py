@@ -87,6 +87,7 @@ from agent.services.hub_git_github_authorization_provider import (
 )
 from agent.services.knowledge_index_payload_authorization import (
     KnowledgeIndexPayloadCapabilityAuthorizer,
+    LegacyKnowledgeIndexPayloadAssignmentAuthorizer,
 )
 from agent.services.model_catalog_service import CatalogQuery
 from agent.services.ops_registry_service import get_ops_registry_service
@@ -744,6 +745,11 @@ def register_source_control_api(app) -> None:
                 agent_repository=(
                     get_repository_registry().agent_repo
                 ),
+            )
+            app.extensions[
+                "legacy_knowledge_index_payload_assignment_authorizer"
+            ] = LegacyKnowledgeIndexPayloadAssignmentAuthorizer(
+                task_repository=get_repository_registry().task_repo,
             )
             app.extensions["source_control_index_governance_readiness"] = {
                 "ready": True,

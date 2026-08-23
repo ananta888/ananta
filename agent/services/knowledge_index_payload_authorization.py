@@ -161,7 +161,74 @@ class KnowledgeIndexPayloadCapabilityAuthorizer:
         )
 
 
+class LegacyKnowledgeIndexPayloadAssignmentAuthorizer:
+    """Authorize one v1 payload through its exact Hub task assignment."""
+
+    def __init__(self, *, task_repository: Any) -> None:
+        self._tasks = task_repository
+
+    def authorize(
+        self,
+        *,
+        artifact_id: str,
+        worker_id: str,
+        worker_url: str,
+    ) -> str:
+        normalized_artifact = str(artifact_id or "").strip()
+        normalized_worker = str(worker_id or "").strip()
+        normalized_worker_url = str(worker_url or "").strip().rstrip("/")
+        if not normalized_artifact or not normalized_worker:
+            self._deny()
+        for task in self._tasks.get_all() or ():
+            task_payload = (
+                task.model_dump() if hasattr(task, "model_dump") else dict(task)
+            )
+            if (
+                str(task_payload.get("task_kind") or "").strip().lower()
+                != "codecompass_index_build"
+                or str(task_payload.get("assigned_agent_url") or "")
+                .strip()
+                .rstrip("/")
+                != normalized_worker_url
+            ):
+                continue
+            context = task_payload.get("worker_execution_context")
+            job = (
+                context.get("knowledge_index_job")
+                if isinstance(context, Mapping)
+                else None
+            )
+            if (
+                not isinstance(job, Mapping)
+                or job.get("schema") != "ananta.knowledge_index_job.v1"
+            ):
+                continue
+            payload = job.get("payload")
+            reference = (
+                payload.get("payload_artifact_ref")
+                if isinstance(payload, Mapping)
+                else None
+            )
+            if (
+                isinstance(reference, Mapping)
+                and hmac.compare_digest(
+                    str(reference.get("artifact_id") or ""),
+                    normalized_artifact,
+                )
+            ):
+                return str(task_payload.get("id") or "")
+        self._deny()
+
+    @staticmethod
+    def _deny() -> None:
+        raise KnowledgeIndexPayloadAuthorizationError(
+            "knowledge_index_legacy_payload_assignment_invalid",
+            status_code=403,
+        )
+
+
 __all__ = [
     "KnowledgeIndexPayloadAuthorizationError",
     "KnowledgeIndexPayloadCapabilityAuthorizer",
+    "LegacyKnowledgeIndexPayloadAssignmentAuthorizer",
 ]
