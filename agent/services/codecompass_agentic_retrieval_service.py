@@ -841,9 +841,16 @@ class CodeCompassAgenticRetrievalService:
         scope: Mapping[str, Any],
         depth: int = 1,
     ) -> list[dict[str, Any]]:
-        # The legacy graph-store resolver has no repository/revision port.
-        # Keep it unavailable until a scoped GraphSearch adapter is injected.
-        raise AgenticRetrievalContractError(REASON_GRAPH_UNAVAILABLE)
+        from agent.services.codecompass_scoped_graph_search_service import (
+            get_codecompass_scoped_graph_search_service,
+        )
+
+        return get_codecompass_scoped_graph_search_service().search(
+            query,
+            limit=limit,
+            scope=scope,
+            depth=depth,
+        )
 
     def _default_index_state(self) -> dict[str, Any]:
         from agent.services.codecompass_agentic_index_state import load_agentic_index_state
