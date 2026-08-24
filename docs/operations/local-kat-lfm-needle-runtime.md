@@ -1,5 +1,9 @@
 # Local KAT, LFM and Needle runtime
 
+For the complete KAT-Coder-v2.5/Colibrì setup, MoE explanation, CUDA build,
+expert-tier sizing and troubleshooting, see
+[`kat-coder-v25-colibri-runtime.md`](kat-coder-v25-colibri-runtime.md).
+
 This deployment is additive. The Hub remains the control plane; KAT and LFM
 are model providers and Needle only returns a candidate. A Worker may execute a
 Hub-authorized tool, but Needle never creates Tasks or starts Workers.
