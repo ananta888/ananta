@@ -6,12 +6,21 @@ from dataclasses import dataclass
 from threading import RLock
 from typing import Iterable, Protocol
 
+from agent.services.model_profile_loader import ModelProfile
+from agent.services.model_profile_resolver import (
+    ModelProfileResolver,
+    ResolutionResult,
+    RoutingContext,
+)
 from ananta_contracts.model_selection import (
     AgentStyleProfile,
+    EffectiveModelRoute,
     ModelAssignment,
     ModelConsumer,
     ModelFallbackGroup,
     ModelRoutingConfiguration,
+    ModelRouteDecision,
+    ModelRoutingDryRunCommand,
     ModelRoutingMutationCommand,
     RoleStyleTarget,
     StyleRange,
@@ -103,10 +112,15 @@ class ModelRoutingAssignmentService:
         repository: ModelRoutingConfigurationPort,
         consumers: ModelConsumerRegistry,
         known_profile_ids: Iterable[str],
+        known_models: Iterable[tuple[str, str]] = (),
     ) -> None:
         self._repository = repository
         self._consumers = consumers
         self._profiles = frozenset(str(value) for value in known_profile_ids)
+        self._models = frozenset(
+            (str(provider_id), str(model_id))
+            for provider_id, model_id in known_models
+        )
 
     def read(self) -> ModelRoutingConfiguration:
         return self._repository.load()
@@ -144,9 +158,228 @@ class ModelRoutingAssignmentService:
                 raise ValueError("model_assignment_scope_not_allowed")
             if assignment.profile_id and assignment.profile_id not in self._profiles:
                 raise ValueError("model_assignment_profile_unknown")
+            if (
+                assignment.mode == "model"
+                and (assignment.provider_id, assignment.model_id) not in self._models
+            ):
+                raise ValueError("model_assignment_model_unknown")
         for group in groups:
             if any(item.profile_id not in self._profiles for item in group.candidates):
                 raise ValueError("model_fallback_profile_unknown")
+
+
+class EffectiveModelRoutingService:
+    """Projects Hub-owned assignments into the canonical technical resolver."""
+
+    _SCOPE_PRECEDENCE = (
+        ("step", "step_id"),
+        ("task_kind", "task_kind"),
+        ("role", "role_id"),
+        ("agent", "agent_id"),
+        ("workflow", "workflow_id"),
+        ("project", "project_id"),
+        ("organization", "organization_id"),
+    )
+    _CONSUMER_MODEL_ROLES = {
+        "task.planning": "planner",
+        "task.coding": "coder",
+        "task.debugging": "coder",
+        "task.review": "reviewer",
+        "task.research": "reasoning",
+        "task.repo_analysis": "coder",
+        "chat.ai_snake": "chat",
+        "planning.autoplanner": "planner",
+        "evaluation.judge": "reviewer",
+        "voice.corrector": "chat",
+        "knowledge.embedding": "embedder",
+        "evolver.proposal": "reasoning",
+    }
+
+    def __init__(
+        self,
+        *,
+        repository: ModelRoutingConfigurationPort,
+        consumers: ModelConsumerRegistry,
+        resolver: ModelProfileResolver,
+    ) -> None:
+        self._repository = repository
+        self._consumers = consumers
+        self._resolver = resolver
+
+    def dry_run(self, command: ModelRoutingDryRunCommand) -> EffectiveModelRoute:
+        consumer = self._consumers.require(command.consumer_id)
+        configuration = self._repository.load()
+        assignment, source, inheritance_sources = self._effective_assignment(
+            configuration, command
+        )
+        if assignment.mode == "disabled":
+            return EffectiveModelRoute(
+                configuration_revision=configuration.revision,
+                consumer_id=consumer.consumer_id,
+                assignment_source=source,
+                inheritance_sources=inheritance_sources,
+                assignment_mode="disabled",
+                fallback_group_id=assignment.fallback_group_id,
+                decisions=(ModelRouteDecision(
+                    rank=0,
+                    source="hub_assignment",
+                    profile_id=None,
+                    accepted=False,
+                    reason="model_routing_consumer_disabled",
+                ),),
+                executable=False,
+            )
+
+        requested_profile = self._requested_profile(assignment)
+        fallback = next(
+            (
+                group for group in configuration.fallback_groups
+                if group.group_id == assignment.fallback_group_id
+            ),
+            None,
+        )
+        context = RoutingContext(
+            model_role=self._CONSUMER_MODEL_ROLES.get(consumer.consumer_id, "any"),
+            task_kind=command.task_kind,
+            risk_class=command.risk_class,
+            request_profile_id=requested_profile.profile_id if requested_profile else None,
+            requires_tools=command.requires_tools or "tools" in consumer.required_capabilities,
+            requires_json=command.requires_json or "json" in consumer.required_capabilities,
+            requires_streaming=command.requires_streaming,
+            approximate_context_tokens=command.approximate_context_tokens,
+            contains_secrets=command.contains_secrets,
+            data_class=command.data_class,
+            allow_cloud=command.allow_cloud,
+            fallback_group_id=fallback.group_id if fallback else None,
+            fallback_profile_ids=tuple(item.profile_id for item in fallback.candidates) if fallback else (),
+            fallback_candidate_max_context_tokens={
+                item.profile_id: item.max_context_tokens
+                for item in fallback.candidates
+                if item.max_context_tokens is not None
+            } if fallback else {},
+            fallback_candidate_cloud_allowed={
+                item.profile_id: item.cloud_allowed for item in fallback.candidates
+            } if fallback else {},
+            fallback_stop_on_policy_block=fallback.stop_on_policy_block if fallback else True,
+        )
+        result, candidates = self._resolver.resolve_candidate_chain(context)
+        return self._read_model(
+            configuration=configuration,
+            consumer=consumer,
+            assignment=assignment,
+            assignment_source=source,
+            inheritance_sources=inheritance_sources,
+            result=result,
+            candidates=candidates,
+        )
+
+    def _effective_assignment(
+        self,
+        configuration: ModelRoutingConfiguration,
+        command: ModelRoutingDryRunCommand,
+    ) -> tuple[ModelAssignment, str, tuple[str, ...]]:
+        assignments = tuple(
+            item for item in configuration.assignments
+            if item.consumer_id == command.consumer_id
+        )
+        inheritance_sources: list[str] = []
+        inherited_fallback_group_id: str | None = None
+        for scope, field_name in self._SCOPE_PRECEDENCE:
+            scope_id = getattr(command, field_name)
+            if not scope_id:
+                continue
+            assignment = next(
+                (
+                    item for item in assignments
+                    if item.scope == scope and item.scope_id == scope_id
+                ),
+                None,
+            )
+            if assignment is None:
+                continue
+            scoped_source = f"{scope}:{scope_id}"
+            if assignment.mode == "inherit":
+                inheritance_sources.append(scoped_source)
+                inherited_fallback_group_id = (
+                    inherited_fallback_group_id or assignment.fallback_group_id
+                )
+                continue
+            effective = (
+                assignment.model_copy(update={
+                    "fallback_group_id": inherited_fallback_group_id,
+                })
+                if inherited_fallback_group_id
+                else assignment
+            )
+            return effective, scoped_source, tuple(inheritance_sources)
+        global_assignment = next(
+            (
+                item for item in assignments
+                if item.scope == "global" and item.scope_id == "global"
+            ),
+            None,
+        )
+        if global_assignment is not None and global_assignment.mode != "inherit":
+            effective = (
+                global_assignment.model_copy(update={
+                    "fallback_group_id": inherited_fallback_group_id,
+                })
+                if inherited_fallback_group_id
+                else global_assignment
+            )
+            return effective, "global", tuple(inheritance_sources)
+        if global_assignment is not None:
+            inheritance_sources.append("global")
+            inherited_fallback_group_id = (
+                inherited_fallback_group_id or global_assignment.fallback_group_id
+            )
+        return ModelAssignment(
+            consumer_id=command.consumer_id,
+            scope="global",
+            mode="inherit",
+            fallback_group_id=inherited_fallback_group_id,
+        ), "resolver_default", tuple(inheritance_sources)
+
+    def _requested_profile(self, assignment: ModelAssignment) -> ModelProfile | None:
+        if assignment.mode == "profile" and assignment.profile_id:
+            return self._resolver.profile_by_id(assignment.profile_id)
+        if assignment.mode == "model" and assignment.provider_id and assignment.model_id:
+            return self._resolver.profile_for_model(assignment.provider_id, assignment.model_id)
+        return None
+
+    @staticmethod
+    def _read_model(
+        *,
+        configuration: ModelRoutingConfiguration,
+        consumer: ModelConsumer,
+        assignment: ModelAssignment,
+        assignment_source: str,
+        inheritance_sources: tuple[str, ...],
+        result: ResolutionResult,
+        candidates: list[ModelProfile],
+    ) -> EffectiveModelRoute:
+        profile = result.profile
+        return EffectiveModelRoute(
+            configuration_revision=configuration.revision,
+            consumer_id=consumer.consumer_id,
+            assignment_source=assignment_source,
+            inheritance_sources=inheritance_sources,
+            assignment_mode=assignment.mode,
+            resolved_profile_id=profile.profile_id if profile else None,
+            provider_id=profile.provider_id if profile else None,
+            model_id=profile.model if profile else None,
+            fallback_group_id=assignment.fallback_group_id,
+            candidate_profile_ids=tuple(item.profile_id for item in candidates),
+            blocked_candidates=tuple(result.blocked_candidates),
+            decisions=tuple(ModelRouteDecision(
+                rank=item.rank,
+                source=item.source,
+                profile_id=item.profile_id,
+                accepted=item.accepted,
+                reason=item.reason,
+            ) for item in result.decisions),
+            executable=profile is not None,
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,7 +418,8 @@ class CognitiveStyleFitPolicy:
 
 
 __all__ = [
-    "CognitiveStyleFitPolicy", "InMemoryModelRoutingConfigurationRepository",
+    "CognitiveStyleFitPolicy", "EffectiveModelRoutingService",
+    "InMemoryModelRoutingConfigurationRepository",
     "ModelConsumerRegistry", "ModelRoutingAssignmentService",
     "ModelRoutingConflict", "StyleFitDecision",
 ]

@@ -27,8 +27,13 @@ from agent.services.model_catalog_service import (
     ModelDefaultSelectionService,
     ProviderDiscovery,
 )
-from agent.services.model_profile_loader import ModelProfileLoader
+from agent.services.model_invocation_service import (
+    ModelInvocationService,
+    ModelRoutingConfigurationError,
+)
+from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_selection_service import (
+    EffectiveModelRoutingService,
     ModelConsumerRegistry,
     ModelRoutingAssignmentService,
     ModelRoutingConflict,
@@ -43,7 +48,10 @@ from agent.services.surface_rate_limit_policy import (
 )
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 from ananta_contracts.model_catalog import ModelDefaultSelectionCommand
-from ananta_contracts.model_selection import ModelRoutingMutationCommand
+from ananta_contracts.model_selection import (
+    ModelRoutingDryRunCommand,
+    ModelRoutingMutationCommand,
+)
 
 from . import shared
 
@@ -53,7 +61,7 @@ MODEL_ROUTING_READ_CAPABILITY = "model_routing.read"
 MODEL_ROUTING_MUTATE_CAPABILITY = "model_routing.mutate"
 
 
-def _known_model_profile_ids() -> tuple[str, ...]:
+def _known_model_profiles() -> tuple[ModelProfile, ...]:
     path = str(current_app.config.get("MODEL_PROFILES_PATH") or "").strip()
     if not path:
         import os
@@ -61,14 +69,27 @@ def _known_model_profile_ids() -> tuple[str, ...]:
     if not path:
         return ()
     result = ModelProfileLoader().load_file(path)
-    return tuple(profile.profile_id for profile in result.profiles if profile.enabled)
+    return tuple(profile for profile in result.profiles if profile.enabled)
 
 
 def _model_routing_service() -> ModelRoutingAssignmentService:
+    profiles = _known_model_profiles()
     return ModelRoutingAssignmentService(
         repository=SqlModelRoutingConfigurationRepository(),
         consumers=ModelConsumerRegistry.defaults(),
-        known_profile_ids=_known_model_profile_ids(),
+        known_profile_ids=(profile.profile_id for profile in profiles),
+        known_models=((profile.provider_id, profile.model) for profile in profiles),
+    )
+
+
+def _effective_model_routing_service() -> EffectiveModelRoutingService:
+    resolver = ModelInvocationService.get_profile_resolver()
+    if resolver is None:
+        raise ModelRoutingConfigurationError("model_profiles_not_configured")
+    return EffectiveModelRoutingService(
+        repository=SqlModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        resolver=resolver,
     )
 
 
@@ -587,6 +608,35 @@ def get_model_routing_configuration():
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
     value = _model_routing_service().read()
     return api_response(data=value.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/dry-run", methods=["POST"])
+@check_auth
+def dry_run_model_routing_configuration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    try:
+        command = ModelRoutingDryRunCommand.model_validate(
+            request.get_json(silent=True)
+        )
+        route = _effective_model_routing_service().dry_run(command)
+    except ValidationError:
+        return _model_catalog_input_error("model_routing_dry_run_command_invalid")
+    except ValueError as exc:
+        return api_response(
+            status="error",
+            message=str(exc)[:160],
+            code=400,
+        )
+    except ModelRoutingConfigurationError as exc:
+        return api_response(
+            status="error",
+            message=str(exc)[:160],
+            code=503,
+        )
+    return api_response(data=route.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/routing/v1/validate", methods=["POST"])

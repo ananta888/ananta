@@ -45,6 +45,16 @@ class ModelAssignment(_Closed):
     model_id: str | None = None
     fallback_group_id: str | None = None
 
+    @field_validator(
+        "consumer_id", "scope_id", "profile_id", "provider_id", "model_id",
+        "fallback_group_id",
+    )
+    @classmethod
+    def assignment_identifier(cls, value: str | None) -> str | None:
+        if value is not None and not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_assignment_identifier_invalid")
+        return value
+
     @model_validator(mode="after")
     def coherent(self) -> "ModelAssignment":
         values = (self.profile_id, self.provider_id, self.model_id)
@@ -54,6 +64,10 @@ class ModelAssignment(_Closed):
             raise ValueError("model_assignment_model_invalid")
         if self.mode in {"inherit", "disabled"} and any(values):
             raise ValueError("model_assignment_mode_invalid")
+        if self.scope == "global" and self.scope_id != "global":
+            raise ValueError("model_assignment_global_scope_id_invalid")
+        if self.scope != "global" and self.scope_id == "global":
+            raise ValueError("model_assignment_scoped_id_required")
         return self
 
 
@@ -109,6 +123,65 @@ class ModelRoutingMutationCommand(_Closed):
     fallback_groups: tuple[ModelFallbackGroup, ...] = ()
 
 
+class ModelRoutingDryRunCommand(_Closed):
+    schema_version: Literal["ananta.model-routing-dry-run-command.v1"] = Field(
+        default="ananta.model-routing-dry-run-command.v1", alias="schema"
+    )
+    consumer_id: str
+    organization_id: str | None = None
+    project_id: str | None = None
+    workflow_id: str | None = None
+    agent_id: str | None = None
+    role_id: str | None = None
+    task_kind: str | None = None
+    step_id: str | None = None
+    risk_class: str | None = None
+    data_class: Literal["public", "internal", "confidential", "secret"] = "internal"
+    requires_tools: bool = False
+    requires_json: bool = False
+    requires_streaming: bool = False
+    approximate_context_tokens: int = Field(default=0, ge=0, le=1_000_000)
+    contains_secrets: bool = False
+    allow_cloud: bool = False
+
+    @field_validator(
+        "consumer_id", "organization_id", "project_id", "workflow_id",
+        "agent_id", "role_id", "task_kind", "step_id", "risk_class",
+    )
+    @classmethod
+    def routing_identifier(cls, value: str | None) -> str | None:
+        if value is not None and not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_routing_identifier_invalid")
+        return value
+
+
+class ModelRouteDecision(_Closed):
+    rank: int = Field(ge=0)
+    source: str
+    profile_id: str | None = None
+    accepted: bool
+    reason: str
+
+
+class EffectiveModelRoute(_Closed):
+    schema_version: Literal["ananta.effective-model-route.v1"] = Field(
+        default="ananta.effective-model-route.v1", alias="schema"
+    )
+    configuration_revision: int = Field(ge=0)
+    consumer_id: str
+    assignment_source: str
+    inheritance_sources: tuple[str, ...] = ()
+    assignment_mode: Literal["inherit", "profile", "model", "disabled"]
+    resolved_profile_id: str | None = None
+    provider_id: str | None = None
+    model_id: str | None = None
+    fallback_group_id: str | None = None
+    candidate_profile_ids: tuple[str, ...] = ()
+    blocked_candidates: tuple[tuple[str, str], ...] = ()
+    decisions: tuple[ModelRouteDecision, ...] = ()
+    executable: bool
+
+
 class CognitiveStyleVector(_Closed):
     rule_correctness: float = Field(ge=0, le=1)
     truth_exploration: float = Field(ge=0, le=1)
@@ -159,8 +232,9 @@ class RoleStyleTarget(_Closed):
 
 
 __all__ = [
-    "AgentStyleProfile", "CognitiveStyleVector", "ModelAssignment",
+    "AgentStyleProfile", "CognitiveStyleVector", "EffectiveModelRoute", "ModelAssignment",
     "ModelConsumer", "ModelFallbackCandidate", "ModelFallbackGroup",
-    "ModelRoutingConfiguration", "ModelRoutingMutationCommand",
+    "ModelRouteDecision", "ModelRoutingConfiguration", "ModelRoutingDryRunCommand",
+    "ModelRoutingMutationCommand",
     "RoleStyleTarget", "StyleRange",
 ]

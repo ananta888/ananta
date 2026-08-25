@@ -524,7 +524,7 @@ class ModelInvocationService:
         )
 
     @classmethod
-    def _get_resolver(cls):
+    def get_profile_resolver(cls):
         """Lazily load ModelProfileResolver from the configured profiles path.
         Returns None only when no model-routing configuration was requested."""
         global _PROFILE_RESOLVER_CACHE
@@ -647,6 +647,12 @@ class ModelInvocationService:
                         "configured_model_routing_initialization_failed"
                     ) from exc
                 return None
+
+    @classmethod
+    def _get_resolver(cls):
+        """Compatibility alias for callers predating the public resolver accessor."""
+
+        return cls.get_profile_resolver()
 
     @classmethod
     def get_context_recovery_policy(cls) -> dict[str, Any]:

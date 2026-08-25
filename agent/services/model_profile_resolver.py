@@ -55,6 +55,7 @@ class RoutingContext:
     context_text: str = ""
     approximate_context_tokens: int | None = None
     contains_secrets: bool | None = None
+    data_class: str = "internal"
     request_profile_id: str | None = None
     user_profile_id: str | None = None
     env_profile_id: str | None = None
@@ -63,6 +64,10 @@ class RoutingContext:
     requires_streaming: bool = False
     step_kind: str | None = None
     fallback_group_id: str | None = None
+    fallback_profile_ids: tuple[str, ...] = ()
+    fallback_candidate_max_context_tokens: dict[str, int] = field(default_factory=dict)
+    fallback_candidate_cloud_allowed: dict[str, bool] = field(default_factory=dict)
+    fallback_stop_on_policy_block: bool = True
     allow_cloud: bool = False
     max_estimated_cost_per_step: float | None = None
     previous_error_type: str | None = None
@@ -157,6 +162,8 @@ class SecurityPolicyChecker:
     def is_allowed_for_context(self, profile: ModelProfile, ctx: RoutingContext) -> tuple[bool, str]:
         if profile.is_cloud() and ctx.allow_cloud is False:
             return False, "security_policy:cloud_disabled_by_routing_context"
+        if profile.is_cloud() and ctx.data_class in {"confidential", "secret"}:
+            return False, f"security_policy:data_policy_blocked:{ctx.data_class}"
         if profile.is_cloud() and self.block_cloud_with_secrets and ctx.contains_secrets is True:
             return False, "security_policy:secrets_declared_cloud_blocked"
         return self.is_allowed(profile, ctx.context_text)
@@ -335,6 +342,20 @@ class ModelProfileResolver:
         """Return enabled technical profile data without making a route choice."""
 
         return self._by_id.get(str(profile_id or "").strip())
+
+    def profile_for_model(self, provider_id: str, model_id: str) -> ModelProfile | None:
+        """Resolve an exact provider/model pair to an enabled technical profile."""
+
+        provider = str(provider_id or "").strip()
+        model = str(model_id or "").strip()
+        return next(
+            (
+                profile
+                for profile in self._all_enabled
+                if profile.provider_id == provider and profile.model == model
+            ),
+            None,
+        )
 
     def resolve(self, ctx: RoutingContext) -> ResolutionResult:
         decisions: list[ResolutionDecision] = []
@@ -589,6 +610,7 @@ class ModelProfileResolver:
         blocked = result.blocked_candidates
         decisions = result.decisions
 
+        direct_policy_blocked_cloud = False
         for pid in ordered_ids:
             if pid in seen:
                 continue
@@ -605,10 +627,57 @@ class ModelProfileResolver:
                     )
                 )
                 continue
+            if direct_policy_blocked_cloud and prof.is_cloud():
+                reason = "fallback_policy:cloud_block_is_terminal"
+                blocked.append((pid, reason))
+                decisions.append(
+                    ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason)
+                )
+                continue
+            candidate_context_limit = (
+                effective_ctx.fallback_candidate_max_context_tokens.get(pid)
+                if effective_ctx.fallback_profile_ids
+                else None
+            )
+            if (
+                candidate_context_limit is not None
+                and effective_ctx.approximate_context_tokens is not None
+                and effective_ctx.approximate_context_tokens > candidate_context_limit
+            ):
+                decisions.append(
+                    ResolutionDecision(
+                        13,
+                        "fallback_candidate_chain",
+                        pid,
+                        False,
+                        "fallback_policy:context_too_large",
+                    )
+                )
+                continue
+            if (
+                effective_ctx.fallback_profile_ids
+                and prof.is_cloud()
+                and pid in effective_ctx.fallback_candidate_cloud_allowed
+                and not effective_ctx.fallback_candidate_cloud_allowed[pid]
+            ):
+                reason = "fallback_policy:cloud_candidate_not_allowed"
+                blocked.append((pid, reason))
+                decisions.append(
+                    ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason)
+                )
+                if effective_ctx.fallback_profile_ids and effective_ctx.fallback_stop_on_policy_block:
+                    direct_policy_blocked_cloud = True
+                continue
             allowed, reason = self.security.is_allowed_for_context(prof, effective_ctx)
             if not allowed:
                 blocked.append((pid, reason))
                 decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, False, reason))
+                if (
+                    effective_ctx.fallback_profile_ids
+                    and effective_ctx.fallback_stop_on_policy_block
+                    and prof.is_cloud()
+                ):
+                    direct_policy_blocked_cloud = True
                 continue
             cap_ok, cap_reason = self._capability_check(prof, effective_ctx)
             if not cap_ok:
@@ -628,6 +697,28 @@ class ModelProfileResolver:
             decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, True, "candidate_available"))
             chain.append(prof)
 
+        direct_allowed_ids = set(effective_ctx.fallback_profile_ids)
+        if effective_ctx.request_profile_id:
+            direct_allowed_ids.add(effective_ctx.request_profile_id)
+        if (
+            effective_ctx.fallback_profile_ids
+            and result.profile is not None
+            and result.profile.profile_id not in direct_allowed_ids
+        ):
+            decisions.append(ResolutionDecision(
+                13,
+                "hub_assignment_boundary",
+                result.profile.profile_id,
+                False,
+                "candidate_not_in_effective_assignment_chain",
+            ))
+            result = ResolutionResult(
+                profile=chain[0] if chain else None,
+                decisions=decisions,
+                blocked_candidates=blocked,
+                final_rank=13 if chain else None,
+                final_source="fallback_candidate_chain" if chain else None,
+            )
         if result.profile and (not chain or chain[0].profile_id != result.profile.profile_id):
             chain = [result.profile] + [p for p in chain if p.profile_id != result.profile.profile_id]
         return result, chain
@@ -701,6 +792,11 @@ class ModelProfileResolver:
         return group_id
 
     def _candidate_ids_for_context(self, ctx: RoutingContext, resolved_profile_id: str | None) -> list[str]:
+        if ctx.fallback_profile_ids:
+            ids = list(ctx.fallback_profile_ids)
+            if ctx.request_profile_id and ctx.request_profile_id not in ids:
+                ids.insert(0, ctx.request_profile_id)
+            return ids
         group_id = self._fallback_group_id_for_context(ctx, resolved_profile_id)
         if group_id and group_id in self.rules.fallback_groups:
             return list(self.rules.fallback_groups[group_id].ordered_profiles)

@@ -10,6 +10,7 @@ from ananta_contracts.model_catalog import (
     ModelRuntime,
     ModelSummary,
 )
+from ananta_contracts.model_selection import EffectiveModelRoute, ModelRouteDecision
 
 
 def _headers(token: str) -> dict[str, str]:
@@ -195,4 +196,93 @@ def test_default_selection_command_rejects_urls_paths_and_shell_fields(
     assert (
         response.json["message"]
         == "model_default_selection_command_invalid"
+    )
+
+
+class _FakeEffectiveRouting:
+    def __init__(self):
+        self.commands = []
+
+    def dry_run(self, command):
+        self.commands.append(command)
+        return EffectiveModelRoute(
+            configuration_revision=3,
+            consumer_id=command.consumer_id,
+            assignment_source="global",
+            assignment_mode="profile",
+            resolved_profile_id="local-code",
+            provider_id="lmstudio",
+            model_id="kat-coder",
+            candidate_profile_ids=("local-code",),
+            decisions=(ModelRouteDecision(
+                rank=1,
+                source="request_runtime_override",
+                profile_id="local-code",
+                accepted=True,
+                reason="accepted",
+            ),),
+            executable=True,
+        )
+
+
+def test_model_routing_dry_run_has_closed_read_only_contract(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    fake = _FakeEffectiveRouting()
+    monkeypatch.setattr(
+        providers,
+        "_effective_model_routing_service",
+        lambda: fake,
+    )
+
+    response = client.post(
+        "/models/routing/v1/dry-run",
+        json={
+            "schema": "ananta.model-routing-dry-run-command.v1",
+            "consumer_id": "task.coding",
+            "project_id": "ananta",
+            "contains_secrets": True,
+            "unknown_field": "rejected",
+        },
+        headers=_headers(admin_token),
+    )
+    valid = client.post(
+        "/models/routing/v1/dry-run",
+        json={
+            "schema": "ananta.model-routing-dry-run-command.v1",
+            "consumer_id": "task.coding",
+            "project_id": "ananta",
+            "contains_secrets": True,
+        },
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "model_routing_dry_run_command_invalid"
+    assert valid.status_code == 200
+    assert valid.json["data"]["schema"] == "ananta.effective-model-route.v1"
+    assert valid.json["data"]["resolved_profile_id"] == "local-code"
+    assert fake.commands[0].contains_secrets is True
+
+
+def test_model_routing_dry_run_requires_read_capability(
+    client,
+    app,
+    user_auth_header,
+):
+    _enable_model_dashboard(app)
+
+    response = client.post(
+        "/models/routing/v1/dry-run",
+        json={"consumer_id": "task.coding"},
+        headers=user_auth_header,
+    )
+
+    assert response.status_code == 403
+    assert response.json["data"]["reason_code"] == (
+        "model_catalog_capability_required"
     )
