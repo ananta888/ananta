@@ -244,6 +244,15 @@ class HubConfiguredWorkflowProviderDecisionService:
             raw_security = (
                 dict(raw_security) if isinstance(raw_security, Mapping) else {}
             )
+            style_ranking = None
+            try:
+                from agent.services.cognitive_style_service import (
+                    get_cognitive_style_ranking_policy,
+                )
+
+                style_ranking = get_cognitive_style_ranking_policy()
+            except Exception:
+                style_ranking = None
             resolver = ModelProfileResolver(
                 profiles=loaded.profiles,
                 security_policy=SecurityPolicyChecker(
@@ -261,6 +270,7 @@ class HubConfiguredWorkflowProviderDecisionService:
                     raw_routing,
                     strict=True,
                 ),
+                style_ranking=style_ranking,
             )
             capabilities = {
                 str(value).strip().lower()

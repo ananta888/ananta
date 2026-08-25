@@ -636,11 +636,27 @@ class ModelInvocationService:
                 master_svc = get_global_master_default_service()
                 master_profile = master_svc.get_master_profile()
 
+                style_ranking = None
+                try:
+                    from agent.services.cognitive_style_service import (
+                        get_cognitive_style_ranking_policy,
+                    )
+
+                    style_ranking = get_cognitive_style_ranking_policy(
+                        weight=float(os.environ.get("COGNITIVE_STYLE_ROUTING_WEIGHT", ".25"))
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "model_invocation: cognitive style ranking unavailable: %s",
+                        type(exc).__name__,
+                    )
+
                 resolver = ModelProfileResolver(
                     profiles=result.profiles,
                     security_policy=SecurityPolicyChecker(),
                     routing_rules=routing_rules,
                     master_default_profile=master_profile,
+                    style_ranking=style_ranking,
                 )
                 _PROFILE_RESOLVER_CACHE = resolver
 

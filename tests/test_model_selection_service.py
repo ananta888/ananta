@@ -176,6 +176,7 @@ def test_style_fit_is_soft_and_never_grants_authority():
         model_revision="sha256:base", quantization="q8", runtime="llamacpp",
         prompt_digest="sha256:prompt", tool_mode="prompt_json",
         sampling_digest="sha256:sampling",
+        evidence_refs=("benchmark://style/observation/001",),
     )
     target = RoleStyleTarget(
         target_id="reviewer-v1", role_id="reviewer",

@@ -398,6 +398,25 @@ class AgentStyleProfile(_Closed):
     prompt_digest: str
     tool_mode: str
     sampling_digest: str
+    backend_id: str | None = None
+    role_prompt_digest: str | None = None
+    evidence_refs: tuple[str, ...] = ()
+    expires_at: str | None = None
+    additional_dimensions: dict[str, float] = Field(default_factory=dict)
+
+    @field_validator("additional_dimensions")
+    @classmethod
+    def valid_additional_dimensions(cls, value: dict[str, float]) -> dict[str, float]:
+        for name, score in value.items():
+            if not _IDENTIFIER.fullmatch(name) or not 0 <= float(score) <= 1:
+                raise ValueError("style_additional_dimension_invalid")
+        return value
+
+    @model_validator(mode="after")
+    def measured_evidence_required(self) -> "AgentStyleProfile":
+        if self.source == "measured" and not self.evidence_refs:
+            raise ValueError("style_measured_evidence_required")
+        return self
 
 
 class StyleRange(_Closed):
@@ -421,6 +440,22 @@ class RoleStyleTarget(_Closed):
     rule_correctness: StyleRange
     truth_exploration: StyleRange
     initiative_assertiveness: StyleRange
+    must_have: dict[str, StyleRange] = Field(default_factory=dict)
+    avoid_ranges: dict[str, tuple[StyleRange, ...]] = Field(default_factory=dict)
+    organization_id: str | None = None
+    project_id: str | None = None
+    overlay_id: str | None = None
+    rationale: str = Field(default="", max_length=1000)
+
+    @field_validator("must_have", "avoid_ranges")
+    @classmethod
+    def known_style_dimensions(cls, value):
+        known = {
+            "rule_correctness", "truth_exploration", "initiative_assertiveness"
+        }
+        if any(name not in known for name in value):
+            raise ValueError("role_style_dimension_unknown")
+        return value
 
 
 __all__ = [

@@ -26,7 +26,7 @@ import math
 import os
 import re
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import Any, Protocol
 
 from agent.services.model_profile_loader import ModelProfile
 
@@ -299,6 +299,17 @@ class ProviderHealthCache:
         self._unavailable.pop(provider_id, None)
 
 
+class StyleRankingPort(Protocol):
+    def rank_profiles(
+        self,
+        candidates: tuple[ModelProfile, ...],
+        *,
+        role_id: str,
+        project_id: str | None = None,
+        organization_id: str | None = None,
+    ) -> tuple[Any, ...]: ...
+
+
 class ModelProfileResolver:
     """
     Deterministic, traceable profile resolver.
@@ -330,6 +341,7 @@ class ModelProfileResolver:
         benchmark_profile_order: list[str] | None = None,
         benchmark_metadata: dict[str, Any] | None = None,
         master_default_profile: ModelProfile | None = None,
+        style_ranking: StyleRankingPort | None = None,
     ):
         self._by_id: dict[str, ModelProfile] = {p.profile_id: p for p in profiles if p.enabled}
         self._all_enabled: list[ModelProfile] = [p for p in profiles if p.enabled]
@@ -343,6 +355,7 @@ class ModelProfileResolver:
         ]
         self._benchmark_metadata = dict(benchmark_metadata or {})
         self._master_default = master_default_profile
+        self._style_ranking = style_ranking
 
     def profile_by_id(self, profile_id: str) -> ModelProfile | None:
         """Return enabled technical profile data without making a route choice."""
@@ -566,6 +579,7 @@ class ModelProfileResolver:
                 )
             )
 
+        eligible: list[ModelProfile] = []
         for prof in candidates:
             allowed, reason = self.security.is_allowed_for_context(prof, ctx)
             if not allowed:
@@ -586,11 +600,34 @@ class ModelProfileResolver:
                                        f"provider_health:unavailable:{prof.provider_id}")
                 )
                 continue
-            decisions.append(
-                ResolutionDecision(11, "capability_match", prof.profile_id, True, "best_capability_match")
+            eligible.append(prof)
+
+        if self._style_ranking is not None and eligible:
+            ranked = self._style_ranking.rank_profiles(
+                tuple(eligible),
+                role_id=str(ctx.metadata.get("style_role_id") or ctx.model_role),
+                project_id=str(ctx.metadata.get("style_project_id") or "") or None,
+                organization_id=str(
+                    ctx.metadata.get("style_organization_id") or ""
+                ) or None,
             )
-            return prof
-        return None
+            eligible = [item.profile for item in ranked]
+            for item in ranked:
+                score = "unknown" if item.score is None else f"{item.score:.6f}"
+                decisions.append(ResolutionDecision(
+                    11,
+                    "cognitive_style_soft_ranking",
+                    item.profile.profile_id,
+                    True,
+                    f"{item.reason}:score={score}:grants_authority=false",
+                ))
+        if not eligible:
+            return None
+        decisions.append(ResolutionDecision(
+            11, "capability_match", eligible[0].profile_id, True,
+            "best_capability_match_after_soft_ranking",
+        ))
+        return eligible[0]
 
     def resolve_candidate_chain(self, ctx: RoutingContext) -> tuple[ResolutionResult, list[ModelProfile]]:
         """Return the resolved first profile plus policy-filtered fallback candidates."""

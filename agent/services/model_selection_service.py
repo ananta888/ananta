@@ -506,7 +506,12 @@ class EffectiveModelRoutingService:
             max_estimated_cost_per_step=base.max_estimated_cost_per_step,
             previous_error_type=base.previous_error_type,
             repeated_failure_count=base.repeated_failure_count,
-            metadata=dict(base.metadata),
+            metadata={
+                **dict(base.metadata),
+                "style_role_id": command.role_id or model_role,
+                "style_project_id": command.project_id,
+                "style_organization_id": command.organization_id,
+            },
         )
         result, candidates = self._resolver.resolve_candidate_chain(context)
         route = self._read_model(
