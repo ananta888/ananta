@@ -72,6 +72,7 @@ from agent.services.surface_rate_limit_policy import (
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 from ananta_contracts.model_catalog import ModelDefaultSelectionCommand
 from ananta_contracts.model_selection import (
+    EffectiveModelRoutingProjection,
     ModelRoutingDryRunCommand,
     ModelRoutingImportCommand,
     ModelRoutingMutationCommand,
@@ -740,6 +741,36 @@ def get_model_routing_configuration():
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
     value = _model_routing_service().read()
     return api_response(data=value.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/effective", methods=["GET"])
+@check_auth
+def get_effective_model_routing_projection():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    if not _query_args_are_valid():
+        return _model_catalog_input_error("model_routing_effective_query_invalid")
+    try:
+        routing = _model_routing_service().read()
+        effective = _effective_model_routing_service()
+        routes = tuple(
+            effective.dry_run(ModelRoutingDryRunCommand(
+                consumer_id=consumer.consumer_id,
+            ))
+            for consumer in _model_consumer_registry().all()
+            if consumer.routable
+        )
+    except ModelRoutingConfigurationError as exc:
+        return api_response(
+            status="error", message=str(exc)[:160], code=503
+        )
+    projection = EffectiveModelRoutingProjection(
+        configuration_revision=routing.revision,
+        routes=routes,
+    )
+    return api_response(data=projection.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/routing/v1/templates", methods=["GET"])

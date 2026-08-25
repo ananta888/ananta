@@ -191,6 +191,12 @@ export interface EffectiveModelRoute {
   readonly executable: boolean;
 }
 
+export interface EffectiveModelRoutingProjection {
+  readonly schema: 'ananta.effective-model-routing-projection.v1';
+  readonly configuration_revision: number;
+  readonly routes: readonly EffectiveModelRoute[];
+}
+
 function unwrap<T>(value: unknown): T {
   return (value && typeof value === 'object' && 'data' in value
     ? (value as { data: unknown }).data
@@ -253,6 +259,12 @@ export class ModelCatalogClient {
     return this.api.get<unknown>(
       `${baseUrl.replace(/\/$/, '')}/models/routing/v1`, baseUrl, undefined, false,
     ).pipe(map(unwrap<ModelRoutingConfiguration>));
+  }
+
+  readEffectiveRouting(baseUrl: string): Observable<EffectiveModelRoutingProjection> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/effective`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<EffectiveModelRoutingProjection>));
   }
 
   readRoutingTemplates(baseUrl: string): Observable<ModelRoutingTemplateCatalog> {

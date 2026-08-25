@@ -27,7 +27,8 @@ describe('ModelDashboardStore', () => {
       input_modalities: ['text'], output_modalities: ['text'],
       price_input_per_million: null, price_output_per_million: null,
       capabilities: [{ capability_id: index % 2 === 0 ? 'code' : 'chat', value: 'supported', evidence: 'detected', source_id: 'providers.catalog' }],
-      metadata_facts: [], conflicts: [], used_by_consumers: index % 3 === 0 ? ['task.coding'] : [],
+      metadata_facts: [{ fact_id: 'model_role', value: index % 2 === 0 ? 'coder' : 'chat', evidence: 'declared', source_id: 'profiles.configured', confidence: null }],
+      conflicts: [], used_by_consumers: index % 3 === 0 ? ['task.coding'] : [],
     }));
     client = {
       readInventory: vi.fn(() => of({
@@ -46,6 +47,17 @@ describe('ModelDashboardStore', () => {
         }],
       })),
       readRouting: vi.fn(() => of(routing())),
+      readEffectiveRouting: vi.fn(() => of({
+        schema: 'ananta.effective-model-routing-projection.v1', configuration_revision: 4,
+        routes: [{
+          schema: 'ananta.effective-model-route.v1', configuration_revision: 4,
+          consumer_id: 'task.coding', assignment_source: 'resolver_default',
+          inheritance_sources: [], assignment_mode: 'inherit', resolved_profile_id: 'profile-1',
+          provider_id: 'local', model_id: 'model-1', fallback_group_id: null,
+          candidate_profile_ids: ['profile-1'], blocked_candidates: [], decisions: [],
+          maximum_total_retries: null, executable: true,
+        }],
+      })),
       readRoutingTemplates: vi.fn(() => of({
         schema: 'ananta.model-routing-template-catalog.v1', configuration_revision: 4,
         templates: [{
@@ -121,6 +133,26 @@ describe('ModelDashboardStore', () => {
       .toEqual(['profile-2', 'profile-1']);
     store.resetDraft();
     expect(store.dirty()).toBe(false);
+  });
+
+  it('shows authoritative effective routes and applies selected consumers in bulk', () => {
+    expect(store.effectiveRouteFor('task.coding')?.resolved_profile_id).toBe('profile-1');
+    store.toggleConsumerSelection('task.coding', true);
+    store.applyBulkAssignment('profile', 'profile-2', '');
+
+    expect(store.globalAssignment('task.coding')).toMatchObject({
+      mode: 'profile', profile_id: 'profile-2', fallback_group_id: null,
+    });
+    expect(store.routingDiff().assignments).toEqual(['task.coding@global:global']);
+  });
+
+  it('disables profile choices that fail hard consumer capabilities', () => {
+    const consumer = store.consumers()[0];
+    const compatible = store.profileOptions().find(item => item.model.capabilities[0]?.capability_id === 'code');
+    const incompatible = store.profileOptions().find(item => item.model.capabilities[0]?.capability_id === 'chat');
+
+    expect(store.profileCompatibility(consumer, compatible!.model)).toBeNull();
+    expect(store.profileCompatibility(consumer, incompatible!.model)).toBe('model_profile_capability_mismatch:code');
   });
 
   it('edits fallback conditions and limits only in the local draft', () => {

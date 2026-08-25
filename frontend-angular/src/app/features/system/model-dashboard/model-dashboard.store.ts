@@ -57,6 +57,7 @@ export class ModelDashboardStore {
   readonly draftRouting = signal<ModelRoutingConfiguration | null>(null);
   readonly validation = signal<ModelRoutingValidationReport | null>(null);
   readonly effectiveRoute = signal<EffectiveModelRoute | null>(null);
+  readonly effectiveRoutes = signal<readonly EffectiveModelRoute[]>([]);
   readonly templates = signal<readonly ModelRoutingTemplate[]>([]);
   readonly importPreview = signal<Record<string, unknown> | null>(null);
   readonly pendingImport = signal<ModelRoutingConfiguration | null>(null);
@@ -77,6 +78,7 @@ export class ModelDashboardStore {
   readonly sortDirection = signal<'asc' | 'desc'>('asc');
   readonly virtualStart = signal(0);
   readonly selectedModel = signal<ModelInventoryDescriptor | null>(null);
+  readonly selectedConsumerIds = signal<readonly string[]>([]);
   readonly user = signal<unknown>(this.auth.userPayload);
 
   readonly canRefresh = computed(() => canUseModelMutation(this.user(), 'model_catalog.refresh'));
@@ -165,6 +167,39 @@ export class ModelDashboardStore {
     }
     return [...groups.entries()].map(([category, values]) => ({ category, consumers: values }));
   });
+  readonly routingDiff = computed(() => {
+    const current = this.authoritativeRouting();
+    const draft = this.draftRouting();
+    if (!current || !draft) return { assignments: [], fallbackGroups: [] };
+    const assignmentKey = (item: ModelRoutingConfiguration['assignments'][number]) =>
+      `${item.consumer_id}@${item.scope}:${item.scope_id}`;
+    const currentAssignments = new Map(current.assignments.map(item => [assignmentKey(item), JSON.stringify(item)]));
+    const draftAssignments = new Map(draft.assignments.map(item => [assignmentKey(item), JSON.stringify(item)]));
+    const assignmentKeys = new Set([...currentAssignments.keys(), ...draftAssignments.keys()]);
+    const currentGroups = new Map(current.fallback_groups.map(item => [item.group_id, JSON.stringify(item)]));
+    const draftGroups = new Map(draft.fallback_groups.map(item => [item.group_id, JSON.stringify(item)]));
+    const groupIds = new Set([...currentGroups.keys(), ...draftGroups.keys()]);
+    return {
+      assignments: [...assignmentKeys].filter(key => currentAssignments.get(key) !== draftAssignments.get(key)).sort(),
+      fallbackGroups: [...groupIds].filter(key => currentGroups.get(key) !== draftGroups.get(key)).sort(),
+    };
+  });
+  readonly draftStructuralIssues = computed(() => {
+    const draft = this.draftRouting();
+    if (!draft) return [];
+    const issues: string[] = [];
+    for (const group of draft.fallback_groups) {
+      if (!group.candidates.length) issues.push(`${group.group_id}: model_fallback_group_empty`);
+      if (group.on_exhausted === 'escalate' && !group.escalation_profile_id) {
+        issues.push(`${group.group_id}: model_fallback_escalation_profile_required`);
+      }
+      const retrySum = group.candidates.reduce((sum, item) => sum + item.retry_budget, 0);
+      if (group.max_total_retries > retrySum) {
+        issues.push(`${group.group_id}: model_fallback_retry_budget_exceeds_candidates`);
+      }
+    }
+    return issues;
+  });
 
   constructor() {
     this.auth.user$.pipe(takeUntilDestroyed(this.destroyRef))
@@ -210,12 +245,14 @@ export class ModelDashboardStore {
       legacy: this.client.read(this.baseUrl).pipe(catchError(() => of(null))),
       consumers: this.client.readConsumers(this.baseUrl).pipe(catchError(() => of(null))),
       routing: this.client.readRouting(this.baseUrl).pipe(catchError(() => of(null))),
+      effective: this.client.readEffectiveRouting(this.baseUrl).pipe(catchError(() => of(null))),
       templates: this.client.readRoutingTemplates(this.baseUrl).pipe(catchError(() => of(null))),
-    }).subscribe(({ inventory, legacy, consumers, routing, templates }) => {
+    }).subscribe(({ inventory, legacy, consumers, routing, effective, templates }) => {
       this.inventory.set(inventory);
       this.catalog.set(legacy);
       this.consumers.set(consumers?.consumers ?? []);
       this.templates.set(templates?.templates ?? []);
+      this.effectiveRoutes.set(effective?.routes ?? []);
       if (routing) {
         this.authoritativeRouting.set(cloneRouting(routing));
         this.draftRouting.set(cloneRouting(routing));
@@ -256,6 +293,45 @@ export class ModelDashboardStore {
     return this.draftRouting()?.assignments.find(
       item => item.consumer_id === consumerId && item.scope === 'global' && item.scope_id === 'global',
     );
+  }
+
+  effectiveRouteFor(consumerId: string): EffectiveModelRoute | undefined {
+    return this.effectiveRoutes().find(item => item.consumer_id === consumerId);
+  }
+
+  toggleConsumerSelection(consumerId: string, selected: boolean): void {
+    const values = new Set(this.selectedConsumerIds());
+    if (selected) values.add(consumerId); else values.delete(consumerId);
+    this.selectedConsumerIds.set([...values].sort());
+  }
+
+  selectAllRoutableConsumers(selected: boolean): void {
+    this.selectedConsumerIds.set(selected
+      ? this.consumers().filter(item => item.routable).map(item => item.consumer_id)
+      : []);
+  }
+
+  applyBulkAssignment(
+    mode: 'inherit' | 'profile' | 'disabled',
+    profileId = '',
+    fallbackGroupId?: string,
+  ): void {
+    for (const consumerId of this.selectedConsumerIds()) {
+      this.setConsumerMode(consumerId, mode, profileId);
+      if (fallbackGroupId !== undefined) this.setConsumerFallback(consumerId, fallbackGroupId);
+    }
+  }
+
+  profileCompatibility(consumer: ModelConsumer, model: ModelInventoryDescriptor): string | null {
+    const claims = new Map(model.capabilities.map(item => [item.capability_id, item.value]));
+    const role = model.metadata_facts.find(item => item.fact_id === 'model_role')?.value ?? 'any';
+    for (const capability of consumer.required_capabilities) {
+      if (capability === 'code' && !['any', 'coder'].includes(role)) return 'model_profile_capability_mismatch:code';
+      if (['tools', 'json', 'embeddings'].includes(capability) && claims.get(capability) !== 'supported') {
+        return `model_profile_capability_mismatch:${capability}`;
+      }
+    }
+    return null;
   }
 
   setConsumerMode(consumerId: string, mode: 'inherit' | 'profile' | 'disabled', profileId = ''): void {
@@ -333,6 +409,20 @@ export class ModelDashboardStore {
 
   removeCandidate(groupId: string, index: number): void {
     this.updateGroup(groupId, group => group.candidates.splice(index, 1));
+  }
+
+  duplicateCandidate(groupId: string, index: number): void {
+    this.updateGroup(groupId, group => {
+      const source = group.candidates[index];
+      if (!source) return;
+      const option = this.profileOptions().find(
+        value => !group.candidates.some(item => item.profile_id === value.profileId),
+      );
+      if (!option) return;
+      group.candidates.splice(index + 1, 0, {
+        ...JSON.parse(JSON.stringify(source)), profile_id: option.profileId,
+      });
+    });
   }
 
   moveCandidate(groupId: string, index: number, delta: number): void {
@@ -434,6 +524,7 @@ export class ModelDashboardStore {
             this.conflictRevision.set(null);
             this.saving.set(false);
             this.notifications.success(`Modellrouting Revision ${saved.revision} gespeichert`);
+            this.reloadEffectiveRoutes();
           },
           error: error => {
             this.conflictRevision.set(Number(error?.error?.data?.current_revision) || null);
@@ -529,6 +620,12 @@ export class ModelDashboardStore {
       const group = draft.fallback_groups.find(value => value.group_id === groupId);
       if (group) update(group);
     });
+  }
+
+  private reloadEffectiveRoutes(): void {
+    if (!this.baseUrl) return;
+    this.client.readEffectiveRouting(this.baseUrl).pipe(catchError(() => of(null)))
+      .subscribe(value => this.effectiveRoutes.set(value?.routes ?? []));
   }
 
   private updateDraft(update: (draft: ModelRoutingConfiguration) => void): void {

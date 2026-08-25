@@ -339,6 +339,36 @@ def test_model_routing_dry_run_has_closed_read_only_contract(
     assert fake.commands[0].contains_secrets is True
 
 
+def test_effective_model_routing_projection_covers_routable_consumers_only(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    fake = _FakeEffectiveRouting()
+    assignments = ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=("local-code",),
+    )
+    monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
+    monkeypatch.setattr(providers, "_effective_model_routing_service", lambda: fake)
+
+    response = client.get(
+        "/models/routing/v1/effective", headers=_headers(admin_token)
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["schema"] == (
+        "ananta.effective-model-routing-projection.v1"
+    )
+    ids = {item["consumer_id"] for item in response.json["data"]["routes"]}
+    assert "task.coding" in ids
+    assert "knowledge.embedding" not in ids
+    assert response.json["data"]["configuration_revision"] == 0
+
+
 def test_model_routing_dry_run_requires_read_capability(
     client,
     app,

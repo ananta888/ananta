@@ -255,6 +255,14 @@ async function authenticatedFixtures(page: Page): Promise<{
   await page.route('**/models/routing/v1', route => json(route, {
     schema: 'ananta.model-routing-config.v1', revision: 0, assignments: [], fallback_groups: [],
   }));
+  await page.route('**/models/routing/v1/effective', route => json(route, {
+    schema: 'ananta.effective-model-routing-projection.v1', configuration_revision: 0,
+    routes: [],
+  }));
+  await page.route('**/models/routing/v1/templates', route => json(route, {
+    schema: 'ananta.model-routing-template-catalog.v1', configuration_revision: 0,
+    templates: [],
+  }));
   await page.route('**/models/default/v1', route => {
     defaultSelections += 1;
     return json(route, {

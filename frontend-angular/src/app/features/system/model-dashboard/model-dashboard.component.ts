@@ -171,14 +171,37 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
         @if (store.activeTab() === 'assignments') {
           <section role="tabpanel" aria-label="Zuweisungsmatrix">
             <p>Globale Werte sind editierbar; engere Scopes bleiben im Hub erhalten und haben Vorrang.</p>
+            <div class="bulk-panel" aria-label="Bulk-Zuweisung">
+              <label class="check-field"><input type="checkbox"
+                [checked]="store.selectedConsumerIds().length === routableConsumerCount() && routableConsumerCount() > 0"
+                (change)="store.selectAllRoutableConsumers($any($event.target).checked)" /> Alle routbaren Consumer</label>
+              <label>Profil
+                <select [(ngModel)]="bulkProfileId"><option value="">Profil wählen</option>
+                  @for (option of store.profileOptions(); track option.profileId) { <option [value]="option.profileId">{{ option.profileId }}</option> }
+                </select>
+              </label>
+              <label>Fallback
+                <select [(ngModel)]="bulkFallbackId"><option value="">Kein Fallback</option>
+                  @for (group of store.draftRouting()?.fallback_groups ?? []; track group.group_id) { <option [value]="group.group_id">{{ group.group_id }}</option> }
+                </select>
+              </label>
+              <button type="button" [disabled]="!store.selectedConsumerIds().length || !bulkProfileId"
+                (click)="store.applyBulkAssignment('profile', bulkProfileId, bulkFallbackId)">Auf Auswahl anwenden</button>
+              <button type="button" class="button-outline" [disabled]="!store.selectedConsumerIds().length"
+                (click)="store.applyBulkAssignment('inherit', '', bulkFallbackId)">Auswahl erben lassen</button>
+            </div>
             @for (category of store.consumerCategories(); track category.category) {
               <section class="assignment-group">
                 <h3>{{ category.category }}</h3>
                 <div class="assignment-table-wrap"><table class="assignment-table">
-                  <thead><tr><th>Consumer</th><th>Modus</th><th>Primärprofil</th><th>Fallback</th><th>Effektiv</th></tr></thead>
+                  <thead><tr><th>Auswahl</th><th>Consumer</th><th>Modus</th><th>Primärprofil</th><th>Fallback</th><th>Effektiv gespeichert</th></tr></thead>
                   <tbody>
                     @for (consumer of category.consumers; track consumer.consumer_id) {
                       <tr>
+                        <td><input type="checkbox" [disabled]="!consumer.routable"
+                          [checked]="store.selectedConsumerIds().includes(consumer.consumer_id)"
+                          (change)="store.toggleConsumerSelection(consumer.consumer_id, $any($event.target).checked)"
+                          [attr.aria-label]="consumer.label + ' für Bulk-Aktion auswählen'" /></td>
                         <td><strong>{{ consumer.label }}</strong><code>{{ consumer.consumer_id }}</code>
                           <small>{{ consumer.required_capabilities.join(', ') || 'keine harten Capabilities' }}</small>
                           @if (!consumer.routable) { <small class="warning">{{ consumer.non_routable_reason }}</small> }
@@ -195,7 +218,9 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                           (ngModelChange)="store.setConsumerMode(consumer.consumer_id, 'profile', $event)">
                           <option value="">Profil wählen</option>
                           @for (option of store.profileOptions(); track option.profileId) {
-                            <option [value]="option.profileId">{{ option.profileId }} — {{ option.model.model_id }}</option>
+                            <option [value]="option.profileId" [disabled]="store.profileCompatibility(consumer, option.model) !== null">
+                              {{ option.profileId }} — {{ option.model.model_id }}{{ store.profileCompatibility(consumer, option.model) ? ' (inkompatibel)' : '' }}
+                            </option>
                           }
                         </select></td>
                         <td><select [attr.aria-label]="'Fallback für ' + consumer.label"
@@ -207,8 +232,14 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                             <option [value]="group.group_id">{{ group.group_id }}</option>
                           }
                         </select></td>
-                        <td><button type="button" class="button-outline" [disabled]="!consumer.routable"
-                          (click)="store.dryRun(consumer.consumer_id)">Route prüfen</button></td>
+                        <td>
+                          @if (store.effectiveRouteFor(consumer.consumer_id); as route) {
+                            <strong>{{ route.resolved_profile_id || 'blockiert' }}</strong>
+                            <small>{{ route.assignment_source }} · {{ route.assignment_mode }}</small>
+                          } @else { <span>nicht verfügbar</span> }
+                          <button type="button" class="button-outline" [disabled]="!consumer.routable"
+                            (click)="store.dryRun(consumer.consumer_id)">Draft prüfen</button>
+                        </td>
                       </tr>
                     }
                   </tbody>
@@ -298,6 +329,7 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                       <div class="candidate-actions" [attr.aria-label]="'Reihenfolge für ' + candidate.profile_id">
                         <button type="button" [disabled]="index === 0" (click)="store.moveCandidate(group.group_id, index, -1)" aria-label="Nach oben">↑</button>
                         <button type="button" [disabled]="index === group.candidates.length - 1" (click)="store.moveCandidate(group.group_id, index, 1)" aria-label="Nach unten">↓</button>
+                        <button type="button" (click)="store.duplicateCandidate(group.group_id, index)" aria-label="Kandidat mit nächstem freien Profil duplizieren">Duplizieren</button>
                         <button type="button" (click)="store.removeCandidate(group.group_id, index)" aria-label="Kandidat entfernen">Entfernen</button>
                       </div>
                     </li>
@@ -315,6 +347,11 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                 </div>
               </section>
             }
+            @if (store.draftStructuralIssues().length) {
+              <div class="model-error" role="alert"><strong>Lokale Strukturhinweise</strong>
+                @for (issue of store.draftStructuralIssues(); track issue) { <p>{{ issue }}</p> }
+              </div>
+            }
           </section>
         }
 
@@ -323,6 +360,12 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
             <h3>Atomarer Änderungsstand</h3>
             <p>Authoritative Revision: {{ store.authoritativeRouting()?.revision ?? '–' }}</p>
             <p>{{ store.dirty() ? 'Der Draft weicht vom Hub ab.' : 'Keine ungespeicherten Änderungen.' }}</p>
+            @if (store.dirty()) {
+              <div class="semantic-diff" aria-label="Semantische Änderungsübersicht">
+                <p><strong>Geänderte Zuweisungen:</strong> {{ store.routingDiff().assignments.join(', ') || 'keine' }}</p>
+                <p><strong>Geänderte Fallbackgruppen:</strong> {{ store.routingDiff().fallbackGroups.join(', ') || 'keine' }}</p>
+              </div>
+            }
             <div class="row-controls">
               <button type="button" (click)="store.validate()" [disabled]="!store.canValidate() || !store.dirty()">Serverseitig validieren</button>
               <button type="button" (click)="store.save()" [disabled]="!store.canMutate() || !store.dirty() || store.saving()">Validieren und atomar speichern</button>
@@ -395,7 +438,8 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
-    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .bulk-panel { align-items: end; display: flex; flex-wrap: wrap; gap: .7rem; }.semantic-diff { background: #eef6f7; border-left: 4px solid #286773; padding: .7rem; }
     .fallback-card > header { align-items: center; display: flex; justify-content: space-between; }
     .fallback-card li { align-items: start; background: #f1f6f4; display: grid; gap: .7rem; grid-template-columns: minmax(12rem, .7fr) minmax(18rem, 1.3fr) auto; margin-bottom: .6rem; padding: .8rem; }
     .candidate-identity, .candidate-fields, .group-policy { display: grid; gap: .5rem; }
@@ -423,6 +467,8 @@ export class ModelDashboardComponent implements OnInit {
   ];
   newGroupId = '';
   selectedTemplateId = '';
+  bulkProfileId = '';
+  bulkFallbackId = '';
 
   ngOnInit(): void {
     this.features.ensureLoaded().subscribe(flags => {
@@ -462,6 +508,10 @@ export class ModelDashboardComponent implements OnInit {
 
   selectedTemplate() {
     return this.store.templates().find(template => template.template_id === this.selectedTemplateId);
+  }
+
+  routableConsumerCount(): number {
+    return this.store.consumers().filter(item => item.routable).length;
   }
 
   readImport(event: Event): void {

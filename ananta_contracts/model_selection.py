@@ -218,6 +218,14 @@ class EffectiveModelRoute(_Closed):
     executable: bool
 
 
+class EffectiveModelRoutingProjection(_Closed):
+    schema_version: Literal["ananta.effective-model-routing-projection.v1"] = Field(
+        default="ananta.effective-model-routing-projection.v1", alias="schema"
+    )
+    configuration_revision: int = Field(ge=0)
+    routes: tuple[EffectiveModelRoute, ...] = ()
+
+
 class ModelRoutingValidationIssue(_Closed):
     severity: Literal["warning", "error"]
     reason_code: str
@@ -345,7 +353,8 @@ class RoleStyleTarget(_Closed):
 
 
 __all__ = [
-    "AgentStyleProfile", "CognitiveStyleVector", "EffectiveModelRoute", "ModelAssignment",
+    "AgentStyleProfile", "CognitiveStyleVector", "EffectiveModelRoute",
+    "EffectiveModelRoutingProjection", "ModelAssignment",
     "ModelConsumer", "ModelFallbackCandidate", "ModelFallbackGroup",
     "ModelRouteDecision", "ModelRoutingConfiguration", "ModelRoutingDiff",
     "ModelRoutingDryRunCommand", "ModelRoutingExportBundle",
