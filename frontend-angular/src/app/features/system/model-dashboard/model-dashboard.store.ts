@@ -21,6 +21,7 @@ import {
 } from './model-catalog.client';
 
 export type ModelDashboardTab = 'overview' | 'assignments' | 'fallbacks' | 'changes';
+export type ModelSortKey = 'name' | 'provider' | 'runtime' | 'availability' | 'context';
 
 function cloneRouting(value: ModelRoutingConfiguration): ModelRoutingConfiguration {
   return JSON.parse(JSON.stringify(value)) as ModelRoutingConfiguration;
@@ -67,6 +68,15 @@ export class ModelDashboardStore {
   readonly runtimeFilter = signal('all');
   readonly availabilityFilter = signal('all');
   readonly sourceFilter = signal('all');
+  readonly healthFilter = signal('all');
+  readonly capabilityFilter = signal('all');
+  readonly loadedFilter = signal('all');
+  readonly usageFilter = signal('all');
+  readonly groupBy = signal('provider');
+  readonly sortKey = signal<ModelSortKey>('name');
+  readonly sortDirection = signal<'asc' | 'desc'>('asc');
+  readonly virtualStart = signal(0);
+  readonly selectedModel = signal<ModelInventoryDescriptor | null>(null);
   readonly user = signal<unknown>(this.auth.userPayload);
 
   readonly canRefresh = computed(() => canUseModelMutation(this.user(), 'model_catalog.refresh'));
@@ -77,18 +87,70 @@ export class ModelDashboardStore {
   readonly dirty = computed(() => JSON.stringify(this.authoritativeRouting()) !== JSON.stringify(this.draftRouting()));
   readonly filteredModels = computed(() => {
     const search = this.search().trim().toLocaleLowerCase();
-    return (this.inventory()?.models ?? []).filter(model => {
+    const direction = this.sortDirection() === 'asc' ? 1 : -1;
+    const groupBy = this.groupBy();
+    const sortKey = this.sortKey();
+    const values = (this.inventory()?.models ?? []).filter(model => {
       const searchable = [
         model.display_name, model.model_id, model.provider_id, model.executor_id,
-        ...model.aliases, ...model.profile_ids,
+        ...model.aliases, ...model.profile_ids, ...model.source_ids,
+        ...model.metadata_facts.map(item => `${item.fact_id} ${item.value}`),
       ].join(' ').toLocaleLowerCase();
       return (!search || searchable.includes(search))
         && (this.runtimeFilter() === 'all' || model.runtime === this.runtimeFilter())
         && (this.availabilityFilter() === 'all' || model.availability === this.availabilityFilter())
-        && (this.sourceFilter() === 'all' || model.source_kinds.includes(this.sourceFilter()));
+        && (this.sourceFilter() === 'all' || model.source_kinds.includes(this.sourceFilter()))
+        && (this.healthFilter() === 'all' || model.health === this.healthFilter())
+        && (this.capabilityFilter() === 'all' || model.capabilities.some(
+          item => item.capability_id === this.capabilityFilter() && item.value === 'supported',
+        ))
+        && (this.loadedFilter() === 'all'
+          || (this.loadedFilter() === 'loaded' && model.loaded === true)
+          || (this.loadedFilter() === 'not_loaded' && model.loaded === false)
+          || (this.loadedFilter() === 'unknown' && model.loaded === null))
+        && (this.usageFilter() === 'all'
+          || (this.usageFilter() === 'used' && model.used_by_consumers.length > 0)
+          || (this.usageFilter() === 'unused' && model.used_by_consumers.length === 0));
+    });
+    const groupValue = (model: ModelInventoryDescriptor): string => {
+      if (groupBy === 'runtime') return model.runtime;
+      if (groupBy === 'source') return model.source_kinds[0] ?? 'unknown';
+      if (groupBy === 'none') return '';
+      return model.provider_id;
+    };
+    const sortValue = (model: ModelInventoryDescriptor): string | number => {
+      if (sortKey === 'provider') return model.provider_id;
+      if (sortKey === 'runtime') return model.runtime;
+      if (sortKey === 'availability') return model.availability;
+      if (sortKey === 'context') return model.context_window ?? -1;
+      return model.display_name;
+    };
+    return values.sort((left, right) => {
+      const groupOrder = groupValue(left).localeCompare(groupValue(right));
+      if (groupOrder) return groupOrder;
+      const a = sortValue(left);
+      const b = sortValue(right);
+      const order = typeof a === 'number' && typeof b === 'number'
+        ? a - b
+        : String(a).localeCompare(String(b));
+      return (order || left.model_id.localeCompare(right.model_id)) * direction;
     });
   });
-  readonly visibleModels = computed(() => this.filteredModels().slice(0, 500));
+  readonly capabilityOptions = computed(() => [...new Set(
+    (this.inventory()?.models ?? []).flatMap(model => model.capabilities
+      .filter(item => item.value === 'supported').map(item => item.capability_id)),
+  )].sort());
+  readonly virtualWindowStart = computed(() => Math.min(
+    this.virtualStart(), Math.max(0, this.filteredModels().length - 60),
+  ));
+  readonly visibleModels = computed(() => {
+    const start = this.virtualWindowStart();
+    return this.filteredModels().slice(start, start + 60);
+  });
+  readonly virtualTopHeight = computed(() => this.virtualWindowStart() * 72);
+  readonly virtualBottomHeight = computed(() => Math.max(
+    0, (this.filteredModels().length - this.virtualWindowStart() - this.visibleModels().length) * 72,
+  ));
   readonly profileOptions = computed(() => {
     const options = new Map<string, ModelInventoryDescriptor>();
     for (const model of this.inventory()?.models ?? []) {
@@ -107,6 +169,32 @@ export class ModelDashboardStore {
   constructor() {
     this.auth.user$.pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(user => this.user.set(user));
+  }
+
+  setVirtualScroll(scrollTop: number): void {
+    this.virtualStart.set(Math.max(0, Math.floor(Math.max(0, scrollTop) / 72) - 10));
+  }
+
+  toggleSort(key: ModelSortKey): void {
+    if (this.sortKey() === key) {
+      this.sortDirection.update(value => value === 'asc' ? 'desc' : 'asc');
+    } else {
+      this.sortKey.set(key);
+      this.sortDirection.set('asc');
+    }
+    this.virtualStart.set(0);
+  }
+
+  resetInventoryFilters(): void {
+    this.search.set('');
+    this.runtimeFilter.set('all');
+    this.availabilityFilter.set('all');
+    this.sourceFilter.set('all');
+    this.healthFilter.set('all');
+    this.capabilityFilter.set('all');
+    this.loadedFilter.set('all');
+    this.usageFilter.set('all');
+    this.virtualStart.set(0);
   }
 
   load(): void {

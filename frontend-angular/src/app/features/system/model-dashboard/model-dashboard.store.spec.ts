@@ -22,11 +22,12 @@ describe('ModelDashboardStore', () => {
       model_id: `model-${index}`, executor_id: 'api:local', display_name: `Model ${index}`,
       runtime: 'local', source_ids: ['providers.catalog'], source_kinds: ['discovered'],
       profile_ids: [`profile-${index}`], aliases: [], availability: 'available', health: 'healthy',
-      configured: true, installed: true, loaded: false, listing_supported: true,
+      configured: true, installed: true, loaded: index % 2 === 0, listing_supported: true,
       auth_mode: null, auth_ready: null, context_window: 8192, quantization: null,
       input_modalities: ['text'], output_modalities: ['text'],
       price_input_per_million: null, price_output_per_million: null,
-      capabilities: [], metadata_facts: [], conflicts: [], used_by_consumers: [],
+      capabilities: [{ capability_id: index % 2 === 0 ? 'code' : 'chat', value: 'supported', evidence: 'detected', source_id: 'providers.catalog' }],
+      metadata_facts: [], conflicts: [], used_by_consumers: index % 3 === 0 ? ['task.coding'] : [],
     }));
     client = {
       readInventory: vi.fn(() => of({
@@ -79,11 +80,32 @@ describe('ModelDashboardStore', () => {
     store.load();
   });
 
-  it('filters 5000 models but bounds simultaneous rendering', () => {
+  it('filters 5000 models but virtualizes simultaneous rendering', () => {
     expect(store.filteredModels()).toHaveLength(5000);
-    expect(store.visibleModels()).toHaveLength(500);
+    expect(store.visibleModels()).toHaveLength(60);
+    store.setVirtualScroll(72 * 1000);
+    expect(store.virtualWindowStart()).toBe(990);
+    expect(store.visibleModels()[0].model_id).not.toBe('model-0');
     store.search.set('model-4999');
     expect(store.filteredModels().map(model => model.model_id)).toEqual(['model-4999']);
+    expect(store.visibleModels()).toHaveLength(1);
+  });
+
+  it('combines capability, health, loaded and usage filters deterministically', () => {
+    store.capabilityFilter.set('code');
+    store.loadedFilter.set('loaded');
+    store.usageFilter.set('used');
+
+    const filtered = store.filteredModels();
+    expect(filtered.length).toBeGreaterThan(0);
+    expect(filtered.every(model => model.loaded && model.used_by_consumers.length > 0)).toBe(true);
+    expect(filtered.every(model => model.capabilities.some(item => item.capability_id === 'code'))).toBe(true);
+
+    store.toggleSort('context');
+    expect(store.sortKey()).toBe('context');
+    expect(store.sortDirection()).toBe('asc');
+    store.toggleSort('context');
+    expect(store.sortDirection()).toBe('desc');
   });
 
   it('keeps assignment and fallback edits local until reset or save', () => {

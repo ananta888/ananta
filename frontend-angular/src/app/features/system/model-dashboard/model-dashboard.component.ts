@@ -3,8 +3,8 @@ import { Component, HostListener, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 import { DashboardFeatureFlagStore } from '../../dashboard-foundation/dashboard-feature-flags';
-import { ModelConsumer } from './model-catalog.client';
-import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store';
+import { ModelConsumer, ModelInventoryDescriptor } from './model-catalog.client';
+import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-dashboard.store';
 
 @Component({
   standalone: true,
@@ -49,30 +49,61 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
           <section role="tabpanel" aria-label="Modellübersicht">
             <div class="filters" aria-label="Modellfilter">
               <label>Suche
-                <input type="search" [ngModel]="store.search()" (ngModelChange)="store.search.set($event)"
+                <input type="search" [ngModel]="store.search()" (ngModelChange)="store.search.set($event); store.virtualStart.set(0)"
                   placeholder="Name, Modell, Provider, Executor oder Profil" />
               </label>
               <label>Runtime
-                <select [ngModel]="store.runtimeFilter()" (ngModelChange)="store.runtimeFilter.set($event)">
+                <select [ngModel]="store.runtimeFilter()" (ngModelChange)="store.runtimeFilter.set($event); store.virtualStart.set(0)">
                   <option value="all">Alle</option><option value="local">Lokal</option>
                   <option value="cloud">Cloud</option><option value="remote">Remote</option>
                   <option value="unknown">Unbekannt</option>
                 </select>
               </label>
               <label>Verfügbarkeit
-                <select [ngModel]="store.availabilityFilter()" (ngModelChange)="store.availabilityFilter.set($event)">
+                <select [ngModel]="store.availabilityFilter()" (ngModelChange)="store.availabilityFilter.set($event); store.virtualStart.set(0)">
                   <option value="all">Alle</option><option value="available">Verfügbar</option>
                   <option value="degraded">Degraded</option><option value="unavailable">Nicht verfügbar</option>
                   <option value="unknown">Unbestätigt</option>
                 </select>
               </label>
               <label>Quelle
-                <select [ngModel]="store.sourceFilter()" (ngModelChange)="store.sourceFilter.set($event)">
+                <select [ngModel]="store.sourceFilter()" (ngModelChange)="store.sourceFilter.set($event); store.virtualStart.set(0)">
                   <option value="all">Alle</option><option value="configured">Konfiguriert</option>
                   <option value="discovered">Entdeckt</option><option value="observed_runtime">Beobachtet</option>
                   <option value="remote">Remote</option>
                 </select>
               </label>
+              <label>Health
+                <select [ngModel]="store.healthFilter()" (ngModelChange)="store.healthFilter.set($event); store.virtualStart.set(0)">
+                  <option value="all">Alle</option><option value="healthy">Healthy</option>
+                  <option value="degraded">Degraded</option><option value="unavailable">Nicht verfügbar</option>
+                  <option value="unknown">Unbekannt</option>
+                </select>
+              </label>
+              <label>Capability
+                <select [ngModel]="store.capabilityFilter()" (ngModelChange)="store.capabilityFilter.set($event); store.virtualStart.set(0)">
+                  <option value="all">Alle</option>
+                  @for (capability of store.capabilityOptions(); track capability) { <option [value]="capability">{{ capability }}</option> }
+                </select>
+              </label>
+              <label>Geladen
+                <select [ngModel]="store.loadedFilter()" (ngModelChange)="store.loadedFilter.set($event); store.virtualStart.set(0)">
+                  <option value="all">Alle</option><option value="loaded">Geladen</option>
+                  <option value="not_loaded">Nicht geladen</option><option value="unknown">Unbekannt</option>
+                </select>
+              </label>
+              <label>Verwendung
+                <select [ngModel]="store.usageFilter()" (ngModelChange)="store.usageFilter.set($event); store.virtualStart.set(0)">
+                  <option value="all">Alle</option><option value="used">Verwendet</option><option value="unused">Nicht verwendet</option>
+                </select>
+              </label>
+              <label>Gruppieren
+                <select [ngModel]="store.groupBy()" (ngModelChange)="store.groupBy.set($event); store.virtualStart.set(0)">
+                  <option value="provider">Provider</option><option value="runtime">Runtime</option>
+                  <option value="source">Quelle</option><option value="none">Keine Gruppierung</option>
+                </select>
+              </label>
+              <button type="button" class="button-outline filter-reset" (click)="store.resetInventoryFilters()">Filter zurücksetzen</button>
             </div>
 
             @for (source of store.inventory()?.sources ?? []; track source.source_id) {
@@ -83,34 +114,57 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
                 </p>
               }
             }
-            <p class="muted">{{ store.filteredModels().length }} Treffer; maximal 500 werden gleichzeitig dargestellt.</p>
-            <div class="model-table-wrap">
+            <p class="muted">{{ store.filteredModels().length }} Treffer; virtualisiert werden nur {{ store.visibleModels().length }} Zeilen gerendert.</p>
+            <div class="model-table-wrap virtual-viewport" (scroll)="onModelScroll($event)">
               <table class="model-table">
-                <thead><tr><th>Modell</th><th>Provider / Executor</th><th>Runtime</th><th>Status</th><th>Quellen</th><th>Details</th></tr></thead>
+                <thead><tr>
+                  <th><button type="button" class="sort-button" (click)="store.toggleSort('name')">Modell {{ sortMarker('name') }}</button></th>
+                  <th><button type="button" class="sort-button" (click)="store.toggleSort('provider')">Provider / Executor {{ sortMarker('provider') }}</button></th>
+                  <th><button type="button" class="sort-button" (click)="store.toggleSort('runtime')">Runtime {{ sortMarker('runtime') }}</button></th>
+                  <th><button type="button" class="sort-button" (click)="store.toggleSort('availability')">Status {{ sortMarker('availability') }}</button></th>
+                  <th>Quellen</th><th>Details</th></tr></thead>
                 <tbody>
+                  @if (store.virtualTopHeight() > 0) { <tr aria-hidden="true"><td colspan="6" class="virtual-spacer" [style.height.px]="store.virtualTopHeight()"></td></tr> }
                   @for (model of store.visibleModels(); track model.provider_id + ':' + model.model_id + ':' + model.executor_id) {
-                    <tr>
+                    <tr class="model-row">
                       <td><strong>{{ model.display_name }}</strong><code>{{ model.model_id }}</code></td>
                       <td><span>{{ model.provider_id }}</span><code>{{ model.executor_id }}</code></td>
                       <td>{{ model.runtime }}</td>
                       <td>{{ model.availability }} / {{ model.health }}</td>
                       <td>{{ model.source_kinds.join(', ') }}</td>
-                      <td>
-                        <details>
-                          <summary>Öffnen</summary>
-                          <p>Profile: {{ model.profile_ids.join(', ') || 'keine' }}</p>
-                          <p>Capabilities: {{ capabilityLabels(model) }}</p>
-                          <p>Listing: {{ model.listing_supported ? 'unterstützt' : 'nicht unterstützt' }}</p>
-                          <p>Installiert: {{ model.installed === null ? 'unbekannt' : model.installed }}</p>
-                          <p>Verwendet von: {{ model.used_by_consumers.join(', ') || 'keinem Consumer' }}</p>
-                          @if (model.conflicts.length) { <p class="warning">Konflikte: {{ model.conflicts.join(', ') }}</p> }
-                        </details>
-                      </td>
+                      <td><button type="button" class="button-outline" (click)="store.selectedModel.set(model)"
+                        [attr.aria-label]="'Details für ' + model.display_name">Öffnen</button></td>
                     </tr>
                   }
+                  @if (store.virtualBottomHeight() > 0) { <tr aria-hidden="true"><td colspan="6" class="virtual-spacer" [style.height.px]="store.virtualBottomHeight()"></td></tr> }
                 </tbody>
               </table>
             </div>
+            @if (store.selectedModel(); as model) {
+              <aside class="model-detail-drawer" role="dialog" aria-modal="false" aria-labelledby="model-detail-title">
+                <header><h3 id="model-detail-title">{{ model.display_name }}</h3>
+                  <button type="button" (click)="store.selectedModel.set(null)" aria-label="Modelldetails schließen">Schließen</button></header>
+                <dl>
+                  <div><dt>Identität</dt><dd><code>{{ model.provider_id }} / {{ model.model_id }}</code></dd></div>
+                  <div><dt>Executor</dt><dd><code>{{ model.executor_id }}</code></dd></div>
+                  <div><dt>Profile / Aliase</dt><dd>{{ model.profile_ids.join(', ') || 'keine' }} / {{ model.aliases.join(', ') || 'keine' }}</dd></div>
+                  <div><dt>Quelle</dt><dd>{{ model.source_ids.join(', ') }} ({{ model.source_kinds.join(', ') }})</dd></div>
+                  <div><dt>Kontext / Quantisierung</dt><dd>{{ model.context_window ?? 'unbekannt' }} / {{ model.quantization ?? 'unbekannt' }}</dd></div>
+                  <div><dt>Modalitäten</dt><dd>{{ model.input_modalities.join(', ') || 'unbekannt' }} → {{ model.output_modalities.join(', ') || 'unbekannt' }}</dd></div>
+                  <div><dt>Kosten pro 1M Tokens</dt><dd>{{ model.price_input_per_million ?? 'unbekannt' }} / {{ model.price_output_per_million ?? 'unbekannt' }}</dd></div>
+                  <div><dt>Capabilities</dt><dd>{{ capabilityLabels(model) }}</dd></div>
+                  <div><dt>Installiert / geladen</dt><dd>{{ triState(model.installed) }} / {{ triState(model.loaded) }}</dd></div>
+                  <div><dt>Verwendet von</dt><dd>{{ model.used_by_consumers.join(', ') || 'keinem Consumer' }}</dd></div>
+                </dl>
+                @if (model.metadata_facts.length) {
+                  <h4>Metadaten-Evidenz</h4>
+                  @for (fact of model.metadata_facts; track fact.fact_id + ':' + fact.source_id) {
+                    <p><code>{{ fact.fact_id }}</code>: {{ fact.value }} · {{ fact.evidence }} / {{ fact.source_id }}</p>
+                  }
+                }
+                @if (model.conflicts.length) { <p class="warning">Konflikte: {{ model.conflicts.join(', ') }}</p> }
+              </aside>
+            }
           </section>
         }
 
@@ -331,10 +385,13 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
     .model-tabs { border-bottom: 1px solid #b8c8c9; display: flex; gap: .25rem; overflow-x: auto; }
     .model-tabs button { background: transparent; border: 0; border-bottom: 3px solid transparent; padding: .7rem 1rem; }
     .model-tabs button.active { border-bottom-color: #286773; font-weight: 700; }
-    .filters { display: grid; gap: .7rem; grid-template-columns: minmax(16rem, 2fr) repeat(3, minmax(9rem, 1fr)); margin-bottom: 1rem; }
+    .filters { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); margin-bottom: 1rem; }
+    .filters label:first-child { grid-column: span 2; }.filter-reset { align-self: end; min-height: 2.2rem; }
     label { display: grid; font-size: .82rem; gap: .25rem; }
     input, select { border: 1px solid #8da6a7; border-radius: .35rem; min-height: 2.2rem; padding: .35rem; }
     .model-table-wrap, .assignment-table-wrap { max-width: 100%; overflow: auto; }
+    .virtual-viewport { max-height: 42rem; position: relative; }.virtual-viewport thead { background: white; position: sticky; top: 0; z-index: 2; }
+    .virtual-spacer { border: 0; padding: 0; }.model-row { height: 72px; }.sort-button { background: transparent; border: 0; font: inherit; font-weight: 700; padding: 0; text-align: left; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
@@ -349,6 +406,8 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
     .provider-failure, .model-error { background: #fff0eb; border-left: 4px solid #9f3029; padding: .7rem; }
     .warning { color: #8b3d12; }.validation-ok { background: #e5f6eb; border-left: 4px solid #287b45; padding: .7rem; }
     .danger-button { background: #8d2924; color: white; }.import-field { margin-top: 1rem; }
+    .model-detail-drawer { background: white; border: 2px solid #286773; border-radius: .8rem; box-shadow: 0 .7rem 2rem #173c4833; inset: 5rem 1rem auto auto; max-height: calc(100vh - 7rem); max-width: min(42rem, calc(100vw - 2rem)); overflow: auto; padding: 1rem; position: fixed; width: 100%; z-index: 20; }
+    .model-detail-drawer > header { align-items: center; display: flex; justify-content: space-between; }.model-detail-drawer dl { display: grid; gap: .5rem; }.model-detail-drawer dl div { border-bottom: 1px solid #cfdbdc; display: grid; gap: .5rem; grid-template-columns: minmax(9rem, .4fr) 1fr; padding-bottom: .4rem; }.model-detail-drawer dt { font-weight: 700; }
     pre { max-height: 20rem; overflow: auto; white-space: pre-wrap; }
     button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #1677c8; outline-offset: 2px; }
     @media (max-width: 850px) { .filters { grid-template-columns: 1fr 1fr; }.fallback-card li { grid-template-columns: 1fr; } }
@@ -383,6 +442,18 @@ export class ModelDashboardComponent implements OnInit {
 
   capabilityLabels(model: { capabilities: readonly { capability_id: string; value: string; evidence: string }[] }): string {
     return model.capabilities.map(item => `${item.capability_id}: ${item.value} (${item.evidence})`).join(', ') || 'unbekannt';
+  }
+
+  onModelScroll(event: Event): void {
+    this.store.setVirtualScroll((event.target as HTMLElement).scrollTop);
+  }
+
+  sortMarker(key: ModelSortKey): string {
+    return this.store.sortKey() === key ? (this.store.sortDirection() === 'asc' ? '↑' : '↓') : '';
+  }
+
+  triState(value: boolean | null): string {
+    return value === null ? 'unbekannt' : value ? 'ja' : 'nein';
   }
 
   candidateProfileIds(group: { candidates: readonly { profile_id: string }[] }): readonly string[] {
