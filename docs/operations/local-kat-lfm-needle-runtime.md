@@ -30,8 +30,10 @@ scripts/local-multi-model-runtime.sh start
 ```
 
 Deploy the additive overlay together with the compose files already used by
-the instance. It sets profile routing in Hub and Workers and enables Needle in
-shadow mode; it does not replace existing LM-Studio or Ollama files:
+the instance. It sets profile routing in Hub and Workers, enables Needle in
+shadow mode and activates the release-gated central routing editor plus the
+read-only legacy picker migration in the Hub. It does not replace existing
+LM-Studio or Ollama files:
 
 ```bash
 docker compose --env-file .env \

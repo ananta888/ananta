@@ -1,14 +1,18 @@
 services:
   ai-agent-hub:
-    environment: &local_model_environment
-      MODEL_PROFILES_PATH: /app/config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml
-      MODEL_ROUTING_PATH: /app/config/models/local-kat-lfm-needle-rtx3080.model_routing.json
-      ANANTA_LOCAL_MODEL_API_KEY: ${ANANTA_LOCAL_MODEL_API_KEY:?set ANANTA_LOCAL_MODEL_API_KEY}
-      ANANTA_NEEDLE_ENDPOINT: http://host.docker.internal:8083
-      ANANTA_NEEDLE_TOKEN: ${ANANTA_NEEDLE_TOKEN:?set ANANTA_NEEDLE_TOKEN}
-      ANANTA_TINY_ROUTER_MODE: shadow
-      ANANTA_TINY_ROUTER_PROFILES: needle-2-45m,lfm2.5-2.6b-agentic
-      ANANTA_AI_SNAKE_PROFILE_ROUTING: "true"
+    environment:
+      <<: &local_model_environment
+        MODEL_PROFILES_PATH: /app/config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml
+        MODEL_ROUTING_PATH: /app/config/models/local-kat-lfm-needle-rtx3080.model_routing.json
+        ANANTA_LOCAL_MODEL_API_KEY: ${ANANTA_LOCAL_MODEL_API_KEY:?set ANANTA_LOCAL_MODEL_API_KEY}
+        ANANTA_NEEDLE_ENDPOINT: http://host.docker.internal:8083
+        ANANTA_NEEDLE_TOKEN: ${ANANTA_NEEDLE_TOKEN:?set ANANTA_NEEDLE_TOKEN}
+        ANANTA_TINY_ROUTER_MODE: shadow
+        ANANTA_TINY_ROUTER_PROFILES: needle-2-45m,lfm2.5-2.6b-agentic
+        ANANTA_AI_SNAKE_PROFILE_ROUTING: "true"
+      FEATURE_MODEL_CATALOG_V2_ENABLED: "1"
+      FEATURE_MODEL_ROUTING_EDITOR_ENABLED: "1"
+      FEATURE_LEGACY_MODEL_PICKER_DEPRECATION_ENABLED: "1"
 
   ai-agent-alpha:
     environment: *local_model_environment
