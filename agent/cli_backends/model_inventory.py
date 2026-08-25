@@ -128,11 +128,13 @@ class CliBackendModelInventoryAdapter:
                     capability_id="code",
                     value="supported",
                     evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
                 ),
                 ModelCapabilityClaim(
                     capability_id="model_listing",
                     value="unsupported",
                     evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
                 ),
             ),
         )

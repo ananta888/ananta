@@ -278,6 +278,7 @@ class ModelCapabilityClaim(_ClosedContract):
     capability_id: str
     value: Literal["supported", "unsupported", "unknown"] = "unknown"
     evidence: ModelMetadataEvidence = ModelMetadataEvidence.UNKNOWN
+    source_id: str | None = None
 
     @field_validator("capability_id")
     @classmethod
@@ -286,6 +287,36 @@ class ModelCapabilityClaim(_ClosedContract):
         if not _CAPABILITY.fullmatch(normalized):
             raise ValueError("model_capability_claim_invalid")
         return normalized
+
+    @field_validator("source_id")
+    @classmethod
+    def _capability_source(cls, value: str | None) -> str | None:
+        if value is not None and not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_capability_source_invalid")
+        return value
+
+
+class ModelMetadataFact(_ClosedContract):
+    fact_id: str
+    value: str = Field(min_length=1, max_length=512)
+    evidence: ModelMetadataEvidence = ModelMetadataEvidence.UNKNOWN
+    source_id: str
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+    @field_validator("fact_id")
+    @classmethod
+    def _fact_id(cls, value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if not _CAPABILITY.fullmatch(normalized):
+            raise ValueError("model_metadata_fact_id_invalid")
+        return normalized
+
+    @field_validator("source_id")
+    @classmethod
+    def _fact_source(cls, value: str) -> str:
+        if not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_metadata_fact_source_invalid")
+        return value
 
 
 class ModelInventoryDescriptor(_ClosedContract):
@@ -313,7 +344,12 @@ class ModelInventoryDescriptor(_ClosedContract):
     auth_ready: bool | None = None
     context_window: int | None = Field(default=None, ge=1, le=100_000_000)
     quantization: str | None = Field(default=None, min_length=1, max_length=64)
+    input_modalities: tuple[str, ...] = ()
+    output_modalities: tuple[str, ...] = ()
+    price_input_per_million: float | None = Field(default=None, ge=0)
+    price_output_per_million: float | None = Field(default=None, ge=0)
     capabilities: tuple[ModelCapabilityClaim, ...] = ()
+    metadata_facts: tuple[ModelMetadataFact, ...] = ()
     conflicts: tuple[str, ...] = ()
     used_by_consumers: tuple[str, ...] = ()
 
@@ -332,6 +368,16 @@ class ModelInventoryDescriptor(_ClosedContract):
             not _IDENTIFIER.fullmatch(value) for value in normalized
         ):
             raise ValueError("model_inventory_identifiers_invalid")
+        return normalized
+
+    @field_validator("input_modalities", "output_modalities")
+    @classmethod
+    def _inventory_modalities(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(sorted({str(value).strip().lower() for value in values}))
+        if len(normalized) > 32 or any(
+            not _CAPABILITY.fullmatch(value) for value in normalized
+        ):
+            raise ValueError("model_inventory_modalities_invalid")
         return normalized
 
 
@@ -384,6 +430,7 @@ __all__ = [
     "ModelInventoryDescriptor",
     "ModelInventorySourceStatus",
     "ModelMetadataEvidence",
+    "ModelMetadataFact",
     "ImportedModelVersion",
     "ModelCapabilityFacet",
     "ModelRuntime",

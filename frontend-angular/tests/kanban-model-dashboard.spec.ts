@@ -223,7 +223,10 @@ async function authenticatedFixtures(page: Page): Promise<{
       availability: 'available', health: 'healthy', configured: true,
       installed: true, loaded: true, listing_supported: true, auth_mode: null,
       auth_ready: null, context_window: 8192, quantization: 'Q4',
-      capabilities: [{ capability_id: 'chat', value: 'supported', evidence: 'detected' }],
+      input_modalities: ['text'], output_modalities: ['text'],
+      price_input_per_million: null, price_output_per_million: null,
+      capabilities: [{ capability_id: 'chat', value: 'supported', evidence: 'detected', source_id: 'providers.catalog' }],
+      metadata_facts: [],
       conflicts: [], used_by_consumers: ['task.coding'],
     }],
     sources: [{

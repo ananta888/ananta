@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 
 from flask import Blueprint, current_app, g, request
@@ -58,6 +59,9 @@ from agent.services.model_selection_service import (
     ModelRoutingConflict,
 )
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
+from agent.services.openrouter_model_inventory_adapter import (
+    OpenRouterModelInventoryAdapter,
+)
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
 from agent.services.surface_rate_limit_policy import (
@@ -101,7 +105,6 @@ def _model_consumer_registry() -> ModelConsumerRegistry:
 def _known_model_profiles() -> tuple[ModelProfile, ...]:
     path = str(current_app.config.get("MODEL_PROFILES_PATH") or "").strip()
     if not path:
-        import os
         path = str(os.environ.get("MODEL_PROFILES_PATH") or "").strip()
     if not path:
         return ()
@@ -110,8 +113,6 @@ def _known_model_profiles() -> tuple[ModelProfile, ...]:
 
 
 def _configured_model_profiles_path() -> str:
-    import os
-
     return str(
         current_app.config.get("MODEL_PROFILES_PATH")
         or os.environ.get("MODEL_PROFILES_PATH")
@@ -130,6 +131,15 @@ def _model_inventory_service() -> ModelInventoryService:
                 build_cli_model_inventory_adapters,
             )
 
+            openrouter_key = str(os.environ.get("OPENROUTER_API_KEY") or "").strip()
+            external_adapters = (
+                (OpenRouterModelInventoryAdapter(
+                    lambda: str(os.environ.get("OPENROUTER_API_KEY") or "")
+                ),)
+                if openrouter_key
+                else ()
+            )
+
             _MODEL_INVENTORY_SERVICE = ModelInventoryService((
                 ProviderCatalogModelInventoryAdapter(
                     lambda force_refresh: _model_catalog_service().versioned_catalog(
@@ -141,6 +151,7 @@ def _model_inventory_service() -> ModelInventoryService:
                     lambda: SqlModelRoutingConfigurationRepository().load(),
                 ),
                 *build_cli_model_inventory_adapters(),
+                *external_adapters,
             ))
     return _MODEL_INVENTORY_SERVICE
 

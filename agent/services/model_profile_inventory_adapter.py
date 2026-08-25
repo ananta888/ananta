@@ -12,6 +12,7 @@ from ananta_contracts.model_catalog import (
     ModelHealth,
     ModelInventoryDescriptor,
     ModelMetadataEvidence,
+    ModelMetadataFact,
     ModelRuntime,
     ModelSourceKind,
 )
@@ -60,16 +61,19 @@ class ConfiguredProfileModelInventoryAdapter:
                     profile.supports_tools or profile.supports_prompt_json_tools()
                 ) else "unsupported",
                 evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
             ),
             ModelCapabilityClaim(
                 capability_id="json",
                 value="supported" if profile.supports_json else "unsupported",
                 evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
             ),
             ModelCapabilityClaim(
                 capability_id="streaming",
                 value="supported" if profile.supports_streaming else "unsupported",
                 evidence=ModelMetadataEvidence.DECLARED,
+                source_id=self.source_id,
             ),
         )
         runtime = ModelRuntime.CLOUD if profile.is_cloud() else ModelRuntime.LOCAL
@@ -90,7 +94,26 @@ class ConfiguredProfileModelInventoryAdapter:
             quantization=(
                 str(profile.extra.get("quantization") or "").strip() or None
             ),
+            price_input_per_million=profile.price_input_per_million,
+            price_output_per_million=profile.price_output_per_million,
             capabilities=claims,
+            metadata_facts=(
+                ModelMetadataFact(
+                    fact_id="model_role", value=profile.model_role,
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+                ModelMetadataFact(
+                    fact_id="quality_class", value=profile.quality_class,
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+                ModelMetadataFact(
+                    fact_id="cost_class", value=profile.cost_class,
+                    evidence=ModelMetadataEvidence.DECLARED,
+                    source_id=self.source_id,
+                ),
+            ),
             used_by_consumers=tuple(sorted(
                 consumers_by_profile.get(profile.profile_id, set())
             )),

@@ -47,6 +47,7 @@ class ProviderCatalogModelInventoryAdapter:
                             capability_id=value,
                             value="supported",
                             evidence=ModelMetadataEvidence.DETECTED,
+                            source_id=self.source_id,
                         )
                         for value in item.capabilities
                     ),

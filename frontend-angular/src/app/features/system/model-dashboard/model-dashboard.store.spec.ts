@@ -24,7 +24,9 @@ describe('ModelDashboardStore', () => {
       profile_ids: [`profile-${index}`], aliases: [], availability: 'available', health: 'healthy',
       configured: true, installed: true, loaded: false, listing_supported: true,
       auth_mode: null, auth_ready: null, context_window: 8192, quantization: null,
-      capabilities: [], conflicts: [], used_by_consumers: [],
+      input_modalities: ['text'], output_modalities: ['text'],
+      price_input_per_million: null, price_output_per_million: null,
+      capabilities: [], metadata_facts: [], conflicts: [], used_by_consumers: [],
     }));
     client = {
       readInventory: vi.fn(() => of({

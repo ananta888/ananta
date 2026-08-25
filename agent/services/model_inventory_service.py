@@ -17,6 +17,8 @@ from ananta_contracts.model_catalog import (
     ModelInventoryDescriptor,
     ModelInventorySourceStatus,
     ModelMetadataEvidence,
+    ModelMetadataFact,
+    ModelRuntime,
     ModelSourceKind,
 )
 
@@ -295,6 +297,32 @@ class ModelInventoryService:
             if health_values == {ModelHealth.UNAVAILABLE}
             else ModelHealth.UNKNOWN
         )
+        runtimes = {item.runtime for item in group}
+        runtime = first.runtime if len(runtimes) == 1 else ModelRuntime.UNKNOWN
+        if len(runtimes) > 1:
+            conflicts.add("runtime")
+
+        def scalar(name: str):
+            values = {
+                getattr(item, name) for item in group
+                if getattr(item, name) is not None
+            }
+            if len(values) > 1:
+                conflicts.add(name)
+                return None
+            return next(iter(values), None)
+
+        facts_by_id: dict[str, list[ModelMetadataFact]] = {}
+        for item in group:
+            for fact in item.metadata_facts:
+                facts_by_id.setdefault(fact.fact_id, []).append(fact)
+        facts: list[ModelMetadataFact] = []
+        for fact_id, values in sorted(facts_by_id.items()):
+            fact_values = {item.value for item in values}
+            if len(fact_values) > 1:
+                conflicts.add(f"metadata:{fact_id}")
+            else:
+                facts.extend(values)
         return ModelInventoryDescriptor.model_validate({
             **first.model_dump(mode="python", by_alias=True),
             "source_ids": tuple(
@@ -310,6 +338,7 @@ class ModelInventoryService:
             "aliases": tuple(value for item in group for value in item.aliases),
             "availability": availability,
             "health": health,
+            "runtime": runtime,
             "configured": any(item.configured for item in group),
             "installed": (
                 True if any(item.installed is True for item in group)
@@ -322,7 +351,18 @@ class ModelInventoryService:
                 else None
             ),
             "listing_supported": any(item.listing_supported for item in group),
+            "context_window": scalar("context_window"),
+            "quantization": scalar("quantization"),
+            "price_input_per_million": scalar("price_input_per_million"),
+            "price_output_per_million": scalar("price_output_per_million"),
+            "input_modalities": tuple(
+                value for item in group for value in item.input_modalities
+            ),
+            "output_modalities": tuple(
+                value for item in group for value in item.output_modalities
+            ),
             "capabilities": tuple(merged_claims),
+            "metadata_facts": tuple(facts),
             "conflicts": tuple(sorted(conflicts)),
             "used_by_consumers": tuple(
                 value for item in group for value in item.used_by_consumers

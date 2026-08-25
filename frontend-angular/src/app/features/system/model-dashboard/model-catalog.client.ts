@@ -36,6 +36,15 @@ export interface ModelCapabilityClaim {
   readonly capability_id: string;
   readonly value: 'supported' | 'unsupported' | 'unknown';
   readonly evidence: 'declared' | 'detected' | 'benchmark' | 'manual' | 'unknown';
+  readonly source_id: string | null;
+}
+
+export interface ModelMetadataFact {
+  readonly fact_id: string;
+  readonly value: string;
+  readonly evidence: 'declared' | 'detected' | 'benchmark' | 'manual' | 'unknown';
+  readonly source_id: string;
+  readonly confidence: number | null;
 }
 
 export interface ModelInventoryDescriptor {
@@ -59,7 +68,12 @@ export interface ModelInventoryDescriptor {
   readonly auth_ready: boolean | null;
   readonly context_window: number | null;
   readonly quantization: string | null;
+  readonly input_modalities: readonly string[];
+  readonly output_modalities: readonly string[];
+  readonly price_input_per_million: number | null;
+  readonly price_output_per_million: number | null;
   readonly capabilities: readonly ModelCapabilityClaim[];
+  readonly metadata_facts: readonly ModelMetadataFact[];
   readonly conflicts: readonly string[];
   readonly used_by_consumers: readonly string[];
 }

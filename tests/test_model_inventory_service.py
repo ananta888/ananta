@@ -15,6 +15,7 @@ from ananta_contracts.model_catalog import (
     ModelMetadataEvidence,
     ModelRuntime,
     ModelSourceKind,
+    ModelMetadataFact,
 )
 
 
@@ -124,6 +125,33 @@ def test_deduplication_reports_conflicting_capability_evidence():
     )
     assert catalog.models[0].capabilities[0].value == "unknown"
     assert catalog.models[0].conflicts == ("capability:tools",)
+
+
+def test_deduplication_preserves_sources_and_surfaces_scalar_conflicts():
+    first = _model("same", "source:first").model_copy(update={
+        "context_window": 8192,
+        "metadata_facts": (ModelMetadataFact(
+            fact_id="model_role", value="coder",
+            evidence=ModelMetadataEvidence.DECLARED, source_id="source:first",
+        ),),
+    })
+    second = _model("same", "source:second").model_copy(update={
+        "context_window": 32768,
+        "metadata_facts": (ModelMetadataFact(
+            fact_id="model_role", value="chat",
+            evidence=ModelMetadataEvidence.DETECTED, source_id="source:second",
+        ),),
+    })
+
+    merged = ModelInventoryService((
+        _Adapter("source:first", (first,)),
+        _Adapter("source:second", (second,)),
+    )).catalog().models[0]
+
+    assert merged.context_window is None
+    assert "context_window" in merged.conflicts
+    assert "metadata:model_role" in merged.conflicts
+    assert merged.metadata_facts == ()
 
 
 def test_source_exception_text_is_redacted_unless_it_is_a_reason_code():
