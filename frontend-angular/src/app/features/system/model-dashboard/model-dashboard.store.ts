@@ -5,6 +5,7 @@ import { catchError, forkJoin, of } from 'rxjs';
 import { NotificationService } from '../../../services/notification.service';
 import { UserAuthService } from '../../../services/user-auth.service';
 import { SystemFacade } from '../../system/system.facade';
+import { DashboardFeatureFlagStore } from '../../dashboard-foundation/dashboard-feature-flags';
 import {
   EffectiveModelRoute,
   ModelCatalog,
@@ -47,6 +48,7 @@ export class ModelDashboardStore {
   private readonly auth = inject(UserAuthService);
   private readonly notifications = inject(NotificationService);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly features = inject(DashboardFeatureFlagStore);
   private baseUrl = '';
 
   readonly activeTab = signal<ModelDashboardTab>('overview');
@@ -83,9 +85,11 @@ export class ModelDashboardStore {
 
   readonly canRefresh = computed(() => canUseModelMutation(this.user(), 'model_catalog.refresh'));
   readonly canSetDefault = computed(() => canUseModelMutation(this.user(), 'model_catalog.set_default'));
-  readonly canValidate = computed(() => canUseModelMutation(this.user(), 'model_routing.validate'));
+  readonly canValidate = computed(() => this.features.modelRoutingEditor()
+    && canUseModelMutation(this.user(), 'model_routing.validate'));
   readonly canExport = computed(() => canUseModelMutation(this.user(), 'model_routing.export'));
-  readonly canMutate = computed(() => canUseModelMutation(this.user(), 'model_routing.mutate'));
+  readonly canMutate = computed(() => this.features.modelRoutingEditor()
+    && canUseModelMutation(this.user(), 'model_routing.mutate'));
   readonly dirty = computed(() => JSON.stringify(this.authoritativeRouting()) !== JSON.stringify(this.draftRouting()));
   readonly filteredModels = computed(() => {
     const search = this.search().trim().toLocaleLowerCase();
@@ -167,6 +171,12 @@ export class ModelDashboardStore {
     }
     return [...groups.entries()].map(([category, values]) => ({ category, consumers: values }));
   });
+  readonly scopedAssignments = computed(() => (
+    this.draftRouting()?.assignments ?? []
+  ).filter(item => item.scope !== 'global').sort((left, right) => (
+    `${left.consumer_id}:${left.scope}:${left.scope_id}`
+      .localeCompare(`${right.consumer_id}:${right.scope}:${right.scope_id}`)
+  )));
   readonly routingDiff = computed(() => {
     const current = this.authoritativeRouting();
     const draft = this.draftRouting();
@@ -367,6 +377,50 @@ export class ModelDashboardStore {
         item => item.consumer_id === consumerId && item.scope === 'global',
       );
       if (assignment) assignment.fallback_group_id = groupId || null;
+    });
+  }
+
+  upsertScopedAssignment(
+    consumerId: string,
+    scope: 'organization' | 'project' | 'workflow' | 'agent' | 'role' | 'task_kind' | 'step',
+    scopeId: string,
+    mode: 'inherit' | 'profile' | 'disabled',
+    profileId = '',
+    fallbackGroupId = '',
+  ): void {
+    const normalizedScopeId = scopeId.trim();
+    const consumer = this.consumers().find(item => item.consumer_id === consumerId);
+    if (
+      !consumer?.routable
+      || !consumer.allowed_scopes.includes(scope)
+      || !/^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}$/.test(normalizedScopeId)
+      || (mode === 'profile' && !profileId)
+    ) {
+      this.error.set('Scoped Assignment ist unvollständig oder ungültig.');
+      return;
+    }
+    this.updateDraft(draft => {
+      draft.assignments = draft.assignments.filter(item => !(
+        item.consumer_id === consumerId && item.scope === scope && item.scope_id === normalizedScopeId
+      ));
+      draft.assignments.push({
+        consumer_id: consumerId,
+        scope,
+        scope_id: normalizedScopeId,
+        mode,
+        profile_id: mode === 'profile' ? profileId : null,
+        provider_id: null,
+        model_id: null,
+        fallback_group_id: fallbackGroupId || null,
+      });
+    });
+  }
+
+  removeScopedAssignment(consumerId: string, scope: string, scopeId: string): void {
+    this.updateDraft(draft => {
+      draft.assignments = draft.assignments.filter(item => !(
+        item.consumer_id === consumerId && item.scope === scope && item.scope_id === scopeId
+      ));
     });
   }
 
@@ -629,6 +683,7 @@ export class ModelDashboardStore {
   }
 
   private updateDraft(update: (draft: ModelRoutingConfiguration) => void): void {
+    if (!this.features.modelRoutingEditor()) return;
     const current = this.draftRouting();
     if (!current) return;
     const draft = cloneRouting(current);

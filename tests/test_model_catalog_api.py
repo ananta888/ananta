@@ -36,6 +36,8 @@ def _headers(token: str) -> dict[str, str]:
 def _enable_model_dashboard(app) -> None:
     config = dict(app.config.get("AGENT_CONFIG", {}) or {})
     config["feature_angular_model_dashboard_enabled"] = True
+    config["feature_model_catalog_v2_enabled"] = True
+    config["feature_model_routing_editor_enabled"] = True
     app.config["AGENT_CONFIG"] = config
 
 
@@ -107,6 +109,9 @@ def test_feature_contract_defaults_false_and_rejects_string_updates(
     assert response.json["data"]["features"] == {
         "angular_kanban": False,
         "angular_model_dashboard": False,
+        "model_catalog_v2": False,
+        "model_routing_editor": False,
+        "legacy_model_picker_deprecation": False,
         "tui_kanban": False,
         "tui_model_menu": False,
     }
@@ -212,6 +217,46 @@ def test_catalog_v2_and_refresh_use_canonical_inventory_service(
     assert read.json["data"]["models"][0]["executor_id"] == "cli:codex"
     assert read.json["data"]["models"][0]["listing_supported"] is False
     assert inventory.force_refresh_values == [False, True]
+
+
+def test_staged_catalog_and_editor_flags_fail_closed_independently(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    config = dict(app.config.get("AGENT_CONFIG", {}) or {})
+    config["feature_angular_model_dashboard_enabled"] = True
+    config["feature_model_catalog_v2_enabled"] = False
+    config["feature_model_routing_editor_enabled"] = False
+    app.config["AGENT_CONFIG"] = config
+    monkeypatch.setattr(providers, "_model_catalog_service", lambda: _FakeCatalog())
+    assignments = ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=("local-code",),
+    )
+    monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
+
+    v1 = client.get("/models/catalog/v1", headers=_headers(admin_token))
+    v2 = client.get("/models/catalog/v2", headers=_headers(admin_token))
+    mutation = client.put(
+        "/models/routing/v1",
+        json={
+            "schema": "ananta.model-routing-mutation-command.v1",
+            "expected_revision": 0,
+            "assignments": [],
+            "fallback_groups": [],
+        },
+        headers=_headers(admin_token),
+    )
+
+    assert v1.status_code == 200
+    assert v2.status_code == 404
+    assert v2.json["message"] == "model_catalog_feature_disabled"
+    assert mutation.status_code == 404
+    assert mutation.json["message"] == "model_routing_editor_feature_disabled"
+    assert assignments.read().revision == 0
 
 
 def test_refresh_and_default_selection_require_capability(

@@ -14,11 +14,17 @@ import {
 const ENABLED: DashboardFeatureFlags = Object.freeze({
   angularKanban: true,
   angularModelDashboard: true,
+  modelCatalogV2: true,
+  modelRoutingEditor: true,
+  legacyModelPickerDeprecation: true,
 });
 
 const KANBAN_ONLY: DashboardFeatureFlags = Object.freeze({
   angularKanban: true,
   angularModelDashboard: false,
+  modelCatalogV2: false,
+  modelRoutingEditor: false,
+  legacyModelPickerDeprecation: false,
 });
 
 type Harness = {
@@ -160,5 +166,23 @@ describe('dashboard feature flags', () => {
         },
       },
     })).toEqual(KANBAN_ONLY);
+  });
+
+  it('decodes independently staged model rollout flags', () => {
+    expect(decodeDashboardFeatureFlags({
+      schema: 'ananta.dashboard-feature-flags.v1',
+      features: {
+        angular_kanban: false,
+        angular_model_dashboard: true,
+        model_catalog_v2: true,
+        model_routing_editor: false,
+        legacy_model_picker_deprecation: true,
+      },
+    })).toMatchObject({
+      angularModelDashboard: true,
+      modelCatalogV2: true,
+      modelRoutingEditor: false,
+      legacyModelPickerDeprecation: true,
+    });
   });
 });

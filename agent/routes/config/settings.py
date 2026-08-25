@@ -58,6 +58,9 @@ def _dashboard_feature_flags():
         for key in (
             "feature_angular_kanban_enabled",
             "feature_angular_model_dashboard_enabled",
+            "feature_model_catalog_v2_enabled",
+            "feature_model_routing_editor_enabled",
+            "feature_legacy_model_picker_deprecation_enabled",
             "feature_tui_kanban_enabled",
             "feature_tui_model_menu_enabled",
         )

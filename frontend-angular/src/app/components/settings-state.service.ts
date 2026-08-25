@@ -4,6 +4,7 @@ import { AgentApiService } from '../services/agent-api.service';
 import { NotificationService } from '../services/notification.service';
 import { UserAuthService } from '../services/user-auth.service';
 import { SystemFacade } from '../features/system/system.facade';
+import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
 import {
   buildOllamaModelStrategyRowsValue, buildProjectModelRoutingRecommendationValue,
   createDefaultSettingsConfig, findMatchingCatalogModelId,
@@ -26,6 +27,7 @@ export function settingsSectionFromQuery(value: string | null): SettingsSection 
 
 @Directive()
 export class SettingsState implements OnInit {
+  readonly dashboardFeatures = inject(DashboardFeatureFlagStore);
   private api = inject(AgentApiService);
   private system = inject(SystemFacade);
   private ns = inject(NotificationService);

@@ -404,11 +404,52 @@ def _model_catalog_feature_enabled() -> bool:
             "feature_tui_model_menu_enabled",
             False,
         ),
+        "feature_model_catalog_v2_enabled": getattr(
+            runtime_settings, "feature_model_catalog_v2_enabled", False
+        ),
+        "feature_model_routing_editor_enabled": getattr(
+            runtime_settings, "feature_model_routing_editor_enabled", False
+        ),
+        "feature_legacy_model_picker_deprecation_enabled": getattr(
+            runtime_settings,
+            "feature_legacy_model_picker_deprecation_enabled",
+            False,
+        ),
     }
     return resolve_dashboard_feature_flags(
         app_cfg,
         defaults=defaults,
     ).model_catalog_enabled
+
+
+def _model_catalog_v2_enabled() -> bool:
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return resolve_dashboard_feature_flags(app_cfg, defaults={
+        "feature_angular_model_dashboard_enabled": getattr(
+            runtime_settings, "feature_angular_model_dashboard_enabled", False
+        ),
+        "feature_model_catalog_v2_enabled": getattr(
+            runtime_settings, "feature_model_catalog_v2_enabled", False
+        ),
+    }).model_catalog_v2
+
+
+def _model_routing_editor_enabled() -> bool:
+    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    return resolve_dashboard_feature_flags(app_cfg, defaults={
+        "feature_angular_model_dashboard_enabled": getattr(
+            runtime_settings, "feature_angular_model_dashboard_enabled", False
+        ),
+        "feature_model_routing_editor_enabled": getattr(
+            runtime_settings, "feature_model_routing_editor_enabled", False
+        ),
+    }).model_routing_editor
+
+
+def _routing_editor_disabled_response():
+    return api_response(
+        status="error", message="model_routing_editor_feature_disabled", code=404
+    )
 
 
 def _feature_disabled_response():
@@ -604,7 +645,7 @@ def get_versioned_model_catalog():
 @providers_bp.route("/models/catalog/v2", methods=["GET"])
 @check_auth
 def get_model_inventory_catalog():
-    if not _model_catalog_feature_enabled():
+    if not _model_catalog_feature_enabled() or not _model_catalog_v2_enabled():
         return _feature_disabled_response()
     if not _query_args_are_valid("task_kind"):
         return _model_catalog_input_error("model_catalog_query_invalid")
@@ -615,7 +656,7 @@ def get_model_inventory_catalog():
 @providers_bp.route("/models/catalog/v2/refresh", methods=["POST"])
 @check_auth
 def refresh_model_inventory_catalog():
-    if not _model_catalog_feature_enabled():
+    if not _model_catalog_feature_enabled() or not _model_catalog_v2_enabled():
         return _feature_disabled_response()
     if not _capability_allowed(MODEL_CATALOG_REFRESH_CAPABILITY):
         return _capability_denied_response(MODEL_CATALOG_REFRESH_CAPABILITY)
@@ -831,6 +872,8 @@ def dry_run_model_routing_configuration():
 def validate_model_routing_configuration():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
+    if not _model_routing_editor_enabled():
+        return _routing_editor_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_VALIDATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_VALIDATE_CAPABILITY)
     try:
@@ -871,6 +914,8 @@ def export_model_routing_configuration():
 def preview_model_routing_import():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
+    if not _model_routing_editor_enabled():
+        return _routing_editor_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_VALIDATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_VALIDATE_CAPABILITY)
     try:
@@ -894,6 +939,8 @@ def preview_model_routing_import():
 def apply_model_routing_import():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
+    if not _model_routing_editor_enabled():
+        return _routing_editor_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
     try:
@@ -930,6 +977,8 @@ def apply_model_routing_import():
 def put_model_routing_configuration():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
+    if not _model_routing_editor_enabled():
+        return _routing_editor_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
     try:

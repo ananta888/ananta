@@ -223,6 +223,18 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED",
     )
+    feature_model_catalog_v2_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_MODEL_CATALOG_V2_ENABLED",
+    )
+    feature_model_routing_editor_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_MODEL_ROUTING_EDITOR_ENABLED",
+    )
+    feature_legacy_model_picker_deprecation_enabled: bool = Field(
+        default=False,
+        validation_alias="FEATURE_LEGACY_MODEL_PICKER_DEPRECATION_ENABLED",
+    )
     feature_tui_kanban_enabled: bool = Field(
         default=False,
         validation_alias="FEATURE_TUI_KANBAN_ENABLED",

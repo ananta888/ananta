@@ -5,6 +5,7 @@ import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { NotificationService } from '../../../services/notification.service';
 import { UserAuthService } from '../../../services/user-auth.service';
 import { SystemFacade } from '../../system/system.facade';
+import { DashboardFeatureFlagStore } from '../../dashboard-foundation/dashboard-feature-flags';
 import { ModelCatalogClient, ModelRoutingConfiguration } from './model-catalog.client';
 import { ModelDashboardStore } from './model-dashboard.store';
 
@@ -40,7 +41,7 @@ describe('ModelDashboardStore', () => {
       readConsumers: vi.fn(() => of({
         schema: 'ananta.model-consumer-registry.v1', consumers: [{
           schema: 'ananta.model-consumer.v1', consumer_id: 'task.coding', label: 'Coding',
-          category: 'tasks', required_capabilities: ['code'], allowed_scopes: ['global'], routable: true,
+          category: 'tasks', required_capabilities: ['code'], allowed_scopes: ['global', 'agent'], routable: true,
           default_model_role: 'coder', legacy_config_paths: [],
           mutation_capability: 'model_routing.mutate', registration_source: 'builtin',
           non_routable_reason: null,
@@ -87,6 +88,9 @@ describe('ModelDashboardStore', () => {
         userPayload: { role: 'admin' }, user$: of({ role: 'admin' }),
       } },
       { provide: NotificationService, useValue: { success: vi.fn() } },
+      { provide: DashboardFeatureFlagStore, useValue: {
+        modelRoutingEditor: () => true,
+      } },
     ] });
     store = TestBed.inject(ModelDashboardStore);
     store.load();
@@ -144,6 +148,18 @@ describe('ModelDashboardStore', () => {
       mode: 'profile', profile_id: 'profile-2', fallback_group_id: null,
     });
     expect(store.routingDiff().assignments).toEqual(['task.coding@global:global']);
+  });
+
+  it('upserts scoped assignments by stable consumer and scope identity', () => {
+    store.upsertScopedAssignment('task.coding', 'agent', 'worker-1', 'profile', 'profile-1');
+    store.upsertScopedAssignment('task.coding', 'agent', 'worker-1', 'disabled');
+
+    expect(store.scopedAssignments()).toEqual([expect.objectContaining({
+      consumer_id: 'task.coding', scope: 'agent', scope_id: 'worker-1',
+      mode: 'disabled', profile_id: null,
+    })]);
+    store.removeScopedAssignment('task.coding', 'agent', 'worker-1');
+    expect(store.scopedAssignments()).toEqual([]);
   });
 
   it('disables profile choices that fail hard consumer capabilities', () => {

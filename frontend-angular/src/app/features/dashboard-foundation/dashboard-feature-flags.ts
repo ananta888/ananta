@@ -21,11 +21,17 @@ import { SystemFacade } from '../system/system.facade';
 export interface DashboardFeatureFlags {
   readonly angularKanban: boolean;
   readonly angularModelDashboard: boolean;
+  readonly modelCatalogV2: boolean;
+  readonly modelRoutingEditor: boolean;
+  readonly legacyModelPickerDeprecation: boolean;
 }
 
 export const CLOSED_DASHBOARD_FEATURE_FLAGS: DashboardFeatureFlags = Object.freeze({
   angularKanban: false,
   angularModelDashboard: false,
+  modelCatalogV2: false,
+  modelRoutingEditor: false,
+  legacyModelPickerDeprecation: false,
 });
 
 function record(value: unknown): Record<string, unknown> | null {
@@ -52,6 +58,12 @@ export function decodeDashboardFeatureFlags(value: unknown): DashboardFeatureFla
   return Object.freeze({
     angularKanban: features['angular_kanban'],
     angularModelDashboard: features['angular_model_dashboard'],
+    modelCatalogV2: typeof features['model_catalog_v2'] === 'boolean'
+      ? features['model_catalog_v2'] : features['angular_model_dashboard'],
+    modelRoutingEditor: typeof features['model_routing_editor'] === 'boolean'
+      ? features['model_routing_editor'] : features['angular_model_dashboard'],
+    legacyModelPickerDeprecation: typeof features['legacy_model_picker_deprecation'] === 'boolean'
+      ? features['legacy_model_picker_deprecation'] : false,
   });
 }
 
@@ -90,6 +102,9 @@ export class DashboardFeatureFlagStore {
   readonly loaded = signal(false);
   readonly angularKanban = () => this.flags().angularKanban;
   readonly angularModelDashboard = () => this.flags().angularModelDashboard;
+  readonly modelCatalogV2 = () => this.flags().modelCatalogV2;
+  readonly modelRoutingEditor = () => this.flags().modelRoutingEditor;
+  readonly legacyModelPickerDeprecation = () => this.flags().legacyModelPickerDeprecation;
 
   constructor() {
     this.auth.token$

@@ -171,6 +171,9 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
         @if (store.activeTab() === 'assignments') {
           <section role="tabpanel" aria-label="Zuweisungsmatrix">
             <p>Globale Werte sind editierbar; engere Scopes bleiben im Hub erhalten und haben Vorrang.</p>
+            @if (!features.modelRoutingEditor()) {
+              <p class="provider-failure" role="status">Der Routing-Editor ist im aktuellen Rollout read-only.</p>
+            }
             <div class="bulk-panel" aria-label="Bulk-Zuweisung">
               <label class="check-field"><input type="checkbox"
                 [checked]="store.selectedConsumerIds().length === routableConsumerCount() && routableConsumerCount() > 0"
@@ -185,9 +188,9 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                   @for (group of store.draftRouting()?.fallback_groups ?? []; track group.group_id) { <option [value]="group.group_id">{{ group.group_id }}</option> }
                 </select>
               </label>
-              <button type="button" [disabled]="!store.selectedConsumerIds().length || !bulkProfileId"
+              <button type="button" [disabled]="!features.modelRoutingEditor() || !store.selectedConsumerIds().length || !bulkProfileId"
                 (click)="store.applyBulkAssignment('profile', bulkProfileId, bulkFallbackId)">Auf Auswahl anwenden</button>
-              <button type="button" class="button-outline" [disabled]="!store.selectedConsumerIds().length"
+              <button type="button" class="button-outline" [disabled]="!features.modelRoutingEditor() || !store.selectedConsumerIds().length"
                 (click)="store.applyBulkAssignment('inherit', '', bulkFallbackId)">Auswahl erben lassen</button>
             </div>
             @for (category of store.consumerCategories(); track category.category) {
@@ -207,13 +210,13 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                           @if (!consumer.routable) { <small class="warning">{{ consumer.non_routable_reason }}</small> }
                         </td>
                         <td><select [attr.aria-label]="'Modus für ' + consumer.label"
-                          [disabled]="!consumer.routable"
+                          [disabled]="!features.modelRoutingEditor() || !consumer.routable"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.mode ?? 'inherit'"
                           (ngModelChange)="changeMode(consumer, $event)">
                           <option value="inherit">Erben</option><option value="profile">Profil</option><option value="disabled">Deaktiviert</option>
                         </select></td>
                         <td><select [attr.aria-label]="'Profil für ' + consumer.label"
-                          [disabled]="!consumer.routable || store.globalAssignment(consumer.consumer_id)?.mode !== 'profile'"
+                          [disabled]="!features.modelRoutingEditor() || !consumer.routable || store.globalAssignment(consumer.consumer_id)?.mode !== 'profile'"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.profile_id ?? ''"
                           (ngModelChange)="store.setConsumerMode(consumer.consumer_id, 'profile', $event)">
                           <option value="">Profil wählen</option>
@@ -224,7 +227,7 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                           }
                         </select></td>
                         <td><select [attr.aria-label]="'Fallback für ' + consumer.label"
-                          [disabled]="!consumer.routable"
+                          [disabled]="!features.modelRoutingEditor() || !consumer.routable"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.fallback_group_id ?? ''"
                           (ngModelChange)="store.setConsumerFallback(consumer.consumer_id, $event)">
                           <option value="">Kein zentraler Fallback</option>
@@ -256,6 +259,55 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
                 }
               </aside>
             }
+            <section class="scoped-editor" aria-labelledby="scoped-editor-title">
+              <h3 id="scoped-editor-title">Scoped Assignments</h3>
+              <p class="muted">Engere Scopes überschreiben globale Werte deterministisch. Bestehende Legacy-Agentwerte können hier als Agent-Scope weitergeführt werden.</p>
+              <div class="scoped-form">
+                <label>Consumer
+                  <select [(ngModel)]="scopedConsumerId">
+                    <option value="">Consumer wählen</option>
+                    @for (consumer of store.consumers(); track consumer.consumer_id) {
+                      <option [value]="consumer.consumer_id" [disabled]="!consumer.routable">{{ consumer.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label>Scope
+                  <select [(ngModel)]="scopedScope">
+                    <option value="organization">Organization</option><option value="project">Project</option>
+                    <option value="workflow">Workflow</option><option value="agent">Agent</option>
+                    <option value="role">Role</option><option value="task_kind">Task-Kind</option><option value="step">Step</option>
+                  </select>
+                </label>
+                <label>Scope-ID <input [(ngModel)]="scopedScopeId" placeholder="stabile ID" /></label>
+                <label>Modus
+                  <select [(ngModel)]="scopedMode"><option value="inherit">Erben</option><option value="profile">Profil</option><option value="disabled">Deaktiviert</option></select>
+                </label>
+                <label>Profil
+                  <select [(ngModel)]="scopedProfileId" [disabled]="scopedMode !== 'profile'">
+                    <option value="">Profil wählen</option>
+                    @for (option of store.profileOptions(); track option.profileId) { <option [value]="option.profileId">{{ option.profileId }}</option> }
+                  </select>
+                </label>
+                <label>Fallback
+                  <select [(ngModel)]="scopedFallbackId"><option value="">Kein Fallback</option>
+                    @for (group of store.draftRouting()?.fallback_groups ?? []; track group.group_id) { <option [value]="group.group_id">{{ group.group_id }}</option> }
+                  </select>
+                </label>
+                <button type="button" [disabled]="!features.modelRoutingEditor()"
+                  (click)="addScopedAssignment()">Scoped Assignment hinzufügen/ersetzen</button>
+              </div>
+              <div class="assignment-table-wrap"><table>
+                <thead><tr><th>Consumer</th><th>Scope</th><th>Modus</th><th>Profil</th><th>Fallback</th><th></th></tr></thead>
+                <tbody>
+                  @for (assignment of store.scopedAssignments(); track assignment.consumer_id + ':' + assignment.scope + ':' + assignment.scope_id) {
+                    <tr><td><code>{{ assignment.consumer_id }}</code></td><td>{{ assignment.scope }}:{{ assignment.scope_id }}</td>
+                      <td>{{ assignment.mode }}</td><td>{{ assignment.profile_id || '–' }}</td><td>{{ assignment.fallback_group_id || '–' }}</td>
+                      <td><button type="button" class="danger-button" [disabled]="!features.modelRoutingEditor()"
+                        (click)="store.removeScopedAssignment(assignment.consumer_id, assignment.scope, assignment.scope_id)">Entfernen</button></td></tr>
+                  }
+                </tbody>
+              </table></div>
+            </section>
           </section>
         }
 
@@ -438,8 +490,9 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
-    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel, .scoped-editor { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
     .bulk-panel { align-items: end; display: flex; flex-wrap: wrap; gap: .7rem; }.semantic-diff { background: #eef6f7; border-left: 4px solid #286773; padding: .7rem; }
+    .scoped-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); margin-bottom: 1rem; }
     .fallback-card > header { align-items: center; display: flex; justify-content: space-between; }
     .fallback-card li { align-items: start; background: #f1f6f4; display: grid; gap: .7rem; grid-template-columns: minmax(12rem, .7fr) minmax(18rem, 1.3fr) auto; margin-bottom: .6rem; padding: .8rem; }
     .candidate-identity, .candidate-fields, .group-policy { display: grid; gap: .5rem; }
@@ -469,6 +522,12 @@ export class ModelDashboardComponent implements OnInit {
   selectedTemplateId = '';
   bulkProfileId = '';
   bulkFallbackId = '';
+  scopedConsumerId = '';
+  scopedScope: 'organization' | 'project' | 'workflow' | 'agent' | 'role' | 'task_kind' | 'step' = 'agent';
+  scopedScopeId = '';
+  scopedMode: 'inherit' | 'profile' | 'disabled' = 'profile';
+  scopedProfileId = '';
+  scopedFallbackId = '';
 
   ngOnInit(): void {
     this.features.ensureLoaded().subscribe(flags => {
@@ -512,6 +571,13 @@ export class ModelDashboardComponent implements OnInit {
 
   routableConsumerCount(): number {
     return this.store.consumers().filter(item => item.routable).length;
+  }
+
+  addScopedAssignment(): void {
+    this.store.upsertScopedAssignment(
+      this.scopedConsumerId, this.scopedScope, this.scopedScopeId,
+      this.scopedMode, this.scopedProfileId, this.scopedFallbackId,
+    );
   }
 
   readImport(event: Event): void {

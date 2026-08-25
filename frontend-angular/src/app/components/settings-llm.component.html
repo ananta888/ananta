@@ -132,31 +132,37 @@
       <option value="planning_and_routing">planning_and_routing</option>
     </select>
   </label>
-  <label>Provider Override
-    <select [(ngModel)]="state.config.hub_copilot.provider" (ngModelChange)="state.ensureHubCopilotModelConsistency()">
-      <option value="">Default / Fallback</option>
-      @for (group of state.getProviderSelectGroups(); track group.label) {
-        <optgroup [label]="group.label">
-          @for (p of group.providers; track p.id) {
-            <option [value]="p.id">
-              {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
-            </option>
-          }
-        </optgroup>
-      }
-    </select>
-  </label>
-  <label>Model Override
-    <select [(ngModel)]="state.config.hub_copilot.model">
-      <option value="">Default / Fallback</option>
-      @for (m of state.getCatalogModels(state.getHubCopilotProvider()); track m.id) {
-        <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
-      }
-      @if ((state.config?.hub_copilot?.model || '').trim() && !state.isHubCopilotCurrentModelInCatalog()) {
-        <option [value]="state.config.hub_copilot.model">{{ state.config.hub_copilot.model }} (custom)</option>
-      }
-    </select>
-  </label>
+  @if (state.dashboardFeatures.legacyModelPickerDeprecation()) {
+    <div class="card card-info">
+      <strong>Modellwahl zentralisiert</strong>
+      <p class="muted font-sm">Legacy-Wert: {{ state.getHubCopilotProvider() }} / {{ state.getHubCopilotModel() }}. Neue Zuweisungen werden unter Modelle für planning.autoplanner und chat.ai_snake gepflegt.</p>
+      <button type="button" class="button-outline" (click)="state.setSection('models')">Zu Modelle</button>
+    </div>
+  } @else {
+    <label>Provider Override
+      <select [(ngModel)]="state.config.hub_copilot.provider" (ngModelChange)="state.ensureHubCopilotModelConsistency()">
+        <option value="">Default / Fallback</option>
+        @for (group of state.getProviderSelectGroups(); track group.label) {
+          <optgroup [label]="group.label">
+            @for (p of group.providers; track p.id) {
+              <option [value]="p.id">{{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}</option>
+            }
+          </optgroup>
+        }
+      </select>
+    </label>
+    <label>Model Override
+      <select [(ngModel)]="state.config.hub_copilot.model">
+        <option value="">Default / Fallback</option>
+        @for (m of state.getCatalogModels(state.getHubCopilotProvider()); track m.id) {
+          <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+        }
+        @if ((state.config?.hub_copilot?.model || '').trim() && !state.isHubCopilotCurrentModelInCatalog()) {
+          <option [value]="state.config.hub_copilot.model">{{ state.config.hub_copilot.model }} (custom)</option>
+        }
+      </select>
+    </label>
+  }
   <label>Base URL Override
     <input [(ngModel)]="state.config.hub_copilot.base_url" placeholder="optional, z.B. http://127.0.0.1:1234/v1" />
   </label>
@@ -642,29 +648,36 @@
         <div class="card">
 <h3>Hub LLM Defaults</h3>
 <div class="grid cols-2">
-  <label>Default Provider
-    <select [(ngModel)]="state.config.default_provider" (ngModelChange)="state.ensureProviderModelConsistency()">
-      @for (group of state.getProviderSelectGroups(); track group.label) {
-        <optgroup [label]="group.label">
-          @for (p of group.providers; track p.id) {
-            <option [value]="p.id">
-              {{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}
-            </option>
-          }
-        </optgroup>
-      }
-    </select>
-  </label>
-  <label>Default Model
-    <select data-testid="settings-default-model" [(ngModel)]="state.config.default_model">
-      @for (m of state.getCatalogModels(state.getEffectiveProvider()); track m.id) {
-        <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
-      }
-      @if ((state.config?.default_model || '').trim() && !state.isCurrentModelInCatalog()) {
-        <option [value]="state.config.default_model">{{ state.config.default_model }} (custom)</option>
-      }
-    </select>
-  </label>
+  @if (state.dashboardFeatures.legacyModelPickerDeprecation()) {
+    <div class="card card-info">
+      <strong>Legacy-Default (nur lesbar)</strong>
+      <p>{{ state.getEffectiveProvider() }} / {{ state.config.default_model || 'kein Modell' }}</p>
+      <p class="muted font-sm">Der Wert bleibt für Rollback lesbar. Neue Defaults und Consumer-Zuweisungen werden revisionsgebunden in der zentralen Modelle-Seite gespeichert.</p>
+      <button type="button" class="button-outline" (click)="state.setSection('models')">Zentrale Modellwahl öffnen</button>
+    </div>
+  } @else {
+    <label>Default Provider
+      <select [(ngModel)]="state.config.default_provider" (ngModelChange)="state.ensureProviderModelConsistency()">
+        @for (group of state.getProviderSelectGroups(); track group.label) {
+          <optgroup [label]="group.label">
+            @for (p of group.providers; track p.id) {
+              <option [value]="p.id">{{ p.id }}{{ p.available ? '' : ' (offline)' }}{{ p.model_count ? ' [' + p.model_count + ']' : '' }}</option>
+            }
+          </optgroup>
+        }
+      </select>
+    </label>
+    <label>Default Model
+      <select data-testid="settings-default-model" [(ngModel)]="state.config.default_model">
+        @for (m of state.getCatalogModels(state.getEffectiveProvider()); track m.id) {
+          <option [value]="m.id">{{ m.display_name }}{{ m.context_length ? ' (ctx ' + m.context_length + ')' : '' }}</option>
+        }
+        @if ((state.config?.default_model || '').trim() && !state.isCurrentModelInCatalog()) {
+          <option [value]="state.config.default_model">{{ state.config.default_model }} (custom)</option>
+        }
+      </select>
+    </label>
+  }
 </div>
 <div class="grid cols-2 mt-lg">
   <label>LM Studio URL
@@ -762,6 +775,24 @@
         </div>
         <div class="card">
 <h3>Pro-Agent LLM Defaults</h3>
+@if (state.dashboardFeatures.legacyModelPickerDeprecation()) {
+  <p class="muted">Die bestehenden Werte bleiben für Rollback lesbar. Neue Agent-Zuweisungen werden als Agent-Scope in der zentralen Modelle-Seite gepflegt.</p>
+  <table class="table compact-table" aria-label="Legacy-Modellwerte der Agenten">
+    <thead><tr><th>Agent</th><th>Provider</th><th>Modell</th></tr></thead>
+    <tbody>
+      @for (agent of state.allAgents; track agent.name) {
+        <tr>
+          <td>{{ agent.name }}</td>
+          <td>{{ state.getAgentLlmDraft(agent.name).provider || 'Default' }}</td>
+          <td>{{ state.getAgentLlmDraft(agent.name).model || 'Default' }}</td>
+        </tr>
+      } @empty {
+        <tr><td colspan="3" class="muted">Keine Legacy-Agentwerte konfiguriert.</td></tr>
+      }
+    </tbody>
+  </table>
+  <button type="button" class="button-outline" (click)="state.setSection('models')">Agent-Scopes unter Modelle bearbeiten</button>
+} @else {
 <p class="muted">Schnellansicht und Bearbeitung der LLM-Konfiguration je Agent.</p>
 <div class="row gap-sm mb-md">
   <button class="button-outline" (click)="state.loadAgentLlmConfigs()">Liste aktualisieren</button>
@@ -806,6 +837,7 @@
     }
   </tbody>
 </table>
+}
         </div>
         <div class="card">
 <h3>API-Key Profile</h3>
