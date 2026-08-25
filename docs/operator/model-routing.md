@@ -1,5 +1,12 @@
 # Model Routing Operator Guide
 
+Die vollständige Dokumentation der zentralen Modelle-Seite, aller Admin-APIs,
+Migration, Release-Evidenz und Rollback steht in
+[`docs/central-model-selection-settings.md`](../central-model-selection-settings.md).
+Cognitive-Style-Messung und Soft-Ranking sind separat in
+[`docs/cognitive-style-role-profiles.md`](../cognitive-style-role-profiles.md)
+dokumentiert.
+
 ## Quick Start
 
 Legacy mode still works:
