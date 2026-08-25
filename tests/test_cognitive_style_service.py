@@ -129,6 +129,30 @@ def test_style_ranking_is_soft_and_missing_profile_remains_a_candidate():
     assert next(item for item in ranked if item.profile.profile_id == "unknown").reason == "style_profile_unavailable"
 
 
+def test_style_ranking_emits_one_bounded_outcome_per_decision():
+    class _Observer:
+        def __init__(self):
+            self.outcomes = []
+
+        def record(self, outcome):
+            self.outcomes.append(outcome)
+
+    observer = _Observer()
+    target = CognitiveStyleService(
+        InMemoryCognitiveStyleStateRepository()
+    ).resolve_target("reviewer")
+    policy = CognitiveStyleRankingPolicy(
+        profiles=(_measured("review-style", "review", (.8, .9, .5)),),
+        targets=(target,), observer=observer,
+    )
+
+    policy.rank_profiles((ModelProfile(
+        profile_id="review", provider_id="lmstudio", model="review",
+    ),), role_id="reviewer")
+
+    assert observer.outcomes == ["applied"]
+
+
 def test_style_fit_runs_after_hard_capability_gates_and_cannot_restore_rejected_model():
     service = CognitiveStyleService(InMemoryCognitiveStyleStateRepository())
     target = service.resolve_target("reviewer")

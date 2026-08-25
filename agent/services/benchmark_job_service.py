@@ -245,21 +245,26 @@ class BenchmarkJobService:
                 get_cognitive_style_service,
             )
 
-            result = CognitiveStyleBenchmarkService(
-                HubStyleBenchmarkInvoker()
-            ).run(profile=profile, plan=plan)
-            configuration = get_cognitive_style_service().record_benchmark_result(
-                result,
-                expected_revision=expected_revision,
-            )
-            return {
-                "status": "completed",
-                "configuration_revision": configuration.revision,
-                "result": result.model_dump(mode="json", by_alias=True),
-                "total_tests": len(result.observations),
-                "successful": len(result.observations),
-                "failed": 0,
-            }
+            try:
+                result = CognitiveStyleBenchmarkService(
+                    HubStyleBenchmarkInvoker()
+                ).run(profile=profile, plan=plan)
+                configuration = get_cognitive_style_service().record_benchmark_result(
+                    result,
+                    expected_revision=expected_revision,
+                )
+                self._observe_style_benchmark("completed")
+                return {
+                    "status": "completed",
+                    "configuration_revision": configuration.revision,
+                    "result": result.model_dump(mode="json", by_alias=True),
+                    "total_tests": len(result.observations),
+                    "successful": len(result.observations),
+                    "failed": 0,
+                }
+            except Exception:
+                self._observe_style_benchmark("failed")
+                raise
 
         return self._submit_job(
             job_type="cognitive_style_benchmark",
@@ -274,6 +279,77 @@ class BenchmarkJobService:
             },
             runner=run,
         )
+
+    def submit_cognitive_style_rebenchmark_job(
+        self,
+        *,
+        work_items,
+        expected_revision: int,
+        created_by: str | None,
+    ) -> dict[str, Any]:
+        """Run all drifted profiles serially under one optimistic revision chain."""
+
+        items = tuple(work_items)
+
+        def run() -> dict[str, Any]:
+            from agent.services.cognitive_style_benchmark_service import (
+                CognitiveStyleBenchmarkService,
+                HubStyleBenchmarkInvoker,
+            )
+            from agent.services.cognitive_style_service import (
+                get_cognitive_style_service,
+            )
+
+            revision = expected_revision
+            results: list[dict[str, Any]] = []
+            observations = 0
+            try:
+                benchmark = CognitiveStyleBenchmarkService(HubStyleBenchmarkInvoker())
+                styles = get_cognitive_style_service()
+                for item in items:
+                    result = benchmark.run(profile=item.profile, plan=item.plan)
+                    configuration = styles.record_benchmark_result(
+                        result, expected_revision=revision,
+                    )
+                    revision = configuration.revision
+                    observations += len(result.observations)
+                    results.append({
+                        "model_profile_id": item.profile.profile_id,
+                        "profile_id": result.profile.profile_id,
+                        "observation_count": len(result.observations),
+                    })
+                self._observe_style_benchmark("completed")
+                return {
+                    "status": "completed",
+                    "configuration_revision": revision,
+                    "results": results,
+                    "total_tests": observations,
+                    "successful": observations,
+                    "failed": 0,
+                }
+            except Exception:
+                self._observe_style_benchmark("failed")
+                raise
+
+        return self._submit_job(
+            job_type="cognitive_style_rebenchmark",
+            created_by=created_by,
+            request_payload={
+                "model_profile_ids": [item.profile.profile_id for item in items],
+                "benchmark_revision": (
+                    items[0].plan.benchmark_revision if items else ""
+                ),
+                "expected_revision": expected_revision,
+                "batch_size": len(items),
+            },
+            runner=run,
+        )
+
+    @staticmethod
+    def _observe_style_benchmark(outcome: str) -> None:
+        from agent import metrics
+
+        metrics.AGENT_STYLE_BENCHMARKS_TOTAL.labels(outcome=outcome).inc()
 
 
 benchmark_job_service = BenchmarkJobService()

@@ -241,3 +241,57 @@ def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
     assert proposal.json["data"]["evolution_proposals"][0]["review_required"] is True
     assert experiment.status_code == 200
     assert experiment.json["data"]["outcome"] == "supported"
+
+
+def test_drift_rebenchmark_queues_one_revision_safe_hub_batch(
+    client, admin_token, monkeypatch,
+):
+    _setup(monkeypatch)
+    monkeypatch.setattr(routes, "_profiles", lambda: (
+        ModelProfile(profile_id="local-chat", provider_id="lmstudio", model="lfm"),
+    ))
+
+    class _Jobs:
+        def submit_cognitive_style_rebenchmark_job(self, **kwargs):
+            items = tuple(kwargs["work_items"])
+            assert [item.profile.profile_id for item in items] == ["local-chat"]
+            assert kwargs["expected_revision"] == 0
+            return {
+                "job_id": "job-style-drift-1",
+                "job_type": "cognitive_style_rebenchmark",
+                "status": "queued",
+            }
+
+    monkeypatch.setattr(routes, "get_benchmark_job_service", lambda: _Jobs())
+    response = client.post(
+        "/models/styles/v1/drift/rebenchmark",
+        json={
+            "schema": "ananta.style-rebenchmark-due-command.v1",
+            "expected_revision": 0,
+            "contexts": [_context()],
+        },
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 202
+    assert response.json["data"]["scheduled_profile_ids"] == ["local-chat"]
+    assert response.json["data"]["skipped_profile_ids"] == []
+    assert response.json["data"]["job"]["job_type"] == "cognitive_style_rebenchmark"
+
+
+def test_drift_rebenchmark_rejects_revision_conflict_before_queueing(
+    client, admin_token, monkeypatch,
+):
+    _setup(monkeypatch)
+    response = client.post(
+        "/models/styles/v1/drift/rebenchmark",
+        json={
+            "schema": "ananta.style-rebenchmark-due-command.v1",
+            "expected_revision": 7,
+            "contexts": [_context()],
+        },
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 409
+    assert response.json["data"]["current_revision"] == 0

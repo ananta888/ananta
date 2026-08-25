@@ -10,13 +10,18 @@ from agent.services.cognitive_style_evidence_service import (
 from agent.services.cognitive_style_overlay_comparison_service import (
     CognitiveStyleOverlayComparisonService,
 )
+from agent.services.cognitive_style_rebenchmark_service import (
+    CognitiveStyleRebenchmarkPlanner,
+)
 from agent.services.cognitive_style_service import standard_role_style_overlays
+from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_selection_service import CognitiveStyleFitPolicy
 from ananta_contracts.cognitive_style import (
     ComplementaryStyleExperimentCommand,
     StyleExperimentMetrics,
     StyleMeasurementContext,
     StyleOverlayComparisonCommand,
+    StyleRebenchmarkDueCommand,
     StyleRetrospectiveSignal,
 )
 from ananta_contracts.model_selection import (
@@ -88,6 +93,45 @@ def test_drift_never_overwrites_history_and_marks_revision_or_age_for_rebenchmar
     assert revision_report.entries[0].status == "model_revision_drift"
     assert stale_report.entries[0].status == "stale"
     assert revision_report.rebenchmark_due_count == stale_report.rebenchmark_due_count == 1
+
+
+def test_rebenchmark_planner_schedules_only_due_registered_profiles():
+    current = _profile("current", (.8, .5, .4))
+    command = StyleRebenchmarkDueCommand(
+        expected_revision=4,
+        contexts=(
+            _context(),
+            _context().model_copy(update={"model_profile_id": "model-missing"}),
+        ),
+    )
+    schedule = CognitiveStyleRebenchmarkPlanner().plan(
+        command=command,
+        style_profiles=(current,),
+        model_profiles=(ModelProfile(
+            profile_id="model-a", provider_id="lmstudio", model="lfm",
+        ),),
+    )
+
+    assert schedule.drift.rebenchmark_due_count == 1
+    assert schedule.work_items == ()
+    assert schedule.skipped_profile_ids == ("model-missing",)
+
+
+def test_rebenchmark_planner_builds_fixed_suite_for_revision_drift():
+    schedule = CognitiveStyleRebenchmarkPlanner().plan(
+        command=StyleRebenchmarkDueCommand(
+            expected_revision=0,
+            contexts=(_context("r2"),),
+        ),
+        style_profiles=(_profile("old", (.8, .5, .4), revision="r1"),),
+        model_profiles=(ModelProfile(
+            profile_id="model-a", provider_id="lmstudio", model="lfm",
+        ),),
+    )
+
+    assert len(schedule.work_items) == 1
+    assert len(schedule.work_items[0].plan.variants) == 6
+    assert schedule.work_items[0].plan.repeats == 2
 
 
 def test_overlay_before_after_comparison_requires_same_base_context_and_never_changes_permissions():

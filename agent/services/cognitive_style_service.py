@@ -407,6 +407,19 @@ class StyleRank:
     reason: str
 
 
+class StyleRoutingObserver(Protocol):
+    def record(self, outcome: str) -> None: ...
+
+
+class PrometheusStyleRoutingObserver:
+    """Bounded-label metrics adapter kept outside the ranking calculation."""
+
+    def record(self, outcome: str) -> None:
+        from agent import metrics
+
+        metrics.AGENT_STYLE_ROUTING_DECISIONS_TOTAL.labels(outcome=outcome).inc()
+
+
 class CognitiveStyleRankingPolicy:
     """Soft ranking only; candidates must already pass all hard gates."""
 
@@ -417,12 +430,14 @@ class CognitiveStyleRankingPolicy:
         targets: Iterable[RoleStyleTarget],
         weight: float = 0.25,
         stale_after_days: int = 90,
+        observer: StyleRoutingObserver | None = None,
     ) -> None:
         self._profiles = tuple(profiles)
         self._targets = tuple(targets)
         self._weight = max(0.0, min(1.0, float(weight)))
         self._stale_after_days = max(1, stale_after_days)
         self._fit = CognitiveStyleFitPolicy()
+        self._observer = observer or PrometheusStyleRoutingObserver()
 
     def rank_profiles(
         self,
@@ -432,8 +447,15 @@ class CognitiveStyleRankingPolicy:
         project_id: str | None = None,
         organization_id: str | None = None,
     ) -> tuple[StyleRank, ...]:
+        if not candidates:
+            self._observer.record("no_candidates")
+            return ()
         target = self._target(role_id, project_id, organization_id)
-        if target is None or self._weight <= 0:
+        if self._weight <= 0:
+            self._observer.record("ranking_disabled")
+            return tuple(StyleRank(item, None, None, "style_ranking_disabled") for item in candidates)
+        if target is None:
+            self._observer.record("target_unavailable")
             return tuple(StyleRank(item, None, None, "style_target_unavailable") for item in candidates)
         base_index = {item.profile_id: index for index, item in enumerate(candidates)}
         ranks: list[StyleRank] = []
@@ -446,6 +468,10 @@ class CognitiveStyleRankingPolicy:
             confidence = self._effective_confidence(profile)
             score = round(decision.score * confidence / max(profile.confidence, 1e-9), 6)
             ranks.append(StyleRank(candidate, score, confidence, "style_fit_applied"))
+        self._observer.record(
+            "applied" if any(item.score is not None for item in ranks)
+            else "profile_unavailable"
+        )
         return tuple(sorted(ranks, key=lambda item: (
             -(self._weight * (item.score if item.score is not None else -1)),
             base_index[item.profile.profile_id],
@@ -500,7 +526,8 @@ def get_cognitive_style_ranking_policy(
 __all__ = [
     "CognitiveStyleConflict", "CognitiveStyleRankingPolicy",
     "CognitiveStyleService", "CognitiveStyleStatePort", "HEURISTIC_NOTICE",
-    "InMemoryCognitiveStyleStateRepository", "StyleRank",
+    "InMemoryCognitiveStyleStateRepository", "PrometheusStyleRoutingObserver",
+    "StyleRank", "StyleRoutingObserver",
     "get_cognitive_style_ranking_policy", "get_cognitive_style_service", "standard_role_style_overlays",
     "standard_role_style_targets",
 ]

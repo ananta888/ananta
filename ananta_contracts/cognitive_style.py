@@ -112,6 +112,36 @@ class StyleProfileDriftCommand(_Closed):
     stale_after_days: int = Field(default=90, ge=1, le=3650)
 
 
+class StyleRebenchmarkDueCommand(_Closed):
+    schema_version: Literal["ananta.style-rebenchmark-due-command.v1"] = Field(
+        default="ananta.style-rebenchmark-due-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    contexts: tuple[StyleMeasurementContext, ...] = Field(min_length=1, max_length=1000)
+    stale_after_days: int = Field(default=90, ge=1, le=3650)
+    repeats: int = Field(default=2, ge=2, le=5)
+    seeds: tuple[int, ...] = Field(default=(17, 41), min_length=2, max_length=5)
+    temperatures: tuple[float, ...] = Field(
+        default=(0.0, 0.4), min_length=2, max_length=4
+    )
+
+    @field_validator("temperatures")
+    @classmethod
+    def rebenchmark_temperatures_in_range(
+        cls, value: tuple[float, ...]
+    ) -> tuple[float, ...]:
+        if any(not 0 <= item <= 2 for item in value):
+            raise ValueError("style_rebenchmark_temperature_invalid")
+        return value
+
+    @model_validator(mode="after")
+    def unique_model_profile_contexts(self) -> "StyleRebenchmarkDueCommand":
+        profile_ids = [item.model_profile_id for item in self.contexts]
+        if len(profile_ids) != len(set(profile_ids)):
+            raise ValueError("style_rebenchmark_context_duplicate")
+        return self
+
+
 class StyleProfileDriftEntry(_Closed):
     model_profile_id: str
     status: Literal[
@@ -402,6 +432,7 @@ __all__ = [
     "StyleExperimentMetrics", "StyleOverlayComparisonCommand",
     "StyleOverlayComparisonReport", "StyleProfileDriftCommand",
     "StyleProfileDriftEntry", "StyleProfileDriftReport",
+    "StyleRebenchmarkDueCommand",
     "StyleBenchmarkVariant", "StyleEvolutionProposal",
     "StyleEvolutionFromEvidenceCommand", "StyleEvolutionProposalCommand",
     "StyleEvolutionTransitionCommand",

@@ -22,6 +22,9 @@ from agent.services.cognitive_style_evidence_service import (
 from agent.services.cognitive_style_overlay_comparison_service import (
     CognitiveStyleOverlayComparisonService,
 )
+from agent.services.cognitive_style_rebenchmark_service import (
+    CognitiveStyleRebenchmarkPlanner,
+)
 from agent.services.cognitive_style_service import (
     CognitiveStyleConflict,
     get_cognitive_style_service,
@@ -38,6 +41,7 @@ from ananta_contracts.cognitive_style import (
     StyleMismatchRecordCommand,
     StyleOverlayComparisonCommand,
     StyleProfileDriftCommand,
+    StyleRebenchmarkDueCommand,
     StyleRetrospectiveAnalysisCommand,
     TeamStyleDiversityCommand,
 )
@@ -199,7 +203,9 @@ def get_cognitive_style_benchmark_job(job_id: str):
     if not _allowed(STYLE_READ_CAPABILITY):
         return _denied(STYLE_READ_CAPABILITY)
     job = get_benchmark_job_service().get_job(job_id)
-    if not job or job.get("job_type") != "cognitive_style_benchmark":
+    if not job or job.get("job_type") not in {
+        "cognitive_style_benchmark", "cognitive_style_rebenchmark",
+    }:
         return api_response(status="error", message="benchmark_job_not_found", code=404)
     return api_response(data=job)
 
@@ -233,6 +239,58 @@ def evaluate_cognitive_style_drift():
         stale_after_days=command.stale_after_days,
     )
     return api_response(data=report.model_dump(mode="json", by_alias=True))
+
+
+@cognitive_styles_bp.route("/models/styles/v1/drift/rebenchmark", methods=["POST"])
+@check_auth
+def rebenchmark_drifted_cognitive_styles():
+    if not _allowed(STYLE_BENCHMARK_CAPABILITY):
+        return _denied(STYLE_BENCHMARK_CAPABILITY)
+    try:
+        command = StyleRebenchmarkDueCommand.model_validate(
+            request.get_json(silent=True)
+        )
+    except ValidationError:
+        return api_response(
+            status="error", message="style_rebenchmark_command_invalid", code=400
+        )
+    read = get_cognitive_style_service().read()
+    if command.expected_revision != read.configuration.revision:
+        return api_response(
+            status="error", message="cognitive_style_revision_conflict",
+            data={"current_revision": read.configuration.revision}, code=409,
+        )
+    schedule = CognitiveStyleRebenchmarkPlanner().plan(
+        command=command,
+        style_profiles=read.configuration.profiles,
+        model_profiles=_profiles(),
+    )
+    response = {
+        "drift": schedule.drift.model_dump(mode="json", by_alias=True),
+        "scheduled_profile_ids": [
+            item.profile.profile_id for item in schedule.work_items
+        ],
+        "skipped_profile_ids": list(schedule.skipped_profile_ids),
+        "job": None,
+    }
+    if not schedule.work_items:
+        return api_response(data=response)
+    job = get_benchmark_job_service().submit_cognitive_style_rebenchmark_job(
+        work_items=schedule.work_items,
+        expected_revision=command.expected_revision,
+        created_by=_actor(),
+    )
+    response["job"] = job
+    from agent import metrics
+
+    metrics.AGENT_STYLE_BENCHMARKS_TOTAL.labels(outcome="queued").inc()
+    log_audit("cognitive_style_rebenchmark_queued", {
+        "job_id": job["job_id"],
+        "configuration_revision": command.expected_revision,
+        "scheduled_profile_ids": response["scheduled_profile_ids"],
+        "skipped_profile_ids": response["skipped_profile_ids"],
+    })
+    return api_response(data=response, code=202)
 
 
 @cognitive_styles_bp.route("/models/styles/v1/overlays/compare", methods=["POST"])
