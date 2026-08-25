@@ -123,6 +123,25 @@ def test_security_blocks_cloud_when_secrets_present():
     assert any("security_policy" in r for _, r in result.blocked_candidates)
 
 
+def test_dry_run_security_and_context_facts_do_not_require_raw_prompt():
+    cloud_p = _cloud("cloud-p", context_tokens=100, max_output_tokens=20)
+    resolver = ModelProfileResolver(
+        profiles=[cloud_p],
+        security_policy=SecurityPolicyChecker(block_cloud_with_secrets=True),
+    )
+    secret_result = resolver.resolve(RoutingContext(
+        allow_cloud=True, contains_secrets=True, approximate_context_tokens=10,
+    ))
+    assert not secret_result.ok
+    assert ("cloud-p", "security_policy:secrets_declared_cloud_blocked") in secret_result.blocked_candidates
+
+    oversized_result = resolver.resolve(RoutingContext(
+        allow_cloud=True, contains_secrets=False, approximate_context_tokens=81,
+    ))
+    assert not oversized_result.ok
+    assert any(item.reason == "capability:context_too_large" for item in oversized_result.decisions)
+
+
 def test_security_allows_cloud_without_secrets():
     cloud_p = _cloud("cloud-p")
     resolver = ModelProfileResolver(

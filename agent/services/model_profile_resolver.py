@@ -53,6 +53,8 @@ class RoutingContext:
     task_kind: str | None = None
     risk_class: str | None = None
     context_text: str = ""
+    approximate_context_tokens: int | None = None
+    contains_secrets: bool | None = None
     request_profile_id: str | None = None
     user_profile_id: str | None = None
     env_profile_id: str | None = None
@@ -155,6 +157,8 @@ class SecurityPolicyChecker:
     def is_allowed_for_context(self, profile: ModelProfile, ctx: RoutingContext) -> tuple[bool, str]:
         if profile.is_cloud() and ctx.allow_cloud is False:
             return False, "security_policy:cloud_disabled_by_routing_context"
+        if profile.is_cloud() and self.block_cloud_with_secrets and ctx.contains_secrets is True:
+            return False, "security_policy:secrets_declared_cloud_blocked"
         return self.is_allowed(profile, ctx.context_text)
 
 
@@ -481,7 +485,11 @@ class ModelProfileResolver:
         if ctx.requires_streaming and not prof.supports_streaming:
             return False, "capability:streaming_required_not_supported"
         context_limit = prof.max_input_tokens()
-        approx_context_tokens = int((len(ctx.context_text or "") + 3) / 4)
+        approx_context_tokens = (
+            max(0, int(ctx.approximate_context_tokens))
+            if ctx.approximate_context_tokens is not None
+            else int((len(ctx.context_text or "") + 3) / 4)
+        )
         if approx_context_tokens > context_limit:
             return False, "capability:context_too_large"
         cost_limit = self.effective_max_estimated_cost_per_step(ctx, prof.profile_id)
