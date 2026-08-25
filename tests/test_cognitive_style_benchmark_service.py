@@ -104,7 +104,7 @@ def test_hub_invoker_normalizes_local_openai_endpoint_and_resolves_profile_key(
         "http://host.docker.internal:8081/v1/chat/completions"
     )
     assert captured["api_key"] == "local-benchmark-token"
-    assert captured["max_output_tokens"] == 256
+    assert captured["max_output_tokens"] == 1024
     assert captured["max_retries"] == 0
     assert "höchstens 120 Tokens" in captured["prompt"]
 
@@ -121,8 +121,37 @@ def test_benchmark_fails_instead_of_persisting_transport_wide_empty_scores():
         tool_mode="none", sampling_digest="sha256:sampling",
     )
 
-    with pytest.raises(RuntimeError, match="style_benchmark_no_usable_outputs"):
+    with pytest.raises(
+        RuntimeError, match="style_benchmark_insufficient_output_coverage"
+    ):
         CognitiveStyleBenchmarkService(_Empty()).run(
+            profile=ModelProfile(
+                profile_id="local-chat", provider_id="lmstudio", model="lfm",
+            ),
+            plan=CognitiveStyleBenchmarkSuite.plan(context),
+        )
+
+
+def test_benchmark_rejects_mostly_empty_final_outputs():
+    class _Sparse:
+        def __init__(self):
+            self.calls = 0
+
+        def generate(self, **_kwargs):
+            self.calls += 1
+            return '{"status":"ok","checks":["a","b","c"]}' if self.calls <= 8 else ""
+
+    context = StyleMeasurementContext(
+        model_profile_id="local-chat", model_revision="r1", quantization="q8",
+        runtime="llamacpp", backend_id="lmstudio",
+        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
+        tool_mode="none", sampling_digest="sha256:sampling",
+    )
+
+    with pytest.raises(
+        RuntimeError, match="style_benchmark_insufficient_output_coverage"
+    ):
+        CognitiveStyleBenchmarkService(_Sparse()).run(
             profile=ModelProfile(
                 profile_id="local-chat", provider_id="lmstudio", model="lfm",
             ),

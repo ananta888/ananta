@@ -72,9 +72,13 @@ Temperaturen. Deterministische Marker werden serverseitig ausgewertet. Die
 Revision v3 erkennt eng begrenzte deutsche und englische Fachsynonyme
 (beispielsweise `Prämisse`/`Annahme`/`premise`), damit eine bloße
 Wortwahlvariation nicht als fehlende Fähigkeit gewertet wird. Sie verwendet
-keinen LLM-Judge. Antworten sind auf 120 Tokens angefordert und
-transportseitig auf 256 Ausgabetokens begrenzt; ein vollständig leerer Lauf
-wird verworfen statt als Nullprofil gespeichert.
+keinen LLM-Judge. Antworten sind auf 120 finale Tokens angefordert und
+transportseitig auf 1.024 Ausgabetokens begrenzt. Der größere harte Rahmen
+lässt agentischen Modellen Raum für providerseitig getrennte Reasoning-Tokens;
+bewertet wird ausschließlich die finale Antwort. Ein Lauf unter 80 Prozent
+Finalantwort-Abdeckung wird verworfen statt als Style-Profil gespeichert. Die
+gemessene Abdeckung steht zusätzlich als `response_coverage` am Profil und
+skaliert dessen Confidence.
 Prompt-Sensitivität wird separat gemessen. Eine Safety-Verweigerung in einem
 Initiative-Fall zählt neutral und nicht automatisch als geringe Initiative.
 Ein LLM-Judge ist nur ergänzend und nur mit unabhängiger Kalibrierungsreferenz

@@ -70,7 +70,11 @@ class HubStyleBenchmarkInvoker:
             temperature=temperature,
             seed=seed,
             timeout=min(180, profile.timeout_seconds),
-            max_output_tokens=min(256, profile.max_output_tokens),
+            # Agentic models may spend a substantial part of the completion
+            # budget in a provider-separated reasoning field before emitting
+            # final content. Only final content is scored, so keep enough room
+            # for it while retaining a hard benchmark bound.
+            max_output_tokens=min(1024, profile.max_output_tokens),
             max_retries=0,
         )
         return str(result or "")
@@ -148,6 +152,7 @@ class CognitiveStyleBenchmarkSuite:
 
 
 class CognitiveStyleBenchmarkService:
+    _MINIMUM_OUTPUT_COVERAGE = .8
     _MARKER_ALIASES: dict[str, tuple[str, ...]] = {
         "prämisse": ("prämisse", "annahme", "premise"),
         "evidenz": ("evidenz", "beleg", "nachweis", "evidence"),
@@ -206,8 +211,9 @@ class CognitiveStyleBenchmarkService:
                                 output.encode("utf-8")
                             ).hexdigest(),
                         ))
-        if usable_outputs == 0:
-            raise RuntimeError("style_benchmark_no_usable_outputs")
+        output_coverage = usable_outputs / len(observations)
+        if output_coverage < self._MINIMUM_OUTPUT_COVERAGE:
+            raise RuntimeError("style_benchmark_insufficient_output_coverage")
         dimension_scores = {
             name: statistics.fmean(
                 item.score for item in observations if item.dimension == name
@@ -220,7 +226,8 @@ class CognitiveStyleBenchmarkService:
         confidence = min(
             .99,
             (len(observations) / (len(observations) + 12))
-            * (1 - statistics.fmean(sensitivity.values())),
+            * (1 - statistics.fmean(sensitivity.values()))
+            * output_coverage,
         )
         now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         context_digest = hashlib.sha256(
@@ -244,6 +251,9 @@ class CognitiveStyleBenchmarkService:
             tool_mode=plan.context.tool_mode,
             sampling_digest=plan.context.sampling_digest,
             evidence_refs=tuple(item.evidence_ref for item in observations),
+            additional_dimensions={
+                "response_coverage": round(output_coverage, 6),
+            },
         )
         return StyleBenchmarkResult(
             profile=measured,
