@@ -34,4 +34,6 @@ def test_local_model_overlay_activates_released_hub_editor_only():
     for worker_id in ("ai-agent-alpha", "ai-agent-beta"):
         worker = services[worker_id]["environment"]
         assert "MODEL_PROFILES_PATH" in worker
+        assert worker["DEFAULT_PROVIDER"] == "llamacpp"
+        assert worker["DEFAULT_MODEL"] == "lfm2.5-2.6b-agentic-q8_0"
         assert "FEATURE_MODEL_ROUTING_EDITOR_ENABLED" not in worker

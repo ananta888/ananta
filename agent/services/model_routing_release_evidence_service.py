@@ -25,6 +25,8 @@ RELEASE_SOURCE_PATTERNS = (
     "agent/services/model_routing*.py",
     "agent/services/model_selection_service.py",
     "agent/services/openrouter_model_inventory_adapter.py",
+    "docker/compose-next/compose.base.yml",
+    "docker/compose-next/compose.local-kat-lfm-needle.yml",
     "frontend-angular/src/app/features/system/model-dashboard/*.ts",
     "frontend-angular/src/app/features/dashboard-foundation/dashboard-feature-flags.ts",
     "frontend-angular/src/app/components/agent-panel.component.ts",

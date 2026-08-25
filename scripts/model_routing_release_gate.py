@@ -31,7 +31,8 @@ GATE_COMMANDS = {
     "security": (
         ".venv/bin/pytest -q tests/test_model_routing_security_policy.py "
         "tests/test_model_routing_validation_policy.py "
-        "tests/test_model_routing_transfer_service.py"
+        "tests/test_model_routing_transfer_service.py "
+        "tests/test_model_routing_compose_wiring.py"
     ),
     "frontend_unit": (
         "npx vitest run "
