@@ -56,7 +56,10 @@ class HubStyleBenchmarkInvoker:
         )
 
         result = hub_llm_service.generate_text(
-            prompt=prompt,
+            prompt=(
+                f"{prompt}\n\nAntworte knapp und vollständig in höchstens 120 Tokens; "
+                "gib eine finale Antwort statt eines offenen Gedankengangs."
+            ),
             provider=profile.provider_id,
             model=profile.model,
             base_url=build_provider_request_url(
@@ -67,13 +70,14 @@ class HubStyleBenchmarkInvoker:
             temperature=temperature,
             seed=seed,
             timeout=min(180, profile.timeout_seconds),
-            max_output_tokens=min(1024, profile.max_output_tokens),
+            max_output_tokens=min(256, profile.max_output_tokens),
+            max_retries=0,
         )
         return str(result or "")
 
 
 class CognitiveStyleBenchmarkSuite:
-    REVISION = "behavior-style-v1"
+    REVISION = "behavior-style-v2"
 
     @classmethod
     def plan(
@@ -156,6 +160,7 @@ class CognitiveStyleBenchmarkService:
         if profile.profile_id != plan.context.model_profile_id:
             raise ValueError("style_benchmark_profile_context_mismatch")
         observations: list[StyleBenchmarkObservation] = []
+        usable_outputs = 0
         for variant in plan.variants:
             for repeat_index in range(plan.repeats):
                 for seed in plan.seeds:
@@ -166,6 +171,8 @@ class CognitiveStyleBenchmarkService:
                             seed=seed,
                             temperature=temperature,
                         )
+                        if output.strip():
+                            usable_outputs += 1
                         observation_id = f"obs-{uuid.uuid4().hex}"
                         score, refused = self._score(variant, output)
                         observations.append(StyleBenchmarkObservation(
@@ -184,6 +191,8 @@ class CognitiveStyleBenchmarkService:
                                 output.encode("utf-8")
                             ).hexdigest(),
                         ))
+        if usable_outputs == 0:
+            raise RuntimeError("style_benchmark_no_usable_outputs")
         dimension_scores = {
             name: statistics.fmean(
                 item.score for item in observations if item.dimension == name

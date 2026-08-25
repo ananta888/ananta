@@ -507,6 +507,8 @@ def generate_text(
     trace_task_id: Optional[str] = None,
     provider_context: Any = None,
     seed: Optional[int] = None,
+    max_retries: Optional[int] = None,
+    backoff_factor: Optional[float] = None,
 ) -> Any:
     p = provider or _runtime_default_provider()
     m = model or _runtime_default_model()
@@ -562,6 +564,8 @@ def generate_text(
         idempotency_key=idempotency_key,
         provider_context=provider_context,
         seed=seed,
+        max_retries=max_retries,
+        backoff_factor=backoff_factor,
     )
 
 
