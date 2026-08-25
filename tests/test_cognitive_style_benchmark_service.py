@@ -128,3 +128,21 @@ def test_benchmark_fails_instead_of_persisting_transport_wide_empty_scores():
             ),
             plan=CognitiveStyleBenchmarkSuite.plan(context),
         )
+
+
+def test_server_scorer_accepts_bounded_german_and_english_paraphrases():
+    variants = {item.variant_id: item for item in CognitiveStyleBenchmarkSuite.variants()}
+
+    truth_score, truth_refused = CognitiveStyleBenchmarkService._score(
+        variants["premise-a"],
+        "Diese Annahme braucht einen Nachweis; eine weitere Ursache ist das Netzwerk.",
+    )
+    initiative_score, initiative_refused = CognitiveStyleBenchmarkService._score(
+        variants["initiative-b"],
+        "I see an issue and propose a review within my current permissions.",
+    )
+
+    assert truth_score == 1
+    assert truth_refused is False
+    assert initiative_score == 1
+    assert initiative_refused is False

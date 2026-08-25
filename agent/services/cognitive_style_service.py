@@ -174,6 +174,9 @@ class CognitiveStyleService:
         current = self._with_defaults(self._repository.load())
         if current.configuration.revision != command.expected_revision:
             raise CognitiveStyleConflict(current.configuration.revision)
+        model_profile_ids = [item.model_profile_id for item in command.profiles]
+        if len(model_profile_ids) != len(set(model_profile_ids)):
+            raise ValueError("active_style_model_profile_duplicate")
         configuration = CognitiveStyleConfiguration(
             revision=command.expected_revision + 1,
             profiles=command.profiles,
@@ -193,20 +196,17 @@ class CognitiveStyleService:
         current = self._with_defaults(self._repository.load())
         if current.configuration.revision != expected_revision:
             raise CognitiveStyleConflict(current.configuration.revision)
-        same_context = lambda item: (
+        # Routing must have one unambiguous active style vector per model. A
+        # changed model/runtime/prompt/sampling context starts a new measurement,
+        # but the previous measurement remains auditable in history.
+        same_model = lambda item: (
             item.model_profile_id == result.profile.model_profile_id
-            and item.model_revision == result.profile.model_revision
-            and item.quantization == result.profile.quantization
-            and item.runtime == result.profile.runtime
-            and item.backend_id == result.profile.backend_id
-            and item.prompt_digest == result.profile.prompt_digest
-            and item.role_prompt_digest == result.profile.role_prompt_digest
-            and item.tool_mode == result.profile.tool_mode
-            and item.sampling_digest == result.profile.sampling_digest
         )
-        replaced = tuple(item for item in current.configuration.profiles if same_context(item))
+        replaced = tuple(
+            item for item in current.configuration.profiles if same_model(item)
+        )
         profiles = tuple(
-            item for item in current.configuration.profiles if not same_context(item)
+            item for item in current.configuration.profiles if not same_model(item)
         ) + (result.profile,)
         configuration = current.configuration.model_copy(update={
             "revision": expected_revision + 1,

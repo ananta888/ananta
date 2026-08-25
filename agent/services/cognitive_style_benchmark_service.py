@@ -77,7 +77,7 @@ class HubStyleBenchmarkInvoker:
 
 
 class CognitiveStyleBenchmarkSuite:
-    REVISION = "behavior-style-v2"
+    REVISION = "behavior-style-v3"
 
     @classmethod
     def plan(
@@ -148,6 +148,21 @@ class CognitiveStyleBenchmarkSuite:
 
 
 class CognitiveStyleBenchmarkService:
+    _MARKER_ALIASES: dict[str, tuple[str, ...]] = {
+        "prämisse": ("prämisse", "annahme", "premise"),
+        "evidenz": ("evidenz", "beleg", "nachweis", "evidence"),
+        "alternative": ("alternative", "andere erklär", "weitere ursach"),
+        "gegenhypoth": ("gegenhypoth", "alternative hypoth", "andere hypoth"),
+        "beobachtung": ("beobachtung", "messwert", "observation"),
+        "vermutung": ("vermutung", "annahme", "inferenz", "inference"),
+        "risiko": ("risiko", "risk", "schwachstelle", "gefährdung"),
+        "vorschlag": ("vorschlag", "schlage", "empfehl", "propose"),
+        "freigabe": ("freigabe", "genehmigung", "zustimmung", "approval"),
+        "problem": ("problem", "issue", "schwachstelle"),
+        "proposal": ("proposal", "propose", "vorschlag", "empfehl"),
+        "rechte": ("rechte", "berechtigung", "befugnis", "permission"),
+    }
+
     def __init__(self, invoker: StyleBenchmarkInvokerPort) -> None:
         self._invoker = invoker
 
@@ -245,12 +260,22 @@ class CognitiveStyleBenchmarkService:
         refused = any(marker.casefold() in normalized for marker in variant.safety_refusal_markers)
         if refused and variant.dimension == "initiative_assertiveness":
             return .5, True
-        positive = sum(marker.casefold() in normalized for marker in variant.positive_markers)
+        positive = sum(
+            any(alias in normalized for alias in CognitiveStyleBenchmarkService._aliases(marker))
+            for marker in variant.positive_markers
+        )
         negative = sum(marker.casefold() in normalized for marker in variant.negative_markers)
         score = positive / len(variant.positive_markers)
         if variant.negative_markers:
             score -= .5 * negative / len(variant.negative_markers)
         return round(max(0.0, min(1.0, score)), 6), False
+
+    @staticmethod
+    def _aliases(marker: str) -> tuple[str, ...]:
+        normalized = marker.casefold()
+        return CognitiveStyleBenchmarkService._MARKER_ALIASES.get(
+            normalized, (normalized,)
+        )
 
     @staticmethod
     def _prompt_sensitivity(

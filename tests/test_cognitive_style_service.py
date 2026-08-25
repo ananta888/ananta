@@ -14,6 +14,7 @@ from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_profile_resolver import ModelProfileResolver, RoutingContext
 from ananta_contracts.cognitive_style import (
     CognitiveStyleMutationCommand,
+    StyleBenchmarkResult,
     StyleEvolutionProposal,
     StyleEvolutionTransitionCommand,
     StyleMismatchEvidence,
@@ -81,6 +82,53 @@ def test_mutation_is_atomic_revision_bound_and_project_target_does_not_mutate_de
     assert service.resolve_target("reviewer") == default
     with pytest.raises(CognitiveStyleConflict):
         service.mutate(CognitiveStyleMutationCommand(expected_revision=0))
+
+
+def test_active_profiles_are_unique_per_model_and_rebenchmark_moves_old_context_to_history():
+    repo = InMemoryCognitiveStyleStateRepository()
+    service = CognitiveStyleService(repo)
+    old = _measured("old", "model-a", (.8, .4, .3))
+    current = service.read().configuration
+    service.mutate(CognitiveStyleMutationCommand(
+        expected_revision=0,
+        profiles=(old,),
+        role_targets=current.role_targets,
+        overlays=current.overlays,
+    ))
+    replacement = old.model_copy(update={
+        "profile_id": "new",
+        "model_revision": "model-r2",
+        "sampling_digest": "sha256:sampling-v3",
+    })
+
+    updated = service.record_benchmark_result(
+        StyleBenchmarkResult(
+            profile=replacement,
+            observations=(),
+            prompt_sensitivity={
+                "rule_correctness": 0,
+                "truth_exploration": 0,
+                "initiative_assertiveness": 0,
+            },
+        ),
+        expected_revision=1,
+    )
+    read = service.read()
+
+    assert updated.profiles == (replacement,)
+    assert read.profile_history == (old,)
+
+
+def test_manual_mutation_rejects_two_active_profiles_for_the_same_model():
+    service = CognitiveStyleService(InMemoryCognitiveStyleStateRepository())
+    old = _measured("old", "model-a", (.8, .4, .3))
+    duplicate = old.model_copy(update={"profile_id": "duplicate"})
+
+    with pytest.raises(ValueError, match="active_style_model_profile_duplicate"):
+        service.mutate(CognitiveStyleMutationCommand(
+            expected_revision=0,
+            profiles=(old, duplicate),
+        ))
 
 
 def test_diversity_reports_homogeneity_without_overriding_hard_policy():

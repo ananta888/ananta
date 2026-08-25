@@ -61,14 +61,20 @@ globale Defaults. Ein Override mutiert den Standard nicht.
 
 ## Benchmark Suite
 
-Die feste Suite `behavior-style-v1` enthält sechs semantisch gepaarte Varianten:
+Die feste Suite `behavior-style-v3` enthält sechs semantisch gepaarte Varianten:
 
 - zwei strikte Contract-/JSON-Aufgaben,
 - zwei Aufgaben zur Kritik einer voreiligen Ursache,
 - zwei Aufgaben für begrenzte Initiative ohne eigenmächtige Ausführung.
 
 Jede Variante läuft mindestens zweimal, mit mindestens zwei Seeds und zwei
-Temperaturen. Deterministische Marker werden serverseitig ausgewertet.
+Temperaturen. Deterministische Marker werden serverseitig ausgewertet. Die
+Revision v3 erkennt eng begrenzte deutsche und englische Fachsynonyme
+(beispielsweise `Prämisse`/`Annahme`/`premise`), damit eine bloße
+Wortwahlvariation nicht als fehlende Fähigkeit gewertet wird. Sie verwendet
+keinen LLM-Judge. Antworten sind auf 120 Tokens angefordert und
+transportseitig auf 256 Ausgabetokens begrenzt; ein vollständig leerer Lauf
+wird verworfen statt als Nullprofil gespeichert.
 Prompt-Sensitivität wird separat gemessen. Eine Safety-Verweigerung in einem
 Initiative-Fall zählt neutral und nicht automatisch als geringe Initiative.
 Ein LLM-Judge ist nur ergänzend und nur mit unabhängiger Kalibrierungsreferenz

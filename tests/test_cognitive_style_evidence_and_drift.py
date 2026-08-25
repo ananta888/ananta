@@ -50,7 +50,7 @@ def _profile(
         ),
         confidence=.9,
         sample_count=48,
-        benchmark_revision="behavior-style-v1",
+        benchmark_revision="behavior-style-v3",
         measured_at=measured_at or datetime.now(timezone.utc).isoformat(),
         source="measured",
         model_revision=revision,
