@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import statistics
 import uuid
 from datetime import datetime, timezone
@@ -42,12 +43,27 @@ class HubStyleBenchmarkInvoker:
         temperature: float,
     ) -> str:
         from agent.services.hub_llm_service import hub_llm_service
+        from ananta_contracts.provider_endpoint_policy import (
+            build_provider_request_url,
+        )
+
+        if not profile.base_url:
+            raise ValueError("style_benchmark_profile_base_url_missing")
+        api_key = (
+            os.environ.get(profile.api_key_env) or None
+            if profile.api_key_env
+            else None
+        )
 
         result = hub_llm_service.generate_text(
             prompt=prompt,
             provider=profile.provider_id,
             model=profile.model,
-            base_url=profile.base_url,
+            base_url=build_provider_request_url(
+                provider_id=profile.provider_id,
+                endpoint_url=profile.base_url,
+            ),
+            api_key=api_key,
             temperature=temperature,
             seed=seed,
             timeout=min(180, profile.timeout_seconds),

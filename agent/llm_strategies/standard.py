@@ -69,7 +69,7 @@ class OpenAIStrategy(LLMStrategy):
 
         if "json" in prompt.lower() and not tools:
             provider_key = (provider or "").strip().lower()
-            if provider_key not in ("lmstudio",):
+            if provider_key in ("openai", "codex"):
                 payload["response_format"] = {"type": "json_object"}
 
         resp = _http_post(

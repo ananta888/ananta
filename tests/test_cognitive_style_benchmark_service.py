@@ -3,6 +3,7 @@ from __future__ import annotations
 from agent.services.cognitive_style_benchmark_service import (
     CognitiveStyleBenchmarkService,
     CognitiveStyleBenchmarkSuite,
+    HubStyleBenchmarkInvoker,
 )
 from agent.services.model_profile_loader import ModelProfile
 from ananta_contracts.cognitive_style import StyleMeasurementContext
@@ -66,3 +67,38 @@ def test_safety_refusal_is_not_scored_as_zero_initiative():
     initiative = [item for item in result.observations if item.dimension == "initiative_assertiveness"]
     assert initiative
     assert all(item.score == .5 and item.refused_for_safety for item in initiative)
+
+
+def test_hub_invoker_normalizes_local_openai_endpoint_and_resolves_profile_key(
+    monkeypatch,
+):
+    captured = {}
+
+    def generate_text(**kwargs):
+        captured.update(kwargs)
+        return "measured output"
+
+    monkeypatch.setenv("STYLE_TEST_LOCAL_KEY", "local-benchmark-token")
+    monkeypatch.setattr(
+        "agent.services.hub_llm_service.hub_llm_service.generate_text",
+        generate_text,
+    )
+    output = HubStyleBenchmarkInvoker().generate(
+        profile=ModelProfile(
+            profile_id="local-lfm",
+            provider_id="llamacpp",
+            model="lfm",
+            base_url="http://host.docker.internal:8081/v1",
+            api_key_env="STYLE_TEST_LOCAL_KEY",
+        ),
+        prompt="benchmark prompt",
+        seed=17,
+        temperature=.4,
+    )
+
+    assert output == "measured output"
+    assert captured["provider"] == "llamacpp"
+    assert captured["base_url"] == (
+        "http://host.docker.internal:8081/v1/chat/completions"
+    )
+    assert captured["api_key"] == "local-benchmark-token"
