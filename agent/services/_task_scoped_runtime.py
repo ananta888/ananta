@@ -565,6 +565,22 @@ def build_task_propose_prompt(
     )
     effective_system_prompt = str(instruction_stack.get("rendered_system_prompt") or "").strip() or None
     stack_diagnostics = dict(instruction_stack.get("diagnostics") or {})
+    from agent.services.cognitive_style_overlay_service import (
+        apply_cognitive_style_overlay,
+    )
+
+    style_overlay = apply_cognitive_style_overlay(
+        task=task,
+        system_prompt=effective_system_prompt,
+        fallback_role=worker_profile,
+    )
+    effective_system_prompt = style_overlay.rendered_system_prompt
+    stack_diagnostics["cognitive_style_overlay"] = {
+        "applied": style_overlay.applied,
+        "role_id": style_overlay.role_id,
+        "overlay_id": style_overlay.overlay_id,
+        "permission_delta": style_overlay.permission_delta,
+    }
     shell_command_mode = str(execution_context.get("shell_command_mode") or "").strip().lower()
     allow_complex_shell = shell_command_mode == "pipeline"
     _raw_pattern_hints = execution_context.get("pattern_hints_normalized")

@@ -158,6 +158,22 @@ def run_propose_orchestrator_path(
     instruction_stack_payload = dict(assembled_instruction.get("instruction_stack") or {})
     instruction_diagnostics = dict(assembled_instruction.get("diagnostics") or {})
     rendered_system_prompt = str(assembled_instruction.get("rendered_system_prompt") or "").strip() or None
+    from agent.services.cognitive_style_overlay_service import (
+        apply_cognitive_style_overlay,
+    )
+
+    style_overlay = apply_cognitive_style_overlay(
+        task=task,
+        system_prompt=rendered_system_prompt,
+        fallback_role=str(task.get("task_kind") or ""),
+    )
+    rendered_system_prompt = style_overlay.rendered_system_prompt
+    instruction_diagnostics["cognitive_style_overlay"] = {
+        "applied": style_overlay.applied,
+        "role_id": style_overlay.role_id,
+        "overlay_id": style_overlay.overlay_id,
+        "permission_delta": style_overlay.permission_delta,
+    }
 
     strategies = build_strategy_registry()
     orch = ProposeStrategyOrchestrator(policy, strategies)
