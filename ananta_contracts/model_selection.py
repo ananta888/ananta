@@ -9,6 +9,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}$")
 
+FallbackTrigger = Literal[
+    "provider_unavailable", "connection_error", "timeout", "http_5xx",
+    "server_error", "invalid_json_response", "empty_content",
+    "schema_validation_failed", "tool_not_allowed", "tool_args_invalid",
+    "repeated_tool_failure", "context_too_large",
+]
+
 
 class _Closed(BaseModel):
     model_config = ConfigDict(
@@ -74,8 +81,11 @@ class ModelAssignment(_Closed):
 class ModelFallbackCandidate(_Closed):
     profile_id: str
     retry_budget: int = Field(default=0, ge=0, le=8)
-    triggers: tuple[str, ...] = ()
+    triggers: tuple[FallbackTrigger, ...] = ()
     max_context_tokens: int | None = Field(default=None, ge=1)
+    max_estimated_cost_per_step: float | None = Field(default=None, ge=0)
+    requires_tools: bool = False
+    requires_json: bool = False
     cloud_allowed: bool = False
 
 
@@ -83,6 +93,9 @@ class ModelFallbackGroup(_Closed):
     group_id: str
     candidates: tuple[ModelFallbackCandidate, ...] = Field(min_length=1, max_length=32)
     stop_on_policy_block: bool = True
+    max_total_retries: int = Field(default=0, ge=0, le=64)
+    on_exhausted: Literal["stop", "escalate"] = "stop"
+    escalation_profile_id: str | None = None
 
     @model_validator(mode="after")
     def unique_candidates(self) -> "ModelFallbackGroup":
@@ -91,6 +104,12 @@ class ModelFallbackGroup(_Closed):
             raise ValueError("model_fallback_duplicate_candidate")
         if not self.stop_on_policy_block:
             raise ValueError("model_fallback_policy_block_must_be_terminal")
+        if self.on_exhausted == "escalate" and not self.escalation_profile_id:
+            raise ValueError("model_fallback_escalation_profile_required")
+        if self.on_exhausted == "stop" and self.escalation_profile_id:
+            raise ValueError("model_fallback_escalation_profile_unexpected")
+        if self.escalation_profile_id in set(ids):
+            raise ValueError("model_fallback_escalation_cycle")
         return self
 
 
@@ -179,7 +198,63 @@ class EffectiveModelRoute(_Closed):
     candidate_profile_ids: tuple[str, ...] = ()
     blocked_candidates: tuple[tuple[str, str], ...] = ()
     decisions: tuple[ModelRouteDecision, ...] = ()
+    maximum_total_retries: int | None = Field(default=None, ge=0, le=64)
     executable: bool
+
+
+class ModelRoutingValidationIssue(_Closed):
+    severity: Literal["warning", "error"]
+    reason_code: str
+    reference: str | None = None
+
+
+class ModelRoutingValidationReport(_Closed):
+    schema_version: Literal["ananta.model-routing-validation-report.v1"] = Field(
+        default="ananta.model-routing-validation-report.v1", alias="schema"
+    )
+    valid: bool
+    expected_revision: int = Field(ge=0)
+    current_revision: int = Field(ge=0)
+    issues: tuple[ModelRoutingValidationIssue, ...] = ()
+
+
+class ModelRoutingExportBundle(_Closed):
+    schema_version: Literal["ananta.model-routing-export.v1"] = Field(
+        default="ananta.model-routing-export.v1", alias="schema"
+    )
+    configuration: ModelRoutingConfiguration
+
+
+class ModelRoutingImportCommand(_Closed):
+    schema_version: Literal["ananta.model-routing-import-command.v1"] = Field(
+        default="ananta.model-routing-import-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    configuration: ModelRoutingConfiguration
+    confirmation_digest: str | None = Field(
+        default=None, pattern=r"^sha256:[a-f0-9]{64}$"
+    )
+
+
+class ModelRoutingDiff(_Closed):
+    added_assignment_keys: tuple[str, ...] = ()
+    changed_assignment_keys: tuple[str, ...] = ()
+    removed_assignment_keys: tuple[str, ...] = ()
+    added_fallback_group_ids: tuple[str, ...] = ()
+    changed_fallback_group_ids: tuple[str, ...] = ()
+    removed_fallback_group_ids: tuple[str, ...] = ()
+
+
+class ModelRoutingImportPreview(_Closed):
+    schema_version: Literal["ananta.model-routing-import-preview.v1"] = Field(
+        default="ananta.model-routing-import-preview.v1", alias="schema"
+    )
+    current_revision: int = Field(ge=0)
+    source_revision: int = Field(ge=0)
+    applicable: bool
+    confirmation_digest: str
+    diff: ModelRoutingDiff
+    issues: tuple[ModelRoutingValidationIssue, ...] = ()
 
 
 class CognitiveStyleVector(_Closed):
@@ -234,7 +309,10 @@ class RoleStyleTarget(_Closed):
 __all__ = [
     "AgentStyleProfile", "CognitiveStyleVector", "EffectiveModelRoute", "ModelAssignment",
     "ModelConsumer", "ModelFallbackCandidate", "ModelFallbackGroup",
-    "ModelRouteDecision", "ModelRoutingConfiguration", "ModelRoutingDryRunCommand",
-    "ModelRoutingMutationCommand",
+    "ModelRouteDecision", "ModelRoutingConfiguration", "ModelRoutingDiff",
+    "ModelRoutingDryRunCommand", "ModelRoutingExportBundle",
+    "ModelRoutingImportCommand", "ModelRoutingImportPreview",
+    "ModelRoutingMutationCommand", "ModelRoutingValidationIssue",
+    "ModelRoutingValidationReport",
     "RoleStyleTarget", "StyleRange",
 ]

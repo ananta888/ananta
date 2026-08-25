@@ -17,6 +17,7 @@ from ananta_contracts.model_selection import (
     EffectiveModelRoute,
     ModelAssignment,
     ModelConsumer,
+    ModelFallbackCandidate,
     ModelFallbackGroup,
     ModelRoutingConfiguration,
     ModelRouteDecision,
@@ -166,6 +167,11 @@ class ModelRoutingAssignmentService:
         for group in groups:
             if any(item.profile_id not in self._profiles for item in group.candidates):
                 raise ValueError("model_fallback_profile_unknown")
+            if (
+                group.escalation_profile_id
+                and group.escalation_profile_id not in self._profiles
+            ):
+                raise ValueError("model_fallback_escalation_profile_unknown")
 
 
 class EffectiveModelRoutingService:
@@ -207,6 +213,17 @@ class EffectiveModelRoutingService:
         self._resolver = resolver
 
     def dry_run(self, command: ModelRoutingDryRunCommand) -> EffectiveModelRoute:
+        route, _candidates = self.resolve_route(command)
+        return route
+
+    def resolve_route(
+        self,
+        command: ModelRoutingDryRunCommand,
+        *,
+        base_context: RoutingContext | None = None,
+    ) -> tuple[EffectiveModelRoute, list[ModelProfile]]:
+        """Resolve once for both previews and Hub-signed runtime plans."""
+
         consumer = self._consumers.require(command.consumer_id)
         configuration = self._repository.load()
         assignment, source, inheritance_sources = self._effective_assignment(
@@ -220,6 +237,7 @@ class EffectiveModelRoutingService:
                 inheritance_sources=inheritance_sources,
                 assignment_mode="disabled",
                 fallback_group_id=assignment.fallback_group_id,
+                maximum_total_retries=0,
                 decisions=(ModelRouteDecision(
                     rank=0,
                     source="hub_assignment",
@@ -228,7 +246,7 @@ class EffectiveModelRoutingService:
                     reason="model_routing_consumer_disabled",
                 ),),
                 executable=False,
-            )
+            ), []
 
         requested_profile = self._requested_profile(assignment)
         fallback = next(
@@ -238,32 +256,105 @@ class EffectiveModelRoutingService:
             ),
             None,
         )
+        fallback_candidates = list(fallback.candidates) if fallback else []
+        if fallback and fallback.escalation_profile_id:
+            fallback_candidates.append(ModelFallbackCandidate(
+                profile_id=fallback.escalation_profile_id,
+                cloud_allowed=command.allow_cloud,
+            ))
+        base = base_context or RoutingContext()
+        configured_role = self._CONSUMER_MODEL_ROLES.get(
+            consumer.consumer_id, "any"
+        )
+        model_role = (
+            base.model_role
+            if base.model_role and base.model_role != "any"
+            else configured_role
+        )
+        explicit_profile_id = requested_profile.profile_id if requested_profile else None
+        request_profile_id = (
+            explicit_profile_id
+            if assignment.mode in {"profile", "model"}
+            else base.request_profile_id
+        )
         context = RoutingContext(
-            model_role=self._CONSUMER_MODEL_ROLES.get(consumer.consumer_id, "any"),
-            task_kind=command.task_kind,
-            risk_class=command.risk_class,
-            request_profile_id=requested_profile.profile_id if requested_profile else None,
-            requires_tools=command.requires_tools or "tools" in consumer.required_capabilities,
-            requires_json=command.requires_json or "json" in consumer.required_capabilities,
-            requires_streaming=command.requires_streaming,
-            approximate_context_tokens=command.approximate_context_tokens,
-            contains_secrets=command.contains_secrets,
+            model_role=model_role,
+            blueprint_id=base.blueprint_id,
+            template_id=base.template_id,
+            team_id=base.team_id,
+            task_kind=command.task_kind or base.task_kind,
+            risk_class=command.risk_class or base.risk_class,
+            context_text=base.context_text,
+            request_profile_id=request_profile_id,
+            user_profile_id=base.user_profile_id,
+            env_profile_id=base.env_profile_id,
+            requires_tools=(
+                command.requires_tools
+                or base.requires_tools
+                or "tools" in consumer.required_capabilities
+            ),
+            requires_json=(
+                command.requires_json
+                or base.requires_json
+                or "json" in consumer.required_capabilities
+            ),
+            requires_streaming=command.requires_streaming or base.requires_streaming,
+            approximate_context_tokens=(
+                command.approximate_context_tokens
+                if command.approximate_context_tokens > 0
+                else base.approximate_context_tokens
+            ),
+            contains_secrets=command.contains_secrets or base.contains_secrets,
             data_class=command.data_class,
-            allow_cloud=command.allow_cloud,
-            fallback_group_id=fallback.group_id if fallback else None,
-            fallback_profile_ids=tuple(item.profile_id for item in fallback.candidates) if fallback else (),
+            step_kind=base.step_kind,
+            allow_cloud=(
+                command.allow_cloud
+                if base_context is None
+                else command.allow_cloud and base.allow_cloud
+            ),
+            fallback_group_id=(
+                fallback.group_id if fallback else base.fallback_group_id
+            ),
+            fallback_profile_ids=tuple(item.profile_id for item in fallback_candidates),
             fallback_candidate_max_context_tokens={
                 item.profile_id: item.max_context_tokens
-                for item in fallback.candidates
+                for item in fallback_candidates
                 if item.max_context_tokens is not None
             } if fallback else {},
             fallback_candidate_cloud_allowed={
-                item.profile_id: item.cloud_allowed for item in fallback.candidates
+                item.profile_id: item.cloud_allowed for item in fallback_candidates
             } if fallback else {},
-            fallback_stop_on_policy_block=fallback.stop_on_policy_block if fallback else True,
+            fallback_candidate_retry_budgets={
+                item.profile_id: item.retry_budget for item in fallback_candidates
+            } if fallback else {},
+            fallback_candidate_triggers={
+                item.profile_id: item.triggers for item in fallback_candidates
+                if item.triggers
+            } if fallback else {},
+            fallback_candidate_max_costs={
+                item.profile_id: item.max_estimated_cost_per_step
+                for item in fallback_candidates
+                if item.max_estimated_cost_per_step is not None
+            } if fallback else {},
+            fallback_candidate_requires_tools={
+                item.profile_id: item.requires_tools for item in fallback_candidates
+            } if fallback else {},
+            fallback_candidate_requires_json={
+                item.profile_id: item.requires_json for item in fallback_candidates
+            } if fallback else {},
+            fallback_max_total_retries=(fallback.max_total_retries if fallback else None),
+            fallback_stop_on_policy_block=(
+                fallback.stop_on_policy_block
+                if fallback
+                else base.fallback_stop_on_policy_block
+            ),
+            max_estimated_cost_per_step=base.max_estimated_cost_per_step,
+            previous_error_type=base.previous_error_type,
+            repeated_failure_count=base.repeated_failure_count,
+            metadata=dict(base.metadata),
         )
         result, candidates = self._resolver.resolve_candidate_chain(context)
-        return self._read_model(
+        route = self._read_model(
             configuration=configuration,
             consumer=consumer,
             assignment=assignment,
@@ -271,7 +362,11 @@ class EffectiveModelRoutingService:
             inheritance_sources=inheritance_sources,
             result=result,
             candidates=candidates,
+            maximum_total_retries=(
+                fallback.max_total_retries if fallback else None
+            ),
         )
+        return route, candidates
 
     def _effective_assignment(
         self,
@@ -357,6 +452,7 @@ class EffectiveModelRoutingService:
         inheritance_sources: tuple[str, ...],
         result: ResolutionResult,
         candidates: list[ModelProfile],
+        maximum_total_retries: int | None,
     ) -> EffectiveModelRoute:
         profile = result.profile
         return EffectiveModelRoute(
@@ -378,6 +474,7 @@ class EffectiveModelRoutingService:
                 accepted=item.accepted,
                 reason=item.reason,
             ) for item in result.decisions),
+            maximum_total_retries=maximum_total_retries,
             executable=profile is not None,
         )
 

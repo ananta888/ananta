@@ -13,6 +13,14 @@ from agent.services.model_routing_contract import (
     ModelRoutingConfig,
     ModelRoutingContractError,
 )
+from agent.services.model_selection_service import (
+    EffectiveModelRoutingService,
+    ModelConsumerRegistry,
+)
+from ananta_contracts.model_selection import (
+    ModelRoutingConfiguration,
+    ModelRoutingDryRunCommand,
+)
 from ananta_contracts.provider_endpoint_policy import (
     normalize_provider_endpoint_identity,
 )
@@ -63,8 +71,13 @@ class HubConfiguredWorkflowProviderDecisionService:
     Hub configuration instead of consulting container-local registries.
     """
 
-    def __init__(self, config_loader: Callable[[], Mapping[str, Any]]) -> None:
+    def __init__(
+        self,
+        config_loader: Callable[[], Mapping[str, Any]],
+        routing_configuration_loader: Callable[[], ModelRoutingConfiguration] | None = None,
+    ) -> None:
         self._config_loader = config_loader
+        self._routing_configuration_loader = routing_configuration_loader
 
     def decide(
         self, requirement: WorkflowProviderRequirement
@@ -171,8 +184,8 @@ class HubConfiguredWorkflowProviderDecisionService:
             binding=binding,
         )
 
-    @staticmethod
     def _decide_profile_chain(
+        self,
         requirement: WorkflowProviderRequirement,
         *,
         profiles_path: str,
@@ -331,7 +344,52 @@ class HubConfiguredWorkflowProviderDecisionService:
             result, candidates = resolver.resolve_candidate_chain(
                 routing_context
             )
-            if not result.ok or not candidates:
+            central_assignment_mode = "inherit"
+            central_max_total_retries: int | None = None
+            primary_profile_id = (
+                str(result.profile.profile_id) if result.profile is not None else ""
+            )
+            consumer_id = self._consumer_id(requirement.task_type)
+            if self._routing_configuration_loader is not None and consumer_id:
+                central_configuration = self._routing_configuration_loader()
+                effective_service = EffectiveModelRoutingService(
+                    repository=_ReadOnlyRoutingConfigurationRepository(
+                        central_configuration
+                    ),
+                    consumers=ModelConsumerRegistry.defaults(),
+                    resolver=resolver,
+                )
+                effective_route, candidates = effective_service.resolve_route(
+                    ModelRoutingDryRunCommand(
+                        consumer_id=consumer_id,
+                        organization_id=requirement.tenant_id,
+                        workflow_id=requirement.workflow_id,
+                        step_id=requirement.step_id,
+                        task_kind=requirement.task_type,
+                        requires_tools=bool(
+                            capabilities & {"tool_calling", "tools"}
+                        ),
+                        requires_json=bool(
+                            capabilities & {"json", "structured_output"}
+                        ),
+                        requires_streaming="streaming" in capabilities,
+                        allow_cloud=False,
+                    ),
+                    base_context=routing_context,
+                )
+                if not effective_route.executable:
+                    return WorkflowProviderDecision(
+                        status="denied",
+                        reason_code="provider_central_route_unavailable",
+                    )
+                central_assignment_mode = effective_route.assignment_mode
+                central_max_total_retries = (
+                    effective_route.maximum_total_retries
+                )
+                primary_profile_id = str(
+                    effective_route.resolved_profile_id or ""
+                )
+            if not primary_profile_id or not candidates:
                 return WorkflowProviderDecision(
                     status="denied",
                     reason_code="provider_profile_chain_unavailable",
@@ -339,8 +397,8 @@ class HubConfiguredWorkflowProviderDecisionService:
             if (
                 routing is not None
                 and routing.preferred_profile_id
-                and result.profile.profile_id
-                != routing.preferred_profile_id
+                and primary_profile_id != routing.preferred_profile_id
+                and central_assignment_mode == "inherit"
             ):
                 return WorkflowProviderDecision(
                     status="denied",
@@ -379,7 +437,6 @@ class HubConfiguredWorkflowProviderDecisionService:
             profile_bindings = tuple(profile_binding_values)
             for profile_binding in profile_bindings:
                 profile_binding.validate()
-            primary_profile_id = str(result.profile.profile_id)
             primary = next(
                 (
                     item.binding
@@ -398,7 +455,9 @@ class HubConfiguredWorkflowProviderDecisionService:
                 primary_profile_id,
             )
             remaining_group_retries = (
-                max(0, int(fallback_group.max_total_retries))
+                max(0, int(central_max_total_retries))
+                if central_max_total_retries is not None
+                else max(0, int(fallback_group.max_total_retries))
                 if fallback_group is not None
                 else sum(
                     max(0, int(profile.retry_budget))
@@ -423,6 +482,13 @@ class HubConfiguredWorkflowProviderDecisionService:
                     ProviderProfileAttemptPlanEntry.from_profile_binding(
                         profile_binding,
                         maximum_attempts=1 + retries,
+                        allowed_error_types=tuple(
+                            str(value or "").strip()
+                            for value in profile.extra.get(
+                                "central_fallback_triggers", ()
+                            )
+                            if str(value or "").strip()
+                        ),
                     )
                 )
             profile_attempt_plan = tuple(profile_attempt_plan_values)
@@ -449,6 +515,33 @@ class HubConfiguredWorkflowProviderDecisionService:
                 status="denied",
                 reason_code="configured_model_routing_invalid",
             )
+
+    @staticmethod
+    def _consumer_id(task_type: str) -> str | None:
+        normalized = str(task_type or "").strip().lower().replace("-", "_")
+        return {
+            "planning": "task.planning",
+            "coding": "task.coding",
+            "debugging": "task.debugging",
+            "review": "task.review",
+            "research": "task.research",
+            "repo_analysis": "task.repo_analysis",
+        }.get(normalized)
+
+
+class _ReadOnlyRoutingConfigurationRepository:
+    def __init__(self, value: ModelRoutingConfiguration) -> None:
+        self._value = value
+
+    def load(self) -> ModelRoutingConfiguration:
+        return self._value
+
+    def save_if_revision(
+        self,
+        expected_revision: int,
+        value: ModelRoutingConfiguration,
+    ) -> bool:
+        return False
 
 
 def load_current_hub_provider_config() -> Mapping[str, Any]:
@@ -484,7 +577,18 @@ def load_current_hub_provider_config() -> Mapping[str, Any]:
 
 
 def build_workflow_provider_decision_service() -> WorkflowProviderDecisionPort:
-    return HubConfiguredWorkflowProviderDecisionService(load_current_hub_provider_config)
+    return HubConfiguredWorkflowProviderDecisionService(
+        load_current_hub_provider_config,
+        load_current_model_routing_configuration,
+    )
+
+
+def load_current_model_routing_configuration() -> ModelRoutingConfiguration:
+    from agent.repositories.model_routing_configuration import (
+        SqlModelRoutingConfigurationRepository,
+    )
+
+    return SqlModelRoutingConfigurationRepository().load()
 
 
 def trusted_model_routing_from_metadata(
@@ -510,5 +614,6 @@ __all__ = [
     "WorkflowProviderRequirement",
     "build_workflow_provider_decision_service",
     "load_current_hub_provider_config",
+    "load_current_model_routing_configuration",
     "trusted_model_routing_from_metadata",
 ]

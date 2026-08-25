@@ -31,6 +31,12 @@ from agent.services.workflow_runtime import (
     RuntimeAuthorizationEnvelope,
 )
 from ananta_contracts.provider_execution import ProviderExecutionBinding
+from ananta_contracts.model_selection import (
+    ModelAssignment,
+    ModelFallbackCandidate,
+    ModelFallbackGroup,
+    ModelRoutingConfiguration,
+)
 from ananta_contracts.workflow_adapter_task import (
     WORKFLOW_ADAPTER_TASK_RESULT_SCHEMA,
     WorkflowAdapterTask,
@@ -912,3 +918,63 @@ def test_profile_decision_honors_trusted_gemma_primary_and_fallback_group() -> N
     )
     assert denied.status == "denied"
     assert denied.reason_code == "provider_fallback_group_not_found"
+
+
+def test_central_routing_is_compiled_into_hub_signed_attempt_plan() -> None:
+    configuration = ModelRoutingConfiguration(
+        revision=7,
+        assignments=(ModelAssignment(
+            consumer_id="task.coding",
+            scope="global",
+            mode="profile",
+            profile_id="local_ollama_gemma4_e4b_reasoning",
+            fallback_group_id="central-code",
+        ),),
+        fallback_groups=(ModelFallbackGroup(
+            group_id="central-code",
+            max_total_retries=1,
+            candidates=(
+                ModelFallbackCandidate(
+                    profile_id="local_ollama_gemma4_e4b_reasoning",
+                    retry_budget=1,
+                    triggers=("timeout",),
+                ),
+                ModelFallbackCandidate(
+                    profile_id="local_ollama_phi4_mini",
+                    retry_budget=2,
+                ),
+            ),
+        ),),
+    )
+    subject = HubConfiguredWorkflowProviderDecisionService(
+        lambda: {
+            "model_profiles_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_profiles.yaml"
+            ),
+            "model_routing_path": (
+                "config/models/"
+                "local-ollama-phi-gemma-rtx3080.model_routing.json"
+            ),
+        },
+        lambda: configuration,
+    )
+
+    decision = subject.decide(WorkflowProviderRequirement(
+        tenant_id="tenant-a",
+        workflow_id="workflow-a",
+        step_id="step-a",
+        task_type="coding",
+        runtime_kind="native",
+        requires_provider=True,
+    ))
+
+    assert decision.status == "selected"
+    assert decision.primary_profile_id == "local_ollama_gemma4_e4b_reasoning"
+    assert [item.profile_id for item in decision.profile_attempt_plan] == [
+        "local_ollama_gemma4_e4b_reasoning",
+        "local_ollama_phi4_mini",
+    ]
+    assert [item.maximum_attempts for item in decision.profile_attempt_plan] == [2, 1]
+    assert decision.profile_attempt_plan[0].allowed_error_types == ("timeout",)
+    assert decision.maximum_provider_attempts == 3

@@ -442,6 +442,29 @@ class ModelInvocationService:
         normalized_error_type = fallback_policy.normalize_error_type(
             error_type
         )
+        allowed_error_types = tuple(
+            str(value or "").strip()
+            for value in getattr(current, "allowed_error_types", ())
+            if str(value or "").strip()
+        )
+        if allowed_error_types and normalized_error_type not in allowed_error_types:
+            fallback_decisions.append(
+                {
+                    "reason": "hub_signed_fallback_trigger_denied",
+                    "previous_profile_id": current.profile_id,
+                    "next_profile_id": None,
+                    "trigger": normalized_error_type,
+                    "failed_attempts": failed_attempts,
+                    "maximum_attempts": current.maximum_attempts,
+                    "terminal": True,
+                }
+            )
+            raise LLMUnavailableError(
+                str(error),
+                llm_call_profile=call_profile,
+                fallback_decisions=fallback_decisions,
+                terminal_reason=normalized_error_type,
+            )
         if normalized_error_type == "context_too_large":
             fallback_decisions.append(
                 {
@@ -1857,9 +1880,14 @@ class ModelInvocationService:
                 ),
             )
         group_retry_budget = (
-            max(0, int(fallback_group_rule.max_total_retries))
-            if fallback_group_rule is not None
-            else None
+            max(0, int(routing_ctx.fallback_max_total_retries))
+            if routing_ctx is not None
+            and getattr(routing_ctx, "fallback_max_total_retries", None) is not None
+            else (
+                max(0, int(fallback_group_rule.max_total_retries))
+                if fallback_group_rule is not None
+                else None
+            )
         )
         if group_retry_budget is not None:
             resolution_info["fallback_group_max_total_retries"] = (
@@ -1942,6 +1970,24 @@ class ModelInvocationService:
                         if action == "retry":
                             continue
                         break
+                    if not fallback_policy.candidate_allows_trigger(
+                        attempt.get("profile"), error_type
+                    ):
+                        fallback_decisions.append({
+                            "reason": "candidate_trigger_not_allowed",
+                            "previous_profile_id": getattr(
+                                attempt.get("profile"), "profile_id", None
+                            ),
+                            "next_profile_id": None,
+                            "trigger": error_type,
+                            "terminal": True,
+                        })
+                        raise LLMUnavailableError(
+                            str(exc),
+                            llm_call_profile=call_profile,
+                            fallback_decisions=fallback_decisions,
+                            terminal_reason=error_type,
+                        )
                     profile_retry_allowed = fallback_policy.should_retry_profile(
                         error_type=error_type,
                         profile=attempt.get("profile"),

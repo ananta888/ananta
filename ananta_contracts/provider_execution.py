@@ -239,6 +239,7 @@ class ProviderProfileAttemptPlanEntry:
     model_id: str
     maximum_attempts: int
     endpoint_identity: str = ""
+    allowed_error_types: tuple[str, ...] = ()
 
     @property
     def binding_authorization(self) -> ProviderBindingAuthorization:
@@ -259,6 +260,13 @@ class ProviderProfileAttemptPlanEntry:
             raise ProviderExecutionBindingError(
                 "provider_attempt_plan_limit_invalid"
             )
+        if len(self.allowed_error_types) > 16 or any(
+            not _IDENTIFIER.fullmatch(str(value or ""))
+            for value in self.allowed_error_types
+        ):
+            raise ProviderExecutionBindingError(
+                "provider_attempt_plan_error_types_invalid"
+            )
 
     @classmethod
     def from_profile_binding(
@@ -266,6 +274,7 @@ class ProviderProfileAttemptPlanEntry:
         profile_binding: ProviderProfileExecutionBinding,
         *,
         maximum_attempts: int,
+        allowed_error_types: tuple[str, ...] = (),
     ) -> "ProviderProfileAttemptPlanEntry":
         profile_binding.validate()
         value = cls(
@@ -275,6 +284,7 @@ class ProviderProfileAttemptPlanEntry:
             model_id=profile_binding.binding.model_id,
             maximum_attempts=int(maximum_attempts),
             endpoint_identity=profile_binding.binding.endpoint_identity,
+            allowed_error_types=tuple(allowed_error_types),
         )
         value.validate()
         return value
@@ -295,6 +305,10 @@ class ProviderProfileAttemptPlanEntry:
                 endpoint_identity=str(
                     raw.get("endpoint_identity") or ""
                 ).strip(),
+                allowed_error_types=tuple(
+                    str(item or "").strip()
+                    for item in (raw.get("allowed_error_types") or ())
+                ),
             )
         except (TypeError, ValueError) as exc:
             raise ProviderExecutionBindingError(
@@ -314,6 +328,8 @@ class ProviderProfileAttemptPlanEntry:
         }
         if self.endpoint_identity:
             payload["endpoint_identity"] = self.endpoint_identity
+        if self.allowed_error_types:
+            payload["allowed_error_types"] = list(self.allowed_error_types)
         return payload
 
 

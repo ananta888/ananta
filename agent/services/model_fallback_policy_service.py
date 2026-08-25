@@ -160,6 +160,20 @@ class ModelFallbackPolicyService:
         )
         return int(failed_attempts) <= retry_budget
 
+    @classmethod
+    def candidate_allows_trigger(
+        cls,
+        profile: ModelProfile | None,
+        error_type: str | None,
+    ) -> bool:
+        if profile is None:
+            return True
+        raw = profile.extra.get("central_fallback_triggers")
+        if not isinstance(raw, (list, tuple, set)) or not raw:
+            return True
+        allowed = {cls.normalize_error_type(value) for value in raw}
+        return cls.normalize_error_type(error_type) in allowed
+
     @staticmethod
     def normalize_error_type(error_type: str | None) -> str:
         return normalize_model_recovery_error_type(error_type)

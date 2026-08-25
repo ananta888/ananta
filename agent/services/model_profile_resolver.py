@@ -67,6 +67,12 @@ class RoutingContext:
     fallback_profile_ids: tuple[str, ...] = ()
     fallback_candidate_max_context_tokens: dict[str, int] = field(default_factory=dict)
     fallback_candidate_cloud_allowed: dict[str, bool] = field(default_factory=dict)
+    fallback_candidate_retry_budgets: dict[str, int] = field(default_factory=dict)
+    fallback_candidate_triggers: dict[str, tuple[str, ...]] = field(default_factory=dict)
+    fallback_candidate_max_costs: dict[str, float] = field(default_factory=dict)
+    fallback_candidate_requires_tools: dict[str, bool] = field(default_factory=dict)
+    fallback_candidate_requires_json: dict[str, bool] = field(default_factory=dict)
+    fallback_max_total_retries: int | None = None
     fallback_stop_on_policy_block: bool = True
     allow_cloud: bool = False
     max_estimated_cost_per_step: float | None = None
@@ -679,7 +685,27 @@ class ModelProfileResolver:
                 ):
                     direct_policy_blocked_cloud = True
                 continue
-            cap_ok, cap_reason = self._capability_check(prof, effective_ctx)
+            candidate_cost = effective_ctx.fallback_candidate_max_costs.get(pid)
+            effective_cost = effective_ctx.max_estimated_cost_per_step
+            if candidate_cost is not None:
+                effective_cost = (
+                    min(effective_cost, candidate_cost)
+                    if effective_cost is not None
+                    else candidate_cost
+                )
+            candidate_ctx = replace(
+                effective_ctx,
+                requires_tools=(
+                    effective_ctx.requires_tools
+                    or effective_ctx.fallback_candidate_requires_tools.get(pid, False)
+                ),
+                requires_json=(
+                    effective_ctx.requires_json
+                    or effective_ctx.fallback_candidate_requires_json.get(pid, False)
+                ),
+                max_estimated_cost_per_step=effective_cost,
+            )
+            cap_ok, cap_reason = self._capability_check(prof, candidate_ctx)
             if not cap_ok:
                 decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, False, cap_reason))
                 continue
@@ -695,6 +721,17 @@ class ModelProfileResolver:
                 )
                 continue
             decisions.append(ResolutionDecision(13, "fallback_candidate_chain", pid, True, "candidate_available"))
+            retry_budget = effective_ctx.fallback_candidate_retry_budgets.get(pid)
+            triggers = effective_ctx.fallback_candidate_triggers.get(pid)
+            if retry_budget is not None or triggers is not None:
+                prof = replace(
+                    prof,
+                    retry_budget=(retry_budget if retry_budget is not None else prof.retry_budget),
+                    extra={
+                        **dict(prof.extra),
+                        **({"central_fallback_triggers": list(triggers)} if triggers else {}),
+                    },
+                )
             chain.append(prof)
 
         direct_allowed_ids = set(effective_ctx.fallback_profile_ids)

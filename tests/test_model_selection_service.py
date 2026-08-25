@@ -97,6 +97,27 @@ def test_fallback_cannot_continue_after_policy_block():
         )
 
 
+def test_fallback_escalation_cannot_cycle_or_reference_unknown_profile():
+    with pytest.raises(ValueError, match="model_fallback_escalation_cycle"):
+        ModelFallbackGroup(
+            group_id="cycle",
+            candidates=(ModelFallbackCandidate(profile_id="local-heavy"),),
+            on_exhausted="escalate",
+            escalation_profile_id="local-heavy",
+        )
+    with pytest.raises(ValueError, match="model_fallback_escalation_profile_unknown"):
+        _service().apply(ModelRoutingMutationCommand(
+            schema="ananta.model-routing-mutation-command.v1",
+            expected_revision=0,
+            fallback_groups=(ModelFallbackGroup(
+                group_id="unknown-escalation",
+                candidates=(ModelFallbackCandidate(profile_id="local-heavy"),),
+                on_exhausted="escalate",
+                escalation_profile_id="missing",
+            ),),
+        ))
+
+
 def test_style_fit_is_soft_and_never_grants_authority():
     profile = AgentStyleProfile(
         profile_id="measured-local-heavy",

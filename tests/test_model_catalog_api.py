@@ -2,6 +2,14 @@ from __future__ import annotations
 
 from agent.routes.config import providers
 from agent.services.model_catalog_service import CatalogQuery
+from agent.services.model_routing_transfer_service import (
+    ModelRoutingTransferService,
+)
+from agent.services.model_selection_service import (
+    InMemoryModelRoutingConfigurationRepository,
+    ModelConsumerRegistry,
+    ModelRoutingAssignmentService,
+)
 from ananta_contracts.model_catalog import (
     MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA,
     ModelAvailability,
@@ -286,3 +294,85 @@ def test_model_routing_dry_run_requires_read_capability(
     assert response.json["data"]["reason_code"] == (
         "model_catalog_capability_required"
     )
+
+
+def test_model_routing_export_preview_and_confirmed_import_flow(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    transfer = ModelRoutingTransferService(ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=("local-code",),
+    ))
+    monkeypatch.setattr(
+        providers,
+        "_model_routing_transfer_service",
+        lambda: transfer,
+    )
+    body = {
+        "schema": "ananta.model-routing-import-command.v1",
+        "expected_revision": 0,
+        "configuration": {
+            "schema": "ananta.model-routing-config.v1",
+            "revision": 77,
+            "assignments": [{
+                "consumer_id": "task.coding",
+                "scope": "global",
+                "scope_id": "global",
+                "mode": "profile",
+                "profile_id": "local-code",
+            }],
+            "fallback_groups": [],
+        },
+    }
+
+    exported = client.get(
+        "/models/routing/v1/export", headers=_headers(admin_token)
+    )
+    previewed = client.post(
+        "/models/routing/v1/import/preview",
+        json=body,
+        headers=_headers(admin_token),
+    )
+    body["confirmation_digest"] = previewed.json["data"][
+        "confirmation_digest"
+    ]
+    applied = client.post(
+        "/models/routing/v1/import/apply",
+        json=body,
+        headers=_headers(admin_token),
+    )
+
+    assert exported.status_code == 200
+    assert exported.json["data"]["schema"] == "ananta.model-routing-export.v1"
+    assert previewed.status_code == 200
+    assert previewed.json["data"]["applicable"] is True
+    assert applied.status_code == 200
+    assert applied.json["data"]["revision"] == 1
+
+
+def test_model_routing_transfer_capabilities_are_separated(
+    client,
+    app,
+    user_auth_header,
+):
+    _enable_model_dashboard(app)
+    exported = client.get(
+        "/models/routing/v1/export", headers=user_auth_header
+    )
+    previewed = client.post(
+        "/models/routing/v1/import/preview",
+        json={},
+        headers=user_auth_header,
+    )
+    applied = client.post(
+        "/models/routing/v1/import/apply",
+        json={},
+        headers=user_auth_header,
+    )
+
+    assert exported.status_code == previewed.status_code == applied.status_code == 403

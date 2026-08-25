@@ -82,6 +82,16 @@ def test_context_overflow_never_retries_unchanged_profile():
     )
 
 
+def test_central_candidate_trigger_allowlist_rejects_other_errors():
+    profile = _profile("local")
+    profile.extra["central_fallback_triggers"] = ["timeout"]
+
+    assert ModelFallbackPolicyService.candidate_allows_trigger(profile, "timeout")
+    assert not ModelFallbackPolicyService.candidate_allows_trigger(
+        profile, "invalid_json_response"
+    )
+
+
 def test_profile_retry_budget_is_defensively_bounded():
     profile = _profile("phi")
     profile.retry_budget = 1_000_000
