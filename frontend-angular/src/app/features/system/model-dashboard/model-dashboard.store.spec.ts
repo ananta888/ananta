@@ -40,6 +40,19 @@ describe('ModelDashboardStore', () => {
         }],
       })),
       readRouting: vi.fn(() => of(routing())),
+      readRoutingTemplates: vi.fn(() => of({
+        schema: 'ananta.model-routing-template-catalog.v1', configuration_revision: 4,
+        templates: [{
+          schema: 'ananta.model-routing-template.v1', template_id: 'local-only',
+          label: 'Nur lokal', description: 'Lokal', applicable: true, issues: [],
+          configuration: {
+            ...routing(), assignments: [{
+              consumer_id: 'task.coding', scope: 'global', scope_id: 'global', mode: 'profile',
+              profile_id: 'profile-1', provider_id: null, model_id: null, fallback_group_id: null,
+            }],
+          },
+        }],
+      })),
       refreshInventory: vi.fn(), selectDefault: vi.fn(), dryRun: vi.fn(),
       exportRouting: vi.fn(), previewImport: vi.fn(), applyImport: vi.fn(),
       validateRouting: vi.fn(() => of({
@@ -100,6 +113,15 @@ describe('ModelDashboardStore', () => {
     });
     expect(group).toMatchObject({ on_exhausted: 'escalate', escalation_profile_id: 'profile-2' });
     expect(store.authoritativeRouting()?.fallback_groups).toEqual([]);
+  });
+
+  it('applies a safe template only to the draft at the authoritative revision', () => {
+    store.applyTemplate('local-only');
+
+    expect(store.draftRouting()?.revision).toBe(4);
+    expect(store.draftRouting()?.assignments[0].profile_id).toBe('profile-1');
+    expect(store.authoritativeRouting()?.assignments).toEqual([]);
+    expect(store.dirty()).toBe(true);
   });
 
   it('validates before one atomic save and adopts the authoritative revision', () => {

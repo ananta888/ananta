@@ -45,6 +45,9 @@ from agent.services.model_routing_transfer_service import (
     ModelRoutingConfirmationError,
     ModelRoutingTransferService,
 )
+from agent.services.model_routing_template_service import (
+    ModelRoutingTemplateService,
+)
 from agent.services.model_selection_service import (
     EffectiveModelRoutingService,
     ModelConsumerRegistry,
@@ -150,6 +153,13 @@ def _effective_model_routing_service() -> EffectiveModelRoutingService:
 
 def _model_routing_transfer_service() -> ModelRoutingTransferService:
     return ModelRoutingTransferService(_model_routing_service())
+
+
+def _model_routing_template_service() -> ModelRoutingTemplateService:
+    return ModelRoutingTemplateService(
+        consumers=ModelConsumerRegistry.defaults(),
+        profiles=_known_model_profiles(),
+    )
 
 
 def _force_refresh_forbidden() -> bool:
@@ -700,6 +710,22 @@ def get_model_routing_configuration():
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
     value = _model_routing_service().read()
     return api_response(data=value.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/templates", methods=["GET"])
+@check_auth
+def get_model_routing_templates():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    if not _query_args_are_valid():
+        return _model_catalog_input_error("model_routing_template_query_invalid")
+    revision = _model_routing_service().read().revision
+    catalog = _model_routing_template_service().catalog(
+        configuration_revision=revision
+    )
+    return api_response(data=catalog.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/routing/v1/dry-run", methods=["POST"])

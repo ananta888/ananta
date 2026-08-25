@@ -5,6 +5,10 @@ from agent.services.model_catalog_service import CatalogQuery
 from agent.services.model_routing_transfer_service import (
     ModelRoutingTransferService,
 )
+from agent.services.model_routing_template_service import (
+    ModelRoutingTemplateService,
+)
+from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_selection_service import (
     InMemoryModelRoutingConfigurationRepository,
     ModelConsumerRegistry,
@@ -411,6 +415,42 @@ def test_model_routing_export_preview_and_confirmed_import_flow(
     assert previewed.json["data"]["applicable"] is True
     assert applied.status_code == 200
     assert applied.json["data"]["revision"] == 1
+
+
+def test_model_routing_templates_are_read_only_secret_free_drafts(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    assignments = ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=("local-safe",),
+    )
+    templates = ModelRoutingTemplateService(
+        consumers=ModelConsumerRegistry.defaults(),
+        profiles=(ModelProfile(
+            profile_id="local-safe", provider_id="lmstudio", model="safe",
+            local=True, supports_tools=True, supports_json=True,
+        ),),
+    )
+    monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
+    monkeypatch.setattr(providers, "_model_routing_template_service", lambda: templates)
+
+    response = client.get(
+        "/models/routing/v1/templates", headers=_headers(admin_token)
+    )
+
+    assert response.status_code == 200
+    assert response.json["data"]["schema"] == (
+        "ananta.model-routing-template-catalog.v1"
+    )
+    assert response.json["data"]["configuration_revision"] == 0
+    assert len(response.json["data"]["templates"]) == 4
+    assert "base_url" not in response.text
+    assert "api_key" not in response.text
 
 
 def test_model_routing_transfer_capabilities_are_separated(

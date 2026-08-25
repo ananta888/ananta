@@ -138,6 +138,22 @@ export interface ModelRoutingValidationReport {
   readonly issues: readonly { severity: 'warning' | 'error'; reason_code: string; reference: string | null }[];
 }
 
+export interface ModelRoutingTemplate {
+  readonly schema: 'ananta.model-routing-template.v1';
+  readonly template_id: 'local-only' | 'local-first-cloud-fallback' | 'cloud-only' | 'cli-first';
+  readonly label: string;
+  readonly description: string;
+  readonly applicable: boolean;
+  readonly configuration: ModelRoutingConfiguration;
+  readonly issues: readonly { severity: 'warning' | 'error'; reason_code: string; reference: string | null }[];
+}
+
+export interface ModelRoutingTemplateCatalog {
+  readonly schema: 'ananta.model-routing-template-catalog.v1';
+  readonly configuration_revision: number;
+  readonly templates: readonly ModelRoutingTemplate[];
+}
+
 export interface EffectiveModelRoute {
   readonly schema: 'ananta.effective-model-route.v1';
   readonly configuration_revision: number;
@@ -218,6 +234,12 @@ export class ModelCatalogClient {
     return this.api.get<unknown>(
       `${baseUrl.replace(/\/$/, '')}/models/routing/v1`, baseUrl, undefined, false,
     ).pipe(map(unwrap<ModelRoutingConfiguration>));
+  }
+
+  readRoutingTemplates(baseUrl: string): Observable<ModelRoutingTemplateCatalog> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/templates`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<ModelRoutingTemplateCatalog>));
   }
 
   validateRouting(baseUrl: string, value: ModelRoutingConfiguration): Observable<ModelRoutingValidationReport> {

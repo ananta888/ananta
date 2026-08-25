@@ -14,6 +14,7 @@ import {
   ModelFallbackCandidate,
   ModelInventoryDescriptor,
   ModelRoutingConfiguration,
+  ModelRoutingTemplate,
   ModelRoutingValidationReport,
   ModelSummary,
   canUseModelMutation,
@@ -55,6 +56,7 @@ export class ModelDashboardStore {
   readonly draftRouting = signal<ModelRoutingConfiguration | null>(null);
   readonly validation = signal<ModelRoutingValidationReport | null>(null);
   readonly effectiveRoute = signal<EffectiveModelRoute | null>(null);
+  readonly templates = signal<readonly ModelRoutingTemplate[]>([]);
   readonly importPreview = signal<Record<string, unknown> | null>(null);
   readonly pendingImport = signal<ModelRoutingConfiguration | null>(null);
   readonly conflictRevision = signal<number | null>(null);
@@ -120,10 +122,12 @@ export class ModelDashboardStore {
       legacy: this.client.read(this.baseUrl).pipe(catchError(() => of(null))),
       consumers: this.client.readConsumers(this.baseUrl).pipe(catchError(() => of(null))),
       routing: this.client.readRouting(this.baseUrl).pipe(catchError(() => of(null))),
-    }).subscribe(({ inventory, legacy, consumers, routing }) => {
+      templates: this.client.readRoutingTemplates(this.baseUrl).pipe(catchError(() => of(null))),
+    }).subscribe(({ inventory, legacy, consumers, routing, templates }) => {
       this.inventory.set(inventory);
       this.catalog.set(legacy);
       this.consumers.set(consumers?.consumers ?? []);
+      this.templates.set(templates?.templates ?? []);
       if (routing) {
         this.authoritativeRouting.set(cloneRouting(routing));
         this.draftRouting.set(cloneRouting(routing));
@@ -364,6 +368,19 @@ export class ModelDashboardStore {
     if (authoritative) this.draftRouting.set(cloneRouting(authoritative));
     this.validation.set(null);
     this.conflictRevision.set(null);
+  }
+
+  applyTemplate(templateId: string): void {
+    const template = this.templates().find(item => item.template_id === templateId);
+    const authoritative = this.authoritativeRouting();
+    if (!template || !template.applicable || !authoritative) return;
+    this.draftRouting.set(cloneRouting({
+      ...template.configuration,
+      revision: authoritative.revision,
+    }));
+    this.validation.set(null);
+    this.effectiveRoute.set(null);
+    this.importPreview.set(null);
   }
 
   exportRouting(): void {

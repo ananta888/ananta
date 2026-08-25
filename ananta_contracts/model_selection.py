@@ -258,6 +258,28 @@ class ModelRoutingImportPreview(_Closed):
     issues: tuple[ModelRoutingValidationIssue, ...] = ()
 
 
+class ModelRoutingTemplate(_Closed):
+    schema_version: Literal["ananta.model-routing-template.v1"] = Field(
+        default="ananta.model-routing-template.v1", alias="schema"
+    )
+    template_id: Literal[
+        "local-only", "local-first-cloud-fallback", "cloud-only", "cli-first"
+    ]
+    label: str = Field(min_length=1, max_length=160)
+    description: str = Field(min_length=1, max_length=500)
+    applicable: bool
+    configuration: ModelRoutingConfiguration
+    issues: tuple[ModelRoutingValidationIssue, ...] = ()
+
+
+class ModelRoutingTemplateCatalog(_Closed):
+    schema_version: Literal["ananta.model-routing-template-catalog.v1"] = Field(
+        default="ananta.model-routing-template-catalog.v1", alias="schema"
+    )
+    configuration_revision: int = Field(ge=0)
+    templates: tuple[ModelRoutingTemplate, ...]
+
+
 class CognitiveStyleVector(_Closed):
     rule_correctness: float = Field(ge=0, le=1)
     truth_exploration: float = Field(ge=0, le=1)
@@ -314,6 +336,7 @@ __all__ = [
     "ModelRoutingDryRunCommand", "ModelRoutingExportBundle",
     "ModelRoutingImportCommand", "ModelRoutingImportPreview",
     "ModelRoutingMutationCommand", "ModelRoutingValidationIssue",
-    "ModelRoutingValidationReport",
+    "ModelRoutingValidationReport", "ModelRoutingTemplate",
+    "ModelRoutingTemplateCatalog",
     "RoleStyleTarget", "StyleRange",
 ]

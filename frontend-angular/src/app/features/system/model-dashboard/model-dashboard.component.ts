@@ -271,6 +271,27 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
               <button type="button" class="button-outline" (click)="store.load()">Neu laden</button>
               <button type="button" class="button-outline" (click)="store.exportRouting()" [disabled]="!store.canExport()">Exportieren</button>
             </div>
+            <div class="template-panel">
+              <label>Sichere Routing-Vorlage
+                <select [(ngModel)]="selectedTemplateId">
+                  <option value="">Vorlage wählen</option>
+                  @for (template of store.templates(); track template.template_id) {
+                    <option [value]="template.template_id" [disabled]="!template.applicable">
+                      {{ template.label }}{{ template.applicable ? '' : ' (nicht anwendbar)' }}
+                    </option>
+                  }
+                </select>
+              </label>
+              <button type="button" class="button-outline"
+                [disabled]="!selectedTemplateId || !store.canMutate()"
+                (click)="store.applyTemplate(selectedTemplateId)">Als lokalen Draft übernehmen</button>
+              @if (selectedTemplate(); as template) {
+                <p>{{ template.description }}</p>
+                @for (issue of template.issues; track $index) {
+                  <p class="muted">{{ issue.reason_code }}{{ issue.reference ? ': ' + issue.reference : '' }}</p>
+                }
+              }
+            </div>
             @if (store.validation(); as report) {
               <div [class.validation-ok]="report.valid" [class.model-error]="!report.valid" role="status">
                 <strong>{{ report.valid ? 'Validierung erfolgreich' : 'Validierung fehlgeschlagen' }}</strong>
@@ -312,7 +333,7 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
-    .assignment-group, .fallback-card, .route-preview, .changes-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
     .fallback-card > header { align-items: center; display: flex; justify-content: space-between; }
     .fallback-card li { align-items: start; background: #f1f6f4; display: grid; gap: .7rem; grid-template-columns: minmax(12rem, .7fr) minmax(18rem, 1.3fr) auto; margin-bottom: .6rem; padding: .8rem; }
     .candidate-identity, .candidate-fields, .group-policy { display: grid; gap: .5rem; }
@@ -337,6 +358,7 @@ export class ModelDashboardComponent implements OnInit {
     { id: 'fallbacks', label: 'Fallbacks' }, { id: 'changes', label: 'Änderungen' },
   ];
   newGroupId = '';
+  selectedTemplateId = '';
 
   ngOnInit(): void {
     this.features.ensureLoaded().subscribe(flags => {
@@ -360,6 +382,10 @@ export class ModelDashboardComponent implements OnInit {
 
   candidateProfileIds(group: { candidates: readonly { profile_id: string }[] }): readonly string[] {
     return group.candidates.map(candidate => candidate.profile_id);
+  }
+
+  selectedTemplate() {
+    return this.store.templates().find(template => template.template_id === this.selectedTemplateId);
   }
 
   readImport(event: Event): void {
