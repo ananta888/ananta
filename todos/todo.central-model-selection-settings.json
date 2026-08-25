@@ -1,5 +1,5 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "id": "todo.central-model-selection-settings",
   "title": "Zentrale Modellwahl in den Ananta-Einstellungen",
   "version": "1.0",
@@ -243,7 +243,7 @@
     "progress_percent_done": 0,
     "by_priority": {"P0": 18, "P1": 5, "P2": 1},
     "by_risk": {"low": 1, "medium": 7, "high": 11, "critical": 5},
-    "critical_path": {"total": 17, "done": 0, "remaining": 17},
+    "critical_path": {"total": 16, "done": 0, "remaining": 16},
     "milestones": {"total": 6, "todo": 6, "in_progress": 0, "blocked": 0, "done": 0}
   },
   "tasks_type_summary": {
