@@ -1,12 +1,15 @@
 from __future__ import annotations
 
-from agent.routes.config import providers
+from agent.routes.config import providers, settings as settings_routes
 from agent.services.model_catalog_service import CatalogQuery
 from agent.services.model_routing_transfer_service import (
     ModelRoutingTransferService,
 )
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
+)
+from agent.services.model_routing_legacy_migration_service import (
+    ModelRoutingLegacyMigrationService,
 )
 from agent.services.model_profile_loader import ModelProfile
 from agent.services.model_selection_service import (
@@ -126,6 +129,49 @@ def test_feature_contract_defaults_false_and_rejects_string_updates(
         rejected.json["message"]
         == "invalid_feature_angular_model_dashboard_enabled"
     )
+
+
+def test_routing_editor_activation_is_blocked_by_release_gate(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    class _Gate:
+        ready = False
+
+        @staticmethod
+        def model_dump(**_kwargs):
+            return {
+                "schema": "ananta.model-routing-release-gate.v1",
+                "configuration_revision": 0,
+                "ready": False,
+                "checks": [],
+            }
+
+    class _Migration:
+        @staticmethod
+        def release_gate():
+            return _Gate()
+
+    monkeypatch.setattr(
+        settings_routes,
+        "build_model_routing_legacy_migration_service",
+        lambda **_kwargs: _Migration(),
+    )
+    app.config["AGENT_CONFIG"] = {}
+
+    response = client.post(
+        "/config",
+        json={"feature_model_routing_editor_enabled": True},
+        headers=_headers(admin_token),
+    )
+
+    assert response.status_code == 409
+    assert response.json["message"] == "model_routing_editor_release_gate_failed"
+    assert app.config["AGENT_CONFIG"].get(
+        "feature_model_routing_editor_enabled"
+    ) is not True
 
 
 def test_versioned_catalog_is_fail_closed_until_feature_enabled(
@@ -526,6 +572,74 @@ def test_model_routing_templates_are_read_only_secret_free_drafts(
     assert len(response.json["data"]["templates"]) == 4
     assert "base_url" not in response.text
     assert "api_key" not in response.text
+
+
+def test_legacy_migration_preview_apply_shadow_and_release_gate(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    profile = ModelProfile(
+        profile_id="local-chat", provider_id="lmstudio", model="lfm2.5",
+        local=True,
+    )
+    assignments = ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=(profile.profile_id,),
+        known_models=((profile.provider_id, profile.model),),
+    )
+    migration = ModelRoutingLegacyMigrationService(
+        assignments=assignments,
+        profiles=(profile,),
+        legacy_config={
+            "default_provider": "lmstudio", "default_model": "lfm2.5",
+        },
+    )
+    monkeypatch.setattr(
+        providers, "_model_routing_legacy_migration_service", lambda: migration
+    )
+
+    preview = client.get(
+        "/models/routing/v1/migration/preview", headers=_headers(admin_token)
+    )
+    applied = client.post(
+        "/models/routing/v1/migration/apply",
+        json={
+            "schema": "ananta.model-routing-legacy-migration-apply-command.v1",
+            "expected_revision": preview.json["data"]["current_revision"],
+            "confirmation_digest": preview.json["data"]["confirmation_digest"],
+        },
+        headers=_headers(admin_token),
+    )
+    shadow = client.get(
+        "/models/routing/v1/shadow", headers=_headers(admin_token)
+    )
+    gate = client.get(
+        "/models/routing/v1/release-gate", headers=_headers(admin_token)
+    )
+
+    assert preview.status_code == applied.status_code == 200
+    assert preview.json["data"]["applicable"] is True
+    assert applied.json["data"]["revision"] == 1
+    assert shadow.json["data"]["matches"] is True
+    assert gate.json["data"]["ready"] is True
+
+
+def test_legacy_migration_apply_requires_mutation_capability(
+    client,
+    app,
+    user_auth_header,
+):
+    _enable_model_dashboard(app)
+    response = client.post(
+        "/models/routing/v1/migration/apply",
+        json={},
+        headers=user_auth_header,
+    )
+    assert response.status_code == 403
 
 
 def test_model_routing_transfer_capabilities_are_separated(

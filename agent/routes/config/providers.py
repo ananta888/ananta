@@ -49,6 +49,11 @@ from agent.services.model_routing_transfer_service import (
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
 )
+from agent.services.model_routing_legacy_migration_service import (
+    build_model_routing_legacy_migration_service,
+    ModelRoutingLegacyMigrationError,
+    ModelRoutingLegacyMigrationService,
+)
 from agent.services.model_routing_validation_policy import (
     ModelRoutingValidationPolicy,
 )
@@ -75,6 +80,7 @@ from ananta_contracts.model_selection import (
     EffectiveModelRoutingProjection,
     ModelRoutingDryRunCommand,
     ModelRoutingImportCommand,
+    ModelRoutingLegacyMigrationApplyCommand,
     ModelRoutingMutationCommand,
 )
 
@@ -190,6 +196,13 @@ def _model_routing_template_service() -> ModelRoutingTemplateService:
     return ModelRoutingTemplateService(
         consumers=_model_consumer_registry(),
         profiles=_known_model_profiles(),
+    )
+
+
+def _model_routing_legacy_migration_service() -> ModelRoutingLegacyMigrationService:
+    return build_model_routing_legacy_migration_service(
+        legacy_config=dict(current_app.config.get("AGENT_CONFIG", {}) or {}),
+        model_profiles_path=_configured_model_profiles_path(),
     )
 
 
@@ -828,6 +841,66 @@ def get_model_routing_templates():
         configuration_revision=revision
     )
     return api_response(data=catalog.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/migration/preview", methods=["GET"])
+@check_auth
+def preview_legacy_model_routing_migration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    preview = _model_routing_legacy_migration_service().preview()
+    return api_response(data=preview.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/migration/apply", methods=["POST"])
+@check_auth
+def apply_legacy_model_routing_migration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
+    try:
+        command = ModelRoutingLegacyMigrationApplyCommand.model_validate(
+            request.get_json(silent=True)
+        )
+        updated = _model_routing_legacy_migration_service().apply(command)
+    except ValidationError:
+        return _model_catalog_input_error(
+            "model_routing_legacy_migration_command_invalid"
+        )
+    except ModelRoutingLegacyMigrationError as exc:
+        code = 409 if str(exc) == "model_routing_revision_conflict" else 400
+        return api_response(status="error", message=str(exc), code=code)
+    log_audit("model_routing_legacy_migration_applied", {
+        "previous_revision": command.expected_revision,
+        "revision": updated.revision,
+        "assignment_count": len(updated.assignments),
+    })
+    return api_response(data=updated.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/shadow", methods=["GET"])
+@check_auth
+def get_model_routing_shadow_report():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    report = _model_routing_legacy_migration_service().shadow_report()
+    return api_response(data=report.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/release-gate", methods=["GET"])
+@check_auth
+def get_model_routing_release_gate():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    report = _model_routing_legacy_migration_service().release_gate()
+    return api_response(data=report.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/routing/v1/dry-run", methods=["POST"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 from flask import Blueprint, current_app, g, request
 
@@ -30,6 +31,9 @@ from agent.services.operation_policy_revision_service import (
 from agent.services.operation_policy_service import (
     OperationPolicyConfigError,
     get_operation_policy_service,
+)
+from agent.services.model_routing_legacy_migration_service import (
+    build_model_routing_legacy_migration_service,
 )
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.repository_registry import get_repository_registry
@@ -151,7 +155,27 @@ def set_config():
             message=exc.reason_code,
             code=400,
         )
-    current_cfg = current_app.config.get("AGENT_CONFIG", {})
+    current_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
+    if (
+        new_cfg.get("feature_model_routing_editor_enabled") is True
+        and current_cfg.get("feature_model_routing_editor_enabled") is not True
+    ):
+        migration = build_model_routing_legacy_migration_service(
+            legacy_config=dict(current_cfg or {}),
+            model_profiles_path=str(
+                current_app.config.get("MODEL_PROFILES_PATH")
+                or os.environ.get("MODEL_PROFILES_PATH")
+                or ""
+            ).strip(),
+        )
+        release_gate = migration.release_gate()
+        if not release_gate.ready:
+            return api_response(
+                status="error",
+                message="model_routing_editor_release_gate_failed",
+                data=release_gate.model_dump(mode="json", by_alias=True),
+                code=409,
+            )
     policy_revision_update = None
     if "operation_policy" in new_cfg:
         requested_policy = new_cfg.get("operation_policy")

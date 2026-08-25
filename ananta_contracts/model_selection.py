@@ -303,6 +303,77 @@ class ModelRoutingTemplateCatalog(_Closed):
     templates: tuple[ModelRoutingTemplate, ...]
 
 
+class LegacyModelMigrationEntry(_Closed):
+    consumer_id: str
+    legacy_source: str
+    legacy_provider_id: str | None = None
+    legacy_model_id: str | None = None
+    matched_profile_id: str | None = None
+    status: Literal[
+        "missing", "incomplete", "unresolved", "ambiguous", "proposed", "preserved"
+    ]
+    reason_code: str
+
+
+class ModelRoutingLegacyMigrationPreview(_Closed):
+    schema_version: Literal["ananta.model-routing-legacy-migration-preview.v1"] = Field(
+        default="ananta.model-routing-legacy-migration-preview.v1", alias="schema"
+    )
+    current_revision: int = Field(ge=0)
+    applicable: bool
+    idempotent: bool = True
+    confirmation_digest: str
+    entries: tuple[LegacyModelMigrationEntry, ...]
+    proposed_configuration: ModelRoutingConfiguration
+    issues: tuple[ModelRoutingValidationIssue, ...] = ()
+
+
+class ModelRoutingLegacyMigrationApplyCommand(_Closed):
+    schema_version: Literal["ananta.model-routing-legacy-migration-apply-command.v1"] = Field(
+        default="ananta.model-routing-legacy-migration-apply-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    confirmation_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+
+
+class ModelRoutingShadowEntry(_Closed):
+    consumer_id: str
+    legacy_provider_id: str | None = None
+    legacy_model_id: str | None = None
+    central_provider_id: str | None = None
+    central_model_id: str | None = None
+    central_assignment_source: str | None = None
+    status: Literal[
+        "legacy_missing", "central_missing", "central_disabled", "match", "mismatch",
+        "central_profile_unknown",
+    ]
+    matches: bool | None = None
+
+
+class ModelRoutingShadowReport(_Closed):
+    schema_version: Literal["ananta.model-routing-shadow-report.v1"] = Field(
+        default="ananta.model-routing-shadow-report.v1", alias="schema"
+    )
+    configuration_revision: int = Field(ge=0)
+    matches: bool
+    entries: tuple[ModelRoutingShadowEntry, ...]
+
+
+class ModelRoutingReleaseGateCheck(_Closed):
+    check_id: str
+    passed: bool
+    reason_code: str
+
+
+class ModelRoutingReleaseGateReport(_Closed):
+    schema_version: Literal["ananta.model-routing-release-gate.v1"] = Field(
+        default="ananta.model-routing-release-gate.v1", alias="schema"
+    )
+    configuration_revision: int = Field(ge=0)
+    ready: bool
+    checks: tuple[ModelRoutingReleaseGateCheck, ...]
+
+
 class CognitiveStyleVector(_Closed):
     rule_correctness: float = Field(ge=0, le=1)
     truth_exploration: float = Field(ge=0, le=1)
@@ -362,5 +433,9 @@ __all__ = [
     "ModelRoutingMutationCommand", "ModelRoutingValidationIssue",
     "ModelRoutingValidationReport", "ModelRoutingTemplate",
     "ModelRoutingTemplateCatalog",
+    "LegacyModelMigrationEntry", "ModelRoutingLegacyMigrationApplyCommand",
+    "ModelRoutingLegacyMigrationPreview", "ModelRoutingReleaseGateCheck",
+    "ModelRoutingReleaseGateReport", "ModelRoutingShadowEntry",
+    "ModelRoutingShadowReport",
     "RoleStyleTarget", "StyleRange",
 ]
