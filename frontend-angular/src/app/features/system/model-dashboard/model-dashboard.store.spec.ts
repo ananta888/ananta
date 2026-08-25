@@ -72,6 +72,30 @@ describe('ModelDashboardStore', () => {
           },
         }],
       })),
+      readCognitiveStyles: vi.fn(() => of({
+        schema: 'ananta.cognitive-style-read-model.v1',
+        configuration: {
+          schema: 'ananta.cognitive-style-configuration.v1', revision: 2,
+          profiles: [{
+            schema: 'ananta.agent-style-profile.v1', profile_id: 'style-profile-1',
+            model_profile_id: 'profile-1',
+            scores: { rule_correctness: .8, truth_exploration: .9, initiative_assertiveness: .5 },
+            confidence: .8, sample_count: 24, benchmark_revision: 'behavior-style-v1',
+            measured_at: '2026-08-25T00:00:00Z', source: 'measured',
+            model_revision: 'r1', quantization: 'q8', runtime: 'llamacpp',
+            backend_id: 'lmstudio', evidence_refs: ['style-observation://one'],
+          }],
+          role_targets: [{
+            schema: 'ananta.role-style-target.v1', target_id: 'reviewer-v1', role_id: 'reviewer',
+            rule_correctness: { minimum: .7, maximum: 1, weight: 1 },
+            truth_exploration: { minimum: .8, maximum: 1, weight: 2 },
+            initiative_assertiveness: { minimum: .3, maximum: .7, weight: 1 },
+            project_id: null, organization_id: null, overlay_id: null, rationale: 'Review',
+          }],
+          overlays: [],
+        },
+        profile_history: [], heuristic_notice: 'Operative Heuristik, keine Diagnose.',
+      })),
       refreshInventory: vi.fn(), selectDefault: vi.fn(), dryRun: vi.fn(),
       exportRouting: vi.fn(), previewImport: vi.fn(), applyImport: vi.fn(),
       validateRouting: vi.fn(() => of({
@@ -197,6 +221,12 @@ describe('ModelDashboardStore', () => {
     expect(store.draftRouting()?.assignments[0].profile_id).toBe('profile-1');
     expect(store.authoritativeRouting()?.assignments).toEqual([]);
     expect(store.dirty()).toBe(true);
+  });
+
+  it('loads style evidence and exposes a non-authoritative target comparison', () => {
+    expect(store.cognitiveStyles()?.configuration.revision).toBe(2);
+    expect(store.styleFitPreview('style-profile-1', 'reviewer-v1')).toContain('nur UI-Vergleich');
+    expect(store.styleFitPreview('missing', 'reviewer-v1')).toBe('Keine Vergleichsdaten');
   });
 
   it('validates before one atomic save and adopts the authoritative revision', () => {

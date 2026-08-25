@@ -10,6 +10,7 @@ from . import benchmarks, llm_generate, shared
 from .benchmarks import benchmarks_bp
 from .llm_generate import _infer_tool_calls_from_prompt, llm_generate_bp
 from .providers import providers_bp
+from .cognitive_styles import cognitive_styles_bp
 from .read_models import read_models_bp
 from .settings import get_config, settings_bp, set_config, unwrap_config
 from .templates import templates_bp, validate_template_variables
@@ -38,5 +39,5 @@ def register_config_blueprints(app):
         # hub-LLM facade used by llm_generate.
         _sync_patchable_exports()
 
-    for blueprint in (settings_bp, read_models_bp, providers_bp, benchmarks_bp, templates_bp, llm_generate_bp):
+    for blueprint in (settings_bp, read_models_bp, providers_bp, cognitive_styles_bp, benchmarks_bp, templates_bp, llm_generate_bp):
         app.register_blueprint(blueprint)

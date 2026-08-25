@@ -7,6 +7,8 @@ import { UserAuthService } from '../../../services/user-auth.service';
 import { SystemFacade } from '../../system/system.facade';
 import { DashboardFeatureFlagStore } from '../../dashboard-foundation/dashboard-feature-flags';
 import {
+  AgentStyleProfile,
+  CognitiveStyleReadModel,
   EffectiveModelRoute,
   ModelCatalog,
   ModelCatalogClient,
@@ -21,7 +23,7 @@ import {
   canUseModelMutation,
 } from './model-catalog.client';
 
-export type ModelDashboardTab = 'overview' | 'assignments' | 'fallbacks' | 'changes';
+export type ModelDashboardTab = 'overview' | 'assignments' | 'fallbacks' | 'styles' | 'changes';
 export type ModelSortKey = 'name' | 'provider' | 'runtime' | 'availability' | 'context';
 
 function cloneRouting(value: ModelRoutingConfiguration): ModelRoutingConfiguration {
@@ -61,6 +63,7 @@ export class ModelDashboardStore {
   readonly effectiveRoute = signal<EffectiveModelRoute | null>(null);
   readonly effectiveRoutes = signal<readonly EffectiveModelRoute[]>([]);
   readonly templates = signal<readonly ModelRoutingTemplate[]>([]);
+  readonly cognitiveStyles = signal<CognitiveStyleReadModel | null>(null);
   readonly importPreview = signal<Record<string, unknown> | null>(null);
   readonly pendingImport = signal<ModelRoutingConfiguration | null>(null);
   readonly conflictRevision = signal<number | null>(null);
@@ -257,12 +260,14 @@ export class ModelDashboardStore {
       routing: this.client.readRouting(this.baseUrl).pipe(catchError(() => of(null))),
       effective: this.client.readEffectiveRouting(this.baseUrl).pipe(catchError(() => of(null))),
       templates: this.client.readRoutingTemplates(this.baseUrl).pipe(catchError(() => of(null))),
-    }).subscribe(({ inventory, legacy, consumers, routing, effective, templates }) => {
+      styles: this.client.readCognitiveStyles(this.baseUrl).pipe(catchError(() => of(null))),
+    }).subscribe(({ inventory, legacy, consumers, routing, effective, templates, styles }) => {
       this.inventory.set(inventory);
       this.catalog.set(legacy);
       this.consumers.set(consumers?.consumers ?? []);
       this.templates.set(templates?.templates ?? []);
       this.effectiveRoutes.set(effective?.routes ?? []);
+      this.cognitiveStyles.set(styles);
       if (routing) {
         this.authoritativeRouting.set(cloneRouting(routing));
         this.draftRouting.set(cloneRouting(routing));
@@ -307,6 +312,34 @@ export class ModelDashboardStore {
 
   effectiveRouteFor(consumerId: string): EffectiveModelRoute | undefined {
     return this.effectiveRoutes().find(item => item.consumer_id === consumerId);
+  }
+
+  styleProfile(profileId: string): AgentStyleProfile | undefined {
+    return this.cognitiveStyles()?.configuration.profiles.find(
+      item => item.profile_id === profileId,
+    );
+  }
+
+  styleFitPreview(profileId: string, targetId: string): string {
+    const profile = this.styleProfile(profileId);
+    const target = this.cognitiveStyles()?.configuration.role_targets.find(
+      item => item.target_id === targetId,
+    );
+    if (!profile || !target) return 'Keine Vergleichsdaten';
+    const dimensions = ['rule_correctness', 'truth_exploration', 'initiative_assertiveness'] as const;
+    const weighted = dimensions.map(name => {
+      const score = profile.scores[name];
+      const range = target[name];
+      const distance = score < range.minimum
+        ? range.minimum - score
+        : score > range.maximum ? score - range.maximum : 0;
+      return { fit: Math.max(0, 1 - distance), weight: range.weight };
+    });
+    const weight = weighted.reduce((sum, item) => sum + item.weight, 0);
+    const fit = weight
+      ? weighted.reduce((sum, item) => sum + item.fit * item.weight, 0) / weight
+      : 0;
+    return `${Math.round(fit * profile.confidence * 100)} % confidence-gewichtet (nur UI-Vergleich)`;
   }
 
   toggleConsumerSelection(consumerId: string, selected: boolean): void {

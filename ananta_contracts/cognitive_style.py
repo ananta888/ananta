@@ -93,6 +93,17 @@ class StyleBenchmarkResult(_Closed):
         return self
 
 
+class StyleBenchmarkRunCommand(_Closed):
+    schema_version: Literal["ananta.style-benchmark-run-command.v1"] = Field(
+        default="ananta.style-benchmark-run-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    context: StyleMeasurementContext
+    repeats: int = Field(default=2, ge=2, le=5)
+    seeds: tuple[int, ...] = Field(default=(17, 41), min_length=2, max_length=5)
+    temperatures: tuple[float, ...] = Field(default=(0.0, 0.4), min_length=2, max_length=4)
+
+
 class RoleStyleOverlay(_Closed):
     overlay_id: str
     role_id: str
@@ -161,6 +172,13 @@ class TeamStyleDiversityReport(_Closed):
     capability_or_security_overridden: bool = False
 
 
+class TeamStyleDiversityCommand(_Closed):
+    schema_version: Literal["ananta.team-style-diversity-command.v1"] = Field(
+        default="ananta.team-style-diversity-command.v1", alias="schema"
+    )
+    members: tuple[TeamStyleMember, ...] = Field(max_length=500)
+
+
 class StyleMismatchEvidence(_Closed):
     evidence_id: str
     agent_id: str
@@ -203,6 +221,30 @@ class StyleEvolutionTransitionCommand(_Closed):
     review_reference: str | None = None
 
 
+class StyleMismatchRecordCommand(_Closed):
+    schema_version: Literal["ananta.style-mismatch-record-command.v1"] = Field(
+        default="ananta.style-mismatch-record-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    evidence: StyleMismatchEvidence
+
+
+class StyleEvolutionProposalCommand(_Closed):
+    schema_version: Literal["ananta.style-evolution-proposal-command.v1"] = Field(
+        default="ananta.style-evolution-proposal-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    proposal: StyleEvolutionProposal
+
+
+class StyleEvolutionTransitionMutationCommand(_Closed):
+    schema_version: Literal["ananta.style-evolution-transition-mutation-command.v1"] = Field(
+        default="ananta.style-evolution-transition-mutation-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    transition: StyleEvolutionTransitionCommand
+
+
 class CognitiveStyleReadModel(_Closed):
     schema_version: Literal["ananta.cognitive-style-read-model.v1"] = Field(
         default="ananta.cognitive-style-read-model.v1", alias="schema"
@@ -227,8 +269,10 @@ class CognitiveStylePersistedState(_Closed):
 __all__ = [
     "CognitiveStyleConfiguration", "CognitiveStyleMutationCommand",
     "CognitiveStylePersistedState", "CognitiveStyleReadModel", "RoleStyleOverlay", "StyleBenchmarkObservation",
-    "StyleBenchmarkPlan", "StyleBenchmarkResult", "StyleBenchmarkVariant",
-    "StyleEvolutionProposal", "StyleEvolutionTransitionCommand",
-    "StyleMeasurementContext", "StyleMismatchEvidence", "StyleDimension",
-    "TeamStyleDiversityReport", "TeamStyleMember",
+    "StyleBenchmarkPlan", "StyleBenchmarkResult", "StyleBenchmarkRunCommand",
+    "StyleBenchmarkVariant", "StyleEvolutionProposal",
+    "StyleEvolutionProposalCommand", "StyleEvolutionTransitionCommand",
+    "StyleEvolutionTransitionMutationCommand", "StyleMeasurementContext",
+    "StyleMismatchEvidence", "StyleMismatchRecordCommand", "StyleDimension",
+    "TeamStyleDiversityCommand", "TeamStyleDiversityReport", "TeamStyleMember",
 ]

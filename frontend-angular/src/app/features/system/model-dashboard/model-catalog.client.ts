@@ -197,6 +197,58 @@ export interface EffectiveModelRoutingProjection {
   readonly routes: readonly EffectiveModelRoute[];
 }
 
+export interface CognitiveStyleVector {
+  readonly rule_correctness: number;
+  readonly truth_exploration: number;
+  readonly initiative_assertiveness: number;
+}
+
+export interface AgentStyleProfile {
+  readonly schema: 'ananta.agent-style-profile.v1';
+  readonly profile_id: string;
+  readonly model_profile_id: string;
+  readonly scores: CognitiveStyleVector;
+  readonly confidence: number;
+  readonly sample_count: number;
+  readonly benchmark_revision: string;
+  readonly measured_at: string;
+  readonly source: 'measured' | 'inferred' | 'configured' | 'temporary_override';
+  readonly model_revision: string;
+  readonly quantization: string;
+  readonly runtime: string;
+  readonly backend_id: string | null;
+  readonly evidence_refs: readonly string[];
+}
+
+export interface RoleStyleTarget {
+  readonly schema: 'ananta.role-style-target.v1';
+  readonly target_id: string;
+  readonly role_id: string;
+  readonly rule_correctness: { minimum: number; maximum: number; weight: number };
+  readonly truth_exploration: { minimum: number; maximum: number; weight: number };
+  readonly initiative_assertiveness: { minimum: number; maximum: number; weight: number };
+  readonly project_id: string | null;
+  readonly organization_id: string | null;
+  readonly overlay_id: string | null;
+  readonly rationale: string;
+}
+
+export interface CognitiveStyleReadModel {
+  readonly schema: 'ananta.cognitive-style-read-model.v1';
+  readonly configuration: {
+    readonly schema: 'ananta.cognitive-style-configuration.v1';
+    readonly revision: number;
+    readonly profiles: readonly AgentStyleProfile[];
+    readonly role_targets: readonly RoleStyleTarget[];
+    readonly overlays: readonly {
+      overlay_id: string; role_id: string; instruction: string;
+      permission_delta: 'none'; enabled: boolean;
+    }[];
+  };
+  readonly profile_history: readonly AgentStyleProfile[];
+  readonly heuristic_notice: string;
+}
+
 function unwrap<T>(value: unknown): T {
   return (value && typeof value === 'object' && 'data' in value
     ? (value as { data: unknown }).data
@@ -271,6 +323,12 @@ export class ModelCatalogClient {
     return this.api.get<unknown>(
       `${baseUrl.replace(/\/$/, '')}/models/routing/v1/templates`, baseUrl, undefined, false,
     ).pipe(map(unwrap<ModelRoutingTemplateCatalog>));
+  }
+
+  readCognitiveStyles(baseUrl: string): Observable<CognitiveStyleReadModel> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/styles/v1`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<CognitiveStyleReadModel>));
   }
 
   validateRouting(baseUrl: string, value: ModelRoutingConfiguration): Observable<ModelRoutingValidationReport> {

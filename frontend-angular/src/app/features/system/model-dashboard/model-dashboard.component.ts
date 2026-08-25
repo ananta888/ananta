@@ -407,6 +407,73 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
           </section>
         }
 
+        @if (store.activeTab() === 'styles') {
+          <section role="tabpanel" aria-label="Cognitive Style Profiles" class="style-panel">
+            @if (store.cognitiveStyles(); as styles) {
+              <p class="provider-failure" role="note">{{ styles.heuristic_notice }}</p>
+              <div class="header-facts">
+                <span>Style-Konfiguration r{{ styles.configuration.revision }}</span>
+                <span>{{ styles.configuration.profiles.length }} aktive Messprofile</span>
+                <span>{{ styles.profile_history.length }} historische Messprofile</span>
+              </div>
+
+              <h3>Gemessene Modell-/Agentenprofile</h3>
+              <div class="assignment-table-wrap"><table>
+                <thead><tr><th>Modellprofil / Kontext</th><th>rule_correctness<br><small>Merkhilfe: Richtig</small></th>
+                  <th>truth_exploration<br><small>Merkhilfe: Wahr</small></th>
+                  <th>initiative_assertiveness<br><small>Merkhilfe: Natürlich</small></th><th>Evidenz</th></tr></thead>
+                <tbody>
+                  @for (profile of styles.configuration.profiles; track profile.profile_id) {
+                    <tr>
+                      <td><strong>{{ profile.model_profile_id }}</strong><code>{{ profile.profile_id }}</code>
+                        <small>{{ profile.runtime }} / {{ profile.backend_id || 'Backend unbekannt' }} / {{ profile.quantization }}</small>
+                        <small>{{ profile.benchmark_revision }} · {{ styleAge(profile.measured_at) }} · Confidence {{ percent(profile.confidence) }}</small></td>
+                      <td><progress max="1" [value]="profile.scores.rule_correctness"></progress> {{ percent(profile.scores.rule_correctness) }}</td>
+                      <td><progress max="1" [value]="profile.scores.truth_exploration"></progress> {{ percent(profile.scores.truth_exploration) }}</td>
+                      <td><progress max="1" [value]="profile.scores.initiative_assertiveness"></progress> {{ percent(profile.scores.initiative_assertiveness) }}</td>
+                      <td>{{ profile.sample_count }} Samples / {{ profile.evidence_refs.length }} Referenzen</td>
+                    </tr>
+                  } @empty { <tr><td colspan="5">Noch keine Style-Benchmark-Messung vorhanden.</td></tr> }
+                </tbody>
+              </table></div>
+
+              <h3>Rollen-Zielbereiche</h3>
+              <div class="assignment-table-wrap"><table>
+                <thead><tr><th>Rolle</th><th>rule_correctness</th><th>truth_exploration</th><th>initiative_assertiveness</th><th>Begründung</th></tr></thead>
+                <tbody>@for (target of styles.configuration.role_targets; track target.target_id + ':' + (target.project_id || '') + ':' + (target.organization_id || '')) {
+                  <tr><td><strong>{{ target.role_id }}</strong><code>{{ target.target_id }}</code>
+                    <small>{{ target.project_id ? 'Projekt: ' + target.project_id : target.organization_id ? 'Organisation: ' + target.organization_id : 'Standard' }}</small></td>
+                    <td>{{ range(target.rule_correctness) }}</td><td>{{ range(target.truth_exploration) }}</td>
+                    <td>{{ range(target.initiative_assertiveness) }}</td><td>{{ target.rationale }}</td></tr>
+                }</tbody>
+              </table></div>
+
+              <h3>Target-vs.-Profil-Vergleich</h3>
+              <div class="style-compare">
+                <label>Messprofil <select [(ngModel)]="selectedStyleProfileId"><option value="">Wählen</option>
+                  @for (profile of styles.configuration.profiles; track profile.profile_id) { <option [value]="profile.profile_id">{{ profile.model_profile_id }} / {{ profile.profile_id }}</option> }
+                </select></label>
+                <label>Rollenziel <select [(ngModel)]="selectedStyleTargetId"><option value="">Wählen</option>
+                  @for (target of styles.configuration.role_targets; track target.target_id) { <option [value]="target.target_id">{{ target.role_id }} / {{ target.target_id }}</option> }
+                </select></label>
+                <output>{{ store.styleFitPreview(selectedStyleProfileId, selectedStyleTargetId) }}</output>
+              </div>
+
+              <h3>Serverseitige Routingbegründungen</h3>
+              @for (route of store.effectiveRoutes(); track route.consumer_id) {
+                @for (decision of route.decisions; track decision.rank + ':' + decision.source + ':' + decision.profile_id) {
+                  @if (decision.source === 'cognitive_style_soft_ranking') {
+                    <p><code>{{ route.consumer_id }}</code> → {{ decision.profile_id }}: {{ decision.reason }}</p>
+                  }
+                }
+              }
+              <p class="muted">Die UI zeigt den Vergleich nur zur Erklärung. Die effektive Route entscheidet ausschließlich der Hub nach allen harten Gates.</p>
+            } @else {
+              <p role="status">Cognitive-Style-Projektion ist nicht verfügbar.</p>
+            }
+          </section>
+        }
+
         @if (store.activeTab() === 'changes') {
           <section role="tabpanel" aria-label="Änderungen anwenden" class="changes-panel">
             <h3>Atomarer Änderungsstand</h3>
@@ -490,9 +557,10 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
-    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel, .scoped-editor { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel, .scoped-editor, .style-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
     .bulk-panel { align-items: end; display: flex; flex-wrap: wrap; gap: .7rem; }.semantic-diff { background: #eef6f7; border-left: 4px solid #286773; padding: .7rem; }
     .scoped-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); margin-bottom: 1rem; }
+    .style-compare { align-items: end; display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-bottom: 1rem; }.style-compare output { font-weight: 700; padding: .7rem; }.style-panel progress { width: min(10rem, 100%); }
     .fallback-card > header { align-items: center; display: flex; justify-content: space-between; }
     .fallback-card li { align-items: start; background: #f1f6f4; display: grid; gap: .7rem; grid-template-columns: minmax(12rem, .7fr) minmax(18rem, 1.3fr) auto; margin-bottom: .6rem; padding: .8rem; }
     .candidate-identity, .candidate-fields, .group-policy { display: grid; gap: .5rem; }
@@ -516,7 +584,8 @@ export class ModelDashboardComponent implements OnInit {
   readonly store = inject(ModelDashboardStore);
   readonly tabs: readonly { id: ModelDashboardTab; label: string }[] = [
     { id: 'overview', label: 'Übersicht' }, { id: 'assignments', label: 'Zuweisungen' },
-    { id: 'fallbacks', label: 'Fallbacks' }, { id: 'changes', label: 'Änderungen' },
+    { id: 'fallbacks', label: 'Fallbacks' }, { id: 'styles', label: 'Cognitive Styles' },
+    { id: 'changes', label: 'Änderungen' },
   ];
   newGroupId = '';
   selectedTemplateId = '';
@@ -528,6 +597,8 @@ export class ModelDashboardComponent implements OnInit {
   scopedMode: 'inherit' | 'profile' | 'disabled' = 'profile';
   scopedProfileId = '';
   scopedFallbackId = '';
+  selectedStyleProfileId = '';
+  selectedStyleTargetId = '';
 
   ngOnInit(): void {
     this.features.ensureLoaded().subscribe(flags => {
@@ -578,6 +649,21 @@ export class ModelDashboardComponent implements OnInit {
       this.scopedConsumerId, this.scopedScope, this.scopedScopeId,
       this.scopedMode, this.scopedProfileId, this.scopedFallbackId,
     );
+  }
+
+  percent(value: number): string {
+    return `${Math.round(value * 100)} %`;
+  }
+
+  range(value: { minimum: number; maximum: number; weight: number }): string {
+    return `${this.percent(value.minimum)}–${this.percent(value.maximum)} (Gewicht ${value.weight})`;
+  }
+
+  styleAge(measuredAt: string): string {
+    const timestamp = Date.parse(measuredAt);
+    if (!Number.isFinite(timestamp)) return 'Alter unbekannt';
+    const days = Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000));
+    return days === 0 ? 'heute gemessen' : `vor ${days} Tagen gemessen`;
   }
 
   readImport(event: Event): void {

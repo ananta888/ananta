@@ -226,6 +226,55 @@ class BenchmarkJobService:
             ),
         )
 
+    def submit_cognitive_style_benchmark_job(
+        self,
+        *,
+        profile,
+        plan,
+        expected_revision: int,
+        created_by: str | None,
+    ) -> dict[str, Any]:
+        """Submit the fixed style suite through the shared benchmark job core."""
+
+        def run() -> dict[str, Any]:
+            from agent.services.cognitive_style_benchmark_service import (
+                CognitiveStyleBenchmarkService,
+                HubStyleBenchmarkInvoker,
+            )
+            from agent.services.cognitive_style_service import (
+                get_cognitive_style_service,
+            )
+
+            result = CognitiveStyleBenchmarkService(
+                HubStyleBenchmarkInvoker()
+            ).run(profile=profile, plan=plan)
+            configuration = get_cognitive_style_service().record_benchmark_result(
+                result,
+                expected_revision=expected_revision,
+            )
+            return {
+                "status": "completed",
+                "configuration_revision": configuration.revision,
+                "result": result.model_dump(mode="json", by_alias=True),
+                "total_tests": len(result.observations),
+                "successful": len(result.observations),
+                "failed": 0,
+            }
+
+        return self._submit_job(
+            job_type="cognitive_style_benchmark",
+            created_by=created_by,
+            request_payload={
+                "model_profile_id": profile.profile_id,
+                "benchmark_revision": plan.benchmark_revision,
+                "expected_revision": expected_revision,
+                "repeats": plan.repeats,
+                "seeds": list(plan.seeds),
+                "temperatures": list(plan.temperatures),
+            },
+            runner=run,
+        )
+
 
 benchmark_job_service = BenchmarkJobService()
 
