@@ -1,0 +1,785 @@
+{
+  "$schema": "todo.schema.json",
+  "version": 1,
+  "created": "2026-08-25",
+  "updated": "2026-08-25",
+  "project": "ananta",
+  "owner": "Ananta maintainers",
+  "track": "codecompass_sira_corpus_discriminative_retrieval",
+  "status": "open",
+  "priority": "P0",
+  "review_basis": {
+    "reviewed_commit_range": "main@0f9bbd9851424ce6e141bd2d60c994272da177c1",
+    "review_goal": "Den im SIRA-Paper und in facebookresearch/sira beschriebenen corpus-diskriminativen Retrieval-Ansatz rechtssicher, reproduzierbar und inkrementell in die bestehende CodeCompass-Retrieval-Architektur integrieren. Ziel ist nicht eine isolierte Kopie, sondern ein optionales Ananta-Profil, das Offline-Corpus-Enrichment, LLM-gestützte Query-Kompilierung, Corpus-Statistik und genau einen gewichteten BM25/FTS-Retrieval-Aufruf mit vorhandenen Graph-, Symbol-, Vektor-, Policy-, Ranking- und Context-Curation-Komponenten verbindet.",
+    "reviewed_paths": [
+      "worker/retrieval/codecompass_fts_engine.py",
+      "worker/retrieval/codecompass_fts_store.py",
+      "worker/retrieval/retrieval_contract.py",
+      "worker/retrieval/retrieval_service.py",
+      "worker/retrieval/retrieval_trace.py",
+      "docs/architecture/agent-codecompass-hybrid-retrieval.md",
+      "docs/architecture/codecompass-context-curation.md",
+      "docs/rag-query-translation-strategy.md",
+      "docs/retrieval-benchmark.md",
+      "ananta_contracts/retrieval.py"
+    ],
+    "external_references": [
+      {
+        "name": "SIRA paper",
+        "url": "https://arxiv.org/abs/2605.06647",
+        "published": "2026-05-07"
+      },
+      {
+        "name": "Meta AI publication",
+        "url": "https://ai.meta.com/research/publications/superintelligent-retrieval-agent-the-next-frontier-of-agentic-retrieval/",
+        "published": "2026-06-05"
+      },
+      {
+        "name": "facebookresearch/sira",
+        "url": "https://github.com/facebookresearch/sira",
+        "license": "MIT; src/sira/bm25x contains Apache-2.0-derived code"
+      }
+    ],
+    "current_state": [
+      "CodeCompass besitzt bereits einen BM25/FTS-Kanal, Hybrid-Retrieval mit exakten, Graph- und Vektorsignalen sowie zentrale Context-Curation.",
+      "RAG Query Translation erweitert aktuell Queries deterministisch über Keyword-Mappings; der reservierte LLM-Modus ist noch kein corpus-diskriminativer SIRA-Query-Compiler.",
+      "SIRA ist im Repository noch nicht implementiert.",
+      "Die bestehende Architektur verlangt serverseitige Capability-Intersection, fail-closed Scope-Filter, normalisierte Rankingbeiträge und nachvollziehbare Traces."
+    ],
+    "design_conclusion": "SIRA wird als optionales, versioniertes Retrieval-Profil hinter vorhandenen Ports implementiert. Offline erzeugte Begriffe bleiben von Quelltext getrennt, werden inkrementell gepflegt und an Snapshot, Prompt und Modell gebunden. Online erzeugte Query-Begriffe werden gegen scope-gebundene Corpus-Statistiken validiert und zu genau einer gewichteten BM25/FTS-Abfrage kompiliert. Exact-, Symbol-, Graph-, Vektor-, Security-, Ranking- und Budgetpfade werden wiederverwendet; sichere Baseline-Fallbacks bleiben jederzeit verfügbar."
+  },
+  "purpose": "CodeCompass soll wie ein Repository-Experte aus einer Nutzerfrage eine präzise, corpus-spezifische lexikalische Suchaktion erzeugen können, ohne kostspielige iterative Suchschleifen zu benötigen. Gleichzeitig müssen Anantas hybride Vorteile, inkrementelle Indexpflege, lokale Modellwahl, Datenschutz, Erklärbarkeit und robuste Fallbacks erhalten bleiben.",
+  "goal": "Ein aktiviertes SIRA-Profil verbessert auf gebundenen Multi-Repository-Golden-Sets Recall@k, nDCG@k beziehungsweise Evidence-Coverage gegenüber bestehendem BM25/FTS und erreicht gegenüber mehrstufigem agentischem Retrieval vergleichbare oder bessere Qualität mit höchstens einem lexikalischen Retrieval-Aufruf. Es bleibt vollständig abschaltbar, verliert niemals die Originalquery, weitet keinen Scope aus und fällt bei Modell-, Statistik- oder Indexfehlern kontrolliert auf die bestehende Retrieval-Pipeline zurück.",
+  "non_goals": [
+    "Keine vollständige Ablösung von Graph-, Symbol-, Vektor- oder Exact-Retrieval.",
+    "Keine zweite parallele CodeCompass-Orchestrierung, Deduplizierung oder Context-Curation.",
+    "Kein blindes Kopieren der Meta-Referenz ohne Architektur-, Lizenz-, Security- und Hardwareprüfung.",
+    "Keine Verpflichtung auf H100-Hardware oder ein bestimmtes LLM.",
+    "Keine Behauptung, dass ein einzelner BM25-Aufruf bei jeder Query besser als Exploration ist.",
+    "Keine Speicherung generierter Begriffe als verifizierte Fakten oder Quellcode.",
+    "Keine ungeprüfte Übermittlung privaten Codes an externe Modelle.",
+    "Keine Änderung harter Berechtigungs-, Revision-, Workspace-, Path- oder Datenresidenzgrenzen.",
+    "Keine produktive Aktivierung allein aufgrund synthetischer oder LLM-bewerteter Benchmarks."
+  ],
+  "success_metrics": {
+    "quality": [
+      "Definierte positive Schwelle für Recall@10, nDCG@10, MRR und Evidence-Coverage gegenüber gebundener BM25-Baseline.",
+      "Keine signifikante Regression für exact_symbol, path_lookup, Security- und No-Result-Szenarien.",
+      "Ergebnisverbesserung wird pro Query-Klasse und Repository statt nur als Gesamtdurchschnitt berichtet."
+    ],
+    "efficiency": [
+      "Genau ein lexikalischer Corpus-Retrieval-Aufruf im SIRA-Hot-Path.",
+      "p95-Latenz, LLM-Tokens, Kosten, Cache-Hitrate, Indexgröße und inkrementelle Updatezeit besitzen explizite Budgets.",
+      "Exakte oder hochkonfidente Queries können Query-LLM und Reranker vollständig überspringen."
+    ],
+    "reliability": [
+      "Originalquery und bestehender BM25/Hybrid-Fallback bleiben immer verfügbar.",
+      "Keine Mischstände zwischen Corpus-Revision, Enrichment, DF-Statistik und aktivem Index.",
+      "Crash, Timeout, Modellfehler und partieller Index sind durch automatisierte Tests abgedeckt."
+    ]
+  },
+  "architecture_principles": [
+    "Reuse before duplicate: bestehende Retrieval-, Ranking-, Policy-, Trace- und Budgetkomponenten erweitern.",
+    "Generated vocabulary is metadata, not source truth.",
+    "One weighted lexical retrieval action; optionale Reranking-Stufen sind keine erneuten Suchschleifen.",
+    "Deterministische Suche über versionierte, persistierte Enrichment-Artefakte.",
+    "Fail closed für Security und Scope, graceful degradation für Relevanzsignale.",
+    "Providerunabhängige Modellports und lokale-first Defaults.",
+    "Messbarer Rollout über Baseline, Ablation, Shadow, Canary und Rollback."
+  ],
+  "categories": [
+    {
+      "name": "research_licensing_and_baseline",
+      "label": "Referenz, Lizenz und belastbare Baseline",
+      "items": [
+        {
+          "id": "SIRA-001",
+          "title": "SIRA-Referenzimplementierung und Paper reproduzierbar inventarisieren",
+          "status": "open",
+          "priority": "P0",
+          "tasks": [
+            "Paper arXiv:2605.06647, Meta-Publikationsseite und facebookresearch/sira auf einen gebundenen Commit beziehungsweise Release referenzieren.",
+            "Die fünf Referenzstufen Datenvorbereitung, BM25-Indexierung, Corpus-Enrichment, Query-Enrichment und Pointwise-Reranking den vorhandenen Ananta-Komponenten zuordnen.",
+            "Abweichungen zwischen Paper, veröffentlichtem Repository und geplanter CodeCompass-Adaption dokumentieren.",
+            "Hardware-, Modell-, Laufzeit- und Datenannahmen der Referenz von produktiven Ananta-Anforderungen trennen."
+          ],
+          "acceptance_criteria": [
+            "Eine versionierte Research-Notiz enthält Quellen, Commit-Digest, Mapping und offene Abweichungen.",
+            "Keine Aussage wie 'SIRA-kompatibel' bleibt ohne prüfbare Funktionsdefinition.",
+            "Die Ananta-Adaption ist als eigenständiges Retrieval-Profil und nicht als ungeprüfte 1:1-Kopie beschrieben."
+          ],
+          "deliverables": [
+            "docs/research/sira-codecompass-adaptation.md",
+            "docs/research/sira-reference-manifest.json"
+          ]
+        },
+        {
+          "id": "SIRA-002",
+          "title": "MIT- und Apache-2.0-Lizenzpflichten absichern",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-001"
+          ],
+          "tasks": [
+            "MIT-Lizenz und Copyright-Hinweise der übernommenen SIRA-Dateien erhalten.",
+            "Für abgeleiteten Code aus src/sira/bm25x die Apache-2.0-Lizenz, NOTICE-Hinweise und Änderungskennzeichnung prüfen und übernehmen.",
+            "Zwischen übernommener Implementierung, neu implementierter Idee und unverändert verwendeter Drittanbieterabhängigkeit unterscheiden.",
+            "SBOM, Dependency-Metadaten und Third-Party-Notices aktualisieren; keine Meta-Marken als Ananta-Produktbezeichnung verwenden."
+          ],
+          "acceptance_criteria": [
+            "Lizenzscanner und CI erkennen alle übernommenen Dateien und Abhängigkeiten.",
+            "Third-Party-Notices nennen Herkunft, Lizenz, Version beziehungsweise Commit und lokale Änderungen.",
+            "Es gibt keine Vermischung, die Anantas AGPL-/Dual-Lizenzierung unklar macht."
+          ],
+          "deliverables": [
+            "THIRD_PARTY_NOTICES",
+            "docs/legal/sira-adaptation-license-review.md"
+          ],
+          "risks": [
+            "Ungeklärte Patent- oder Markenfragen blockieren die öffentliche Produktbehauptung, nicht die interne Evaluation."
+          ]
+        },
+        {
+          "id": "SIRA-003",
+          "title": "Bestehende Retrieval-Baseline vor Änderungen einfrieren",
+          "status": "open",
+          "priority": "P0",
+          "tasks": [
+            "Aktuelle Pfade für codecompass_fts, lexical, symbol, graph, vector, Query-Normalisierung, Fusion, Reranking, Policy-Filter und Context-Budget vollständig erfassen.",
+            "Golden Queries für exact_symbol, bugfix, architecture, config, cross-language, negative/no-result und adversarial Queries erstellen.",
+            "Recall@k, nDCG@k, MRR, Answer-Evidence-Coverage, Latenz, LLM-Aufrufe, Tokens, Kosten, Indexgröße und Aktualisierungszeit messen.",
+            "Baselines für reines BM25/FTS, bestehendes Hybrid-Retrieval und vorhandene mehrstufige agentische Suche getrennt speichern."
+          ],
+          "acceptance_criteria": [
+            "Jeder spätere SIRA-Vergleich verweist auf denselben Repository-Snapshot und dasselbe Golden Set.",
+            "Messwerte sind maschinenlesbar, reproduzierbar und nach Query-Klasse aufgeschlüsselt.",
+            "Fehlende Relevanzlabels werden als unverified markiert und nicht durch LLM-Selbstevaluation verdeckt."
+          ],
+          "deliverables": [
+            "benchmarks/retrieval/sira_baseline.json",
+            "tests/fixtures/retrieval/sira_golden_queries.json"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "contracts_and_architecture",
+      "label": "Verträge und Einbettung in CodeCompass",
+      "items": [
+        {
+          "id": "SIRA-004",
+          "title": "SIRA-Profil als Erweiterung des bestehenden Retrieval-Vertrags definieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-001",
+            "SIRA-003"
+          ],
+          "tasks": [
+            "Ein versioniertes RetrievalProfile 'corpus_discriminative_lexical' definieren, ohne eine parallele zweite CodeCompass-Pipeline aufzubauen.",
+            "Originalquery, vorgeschlagene Begriffe, validierte Begriffe, Gewichte, Corpus-/Index-Digest, Modell-Digest und Fallbackgrund typisieren.",
+            "Das Profil hinter bestehenden Ports von RetrievalService, HybridRetrievalService und Context-Curation einhängen.",
+            "Security-, Scope- und allowed_paths-Filter als harte Grenzen vor Enrichment und Retrieval beibehalten."
+          ],
+          "acceptance_criteria": [
+            "Worker, Agent, MCP und n8n verwenden denselben Request-/Response-Vertrag.",
+            "Bestehende Clients funktionieren ohne neue Pflichtfelder.",
+            "SIRA kann als Profil aktiviert werden; codecompass_fts bleibt ein Kanal und wird nicht dupliziert.",
+            "Traces enthalten keine Secrets, unzulässigen Pfade oder ungefilterten vertraulichen Dokumentinhalte."
+          ],
+          "deliverables": [
+            "schemas/codecompass.sira-retrieval.v1.json",
+            "ananta_contracts/retrieval.py"
+          ]
+        },
+        {
+          "id": "SIRA-005",
+          "title": "Verantwortung zwischen Hub, Worker, Index und Modellports trennen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-004"
+          ],
+          "tasks": [
+            "Hub als Eigentümer von Query-Planung, Capability-Intersection, Budget und Fallback definieren.",
+            "Worker als ausführende Ebene für Corpus-Statistik, FTS/BM25, Enrichment-Jobs und optionales Reranking definieren.",
+            "Schmale Ports für DocumentEnricher, QueryExpander, CorpusTermStatistics, WeightedLexicalRetriever und PointwiseReranker einführen.",
+            "Provider-, Modell- und Backend-spezifische Logik hinter Adaptern halten; keine Worker-zu-Worker-Orchestrierung einführen."
+          ],
+          "acceptance_criteria": [
+            "Jede Komponente besitzt eine einzelne testbare Verantwortung.",
+            "Lokale, OpenAI-kompatible und CLI-basierte Modelle können über vorhandene Modellregistrierung angebunden werden.",
+            "Ohne LLM-Verfügbarkeit bleibt ein vollständiger deterministischer BM25/FTS-Fallback nutzbar."
+          ],
+          "deliverables": [
+            "docs/architecture/codecompass-sira-retrieval.md"
+          ]
+        },
+        {
+          "id": "SIRA-006",
+          "title": "Versionierung, Provenienz und Reproduzierbarkeit verbindlich machen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-004",
+            "SIRA-005"
+          ],
+          "tasks": [
+            "Corpus-Revision, Source-Manifest-Hash, Chunking-Profil, Enrichment-Prompt-Version, Modell-ID, Modell-Digest, Sampling-Parameter und Indexschema binden.",
+            "Stabile IDs für Dokumente, Chunks und Enrichment-Artefakte verwenden.",
+            "Nicht deterministische Modelloutputs als versionierte Artefakte persistieren statt still neu zu erzeugen.",
+            "Jede Retrieval-Antwort mit aktiver Basis-, Delta-, Index- und Profilversion verknüpfen."
+          ],
+          "acceptance_criteria": [
+            "Gleiche gebundene Artefakte erzeugen dieselbe gewichtete Query und Ergebnisreihenfolge.",
+            "Ein Modell- oder Promptwechsel invalidiert nur die betroffenen Enrichment-Schichten.",
+            "Traces unterscheiden reproduzierbare Suche von neu erzeugtem Enrichment."
+          ],
+          "deliverables": [
+            "schemas/codecompass.sira-provenance.v1.json"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "offline_corpus_enrichment",
+      "label": "Offline-Corpus-Enrichment und inkrementelle Pflege",
+      "items": [
+        {
+          "id": "SIRA-007",
+          "title": "Code-spezifisches Dokument-Enrichment entwerfen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-005",
+            "SIRA-006"
+          ],
+          "tasks": [
+            "Für jeden zugelassenen Chunk fehlendes Suchvokabular als kurze Indexphrasen erzeugen: fachliche Begriffe, Synonyme, API-Zweck, Fehlersymptome, Architekturrolle und wahrscheinlich verwendete Nutzerformulierungen.",
+            "Code-Symbole, Signaturen, Pfade, Imports, Kommentare und Graphbeziehungen als belegte Eingaben nutzen.",
+            "Generierte Begriffe getrennt vom Originaltext speichern und niemals als Quellwahrheit ausgeben.",
+            "Sprachübergreifende DE/EN-Begriffe unterstützen, ohne snake_case, CamelCase, Dateinamen oder exakte Symbole umzuschreiben.",
+            "Maximale Anzahl, Länge, Wiederholung und Gewicht der generierten Begriffe begrenzen."
+          ],
+          "acceptance_criteria": [
+            "Originalinhalt und LLM-generierte Indexbegriffe sind technisch und im Trace eindeutig getrennt.",
+            "Jeder Begriff besitzt source_chunk_id, generator_profile, confidence und optional supporting_span beziehungsweise supporting_symbol.",
+            "Leere, fehlerhafte oder halluzinationsverdächtige Ergebnisse führen nicht zum Verlust des Originaldokuments."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/document_enrichment.py",
+            "schemas/codecompass.sira-enrichment.v1.json"
+          ]
+        },
+        {
+          "id": "SIRA-008",
+          "title": "Corpus-Enrichment sicher und prompt-injection-resistent ausführen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-007"
+          ],
+          "tasks": [
+            "Repository-Inhalte als nicht vertrauenswürdige Daten behandeln und Instruktionen aus Code, Kommentaren, Dokumenten oder Dateinamen nicht ausführen.",
+            "Strukturiertes JSON-Schema, Längenlimits, erlaubte Zeichensätze und semantische Validierung erzwingen.",
+            "Secrets, personenbezogene Daten, binäre Inhalte, vendored/generated Dateien und denied_paths gemäß Policy ausschließen oder redigieren.",
+            "Begriffe mit unzulässigen Pfadnamen, Exfiltrationsmustern, URLs oder fremden Instruktionen verwerfen.",
+            "Poisoning- und Prompt-Injection-Fixtures in die Tests aufnehmen."
+          ],
+          "acceptance_criteria": [
+            "Ein eingebetteter Prompt kann Modell, Tools, Zielpfade oder Ausgabeformat nicht umkonfigurieren.",
+            "Keine unzulässigen Inhalte gelangen in Prompt, Enrichment-Store, Trace oder Benchmark-Artefakte.",
+            "Validierungsfehler sind typisiert, gezählt und führen zu sicherem Originaltext-Fallback."
+          ],
+          "deliverables": [
+            "tests/test_sira_enrichment_security.py"
+          ]
+        },
+        {
+          "id": "SIRA-009",
+          "title": "Inkrementelle Enrichment-Schichten an CodeCompass-Synchronisierung anbinden",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-006",
+            "SIRA-007"
+          ],
+          "tasks": [
+            "Nur neue oder inhaltlich geänderte Chunks neu anreichern; gelöschte Chunks tombstonen.",
+            "Basis-Snapshot und absteigende Delta-Schichten unterstützen, damit kleine Änderungen keinen Vollaufbau erzwingen.",
+            "Abhängigkeiten von Symbol-, Graph-, Chunking-, Prompt- und Modellversionen explizit invalidieren.",
+            "Crash-sichere Checkpoints, Resume, idempotente Jobs und atomare Aktivierung eines vollständigen Indexstands implementieren.",
+            "Manuell auslösbare Kompaktierung integrieren, die Basis plus Deltas zusammenführt und alte Schichten erst nach erfolgreicher Verifikation freigibt."
+          ],
+          "acceptance_criteria": [
+            "Eine Ein-Datei-Änderung verarbeitet nur betroffene Chunks und nachweisbar abhängige Artefakte.",
+            "Während Rebuild oder Kompaktierung bleibt der zuletzt vollständige Index lesbar.",
+            "Abbruch und Wiederholung erzeugen keine Duplikate, Mischstände oder verwaisten aktiven Versionen.",
+            "Synchronisierung und Kompaktierung sind per CLI/API beobachtbar und manuell auslösbar."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/incremental_enrichment.py",
+            "docs/operations/codecompass-sira-index-lifecycle.md"
+          ]
+        },
+        {
+          "id": "SIRA-010",
+          "title": "Enrichment-Speicher und BM25-Felder integrieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-007",
+            "SIRA-009"
+          ],
+          "tasks": [
+            "Originaltext, Symbole, Pfad/Dateiname und generierte Indexphrasen als getrennte Felder indexieren.",
+            "Feldgewichte zentral, versioniert und im Ranking-Trace sichtbar konfigurieren.",
+            "Document-Frequency-Statistiken pro aktivem Scope und Indexversion effizient bereitstellen.",
+            "DuckDB/SQLite-FTS beziehungsweise vorhandenen CodeCompassFtsStore zuerst erweitern; bm25x nur nach Benchmark und Lizenzprüfung als optionalen Adapter erwägen.",
+            "Schema-Migration, Rückwärtskompatibilität, Rebuild und Speicherquoten dokumentieren."
+          ],
+          "acceptance_criteria": [
+            "Originalbegriffe können nicht vollständig von generierten Begriffen überstimmt werden.",
+            "DF, Dokumentanzahl und Feldstatistiken gehören exakt zum aktiven Index-Snapshot.",
+            "Legacy-Indizes werden erkannt und kontrolliert migriert oder neu gebaut.",
+            "Backendwechsel verändert den öffentlichen Retrieval-Vertrag nicht."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/enriched_fts_store.py"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "query_compilation_and_retrieval",
+      "label": "Query-Kompilierung und einzelne gewichtete Suche",
+      "items": [
+        {
+          "id": "SIRA-011",
+          "title": "Evidenzskizze und fehlendes Query-Vokabular erzeugen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-005",
+            "SIRA-006"
+          ],
+          "tasks": [
+            "Aus der Nutzerfrage eine knappe Evidenzskizze und erwartete diskriminierende Suchbegriffe erzeugen.",
+            "Originalquery unverändert erhalten und exakte Code-Symbole, Pfade, Fehlertexte und Versionsangaben priorisieren.",
+            "Bestehende DE/EN-Query-Normalisierung als vorgelagerten oder integrierten Adapter wiederverwenden statt doppelt zu implementieren.",
+            "Query-Klassen erkennen, bei denen LLM-Expansion voraussichtlich schadet, insbesondere exakte Symbol-, Dateipfad-, Hash- und Fehlermeldungssuche.",
+            "Striktes Schema, Timeout, Tokenbudget, Modellbudget und Cache-Key definieren."
+          ],
+          "acceptance_criteria": [
+            "Die Originalquery bleibt Bestandteil jeder kompilierten Query.",
+            "Expansion kann exakte Tokens weder verändern noch entfernen.",
+            "Bei Timeout, Schemafehler oder geringer Confidence erfolgt ohne zweite Suchschleife der Originalquery-Fallback.",
+            "Query-Inhalte werden nur an gemäß Datenpolicy erlaubte Modelle gesendet."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/query_expander.py"
+          ]
+        },
+        {
+          "id": "SIRA-012",
+          "title": "LLM-Begriffe mit Corpus-Statistik validieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-010",
+            "SIRA-011"
+          ],
+          "tasks": [
+            "Jeden vorgeschlagenen Begriff gegen Document Frequency, Collection Frequency und Feldexistenz des aktiven Scopes prüfen.",
+            "Nicht vorhandene, extrem häufige, redundante oder nicht tokenisierbare Begriffe entfernen.",
+            "Seltene Begriffe nicht blind maximieren: Tippfehler, zufällige IDs und einmalige vergiftete Tokens über Plausibilitäts- und Provenienzregeln begrenzen.",
+            "Deterministische Grenzwerte beziehungsweise quantilbasierte Regeln versionieren und im Trace ausweisen.",
+            "Scope-spezifische Statistikabfragen bündeln, cachen und gegen Scope-Widening absichern."
+          ],
+          "acceptance_criteria": [
+            "Kein validierter Begriff stammt außerhalb des erlaubten Corpus-Scope.",
+            "Jede Annahme oder Ablehnung besitzt maschinenlesbaren Reason-Code und Statistikwerte.",
+            "Leere validierte Expansion fällt auf Originalquery zurück.",
+            "DF-Statistik verursacht keine lineare Corpus-Abfrage im Online-Hot-Path."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/term_validator.py",
+            "tests/test_sira_term_validation.py"
+          ]
+        },
+        {
+          "id": "SIRA-013",
+          "title": "Gewichtete corpus-diskriminative BM25-Abfrage kompilieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-011",
+            "SIRA-012"
+          ],
+          "tasks": [
+            "Originalbegriffe und validierte Expansion zu genau einer gewichteten lexikalischen Retrieval-Aktion kompilieren.",
+            "Gewichte aus transparenten Signalen ableiten: Original-vs-Expansion, IDF/DF, Feld, exakter Symbolstatus, Confidence und Redundanz.",
+            "Query-Limits, negative/überlange Gewichte, Termexplosion und numerische Instabilität verhindern.",
+            "Bestehende CodeCompassFtsEngine beziehungsweise einen kompatiblen WeightedLexicalRetriever erweitern.",
+            "Stabile Sortierung und gebundene Ranking-Version verwenden."
+          ],
+          "acceptance_criteria": [
+            "Der Retriever führt pro Corpus/Scope genau einen BM25/FTS-Top-K-Aufruf aus.",
+            "Eine Query-Erklärung kann aus Originalquery, validierten Begriffen und Gewichten rekonstruiert werden.",
+            "Ohne Expansion ist das Ergebnis äquivalent zur gebundenen BM25-Baseline.",
+            "Backend-Adapter bestehen gemeinsame Contract- und Ranking-Paritätstests."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/weighted_query_compiler.py",
+            "worker/retrieval/sira/weighted_lexical_retriever.py"
+          ]
+        },
+        {
+          "id": "SIRA-014",
+          "title": "Optionales Pointwise-Reranking budgetiert integrieren",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": [
+            "SIRA-013"
+          ],
+          "tasks": [
+            "Pointwise-Reranking als optionale Stufe nach dem einzelnen BM25-Aufruf, aber vor Context-Curation implementieren.",
+            "Nur Top-N-Kandidaten und minimal notwendige Snippets übergeben; Policy- und Datenresidenzgrenzen einhalten.",
+            "Reranker-Score als separaten Beitrag speichern und niemals die lexikalische Evidenz überschreiben.",
+            "Timeout, Modellfehler und Budgetüberschreitung deterministisch auf ungererankte BM25-Reihenfolge zurückfallen lassen.",
+            "Reranking nur aktivieren, wenn gebundene Benchmarks einen messbaren Nutzen zeigen."
+          ],
+          "acceptance_criteria": [
+            "SIRA funktioniert vollständig ohne Reranker.",
+            "Reranking erhöht nicht die Zahl der Retrieval-Schleifen.",
+            "Fallback ist typisiert, im Trace sichtbar und verändert zugelassene Kandidaten nicht.",
+            "Modell- und Tokenkosten werden pro Query erfasst."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/pointwise_reranker.py"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "hybrid_integration_and_fallback",
+      "label": "Hybrid-Integration, Routing und Fallback",
+      "items": [
+        {
+          "id": "SIRA-015",
+          "title": "SIRA-Ergebnisse in universelles Hybrid-Ranking einfügen",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-004",
+            "SIRA-013"
+          ],
+          "tasks": [
+            "SIRA als erklärbaren lexikalischen Kandidatenkanal in den vorhandenen HybridRetrievalService einspeisen.",
+            "Score-Normalisierung mit codecompass_vector, graph, symbol und exact abstimmen; keine unnormalisierten Rohscores addieren.",
+            "Deduplizierung, Diversifikation, Freshness, Active-Status, Evidence-Anreicherung und Context-Budget aus der bestehenden Pipeline wiederverwenden.",
+            "Exact-Symbol- und Policy-Treffer dürfen nicht durch generierte Begriffe verdrängt werden.",
+            "Kanal-Ablationen und RRF beziehungsweise bestehende universelle Fusion gegen gewichtete Fusion vergleichen."
+          ],
+          "acceptance_criteria": [
+            "Es existiert keine zweite Dedupe-, Budget- oder Context-Packing-Implementierung.",
+            "Jeder finale Score nennt SIRA-, Original-BM25-, Vektor-, Graph- und weitere Beiträge getrennt.",
+            "Fehlende SIRA-Artefakte degradieren den bestehenden Hybridpfad nicht."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/hybrid_adapter.py"
+          ]
+        },
+        {
+          "id": "SIRA-016",
+          "title": "Adaptives Routing ohne unnötige LLM-Kosten implementieren",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": [
+            "SIRA-003",
+            "SIRA-011",
+            "SIRA-015"
+          ],
+          "tasks": [
+            "Vor dem LLM-Aufruf anhand Query-Typ, exaktem Treffer, BM25-Margin, Corpusgröße, Cache und Budget entscheiden, ob SIRA-Expansion sinnvoll ist.",
+            "Modi off, shadow, on_demand, preferred und required mit klarer Fallbacksemantik definieren.",
+            "Für exakte oder bereits hochkonfidente Queries LLM-Expansion überspringen.",
+            "Bei neuartigen Domains oder geringer Modellabdeckung optional Hybrid/mehrstufige Suche wählen, statt SIRA universell zu erzwingen.",
+            "Routingentscheidung mit Features, Schwellenwertversion und Reason-Code protokollieren."
+          ],
+          "acceptance_criteria": [
+            "Defaultbetrieb verursacht keinen LLM-Aufruf für jede exakte Suche.",
+            "Required schlägt nur mit typisiertem Fehler fehl; alle anderen Modi besitzen sicheren Baseline-Fallback.",
+            "Router wird gegen Always-SIRA, Never-SIRA und bestehendes Auto-Routing evaluiert."
+          ],
+          "deliverables": [
+            "worker/retrieval/sira/router.py"
+          ]
+        },
+        {
+          "id": "SIRA-017",
+          "title": "Fehler-, Fallback- und Circuit-Breaker-Verhalten absichern",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-013",
+            "SIRA-015",
+            "SIRA-016"
+          ],
+          "tasks": [
+            "Fehlercodes für enrichment_unavailable, stale_enrichment, corpus_stats_mismatch, expansion_timeout, invalid_weighted_query und reranker_unavailable definieren.",
+            "Fallback-Reihenfolge SIRA-Enriched-BM25 zu Original-BM25/FTS zu bestehendem Hybridprofil konfigurieren.",
+            "Rate Limits, wiederholte Modellfehler und Index-Mismatch durch Circuit Breaker begrenzen.",
+            "Fail-open nur für Relevanzkomponenten, niemals für Berechtigungs-, Scope- oder Datenpolicy-Filter zulassen.",
+            "Degraded-Status und aktive Index-/Profilversion an Worker, MCP, n8n und UI zurückgeben."
+          ],
+          "acceptance_criteria": [
+            "Jede simulierte Störung liefert entweder gültige erlaubte Treffer oder einen typisierten Fehler.",
+            "Kein Fallback weitet Workspace, Revision, Pfade oder Datenresidenz aus.",
+            "Circuit Breaker erholt sich kontrolliert und verursacht keine Retry-Schleife."
+          ],
+          "deliverables": [
+            "docs/operations/codecompass-sira-fallbacks.md"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "configuration_observability_and_ui",
+      "label": "Konfiguration und Beobachtbarkeit",
+      "items": [
+        {
+          "id": "SIRA-018",
+          "title": "Zentrale Konfiguration und Modellwahl bereitstellen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": [
+            "SIRA-004",
+            "SIRA-005",
+            "SIRA-016"
+          ],
+          "tasks": [
+            "Enrichment-Modell, Query-Modell, optionales Rerank-Modell und jeweilige Fallbacks über die zentrale Ananta-Modellregistrierung auswählen.",
+            "Lokale OpenAI-kompatible Provider, Ollama, LM Studio und unterstützte CLI-Backends nur über bestehende Provider-Ports anbinden.",
+            "Promptversion, Temperatur, Max-Tokens, Batchgröße, Parallelität, Timeout, Budgets und Datenpolicy konfigurierbar machen.",
+            "Sichere Defaults bereitstellen: lokales Modell bevorzugt für privaten Code, temperature 0, begrenzte Expansion, Reranker aus.",
+            "Keine API-Schlüssel, Endpoints oder Modellgeheimnisse in Retrieval-Artefakte oder Traces schreiben."
+          ],
+          "acceptance_criteria": [
+            "Alle SIRA-Modelle erscheinen in der zentralen Modellwahl mit Capability-Prüfung und Fallbackkette.",
+            "Ungültige Modell-/Capability-Kombinationen werden vor Jobstart abgelehnt.",
+            "Konfigurationsänderungen sind versioniert, auditierbar und können einen gezielten Rebuild auslösen."
+          ],
+          "deliverables": [
+            "schemas/codecompass.sira-config.v1.json"
+          ]
+        },
+        {
+          "id": "SIRA-019",
+          "title": "Erklärbare Diagnose- und Betriebsansicht ergänzen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": [
+            "SIRA-006",
+            "SIRA-012",
+            "SIRA-015",
+            "SIRA-018"
+          ],
+          "tasks": [
+            "Pro Query Originalbegriffe, LLM-Vorschläge, abgelehnte/validierte Begriffe, DF/IDF, Gewichte, Routing, Treffer und Fallbackgrund anzeigen.",
+            "Indexstatus mit Basis-/Delta-Versionen, Queue, Fehlern, Durchsatz, Cache-Hitrate, letztem erfolgreichen Sync und Kompaktierung darstellen.",
+            "Kosten, Latenz und Qualität getrennt nach Enrichment, Query-Expansion, BM25, Reranking und Gesamtpipeline messen.",
+            "Debugansicht strikt durch Berechtigungen und Redaction schützen.",
+            "Read-only CLI/API zuerst liefern; Angular-UI darauf aufbauen."
+          ],
+          "acceptance_criteria": [
+            "Ein Betreiber kann beantworten, warum SIRA lief oder übersprungen wurde und warum Treffer A vor B liegt.",
+            "Metriken besitzen keine hochkartinalen sensitiven Query- oder Pfadlabels.",
+            "UI und CLI zeigen denselben serverseitigen Statusvertrag."
+          ],
+          "deliverables": [
+            "docs/operations/codecompass-sira-observability.md"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "evaluation_rollout_and_documentation",
+      "label": "Evaluation, Rollout und Dokumentation",
+      "items": [
+        {
+          "id": "SIRA-020",
+          "title": "Umfangreiche Qualitäts-, Kosten- und Robustheitsevaluation automatisieren",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-003",
+            "SIRA-008",
+            "SIRA-014",
+            "SIRA-015",
+            "SIRA-016"
+          ],
+          "tasks": [
+            "Gegen Original-BM25/FTS, vorhandenes Hybrid-Retrieval, Dense-only, Query-Normalisierung und mehrstufiges Agent-Retrieval vergleichen.",
+            "Ablationen für Corpus-Enrichment, Query-Expansion, DF-Filter, Gewichtung, Reranker und adaptives Routing ausführen.",
+            "Mehrsprachige und Multi-Repository-Golden-Sets für Python, TypeScript/JavaScript, Java sowie unbekannte Sprachen verwenden.",
+            "Änderungen, Löschungen, partiellen Index, Poisoning, Halluzinationen, seltene Tokens, stark ähnliche Confuser und neue Fachdomänen testen.",
+            "Statistische Unsicherheit, Regressionen je Query-Klasse und Pareto-Grenze aus Qualität, p50/p95/p99, Tokens, Kosten, Indexzeit und Speicher berichten."
+          ],
+          "acceptance_criteria": [
+            "Keine Aktivierung ohne definierte Mindestverbesserung und harte Nichtregressionsgrenzen.",
+            "Ergebnisse sind snapshot-, modell-, prompt- und indexgebunden.",
+            "SIRA darf bei exakter Suche, Security und Scope keine Regression verursachen.",
+            "Benchmarkbericht trennt Retrievalqualität von nachgelagerter Antwortqualität."
+          ],
+          "deliverables": [
+            "scripts/evaluate_sira_retrieval.py",
+            "docs/benchmarks/codecompass-sira-retrieval.md"
+          ]
+        },
+        {
+          "id": "SIRA-021",
+          "title": "Shadow-Rollout, Feature Flags und sicheren Rollback liefern",
+          "status": "open",
+          "priority": "P0",
+          "depends_on": [
+            "SIRA-017",
+            "SIRA-020"
+          ],
+          "tasks": [
+            "Zunächst off, danach shadow ohne Ergebniswirkung, anschließend kleiner canary und erst nach Gates preferred aktivieren.",
+            "Shadow-Ergebnisse, Kosten und Latenz gegen aktive Pipeline vergleichen, ohne doppelte sensible Telemetrie zu speichern.",
+            "Kill Switch für Online-Expansion, Offline-Enrichment und Reranker getrennt bereitstellen.",
+            "Rollback auf letzten kompatiblen Index und bestehendes Hybridprofil ohne vollständigen Rebuild ermöglichen.",
+            "Rollout-Gates, Owner, Beobachtungsfenster und automatische Stop-Bedingungen dokumentieren."
+          ],
+          "acceptance_criteria": [
+            "Feature-Flag-Deaktivierung entfernt SIRA sofort aus dem Hot-Path.",
+            "Rollback wurde mit inkompatiblem Enrichment, Modell-Ausfall und partiellem Delta getestet.",
+            "Kein Shadow- oder Canary-Pfad verändert produktive Auswahl ohne explizite Aktivierung."
+          ],
+          "deliverables": [
+            "docs/release/codecompass-sira-rollout.md"
+          ]
+        },
+        {
+          "id": "SIRA-022",
+          "title": "Nutzer-, Entwickler- und Betriebsdokumentation abschließen",
+          "status": "open",
+          "priority": "P1",
+          "depends_on": [
+            "SIRA-018",
+            "SIRA-019",
+            "SIRA-020",
+            "SIRA-021"
+          ],
+          "tasks": [
+            "Architektur, Datenfluss, Grenzen, Konfiguration, Modellwahl, Index-Lifecycle, Fallbacks und Debugging dokumentieren.",
+            "Klarstellen, dass 'Superintelligent' der Name des Referenzansatzes und keine allgemeine Leistungszusage ist.",
+            "Beispiele für Code-Suche, deutsche Queries, exact_symbol, Architekturfragen und No-Result liefern.",
+            "Datenschutz-, Lizenz-, Kosten- und Hardwarehinweise aufnehmen.",
+            "Migrationsanleitung vom bestehenden FTS/Hybridprofil sowie Deaktivierung und Recovery beschreiben."
+          ],
+          "acceptance_criteria": [
+            "Dokumentation entspricht implementierten Schemas und CLI/API-Ausgaben.",
+            "Quickstart funktioniert mit lokalem Modell und ohne optionalen Reranker.",
+            "Alle externen Quellen und übernommenen Komponenten sind korrekt attribuiert."
+          ],
+          "deliverables": [
+            "docs/codecompass-sira.md"
+          ]
+        }
+      ]
+    }
+  ],
+  "validation_plan": {
+    "schema": "python3 devtools/validate_todo_schema.py todos/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+    "static": [
+      "python3 -m json.tool todos/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+      "python3 scripts/validate_todo_consistency.py"
+    ],
+    "implementation": [
+      "pytest -q tests/test_sira_*",
+      "pytest -q tests/test_codecompass_fts_engine.py",
+      "python3 scripts/retrieval_benchmark.py --payload-file <bound-payloads>",
+      "python3 scripts/evaluate_sira_retrieval.py --baseline <baseline> --candidate <candidate>"
+    ]
+  },
+  "dependency_graph": {
+    "foundation": [
+      "SIRA-001",
+      "SIRA-002",
+      "SIRA-003"
+    ],
+    "contracts": [
+      "SIRA-004",
+      "SIRA-005",
+      "SIRA-006"
+    ],
+    "offline": [
+      "SIRA-007",
+      "SIRA-008",
+      "SIRA-009",
+      "SIRA-010"
+    ],
+    "online": [
+      "SIRA-011",
+      "SIRA-012",
+      "SIRA-013",
+      "SIRA-014"
+    ],
+    "integration": [
+      "SIRA-015",
+      "SIRA-016",
+      "SIRA-017"
+    ],
+    "productization": [
+      "SIRA-018",
+      "SIRA-019",
+      "SIRA-020",
+      "SIRA-021",
+      "SIRA-022"
+    ]
+  },
+  "meta": {
+    "total_items": 22,
+    "by_status": {
+      "completed": 0,
+      "partial": 0,
+      "open": 22
+    },
+    "notes": [
+      "Der Track erweitert den vorhandenen codecompass_fts-Kanal und die Hybrid-Pipeline; er führt keine konkurrierende Retrieval-Plattform ein.",
+      "Die Originalquery bleibt immer erhalten. LLM-Ausgaben werden strukturell und corpus-statistisch validiert.",
+      "MIT- und Apache-2.0-Hinweise sind vor Codeübernahme verbindlich; eine eigenständige Implementierung des Ansatzes bleibt möglich.",
+      "SIRA-Qualität ist eine Benchmarkfrage. Neue oder schlecht im Modell repräsentierte Fachdomänen können Hybrid- oder exploratives Retrieval weiterhin benötigen.",
+      "Offline-Enrichment darf inkrementell, resumierbar und kompaktierbar sein; kleine Repository-Änderungen dürfen keinen Vollaufbau erzwingen.",
+      "Alle Statuswerte sind initial open; Fortschritt wird nur mit gebundener Code-, Test- oder Dokumentationsevidenz geändert."
+    ],
+    "recommended_order": [
+      "SIRA-001",
+      "SIRA-002",
+      "SIRA-003",
+      "SIRA-004",
+      "SIRA-005",
+      "SIRA-006",
+      "SIRA-007",
+      "SIRA-008",
+      "SIRA-009",
+      "SIRA-010",
+      "SIRA-011",
+      "SIRA-012",
+      "SIRA-013",
+      "SIRA-014",
+      "SIRA-015",
+      "SIRA-016",
+      "SIRA-017",
+      "SIRA-018",
+      "SIRA-019",
+      "SIRA-020",
+      "SIRA-021",
+      "SIRA-022"
+    ]
+  }
+}
