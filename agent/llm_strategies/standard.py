@@ -46,6 +46,7 @@ class OpenAIStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
         provider: Optional[str] = None,
+        seed: Optional[int] = None,
     ) -> Any:
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         headers.update(_ananta_hop_headers())
@@ -57,6 +58,8 @@ class OpenAIStrategy(LLMStrategy):
         }
         if temperature is not None:
             payload["temperature"] = float(temperature)
+        if seed is not None:
+            payload["seed"] = int(seed)
         if max_output_tokens is not None:
             payload["max_tokens"] = int(max_output_tokens)
         if tools:
@@ -106,6 +109,7 @@ class AnthropicStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
         provider: Optional[str] = None,
+        seed: Optional[int] = None,
     ) -> Any:
         import logging
 
@@ -196,6 +200,7 @@ class OllamaStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
         provider: Optional[str] = None,
+        seed: Optional[int] = None,
     ) -> Any:
         full_prompt = self._build_history_prompt(prompt, history)
         payload = {"model": model, "prompt": full_prompt, "stream": False}
@@ -205,6 +210,8 @@ class OllamaStrategy(LLMStrategy):
             payload.setdefault("options", {})["num_predict"] = int(max_output_tokens)
         if temperature is not None:
             payload.setdefault("options", {})["temperature"] = float(temperature)
+        if seed is not None:
+            payload.setdefault("options", {})["seed"] = int(seed)
         if tools:
             # Validierung und Bereinigung der Tools für Ollama
             valid_tools = []

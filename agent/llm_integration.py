@@ -506,6 +506,7 @@ def generate_text(
     trace_goal_id: Optional[str] = None,
     trace_task_id: Optional[str] = None,
     provider_context: Any = None,
+    seed: Optional[int] = None,
 ) -> Any:
     p = provider or _runtime_default_provider()
     m = model or _runtime_default_model()
@@ -560,6 +561,7 @@ def generate_text(
         trace_task_id=trace_task_id,
         idempotency_key=idempotency_key,
         provider_context=provider_context,
+        seed=seed,
     )
 
 
@@ -582,6 +584,7 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
     trace_task_id: Optional[str] = None,
     idempotency_key: Optional[str] = None,
     provider_context: Any = None,
+    seed: int | None = None,
 ) -> Any:
     from agent.providers.redaction import redact_provider_payload
     from agent.services.provider_invocation_middleware import (
@@ -718,6 +721,7 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
                     "max_output_tokens": max_output_tokens,
                     "tools": list(tools or []),
                     "tool_choice": tool_choice,
+                    "seed": seed,
                 },
             )
             if prepared.cached_response is not None:
@@ -740,6 +744,7 @@ def _call_llm(  # noqa: C901 - compatibility flow is intentionally migrated incr
                 max_output_tokens=safe_payload.get("max_output_tokens"),
                 tools=list(safe_payload.get("tools") or []),
                 tool_choice=safe_payload.get("tool_choice"),
+                seed=safe_payload.get("seed"),
                 idempotency_key=idempotency_key,
             )
             ended_at = time.time()
@@ -917,6 +922,7 @@ def _execute_llm_call(
     tools: list | None = None,
     tool_choice: Any | None = None,
     idempotency_key: Optional[str] = None,
+    seed: int | None = None,
 ) -> Any:
     with LLM_CALL_DURATION.time():
         strategy = get_strategy(provider)
@@ -943,4 +949,5 @@ def _execute_llm_call(
             tool_choice=tool_choice,
             idempotency_key=idempotency_key,
             provider=provider,
+            seed=seed,
         )

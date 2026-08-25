@@ -22,6 +22,7 @@ class LLMStrategy(ABC):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
         provider: Optional[str] = None,
+        seed: Optional[int] = None,
     ) -> Any:
         pass
 

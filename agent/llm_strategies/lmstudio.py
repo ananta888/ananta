@@ -21,6 +21,7 @@ class LMStudioStrategy(LLMStrategy):
         tool_choice: Optional[Any] = None,
         idempotency_key: Optional[str] = None,
         provider: Optional[str] = None,
+        seed: Optional[int] = None,
     ) -> Any:
         base_url = url
         base_url_lower = (base_url or "").lower()
@@ -84,6 +85,7 @@ class LMStudioStrategy(LLMStrategy):
                     tools,
                     tool_choice,
                     idempotency_key,
+                    seed,
                 )
                 result_text, _ = self._extract_strategy_result(result)
                 if result_text.strip():
@@ -110,6 +112,7 @@ class LMStudioStrategy(LLMStrategy):
             tools,
             tool_choice,
             idempotency_key,
+            seed,
         )
 
     def _extract_strategy_result(self, result):
@@ -159,6 +162,7 @@ class LMStudioStrategy(LLMStrategy):
         tools=None,
         tool_choice=None,
         idempotency_key=None,
+        seed=None,
     ):
         max_tokens = int(max_output_tokens or 1024)
         temp = 0.2 if temperature is None else float(temperature)
@@ -193,6 +197,8 @@ class LMStudioStrategy(LLMStrategy):
                 "max_tokens": max_tokens,
                 "temperature": temp,
             }
+            if seed is not None:
+                payload["seed"] = int(seed)
             thinking_param = self._resolve_thinking_param()
             if thinking_param:
                 payload.update(thinking_param)
@@ -213,6 +219,8 @@ class LMStudioStrategy(LLMStrategy):
                 "max_tokens": max_tokens,
                 "temperature": temp,
             }
+            if seed is not None:
+                payload["seed"] = int(seed)
 
         resp = self._post_lmstudio(request_url, payload, timeout, idempotency_key)
 
@@ -226,6 +234,8 @@ class LMStudioStrategy(LLMStrategy):
                 "max_tokens": max_tokens,
                 "temperature": temp,
             }
+            if seed is not None:
+                payload_f["seed"] = int(seed)
             resp = self._post_lmstudio(fallback_url, payload_f, timeout, idempotency_key)
 
         result_text = ""
