@@ -7,6 +7,9 @@ from agent.services.model_inventory_service import (
     ModelInventoryService,
     ModelInventorySnapshot,
 )
+from agent.services.provider_catalog_inventory_adapter import (
+    ProviderCatalogModelInventoryAdapter,
+)
 from ananta_contracts.model_catalog import (
     ModelAvailability,
     ModelCapabilityClaim,
@@ -15,6 +18,8 @@ from ananta_contracts.model_catalog import (
     ModelMetadataEvidence,
     ModelRuntime,
     ModelSourceKind,
+    ModelCatalog,
+    ModelSummary,
     ModelMetadataFact,
 )
 
@@ -178,3 +183,26 @@ def test_inventory_handles_five_thousand_models_with_stable_revision():
     assert len(first.models) == 5000
     assert second.catalog_revision == first.catalog_revision
     assert adapter.calls == 1
+
+
+def test_remote_hub_inventory_marks_declared_trust_and_hop_limit_without_url():
+    adapter = ProviderCatalogModelInventoryAdapter(
+        lambda _force: ModelCatalog(models=(ModelSummary(
+            provider_id="remote-hub-a",
+            runtime=ModelRuntime.REMOTE,
+            model_id="remote-model",
+            display_name="Remote Model",
+            availability=ModelAvailability.AVAILABLE,
+            health=ModelHealth.HEALTHY,
+        ),)),
+        lambda: {
+            "remote-hub-a": {"trust_level": "private", "max_hops": 2}
+        },
+    )
+
+    model = adapter.collect().models[0]
+    facts = {item.fact_id: item.value for item in model.metadata_facts}
+
+    assert model.source_kinds == (ModelSourceKind.REMOTE,)
+    assert facts == {"remote_trust_level": "private", "remote_hop_limit": "2"}
+    assert "url" not in model.model_dump_json().lower()

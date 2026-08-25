@@ -68,6 +68,7 @@ from agent.services.model_selection_service import (
     ModelRoutingConflict,
 )
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
+from agent.local_llm_backends import get_local_openai_backends
 from agent.services.openrouter_model_inventory_adapter import (
     OpenRouterModelInventoryAdapter,
 )
@@ -155,7 +156,8 @@ def _model_inventory_service() -> ModelInventoryService:
                 ProviderCatalogModelInventoryAdapter(
                     lambda force_refresh: _model_catalog_service().versioned_catalog(
                         _catalog_query(force_refresh=force_refresh)
-                    )
+                    ),
+                    _remote_model_inventory_metadata,
                 ),
                 ConfiguredProfileModelInventoryAdapter(
                     _configured_model_profiles_path,
@@ -165,6 +167,28 @@ def _model_inventory_service() -> ModelInventoryService:
                 *external_adapters,
             ))
     return _MODEL_INVENTORY_SERVICE
+
+
+def _remote_model_inventory_metadata() -> dict[str, dict[str, object]]:
+    app_cfg = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+    provider_urls = dict(current_app.config.get("PROVIDER_URLS", {}) or {})
+    result: dict[str, dict[str, object]] = {}
+    for backend in get_local_openai_backends(
+        agent_cfg=app_cfg,
+        provider_urls=provider_urls,
+        default_provider=str(app_cfg.get("default_provider") or ""),
+        default_model=str(app_cfg.get("default_model") or ""),
+    ):
+        if not backend.get("remote_hub"):
+            continue
+        provider_id = str(backend.get("provider") or "").strip()
+        if not provider_id:
+            continue
+        result[provider_id] = {
+            "trust_level": backend.get("trust_level"),
+            "max_hops": backend.get("max_hops"),
+        }
+    return result
 
 
 def _model_routing_service() -> ModelRoutingAssignmentService:
