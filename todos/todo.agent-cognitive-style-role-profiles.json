@@ -1,15 +1,15 @@
 {
-  "$schema": "../todo.schema.json",
+  "$schema": "todo.schema.json",
   "version": 1,
   "created": "2026-08-22",
-  "updated": "2026-08-22",
+  "updated": "2026-08-25",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "agent_cognitive_style_role_profiles",
   "status": "open",
   "priority": "P1",
   "review_basis": {
-    "reviewed_commit_range": "main",
+    "reviewed_commit_range": "main@3591413f5",
     "review_goal": "Agenten nicht nur nach Modell, Kosten und Fähigkeiten zu routen, sondern zusätzlich nach rollenbezogenen Arbeits- und Denkstilen. Als verständliche Heuristik dienen drei Dueck-inspirierte Dimensionen: richtig = regel-/prozess-/korrektheitsorientiert, wahr = explorativ-/sinn-/annahmenkritisch, natürlich = initiativ-/durchsetzungs-/konfrontationsbereit. Die Typen sind keine psychologische Wahrheit über Modelle, sondern messbare, konfigurierbare Verhaltensdimensionen für Agentenrollen.",
     "reviewed_paths": [
       "config/blueprints/standard/blueprints.json",
@@ -19,8 +19,17 @@
       "plugins/evolver_adapter/",
       "todos/todo.schema.json"
     ],
-    "design_conclusion": "Ananta soll keine Hersteller- oder Modellnamen dauerhaft einem Menschentyp zuordnen. Stattdessen werden beobachtbare Verhaltensdimensionen benchmark-basiert als Model/Agent Style Profile gespeichert und pro Rolle mit Zielprofilen abgeglichen. Prompts, Instructions, Modelle und Routing können gemeinsam genutzt werden, um gewünschte Mischprofile zu erreichen."
+    "design_conclusion": "Ananta soll keine Hersteller- oder Modellnamen dauerhaft einem Menschentyp zuordnen. Stattdessen werden beobachtbare Verhaltensdimensionen benchmark-basiert als Model/Agent Style Profile gespeichert und pro Rolle mit Zielprofilen abgeglichen. Prompts, Instructions, Modelle und Routing können gemeinsam genutzt werden, um gewünschte Mischprofile zu erreichen. Die zentrale Modellwahl aus todo.central-model-selection-settings bleibt die kanonische Routing-Domain; Style Fit wird dort ausschließlich als weicher, erklärbarer Rankingbeitrag nach allen harten Gates integriert."
   },
+  "cross_track_dependencies": [
+    {
+      "track": "central-model-selection-settings",
+      "todo": "todos/todo.central-model-selection-settings.json",
+      "required_tasks": ["CMS-ARCH-001", "CMS-ARCH-002", "CMS-ARCH-003", "CMS-BE-006", "CMS-BE-008", "CMS-SEC-001"],
+      "blocks": ["ACS-007", "ACS-010", "ACS-011", "ACS-012"],
+      "reason": "Style-aware Routing, Erklärbarkeit und Evolution dürfen keine zweite Modellwahl- oder Routing-Domain erzeugen."
+    }
+  ],
   "purpose": "Unterschiedliche Agentenrollen profitieren von unterschiedlichen Arbeitsstilen. Ein Implementierer soll häufig zuverlässig, regelkonform und reproduzierbar arbeiten; Research-, Architektur- und Reviewer-Rollen sollen stärker Annahmen hinterfragen; Challenger-, Red-Team- oder Ideation-Rollen sollen mehr Initiative und Gegenpositionen einbringen. Ananta soll diese Unterschiede explizit modellieren, messen und beim Routing verwenden können.",
   "goal": "Für jede Agentenrolle kann ein gewünschtes Cognitive/Behavior Style Profile definiert werden. Modelle und Agentenkonfigurationen erhalten empirisch gemessene Style Scores. Der Hub berücksichtigt diese Scores zusammen mit Capability, Kosten, Latenz, Sicherheit und Verfügbarkeit beim Routing. Evolver und Retrospektiven können später prüfen, ob ein Rollenprofil zu besseren Ergebnissen führt und kontrollierte Anpassungen vorschlagen.",
   "non_goals": [
@@ -94,6 +103,7 @@
             "Scores auf normierte Skala 0..1 festlegen.",
             "Confidence, sample_count, benchmark_revision und measured_at speichern.",
             "Quelle unterscheiden: measured, inferred, configured, temporary_override.",
+            "Modellrevision, Quantisierung, Runtime, Backend, System-/Rollenprompt, Toolmodus und Sampling-Konfiguration als Messkontext binden.",
             "Zusätzliche zukünftige Dimensionen schema-kompatibel erlauben.",
             "Style Profile klar von Capability Profile und Permission Profile trennen."
           ],
@@ -154,7 +164,7 @@
           "depends_on": ["ACS-003"],
           "tasks": [
             "Style Benchmark an bestehende Model-Benchmark-Infrastruktur anbinden.",
-            "Scores nach Provider, Modellversion, Quantisierung und Runtime-Konfiguration trennen.",
+            "Scores nach Provider, Modellversion, Quantisierung, Runtime-, Prompt-, Tool- und Sampling-Konfiguration trennen.",
             "Version Drift erkennen und Rebenchmark auslösen.",
             "Historische Profile erhalten.",
             "Unsichere oder veraltete Scores im Routing abwerten."
@@ -220,6 +230,7 @@
           "depends_on": ["ACS-004", "ACS-005"],
           "tasks": [
             "Style Fit als zusätzlichen Rankingfaktor nach harten Capability-/Permission-/Safety-Filtern berechnen.",
+            "Den bestehenden ModelProfileResolver und die zentrale RoutingAssignment-Domain erweitern, keinen parallelen Style-Router einführen.",
             "Gewichtung projekt- und rollenbezogen konfigurieren.",
             "Kosten, Latenz, Context Window, Tool-Fähigkeit und Verfügbarkeit weiterhin berücksichtigen.",
             "Routingentscheidung inklusive Style-Beitrag auditierbar machen.",
@@ -302,6 +313,7 @@
           "depends_on": ["ACS-001", "ACS-005"],
           "tasks": [
             "Drei Dimensionen als kontinuierliche Scores darstellen.",
+            "Technische Dimensionsnamen und Beschreibungen primär darstellen; Richtig/Wahr/Natürlich nur als optionale Merkhilfen verwenden.",
             "Keine vereinfachende Badge 'dieser Agent ist ein wahrer Typ' als alleinige Darstellung verwenden.",
             "Confidence und Benchmarkalter anzeigen.",
             "Role Target vs. Agent Profile vergleichen.",
@@ -389,15 +401,22 @@
     "notes": [
       "Die Begriffe Richtig/Wahr/Natürlich sind Dueck-inspirierte Merkhilfen; produktiv entscheidend sind die drei messbaren Dimensionen.",
       "Subjektive Beobachtungen wie 'Modell X wirkt eher natürlich' dienen nur als Hypothesen für Benchmarks, nicht als Seed-Wahrheit.",
-      "Für Ananta ist besonders relevant, dass unterschiedliche Rollen unterschiedliche Mischprofile benötigen und nicht jeder Agent maximal regelkonform sein sollte."
+      "Für Ananta ist besonders relevant, dass unterschiedliche Rollen unterschiedliche Mischprofile benötigen und nicht jeder Agent maximal regelkonform sein sollte.",
+      "Style-Routing beginnt erst nach den benannten Central-Model-Selection-Verträgen, Security-Gates und dem gemeinsamen Dry-Run-Resolver."
     ],
     "recommended_order": [
-      "domain_model",
-      "benchmarking",
-      "role_profiles",
-      "routing",
-      "learning_and_evolution",
-      "ui_and_validation"
+      "ACS-001",
+      "ACS-002",
+      "ACS-003",
+      "ACS-004",
+      "ACS-005",
+      "ACS-007",
+      "ACS-008",
+      "ACS-006",
+      "ACS-009",
+      "ACS-010",
+      "ACS-011",
+      "ACS-012"
     ]
   }
 }
