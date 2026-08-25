@@ -56,6 +56,14 @@ records a Needle decision only when Tiny Router mode is `shadow`; that
 candidate has no execution path. An explicit `model` in a `/snake/ask` request
 retains the legacy override behavior for API compatibility.
 
+Das lokale Hub-Routing ordnet außerdem die Consumer-Standardrollen direkt
+realen Profilen zu: `coder`, `planner`, `reviewer` und `reasoning` verwenden
+KAT; `chat` und `summarizer` verwenden LFM. Die `any`-Regel fällt auf LFM
+zurück. Dadurch zeigen geerbte Routen wie `chat.code_help` und `task.coding`
+kein synthetisches `_global_master_default`-Profil, sondern das tatsächlich
+ausführbare lokale Profil. Explizite zentrale Assignments und engere Scopes
+haben weiterhin Vorrang.
+
 ## Start, inspect and recover
 
 ```bash

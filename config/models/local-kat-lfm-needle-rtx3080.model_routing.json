@@ -13,6 +13,12 @@
     {"rule_id": "kat-debugging", "task_kind": "debugging", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
     {"rule_id": "kat-planning", "task_kind": "planning", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
     {"rule_id": "kat-analysis", "task_kind": "repo_analysis", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-coder-role", "model_role": "coder", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-planner-role", "model_role": "planner", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-reviewer-role", "model_role": "reviewer", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "kat-reasoning-role", "model_role": "reasoning", "profile_id": "local_kat_coder_v25_heavy", "enabled": true},
+    {"rule_id": "lfm-chat-role", "model_role": "chat", "profile_id": "local_lfm25_agentic_fast", "enabled": true},
+    {"rule_id": "lfm-summarizer-role", "model_role": "summarizer", "profile_id": "local_lfm25_agentic_fast", "enabled": true},
     {"rule_id": "lfm-general-default", "model_role": "any", "profile_id": "local_lfm25_agentic_fast", "enabled": true}
   ],
   "fallback_chain": ["local_lfm25_agentic_fast", "local_kat_coder_v25_heavy"],

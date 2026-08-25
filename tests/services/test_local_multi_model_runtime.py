@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from agent.services.local_multi_model_runtime import (
     GiB,
     LocalModelPlacementPolicy,
@@ -6,6 +9,11 @@ from agent.services.local_multi_model_runtime import (
     ResourceSnapshot,
     rtx3080_local_model_capabilities,
 )
+from agent.services.model_profile_loader import ModelProfileLoader
+from agent.services.model_profile_resolver import RoutingRules
+
+
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def test_rtx3080_placement_starts_lfm_before_kat_and_keeps_reserve():
@@ -55,3 +63,24 @@ def test_unknown_or_low_confidence_work_routes_conservatively_to_kat():
 
     assert low_confidence.target == "kat"
     assert complex_task.target == "kat"
+
+
+def test_deployed_local_profiles_cover_consumer_roles_without_synthetic_default():
+    profiles = ModelProfileLoader().load_file(
+        ROOT / "config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml"
+    )
+    routing = json.loads((
+        ROOT / "config/models/local-kat-lfm-needle-rtx3080.model_routing.json"
+    ).read_text(encoding="utf-8"))
+    rules = RoutingRules.from_dict(routing, strict=True)
+
+    assert profiles.ok
+    assert rules.role_rules == {
+        "coder": "local_kat_coder_v25_heavy",
+        "planner": "local_kat_coder_v25_heavy",
+        "reviewer": "local_kat_coder_v25_heavy",
+        "reasoning": "local_kat_coder_v25_heavy",
+        "chat": "local_lfm25_agentic_fast",
+        "summarizer": "local_lfm25_agentic_fast",
+        "any": "local_lfm25_agentic_fast",
+    }
