@@ -48,6 +48,9 @@ from agent.services.model_routing_transfer_service import (
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
 )
+from agent.services.model_routing_validation_policy import (
+    ModelRoutingValidationPolicy,
+)
 from agent.services.model_selection_service import (
     EffectiveModelRoutingService,
     ModelConsumerRegistry,
@@ -144,11 +147,15 @@ def _model_inventory_service() -> ModelInventoryService:
 
 def _model_routing_service() -> ModelRoutingAssignmentService:
     profiles = _known_model_profiles()
+    consumers = _model_consumer_registry()
     return ModelRoutingAssignmentService(
         repository=SqlModelRoutingConfigurationRepository(),
-        consumers=_model_consumer_registry(),
+        consumers=consumers,
         known_profile_ids=(profile.profile_id for profile in profiles),
         known_models=((profile.provider_id, profile.model) for profile in profiles),
+        validation_policy=ModelRoutingValidationPolicy(
+            consumers=consumers, profiles=profiles
+        ),
     )
 
 

@@ -15,6 +15,7 @@ from ananta_contracts.model_selection import (
     ModelAssignment,
     ModelRoutingConfiguration,
     ModelRoutingImportCommand,
+    ModelRoutingMutationCommand,
 )
 
 
@@ -74,3 +75,28 @@ def test_export_contract_contains_only_closed_routing_configuration():
     assert set(wire) == {"schema", "configuration"}
     assert "url" not in str(wire).lower()
     assert "token" not in str(wire).lower()
+
+
+def test_validation_reports_all_identity_errors_without_partial_apply():
+    service = _service()
+    command = ModelRoutingMutationCommand(
+        schema="ananta.model-routing-mutation-command.v1",
+        expected_revision=0,
+        assignments=(
+            ModelAssignment(
+                consumer_id="unknown", scope="global", mode="inherit",
+            ),
+            ModelAssignment(
+                consumer_id="task.coding", scope="global", mode="profile",
+                profile_id="missing",
+            ),
+        ),
+    )
+
+    report = service.validate(command)
+
+    assert report.valid is False
+    assert {item.reason_code for item in report.issues} == {
+        "model_consumer_unknown", "model_assignment_profile_unknown",
+    }
+    assert service.export().configuration.revision == 0

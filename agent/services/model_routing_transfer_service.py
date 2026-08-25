@@ -44,15 +44,9 @@ class ModelRoutingTransferService:
                 reason_code="model_routing_revision_conflict",
                 reference=str(current.revision),
             ))
-        try:
-            self._assignments.validate(command)
-        except ValueError as exc:
-            issues.append(ModelRoutingValidationIssue(
-                severity="error",
-                reason_code=str(exc)[:160],
-            ))
+        issues.extend(self._assignments.validation_issues(command))
         return ModelRoutingValidationReport(
-            valid=not issues,
+            valid=not any(issue.severity == "error" for issue in issues),
             expected_revision=command.expected_revision,
             current_revision=current.revision,
             issues=tuple(issues),

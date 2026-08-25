@@ -26,6 +26,7 @@ from ananta_contracts.model_selection import (
     ModelRoutingMutationCommand,
     RoleStyleTarget,
     StyleRange,
+    ModelRoutingValidationIssue,
 )
 
 
@@ -47,6 +48,14 @@ class ModelConsumerExtensionPort(Protocol):
     namespace: str
 
     def consumers(self) -> Iterable[ModelConsumer]: ...
+
+
+class ModelRoutingValidationPort(Protocol):
+    def validate(
+        self,
+        assignments: tuple[ModelAssignment, ...],
+        groups: tuple[ModelFallbackGroup, ...],
+    ) -> tuple[ModelRoutingValidationIssue, ...]: ...
 
 
 class ModelConsumerRegistry:
@@ -205,6 +214,7 @@ class ModelRoutingAssignmentService:
         consumers: ModelConsumerRegistry,
         known_profile_ids: Iterable[str],
         known_models: Iterable[tuple[str, str]] = (),
+        validation_policy: ModelRoutingValidationPort | None = None,
     ) -> None:
         self._repository = repository
         self._consumers = consumers
@@ -213,12 +223,28 @@ class ModelRoutingAssignmentService:
             (str(provider_id), str(model_id))
             for provider_id, model_id in known_models
         )
+        self._validation_policy = validation_policy
 
     def read(self) -> ModelRoutingConfiguration:
         return self._repository.load()
 
     def validate(self, command: ModelRoutingMutationCommand) -> None:
-        self._validate(command.assignments, command.fallback_groups)
+        issues = self.validation_issues(command)
+        error = next((item for item in issues if item.severity == "error"), None)
+        if error is not None:
+            raise ValueError(error.reason_code)
+
+    def validation_issues(
+        self, command: ModelRoutingMutationCommand
+    ) -> tuple[ModelRoutingValidationIssue, ...]:
+        issues = list(self._identity_issues(
+            command.assignments, command.fallback_groups
+        ))
+        if self._validation_policy is not None:
+            issues.extend(self._validation_policy.validate(
+                command.assignments, command.fallback_groups
+            ))
+        return tuple(issues)
 
     def apply(self, command: ModelRoutingMutationCommand) -> ModelRoutingConfiguration:
         current = self._repository.load()
@@ -239,32 +265,51 @@ class ModelRoutingAssignmentService:
             )
         return updated
 
-    def _validate(
+    def _identity_issues(
         self,
         assignments: tuple[ModelAssignment, ...],
         groups: tuple[ModelFallbackGroup, ...],
-    ) -> None:
+    ) -> tuple[ModelRoutingValidationIssue, ...]:
+        issues: list[ModelRoutingValidationIssue] = []
+
+        def error(reason: str, reference: str | None = None) -> None:
+            issues.append(ModelRoutingValidationIssue(
+                severity="error", reason_code=reason, reference=reference
+            ))
+
         for assignment in assignments:
-            consumer = self._consumers.require(assignment.consumer_id)
+            try:
+                consumer = self._consumers.require(assignment.consumer_id)
+            except ValueError:
+                error("model_consumer_unknown", assignment.consumer_id)
+                continue
             if not consumer.routable:
-                raise ValueError("model_consumer_not_routable")
+                error("model_consumer_not_routable", assignment.consumer_id)
             if assignment.scope not in consumer.allowed_scopes:
-                raise ValueError("model_assignment_scope_not_allowed")
+                error("model_assignment_scope_not_allowed", assignment.consumer_id)
             if assignment.profile_id and assignment.profile_id not in self._profiles:
-                raise ValueError("model_assignment_profile_unknown")
+                error("model_assignment_profile_unknown", assignment.profile_id)
             if (
                 assignment.mode == "model"
                 and (assignment.provider_id, assignment.model_id) not in self._models
             ):
-                raise ValueError("model_assignment_model_unknown")
+                error(
+                    "model_assignment_model_unknown",
+                    f"{assignment.provider_id}:{assignment.model_id}",
+                )
         for group in groups:
-            if any(item.profile_id not in self._profiles for item in group.candidates):
-                raise ValueError("model_fallback_profile_unknown")
+            for item in group.candidates:
+                if item.profile_id not in self._profiles:
+                    error("model_fallback_profile_unknown", item.profile_id)
             if (
                 group.escalation_profile_id
                 and group.escalation_profile_id not in self._profiles
             ):
-                raise ValueError("model_fallback_escalation_profile_unknown")
+                error(
+                    "model_fallback_escalation_profile_unknown",
+                    group.escalation_profile_id,
+                )
+        return tuple(issues)
 
 
 class EffectiveModelRoutingService:
@@ -628,6 +673,6 @@ __all__ = [
     "CognitiveStyleFitPolicy", "EffectiveModelRoutingService",
     "InMemoryModelRoutingConfigurationRepository",
     "ModelConsumerExtensionPort", "ModelConsumerRegistry",
-    "ModelRoutingAssignmentService",
+    "ModelRoutingAssignmentService", "ModelRoutingValidationPort",
     "ModelRoutingConflict", "StyleFitDecision",
 ]
