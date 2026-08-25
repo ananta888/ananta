@@ -162,6 +162,7 @@ class ModelRoutingDryRunCommand(_Closed):
     approximate_context_tokens: int = Field(default=0, ge=0, le=1_000_000)
     contains_secrets: bool = False
     allow_cloud: bool = False
+    configuration: ModelRoutingConfiguration | None = None
 
     @field_validator(
         "consumer_id", "organization_id", "project_id", "workflow_id",

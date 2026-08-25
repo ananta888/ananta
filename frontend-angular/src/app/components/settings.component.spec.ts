@@ -76,6 +76,24 @@ describe('SettingsComponent (benchmark config)', () => {
     return llmProvider || String(config?.default_provider || '').trim().toLowerCase();
   }
 
+  it('guards section changes while the model routing draft is dirty', () => {
+    const cmp = createComponent();
+    cmp.selectedSection = 'models';
+    Object.defineProperty(cmp, 'modelDashboard', {
+      value: { store: { dirty: () => true } }, configurable: true,
+    });
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false);
+
+    cmp.setSection('system');
+
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(cmp.selectedSection).toBe('models');
+    confirm.mockReturnValue(true);
+    cmp.setSection('system');
+    expect(cmp.selectedSection).toBe('system');
+    confirm.mockRestore();
+  });
+
   function resolveHubCopilotModel(config: any): string {
     const model = String(config?.hub_copilot?.model || '').trim();
     if (model) return model;

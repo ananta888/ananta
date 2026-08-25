@@ -203,6 +203,34 @@ def test_dry_run_uses_most_specific_assignment_and_real_resolver_trace():
     assert any(item.source == "request_runtime_override" for item in route.decisions)
 
 
+def test_dry_run_can_validate_unpersisted_configuration_without_mutation():
+    persisted = _service().read().model_copy(update={
+        "revision": 2,
+        "assignments": (ModelAssignment(
+            consumer_id="task.coding", scope="global", mode="profile",
+            profile_id="local-fast",
+        ),),
+    })
+    draft = persisted.model_copy(update={
+        "assignments": (ModelAssignment(
+            consumer_id="task.coding", scope="global", mode="profile",
+            profile_id="local-heavy",
+        ),),
+    })
+    service = _effective_service(persisted)
+    route = service.dry_run(ModelRoutingDryRunCommand(
+        consumer_id="task.coding",
+        configuration=draft,
+    ))
+
+    assert route.resolved_profile_id == "local-heavy"
+    assert route.configuration_revision == 2
+    persisted_route = service.dry_run(ModelRoutingDryRunCommand(
+        consumer_id="task.coding",
+    ))
+    assert persisted_route.resolved_profile_id == "local-fast"
+
+
 def test_dry_run_disabled_assignment_is_terminal():
     configuration = _service().read().model_copy(update={
         "assignments": (ModelAssignment(

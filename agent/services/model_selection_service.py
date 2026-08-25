@@ -225,7 +225,7 @@ class EffectiveModelRoutingService:
         """Resolve once for both previews and Hub-signed runtime plans."""
 
         consumer = self._consumers.require(command.consumer_id)
-        configuration = self._repository.load()
+        configuration = command.configuration or self._repository.load()
         assignment, source, inheritance_sources = self._effective_assignment(
             configuration, command
         )

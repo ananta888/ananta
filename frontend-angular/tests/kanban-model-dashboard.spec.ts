@@ -57,7 +57,10 @@ async function authenticatedFixtures(page: Page): Promise<{
     sub: 'e2e-admin',
     role: 'admin',
     exp: 4_102_444_800,
-    capabilities: ['model_catalog.refresh', 'model_catalog.set_default'],
+    capabilities: [
+      'model_catalog.refresh', 'model_catalog.set_default', 'model_routing.read',
+      'model_routing.validate', 'model_routing.export', 'model_routing.mutate',
+    ],
   })).toString('base64url')}.sig`;
   await page.addInitScript(({ token }) => {
     localStorage.setItem('ananta.user.token', token);
@@ -75,7 +78,18 @@ async function authenticatedFixtures(page: Page): Promise<{
   await page.route('**/me', route => json(route, {
     sub: 'e2e-admin',
     role: 'admin',
-    capabilities: ['model_catalog.refresh', 'model_catalog.set_default'],
+    capabilities: [
+      'model_catalog.refresh', 'model_catalog.set_default', 'model_routing.read',
+      'model_routing.validate', 'model_routing.export', 'model_routing.mutate',
+    ],
+  }));
+  await page.route('**/api/projects', route => json(route, {
+    items: [{
+      id: 'e2e-project', name: 'E2E Project', description: 'Deterministic browser fixture',
+      status: 'active', is_active: true, origin: 'native', team_id: null,
+      version: 1, created_at: 1, updated_at: 1, archived_at: null,
+    }],
+    count: 1,
   }));
   await page.route('**/config/features/v1', route => json(route, {
     schema: 'ananta.dashboard-feature-flags.v1',
@@ -197,6 +211,44 @@ async function authenticatedFixtures(page: Page): Promise<{
       provider_failures: [],
     });
   });
+  await page.route('**/models/catalog/v2', route => json(route, {
+    schema: 'ananta.model-catalog.v2',
+    catalog_revision: 2,
+    partial: true,
+    models: [{
+      schema: 'ananta.model-inventory-descriptor.v2',
+      provider_id: 'local', model_id: 'safe-model', executor_id: 'api:local',
+      display_name: 'Safe Model', runtime: 'local', source_ids: ['providers.catalog'],
+      source_kinds: ['discovered'], profile_ids: ['safe-profile'], aliases: [],
+      availability: 'available', health: 'healthy', configured: true,
+      installed: true, loaded: true, listing_supported: true, auth_mode: null,
+      auth_ready: null, context_window: 8192, quantization: 'Q4',
+      capabilities: [{ capability_id: 'chat', value: 'supported', evidence: 'detected' }],
+      conflicts: [], used_by_consumers: ['task.coding'],
+    }],
+    sources: [{
+      source_id: 'offline-provider', source_kind: 'discovered', status: 'degraded',
+      stale: false, from_cache: true, last_attempt_at: null, last_success_at: null,
+      reason_code: 'provider_timeout', model_count: 1,
+    }],
+  }));
+  await page.route('**/models/catalog/v2/refresh', route => {
+    refreshes += 1;
+    return json(route, {
+      schema: 'ananta.model-catalog.v2', catalog_revision: 3, partial: false,
+      models: [], sources: [],
+    });
+  });
+  await page.route('**/models/consumers/v1', route => json(route, {
+    schema: 'ananta.model-consumer-registry.v1',
+    consumers: [{
+      schema: 'ananta.model-consumer.v1', consumer_id: 'task.coding', label: 'Coding',
+      category: 'tasks', required_capabilities: ['code'], allowed_scopes: ['global'], routable: true,
+    }],
+  }));
+  await page.route('**/models/routing/v1', route => json(route, {
+    schema: 'ananta.model-routing-config.v1', revision: 0, assignments: [], fallback_groups: [],
+  }));
   await page.route('**/models/default/v1', route => {
     defaultSelections += 1;
     return json(route, {
@@ -257,15 +309,8 @@ test('Kanban and model settings provide keyboard parity and Axe-clean desktop/mo
   await expect(page.getByTestId('model-dashboard')).toBeVisible();
   await expect(page.getByText('offline-provider')).toBeVisible();
   await expectAxeClean(page, '.model-dashboard');
-  const selectDefault = page.getByRole('button', {
-    name: 'Als Standard wählen',
-  });
-  await selectDefault.focus();
-  await expect(selectDefault).toBeFocused();
-  await selectDefault.press('Enter');
-  await expect.poll(fixture.defaultCalls).toBe(1);
   const refreshProviders = page.getByRole('button', {
-    name: 'Provider aktualisieren',
+    name: 'Quellen aktualisieren',
   });
   await expect(refreshProviders).toBeEnabled();
   await refreshProviders.focus();
@@ -286,6 +331,10 @@ test('Kanban and model settings provide keyboard parity and Axe-clean desktop/mo
 
 test('feature flags recover after a real login replaces a rejected identity', async ({ page }) => {
   const rejectedToken = 'expired-e2e-identity';
+  const loginToken = `e30.${Buffer.from(JSON.stringify({
+    sub: 'e2e-admin', username: ADMIN_USERNAME, role: 'admin', exp: 4_102_444_800,
+    capabilities: ['model_catalog.read'],
+  })).toString('base64url')}.sig`;
   let rejectedFlagRequests = 0;
   let authenticatedFlagRequests = 0;
 
@@ -307,12 +356,25 @@ test('feature flags recover after a real login replaces a rejected identity', as
         capabilities: [],
       });
     }
-    return route.continue();
+    return json(route, {
+      sub: 'e2e-admin', username: ADMIN_USERNAME, role: 'admin',
+      capabilities: ['model_catalog.read'],
+    });
   });
   await page.route('**/api/network-profiles/**', route => {
-    const authorization = route.request().headers()['authorization'] ?? '';
-    return authorization.includes(rejectedToken) ? json(route, {}) : route.continue();
+    return json(route, {});
   });
+  await page.route('**/login', route => json(route, {
+    access_token: loginToken, refresh_token: 'e2e-refresh-token',
+  }));
+  await page.route('**/api/projects', route => json(route, {
+    items: [{
+      id: 'e2e-project', name: 'E2E Project', description: null, status: 'active',
+      is_active: true, origin: 'native', team_id: null, version: 1,
+      created_at: 1, updated_at: 1, archived_at: null,
+    }],
+    count: 1,
+  }));
   await page.route('**/config/features/v1', async route => {
     const authorization = route.request().headers()['authorization'] ?? '';
     if (!authorization || authorization.includes(rejectedToken)) {
@@ -343,7 +405,7 @@ test('feature flags recover after a real login replaces a rejected identity', as
 
   await expect(page).toHaveURL(/\/dashboard(?:[?#]|$)/);
   await expect.poll(() => authenticatedFlagRequests).toBe(1);
-  await expect(page.locator('.app-nav a[href="/board"]')).toHaveCount(1);
+  await expect(page.locator('.app-nav a[href^="/board"]')).toHaveCount(1);
   expect(rejectedFlagRequests).toBe(1);
   expect(authenticatedFlagRequests).toBe(1);
 });

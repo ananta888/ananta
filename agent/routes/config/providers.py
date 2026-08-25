@@ -713,6 +713,14 @@ def dry_run_model_routing_configuration():
         command = ModelRoutingDryRunCommand.model_validate(
             request.get_json(silent=True)
         )
+        if command.configuration is not None:
+            assignment_service = _model_routing_service()
+            assignment_service.validate(ModelRoutingMutationCommand(
+                schema="ananta.model-routing-mutation-command.v1",
+                expected_revision=assignment_service.read().revision,
+                assignments=command.configuration.assignments,
+                fallback_groups=command.configuration.fallback_groups,
+            ))
         route = _effective_model_routing_service().dry_run(command)
     except ValidationError:
         return _model_catalog_input_error("model_routing_dry_run_command_invalid")
