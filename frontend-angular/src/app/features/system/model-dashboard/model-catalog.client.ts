@@ -249,6 +249,62 @@ export interface CognitiveStyleReadModel {
   readonly heuristic_notice: string;
 }
 
+export interface ModelRoutingLegacyMigrationPreview {
+  readonly schema: 'ananta.model-routing-legacy-migration-preview.v1';
+  readonly current_revision: number;
+  readonly applicable: boolean;
+  readonly idempotent: boolean;
+  readonly confirmation_digest: string;
+  readonly entries: readonly {
+    consumer_id: string;
+    legacy_source: string;
+    legacy_provider_id: string | null;
+    legacy_model_id: string | null;
+    matched_profile_id: string | null;
+    status: 'missing' | 'incomplete' | 'unresolved' | 'ambiguous' | 'proposed' | 'preserved';
+    reason_code: string;
+  }[];
+  readonly proposed_configuration: ModelRoutingConfiguration;
+  readonly issues: readonly { severity: 'warning' | 'error'; reason_code: string; reference: string | null }[];
+}
+
+export interface ModelRoutingShadowReport {
+  readonly schema: 'ananta.model-routing-shadow-report.v1';
+  readonly configuration_revision: number;
+  readonly matches: boolean;
+  readonly entries: readonly {
+    consumer_id: string;
+    status: string;
+    matches: boolean | null;
+    legacy_provider_id: string | null;
+    legacy_model_id: string | null;
+    central_provider_id: string | null;
+    central_model_id: string | null;
+  }[];
+}
+
+export interface ModelRoutingReleaseGate {
+  readonly schema: 'ananta.model-routing-release-gate.v1';
+  readonly configuration_revision: number;
+  readonly ready: boolean;
+  readonly checks: readonly { check_id: string; passed: boolean; reason_code: string }[];
+}
+
+export interface ModelRoutingDiagnostics {
+  readonly schema: 'ananta.model-routing-diagnostics.v1';
+  readonly generated_at: string;
+  readonly configuration_revision: number;
+  readonly catalog_revision: number;
+  readonly unresolved_assignment_count: number;
+  readonly non_executable_route_count: number;
+  readonly contains_secrets: false;
+  readonly issues: readonly { severity: 'warning' | 'error'; reason_code: string; reference: string | null }[];
+  readonly usage: readonly {
+    consumer_id: string; profile_id: string; selections_total: number;
+    fallback_selections_total: number; last_used_at: string;
+  }[];
+}
+
 function unwrap<T>(value: unknown): T {
   return (value && typeof value === 'object' && 'data' in value
     ? (value as { data: unknown }).data
@@ -329,6 +385,46 @@ export class ModelCatalogClient {
     return this.api.get<unknown>(
       `${baseUrl.replace(/\/$/, '')}/models/styles/v1`, baseUrl, undefined, false,
     ).pipe(map(unwrap<CognitiveStyleReadModel>));
+  }
+
+  readLegacyMigrationPreview(baseUrl: string): Observable<ModelRoutingLegacyMigrationPreview> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/migration/preview`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<ModelRoutingLegacyMigrationPreview>));
+  }
+
+  applyLegacyMigration(
+    baseUrl: string,
+    expectedRevision: number,
+    confirmationDigest: string,
+  ): Observable<ModelRoutingConfiguration> {
+    return this.api.post<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/migration/apply`,
+      {
+        schema: 'ananta.model-routing-legacy-migration-apply-command.v1',
+        expected_revision: expectedRevision,
+        confirmation_digest: confirmationDigest,
+      },
+      baseUrl,
+    ).pipe(map(unwrap<ModelRoutingConfiguration>));
+  }
+
+  readRoutingShadow(baseUrl: string): Observable<ModelRoutingShadowReport> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/shadow`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<ModelRoutingShadowReport>));
+  }
+
+  readRoutingReleaseGate(baseUrl: string): Observable<ModelRoutingReleaseGate> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/release-gate`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<ModelRoutingReleaseGate>));
+  }
+
+  readRoutingDiagnostics(baseUrl: string): Observable<ModelRoutingDiagnostics> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/routing/v1/diagnostics`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<ModelRoutingDiagnostics>));
   }
 
   validateRouting(baseUrl: string, value: ModelRoutingConfiguration): Observable<ModelRoutingValidationReport> {

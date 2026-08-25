@@ -5,12 +5,13 @@ import { FormsModule } from '@angular/forms';
 import { DashboardFeatureFlagStore } from '../../dashboard-foundation/dashboard-feature-flags';
 import { ModelConsumer, ModelInventoryDescriptor } from './model-catalog.client';
 import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-dashboard.store';
+import { ModelRoutingMigrationStore } from './model-routing-migration.store';
 
 @Component({
   standalone: true,
   selector: 'app-model-dashboard',
   imports: [FormsModule, JsonPipe],
-  providers: [ModelDashboardStore],
+  providers: [ModelDashboardStore, ModelRoutingMigrationStore],
   template: `
     @if (features.angularModelDashboard()) {
       <section class="model-dashboard" aria-labelledby="model-dashboard-title" data-testid="model-dashboard">
@@ -476,6 +477,57 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
 
         @if (store.activeTab() === 'changes') {
           <section role="tabpanel" aria-label="Änderungen anwenden" class="changes-panel">
+            <section class="operations-panel" aria-labelledby="model-routing-rollout-title">
+              <h3 id="model-routing-rollout-title">Migration und Release-Gate</h3>
+              @if (migration.loading()) { <p role="status">Betriebsstatus wird geladen …</p> }
+              @if (migration.error()) { <p class="model-error" role="alert">{{ migration.error() }}</p> }
+              @if (migration.releaseGate(); as gate) {
+                <p [class.validation-ok]="gate.ready" [class.model-error]="!gate.ready">
+                  <strong>{{ gate.ready ? 'Release-Gate bestanden' : 'Release-Gate blockiert' }}</strong>
+                  · Routing r{{ gate.configuration_revision }}
+                </p>
+                @for (check of gate.checks; track check.check_id) {
+                  <p><code>{{ check.check_id }}</code>: {{ check.passed ? 'bestanden' : 'fehlgeschlagen' }} — {{ check.reason_code }}</p>
+                }
+              }
+              @if (migration.shadow(); as shadow) {
+                <p><strong>Legacy-vs.-Central Shadow:</strong> {{ shadow.matches ? 'identisch' : 'Abweichung erkannt' }}</p>
+                @for (entry of shadow.entries; track entry.consumer_id) {
+                  <p><code>{{ entry.consumer_id }}</code>: {{ entry.status }}</p>
+                }
+              }
+              @if (migration.preview(); as preview) {
+                <h4>Idempotente Legacy-Migration</h4>
+                <p>Vorschau für Routing r{{ preview.current_revision }} · {{ preview.applicable ? 'anwendbar' : 'blockiert' }}</p>
+                <div class="assignment-table-wrap"><table>
+                  <thead><tr><th>Consumer</th><th>Legacy-Wert</th><th>Zielprofil</th><th>Status</th></tr></thead>
+                  <tbody>@for (entry of preview.entries; track entry.consumer_id) {
+                    <tr><td><code>{{ entry.consumer_id }}</code></td>
+                      <td>{{ entry.legacy_provider_id || '–' }} / {{ entry.legacy_model_id || '–' }}</td>
+                      <td>{{ entry.matched_profile_id || '–' }}</td><td>{{ entry.status }} · {{ entry.reason_code }}</td></tr>
+                  }</tbody>
+                </table></div>
+                <label class="check-field"><input type="checkbox" [checked]="migration.confirmed()"
+                  (change)="migration.confirmed.set($any($event.target).checked)" />
+                  Ich habe Vorschau, Revision und Shadow-Abweichungen geprüft.</label>
+                <button type="button" [disabled]="!migration.canApply()" (click)="migration.apply()">
+                  Migration explizit bestätigen und atomar anwenden
+                </button>
+              }
+              @if (migration.diagnostics(); as diagnostics) {
+                <h4>Secret-freie Betriebsdiagnose</h4>
+                <p>Unresolved: {{ diagnostics.unresolved_assignment_count }} · nicht ausführbar:
+                  {{ diagnostics.non_executable_route_count }} · enthält Secrets: {{ diagnostics.contains_secrets ? 'ja' : 'nein' }}</p>
+                @for (issue of diagnostics.issues; track $index) {
+                  <p [class.warning]="issue.severity === 'warning'"><code>{{ issue.reason_code }}</code>{{ issue.reference ? ': ' + issue.reference : '' }}</p>
+                }
+                @for (usage of diagnostics.usage; track usage.consumer_id + ':' + usage.profile_id) {
+                  <p><code>{{ usage.consumer_id }}</code> → {{ usage.profile_id }}: {{ usage.selections_total }} Auswahlen,
+                    {{ usage.fallback_selections_total }} Fallbacks, zuletzt {{ usage.last_used_at }}</p>
+                }
+              }
+              <button type="button" class="button-outline" (click)="migration.load()">Betriebsstatus neu laden</button>
+            </section>
             <h3>Atomarer Änderungsstand</h3>
             <p>Authoritative Revision: {{ store.authoritativeRouting()?.revision ?? '–' }}</p>
             <p>{{ store.dirty() ? 'Der Draft weicht vom Hub ab.' : 'Keine ungespeicherten Änderungen.' }}</p>
@@ -557,7 +609,7 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
     table { border-collapse: collapse; width: 100%; }
     th, td { border-bottom: 1px solid #cfdbdc; padding: .6rem; text-align: left; vertical-align: top; }
     td code, td small { display: block; margin-top: .25rem; }
-    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel, .scoped-editor, .style-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
+    .assignment-group, .fallback-card, .route-preview, .changes-panel, .template-panel, .bulk-panel, .scoped-editor, .style-panel, .operations-panel { border: 1px solid #b8c8c9; border-radius: .8rem; margin-bottom: 1rem; padding: 1rem; }
     .bulk-panel { align-items: end; display: flex; flex-wrap: wrap; gap: .7rem; }.semantic-diff { background: #eef6f7; border-left: 4px solid #286773; padding: .7rem; }
     .scoped-form { align-items: end; display: grid; gap: .7rem; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); margin-bottom: 1rem; }
     .style-compare { align-items: end; display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); margin-bottom: 1rem; }.style-compare output { font-weight: 700; padding: .7rem; }.style-panel progress { width: min(10rem, 100%); }
@@ -582,6 +634,7 @@ import { ModelDashboardStore, ModelDashboardTab, ModelSortKey } from './model-da
 export class ModelDashboardComponent implements OnInit {
   readonly features = inject(DashboardFeatureFlagStore);
   readonly store = inject(ModelDashboardStore);
+  readonly migration = inject(ModelRoutingMigrationStore);
   readonly tabs: readonly { id: ModelDashboardTab; label: string }[] = [
     { id: 'overview', label: 'Übersicht' }, { id: 'assignments', label: 'Zuweisungen' },
     { id: 'fallbacks', label: 'Fallbacks' }, { id: 'styles', label: 'Cognitive Styles' },
@@ -602,7 +655,10 @@ export class ModelDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.features.ensureLoaded().subscribe(flags => {
-      if (flags.angularModelDashboard) this.store.load();
+      if (flags.angularModelDashboard) {
+        this.store.load();
+        this.migration.load();
+      }
     });
   }
 
