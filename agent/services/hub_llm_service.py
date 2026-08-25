@@ -6,6 +6,7 @@ from flask import current_app, has_app_context
 
 from agent.hub_benchmark import HubBenchmarkDataError
 from agent.llm_integration import extract_llm_text_and_usage, generate_text as _generate_text
+from ananta_contracts.model_selection import ModelRoutingDryRunCommand
 
 
 class HubLLMService:
@@ -53,6 +54,23 @@ class HubLLMService:
                 "source": "benchmark_recommendation",
             }
         return None
+
+    def _resolve_central_planning_model(
+        self,
+        *,
+        task_kind: str | None,
+        allow_cloud: bool,
+    ):
+        from agent.services.model_runtime_selection_service import (
+            resolve_explicit_hub_model,
+        )
+
+        return resolve_explicit_hub_model(ModelRoutingDryRunCommand(
+            consumer_id="planning.autoplanner",
+            task_kind=task_kind,
+            requires_json=True,
+            allow_cloud=allow_cloud,
+        ))
 
     def resolve_copilot_config(
         self, overrides: dict[str, Any] | None = None, task_kind: str | None = None
@@ -114,7 +132,19 @@ class HubLLMService:
             if effective_temperature is not None:
                 effective_temperature = max(0.0, min(2.0, effective_temperature))
 
+        central_selection = self._resolve_central_planning_model(
+            task_kind=task_kind,
+            allow_cloud=effective_provider in {"openai", "openrouter"},
+        )
+        if central_selection is not None:
+            effective_provider = central_selection.provider_id
+            effective_model = central_selection.model_id
+            effective_base_url = central_selection.base_url
+
         provider_source = (
+            "model_routing:" + central_selection.assignment_source
+            if central_selection is not None
+            else
             "hub_copilot.provider"
             if requested_provider
             else "agent_config.llm_config.provider"
@@ -124,6 +154,9 @@ class HubLLMService:
             else ("hub_benchmark." + benchmark_recommended["source"] if benchmark_recommended else "unknown")
         )
         model_source = (
+            "model_routing:" + central_selection.assignment_source
+            if central_selection is not None
+            else
             "hub_copilot.model"
             if requested_model
             else "agent_config.llm_config.model"
@@ -133,6 +166,9 @@ class HubLLMService:
             else ("hub_benchmark." + benchmark_recommended["source"] if benchmark_recommended else "unknown")
         )
         base_url_source = (
+            "model_profile:" + central_selection.profile_id
+            if central_selection is not None
+            else
             "hub_copilot.base_url"
             if requested_base_url
             else ("agent_config.llm_config.base_url" if llm_cfg.get("base_url") else None)
@@ -174,6 +210,15 @@ class HubLLMService:
                 "base_url": base_url_source,
                 "temperature": temperature_source,
             },
+            "model_routing": (
+                {
+                    "configuration_revision": central_selection.configuration_revision,
+                    "assignment_source": central_selection.assignment_source,
+                    "profile_id": central_selection.profile_id,
+                }
+                if central_selection is not None
+                else None
+            ),
         }
 
     def plan_with_copilot(

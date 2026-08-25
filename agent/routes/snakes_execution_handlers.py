@@ -148,6 +148,7 @@ def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tup
     provider = "lmstudio"
     model: str | None = None
     api_base: str | None = None
+    cfg: dict[str, Any] = {}
     try:
         from agent.routes.ai_snake_config import _current_config
 
@@ -183,7 +184,53 @@ def _resolve_ai_snake_chat_provider(config: dict[str, Any] | None = None) -> tup
         raise
     except Exception:
         pass
+
+    central = _resolve_central_ai_snake_model(cfg)
+    if central is not None:
+        provider, model = central.provider_id, central.model_id
+        configured_api_base = central.base_url
+        if provider == "openai":
+            api_base = bind_openai_credential_endpoint(
+                client_api_base=configured_api_base,
+                trusted_api_url=str(settings.openai_url),
+                credential_ref=str(cfg.get("chat_backend_credential_ref") or ""),
+            ).chat_completions_url
+        elif configured_api_base:
+            normalized = configured_api_base.rstrip("/")
+            api_base = (
+                normalized
+                if normalized.endswith("/chat/completions")
+                else f"{normalized}/chat/completions"
+            )
     return provider, model, api_base
+
+
+def _resolve_central_ai_snake_model(config: dict[str, Any]):
+    """Resolve an explicit central assignment; otherwise preserve legacy config."""
+
+    if not has_app_context():
+        return None
+    from agent.services.model_runtime_selection_service import (
+        ModelRuntimeSelectionError,
+        resolve_explicit_hub_model,
+    )
+    from ananta_contracts.model_selection import ModelRoutingDryRunCommand
+
+    configured_backend = str(config.get("chat_backend") or "").strip().lower()
+    try:
+        return resolve_explicit_hub_model(ModelRoutingDryRunCommand(
+            consumer_id="chat.ai_snake",
+            requires_streaming=True,
+            allow_cloud=configured_backend in {"openai", "codex", "openrouter"},
+        ))
+    except ModelRuntimeSelectionError:
+        raise
+    except Exception as exc:
+        current_app.logger.warning(
+            "Central AI-Snake model route unavailable; using legacy fallback: %s",
+            type(exc).__name__,
+        )
+        return None
 
 
 def _spawn_ai_chat_reply(

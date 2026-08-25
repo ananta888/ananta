@@ -626,6 +626,29 @@ def test_chat_provider_uses_effective_session_configuration():
     assert api_base == "http://lmstudio.test/v1/chat/completions"
 
 
+def test_explicit_central_ai_snake_assignment_overrides_legacy_session(monkeypatch):
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(
+        ser,
+        "_resolve_central_ai_snake_model",
+        lambda _config: SimpleNamespace(
+            provider_id="lmstudio",
+            model_id="lfm2.5-central",
+            base_url="http://mini-pc:1234/v1",
+        ),
+    )
+
+    provider, model, api_base = ser._resolve_ai_snake_chat_provider({
+        "chat_backend": "lmstudio",
+        "chat_backend_model": "legacy-model",
+        "chat_backend_api_base": "http://legacy:1234/v1",
+    })
+
+    assert (provider, model) == ("lmstudio", "lfm2.5-central")
+    assert api_base == "http://mini-pc:1234/v1/chat/completions"
+
+
 def test_chat_provider_supports_explicit_openai_session_configuration(monkeypatch):
     import agent.routes.snakes_execution_routes as ser
 
