@@ -1,0 +1,1041 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-08-25",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "codecompass_dmoe_parametric_knowledge_injection",
+  "title": "CodeCompass DMoE – modulare parametrische Wissensinjektion mit RAG-Hybridfallback",
+  "status": "todo",
+  "priority": "P0",
+  "purpose": "Den im Paper 'Decoupled Mixture-of-Experts for Parametric Knowledge Injection' beschriebenen DMoE-Ansatz kontrolliert fuer Ananta evaluieren und als optionalen, revisionssicheren Knowledge-Expert-Pfad auf CodeCompass aufbauen.",
+  "goal": "Ananta kann stabiles, freigegebenes CodeCompass-Wissen in kleine, austauschbare und exakt an ein Basismodell gebundene LoRA-/PEFT-Experten kompilieren. Ein scope- und uncertainty-aware Router aktiviert nur benoetigte Experten. Klassisches RAG bleibt fuer aktuelle, zitierpflichtige, nicht trainierte oder widerrufene Inhalte erhalten und ist jederzeit der sichere Fallback.",
+  "source_review": {
+    "reviewed_at": "2026-08-25",
+    "primary_source": {
+      "title": "Decoupled Mixture-of-Experts for Parametric Knowledge Injection",
+      "authors": [
+        "Baoqing Yue",
+        "Weihang Su",
+        "Qingyao Ai",
+        "Yichen Tang",
+        "Changyue Wang",
+        "Jiacheng Kang",
+        "Jingtao Zhan",
+        "Yiqun Liu"
+      ],
+      "published": "2026-06-12",
+      "url": "https://arxiv.org/abs/2606.14243",
+      "arxiv_id": "2606.14243"
+    },
+    "interpretation": [
+      "DMoE ersetzt Retrieval nicht vollstaendig: Es waehlt externe Experten statt Text-Chunks aus.",
+      "Das Paper beschreibt entkoppelte, austauschbare Wissensexperten, uncertainty-aware Routing und Anbindung an die letzte FFN-Schicht zur KV-Cache-Wiederverwendung.",
+      "Die berichteten Ergebnisse stammen vor allem aus kleinen 1B- bis 1.5B-Basismodellen und duerfen nicht direkt auf grosse Coding-Modelle oder Ananta-Runtimes uebertragen werden.",
+      "Die Produktstrategie ist deshalb Hybrid statt 'No RAG'."
+    ],
+    "evidence_status": "research_to_be_reproduced"
+  },
+  "current_ananta_fit": {
+    "reusable_components": [
+      "Ananta/CodeCompass Domain- und Graph-Aware Specialized Chunking",
+      "rag-helper typed records, parent_id, relations, embedding_text und domain partitions",
+      "Hybrid Retrieval mit exact, lexical, vector, symbol, graph und domain signals",
+      "Qdrant-/JSON-VectorStore-Ports und inkrementelle Indexversionen",
+      "Hub-owned Task-Orchestrierung, Worker-Ausfuehrung, Attestation und Admission",
+      "bestehende LoRA-/Training-Control-Center- und lokale Runtime-Arbeit"
+    ],
+    "missing_capabilities": [
+      "KnowledgeUnit-zu-Expert-Compiler",
+      "final-layer-spezifisches Adaptertraining",
+      "signierte Expert-Bank mit Modell-/Tokenizer-/Runtime-Bindung",
+      "uncertainty-aware Expert-Router",
+      "cache-sicherer Hot-Swap und Residency Manager",
+      "Hybridpolicy fuer Expert, RAG und Basismodell",
+      "parametrische Provenance und zitierfaehiger Evidence-Fallback",
+      "DMoE-spezifische Evaluation, Security und Rollout"
+    ]
+  },
+  "architecture_decisions": [
+    "DMoE ist optional, default-off und ersetzt weder CodeCompass noch RAG.",
+    "CodeCompass-Quellen und KnowledgeUnits bleiben kanonische Wahrheit; Experten sind daraus kompilierte, wegwerfbare Artefakte.",
+    "Aktuelles, volatiles, personenbezogenes, geheimes, lizenzunklares oder zitierpflichtiges Wissen ist standardmaessig nicht parametrisierbar.",
+    "Hub besitzt Policy, Scope, Queue, Approval, Registry, Aktivierung und Rollback; Worker trainieren oder inferieren, aber orchestrieren nicht.",
+    "Experten sind exakt an Basismodell-, Tokenizer-, Architektur-, Zielschicht-, Runtime- und Policy-Digests gebunden.",
+    "Keine direkte Auswahl untrusted Expert-Dateipfade durch Agent, MCP, n8n oder Request-Payload.",
+    "RAG, Expert und Hybrid verwenden denselben Evidence-, Scope-, Budget- und Diagnostics-Vertrag.",
+    "Eine fehlende DMoE-Capability degradiert sichtbar zu RAG oder Basismodell, niemals zu ungescopter Suche.",
+    "Safetensors-only, signierte Artefakte, immutable Generationen und atomare Alias-Aktivierung.",
+    "Forschungsergebnisse werden vor Produktannahmen reproduziert; grosse Modelle und lokale Runtimes benoetigen eigene Benchmarks."
+  ],
+  "non_goals": [
+    "RAG vollstaendig entfernen.",
+    "Das Basismodell dauerhaft oder unkontrolliert fine-tunen.",
+    "Jeden einzelnen Chunk automatisch zu einem dauerhaft residenten Experten machen.",
+    "LoRA-Experten ohne Quellen-, Lizenz-, Scope- und Modellbindung austauschen.",
+    "Qdrant, Graph-Retrieval oder CodeCompass durch DMoE ersetzen.",
+    "Paper-Benchmarkwerte als Ananta-Produktversprechen uebernehmen."
+  ],
+  "proposed_flow": [
+    "Source revision",
+    "CodeCompass specialized chunks and graph",
+    "Eligibility and quality gate",
+    "KnowledgeUnit compiler",
+    "LoRA expert training",
+    "Evaluation and artifact admission",
+    "Immutable expert bank",
+    "CodeCompass candidate retrieval",
+    "Uncertainty-aware router",
+    "Runtime capability and resource admission",
+    "Expert activation or RAG fallback",
+    "Evidence-aware answer",
+    "Telemetry, refresh, revoke and rollback"
+  ],
+  "proposed_config_shape": {
+    "knowledge_augmentation": {
+      "enabled": false,
+      "mode": "auto",
+      "policy_profile": "knowledge-augmentation.v1",
+      "parametric_experts": {
+        "enabled": false,
+        "runtime_provider": "transformers_prototype",
+        "trigger": {
+          "strategy": "hybrid_uncertainty_retrieval",
+          "uncertainty_threshold": null,
+          "top_k": 4,
+          "max_switches_per_generation": 3,
+          "hysteresis_tokens": 16
+        },
+        "residency": {
+          "max_active_experts": 4,
+          "vram_budget_mb": null,
+          "ram_budget_mb": null,
+          "disk_budget_mb": null,
+          "warm_cache_experts": 8
+        },
+        "compatibility": {
+          "require_exact_base_model_digest": true,
+          "require_exact_tokenizer_digest": true,
+          "require_signed_artifacts": true,
+          "require_kv_cache_safe_capability": true
+        }
+      },
+      "rag": {
+        "enabled": true,
+        "required_for_citations": true,
+        "required_for_volatile_knowledge": true
+      },
+      "fallback_order": [
+        "rag_only",
+        "base_only"
+      ],
+      "diagnostics": {
+        "expose_bounded_reasons": true,
+        "include_raw_training_data": false
+      }
+    }
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Research and contracts",
+      "status": "todo",
+      "tasks": [
+        "DMOE-001",
+        "DMOE-002",
+        "DMOE-003"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Knowledge compiler and expert training",
+      "status": "todo",
+      "tasks": [
+        "DMOE-004",
+        "DMOE-005",
+        "DMOE-006",
+        "DMOE-007"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Routing and cache-safe runtime",
+      "status": "todo",
+      "tasks": [
+        "DMOE-008",
+        "DMOE-009",
+        "DMOE-010",
+        "DMOE-011",
+        "DMOE-012"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Hybrid product integration",
+      "status": "todo",
+      "tasks": [
+        "DMOE-013",
+        "DMOE-014",
+        "DMOE-015",
+        "DMOE-016",
+        "DMOE-017",
+        "DMOE-018",
+        "DMOE-019",
+        "DMOE-020",
+        "DMOE-021"
+      ]
+    },
+    {
+      "id": "M4",
+      "title": "Evaluation, hardening and rollout",
+      "status": "todo",
+      "tasks": [
+        "DMOE-022",
+        "DMOE-023",
+        "DMOE-024"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "DMOE-001",
+      "title": "Research-Spike und Reproduzierbarkeits-Gate fuer DMoE",
+      "type": "research",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "docs/research/dmoe-parametric-knowledge-injection.md",
+          "experiments/dmoe/README.md",
+          "config/benchmarks/dmoe-research-gate.v1.json"
+        ],
+        "notes": [
+          "Paper 2606.14243 gegen veroeffentlichten Code, Checkpoints, Trainingsrezept, Lizenzen und reproduzierbare Baselines pruefen.",
+          "Minimalen Proof of Concept mit einem kleinen freigegebenen Basismodell und wenigen Wissenseinheiten bauen; keine Produktintegration vor bestandenem Gate.",
+          "Final-layer-FFN-Anbindung, KV-Cache-Wiederverwendung, Router-Top-k, Token-Uncertainty-Trigger und Expert-Hot-Swap getrennt messen.",
+          "Ergebnisse als verified, partially_reproduced, not_reproduced oder blocked klassifizieren; Paper-Angaben nie ungeprueft als Produkt-SLO uebernehmen."
+        ]
+      },
+      "acceptance_criteria": [
+        "PoC reproduziert mindestens eine definierte Qualitaetsverbesserung gegen dieselbe Dense-Baseline.",
+        "Zeit, VRAM, RAM, Disk, Trainingskosten und Expert-Wechsel-Latenz sind gemessen.",
+        "Ein dokumentierter Go/No-Go-Entscheid verhindert voreilige Produktkopplung."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "DMOE-002",
+      "title": "Versionierte Knowledge-Unit- und Expert-Vertraege definieren",
+      "type": "schema",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "schemas/knowledge/parametric_knowledge_unit.v1.json",
+          "schemas/knowledge/knowledge_expert_manifest.v1.json",
+          "schemas/knowledge/knowledge_expert_bank.v1.json",
+          "ananta_contracts/parametric_knowledge.py"
+        ],
+        "notes": [
+          "KnowledgeUnit muss source_id, revision, content_hash, provenance, domain, parent_id, relations, sensitivity, retention, license und citation_ref enthalten.",
+          "ExpertManifest bindet Adapterformat, Basismodell-Digest, Tokenizer-Digest, Architektur, Zielschicht, PEFT-Konfiguration, Trainingsdaten-Digest, Evaluationsstatus und Signatur.",
+          "ExpertBank ist immutable und revisionsgebunden; Aktivierung erfolgt ueber Alias/Generation statt In-place-Ueberschreiben.",
+          "Unbekannte Schema-, Modell-, Tokenizer- oder Runtime-Versionen failen vor Laden oder Training."
+        ]
+      },
+      "acceptance_criteria": [
+        "Schemas sind strikt validiert und besitzen Golden-/Negative-Fixtures.",
+        "Ein Expert kann eindeutig auf seine CodeCompass-Wissenseinheiten und Quellen zurueckgefuehrt werden.",
+        "Inkompatible Experten koennen nicht still auf einem anderen Basismodell geladen werden."
+      ],
+      "dependencies": [
+        "DMOE-001"
+      ]
+    },
+    {
+      "id": "DMOE-003",
+      "title": "Eligibility-Policy fuer parametrisierbares Wissen bauen",
+      "type": "policy",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/parametric_knowledge_eligibility_policy.py",
+          "config/policies/parametric-knowledge-eligibility.v1.json"
+        ],
+        "notes": [
+          "Nur stabiles, freigegebenes, ausreichend belegtes und trainierbares Wissen darf in Experten kompiliert werden.",
+          "Aktuelle Daten, volatile Fakten, Secrets, personenbezogene Daten, widerrufliche Berechtigungsdaten und zitierpflichtige Inhalte bleiben standardmaessig RAG-only.",
+          "Lizenz, Mandant, Workspace, Repository, Domain, Datenklasse, Ablaufdatum und Loeschpflicht vor Dataset-Erzeugung pruefen.",
+          "Policy-Ausgabe ist allow, deny oder require_approval mit maschinenlesbaren Gruenden; Request-Felder duerfen keine Freigabe erteilen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Default ist deny fuer unbekannte Herkunft oder Datenklasse.",
+        "Security-Fixtures beweisen, dass Secrets und fremde Tenant-Daten nicht trainiert werden.",
+        "Policy-Entscheidung wird im Expert-Manifest revisionssicher referenziert."
+      ],
+      "dependencies": [
+        "DMOE-002"
+      ]
+    },
+    {
+      "id": "DMOE-004",
+      "title": "CodeCompass Knowledge-Unit Compiler entwickeln",
+      "type": "indexing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "rag-helper/rag_helper/application/parametric_knowledge_compiler.py",
+          "worker/training/knowledge_unit_dataset_builder.py"
+        ],
+        "files_to_modify": [
+          "rag-helper/rag_helper/application/specialized_chunkers.py",
+          "rag-helper/rag_helper/application/gem_partitions.py"
+        ],
+        "notes": [
+          "Ananta/CodeCompass Domain- und Graph-Aware Specialized Chunks als primaere Wissenseinheiten verwenden.",
+          "Klassen, Membergruppen, Spring-Beans, Maven-Abhaengigkeiten, JPA-Entities, XSD-Strukturen, Architekturabschnitte und Wiki-Abschnitte deterministisch normalisieren.",
+          "Rohquelle, kontextualisierte Darstellung, Fragen/Antworten, Negativbeispiele, Gegenfakten und Graph-Nachbarschaft getrennt ausgeben.",
+          "Kleine passage-level Einheiten optional zu dokument-, domain- oder clusterbasierten Experten gruppieren, um unbeschraenktes Expert-Wachstum zu vermeiden."
+        ]
+      },
+      "acceptance_criteria": [
+        "Gleicher Input und gleiche Konfiguration erzeugen identische Dataset-Digests.",
+        "Jede Trainingsprobe bleibt auf KnowledgeUnit und Originalquelle rueckverfolgbar.",
+        "Compiler zerstoert keine syntaktischen oder hierarchischen CodeCompass-Grenzen."
+      ],
+      "dependencies": [
+        "DMOE-002",
+        "DMOE-003"
+      ]
+    },
+    {
+      "id": "DMOE-005",
+      "title": "Dataset-Qualitaet und Kontaminationsschutz implementieren",
+      "type": "data_quality",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/training/knowledge_dataset_validator.py",
+          "worker/training/knowledge_conflict_detector.py",
+          "config/policies/knowledge-dataset-quality.v1.json"
+        ],
+        "notes": [
+          "Duplikate, widerspruechliche Fakten, unvollstaendige Quellen, train/test leakage, Prompt Injection und toxische Trainingsanweisungen erkennen.",
+          "Truth-Precedence und Source-Reliability aus Ananta wiederverwenden; Konflikte nicht per Mehrheitsentscheidung verschleiern.",
+          "Holdout-Queries und Gegenbeispiele vor Training einfrieren und digestbinden.",
+          "Freigabestatus rejected, quarantined, review_required oder admitted verwenden."
+        ]
+      },
+      "acceptance_criteria": [
+        "Kontaminierte oder widerspruechliche Einheiten werden vor Training blockiert.",
+        "Holdout-Daten gelangen nicht in Training oder Router-Index.",
+        "Validierungsreport ist reproduzierbar und enthaelt keine sensitiven Rohdaten."
+      ],
+      "dependencies": [
+        "DMOE-003",
+        "DMOE-004"
+      ]
+    },
+    {
+      "id": "DMOE-006",
+      "title": "Austauschbare LoRA-/PEFT-Expert-Training-Ports einfuehren",
+      "type": "training",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/training/knowledge_expert_trainer_port.py",
+          "worker/training/peft_lora_expert_trainer.py",
+          "worker/training/knowledge_expert_training_service.py",
+          "worker/training/knowledge_expert_training_config.py"
+        ],
+        "notes": [
+          "Training hinter schmalen Ports kapseln; Transformers/PEFT ist erster Adapter, weitere Backends bleiben optional.",
+          "Basismodell bleibt eingefroren; Zielmodule und insbesondere final-layer FFN explizit und versionsgebunden waehlen.",
+          "Seeds, Precision, Rank, Alpha, Dropout, Optimizer, Epochen, Hardwareprofil und Library-Digests im Manifest speichern.",
+          "Resume nur aus digestgebundenen Checkpoints erlauben; keine implizite Cloud-Uebertragung von Repository-Inhalten."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ein kleiner Expert kann deterministisch trainiert, validiert und exportiert werden.",
+        "Trainer ist durch Test-Doubles ersetzbar und nicht in Hub-/Agent-Code eingebettet.",
+        "Abbruch und Fehler hinterlassen keinen aktivierbaren Teil-Expert."
+      ],
+      "dependencies": [
+        "DMOE-001",
+        "DMOE-005"
+      ]
+    },
+    {
+      "id": "DMOE-007",
+      "title": "Expert-Artefaktformat, Registry und unveraenderliche Versionen bauen",
+      "type": "artifact",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/training/knowledge_expert_artifact.py",
+          "agent/services/knowledge_expert_registry_service.py",
+          "agent/services/knowledge_expert_artifact_admission.py"
+        ],
+        "notes": [
+          "Weights, Manifest, Evaluationsreport, Provenance und Signatur als ein gebundenes Artefakt behandeln.",
+          "Content-addressed Storage und immutable Generationen verwenden; latest ist nur ein atomarer Alias.",
+          "Lebenszyklus draft -> trained -> evaluated -> approved -> active -> deprecated -> revoked abbilden.",
+          "Aktivierung erfordert Admission, Signatur, Kompatibilitaet, Scope und bestandenes Evaluations-Gate."
+        ]
+      },
+      "acceptance_criteria": [
+        "Manipulierte, unvollstaendige oder inkompatible Artefakte werden vor Registry-Aufnahme abgewiesen.",
+        "Rollback auf eine vorherige aktive Generation ist atomar moeglich.",
+        "Loeschung oder Widerruf verhindert neue Aktivierungen und invalidiert Caches."
+      ],
+      "dependencies": [
+        "DMOE-002",
+        "DMOE-006"
+      ]
+    },
+    {
+      "id": "DMOE-008",
+      "title": "Router-Kandidaten ueber CodeCompass Hybrid Retrieval bestimmen",
+      "type": "retrieval",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/knowledge_expert_candidate_service.py",
+          "worker/retrieval/knowledge_expert_index.py"
+        ],
+        "files_to_modify": [
+          "agent/services/codecompass_vector_retrieval_service.py"
+        ],
+        "notes": [
+          "Bestehende exact-, lexical-, vector-, graph- und domain-Signale zur Expert-Kandidatenauswahl wiederverwenden.",
+          "Router-Index verweist auf Expert-IDs und KnowledgeUnits, nicht auf frei ladbare Dateipfade.",
+          "Exact/graph evidence darf nicht standardmaessig durch nur semantisch aehnliche Experten verdraengt werden.",
+          "Tenant-, Workspace-, Repository-, Revision-, Domain- und allowed-path-Scope vor Kandidatenausgabe erzwingen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Kandidatensuche nutzt den kanonischen CodeCompass-Retrieval-Pfad und baut keine zweite Suchplattform.",
+        "Empty oder ungueltiger Scope liefert keine globalen Kandidaten.",
+        "Ranking-Signale und Ausschlussgruende sind diagnostizierbar."
+      ],
+      "dependencies": [
+        "DMOE-007"
+      ]
+    },
+    {
+      "id": "DMOE-009",
+      "title": "Uncertainty-aware Trigger und Router-Policy implementieren",
+      "type": "routing",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/inference/knowledge_expert_trigger.py",
+          "worker/inference/knowledge_expert_router.py",
+          "config/policies/knowledge-expert-routing.v1.json"
+        ],
+        "notes": [
+          "Token-Uncertainty nur als ein Signal behandeln; Query-Typ, Retrieval-Score, Expert-Evaluation, Konfliktrisiko und Kosten ergaenzen.",
+          "Triggerzeitpunkte, Schwellen, top_k, Hysterese, Mindesthaltezeit und Wechselbudget konfigurieren.",
+          "Confidence darf keine Security- oder Scope-Policy ueberschreiben.",
+          "Deterministischen Router-Fallback fuer Backends ohne Token-Logprobs definieren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Router aktiviert Experten nur aus dem bereits autorisierten Kandidatensatz.",
+        "Flapping und unbeschraenkte Expert-Wechsel sind begrenzt.",
+        "Ablation zeigt den Beitrag von Uncertainty gegen Retrieval-only und Always-on."
+      ],
+      "dependencies": [
+        "DMOE-008"
+      ]
+    },
+    {
+      "id": "DMOE-010",
+      "title": "Runtime-Port fuer cache-sichere dynamische Experten definieren",
+      "type": "runtime",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/inference/dynamic_expert_runtime_port.py",
+          "worker/inference/dynamic_expert_runtime_contract.py",
+          "worker/inference/dynamic_expert_runtime_factory.py"
+        ],
+        "notes": [
+          "Capabilities statt Backendnamen modellieren: final_layer_adapter, dynamic_load, merge, unload, kv_cache_safe, token_scores und bounded_residency.",
+          "Transformers-Prototyp zuerst; llama.cpp, Colibri, vLLM, Ollama und LM Studio nur nach explizitem Capability-Probe anbinden.",
+          "Kein Backend darf KV-Cache-Sicherheit behaupten, wenn Aktivierung vorherige Hidden States beeinflusst.",
+          "Backend ohne erforderliche Capabilities faellt sichtbar auf RAG/base_model zurueck oder lehnt DMoE ab."
+        ]
+      },
+      "acceptance_criteria": [
+        "Runtime-Vertrag ist unabhaengig vom ersten Framework.",
+        "Capability-Probe ist reproduzierbar und fail-closed.",
+        "Unsupported Runtime wird nie durch Namensheuristik als kompatibel behandelt."
+      ],
+      "dependencies": [
+        "DMOE-001",
+        "DMOE-002"
+      ]
+    },
+    {
+      "id": "DMOE-011",
+      "title": "Expert Hot-Swap, Residency und KV-Cache-Integritaet umsetzen",
+      "type": "runtime",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/inference/knowledge_expert_residency_manager.py",
+          "worker/inference/knowledge_expert_cache.py",
+          "worker/inference/knowledge_expert_merge_service.py"
+        ],
+        "notes": [
+          "Experten asynchron vorladen, atomar aktivieren und nach LRU-/Budget-Policy entladen.",
+          "RAM-, VRAM- und Disk-Budgets getrennt erzwingen; kein Oversubscription-OOM als normaler Kontrollpfad.",
+          "Expert-Kombinationen nur unter definierter Merge-/Composition-Policy zulassen.",
+          "KV-Cache-Digest an Basismodell, Runtime, Prompt-Prefix und relevante Aktivierungssemantik binden."
+        ]
+      },
+      "acceptance_criteria": [
+        "Hot-Swap kann keine halbfertige Expert-Kombination sichtbar machen.",
+        "VRAM-/RAM-Limits werden vor dem Laden geprueft.",
+        "Tests erkennen Cache-Missbrauch bei Expert-Wechseln und erzwingen Recompute, falls erforderlich."
+      ],
+      "dependencies": [
+        "DMOE-007",
+        "DMOE-009",
+        "DMOE-010"
+      ]
+    },
+    {
+      "id": "DMOE-012",
+      "title": "Konflikt- und Kompositionsregeln fuer mehrere Experten entwickeln",
+      "type": "correctness",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/inference/knowledge_expert_composition_policy.py",
+          "worker/inference/knowledge_expert_conflict_guard.py"
+        ],
+        "notes": [
+          "Mehrere LoRA-Experten koennen sich nichtlinear beeinflussen; Komposition nicht als additive Faktenvereinigung behandeln.",
+          "Gleiche Entitaet mit verschiedenen Revisionen, widerspruechliche Quellen und inkompatible Domains vor Aktivierung erkennen.",
+          "Prioritaet, Max-Experten, Merge-Gewichte, Reihenfolge, Revision und mutually_exclusive Gruppen versionieren.",
+          "Bei unbekannter Wechselwirkung auf einzelnen bestbewerteten Experten oder RAG zurueckfallen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Konfligierende Revisionen werden nicht gleichzeitig aktiviert.",
+        "Pairwise- und Multi-Expert-Evaluation ist Teil des Promotion-Gates.",
+        "Fallback ist sichtbar und lockert keine Scope-Policy."
+      ],
+      "dependencies": [
+        "DMOE-005",
+        "DMOE-009",
+        "DMOE-011"
+      ]
+    },
+    {
+      "id": "DMOE-013",
+      "title": "Kanonische Hybridpolicy DMoE plus RAG plus Basismodell bauen",
+      "type": "orchestration",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/parametric_rag_hybrid_policy.py",
+          "agent/services/knowledge_augmentation_service.py",
+          "config/policies/knowledge-augmentation.v1.json"
+        ],
+        "notes": [
+          "Modi base_only, rag_only, expert_only, expert_plus_rag und auto bereitstellen; Default bleibt bestehendes Verhalten ohne DMoE.",
+          "RAG fuer volatile, zitierpflichtige, nicht trainierte oder widerrufene Inhalte priorisieren.",
+          "Expert plus RAG erlaubt parametrische Grundkenntnis und aktuelle Evidence, aber die Antwort muss Quellenkonflikte zugunsten freigegebener Evidence behandeln.",
+          "Agent und Worker sehen einen KnowledgeAugmentation-Vertrag statt separater Backenddetails."
+        ]
+      },
+      "acceptance_criteria": [
+        "DMoE kann global, pro Modell, Task, Domain und Datenklasse deaktiviert werden.",
+        "Auto-Policy trifft reproduzierbare Entscheidungen mit Reason Codes.",
+        "RAG bleibt voll funktionsfaehig, wenn Expert-System fehlt oder deaktiviert ist."
+      ],
+      "dependencies": [
+        "DMOE-003",
+        "DMOE-008",
+        "DMOE-012"
+      ]
+    },
+    {
+      "id": "DMOE-014",
+      "title": "Provenance, Zitierbarkeit und Antwort-Evidence erhalten",
+      "type": "provenance",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/knowledge_expert_evidence_service.py",
+          "schemas/knowledge/parametric_answer_evidence.v1.json"
+        ],
+        "notes": [
+          "Aktive Experten, Expert-Version, KnowledgeUnits, Quellrevisionen und Routerentscheidung intern protokollieren.",
+          "Parametrisches Wissen allein ist keine Textquelle; fuer zitierpflichtige Antworten passende Original-Evidence nachladen.",
+          "Antworten zwischen cited_rag_evidence, parametric_support und base_model_only unterscheiden.",
+          "Vollstaendige Trainingsdaten oder sensitive Chunks nicht in Logs oder Nutzerantworten leaken."
+        ]
+      },
+      "acceptance_criteria": [
+        "Jede Expert-gestuetzte Antwort kann auf freigegebene KnowledgeUnits zurueckgefuehrt werden.",
+        "Zitiermodus gibt keine erfundenen Quellen aus.",
+        "Widerrufene Quelle erscheint weder als aktive Evidence noch als Router-Kandidat."
+      ],
+      "dependencies": [
+        "DMOE-002",
+        "DMOE-007",
+        "DMOE-013"
+      ]
+    },
+    {
+      "id": "DMOE-015",
+      "title": "Inkrementelle Expert-Aktualisierung und Invalidierung anbinden",
+      "type": "lifecycle",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/knowledge_expert_refresh_planner.py",
+          "worker/training/knowledge_expert_delta_planner.py"
+        ],
+        "notes": [
+          "CodeCompass Manifest-, Source-, Graph- und Chunk-Deltas in unchanged, retrain, revoke, split, merge oder review klassifizieren.",
+          "Aenderungen nicht direkt in aktive Experten schreiben; neue Generation trainieren, evaluieren und atomar aktivieren.",
+          "Abhaengigkeitsgraph nutzt parent_id und Relations, um betroffene Experten zielgerichtet zu bestimmen.",
+          "Manueller Compact/Merge-Lauf fuehrt Delta-Schichten in eine neue gepruefte Basisgeneration zusammen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Unveraenderte Wissenseinheiten werden nicht neu trainiert.",
+        "Geaenderte oder geloeschte Quellen invalidieren alle betroffenen Experten reproduzierbar.",
+        "Fehlgeschlagener Refresh veraendert die aktive Expert-Bank nicht."
+      ],
+      "dependencies": [
+        "DMOE-004",
+        "DMOE-007",
+        "DMOE-014"
+      ]
+    },
+    {
+      "id": "DMOE-016",
+      "title": "Hub-owned Training-, Evaluation- und Aktivierungs-Tasks integrieren",
+      "type": "task_engine",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "ananta_contracts/knowledge_expert_task.py",
+          "agent/services/knowledge_expert_task_service.py",
+          "worker/training/knowledge_expert_job_handler.py"
+        ],
+        "notes": [
+          "Hub besitzt Queue, Policy, Approval, Idempotenz, Retries, Cancellation und Aktivierung; Worker fuehrt genau einen attestierten Auftrag aus.",
+          "Task-Typen compile_dataset, train_expert, evaluate_expert, publish_bank, revoke_expert und garbage_collect definieren.",
+          "Input-Artefakte, Scope, Basismodell, Policy, Attempt, Deadline und Output-Ziel digestbinden.",
+          "Worker-zu-Worker-Orchestrierung sowie Worker-seitige Selbstaktivierung verbieten."
+        ]
+      },
+      "acceptance_criteria": [
+        "Replay, stale attempt, falsche Worker-Audience und manipulierte Inputs failen vor Training/Aktivierung.",
+        "Cancellation kann keinen spaeten Erfolg aktivieren.",
+        "Taskstatus und Artefaktstatus bleiben getrennte, konsistente Zustandsmaschinen."
+      ],
+      "dependencies": [
+        "DMOE-006",
+        "DMOE-007",
+        "DMOE-015"
+      ]
+    },
+    {
+      "id": "DMOE-017",
+      "title": "Supply-Chain-, Tenant- und Model-Security haerten",
+      "type": "security",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/knowledge_expert_security_policy.py",
+          "worker/inference/knowledge_expert_signature_verifier.py",
+          "docs/security/parametric-knowledge-experts.md"
+        ],
+        "notes": [
+          "Weights als ausfuehrungsnahe untrusted Artefakte behandeln: Safetensors-only, keine Pickle-/Remote-Code-Ladepfade.",
+          "Artefakte signieren und an Tenant, Workspace, Repository, Modell, Runtime, Zielschicht und Policy binden.",
+          "Poisoning, Backdoors, Trigger-Phrases, Cross-Tenant-Leakage, Model-Extraction und unautorisierte Aktivierung negativ testen.",
+          "Trainingsegress default-deny; Secrets nur ueber Referenzen, nie in Dataset, Manifest, Logs oder Checkpoints."
+        ]
+      },
+      "acceptance_criteria": [
+        "Unsichere Serialisierungsformate und unsigned Artefakte werden abgewiesen.",
+        "Ein Tenant kann keine Experten oder Quellen eines anderen Tenants routen, laden oder diagnostizieren.",
+        "Security-Regressionen blockieren Promotion und Aktivierung."
+      ],
+      "dependencies": [
+        "DMOE-003",
+        "DMOE-007",
+        "DMOE-016"
+      ]
+    },
+    {
+      "id": "DMOE-018",
+      "title": "Lokale Ressourcenplanung fuer RTX 3080 und CPU/RAM-Worker",
+      "type": "performance",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "worker/inference/knowledge_expert_resource_planner.py",
+          "config/runtime/dmoe-local-rtx3080.v1.json",
+          "scripts/benchmark/dmoe_resource_profile.py"
+        ],
+        "notes": [
+          "Profile fuer RTX 3080 10 GB sowie CPU/RAM-Offload definieren; Basismodell, KV-Cache und aktive Experten gemeinsam budgetieren.",
+          "Disk-Expertbank, RAM-Warmcache, VRAM-Hotset, PCIe-/USB4-Transfer und NVMe-Latenz getrennt messen.",
+          "Admission vor Lauf: maximal aktive Experten, Adaptergroesse, Kontextlaenge, Batchgroesse und Reserve berechnen.",
+          "Quantisierte Basismodelle und Adapterkompatibilitaet pro Runtime messen statt annehmen."
+        ]
+      },
+      "acceptance_criteria": [
+        "Referenzprofil verhindert erwartbare OOM-Situationen vor Inferenz.",
+        "Cold-, warm- und hot-swap-Latenzen werden separat berichtet.",
+        "Planner kann Expert-only deaktivieren und RAG waehlen, wenn das Hardwarebudget nicht reicht."
+      ],
+      "dependencies": [
+        "DMOE-010",
+        "DMOE-011"
+      ]
+    },
+    {
+      "id": "DMOE-019",
+      "title": "Observability, Audit und Kostenmetriken ergaenzen",
+      "type": "observability",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/knowledge_expert_observer.py",
+          "worker/inference/knowledge_expert_metrics.py"
+        ],
+        "notes": [
+          "Kandidaten, Trigger, Aktivierung, Wechsel, Cache-Hit, Ladelatenz, VRAM/RAM, Fallback, Konflikt und Antwortmodus messen.",
+          "Training erfasst Samples, Schritte, Dauer, Energie-/GPU-Zeit, Artefaktgroesse und Evaluation; keine Rohinhalte in Labels.",
+          "Bounded cardinality fuer Expert-, Source- und Tenant-IDs durch gehashte/aggregierte Dimensionen erzwingen.",
+          "Audit-Ereignisse fuer Approval, Aktivierung, Rollback, Widerruf und Loeschung unveraenderlich speichern."
+        ]
+      },
+      "acceptance_criteria": [
+        "Ein Betreiber erkennt, warum DMoE aktiviert oder nicht aktiviert wurde.",
+        "Metriken enthalten keine Secrets, Prompts, Volltexte oder hochkardinalen freien IDs.",
+        "Training-, Runtime- und Antwortkosten koennen RAG-Baselines gegenuebergestellt werden."
+      ],
+      "dependencies": [
+        "DMOE-013",
+        "DMOE-016",
+        "DMOE-018"
+      ]
+    },
+    {
+      "id": "DMOE-020",
+      "title": "Control-Center UI fuer Expert-Banken und Hybridpolicy bauen",
+      "type": "ui",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "frontend-angular/src/app/features/knowledge-experts/knowledge-expert-control-center.component.ts",
+          "frontend-angular/src/app/features/knowledge-experts/knowledge-expert-control-center.component.html",
+          "frontend-angular/src/app/features/knowledge-experts/knowledge-expert-control-center.component.scss"
+        ],
+        "notes": [
+          "Banken, Experten, Quelle, Domain, Modellbindung, Groesse, Status, Evaluation, letzte Nutzung und Widerrufsstatus anzeigen.",
+          "Training, Evaluation, Approval, Aktivierung, Rollback und Widerruf als berechtigte Hub-Aktionen anbieten.",
+          "Hybridmodus und Fallback pro Profil konfigurierbar machen; kritische Grenzen nicht durch UI-only Flags aufheben.",
+          "Vergleichsansicht RAG vs Expert vs Hybrid fuer Golden Queries bereitstellen."
+        ]
+      },
+      "acceptance_criteria": [
+        "UI zeigt aktive Generation und deren Provenance eindeutig.",
+        "Keine Mutation umgeht Hub-Policy, Approval oder Task-State-Machine.",
+        "Deaktivierung und Rollback sind mit klarer Auswirkung und Audit-Eintrag moeglich."
+      ],
+      "dependencies": [
+        "DMOE-013",
+        "DMOE-016",
+        "DMOE-019"
+      ]
+    },
+    {
+      "id": "DMOE-021",
+      "title": "Agent-, MCP-, API- und n8n-Vertraege bereitstellen",
+      "type": "integration",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "agent/services/tools/knowledge_augmentation_tools.py",
+          "docs/integrations/dmoe-mcp-n8n.md"
+        ],
+        "notes": [
+          "Ein kanonischer KnowledgeAugmentationService bedient internen Agenten, MCP, HTTP und n8n.",
+          "Externe Verbraucher waehlen Policyprofile und erlaubte Modi, aber keine rohen Expert-Dateipfade, Zielschichten oder fremden Scopes.",
+          "Tool-Ergebnis enthaelt mode, reason, evidence summary, degraded state und bounded diagnostics.",
+          "n8n-Beispiele zeigen festen Hybridpfad sowie Agent-Tool-Nutzung; direkte Expert-Registry-Credentials sind kein Produktpfad."
+        ]
+      },
+      "acceptance_criteria": [
+        "Interner Agent, MCP und HTTP liefern unter gleicher Policy semantisch gleiche Entscheidungen.",
+        "MCP/n8n kann Scope oder Expert-Admission nicht erweitern.",
+        "Ohne DMoE-Capability bleibt der bestehende RAG-Vertrag kompatibel."
+      ],
+      "dependencies": [
+        "DMOE-013",
+        "DMOE-014",
+        "DMOE-017"
+      ]
+    },
+    {
+      "id": "DMOE-022",
+      "title": "Qualitaets-, Effizienz- und Ablationsbenchmark etablieren",
+      "type": "benchmark",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "config/benchmarks/parametric-knowledge-injection.v1.json",
+          "scripts/benchmark/parametric_knowledge_injection.py",
+          "tests/benchmarks/dmoe/"
+        ],
+        "notes": [
+          "Dense, RAG, SFT-LoRA, einzelner Expert, Multi-Expert und Expert-plus-RAG auf denselben Queries vergleichen.",
+          "Exact Match, F1, grounded correctness, citation accuracy, forgetting, conflict rate, calibration und abstention messen.",
+          "TTFT, Tokens/s, End-to-End-Latenz, KV-Cache-Reuse, VRAM, RAM, Disk, Trainingzeit und Updatekosten erfassen.",
+          "Ablationen fuer Trigger, Router, top_k, Expert-Groesse, KnowledgeUnit-Granularitaet, final-layer placement und Hot-Swap durchfuehren."
+        ]
+      },
+      "acceptance_criteria": [
+        "Benchmark trennt Retrievalzeit, Ladelatenz und Modellinferenz.",
+        "Promotion erfordert keine Regression auf allgemeinen und sicherheitskritischen Holdouts.",
+        "Ergebnisse sind mit Modell-, Daten-, Hardware- und Software-Digests reproduzierbar."
+      ],
+      "dependencies": [
+        "DMOE-011",
+        "DMOE-012",
+        "DMOE-014",
+        "DMOE-018"
+      ]
+    },
+    {
+      "id": "DMOE-023",
+      "title": "End-to-End-, Failure- und Adversarial-Testmatrix bauen",
+      "type": "test",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "tests/integration/test_parametric_knowledge_pipeline.py",
+          "tests/security/test_knowledge_expert_isolation.py",
+          "tests/security/test_knowledge_expert_poisoning.py",
+          "tests/failure/test_knowledge_expert_recovery.py"
+        ],
+        "notes": [
+          "Pipeline Source -> CodeCompass Unit -> Dataset -> Training -> Evaluation -> Registry -> Routing -> Antwort pruefen.",
+          "Faelle: stale Revision, geloeschte Quelle, falsches Modell, kaputter Adapter, OOM, Timeout, Router-Ausfall, Cache-Korruption und partieller Download.",
+          "Adversarial: Poisoning, Backdoor-Trigger, Prompt Injection im Trainingskorpus, Scope Escape, Cross-Tenant und gefaelschte Signatur.",
+          "Crash-/Retry-Tests beweisen atomare Aktivierung und sicheren Rollback."
+        ]
+      },
+      "acceptance_criteria": [
+        "Kein Failure aktiviert unvollstaendige oder nicht freigegebene Experten.",
+        "Security- und Scope-Verletzungen failen vor Modellinferenz.",
+        "RAG-/Base-Fallback ist policykonform, sichtbar und testbar."
+      ],
+      "dependencies": [
+        "DMOE-016",
+        "DMOE-017",
+        "DMOE-021",
+        "DMOE-022"
+      ]
+    },
+    {
+      "id": "DMOE-024",
+      "title": "Feature Flags, Canary-Rollout und produktive Betriebsdokumentation",
+      "type": "rollout",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "implementation": {
+        "files_to_create": [
+          "docs/architecture/codecompass-dmoe-parametric-knowledge.md",
+          "docs/operations/knowledge-expert-runbook.md",
+          "docs/operations/knowledge-expert-rollback.md",
+          "config/rollout/knowledge-experts.v1.json"
+        ],
+        "notes": [
+          "Default-off Feature Flag und Stufen research, shadow, canary, opt_in und general_available verwenden.",
+          "Shadow vergleicht Entscheidungen und Antworten ohne Expert-Aktivierung; Canary ist auf freigegebene Modelle, Domains und Tenants begrenzt.",
+          "Automatische Rollback-Gates fuer Qualitaet, Konflikte, Halluzination, Latenz, OOM, Cachefehler und Security-Ereignisse definieren.",
+          "Runbook fuer Training, Approval, Aktivierung, Widerruf, Quellenloeschung, Incident und vollstaendige Deaktivierung schreiben."
+        ]
+      },
+      "acceptance_criteria": [
+        "DMoE ist standardmaessig aus und kann ohne RAG-Ausfall deaktiviert werden.",
+        "Canary kann atomar auf letzte gute Expert-Bank zurueckrollen.",
+        "GA ist erst nach Research-, Security-, Benchmark- und Operations-Gates moeglich."
+      ],
+      "dependencies": [
+        "DMOE-020",
+        "DMOE-021",
+        "DMOE-023"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "DMOE-001",
+    "DMOE-002",
+    "DMOE-003",
+    "DMOE-004",
+    "DMOE-005",
+    "DMOE-006",
+    "DMOE-007",
+    "DMOE-008",
+    "DMOE-009",
+    "DMOE-010",
+    "DMOE-011",
+    "DMOE-012",
+    "DMOE-013",
+    "DMOE-014",
+    "DMOE-016",
+    "DMOE-017",
+    "DMOE-022",
+    "DMOE-023",
+    "DMOE-024"
+  ],
+  "release_gates": {
+    "research": [
+      "Paper-PoC reproduziert",
+      "Runtime-Capability nachgewiesen",
+      "Go-Entscheid dokumentiert"
+    ],
+    "correctness": [
+      "Kein messbares catastrophic forgetting ausserhalb definierter Toleranz",
+      "Multi-Expert-Konflikte begrenzt",
+      "Zitiermodus evidence-grounded"
+    ],
+    "security": [
+      "Tenant-Isolation bestanden",
+      "Poisoning-/Backdoor-Tests bestanden",
+      "Signatur und Safetensors-only erzwungen"
+    ],
+    "performance": [
+      "Definierte TTFT-/Latenz-/VRAM-Budgets bestanden",
+      "RTX-3080-Profil degradiert kontrolliert",
+      "Hot-Swap ohne OOM"
+    ],
+    "operations": [
+      "Rollback, Revoke und Source-Deletion getestet",
+      "Canary und Kill Switch vorhanden",
+      "RAG-Fallback ohne DMoE-Abhaengigkeit"
+    ]
+  },
+  "tasks_status_summary": {
+    "total": 24,
+    "by_status": {
+      "todo": 24,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 20,
+      "P1": 4,
+      "P2": 0,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 0,
+      "high": 12,
+      "critical": 12
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 24,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Der Track implementiert keinen 'No RAG'-Claim, sondern einen kontrollierten Expert/RAG-Hybrid.",
+    "Der Ananta/CodeCompass-Ansatz liefert bereits typisierte, hierarchische, domain- und graph-aware Wissenseinheiten und ist deshalb ein geeigneter Compiler-Input.",
+    "Erste Produktfreigabe nur fuer kleine, stabile, nicht sensitive und gut evaluierbare Wissensdomänen.",
+    "Direkte Unterstuetzung fuer Colibri, llama.cpp, vLLM, Ollama oder LM Studio ist erst nach Capability-Probe und Benchmark vorgesehen.",
+    "Alle Tasks starten als todo; es werden keine Paper-Ergebnisse oder vorhandenen Ananta-Komponenten als DMoE-Release-Evidence ausgegeben."
+  ]
+}
