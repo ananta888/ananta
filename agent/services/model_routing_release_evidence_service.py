@@ -12,19 +12,25 @@ from ananta_contracts.model_selection import ModelRoutingReleaseGateCheck
 
 RELEASE_EVIDENCE_SCHEMA = "ananta.model-routing-release-evidence.v1"
 REQUIRED_RELEASE_GATES = (
-    "contract", "security", "frontend_unit", "e2e", "performance",
+    "contract", "security", "cognitive_style", "frontend_unit", "e2e",
+    "performance",
 )
 RELEASE_SOURCE_PATTERNS = (
+    "ananta_contracts/cognitive_style.py",
     "ananta_contracts/model_selection.py",
     "agent/cli_backends/model_inventory.py",
     "agent/routes/config/providers.py",
     "agent/routes/config/settings.py",
     "agent/services/dashboard_feature_flag_service.py",
+    "agent/services/cognitive_style*.py",
     "agent/services/model_catalog_service.py",
     "agent/services/model_inventory*.py",
     "agent/services/model_routing*.py",
     "agent/services/model_selection_service.py",
+    "agent/services/model_profile_loader.py",
     "agent/services/openrouter_model_inventory_adapter.py",
+    "config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml",
+    "config/models/local-kat-lfm-needle-rtx3080.model_routing.json",
     "docker/compose-next/compose.base.yml",
     "docker/compose-next/compose.local-kat-lfm-needle.yml",
     "frontend-angular/src/app/features/system/model-dashboard/*.ts",
@@ -34,10 +40,12 @@ RELEASE_SOURCE_PATTERNS = (
     "frontend-angular/src/app/components/settings-llm.component.html",
     "frontend-angular/tests/central-model-settings.spec.ts",
     "tests/test_cli_model_inventory.py",
+    "tests/test_cognitive_style*.py",
     "tests/test_model_catalog*.py",
     "tests/test_model_inventory_service.py",
     "tests/test_model_routing*.py",
     "tests/test_openrouter_model_inventory_adapter.py",
+    "tests/services/test_local_multi_model_runtime.py",
     "scripts/model_routing_release_gate.py",
 )
 

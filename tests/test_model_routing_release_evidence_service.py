@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from agent.services.model_routing_release_evidence_service import (
     ModelRoutingReleaseEvidenceService,
     RELEASE_EVIDENCE_SCHEMA,
     REQUIRED_RELEASE_GATES,
     release_source_digests,
+    release_source_files,
 )
 
 
@@ -61,3 +63,20 @@ def test_missing_or_failed_release_evidence_fails_closed(tmp_path):
     assert {check.reason_code for check in failed} == {
         "model_routing_release_gate_failed"
     }
+
+
+def test_release_sources_bind_local_runtime_and_cognitive_style_routing():
+    repo_root = Path(__file__).resolve().parents[1]
+    relative = {
+        path.relative_to(repo_root).as_posix()
+        for path in release_source_files(repo_root)
+    }
+
+    assert {
+        "ananta_contracts/cognitive_style.py",
+        "agent/services/cognitive_style_service.py",
+        "agent/services/model_profile_loader.py",
+        "config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml",
+        "config/models/local-kat-lfm-needle-rtx3080.model_routing.json",
+        "tests/services/test_local_multi_model_runtime.py",
+    } <= relative

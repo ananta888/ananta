@@ -249,10 +249,11 @@ FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED
    scripts/model_routing_release_gate.py
    ```
 
-   Das Gate führt Contract-, Security-, Store-, Browser- und Performance-Tests
-   aus und schreibt nur bei vollständigem Erfolg
+   Das Gate führt Contract-, Security-, Cognitive-Style-, Store-, Browser- und
+   Performance-Tests aus und schreibt nur bei vollständigem Erfolg
    `artifacts/test-gates/model-routing-release-gate.json`. Digests binden die
-   Evidenz an alle relevanten Quelldateien; Source-Drift sperrt das Gate.
+   Evidenz an alle relevanten Quelldateien einschließlich lokaler
+   Profil-/Routingkonfiguration und Style-Ranking; Source-Drift sperrt das Gate.
 4. Routing-Editor aktivieren. Der Config-Endpunkt verweigert die Aktivierung,
    solange dynamische Migration oder Testevidenz fehlschlagen.
 5. Nach stabiler Shadow-Evidenz Legacy-Picker deprecaten. Alte Deep-Links führen

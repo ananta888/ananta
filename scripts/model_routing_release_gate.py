@@ -34,6 +34,16 @@ GATE_COMMANDS = {
         "tests/test_model_routing_transfer_service.py "
         "tests/test_model_routing_compose_wiring.py"
     ),
+    "cognitive_style": (
+        ".venv/bin/pytest -q tests/test_cognitive_style_api.py "
+        "tests/test_cognitive_style_benchmark_service.py "
+        "tests/test_cognitive_style_e2e.py "
+        "tests/test_cognitive_style_evidence_and_drift.py "
+        "tests/test_cognitive_style_overlay_service.py "
+        "tests/test_cognitive_style_service.py "
+        "tests/test_benchmark_job_service.py "
+        "tests/services/test_local_multi_model_runtime.py"
+    ),
     "frontend_unit": (
         "npx vitest run "
         "src/app/features/system/model-dashboard/model-dashboard.store.spec.ts "
@@ -59,6 +69,9 @@ def main() -> int:
     results = {
         "contract": _run(GATE_COMMANDS["contract"], cwd=REPO_ROOT),
         "security": _run(GATE_COMMANDS["security"], cwd=REPO_ROOT),
+        "cognitive_style": _run(
+            GATE_COMMANDS["cognitive_style"], cwd=REPO_ROOT
+        ),
         "frontend_unit": _run(
             GATE_COMMANDS["frontend_unit"], cwd=REPO_ROOT / "frontend-angular"
         ),
@@ -70,7 +83,7 @@ def main() -> int:
         return 1
     payload = {
         "schema": RELEASE_EVIDENCE_SCHEMA,
-        "suite_revision": "central-model-settings-v1",
+        "suite_revision": "central-model-settings-v2",
         "source_digests": release_source_digests(REPO_ROOT),
         "gates": {
             gate_id: {

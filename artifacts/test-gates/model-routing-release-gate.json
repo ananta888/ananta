@@ -1,5 +1,9 @@
 {
   "gates": {
+    "cognitive_style": {
+      "command": ".venv/bin/pytest -q tests/test_cognitive_style_api.py tests/test_cognitive_style_benchmark_service.py tests/test_cognitive_style_e2e.py tests/test_cognitive_style_evidence_and_drift.py tests/test_cognitive_style_overlay_service.py tests/test_cognitive_style_service.py tests/test_benchmark_job_service.py tests/services/test_local_multi_model_runtime.py",
+      "passed": true
+    },
     "contract": {
       "command": ".venv/bin/pytest -q tests/test_model_routing_contract.py tests/test_model_inventory_service.py tests/test_cli_model_inventory.py tests/test_openrouter_model_inventory_adapter.py",
       "passed": true
@@ -26,19 +30,30 @@
     "agent/cli_backends/model_inventory.py": "sha256:25a55251336936e68f8b97d8e9bb7834eb15670e633f14ca6a46100e85c66edd",
     "agent/routes/config/providers.py": "sha256:ee1880865e9b036547d15d470c27e5c21fec39c511e550a6d6bfeee9dcc0a0cd",
     "agent/routes/config/settings.py": "sha256:f951c8157caaf7972c2fab226a8847d1aa79286669e0c4f4b59049f240ac4a18",
+    "agent/services/cognitive_style_benchmark_service.py": "sha256:bed72200b9c7c4d5a93b6af9f0913a1c4c24a41792da1cbaf05bc63a25963f95",
+    "agent/services/cognitive_style_drift_service.py": "sha256:5e5af849f4320aa995ac62ea84b2d3c82886fbabdc8a1986dceafe5908c47bd3",
+    "agent/services/cognitive_style_evidence_service.py": "sha256:98d455edea3aec8badaf908ac7dae7600554816c75b5a20d72c8a933cdccebf3",
+    "agent/services/cognitive_style_overlay_comparison_service.py": "sha256:47c88a3be7346299e445c41a574a4b69f6dd9f941ec03a52a5e7755bdfcdb608",
+    "agent/services/cognitive_style_overlay_service.py": "sha256:701af5005664eed7de48bff00b99ade19832e9b407cccbb8a24690dedbad7eec",
+    "agent/services/cognitive_style_rebenchmark_service.py": "sha256:56c19d9187b27f6f33b6e62264b631922097d1210dfb9af0bd4a910c954d46a2",
+    "agent/services/cognitive_style_service.py": "sha256:5a04cfb56b1db54f29b5b95100dff0461f3338eb7b529b70ff130bcfd110ec2b",
     "agent/services/dashboard_feature_flag_service.py": "sha256:9b1d45961460bb6a1aaa6236d977be35a69062406be73d35fc58a7ba29490f53",
     "agent/services/model_catalog_service.py": "sha256:17e0dece878c50906893eca17ca55eebef3d4c4cefd36c9ba1cf173354aa2837",
     "agent/services/model_inventory_service.py": "sha256:a8b42fa6e1d7d47c5fd1e9cdac90ba08944f8487771f8af4d412ee114d13a2a9",
+    "agent/services/model_profile_loader.py": "sha256:e43caa72edc5d558b92e3bb1e52771c078909bb97f491de6436b3c89807cc70b",
     "agent/services/model_routing_contract.py": "sha256:cc978a32f608132512613140588e67a18b48403a29ad3ea200bbe1e893a835c8",
     "agent/services/model_routing_legacy_migration_service.py": "sha256:643e38b50bdd1701bc5c141348b03084991059a56e02b85f488b3213d239c5d1",
     "agent/services/model_routing_observability_service.py": "sha256:1cb2ad4160f7e6dd2ed083d6d3a958a0e42c710ee5a72623121bb3e56f97e7bd",
-    "agent/services/model_routing_release_evidence_service.py": "sha256:e4d023a34aae1d961f5afacadbfbeee244c153232a57b2b5c1c2cef3f6281971",
+    "agent/services/model_routing_release_evidence_service.py": "sha256:3492f9983a0dd969656e6f1538fd9c7079f40e5c7f8166cb047984ce08c44f9c",
     "agent/services/model_routing_template_service.py": "sha256:4cf86bd9958a1dd2994a2a7e511742414d7feeb0174fae8b215e4a11bcf672ae",
     "agent/services/model_routing_transfer_service.py": "sha256:b38460c9820f3b14332f111f4ecf990b4fe3302964d55884aff7b0574851a068",
     "agent/services/model_routing_validation_policy.py": "sha256:3e4211487360bd5b574b2a7f6effd4f4a4a73ed0334c15b15ea668a653262115",
     "agent/services/model_selection_service.py": "sha256:8a2a4973610947abab4a3ad792538b1fdd8c74696ed14ff2e6abcd17b9cba438",
     "agent/services/openrouter_model_inventory_adapter.py": "sha256:2c4821789e1b0b292ec2c53e400e5e093f312215a21f6cb98ff089c0879901e0",
+    "ananta_contracts/cognitive_style.py": "sha256:d0b07fa5086e52af1e95969bff53240e23699dc97eadfca55530e7de9ea8d215",
     "ananta_contracts/model_selection.py": "sha256:88a744e7152cf77cb7579c7e36fc77d80babdcef7705539dabe5ee039d7e9efb",
+    "config/models/local-kat-lfm-needle-rtx3080.model_profiles.yaml": "sha256:472d0ce1caa2d4905e5771d834d933f0f5166518f4e5c508999a46cd2658a4c5",
+    "config/models/local-kat-lfm-needle-rtx3080.model_routing.json": "sha256:7bdf3e93162dc0d7f7ab7c046252a47eb03aae6e6cd66feb8632392b2ba8078d",
     "docker/compose-next/compose.base.yml": "sha256:e9495ca2946727a73554f4acb14aa15309134caa3b8fdd56f15a0deaa5d9eb49",
     "docker/compose-next/compose.local-kat-lfm-needle.yml": "sha256:990a3f119c38a860b8534e3d040076359c984681f9ddb1fc5fe79f26b52fd86e",
     "frontend-angular/src/app/components/agent-panel.component.ts": "sha256:f7e8e4db1df8849702201ae7b423d0351362e1eed4c0c5c92239398b62ec56dd",
@@ -53,8 +68,15 @@
     "frontend-angular/src/app/features/system/model-dashboard/model-routing-migration.store.spec.ts": "sha256:f3884112e818a6ef00451387dd702cd31aae0f5c4e488b9b129d12f3a6dc34b5",
     "frontend-angular/src/app/features/system/model-dashboard/model-routing-migration.store.ts": "sha256:89d3f5d257326054aaf779aee264a8e63c6dc9fc5e93dc7bfb72a9c7d003a408",
     "frontend-angular/tests/central-model-settings.spec.ts": "sha256:38db8e9af8fcb80edf5406a30405bca5d6e363c95e377eaa297b689fa305fe66",
-    "scripts/model_routing_release_gate.py": "sha256:3769c174b2b8f12de71d865b4584515dca10da23160e3f93ed0efe512e7a700a",
+    "scripts/model_routing_release_gate.py": "sha256:ba655b4805b262f62741bcc3a01ba1d46cb349d07374712361739d6b3e19bcbe",
+    "tests/services/test_local_multi_model_runtime.py": "sha256:eb62081abb6e64469baa629bfd2aac5729f37ec460639cc4a97df56f74e2e136",
     "tests/test_cli_model_inventory.py": "sha256:aa2e551f8a6b3289f74ca99f2ad3146b0bfca28a99b781efd08c173840858274",
+    "tests/test_cognitive_style_api.py": "sha256:f93398dfac181b4a7b5e1ba7fcb49c67671babdd20c29f8b84cbf5aa4eb69e09",
+    "tests/test_cognitive_style_benchmark_service.py": "sha256:3a8fafb3967befa5f961d8c467fd416be1472467153e0a58409e12c1439ab651",
+    "tests/test_cognitive_style_e2e.py": "sha256:e4889303fbd6ac18f85dbdd549bf582d3fd6344c37572d9dd9fc2da2741f5e9e",
+    "tests/test_cognitive_style_evidence_and_drift.py": "sha256:fd1f37a1058167029a4308ea57bce9c535d4d75327d7a39acbe6ebe111f8e2a0",
+    "tests/test_cognitive_style_overlay_service.py": "sha256:457be200dadc1e8b7bdea08f1cade2f0e324d3b761a3ec93b4c105a20ade484b",
+    "tests/test_cognitive_style_service.py": "sha256:7da54a7352f9120ef03a3ee2401dd3b2564e9f850f20ecf8dc288f8984feeb73",
     "tests/test_model_catalog_api.py": "sha256:1c3f4416a31c41a428bac14a8b44012113578385f3f3bd329fccdc379e1d0305",
     "tests/test_model_catalog_contract.py": "sha256:6aeb9964b7a1e0e1368fe7ce2914c8588eda9e7a2907206bbf3e2587aacdb352",
     "tests/test_model_catalog_service.py": "sha256:1ee659d4337a3b7a717f0aed0e1285528fdcfa00886a7487eb70f5806613850b",
@@ -66,12 +88,12 @@
     "tests/test_model_routing_legacy_vs_profile.py": "sha256:842dc5e590b994b1ab7cf2a6a52b146bd0a2c55b3ffe5e8d60fa72c519892805",
     "tests/test_model_routing_master_default.py": "sha256:54a6614812ea1bc8192e9bed6a012ff0441a4c0c791a6f48b3221d4e8ea40679",
     "tests/test_model_routing_observability_service.py": "sha256:d1b105429c70941485fe8fb83220a1be5366ab47238601eda458c60658842210",
-    "tests/test_model_routing_release_evidence_service.py": "sha256:28b4f1a901e985edf1f29eaccee774a8707e4d13b52663ae97c3513f835f0aea",
+    "tests/test_model_routing_release_evidence_service.py": "sha256:29a840354ff87c2dc5be27a192bb44d7e8fa2699f9c37fbcc79ddb6857ef76bb",
     "tests/test_model_routing_security_policy.py": "sha256:16a23b2e6f1cfcec1702e223b4234a5614d1d4318b8a8b8a29f1d1fea2ba8b4c",
     "tests/test_model_routing_template_service.py": "sha256:fd8d6873260d44f6248f8dd8f77fd524781b954ef311a3e7ba5035cbc2ed7a05",
     "tests/test_model_routing_transfer_service.py": "sha256:a8af2bdb8a815faf3c79265b20240e115fc89f906ed5b43e1215fceccaf97446",
     "tests/test_model_routing_validation_policy.py": "sha256:a9b2645e1c8267a5d75bb2b50f949e545eddad0407b577eac629f07f12c13d6d",
     "tests/test_openrouter_model_inventory_adapter.py": "sha256:95e0f626ddfff4569be9256bb92bb645b78d588f84fe1f9d209a5bece4ccb275"
   },
-  "suite_revision": "central-model-settings-v1"
+  "suite_revision": "central-model-settings-v2"
 }
