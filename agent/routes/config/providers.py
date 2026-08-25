@@ -49,6 +49,10 @@ from agent.services.model_routing_transfer_service import (
 from agent.services.model_routing_template_service import (
     ModelRoutingTemplateService,
 )
+from agent.services.model_routing_observability_service import (
+    ModelRoutingDiagnosticsService,
+    get_model_routing_usage_projection,
+)
 from agent.services.model_routing_legacy_migration_service import (
     build_model_routing_legacy_migration_service,
     ModelRoutingLegacyMigrationError,
@@ -903,6 +907,68 @@ def get_model_routing_release_gate():
     return api_response(data=report.model_dump(mode="json", by_alias=True))
 
 
+def _model_routing_diagnostics_read_model():
+    configuration = _model_routing_service().read()
+    catalog = _model_inventory_service().catalog(force_refresh=False)
+    consumers = _model_consumer_registry().all()
+    effective = _effective_model_routing_service()
+    routes = tuple(
+        effective.dry_run(ModelRoutingDryRunCommand(consumer_id=item.consumer_id))
+        for item in consumers if item.routable
+    )
+    return ModelRoutingDiagnosticsService().build(
+        configuration=configuration,
+        catalog=catalog,
+        consumers=consumers,
+        effective_routes=routes,
+        known_profile_ids=(item.profile_id for item in _known_model_profiles()),
+        usage=get_model_routing_usage_projection().read(),
+    )
+
+
+@providers_bp.route("/models/routing/v1/diagnostics", methods=["GET"])
+@check_auth
+def get_model_routing_diagnostics():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    if not _query_args_are_valid():
+        return _model_catalog_input_error("model_routing_diagnostics_query_invalid")
+    try:
+        diagnostics = _model_routing_diagnostics_read_model()
+    except ModelRoutingConfigurationError as exc:
+        return api_response(status="error", message=str(exc)[:160], code=503)
+    return api_response(data=diagnostics.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/diagnostics/export", methods=["GET"])
+@check_auth
+def export_model_routing_diagnostics():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_EXPORT_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_EXPORT_CAPABILITY)
+    if not _query_args_are_valid():
+        return _model_catalog_input_error("model_routing_diagnostics_query_invalid")
+    try:
+        diagnostics = _model_routing_diagnostics_read_model()
+    except ModelRoutingConfigurationError as exc:
+        return api_response(status="error", message=str(exc)[:160], code=503)
+    log_audit("model_routing_diagnostics_exported", {
+        "configuration_revision": diagnostics.configuration_revision,
+        "catalog_revision": diagnostics.catalog_revision,
+        "issue_count": len(diagnostics.issues),
+        "contains_secrets": False,
+    })
+    result = api_response(data=diagnostics.model_dump(mode="json", by_alias=True))
+    response = result[0] if isinstance(result, tuple) else result
+    response.headers["Content-Disposition"] = (
+        'attachment; filename="ananta-model-routing-diagnostics.json"'
+    )
+    return result
+
+
 @providers_bp.route("/models/routing/v1/dry-run", methods=["POST"])
 @check_auth
 def dry_run_model_routing_configuration():
@@ -963,6 +1029,12 @@ def validate_model_routing_configuration():
         "valid": report.valid,
         "issue_count": len(report.issues),
     })
+    from agent import metrics
+
+    for issue in report.issues:
+        metrics.MODEL_ROUTING_VALIDATION_ERRORS_TOTAL.labels(
+            severity=issue.severity
+        ).inc()
     return api_response(data=report.model_dump(mode="json", by_alias=True))
 
 
@@ -1054,6 +1126,7 @@ def put_model_routing_configuration():
         return _routing_editor_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
+    current = _model_routing_service().read()
     try:
         command = ModelRoutingMutationCommand.model_validate(request.get_json(silent=True))
         updated = _model_routing_service().apply(command)
@@ -1069,10 +1142,12 @@ def put_model_routing_configuration():
             status="error", message="model_routing_configuration_invalid",
             data={"reason_code": str(exc)[:160]}, code=400,
         )
+    diff = ModelRoutingTransferService.diff(current, updated)
     log_audit("model_routing_configuration_updated", {
         "previous_revision": command.expected_revision,
         "revision": updated.revision,
         "assignment_count": len(updated.assignments),
         "fallback_group_count": len(updated.fallback_groups),
+        "diff": diff.model_dump(mode="json"),
     })
     return api_response(data=updated.model_dump(mode="json", by_alias=True))

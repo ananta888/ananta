@@ -61,7 +61,7 @@ class ModelRoutingTransferService:
             source_revision=command.configuration.revision,
             applicable=report.valid,
             confirmation_digest=self._confirmation_digest(command),
-            diff=self._diff(current, command.configuration),
+            diff=self.diff(current, command.configuration),
             issues=report.issues,
         )
 
@@ -93,7 +93,7 @@ class ModelRoutingTransferService:
         return f"sha256:{hashlib.sha256(payload.encode('utf-8')).hexdigest()}"
 
     @staticmethod
-    def _diff(
+    def diff(
         current: ModelRoutingConfiguration,
         imported: ModelRoutingConfiguration,
     ) -> ModelRoutingDiff:

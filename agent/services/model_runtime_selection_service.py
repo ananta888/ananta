@@ -47,6 +47,11 @@ class HubModelRuntimeSelectionService:
         profile = self._selected_profile(route.resolved_profile_id, candidates)
         if profile is None or not route.provider_id or not route.model_id:
             raise ModelRuntimeSelectionError("model_runtime_profile_not_found")
+        from agent.services.model_routing_observability_service import (
+            get_model_routing_usage_projection,
+        )
+
+        get_model_routing_usage_projection().record(route)
         return ModelRuntimeSelection(
             consumer_id=route.consumer_id,
             configuration_revision=route.configuration_revision,

@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from ananta_contracts.model_catalog import ModelInventorySourceStatus
+
 _IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:/@+-]{0,255}$")
 
 FallbackTrigger = Literal[
@@ -374,6 +376,38 @@ class ModelRoutingReleaseGateReport(_Closed):
     checks: tuple[ModelRoutingReleaseGateCheck, ...]
 
 
+class ModelRoutingUsageAggregate(_Closed):
+    consumer_id: str
+    profile_id: str
+    selections_total: int = Field(ge=0)
+    fallback_selections_total: int = Field(ge=0)
+    last_used_at: str
+
+
+class ModelRoutingDiagnosticIssue(_Closed):
+    severity: Literal["warning", "error"]
+    reason_code: str
+    reference: str | None = None
+
+
+class ModelRoutingDiagnostics(_Closed):
+    schema_version: Literal["ananta.model-routing-diagnostics.v1"] = Field(
+        default="ananta.model-routing-diagnostics.v1", alias="schema"
+    )
+    generated_at: str
+    configuration_revision: int = Field(ge=0)
+    catalog_revision: int = Field(ge=1)
+    assignment_count: int = Field(ge=0)
+    fallback_group_count: int = Field(ge=0)
+    routable_consumer_count: int = Field(ge=0)
+    unresolved_assignment_count: int = Field(ge=0)
+    non_executable_route_count: int = Field(ge=0)
+    source_statuses: tuple[ModelInventorySourceStatus, ...] = ()
+    issues: tuple[ModelRoutingDiagnosticIssue, ...] = ()
+    usage: tuple[ModelRoutingUsageAggregate, ...] = ()
+    contains_secrets: Literal[False] = False
+
+
 class CognitiveStyleVector(_Closed):
     rule_correctness: float = Field(ge=0, le=1)
     truth_exploration: float = Field(ge=0, le=1)
@@ -472,5 +506,7 @@ __all__ = [
     "ModelRoutingLegacyMigrationPreview", "ModelRoutingReleaseGateCheck",
     "ModelRoutingReleaseGateReport", "ModelRoutingShadowEntry",
     "ModelRoutingShadowReport",
+    "ModelRoutingDiagnosticIssue", "ModelRoutingDiagnostics",
+    "ModelRoutingUsageAggregate",
     "RoleStyleTarget", "StyleRange",
 ]

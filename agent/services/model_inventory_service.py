@@ -174,6 +174,10 @@ class ModelInventoryService:
                     last_refresh_was_forced=force_refresh,
                 )
                 self._cache[adapter.source_id] = successful
+                self._record_source_outcome(
+                    adapter.source_kind,
+                    "degraded" if snapshot.degraded_reason_code else "healthy",
+                )
                 return snapshot, self._status(
                     adapter,
                     successful,
@@ -185,6 +189,10 @@ class ModelInventoryService:
                 )
             except Exception as exc:
                 reason = self._reason_code(exc)
+                self._record_source_outcome(
+                    adapter.source_kind,
+                    "unavailable" if cached is None else "degraded",
+                )
                 if cached is None:
                     empty = ModelInventorySnapshot(models=())
                     return empty, ModelInventorySourceStatus(
@@ -392,6 +400,14 @@ class ModelInventoryService:
     @staticmethod
     def _now() -> str:
         return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+    @staticmethod
+    def _record_source_outcome(source_kind: ModelSourceKind, status: str) -> None:
+        from agent import metrics
+
+        metrics.MODEL_INVENTORY_SOURCE_OUTCOMES_TOTAL.labels(
+            source_kind=source_kind.value, status=status,
+        ).inc()
 
 
 __all__ = [

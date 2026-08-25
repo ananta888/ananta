@@ -642,6 +642,50 @@ def test_legacy_migration_apply_requires_mutation_capability(
     assert response.status_code == 403
 
 
+def test_model_routing_diagnostics_and_download_are_secret_free(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    assignments = ModelRoutingAssignmentService(
+        repository=InMemoryModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=("local-chat",),
+    )
+    inventory = _FakeInventory()
+
+    class _Effective:
+        def dry_run(self, command):
+            return EffectiveModelRoute(
+                configuration_revision=0,
+                consumer_id=command.consumer_id,
+                assignment_source="resolver_default",
+                assignment_mode="inherit",
+                executable=False,
+            )
+
+    monkeypatch.setattr(providers, "_model_routing_service", lambda: assignments)
+    monkeypatch.setattr(providers, "_model_inventory_service", lambda: inventory)
+    monkeypatch.setattr(providers, "_effective_model_routing_service", lambda: _Effective())
+    monkeypatch.setattr(providers, "_known_model_profiles", lambda: ())
+
+    read = client.get(
+        "/models/routing/v1/diagnostics", headers=_headers(admin_token)
+    )
+    exported = client.get(
+        "/models/routing/v1/diagnostics/export", headers=_headers(admin_token)
+    )
+
+    assert read.status_code == exported.status_code == 200
+    assert read.json["data"]["schema"] == "ananta.model-routing-diagnostics.v1"
+    assert read.json["data"]["contains_secrets"] is False
+    assert "api_key" not in read.text
+    assert "prompt" not in read.text
+    assert "attachment" in exported.headers["Content-Disposition"]
+
+
 def test_model_routing_transfer_capabilities_are_separated(
     client,
     app,
