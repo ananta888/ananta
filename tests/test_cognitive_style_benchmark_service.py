@@ -109,6 +109,49 @@ def test_hub_invoker_normalizes_local_openai_endpoint_and_resolves_profile_key(
     assert "höchstens 120 Tokens" in captured["prompt"]
 
 
+def test_hub_invoker_omits_unsupported_per_request_seed(monkeypatch):
+    captured = {}
+
+    def generate_text(**kwargs):
+        captured.update(kwargs)
+        return "measured output"
+
+    monkeypatch.setattr(
+        "agent.services.hub_llm_service.hub_llm_service.generate_text",
+        generate_text,
+    )
+    HubStyleBenchmarkInvoker().generate(
+        profile=ModelProfile(
+            profile_id="local-kat", provider_id="openai_compatible",
+            model="kat", base_url="http://runtime:8082/v1",
+            supports_seed=False,
+        ),
+        prompt="benchmark prompt",
+        seed=41,
+        temperature=0,
+    )
+
+    assert captured["seed"] is None
+
+
+def test_observations_disclose_when_runtime_cannot_apply_seed():
+    context = StyleMeasurementContext(
+        model_profile_id="local-chat", model_revision="r1", quantization="q8",
+        runtime="colibri", backend_id="openai_compatible",
+        system_prompt_digest="sha256:system", role_prompt_digest="sha256:role",
+        tool_mode="prompt_json", sampling_digest="sha256:sampling",
+    )
+    result = CognitiveStyleBenchmarkService(_Invoker()).run(
+        profile=ModelProfile(
+            profile_id="local-chat", provider_id="openai_compatible",
+            model="kat", supports_seed=False,
+        ),
+        plan=CognitiveStyleBenchmarkSuite.plan(context),
+    )
+
+    assert all(item.seed_applied is False for item in result.observations)
+
+
 def test_benchmark_fails_instead_of_persisting_transport_wide_empty_scores():
     class _Empty:
         def generate(self, **_kwargs):

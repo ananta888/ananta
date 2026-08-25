@@ -29,6 +29,11 @@ dokumentiert.
 | Exklusiver Messwert | ungefähr 12,14 Decode-Tokens/s mit 8-GiB-Expert-Tier |
 | Gemeinsamer Betriebsdefault | 4-GiB-Expert-Tier, damit LFM parallel Platz hat |
 
+Die installierte Colibrì-API akzeptiert derzeit keine per-request Seeds. Das
+Ananta-Profil deklariert deshalb `supports_seed: false`; Benchmarks senden
+keinen inkompatiblen Parameter und kennzeichnen ihre Einzelbeobachtungen mit
+`seed_applied: false`.
+
 Wichtig: Installiert ist die offene **Dev-Version**. Sie darf nicht mit dem
 kommerziellen KAT-Coder-V2.5-Flaggschiff oder dessen Benchmarkwerten
 gleichgesetzt werden.

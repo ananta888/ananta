@@ -68,7 +68,7 @@ class HubStyleBenchmarkInvoker:
             ),
             api_key=api_key,
             temperature=temperature,
-            seed=seed,
+            seed=seed if profile.supports_seed else None,
             timeout=min(180, profile.timeout_seconds),
             # Agentic models may spend a substantial part of the completion
             # budget in a provider-separated reasoning field before emitting
@@ -202,6 +202,7 @@ class CognitiveStyleBenchmarkService:
                             dimension=variant.dimension,
                             repeat_index=repeat_index,
                             seed=seed,
+                            seed_applied=profile.supports_seed,
                             temperature=temperature,
                             score=score,
                             refused_for_safety=refused,

@@ -79,6 +79,12 @@ bewertet wird ausschließlich die finale Antwort. Ein Lauf unter 80 Prozent
 Finalantwort-Abdeckung wird verworfen statt als Style-Profil gespeichert. Die
 gemessene Abdeckung steht zusätzlich als `response_coverage` am Profil und
 skaliert dessen Confidence.
+
+Runtimes können im Modellprofil mit `supports_seed: false` deklarieren, dass
+sie keine per-request Seeds akzeptieren. Der Hub sendet dann keinen Seed an
+die Runtime; jede Observation enthält weiterhin den geplanten Seed als
+Versuchslabel, weist aber mit `seed_applied: false` transparent aus, dass er
+nicht runtime-seitig wirksam war.
 Prompt-Sensitivität wird separat gemessen. Eine Safety-Verweigerung in einem
 Initiative-Fall zählt neutral und nicht automatisch als geringe Initiative.
 Ein LLM-Judge ist nur ergänzend und nur mit unabhängiger Kalibrierungsreferenz

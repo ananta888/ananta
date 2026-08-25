@@ -42,6 +42,7 @@ profiles:
     supports_tools: false
     supports_json: true
     supports_streaming: true
+    supports_seed: false
     context_tokens: 32768
     max_context_for_profile: 32768
     max_output_tokens: 8192

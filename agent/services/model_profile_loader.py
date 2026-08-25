@@ -39,6 +39,7 @@ class ModelProfile:
     supports_tools: bool = False
     supports_json: bool = False
     supports_streaming: bool = True
+    supports_seed: bool = True
     context_tokens: int = 32768
     max_output_tokens: int = 2048
     timeout_seconds: int = 120
@@ -231,7 +232,7 @@ class ModelProfileLoader:
         known_keys = {
             "profile_id", "provider_id", "model", "model_role", "local", "cloud",
             "cloud_allowed", "block_secret_context", "supports_tools", "supports_json",
-            "supports_streaming", "context_tokens", "max_output_tokens", "timeout_seconds",
+            "supports_streaming", "supports_seed", "context_tokens", "max_output_tokens", "timeout_seconds",
             "temperature", "cost_class", "quality_class", "price_input_per_million",
             "price_output_per_million", "estimated_latency_class", "json_reliability_class",
             "tool_calling_mode", "preferred_for", "avoid_for", "max_context_for_profile",
@@ -266,6 +267,7 @@ class ModelProfileLoader:
                 supports_tools=bool(raw.get("supports_tools", False)),
                 supports_json=bool(raw.get("supports_json", False)),
                 supports_streaming=bool(raw.get("supports_streaming", True)),
+                supports_seed=bool(raw.get("supports_seed", True)),
                 context_tokens=max(1, int(raw.get("context_tokens") or 4096)),
                 max_output_tokens=max(1, int(raw.get("max_output_tokens") or 2048)),
                 timeout_seconds=max(1, int(raw.get("timeout_seconds") or 120)),

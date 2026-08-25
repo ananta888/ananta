@@ -47,7 +47,25 @@ def test_load_minimal_local_profile():
     assert p.profile_id == "local-ollama"
     assert p.provider_id == "ollama"
     assert p.model == "qwen2.5-coder:7b"
+    assert p.supports_seed is True
     assert not p.is_cloud()
+
+
+def test_profile_can_declare_runtime_without_per_request_seed():
+    data = {
+        "profiles": [{
+            "profile_id": "local-colibri",
+            "provider_id": "openai_compatible",
+            "model": "kat",
+            "supports_seed": False,
+        }]
+    }
+
+    result = ModelProfileLoader().load_dict(data)
+
+    assert result.ok
+    assert result.profiles[0].supports_seed is False
+    assert "supports_seed" not in result.profiles[0].extra
 
 
 def test_load_cloud_profile_complete():

@@ -68,6 +68,7 @@ class StyleBenchmarkObservation(_Closed):
     dimension: StyleDimension
     repeat_index: int = Field(ge=0)
     seed: int
+    seed_applied: bool = True
     temperature: float = Field(ge=0, le=2)
     score: float = Field(ge=0, le=1)
     refused_for_safety: bool = False
