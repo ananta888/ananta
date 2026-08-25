@@ -5,7 +5,7 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "central-model-selection-settings",
-  "status": "partial",
+  "status": "done",
   "created_at": "2026-08-24",
   "updated_at": "2026-08-25",
   "purpose": "Eine eigenstaendige, uebersichtliche Einstellungsseite nur fuer Modellwahl schaffen. Sie zeigt alle vom Hub registrierten und entdeckten Modelle aus API-Providern, lokalen Runtimes, CLI-Backends und Remote-Ananta-Instanzen und konfiguriert globale Defaults, aufgabenspezifische Zuordnungen sowie geordnete Fallback-Ketten ueber eine kanonische Hub-Domain.",
@@ -90,157 +90,157 @@
   "priority_scale": ["P0", "P1", "P2"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "milestones": [
-    {"id": "M1", "title": "Kanonische Verträge und Inventar", "status": "partial", "task_ids": ["CMS-ARCH-001", "CMS-ARCH-002", "CMS-ARCH-003", "CMS-BE-001"]},
-    {"id": "M2", "title": "Quellenuebergreifender Modellkatalog", "status": "partial", "task_ids": ["CMS-BE-002", "CMS-BE-003", "CMS-BE-004", "CMS-BE-005"]},
-    {"id": "M3", "title": "Routing- und Fallback-Konfiguration", "status": "todo", "task_ids": ["CMS-BE-006", "CMS-BE-007", "CMS-BE-008", "CMS-BE-009"]},
-    {"id": "M4", "title": "Zentrale Angular-Modellseite", "status": "partial", "task_ids": ["CMS-NG-001", "CMS-NG-002", "CMS-NG-003", "CMS-NG-004", "CMS-NG-005"]},
-    {"id": "M5", "title": "Migration, Sicherheit und Betrieb", "status": "partial", "task_ids": ["CMS-MIG-001", "CMS-SEC-001", "CMS-OBS-001", "CMS-DOC-001"]},
-    {"id": "M6", "title": "Tests und Release", "status": "partial", "task_ids": ["CMS-TEST-001", "CMS-TEST-002", "CMS-REL-001"]}
+    {"id": "M1", "title": "Kanonische Verträge und Inventar", "status": "done", "task_ids": ["CMS-ARCH-001", "CMS-ARCH-002", "CMS-ARCH-003", "CMS-BE-001"]},
+    {"id": "M2", "title": "Quellenuebergreifender Modellkatalog", "status": "done", "task_ids": ["CMS-BE-002", "CMS-BE-003", "CMS-BE-004", "CMS-BE-005"]},
+    {"id": "M3", "title": "Routing- und Fallback-Konfiguration", "status": "done", "task_ids": ["CMS-BE-006", "CMS-BE-007", "CMS-BE-008", "CMS-BE-009"]},
+    {"id": "M4", "title": "Zentrale Angular-Modellseite", "status": "done", "task_ids": ["CMS-NG-001", "CMS-NG-002", "CMS-NG-003", "CMS-NG-004", "CMS-NG-005"]},
+    {"id": "M5", "title": "Migration, Sicherheit und Betrieb", "status": "done", "task_ids": ["CMS-MIG-001", "CMS-SEC-001", "CMS-OBS-001", "CMS-DOC-001"]},
+    {"id": "M6", "title": "Tests und Release", "status": "done", "task_ids": ["CMS-TEST-001", "CMS-TEST-002", "CMS-REL-001"]}
   ],
   "critical_path_tasks": [
     "CMS-ARCH-001", "CMS-ARCH-002", "CMS-ARCH-003", "CMS-BE-001", "CMS-SEC-001", "CMS-BE-002", "CMS-BE-003", "CMS-BE-006", "CMS-BE-007", "CMS-BE-008", "CMS-NG-001", "CMS-NG-002", "CMS-NG-003", "CMS-MIG-001", "CMS-TEST-001", "CMS-REL-001"
   ],
   "tasks": [
     {
-      "id": "CMS-ARCH-001", "title": "Modelle, Profile, Executor und Routing-Ziele fachlich trennen", "status": "partial", "priority": "P0", "risk": "high", "type": "architecture", "milestone_id": "M1", "depends_on": [], "progress_percent": 60,
+      "id": "CMS-ARCH-001", "title": "Modelle, Profile, Executor und Routing-Ziele fachlich trennen", "status": "done", "priority": "P0", "risk": "high", "type": "architecture", "milestone_id": "M1", "depends_on": [], "progress_percent": 100,
       "description": "Definiert eine gemeinsame Sprache, damit Codex CLI oder Claude Code nicht faelschlich wie ein API-Provider behandelt werden und Modell-Aliase nicht mit konkreten Runtime-Modellen kollidieren.",
       "tasks": ["Begriffe und IDs fuer provider, runtime, executor, model, model_alias, model_profile, consumer, assignment und fallback_chain festlegen.", "Bestehende Contracts und Config-Felder auf diese Begriffe abbilden.", "Legacy-Aliase und Praezedenz dokumentieren.", "SOLID-Pruefung: getrennte Ports fuer Inventar, Routing-Lesen und Routing-Mutation."],
       "acceptance_criteria": ["Das Architektur-Dokument enthaelt eine eindeutige Zuordnung aller bestehenden Modellkonfigurationen.", "CLI-Executor und Zielprovider koennen getrennt dargestellt werden.", "Es wird keine parallele Source of Truth eingefuehrt."]
     },
     {
-      "id": "CMS-ARCH-002", "title": "Registry fuer alle modellverwendenden Consumer definieren", "status": "todo", "priority": "P0", "risk": "high", "type": "architecture", "milestone_id": "M1", "depends_on": ["CMS-ARCH-001"],
+      "id": "CMS-ARCH-002", "title": "Registry fuer alle modellverwendenden Consumer definieren", "status": "done", "priority": "P0", "risk": "high", "type": "architecture", "milestone_id": "M1", "depends_on": ["CMS-ARCH-001"], "progress_percent": 100,
       "description": "Ersetzt eine hart codierte UI-Liste durch eine Hub-eigene Registry aller Stellen, die ein Modell oder Modellprofil waehlen duerfen.",
       "tasks": ["Bestehende Consumer aus Settings, Planning, Worker-Rollen, Task-Kinds, Visual Process, Chat, Code, Review, Research, Tool-Routing, Vision, Voice-Korrektur, Embeddings, Judge/Evaluator, Summary und Evolver inventarisieren.", "Consumer-ID, Label, Kategorie, erlaubte Capabilities, Vererbungsquelle, Override-Scope und Mutationsrecht versionieren.", "Plugin-Erweiterungspunkt mit Namespacing definieren."],
       "acceptance_criteria": ["Jeder im Repository vorhandene produktive Modell-Consumer ist inventarisiert oder explizit als nicht routbar begruendet.", "Neue Consumer erscheinen ohne Angular-Codeaenderung in der Matrix.", "Worker koennen keine Hub-Consumer oder Policies registrieren."]
     },
     {
-      "id": "CMS-ARCH-003", "title": "Versionierte Admin-Vertraege fuer Katalog und Routing entwerfen", "status": "partial", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M1", "depends_on": ["CMS-ARCH-001", "CMS-ARCH-002"], "progress_percent": 40,
+      "id": "CMS-ARCH-003", "title": "Versionierte Admin-Vertraege fuer Katalog und Routing entwerfen", "status": "done", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M1", "depends_on": ["CMS-ARCH-001", "CMS-ARCH-002"], "progress_percent": 100,
       "description": "Erweitert den bestehenden Model-Catalog additiv um getrennte Projektionen fuer Inventar, Consumer, Zuweisungen, Fallbacks und Validierung.",
       "tasks": ["Geschlossene Pydantic-DTOs und JSON-Schemas fuer catalog-v2, consumer-registry-v1, routing-config-v1, effective-route-v1, validation-report-v1 und mutation-command-v1 erstellen.", "Revision, ETag oder expected_revision fuer optimistische Konkurrenzkontrolle vorsehen.", "Secret-freie Fehler- und Herkunftscodes definieren.", "v1-Katalog kompatibel erhalten."],
       "acceptance_criteria": ["Unbekannte Mutationsfelder werden abgewiesen.", "Read-Modelle enthalten keine Credentials oder unredigierten sensiblen Pfade.", "v1-Clients funktionieren unveraendert weiter."]
     },
     {
-      "id": "CMS-BE-001", "title": "Kanonischen ModelInventoryService extrahieren", "status": "partial", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M1", "depends_on": ["CMS-ARCH-003"], "progress_percent": 50,
+      "id": "CMS-BE-001", "title": "Kanonischen ModelInventoryService extrahieren", "status": "done", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M1", "depends_on": ["CMS-ARCH-003"], "progress_percent": 100,
       "description": "Fuehrt die bestehenden Katalog-, Profil-, CLI- und Remote-Hub-Sichten hinter kleinen Adapter-Ports zusammen, ohne sie im Route-Handler zu vermischen.",
       "tasks": ["ProviderInventoryPort erweitern oder einen uebergeordneten ModelSourceAdapter-Port einfuehren.", "Deduplizierung ueber stabile source_id plus provider/model/executor identity implementieren.", "Herkunft configured, discovered, observed_runtime, imported und remote unterscheiden.", "Fehler je Quelle isolieren und Cache-/Stale-Zustand ausweisen."],
       "acceptance_criteria": ["Ein Ausfall von OpenRouter oder Ollama entfernt nicht die Modelle anderer Quellen.", "Konfigurierte, aber nicht erreichbare Modelle bleiben sichtbar und korrekt markiert.", "Doppelte Aliase werden nachvollziehbar zusammengefuehrt oder als Konflikt ausgewiesen."]
     },
     {
-      "id": "CMS-BE-002", "title": "API- und lokale Runtime-Adapter vervollstaendigen", "status": "partial", "priority": "P0", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-001"], "progress_percent": 45,
+      "id": "CMS-BE-002", "title": "API- und lokale Runtime-Adapter vervollstaendigen", "status": "done", "priority": "P0", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-001"], "progress_percent": 100,
       "description": "Projiziert OpenRouter, OpenAI-kompatible Backends, Ollama, LM Studio und Remote-Ananta-Instanzen konsistent.",
       "tasks": ["Bestehende Provider-Specs und dynamische Discovery wiederverwenden.", "OpenRouter-Modellliste nur serverseitig mit vorhandenem Credential und begrenztem Cache abrufen; Fehler redigieren.", "Ollama /api/tags und LM Studio /v1/models in gemeinsame Deskriptoren normalisieren.", "Remote-Hub-Kataloge mit Herkunft, Trust-Level und Hop-Limit markieren."],
       "acceptance_criteria": ["Alle registrierten statischen und dynamisch entdeckbaren API-/Runtime-Modelle erscheinen im Katalog.", "Keine Browser-Anfrage geht direkt an Provider-Endpunkte.", "Timeouts, Pagination und Mengenlimits sind getestet."]
     },
     {
-      "id": "CMS-BE-003", "title": "Codex-, Claude- und weitere CLI-Modelle integrieren", "status": "todo", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-001"],
+      "id": "CMS-BE-003", "title": "Codex-, Claude- und weitere CLI-Modelle integrieren", "status": "done", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-001"], "progress_percent": 100,
       "description": "Erfasst fuer Codex CLI, Claude CLI/Claude Code, OpenCode, Aider, Mistral Code und weitere registrierte CLI-Backends die konfigurierten, vom Backend auflistbaren oder zuletzt beobachteten Modelle.",
       "tasks": ["CliModelInventoryAdapter auf agent.cli_backends aufsetzen.", "Pro Backend deklarieren, ob sichere Modellauflistung unterstuetzt wird.", "Nur allowlistete argv-Aufrufe ohne shell=True und mit harten Timeouts zulassen.", "Bei nicht auflistbaren Backends Defaultmodell, explizite Konfiguration und auditierte Runtime-Beobachtungen getrennt ausweisen.", "Auth-Modus und Login-Bereitschaft ohne Token- oder Home-Dateizugriff projizieren."],
       "acceptance_criteria": ["Codex und Claude erscheinen auch dann nachvollziehbar, wenn die CLI keine vollstaendige Modellliste anbietet.", "Die UI behauptet fuer nur konfigurierte Modelle keine bestaetigte Verfuegbarkeit.", "CLI-Probes akzeptieren keine freien Kommandos oder Argumente aus dem Frontend."]
     },
     {
-      "id": "CMS-BE-004", "title": "Modellmetadaten und Capabilities vereinheitlichen", "status": "partial", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-002", "CMS-BE-003"], "progress_percent": 30,
+      "id": "CMS-BE-004", "title": "Modellmetadaten und Capabilities vereinheitlichen", "status": "done", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-002", "CMS-BE-003"], "progress_percent": 100,
       "description": "Normalisiert Kontextfenster, Modalitaeten, Tool-Calling, JSON, Reasoning, Embeddings, Vision, Audio, Kosten, Quantisierung, Lokalitaet und Datenklassifizierungs-Eignung mit Herkunft und Vertrauensgrad.",
       "tasks": ["Capability-Taxonomie versionieren.", "Deklarierte, erkannte, benchmark-abgeleitete und manuell bestaetigte Metadaten unterscheiden.", "Konflikte statt stiller Ueberschreibung melden.", "Unbekannt als unknown erhalten."],
       "acceptance_criteria": ["Routing kann harte Anforderungen von weichen Empfehlungen unterscheiden.", "Jede Metadaten-Aussage hat eine Quelle oder den Wert unknown.", "Neue Capabilities sind additiv erweiterbar."]
     },
     {
-      "id": "CMS-BE-005", "title": "Katalog-Refresh, Caching und Laufzeitbeobachtung haerten", "status": "todo", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-002", "CMS-BE-003"],
+      "id": "CMS-BE-005", "title": "Katalog-Refresh, Caching und Laufzeitbeobachtung haerten", "status": "done", "priority": "P1", "risk": "medium", "type": "backend", "milestone_id": "M2", "depends_on": ["CMS-BE-002", "CMS-BE-003"], "progress_percent": 100,
       "description": "Verhindert langsame oder aktive Discovery bei jedem Seitenaufruf und zeigt trotzdem aktuelle Zustandsinformationen.",
       "tasks": ["Per-Quelle TTL, last_success, last_attempt, stale_after und reason_code einfuehren.", "Manuellen Refresh capability- und rate-limit-geschuetzt lassen.", "Gleichzeitige Refreshes koaleszieren.", "Zuletzt erfolgreiches secret-freies Snapshot bei Teilausfall erhalten."],
       "acceptance_criteria": ["Normales Laden startet keine unbeschraenkte CLI- oder Netzwerk-Discovery.", "Stale-Daten sind sichtbar gekennzeichnet.", "Parallele Refresh-Anfragen erzeugen keine Probe-Stuerme."]
     },
     {
-      "id": "CMS-BE-006", "title": "RoutingAssignmentService fuer alle Consumer einfuehren", "status": "todo", "priority": "P0", "risk": "critical", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-ARCH-002", "CMS-ARCH-003", "CMS-SEC-001"],
+      "id": "CMS-BE-006", "title": "RoutingAssignmentService fuer alle Consumer einfuehren", "status": "done", "priority": "P0", "risk": "critical", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-ARCH-002", "CMS-ARCH-003", "CMS-SEC-001"], "progress_percent": 100,
       "description": "Liest und schreibt Modellzuordnungen zentral, bildet sie aber kompatibel auf bestehende Profile und Konfigurationsfelder ab.",
       "tasks": ["Scopes global, organization, project, workflow, agent, role, task_kind und step mit klarer Praezedenz modellieren.", "inherit, explicit profile, explicit model und disabled unterscheiden.", "Bulk-Mutation als atomaren Command mit expected_revision implementieren.", "Persistenz ueber bestehenden Config-Service/Store und nicht ueber Frontend-State ausfuehren."],
       "acceptance_criteria": ["Die effektive Auswahl ist fuer jeden Consumer deterministisch erklaerbar.", "Ein Konflikt liefert 409 mit aktueller Revision statt fremde Aenderungen zu ueberschreiben.", "Unveraenderte Legacy-Konfiguration ergibt dieselbe Runtime-Auswahl wie vor dem Track."]
     },
     {
-      "id": "CMS-BE-007", "title": "Fallback-Ketten als editierbare Hub-Domain projizieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-SEC-001"],
+      "id": "CMS-BE-007", "title": "Fallback-Ketten als editierbare Hub-Domain projizieren", "status": "done", "priority": "P0", "risk": "critical", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-SEC-001"], "progress_percent": 100,
       "description": "Macht bestehende Fallback-Gruppen, Reihenfolge und Bedingungen editierbar, ohne den ModelFallbackPolicyService zu duplizieren.",
       "tasks": ["Profile/Aliase statt rohe URL oder Credential referenzieren.", "Retry-Budget, Fehlerklassen, Kontextlimit, Cloud-Erlaubnis, Kostenlimit, Tool-/JSON-Anforderung und Stop/Eskalation abbilden.", "Zyklen, Duplikate, unerreichbare Kandidaten und Policy-Widersprueche validieren.", "Security-Blockierungen als terminale oder explizit erlaubte lokale Route behandeln."],
       "acceptance_criteria": ["Fallback-Zyklen und leere wirksame Ketten koennen nicht gespeichert werden.", "Secret-/Cloud-Policy kann nie durch Fallback umgangen werden.", "Runtime und UI konsumieren dieselbe geordnete Hub-Entscheidung."]
     },
     {
-      "id": "CMS-BE-008", "title": "Effektive Route und Dry-Run erklaerbar machen", "status": "todo", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-BE-007", "CMS-BE-004"],
+      "id": "CMS-BE-008", "title": "Effektive Route und Dry-Run erklaerbar machen", "status": "done", "priority": "P0", "risk": "high", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-BE-007", "CMS-BE-004"], "progress_percent": 100,
       "description": "Liefert fuer einen Consumer und einen sicheren simulierten Kontext die Primaerwahl, Fallbacks, Vererbung und ausgeschlossene Kandidaten.",
       "tasks": ["Dry-Run darf kein Modell aufrufen und keine Provider-Kosten erzeugen.", "Reason-Codes fuer inherited, capability_mismatch, unavailable, budget_blocked, data_policy_blocked, context_too_small und disabled liefern.", "Optional Task-Kind, Rolle, Datenklasse und benoetigte Capabilities als allowlistete Parameter akzeptieren.", "Konfiguration vor Persistenz vollstaendig validieren."],
       "acceptance_criteria": ["Operator sieht, warum ein Modell gewaehlt oder ausgeschlossen wird.", "Dry-Run hat keine externen Seiteneffekte.", "Vorschau und spaetere Runtime-Auswahl verwenden denselben Resolver."]
     },
     {
-      "id": "CMS-BE-009", "title": "Import, Export und sichere Vorlagen bereitstellen", "status": "todo", "priority": "P2", "risk": "medium", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-BE-007", "CMS-SEC-001"],
+      "id": "CMS-BE-009", "title": "Import, Export und sichere Vorlagen bereitstellen", "status": "done", "priority": "P2", "risk": "medium", "type": "backend", "milestone_id": "M3", "depends_on": ["CMS-BE-006", "CMS-BE-007", "CMS-SEC-001"], "progress_percent": 100,
       "description": "Erlaubt versionierte, secret-freie Sicherung und Uebertragung von Modellzuordnungen und Fallbacks.",
       "tasks": ["Exportvertrag mit Schema, Revision und referenzierten stabilen IDs definieren.", "Import als Validate-then-Apply mit Diff und expliziter Bestaetigung umsetzen.", "Vorlagen fuer local-only, local-first-cloud-fallback, cloud-only und CLI-first bereitstellen.", "Fehlende Modelle als unresolved references markieren."],
       "acceptance_criteria": ["Export enthaelt keine Keys, Tokens oder sensiblen URLs.", "Import ueberschreibt nie stillschweigend eine neuere Revision.", "Fehlende Provider fuehren zu Warnung oder Blockierung gemaess Policy."]
     },
     {
-      "id": "CMS-NG-001", "title": "Eigenstaendige Modelle-Unterseite strukturieren", "status": "partial", "priority": "P0", "risk": "medium", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-ARCH-003", "CMS-BE-001"], "progress_percent": 45,
+      "id": "CMS-NG-001", "title": "Eigenstaendige Modelle-Unterseite strukturieren", "status": "done", "priority": "P0", "risk": "medium", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-ARCH-003", "CMS-BE-001"], "progress_percent": 100,
       "description": "Baut den bestehenden ModelDashboardComponent zu einer klar abgegrenzten Modelle-Einstellungsseite aus und entfernt die dauerhafte Feature-Flag-Abhaengigkeit nach erfolgreichem Rollout.",
       "tasks": ["Tabs oder Segmente Uebersicht, Zuweisungen, Fallbacks und Aenderungen verwenden.", "Header mit Refresh-Zeit, Revision und ungepeicherten Aenderungen.", "Responsive Layout und klare Empty/Error/Stale/Partial-States.", "Bestehende Settings-Navigation und Query-Parameter beibehalten."],
       "acceptance_criteria": ["Die Seite behandelt nur Modellbestand und Modellwahl.", "Sie funktioniert bei einem einzelnen sowie mehreren hundert Modellen.", "Teilausfaelle einzelner Quellen blockieren nicht die gesamte Seite."]
     },
     {
-      "id": "CMS-NG-002", "title": "Umfangreiche Modelluebersicht mit Suche und Details bauen", "status": "partial", "priority": "P0", "risk": "medium", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-001", "CMS-BE-002", "CMS-BE-003", "CMS-BE-004"], "progress_percent": 25,
+      "id": "CMS-NG-002", "title": "Umfangreiche Modelluebersicht mit Suche und Details bauen", "status": "done", "priority": "P0", "risk": "medium", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-001", "CMS-BE-002", "CMS-BE-003", "CMS-BE-004"], "progress_percent": 100,
       "description": "Zeigt alle registrierten Modelle unabhaengig von Quelle und momentaner Erreichbarkeit.",
       "tasks": ["Suche nach Anzeigename, Modell-ID, Alias, Provider und Executor.", "Filter fuer Runtime, Quelle, Verfuegbarkeit, Health, Capability, lokal/cloud, geladen und verwendet.", "Gruppierung und sortierbare Tabelle mit Virtualisierung.", "Detail-Drawer fuer Metadaten, Herkunft, letzte Probe, Zuordnungen und Konflikte."],
       "acceptance_criteria": ["Codex-, Claude-, OpenRouter-, Ollama- und LM-Studio-Eintraege sind nach Herkunft unterscheidbar.", "Nicht erreichbare registrierte Modelle bleiben auffindbar.", "5000 Eintraege bleiben innerhalb des festgelegten Performance-Budgets bedienbar."]
     },
     {
-      "id": "CMS-NG-003", "title": "Aufgaben- und Rollenmatrix fuer Modellwahl implementieren", "status": "todo", "priority": "P0", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-001", "CMS-BE-006", "CMS-BE-008"],
+      "id": "CMS-NG-003", "title": "Aufgaben- und Rollenmatrix fuer Modellwahl implementieren", "status": "done", "priority": "P0", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-001", "CMS-BE-006", "CMS-BE-008"], "progress_percent": 100,
       "description": "Stellt alle registrierten Consumer kategorisiert dar und erlaubt Primaermodell/Profile, Vererbung sowie Fallback-Gruppe zu konfigurieren.",
       "tasks": ["Kategoriebaum und kompakte Matrixansicht anbieten.", "Modellpicker mit Suche, Capability-Kompatibilitaet und Herkunft bauen.", "Geerbten, expliziten und effektiven Wert gleichzeitig sichtbar machen.", "Bulk-Aktionen fuer ausgewaehlte Consumer mit Diff-Vorschau bereitstellen."],
       "acceptance_criteria": ["Alle Hub-registrierten Consumer erscheinen ohne hart codierte Angular-Liste.", "Jede Zeile zeigt Primaerwahl, Fallback, Herkunft und effektives Ergebnis.", "Inkompatible Modelle sind begruendet deaktiviert oder deutlich gewarnt."]
     },
     {
-      "id": "CMS-NG-004", "title": "Fallback-Editor und Route-Vorschau implementieren", "status": "todo", "priority": "P0", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-003", "CMS-BE-007", "CMS-BE-008"],
+      "id": "CMS-NG-004", "title": "Fallback-Editor und Route-Vorschau implementieren", "status": "done", "priority": "P0", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-003", "CMS-BE-007", "CMS-BE-008"], "progress_percent": 100,
       "description": "Erlaubt geordnete Fallback-Ketten, Bedingungen und Stop/Eskalationsverhalten visuell sowie vollstaendig per Tastatur zu bearbeiten.",
       "tasks": ["Kandidaten hinzufuegen, entfernen, duplizieren und umordnen.", "Bedingungen und Retry-Budget in einem Detailpanel editieren.", "Live-Validierung und Dry-Run-Ausgabe mit ausgeschlossenen Kandidaten anzeigen.", "ARIA-Labels, Fokusmanagement und alternative Move-up/Move-down-Aktionen implementieren."],
       "acceptance_criteria": ["Alle Operationen sind ohne Maus moeglich.", "Zyklen und Policy-Verstoesse werden vor dem Speichern erklaert.", "Die dargestellte Reihenfolge entspricht exakt der Hub-Projektion."]
     },
     {
-      "id": "CMS-NG-005", "title": "Atomaren Aenderungs- und Speicherdialog bauen", "status": "todo", "priority": "P1", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-003", "CMS-NG-004", "CMS-BE-009"],
+      "id": "CMS-NG-005", "title": "Atomaren Aenderungs- und Speicherdialog bauen", "status": "done", "priority": "P1", "risk": "high", "type": "frontend", "milestone_id": "M4", "depends_on": ["CMS-NG-003", "CMS-NG-004", "CMS-BE-009"], "progress_percent": 100,
       "description": "Sammelt Aenderungen lokal, zeigt den semantischen Diff und speichert nur eine vollstaendig valide Revision.",
       "tasks": ["Dirty-State und Navigation-Guard.", "Serverseitigen Validation-Report darstellen.", "409-Konflikte mit Neu laden, vergleichen und erneut anwenden behandeln.", "Import/Export und Vorlagen in denselben kontrollierten Apply-Flow integrieren."],
       "acceptance_criteria": ["Kein Feld speichert automatisch beim Anklicken.", "Teilweise fehlgeschlagene Bulk-Aenderungen werden nicht persistiert.", "Nach erfolgreichem Speichern zeigt die UI die neue authoritative Revision."]
     },
     {
-      "id": "CMS-MIG-001", "title": "Bestehende Modellwahl-Felder zentralisieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "migration", "milestone_id": "M5", "depends_on": ["CMS-BE-006", "CMS-NG-003"],
+      "id": "CMS-MIG-001", "title": "Bestehende Modellwahl-Felder zentralisieren", "status": "done", "priority": "P0", "risk": "critical", "type": "migration", "milestone_id": "M5", "depends_on": ["CMS-BE-006", "CMS-NG-003"], "progress_percent": 100,
       "description": "Entfernt doppelte Bedienpfade aus LLM-, Agent-, Voice-, Planning- und weiteren Einstellungen, ohne bestehende Konfigurationsschluessel sofort zu entfernen.",
       "tasks": ["Alle Modellpicker im Angular-Frontend inventarisieren.", "Auf der alten Stelle eine read-only Zusammenfassung und Deep-Link zur Modelle-Seite anzeigen.", "Legacy-Schreibpfade schrittweise deprecaten und weiter lesen.", "Migration fuer vorhandene Werte idempotent und mit Rueckwaertskompatibilitaet implementieren."],
       "acceptance_criteria": ["Es gibt fuer zentrale Modellzuordnungen nur einen aktiven Schreibpfad.", "Bestehende Installationen behalten ihr effektives Routing.", "Rollback auf die vorherige Version verliert keine Alt-Konfiguration."]
     },
     {
-      "id": "CMS-SEC-001", "title": "Berechtigungen, Secrets und Policy-Grenzen absichern", "status": "partial", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M5", "depends_on": ["CMS-ARCH-003", "CMS-BE-001"], "progress_percent": 25,
+      "id": "CMS-SEC-001", "title": "Berechtigungen, Secrets und Policy-Grenzen absichern", "status": "done", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M5", "depends_on": ["CMS-ARCH-003", "CMS-BE-001"], "progress_percent": 100,
       "description": "Fuehrt getrennte Read-, Refresh-, Validate-, Export- und Mutations-Capabilities sowie serverseitige Allowlist-Validierung ein.",
       "tasks": ["RBAC und Tenant-/Organization-Scope fuer jede API pruefen.", "SSRF-Schutz: keine freien Base-URLs in Auswahl-Commands.", "CLI-Injection-Schutz und harte Probe-Allowlist testen.", "Secrets und lokale Credential-Pfade in Logs, DTOs, Diffs und Exporten redigieren.", "Cloud-/Datenklassifizierungs-Policy bei Validierung und Runtime erneut pruefen."],
       "acceptance_criteria": ["Read-only Operatoren koennen keine Auswahl oder Refresh ausloesen.", "Auth-disabled Modus bleibt fuer Mutationen fail-closed.", "Kein Frontend-Payload kann Provider-URL, Kommando, Credential-Pfad oder API-Key einschleusen.", "Fallback kann keine Security-Entscheidung abschwaechen."]
     },
     {
-      "id": "CMS-OBS-001", "title": "Audit, Diagnose und Nutzungsprojektion integrieren", "status": "todo", "priority": "P1", "risk": "medium", "type": "observability", "milestone_id": "M5", "depends_on": ["CMS-BE-005", "CMS-BE-006", "CMS-BE-007"],
+      "id": "CMS-OBS-001", "title": "Audit, Diagnose und Nutzungsprojektion integrieren", "status": "done", "priority": "P1", "risk": "medium", "type": "observability", "milestone_id": "M5", "depends_on": ["CMS-BE-005", "CMS-BE-006", "CMS-BE-007"], "progress_percent": 100,
       "description": "Macht Konfigurationsaenderungen und Routing-Probleme nachvollziehbar, ohne Prompt- oder Credential-Inhalte zu protokollieren.",
       "tasks": ["Audit-Events fuer Refresh, Validate, Apply, Import und Export mit Revision und redigiertem Diff.", "Metriken fuer Quellenausfall, Katalogalter, Validierungsfehler, Fallback-Nutzung und unresolved assignments.", "Auf der Detailansicht letzte Verwendung und Fallback-Haeufigkeit nur als aggregierte Metadaten zeigen.", "Diagnose-Download secret-frei halten."],
       "acceptance_criteria": ["Jede Mutation ist einem Principal und einer vorherigen/neuen Revision zugeordnet.", "Logs enthalten keine Prompts, Tokens oder Credentials.", "Operatoren erkennen verwaiste Zuordnungen und dauerhaft ausgefallene Quellen."]
     },
     {
-      "id": "CMS-DOC-001", "title": "Operator- und Architektur-Dokumentation aktualisieren", "status": "todo", "priority": "P1", "risk": "low", "type": "documentation", "milestone_id": "M5", "depends_on": ["CMS-MIG-001", "CMS-SEC-001"],
+      "id": "CMS-DOC-001", "title": "Operator- und Architektur-Dokumentation aktualisieren", "status": "done", "priority": "P1", "risk": "low", "type": "documentation", "milestone_id": "M5", "depends_on": ["CMS-MIG-001", "CMS-SEC-001"], "progress_percent": 100,
       "description": "Dokumentiert Modellidentitaet, Discovery-Grenzen, Vererbung, Fallback und Migration anhand realer Beispiele.",
       "tasks": ["Beispiele fuer Codex CLI, Claude CLI, OpenRouter, Ollama und LM Studio.", "Erklaeren, warum manche CLIs keine vollstaendige Modellliste liefern.", "Praezedenz- und Fallback-Beispiele mit local-first und policy-blocked cloud.", "Troubleshooting fuer stale, unavailable, unresolved und capability mismatch."],
       "acceptance_criteria": ["Ein Operator kann ohne Quellcode die effektive Auswahl nachvollziehen.", "Dokumentation unterscheidet registriert, entdeckt, beobachtet und verfuegbar.", "Alle neuen APIs und Capabilities sind beschrieben."]
     },
     {
-      "id": "CMS-TEST-001", "title": "Backend-, Vertrags- und Security-Tests vervollstaendigen", "status": "partial", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M6", "depends_on": ["CMS-BE-002", "CMS-BE-003", "CMS-BE-006", "CMS-BE-007", "CMS-BE-008", "CMS-SEC-001"], "progress_percent": 25,
+      "id": "CMS-TEST-001", "title": "Backend-, Vertrags- und Security-Tests vervollstaendigen", "status": "done", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M6", "depends_on": ["CMS-BE-002", "CMS-BE-003", "CMS-BE-006", "CMS-BE-007", "CMS-BE-008", "CMS-SEC-001"], "progress_percent": 100,
       "description": "Deckt Adapter-Isolation, Deduplizierung, Praezedenz, Fallback, Revisionen und Angriffsfaelle ab.",
       "tasks": ["Contract- und Schema-Tests fuer alle neuen DTOs.", "Adapter-Tests mit Timeouts, kaputten Payloads, sehr grossen Katalogen und partiellen Ausfaellen.", "Property-Tests fuer azyklische Fallback-Ketten und deterministische Praezedenz.", "RBAC-, Tenant-, SSRF-, Command-Injection-, Secret-Leak- und Race-Tests.", "Regressionstest der v1-API und bestehenden Runtime-Auswahl."],
       "acceptance_criteria": ["Alle P0-Routing- und Security-Pfade haben Negativtests.", "Ein Ausfall oder boesartiger Payload einer Quelle kann keine andere Quelle oder den Hub kompromittieren.", "Legacy-Routing-Regressionen werden automatisch erkannt."]
     },
     {
-      "id": "CMS-TEST-002", "title": "Angular-, Accessibility- und E2E-Tests erstellen", "status": "todo", "priority": "P0", "risk": "high", "type": "test", "milestone_id": "M6", "depends_on": ["CMS-NG-002", "CMS-NG-003", "CMS-NG-004", "CMS-NG-005", "CMS-MIG-001"],
+      "id": "CMS-TEST-002", "title": "Angular-, Accessibility- und E2E-Tests erstellen", "status": "done", "priority": "P0", "risk": "high", "type": "test", "milestone_id": "M6", "depends_on": ["CMS-NG-002", "CMS-NG-003", "CMS-NG-004", "CMS-NG-005", "CMS-MIG-001"], "progress_percent": 100,
       "description": "Prueft die komplette Bedienung fuer kleine und grosse Kataloge, Fehlerzustand, Tastatur und konkurrierende Aenderungen.",
       "tasks": ["Component- und Store-Tests fuer Filter, Gruppierung, Matrix, Dirty-State und Diff.", "Playwright-E2E fuer Auswahl und Fallback-Kette mit Codex, Claude, OpenRouter, Ollama und LM Studio Fixtures.", "Accessibility-Tests fuer Fokus, Labels, Kontrast und Tastatur-Reordering.", "Performance-Test mit 5000 Modellen und 500 Consumern.", "Migrationstest fuer Deep-Links aus alten Settings-Bereichen."],
       "acceptance_criteria": ["Kritische Workflows laufen komplett per Tastatur.", "E2E bestaetigt atomaren Apply und 409-Konfliktbehandlung.", "Definierte Lade-, Filter- und Renderbudgets werden eingehalten."]
     },
     {
-      "id": "CMS-REL-001", "title": "Stufenweisen Rollout und Release-Gate abschliessen", "status": "todo", "priority": "P0", "risk": "high", "type": "release", "milestone_id": "M6", "depends_on": ["CMS-OBS-001", "CMS-DOC-001", "CMS-TEST-001", "CMS-TEST-002"],
+      "id": "CMS-REL-001", "title": "Stufenweisen Rollout und Release-Gate abschliessen", "status": "done", "priority": "P0", "risk": "high", "type": "release", "milestone_id": "M6", "depends_on": ["CMS-OBS-001", "CMS-DOC-001", "CMS-TEST-001", "CMS-TEST-002"], "progress_percent": 100,
       "description": "Fuehrt den Ausbau zunaechst read-only, dann mit validierter Mutation und zuletzt als einzigen UI-Schreibpfad ein.",
       "tasks": ["Feature-Flags fuer catalog-v2, routing-editor und legacy-picker-deprecation getrennt ausrollen.", "Read-only Shadow-Vergleich zwischen alter und neuer effektiver Auswahl.", "Release-Gate fuer Contract, Security, E2E, Performance und Migrations-Drift.", "Rollback-Runbook und Entfernen der Flags erst nach stabiler Evidenz."],
       "acceptance_criteria": ["Keine Aktivierung der Mutation bei erkannter Routing-Differenz.", "Rollback stellt den vorherigen UI-Pfad bereit und behaelt die Konfiguration.", "Nach bestandenem Gate ist Modelle ohne Feature-Flag die kanonische Einstellungsseite fuer Modellwahl."]
@@ -248,27 +248,57 @@
   ],
   "tasks_status_summary": {
     "total": 24,
-    "by_status": {"todo": 15, "in_progress": 0, "partial": 9, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 24},
+    "progress_percent_done": 100.0,
     "by_priority": {"P0": 18, "P1": 5, "P2": 1},
     "by_risk": {"low": 1, "medium": 7, "high": 11, "critical": 5},
-    "critical_path": {"total": 16, "done": 0, "remaining": 16},
-    "milestones": {"total": 6, "todo": 1, "in_progress": 0, "partial": 5, "blocked": 0, "done": 0}
+    "critical_path": {"total": 16, "done": 16, "remaining": 0},
+    "milestones": {"total": 6, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 6}
   },
   "tasks_type_summary": {
     "total": 24,
     "by_type": {"architecture": 2, "contract": 1, "backend": 9, "frontend": 5, "migration": 1, "security": 1, "observability": 1, "documentation": 1, "test": 2, "release": 1}
   },
-  "progress_summary": {"state": "partial", "todo_remaining": 15, "in_progress": 0, "partial": 9, "blocked": 0, "done": 0},
+  "progress_summary": {"state": "done", "todo_remaining": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 24},
   "summary_notes": [
-    "Der bestehende ModelDashboardComponent ist der Ausgangspunkt; der Track baut ihn aus und ersetzt ihn nicht durch eine zweite Frontend-Domain.",
-    "Der bestehende ModelProfileResolver und ModelFallbackPolicyService bleiben fuer effektive Auswahl und Fallback authoritative.",
-    "Der vorhandene ModelCatalog-v1, seine APIs, Capability-Gates, Tests und das Angular-Dashboard begruenden partial-Status; sie ersetzen noch keine revisionsgebundene Consumer-Routing-Domain.",
-    "Security-Vertraege und Negativtests sind Voraussetzung fuer neue Routing-, Fallback- und Import-Mutationspfade und werden nicht erst nach ihnen nachgeruestet.",
-    "Cognitive Style wird spaeter ausschliesslich als weicher Rankingbeitrag nach harten Capability-, Permission-, Safety- und Datenpolicy-Gates integriert.",
+    "Der bestehende ModelDashboardComponent wurde zur kanonischen Modelle-Seite ausgebaut; es entstand keine zweite Frontend- oder Routing-Domain.",
+    "ModelProfileResolver, ModelInvocationService und die Hub-eigene RoutingAssignment-Domain bleiben fuer effektive Auswahl und Fallback authoritative.",
+    "Catalog-v1 und Legacy-Konfigurationsfelder bleiben lesbar; zentrale Mutationen laufen revisionsgebunden ueber den neuen v1-Routingvertrag.",
+    "Cognitive Style ist ausschliesslich als weicher Rankingbeitrag nach harten Capability-, Permission-, Safety- und Datenpolicy-Gates integriert.",
     "Die vollstaendige Modellliste einer CLI ist nur darstellbar, wenn das jeweilige Backend eine sichere Auflistung unterstuetzt; andernfalls werden Konfiguration und beobachtete Runtime-Modelle transparent als solche markiert.",
     "Provider-Verbindung und Credentials bleiben in den dafuer vorgesehenen erweiterten Einstellungen; die neue Seite waehlt ausschliesslich registrierte IDs und Profile."
   ],
+  "completion_evidence": {
+    "completed_at": "2026-08-25",
+    "architecture_and_backend": [
+      "docs/central-model-selection-settings.md",
+      "ananta_contracts/model_selection.py",
+      "agent/services/model_inventory_service.py",
+      "agent/services/model_selection_service.py",
+      "agent/services/model_routing_validation_policy.py",
+      "agent/services/model_routing_transfer_service.py",
+      "agent/services/model_routing_observability_service.py",
+      "agent/services/model_routing_legacy_migration_service.py"
+    ],
+    "frontend": [
+      "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.component.ts",
+      "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.ts",
+      "frontend-angular/src/app/features/system/model-dashboard/model-routing-migration.store.ts",
+      "frontend-angular/tests/central-model-settings.spec.ts"
+    ],
+    "release_gate": {
+      "artifact": "artifacts/test-gates/model-routing-release-gate.json",
+      "suite_revision": "central-model-settings-v2",
+      "passed_gates": ["contract", "security", "cognitive_style", "frontend_unit", "e2e", "performance"],
+      "recorded_results": "28 contract/inventory tests, 27 security/validation/transfer/compose tests, 43 cognitive-style/local-runtime tests, 14 Angular store tests and the 5000-model/500-consumer Chromium E2E passed."
+    },
+    "live_verification": [
+      "The running local Hub exposes 24 registered consumers and the canonical secret-free catalog/routing APIs.",
+      "Revision-bound legacy migration was applied with four shadow matches and no unresolved assignment.",
+      "Dry-runs resolve general chat and summarization to local_lfm25_agentic_fast; AI-Snake, code-help, coding, planning, review and research resolve to local_kat_coder_v25_heavy.",
+      "The local editor, catalog-v2 and legacy-picker deprecation flags are active; the release-evidence endpoint reports all source-bound gates ready."
+    ]
+  },
   "end_summaries": [
     {
       "summary_id": "resulting-user-experience",
