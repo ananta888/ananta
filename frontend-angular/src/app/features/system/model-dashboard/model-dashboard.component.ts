@@ -172,6 +172,11 @@ import { ModelRoutingMigrationStore } from './model-routing-migration.store';
         @if (store.activeTab() === 'assignments') {
           <section role="tabpanel" aria-label="Zuweisungsmatrix">
             <p>Globale Werte sind editierbar; engere Scopes bleiben im Hub erhalten und haben Vorrang.</p>
+            <datalist id="model-profile-options">
+              @for (option of store.profileOptions(); track option.profileId) {
+                <option [value]="option.profileId">{{ option.model.model_id }} · {{ option.model.provider_id }}</option>
+              }
+            </datalist>
             @if (!features.modelRoutingEditor()) {
               <p class="provider-failure" role="status">Der Routing-Editor ist im aktuellen Rollout read-only.</p>
             }
@@ -216,17 +221,11 @@ import { ModelRoutingMigrationStore } from './model-routing-migration.store';
                           (ngModelChange)="changeMode(consumer, $event)">
                           <option value="inherit">Erben</option><option value="profile">Profil</option><option value="disabled">Deaktiviert</option>
                         </select></td>
-                        <td><select [attr.aria-label]="'Profil für ' + consumer.label"
+                        <td><input type="search" list="model-profile-options" [attr.aria-label]="'Profil für ' + consumer.label"
                           [disabled]="!features.modelRoutingEditor() || !consumer.routable || store.globalAssignment(consumer.consumer_id)?.mode !== 'profile'"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.profile_id ?? ''"
-                          (ngModelChange)="store.setConsumerMode(consumer.consumer_id, 'profile', $event)">
-                          <option value="">Profil wählen</option>
-                          @for (option of store.profileOptions(); track option.profileId) {
-                            <option [value]="option.profileId" [disabled]="store.profileCompatibility(consumer, option.model) !== null">
-                              {{ option.profileId }} — {{ option.model.model_id }}{{ store.profileCompatibility(consumer, option.model) ? ' (inkompatibel)' : '' }}
-                            </option>
-                          }
-                        </select></td>
+                          (change)="store.setConsumerProfile(consumer.consumer_id, $any($event.target).value)"
+                          placeholder="Profil-ID suchen" /></td>
                         <td><select [attr.aria-label]="'Fallback für ' + consumer.label"
                           [disabled]="!features.modelRoutingEditor() || !consumer.routable"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.fallback_group_id ?? ''"
@@ -668,7 +667,7 @@ export class ModelDashboardComponent implements OnInit {
   }
 
   changeMode(consumer: ModelConsumer, mode: 'inherit' | 'profile' | 'disabled'): void {
-    const firstProfile = this.store.profileOptions()[0]?.profileId ?? '';
+    const firstProfile = this.store.firstCompatibleProfileId(consumer);
     this.store.setConsumerMode(consumer.consumer_id, mode, mode === 'profile' ? firstProfile : '');
   }
 

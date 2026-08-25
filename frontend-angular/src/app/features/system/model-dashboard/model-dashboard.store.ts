@@ -377,6 +377,22 @@ export class ModelDashboardStore {
     return null;
   }
 
+  firstCompatibleProfileId(consumer: ModelConsumer): string {
+    return this.profileOptions().find(
+      option => this.profileCompatibility(consumer, option.model) === null,
+    )?.profileId ?? '';
+  }
+
+  setConsumerProfile(consumerId: string, profileId: string): void {
+    const consumer = this.consumers().find(item => item.consumer_id === consumerId);
+    const option = this.profileOptions().find(item => item.profileId === profileId);
+    if (!consumer || !option || this.profileCompatibility(consumer, option.model) !== null) {
+      this.error.set('Profil ist unbekannt oder für diesen Consumer inkompatibel.');
+      return;
+    }
+    this.setConsumerMode(consumerId, 'profile', profileId);
+  }
+
   setConsumerMode(consumerId: string, mode: 'inherit' | 'profile' | 'disabled', profileId = ''): void {
     this.updateDraft(draft => {
       const previous = draft.assignments.find(

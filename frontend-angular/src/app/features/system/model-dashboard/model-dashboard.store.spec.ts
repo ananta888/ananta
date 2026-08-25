@@ -174,6 +174,19 @@ describe('ModelDashboardStore', () => {
     expect(store.routingDiff().assignments).toEqual(['task.coding@global:global']);
   });
 
+  it('resolves one compatible profile list for 500 consumers without per-row option copies', () => {
+    const template = store.consumers()[0];
+    store.consumers.set(Array.from({ length: 500 }, (_, index) => ({
+      ...template, consumer_id: `task.consumer-${index}`, label: `Consumer ${index}`,
+    })));
+
+    const started = performance.now();
+    expect(store.consumerCategories()[0].consumers).toHaveLength(500);
+    expect(store.profileOptions()).toHaveLength(5000);
+    expect(store.firstCompatibleProfileId(store.consumers()[0])).toMatch(/^profile-/);
+    expect(performance.now() - started).toBeLessThan(250);
+  });
+
   it('upserts scoped assignments by stable consumer and scope identity', () => {
     store.upsertScopedAssignment('task.coding', 'agent', 'worker-1', 'profile', 'profile-1');
     store.upsertScopedAssignment('task.coding', 'agent', 'worker-1', 'disabled');
