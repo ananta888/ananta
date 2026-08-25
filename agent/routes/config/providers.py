@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+
 from flask import Blueprint, current_app, g, request
 from pydantic import ValidationError
 
@@ -31,7 +33,14 @@ from agent.services.model_invocation_service import (
     ModelInvocationService,
     ModelRoutingConfigurationError,
 )
+from agent.services.model_inventory_service import ModelInventoryService
 from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
+from agent.services.model_profile_inventory_adapter import (
+    ConfiguredProfileModelInventoryAdapter,
+)
+from agent.services.provider_catalog_inventory_adapter import (
+    ProviderCatalogModelInventoryAdapter,
+)
 from agent.services.model_routing_transfer_service import (
     ModelRoutingConfirmationError,
     ModelRoutingTransferService,
@@ -62,6 +71,9 @@ from . import shared
 
 providers_bp = Blueprint("config_providers", __name__)
 
+_MODEL_INVENTORY_SERVICE: ModelInventoryService | None = None
+_MODEL_INVENTORY_LOCK = threading.Lock()
+
 MODEL_ROUTING_READ_CAPABILITY = "model_routing.read"
 MODEL_ROUTING_VALIDATE_CAPABILITY = "model_routing.validate"
 MODEL_ROUTING_EXPORT_CAPABILITY = "model_routing.export"
@@ -77,6 +89,42 @@ def _known_model_profiles() -> tuple[ModelProfile, ...]:
         return ()
     result = ModelProfileLoader().load_file(path)
     return tuple(profile for profile in result.profiles if profile.enabled)
+
+
+def _configured_model_profiles_path() -> str:
+    import os
+
+    return str(
+        current_app.config.get("MODEL_PROFILES_PATH")
+        or os.environ.get("MODEL_PROFILES_PATH")
+        or ""
+    ).strip()
+
+
+def _model_inventory_service() -> ModelInventoryService:
+    global _MODEL_INVENTORY_SERVICE
+
+    if _MODEL_INVENTORY_SERVICE is not None:
+        return _MODEL_INVENTORY_SERVICE
+    with _MODEL_INVENTORY_LOCK:
+        if _MODEL_INVENTORY_SERVICE is None:
+            from agent.cli_backends.model_inventory import (
+                build_cli_model_inventory_adapters,
+            )
+
+            _MODEL_INVENTORY_SERVICE = ModelInventoryService((
+                ProviderCatalogModelInventoryAdapter(
+                    lambda force_refresh: _model_catalog_service().versioned_catalog(
+                        _catalog_query(force_refresh=force_refresh)
+                    )
+                ),
+                ConfiguredProfileModelInventoryAdapter(
+                    _configured_model_profiles_path,
+                    lambda: SqlModelRoutingConfigurationRepository().load(),
+                ),
+                *build_cli_model_inventory_adapters(),
+            ))
+    return _MODEL_INVENTORY_SERVICE
 
 
 def _model_routing_service() -> ModelRoutingAssignmentService:
@@ -510,6 +558,39 @@ def get_versioned_model_catalog():
         _catalog_query(force_refresh=False)
     )
     return api_response(data=catalog.to_wire())
+
+
+@providers_bp.route("/models/catalog/v2", methods=["GET"])
+@check_auth
+def get_model_inventory_catalog():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _query_args_are_valid("task_kind"):
+        return _model_catalog_input_error("model_catalog_query_invalid")
+    catalog = _model_inventory_service().catalog(force_refresh=False)
+    return api_response(data=catalog.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/catalog/v2/refresh", methods=["POST"])
+@check_auth
+def refresh_model_inventory_catalog():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_CATALOG_REFRESH_CAPABILITY):
+        return _capability_denied_response(MODEL_CATALOG_REFRESH_CAPABILITY)
+    if not _query_args_are_valid("task_kind") or not _refresh_body_is_valid():
+        return _model_catalog_input_error("model_catalog_refresh_command_invalid")
+    rate_limited = _surface_rate_limit_response(MODEL_CATALOG_REFRESH)
+    if rate_limited is not None:
+        return rate_limited
+    catalog = _model_inventory_service().catalog(force_refresh=True)
+    log_audit("model_inventory_refreshed", {
+        "catalog_revision": catalog.catalog_revision,
+        "model_count": len(catalog.models),
+        "source_count": len(catalog.sources),
+        "partial": catalog.partial,
+    })
+    return api_response(data=catalog.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/catalog/v1/refresh", methods=["POST"])

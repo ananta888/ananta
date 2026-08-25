@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MODEL_SUMMARY_SCHEMA = "ananta.model-summary.v1"
 MODEL_CATALOG_SCHEMA = "ananta.model-catalog.v1"
+MODEL_CATALOG_V2_SCHEMA = "ananta.model-catalog.v2"
 IMPORTED_MODEL_VERSION_SCHEMA = "ananta.imported-model-version.v1"
 MODEL_CAPABILITY_FACET_SCHEMA = "ananta.model-capability-facet.v1"
 MODEL_DEFAULT_SELECTION_SCHEMA = "ananta.model-default-selection.v1"
@@ -38,6 +39,22 @@ class ModelHealth(str, Enum):
     HEALTHY = "healthy"
     DEGRADED = "degraded"
     UNAVAILABLE = "unavailable"
+    UNKNOWN = "unknown"
+
+
+class ModelSourceKind(str, Enum):
+    CONFIGURED = "configured"
+    DISCOVERED = "discovered"
+    OBSERVED_RUNTIME = "observed_runtime"
+    IMPORTED = "imported"
+    REMOTE = "remote"
+
+
+class ModelMetadataEvidence(str, Enum):
+    DECLARED = "declared"
+    DETECTED = "detected"
+    BENCHMARK = "benchmark"
+    MANUAL = "manual"
     UNKNOWN = "unknown"
 
 
@@ -257,8 +274,101 @@ class ModelCatalog(_ClosedContract):
         return payload
 
 
+class ModelCapabilityClaim(_ClosedContract):
+    capability_id: str
+    value: Literal["supported", "unsupported", "unknown"] = "unknown"
+    evidence: ModelMetadataEvidence = ModelMetadataEvidence.UNKNOWN
+
+    @field_validator("capability_id")
+    @classmethod
+    def _capability_id(cls, value: str) -> str:
+        normalized = str(value or "").strip().lower()
+        if not _CAPABILITY.fullmatch(normalized):
+            raise ValueError("model_capability_claim_invalid")
+        return normalized
+
+
+class ModelInventoryDescriptor(_ClosedContract):
+    schema_version: Literal["ananta.model-inventory-descriptor.v2"] = Field(
+        default="ananta.model-inventory-descriptor.v2",
+        validation_alias="schema",
+        serialization_alias="schema",
+    )
+    provider_id: str
+    model_id: str
+    executor_id: str
+    display_name: str = Field(min_length=1, max_length=512)
+    runtime: ModelRuntime = ModelRuntime.UNKNOWN
+    source_ids: tuple[str, ...] = ()
+    source_kinds: tuple[ModelSourceKind, ...] = ()
+    profile_ids: tuple[str, ...] = ()
+    aliases: tuple[str, ...] = ()
+    availability: ModelAvailability = ModelAvailability.UNKNOWN
+    health: ModelHealth = ModelHealth.UNKNOWN
+    configured: bool = False
+    installed: bool | None = None
+    loaded: bool | None = None
+    listing_supported: bool = False
+    auth_mode: str | None = Field(default=None, max_length=64)
+    auth_ready: bool | None = None
+    context_window: int | None = Field(default=None, ge=1, le=100_000_000)
+    quantization: str | None = Field(default=None, min_length=1, max_length=64)
+    capabilities: tuple[ModelCapabilityClaim, ...] = ()
+    conflicts: tuple[str, ...] = ()
+    used_by_consumers: tuple[str, ...] = ()
+
+    @field_validator("provider_id", "model_id", "executor_id")
+    @classmethod
+    def _inventory_identifier(cls, value: str) -> str:
+        if not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_inventory_identifier_invalid")
+        return value
+
+    @field_validator("source_ids", "profile_ids", "aliases", "used_by_consumers")
+    @classmethod
+    def _inventory_identifiers(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        normalized = tuple(sorted(set(values)))
+        if len(normalized) > 256 or any(
+            not _IDENTIFIER.fullmatch(value) for value in normalized
+        ):
+            raise ValueError("model_inventory_identifiers_invalid")
+        return normalized
+
+
+class ModelInventorySourceStatus(_ClosedContract):
+    source_id: str
+    source_kind: ModelSourceKind
+    status: Literal["healthy", "degraded", "unavailable", "stale", "unknown"]
+    stale: bool = False
+    from_cache: bool = False
+    last_attempt_at: str | None = Field(default=None, max_length=64)
+    last_success_at: str | None = Field(default=None, max_length=64)
+    reason_code: str | None = Field(default=None, max_length=160)
+    model_count: int = Field(default=0, ge=0, le=100_000)
+
+    @field_validator("source_id")
+    @classmethod
+    def _source_identifier(cls, value: str) -> str:
+        if not _IDENTIFIER.fullmatch(value):
+            raise ValueError("model_inventory_source_invalid")
+        return value
+
+
+class ModelCatalogV2(_ClosedContract):
+    schema_version: Literal["ananta.model-catalog.v2"] = Field(
+        default=MODEL_CATALOG_V2_SCHEMA,
+        validation_alias="schema",
+        serialization_alias="schema",
+    )
+    catalog_revision: int = Field(ge=1)
+    models: tuple[ModelInventoryDescriptor, ...] = ()
+    sources: tuple[ModelInventorySourceStatus, ...] = ()
+    partial: bool = False
+
+
 __all__ = [
     "MODEL_CATALOG_SCHEMA",
+    "MODEL_CATALOG_V2_SCHEMA",
     "IMPORTED_MODEL_VERSION_SCHEMA",
     "MODEL_CAPABILITY_FACET_SCHEMA",
     "MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA",
@@ -266,12 +376,18 @@ __all__ = [
     "MODEL_SUMMARY_SCHEMA",
     "ModelAvailability",
     "ModelCatalog",
+    "ModelCatalogV2",
+    "ModelCapabilityClaim",
     "ModelDefaultSelection",
     "ModelDefaultSelectionCommand",
     "ModelHealth",
+    "ModelInventoryDescriptor",
+    "ModelInventorySourceStatus",
+    "ModelMetadataEvidence",
     "ImportedModelVersion",
     "ModelCapabilityFacet",
     "ModelRuntime",
+    "ModelSourceKind",
     "ModelSummary",
     "ProviderCatalogFailure",
 ]

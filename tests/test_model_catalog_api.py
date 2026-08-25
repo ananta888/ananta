@@ -14,8 +14,12 @@ from ananta_contracts.model_catalog import (
     MODEL_DEFAULT_SELECTION_COMMAND_SCHEMA,
     ModelAvailability,
     ModelCatalog,
+    ModelCatalogV2,
     ModelHealth,
+    ModelInventoryDescriptor,
+    ModelInventorySourceStatus,
     ModelRuntime,
+    ModelSourceKind,
     ModelSummary,
 )
 from ananta_contracts.model_selection import EffectiveModelRoute, ModelRouteDecision
@@ -50,6 +54,36 @@ class _FakeCatalog:
                     is_default=True,
                 ),
             )
+        )
+
+
+class _FakeInventory:
+    def __init__(self):
+        self.force_refresh_values = []
+
+    def catalog(self, *, force_refresh: bool = False):
+        self.force_refresh_values.append(force_refresh)
+        return ModelCatalogV2(
+            catalog_revision=2,
+            models=(ModelInventoryDescriptor(
+                provider_id="codex",
+                model_id="gpt-safe",
+                executor_id="cli:codex",
+                display_name="Codex",
+                runtime=ModelRuntime.CLOUD,
+                source_ids=("cli:codex",),
+                source_kinds=(ModelSourceKind.CONFIGURED,),
+                availability=ModelAvailability.UNKNOWN,
+                health=ModelHealth.UNKNOWN,
+                installed=True,
+                listing_supported=False,
+            ),),
+            sources=(ModelInventorySourceStatus(
+                source_id="cli:codex",
+                source_kind=ModelSourceKind.CONFIGURED,
+                status="healthy",
+                model_count=1,
+            ),),
         )
 
 
@@ -150,6 +184,30 @@ def test_versioned_catalog_and_refresh_use_safe_dedicated_contract(
     }
     assert fake.queries[0].force_refresh is False
     assert fake.queries[1].force_refresh is True
+
+
+def test_catalog_v2_and_refresh_use_canonical_inventory_service(
+    client,
+    app,
+    admin_token,
+    monkeypatch,
+):
+    _enable_model_dashboard(app)
+    inventory = _FakeInventory()
+    monkeypatch.setattr(providers, "_model_inventory_service", lambda: inventory)
+
+    read = client.get(
+        "/models/catalog/v2", headers=_headers(admin_token)
+    )
+    refreshed = client.post(
+        "/models/catalog/v2/refresh", headers=_headers(admin_token)
+    )
+
+    assert read.status_code == refreshed.status_code == 200
+    assert read.json["data"]["schema"] == "ananta.model-catalog.v2"
+    assert read.json["data"]["models"][0]["executor_id"] == "cli:codex"
+    assert read.json["data"]["models"][0]["listing_supported"] is False
+    assert inventory.force_refresh_values == [False, True]
 
 
 def test_refresh_and_default_selection_require_capability(
