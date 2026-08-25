@@ -12,9 +12,7 @@
     <div class="row gap-sm flex-wrap mb-md">
       <button data-testid="settings-section-account" class="button-outline" [class.active-toggle]="selectedSection==='account'" (click)="setSection('account')">Account</button>
       <button data-testid="settings-section-llm" class="button-outline" [class.active-toggle]="selectedSection==='llm'" (click)="setSection('llm')">LLM und KI</button>
-      @if (dashboardFeatures.angularModelDashboard()) {
-        <button class="button-outline" [class.active-toggle]="selectedSection==='models'" (click)="setSection('models')">Modelle</button>
-      }
+      <button data-testid="settings-section-models" class="button-outline" [class.active-toggle]="selectedSection==='models'" (click)="setSection('models')">Modelle</button>
       <button data-testid="settings-section-quality" class="button-outline" [class.active-toggle]="selectedSection==='quality'" (click)="setSection('quality')">Qualitaetsregeln</button>
       <button class="button-outline" [class.active-toggle]="selectedSection==='voice'" (click)="setSection('voice')" data-testid="settings-section-voice">Voice &amp; Fusion</button>
       <button data-testid="settings-section-system" class="button-outline" [class.active-toggle]="selectedSection==='system'" (click)="setSection('system')">System</button>
@@ -22,7 +20,7 @@
     </div>
 
     @if (selectedSection === 'llm' || selectedSection === 'erweitert') { <app-settings-llm [state]="this" /> }
-    @if (selectedSection === 'models' && dashboardFeatures.angularModelDashboard()) { <app-model-dashboard /> }
+    @if (selectedSection === 'models') { <app-model-dashboard /> }
     @if (selectedSection === 'quality') { <app-settings-quality [state]="this" /> }
     @if (selectedSection === 'system') { <app-settings-system [state]="this" /> }
     @if (selectedSection === 'voice' && hub) { <app-settings-voice [hubUrl]="hub.url" /> }

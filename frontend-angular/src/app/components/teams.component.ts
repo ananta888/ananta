@@ -9,6 +9,7 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 import { AdminFacade } from '../features/admin/admin.facade';
 import { recommendBlueprint } from '../shared/blueprint-recommendation';
 import { AppShellStateService } from '../services/app-shell-state.service';
+import { CognitiveStyleSummaryComponent } from '../features/system/cognitive-style/cognitive-style-summary.component';
 
 type BlueprintRoleForm = {
   id?: string;
@@ -39,7 +40,7 @@ type GuidedSetupForm = {
 @Component({
   standalone: true,
   selector: 'app-teams',
-  imports: [FormsModule, UiSkeletonComponent],
+  imports: [FormsModule, UiSkeletonComponent, CognitiveStyleSummaryComponent],
   templateUrl: './teams.component.html',
 })
 export class TeamsComponent implements OnInit {

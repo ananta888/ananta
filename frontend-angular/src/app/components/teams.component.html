@@ -428,6 +428,13 @@
                             <span class="badge badge-gray">{{ getBlueprintRoleName(team, member.blueprint_role_id) }}</span>
                           }
                         </div>
+                        <details>
+                          <summary>Cognitive Style</summary>
+                          <app-cognitive-style-summary
+                            [roleId]="getRoleName(member.role_id)"
+                            [modelProfileId]="member.model_profile_id || member.model_profile || ''"
+                          />
+                        </details>
                       </div>
                     }
                   </div>

@@ -433,46 +433,15 @@ def _catalog_query(*, force_refresh: bool | None = None) -> CatalogQuery:
 
 
 def _model_catalog_feature_enabled() -> bool:
-    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    defaults = {
-        "feature_angular_model_dashboard_enabled": getattr(
-            runtime_settings,
-            "feature_angular_model_dashboard_enabled",
-            False,
-        ),
-        "feature_tui_model_menu_enabled": getattr(
-            runtime_settings,
-            "feature_tui_model_menu_enabled",
-            False,
-        ),
-        "feature_model_catalog_v2_enabled": getattr(
-            runtime_settings, "feature_model_catalog_v2_enabled", False
-        ),
-        "feature_model_routing_editor_enabled": getattr(
-            runtime_settings, "feature_model_routing_editor_enabled", False
-        ),
-        "feature_legacy_model_picker_deprecation_enabled": getattr(
-            runtime_settings,
-            "feature_legacy_model_picker_deprecation_enabled",
-            False,
-        ),
-    }
-    return resolve_dashboard_feature_flags(
-        app_cfg,
-        defaults=defaults,
-    ).model_catalog_enabled
+    """The released catalog is canonical; retained flags no longer hide reads."""
+
+    return True
 
 
 def _model_catalog_v2_enabled() -> bool:
-    app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    return resolve_dashboard_feature_flags(app_cfg, defaults={
-        "feature_angular_model_dashboard_enabled": getattr(
-            runtime_settings, "feature_angular_model_dashboard_enabled", False
-        ),
-        "feature_model_catalog_v2_enabled": getattr(
-            runtime_settings, "feature_model_catalog_v2_enabled", False
-        ),
-    }).model_catalog_v2
+    """Catalog v2 passed its release gate and remains additive to v1."""
+
+    return True
 
 
 def _model_routing_editor_enabled() -> bool:

@@ -15,11 +15,13 @@ import { TaskManagementFacade } from '../features/tasks/task-management.facade';
 import { ProotInstallProgressEvent, PythonRuntimeService } from '../services/python-runtime.service';
 import { MobileProotService } from '../services/mobile-proot.service';
 import { AppShellStateService } from '../services/app-shell-state.service';
+import { DashboardFeatureFlagStore } from '../features/dashboard-foundation/dashboard-feature-flags';
+import { CognitiveStyleSummaryComponent } from '../features/system/cognitive-style/cognitive-style-summary.component';
 
 @Component({
   standalone: true,
   selector: 'app-agent-panel',
-  imports: [FormsModule, TerminalComponent, AsyncPipe],
+  imports: [FormsModule, TerminalComponent, AsyncPipe, CognitiveStyleSummaryComponent],
   styles: [`
     .tab-btn {
       padding: 8px 16px;
@@ -99,8 +101,15 @@ import { AppShellStateService } from '../services/app-shell-state.service';
     @if (activeTab === 'llm') {
       <div class="card grid">
         <h3>LLM Konfiguration</h3>
-        <p class="muted">Diese Einstellungen werden direkt im Agenten gespeichert und für seine Aufgaben verwendet.</p>
-        <div class="grid cols-2">
+        @if (dashboardFeatures.legacyModelPickerDeprecation()) {
+          <div class="card card-light-blue">
+            <strong>Modellwahl zentralisiert</strong>
+            <p class="muted">Legacy-Wert: {{ llmConfig.provider || 'Default' }} / {{ llmConfig.model || 'Default' }}. Neue Agent-Zuweisungen werden revisionsgebunden unter Modelle gepflegt.</p>
+            <a class="button-outline" href="/settings?section=models">Agent-Scope unter Modelle bearbeiten</a>
+          </div>
+        } @else {
+          <p class="muted">Legacy-Rollbackpfad: Provider und Modell werden direkt im Agenten gespeichert.</p>
+          <div class="grid cols-2">
           <label>Provider
             <select [(ngModel)]="llmConfig.provider">
               <option value="ollama">Ollama</option>
@@ -113,7 +122,12 @@ import { AppShellStateService } from '../services/app-shell-state.service';
           <label>Model
             <input [(ngModel)]="llmConfig.model" placeholder="llama3, gpt-4o-mini, etc." />
           </label>
-        </div>
+          </div>
+        }
+        <app-cognitive-style-summary
+          [roleId]="llmConfig.style_role_id || llmConfig.model_role || ''"
+          [modelProfileId]="llmConfig.model_profile_id || llmConfig.profile_id || ''"
+        />
         @if (llmConfig.provider === 'lmstudio') {
           <label>LM Studio Modus
             <select [(ngModel)]="llmConfig.lmstudio_api_mode">
@@ -298,6 +312,7 @@ import { AppShellStateService } from '../services/app-shell-state.service';
     `
 })
 export class AgentPanelComponent implements OnDestroy {
+  readonly dashboardFeatures = inject(DashboardFeatureFlagStore);
   private route = inject(ActivatedRoute);
   private dir = inject(AgentDirectoryService);
   private api = inject(AgentApiService);

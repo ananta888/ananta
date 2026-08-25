@@ -6,11 +6,12 @@ import { AgentEntry } from '../services/agent-directory.service';
 import { NotificationService } from '../services/notification.service';
 import { UiSkeletonComponent } from './ui-skeleton.component';
 import { SystemFacade } from '../features/system/system.facade';
+import { CognitiveStyleSummaryComponent } from '../features/system/cognitive-style/cognitive-style-summary.component';
 
 @Component({
   standalone: true,
   selector: 'app-agents-list',
-  imports: [FormsModule, RouterLink, UiSkeletonComponent],
+  imports: [FormsModule, RouterLink, UiSkeletonComponent, CognitiveStyleSummaryComponent],
   template: `
     <div class="row" style="justify-content: space-between; align-items: flex-end;">
       <div>
@@ -51,6 +52,13 @@ import { SystemFacade } from '../features/system/system.facade';
             </div>
           </div>
           <div class="muted">{{a.url}}</div>
+          <details>
+            <summary>Cognitive Style und Routingbegründung</summary>
+            <app-cognitive-style-summary
+              [roleId]="$any(a).style_role_id || $any(a).model_role || ''"
+              [modelProfileId]="$any(a).model_profile_id || ''"
+            />
+          </details>
           <div class="row" style="margin-top:8px">
             <button (click)="ping(a)">Health</button>
             <select [(ngModel)]="a['_terminalMode']" style="max-width: 130px;">

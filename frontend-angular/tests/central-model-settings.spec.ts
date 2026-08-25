@@ -70,7 +70,7 @@ async function modelSettingsFixtures(page: Page) {
   await page.route('**/config/features/v1', route => json(route, {
     schema: 'ananta.dashboard-feature-flags.v1',
     features: {
-      angular_kanban: false, angular_model_dashboard: true, model_catalog_v2: true,
+      angular_kanban: false, angular_model_dashboard: false, model_catalog_v2: false,
       model_routing_editor: true, legacy_model_picker_deprecation: true,
     },
   }));

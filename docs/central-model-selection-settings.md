@@ -258,6 +258,12 @@ FEATURE_ANGULAR_MODEL_DASHBOARD_ENABLED
 5. Nach stabiler Shadow-Evidenz Legacy-Picker deprecaten. Alte Deep-Links führen
    weiterhin auf die kanonische Modelle-Seite.
 
+Nach bestandenem Release-Gate sind die Modelle-Navigation und Catalog-v2-Reads
+kanonisch und nicht mehr von den früheren Dashboard-/Catalog-Flags abhängig.
+Die alten Schlüssel bleiben während der kompatiblen Migration lesbar. Nur der
+mutierende Routing-Editor und die Legacy-Picker-Deprecation bleiben getrennte,
+fail-closed Rollout-/Rollback-Schalter.
+
 Optional kann der Evidenzpfad gesetzt werden:
 
 ```bash

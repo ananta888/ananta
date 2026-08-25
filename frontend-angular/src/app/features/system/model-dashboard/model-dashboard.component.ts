@@ -13,8 +13,7 @@ import { ModelRoutingMigrationStore } from './model-routing-migration.store';
   imports: [FormsModule, JsonPipe],
   providers: [ModelDashboardStore, ModelRoutingMigrationStore],
   template: `
-    @if (features.angularModelDashboard()) {
-      <section class="model-dashboard" aria-labelledby="model-dashboard-title" data-testid="model-dashboard">
+    <section class="model-dashboard" aria-labelledby="model-dashboard-title" data-testid="model-dashboard">
         <header>
           <div>
             <p class="eyebrow">Hub Model Control Plane</p>
@@ -585,8 +584,7 @@ import { ModelRoutingMigrationStore } from './model-routing-migration.store';
             }
           </section>
         }
-      </section>
-    }
+    </section>
   `,
   styles: [`
     .model-dashboard { display: grid; gap: 1rem; min-width: 0; }
@@ -653,11 +651,9 @@ export class ModelDashboardComponent implements OnInit {
   selectedStyleTargetId = '';
 
   ngOnInit(): void {
-    this.features.ensureLoaded().subscribe(flags => {
-      if (flags.angularModelDashboard) {
-        this.store.load();
-        this.migration.load();
-      }
+    this.features.ensureLoaded().subscribe(() => {
+      this.store.load();
+      this.migration.load();
     });
   }
 

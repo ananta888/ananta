@@ -174,7 +174,7 @@ def test_routing_editor_activation_is_blocked_by_release_gate(
     ) is not True
 
 
-def test_versioned_catalog_is_fail_closed_until_feature_enabled(
+def test_versioned_catalog_is_canonical_without_dashboard_feature_flag(
     client,
     admin_token,
 ):
@@ -183,11 +183,11 @@ def test_versioned_catalog_is_fail_closed_until_feature_enabled(
         headers=_headers(admin_token),
     )
 
-    assert response.status_code == 404
-    assert response.json["message"] == "model_catalog_feature_disabled"
+    assert response.status_code == 200
+    assert response.json["data"]["schema"] == "ananta.model-catalog.v1"
 
 
-def test_model_catalog_uses_runtime_feature_flag_default(app, monkeypatch):
+def test_model_catalog_remains_enabled_after_legacy_flag_is_disabled(app, monkeypatch):
     app.config["AGENT_CONFIG"] = {}
     monkeypatch.setattr(
         providers.runtime_settings,
@@ -197,6 +197,7 @@ def test_model_catalog_uses_runtime_feature_flag_default(app, monkeypatch):
 
     with app.app_context():
         assert providers._model_catalog_feature_enabled() is True
+        assert providers._model_catalog_v2_enabled() is True
 
 
 def test_versioned_catalog_and_refresh_use_safe_dedicated_contract(
@@ -265,7 +266,7 @@ def test_catalog_v2_and_refresh_use_canonical_inventory_service(
     assert inventory.force_refresh_values == [False, True]
 
 
-def test_staged_catalog_and_editor_flags_fail_closed_independently(
+def test_released_catalog_is_canonical_while_editor_flag_remains_fail_closed(
     client,
     app,
     admin_token,
@@ -277,6 +278,7 @@ def test_staged_catalog_and_editor_flags_fail_closed_independently(
     config["feature_model_routing_editor_enabled"] = False
     app.config["AGENT_CONFIG"] = config
     monkeypatch.setattr(providers, "_model_catalog_service", lambda: _FakeCatalog())
+    monkeypatch.setattr(providers, "_model_inventory_service", lambda: _FakeInventory())
     assignments = ModelRoutingAssignmentService(
         repository=InMemoryModelRoutingConfigurationRepository(),
         consumers=ModelConsumerRegistry.defaults(),
@@ -298,8 +300,8 @@ def test_staged_catalog_and_editor_flags_fail_closed_independently(
     )
 
     assert v1.status_code == 200
-    assert v2.status_code == 404
-    assert v2.json["message"] == "model_catalog_feature_disabled"
+    assert v2.status_code == 200
+    assert v2.json["data"]["schema"] == "ananta.model-catalog.v2"
     assert mutation.status_code == 404
     assert mutation.json["message"] == "model_routing_editor_feature_disabled"
     assert assignments.read().revision == 0
