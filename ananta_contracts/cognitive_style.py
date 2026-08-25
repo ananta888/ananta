@@ -104,6 +104,59 @@ class StyleBenchmarkRunCommand(_Closed):
     temperatures: tuple[float, ...] = Field(default=(0.0, 0.4), min_length=2, max_length=4)
 
 
+class StyleProfileDriftCommand(_Closed):
+    schema_version: Literal["ananta.style-profile-drift-command.v1"] = Field(
+        default="ananta.style-profile-drift-command.v1", alias="schema"
+    )
+    contexts: tuple[StyleMeasurementContext, ...] = Field(max_length=1000)
+    stale_after_days: int = Field(default=90, ge=1, le=3650)
+
+
+class StyleProfileDriftEntry(_Closed):
+    model_profile_id: str
+    status: Literal[
+        "current", "missing", "model_revision_drift", "measurement_context_drift",
+        "benchmark_revision_drift", "stale", "expired",
+    ]
+    active_profile_id: str | None = None
+    measured_at: str | None = None
+    rebenchmark_due: bool
+    reason_codes: tuple[str, ...] = ()
+
+
+class StyleProfileDriftReport(_Closed):
+    schema_version: Literal["ananta.style-profile-drift-report.v1"] = Field(
+        default="ananta.style-profile-drift-report.v1", alias="schema"
+    )
+    benchmark_revision: str
+    entries: tuple[StyleProfileDriftEntry, ...]
+    rebenchmark_due_count: int = Field(ge=0)
+
+
+class StyleOverlayComparisonCommand(_Closed):
+    schema_version: Literal["ananta.style-overlay-comparison-command.v1"] = Field(
+        default="ananta.style-overlay-comparison-command.v1", alias="schema"
+    )
+    baseline_profile_id: str
+    overlay_profile_id: str
+    overlay_id: str
+
+
+class StyleOverlayComparisonReport(_Closed):
+    schema_version: Literal["ananta.style-overlay-comparison-report.v1"] = Field(
+        default="ananta.style-overlay-comparison-report.v1", alias="schema"
+    )
+    baseline_profile_id: str
+    overlay_profile_id: str
+    overlay_id: str
+    comparable: bool
+    reason_codes: tuple[str, ...] = ()
+    score_deltas: dict[StyleDimension, float] = Field(default_factory=dict)
+    reinforced_dimensions_improved: tuple[StyleDimension, ...] = ()
+    reinforced_dimensions_regressed: tuple[StyleDimension, ...] = ()
+    permission_delta: Literal["none"] = "none"
+
+
 class RoleStyleOverlay(_Closed):
     overlay_id: str
     role_id: str
@@ -191,6 +244,7 @@ class StyleMismatchEvidence(_Closed):
     correlation_score: float = Field(ge=-1, le=1)
     hypothesis: str = Field(min_length=1, max_length=1000)
     alternative_causes: tuple[str, ...] = Field(min_length=1)
+    evidence_refs: tuple[str, ...] = Field(default=(), max_length=100)
     causes_reclassification: Literal[False] = False
 
 
@@ -229,12 +283,86 @@ class StyleMismatchRecordCommand(_Closed):
     evidence: StyleMismatchEvidence
 
 
+class StyleRetrospectiveSignal(_Closed):
+    agent_id: str
+    role_id: str
+    model_profile_id: str
+    signal: Literal[
+        "rework", "overthinking", "rule_violation", "missing_initiative", "scope_expansion"
+    ]
+    observed_at: str
+    severity: float = Field(ge=0, le=1)
+    evidence_refs: tuple[str, ...] = Field(min_length=1, max_length=100)
+
+
+class StyleRetrospectiveAnalysisCommand(_Closed):
+    schema_version: Literal["ananta.style-retrospective-analysis-command.v1"] = Field(
+        default="ananta.style-retrospective-analysis-command.v1", alias="schema"
+    )
+    signals: tuple[StyleRetrospectiveSignal, ...] = Field(min_length=1, max_length=500)
+
+
+class StyleRetrospectiveAnalysisReport(_Closed):
+    schema_version: Literal["ananta.style-retrospective-analysis-report.v1"] = Field(
+        default="ananta.style-retrospective-analysis-report.v1", alias="schema"
+    )
+    hypotheses: tuple[StyleMismatchEvidence, ...]
+    automatic_reclassification_performed: Literal[False] = False
+    causal_claim_made: Literal[False] = False
+
+
+class StyleExperimentMetrics(_Closed):
+    quality_score: float = Field(ge=0, le=1)
+    rework_count: int = Field(ge=0)
+    cost_units: float = Field(ge=0)
+    duration_seconds: float = Field(ge=0)
+    gates_passed: int = Field(ge=0)
+    gates_total: int = Field(ge=0)
+
+
+class ComplementaryStyleExperimentCommand(_Closed):
+    schema_version: Literal["ananta.complementary-style-experiment-command.v1"] = Field(
+        default="ananta.complementary-style-experiment-command.v1", alias="schema"
+    )
+    experiment_id: str
+    complementary: StyleExperimentMetrics
+    homogeneous_control: StyleExperimentMetrics
+    minimum_quality_delta: float = Field(default=0.02, ge=0, le=1)
+
+
+class ComplementaryStyleExperimentReport(_Closed):
+    schema_version: Literal["ananta.complementary-style-experiment-report.v1"] = Field(
+        default="ananta.complementary-style-experiment-report.v1", alias="schema"
+    )
+    experiment_id: str
+    outcome: Literal["supported", "inconclusive", "falsified"]
+    quality_delta: float
+    rework_delta: int
+    cost_delta: float
+    duration_delta_seconds: float
+    gate_rate_delta: float
+    security_or_capability_gate_bypassed: Literal[False] = False
+    reason_codes: tuple[str, ...] = ()
+
+
 class StyleEvolutionProposalCommand(_Closed):
     schema_version: Literal["ananta.style-evolution-proposal-command.v1"] = Field(
         default="ananta.style-evolution-proposal-command.v1", alias="schema"
     )
     expected_revision: int = Field(ge=0)
     proposal: StyleEvolutionProposal
+
+
+class StyleEvolutionFromEvidenceCommand(_Closed):
+    schema_version: Literal["ananta.style-evolution-from-evidence-command.v1"] = Field(
+        default="ananta.style-evolution-from-evidence-command.v1", alias="schema"
+    )
+    expected_revision: int = Field(ge=0)
+    evidence_id: str
+    proposal_id: str
+    proposal_type: Literal["style_target", "role_overlay", "model_routing"]
+    experiment_id: str | None = None
+    sprint_id: str | None = None
 
 
 class StyleEvolutionTransitionMutationCommand(_Closed):
@@ -267,12 +395,19 @@ class CognitiveStylePersistedState(_Closed):
 
 
 __all__ = [
+    "ComplementaryStyleExperimentCommand", "ComplementaryStyleExperimentReport",
     "CognitiveStyleConfiguration", "CognitiveStyleMutationCommand",
     "CognitiveStylePersistedState", "CognitiveStyleReadModel", "RoleStyleOverlay", "StyleBenchmarkObservation",
     "StyleBenchmarkPlan", "StyleBenchmarkResult", "StyleBenchmarkRunCommand",
+    "StyleExperimentMetrics", "StyleOverlayComparisonCommand",
+    "StyleOverlayComparisonReport", "StyleProfileDriftCommand",
+    "StyleProfileDriftEntry", "StyleProfileDriftReport",
     "StyleBenchmarkVariant", "StyleEvolutionProposal",
-    "StyleEvolutionProposalCommand", "StyleEvolutionTransitionCommand",
+    "StyleEvolutionFromEvidenceCommand", "StyleEvolutionProposalCommand",
+    "StyleEvolutionTransitionCommand",
     "StyleEvolutionTransitionMutationCommand", "StyleMeasurementContext",
     "StyleMismatchEvidence", "StyleMismatchRecordCommand", "StyleDimension",
+    "StyleRetrospectiveAnalysisCommand", "StyleRetrospectiveAnalysisReport",
+    "StyleRetrospectiveSignal",
     "TeamStyleDiversityCommand", "TeamStyleDiversityReport", "TeamStyleMember",
 ]

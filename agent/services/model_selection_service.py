@@ -664,13 +664,33 @@ class CognitiveStyleFitPolicy:
             ("truth_exploration", profile.scores.truth_exploration, target.truth_exploration),
             ("initiative_assertiveness", profile.scores.initiative_assertiveness, target.initiative_assertiveness),
         )
-        weighted = tuple((name, self._dimension(value, expected) * expected.weight) for name, value, expected in pairs)
+        contributions = [
+            (name, self._dimension(value, expected) * expected.weight)
+            for name, value, expected in pairs
+        ]
         denominator = sum(expected.weight for _, _, expected in pairs)
-        score = sum(value for _, value in weighted) / denominator if denominator else 0.0
+        score = sum(value for _, value in contributions) / denominator if denominator else 0.0
+        values = {name: value for name, value, _expected in pairs}
+        for name, expected in target.must_have.items():
+            fit = self._dimension(values[name], expected)
+            contributions.append((f"must_have:{name}", fit * expected.weight))
+            denominator += expected.weight
+            score = (
+                (score * (denominator - expected.weight)) + fit * expected.weight
+            ) / denominator if denominator else 0.0
+        for name, ranges in target.avoid_ranges.items():
+            for avoided in ranges:
+                if avoided.minimum <= values[name] <= avoided.maximum:
+                    penalty = max(avoided.weight, 1.0) / 10.0
+                    contributions.append((f"avoid:{name}", -penalty))
+                    score = max(0.0, score - penalty)
         return StyleFitDecision(
             score=round(score * profile.confidence, 6),
             confidence=profile.confidence,
-            contributions=weighted,
+            contributions=tuple(contributions),
+            # Must-have and avoid ranges remain advisory: capability, safety and
+            # permission eligibility is owned by the hard gates evaluated first.
+            eligible=True,
         )
 
 

@@ -48,6 +48,46 @@ TASK_FAILURE_REASON_COUNT = Counter("task_failure_reason_total", "Task failures 
 WORKSPACE_WRITE_CONFLICT_COUNT = Counter("workspace_write_conflict_total", "Workspace write conflicts")
 HTTP_REQUEST_DURATION = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "target"])
 RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
+MODEL_INVENTORY_SOURCE_OUTCOMES_TOTAL = Counter(
+    "model_inventory_source_outcomes_total",
+    "Model inventory source collection outcomes with bounded source kind and status",
+    ["source_kind", "status"],
+)
+MODEL_ROUTING_DECISIONS_TOTAL = Counter(
+    "model_routing_decisions_total",
+    "Central model routing decisions grouped by bounded outcome",
+    ["outcome"],
+)
+MODEL_ROUTING_VALIDATION_ERRORS_TOTAL = Counter(
+    "model_routing_validation_errors_total",
+    "Central model routing validation issues grouped by bounded severity",
+    ["severity"],
+)
+AGENT_STYLE_BENCHMARKS_TOTAL = Counter(
+    "agent_style_benchmarks_total",
+    "Cognitive style benchmark lifecycle events",
+    ["outcome"],
+)
+AGENT_STYLE_ROUTING_DECISIONS_TOTAL = Counter(
+    "agent_style_routing_decisions_total",
+    "Cognitive style soft-ranking decisions grouped by bounded outcome",
+    ["outcome"],
+)
+AGENT_STYLE_MISMATCH_EVENTS_TOTAL = Counter(
+    "agent_style_mismatch_events_total",
+    "Cognitive style retrospective mismatch hypotheses",
+    ["signal"],
+)
+AGENT_STYLE_EVOLUTION_PROPOSALS_TOTAL = Counter(
+    "agent_style_evolution_proposals_total",
+    "Cognitive style evolution proposal lifecycle events",
+    ["proposal_type", "status"],
+)
+AGENT_STYLE_EXPERIMENTS_TOTAL = Counter(
+    "agent_style_experiments_total",
+    "Paired cognitive style experiment outcomes",
+    ["outcome"],
+)
 EVOLUTION_ANALYSES_TOTAL = Counter(
     "evolution_analyses_total",
     "Total Evolution analyses grouped by provider, trigger and outcome status",

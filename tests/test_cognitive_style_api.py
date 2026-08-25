@@ -166,3 +166,78 @@ def test_mismatch_and_evolution_endpoints_preserve_review_boundary(
     assert mismatch.status_code == proposal.status_code == 200
     assert mismatch.json["data"]["mismatch_evidence"][0]["causes_reclassification"] is False
     assert unreviewed_apply.status_code == 400
+
+
+def test_drift_retrospective_evidence_proposal_and_experiment_endpoints(
+    client, admin_token, monkeypatch,
+):
+    _setup(monkeypatch)
+    headers = _headers(admin_token)
+    drift = client.post(
+        "/models/styles/v1/drift",
+        json={
+            "schema": "ananta.style-profile-drift-command.v1",
+            "contexts": [_context()],
+            "stale_after_days": 90,
+        },
+        headers=headers,
+    )
+    retrospective = client.post(
+        "/models/styles/v1/retrospectives/analyze",
+        json={
+            "schema": "ananta.style-retrospective-analysis-command.v1",
+            "signals": [{
+                "agent_id": "agent-1", "role_id": "reviewer",
+                "model_profile_id": "local-chat", "signal": "rework",
+                "observed_at": "2026-08-25T00:00:00Z", "severity": .5,
+                "evidence_refs": ["RUN_caller_supplied"],
+            }],
+        },
+        headers=headers,
+    )
+    hypothesis = retrospective.json["data"]["hypotheses"][0]
+    mismatch = client.post(
+        "/models/styles/v1/mismatches",
+        json={
+            "schema": "ananta.style-mismatch-record-command.v1",
+            "expected_revision": 0,
+            "evidence": hypothesis,
+        },
+        headers=headers,
+    )
+    proposal = client.post(
+        "/models/styles/v1/proposals/from-evidence",
+        json={
+            "schema": "ananta.style-evolution-from-evidence-command.v1",
+            "expected_revision": 1,
+            "evidence_id": hypothesis["evidence_id"],
+            "proposal_id": "proposal-from-retro",
+            "proposal_type": "role_overlay",
+            "experiment_id": "experiment-next-sprint",
+        },
+        headers=headers,
+    )
+    experiment = client.post(
+        "/models/styles/v1/experiments/evaluate",
+        json={
+            "schema": "ananta.complementary-style-experiment-command.v1",
+            "experiment_id": "paired-run-1",
+            "complementary": {
+                "quality_score": .9, "rework_count": 1, "cost_units": 5,
+                "duration_seconds": 10, "gates_passed": 3, "gates_total": 3,
+            },
+            "homogeneous_control": {
+                "quality_score": .7, "rework_count": 2, "cost_units": 4,
+                "duration_seconds": 9, "gates_passed": 2, "gates_total": 3,
+            },
+        },
+        headers=headers,
+    )
+
+    assert drift.status_code == 200
+    assert drift.json["data"]["entries"][0]["status"] == "missing"
+    assert retrospective.status_code == mismatch.status_code == proposal.status_code == 200
+    assert retrospective.json["data"]["causal_claim_made"] is False
+    assert proposal.json["data"]["evolution_proposals"][0]["review_required"] is True
+    assert experiment.status_code == 200
+    assert experiment.json["data"]["outcome"] == "supported"
