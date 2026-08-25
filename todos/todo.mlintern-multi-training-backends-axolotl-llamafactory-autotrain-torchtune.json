@@ -1,0 +1,698 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-08-25",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "mlintern_multi_training_backends",
+  "title": "ML-Intern: optionale Backends fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
+  "status": "todo",
+  "priority": "P1",
+  "purpose": "Die bestehende ML-Intern-Trainingsplattform um vier austauschbare Open-Source-Backends erweitern, ohne Unsloth oder PEFT/TRL zu verdraengen und ohne eine zweite Control Plane einzufuehren.",
+  "goal": "Ananta kann Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune ueber denselben Hub-gesteuerten Dataset-, Job-, Evaluations-, Artefakt-, Approval- und Rollback-Lebenszyklus verwenden. Backend-Auswahl erfolgt transparent anhand von Modell, Methode, Hardware, Reproduzierbarkeit und gemessener Qualitaet.",
+  "license_review": {
+    "reviewed_at": "2026-08-25",
+    "result": "all_requested_projects_have_open_source_licenses",
+    "projects": [
+      {
+        "name": "Axolotl",
+        "repository": "https://github.com/axolotl-ai-cloud/axolotl",
+        "license": "Apache-2.0",
+        "license_source": "https://github.com/axolotl-ai-cloud/axolotl/blob/main/LICENSE",
+        "integration_status": "todo"
+      },
+      {
+        "name": "LLaMA-Factory",
+        "repository": "https://github.com/hiyouga/LlamaFactory",
+        "license": "Apache-2.0",
+        "license_source": "https://github.com/hiyouga/LlamaFactory/blob/main/LICENSE",
+        "integration_status": "todo"
+      },
+      {
+        "name": "AutoTrain Advanced",
+        "repository": "https://github.com/huggingface/autotrain-advanced",
+        "license": "Apache-2.0",
+        "license_source": "https://github.com/huggingface/autotrain-advanced/blob/main/LICENSE",
+        "integration_status": "todo"
+      },
+      {
+        "name": "torchtune",
+        "repository": "https://github.com/meta-pytorch/torchtune",
+        "license": "BSD-3-Clause",
+        "license_source": "https://github.com/meta-pytorch/torchtune/blob/main/LICENSE",
+        "integration_status": "todo"
+      }
+    ],
+    "mandatory_follow_up": [
+      "Jede konkrete Paketversion und deren transitive Abhaengigkeiten vor Aktivierung erneut per SBOM und Lizenzpolicy pruefen.",
+      "Softwarelizenz, Modelllizenz, Dataset-Lizenz und erzeugte Artefaktlizenz getrennt behandeln.",
+      "NOTICE-, Copyright- und Attribution-Pflichten in Images, Distribution und Third-Party-Dokumentation uebernehmen.",
+      "Lizenzwechsel oder neue nicht-offene Zusatzkomponenten duerfen nicht automatisch aktiviert werden."
+    ]
+  },
+  "current_state": {
+    "control_plane": "ML-Intern / Hub",
+    "implemented_real_backends": [
+      "PEFT/TRL",
+      "Unsloth Text",
+      "Unsloth Vision",
+      "Unsloth Audio",
+      "Unsloth Embeddings"
+    ],
+    "test_backend": "Mock",
+    "requested_new_backends": [
+      "Axolotl",
+      "LLaMA-Factory",
+      "AutoTrain Advanced",
+      "torchtune"
+    ]
+  },
+  "architecture_decisions": [
+    "ML-Intern bleibt einzige Control Plane fuer Admission, Queue, Tenant-Bindung, Policy, Audit, Approval, Promotion und Rollback.",
+    "Neue Frameworks werden als optionale Worker-Backend-Adapter umgesetzt; sie erhalten keine direkten Hub-, Datenbank- oder Browser-Zugriffe.",
+    "Keine WebUI eines Drittanbieters wird standardmaessig exponiert. Angular spricht ausschliesslich mit dem Ananta-Hub.",
+    "Backend-Konfigurationen werden aus strikt typisierten Ananta-Vertraegen erzeugt; Nutzer duerfen keine freien Shell-Kommandos, Python-Module, Importpfade oder Host-Dateipfade einschleusen.",
+    "Reales Training bleibt worker-only, offline-by-default und fail-closed. Modell- oder Dataset-Downloads benoetigen getrennte, explizit netzwerkberechtigte Import-Jobs.",
+    "Jeder Backend-Adapter erzeugt dasselbe normalisierte Ergebnis: Metriken, Checkpoints, Adapter, Exporte, Provenance, Logs und Fehlercodes.",
+    "Unsloth und PEFT/TRL bleiben erhalten. Neue Backends muessen einen nachweisbaren Mehrwert liefern und duerfen nicht automatisch zum Default werden.",
+    "Backend-Version, Container-Digest, Dependency-Lock, CUDA/PyTorch-Version, Modell- und Dataset-Digest sowie vollstaendige Trainingskonfiguration werden im Artefaktmanifest gespeichert.",
+    "Adapter-Aktivierung erfordert weiterhin Evaluation und explizites Approval; ein erfolgreicher Trainingsprozess aktiviert nichts automatisch.",
+    "Full-Fine-Tuning, LoRA, QLoRA, DPO und weitere Methoden werden als getrennte Capabilities behandelt und nur pro Backend freigeschaltet, wenn real getestet."
+  ],
+  "non_goals": [
+    "Alle vier Frameworks ungeprueft gleichzeitig als Produktivstandard aktivieren.",
+    "ML-Intern durch eine fremde CLI, WebUI oder Cloud-Control-Plane ersetzen.",
+    "Unsloth oder PEFT/TRL entfernen.",
+    "Beliebige Upstream-Konfigurationen ungefiltert aus Requests ausfuehren.",
+    "Modelle, Datasets oder Trainingsdaten ohne explizite Policy in externe Dienste hochladen.",
+    "Paper-, README- oder Hersteller-Benchmarkwerte als Ananta-Leistungsversprechen uebernehmen.",
+    "Softwarelizenz automatisch auf Modelle, Datasets oder Adapterartefakte uebertragen."
+  ],
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Lizenz, Forschung und gemeinsame Vertraege",
+      "status": "todo",
+      "tasks": [
+        "MTB-001",
+        "MTB-002",
+        "MTB-003"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Vier isolierte Backend-Adapter",
+      "status": "todo",
+      "tasks": [
+        "MTB-004",
+        "MTB-005",
+        "MTB-006",
+        "MTB-007"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Orchestrierung, Artefakte und Bedienung",
+      "status": "todo",
+      "tasks": [
+        "MTB-008",
+        "MTB-009",
+        "MTB-010",
+        "MTB-011"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Benchmark, Sicherheit und Rollout",
+      "status": "todo",
+      "tasks": [
+        "MTB-012",
+        "MTB-013",
+        "MTB-014",
+        "MTB-015"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "MTB-001",
+      "title": "Upstream- und Lizenzmatrix versionsgebunden erstellen",
+      "type": "research",
+      "milestone": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [],
+      "target_files": [
+        "docs/research/training-backend-matrix.md",
+        "docs/security/third-party-components.md",
+        "config/licenses/training-backends.v1.json"
+      ],
+      "implementation": [
+        "Offizielle Releases, Python-Versionen, PyTorch/CUDA-Anforderungen, unterstuetzte Modelle, Methoden, Quantisierungen, Distributed-Strategien, Checkpoint- und Exportformate erfassen.",
+        "Apache-2.0 fuer Axolotl, LLaMA-Factory und AutoTrain Advanced sowie BSD-3-Clause fuer torchtune mit Release-Tag und Commit-Digest belegen.",
+        "SBOM, transitive Lizenzen, NOTICE-Dateien und optionale Komponenten getrennt pruefen.",
+        "Cloud-, Hub- oder Telemetriepfade von rein lokaler Ausfuehrung unterscheiden."
+      ],
+      "acceptance_criteria": [
+        "Jedes Backend besitzt eine belegte, versionsgebundene Lizenz- und Capability-Zeile.",
+        "Unklare oder inkompatible Zusatzkomponenten sind default-off dokumentiert.",
+        "Modell- und Dataset-Lizenzen werden nicht mit der Framework-Lizenz verwechselt."
+      ],
+      "test_expectations": [
+        "CI validiert erlaubte SPDX-IDs und vorhandene Quellreferenzen.",
+        "Ein Fixture mit unbekannter oder nicht erlaubter Lizenz wird blockiert."
+      ]
+    },
+    {
+      "id": "MTB-002",
+      "title": "Gemeinsamen TrainingBackend-v3-Vertrag definieren",
+      "type": "architecture",
+      "milestone": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-001"
+      ],
+      "target_files": [
+        "worker/training/backends/base.py",
+        "ananta_contracts/training_backend.py",
+        "docs/contracts/training-backend-capability.v3.schema.json",
+        "tests/worker/test_training_backend_contract_v3.py"
+      ],
+      "implementation": [
+        "Capabilities fuer modality, objectives, methods, precision, quantization, distributed mode, resume, evaluation und export strikt typisieren.",
+        "prepare, train, evaluate, save, cancel, resume und health als schmale Ports vereinheitlichen.",
+        "Stabile Backend-neutrale Reason-Codes fuer Dependency, Config, Modell, Dataset, OOM, Cancel, Checkpoint und Export definieren.",
+        "Bestehende PEFT/TRL- und Unsloth-Adapter abwaertskompatibel anbinden."
+      ],
+      "acceptance_criteria": [
+        "Alle Backends liefern dieselbe geschlossene Capability- und Resultatstruktur.",
+        "Unbekannte Felder und nicht deklarierte Capabilities werden vor Ausfuehrung abgewiesen.",
+        "Hub-Code importiert keine der schweren Trainingsbibliotheken."
+      ],
+      "test_expectations": [
+        "Contract-Tests laufen ohne GPU und ohne Installation der optionalen Trainer.",
+        "Negative Tests decken unbekannte Methode, Quantisierung, Export und Backend-Version ab."
+      ]
+    },
+    {
+      "id": "MTB-003",
+      "title": "Backend-neutrale sichere Config-Compiler bauen",
+      "type": "security",
+      "milestone": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-002"
+      ],
+      "target_files": [
+        "worker/training/backend_config_compiler.py",
+        "worker/training/backend_config_policy.py",
+        "tests/worker/test_backend_config_compiler.py"
+      ],
+      "implementation": [
+        "Kanonische Ananta-Konfiguration in backend-spezifische YAML-, JSON- oder Recipe-Strukturen uebersetzen.",
+        "Freie Kommandos, callbacks, plugins, Python-Ausdruecke, remote code, absolute Host-Pfade und unbekannte Imports ablehnen.",
+        "Secrets nur als Worker-seitig aufgeloeste Referenzen behandeln und nie in Konfiguration, Logs oder Artefakte schreiben.",
+        "Jede generierte Konfiguration hashen und zusammen mit Compiler-Version sowie Upstream-Version archivieren."
+      ],
+      "acceptance_criteria": [
+        "Gleicher Request erzeugt deterministisch dieselbe kanonische Backend-Konfiguration.",
+        "Path-Traversal, Command-Injection und nicht erlaubte Plugin-Konfigurationen werden fail-closed blockiert.",
+        "Kein Request kann trust_remote_code oder externes Tracking implizit aktivieren."
+      ],
+      "test_expectations": [
+        "Golden Fixtures existieren fuer alle vier Frameworks.",
+        "Security-Fixtures pruefen Shell-Metazeichen, Symlinks, absolute Pfade, URL-Egress und Secret-Leaks."
+      ]
+    },
+    {
+      "id": "MTB-004",
+      "title": "Axolotl-Backend als isolierten Worker-Adapter integrieren",
+      "type": "implementation",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-003"
+      ],
+      "target_files": [
+        "worker/training/backends/axolotl.py",
+        "docker/compose-next/Dockerfile.training-axolotl",
+        "docker/compose-next/compose.training-axolotl.yml",
+        "tests/worker/test_axolotl_training_backend.py"
+      ],
+      "implementation": [
+        "Axolotl ueber gepinnte CLI/Subprozess-Grenze oder eine stabil belegte Programmierschnittstelle aufrufen.",
+        "LoRA/QLoRA zuerst implementieren; Full-Fine-Tuning und verteilte Modi bleiben separate Capabilities.",
+        "Axolotl-Konfiguration nur aus dem sicheren Compiler uebernehmen.",
+        "Progress, Checkpoints, Evaluation und Artefakte in Anantas normalisierte Vertraege projizieren."
+      ],
+      "acceptance_criteria": [
+        "Dry-run und kleiner lokaler LoRA-Smoke erzeugen normalisierte Events und ein digestgebundenes Adapterartefakt.",
+        "Abbruch beendet nur den zugeordneten Prozessbaum und hinterlaesst kein freigabefaehiges Teilartefakt.",
+        "Fehlende Axolotl-Abhaengigkeiten machen nur diese Capability unavailable."
+      ],
+      "test_expectations": [
+        "CPU-Contract-Tests mocken den Upstream-Prozess.",
+        "Ein manueller NVIDIA-Gate-Lauf ist versioniert und attestiert."
+      ]
+    },
+    {
+      "id": "MTB-005",
+      "title": "LLaMA-Factory-Backend ohne exponierte Fremd-WebUI integrieren",
+      "type": "implementation",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-003"
+      ],
+      "target_files": [
+        "worker/training/backends/llamafactory.py",
+        "docker/compose-next/Dockerfile.training-llamafactory",
+        "docker/compose-next/compose.training-llamafactory.yml",
+        "tests/worker/test_llamafactory_training_backend.py"
+      ],
+      "implementation": [
+        "Gepinnte CLI/API ausschliesslich hinter dem Worker-Adapter verwenden.",
+        "Upstream-WebUI nicht direkt an Browser, Hub-Netz oder Host-Port exponieren.",
+        "SFT mit LoRA/QLoRA zuerst abbilden; DPO, ORPO und weitere Objectives erst nach separatem Capability-Test.",
+        "Dataset-Templates und Chat-Formate in explizite, versionsgebundene Ananta-Profile uebersetzen."
+      ],
+      "acceptance_criteria": [
+        "LLaMA-Factory kann denselben freigegebenen Dataset-Snapshot wie Unsloth reproduzierbar verarbeiten.",
+        "Template- oder Tokenizer-Abweichungen erscheinen sichtbar im Manifest.",
+        "Kein freies Upstream-Argument kann die Worker-Sandbox umgehen."
+      ],
+      "test_expectations": [
+        "Golden Tests pruefen Config- und Dataset-Uebersetzung.",
+        "Negative Tests blockieren WebUI-Exposure, externe Reporter und ungepinnte Modellquellen."
+      ]
+    },
+    {
+      "id": "MTB-006",
+      "title": "AutoTrain-Advanced-Backend local-first integrieren",
+      "type": "implementation",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-003"
+      ],
+      "target_files": [
+        "worker/training/backends/autotrain.py",
+        "docker/compose-next/Dockerfile.training-autotrain",
+        "docker/compose-next/compose.training-autotrain.yml",
+        "tests/worker/test_autotrain_training_backend.py"
+      ],
+      "implementation": [
+        "Zunaechst nur dokumentierte lokale Ausfuehrung ohne impliziten Hugging-Face-Upload oder Cloud-Job zulassen.",
+        "Unterstuetzte Tasks und Parameter aus der gepinnten Version capability-basiert ableiten statt den Namen AutoML als Funktionsgarantie zu behandeln.",
+        "Cloud-/Hub-Integration, Tokens und Uploads als getrennte spaetere Opt-in-Capability behandeln.",
+        "Lokale Logs, Metriken und Artefakte auf Anantas Resultatvertrag normalisieren."
+      ],
+      "acceptance_criteria": [
+        "Ein lokaler Trainingsjob funktioniert ohne externen Account und ohne Netzwerk.",
+        "Fehlende Cloud-Credentials verhindern den lokalen Pfad nicht.",
+        "Kein Dataset, Modell oder Artefakt verlaesst ohne ausdrueckliche Egress-Policy den Worker."
+      ],
+      "test_expectations": [
+        "Netzwerklose Integrationstests beweisen den local-first-Pfad.",
+        "Egress-Fixtures blockieren implizite Uploads, Tracking und Remote-Runner."
+      ]
+    },
+    {
+      "id": "MTB-007",
+      "title": "torchtune-Backend mit versionsgebundenen Recipes integrieren",
+      "type": "implementation",
+      "milestone": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-003"
+      ],
+      "target_files": [
+        "worker/training/backends/torchtune.py",
+        "worker/training/torchtune_recipe_registry.py",
+        "docker/compose-next/Dockerfile.training-torchtune",
+        "tests/worker/test_torchtune_training_backend.py"
+      ],
+      "implementation": [
+        "Nur vorregistrierte, intern referenzierte Recipes erlauben; keine beliebigen Recipe-Importpfade aus Requests.",
+        "LoRA/QLoRA und Single-Device zuerst; Distributed Recipes separat attestieren.",
+        "PyTorch-, TorchAO- und Checkpoint-Kompatibilitaet explizit in Capabilities und Manifest aufnehmen.",
+        "Recipe-Konfiguration aus dem sicheren Compiler erzeugen und digestbinden."
+      ],
+      "acceptance_criteria": [
+        "Nur allowlisted Recipes koennen gestartet werden.",
+        "Checkpoint-Konvertierung ist verlustfrei pruefbar oder wird sichtbar als inkompatibel abgelehnt.",
+        "torchtune-Ausfall beeinflusst keine anderen Backends."
+      ],
+      "test_expectations": [
+        "Tests blockieren freie Recipe-Namen und Python-Importpfade.",
+        "Ein gepinnter Single-GPU-Smoke erzeugt reproduzierbare Artefaktmetadaten."
+      ]
+    },
+    {
+      "id": "MTB-008",
+      "title": "Backend-Registry und Capability-Projektion erweitern",
+      "type": "implementation",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-004",
+        "MTB-005",
+        "MTB-006",
+        "MTB-007"
+      ],
+      "target_files": [
+        "worker/training/backends/__init__.py",
+        "worker/runtime/lora_training_app.py",
+        "agent/services/ml_intern_training_worker_contract.py",
+        "tests/worker/test_training_backend_registry.py"
+      ],
+      "implementation": [
+        "Registry beim Worker-Start einfrieren und nur installierte, konfigurierte Adapter melden.",
+        "Capabilities pro Backend, Version, Hardwareprofil, Methode und Modalitaet projizieren.",
+        "Unavailable und degraded mit stabilen Reason-Codes statt stillen Fallbacks anzeigen.",
+        "Keine dynamischen Imports anhand von Request-Daten zulassen."
+      ],
+      "acceptance_criteria": [
+        "Hub sieht exakt die tatsaechlich ausfuehrbaren Backends und Methoden.",
+        "Backend-Ausfall deaktiviert nur die betroffene Capability.",
+        "Request kann keine neue Backend-Implementierung registrieren."
+      ],
+      "test_expectations": [
+        "Tests decken leere, teilweise und vollstaendige Registry ab.",
+        "Tests beweisen die Unveraenderlichkeit der Registry nach Startup."
+      ]
+    },
+    {
+      "id": "MTB-009",
+      "title": "Normalisierte Checkpoint-, Adapter- und Export-Pipeline bauen",
+      "type": "artifact",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-008"
+      ],
+      "target_files": [
+        "worker/training/backend_artifact_normalizer.py",
+        "worker/training/backend_checkpoint_adapter.py",
+        "agent/services/ml_intern_adapter_registry_service.py",
+        "tests/worker/test_backend_artifact_normalizer.py"
+      ],
+      "implementation": [
+        "Backend-spezifische Outputs in ein kanonisches, safetensors-bevorzugtes Artefaktmanifest ueberfuehren.",
+        "Base-Modell, Tokenizer, Dataset, Config, Backend, Version, Attempt und Hardware an jeden Output binden.",
+        "Resume und Konvertierung nur bei exakter Hash- und Formatkompatibilitaet erlauben.",
+        "Merge, GGUF und provider-spezifische Exporte bleiben explizite Folgejobs."
+      ],
+      "acceptance_criteria": [
+        "Artefakte aller Backends durchlaufen dieselbe Admission-, Eval-, Approval- und Registry-Pipeline.",
+        "Manipulierte oder unvollstaendige Outputs werden nicht registriert.",
+        "Backend-Wechsel kann keinen inkompatiblen Checkpoint still weiterverwenden."
+      ],
+      "test_expectations": [
+        "Golden Artefakte fuer jedes Backend werden gegen dasselbe Schema validiert.",
+        "Negative Tests pruefen Hash-Mismatch, Symlinks, fehlende Dateien und falsches Basismodell."
+      ]
+    },
+    {
+      "id": "MTB-010",
+      "title": "Policy-basierte Backend-Auswahl und Vergleichsmodus einfuehren",
+      "type": "orchestration",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-008",
+        "MTB-009"
+      ],
+      "target_files": [
+        "agent/services/ml_intern_backend_selection_service.py",
+        "agent/services/ml_intern_training_control_policy.py",
+        "tests/test_ml_intern_backend_selection_service.py"
+      ],
+      "implementation": [
+        "Manuelle Auswahl, policy-basierte Empfehlung und kontrollierten Benchmark-Vergleich getrennt anbieten.",
+        "Entscheidung anhand von Modellfamilie, Objective, Modalitaet, VRAM/RAM, Laufzeitbudget, Exportbedarf und attestierter Backend-Eignung treffen.",
+        "Automatische Auswahl nur als begruendete Recommendation; produktives Training erfordert weiterhin bestaetigte Konfiguration.",
+        "Fallback nie waehrend eines laufenden Trainingsattempts durchfuehren, sondern als neuen, sichtbaren Attempt oder Job."
+      ],
+      "acceptance_criteria": [
+        "Jede Empfehlung enthaelt Backend, Alternativen, Gruende, Capability-Evidence und geschaetzte Ressourcen.",
+        "Unsloth und PEFT/TRL bleiben waehlbar.",
+        "Kein Backend wird allein aufgrund von Marketing-Benchmarkwerten bevorzugt."
+      ],
+      "test_expectations": [
+        "Deterministische Policy-Fixtures decken RTX-3080-10-GB, CPU-only und groessere GPU-Profile ab.",
+        "Tests pruefen fehlende Capability, OOM-Vorhersage und explizite manuelle Auswahl."
+      ]
+    },
+    {
+      "id": "MTB-011",
+      "title": "Angular Model-Training UI um Backendvergleich erweitern",
+      "type": "frontend",
+      "milestone": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-010"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/model-training/training-wizard",
+        "frontend-angular/src/app/features/model-training/jobs",
+        "frontend-angular/src/app/features/model-training/model-training-api.service.ts",
+        "frontend-angular/tests/model-training.spec.ts"
+      ],
+      "implementation": [
+        "Verfuegbarkeit, Lizenz, Version, Methoden, Hardwaregrenzen und begruendete Empfehlung anzeigen.",
+        "Nur gemeinsame Felder allgemein zeigen; backend-spezifische Optionen capability-basiert und erklaert einblenden.",
+        "Dry-run, Live-Bestaetigung, Vergleichslauf und geschaetzte Ressourcen klar unterscheiden.",
+        "Browser erhaelt keine Worker-URL, Host-Pfade, freien CLI-Argumente oder Secrets."
+      ],
+      "acceptance_criteria": [
+        "Nutzer kann alle verfuegbaren Backends vergleichen und bewusst auswaehlen.",
+        "Nicht verfuegbare Optionen zeigen einen stabilen Grund statt zu verschwinden.",
+        "Bestehende Dataset-, Job-, Evaluation- und Adapter-Flows bleiben unveraendert nutzbar."
+      ],
+      "test_expectations": [
+        "Unit- und Playwright-Tests decken Capability-Matrix, Recommendation, unavailable und Bestätigung ab.",
+        "Security-Test prueft, dass keine sensitiven Pfade oder Tokens gerendert werden."
+      ]
+    },
+    {
+      "id": "MTB-012",
+      "title": "Reproduzierbare Benchmark-Suite gegen Unsloth und PEFT/TRL bauen",
+      "type": "benchmark",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-010"
+      ],
+      "target_files": [
+        "benchmarks/training_backends/README.md",
+        "benchmarks/training_backends/matrix.v1.json",
+        "scripts/run_training_backend_benchmark.py",
+        "tests/test_training_backend_benchmark_contract.py"
+      ],
+      "implementation": [
+        "Identische Modell-, Dataset-, Seed-, LoRA- und Evaluationsbedingungen soweit technisch moeglich verwenden.",
+        "Setup-Zeit, Train-Durchsatz, Gesamtzeit, Peak-VRAM, RAM, Disk, Checkpointgroesse, Eval-Qualitaet und Reproduzierbarkeit messen.",
+        "RTX 3080 mit 10 GB als eigenes lokales Profil aufnehmen; zusaetzlich CPU-Contract und optional groessere NVIDIA-Profile.",
+        "Unterschiedliche Trainersemantik sichtbar dokumentieren statt unfaire Gleichheit zu behaupten."
+      ],
+      "acceptance_criteria": [
+        "Jedes neue Backend wird mindestens gegen Unsloth und PEFT/TRL verglichen.",
+        "Rohdaten, Versionen und Hardwareattestation sind gespeichert.",
+        "Ein Go/Conditional-Go/No-Go je Modellfamilie und Objective ist nachvollziehbar."
+      ],
+      "test_expectations": [
+        "CI prueft Benchmarkvertrag ohne GPU.",
+        "Manuelle GPU-Runs werden nur bei vollstaendiger Attestation als verified markiert."
+      ]
+    },
+    {
+      "id": "MTB-013",
+      "title": "Security-, Datenschutz- und Supply-Chain-Hardening abschliessen",
+      "type": "security",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-004",
+        "MTB-005",
+        "MTB-006",
+        "MTB-007",
+        "MTB-009"
+      ],
+      "target_files": [
+        "docs/security/training-backend-threat-model.md",
+        "config/policies/training-backend-egress.v1.json",
+        "tests/security/test_training_backend_isolation.py"
+      ],
+      "implementation": [
+        "Images digestpinnen, SBOM erzeugen, Vulnerability-Scan und Dependency-Allowlist einfuehren.",
+        "Network, Volumes, UID, Capabilities, Temp-Verzeichnisse, Prozesslimits und GPU-Zugriff pro Profil minimieren.",
+        "Prompt-, Dataset- und Config-Injection, malicious model files, pickle, remote code, symlink escape und artifact poisoning testen.",
+        "Telemetry und externe Reporter standardmaessig deaktivieren; Egress nur per getrennter Policy."
+      ],
+      "acceptance_criteria": [
+        "Kein Backend besitzt Docker-Socket, privilegierten Modus oder unbeschraenkten Host-Dateizugriff.",
+        "Untrusted Pickle und remote code werden nicht als Modellartefakte zugelassen.",
+        "Secrets und rohe Trainingsdaten erscheinen nicht in bounded Events, Logs oder UI."
+      ],
+      "test_expectations": [
+        "Negative End-to-End-Fixtures fuer Injection, Egress, Symlink, Secret und manipulierte Artefakte bestehen.",
+        "Container-Policy wird in CI statisch geprueft."
+      ]
+    },
+    {
+      "id": "MTB-014",
+      "title": "Release-Gates, CI und Hardware-Acceptance einrichten",
+      "type": "test",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-012",
+        "MTB-013"
+      ],
+      "target_files": [
+        ".github/workflows/training-backends-contract.yml",
+        ".github/workflows/training-backends-nvidia-acceptance.yml",
+        "scripts/run_training_backends_acceptance.py",
+        "docs/operations/training-backends.md"
+      ],
+      "implementation": [
+        "CPU-/Mock-Contract-Gate fuer jeden Push und manuellen NVIDIA-Live-Gate getrennt ausfuehren.",
+        "Ein gruenes CPU-Gate darf nicht als Nachweis realer CUDA-, VRAM- oder Modellqualitaet gelten.",
+        "Upstream-Versionen einzeln aktualisieren und pro Backend Regressionen pruefen.",
+        "Rollout pro Backend mit default-off, canary, explicit enable und schnellem Disable gestalten."
+      ],
+      "acceptance_criteria": [
+        "Jedes Backend besitzt getrennte verified-, not_run-, failed- und blocked-Nachweise.",
+        "Fehlende optionale Dependencies lassen den Ananta-Core weiterhin starten.",
+        "Rollback deaktiviert ein Backend ohne Verlust vorhandener Job- und Artefakthistorie."
+      ],
+      "test_expectations": [
+        "CI prueft Contracts, Config-Compiler, Registry, Artefakte und Security ohne GPU.",
+        "NVIDIA-Freigabe benoetigt einen echten, attestierten Minimal-Trainingslauf."
+      ]
+    },
+    {
+      "id": "MTB-015",
+      "title": "Dokumentation, Entscheidungsmatrix und finalen Produktreview liefern",
+      "type": "documentation",
+      "milestone": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "dependencies": [
+        "MTB-011",
+        "MTB-012",
+        "MTB-014"
+      ],
+      "target_files": [
+        "docs/operations/training-backends.md",
+        "docs/architecture/training-backend-selection.md",
+        "frontend-angular/src/app/features/model-training/README.md"
+      ],
+      "implementation": [
+        "Erklaeren, wann Unsloth, PEFT/TRL, Axolotl, LLaMA-Factory, AutoTrain Advanced oder torchtune sinnvoll ist.",
+        "AutoTrain nicht pauschal als vollautomatisches LLM-AutoML darstellen; reale Capability der gepinnten Version anzeigen.",
+        "Installation, Profile, lokale Modelle, Dataset-Anforderungen, Dry-run, Training, Evaluation, Approval, Export und Rollback dokumentieren.",
+        "Final pruefen, ob jedes zusaetzliche Backend einen messbaren Nutzen gegen Wartungs-, Sicherheits- und Imagekosten bietet."
+      ],
+      "acceptance_criteria": [
+        "Operator kann ein Backend installieren, aktivieren, pruefen und wieder deaktivieren.",
+        "UI und Dokumentation unterscheiden Framework, Trainingsmethode und ML-Intern-Control-Plane korrekt.",
+        "Produktreview darf redundante Backends auf experimental belassen oder mit dokumentiertem No-Go ablehnen."
+      ],
+      "test_expectations": [
+        "Docs-Links und Beispielkonfigurationen werden automatisiert validiert.",
+        "Abschlussreview prueft mindestens einen positiven und einen abgelehnten Backend-Fall."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Alle vier angefragten Frameworks sind als optionale, isolierte Backend-Adapter geplant und ihre aktuellen Open-Source-Lizenzen sind mit offiziellen LICENSE-Dateien belegt.",
+    "ML-Intern bleibt Control Plane; Unsloth und PEFT/TRL bleiben funktionsfaehige Alternativen.",
+    "Kein Framework kann freie Shell-Kommandos, Python-Imports, Host-Pfade, Remote-Code oder ungepruefte Egress-Verbindungen aus Request-Daten ausfuehren.",
+    "Alle Backends verwenden dieselben Dataset-, Job-, Attempt-, Event-, Artefakt-, Eval-, Approval- und Rollback-Grundvertraege.",
+    "Backend-Auswahl basiert auf gemessenen Ananta-Benchmarks und Hardwareattestation statt Marketingaussagen.",
+    "RTX-3080-10-GB-Eignung wird separat und ehrlich gemessen.",
+    "CI funktioniert ohne GPU; reale GPU-Freigabe benoetigt einen manuellen attestierten Lauf.",
+    "Software-, Modell-, Dataset- und Artefaktlizenzen werden getrennt geprueft.",
+    "Neue Backends bleiben default-off, bis Lizenz-, Security-, Contract- und Live-Gates bestanden sind."
+  ],
+  "implementation_order_recommendation": [
+    "MTB-001 bis MTB-003: Lizenzmatrix, Capability-Vertrag und sichere Config-Compiler",
+    "MTB-004 bis MTB-007: je ein isolierter Adapter fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
+    "MTB-008 bis MTB-011: Registry, Artefakte, Auswahlpolicy und Angular-UI",
+    "MTB-012 bis MTB-015: Benchmarks, Hardening, Release-Gates und Produktreview"
+  ],
+  "open_questions_for_implementation": [
+    "Welche Modellfamilien und Objectives sollen pro Backend zuerst als Golden Path gelten?",
+    "Welche konkrete kleine Modell- und Dataset-Kombination wird als gemeinsamer RTX-3080-Benchmark verwendet?",
+    "Soll AutoTrain dauerhaft local-only bleiben oder spaeter einen getrennten expliziten Hugging-Face-Cloud-Adapter erhalten?",
+    "Welche Backends duerfen nach Benchmarks production-ready werden und welche bleiben experimental?",
+    "Welche Distributed-Profile werden ausserhalb der RTX-3080 ueberhaupt benoetigt?"
+  ],
+  "notes": [
+    "Vier vorhandene Open-Source-Lizenzen rechtfertigen die technische Evaluation, aber nicht automatisch vier produktive Defaults.",
+    "Die Integration soll reale Wahlfreiheit und Vergleichbarkeit schaffen, ohne ML-Intern in mehrere konkurrierende Control Planes zu zerlegen.",
+    "Bei Upstream-Lizenzwechseln oder nicht-offenen Zusatzkomponenten ist eine erneute explizite Pruefung erforderlich."
+  ],
+  "tasks_status_summary": {
+    "by_status": {
+      "done": 0,
+      "todo": 15,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "percent_complete": 0,
+    "todo_remaining": 15,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  }
+}
