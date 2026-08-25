@@ -11,6 +11,9 @@ from agent.config_defaults import sync_runtime_state
 from agent.repositories.model_default_selection import (
     SqlModelDefaultSelectionRepository,
 )
+from agent.repositories.model_routing_configuration import (
+    SqlModelRoutingConfigurationRepository,
+)
 from agent.services.dashboard_feature_flag_service import (
     resolve_dashboard_feature_flags,
 )
@@ -24,6 +27,12 @@ from agent.services.model_catalog_service import (
     ModelDefaultSelectionService,
     ProviderDiscovery,
 )
+from agent.services.model_profile_loader import ModelProfileLoader
+from agent.services.model_selection_service import (
+    ModelConsumerRegistry,
+    ModelRoutingAssignmentService,
+    ModelRoutingConflict,
+)
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
@@ -34,10 +43,33 @@ from agent.services.surface_rate_limit_policy import (
 )
 from agent.services.voice_provider import VoiceProviderError, get_voice_provider_service
 from ananta_contracts.model_catalog import ModelDefaultSelectionCommand
+from ananta_contracts.model_selection import ModelRoutingMutationCommand
 
 from . import shared
 
 providers_bp = Blueprint("config_providers", __name__)
+
+MODEL_ROUTING_READ_CAPABILITY = "model_routing.read"
+MODEL_ROUTING_MUTATE_CAPABILITY = "model_routing.mutate"
+
+
+def _known_model_profile_ids() -> tuple[str, ...]:
+    path = str(current_app.config.get("MODEL_PROFILES_PATH") or "").strip()
+    if not path:
+        import os
+        path = str(os.environ.get("MODEL_PROFILES_PATH") or "").strip()
+    if not path:
+        return ()
+    result = ModelProfileLoader().load_file(path)
+    return tuple(profile.profile_id for profile in result.profiles if profile.enabled)
+
+
+def _model_routing_service() -> ModelRoutingAssignmentService:
+    return ModelRoutingAssignmentService(
+        repository=SqlModelRoutingConfigurationRepository(),
+        consumers=ModelConsumerRegistry.defaults(),
+        known_profile_ids=_known_model_profile_ids(),
+    )
 
 
 def _force_refresh_forbidden() -> bool:
@@ -530,3 +562,84 @@ def select_versioned_model_default():
     return api_response(
         data=selected.model_dump(mode="json", by_alias=True)
     )
+
+
+@providers_bp.route("/models/consumers/v1", methods=["GET"])
+@check_auth
+def get_model_consumers():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    consumers = ModelConsumerRegistry.defaults().all()
+    return api_response(data={
+        "schema": "ananta.model-consumer-registry.v1",
+        "consumers": [item.model_dump(mode="json", by_alias=True) for item in consumers],
+    })
+
+
+@providers_bp.route("/models/routing/v1", methods=["GET"])
+@check_auth
+def get_model_routing_configuration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
+    value = _model_routing_service().read()
+    return api_response(data=value.model_dump(mode="json", by_alias=True))
+
+
+@providers_bp.route("/models/routing/v1/validate", methods=["POST"])
+@check_auth
+def validate_model_routing_configuration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
+    try:
+        command = ModelRoutingMutationCommand.model_validate(request.get_json(silent=True))
+        service = _model_routing_service()
+        service.validate(command)
+    except (ValidationError, ValueError) as exc:
+        return api_response(
+            status="error", message="model_routing_configuration_invalid",
+            data={"reason_code": str(exc).splitlines()[0][:160]}, code=400,
+        )
+    return api_response(data={
+        "schema": "ananta.model-routing-validation-report.v1",
+        "valid": True,
+        "expected_revision": command.expected_revision,
+        "errors": [],
+        "warnings": [],
+    })
+
+
+@providers_bp.route("/models/routing/v1", methods=["PUT"])
+@check_auth
+def put_model_routing_configuration():
+    if not _model_catalog_feature_enabled():
+        return _feature_disabled_response()
+    if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
+        return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
+    try:
+        command = ModelRoutingMutationCommand.model_validate(request.get_json(silent=True))
+        updated = _model_routing_service().apply(command)
+    except ValidationError:
+        return _model_catalog_input_error("model_routing_mutation_command_invalid")
+    except ModelRoutingConflict as exc:
+        return api_response(
+            status="error", message=exc.reason_code,
+            data={"current_revision": exc.current_revision}, code=409,
+        )
+    except ValueError as exc:
+        return api_response(
+            status="error", message="model_routing_configuration_invalid",
+            data={"reason_code": str(exc)[:160]}, code=400,
+        )
+    log_audit("model_routing_configuration_updated", {
+        "previous_revision": command.expected_revision,
+        "revision": updated.revision,
+        "assignment_count": len(updated.assignments),
+        "fallback_group_count": len(updated.fallback_groups),
+    })
+    return api_response(data=updated.model_dump(mode="json", by_alias=True))
