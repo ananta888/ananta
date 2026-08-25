@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from agent.services.model_profile_loader import ModelProfile
@@ -44,10 +46,12 @@ class ModelRoutingLegacyMigrationService:
         assignments: ModelRoutingAssignmentService,
         profiles: tuple[ModelProfile, ...],
         legacy_config: dict[str, Any],
+        release_evidence_checks: tuple[ModelRoutingReleaseGateCheck, ...] = (),
     ) -> None:
         self._assignments = assignments
         self._profiles = profiles
         self._legacy_config = legacy_config
+        self._release_evidence_checks = release_evidence_checks
 
     def preview(self) -> ModelRoutingLegacyMigrationPreview:
         current = self._assignments.read()
@@ -158,6 +162,18 @@ class ModelRoutingLegacyMigrationService:
     def release_gate(self) -> ModelRoutingReleaseGateReport:
         preview = self.preview()
         shadow = self.shadow_report()
+        current = self._assignments.read()
+        routing_valid = not any(
+            issue.severity == "error"
+            for issue in self._assignments.validation_issues(
+                ModelRoutingMutationCommand(
+                    schema="ananta.model-routing-mutation-command.v1",
+                    expected_revision=shadow.configuration_revision,
+                    assignments=current.assignments,
+                    fallback_groups=current.fallback_groups,
+                )
+            )
+        )
         checks = (
             ModelRoutingReleaseGateCheck(
                 check_id="legacy_migration_resolved",
@@ -177,19 +193,13 @@ class ModelRoutingLegacyMigrationService:
             ),
             ModelRoutingReleaseGateCheck(
                 check_id="routing_configuration_valid",
-                passed=not any(
-                    issue.severity == "error"
-                    for issue in self._assignments.validation_issues(
-                        ModelRoutingMutationCommand(
-                            schema="ananta.model-routing-mutation-command.v1",
-                            expected_revision=shadow.configuration_revision,
-                            assignments=self._assignments.read().assignments,
-                            fallback_groups=self._assignments.read().fallback_groups,
-                        )
-                    )
+                passed=routing_valid,
+                reason_code=(
+                    "routing_configuration_valid"
+                    if routing_valid else "routing_configuration_invalid"
                 ),
-                reason_code="routing_configuration_valid",
             ),
+            *self._release_evidence_checks,
         )
         return ModelRoutingReleaseGateReport(
             configuration_revision=shadow.configuration_revision,
@@ -327,6 +337,9 @@ def build_model_routing_legacy_migration_service(
     from agent.services.model_routing_validation_policy import (
         ModelRoutingValidationPolicy,
     )
+    from agent.services.model_routing_release_evidence_service import (
+        ModelRoutingReleaseEvidenceService,
+    )
     from agent.services.model_selection_service import ModelConsumerRegistry
 
     loaded = ModelProfileLoader().load_file(model_profiles_path) if model_profiles_path else None
@@ -345,8 +358,17 @@ def build_model_routing_legacy_migration_service(
             profiles=profiles,
         ),
     )
+    repo_root = Path(__file__).resolve().parents[2]
+    evidence_path = Path(os.environ.get(
+        "MODEL_ROUTING_RELEASE_EVIDENCE_PATH",
+        str(repo_root / "artifacts/test-gates/model-routing-release-gate.json"),
+    ))
     return ModelRoutingLegacyMigrationService(
         assignments=assignments,
         profiles=profiles,
         legacy_config=legacy_config,
+        release_evidence_checks=ModelRoutingReleaseEvidenceService(
+            repo_root=repo_root,
+            evidence_path=evidence_path,
+        ).checks(),
     )

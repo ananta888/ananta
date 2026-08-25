@@ -16,6 +16,7 @@ from ananta_contracts.model_selection import (
     ModelAssignment,
     ModelRoutingConfiguration,
     ModelRoutingLegacyMigrationApplyCommand,
+    ModelRoutingReleaseGateCheck,
 )
 
 
@@ -128,3 +129,24 @@ def test_confirmation_digest_and_revision_are_both_required():
             expected_revision=99,
             confirmation_digest=preview.confirmation_digest,
         ))
+
+
+def test_release_evidence_is_composed_with_dynamic_migration_gate():
+    service, assignments = _service()
+    service = ModelRoutingLegacyMigrationService(
+        assignments=assignments,
+        profiles=(_profile("local-chat", "lmstudio", "lfm2.5"),),
+        legacy_config={
+            "default_provider": "lmstudio", "default_model": "lfm2.5",
+        },
+        release_evidence_checks=(ModelRoutingReleaseGateCheck(
+            check_id="release_evidence_e2e",
+            passed=False,
+            reason_code="model_routing_release_evidence_missing",
+        ),),
+    )
+
+    report = service.release_gate()
+
+    assert report.ready is False
+    assert report.checks[-1].check_id == "release_evidence_e2e"

@@ -1,0 +1,71 @@
+{
+  "gates": {
+    "contract": {
+      "command": ".venv/bin/pytest -q tests/test_model_routing_contract.py tests/test_model_inventory_service.py tests/test_cli_model_inventory.py tests/test_openrouter_model_inventory_adapter.py",
+      "passed": true
+    },
+    "e2e": {
+      "command": "E2E_TEST_TIMEOUT_MS=120000 E2E_EXPECT_TIMEOUT_MS=30000 npx playwright test tests/central-model-settings.spec.ts --project=chromium --workers=1 --retries=0",
+      "passed": true
+    },
+    "frontend_unit": {
+      "command": "npx vitest run src/app/features/system/model-dashboard/model-dashboard.store.spec.ts src/app/features/system/model-dashboard/model-routing-migration.store.spec.ts",
+      "passed": true
+    },
+    "performance": {
+      "command": "E2E_TEST_TIMEOUT_MS=120000 E2E_EXPECT_TIMEOUT_MS=30000 npx playwright test tests/central-model-settings.spec.ts --project=chromium --workers=1 --retries=0",
+      "passed": true
+    },
+    "security": {
+      "command": ".venv/bin/pytest -q tests/test_model_routing_security_policy.py tests/test_model_routing_validation_policy.py tests/test_model_routing_transfer_service.py",
+      "passed": true
+    }
+  },
+  "schema": "ananta.model-routing-release-evidence.v1",
+  "source_digests": {
+    "agent/cli_backends/model_inventory.py": "sha256:25a55251336936e68f8b97d8e9bb7834eb15670e633f14ca6a46100e85c66edd",
+    "agent/routes/config/providers.py": "sha256:c51ca73645fa1884c5226c6c9f57cd9142cc8b92c08088f406912e2b41bc50d3",
+    "agent/routes/config/settings.py": "sha256:f951c8157caaf7972c2fab226a8847d1aa79286669e0c4f4b59049f240ac4a18",
+    "agent/services/dashboard_feature_flag_service.py": "sha256:9b1d45961460bb6a1aaa6236d977be35a69062406be73d35fc58a7ba29490f53",
+    "agent/services/model_catalog_service.py": "sha256:17e0dece878c50906893eca17ca55eebef3d4c4cefd36c9ba1cf173354aa2837",
+    "agent/services/model_inventory_service.py": "sha256:a8b42fa6e1d7d47c5fd1e9cdac90ba08944f8487771f8af4d412ee114d13a2a9",
+    "agent/services/model_routing_contract.py": "sha256:cc978a32f608132512613140588e67a18b48403a29ad3ea200bbe1e893a835c8",
+    "agent/services/model_routing_legacy_migration_service.py": "sha256:643e38b50bdd1701bc5c141348b03084991059a56e02b85f488b3213d239c5d1",
+    "agent/services/model_routing_observability_service.py": "sha256:1cb2ad4160f7e6dd2ed083d6d3a958a0e42c710ee5a72623121bb3e56f97e7bd",
+    "agent/services/model_routing_release_evidence_service.py": "sha256:7a7faea2e10c0aef5ca58d94825547adf77e1729152d9813ea1024b218d1fe9f",
+    "agent/services/model_routing_template_service.py": "sha256:4cf86bd9958a1dd2994a2a7e511742414d7feeb0174fae8b215e4a11bcf672ae",
+    "agent/services/model_routing_transfer_service.py": "sha256:b38460c9820f3b14332f111f4ecf990b4fe3302964d55884aff7b0574851a068",
+    "agent/services/model_routing_validation_policy.py": "sha256:3e4211487360bd5b574b2a7f6effd4f4a4a73ed0334c15b15ea668a653262115",
+    "agent/services/model_selection_service.py": "sha256:8a2a4973610947abab4a3ad792538b1fdd8c74696ed14ff2e6abcd17b9cba438",
+    "agent/services/openrouter_model_inventory_adapter.py": "sha256:2c4821789e1b0b292ec2c53e400e5e093f312215a21f6cb98ff089c0879901e0",
+    "ananta_contracts/model_selection.py": "sha256:88a744e7152cf77cb7579c7e36fc77d80babdcef7705539dabe5ee039d7e9efb",
+    "frontend-angular/src/app/features/dashboard-foundation/dashboard-feature-flags.ts": "sha256:e99e90e5f4ec7e675771b05c5ec7c30ffc47b784ca81d1b17514449048552052",
+    "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.spec.ts": "sha256:6b47bfa413ebc0febac0d4353df7c67f676e76379fbbca19bea22a8b8893fe3b",
+    "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.ts": "sha256:7eb90bf4d381011ba955919149ac972aaed5cf3ef7f43ea5c9429874d567f372",
+    "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.component.ts": "sha256:fab4b4b05e4f3625408a337b53ed95ebebdc809c26cc019a634e40d92469751d",
+    "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.spec.ts": "sha256:8ccbae972218c0bfa15172ace59848ddbab4571afe5f34f326d1fcec674a9302",
+    "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.ts": "sha256:f2f5139e54dc3cea8757fd4985a222a526d82d9c1b42e30770045c73d11c51f4",
+    "frontend-angular/src/app/features/system/model-dashboard/model-routing-migration.store.spec.ts": "sha256:f3884112e818a6ef00451387dd702cd31aae0f5c4e488b9b129d12f3a6dc34b5",
+    "frontend-angular/src/app/features/system/model-dashboard/model-routing-migration.store.ts": "sha256:89d3f5d257326054aaf779aee264a8e63c6dc9fc5e93dc7bfb72a9c7d003a408",
+    "frontend-angular/tests/central-model-settings.spec.ts": "sha256:535639a49cb26bf1c6dcc17ffffde45dc0202e431108c17c55562ababc5eb775",
+    "scripts/model_routing_release_gate.py": "sha256:c8c9b940d6ffbd1615e7e7d2dc073a3a44ca974f5eee27f72bb8d9d1d9a0b0ca",
+    "tests/test_cli_model_inventory.py": "sha256:aa2e551f8a6b3289f74ca99f2ad3146b0bfca28a99b781efd08c173840858274",
+    "tests/test_model_catalog_api.py": "sha256:ef8ede49692b26dff5fd2fbf9d29d21a613b413167a772e74ee2f3e74e7b6827",
+    "tests/test_model_catalog_contract.py": "sha256:6aeb9964b7a1e0e1368fe7ce2914c8588eda9e7a2907206bbf3e2587aacdb352",
+    "tests/test_model_catalog_service.py": "sha256:1ee659d4337a3b7a717f0aed0e1285528fdcfa00886a7487eb70f5806613850b",
+    "tests/test_model_inventory_service.py": "sha256:b436f57e1d694f5b5a126486a0dbf64d0a37de4c88f0461fbec25cb1ab376d5a",
+    "tests/test_model_routing_contract.py": "sha256:77192bdcc59edb11770e4b46d45b7279a471337faa40aad5a5be8544477de1a6",
+    "tests/test_model_routing_e2e.py": "sha256:596f51ae7a66ca08c8706a45daa65dbbb66b4d71875a25b9e8221ea8e7ce3885",
+    "tests/test_model_routing_legacy_migration_service.py": "sha256:22614cddbece21210b67183d2c1f80600b07dcbc88c24313efe9b1dec98e530c",
+    "tests/test_model_routing_legacy_vs_profile.py": "sha256:842dc5e590b994b1ab7cf2a6a52b146bd0a2c55b3ffe5e8d60fa72c519892805",
+    "tests/test_model_routing_master_default.py": "sha256:54a6614812ea1bc8192e9bed6a012ff0441a4c0c791a6f48b3221d4e8ea40679",
+    "tests/test_model_routing_observability_service.py": "sha256:d1b105429c70941485fe8fb83220a1be5366ab47238601eda458c60658842210",
+    "tests/test_model_routing_release_evidence_service.py": "sha256:28b4f1a901e985edf1f29eaccee774a8707e4d13b52663ae97c3513f835f0aea",
+    "tests/test_model_routing_security_policy.py": "sha256:16a23b2e6f1cfcec1702e223b4234a5614d1d4318b8a8b8a29f1d1fea2ba8b4c",
+    "tests/test_model_routing_template_service.py": "sha256:fd8d6873260d44f6248f8dd8f77fd524781b954ef311a3e7ba5035cbc2ed7a05",
+    "tests/test_model_routing_transfer_service.py": "sha256:a8af2bdb8a815faf3c79265b20240e115fc89f906ed5b43e1215fceccaf97446",
+    "tests/test_model_routing_validation_policy.py": "sha256:a9b2645e1c8267a5d75bb2b50f949e545eddad0407b577eac629f07f12c13d6d",
+    "tests/test_openrouter_model_inventory_adapter.py": "sha256:95e0f626ddfff4569be9256bb92bb645b78d588f84fe1f9d209a5bece4ccb275"
+  },
+  "suite_revision": "central-model-settings-v1"
+}
