@@ -22,6 +22,7 @@ from ananta_contracts.model_selection import (
     ModelRoutingDryRunCommand,
     RoleStyleTarget,
     StyleRange,
+    ModelConsumer,
 )
 
 
@@ -71,6 +72,51 @@ def test_assignment_rejects_unknown_consumer_and_profile():
                 expected_revision=0,
                 assignments=(assignment,),
             ))
+
+
+def test_registry_marks_specialized_domains_as_explicitly_non_routable():
+    registry = ModelConsumerRegistry.defaults()
+
+    assert registry.require("chat.ai_snake").default_model_role == "chat"
+    embedding = registry.require("knowledge.embedding")
+    assert embedding.routable is False
+    assert embedding.allowed_scopes == ()
+    assert embedding.non_routable_reason == "dedicated_embedding_provider_domain"
+
+    with pytest.raises(ValueError, match="model_consumer_not_routable"):
+        _service().apply(ModelRoutingMutationCommand(
+            schema="ananta.model-routing-mutation-command.v1",
+            expected_revision=0,
+            assignments=(ModelAssignment(
+                consumer_id="knowledge.embedding", scope="global", mode="disabled",
+            ),),
+        ))
+
+
+def test_hub_plugin_consumers_must_be_namespaced_and_are_immutable():
+    class Extension:
+        namespace = "demo"
+
+        @staticmethod
+        def consumers():
+            return (ModelConsumer(
+                consumer_id="plugin.demo.assistant", label="Demo assistant",
+                category="plugin", default_model_role="chat",
+            ),)
+
+    registry = ModelConsumerRegistry.defaults((Extension(),))
+    registered = registry.require("plugin.demo.assistant")
+    assert registered.registration_source == "plugin:demo"
+
+    class InvalidExtension(Extension):
+        @staticmethod
+        def consumers():
+            return (ModelConsumer(
+                consumer_id="chat.unowned", label="Invalid", category="plugin",
+            ),)
+
+    with pytest.raises(ValueError, match="model_consumer_extension_id_not_namespaced"):
+        ModelConsumerRegistry.defaults((InvalidExtension(),))
 
 
 def test_assignment_rejects_raw_model_without_registered_profile_mapping():
@@ -201,6 +247,20 @@ def test_dry_run_uses_most_specific_assignment_and_real_resolver_trace():
     assert route.candidate_profile_ids == ("local-heavy", "local-fast")
     assert route.executable is True
     assert any(item.source == "request_runtime_override" for item in route.decisions)
+
+
+def test_dry_run_for_specialized_domain_is_explicitly_non_executable():
+    configuration = _service().read().model_copy(update={"revision": 3})
+
+    route = _effective_service(configuration).dry_run(ModelRoutingDryRunCommand(
+        consumer_id="knowledge.embedding",
+    ))
+
+    assert route.configuration_revision == 3
+    assert route.assignment_source == "consumer_registry"
+    assert route.assignment_mode == "disabled"
+    assert route.executable is False
+    assert route.decisions[0].reason == "dedicated_embedding_provider_domain"
 
 
 def test_dry_run_can_validate_unpersisted_configuration_without_mutation():

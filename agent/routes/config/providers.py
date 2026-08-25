@@ -83,6 +83,18 @@ MODEL_ROUTING_EXPORT_CAPABILITY = "model_routing.export"
 MODEL_ROUTING_MUTATE_CAPABILITY = "model_routing.mutate"
 
 
+def _model_consumer_registry() -> ModelConsumerRegistry:
+    role = str(
+        current_app.config.get("ROLE") or runtime_settings.role or "worker"
+    ).strip().lower()
+    extensions = (
+        tuple(current_app.extensions.get("model_consumer_extensions", ()))
+        if role == "hub"
+        else ()
+    )
+    return ModelConsumerRegistry.defaults(extensions)
+
+
 def _known_model_profiles() -> tuple[ModelProfile, ...]:
     path = str(current_app.config.get("MODEL_PROFILES_PATH") or "").strip()
     if not path:
@@ -134,7 +146,7 @@ def _model_routing_service() -> ModelRoutingAssignmentService:
     profiles = _known_model_profiles()
     return ModelRoutingAssignmentService(
         repository=SqlModelRoutingConfigurationRepository(),
-        consumers=ModelConsumerRegistry.defaults(),
+        consumers=_model_consumer_registry(),
         known_profile_ids=(profile.profile_id for profile in profiles),
         known_models=((profile.provider_id, profile.model) for profile in profiles),
     )
@@ -146,7 +158,7 @@ def _effective_model_routing_service() -> EffectiveModelRoutingService:
         raise ModelRoutingConfigurationError("model_profiles_not_configured")
     return EffectiveModelRoutingService(
         repository=SqlModelRoutingConfigurationRepository(),
-        consumers=ModelConsumerRegistry.defaults(),
+        consumers=_model_consumer_registry(),
         resolver=resolver,
     )
 
@@ -157,7 +169,7 @@ def _model_routing_transfer_service() -> ModelRoutingTransferService:
 
 def _model_routing_template_service() -> ModelRoutingTemplateService:
     return ModelRoutingTemplateService(
-        consumers=ModelConsumerRegistry.defaults(),
+        consumers=_model_consumer_registry(),
         profiles=_known_model_profiles(),
     )
 
@@ -694,7 +706,7 @@ def get_model_consumers():
         return _feature_disabled_response()
     if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
-    consumers = ModelConsumerRegistry.defaults().all()
+    consumers = _model_consumer_registry().all()
     return api_response(data={
         "schema": "ananta.model-consumer-registry.v1",
         "consumers": [item.model_dump(mode="json", by_alias=True) for item in consumers],

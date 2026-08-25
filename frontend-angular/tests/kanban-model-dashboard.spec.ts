@@ -244,6 +244,9 @@ async function authenticatedFixtures(page: Page): Promise<{
     consumers: [{
       schema: 'ananta.model-consumer.v1', consumer_id: 'task.coding', label: 'Coding',
       category: 'tasks', required_capabilities: ['code'], allowed_scopes: ['global'], routable: true,
+      default_model_role: 'coder', legacy_config_paths: [],
+      mutation_capability: 'model_routing.mutate', registration_source: 'builtin',
+      non_routable_reason: null,
     }],
   }));
   await page.route('**/models/routing/v1', route => json(route, {

@@ -33,6 +33,11 @@ class ModelConsumer(_Closed):
     required_capabilities: tuple[str, ...] = ()
     allowed_scopes: tuple[str, ...] = ("global",)
     routable: bool = True
+    default_model_role: str = "any"
+    legacy_config_paths: tuple[str, ...] = ()
+    mutation_capability: str = "model_routing.mutate"
+    registration_source: str = "builtin"
+    non_routable_reason: str | None = None
 
     @field_validator("consumer_id", "category")
     @classmethod
@@ -40,6 +45,16 @@ class ModelConsumer(_Closed):
         if not _IDENTIFIER.fullmatch(value):
             raise ValueError("model_consumer_identifier_invalid")
         return value
+
+    @model_validator(mode="after")
+    def routing_boundary(self) -> "ModelConsumer":
+        if self.routable and self.non_routable_reason:
+            raise ValueError("model_consumer_routable_reason_unexpected")
+        if not self.routable and (
+            not self.non_routable_reason or self.allowed_scopes
+        ):
+            raise ValueError("model_consumer_non_routable_boundary_invalid")
+        return self
 
 
 class ModelAssignment(_Closed):

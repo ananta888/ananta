@@ -90,6 +90,11 @@ export interface ModelConsumer {
   readonly required_capabilities: readonly string[];
   readonly allowed_scopes: readonly string[];
   readonly routable: boolean;
+  readonly default_model_role: string;
+  readonly legacy_config_paths: readonly string[];
+  readonly mutation_capability: string;
+  readonly registration_source: string;
+  readonly non_routable_reason: string | null;
 }
 
 export interface ModelAssignment {

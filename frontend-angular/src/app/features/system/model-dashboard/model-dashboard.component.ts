@@ -126,14 +126,17 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
                     @for (consumer of category.consumers; track consumer.consumer_id) {
                       <tr>
                         <td><strong>{{ consumer.label }}</strong><code>{{ consumer.consumer_id }}</code>
-                          <small>{{ consumer.required_capabilities.join(', ') || 'keine harten Capabilities' }}</small></td>
+                          <small>{{ consumer.required_capabilities.join(', ') || 'keine harten Capabilities' }}</small>
+                          @if (!consumer.routable) { <small class="warning">{{ consumer.non_routable_reason }}</small> }
+                        </td>
                         <td><select [attr.aria-label]="'Modus für ' + consumer.label"
+                          [disabled]="!consumer.routable"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.mode ?? 'inherit'"
                           (ngModelChange)="changeMode(consumer, $event)">
                           <option value="inherit">Erben</option><option value="profile">Profil</option><option value="disabled">Deaktiviert</option>
                         </select></td>
                         <td><select [attr.aria-label]="'Profil für ' + consumer.label"
-                          [disabled]="store.globalAssignment(consumer.consumer_id)?.mode !== 'profile'"
+                          [disabled]="!consumer.routable || store.globalAssignment(consumer.consumer_id)?.mode !== 'profile'"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.profile_id ?? ''"
                           (ngModelChange)="store.setConsumerMode(consumer.consumer_id, 'profile', $event)">
                           <option value="">Profil wählen</option>
@@ -142,6 +145,7 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
                           }
                         </select></td>
                         <td><select [attr.aria-label]="'Fallback für ' + consumer.label"
+                          [disabled]="!consumer.routable"
                           [ngModel]="store.globalAssignment(consumer.consumer_id)?.fallback_group_id ?? ''"
                           (ngModelChange)="store.setConsumerFallback(consumer.consumer_id, $event)">
                           <option value="">Kein zentraler Fallback</option>
@@ -149,7 +153,8 @@ import { ModelDashboardStore, ModelDashboardTab } from './model-dashboard.store'
                             <option [value]="group.group_id">{{ group.group_id }}</option>
                           }
                         </select></td>
-                        <td><button type="button" class="button-outline" (click)="store.dryRun(consumer.consumer_id)">Route prüfen</button></td>
+                        <td><button type="button" class="button-outline" [disabled]="!consumer.routable"
+                          (click)="store.dryRun(consumer.consumer_id)">Route prüfen</button></td>
                       </tr>
                     }
                   </tbody>

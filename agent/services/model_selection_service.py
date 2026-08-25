@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from threading import RLock
+import re
 from typing import Iterable, Protocol
 
 from agent.services.model_profile_loader import ModelProfile
@@ -42,6 +43,12 @@ class ModelRoutingConfigurationPort(Protocol):
     ) -> bool: ...
 
 
+class ModelConsumerExtensionPort(Protocol):
+    namespace: str
+
+    def consumers(self) -> Iterable[ModelConsumer]: ...
+
+
 class ModelConsumerRegistry:
     """Immutable Hub registry; workers cannot register consumers."""
 
@@ -53,29 +60,113 @@ class ModelConsumerRegistry:
         self._consumers = indexed
 
     @classmethod
-    def defaults(cls) -> "ModelConsumerRegistry":
-        def item(identifier: str, label: str, category: str, *caps: str) -> ModelConsumer:
+    def defaults(
+        cls,
+        extensions: Iterable[ModelConsumerExtensionPort] = (),
+    ) -> "ModelConsumerRegistry":
+        scopes = (
+            "global", "organization", "project", "workflow", "agent", "role",
+            "task_kind", "step",
+        )
+
+        def item(
+            identifier: str,
+            label: str,
+            category: str,
+            *caps: str,
+            role: str = "any",
+            legacy: tuple[str, ...] = (),
+        ) -> ModelConsumer:
             return ModelConsumer(
                 consumer_id=identifier,
                 label=label,
                 category=category,
                 required_capabilities=tuple(caps),
-                allowed_scopes=("global", "organization", "project", "workflow", "agent", "role", "task_kind", "step"),
+                allowed_scopes=scopes,
+                default_model_role=role,
+                legacy_config_paths=legacy,
             )
-        return cls((
-            item("task.planning", "Planung", "tasks", "reasoning"),
-            item("task.coding", "Coding", "tasks", "code"),
-            item("task.debugging", "Debugging", "tasks", "code"),
-            item("task.review", "Review", "tasks", "reasoning"),
-            item("task.research", "Research", "tasks", "reasoning"),
-            item("task.repo_analysis", "Repository-Analyse", "tasks", "code"),
-            item("chat.ai_snake", "AI-Snake", "chat", "chat"),
-            item("planning.autoplanner", "Auto-Planner", "planning", "reasoning"),
-            item("evaluation.judge", "Evaluator", "evaluation", "json"),
-            item("voice.corrector", "Voice-Korrektur", "voice", "chat"),
-            item("knowledge.embedding", "Embeddings", "knowledge", "embeddings"),
-            item("evolver.proposal", "Evolver", "evolution", "reasoning"),
-        ))
+
+        def external(
+            identifier: str,
+            label: str,
+            category: str,
+            reason: str,
+            *caps: str,
+            legacy: tuple[str, ...] = (),
+        ) -> ModelConsumer:
+            return ModelConsumer(
+                consumer_id=identifier,
+                label=label,
+                category=category,
+                required_capabilities=tuple(caps),
+                allowed_scopes=(),
+                routable=False,
+                legacy_config_paths=legacy,
+                non_routable_reason=reason,
+            )
+
+        builtins = [
+            item("task.planning", "Planung", "tasks", "reasoning", role="planner"),
+            item("task.coding", "Coding", "tasks", "code", role="coder"),
+            item("task.debugging", "Debugging", "tasks", "code", role="coder"),
+            item("task.review", "Review", "tasks", "reasoning", role="reviewer"),
+            item("task.research", "Research", "tasks", "reasoning", role="reasoning"),
+            item("task.repo_analysis", "Repository-Analyse", "tasks", "code", role="coder"),
+            item("task.summarization", "Zusammenfassung", "tasks", "chat", role="summarizer"),
+            item("chat.ai_snake", "AI-Snake", "chat", "chat", role="chat", legacy=("hub_copilot",)),
+            item("chat.general", "Allgemeiner Chat", "chat", "chat", role="chat", legacy=("default_provider", "default_model")),
+            item("chat.code_help", "Code-Hilfe", "chat", "code", role="coder"),
+            item("planning.autoplanner", "Auto-Planner", "planning", "reasoning", role="planner", legacy=("planning",)),
+            item("planning.goal", "Goal-Planung", "planning", "reasoning", role="planner"),
+            item("planning.context_compaction", "Planungskontext-Kompaktierung", "planning", "chat", role="summarizer"),
+            item("evaluation.judge", "Evaluator", "evaluation", "json", role="reviewer"),
+            item("evaluation.verifier", "Verifikation", "evaluation", "reasoning", role="reviewer"),
+            item("research.synthesis", "Research-Synthese", "research", "reasoning", role="reasoning"),
+            item("knowledge.rag_answer", "RAG-Antwort", "knowledge", "chat", role="chat"),
+            item("visual_process.step", "Visual-Process-Schritt", "visual_process", "reasoning"),
+            item("voice.corrector", "Voice-Korrektur", "voice", "chat", role="chat"),
+            item("evolver.proposal", "Evolver", "evolution", "reasoning", role="reasoning"),
+            external(
+                "knowledge.embedding", "Embeddings", "knowledge",
+                "dedicated_embedding_provider_domain", "embeddings",
+                legacy=("knowledge_context.embedding",),
+            ),
+            external(
+                "voice.transcription", "Voice-Transkription", "voice",
+                "dedicated_voice_runtime_domain", "audio",
+                legacy=("voice_runtime",),
+            ),
+            external(
+                "vision.analysis", "Vision-Analyse", "vision",
+                "vision_capability_not_in_model_profile_v1", "vision",
+            ),
+            external(
+                "tiny_router.action", "Needle Tool-Router", "tools",
+                "dedicated_tiny_router_domain", "tools",
+                legacy=("tiny_action_model_profiles",),
+            ),
+        ]
+        builtins.extend(cls._plugin_consumers(extensions))
+        return cls(builtins)
+
+    @staticmethod
+    def _plugin_consumers(
+        extensions: Iterable[ModelConsumerExtensionPort],
+    ) -> list[ModelConsumer]:
+        result: list[ModelConsumer] = []
+        for extension in extensions:
+            namespace = str(extension.namespace or "").strip()
+            if not re.fullmatch(r"[a-z0-9][a-z0-9_.-]{0,63}", namespace):
+                raise ValueError("model_consumer_extension_namespace_invalid")
+            prefix = f"plugin.{namespace}."
+            for consumer in extension.consumers():
+                if not consumer.consumer_id.startswith(prefix):
+                    raise ValueError("model_consumer_extension_id_not_namespaced")
+                result.append(consumer.model_copy(update={
+                    "registration_source": f"plugin:{namespace}",
+                }))
+        return result
 
     def all(self) -> tuple[ModelConsumer, ...]:
         return tuple(sorted(self._consumers.values(), key=lambda item: item.consumer_id))
@@ -155,6 +246,8 @@ class ModelRoutingAssignmentService:
     ) -> None:
         for assignment in assignments:
             consumer = self._consumers.require(assignment.consumer_id)
+            if not consumer.routable:
+                raise ValueError("model_consumer_not_routable")
             if assignment.scope not in consumer.allowed_scopes:
                 raise ValueError("model_assignment_scope_not_allowed")
             if assignment.profile_id and assignment.profile_id not in self._profiles:
@@ -225,6 +318,23 @@ class EffectiveModelRoutingService:
         """Resolve once for both previews and Hub-signed runtime plans."""
 
         consumer = self._consumers.require(command.consumer_id)
+        if not consumer.routable:
+            return EffectiveModelRoute(
+                configuration_revision=(
+                    command.configuration or self._repository.load()
+                ).revision,
+                consumer_id=consumer.consumer_id,
+                assignment_source="consumer_registry",
+                assignment_mode="disabled",
+                decisions=(ModelRouteDecision(
+                    rank=0,
+                    source="consumer_registry",
+                    profile_id=None,
+                    accepted=False,
+                    reason=consumer.non_routable_reason or "model_consumer_not_routable",
+                ),),
+                executable=False,
+            ), []
         configuration = command.configuration or self._repository.load()
         assignment, source, inheritance_sources = self._effective_assignment(
             configuration, command
@@ -263,7 +373,7 @@ class EffectiveModelRoutingService:
                 cloud_allowed=command.allow_cloud,
             ))
         base = base_context or RoutingContext()
-        configured_role = self._CONSUMER_MODEL_ROLES.get(
+        configured_role = consumer.default_model_role or self._CONSUMER_MODEL_ROLES.get(
             consumer.consumer_id, "any"
         )
         model_role = (
@@ -517,6 +627,7 @@ class CognitiveStyleFitPolicy:
 __all__ = [
     "CognitiveStyleFitPolicy", "EffectiveModelRoutingService",
     "InMemoryModelRoutingConfigurationRepository",
-    "ModelConsumerRegistry", "ModelRoutingAssignmentService",
+    "ModelConsumerExtensionPort", "ModelConsumerRegistry",
+    "ModelRoutingAssignmentService",
     "ModelRoutingConflict", "StyleFitDecision",
 ]

@@ -77,6 +77,8 @@ class ModelRoutingTemplateService:
         groups: list[ModelFallbackGroup] = []
         issues: list[ModelRoutingValidationIssue] = []
         for consumer in self._consumers.all():
+            if not consumer.routable:
+                continue
             compatible_primaries = self._compatible(consumer, primaries)
             if not compatible_primaries:
                 issues.append(ModelRoutingValidationIssue(
@@ -169,12 +171,7 @@ class ModelRoutingTemplateService:
                 and ("code" not in capabilities or profile.model_role in {"any", "coder"})
             )
 
-        role = {
-            "task.planning": "planner", "planning.autoplanner": "planner",
-            "task.coding": "coder", "task.debugging": "coder",
-            "task.repo_analysis": "coder", "task.review": "reviewer",
-            "evaluation.judge": "reviewer", "knowledge.embedding": "embedder",
-        }.get(consumer.consumer_id)
+        role = consumer.default_model_role
         compatible = [profile for profile in profiles if supports(profile)]
         indexed = list(enumerate(compatible))
         return [

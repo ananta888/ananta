@@ -93,3 +93,20 @@ def test_unavailable_template_is_explicit_instead_of_inventing_cli_profiles():
         "model_routing_template_consumer_unresolved",
         "model_routing_template_no_compatible_profiles",
     }
+
+
+def test_templates_ignore_consumers_owned_by_specialized_runtime_domains():
+    service = ModelRoutingTemplateService(
+        consumers=ModelConsumerRegistry.defaults(),
+        profiles=(_profile("local-any"),),
+    )
+
+    template = service.catalog(configuration_revision=0).templates[0]
+    assigned_consumers = {
+        assignment.consumer_id for assignment in template.configuration.assignments
+    }
+    issue_references = {issue.reference for issue in template.issues}
+
+    assert "knowledge.embedding" not in assigned_consumers
+    assert "knowledge.embedding" not in issue_references
+    assert "tiny_router.action" not in assigned_consumers
