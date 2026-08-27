@@ -553,6 +553,21 @@ class Settings(BaseSettings):
         validation_alias="CODECOMPASS_WIKI_INDEX_PATH",
     )
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
+    codecompass_sira_mode: str = Field(default="off", validation_alias="CODECOMPASS_SIRA_MODE")
+    codecompass_sira_enrichment_model: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_SIRA_ENRICHMENT_MODEL",
+    )
+    codecompass_sira_query_model: str = Field(default="", validation_alias="CODECOMPASS_SIRA_QUERY_MODEL")
+    codecompass_sira_rerank_model: str = Field(default="", validation_alias="CODECOMPASS_SIRA_RERANK_MODEL")
+    codecompass_sira_reranker_enabled: bool = Field(
+        default=False,
+        validation_alias="CODECOMPASS_SIRA_RERANKER_ENABLED",
+    )
+    codecompass_sira_local_models_only: bool = Field(
+        default=True,
+        validation_alias="CODECOMPASS_SIRA_LOCAL_MODELS_ONLY",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

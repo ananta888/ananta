@@ -1,0 +1,26 @@
+{
+  "schema": "codecompass.sira-baseline.v1",
+  "measurement_status": "deterministic_fixture_baseline",
+  "implementation": "worker.retrieval.codecompass_fts_store.CodeCompassFtsStore",
+  "binding": {
+    "repository_revision": "sira-fixture-v1",
+    "source_manifest_hash": "sira-fixture-manifest-v1",
+    "golden_digest": "sira-golden-v1"
+  },
+  "queries": [
+    {"query_id": "exact-symbol", "records": [{"record_id": "payment.retry"}]},
+    {"query_id": "bugfix-vocabulary-gap", "records": []},
+    {"query_id": "architecture-vocabulary-gap", "records": []},
+    {"query_id": "config-lookup", "records": [{"record_id": "sira.config"}]},
+    {"query_id": "cross-language", "records": []},
+    {"query_id": "no-result", "records": []},
+    {"query_id": "adversarial", "records": [{"record_id": "hub.dispatch"}]}
+  ],
+  "efficiency": {
+    "lexical_retrieval_calls_per_query": 1,
+    "llm_calls_per_query": 0,
+    "llm_tokens_per_query": 0,
+    "cost_per_query": 0,
+    "measurement_note": "Latency, index size and update timing are environment-dependent and intentionally unverified in this fixture."
+  }
+}

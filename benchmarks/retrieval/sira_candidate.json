@@ -1,0 +1,25 @@
+{
+  "schema": "codecompass.sira-candidate.v1",
+  "measurement_status": "deterministic_fixture_candidate",
+  "implementation": "worker.retrieval.sira.EnrichedFtsStore",
+  "binding": {
+    "repository_revision": "sira-fixture-v1",
+    "source_manifest_hash": "sira-fixture-manifest-v1",
+    "golden_digest": "sira-golden-v1"
+  },
+  "queries": [
+    {"query_id": "exact-symbol", "records": [{"record_id": "payment.retry"}]},
+    {"query_id": "bugfix-vocabulary-gap", "records": [{"record_id": "payment.retry"}]},
+    {"query_id": "architecture-vocabulary-gap", "records": [{"record_id": "hub.dispatch"}]},
+    {"query_id": "config-lookup", "records": [{"record_id": "sira.config"}]},
+    {"query_id": "cross-language", "records": [{"record_id": "payment.retry"}]},
+    {"query_id": "no-result", "records": []},
+    {"query_id": "adversarial", "records": [{"record_id": "hub.dispatch"}]}
+  ],
+  "efficiency": {
+    "lexical_retrieval_calls_per_query": 1,
+    "query_model_calls_per_query": "0_or_1_by_router",
+    "reranker_enabled": false,
+    "measurement_note": "Latency, tokens, cost, index size and update timing remain environment-dependent and unverified."
+  }
+}

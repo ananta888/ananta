@@ -92,3 +92,18 @@ def retrieve_codecompass_context():
     status = "success" if result.get("status") in {"ok", "degraded", "empty"} else "error"
     code = 200 if status == "success" else 400
     return api_response(result, status=status, code=code)
+
+
+@codecompass_retrieve_bp.route("/api/codecompass/sira/status", methods=["GET"])
+def codecompass_sira_status():
+    """Return a redacted Hub-owned read model; never inspect Worker files here."""
+
+    from agent.config import settings
+    from agent.services.codecompass_sira_status_service import CodeCompassSiraStatusService
+
+    result = CodeCompassSiraStatusService().build(
+        settings=settings,
+        model_catalog=current_app.extensions.get("codecompass_sira_model_catalog"),
+        worker_status=current_app.extensions.get("codecompass_sira_worker_status"),
+    )
+    return api_response(result)

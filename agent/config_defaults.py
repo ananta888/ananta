@@ -493,6 +493,17 @@ def build_default_agent_config() -> dict:
             },
             "codecompass_retrieval": {
                 "codecompass_fts": bool(settings.codecompass_fts_enabled),
+                "sira": {
+                    "schema": "codecompass.sira-config.v1",
+                    "mode": str(settings.codecompass_sira_mode or "off").strip().lower(),
+                    "enrichment_model": str(settings.codecompass_sira_enrichment_model or "").strip(),
+                    "query_model": str(settings.codecompass_sira_query_model or "").strip(),
+                    "rerank_model": str(settings.codecompass_sira_rerank_model or "").strip(),
+                    "reranker_enabled": bool(settings.codecompass_sira_reranker_enabled),
+                    "local_models_only": bool(settings.codecompass_sira_local_models_only),
+                    "temperature": 0.0,
+                    "profile_version": "corpus-discriminative-lexical.v1",
+                },
                 "codecompass_vector": bool(settings.codecompass_vector_enabled),
                 "codecompass_graph": bool(settings.codecompass_graph_enabled),
                 "codecompass_relation_expansion": bool(settings.codecompass_relation_expansion_enabled),

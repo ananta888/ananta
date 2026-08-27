@@ -87,9 +87,7 @@ class CodeCompassRetriever:
             self._graph_store = graph_store or environment_graph_store
             self._provider_diagnostics = diagnostics
         else:
-            self._channel_providers = {
-                str(name): provider for name, provider in channel_providers.items()
-            }
+            self._channel_providers = {str(name): provider for name, provider in channel_providers.items()}
             self._graph_store = graph_store
             self._provider_diagnostics = {}
 
@@ -163,6 +161,7 @@ class CodeCompassRetriever:
             channel_results, channel_errors, latency, graph_expansion, queried_channels = self._query_channels(
                 request.query,
                 top_k=request.max_results,
+                retrieval_profile=request.retrieval_profile,
             )
             contract_channels = list(channel_results)
             if graph_expansion is not None:
@@ -256,6 +255,7 @@ class CodeCompassRetriever:
         query: str,
         *,
         top_k: int,
+        retrieval_profile: Mapping[str, Any] | None = None,
     ) -> tuple[
         dict[str, list[dict[str, Any]]],
         dict[str, str],
@@ -270,16 +270,29 @@ class CodeCompassRetriever:
         for channel, provider in sorted(self._channel_providers.items()):
             started = time.perf_counter()
             try:
-                rows = provider.search(
-                    query=query,
-                    top_k=max(1, int(top_k) * 3),
-                    task_kind="bugfix",
-                    retrieval_intent="exact_symbol" if channel == "symbol" else "fuzzy_semantic",
-                )
+                profiled_search = getattr(provider, "search_profiled", None)
+                profile_name = str((retrieval_profile or {}).get("name") or "").strip().lower()
+                if (
+                    channel == "codecompass_fts"
+                    and profile_name == "corpus_discriminative_lexical"
+                    and callable(profiled_search)
+                ):
+                    rows = profiled_search(
+                        query=query,
+                        top_k=max(1, int(top_k) * 3),
+                        retrieval_profile=dict(retrieval_profile or {}),
+                        task_kind="bugfix",
+                        retrieval_intent="fuzzy_semantic",
+                    )
+                else:
+                    rows = provider.search(
+                        query=query,
+                        top_k=max(1, int(top_k) * 3),
+                        task_kind="bugfix",
+                        retrieval_intent="exact_symbol" if channel == "symbol" else "fuzzy_semantic",
+                    )
                 results[channel] = [
-                    self._normalize_channel_candidate(item)
-                    for item in list(rows or [])
-                    if isinstance(item, dict)
+                    self._normalize_channel_candidate(item) for item in list(rows or []) if isinstance(item, dict)
                 ]
                 queried.append(channel)
             except Exception as exc:
@@ -329,10 +342,7 @@ class CodeCompassRetriever:
             "path": str(raw.get("path") or raw.get("source") or metadata.get("file") or ""),
             "record_id": str(raw.get("record_id") or metadata.get("record_id") or ""),
             "content_hash": str(
-                raw.get("content_hash")
-                or metadata.get("content_hash")
-                or metadata.get("document_hash")
-                or ""
+                raw.get("content_hash") or metadata.get("content_hash") or metadata.get("document_hash") or ""
             ),
             "content": str(raw.get("content") or raw.get("text") or ""),
             "score": float(raw.get("score") or raw.get("final_score") or 0.0),
@@ -341,9 +351,7 @@ class CodeCompassRetriever:
             "tenant_id": str(raw.get("tenant_id") or metadata.get("tenant_id") or ""),
             "scope": str(raw.get("scope") or metadata.get("scope") or ""),
             "provenance": dict(provenance) if isinstance(provenance, Mapping) else {},
-            "provenance_digest": str(
-                raw.get("provenance_digest") or metadata.get("provenance_digest") or ""
-            ),
+            "provenance_digest": str(raw.get("provenance_digest") or metadata.get("provenance_digest") or ""),
             "metadata": metadata,
         }
 
@@ -439,9 +447,8 @@ class CodeCompassRetriever:
                 continue
             provenance_source_id = str(provenance.get("source_id") or "").strip()
             provenance_version = str(provenance.get("source_version") or "").strip()
-            if (
-                (provenance_source_id and provenance_source_id != source_id)
-                or (provenance_version and provenance_version != source_version)
+            if (provenance_source_id and provenance_source_id != source_id) or (
+                provenance_version and provenance_version != source_version
             ):
                 rejected.append("source_provenance_mismatch")
                 continue
@@ -455,12 +462,16 @@ class CodeCompassRetriever:
                 if candidate_scope != authoritative_ref.scope:
                     rejected.append("source_scope_mismatch")
                     continue
-                candidate_digest = str(
-                    candidate.get("provenance_digest")
-                    or metadata.get("provenance_digest")
-                    or provenance.get("provenance_digest")
-                    or ""
-                ).strip().lower()
+                candidate_digest = (
+                    str(
+                        candidate.get("provenance_digest")
+                        or metadata.get("provenance_digest")
+                        or provenance.get("provenance_digest")
+                        or ""
+                    )
+                    .strip()
+                    .lower()
+                )
                 if not candidate_digest and provenance:
                     candidate_digest = hashlib.sha256(
                         json.dumps(
@@ -495,28 +506,33 @@ class CodeCompassRetriever:
             }
             if candidate_manifest:
                 released_provenance["manifest_hash"] = candidate_manifest
-            record_kind = str(
-                candidate.get("record_kind")
-                or metadata.get("record_kind")
-                or provenance.get("record_kind")
-                or ""
-            ).strip().lower()
+            record_kind = (
+                str(candidate.get("record_kind") or metadata.get("record_kind") or provenance.get("record_kind") or "")
+                .strip()
+                .lower()
+            )
             conflict_key = str(
                 candidate.get("evidence_conflict_key")
                 or metadata.get("evidence_conflict_key")
                 or provenance.get("evidence_conflict_key")
                 or ""
             ).strip()
-            assertion_digest = str(
-                candidate.get("assertion_digest")
-                or metadata.get("assertion_digest")
-                or provenance.get("assertion_digest")
-                or ""
-            ).strip().lower()
+            assertion_digest = (
+                str(
+                    candidate.get("assertion_digest")
+                    or metadata.get("assertion_digest")
+                    or provenance.get("assertion_digest")
+                    or ""
+                )
+                .strip()
+                .lower()
+            )
             if record_kind:
                 released_provenance["record_kind"] = record_kind[:120]
-            if conflict_key and len(conflict_key) <= 200 and all(
-                char.isalnum() or char in "._:/-" for char in conflict_key
+            if (
+                conflict_key
+                and len(conflict_key) <= 200
+                and all(char.isalnum() or char in "._:/-" for char in conflict_key)
             ):
                 released_provenance["evidence_conflict_key"] = conflict_key
             if len(assertion_digest) == 64 and all(char in "0123456789abcdef" for char in assertion_digest):
@@ -556,11 +572,7 @@ def retrieval_request_from_payload(
     raw_refs = payload.get("allowed_source_refs") or ()
     if not isinstance(raw_refs, (list, tuple)):
         raise ValueError("retrieval_allowed_source_refs_invalid")
-    refs = tuple(
-        SourceRef.from_mapping(item)
-        for item in raw_refs
-        if isinstance(item, Mapping)
-    )
+    refs = tuple(SourceRef.from_mapping(item) for item in raw_refs if isinstance(item, Mapping))
     if len(refs) != len(raw_refs):
         raise ValueError("retrieval_allowed_source_refs_invalid")
     tenant_id = str(payload.get("tenant_id") or "unbound")

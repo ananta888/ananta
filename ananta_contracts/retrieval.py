@@ -89,6 +89,7 @@ class RetrievalRequest:
     repository_revision: str = ""
     manifest_hash: str = ""
     source_allowlist_version: str = ""
+    retrieval_profile: Mapping[str, Any] = field(default_factory=dict)
 
     def source_ref(self, source_id: str) -> SourceRef | None:
         matches = [ref for ref in self.allowed_source_refs if ref.source_id == source_id]

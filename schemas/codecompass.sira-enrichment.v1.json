@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.sira-enrichment.v1.json",
+  "title": "CodeCompass SIRA document enrichment artifact",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "artifact_id",
+    "artifact_digest",
+    "source_chunk_id",
+    "source_document_hash",
+    "binding",
+    "generator",
+    "generated_terms",
+    "rejected_by_reason",
+    "fallback_reason"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.sira-enrichment.v1"},
+    "artifact_id": {"type": "string", "minLength": 1},
+    "artifact_digest": {"type": "string", "minLength": 64, "maxLength": 64},
+    "source_chunk_id": {"type": "string"},
+    "source_document_hash": {"type": "string"},
+    "binding": {"$ref": "codecompass.sira-provenance.v1.json"},
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model_id", "model_digest", "prompt_version", "temperature"],
+      "properties": {
+        "model_id": {"type": "string"},
+        "model_digest": {"type": "string"},
+        "prompt_version": {"type": "string", "minLength": 1},
+        "temperature": {"const": 0}
+      }
+    },
+    "generated_terms": {
+      "type": "array",
+      "maxItems": 64,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "confidence",
+          "source_chunk_id",
+          "generator_profile",
+          "supporting_span",
+          "supporting_symbol",
+          "origin"
+        ],
+        "properties": {
+          "value": {"type": "string", "minLength": 1, "maxLength": 256},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "source_chunk_id": {"type": "string", "minLength": 1},
+          "generator_profile": {"type": "string", "minLength": 1},
+          "supporting_span": {"type": "string", "maxLength": 300},
+          "supporting_symbol": {"type": "string", "maxLength": 200},
+          "origin": {"const": "document_enrichment"}
+        }
+      }
+    },
+    "rejected_by_reason": {"type": "object", "additionalProperties": {"type": "integer", "minimum": 0}},
+    "fallback_reason": {"type": "string"}
+  }
+}

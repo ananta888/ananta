@@ -180,7 +180,7 @@
     {
       "id": "M0",
       "title": "Referenz, Lizenz und belastbare Baseline",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-001",
         "SIRA-002",
@@ -190,7 +190,7 @@
     {
       "id": "M1",
       "title": "Vertraege und Einbettung in CodeCompass",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-004",
         "SIRA-005",
@@ -211,7 +211,7 @@
     {
       "id": "M3",
       "title": "Query-Kompilierung und corpus-diskriminatives Retrieval",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-011",
         "SIRA-012",
@@ -222,7 +222,7 @@
     {
       "id": "M4",
       "title": "Hybrid-Integration, Routing und Fallback",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-015",
         "SIRA-016",
@@ -232,7 +232,7 @@
     {
       "id": "M5",
       "title": "Konfiguration und Beobachtbarkeit",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-018",
         "SIRA-019"
@@ -253,7 +253,7 @@
     {
       "id": "SIRA-001",
       "title": "SIRA-Referenzimplementierung und Paper reproduzierbar inventarisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Eine versionierte Research-Notiz enthält Quellen, Commit-Digest, Mapping und offene Abweichungen.",
@@ -263,7 +263,7 @@
       "type": "research",
       "milestone_id": "M0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [],
       "implementation": [
         "Paper arXiv:2605.06647, Meta-Publikationsseite und facebookresearch/sira auf einen gebundenen Commit beziehungsweise Release referenzieren.",
@@ -279,14 +279,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "Offizielle Quellen und Upstream-Commit b33f5b71a1870f09b378d8e79afb6ad9e704709b wurden am 2026-08-27 geprueft; die geforderten versionierten Repository-Artefakte fehlen noch.",
-        "Keine SRC_*-/RUN_*-IDs wurden bereitgestellt; externe Aussagen bleiben URL- und Commit-gebunden, nicht als interne SourceRef verifiziert."
+        "docs/research/sira-reference-manifest.json binds the official paper, Meta publication, upstream repository and commit b33f5b71a1870f09b378d8e79afb6ad9e704709b.",
+        "docs/research/sira-codecompass-adaptation.md defines the independently implemented Ananta profile and its deliberate deviations; no SRC_* or RUN_* identifier was invented."
       ]
     },
     {
       "id": "SIRA-002",
       "title": "MIT- und Apache-2.0-Lizenzpflichten absichern",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-001"
@@ -302,7 +302,7 @@
       "type": "legal",
       "milestone_id": "M0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "implementation": [
         "MIT-Lizenz und Copyright-Hinweise der übernommenen SIRA-Dateien erhalten.",
         "Für abgeleiteten Code aus src/sira/bm25x die Apache-2.0-Lizenz, NOTICE-Hinweise und Änderungskennzeichnung prüfen und übernehmen.",
@@ -317,14 +317,14 @@
         "Lizenzscanner und CI erkennen alle übernommenen Dateien und Abhängigkeiten."
       ],
       "evidence": [
-        "Upstream-LICENSE ist MIT; src/sira/bm25x/NOTICE nennt von LightOn bm25x abgeleiteten Apache-2.0-Code. Es wurde noch kein SIRA-Code uebernommen.",
-        "SIRA-spezifische Legal Review und Third-Party-Attribution fehlen."
+        "THIRD_PARTY_NOTICES and docs/legal/sira-adaptation-license-review.md record the MIT root and Apache-2.0-derived bm25x subtree.",
+        "The implementation copies no upstream SIRA or bm25x source, so no new runtime dependency or copied-file attribution is hidden from the existing license gates."
       ]
     },
     {
       "id": "SIRA-003",
       "title": "Bestehende Retrieval-Baseline vor Änderungen einfrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "acceptance_criteria": [
         "Jeder spätere SIRA-Vergleich verweist auf denselben Repository-Snapshot und dasselbe Golden Set.",
@@ -334,7 +334,7 @@
       "type": "evaluation",
       "milestone_id": "M0",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "depends_on": [],
       "implementation": [
         "Aktuelle Pfade für codecompass_fts, lexical, symbol, graph, vector, Query-Normalisierung, Fusion, Reranking, Policy-Filter und Context-Budget vollständig erfassen.",
@@ -351,14 +351,14 @@
         "Messwerte sind maschinenlesbar, reproduzierbar und nach Query-Klasse aufgeschlüsselt."
       ],
       "evidence": [
-        "scripts/retrieval_benchmark.py sowie bestehende Retrieval- und Security-Benchmarktests liefern eine wiederverwendbare Messbasis.",
-        "Gebundene SIRA-Golden-Queries und eine maschinenlesbare Vorher-Baseline fehlen."
+        "tests/fixtures/retrieval/sira_golden_queries.json and benchmarks/retrieval/sira_baseline.json bind one deterministic snapshot and seven query classes.",
+        "tests/test_sira_benchmark_fixture.py rebuilds the legacy FTS result exactly; scripts/evaluate_sira_retrieval.py skips unverified labels instead of self-grading them."
       ]
     },
     {
       "id": "SIRA-004",
       "title": "SIRA-Profil als Erweiterung des bestehenden Retrieval-Vertrags definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-001",
@@ -373,7 +373,7 @@
       "type": "architecture",
       "milestone_id": "M1",
       "risk": "critical",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Ein versioniertes RetrievalProfile 'corpus_discriminative_lexical' definieren, ohne eine parallele zweite CodeCompass-Pipeline aufzubauen.",
         "Originalquery, vorgeschlagene Begriffe, validierte Begriffe, Gewichte, Corpus-/Index-Digest, Modell-Digest und Fallbackgrund typisieren.",
@@ -388,14 +388,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "ananta_contracts/retrieval.py, worker/retrieval/retrieval_contract.py und HybridRetrievalService stellen additive Request-, Ergebnis- und Kanalvertraege bereit.",
-        "Ein versionierter SIRA-Profilvertrag und kompatible optionale Felder fehlen."
+        "ananta_contracts/retrieval.py adds only the optional retrieval_profile field; existing callers remain source-compatible.",
+        "schemas/codecompass.sira-retrieval.v1.json and worker/retrieval/sira/channel_provider.py keep SIRA behind the existing codecompass_fts channel and the shared Hybrid result path."
       ]
     },
     {
       "id": "SIRA-005",
       "title": "Verantwortung zwischen Hub, Worker, Index und Modellports trennen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-004"
@@ -408,7 +408,7 @@
       "type": "architecture",
       "milestone_id": "M1",
       "risk": "critical",
-      "progress_percent": 50.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Hub als Eigentümer von Query-Planung, Capability-Intersection, Budget und Fallback definieren.",
         "Worker als ausführende Ebene für Corpus-Statistik, FTS/BM25, Enrichment-Jobs und optionales Reranking definieren.",
@@ -423,14 +423,14 @@
         "Ohne LLM-Verfügbarkeit bleibt ein vollständiger deterministischer BM25/FTS-Fallback nutzbar."
       ],
       "evidence": [
-        "Hub-eigene Capability-, Policy-, Profil- und Routingservices sowie Worker-eigene FTS-/Rankingausfuehrung respektieren die Hub-Worker-Grenze.",
-        "Schmale SIRA-Ports fuer Enrichment, Expansion, Corpus-Statistik, gewichtetes Retrieval und Pointwise-Reranking fehlen."
+        "worker/retrieval/sira/contracts.py defines narrow generation, statistics, retrieval and reranking ports; individual services keep enrichment, routing, validation, compilation and storage separate.",
+        "The Hub owns configuration/read models while Worker code executes retrieval. The deterministic baseline remains available without an LLM."
       ]
     },
     {
       "id": "SIRA-006",
       "title": "Versionierung, Provenienz und Reproduzierbarkeit verbindlich machen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-004",
@@ -444,7 +444,7 @@
       "type": "architecture",
       "milestone_id": "M1",
       "risk": "high",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Corpus-Revision, Source-Manifest-Hash, Chunking-Profil, Enrichment-Prompt-Version, Modell-ID, Modell-Digest, Sampling-Parameter und Indexschema binden.",
         "Stabile IDs für Dokumente, Chunks und Enrichment-Artefakte verwenden.",
@@ -460,14 +460,14 @@
         "Traces unterscheiden reproduzierbare Suche von neu erzeugtem Enrichment."
       ],
       "evidence": [
-        "SourceRef, source_manifest_hash, document_hash, retrieval_cache_state und Retrieval-Traces binden heute Teile der Provenienz deterministisch.",
-        "SIRA-Prompt-, Modell-, Statistik-, Basis-/Delta- und Profilversionen sind noch nicht als gemeinsamer Vertrag gebunden."
+        "CorpusBinding binds tenant, scope, revision, manifest, index, statistics, profile and layer identities; EnrichedFtsStore fails closed on every snapshot mismatch.",
+        "Prompt/model/profile inputs participate in cache or index digests, and traces separate original query terms from generated enrichment."
       ]
     },
     {
       "id": "SIRA-007",
       "title": "Code-spezifisches Dokument-Enrichment entwerfen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-005",
@@ -481,7 +481,7 @@
       "type": "implementation",
       "milestone_id": "M2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Für jeden zugelassenen Chunk fehlendes Suchvokabular als kurze Indexphrasen erzeugen: fachliche Begriffe, Synonyme, API-Zweck, Fehlersymptome, Architekturrolle und wahrscheinlich verwendete Nutzerformulierungen.",
         "Code-Symbole, Signaturen, Pfade, Imports, Kommentare und Graphbeziehungen als belegte Eingaben nutzen.",
@@ -497,13 +497,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "codecompass_document_normalizer trennt vorhandene Textfelder, erzeugt aber noch keine modellgenerierten, provenance-gebundenen Suchbegriffe."
+        "worker/retrieval/sira/document_enrichment.py preserves original content separately and emits generated terms with source chunk, generator, confidence and optional support metadata.",
+        "Schema/model failures produce a typed fallback artifact without removing the original document; covered by tests/test_sira_enrichment_security.py."
       ]
     },
     {
       "id": "SIRA-008",
       "title": "Corpus-Enrichment sicher und prompt-injection-resistent ausführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-007"
@@ -516,7 +517,7 @@
       "type": "security",
       "milestone_id": "M2",
       "risk": "critical",
-      "progress_percent": 15.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Repository-Inhalte als nicht vertrauenswürdige Daten behandeln und Instruktionen aus Code, Kommentaren, Dokumenten oder Dateinamen nicht ausführen.",
         "Strukturiertes JSON-Schema, Längenlimits, erlaubte Zeichensätze und semantische Validierung erzwingen.",
@@ -531,7 +532,8 @@
         "Validierungsfehler sind typisiert, gezählt und führen zu sicherem Originaltext-Fallback."
       ],
       "evidence": [
-        "Vorhandene Scope-, Path- und Datenpolicy-Grenzen sind wiederverwendbar; SIRA-spezifische Schema-, Redaction-, Poisoning- und Prompt-Injection-Tests fehlen."
+        "DocumentEnrichmentService treats source text as untrusted data, uses a closed output shape, local-model policy, path filtering, redaction and bounded inputs.",
+        "tests/test_sira_enrichment_security.py covers prompt injection, secrets, forbidden paths and model failure with safe original-text fallback."
       ]
     },
     {
@@ -552,7 +554,7 @@
       "type": "implementation",
       "milestone_id": "M2",
       "risk": "critical",
-      "progress_percent": 30.0,
+      "progress_percent": 90.0,
       "implementation": [
         "Nur neue oder inhaltlich geänderte Chunks neu anreichern; gelöschte Chunks tombstonen.",
         "Basis-Snapshot und absteigende Delta-Schichten unterstützen, damit kleine Änderungen keinen Vollaufbau erzwingen.",
@@ -568,14 +570,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "CodeCompass besitzt versionierte inkrementelle Artefakt-Layer, Replay Guards und Lifecycle-Dokumentation.",
-        "Eine SIRA-Enrichment-Schicht mit Tombstones, gezielter Invalidierung, atomarer Aktivierung und Kompaktierung fehlt."
+        "worker/retrieval/sira/incremental_enrichment.py implements deterministic change sets, tombstones, idempotent base/delta layers, pointer-last activation and compaction; scripts/manage_sira_index.py exposes build, diagnostics and compaction.",
+        "tests/test_sira_incremental_enrichment.py proves one-file targeting, idempotency and compaction. A production Hub queue/API trigger wired to the deployed CodeCompass synchronizer remains deployment work; direct Hub access to Worker files was intentionally not introduced."
       ]
     },
     {
       "id": "SIRA-010",
       "title": "Enrichment-Speicher und BM25-Felder integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-007",
@@ -590,7 +592,7 @@
       "type": "implementation",
       "milestone_id": "M2",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Originaltext, Symbole, Pfad/Dateiname und generierte Indexphrasen als getrennte Felder indexieren.",
         "Feldgewichte zentral, versioniert und im Ranking-Trace sichtbar konfigurieren.",
@@ -605,14 +607,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "CodeCompassFtsStore persistiert getrennte gewichtete FTS-Felder und manifest-/dokumentgebundene Metadaten.",
-        "Generierte Enrichment-Felder, Corpus-Statistik und atomare Aktivierung eines SIRA-Indexstands fehlen."
+        "worker/retrieval/sira/enriched_fts_store.py stores original and generated fields separately, precomputes unigram and 2-4-gram corpus statistics, and atomically activates a bound snapshot.",
+        "Original terms receive stronger bounded weights, legacy FTS remains the fallback, and the public codecompass_fts channel is unchanged."
       ]
     },
     {
       "id": "SIRA-011",
       "title": "Evidenzskizze und fehlendes Query-Vokabular erzeugen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-005",
@@ -627,7 +629,7 @@
       "type": "implementation",
       "milestone_id": "M3",
       "risk": "high",
-      "progress_percent": 20.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Aus der Nutzerfrage eine knappe Evidenzskizze und erwartete diskriminierende Suchbegriffe erzeugen.",
         "Originalquery unverändert erhalten und exakte Code-Symbole, Pfade, Fehlertexte und Versionsangaben priorisieren.",
@@ -642,14 +644,14 @@
         "Bei Timeout, Schemafehler oder geringer Confidence erfolgt ohne zweite Suchschleife der Originalquery-Fallback."
       ],
       "evidence": [
-        "worker/retrieval/query_rewrite.py bewahrt die Originalquery und bietet eine deterministische Synonym-Erweiterung.",
-        "Schema-, Modellport-, Budget-, Exact-Query-Bypass- und Evidenzskizzenlogik fuer SIRA fehlen."
+        "worker/retrieval/sira/query_expander.py preserves the original query, bypasses exact queries, bounds terms/tokens/time and enforces local-model policy plus a closed response shape.",
+        "Timeout, model, schema and empty-expansion paths deterministically fall back before the single retrieval action; covered by tests/test_sira_retrieval_pipeline.py."
       ]
     },
     {
       "id": "SIRA-012",
       "title": "LLM-Begriffe mit Corpus-Statistik validieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-010",
@@ -664,7 +666,7 @@
       "type": "implementation",
       "milestone_id": "M3",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Jeden vorgeschlagenen Begriff gegen Document Frequency, Collection Frequency und Feldexistenz des aktiven Scopes prüfen.",
         "Nicht vorhandene, extrem häufige, redundante oder nicht tokenisierbare Begriffe entfernen.",
@@ -681,13 +683,14 @@
         "Leere validierte Expansion fällt auf Originalquery zurück."
       ],
       "evidence": [
-        "Es existiert noch kein scope-gebundener CorpusTermStatistics-Port und keine DF/CF-basierte Annahme- oder Ablehnungslogik."
+        "CorpusTermValidator accepts terms only from snapshot-bound precomputed DF/CF statistics and records an explicit reason plus statistics for every decision.",
+        "tests/test_sira_term_validation.py covers absent, common, low-confidence, duplicate and untrusted rare-identifier terms without an online corpus scan."
       ]
     },
     {
       "id": "SIRA-013",
       "title": "Gewichtete corpus-diskriminative BM25-Abfrage kompilieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-011",
@@ -702,7 +705,7 @@
       "type": "implementation",
       "milestone_id": "M3",
       "risk": "critical",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Originalbegriffe und validierte Expansion zu genau einer gewichteten lexikalischen Retrieval-Aktion kompilieren.",
         "Gewichte aus transparenten Signalen ableiten: Original-vs-Expansion, IDF/DF, Feld, exakter Symbolstatus, Confidence und Redundanz.",
@@ -719,14 +722,14 @@
         "Backend-Adapter bestehen gemeinsame Contract- und Ranking-Paritätstests."
       ],
       "evidence": [
-        "CodeCompassFtsStore fuehrt eine einzelne FTS5-Abfrage mit festen Feldgewichten und stabiler Nachsortierung aus.",
-        "Eine gewichtete Query aus validierten corpus-diskriminativen Begriffen, Grenzpruefungen und Paritaetsvertrag fehlt."
+        "WeightedQueryCompiler creates one bounded FTS expression with preserved original terms and reconstructable weights; WeightedLexicalRetriever performs exactly one corpus action.",
+        "tests/test_sira_retrieval_pipeline.py and tests/test_sira_benchmark_fixture.py cover call count, deterministic ranking and original-only parity."
       ]
     },
     {
       "id": "SIRA-014",
       "title": "Optionales Pointwise-Reranking budgetiert integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "depends_on": [
         "SIRA-013"
@@ -740,7 +743,7 @@
       "type": "implementation",
       "milestone_id": "M3",
       "risk": "high",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Pointwise-Reranking als optionale Stufe nach dem einzelnen BM25-Aufruf, aber vor Context-Curation implementieren.",
         "Nur Top-N-Kandidaten und minimal notwendige Snippets übergeben; Policy- und Datenresidenzgrenzen einhalten.",
@@ -755,14 +758,14 @@
         "Fallback ist typisiert, im Trace sichtbar und verändert zugelassene Kandidaten nicht."
       ],
       "evidence": [
-        "Worker Reranker und Hub RestrictedModelInferenceService bieten optionale, deterministisch fallende Reranking-Seams.",
-        "Der SIRA-spezifische Pointwise-Vertrag, Kosten-/Timeoutdiagnostik und benchmarkgebundene Aktivierung fehlen."
+        "worker/retrieval/sira/pointwise_reranker.py reranks only a bounded candidate prefix with minimal snippets and preserves the admitted candidate set.",
+        "Timeout/error/disabled paths retain deterministic lexical order; model digest, candidate count and bounded query/rerank configuration are trace-visible."
       ]
     },
     {
       "id": "SIRA-015",
       "title": "SIRA-Ergebnisse in universelles Hybrid-Ranking einfügen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-004",
@@ -776,7 +779,7 @@
       "type": "architecture",
       "milestone_id": "M4",
       "risk": "critical",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "implementation": [
         "SIRA als erklärbaren lexikalischen Kandidatenkanal in den vorhandenen HybridRetrievalService einspeisen.",
         "Score-Normalisierung mit codecompass_vector, graph, symbol und exact abstimmen; keine unnormalisierten Rohscores addieren.",
@@ -791,14 +794,14 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "HybridRetrievalService fusioniert lexikalische, Symbol-, Graph- und Vektorkandidaten mit gemeinsamer Deduplizierung, Budgetierung und Beitragsdiagnostik.",
-        "SIRA-Ergebnisse und Original-BM25-Beitrag sind noch nicht getrennt in diesen universellen Pfad adaptiert."
+        "worker/retrieval/sira/hybrid_adapter.py adapts results into the existing codecompass_fts channel with separate original, expansion and pointwise contributions.",
+        "CodeCompassRetriever invokes search_profiled only for the existing FTS provider; universal Hybrid dedupe, budgets and context packing remain single implementations."
       ]
     },
     {
       "id": "SIRA-016",
       "title": "Adaptives Routing ohne unnötige LLM-Kosten implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "depends_on": [
         "SIRA-003",
@@ -813,7 +816,7 @@
       "type": "implementation",
       "milestone_id": "M4",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Vor dem LLM-Aufruf anhand Query-Typ, exaktem Treffer, BM25-Margin, Corpusgröße, Cache und Budget entscheiden, ob SIRA-Expansion sinnvoll ist.",
         "Modi off, shadow, on_demand, preferred und required mit klarer Fallbacksemantik definieren.",
@@ -828,14 +831,14 @@
         "Required schlägt nur mit typisiertem Fehler fehl; alle anderen Modi besitzen sicheren Baseline-Fallback."
       ],
       "evidence": [
-        "retrieval_profile_service und CodeCompass-Strategien klassifizieren Queries deterministisch und koennen teure Pfade selektiv aktivieren.",
-        "SIRA-Modi, Margin-/Cache-/Budgetfeatures und typisierte Routingentscheidungen fehlen."
+        "SiraRouter implements off, shadow, on_demand, preferred and required modes with exact-query, baseline-margin, cache, budget and circuit features.",
+        "tests/test_sira_retrieval_pipeline.py verifies bypass/fallback behavior and that required mode alone returns typed unavailability."
       ]
     },
     {
       "id": "SIRA-017",
       "title": "Fehler-, Fallback- und Circuit-Breaker-Verhalten absichern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-013",
@@ -850,7 +853,7 @@
       "type": "reliability",
       "milestone_id": "M4",
       "risk": "critical",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Fehlercodes für enrichment_unavailable, stale_enrichment, corpus_stats_mismatch, expansion_timeout, invalid_weighted_query und reranker_unavailable definieren.",
         "Fallback-Reihenfolge SIRA-Enriched-BM25 zu Original-BM25/FTS zu bestehendem Hybridprofil konfigurieren.",
@@ -865,14 +868,14 @@
         "Kein Fallback weitet Workspace, Revision, Pfade oder Datenresidenz aus."
       ],
       "evidence": [
-        "HybridRetrievalService besitzt kanalweise disabled/degraded-Diagnostik und bewahrt Baseline-Fallbackkanaele.",
-        "SIRA-Reason-Codes, Fallbackkette und zustandsbehafteter Circuit Breaker fehlen."
+        "SiraRetrievalService maps failures to typed reasons, never widens CorpusBinding and uses at most the selected SIRA action plus one baseline fallback.",
+        "SiraCircuitBreaker has bounded opening and timed recovery; security and pipeline tests cover model failure, binding failure, fallback and recovery paths."
       ]
     },
     {
       "id": "SIRA-018",
       "title": "Zentrale Konfiguration und Modellwahl bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "depends_on": [
         "SIRA-004",
@@ -887,7 +890,7 @@
       "type": "configuration",
       "milestone_id": "M5",
       "risk": "high",
-      "progress_percent": 25.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Enrichment-Modell, Query-Modell, optionales Rerank-Modell und jeweilige Fallbacks über die zentrale Ananta-Modellregistrierung auswählen.",
         "Lokale OpenAI-kompatible Provider, Ollama, LM Studio und unterstützte CLI-Backends nur über bestehende Provider-Ports anbinden.",
@@ -902,14 +905,14 @@
         "Alle SIRA-Modelle erscheinen in der zentralen Modellwahl mit Capability-Prüfung und Fallbackkette."
       ],
       "evidence": [
-        "Die zentrale Modellregistrierung und bestehende lokale/kompatible Providerports koennen wiederverwendet werden.",
-        "Geschlossenes SIRA-Konfigurationsschema, Capability-Pruefung und rebuild-relevanter Digest fehlen."
+        "CodeCompassSiraConfigService validates model capabilities/locality before activation; ananta_contracts/sira_retrieval.py and schemas/codecompass.sira-config.v1.json provide the closed versioned contract.",
+        "agent/config.py, agent/config_defaults.py and .env.example expose default-off settings and rebuild-relevant prompt/profile/model configuration."
       ]
     },
     {
       "id": "SIRA-019",
       "title": "Erklärbare Diagnose- und Betriebsansicht ergänzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "depends_on": [
         "SIRA-006",
@@ -925,7 +928,7 @@
       "type": "observability",
       "milestone_id": "M5",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Pro Query Originalbegriffe, LLM-Vorschläge, abgelehnte/validierte Begriffe, DF/IDF, Gewichte, Routing, Treffer und Fallbackgrund anzeigen.",
         "Indexstatus mit Basis-/Delta-Versionen, Queue, Fehlern, Durchsatz, Cache-Hitrate, letztem erfolgreichen Sync und Kompaktierung darstellen.",
@@ -940,8 +943,8 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "Retrieval-Trace, Kanaldiagnostik, Scorebeitraege, Manifesthash und Latenzfelder existieren.",
-        "SIRA-Termentscheidungen, Indexlayer, Routing, Kosten und redigierter Read-only-Statusvertrag fehlen."
+        "GET /api/codecompass/sira/status, CodeCompassSiraStatusService and the operations-console component share one redacted allowlisted server status contract.",
+        "Trace and status fields expose routing, term decisions, snapshot layers, score contributions, fallbacks and kill switches without query/path metric labels."
       ]
     },
     {
@@ -965,7 +968,7 @@
       "type": "evaluation",
       "milestone_id": "M6",
       "risk": "critical",
-      "progress_percent": 20.0,
+      "progress_percent": 75.0,
       "implementation": [
         "Gegen Original-BM25/FTS, vorhandenes Hybrid-Retrieval, Dense-only, Query-Normalisierung und mehrstufiges Agent-Retrieval vergleichen.",
         "Ablationen für Corpus-Enrichment, Query-Expansion, DF-Filter, Gewichtung, Reranker und adaptives Routing ausführen.",
@@ -982,8 +985,8 @@
         "SIRA darf bei exakter Suche, Security und Scope keine Regression verursachen."
       ],
       "evidence": [
-        "Allgemeine Retrieval-, Security- und CodeCompass-Worker-Benchmarks sind vorhanden.",
-        "SIRA-Golden-Sets, Ablationen, robuste Vergleichsmatrix und gebundener Bericht fehlen."
+        "The bound seven-class fixture and evaluator cover Recall@10, nDCG@10, MRR, evidence coverage, exact/no-result/adversarial non-regression and binding mismatch; all automated SIRA and relevant security tests pass.",
+        "The deterministic fixture improves all four aggregate metrics by 0.428571 and makes no production claim. Multi-repository Python/TypeScript/Java, real-model ablations, latency, token, cost and update-time measurements remain unverified deployment evidence."
       ]
     },
     {
@@ -1003,7 +1006,7 @@
       "type": "rollout",
       "milestone_id": "M6",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 85.0,
       "implementation": [
         "Zunächst off, danach shadow ohne Ergebniswirkung, anschließend kleiner canary und erst nach Gates preferred aktivieren.",
         "Shadow-Ergebnisse, Kosten und Latenz gegen aktive Pipeline vergleichen, ohne doppelte sensible Telemetrie zu speichern.",
@@ -1018,14 +1021,14 @@
         "Rollback wurde mit inkompatiblem Enrichment, Modell-Ausfall und partiellem Delta getestet."
       ],
       "evidence": [
-        "CodeCompass-Retrieval-Flags sowie bestehende Rollout-/Fallbackdokumentation liefern eine additive Grundlage.",
-        "Getrennte SIRA-Kill-Switches, Shadow-Vergleich, Canary-Gates und getesteter Indexrollback fehlen."
+        "Default-off, shadow non-effecting selection, per-reranker kill switch, circuit breaker, binding rejection and baseline rollback paths are implemented and tested; docs/release/codecompass-sira-rollout.md defines gates and stop conditions.",
+        "A real canary observation window and a deployed rollback exercise cannot be truthfully claimed from the repository-only run and remain release evidence."
       ]
     },
     {
       "id": "SIRA-022",
       "title": "Nutzer-, Entwickler- und Betriebsdokumentation abschließen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "depends_on": [
         "SIRA-018",
@@ -1041,7 +1044,7 @@
       "type": "documentation",
       "milestone_id": "M6",
       "risk": "medium",
-      "progress_percent": 15.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Architektur, Datenfluss, Grenzen, Konfiguration, Modellwahl, Index-Lifecycle, Fallbacks und Debugging dokumentieren.",
         "Klarstellen, dass 'Superintelligent' der Name des Referenzansatzes und keine allgemeine Leistungszusage ist.",
@@ -1056,33 +1059,35 @@
         "Gezielte Unit- und Contract-Tests belegen die Akzeptanzkriterien."
       ],
       "evidence": [
-        "Bestehende CodeCompass-, Hybrid-Retrieval-, Ranking- und Betriebsdokumente beschreiben die wiederverwendete Basis.",
-        "Eine zusammenhaengende SIRA-Nutzer-, Entwickler-, Betriebs- und Migrationsdokumentation fehlt."
+        "docs/codecompass-sira.md links architecture, research, legal, lifecycle, fallbacks, observability, benchmark and rollout guides aligned with the implemented schemas, CLI and API.",
+        "The quickstart is local-model-first, reranker-optional and explicitly distinguishes external research references from copied components."
       ]
     }
   ],
   "summary_notes": [
-    "Audit am 2026-08-27 gegen main@63d8135e3 und facebookresearch/sira@b33f5b71a1870f09b378d8e79afb6ad9e704709b.",
-    "Vorhandene generische CodeCompass-Grundlagen zaehlen nur als Teilfortschritt; SIRA-spezifische Akzeptanz bleibt offen, bis Code, Tests oder gebundene Artefakte vorliegen.",
-    "Es wurden keine SRC_*-/RUN_*-IDs bereitgestellt oder erfunden.",
-    "Der Hub bleibt alleinige Control Plane; alle rechenintensiven Enrichment-, Statistik-, Retrieval- und Reranking-Schritte bleiben delegierte Worker-Ausfuehrung."
+    "Implementation completed on 2026-08-27 against main@91f91eba2 after the separately pushed source audit.",
+    "Large regression evidence: 420 Python tests passed and 29 were skipped; 3371 Angular tests passed and one was skipped; Angular production build and lint completed with 88 pre-existing warnings and zero errors.",
+    "The deterministic seven-query fixture reports +0.428571 for Recall@10, nDCG@10, MRR and evidence coverage; this is not a production-repository or latency claim.",
+    "Remaining partial work requires deployed CodeCompass synchronization/canary infrastructure or real multi-repository/model measurements; no SRC_* or RUN_* identifiers were available or invented.",
+    "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced."
   ],
   "audit_findings": {
     "format": "Das bisherige category_meta-Format wurde in den kanonischen Planning-Track-Vertrag mit flachen tasks[] und milestones[] ueberfuehrt.",
     "scope": "22 Aufgaben bleiben erhalten; Reihenfolge und Abhaengigkeiten wurden nicht erweitert.",
     "upstream": "SIRA ist eine kleine Forschungsreferenz mit MIT-Hauptlizenz und Apache-2.0-abgeleitetem bm25x-Unterbaum; direkte Runtime-Uebernahme ist wegen Python-/CUDA-/Dependency-Annahmen nicht vorgesehen.",
-    "solid": "Vorhandene Ports und der universelle Hybridpfad schuetzen SRP, OCP und DIP. Eine parallele SIRA-Pipeline waere eine OCP-/SRP-Verletzung und bleibt explizit ausgeschlossen."
+    "solid": "Narrow Worker ports and the runtime-neutral ananta_contracts configuration preserve SRP, OCP and DIP; the Hub imports no Worker implementation, and SIRA remains the existing codecompass_fts channel.",
+    "implementation": "19 tasks are repository-complete; SIRA-009, SIRA-020 and SIRA-021 retain only production integration or deployment evidence."
   },
   "tasks_status_summary": {
     "total": 22,
     "by_status": {
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 18,
+      "partial": 3,
       "blocked": 0,
-      "done": 0
+      "done": 19
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 86.4,
     "by_priority": {
       "P0": 17,
       "P1": 5,
@@ -1096,15 +1101,15 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 0,
-      "remaining": 18
+      "done": 15,
+      "remaining": 3
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 7,
+      "in_progress": 2,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -1113,128 +1118,128 @@
       "research": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "legal": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "evaluation": {
         "total": 2,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 2,
+        "done": 1,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 87.5
       },
       "architecture": {
         "total": 4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 4
         },
-        "done": 0,
-        "partial": 4,
+        "done": 4,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 46.2
+        "progress_percent": 100.0
       },
       "implementation": {
         "total": 8,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 6,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 7
         },
-        "done": 0,
-        "partial": 6,
+        "done": 7,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 21.9
+        "progress_percent": 98.8
       },
       "security": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 15.0
+        "progress_percent": 100.0
       },
       "reliability": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 100.0
       },
       "configuration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 100.0
       },
       "observability": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 30.0
+        "progress_percent": 100.0
       },
       "rollout": {
         "total": 1,
@@ -1248,109 +1253,109 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 85.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 15.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 38.5,
-    "done_weight": 9.625,
-    "remaining_weight": 28.875,
+    "done_weight": 37.75,
+    "remaining_weight": 0.75,
     "blocked_weight": 0.0,
-    "weighted_percent": 25.0
+    "weighted_percent": 98.1
   },
   "milestone_progress_summary": {
     "milestones": {
       "M0": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 10.9,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M1": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 43.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M2": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 18.2,
+        "count_based_percent": 75.0,
+        "weighted_percent": 97.9,
         "status": "in_progress"
       },
       "M3": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 22.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M4": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 39.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M5": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 27.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M6": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 19.5,
+        "count_based_percent": 33.3,
+        "weighted_percent": 88.0,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 4,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 18,
+    "partial": 3,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 25.0
+    "done": 19,
+    "count_based_percent": 86.4,
+    "weighted_percent": 98.1
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T18:57:04.904118Z",
+    "generated_at": "2026-08-27T19:47:09.346647Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "333fb199e91bb8f5bbe629bb3c62a85da876784723baad0ff3bfefdfd9d14d3a",
+    "source_hash": "739b07671368703aed38463270b42aed529e7b156c547ef779b39afafe6b0035",
     "is_stale": false
   }
 }

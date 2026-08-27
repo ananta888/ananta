@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.research-reference-manifest.v1",
+  "reviewed_at": "2026-08-27",
+  "project": "Superintelligent Retrieval Agent (SIRA)",
+  "paper": {
+    "url": "https://arxiv.org/abs/2605.06647",
+    "identifier": "arXiv:2605.06647",
+    "published": "2026-05-07"
+  },
+  "publication_page": {
+    "url": "https://ai.meta.com/research/publications/superintelligent-retrieval-agent-the-next-frontier-of-agentic-retrieval/",
+    "published": "2026-06-05"
+  },
+  "repository": {
+    "url": "https://github.com/facebookresearch/sira",
+    "branch": "main",
+    "commit": "b33f5b71a1870f09b378d8e79afb6ad9e704709b",
+    "license": "MIT",
+    "derived_subtree_notice": {
+      "path": "src/sira/bm25x/NOTICE",
+      "origin": "LightOn bm25x",
+      "license": "Apache-2.0"
+    }
+  },
+  "reference_runtime_assumptions": {
+    "python": ">=3.12",
+    "accelerator": "CUDA GPU; README reports H100 testing",
+    "major_pins_observed": ["torch==2.11.0", "torchvision==0.26.0", "transformers==5.6.0", "sglang==0.5.11"],
+    "package_resolution": "custom PyTorch and flash-attn indexes with prerelease/best-match settings"
+  },
+  "ananta_adaptation": {
+    "strategy": "independent_from_scratch_implementation",
+    "copied_upstream_files": [],
+    "runtime_dependency_on_sira": false,
+    "runtime_dependency_on_bm25x": false,
+    "lexical_backend": "SQLite FTS5",
+    "source_refs": "No SRC_* or RUN_* identifiers were provided or created."
+  }
+}

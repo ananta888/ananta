@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.sira-retrieval.v1.json",
+  "title": "CodeCompass corpus-discriminative lexical retrieval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "profile", "mode", "selected_candidates", "shadow_candidates", "trace"],
+  "properties": {
+    "schema": {"const": "codecompass.sira-selection.v1"},
+    "profile": {"const": "corpus_discriminative_lexical"},
+    "mode": {"enum": ["off", "shadow", "on_demand", "preferred", "required"]},
+    "selected_candidates": {"type": "array", "items": {"type": "object"}},
+    "shadow_candidates": {"type": "array", "items": {"type": "object"}},
+    "trace": {
+      "type": "object",
+      "required": ["schema", "binding", "routing", "fallback_reason", "lexical_retrieval_calls"],
+      "properties": {
+        "schema": {"const": "codecompass.sira-trace.v1"},
+        "binding": {"$ref": "codecompass.sira-provenance.v1.json"},
+        "routing": {"type": "object"},
+        "fallback_reason": {"type": "string"},
+        "lexical_retrieval_calls": {"type": "integer", "minimum": 0, "maximum": 2}
+      }
+    }
+  }
+}

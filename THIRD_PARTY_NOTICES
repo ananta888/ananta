@@ -1,0 +1,21 @@
+Ananta third-party research references
+======================================
+
+Superintelligent Retrieval Agent (SIRA)
+----------------------------------------
+
+Repository: https://github.com/facebookresearch/sira
+Reviewed revision: b33f5b71a1870f09b378d8e79afb6ad9e704709b
+Copyright: Meta Platforms, Inc. and affiliates
+Repository license: MIT
+
+The Ananta implementation under worker/retrieval/sira is an independent,
+from-scratch adaptation of the published retrieval ideas. No source file from
+facebookresearch/sira or its bm25x subtree is included in Ananta.
+
+The upstream directory src/sira/bm25x declares derivation from LightOn's
+bm25x under Apache-2.0 and carries a NOTICE file. Ananta uses Python's SQLite
+FTS5 integration instead and does not incorporate that code. If bm25x or an
+upstream SIRA file is incorporated in the future, the MIT and Apache-2.0
+license texts, copyright notices, NOTICE material and change markings must be
+added before distribution.

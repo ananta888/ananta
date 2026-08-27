@@ -44,6 +44,7 @@ def _relation_dependency_ready(*, graph_enabled: bool) -> bool:
 
 def evaluate_codecompass_retrieval_flags(*, settings) -> dict[str, dict[str, Any]]:
     fts_enabled = bool(getattr(settings, "codecompass_fts_enabled", False))
+    sira_mode = str(getattr(settings, "codecompass_sira_mode", "off") or "off").strip().lower()
     vector_enabled = bool(getattr(settings, "codecompass_vector_enabled", False))
     graph_enabled = bool(getattr(settings, "codecompass_graph_enabled", False))
     relation_enabled = bool(getattr(settings, "codecompass_relation_expansion_enabled", False))
@@ -52,32 +53,53 @@ def evaluate_codecompass_retrieval_flags(*, settings) -> dict[str, dict[str, Any
     fts_state = CodeCompassFlagState(
         enabled=fts_enabled,
         status="disabled" if not fts_enabled else ("ready" if fts_dependency_ok else "missing_dependency"),
-        reason="flag_disabled" if not fts_enabled else ("sqlite_fts5_available" if fts_dependency_ok else "sqlite_fts5_unavailable"),
+        reason="flag_disabled"
+        if not fts_enabled
+        else ("sqlite_fts5_available" if fts_dependency_ok else "sqlite_fts5_unavailable"),
     )
     vector_dependency_ok = _vector_dependency_ready()
     vector_state = CodeCompassFlagState(
         enabled=vector_enabled,
         status="disabled" if not vector_enabled else ("ready" if vector_dependency_ok else "missing_dependency"),
-        reason="flag_disabled" if not vector_enabled else ("embedding_dependency_ready" if vector_dependency_ok else "embedding_dependency_missing"),
+        reason="flag_disabled"
+        if not vector_enabled
+        else ("embedding_dependency_ready" if vector_dependency_ok else "embedding_dependency_missing"),
     )
     graph_dependency_ok = _graph_dependency_ready()
     graph_state = CodeCompassFlagState(
         enabled=graph_enabled,
         status="disabled" if not graph_enabled else ("ready" if graph_dependency_ok else "missing_dependency"),
-        reason="flag_disabled" if not graph_enabled else ("graph_dependency_ready" if graph_dependency_ok else "graph_dependency_missing"),
+        reason="flag_disabled"
+        if not graph_enabled
+        else ("graph_dependency_ready" if graph_dependency_ok else "graph_dependency_missing"),
     )
     relation_dependency_ok = _relation_dependency_ready(graph_enabled=graph_enabled)
     relation_state = CodeCompassFlagState(
         enabled=relation_enabled,
-        status="disabled"
-        if not relation_enabled
-        else ("ready" if relation_dependency_ok else "degraded"),
+        status="disabled" if not relation_enabled else ("ready" if relation_dependency_ok else "degraded"),
         reason="flag_disabled"
         if not relation_enabled
         else ("relation_expansion_ready" if relation_dependency_ok else "requires_graph_channel"),
     )
+    valid_sira_modes = {"off", "shadow", "on_demand", "preferred", "required"}
+    sira_enabled = sira_mode != "off"
+    sira_ready = sira_mode in valid_sira_modes and fts_enabled and fts_dependency_ok
+    sira_state = CodeCompassFlagState(
+        enabled=sira_enabled,
+        status="disabled" if not sira_enabled else ("ready" if sira_ready else "degraded"),
+        reason=(
+            "mode_off"
+            if not sira_enabled
+            else "sira_profile_ready"
+            if sira_ready
+            else "sira_mode_invalid"
+            if sira_mode not in valid_sira_modes
+            else "requires_codecompass_fts"
+        ),
+    )
     return {
         "codecompass_fts": fts_state.as_dict(),
+        "codecompass_sira": {**sira_state.as_dict(), "mode": sira_mode},
         "codecompass_vector": vector_state.as_dict(),
         "codecompass_graph": graph_state.as_dict(),
         "codecompass_relation_expansion": relation_state.as_dict(),

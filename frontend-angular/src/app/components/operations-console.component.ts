@@ -8,11 +8,19 @@ import { NotificationService } from '../services/notification.service';
 import { ControlPlaneFacade } from '../features/control-plane/control-plane.facade';
 import { OperationsSurfaceComponent } from '../features/operations/operations-surface.component';
 import { UiSkeletonComponent } from './ui-skeleton.component';
+import { CodeCompassSiraStatusComponent } from './codecompass-sira-status.component';
 
 @Component({
   standalone: true,
   selector: 'app-operations-console',
-  imports: [CommonModule, FormsModule, RouterLink, UiSkeletonComponent, OperationsSurfaceComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    RouterLink,
+    UiSkeletonComponent,
+    OperationsSurfaceComponent,
+    CodeCompassSiraStatusComponent,
+  ],
   template: `
     <h2>Operations Konsole</h2>
     <p class="muted">Zentrale Steuerung fuer orchestrierte Task-Abarbeitung aus UI und Agenten.</p>
@@ -123,6 +131,10 @@ import { UiSkeletonComponent } from './ui-skeleton.component';
 
       <div class="card card-mt">
         <app-operations-surface [baseUrl]="hub.url" [refreshGeneration]="opsRefreshGeneration" />
+      </div>
+
+      <div class="card card-mt">
+        <app-codecompass-sira-status [baseUrl]="hub.url" />
       </div>
 
       <div class="card card-mt">

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.sira-config.v1.json",
+  "title": "CodeCompass SIRA configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "mode", "profile_version"],
+  "properties": {
+    "schema": {"const": "codecompass.sira-config.v1"},
+    "mode": {"enum": ["off", "shadow", "on_demand", "preferred", "required"]},
+    "enrichment_model": {"type": "string", "maxLength": 256},
+    "query_model": {"type": "string", "maxLength": 256},
+    "rerank_model": {"type": "string", "maxLength": 256},
+    "prompt_version": {"type": "string", "minLength": 1, "maxLength": 256},
+    "temperature": {"const": 0},
+    "max_generated_terms": {"type": "integer", "minimum": 1, "maximum": 64},
+    "max_term_length": {"type": "integer", "minimum": 2, "maximum": 256},
+    "query_timeout_ms": {"type": "integer", "minimum": 100, "maximum": 120000},
+    "rerank_timeout_ms": {"type": "integer", "minimum": 100, "maximum": 120000},
+    "max_query_tokens": {"type": "integer", "minimum": 32, "maximum": 8192},
+    "rerank_top_n": {"type": "integer", "minimum": 1, "maximum": 100},
+    "reranker_enabled": {"type": "boolean"},
+    "minimum_term_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "maximum_document_frequency_ratio": {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+    "minimum_baseline_margin": {"type": "number", "minimum": 0, "maximum": 1},
+    "local_models_only": {"type": "boolean"},
+    "profile_version": {"const": "corpus-discriminative-lexical.v1"}
+  }
+}
