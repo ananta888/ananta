@@ -629,6 +629,8 @@ def test_chat_provider_uses_effective_session_configuration():
 def test_explicit_central_ai_snake_assignment_overrides_legacy_session(monkeypatch):
     from types import SimpleNamespace
 
+    import agent.routes.snakes_execution_routes as ser
+
     monkeypatch.setattr(
         ser,
         "_resolve_central_ai_snake_model",
