@@ -1,23 +1,57 @@
 {
-  "$schema": "../todo.track.schema.json",
+  "$schema": "todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-08-25",
+  "updated_at": "2026-08-27",
   "owner": "Peter Stuiber / Ananta",
   "track": "mlintern_multi_training_backends",
   "title": "ML-Intern: optionale Backends fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
-  "status": "todo",
+  "status": "partial",
   "priority": "P1",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "critical_path_tasks": [
+    "MTB-001",
+    "MTB-002",
+    "MTB-003",
+    "MTB-004",
+    "MTB-005",
+    "MTB-008",
+    "MTB-009",
+    "MTB-010",
+    "MTB-012",
+    "MTB-013",
+    "MTB-014"
+  ],
   "purpose": "Die bestehende ML-Intern-Trainingsplattform um vier austauschbare Open-Source-Backends erweitern, ohne Unsloth oder PEFT/TRL zu verdraengen und ohne eine zweite Control Plane einzufuehren.",
   "goal": "Ananta kann Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune ueber denselben Hub-gesteuerten Dataset-, Job-, Evaluations-, Artefakt-, Approval- und Rollback-Lebenszyklus verwenden. Backend-Auswahl erfolgt transparent anhand von Modell, Methode, Hardware, Reproduzierbarkeit und gemessener Qualitaet.",
   "license_review": {
-    "reviewed_at": "2026-08-25",
-    "result": "all_requested_projects_have_open_source_licenses",
+    "reviewed_at": "2026-08-27",
+    "result": "open_source_licenses_verified_but_two_upstreams_unmaintained",
     "projects": [
       {
         "name": "Axolotl",
         "repository": "https://github.com/axolotl-ai-cloud/axolotl",
         "license": "Apache-2.0",
         "license_source": "https://github.com/axolotl-ai-cloud/axolotl/blob/main/LICENSE",
+        "pinned_version": "0.18.0",
+        "release_commit": "2f5cb9da62a0fe763a1ddeb7798fc9acb2f4a417",
+        "maintenance_status": "active",
         "integration_status": "todo"
       },
       {
@@ -25,6 +59,9 @@
         "repository": "https://github.com/hiyouga/LlamaFactory",
         "license": "Apache-2.0",
         "license_source": "https://github.com/hiyouga/LlamaFactory/blob/main/LICENSE",
+        "pinned_version": "0.9.5",
+        "release_commit": "7af909522a951e3ad9f022ea6f88b6755257eaa5",
+        "maintenance_status": "active",
         "integration_status": "todo"
       },
       {
@@ -32,6 +69,9 @@
         "repository": "https://github.com/huggingface/autotrain-advanced",
         "license": "Apache-2.0",
         "license_source": "https://github.com/huggingface/autotrain-advanced/blob/main/LICENSE",
+        "pinned_version": "0.8.36",
+        "package_sha256": "03e5400bce4fb4c0a14114cdf2e1b4614e44b8949ec9ecf17eaccb9e61da0a06",
+        "maintenance_status": "unmaintained_upstream_notice",
         "integration_status": "todo"
       },
       {
@@ -39,6 +79,9 @@
         "repository": "https://github.com/meta-pytorch/torchtune",
         "license": "BSD-3-Clause",
         "license_source": "https://github.com/meta-pytorch/torchtune/blob/main/LICENSE",
+        "pinned_version": "0.6.1",
+        "release_commit": "a6290a5b40758f13bca61c386bc8756a49ef417e",
+        "maintenance_status": "unmaintained_since_2025",
         "integration_status": "todo"
       }
     ],
@@ -56,9 +99,17 @@
       "Unsloth Text",
       "Unsloth Vision",
       "Unsloth Audio",
-      "Unsloth Embeddings"
+      "Unsloth Embeddings",
+      "Needle"
     ],
     "test_backend": "Mock",
+    "reusable_foundation": [
+      "Geschlossener ananta.lora-training.v1 Request-Vertrag",
+      "Isolierte Backend-Subprozesse mit Cancellation-Fencing",
+      "Hashgebundene Dataset-, Checkpoint-, Manifest- und Artefaktpipeline",
+      "Hub-eigene Evaluation-, Approval-, Registry- und Rollback-Services",
+      "Generische Angular-Backend-Auswahl und Capability-Anzeige"
+    ],
     "requested_new_backends": [
       "Axolotl",
       "LLaMA-Factory",
@@ -76,7 +127,8 @@
     "Unsloth und PEFT/TRL bleiben erhalten. Neue Backends muessen einen nachweisbaren Mehrwert liefern und duerfen nicht automatisch zum Default werden.",
     "Backend-Version, Container-Digest, Dependency-Lock, CUDA/PyTorch-Version, Modell- und Dataset-Digest sowie vollstaendige Trainingskonfiguration werden im Artefaktmanifest gespeichert.",
     "Adapter-Aktivierung erfordert weiterhin Evaluation und explizites Approval; ein erfolgreicher Trainingsprozess aktiviert nichts automatisch.",
-    "Full-Fine-Tuning, LoRA, QLoRA, DPO und weitere Methoden werden als getrennte Capabilities behandelt und nur pro Backend freigeschaltet, wenn real getestet."
+    "Full-Fine-Tuning, LoRA, QLoRA, DPO und weitere Methoden werden als getrennte Capabilities behandelt und nur pro Backend freigeschaltet, wenn real getestet.",
+    "AutoTrain Advanced und torchtune bleiben wegen der offiziellen Upstream-Wartungsabkündigungen auch nach einer Contract-Integration default-off und experimental; production-ready erfordert eine neue explizite Maintainer-, Supply-Chain- und Produktentscheidung."
   ],
   "non_goals": [
     "Alle vier Frameworks ungeprueft gleichzeitig als Produktivstandard aktivieren.",
@@ -91,8 +143,8 @@
     {
       "id": "M0",
       "title": "Lizenz, Forschung und gemeinsame Vertraege",
-      "status": "todo",
-      "tasks": [
+      "status": "in_progress",
+      "task_ids": [
         "MTB-001",
         "MTB-002",
         "MTB-003"
@@ -102,7 +154,7 @@
       "id": "M1",
       "title": "Vier isolierte Backend-Adapter",
       "status": "todo",
-      "tasks": [
+      "task_ids": [
         "MTB-004",
         "MTB-005",
         "MTB-006",
@@ -112,8 +164,8 @@
     {
       "id": "M2",
       "title": "Orchestrierung, Artefakte und Bedienung",
-      "status": "todo",
-      "tasks": [
+      "status": "in_progress",
+      "task_ids": [
         "MTB-008",
         "MTB-009",
         "MTB-010",
@@ -123,8 +175,8 @@
     {
       "id": "M3",
       "title": "Benchmark, Sicherheit und Rollout",
-      "status": "todo",
-      "tasks": [
+      "status": "in_progress",
+      "task_ids": [
         "MTB-012",
         "MTB-013",
         "MTB-014",
@@ -137,12 +189,12 @@
       "id": "MTB-001",
       "title": "Upstream- und Lizenzmatrix versionsgebunden erstellen",
       "type": "research",
-      "milestone": "M0",
-      "status": "todo",
+      "milestone_id": "M0",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [],
+      "progress_percent": 35.0,
+      "depends_on": [],
       "target_files": [
         "docs/research/training-backend-matrix.md",
         "docs/security/third-party-components.md",
@@ -162,18 +214,22 @@
       "test_expectations": [
         "CI validiert erlaubte SPDX-IDs und vorhandene Quellreferenzen.",
         "Ein Fixture mit unbekannter oder nicht erlaubter Lizenz wird blockiert."
+      ],
+      "evidence": [
+        "Lizenz- und Release-Audit vom 2026-08-27 gegen offizielle GitHub-Releases, LICENSE-Dateien und PyPI-Artefakte; keine SRC_*-/RUN_*-IDs vorhanden.",
+        "Axolotl 0.18.0 und LlamaFactory 0.9.5 sind aktive Kandidaten; AutoTrain Advanced 0.8.36 und torchtune 0.6.1 melden sich upstream als nicht mehr gewartet."
       ]
     },
     {
       "id": "MTB-002",
       "title": "Gemeinsamen TrainingBackend-v3-Vertrag definieren",
       "type": "architecture",
-      "milestone": "M0",
-      "status": "todo",
+      "milestone_id": "M0",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 45.0,
+      "depends_on": [
         "MTB-001"
       ],
       "target_files": [
@@ -196,18 +252,24 @@
       "test_expectations": [
         "Contract-Tests laufen ohne GPU und ohne Installation der optionalen Trainer.",
         "Negative Tests decken unbekannte Methode, Quantisierung, Export und Backend-Version ab."
+      ],
+      "evidence": [
+        "worker/training/backends/base.py",
+        "worker/training/contracts.py",
+        "worker/training/runtime.py",
+        "agent/services/ml_intern_training_worker_contract.py"
       ]
     },
     {
       "id": "MTB-003",
       "title": "Backend-neutrale sichere Config-Compiler bauen",
       "type": "security",
-      "milestone": "M0",
-      "status": "todo",
+      "milestone_id": "M0",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 25.0,
+      "depends_on": [
         "MTB-002"
       ],
       "target_files": [
@@ -229,18 +291,22 @@
       "test_expectations": [
         "Golden Fixtures existieren fuer alle vier Frameworks.",
         "Security-Fixtures pruefen Shell-Metazeichen, Symlinks, absolute Pfade, URL-Egress und Secret-Leaks."
+      ],
+      "evidence": [
+        "worker/training/contracts.py lehnt unbekannte Felder, unsichere relative Pfade und ungebundene Hashes bereits fail-closed ab.",
+        "Ein backend-spezifischer Config-Compiler fehlt noch."
       ]
     },
     {
       "id": "MTB-004",
       "title": "Axolotl-Backend als isolierten Worker-Adapter integrieren",
       "type": "implementation",
-      "milestone": "M1",
+      "milestone_id": "M1",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-003"
       ],
       "target_files": [
@@ -269,12 +335,12 @@
       "id": "MTB-005",
       "title": "LLaMA-Factory-Backend ohne exponierte Fremd-WebUI integrieren",
       "type": "implementation",
-      "milestone": "M1",
+      "milestone_id": "M1",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-003"
       ],
       "target_files": [
@@ -303,12 +369,12 @@
       "id": "MTB-006",
       "title": "AutoTrain-Advanced-Backend local-first integrieren",
       "type": "implementation",
-      "milestone": "M1",
+      "milestone_id": "M1",
       "status": "todo",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-003"
       ],
       "target_files": [
@@ -318,7 +384,7 @@
         "tests/worker/test_autotrain_training_backend.py"
       ],
       "implementation": [
-        "Zunaechst nur dokumentierte lokale Ausfuehrung ohne impliziten Hugging-Face-Upload oder Cloud-Job zulassen.",
+        "Wegen der offiziellen Wartungsabkuendigung nur einen dokumentierten, default-off Contract-Adapter fuer lokale Ausfuehrung ohne impliziten Hugging-Face-Upload oder Cloud-Job zulassen.",
         "Unterstuetzte Tasks und Parameter aus der gepinnten Version capability-basiert ableiten statt den Namen AutoML als Funktionsgarantie zu behandeln.",
         "Cloud-/Hub-Integration, Tokens und Uploads als getrennte spaetere Opt-in-Capability behandeln.",
         "Lokale Logs, Metriken und Artefakte auf Anantas Resultatvertrag normalisieren."
@@ -326,7 +392,8 @@
       "acceptance_criteria": [
         "Ein lokaler Trainingsjob funktioniert ohne externen Account und ohne Netzwerk.",
         "Fehlende Cloud-Credentials verhindern den lokalen Pfad nicht.",
-        "Kein Dataset, Modell oder Artefakt verlaesst ohne ausdrueckliche Egress-Policy den Worker."
+        "Kein Dataset, Modell oder Artefakt verlaesst ohne ausdrueckliche Egress-Policy den Worker.",
+        "Der Adapter bleibt experimental und default-off; die Wartungsabkuendigung ist in Capability, UI und Produktreview sichtbar."
       ],
       "test_expectations": [
         "Netzwerklose Integrationstests beweisen den local-first-Pfad.",
@@ -337,12 +404,12 @@
       "id": "MTB-007",
       "title": "torchtune-Backend mit versionsgebundenen Recipes integrieren",
       "type": "implementation",
-      "milestone": "M1",
+      "milestone_id": "M1",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-003"
       ],
       "target_files": [
@@ -352,7 +419,7 @@
         "tests/worker/test_torchtune_training_backend.py"
       ],
       "implementation": [
-        "Nur vorregistrierte, intern referenzierte Recipes erlauben; keine beliebigen Recipe-Importpfade aus Requests.",
+        "Wegen der offiziellen Wartungsabkuendigung nur vorregistrierte, intern referenzierte Recipes in einem default-off Contract-Adapter erlauben; keine beliebigen Recipe-Importpfade aus Requests.",
         "LoRA/QLoRA und Single-Device zuerst; Distributed Recipes separat attestieren.",
         "PyTorch-, TorchAO- und Checkpoint-Kompatibilitaet explizit in Capabilities und Manifest aufnehmen.",
         "Recipe-Konfiguration aus dem sicheren Compiler erzeugen und digestbinden."
@@ -360,7 +427,8 @@
       "acceptance_criteria": [
         "Nur allowlisted Recipes koennen gestartet werden.",
         "Checkpoint-Konvertierung ist verlustfrei pruefbar oder wird sichtbar als inkompatibel abgelehnt.",
-        "torchtune-Ausfall beeinflusst keine anderen Backends."
+        "torchtune-Ausfall beeinflusst keine anderen Backends.",
+        "Der Adapter bleibt experimental und default-off; die Wartungsabkuendigung ist in Capability, UI und Produktreview sichtbar."
       ],
       "test_expectations": [
         "Tests blockieren freie Recipe-Namen und Python-Importpfade.",
@@ -371,12 +439,12 @@
       "id": "MTB-008",
       "title": "Backend-Registry und Capability-Projektion erweitern",
       "type": "implementation",
-      "milestone": "M2",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 35.0,
+      "depends_on": [
         "MTB-004",
         "MTB-005",
         "MTB-006",
@@ -402,18 +470,22 @@
       "test_expectations": [
         "Tests decken leere, teilweise und vollstaendige Registry ab.",
         "Tests beweisen die Unveraenderlichkeit der Registry nach Startup."
+      ],
+      "evidence": [
+        "worker/training/runtime.py besitzt eine startgebundene Backend-Zuordnung und stabile unavailable/degraded-Zustaende.",
+        "worker/runtime/lora_training_app.py und agent/services/ml_intern_training_worker_contract.py projizieren bereits installierte v1-Backends; eine unveraenderliche v3-Capability-Registry fehlt."
       ]
     },
     {
       "id": "MTB-009",
       "title": "Normalisierte Checkpoint-, Adapter- und Export-Pipeline bauen",
       "type": "artifact",
-      "milestone": "M2",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 55.0,
+      "depends_on": [
         "MTB-008"
       ],
       "target_files": [
@@ -436,18 +508,24 @@
       "test_expectations": [
         "Golden Artefakte fuer jedes Backend werden gegen dasselbe Schema validiert.",
         "Negative Tests pruefen Hash-Mismatch, Symlinks, fehlende Dateien und falsches Basismodell."
+      ],
+      "evidence": [
+        "worker/training/runtime_artifact_service.py",
+        "worker/training/exports.py",
+        "agent/services/ml_intern_training_artifact_binding.py",
+        "agent/services/ml_intern_adapter_registry_service.py"
       ]
     },
     {
       "id": "MTB-010",
       "title": "Policy-basierte Backend-Auswahl und Vergleichsmodus einfuehren",
       "type": "orchestration",
-      "milestone": "M2",
+      "milestone_id": "M2",
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-008",
         "MTB-009"
       ],
@@ -476,12 +554,12 @@
       "id": "MTB-011",
       "title": "Angular Model-Training UI um Backendvergleich erweitern",
       "type": "frontend",
-      "milestone": "M2",
-      "status": "todo",
+      "milestone_id": "M2",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 25.0,
+      "depends_on": [
         "MTB-010"
       ],
       "target_files": [
@@ -504,18 +582,22 @@
       "test_expectations": [
         "Unit- und Playwright-Tests decken Capability-Matrix, Recommendation, unavailable und Bestätigung ab.",
         "Security-Test prueft, dass keine sensitiven Pfade oder Tokens gerendert werden."
+      ],
+      "evidence": [
+        "frontend-angular/src/app/features/model-training/training-wizard/training-wizard.component.ts zeigt bereits Hub-projizierte Backends und unavailable-Zustaende.",
+        "Recommendation, Lizenzvergleich und backend-spezifische Capability-Details fehlen."
       ]
     },
     {
       "id": "MTB-012",
       "title": "Reproduzierbare Benchmark-Suite gegen Unsloth und PEFT/TRL bauen",
       "type": "benchmark",
-      "milestone": "M3",
+      "milestone_id": "M3",
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 0.0,
+      "depends_on": [
         "MTB-010"
       ],
       "target_files": [
@@ -544,12 +626,12 @@
       "id": "MTB-013",
       "title": "Security-, Datenschutz- und Supply-Chain-Hardening abschliessen",
       "type": "security",
-      "milestone": "M3",
-      "status": "todo",
+      "milestone_id": "M3",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 35.0,
+      "depends_on": [
         "MTB-004",
         "MTB-005",
         "MTB-006",
@@ -575,18 +657,24 @@
       "test_expectations": [
         "Negative End-to-End-Fixtures fuer Injection, Egress, Symlink, Secret und manipulierte Artefakte bestehen.",
         "Container-Policy wird in CI statisch geprueft."
+      ],
+      "evidence": [
+        "docker/compose-next/compose.lora-training.yml",
+        "worker/training/subprocess_executor.py",
+        "worker/training/runtime_artifact_service.py",
+        "Vorhandene Isolation und Artefaktgrenzen sind wiederverwendbar; backend-spezifische Images, SBOMs und Egress-Policy fehlen."
       ]
     },
     {
       "id": "MTB-014",
       "title": "Release-Gates, CI und Hardware-Acceptance einrichten",
       "type": "test",
-      "milestone": "M3",
-      "status": "todo",
+      "milestone_id": "M3",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 20.0,
+      "depends_on": [
         "MTB-012",
         "MTB-013"
       ],
@@ -610,18 +698,21 @@
       "test_expectations": [
         "CI prueft Contracts, Config-Compiler, Registry, Artefakte und Security ohne GPU.",
         "NVIDIA-Freigabe benoetigt einen echten, attestierten Minimal-Trainingslauf."
+      ],
+      "evidence": [
+        "Bestehende LoRA-/Unsloth-Contract- und Hardware-Gates koennen erweitert werden; spezifische Multi-Backend-Workflows und attestierte Live-Laeufe fehlen."
       ]
     },
     {
       "id": "MTB-015",
       "title": "Dokumentation, Entscheidungsmatrix und finalen Produktreview liefern",
       "type": "documentation",
-      "milestone": "M3",
-      "status": "todo",
+      "milestone_id": "M3",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
-      "dependencies": [
+      "progress_percent": 15.0,
+      "depends_on": [
         "MTB-011",
         "MTB-012",
         "MTB-014"
@@ -645,6 +736,9 @@
       "test_expectations": [
         "Docs-Links und Beispielkonfigurationen werden automatisiert validiert.",
         "Abschlussreview prueft mindestens einen positiven und einen abgelehnten Backend-Fall."
+      ],
+      "evidence": [
+        "frontend-angular/src/app/features/model-training/README.md dokumentiert den bestehenden ML-Intern-Lifecycle; die Backend-Entscheidungsmatrix fehlt."
       ]
     }
   ],
@@ -668,31 +762,255 @@
   "open_questions_for_implementation": [
     "Welche Modellfamilien und Objectives sollen pro Backend zuerst als Golden Path gelten?",
     "Welche konkrete kleine Modell- und Dataset-Kombination wird als gemeinsamer RTX-3080-Benchmark verwendet?",
-    "Soll AutoTrain dauerhaft local-only bleiben oder spaeter einen getrennten expliziten Hugging-Face-Cloud-Adapter erhalten?",
+    "AutoTrain bleibt local-only und default-off; ein spaeterer Cloud-Adapter waere ein eigener, neu zu pruefender Track.",
     "Welche Backends duerfen nach Benchmarks production-ready werden und welche bleiben experimental?",
     "Welche Distributed-Profile werden ausserhalb der RTX-3080 ueberhaupt benoetigt?"
   ],
   "notes": [
-    "Vier vorhandene Open-Source-Lizenzen rechtfertigen die technische Evaluation, aber nicht automatisch vier produktive Defaults.",
+    "Vier vorhandene Open-Source-Lizenzen rechtfertigen die technische Evaluation, aber nicht automatisch vier produktive Defaults; AutoTrain Advanced und torchtune sind upstream nicht mehr aktiv gewartet.",
     "Die Integration soll reale Wahlfreiheit und Vergleichbarkeit schaffen, ohne ML-Intern in mehrere konkurrierende Control Planes zu zerlegen.",
     "Bei Upstream-Lizenzwechseln oder nicht-offenen Zusatzkomponenten ist eine erneute explizite Pruefung erforderlich."
   ],
   "tasks_status_summary": {
+    "total": 15,
     "by_status": {
-      "done": 0,
-      "todo": 15,
+      "todo": 6,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 0
+      "partial": 9,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 8,
+      "P1": 7,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 2,
+      "high": 8,
+      "critical": 5
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 1,
+      "in_progress": 3,
+      "blocked": 0,
+      "done": 0
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "percent_complete": 0,
-    "todo_remaining": 15,
+    "state": "in_progress",
+    "todo_remaining": 6,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 9,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 17.2
+  },
+  "tasks_type_summary": {
+    "total": 15,
+    "by_type": {
+      "research": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 35.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
+      },
+      "security": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 30.0
+      },
+      "implementation": {
+        "total": 5,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 7.0
+      },
+      "artifact": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 55.0
+      },
+      "orchestration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "frontend": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 25.0
+      },
+      "benchmark": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "test": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 15.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 28.25,
+    "done_weight": 4.85,
+    "remaining_weight": 23.4,
+    "blocked_weight": 0.0,
+    "weighted_percent": 17.2
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M0": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 35.0,
+        "status": "in_progress"
+      },
+      "M1": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M2": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 25.3,
+        "status": "in_progress"
+      },
+      "M3": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 16.6,
+        "status": "in_progress"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-27T18:05:02.269620Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "adc67462a22b6cb3bf1ce3e693b1d1df851fc94ad6e27878471eba9ad72ae0df",
+    "is_stale": false
   }
 }
