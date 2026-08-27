@@ -83,6 +83,100 @@ def test_register_and_get(tmp_path):
     assert fetched.base_model == "qwen2.5-coder-7b"
 
 
+def test_local_release_target_is_immutable_lineage(tmp_path):
+    svc = _svc(tmp_path)
+    created = _register_trained(svc, release_target="needle2")
+    assert created.release_target == "needle2"
+    assert svc.get(created.adapter_id).release_target == "needle2"
+
+    with pytest.raises(RegistryError, match="release_target"):
+        _register_trained(svc, release_target=None)
+
+    with pytest.raises(RegistryError, match="release_target"):
+        _register_trained(
+            svc,
+            adapter_id="invalid-target",
+            release_target="worker-controlled",
+        )
+
+
+def test_governed_local_promotion_is_atomic_provenance_bound_and_replayable(tmp_path):
+    svc = _svc(tmp_path)
+    _register_trained(
+        svc,
+        release_target="needle2",
+        dataset_hash="c" * 64,
+        source_ids=["SRC_approved:1"],
+        run_ids=["RUN_approved:1"],
+        provenance_verified=True,
+        tenant_id="tenant",
+        owner_subject="owner",
+    )
+    evaluated = svc.set_eval_report(
+        "imported-adapter-v1",
+        eval_report_ref="evaluation-1",
+        eval_score=1.0,
+        tenant_id="tenant",
+        owner_subject="owner",
+    )
+
+    first, replayed = svc.promote_local_evaluated(
+        "imported-adapter-v1",
+        lifecycle_evidence_sha256="d" * 64,
+        approved_by="hub-policy",
+        idempotency_key="local-promotion-1",
+        tenant_id="tenant",
+        owner_subject="owner",
+        expected_version=evaluated.registry_version,
+        minimum_eval_score=1.0,
+    )
+    replay, was_replayed = svc.promote_local_evaluated(
+        "imported-adapter-v1",
+        lifecycle_evidence_sha256="d" * 64,
+        approved_by="hub-policy",
+        idempotency_key="local-promotion-1",
+        tenant_id="tenant",
+        owner_subject="owner",
+        expected_version=evaluated.registry_version,
+        minimum_eval_score=1.0,
+    )
+
+    assert replayed is False
+    assert was_replayed is True
+    assert first == replay
+    assert first.status == "approved"
+    assert first.promotion_history[-1]["lifecycle_evidence_sha256"] == "d" * 64
+
+
+def test_governed_local_promotion_rejects_unverified_provenance(tmp_path):
+    svc = _svc(tmp_path)
+    _register_trained(
+        svc,
+        release_target="needle2",
+        tenant_id="tenant",
+        owner_subject="owner",
+    )
+    evaluated = svc.set_eval_report(
+        "imported-adapter-v1",
+        eval_report_ref="evaluation-1",
+        eval_score=1.0,
+        tenant_id="tenant",
+        owner_subject="owner",
+    )
+
+    with pytest.raises(RegistryError, match="provenance is unverified"):
+        svc.promote_local_evaluated(
+            "imported-adapter-v1",
+            lifecycle_evidence_sha256="d" * 64,
+            approved_by="hub-policy",
+            idempotency_key="local-promotion-1",
+            tenant_id="tenant",
+            owner_subject="owner",
+            expected_version=evaluated.registry_version,
+            minimum_eval_score=1.0,
+        )
+
+
 def test_duplicate_register_raises(tmp_path):
     svc = _svc(tmp_path)
     _register(svc)
@@ -173,6 +267,7 @@ def test_to_read_model_no_sensitive_paths(tmp_path):
 def test_auto_activate_adapter_never_default(tmp_path):
     """auto_activate_adapter muss per Config-Default false sein."""
     from agent.services.ml_intern_training_config_service import normalize_ml_intern_training_config
+
     cfg = normalize_ml_intern_training_config({})
     assert cfg["auto_activate_adapter"] is False
     cfg2 = normalize_ml_intern_training_config({"auto_activate_adapter": True})
@@ -352,12 +447,8 @@ def test_registry_enforces_exact_tenant_and_owner_scope_for_all_reads_and_action
     assert svc.get("shared-id", **other_owner) is None
     assert svc.list_adapters(**other_owner) == []
     assert svc.list_adapters() == []
-    tenant_a_digest = hashlib.sha256(
-        b"ananta.ml-intern-training.scope.v1\x00tenant-a\x00alice"
-    ).hexdigest()
-    tenant_b_digest = hashlib.sha256(
-        b"ananta.ml-intern-training.scope.v1\x00tenant-b\x00alice"
-    ).hexdigest()
+    tenant_a_digest = hashlib.sha256(b"ananta.ml-intern-training.scope.v1\x00tenant-a\x00alice").hexdigest()
+    tenant_b_digest = hashlib.sha256(b"ananta.ml-intern-training.scope.v1\x00tenant-b\x00alice").hexdigest()
     assert svc.get_by_scope_digest("shared-id", tenant_a_digest) == first
     assert svc.get_by_scope_digest("shared-id", tenant_b_digest) == second
     with pytest.raises(RegistryNotFoundError):
@@ -427,17 +518,18 @@ def test_legacy_v1_records_remain_readable_only_in_explicit_legacy_scope(tmp_pat
     legacy = svc.get("legacy-adapter")
     assert legacy is not None
     assert legacy.registry_version == 1
-    assert svc.get(
-        "legacy-adapter",
-        tenant_id="tenant-a",
-        owner_subject="alice",
-    ) is None
+    assert (
+        svc.get(
+            "legacy-adapter",
+            tenant_id="tenant-a",
+            owner_subject="alice",
+        )
+        is None
+    )
 
     migrated = svc.transition("legacy-adapter", "training", expected_version=1)
     assert migrated.registry_version == 2
-    assert json.loads(registry_path.read_text(encoding="utf-8"))["schema"] == (
-        "mlintern_adapter_registry.v2"
-    )
+    assert json.loads(registry_path.read_text(encoding="utf-8"))["schema"] == ("mlintern_adapter_registry.v2")
 
 
 def test_register_trained_persists_and_fences_canonical_provenance(tmp_path):

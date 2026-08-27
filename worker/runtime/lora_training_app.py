@@ -13,6 +13,7 @@ from werkzeug.exceptions import RequestEntityTooLarge
 from ananta_contracts.unsloth_capability import unavailable_worker_capability_probe
 from worker.training.backends import (
     MockTrainingBackend,
+    NeedleTrainingBackend,
     PeftTrlTrainingBackend,
     UnslothAudioTrainingBackend,
     UnslothEmbeddingTrainingBackend,
@@ -133,6 +134,7 @@ def _runtime_from_environment() -> RuntimePort:
     enabled = _env_csv("ANANTA_LORA_TRAINING_BACKENDS", "mock")
     factories: dict[str, Callable[[], TrainingBackend]] = {
         "mock": MockTrainingBackend,
+        "needle": NeedleTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
         "unsloth": UnslothTrainingBackend,
         "unsloth_audio": UnslothAudioTrainingBackend,

@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
+from agent.services.local_adapter_release_target import (
+    LOCAL_ADAPTER_RELEASE_TARGETS,
+)
 from agent.services.ml_intern_adapter_registry_contract import (
     AdapterRecord,
     RegistryError,
@@ -61,6 +64,13 @@ _TERMINAL_STATUSES = frozenset({"deprecated", "failed"})
 _APPROVED_STATUS = "approved"
 _REGISTRY_LOCKS_GUARD = threading.Lock()
 _REGISTRY_LOCKS: dict[str, threading.RLock] = {}
+
+
+def _release_target(value: object) -> str | None:
+    normalized = str(value or "").strip().lower() or None
+    if normalized is not None and normalized not in LOCAL_ADAPTER_RELEASE_TARGETS:
+        raise RegistryError("local_adapter_release_target_invalid")
+    return normalized
 
 
 def _synchronized(method):
@@ -198,6 +208,7 @@ class MlInternAdapterRegistryService:
         artifact_sha256: str | None = None,
         task_kinds: list[str] | None = None,
         notes: str | None = None,
+        release_target: str | None = None,
         tenant_id: str | None = None,
         owner_subject: str | None = None,
     ) -> AdapterRecord:
@@ -208,6 +219,7 @@ class MlInternAdapterRegistryService:
             run_ids=run_ids,
             provenance_verified=provenance_verified,
         )
+        normalized_release_target = _release_target(release_target)
         existing = self.get(adapter_id, tenant_id=scope[0], owner_subject=scope[1])
         if existing is not None:
             raise RegistryError(f"adapter_id {adapter_id!r} already exists")
@@ -232,6 +244,7 @@ class MlInternAdapterRegistryService:
             artifact_sha256=artifact_sha256,
             task_kinds=task_kinds or [],
             notes=notes,
+            release_target=normalized_release_target,
         )
         records = self._load()
         records.append(record.to_dict())
@@ -256,6 +269,7 @@ class MlInternAdapterRegistryService:
         provenance_verified: bool = False,
         task_kinds: list[str] | None = None,
         notes: str | None = None,
+        release_target: str | None = None,
         tenant_id: str | None = None,
         owner_subject: str | None = None,
     ) -> AdapterRecord:
@@ -285,6 +299,7 @@ class MlInternAdapterRegistryService:
             run_ids=run_ids,
             provenance_verified=provenance_verified,
         )
+        normalized_release_target = _release_target(release_target)
 
         scope = _scope_key(tenant_id, owner_subject)
         records = self._load()
@@ -302,6 +317,7 @@ class MlInternAdapterRegistryService:
                 "provenance_verified": (existing.provenance_verified, provenance_verified),
                 "config_hash": (existing.config_hash, config_hash),
                 "artifact_sha256": (existing.artifact_sha256, artifact_sha256),
+                "release_target": (existing.release_target, normalized_release_target),
             }
             mismatches = [name for name, (actual, expected) in immutable_bindings.items() if actual != expected]
             if mismatches:
@@ -349,6 +365,7 @@ class MlInternAdapterRegistryService:
             task_kinds=task_kinds or [],
             updated_at=now,
             notes=notes,
+            release_target=normalized_release_target,
         )
         records.append(record.to_dict())
         self._save(records)
@@ -535,6 +552,110 @@ class MlInternAdapterRegistryService:
             raw["updated_at"] = now
             raw["registry_version"] = revision_after
             raw["promotion_history"] = history
+            records[index] = raw
+            self._save(records)
+            return self._from_dict(raw), False
+        raise RegistryNotFoundError(f"adapter {adapter_id!r} not found")
+
+    @_synchronized
+    def promote_local_evaluated(
+        self,
+        adapter_id: str,
+        *,
+        lifecycle_evidence_sha256: str,
+        approved_by: str,
+        idempotency_key: str,
+        tenant_id: str,
+        owner_subject: str,
+        expected_version: int,
+        minimum_eval_score: float | None = None,
+    ) -> tuple[AdapterRecord, bool]:
+        """Atomically approve one provenance-bound local runtime candidate."""
+
+        evidence_sha256 = str(lifecycle_evidence_sha256 or "").strip().lower()
+        if not _is_sha256(evidence_sha256):
+            raise RegistryError("local adapter lifecycle evidence digest is invalid")
+        normalized_key = str(idempotency_key or "").strip()
+        if not 8 <= len(normalized_key) <= 256 or any(character.isspace() for character in normalized_key):
+            raise RegistryIdempotencyConflict("promotion idempotency key is invalid")
+        scope = _scope_key(tenant_id, owner_subject)
+        key_digest = hashlib.sha256(
+            (
+                f"ananta.local-adapter-promotion.idempotency.v1\0{scope[0]}\0{scope[1]}\0{adapter_id}\0{normalized_key}"
+            ).encode()
+        ).hexdigest()
+        records = self._load()
+        for index, raw in enumerate(records):
+            if not isinstance(raw, dict) or raw.get("adapter_id") != adapter_id or not _matches_scope(raw, scope):
+                continue
+            record = self._from_dict(raw)
+            request_payload = {
+                "adapter_id": adapter_id,
+                "release_target": record.release_target,
+                "artifact_sha256": record.artifact_sha256,
+                "dataset_hash": record.dataset_hash,
+                "source_ids": record.source_ids,
+                "run_ids": record.run_ids,
+                "evaluation_id": record.eval_report_ref,
+                "lifecycle_evidence_sha256": evidence_sha256,
+                "approved_by": str(approved_by),
+            }
+            request_digest = hashlib.sha256(
+                json.dumps(request_payload, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+            ).hexdigest()
+            history = raw.get("promotion_history") or []
+            if not isinstance(history, list) or any(not isinstance(item, dict) for item in history):
+                raise RegistryError("adapter promotion history is corrupt")
+            for item in history:
+                if secrets.compare_digest(str(item.get("idempotency_key_digest") or ""), key_digest):
+                    if not secrets.compare_digest(str(item.get("request_digest") or ""), request_digest):
+                        raise RegistryIdempotencyConflict("promotion idempotency key conflicts with prior evidence")
+                    return record, True
+            _assert_expected_version(raw, expected_version)
+            if record.status != "evaluated":
+                raise RegistryError(f"can only promote from 'evaluated' status, current: {record.status!r}")
+            if record.release_target not in LOCAL_ADAPTER_RELEASE_TARGETS:
+                raise RegistryError("local adapter release target is missing")
+            if not record.artifact_sha256 or not _is_sha256(record.artifact_sha256):
+                raise RegistryError("local adapter artifact digest is missing")
+            if not record.eval_report_ref:
+                raise RegistryError("local adapter evaluation is missing")
+            if not record.provenance_verified or not record.dataset_hash or not record.source_ids or not record.run_ids:
+                raise RegistryError("local adapter provenance is unverified")
+            if minimum_eval_score is not None and (
+                record.eval_score is None or float(record.eval_score) < float(minimum_eval_score)
+            ):
+                raise RegistryError("local adapter evaluation score does not meet policy")
+            now = datetime.now(timezone.utc).isoformat()
+            revision_before = _stored_version(raw)
+            revision_after = revision_before + 1
+            if revision_after > 2_147_483_647:
+                raise RegistryError("adapter registry version is exhausted")
+            history.append(
+                {
+                    "schema": "ananta.local-adapter-promotion-history.v1",
+                    "promotion_id": "promotion-" + request_digest[:32],
+                    "idempotency_key_digest": key_digest,
+                    "request_digest": request_digest,
+                    "lifecycle_evidence_sha256": evidence_sha256,
+                    "release_target": record.release_target,
+                    "artifact_sha256": record.artifact_sha256,
+                    "dataset_hash": record.dataset_hash,
+                    "evaluation_id": record.eval_report_ref,
+                    "revision_before": revision_before,
+                    "revision_after": revision_after,
+                    "created_at": now,
+                }
+            )
+            raw.update(
+                status="approved",
+                approved_by=approved_by,
+                approved_at=now,
+                approval_reason="automatic governed local adapter release",
+                updated_at=now,
+                registry_version=revision_after,
+                promotion_history=history,
+            )
             records[index] = raw
             self._save(records)
             return self._from_dict(raw), False
@@ -765,6 +886,7 @@ class MlInternAdapterRegistryService:
             updated_at=r.get("updated_at"),
             notes=r.get("notes"),
             promotion_history=[dict(item) for item in list(r.get("promotion_history") or []) if isinstance(item, dict)],
+            release_target=_release_target(r.get("release_target")),
         )
 
 

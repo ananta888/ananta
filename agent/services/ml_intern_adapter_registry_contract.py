@@ -63,6 +63,7 @@ class AdapterRecord:
     updated_at: str | None = None
     notes: str | None = None
     promotion_history: list[dict[str, Any]] = field(default_factory=list)
+    release_target: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {

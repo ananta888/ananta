@@ -11,14 +11,12 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings as runtime_settings
 from agent.config_defaults import sync_runtime_state
-from agent.repositories.model_default_selection import (
-    SqlModelDefaultSelectionRepository,
-)
-from agent.repositories.model_routing_configuration import (
-    SqlModelRoutingConfigurationRepository,
-)
+from agent.local_llm_backends import get_local_openai_backends
 from agent.services.dashboard_feature_flag_service import (
     resolve_dashboard_feature_flags,
+)
+from agent.services.local_model_runtime_inventory_adapter import (
+    LocalRuntimeModelInventoryAdapter,
 )
 from agent.services.model_catalog_service import (
     MODEL_CATALOG_REFRESH_CAPABILITY,
@@ -27,36 +25,38 @@ from agent.services.model_catalog_service import (
     ModelCatalogCapabilityPolicy,
     ModelCatalogService,
     ModelDefaultSelectionError,
-    ModelDefaultSelectionService,
     ProviderDiscovery,
 )
+from agent.services.model_inventory_service import ModelInventoryService
 from agent.services.model_invocation_service import (
     ModelInvocationService,
     ModelRoutingConfigurationError,
 )
-from agent.services.model_inventory_service import ModelInventoryService
-from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
 from agent.services.model_profile_inventory_adapter import (
     ConfiguredProfileModelInventoryAdapter,
 )
-from agent.services.provider_catalog_inventory_adapter import (
-    ProviderCatalogModelInventoryAdapter,
+from agent.services.model_profile_loader import ModelProfile, ModelProfileLoader
+from agent.services.model_routing_composition import (
+    build_persisted_default_selection_service,
+    build_persisted_effective_model_routing_service,
+    build_persisted_model_routing_assignment_service,
+    load_persisted_model_routing,
 )
-from agent.services.model_routing_transfer_service import (
-    ModelRoutingConfirmationError,
-    ModelRoutingTransferService,
-)
-from agent.services.model_routing_template_service import (
-    ModelRoutingTemplateService,
+from agent.services.model_routing_legacy_migration_service import (
+    ModelRoutingLegacyMigrationError,
+    ModelRoutingLegacyMigrationService,
+    build_model_routing_legacy_migration_service,
 )
 from agent.services.model_routing_observability_service import (
     ModelRoutingDiagnosticsService,
     get_model_routing_usage_projection,
 )
-from agent.services.model_routing_legacy_migration_service import (
-    build_model_routing_legacy_migration_service,
-    ModelRoutingLegacyMigrationError,
-    ModelRoutingLegacyMigrationService,
+from agent.services.model_routing_template_service import (
+    ModelRoutingTemplateService,
+)
+from agent.services.model_routing_transfer_service import (
+    ModelRoutingConfirmationError,
+    ModelRoutingTransferService,
 )
 from agent.services.model_routing_validation_policy import (
     ModelRoutingValidationPolicy,
@@ -68,9 +68,11 @@ from agent.services.model_selection_service import (
     ModelRoutingConflict,
 )
 from agent.services.ollama_model_discovery_service import OllamaModelDiscovery
-from agent.local_llm_backends import get_local_openai_backends
 from agent.services.openrouter_model_inventory_adapter import (
     OpenRouterModelInventoryAdapter,
+)
+from agent.services.provider_catalog_inventory_adapter import (
+    ProviderCatalogModelInventoryAdapter,
 )
 from agent.services.routing_decision_service import get_routing_decision_service
 from agent.services.service_registry import get_core_services
@@ -103,14 +105,8 @@ MODEL_ROUTING_MUTATE_CAPABILITY = "model_routing.mutate"
 
 
 def _model_consumer_registry() -> ModelConsumerRegistry:
-    role = str(
-        current_app.config.get("ROLE") or runtime_settings.role or "worker"
-    ).strip().lower()
-    extensions = (
-        tuple(current_app.extensions.get("model_consumer_extensions", ()))
-        if role == "hub"
-        else ()
-    )
+    role = str(current_app.config.get("ROLE") or runtime_settings.role or "worker").strip().lower()
+    extensions = tuple(current_app.extensions.get("model_consumer_extensions", ())) if role == "hub" else ()
     return ModelConsumerRegistry.defaults(extensions)
 
 
@@ -125,11 +121,7 @@ def _known_model_profiles() -> tuple[ModelProfile, ...]:
 
 
 def _configured_model_profiles_path() -> str:
-    return str(
-        current_app.config.get("MODEL_PROFILES_PATH")
-        or os.environ.get("MODEL_PROFILES_PATH")
-        or ""
-    ).strip()
+    return str(current_app.config.get("MODEL_PROFILES_PATH") or os.environ.get("MODEL_PROFILES_PATH") or "").strip()
 
 
 def _model_inventory_service() -> ModelInventoryService:
@@ -145,28 +137,50 @@ def _model_inventory_service() -> ModelInventoryService:
 
             openrouter_key = str(os.environ.get("OPENROUTER_API_KEY") or "").strip()
             external_adapters = (
-                (OpenRouterModelInventoryAdapter(
-                    lambda: str(os.environ.get("OPENROUTER_API_KEY") or "")
-                ),)
+                (OpenRouterModelInventoryAdapter(lambda: str(os.environ.get("OPENROUTER_API_KEY") or "")),)
                 if openrouter_key
                 else ()
             )
+            local_runtime_adapters = (
+                (LocalRuntimeModelInventoryAdapter(lambda: _local_model_runtime_snapshot()),)
+                if bool(
+                    getattr(
+                        current_app.extensions.get("local_model_runtime_wiring_status"),
+                        "ready",
+                        False,
+                    )
+                )
+                else ()
+            )
 
-            _MODEL_INVENTORY_SERVICE = ModelInventoryService((
-                ProviderCatalogModelInventoryAdapter(
-                    lambda force_refresh: _model_catalog_service().versioned_catalog(
-                        _catalog_query(force_refresh=force_refresh)
+            _MODEL_INVENTORY_SERVICE = ModelInventoryService(
+                (
+                    ProviderCatalogModelInventoryAdapter(
+                        lambda force_refresh: _model_catalog_service().versioned_catalog(
+                            _catalog_query(force_refresh=force_refresh)
+                        ),
+                        _remote_model_inventory_metadata,
                     ),
-                    _remote_model_inventory_metadata,
-                ),
-                ConfiguredProfileModelInventoryAdapter(
-                    _configured_model_profiles_path,
-                    lambda: SqlModelRoutingConfigurationRepository().load(),
-                ),
-                *build_cli_model_inventory_adapters(),
-                *external_adapters,
-            ))
+                    ConfiguredProfileModelInventoryAdapter(
+                        _configured_model_profiles_path,
+                        load_persisted_model_routing,
+                    ),
+                    *local_runtime_adapters,
+                    *build_cli_model_inventory_adapters(),
+                    *external_adapters,
+                )
+            )
     return _MODEL_INVENTORY_SERVICE
+
+
+def _local_model_runtime_snapshot():
+    from flask import current_app
+
+    from agent.services.local_model_runtime_composition import (
+        get_local_model_runtime_composition,
+    )
+
+    return get_local_model_runtime_composition(current_app).snapshot()
 
 
 def _remote_model_inventory_metadata() -> dict[str, dict[str, object]]:
@@ -194,14 +208,10 @@ def _remote_model_inventory_metadata() -> dict[str, dict[str, object]]:
 def _model_routing_service() -> ModelRoutingAssignmentService:
     profiles = _known_model_profiles()
     consumers = _model_consumer_registry()
-    return ModelRoutingAssignmentService(
-        repository=SqlModelRoutingConfigurationRepository(),
+    return build_persisted_model_routing_assignment_service(
         consumers=consumers,
-        known_profile_ids=(profile.profile_id for profile in profiles),
-        known_models=((profile.provider_id, profile.model) for profile in profiles),
-        validation_policy=ModelRoutingValidationPolicy(
-            consumers=consumers, profiles=profiles
-        ),
+        profiles=profiles,
+        validation_policy=ModelRoutingValidationPolicy(consumers=consumers, profiles=profiles),
     )
 
 
@@ -209,8 +219,7 @@ def _effective_model_routing_service() -> EffectiveModelRoutingService:
     resolver = ModelInvocationService.get_profile_resolver()
     if resolver is None:
         raise ModelRoutingConfigurationError("model_profiles_not_configured")
-    return EffectiveModelRoutingService(
-        repository=SqlModelRoutingConfigurationRepository(),
+    return build_persisted_effective_model_routing_service(
         consumers=_model_consumer_registry(),
         resolver=resolver,
     )
@@ -336,22 +345,14 @@ class _FlaskProviderInventory:
             force_refresh=query.force_refresh,
         )
         available = (
-            bool(ollama_discovery.available)
-            if ollama_discovery is not None
-            else bool(provider.get("available"))
+            bool(ollama_discovery.available) if ollama_discovery is not None else bool(provider.get("available"))
         )
         metadata = None
         if ollama_discovery is not None:
             metadata = {
                 "status": ollama_discovery.status,
-                "source": (
-                    "configured_fallback"
-                    if ollama_discovery.used_configured_fallback
-                    else "ollama_api_tags"
-                ),
-                "used_configured_fallback": (
-                    ollama_discovery.used_configured_fallback
-                ),
+                "source": ("configured_fallback" if ollama_discovery.used_configured_fallback else "ollama_api_tags"),
+                "used_configured_fallback": (ollama_discovery.used_configured_fallback),
             }
         return ProviderDiscovery(
             models=tuple(dict(item) for item in models),
@@ -381,9 +382,7 @@ class _FlaskCatalogPolicy:
         )
 
     def fallback_policy(self):
-        return get_routing_decision_service().resolve_fallback_policy(
-            self._app_cfg
-        )
+        return get_routing_decision_service().resolve_fallback_policy(self._app_cfg)
 
 
 class _FlaskDefaultSelectionRuntime:
@@ -417,18 +416,14 @@ def _catalog_query(*, force_refresh: bool | None = None) -> CatalogQuery:
     task_kind = str(request.args.get("task_kind") or "").strip().lower()
     if task_kind not in shared._BENCH_TASK_KINDS:
         task_kind = ""
-    timeout_seconds, cache_ttl_seconds, requested_refresh = (
-        shared.lmstudio_catalog_runtime_options()
-    )
+    timeout_seconds, cache_ttl_seconds, requested_refresh = shared.lmstudio_catalog_runtime_options()
     return CatalogQuery(
         default_provider=str(app_cfg.get("default_provider") or ""),
         default_model=str(app_cfg.get("default_model") or ""),
         task_kind=task_kind,
         timeout_seconds=timeout_seconds,
         cache_ttl_seconds=cache_ttl_seconds,
-        force_refresh=(
-            requested_refresh if force_refresh is None else force_refresh
-        ),
+        force_refresh=(requested_refresh if force_refresh is None else force_refresh),
     )
 
 
@@ -446,20 +441,21 @@ def _model_catalog_v2_enabled() -> bool:
 
 def _model_routing_editor_enabled() -> bool:
     app_cfg = current_app.config.get("AGENT_CONFIG", {}) or {}
-    return resolve_dashboard_feature_flags(app_cfg, defaults={
-        "feature_angular_model_dashboard_enabled": getattr(
-            runtime_settings, "feature_angular_model_dashboard_enabled", False
-        ),
-        "feature_model_routing_editor_enabled": getattr(
-            runtime_settings, "feature_model_routing_editor_enabled", False
-        ),
-    }).model_routing_editor
+    return resolve_dashboard_feature_flags(
+        app_cfg,
+        defaults={
+            "feature_angular_model_dashboard_enabled": getattr(
+                runtime_settings, "feature_angular_model_dashboard_enabled", False
+            ),
+            "feature_model_routing_editor_enabled": getattr(
+                runtime_settings, "feature_model_routing_editor_enabled", False
+            ),
+        },
+    ).model_routing_editor
 
 
 def _routing_editor_disabled_response():
-    return api_response(
-        status="error", message="model_routing_editor_feature_disabled", code=404
-    )
+    return api_response(status="error", message="model_routing_editor_feature_disabled", code=404)
 
 
 def _feature_disabled_response():
@@ -646,9 +642,7 @@ def get_versioned_model_catalog():
         return _feature_disabled_response()
     if not _query_args_are_valid("task_kind"):
         return _model_catalog_input_error("model_catalog_query_invalid")
-    catalog = _model_catalog_service().versioned_catalog(
-        _catalog_query(force_refresh=False)
-    )
+    catalog = _model_catalog_service().versioned_catalog(_catalog_query(force_refresh=False))
     return api_response(data=catalog.to_wire())
 
 
@@ -676,12 +670,15 @@ def refresh_model_inventory_catalog():
     if rate_limited is not None:
         return rate_limited
     catalog = _model_inventory_service().catalog(force_refresh=True)
-    log_audit("model_inventory_refreshed", {
-        "catalog_revision": catalog.catalog_revision,
-        "model_count": len(catalog.models),
-        "source_count": len(catalog.sources),
-        "partial": catalog.partial,
-    })
+    log_audit(
+        "model_inventory_refreshed",
+        {
+            "catalog_revision": catalog.catalog_revision,
+            "model_count": len(catalog.models),
+            "source_count": len(catalog.sources),
+            "partial": catalog.partial,
+        },
+    )
     return api_response(data=catalog.model_dump(mode="json", by_alias=True))
 
 
@@ -691,19 +688,13 @@ def refresh_versioned_model_catalog():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
     if not _capability_allowed(MODEL_CATALOG_REFRESH_CAPABILITY):
-        return _capability_denied_response(
-            MODEL_CATALOG_REFRESH_CAPABILITY
-        )
+        return _capability_denied_response(MODEL_CATALOG_REFRESH_CAPABILITY)
     if not _query_args_are_valid("task_kind") or not _refresh_body_is_valid():
-        return _model_catalog_input_error(
-            "model_catalog_refresh_command_invalid"
-        )
+        return _model_catalog_input_error("model_catalog_refresh_command_invalid")
     rate_limited = _surface_rate_limit_response(MODEL_CATALOG_REFRESH)
     if rate_limited is not None:
         return rate_limited
-    catalog = _model_catalog_service().versioned_catalog(
-        _catalog_query(force_refresh=True)
-    )
+    catalog = _model_catalog_service().versioned_catalog(_catalog_query(force_refresh=True))
     log_audit(
         "model_catalog_refreshed",
         {"model_count": len(catalog.models)},
@@ -717,13 +708,9 @@ def select_versioned_model_default():
     if not _model_catalog_feature_enabled():
         return _feature_disabled_response()
     if not _capability_allowed(MODEL_DEFAULT_SELECT_CAPABILITY):
-        return _capability_denied_response(
-            MODEL_DEFAULT_SELECT_CAPABILITY
-        )
+        return _capability_denied_response(MODEL_DEFAULT_SELECT_CAPABILITY)
     try:
-        command = ModelDefaultSelectionCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ModelDefaultSelectionCommand.model_validate(request.get_json(silent=True))
     except ValidationError:
         return api_response(
             status="error",
@@ -734,9 +721,8 @@ def select_versioned_model_default():
     if rate_limited is not None:
         return rate_limited
     catalog = _model_catalog_service()
-    selector = ModelDefaultSelectionService(
+    selector = build_persisted_default_selection_service(
         catalog=catalog,
-        store=SqlModelDefaultSelectionRepository(),
         runtime=_FlaskDefaultSelectionRuntime(),
     )
     try:
@@ -764,9 +750,7 @@ def select_versioned_model_default():
             "model_id": selected.model_id,
         },
     )
-    return api_response(
-        data=selected.model_dump(mode="json", by_alias=True)
-    )
+    return api_response(data=selected.model_dump(mode="json", by_alias=True))
 
 
 @providers_bp.route("/models/consumers/v1", methods=["GET"])
@@ -777,10 +761,12 @@ def get_model_consumers():
     if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
     consumers = _model_consumer_registry().all()
-    return api_response(data={
-        "schema": "ananta.model-consumer-registry.v1",
-        "consumers": [item.model_dump(mode="json", by_alias=True) for item in consumers],
-    })
+    return api_response(
+        data={
+            "schema": "ananta.model-consumer-registry.v1",
+            "consumers": [item.model_dump(mode="json", by_alias=True) for item in consumers],
+        }
+    )
 
 
 @providers_bp.route("/models/routing/v1", methods=["GET"])
@@ -807,16 +793,16 @@ def get_effective_model_routing_projection():
         routing = _model_routing_service().read()
         effective = _effective_model_routing_service()
         routes = tuple(
-            effective.dry_run(ModelRoutingDryRunCommand(
-                consumer_id=consumer.consumer_id,
-            ))
+            effective.dry_run(
+                ModelRoutingDryRunCommand(
+                    consumer_id=consumer.consumer_id,
+                )
+            )
             for consumer in _model_consumer_registry().all()
             if consumer.routable
         )
     except ModelRoutingConfigurationError as exc:
-        return api_response(
-            status="error", message=str(exc)[:160], code=503
-        )
+        return api_response(status="error", message=str(exc)[:160], code=503)
     projection = EffectiveModelRoutingProjection(
         configuration_revision=routing.revision,
         routes=routes,
@@ -834,9 +820,7 @@ def get_model_routing_templates():
     if not _query_args_are_valid():
         return _model_catalog_input_error("model_routing_template_query_invalid")
     revision = _model_routing_service().read().revision
-    catalog = _model_routing_template_service().catalog(
-        configuration_revision=revision
-    )
+    catalog = _model_routing_template_service().catalog(configuration_revision=revision)
     return api_response(data=catalog.model_dump(mode="json", by_alias=True))
 
 
@@ -859,22 +843,21 @@ def apply_legacy_model_routing_migration():
     if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
     try:
-        command = ModelRoutingLegacyMigrationApplyCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ModelRoutingLegacyMigrationApplyCommand.model_validate(request.get_json(silent=True))
         updated = _model_routing_legacy_migration_service().apply(command)
     except ValidationError:
-        return _model_catalog_input_error(
-            "model_routing_legacy_migration_command_invalid"
-        )
+        return _model_catalog_input_error("model_routing_legacy_migration_command_invalid")
     except ModelRoutingLegacyMigrationError as exc:
         code = 409 if str(exc) == "model_routing_revision_conflict" else 400
         return api_response(status="error", message=str(exc), code=code)
-    log_audit("model_routing_legacy_migration_applied", {
-        "previous_revision": command.expected_revision,
-        "revision": updated.revision,
-        "assignment_count": len(updated.assignments),
-    })
+    log_audit(
+        "model_routing_legacy_migration_applied",
+        {
+            "previous_revision": command.expected_revision,
+            "revision": updated.revision,
+            "assignment_count": len(updated.assignments),
+        },
+    )
     return api_response(data=updated.model_dump(mode="json", by_alias=True))
 
 
@@ -907,7 +890,8 @@ def _model_routing_diagnostics_read_model():
     effective = _effective_model_routing_service()
     routes = tuple(
         effective.dry_run(ModelRoutingDryRunCommand(consumer_id=item.consumer_id))
-        for item in consumers if item.routable
+        for item in consumers
+        if item.routable
     )
     return ModelRoutingDiagnosticsService().build(
         configuration=configuration,
@@ -948,17 +932,18 @@ def export_model_routing_diagnostics():
         diagnostics = _model_routing_diagnostics_read_model()
     except ModelRoutingConfigurationError as exc:
         return api_response(status="error", message=str(exc)[:160], code=503)
-    log_audit("model_routing_diagnostics_exported", {
-        "configuration_revision": diagnostics.configuration_revision,
-        "catalog_revision": diagnostics.catalog_revision,
-        "issue_count": len(diagnostics.issues),
-        "contains_secrets": False,
-    })
+    log_audit(
+        "model_routing_diagnostics_exported",
+        {
+            "configuration_revision": diagnostics.configuration_revision,
+            "catalog_revision": diagnostics.catalog_revision,
+            "issue_count": len(diagnostics.issues),
+            "contains_secrets": False,
+        },
+    )
     result = api_response(data=diagnostics.model_dump(mode="json", by_alias=True))
     response = result[0] if isinstance(result, tuple) else result
-    response.headers["Content-Disposition"] = (
-        'attachment; filename="ananta-model-routing-diagnostics.json"'
-    )
+    response.headers["Content-Disposition"] = 'attachment; filename="ananta-model-routing-diagnostics.json"'
     return result
 
 
@@ -970,17 +955,17 @@ def dry_run_model_routing_configuration():
     if not _capability_allowed(MODEL_ROUTING_READ_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_READ_CAPABILITY)
     try:
-        command = ModelRoutingDryRunCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ModelRoutingDryRunCommand.model_validate(request.get_json(silent=True))
         if command.configuration is not None:
             assignment_service = _model_routing_service()
-            assignment_service.validate(ModelRoutingMutationCommand(
-                schema="ananta.model-routing-mutation-command.v1",
-                expected_revision=assignment_service.read().revision,
-                assignments=command.configuration.assignments,
-                fallback_groups=command.configuration.fallback_groups,
-            ))
+            assignment_service.validate(
+                ModelRoutingMutationCommand(
+                    schema="ananta.model-routing-mutation-command.v1",
+                    expected_revision=assignment_service.read().revision,
+                    assignments=command.configuration.assignments,
+                    fallback_groups=command.configuration.fallback_groups,
+                )
+            )
         route = _effective_model_routing_service().dry_run(command)
     except ValidationError:
         return _model_catalog_input_error("model_routing_dry_run_command_invalid")
@@ -1013,21 +998,24 @@ def validate_model_routing_configuration():
         report = _model_routing_transfer_service().validate(command)
     except ValidationError as exc:
         return api_response(
-            status="error", message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc).splitlines()[0][:160]}, code=400,
+            status="error",
+            message="model_routing_configuration_invalid",
+            data={"reason_code": str(exc).splitlines()[0][:160]},
+            code=400,
         )
-    log_audit("model_routing_configuration_validated", {
-        "expected_revision": command.expected_revision,
-        "current_revision": report.current_revision,
-        "valid": report.valid,
-        "issue_count": len(report.issues),
-    })
+    log_audit(
+        "model_routing_configuration_validated",
+        {
+            "expected_revision": command.expected_revision,
+            "current_revision": report.current_revision,
+            "valid": report.valid,
+            "issue_count": len(report.issues),
+        },
+    )
     from agent import metrics
 
     for issue in report.issues:
-        metrics.MODEL_ROUTING_VALIDATION_ERRORS_TOTAL.labels(
-            severity=issue.severity
-        ).inc()
+        metrics.MODEL_ROUTING_VALIDATION_ERRORS_TOTAL.labels(severity=issue.severity).inc()
     return api_response(data=report.model_dump(mode="json", by_alias=True))
 
 
@@ -1039,11 +1027,14 @@ def export_model_routing_configuration():
     if not _capability_allowed(MODEL_ROUTING_EXPORT_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_EXPORT_CAPABILITY)
     bundle = _model_routing_transfer_service().export()
-    log_audit("model_routing_configuration_exported", {
-        "revision": bundle.configuration.revision,
-        "assignment_count": len(bundle.configuration.assignments),
-        "fallback_group_count": len(bundle.configuration.fallback_groups),
-    })
+    log_audit(
+        "model_routing_configuration_exported",
+        {
+            "revision": bundle.configuration.revision,
+            "assignment_count": len(bundle.configuration.assignments),
+            "fallback_group_count": len(bundle.configuration.fallback_groups),
+        },
+    )
     return api_response(data=bundle.model_dump(mode="json", by_alias=True))
 
 
@@ -1057,18 +1048,19 @@ def preview_model_routing_import():
     if not _capability_allowed(MODEL_ROUTING_VALIDATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_VALIDATE_CAPABILITY)
     try:
-        command = ModelRoutingImportCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ModelRoutingImportCommand.model_validate(request.get_json(silent=True))
         preview = _model_routing_transfer_service().preview(command)
     except ValidationError:
         return _model_catalog_input_error("model_routing_import_command_invalid")
-    log_audit("model_routing_import_previewed", {
-        "expected_revision": command.expected_revision,
-        "source_revision": command.configuration.revision,
-        "applicable": preview.applicable,
-        "issue_count": len(preview.issues),
-    })
+    log_audit(
+        "model_routing_import_previewed",
+        {
+            "expected_revision": command.expected_revision,
+            "source_revision": command.configuration.revision,
+            "applicable": preview.applicable,
+            "issue_count": len(preview.issues),
+        },
+    )
     return api_response(data=preview.model_dump(mode="json", by_alias=True))
 
 
@@ -1082,9 +1074,7 @@ def apply_model_routing_import():
     if not _capability_allowed(MODEL_ROUTING_MUTATE_CAPABILITY):
         return _capability_denied_response(MODEL_ROUTING_MUTATE_CAPABILITY)
     try:
-        command = ModelRoutingImportCommand.model_validate(
-            request.get_json(silent=True)
-        )
+        command = ModelRoutingImportCommand.model_validate(request.get_json(silent=True))
         updated = _model_routing_transfer_service().apply(command)
     except ValidationError:
         return _model_catalog_input_error("model_routing_import_command_invalid")
@@ -1092,21 +1082,28 @@ def apply_model_routing_import():
         return api_response(status="error", message=str(exc), code=400)
     except ModelRoutingConflict as exc:
         return api_response(
-            status="error", message=exc.reason_code,
-            data={"current_revision": exc.current_revision}, code=409,
+            status="error",
+            message=exc.reason_code,
+            data={"current_revision": exc.current_revision},
+            code=409,
         )
     except ValueError as exc:
         return api_response(
-            status="error", message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc)[:160]}, code=400,
+            status="error",
+            message="model_routing_configuration_invalid",
+            data={"reason_code": str(exc)[:160]},
+            code=400,
         )
-    log_audit("model_routing_import_applied", {
-        "previous_revision": command.expected_revision,
-        "source_revision": command.configuration.revision,
-        "revision": updated.revision,
-        "assignment_count": len(updated.assignments),
-        "fallback_group_count": len(updated.fallback_groups),
-    })
+    log_audit(
+        "model_routing_import_applied",
+        {
+            "previous_revision": command.expected_revision,
+            "source_revision": command.configuration.revision,
+            "revision": updated.revision,
+            "assignment_count": len(updated.assignments),
+            "fallback_group_count": len(updated.fallback_groups),
+        },
+    )
     return api_response(data=updated.model_dump(mode="json", by_alias=True))
 
 
@@ -1127,20 +1124,27 @@ def put_model_routing_configuration():
         return _model_catalog_input_error("model_routing_mutation_command_invalid")
     except ModelRoutingConflict as exc:
         return api_response(
-            status="error", message=exc.reason_code,
-            data={"current_revision": exc.current_revision}, code=409,
+            status="error",
+            message=exc.reason_code,
+            data={"current_revision": exc.current_revision},
+            code=409,
         )
     except ValueError as exc:
         return api_response(
-            status="error", message="model_routing_configuration_invalid",
-            data={"reason_code": str(exc)[:160]}, code=400,
+            status="error",
+            message="model_routing_configuration_invalid",
+            data={"reason_code": str(exc)[:160]},
+            code=400,
         )
     diff = ModelRoutingTransferService.diff(current, updated)
-    log_audit("model_routing_configuration_updated", {
-        "previous_revision": command.expected_revision,
-        "revision": updated.revision,
-        "assignment_count": len(updated.assignments),
-        "fallback_group_count": len(updated.fallback_groups),
-        "diff": diff.model_dump(mode="json"),
-    })
+    log_audit(
+        "model_routing_configuration_updated",
+        {
+            "previous_revision": command.expected_revision,
+            "revision": updated.revision,
+            "assignment_count": len(updated.assignments),
+            "fallback_group_count": len(updated.fallback_groups),
+            "diff": diff.model_dump(mode="json"),
+        },
+    )
     return api_response(data=updated.model_dump(mode="json", by_alias=True))

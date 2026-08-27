@@ -28,6 +28,9 @@ from agent.routes.ml_intern_training_unsloth_support import (
     _TrainingServices,
     _unsloth_promotion_facade,
 )
+from agent.services.local_adapter_release_target import (
+    requires_governed_local_release,
+)
 from agent.services.ml_intern_adapter_export_service import (
     AdapterExportError,
 )
@@ -343,6 +346,12 @@ def register_adapter_routes(blueprint: Blueprint) -> None:  # noqa: C901
                 )
                 if record_before_approval is None:
                     return _error("adapter_not_found", "adapter does not exist", 404)
+                if requires_governed_local_release(record_before_approval.release_target):
+                    return _error(
+                        "local_adapter_governed_release_required",
+                        "local runtime candidates require offline, shadow, canary, and atomic release gates",
+                        409,
+                    )
                 binding_error = _approval_evaluation_binding_error(record_before_approval)
                 if binding_error is not None:
                     return _error(

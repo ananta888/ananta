@@ -1,0 +1,21 @@
+[Unit]
+Description=Ananta local model runtime control bridge
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=900
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=%h/ananta
+EnvironmentFile=%h/ananta/data/local-model-runtime/control.env
+ExecStart=%h/ananta/.venv/bin/python %h/ananta/scripts/local-model-runtime-control.py
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=30
+TimeoutStopSec=30
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

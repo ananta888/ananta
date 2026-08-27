@@ -152,24 +152,14 @@ def _advertise_worker_capabilities(
 ) -> None:
     """Add only capabilities backed by a successfully composed handler."""
 
-    registration = dict(
-        app.extensions.get(
-            "workflow_adapter_worker_registration"
-        )
-        or {}
-    )
+    registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
     registration["capabilities"] = sorted(
         {
-            *(
-                registration.get("capabilities")
-                or []
-            ),
+            *(registration.get("capabilities") or []),
             *capabilities,
         }
     )
-    app.extensions[
-        "workflow_adapter_worker_registration"
-    ] = registration
+    app.extensions["workflow_adapter_worker_registration"] = registration
 
 
 def _load_governed_knowledge_index_security_from_environment():
@@ -191,9 +181,7 @@ def _load_governed_knowledge_index_security_from_environment():
     return security
 
 
-def _build_governed_knowledge_index_handler_from_environment(
-    *, security=None
-):
+def _build_governed_knowledge_index_handler_from_environment(*, security=None):
     """Compose the worker boundary without importing Hub implementations."""
 
     from worker.retrieval.governed_knowledge_index_worker_composition import (
@@ -201,10 +189,7 @@ def _build_governed_knowledge_index_handler_from_environment(
     )
 
     return build_governed_knowledge_index_worker_handler(
-        security=(
-            security
-            or _load_governed_knowledge_index_security_from_environment()
-        )
+        security=(security or _load_governed_knowledge_index_security_from_environment())
     )
 
 
@@ -223,6 +208,10 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     from agent.cli_backends.sgpt import run_llm_cli_command
     from worker.core.model_provider import build_model_provider
+    from worker.hrm_experiments.task_handler import (
+        HrmExperimentWorkerConfigurationError,
+        build_hrm_experiment_task_handler,
+    )
     from worker.mail_task_execution import build_mail_task_handler
     from worker.planning import OrganizationCategoryResearchTaskHandler
     from worker.retrieval.vector_index_execution import (
@@ -238,10 +227,6 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     from worker.semantic_media.compute_task_handler import (
         SemanticComputeWorkerConfigurationError,
         build_semantic_compute_task_handler,
-    )
-    from worker.hrm_experiments.task_handler import (
-        HrmExperimentWorkerConfigurationError,
-        build_hrm_experiment_task_handler,
     )
     from worker.visual_process_assistant import (
         VisualProcessAssistantInferenceHandler,
@@ -289,20 +274,15 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         )
 
         source_index_runtime_target = load_source_index_runtime_target()
-        knowledge_index_security = (
-            _load_governed_knowledge_index_security_from_environment()
-        )
-        knowledge_index_handler = (
-            _build_governed_knowledge_index_handler_from_environment(
-                security=knowledge_index_security
-            )
+        knowledge_index_security = _load_governed_knowledge_index_security_from_environment()
+        knowledge_index_handler = _build_governed_knowledge_index_handler_from_environment(
+            security=knowledge_index_security
         )
     except (RuntimeError, ValueError) as exc:
         reason_code = str(getattr(exc, "reason_code", "") or exc).strip()
         app.extensions["knowledge_index_worker_registration"] = {
             "ready": False,
-            "reason_code": reason_code
-            or "knowledge_index_worker_composition_invalid",
+            "reason_code": reason_code or "knowledge_index_worker_composition_invalid",
         }
     else:
         from agent.auth import resolve_configured_agent_token
@@ -318,26 +298,22 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer,
         )
 
-        app.extensions[
-            "knowledge_index_worker_output_capability_authorizer"
-        ] = KnowledgeIndexWorkerOutputCapabilityAuthorizer(
-            task_repository=get_repository_registry().task_repo,
-            receipt_ledger=(
-                SqlKnowledgeIndexWorkerDispatchReceiptRepository()
-            ),
-            manifest_verifier=WorkerSourceAccessManifestVerifier(
-                dict(knowledge_index_security.verification_keys)
-            ),
-            worker_id=knowledge_index_security.worker_id,
-            worker_url=str(settings.agent_url or ""),
+        app.extensions["knowledge_index_worker_output_capability_authorizer"] = (
+            KnowledgeIndexWorkerOutputCapabilityAuthorizer(
+                task_repository=get_repository_registry().task_repo,
+                receipt_ledger=(SqlKnowledgeIndexWorkerDispatchReceiptRepository()),
+                manifest_verifier=WorkerSourceAccessManifestVerifier(dict(knowledge_index_security.verification_keys)),
+                worker_id=knowledge_index_security.worker_id,
+                worker_url=str(settings.agent_url or ""),
+            )
         )
-        app.extensions[
-            "legacy_knowledge_index_worker_output_assignment_authorizer"
-        ] = LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer(
-            task_repository=get_repository_registry().task_repo,
-            worker_id=knowledge_index_security.worker_id,
-            worker_url=str(settings.agent_url or ""),
-            secret=str(resolve_configured_agent_token(app.config) or ""),
+        app.extensions["legacy_knowledge_index_worker_output_assignment_authorizer"] = (
+            LegacyKnowledgeIndexWorkerOutputAssignmentAuthorizer(
+                task_repository=get_repository_registry().task_repo,
+                worker_id=knowledge_index_security.worker_id,
+                worker_url=str(settings.agent_url or ""),
+                secret=str(resolve_configured_agent_token(app.config) or ""),
+            )
         )
         register_task_handler(
             "codecompass_index_build",
@@ -363,24 +339,17 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             ["retrieval", "index_write"],
         )
         if source_index_runtime_target is not None:
-            workflow_registration = dict(
-                app.extensions.get("workflow_adapter_worker_registration") or {}
-            )
-            runtime_targets = list(
-                workflow_registration.get("runtime_targets") or []
-            )
+            workflow_registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
+            runtime_targets = list(workflow_registration.get("runtime_targets") or [])
             runtime_target_id = source_index_runtime_target["runtime_target_id"]
             runtime_targets = [
                 target
                 for target in runtime_targets
-                if not isinstance(target, dict)
-                or target.get("runtime_target_id") != runtime_target_id
+                if not isinstance(target, dict) or target.get("runtime_target_id") != runtime_target_id
             ]
             runtime_targets.append(source_index_runtime_target)
             workflow_registration["runtime_targets"] = runtime_targets
-            app.extensions[
-                "workflow_adapter_worker_registration"
-            ] = workflow_registration
+            app.extensions["workflow_adapter_worker_registration"] = workflow_registration
         app.extensions["knowledge_index_worker_registration"] = {
             "ready": True,
             "reason_code": None,
@@ -393,9 +362,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             vector_verifier,
             UnavailableVectorIndexTaskVerifier,
         ):
-            raise ValueError(
-                "vector_index_task_verification_keyring_required"
-            )
+            raise ValueError("vector_index_task_verification_keyring_required")
         vector_handler = build_vector_index_task_handler(
             ConfiguredVectorIndexExecution(
                 observer=PrometheusVectorStoreObserver(),
@@ -489,16 +456,8 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     registered = [
         "planning_research",
-        *(
-            ["codecompass_index_build"]
-            if knowledge_index_registered
-            else []
-        ),
-        *(
-            ["vector_index_operation"]
-            if vector_registered
-            else []
-        ),
+        *(["codecompass_index_build"] if knowledge_index_registered else []),
+        *(["vector_index_operation"] if vector_registered else []),
         "mail_operation",
         "visual_process_assistant_retrieval",
         "visual_process_assistant_inference",
@@ -508,37 +467,21 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
 
     unsloth_runtime = build_unsloth_worker_runtime()
-    app.extensions["unsloth_worker_runtime"] = (
-        unsloth_runtime.health_snapshot()
-    )
+    app.extensions["unsloth_worker_runtime"] = unsloth_runtime.health_snapshot()
     if unsloth_runtime.ready:
-        workflow_registration = dict(
-            app.extensions.get(
-                "workflow_adapter_worker_registration"
-            )
-            or {}
-        )
-        runtime_targets = list(
-            workflow_registration.get("runtime_targets") or []
-        )
+        workflow_registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
+        runtime_targets = list(workflow_registration.get("runtime_targets") or [])
         runtime_targets.append(
             {
-                "runtime_target_id": (
-                    "unsloth-"
-                    + unsloth_runtime.profile.replace("_", "-")
-                ),
+                "runtime_target_id": ("unsloth-" + unsloth_runtime.profile.replace("_", "-")),
                 "runtime_id": "unsloth",
                 "adapter_id": unsloth_runtime.profile,
                 "runtime_kind": "docker_container",
                 "runtime_version": "1.0.0",
-                "network_access": (
-                    unsloth_runtime.network_access
-                ),
+                "network_access": (unsloth_runtime.network_access),
             }
         )
-        advertised = set(
-            workflow_registration.get("capabilities") or []
-        )
+        advertised = set(workflow_registration.get("capabilities") or [])
         for binding in unsloth_runtime.bindings:
             register_task_handler(
                 binding.task_kind,
@@ -546,21 +489,13 @@ def _register_worker_domain_handlers(app: Flask) -> None:
                 app=app,
                 capabilities=list(binding.capabilities),
                 safety_flags=binding.safety_flags,
-                verification_hooks=list(
-                    binding.verification_hooks
-                ),
+                verification_hooks=list(binding.verification_hooks),
             )
             advertised.update(binding.capabilities)
             registered.append(binding.task_kind)
-        workflow_registration["capabilities"] = sorted(
-            advertised
-        )
-        workflow_registration["runtime_targets"] = (
-            runtime_targets
-        )
-        app.extensions[
-            "workflow_adapter_worker_registration"
-        ] = workflow_registration
+        workflow_registration["capabilities"] = sorted(advertised)
+        workflow_registration["runtime_targets"] = runtime_targets
+        app.extensions["workflow_adapter_worker_registration"] = workflow_registration
     try:
         if os.environ.get("ANANTA_HRM_EXPERIMENT_WORKER_ENABLED", "").strip().lower() not in {
             "1",
@@ -581,10 +516,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             "hrm_experiment",
             "hrm_experiment.mock",
             "hrm_experiment.isolated_runner",
-            *[
-                f"hrm_experiment.profile.{profile_id}"
-                for profile_id in hrm_projection.get("supported_profiles", [])
-            ],
+            *[f"hrm_experiment.profile.{profile_id}" for profile_id in hrm_projection.get("supported_profiles", [])],
         ]
         register_task_handler(
             "hrm_experiment",
@@ -613,12 +545,8 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             "capability_digest": hrm_projection.get("capability_digest"),
             "supported_profiles": list(hrm_projection.get("supported_profiles") or []),
         }
-        app.extensions["hrm_experiment_capability_heartbeat"] = (
-            hrm_experiment_handler.capability_heartbeat
-        )
-        workflow_registration = dict(
-            app.extensions.get("workflow_adapter_worker_registration") or {}
-        )
+        app.extensions["hrm_experiment_capability_heartbeat"] = hrm_experiment_handler.capability_heartbeat
+        workflow_registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
         workflow_registration["capabilities"] = sorted(
             {
                 *(workflow_registration.get("capabilities") or []),
@@ -670,9 +598,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
             "ready": True,
             "reason_code": None,
         }
-        workflow_registration = dict(
-            app.extensions.get("workflow_adapter_worker_registration") or {}
-        )
+        workflow_registration = dict(app.extensions.get("workflow_adapter_worker_registration") or {})
         workflow_registration["capabilities"] = sorted(
             {
                 *(workflow_registration.get("capabilities") or []),
@@ -763,6 +689,15 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.local_model_runtime import (
+        initialize_local_model_runtime_services,
+    )
+
+    run_startup_phase(
+        "local_model_runtime_services",
+        initialize_local_model_runtime_services,
+        app,
+    )
     from agent.bootstrap.semantic_media_services import (
         initialize_semantic_media_services,
     )

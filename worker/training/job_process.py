@@ -98,6 +98,7 @@ def _run_training(
 ) -> int:
     from worker.training.backends import (
         MockTrainingBackend,
+        NeedleTrainingBackend,
         PeftTrlTrainingBackend,
         UnslothAudioTrainingBackend,
         UnslothEmbeddingTrainingBackend,
@@ -116,6 +117,7 @@ def _run_training(
     )
     factories: dict[str, Callable[[], TrainingBackend]] = {
         "mock": MockTrainingBackend,
+        "needle": NeedleTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
         "unsloth": UnslothTrainingBackend,
         "unsloth_audio": UnslothAudioTrainingBackend,
@@ -136,9 +138,7 @@ def _run_training(
         cancel=cancel,
         emit=_emit,
         checkpoint_state_root=(
-            Path(str(payload["checkpoint_state_root"]))
-            if payload.get("checkpoint_state_root")
-            else None
+            Path(str(payload["checkpoint_state_root"])) if payload.get("checkpoint_state_root") else None
         ),
     )
     outcome = run_backend(backend, context)

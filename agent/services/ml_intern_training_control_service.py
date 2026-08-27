@@ -122,7 +122,7 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         configured_models = (
             list(catalog) if isinstance(catalog, Mapping) else list(self._config.get("base_models") or [])
         )
-        backend_ids = ("mock", "peft_trl", "unsloth", "unsloth_vision", "unsloth_audio", "unsloth_embedding")
+        backend_ids = ("mock", "needle", "peft_trl", "unsloth", "unsloth_vision", "unsloth_audio", "unsloth_embedding")
         backends = []
         for backend in backend_ids:
             worker_supports = worker_probe is not None and self._worker_supports(
@@ -690,5 +690,4 @@ def begin_ml_intern_training_control_shutdown() -> None:
 
 
 def json_dumps_canonical(value: Mapping[str, Any]) -> str:
-
     return json.dumps(dict(value), sort_keys=True, separators=(",", ":"), allow_nan=False)

@@ -12,13 +12,13 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urlsplit
 
-from ananta_contracts.unsloth_capability import hub_gpu_profile_defaults
 from agent.services.ml_intern_training_contract import (
     UNSLOTH_BACKENDS,
     MlInternTrainingContractError,
     normalize_run_ids,
     normalize_source_ids,
 )
+from ananta_contracts.unsloth_capability import hub_gpu_profile_defaults
 
 _ALLOWED_JOB_TYPES = frozenset(
     {
@@ -33,7 +33,7 @@ _ALLOWED_JOB_TYPES = frozenset(
 _DEFAULT_JOB_TYPES = _ALLOWED_JOB_TYPES.difference({"merge_adapter_optional"})
 
 _ALLOWED_MODES = frozenset({"dry_run", "live"})
-_ALLOWED_BACKENDS = frozenset({"peft_trl", "mock", *UNSLOTH_BACKENDS})
+_ALLOWED_BACKENDS = frozenset({"peft_trl", "needle", "mock", *UNSLOTH_BACKENDS})
 _ALLOWED_GPU_PROFILES = frozenset({"rtx3080-safe", "generic-safe", "none"})
 _UNSLOTH_OPERATING_MODES = frozenset({"core_worker", "studio_managed", "external_api"})
 _UNSLOTH_SECURITY_KEYS = frozenset(
@@ -59,8 +59,7 @@ _UNSLOTH_SECURITY_KEYS = frozenset(
 _ENV_SECRET_REF_RE = re.compile(r"^env://[A-Za-z_][A-Za-z0-9_]{0,127}$")
 
 _GPU_PROFILES: dict[str, dict] = {
-    profile: hub_gpu_profile_defaults(profile)
-    for profile in ("rtx3080-safe", "generic-safe", "none")
+    profile: hub_gpu_profile_defaults(profile) for profile in ("rtx3080-safe", "generic-safe", "none")
 }
 
 _ENV_ALLOWLIST_DEFAULTS = ["HOME", "PATH", "CUDA_VISIBLE_DEVICES", "HF_HOME", "TRANSFORMERS_CACHE"]
@@ -120,9 +119,7 @@ def normalize_unsloth_security_config(
     studio_url = _normalize_studio_url(payload.get("studio_url"))
     auth_secret_ref = _normalize_secret_ref(payload.get("auth_secret_ref"))
     mcp_auth_secret_ref = _normalize_secret_ref(payload.get("mcp_auth_secret_ref"))
-    expected_studio_version = _normalize_unsloth_version(
-        payload.get("expected_studio_version")
-    )
+    expected_studio_version = _normalize_unsloth_version(payload.get("expected_studio_version"))
 
     remote_mode = operating_mode in {"studio_managed", "external_api"}
     if operating_mode == "core_worker" and (
@@ -136,10 +133,7 @@ def normalize_unsloth_security_config(
         or bool(allowed_hosts)
         or bool(allowed_ip_cidrs)
         or expected_studio_version is not None
-        or (
-            "tls_required" in payload
-            and tls_required is not True
-        )
+        or ("tls_required" in payload and tls_required is not True)
     ):
         raise MlInternTrainingConfigError(
             "unsloth_mode_conflict",
@@ -148,11 +142,7 @@ def normalize_unsloth_security_config(
     if (
         flags["model_downloads_enabled"]
         or flags["remote_tunnel_enabled"]
-        or (
-            integration_enabled
-            and remote_mode
-            and not flags["local_network_enabled"]
-        )
+        or (integration_enabled and remote_mode and not flags["local_network_enabled"])
     ) and not external_network_allowed:
         raise MlInternTrainingConfigError(
             "unsloth_network_opt_in_required",
@@ -196,10 +186,7 @@ def normalize_unsloth_security_config(
                     "unsloth_local_network_mode_invalid",
                     "local Studio networking is valid only for studio_managed mode",
                 )
-            if any(
-                not ipaddress.ip_network(value, strict=True).is_private
-                for value in allowed_ip_cidrs
-            ):
+            if any(not ipaddress.ip_network(value, strict=True).is_private for value in allowed_ip_cidrs):
                 raise MlInternTrainingConfigError(
                     "unsloth_local_network_cidr_invalid",
                     "local Studio networking requires private CIDRs",
@@ -375,9 +362,7 @@ def normalize_ml_intern_training_config(value: dict | None) -> dict:
         False,
     )
     if not isinstance(unsloth_integration_enabled, bool):
-        raise MlInternTrainingConfigError(
-            "unsloth_integration_flag_invalid"
-        )
+        raise MlInternTrainingConfigError("unsloth_integration_flag_invalid")
     mode = str(payload.get("mode") or "dry_run").strip().lower()
     if mode not in _ALLOWED_MODES:
         mode = "dry_run"
@@ -497,9 +482,7 @@ def normalize_ml_intern_training_config(value: dict | None) -> dict:
 
     return {
         "enabled": enabled,
-        "unsloth_integration_enabled": (
-            unsloth_integration_enabled
-        ),
+        "unsloth_integration_enabled": (unsloth_integration_enabled),
         "mode": mode,
         "backend": backend,
         "allowed_job_types": allowed_job_types,

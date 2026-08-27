@@ -5,6 +5,7 @@ dispatching to ``execute_ananta_tool`` so that callers outside the
 tool-loop (e.g. native OpenAI tool calls routed through SGPT) get the
 same policy enforcement as the worker loop.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -41,6 +42,9 @@ class UnifiedToolExecutionService:
         args = dict(arguments or {})
         call_id = str(tool_call_id or "")
 
+        if self._cancelled(goal_id=goal_id, task_id=task_id):
+            return self._cancelled_result(name, call_id)
+
         policy = get_ananta_tool_policy_service()
         decision = policy.evaluate(
             tool_name=name,
@@ -50,6 +54,9 @@ class UnifiedToolExecutionService:
             task_id=task_id,
             goal_id=goal_id,
         )
+
+        if self._cancelled(goal_id=goal_id, task_id=task_id):
+            return self._cancelled_result(name, call_id)
 
         if not decision.allowed:
             return build_tool_result(
@@ -70,6 +77,35 @@ class UnifiedToolExecutionService:
         )
         result["policy_decision"] = decision.as_dict()
         return result
+
+    @staticmethod
+    def _cancelled(*, goal_id: str | None, task_id: str | None) -> bool:
+        try:
+            from agent.services.lmstudio_request_registry import (
+                _get_current_context,
+                is_cancelled,
+            )
+
+            context_goal, context_task = _get_current_context()
+            return is_cancelled(goal_id or context_goal, task_id or context_task)
+        except Exception:
+            return False
+
+    @staticmethod
+    def _cancelled_result(tool_name: str, tool_call_id: str) -> dict[str, Any]:
+        return build_tool_result(
+            tool_name=tool_name,
+            tool_call_id=tool_call_id,
+            status="cancelled",
+            risk_class="unknown",
+            error="tool_execution_cancelled",
+            policy_decision={
+                "decision": "cancelled",
+                "reason": "tool_execution_cancelled",
+                "rule_id": "request_cancellation_fence",
+                "tool_name": tool_name,
+            },
+        )
 
 
 _unified_tool_execution_service = UnifiedToolExecutionService()

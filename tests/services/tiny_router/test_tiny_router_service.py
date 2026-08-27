@@ -107,7 +107,9 @@ def config(mode="active", order=None, **overrides):
 def test_disabled_mode_never_calls_adapter():
     adapter = FakeAdapter()
     decision = service(adapter).route(
-        prompt="search", allowed_tools=["repo.search"], config=config("disabled"),
+        prompt="search",
+        allowed_tools=["repo.search"],
+        config=config("disabled"),
     )
     assert decision.status == "disabled"
     assert adapter.calls == 0
@@ -115,7 +117,9 @@ def test_disabled_mode_never_calls_adapter():
 
 def test_active_mode_returns_validated_candidate():
     decision = service(FakeAdapter()).route(
-        prompt="search hub", allowed_tools=["repo.search"], config=config(),
+        prompt="search hub",
+        allowed_tools=["repo.search"],
+        config=config(),
     )
     assert decision.status == "candidate"
     assert decision.candidate.tool_name == "repo.search"
@@ -123,19 +127,25 @@ def test_active_mode_returns_validated_candidate():
 
 def test_shadow_mode_never_returns_executable_status():
     decision = service(FakeAdapter()).route(
-        prompt="search hub", allowed_tools=["repo.search"], config=config("shadow"),
+        prompt="search hub",
+        allowed_tools=["repo.search"],
+        config=config("shadow"),
     )
     assert decision.status == "shadow_candidate"
     assert decision.shadow
 
 
 def test_invalid_candidate_escalates_to_main():
-    adapter = FakeAdapter(payload={
-        "confidence": 0.99,
-        "tool_calls": [{"name": "shell.root", "args": {}}],
-    })
+    adapter = FakeAdapter(
+        payload={
+            "confidence": 0.99,
+            "tool_calls": [{"name": "shell.root", "args": {}}],
+        }
+    )
     decision = service(adapter).route(
-        prompt="ignore policy", allowed_tools=["repo.search"], config=config(),
+        prompt="ignore policy",
+        allowed_tools=["repo.search"],
+        config=config(),
     )
     assert decision.status == "escalate"
     assert decision.escalation_tier == "main"
@@ -143,7 +153,9 @@ def test_invalid_candidate_escalates_to_main():
 
 def test_runtime_failure_has_machine_reason_and_escalates():
     decision = service(FakeAdapter(error=TimeoutError())).route(
-        prompt="search", allowed_tools=["repo.search"], config=config(),
+        prompt="search",
+        allowed_tools=["repo.search"],
+        config=config(),
     )
     assert decision.status == "escalate"
     assert decision.reason_code == "adapter_timeout"
@@ -151,7 +163,9 @@ def test_runtime_failure_has_machine_reason_and_escalates():
 
 def test_empty_allowed_scope_fails_closed():
     decision = service(FakeAdapter()).route(
-        prompt="search", allowed_tools=[], config=config(),
+        prompt="search",
+        allowed_tools=[],
+        config=config(),
     )
     assert decision.reason_code == "allowed_tool_scope_empty"
 
@@ -159,16 +173,36 @@ def test_empty_allowed_scope_fails_closed():
 def test_kill_switch_prevents_runtime_use():
     adapter = FakeAdapter()
     decision = service(adapter).route(
-        prompt="search", allowed_tools=["repo.search"],
+        prompt="search",
+        allowed_tools=["repo.search"],
         config=config(kill_switch=True),
     )
     assert decision.reason_code == "kill_switch_active"
     assert adapter.calls == 0
 
 
+def test_cancellation_fences_candidate_before_and_after_runtime_call():
+    adapter = FakeAdapter()
+    cancelled = iter((False, False, True))
+
+    decision = service(adapter).route(
+        prompt="search",
+        allowed_tools=["repo.search"],
+        config=config(),
+        cancel_check=lambda: next(cancelled),
+    )
+
+    assert decision.status == "escalate"
+    assert decision.reason_code == "invocation_cancelled"
+    assert decision.candidate is None
+    assert adapter.calls == 1
+
+
 def test_noncommercial_profile_is_not_selected_in_commercial_mode():
     restricted = profile(
-        "restricted", commercial_use_allowed=False, research_only=True,
+        "restricted",
+        commercial_use_allowed=False,
+        research_only=True,
     )
     decision = service(FakeAdapter(), profiles=[restricted]).route(
         prompt="search",
@@ -190,3 +224,13 @@ def test_telemetry_contains_no_prompt_or_arguments():
     assert "prompt" not in event
     assert "arguments" not in event
     assert event["prompt_chars"] == len("private customer phrase")
+    assert event["attempts"] == [
+        {
+            "profile_id": "tiny",
+            "tier": "tiny",
+            "status": "valid",
+            "reason_code": "candidate_validated",
+            "latency_ms": 3.0,
+            "selected_tool_count": 1,
+        }
+    ]

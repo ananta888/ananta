@@ -1,7 +1,8 @@
 """UTCR-010: Tests for UnifiedToolExecutionService."""
+
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -63,13 +64,16 @@ def test_allowed_calls_execute_ananta_tool_and_attaches_policy(svc):
         "warnings": [],
     }
 
-    with patch(
-        "agent.services.ananta_tool_policy_service.AnantaToolPolicyService.evaluate",
-        return_value=allow_decision,
-    ), patch(
-        "agent.services.tools.execute_ananta_tool",
-        return_value=dict(fake_result),
-    ) as mock_execute:
+    with (
+        patch(
+            "agent.services.ananta_tool_policy_service.AnantaToolPolicyService.evaluate",
+            return_value=allow_decision,
+        ),
+        patch(
+            "agent.services.tools.execute_ananta_tool",
+            return_value=dict(fake_result),
+        ) as mock_execute,
+    ):
         result = svc.execute(
             tool_name="repo.list_files",
             arguments={"path_glob": "*.py"},
@@ -80,3 +84,19 @@ def test_allowed_calls_execute_ananta_tool_and_attaches_policy(svc):
     assert result["status"] == "ok"
     assert "policy_decision" in result
     assert result["policy_decision"]["decision"] == "allow"
+
+
+def test_cancelled_candidate_is_fenced_before_tool_execution(svc, monkeypatch):
+    monkeypatch.setattr(svc, "_cancelled", lambda **_kwargs: True)
+
+    with patch("agent.services.tools.execute_ananta_tool") as mock_execute:
+        result = svc.execute(
+            tool_name="repo.list_files",
+            arguments={"path_glob": "*.py"},
+            task_id="task-1",
+            tool_call_id="tool-1",
+        )
+
+    mock_execute.assert_not_called()
+    assert result["status"] == "cancelled"
+    assert result["policy_decision"]["rule_id"] == "request_cancellation_fence"

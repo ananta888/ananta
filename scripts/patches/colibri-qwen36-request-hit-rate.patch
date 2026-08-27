@@ -1,0 +1,48 @@
+diff --git a/c/qwen36_tier.h b/c/qwen36_tier.h
+--- a/c/qwen36_tier.h
++++ b/c/qwen36_tier.h
+@@ -61,2 +61,3 @@
+ /* One telemetry block on stderr: residency, hits/misses, uploads per device. */
++void qt_counters(uint64_t *hits, uint64_t *misses);
+ void qt_stats(void);
+@@ -77,2 +78,3 @@
+ static inline void qt_fill_wait(void){}
++static inline void qt_counters(uint64_t*a,uint64_t*b){if(a)*a=0;if(b)*b=0;}
+ static inline void qt_stats(void){}
+diff --git a/c/qwen36_tier.c b/c/qwen36_tier.c
+--- a/c/qwen36_tier.c
++++ b/c/qwen36_tier.c
+@@ -403,3 +403,9 @@
+ }
+-
++void qt_counters(uint64_t *hits, uint64_t *misses){
++    uint64_t total_hits=0;
++    for(int i=0;i<G.ndev;i++) total_hits+=G.hits[i];
++    if(hits) *hits=total_hits;
++    if(misses) *misses=G.miss;
++}
++
+ void qt_stats(void){
+diff --git a/c/qwen36.c b/c/qwen36.c
+--- a/c/qwen36.c
++++ b/c/qwen36.c
+@@ -2266,4 +2266,6 @@
+     if (m->momentum_logits)
+         memset(m->momentum_logits, 0,
+                (size_t)m->c.n_layers * m->c.n_experts * sizeof(float));
++    uint64_t qt_hits_before=0, qt_misses_before=0;
++    qt_counters(&qt_hits_before,&qt_misses_before);
+     float *lo = step(m, ids, np, 0);
+@@ -2285,6 +2287,11 @@
+     if(sbn>0) serve_data(q->id,(char*)sbuf,sbn);   /* flush trailing partial UTF-8 */
+     free(lo); free(ids);
+     double dt=now_s()-t0;
++    uint64_t qt_hits_after=0, qt_misses_after=0;
++    qt_counters(&qt_hits_after,&qt_misses_after);
++    uint64_t request_hits=qt_hits_after-qt_hits_before;
++    uint64_t request_misses=qt_misses_after-qt_misses_before;
++    double request_total=(double)(request_hits+request_misses);
+     printf("DONE %s STAT %d %.3f %.1f %.2f %d %d\n",q->id,gen,
+-           dt>0?gen/dt:0.0,0.0,rss_gb(),np,limited);
++           dt>0?gen/dt:0.0,request_total?100.0*request_hits/request_total:0.0,rss_gb(),np,limited);
+     fflush(stdout);

@@ -8,10 +8,10 @@ from typing import Any
 from flask import Blueprint, current_app, g, jsonify, request
 
 from agent.auth import check_service_auth, check_strict_auth
-from agent.repositories.hrm_experiments import HrmRepositoryConflict
 from agent.services.hrm_experiments import (
     HrmContractValidationError,
     HrmExperimentControlPlaneService,
+    HrmRepositoryConflict,
     default_hrm_experiment_control_plane_service,
 )
 from agent.services.hrm_experiments.admission import HrmAdmissionError
@@ -178,9 +178,7 @@ def list_hrm_puzzle_datasets():
         project_id = _project_id(page=True)
         cursor, limit = _page_values()
         return jsonify(
-            _application().list_datasets(
-                _principal(), project_id=project_id, cursor=cursor, limit=limit
-            )
+            _application().list_datasets(_principal(), project_id=project_id, cursor=cursor, limit=limit)
         ), 200
     except Exception as exc:
         return _route_error(exc)
@@ -190,11 +188,15 @@ def list_hrm_puzzle_datasets():
 @check_strict_auth
 def register_hrm_puzzle_dataset():
     try:
-        result = _application().register_dataset(
-            _principal(), _json_object(), idempotency_key=_idempotency_key()
-        )
+        result = _application().register_dataset(_principal(), _json_object(), idempotency_key=_idempotency_key())
         return jsonify(result), 201
-    except (HrmApplicationError, HrmAdmissionError, HrmArtifactStoreError, HrmContractValidationError, HrmRepositoryConflict) as exc:
+    except (
+        HrmApplicationError,
+        HrmAdmissionError,
+        HrmArtifactStoreError,
+        HrmContractValidationError,
+        HrmRepositoryConflict,
+    ) as exc:
         return _route_error(exc)
 
 
@@ -205,9 +207,7 @@ def list_hrm_checkpoints():
         project_id = _project_id(page=True)
         cursor, limit = _page_values()
         return jsonify(
-            _application().list_checkpoints(
-                _principal(), project_id=project_id, cursor=cursor, limit=limit
-            )
+            _application().list_checkpoints(_principal(), project_id=project_id, cursor=cursor, limit=limit)
         ), 200
     except Exception as exc:
         return _route_error(exc)
@@ -217,11 +217,15 @@ def list_hrm_checkpoints():
 @check_strict_auth
 def admit_hrm_checkpoint():
     try:
-        result = _application().admit_checkpoint(
-            _principal(), _json_object(), idempotency_key=_idempotency_key()
-        )
+        result = _application().admit_checkpoint(_principal(), _json_object(), idempotency_key=_idempotency_key())
         return jsonify(result), 202
-    except (HrmApplicationError, HrmAdmissionError, HrmArtifactStoreError, HrmContractValidationError, HrmRepositoryConflict) as exc:
+    except (
+        HrmApplicationError,
+        HrmAdmissionError,
+        HrmArtifactStoreError,
+        HrmContractValidationError,
+        HrmRepositoryConflict,
+    ) as exc:
         return _route_error(exc)
 
 
@@ -231,11 +235,7 @@ def list_hrm_experiment_runs():
     try:
         project_id = _project_id(page=True)
         cursor, limit = _page_values()
-        return jsonify(
-            _application().list_runs(
-                _principal(), project_id=project_id, cursor=cursor, limit=limit
-            )
-        ), 200
+        return jsonify(_application().list_runs(_principal(), project_id=project_id, cursor=cursor, limit=limit)), 200
     except Exception as exc:
         return _route_error(exc)
 
@@ -244,9 +244,7 @@ def list_hrm_experiment_runs():
 @check_strict_auth
 def start_hrm_experiment_run():
     try:
-        result, replayed = _application().start_run(
-            _principal(), _json_object(), idempotency_key=_idempotency_key()
-        )
+        result, replayed = _application().start_run(_principal(), _json_object(), idempotency_key=_idempotency_key())
         return jsonify({**result, "idempotent_replay": replayed}), 202
     except (HrmApplicationError, HrmContractValidationError, HrmRepositoryConflict) as exc:
         return _route_error(exc)
@@ -258,11 +256,7 @@ def get_hrm_experiment_run(run_id: str):
     try:
         if not _valid_identifier(run_id):
             raise HrmApplicationError("hrm.run_id_invalid", status_code=400)
-        return jsonify(
-            _application().get_run(
-                _principal(), project_id=_project_id(), run_id=run_id
-            )
-        ), 200
+        return jsonify(_application().get_run(_principal(), project_id=_project_id(), run_id=run_id)), 200
     except Exception as exc:
         return _route_error(exc)
 
@@ -332,11 +326,7 @@ def get_hrm_evaluation_report(report_id: str):
     try:
         if not _valid_identifier(report_id):
             raise HrmApplicationError("hrm.report_id_invalid", status_code=400)
-        return jsonify(
-            _application().get_report(
-                _principal(), project_id=_project_id(), report_id=report_id
-            )
-        ), 200
+        return jsonify(_application().get_report(_principal(), project_id=_project_id(), report_id=report_id)), 200
     except Exception as exc:
         return _route_error(exc)
 
@@ -365,9 +355,7 @@ def advertise_hrm_worker_capability():
 @check_service_auth(scope=HRM_EXPERIMENT_WORKER_SCOPE)
 def authorize_hrm_worker_execution():
     try:
-        body = _json_object(
-            fields=frozenset({"run_id", "task_id", "worker_job_id"})
-        )
+        body = _json_object(fields=frozenset({"run_id", "task_id", "worker_job_id"}))
         _worker_id, worker_url = _worker_identity()
         if any(not _valid_identifier(body[key]) for key in body):
             raise HrmApplicationError("hrm.authorization_request_invalid", status_code=400)
@@ -390,9 +378,7 @@ def admit_hrm_worker_result():
         _worker_id, worker_url = _worker_identity()
         if not _valid_identifier(body["run_id"]) or not isinstance(body["result"], dict):
             raise HrmApplicationError("hrm.result_request_invalid", status_code=400)
-        result = _application().submit_result(
-            run_id=body["run_id"], worker_url=worker_url, result=body["result"]
-        )
+        result = _application().submit_result(run_id=body["run_id"], worker_url=worker_url, result=body["result"])
         return jsonify({"data": result}), 200
     except Exception as exc:
         return _route_error(exc)

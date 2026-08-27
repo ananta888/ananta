@@ -151,6 +151,7 @@ class RegistryTrainingResultPublisher:
             provenance_verified=provenance_verified,
             task_kinds=list(job.request_spec.get("task_kinds") or []),
             notes=f"verified worker result ({inspected['total_bytes']} bytes)",
+            release_target=str(request_spec.get("release_target") or "") or None,
             tenant_id=job.tenant_id,
             owner_subject=job.owner_subject,
         )

@@ -10,6 +10,7 @@ from typing import Callable, Mapping, Sequence
 from agent.repositories.knowledge_hygiene_repository import (
     AuditRecord,
     KnowledgeHygieneRepository,
+    KnowledgeHygieneRepositoryError,
     Page,
     new_audit_record,
 )
@@ -44,7 +45,6 @@ from ananta_contracts.knowledge_hygiene import (
     build_correction_proposal,
     canonical_digest,
 )
-
 
 _SAFE_SLUG = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 _AUDIT_SECRET_KEYS = frozenset(
@@ -128,10 +128,7 @@ class KnowledgeHygieneService:
             raise KnowledgeHygieneServiceError("assignment_digest_mismatch")
         if run.result_digest is not None:
             if run.result_digest == result.result_digest:
-                claims = tuple(
-                    item for item in self._all_claims(project_id)
-                    if item.extraction_run_id == run.run_id
-                )
+                claims = tuple(item for item in self._all_claims(project_id) if item.extraction_run_id == run.run_id)
                 return run, claims
             raise KnowledgeHygieneServiceError("result_replay_mismatch")
         if run.lease_owner != worker_id or run.state not in {RunState.DISPATCHED, RunState.RUNNING}:
@@ -192,8 +189,7 @@ class KnowledgeHygieneService:
                 coverage=CoverageState(result.coverage),
                 created_at=self.clock(),
                 supersedes_claim_refs=tuple(
-                    (str(item[0]), int(item[1]))
-                    for item in proposal.get("supersedes_claim_refs") or ()
+                    (str(item[0]), int(item[1])) for item in proposal.get("supersedes_claim_refs") or ()
                 ),
             )
             if previous is not None and previous.idempotency_key == candidate.idempotency_key:
@@ -289,7 +285,9 @@ class KnowledgeHygieneService:
             raise KnowledgeHygieneServiceError("wiki_conflict_warning_removed")
         current = self.repository.get_page(project_id, slug)
         revision = 1 if current is None else current.revision + 1
-        page_id = current.page_id if current else f"KWP_{canonical_digest({'project_id': project_id, 'slug': slug})[:24]}"
+        page_id = (
+            current.page_id if current else f"KWP_{canonical_digest({'project_id': project_id, 'slug': slug})[:24]}"
+        )
         coverage = CoverageState.COMPLETE
         if any(item.coverage is CoverageState.UNKNOWN for item in claims):
             coverage = CoverageState.UNKNOWN
@@ -343,9 +341,7 @@ class KnowledgeHygieneService:
         if actor_kind != "human":
             raise KnowledgeHygieneServiceError("human_actor_required")
         current = self._require_conflict(project_id, conflict_id)
-        if self.config.require_dual_approval and (
-            not second_approver_id or second_approver_id == actor_id
-        ):
+        if self.config.require_dual_approval and (not second_approver_id or second_approver_id == actor_id):
             raise KnowledgeHygieneServiceError("independent_second_approver_required")
         try:
             kind = DecisionKind(decision)
@@ -422,7 +418,8 @@ class KnowledgeHygieneService:
             raise KnowledgeHygieneServiceError("correction_worker_not_bound")
         binding = next(
             (
-                item for item in run.source_bindings
+                item
+                for item in run.source_bindings
                 if item.source_id == source_id and item.source_revision == source_revision
             ),
             None,
@@ -511,13 +508,17 @@ class KnowledgeHygieneService:
         if record is None:
             raise KnowledgeHygieneServiceError("correction_not_found")
         proposal, state = record
-        preview = self.writeback.preview(proposal) if self.writeback is not None else {
-            "status": "writeback_unavailable",
-            "base_sha256": proposal.base_content_sha256,
-            "current_sha256": "unavailable",
-            "proposed_sha256": content_sha256(proposal.proposed_content),
-            "diff": "",
-        }
+        preview = (
+            self.writeback.preview(proposal)
+            if self.writeback is not None
+            else {
+                "status": "writeback_unavailable",
+                "base_sha256": proposal.base_content_sha256,
+                "current_sha256": "unavailable",
+                "proposed_sha256": content_sha256(proposal.proposed_content),
+                "diff": "",
+            }
+        )
         return {"proposal": proposal.to_dict(), "state": state, "three_way": preview}
 
     def recheck_conflict(
@@ -573,13 +574,10 @@ class KnowledgeHygieneService:
         conflicts = self._all_conflicts(project_id)
         pages = self._all_pages(project_id)
         now = self.clock()
-        referenced_claim_ids = {
-            claim_id
-            for page in pages
-            for claim_id, _revision in page.claim_refs
-        }
+        referenced_claim_ids = {claim_id for page in pages for claim_id, _revision in page.claim_refs}
         open_conflicts = [
-            item for item in conflicts
+            item
+            for item in conflicts
             if item.state in {ConflictState.OPEN, ConflictState.REOPENED, ConflictState.PENDING_REINGEST}
         ]
         canonical_counts: dict[str, int | None]
@@ -603,10 +601,7 @@ class KnowledgeHygieneService:
             "conflicts_observed": len(conflicts),
             "open_conflicts_observed": len(open_conflicts),
             "wiki_pages_observed": len(pages),
-            "orphan_claims_observed": sum(
-                1 for claim in claims
-                if claim.claim_id not in referenced_claim_ids
-            ),
+            "orphan_claims_observed": sum(1 for claim in claims if claim.claim_id not in referenced_claim_ids),
             "superseded_claims_observed": sum(bool(claim.supersedes_claim_refs) for claim in claims),
         }
         previous = self.repository.latest_health(project_id)
@@ -670,7 +665,9 @@ class KnowledgeHygieneService:
     def list_claims(self, project_id: str, *, cursor: str | None, limit: int) -> Page[KnowledgeClaim]:
         return self.repository.list_claims(project_id, cursor=cursor, limit=limit)
 
-    def list_conflicts(self, project_id: str, *, state: str | None, cursor: str | None, limit: int) -> Page[KnowledgeConflict]:
+    def list_conflicts(
+        self, project_id: str, *, state: str | None, cursor: str | None, limit: int
+    ) -> Page[KnowledgeConflict]:
         return self.repository.list_conflicts(project_id, state=state, cursor=cursor, limit=limit)
 
     def list_pages(self, project_id: str, *, cursor: str | None, limit: int) -> Page[CuratedWikiPage]:
@@ -731,7 +728,9 @@ class KnowledgeHygieneService:
         return tuple(_collect_pages(lambda cursor: self.repository.list_claims(project_id, cursor=cursor, limit=500)))
 
     def _all_conflicts(self, project_id: str) -> tuple[KnowledgeConflict, ...]:
-        return tuple(_collect_pages(lambda cursor: self.repository.list_conflicts(project_id, cursor=cursor, limit=500)))
+        return tuple(
+            _collect_pages(lambda cursor: self.repository.list_conflicts(project_id, cursor=cursor, limit=500))
+        )
 
     def _all_pages(self, project_id: str) -> tuple[CuratedWikiPage, ...]:
         return tuple(_collect_pages(lambda cursor: self.repository.list_pages(project_id, cursor=cursor, limit=500)))
@@ -783,3 +782,6 @@ def _delta(current: int | None, previous: int | None) -> float | None:
     if current is None or previous is None:
         return None
     return float(current - previous)
+
+
+__all__ = ["KnowledgeHygieneRepositoryError", "KnowledgeHygieneService", "KnowledgeHygieneServiceError"]

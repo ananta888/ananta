@@ -355,6 +355,7 @@ def _adapter_read_model(record: AdapterRecord | None) -> dict[str, Any]:
         "artifact_exists": exists,
         "evaluation_id": record.eval_report_ref,
         "promotion_count": len(record.promotion_history),
+        "release_target": record.release_target,
         "latest_promotion": (
             {
                 "promotion_id": record.promotion_history[-1].get("promotion_id"),

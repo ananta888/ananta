@@ -7,14 +7,17 @@ import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from ananta_contracts.unsloth_capability import (
-    UNSLOTH_FACET_REASON_CODES,
-    validate_progress_telemetry,
+from agent.services.local_adapter_release_target import (
+    normalize_local_adapter_release_target,
 )
 from agent.services.ml_intern_provenance_contract import (
     MlInternTrainingContractError,
     normalize_run_ids,
     normalize_source_ids,
+)
+from ananta_contracts.unsloth_capability import (
+    UNSLOTH_FACET_REASON_CODES,
+    validate_progress_telemetry,
 )
 
 CONTRACT_VERSION = "ananta.ml-intern-training.v2"
@@ -50,7 +53,7 @@ UNSLOTH_BACKENDS = frozenset(
         "unsloth_embedding",
     }
 )
-BACKENDS = frozenset({"mock", "peft_trl", *UNSLOTH_BACKENDS})
+BACKENDS = frozenset({"mock", "needle", "peft_trl", *UNSLOTH_BACKENDS})
 MODES = frozenset({"dry_run", "live"})
 GPU_PROFILES = frozenset({"rtx3080-safe", "generic-safe", "none"})
 UNSLOTH_EXPORT_FORMATS = frozenset({"adapter", "merged_16bit", "gguf"})
@@ -237,6 +240,42 @@ def assert_job_transition(current: str, target: str) -> None:
         )
 
 
+def _local_release_configuration(
+    value: Mapping[str, Any],
+    *,
+    job_type: str,
+    backend: str,
+) -> tuple[str | None, str]:
+    try:
+        release_target = normalize_local_adapter_release_target(
+            value.get("release_target"),
+            job_type=job_type,
+            backend=backend,
+        )
+    except ValueError as exc:
+        raise MlInternTrainingContractError(
+            str(exc),
+            "release_target is incompatible with the requested job or backend",
+        ) from exc
+    if backend == "needle" and release_target != "needle2":
+        raise MlInternTrainingContractError(
+            "needle_release_target_required",
+            "Needle training requires immutable release_target=needle2 lineage",
+        )
+    method = str(value.get("method") or "qlora").strip().lower()
+    if method not in {"lora", "qlora"}:
+        raise MlInternTrainingContractError(
+            "training_method_invalid",
+            "method must be lora or qlora",
+        )
+    if backend == "needle" and method != "lora":
+        raise MlInternTrainingContractError(
+            "needle_training_method_invalid",
+            "Needle training requires LoRA without quantized PEFT loading",
+        )
+    return release_target, method
+
+
 @dataclass(frozen=True)
 class CreateTrainingJobCommand:
     dataset_id: str
@@ -274,6 +313,7 @@ class CreateTrainingJobCommand:
             "source_ids",
             "run_ids",
             "exports",
+            "release_target",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -291,9 +331,11 @@ class CreateTrainingJobCommand:
             raise MlInternTrainingContractError("job_mode_invalid", "mode must be dry_run or live")
         if backend not in BACKENDS:
             raise MlInternTrainingContractError("job_backend_invalid", "backend is not supported")
-        method = str(value.get("method") or "qlora").strip().lower()
-        if method not in {"lora", "qlora"}:
-            raise MlInternTrainingContractError("training_method_invalid", "method must be lora or qlora")
+        release_target, method = _local_release_configuration(
+            value,
+            job_type=job_type,
+            backend=backend,
+        )
         gpu_profile = str(value.get("gpu_profile") or "").strip().lower()
         if gpu_profile and gpu_profile not in GPU_PROFILES:
             raise MlInternTrainingContractError("gpu_profile_invalid", "gpu_profile is not supported")
@@ -333,6 +375,10 @@ class CreateTrainingJobCommand:
         cls._validate_hyperparameters(hyperparameters)
         request_spec = {key: child for key, child in value.items()}
         request_spec.pop("base_model_id", None)
+        if release_target is not None:
+            request_spec["release_target"] = release_target
+        else:
+            request_spec.pop("release_target", None)
         if exports:
             request_spec["exports"] = [dict(item) for item in exports]
         else:
@@ -429,8 +475,10 @@ class CreateTrainingJobCommand:
             "seed",
         }
         for key in integer_fields:
-            if key in values and values[key] is not None and (
-                isinstance(values[key], bool) or not isinstance(values[key], int)
+            if (
+                key in values
+                and values[key] is not None
+                and (isinstance(values[key], bool) or not isinstance(values[key], int))
             ):
                 raise MlInternTrainingContractError(
                     "hyperparameter_invalid",

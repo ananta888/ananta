@@ -716,6 +716,50 @@ def test_adapter_routes_hide_foreign_tenant_and_owner_records(
     assert exported.status_code == 404
 
 
+def test_generic_approval_cannot_bypass_local_release_gates(
+    app,
+    client,
+    admin_auth_header,
+    tmp_path: Path,
+) -> None:
+    artifact_root = _configure(app, tmp_path)
+    registry = MlInternAdapterRegistryService(artifact_root / "adapter_registry.json")
+    registry.register_trained(
+        adapter_id="needle-candidate",
+        display_name="Needle candidate",
+        version="1",
+        base_model="needle-base-pinned",
+        method="lora",
+        artifact_paths={"adapter_dir": str(artifact_root / "needle-candidate")},
+        config_hash="a" * 64,
+        artifact_sha256="b" * 64,
+        release_target="needle2",
+        tenant_id="admin",
+        owner_subject="admin",
+    )
+
+    response = client.post(
+        "/api/ml-intern-training/adapters/needle-candidate/approve",
+        headers=_headers(admin_auth_header, "needle-generic-approval-blocked"),
+        json={
+            "confirmed": True,
+            "reason": "must pass governed local release gates",
+            "expected_version": 1,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.get_json()["data"]["error"]["code"] == ("local_adapter_governed_release_required")
+    assert (
+        registry.get(
+            "needle-candidate",
+            tenant_id="admin",
+            owner_subject="admin",
+        ).status
+        == "trained"
+    )
+
+
 @pytest.mark.parametrize(
     ("failure", "expected_status", "expected_code"),
     [

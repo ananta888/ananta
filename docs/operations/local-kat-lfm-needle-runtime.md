@@ -78,6 +78,12 @@ the requested 5 GiB left only 921 MiB free, below the mandatory safety reserve.
 With 4 GiB, readiness used 7,933 MiB and left 1,945 MiB free. The script uses
 `COLI_GPUS=0`, a fixed `CUDA_EXPERT_GB`, the installed heat file and full
 256-expert-per-layer RAM residency required by the Qwen3.6 CUDA tier.
+The local operator caps KAT's expert-cache RAM at 40 GiB by default; the Hub's
+54-GiB process-tree budget also covers the measured 30k-context model and
+engine overhead. LFM's measured process tree stays below its 1-GiB Hub budget.
+A restart
+decision may count only the declared share of resources currently owned by
+those managed runtime process trees as reclaimable.
 
 Logs and PID files are runtime-only under `data/local-model-runtime/`. A failed
 readiness check prints the bounded log tail and stops; it does not enter an
@@ -93,7 +99,41 @@ systemctl --user status ananta-local-model-runtime.service
 ```
 
 The service supervises all three child processes and restarts the complete,
-resource-checked group if one runtime exits.
+resource-checked group if one runtime exits. systemd permits at most three
+failed starts in fifteen minutes; repeated crashes therefore end fail-closed
+instead of creating an infinite restart loop.
+
+The Hub control bridge is a separate authenticated user service. Containers
+cannot reach a host process bound to loopback, so bind it to the explicit
+Docker bridge address and restrict that port to the Docker network in the host
+firewall. The control token belongs to the Hub only; the Compose overlay does
+not expose it to either Worker:
+
+```bash
+install -Dm 644 deploy/systemd/ananta-local-model-runtime.service \
+  "$HOME/.config/systemd/user/ananta-local-model-runtime.service"
+install -Dm 644 deploy/systemd/ananta-local-model-control.service \
+  "$HOME/.config/systemd/user/ananta-local-model-control.service"
+install -m 600 /dev/null data/local-model-runtime/runtime.env
+install -m 600 /dev/null data/local-model-runtime/control.env
+# runtime.env contains only provider runtime settings and model/Needle tokens.
+# control.env contains only ANANTA_LOCAL_MODEL_CONTROL_BIND_HOST and the
+# independently generated ANANTA_LOCAL_MODEL_CONTROL_TOKEN.
+systemctl --user daemon-reload
+systemctl --user enable --now ananta-local-model-control.service
+```
+
+`GET /models/local-runtime/v1/status` separates health from readiness and
+reports effective context, declared budgets and measured per-process RAM/VRAM.
+`budget_status=unmeasured` is explicit when the platform cannot attribute a
+resource; zero is never presented as a successful measurement. The runtimes
+report `timeout_supported=true` and `cancellation_supported=true`: cancellation
+is a Hub/Worker result fence, so a late provider response or Needle candidate is
+never consumed or executed. It does not claim that an inference already accepted
+by the model server stopped consuming compute before its deadline. Invocation
+telemetry contains only model/profile IDs, stable outcomes, latency, token or
+prompt-size counts, fallback index, Confidence availability and the correlated
+resource snapshot. It excludes prompts and tool arguments.
 
 ## Measured evidence on this RTX 3080
 
@@ -111,21 +151,57 @@ Needle CPU proposal:
 - Needle: 0.144 s, 351 decode tok/s and 56.4 MB reported peak RAM;
 - Colibrì confirmed an active 4 GiB CUDA tier with 2,421 resident experts.
 
-This is a bounded smoke, not a soak test. Long-context concurrency, repeated
-OOM recovery and p95/p99 performance remain operational gates.
+The bounded smoke above is distinct from the real long-context gate. On
+2026-08-27, two parallel KAT/LFM/Needle cycles with 30,016 KAT and 30,011 LFM
+prompt tokens ran for 9,709.963 seconds without a provider failure, OOM, crash
+or additional restart. KAT TTFT was 4,388,996 ms p50 and 5,297,604 ms p95/p99,
+decode throughput 2.532 p50 and 2.996 p95/p99 tok/s, and request-scoped CUDA
+expert hit rate 60.8%. LFM TTFT was 27.936 ms p50 and 3,288.411 ms p95/p99,
+with 157.153 p50 and 159.834 p95/p99 tok/s. Needle latency was 29.450 ms p50
+and 157.296 ms p95/p99. Across 1,874 resource samples, peak process-tree RSS
+was 56,341,143,552 bytes for KAT, 753,410,048 for LFM and 58,961,920 for
+Needle; peak VRAM was 8,324,644,864 bytes and minimum free VRAM remained
+2,033,188,864 bytes.
+
+The real parallel gate is intentionally long-running and writes its volatile
+report to the ignored top level of `artifacts/`:
+
+```bash
+scripts/local-model-runtime-soak.py \
+  --duration-seconds 1800 \
+  --minimum-samples 2 \
+  --prompt-chars 60000 \
+  --minimum-prompt-tokens 30000
+```
+
+It refuses durations below thirty minutes, correlates per-runtime latency,
+TTFT/throughput and complete process-tree RSS with GPU samples, and fails when
+KAT expert hitrate cannot be measured, either GPU provider processes fewer
+than the configured long-context token floor, fewer than two parallel samples
+complete, or the 1.5-GiB VRAM reserve is crossed. Build the pinned Colibrì
+runtime telemetry extension with `scripts/build-colibri-qwen36-runtime.sh`
+while the runtime service is stopped; the script restores the external source
+tree after producing the local binary.
 
 ## Needle and LFM SFT-LoRA
 
-Training candidates are created with:
+Training request drafts are created with a catalog-owned immutable Dataset ID:
 
 ```bash
-scripts/run-local-adapter-training.sh needle2 dataset.jsonl
-scripts/run-local-adapter-training.sh lfm2.5-2.6b-agentic dataset.jsonl
+export ANANTA_TRAINING_SOURCE_IDS='<Hub-provided SRC_* ID>'
+export ANANTA_TRAINING_RUN_IDS='<Hub-provided RUN_* ID>'
+export ANANTA_NEEDLE_BASE_MODEL_ID='<pinned unquantized checkpoint catalog ID>'
+scripts/run-local-adapter-training.sh needle2 ds-0123456789abcdef0123456789abcdef
+
+export ANANTA_LFM_SFT_BASE_MODEL_ID='<pinned agentic Transformers snapshot ID>'
+scripts/run-local-adapter-training.sh lfm2.5-2.6b-agentic ds-0123456789abcdef0123456789abcdef
 ```
 
-Needle training is CPU-only, `nice 15`, restricted to the configured CPU set,
-uses a 256-token cap, disables upstream data generation and writes a versioned
-adapter candidate. It requires the unquantized Needle checkpoint; the installed
+The script never starts training. It creates a closed Hub request whose
+`release_target` is immutable lineage. Once submitted through the authenticated
+ML-intern API, Needle training is delegated to an isolated Worker, is CPU-only,
+uses `nice 15`, two to four configured CPU cores, a 256-token cap and disables
+generation. It requires the unquantized Needle checkpoint; the installed
 `.cact` is a merged inference blob and cannot be used as the training base.
 
 LFM training is delegated through the existing Hub-owned LoRA job system. The
@@ -138,6 +214,18 @@ a Worker or approve its own result.
 Candidates must pass `LocalAdapterPromotionPolicy`: perfect JSON/schema/tool
 validity, no accuracy regression, per-slice limits, deterministic safety and
 resource gates, independent confidence calibration, at least the configured
-shadow and canary samples, and zero shadow side effects. Live violations invoke
-the rollback policy. Promotion must use the existing immutable adapter registry
-and controlled runtime restart; training never overwrites active weights.
+shadow and canary samples, minimum Shadow match/Canary accuracy, bounded Canary
+error, escalation and latency, and zero shadow side effects. Live violations
+invoke the rollback policy. Promotion must use the existing immutable adapter
+registry and controlled runtime restart; training never overwrites active weights.
+The generic adapter approval endpoint rejects both governed local release
+targets. Only the Hub lifecycle may atomically promote them after revalidating
+offline, Shadow, Canary and policy digests; a failed runtime restart triggers a
+compensating Registry rollback and a base-runtime restart.
+
+Automatic weight activation remains blocked until both serving-compatible,
+non-executable adapter formats exist. Needle's current finetune CLI emits a
+pickle artifact, which the artifact-security service correctly rejects; the
+installed LFM GGUF cannot consume an unconverted PEFT directory. Neither
+restriction may be bypassed by allowing pickle or claiming a restart selected
+weights that were not safely materialized.

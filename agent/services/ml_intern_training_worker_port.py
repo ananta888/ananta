@@ -110,6 +110,7 @@ class HttpMlInternTrainingWorkerPort:
         adapter_resolver: Callable[[str, str], str | Path] | None = None,
         admitted_backends: Sequence[str] = (
             "mock",
+            "needle",
             "peft_trl",
             "unsloth",
             "unsloth_vision",

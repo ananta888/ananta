@@ -44,6 +44,7 @@ UNSLOTH_FACET_REASON_CODES = frozenset(
 
 UNSLOTH_BACKEND_MODEL_KINDS: dict[str, tuple[str, ...]] = {
     "mock": ("text",),
+    "needle": ("text",),
     "peft_trl": ("text",),
     "unsloth": ("text",),
     "unsloth_vision": ("vision",),
@@ -225,28 +226,18 @@ def compose_worker_capability_probe(
     for backend_id, model_kinds in UNSLOTH_BACKEND_MODEL_KINDS.items():
         configured, detail = backend_availability.get(backend_id, (False, None))
         available = bool(configured)
-        reason_code = "ok" if available else (
-            "dependency_unavailable" if detail else "backend_not_configured"
-        )
+        reason_code = "ok" if available else ("dependency_unavailable" if detail else "backend_not_configured")
         if backend_id.startswith("unsloth") and (
-            not packages["unsloth"]["available"]
-            or normalized_resource != "nvidia"
-            or not cuda_available
+            not packages["unsloth"]["available"] or normalized_resource != "nvidia" or not cuda_available
         ):
             available = False
-            reason_code = (
-                "package_unavailable"
-                if not packages["unsloth"]["available"]
-                else "cuda_unavailable"
-            )
+            reason_code = "package_unavailable" if not packages["unsloth"]["available"] else "cuda_unavailable"
         backends[backend_id] = {
             "available": available,
             "reason_code": reason_code,
             "variant": backend_id,
             "operations": (
-                ["train_lora", "evaluate_lora"]
-                if backend_id in {"mock", "peft_trl", "unsloth"}
-                else ["train_lora"]
+                ["train_lora", "evaluate_lora"] if backend_id in {"mock", "peft_trl", "unsloth"} else ["train_lora"]
             ),
             "model_kinds": list(model_kinds),
         }
@@ -256,11 +247,7 @@ def compose_worker_capability_probe(
         available = runtime_ready and (
             normalized_resource in {"mock", "cpu"}
             if profile_id == "none"
-            else (
-                normalized_resource == "nvidia"
-                and normalized_profile == profile_id
-                and cuda_available
-            )
+            else (normalized_resource == "nvidia" and normalized_profile == profile_id and cuda_available)
         )
         gpu_profiles[profile_id] = {
             "available": available,
@@ -321,9 +308,7 @@ def validate_worker_capability_probe(value: Mapping[str, Any]) -> dict[str, Any]
     if resource_profile not in {"mock", "cpu", "nvidia"}:
         raise UnslothWorkerCapabilityContractError("worker resource profile is invalid")
 
-    backend_data = _closed_mapping(
-        data.get("backends"), frozenset(UNSLOTH_BACKEND_MODEL_KINDS), "worker backends"
-    )
+    backend_data = _closed_mapping(data.get("backends"), frozenset(UNSLOTH_BACKEND_MODEL_KINDS), "worker backends")
     backends = {}
     backend_fields = frozenset({"available", "reason_code", "variant", "operations", "model_kinds"})
     for backend_id, expected_model_kinds in UNSLOTH_BACKEND_MODEL_KINDS.items():
@@ -347,9 +332,7 @@ def validate_worker_capability_probe(value: Mapping[str, Any]) -> dict[str, Any]
             "model_kinds": model_kinds,
         }
 
-    package_data = _closed_mapping(
-        data.get("packages"), frozenset(UNSLOTH_PACKAGE_IDS), "worker packages"
-    )
+    package_data = _closed_mapping(data.get("packages"), frozenset(UNSLOTH_PACKAGE_IDS), "worker packages")
     packages = {}
     package_fields = frozenset({"available", "version", "reason_code"})
     for package_id in UNSLOTH_PACKAGE_IDS:
@@ -391,19 +374,13 @@ def validate_worker_capability_probe(value: Mapping[str, Any]) -> dict[str, Any]
         "total_vram_bytes": _bounded_nonnegative_int(raw_hardware.get("total_vram_bytes")),
     }
 
-    profiles_data = _closed_mapping(
-        data.get("gpu_profiles"), frozenset(GPU_PROFILE_IDS), "worker GPU profiles"
-    )
+    profiles_data = _closed_mapping(data.get("gpu_profiles"), frozenset(GPU_PROFILE_IDS), "worker GPU profiles")
     state_fields = frozenset({"available", "reason_code"})
     profiles = {
-        profile_id: _validate_availability_state(
-            profiles_data[profile_id], state_fields, f"GPU profile {profile_id}"
-        )
+        profile_id: _validate_availability_state(profiles_data[profile_id], state_fields, f"GPU profile {profile_id}")
         for profile_id in GPU_PROFILE_IDS
     }
-    compositions_data = _closed_mapping(
-        data.get("compositions"), frozenset({"studio", "mcp"}), "worker compositions"
-    )
+    compositions_data = _closed_mapping(data.get("compositions"), frozenset({"studio", "mcp"}), "worker compositions")
     compositions = {
         composition_id: _validate_availability_state(
             compositions_data[composition_id], state_fields, f"composition {composition_id}"

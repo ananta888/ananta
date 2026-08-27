@@ -1,6 +1,5 @@
 # Existing architecture debt as of 2026-07-26.
 # New violations fail CI; resolved entries must be removed from this file.
-Forbidden direct import: agent.routes.config.providers imports agent.repositories.model_default_selection (Direct access to agent.repositories from agent.routes is prohibited)
 Forbidden direct import: agent.routes.ml_intern_training imports agent.repositories.ml_intern_training (Direct access to agent.repositories from agent.routes is prohibited)
 Forbidden direct import: agent.routes.semantic_media_contracts imports agent.repositories.semantic_contract_repository (Direct access to agent.repositories from agent.routes is prohibited)
 Forbidden direct import: agent.routes.semantic_media_e2e_support imports agent.repositories.webrtc_peer_key_repository (Direct access to agent.repositories from agent.routes is prohibited)
@@ -68,7 +67,6 @@ Layer violation: agent.repositories.voice_review_decision imports agent.services
 Layer violation: agent.repositories.voice_runtime_cleanup imports agent.services.voice_governance_domain (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.webrtc_epoch_repository imports agent.services.semantic_media_audit_service (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.webrtc_peer_key_repository imports agent.services.semantic_media_audit_service (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.routes.config.providers imports agent.repositories.model_default_selection (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.ml_intern_training imports agent.repositories.ml_intern_training (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.semantic_media_contracts imports agent.repositories.semantic_contract_repository (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.semantic_media_e2e_support imports agent.repositories.webrtc_peer_key_repository (Layer agent.routes -> agent.repositories not allowed)

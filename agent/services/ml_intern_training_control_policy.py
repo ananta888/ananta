@@ -195,6 +195,13 @@ class MlInternTrainingControlPolicyMixin:
 
     def _requested_gpu_profile(self, command: CreateTrainingJobCommand) -> str:
         explicit = str(command.request_spec.get("gpu_profile") or "").strip().lower()
+        if command.backend == "needle":
+            if explicit and explicit != "none":
+                raise MlInternTrainingContractError(
+                    "needle_cpu_profile_required",
+                    "Needle training is CPU-only and requires gpu_profile=none",
+                )
+            return "none"
         if explicit:
             return explicit
         if command.backend == "mock":
@@ -213,9 +220,19 @@ class MlInternTrainingControlPolicyMixin:
         values = command.request_spec.get("hyperparameters")
         hyperparameters = dict(values) if isinstance(values, Mapping) else {}
         batch_size = int(hyperparameters.get("batch_size") or profile.get("batch_size") or 1)
-        max_sequence_length = int(hyperparameters.get("max_seq_length") or profile.get("max_seq_length") or 512)
+        max_sequence_length = int(
+            hyperparameters.get("max_seq_length")
+            or hyperparameters.get("max_sequence_length")
+            or profile.get("max_seq_length")
+            or 512
+        )
         max_batch_size = int(profile.get("max_batch_size_hard_limit") or 1)
         max_profile_sequence = int(profile.get("max_seq_length_hard_limit") or 512)
+        if command.backend == "needle" and max_sequence_length > 256:
+            raise MlInternTrainingContractError(
+                "needle_sequence_length_exceeded",
+                "Needle max_seq_length is capped at 256",
+            )
         if batch_size > max_batch_size:
             raise MlInternTrainingContractError(
                 "gpu_profile_batch_size_exceeded",

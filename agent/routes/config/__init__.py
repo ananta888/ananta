@@ -8,12 +8,20 @@ from agent.tool_guardrails import evaluate_tool_call_guardrails
 
 from . import benchmarks, llm_generate, shared
 from .benchmarks import benchmarks_bp
-from .llm_generate import _infer_tool_calls_from_prompt, llm_generate_bp
-from .providers import providers_bp
 from .cognitive_styles import cognitive_styles_bp
+from .llm_generate import (
+    _infer_tool_calls_from_prompt as _infer_tool_calls_from_prompt,
+)
+from .llm_generate import llm_generate_bp
+from .local_model_runtime import local_model_runtime_bp
+from .providers import providers_bp
 from .read_models import read_models_bp
-from .settings import get_config, settings_bp, set_config, unwrap_config
-from .templates import templates_bp, validate_template_variables
+from .settings import get_config as get_config
+from .settings import set_config as set_config
+from .settings import settings_bp
+from .settings import unwrap_config as unwrap_config
+from .templates import templates_bp
+from .templates import validate_template_variables as validate_template_variables
 
 _LMSTUDIO_CATALOG_CACHE = shared._LMSTUDIO_CATALOG_CACHE
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = shared._LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES
@@ -39,5 +47,14 @@ def register_config_blueprints(app):
         # hub-LLM facade used by llm_generate.
         _sync_patchable_exports()
 
-    for blueprint in (settings_bp, read_models_bp, providers_bp, cognitive_styles_bp, benchmarks_bp, templates_bp, llm_generate_bp):
+    for blueprint in (
+        settings_bp,
+        read_models_bp,
+        providers_bp,
+        local_model_runtime_bp,
+        cognitive_styles_bp,
+        benchmarks_bp,
+        templates_bp,
+        llm_generate_bp,
+    ):
         app.register_blueprint(blueprint)

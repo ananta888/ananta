@@ -6,10 +6,12 @@ from typing import Mapping
 from flask import Blueprint, current_app, g, jsonify, request
 
 from agent.auth import admin_required, check_auth
-from agent.repositories.knowledge_hygiene_repository import KnowledgeHygieneRepositoryError
 from agent.services.knowledge_hygiene.context import get_knowledge_hygiene_service
 from agent.services.knowledge_hygiene.run_service import KnowledgeHygieneRunError
-from agent.services.knowledge_hygiene.service import KnowledgeHygieneServiceError
+from agent.services.knowledge_hygiene.service import (
+    KnowledgeHygieneRepositoryError,
+    KnowledgeHygieneServiceError,
+)
 from agent.services.knowledge_hygiene.writeback import KnowledgeWritebackError
 from ananta_contracts.knowledge_hygiene import (
     CoverageState,
@@ -17,7 +19,6 @@ from ananta_contracts.knowledge_hygiene import (
     SourceRevisionBinding,
     WorkerKnowledgeHygieneResult,
 )
-
 
 knowledge_hygiene_bp = Blueprint(
     "knowledge_hygiene",
@@ -112,9 +113,15 @@ def _ok(data: object, code: int = 200):
 @knowledge_hygiene_bp.errorhandler(KnowledgeWritebackError)
 def _domain_error(error):
     reason = getattr(error, "reason_code", "knowledge_hygiene_error")
-    code = 404 if reason.endswith("not_found") else 409 if any(
-        token in reason for token in ("stale", "mismatch", "collision", "race")
-    ) else 403 if any(token in reason for token in ("denied", "disabled", "required", "outside", "forbidden")) else 400
+    code = (
+        404
+        if reason.endswith("not_found")
+        else 409
+        if any(token in reason for token in ("stale", "mismatch", "collision", "race"))
+        else 403
+        if any(token in reason for token in ("denied", "disabled", "required", "outside", "forbidden"))
+        else 400
+    )
     return jsonify({"status": "error", "message": reason, "data": {"reason_code": reason}}), code
 
 
@@ -215,10 +222,7 @@ def create_run(project_id: str):
     _project_access(project_id)
     payload = _payload()
     run_id = _command_key(payload, "run_id")
-    bindings = tuple(
-        SourceRevisionBinding.from_mapping(item)
-        for item in _mapping_items(payload, "source_bindings")
-    )
+    bindings = tuple(SourceRevisionBinding.from_mapping(item) for item in _mapping_items(payload, "source_bindings"))
     raw_budgets = payload.get("budgets") or {}
     if not isinstance(raw_budgets, Mapping):
         raise KnowledgeHygieneServiceError("invalid_budgets")
@@ -303,7 +307,9 @@ def publish_wiki(project_id: str):
     _project_access(project_id)
     payload = _payload()
     _command_key(payload, "command_id")
-    return _ok(_service().publish_page(project_id=project_id, proposal=payload, actor_id=_actor(human=True)).to_dict(), 201)
+    return _ok(
+        _service().publish_page(project_id=project_id, proposal=payload, actor_id=_actor(human=True)).to_dict(), 201
+    )
 
 
 @knowledge_hygiene_bp.post("/projects/<project_id>/conflicts/<conflict_id>/decisions")

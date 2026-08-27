@@ -11,6 +11,7 @@ off (AWTCL-011).
 
 Contract: ``docs/contracts/ananta-worker-tool-loop.md``.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,8 +22,8 @@ import time
 import uuid
 from typing import Any, Callable
 
-from agent.cli_backends.helpers import _get_agent_config
 from agent.cli_backends.context import default_context as _ctx
+from agent.cli_backends.helpers import _get_agent_config
 
 log = logging.getLogger(__name__)
 
@@ -47,7 +48,9 @@ def get_tool_loop_config() -> dict[str, Any]:
         "max_tool_calls": max(1, min(int(cfg.get("max_tool_calls") or 12), 64)),
         "max_tool_result_chars": max(500, min(int(cfg.get("max_tool_result_chars") or 8000), 100000)),
         "max_invalid_outputs": max(1, min(int(cfg.get("max_invalid_outputs") or 2), 10)),
-        "allowed_tools": [str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()],
+        "allowed_tools": [
+            str(item or "").strip() for item in list(cfg.get("allowed_tools") or []) if str(item or "").strip()
+        ],
         "tiny_router": dict(tiny_router) if isinstance(tiny_router, dict) else {},
     }
 
@@ -127,13 +130,15 @@ def build_tool_loop_instructions(*, allowed_tools_description: str) -> str:
             "",
             "Antworte mit GENAU EINEM JSON-Objekt (roh oder in einem ```json Fence).",
             "Erlaubte `kind`-Werte:",
-            '- `tool_request`  — {"kind": "tool_request", "tool_name": "...", "reason": "...", "arguments": {...}, "risk_hint": "read|write|execution"}',
+            '- `tool_request`  — {"kind": "tool_request", "tool_name": "...", '
+            '"reason": "...", "arguments": {...}, "risk_hint": "read|write|execution"}',
             '- `final_answer`  — {"kind": "final_answer", "answer": "...", "evidence_refs": ["tool_result:N", ...]}',
-            '- `needs_approval` — wenn eine Aktion nur mit separatem Hub-Approval möglich ist.',
-            '- `cannot_continue_without_context` — wenn deterministische Daten fehlen und kein Tool sie liefern kann.',
+            "- `needs_approval` — wenn eine Aktion nur mit separatem Hub-Approval möglich ist.",
+            "- `cannot_continue_without_context` — wenn deterministische Daten fehlen und kein Tool sie liefern kann.",
             "",
             "Regeln:",
-            "- NICHT raten: Wenn deterministische Daten fehlen (Dateiinhalte, Suchtreffer, Testausgaben), fordere ein Tool an.",
+            "- NICHT raten: Wenn deterministische Daten fehlen "
+            "(Dateiinhalte, Suchtreffer, Testausgaben), fordere ein Tool an.",
             "- Behaupte KEINE Ausführung, die der Hub nicht per ToolResult bestätigt hat.",
             "- Tools werden ausschließlich vom Hub ausgeführt; du forderst sie nur an.",
             "- Beziehe dich in `final_answer` auf die gelieferten ToolResults (evidence_refs).",
@@ -246,14 +251,12 @@ def run_ananta_worker_tool_loop(
     report_iterations: list[dict[str, Any]] = []
     tool_call_count = 0
     invalid_count = 0
-    last_rc, last_out, last_err = 0, "", ""
-    tiny_router_cfg = (
-        dict(cfg.get("tiny_router") or {})
-        if isinstance(cfg.get("tiny_router"), dict)
-        else {}
-    )
+    last_out, last_err = "", ""
+    tiny_router_cfg = dict(cfg.get("tiny_router") or {}) if isinstance(cfg.get("tiny_router"), dict) else {}
 
-    def _audit(action: str, *, tool_name: str, decision: str, risk: str, status: str | None = None, detail: str | None = None) -> None:
+    def _audit(
+        action: str, *, tool_name: str, decision: str, risk: str, status: str | None = None, detail: str | None = None
+    ) -> None:
         try:
             from agent.common.audit import audit_worker_tool_event
 
@@ -278,9 +281,7 @@ def run_ananta_worker_tool_loop(
             report_path.parent.mkdir(parents=True, exist_ok=True)
             # UTCR-008: extended report with mode / backend / model metadata
             effective_allowed = [
-                str(item or "").strip()
-                for item in (cfg.get("allowed_tools") or [])
-                if str(item or "").strip()
+                str(item or "").strip() for item in (cfg.get("allowed_tools") or []) if str(item or "").strip()
             ]
             report_path.write_text(
                 json.dumps(
@@ -320,13 +321,12 @@ def run_ananta_worker_tool_loop(
         )
         message = None
         tiny_candidate_used = False
-        if (
-            iteration == 1
-            and not tool_results
-            and str(tiny_router_cfg.get("mode") or "disabled").lower()
-            != "disabled"
-        ):
+        if iteration == 1 and not tool_results and str(tiny_router_cfg.get("mode") or "disabled").lower() != "disabled":
             try:
+                from agent.services.lmstudio_request_registry import (
+                    _get_current_context,
+                    is_cancelled,
+                )
                 from agent.services.tiny_router.service import (
                     get_tiny_tool_router_service,
                 )
@@ -336,6 +336,7 @@ def run_ananta_worker_tool_loop(
                     allowed_tools=cfg.get("allowed_tools"),
                     config=tiny_router_cfg,
                     mutation_mode=mutation_mode,
+                    cancel_check=lambda: is_cancelled(*_get_current_context()),
                 )
                 if tiny_decision.status == "candidate" and tiny_decision.candidate:
                     message = {
@@ -352,11 +353,13 @@ def run_ananta_worker_tool_loop(
                     exc_info=True,
                 )
         if message is None:
-            rc, out, err = llm_runner(prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir)
+            rc, out, err = llm_runner(
+                prompt=iter_prompt, options=list(options or []), timeout=timeout, model=model, workdir=workdir
+            )
             message = parse_worker_tool_output(out)
         else:
             rc, out, err = 0, json.dumps(message, ensure_ascii=False), ""
-        last_rc, last_out, last_err = rc, out, err
+        last_out, last_err = out, err
         if rc != 0 and not out:
             _write_report("llm_failed")
             return rc, out, err
@@ -448,7 +451,12 @@ def run_ananta_worker_tool_loop(
                 status="policy_blocked",
                 risk_class="unknown",
                 error=f"unknown_tool:{tool_name}",
-                policy_decision={"decision": "policy_blocked", "reason": f"unknown_tool:{tool_name}", "rule_id": "registry_check", "tool_name": tool_name},
+                policy_decision={
+                    "decision": "policy_blocked",
+                    "reason": f"unknown_tool:{tool_name}",
+                    "rule_id": "registry_check",
+                    "tool_name": tool_name,
+                },
             )
             tool_results.append(unknown_result)
             continue
@@ -460,7 +468,13 @@ def run_ananta_worker_tool_loop(
                 if decision.decision == "approval_required"
                 else AUDIT_WORKER_TOOL_BLOCKED
             )
-            _audit(blocked_action, tool_name=tool_name, decision=decision.decision, risk=decision.risk_class, detail=decision.reason)
+            _audit(
+                blocked_action,
+                tool_name=tool_name,
+                decision=decision.decision,
+                risk=decision.risk_class,
+                detail=decision.reason,
+            )
 
             blocked_result = _ctx.tool_result_builder(
                 tool_name=tool_name,

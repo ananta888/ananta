@@ -37,6 +37,35 @@ def test_create_command_normalizes_bounded_training_request() -> None:
     assert "run_ids" not in command.request_spec
 
 
+def test_local_release_target_is_closed_and_backend_bound() -> None:
+    command = CreateTrainingJobCommand.from_mapping(
+        {
+            **_payload(),
+            "backend": "needle",
+            "method": "lora",
+            "release_target": "needle2",
+        }
+    )
+    assert command.request_spec["release_target"] == "needle2"
+
+    for target, backend, reason_code in (
+        ("unknown", "needle", "local_adapter_release_target_invalid"),
+        ("needle2", "peft_trl", "local_adapter_release_target_backend_mismatch"),
+        ("lfm2.5-2.6b-agentic", "needle", "local_adapter_release_target_backend_mismatch"),
+    ):
+        with pytest.raises(MlInternTrainingContractError) as error:
+            CreateTrainingJobCommand.from_mapping({**_payload(), "backend": backend, "release_target": target})
+        assert error.value.reason_code == reason_code
+
+    with pytest.raises(MlInternTrainingContractError) as missing:
+        CreateTrainingJobCommand.from_mapping({**_payload(), "backend": "needle", "method": "lora"})
+    assert missing.value.reason_code == "needle_release_target_required"
+
+    with pytest.raises(MlInternTrainingContractError) as method:
+        CreateTrainingJobCommand.from_mapping({**_payload(), "backend": "needle", "release_target": "needle2"})
+    assert method.value.reason_code == "needle_training_method_invalid"
+
+
 @pytest.mark.parametrize("backend", ["unsloth_vision", "unsloth_audio", "unsloth_embedding"])
 def test_optional_unsloth_backends_are_additive_contract_values(backend: str) -> None:
     command = CreateTrainingJobCommand.from_mapping({**_payload(), "backend": backend})
@@ -100,9 +129,7 @@ def test_create_command_rejects_unknown_fields_and_unsafe_hyperparameters() -> N
     with pytest.raises(MlInternTrainingContractError, match="unknown job fields"):
         CreateTrainingJobCommand.from_mapping({**_payload(), "worker_url": "http://attacker"})
     with pytest.raises(MlInternTrainingContractError) as error:
-        CreateTrainingJobCommand.from_mapping(
-            {**_payload(), "hyperparameters": {"batch_size": 999999}}
-        )
+        CreateTrainingJobCommand.from_mapping({**_payload(), "hyperparameters": {"batch_size": 999999}})
     assert error.value.reason_code == "hyperparameter_out_of_bounds"
 
 
@@ -112,9 +139,7 @@ def test_create_command_rejects_unknown_fields_and_unsafe_hyperparameters() -> N
 )
 def test_create_command_rejects_fractional_integer_hyperparameters(field: str) -> None:
     with pytest.raises(MlInternTrainingContractError) as error:
-        CreateTrainingJobCommand.from_mapping(
-            {**_payload(), "hyperparameters": {field: 1.5}}
-        )
+        CreateTrainingJobCommand.from_mapping({**_payload(), "hyperparameters": {field: 1.5}})
     assert error.value.reason_code == "hyperparameter_invalid"
 
 
@@ -150,6 +175,16 @@ def test_live_command_requires_strict_confirmation_and_string_reason() -> None:
             {"gpu_profile": "none", "hyperparameters": {"batch_size": 3}},
             "gpu_profile_batch_size_exceeded",
         ),
+        (
+            {"enabled": True},
+            {
+                "backend": "needle",
+                "method": "lora",
+                "release_target": "needle2",
+                "gpu_profile": "rtx3080-safe",
+            },
+            "needle_cpu_profile_required",
+        ),
     ],
 )
 def test_hub_admission_rejects_unsafe_mode_policy_and_profile_combinations(
@@ -170,6 +205,24 @@ def test_create_command_rejects_unknown_gpu_profile() -> None:
     with pytest.raises(MlInternTrainingContractError) as error:
         CreateTrainingJobCommand.from_mapping({**_payload(), "gpu_profile": "unbounded-gpu"})
     assert error.value.reason_code == "gpu_profile_invalid"
+
+
+def test_hub_policy_caps_needle_sequence_before_worker_dispatch() -> None:
+    command = CreateTrainingJobCommand.from_mapping(
+        {
+            **_payload(),
+            "backend": "needle",
+            "method": "lora",
+            "release_target": "needle2",
+            "gpu_profile": "none",
+            "hyperparameters": {"max_seq_length": 512, "batch_size": 1},
+        }
+    )
+    service = MlInternTrainingControlService({"enabled": True})
+
+    with pytest.raises(MlInternTrainingContractError) as error:
+        service._assert_request_policy(command, "none")
+    assert error.value.reason_code == "needle_sequence_length_exceeded"
 
 
 def test_terminal_transition_is_rejected() -> None:

@@ -12,6 +12,7 @@ _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _TRAINING_BACKENDS = frozenset(
     {
         "mock",
+        "needle",
         "peft_trl",
         "unsloth",
         "unsloth_vision",
