@@ -24,6 +24,12 @@ Visual-Process-Schritte verwenden dieselben Dataset-IDs und Hub-Jobverträge.
 Legacy-Pfadfelder werden nur read-only/deprecated dargestellt und über den
 serverseitigen Quarantäneadapter migriert.
 
+Der Runtime-Schritt vergleicht die vom Hub zugelassenen Backend-Capabilities und
+kann eine rein beratende Empfehlung anfordern. Version, Framework-Lizenz, Reife
+und Wartungsstatus ersetzen keine getrennte Modell- und Dataset-Lizenzprüfung.
+Eine Empfehlung wählt oder startet nie automatisch ein Backend. Der Browser sendet
+keine Dateipfade, freien Trainerargumente, Zugangsdaten oder Roh-Trainingsdaten.
+
 Lokale Gates:
 
 ```bash

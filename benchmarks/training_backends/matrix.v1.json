@@ -1,0 +1,32 @@
+{
+  "schema_version": "ananta.training-backend-benchmark-matrix.v1",
+  "profile": "rtx3080-10gb",
+  "comparison_policy": "same-admitted-snapshot-and-explicit-semantic-differences",
+  "backends": [
+    {"id": "peft_trl", "role": "baseline", "maintenance": "active", "status": "not_run"},
+    {"id": "unsloth", "role": "baseline", "maintenance": "active", "status": "not_run"},
+    {"id": "axolotl", "role": "candidate", "maintenance": "active", "status": "not_run"},
+    {"id": "llamafactory", "role": "candidate", "maintenance": "active", "status": "not_run"},
+    {"id": "autotrain", "role": "experimental", "maintenance": "unmaintained", "status": "blocked"},
+    {"id": "torchtune", "role": "experimental", "maintenance": "unmaintained", "status": "blocked"}
+  ],
+  "required_metrics": [
+    "setup_seconds",
+    "train_tokens_per_second",
+    "total_seconds",
+    "peak_vram_bytes",
+    "peak_ram_bytes",
+    "disk_bytes",
+    "checkpoint_bytes",
+    "evaluation_score"
+  ],
+  "required_bindings": [
+    "backend_version",
+    "config_sha256",
+    "container_digest",
+    "dataset_sha256",
+    "hardware_attestation_sha256",
+    "model_sha256",
+    "seed"
+  ]
+}

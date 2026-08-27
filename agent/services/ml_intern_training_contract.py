@@ -53,7 +53,18 @@ UNSLOTH_BACKENDS = frozenset(
         "unsloth_embedding",
     }
 )
-BACKENDS = frozenset({"mock", "needle", "peft_trl", *UNSLOTH_BACKENDS})
+BACKENDS = frozenset(
+    {
+        "autotrain",
+        "axolotl",
+        "llamafactory",
+        "mock",
+        "needle",
+        "peft_trl",
+        "torchtune",
+        *UNSLOTH_BACKENDS,
+    }
+)
 MODES = frozenset({"dry_run", "live"})
 GPU_PROFILES = frozenset({"rtx3080-safe", "generic-safe", "none"})
 UNSLOTH_EXPORT_FORMATS = frozenset({"adapter", "merged_16bit", "gguf"})

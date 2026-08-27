@@ -15,6 +15,7 @@ from agent.repositories.ml_intern_training import (
     MlInternTrainingRepositoryConflict,
     get_ml_intern_training_repository,
 )
+from agent.services.ml_intern_backend_selection_service import MlInternBackendSelectionService
 from agent.services.ml_intern_training_config_service import get_gpu_profile_defaults
 from agent.services.ml_intern_training_contract import (
     UNSLOTH_BACKENDS,
@@ -122,7 +123,19 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         configured_models = (
             list(catalog) if isinstance(catalog, Mapping) else list(self._config.get("base_models") or [])
         )
-        backend_ids = ("mock", "needle", "peft_trl", "unsloth", "unsloth_vision", "unsloth_audio", "unsloth_embedding")
+        backend_ids = (
+            "mock",
+            "needle",
+            "peft_trl",
+            "unsloth",
+            "unsloth_vision",
+            "unsloth_audio",
+            "unsloth_embedding",
+            "axolotl",
+            "llamafactory",
+            "autotrain",
+            "torchtune",
+        )
         backends = []
         for backend in backend_ids:
             worker_supports = worker_probe is not None and self._worker_supports(
@@ -275,7 +288,7 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
             "mode": mode,
             "runtime_available": runtime_available,
             "worker_probe_available": worker_probe is not None,
-            "backends": backends,
+            "backends": MlInternBackendSelectionService().enrich_catalog(backends),
             "gpu_profiles": gpu_profiles,
             "base_models": [
                 {

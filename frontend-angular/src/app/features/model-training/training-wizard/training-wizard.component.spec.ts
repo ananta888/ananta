@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { of, Subject } from 'rxjs';
 
 import { ModelTrainingFacade } from '../model-training.facade';
 import { TrainingCapabilities, TrainingJobAcceptance } from '../model-training.models';
@@ -14,6 +14,17 @@ describe('TrainingWizardComponent', () => {
     datasets,
     capabilities,
     createJob: vi.fn(() => accepted.asObservable()),
+    recommendBackend: vi.fn(() => of({
+      schema_version: 'ananta.ml-intern-backend-recommendation.v1',
+      mode: 'recommendation',
+      backend: 'axolotl',
+      requires_confirmation: true,
+      reasons: ['worker_capability_available'],
+      capability_evidence: { source: 'current_worker_probe_and_hub_policy', backend_version: '0.18.0', available: true },
+      estimated_resources: { model_bytes: 0, runtime_budget_seconds: 3600, profile: 'gpu-1', estimate_only: true },
+      alternatives: [],
+      fallback_policy: 'new_visible_attempt_only',
+    })),
   };
 
   beforeEach(() => {
@@ -133,6 +144,20 @@ describe('TrainingWizardComponent', () => {
     component.maxSequenceLength = 4097;
     expect(component.maxSequenceLengthLimit()).toBe(4096);
     expect(component.canContinue()).toBe(false);
+  });
+
+  it('shows a Hub recommendation without changing the explicit backend selection', () => {
+    const component = TestBed.createComponent(TrainingWizardComponent).componentInstance;
+    component.backend = 'peft';
+    component.gpuProfile = 'gpu-1';
+
+    component.requestRecommendation();
+
+    expect(facade.recommendBackend).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'qlora', resource_profile: 'gpu-1',
+    }));
+    expect(component.recommendation?.backend).toBe('axolotl');
+    expect(component.backend).toBe('peft');
   });
 });
 

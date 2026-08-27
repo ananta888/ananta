@@ -25,6 +25,8 @@ import {
   EvaluationReport,
   EvaluationScorerName,
   TrainingCapabilities,
+  TrainingBackendRecommendation,
+  TrainingBackendRecommendationRequest,
   TrainingEventPage,
   TrainingJobAcceptance,
   TrainingJobDetail,
@@ -68,6 +70,15 @@ export class ModelTrainingApiService extends ApiBaseService {
 
   capabilities(hubUrl: string): Observable<TrainingCapabilities> {
     return this.core.get<TrainingCapabilities>(this.endpoint(hubUrl, '/capabilities'), hubUrl, undefined, false);
+  }
+
+  recommendBackend(
+    hubUrl: string,
+    input: TrainingBackendRecommendationRequest,
+  ): Observable<TrainingBackendRecommendation> {
+    return this.core.post<TrainingBackendRecommendation>(
+      this.endpoint(hubUrl, '/backends/recommendation'), input, hubUrl,
+    );
   }
 
   unslothStorage(hubUrl: string): Observable<UnslothStorageReadModel> {

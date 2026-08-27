@@ -43,9 +43,13 @@ UNSLOTH_FACET_REASON_CODES = frozenset(
 )
 
 UNSLOTH_BACKEND_MODEL_KINDS: dict[str, tuple[str, ...]] = {
+    "autotrain": ("text",),
+    "axolotl": ("text",),
+    "llamafactory": ("text",),
     "mock": ("text",),
     "needle": ("text",),
     "peft_trl": ("text",),
+    "torchtune": ("text",),
     "unsloth": ("text",),
     "unsloth_vision": ("vision",),
     "unsloth_audio": ("audio",),
@@ -237,7 +241,18 @@ def compose_worker_capability_probe(
             "reason_code": reason_code,
             "variant": backend_id,
             "operations": (
-                ["train_lora", "evaluate_lora"] if backend_id in {"mock", "peft_trl", "unsloth"} else ["train_lora"]
+                ["train_lora", "evaluate_lora"]
+                if backend_id
+                in {
+                    "autotrain",
+                    "axolotl",
+                    "llamafactory",
+                    "mock",
+                    "peft_trl",
+                    "torchtune",
+                    "unsloth",
+                }
+                else ["train_lora"]
             ),
             "model_kinds": list(model_kinds),
         }

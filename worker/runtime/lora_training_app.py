@@ -11,6 +11,7 @@ from flask import Flask, jsonify, request, send_file
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from ananta_contracts.unsloth_capability import unavailable_worker_capability_probe
+from worker.training.backend_registry import FrozenTrainingBackendRegistry
 from worker.training.backends import (
     MockTrainingBackend,
     NeedleTrainingBackend,
@@ -20,7 +21,11 @@ from worker.training.backends import (
     UnslothTrainingBackend,
     UnslothVisionTrainingBackend,
 )
+from worker.training.backends.autotrain import AutoTrainTrainingBackend
+from worker.training.backends.axolotl import AxolotlTrainingBackend
 from worker.training.backends.base import TrainingBackend
+from worker.training.backends.llamafactory import LlamaFactoryTrainingBackend
+from worker.training.backends.torchtune import TorchtuneTrainingBackend
 from worker.training.contracts import CONTRACT_VERSION, EVALUATION_JOB_TYPE, TrainingContractError
 from worker.training.inference import (
     CONTRACT_VERSION as LORA_INFERENCE_CONTRACT_VERSION,
@@ -133,9 +138,13 @@ def _runtime_from_environment() -> RuntimePort:
 
     enabled = _env_csv("ANANTA_LORA_TRAINING_BACKENDS", "mock")
     factories: dict[str, Callable[[], TrainingBackend]] = {
+        "autotrain": AutoTrainTrainingBackend,
+        "axolotl": AxolotlTrainingBackend,
+        "llamafactory": LlamaFactoryTrainingBackend,
         "mock": MockTrainingBackend,
         "needle": NeedleTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
+        "torchtune": TorchtuneTrainingBackend,
         "unsloth": UnslothTrainingBackend,
         "unsloth_audio": UnslothAudioTrainingBackend,
         "unsloth_embedding": UnslothEmbeddingTrainingBackend,
@@ -144,7 +153,7 @@ def _runtime_from_environment() -> RuntimePort:
     unknown = sorted(enabled.difference(factories))
     if unknown:
         return _UnavailableRuntime("unknown training backend(s): " + ", ".join(unknown))
-    backends = {name: factories[name]() for name in sorted(enabled)}
+    backends = FrozenTrainingBackendRegistry(factories[name]() for name in sorted(enabled))
     config = RuntimeConfiguration(
         state_root=Path(raw_roots["state_root"]),
         workspace_root=Path(raw_roots["workspace_root"]),

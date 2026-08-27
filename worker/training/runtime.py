@@ -147,6 +147,8 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
 
     def __init__(self, config: RuntimeConfiguration, backends: Mapping[str, TrainingBackend]) -> None:
         self._config = config
+        capability_provider = getattr(backends, "capabilities", None)
+        self._backend_capabilities = capability_provider() if callable(capability_provider) else {}
         self._backends = {str(name).lower(): backend for name, backend in backends.items()}
         self._lock = threading.RLock()
         self._jobs: dict[str, _Job] = {}
@@ -183,6 +185,7 @@ class TrainingWorkerRuntime(TrainingRuntimeArtifactMixin):
                 "process_isolation": self._config.isolate_processes,
                 "worker_instance_id": self._worker_instance_id,
                 "backends": backend_health,
+                "backend_capabilities_v3": json.loads(json.dumps(self._backend_capabilities)),
                 "capacity": {
                     "active": active,
                     "max_running": self._config.max_workers,

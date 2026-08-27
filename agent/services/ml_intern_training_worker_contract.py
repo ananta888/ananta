@@ -11,9 +11,13 @@ _ARTIFACT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_./-]{0,511}$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _TRAINING_BACKENDS = frozenset(
     {
+        "autotrain",
+        "axolotl",
+        "llamafactory",
         "mock",
         "needle",
         "peft_trl",
+        "torchtune",
         "unsloth",
         "unsloth_vision",
         "unsloth_audio",

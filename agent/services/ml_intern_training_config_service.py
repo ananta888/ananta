@@ -33,7 +33,18 @@ _ALLOWED_JOB_TYPES = frozenset(
 _DEFAULT_JOB_TYPES = _ALLOWED_JOB_TYPES.difference({"merge_adapter_optional"})
 
 _ALLOWED_MODES = frozenset({"dry_run", "live"})
-_ALLOWED_BACKENDS = frozenset({"peft_trl", "needle", "mock", *UNSLOTH_BACKENDS})
+_ALLOWED_BACKENDS = frozenset(
+    {
+        "autotrain",
+        "axolotl",
+        "llamafactory",
+        "peft_trl",
+        "needle",
+        "mock",
+        "torchtune",
+        *UNSLOTH_BACKENDS,
+    }
+)
 _ALLOWED_GPU_PROFILES = frozenset({"rtx3080-safe", "generic-safe", "none"})
 _UNSLOTH_OPERATING_MODES = frozenset({"core_worker", "studio_managed", "external_api"})
 _UNSLOTH_SECURITY_KEYS = frozenset(

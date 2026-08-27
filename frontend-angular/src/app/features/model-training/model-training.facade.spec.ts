@@ -13,6 +13,9 @@ describe('ModelTrainingFacade', () => {
   beforeEach(() => {
     api = {
       capabilities: vi.fn(() => of({ available: true, backends: [], gpu_profiles: [], base_models: [], limits: {} })),
+      recommendBackend: vi.fn(() => of({ status: 'ok', data: {
+        schema_version: 'ananta.ml-intern-backend-recommendation.v1', mode: 'recommendation', backend: 'axolotl',
+      } })),
       unslothStorage: vi.fn(() => of({
         usage: {
           schema: 'ananta.unsloth-storage-usage.v1',

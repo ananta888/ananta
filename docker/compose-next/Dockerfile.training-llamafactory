@@ -1,0 +1,25 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ENV HF_DATASETS_OFFLINE=1 HF_HUB_DISABLE_TELEMETRY=1 HF_HUB_OFFLINE=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1 PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 TRANSFORMERS_OFFLINE=1
+
+RUN groupadd --gid 10005 ananta-training \
+    && useradd --uid 10005 --gid 10005 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-training \
+    && install -d -o 10005 -g 10005 -m 0750 /var/lib/ananta-lora /models/base /project-workspaces /usr/share/ananta-sbom
+WORKDIR /app
+COPY docker/compose-next/requirements.runtime-http.txt docker/compose-next/requirements.training-llamafactory.lock.txt /tmp/
+RUN pip install --requirement /tmp/requirements.runtime-http.txt \
+    && python -m venv /opt/trainer \
+    && /opt/trainer/bin/pip install --requirement /tmp/requirements.training-llamafactory.lock.txt \
+    && pip check && /opt/trainer/bin/pip check \
+    && ln -s /opt/trainer/bin/llamafactory-cli /usr/local/bin/llamafactory-cli \
+    && python -m pip inspect > /usr/share/ananta-sbom/control-runtime-pip-inspect.json \
+    && /opt/trainer/bin/python -c "import importlib.metadata,json; print(json.dumps({'package':'llamafactory','version':importlib.metadata.version('llamafactory')},sort_keys=True))" > /usr/share/ananta-sbom/training-backend-identity.json \
+    && /opt/trainer/bin/python -m pip inspect > /usr/share/ananta-sbom/training-backend-pip-inspect.json \
+    && rm /tmp/requirements.*.txt
+COPY --chown=10005:10005 ananta_contracts /app/ananta_contracts
+COPY --chown=10005:10005 worker /app/worker
+USER 10005:10005
+EXPOSE 8095
+CMD ["python", "-m", "worker.runtime.lora_training_app"]

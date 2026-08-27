@@ -105,7 +105,11 @@ def _run_training(
         UnslothTrainingBackend,
         UnslothVisionTrainingBackend,
     )
+    from worker.training.backends.autotrain import AutoTrainTrainingBackend
+    from worker.training.backends.axolotl import AxolotlTrainingBackend
     from worker.training.backends.base import TrainingBackend, TrainingBackendError, TrainingContext, run_backend
+    from worker.training.backends.llamafactory import LlamaFactoryTrainingBackend
+    from worker.training.backends.torchtune import TorchtuneTrainingBackend
 
     dataset_data = _mapping(payload.get("dataset"), "dataset")
     dataset = VerifiedDataset(
@@ -116,9 +120,13 @@ def _run_training(
         dataset_hash=str(dataset_data["dataset_hash"]),
     )
     factories: dict[str, Callable[[], TrainingBackend]] = {
+        "autotrain": AutoTrainTrainingBackend,
+        "axolotl": AxolotlTrainingBackend,
+        "llamafactory": LlamaFactoryTrainingBackend,
         "mock": MockTrainingBackend,
         "needle": NeedleTrainingBackend,
         "peft_trl": PeftTrlTrainingBackend,
+        "torchtune": TorchtuneTrainingBackend,
         "unsloth": UnslothTrainingBackend,
         "unsloth_audio": UnslothAudioTrainingBackend,
         "unsloth_embedding": UnslothEmbeddingTrainingBackend,

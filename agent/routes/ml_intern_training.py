@@ -43,6 +43,11 @@ from agent.routes.ml_intern_training_unsloth_support import (
     _unsloth_integration_probe,
     _unsloth_mutation_executors,
 )
+from agent.services.ml_intern_backend_selection_service import (
+    BackendSelectionError,
+    BackendSelectionRequest,
+    MlInternBackendSelectionService,
+)
 from agent.services.ml_intern_dataset_catalog_service import (
     DatasetCatalogError,
 )
@@ -135,6 +140,24 @@ def capabilities():
         return api_response(data=result)
     except (RuntimeError, ValueError) as exc:
         return _error("training_runtime_configuration_invalid", str(exc), 503, retryable=True)
+
+
+@ml_intern_training_bp.route("/backends/recommendation", methods=["POST"])
+@check_auth
+@admin_required
+def recommend_backend():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return _error("invalid_json", "JSON object body is required", 400)
+    try:
+        backends = _services().control.capabilities()["backends"]
+        recommendation = MlInternBackendSelectionService().recommend(
+            BackendSelectionRequest.from_mapping(payload),
+            backends=backends,
+        )
+        return api_response(data=recommendation)
+    except BackendSelectionError as exc:
+        return _error(exc.reason_code, str(exc), 422)
 
 
 @ml_intern_training_bp.route("/datasets", methods=["GET"])

@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/contracts/training-backend-capability.v3.schema.json",
+  "title": "Ananta Training Backend Capability v3",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "backend_id",
+    "backend_version",
+    "available",
+    "reason_code",
+    "maturity",
+    "maintenance",
+    "license_spdx",
+    "modalities",
+    "objectives",
+    "methods",
+    "precisions",
+    "quantizations",
+    "distributed_modes",
+    "exports",
+    "resume",
+    "evaluation",
+    "resource_profiles"
+  ],
+  "properties": {
+    "schema_version": {"const": "ananta.training-backend-capability.v3"},
+    "backend_id": {"type": "string", "minLength": 1, "maxLength": 64},
+    "backend_version": {"type": "string", "minLength": 1, "maxLength": 128},
+    "available": {"type": "boolean"},
+    "reason_code": {"enum": ["backend_disabled", "dependency_unavailable", "ok", "resource_profile_unavailable", "upstream_unmaintained", "version_mismatch"]},
+    "maturity": {"enum": ["experimental", "production"]},
+    "maintenance": {"enum": ["active", "unmaintained"]},
+    "license_spdx": {"type": "string", "minLength": 1, "maxLength": 64},
+    "modalities": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "objectives": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "methods": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "precisions": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "quantizations": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "distributed_modes": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "exports": {"$ref": "#/$defs/nonEmptyUniqueStrings"},
+    "resume": {"type": "boolean"},
+    "evaluation": {"type": "boolean"},
+    "resource_profiles": {"$ref": "#/$defs/nonEmptyUniqueStrings"}
+  },
+  "$defs": {
+    "nonEmptyUniqueStrings": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 64}
+    }
+  }
+}

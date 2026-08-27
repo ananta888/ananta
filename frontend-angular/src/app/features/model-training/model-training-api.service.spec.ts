@@ -9,6 +9,7 @@ import { CreateTrainingJobRequest } from './model-training.models';
 describe('ModelTrainingApiService', () => {
   const core = {
     get: vi.fn(() => of({ items: [], count: 0 })),
+    post: vi.fn(() => of({})),
     request: vi.fn(() => of({})),
     requestBlob: vi.fn(() => of(new HttpResponse({
       body: new Blob(['zip'], { type: 'application/zip' }),
@@ -29,6 +30,27 @@ describe('ModelTrainingApiService', () => {
         { provide: HubApiCoreService, useValue: core },
       ],
     });
+  });
+
+  it('requests advisory backend selection only through the Hub endpoint', () => {
+    const service = TestBed.inject(ModelTrainingApiService);
+    const payload = {
+      objective: 'sft' as const,
+      method: 'qlora' as const,
+      modality: 'text' as const,
+      resource_profile: 'rtx3080-safe',
+      estimated_model_bytes: 0,
+      runtime_budget_seconds: 3600,
+      export_format: 'adapter' as const,
+    };
+
+    service.recommendBackend('http://hub.test/', payload).subscribe();
+
+    expect(core.post).toHaveBeenCalledWith(
+      'http://hub.test/api/ml-intern-training/backends/recommendation',
+      payload,
+      'http://hub.test/',
+    );
   });
 
   it('reads filtered datasets and cursor events only through the Hub facade', () => {

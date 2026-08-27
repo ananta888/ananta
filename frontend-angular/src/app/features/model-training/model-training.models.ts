@@ -122,6 +122,35 @@ export interface TrainingBackendCapability {
   id: string;
   available: boolean;
   reason_code?: string;
+  version?: string;
+  license_spdx?: string;
+  maintenance?: 'active' | 'unmaintained' | string;
+  maturity?: 'experimental' | 'production' | string;
+  methods?: string[];
+  objectives?: string[];
+  resource_profiles?: string[];
+}
+
+export interface TrainingBackendRecommendationRequest {
+  objective: 'sft';
+  method: 'lora' | 'qlora';
+  modality: 'text';
+  resource_profile: string;
+  estimated_model_bytes: number;
+  runtime_budget_seconds: number;
+  export_format: 'adapter';
+}
+
+export interface TrainingBackendRecommendation {
+  schema_version: string;
+  mode: 'manual' | 'recommendation';
+  backend: string;
+  requires_confirmation: boolean;
+  reasons: string[];
+  capability_evidence: { source: string; backend_version: string; available: boolean; reason_code?: string };
+  estimated_resources: { model_bytes: number; runtime_budget_seconds: number; profile: string; estimate_only: boolean };
+  alternatives: Array<{ backend: string; maintenance: string; maturity: string }>;
+  fallback_policy: 'new_visible_attempt_only';
 }
 
 export interface TrainingGpuProfile {

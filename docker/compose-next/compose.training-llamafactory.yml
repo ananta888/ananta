@@ -1,0 +1,23 @@
+services:
+  lora-training-worker-llamafactory:
+    extends:
+      file: compose.lora-training.yml
+      service: lora-training-worker-nvidia
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.training-llamafactory
+    image: ananta-training-llamafactory:0.9.5-local
+    profiles: [training-llamafactory]
+    environment:
+      ANANTA_LORA_TRAINING_BACKENDS: llamafactory
+      ANANTA_LORA_TRAINING_RESOURCE_PROFILE: nvidia
+    networks:
+      lora-training-control:
+        aliases: [lora-training-worker]
+
+networks:
+  lora-training-control:
+    internal: true
+
+volumes:
+  lora-training-state: {}

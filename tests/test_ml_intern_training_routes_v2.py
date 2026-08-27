@@ -310,6 +310,30 @@ def test_model_training_routes_are_admin_only(app, client, user_auth_header, tmp
     assert response.status_code == 403
 
 
+def test_backend_recommendation_is_advisory_and_hub_owned(app, client, admin_auth_header, tmp_path: Path) -> None:
+    _configure(app, tmp_path)
+
+    response = client.post(
+        "/api/ml-intern-training/backends/recommendation",
+        headers=admin_auth_header,
+        json={
+            "objective": "sft",
+            "method": "lora",
+            "modality": "text",
+            "resource_profile": "cpu",
+            "estimated_model_bytes": 0,
+            "runtime_budget_seconds": 3600,
+            "export_format": "adapter",
+        },
+    )
+
+    assert response.status_code == 200
+    recommendation = response.get_json()["data"]
+    assert recommendation["backend"] == "mock"
+    assert recommendation["requires_confirmation"] is True
+    assert recommendation["fallback_policy"] == "new_visible_attempt_only"
+
+
 def test_dataset_json_body_and_training_admission_are_bounded(
     app,
     client,

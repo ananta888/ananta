@@ -37,6 +37,8 @@ import {
   EvaluationReport,
   EvaluationScorerName,
   TrainingCapabilities,
+  TrainingBackendRecommendation,
+  TrainingBackendRecommendationRequest,
   TrainingJobAcceptance,
   TrainingJobDetail,
   TrainingJobListFilters,
@@ -282,6 +284,12 @@ export class ModelTrainingFacade implements OnDestroy {
         if (accepted.job_id) this.monitor.start(this.hubUrl(), accepted.job_id);
         this.loadJobs();
       }),
+    );
+  }
+
+  recommendBackend(payload: TrainingBackendRecommendationRequest): Observable<TrainingBackendRecommendation> {
+    return this.api.recommendBackend(this.hubUrl(), payload).pipe(
+      map(value => entityFrom(value, 'recommendation') as TrainingBackendRecommendation),
     );
   }
 

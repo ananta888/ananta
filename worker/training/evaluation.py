@@ -222,7 +222,7 @@ class PeftAdapterEvaluator:
 def evaluator_for_backend(backend_name: str) -> AdapterEvaluator:
     if backend_name == "mock":
         return MockAdapterEvaluator()
-    if backend_name in {"peft_trl", "unsloth"}:
+    if backend_name in {"autotrain", "axolotl", "llamafactory", "peft_trl", "torchtune", "unsloth"}:
         return PeftAdapterEvaluator()
     raise TrainingBackendError("backend_unavailable", f"backend {backend_name} cannot evaluate adapters")
 
@@ -344,8 +344,7 @@ def _prompt_text(row: Mapping[str, Any], tokenizer: Any) -> str:
         if callable(apply_template):
             return str(apply_template(messages, tokenize=False, add_generation_prompt=True))[:8000]
         return "\n".join(
-            f"{str(message.get('role') or 'user')}: {str(message.get('content') or '')}"
-            for message in messages
+            f"{str(message.get('role') or 'user')}: {str(message.get('content') or '')}" for message in messages
         )[:8000]
     instruction = str(row.get("instruction") or row.get("prompt") or "")
     input_text = str(row.get("input") or "")

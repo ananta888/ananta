@@ -100,3 +100,19 @@ release claim from becoming verified.
 
 The technical gate records evidence but cannot grant an organizational
 approval.
+
+## Optional multi-backend training baseline
+
+Baseline date: 2026-08-27. The machine-readable source of truth is
+`config/licenses/training-backends.v1.json`.
+
+| Component | Pin | License | Maintenance | Ananta boundary |
+| --- | --- | --- | --- | --- |
+| Axolotl | `0.18.0` / `2f5cb9d…` | Apache-2.0 | Active | Isolated optional worker image; no WebUI, raw CLI args or egress |
+| LlamaFactory | `0.9.5` / `7af9095…` | Apache-2.0 | Active | Isolated optional worker image; CLI only behind typed compiler |
+| AutoTrain Advanced | `0.8.36` / wheel `03e5400…` | Apache-2.0 | Upstream unmaintained | Local-only contract adapter, experimental and default-off |
+| torchtune | `0.6.1` / `a6290a5…` | BSD-3-Clause | Development wound down in 2025 | Allowlisted recipes only, experimental and default-off |
+
+Every live image still requires a dependency lock, SBOM, vulnerability scan,
+container digest and explicit release approval. The two unmaintained projects
+cannot become production-ready merely by passing contract tests.

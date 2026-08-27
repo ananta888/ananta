@@ -1,0 +1,44 @@
+name: Training backend contracts
+
+on:
+  pull_request:
+    paths:
+      - "ananta_contracts/training_backend.py"
+      - "worker/training/**"
+      - "config/licenses/training-backends.v1.json"
+      - "benchmarks/training_backends/**"
+      - "scripts/*training_backend*"
+      - "tests/worker/test_*training_backend*.py"
+      - "tests/security/test_training_backend_isolation.py"
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements-dev.txt
+      - run: python scripts/validate_training_backend_licenses.py
+      - run: >-
+          pytest -q
+          tests/worker/test_training_backend_contract_v3.py
+          tests/worker/test_backend_config_compiler.py
+          tests/worker/test_external_training_backends.py
+          tests/worker/test_external_training_process.py
+          tests/worker/test_training_backend_registry.py
+          tests/worker/test_training_backend_installation.py
+          tests/worker/test_backend_artifact_normalizer.py
+          tests/test_ml_intern_backend_selection_service.py
+          tests/test_training_backend_benchmark_contract.py
+          tests/test_training_backend_acceptance_contract.py
+          tests/test_training_backend_license_register.py
+          tests/security/test_training_backend_isolation.py

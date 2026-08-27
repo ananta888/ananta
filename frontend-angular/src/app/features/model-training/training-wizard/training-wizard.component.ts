@@ -6,7 +6,13 @@ import { FormFieldComponent, WizardShellComponent, WizardStep } from '../../../s
 import { SectionCardComponent } from '../../../shared/ui/layout';
 import { ExplanationNoticeComponent } from '../../../shared/ui/display';
 import { ModelTrainingFacade } from '../model-training.facade';
-import { CreateTrainingJobRequest, DatasetSummary, TrainingJobAcceptance } from '../model-training.models';
+import {
+  CreateTrainingJobRequest,
+  DatasetSummary,
+  TrainingBackendCapability,
+  TrainingBackendRecommendation,
+  TrainingJobAcceptance,
+} from '../model-training.models';
 import { apiErrorMessage, idempotencyKey } from '../model-training-status';
 
 const WIZARD_STEPS: WizardStep[] = [
@@ -82,6 +88,20 @@ const WIZARD_STEPS: WizardStep[] = [
                   }
                 </select>
               </app-form-field>
+              <div class="backend-comparison">
+                <button type="button" class="btn secondary" (click)="requestRecommendation()" [disabled]="!gpuProfile || recommendationBusy">
+                  {{ recommendationBusy ? 'Hub prüft …' : 'Hub-Empfehlung prüfen' }}
+                </button>
+                @if (selectedBackend(); as selected) {
+                  <span>{{ selected.version || 'verwaltet' }} · {{ selected.license_spdx || 'Lizenzregister' }} · {{ selected.maturity || 'unbekannt' }}</span>
+                  @if (selected.maintenance === 'unmaintained') {
+                    <strong class="backend-warning">Upstream nicht mehr gewartet · nur experimental/default-off</strong>
+                  }
+                }
+                @if (recommendation) {
+                  <span>Empfehlung: <strong>{{ recommendation.backend }}</strong> · Schätzung, keine automatische Auswahl</span>
+                }
+              </div>
               <app-form-field label="GPU-Profil" [required]="true">
                 <select [(ngModel)]="gpuProfile" (ngModelChange)="onGpuProfileChange()">
                   <option value="">Bitte wählen</option>
@@ -161,6 +181,8 @@ const WIZARD_STEPS: WizardStep[] = [
     .review-grid div { display:grid; gap:4px; padding:10px; border:1px solid var(--border); border-radius:8px; }
     .review-grid span { color:var(--muted); font-size:12px; }
     .confirmation { display:flex; gap:8px; align-items:flex-start; margin-top:12px; }
+    .backend-comparison { display:grid; gap:6px; align-content:start; font-size:12px; color:var(--muted); }
+    .backend-warning { color:var(--warning); }
     @media (max-width:700px) { .wizard-grid,.review-grid { grid-template-columns:1fr; } }
   `],
 })
@@ -189,6 +211,8 @@ export class TrainingWizardComponent {
   maxSequenceLength = 2048;
   riskReason = '';
   liveConfirmed = false;
+  recommendation: TrainingBackendRecommendation | null = null;
+  recommendationBusy = false;
 
   selectedDataset(): DatasetSummary | null {
     return this.facade.datasets().find(dataset => dataset.id === this.datasetId) || null;
@@ -283,6 +307,28 @@ export class TrainingWizardComponent {
   ensureRuntimeCompatibility(): void {
     const model = this.facade.capabilities()?.base_models.find(item => item.id === this.baseModelId);
     if (model && this.backend && !model.compatible_backends.includes(this.backend)) this.backend = '';
+  }
+
+  selectedBackend(): TrainingBackendCapability | null {
+    return this.facade.capabilities()?.backends.find(item => item.id === this.backend) || null;
+  }
+
+  requestRecommendation(): void {
+    if (!this.gpuProfile || this.recommendationBusy) return;
+    this.recommendationBusy = true;
+    this.recommendation = null;
+    this.facade.recommendBackend({
+      objective: 'sft',
+      method: this.method,
+      modality: 'text',
+      resource_profile: this.gpuProfile === 'none' ? 'cpu' : this.gpuProfile,
+      estimated_model_bytes: 0,
+      runtime_budget_seconds: 3600,
+      export_format: 'adapter',
+    }).pipe(finalize(() => this.recommendationBusy = false)).subscribe({
+      next: recommendation => this.recommendation = recommendation,
+      error: error => this.error = apiErrorMessage(error, 'Backend-Empfehlung ist nicht verfügbar.'),
+    });
   }
 
   submit(): void {

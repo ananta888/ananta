@@ -1,0 +1,56 @@
+{
+  "schema_version": "ananta.training-backend-licenses.v1",
+  "reviewed_at": "2026-08-27",
+  "allowed_spdx_ids": [
+    "Apache-2.0",
+    "BSD-3-Clause"
+  ],
+  "backends": [
+    {
+      "id": "axolotl",
+      "version": "0.18.0",
+      "source_commit": "2f5cb9da62a0fe763a1ddeb7798fc9acb2f4a417",
+      "license_spdx": "Apache-2.0",
+      "license_url": "https://github.com/axolotl-ai-cloud/axolotl/blob/v0.18.0/LICENSE",
+      "release_url": "https://github.com/axolotl-ai-cloud/axolotl/releases/tag/v0.18.0",
+      "maintenance": "active",
+      "default_enabled": false
+    },
+    {
+      "id": "llamafactory",
+      "version": "0.9.5",
+      "source_commit": "7af909522a951e3ad9f022ea6f88b6755257eaa5",
+      "license_spdx": "Apache-2.0",
+      "license_url": "https://github.com/hiyouga/LlamaFactory/blob/v0.9.5/LICENSE",
+      "release_url": "https://github.com/hiyouga/LlamaFactory/releases/tag/v0.9.5",
+      "maintenance": "active",
+      "default_enabled": false
+    },
+    {
+      "id": "autotrain",
+      "version": "0.8.36",
+      "package_sha256": "03e5400bce4fb4c0a14114cdf2e1b4614e44b8949ec9ecf17eaccb9e61da0a06",
+      "license_spdx": "Apache-2.0",
+      "license_url": "https://github.com/huggingface/autotrain-advanced/blob/main/LICENSE",
+      "release_url": "https://pypi.org/project/autotrain-advanced/0.8.36/",
+      "maintenance": "unmaintained",
+      "default_enabled": false
+    },
+    {
+      "id": "torchtune",
+      "version": "0.6.1",
+      "source_commit": "a6290a5b40758f13bca61c386bc8756a49ef417e",
+      "license_spdx": "BSD-3-Clause",
+      "license_url": "https://github.com/meta-pytorch/torchtune/blob/v0.6.1/LICENSE",
+      "release_url": "https://github.com/meta-pytorch/torchtune/releases/tag/v0.6.1",
+      "maintenance": "unmaintained",
+      "default_enabled": false
+    }
+  ],
+  "policy": {
+    "framework_license_does_not_cover_models_or_datasets": true,
+    "sbom_required_before_live_enable": true,
+    "unknown_license_action": "deny",
+    "unmaintained_backend_maturity": "experimental"
+  }
+}

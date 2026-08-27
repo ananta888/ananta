@@ -1,0 +1,13 @@
+{
+  "schema_version": "ananta.training-backend-egress.v1",
+  "default_action": "deny",
+  "training_profiles": {
+    "autotrain": {"network": "none", "telemetry": false, "uploads": false},
+    "axolotl": {"network": "none", "telemetry": false, "uploads": false},
+    "llamafactory": {"network": "none", "telemetry": false, "uploads": false},
+    "torchtune": {"network": "none", "telemetry": false, "uploads": false}
+  },
+  "separate_import_job_required": true,
+  "secret_reference_schemes": ["env://"],
+  "request_controlled_egress": false
+}
