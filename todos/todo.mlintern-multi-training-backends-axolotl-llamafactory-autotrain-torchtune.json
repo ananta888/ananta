@@ -1,10 +1,16 @@
 {
   "$schema": "todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-08-27",
+  "updated_at": "2026-08-28",
   "owner": "Peter Stuiber / Ananta",
   "track": "mlintern_multi_training_backends",
   "title": "ML-Intern: optionale Backends fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
+  "review_basis": {
+    "reviewed_commit_range": "e56a9ea2475ef7c1b5040c544e252b383ab292e7",
+    "review_goal": "Aufgabenstatus, automatisierbare Acceptance-Gates und verbleibende Lauf-Evidenz gegen den synchronen Quellcode-Stand pruefen",
+    "repository_state": "main entsprach origin/main; Arbeitsbaum war vor dem Audit sauber",
+    "verification": "Lizenzvalidator und 56 fokussierte Contract-, Adapter-, Registry-, Artefakt-, Benchmark-, Acceptance- und Isolationstests bestanden"
+  },
   "status": "partial",
   "priority": "P1",
   "status_scale": [
@@ -41,7 +47,7 @@
   "purpose": "Die bestehende ML-Intern-Trainingsplattform um vier austauschbare Open-Source-Backends erweitern, ohne Unsloth oder PEFT/TRL zu verdraengen und ohne eine zweite Control Plane einzufuehren.",
   "goal": "Ananta kann Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune ueber denselben Hub-gesteuerten Dataset-, Job-, Evaluations-, Artefakt-, Approval- und Rollback-Lebenszyklus verwenden. Backend-Auswahl erfolgt transparent anhand von Modell, Methode, Hardware, Reproduzierbarkeit und gemessener Qualitaet.",
   "license_review": {
-    "reviewed_at": "2026-08-27",
+    "reviewed_at": "2026-08-28",
     "result": "open_source_licenses_verified_but_two_upstreams_unmaintained",
     "projects": [
       {
@@ -52,7 +58,7 @@
         "pinned_version": "0.18.0",
         "release_commit": "2f5cb9da62a0fe763a1ddeb7798fc9acb2f4a417",
         "maintenance_status": "active",
-        "integration_status": "todo"
+        "integration_status": "implemented_default_off_live_evidence_not_run"
       },
       {
         "name": "LLaMA-Factory",
@@ -62,7 +68,7 @@
         "pinned_version": "0.9.5",
         "release_commit": "7af909522a951e3ad9f022ea6f88b6755257eaa5",
         "maintenance_status": "active",
-        "integration_status": "todo"
+        "integration_status": "implemented_default_off_live_evidence_not_run"
       },
       {
         "name": "AutoTrain Advanced",
@@ -72,7 +78,7 @@
         "pinned_version": "0.8.36",
         "package_sha256": "03e5400bce4fb4c0a14114cdf2e1b4614e44b8949ec9ecf17eaccb9e61da0a06",
         "maintenance_status": "unmaintained_upstream_notice",
-        "integration_status": "todo"
+        "integration_status": "implemented_experimental_default_off_production_no_go"
       },
       {
         "name": "torchtune",
@@ -82,7 +88,7 @@
         "pinned_version": "0.6.1",
         "release_commit": "a6290a5b40758f13bca61c386bc8756a49ef417e",
         "maintenance_status": "unmaintained_since_2025",
-        "integration_status": "todo"
+        "integration_status": "implemented_experimental_default_off_production_no_go"
       }
     ],
     "mandatory_follow_up": [
@@ -100,7 +106,11 @@
       "Unsloth Vision",
       "Unsloth Audio",
       "Unsloth Embeddings",
-      "Needle"
+      "Needle",
+      "Axolotl (default-off, Live-Evidenz not_run)",
+      "LLaMA-Factory (default-off, Live-Evidenz not_run)",
+      "AutoTrain Advanced (experimental, default-off, Production-No-Go)",
+      "torchtune (experimental, default-off, Production-No-Go)"
     ],
     "test_backend": "Mock",
     "reusable_foundation": [
@@ -227,10 +237,10 @@
       "title": "Gemeinsamen TrainingBackend-v3-Vertrag definieren",
       "type": "architecture",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "MTB-001"
       ],
@@ -261,7 +271,7 @@
         "worker/training/runtime.py",
         "agent/services/ml_intern_training_worker_contract.py",
         "ananta_contracts/training_backend.py und docs/contracts/training-backend-capability.v3.schema.json definieren den geschlossenen GPU-freien v3-Capability-Vertrag mit stabilen Reason-Codes.",
-        "tests/worker/test_training_backend_contract_v3.py prueft unbekannte Felder, Version, Methode, Quantisierung und Export negativ."
+        "tests/worker/test_training_backend_contract_v3.py prueft unbekannte Felder, Version, Methode, Quantisierung und Export negativ; der Audit-Lauf vom 2026-08-28 war gruen."
       ]
     },
     {
@@ -333,7 +343,7 @@
       ],
       "test_expectations": [
         "CPU-Contract-Tests mocken den Upstream-Prozess.",
-        "Ein manueller NVIDIA-Gate-Lauf ist versioniert und attestiert."
+        "Ein vollautomatischer NVIDIA-Gate-Lauf ist versioniert, attestiert und benoetigt nach dem maschinellen Start keinen menschlichen Eingriff."
       ],
       "evidence": [
         "worker/training/backends/axolotl.py kapselt die gepinnte CLI ueber festen argv, exakte Versionspruefung, Offline-Umgebung und gemeinsame Artefaktnormalisierung.",
@@ -655,7 +665,7 @@
       ],
       "test_expectations": [
         "CI prueft Benchmarkvertrag ohne GPU.",
-        "Manuelle GPU-Runs werden nur bei vollstaendiger Attestation als verified markiert."
+        "Automatisierte GPU-Runs werden nur bei vollstaendiger Attestation als verified markiert."
       ],
       "evidence": [
         "benchmarks/training_backends/matrix.v1.json bindet beide Baselines und vier Kandidaten an identische Pflichtmetriken und Digests fuer das RTX-3080-10-GB-Profil.",
@@ -728,7 +738,7 @@
         "docs/operations/training-backends.md"
       ],
       "implementation": [
-        "CPU-/Mock-Contract-Gate fuer jeden Push und manuellen NVIDIA-Live-Gate getrennt ausfuehren.",
+        "CPU-/Mock-Contract-Gate fuer jeden Push und vollautomatischen NVIDIA-Live-Gate getrennt ausfuehren.",
         "Ein gruenes CPU-Gate darf nicht als Nachweis realer CUDA-, VRAM- oder Modellqualitaet gelten.",
         "Upstream-Versionen einzeln aktualisieren und pro Backend Regressionen pruefen.",
         "Rollout pro Backend mit default-off, canary, explicit enable und schnellem Disable gestalten."
@@ -743,7 +753,7 @@
         "NVIDIA-Freigabe benoetigt einen echten, attestierten Minimal-Trainingslauf."
       ],
       "evidence": [
-        "Installierbare Workflow-Vorlagen unter docs/ci trennen GPU-freie Contracts vom manuellen self-hosted NVIDIA-Gate; Aktivierung unter .github/workflows ist wegen fehlendem OAuth-workflow-Scope im aktuellen Push-Account noch offen.",
+        "Installierbare Workflow-Vorlagen unter docs/ci trennen GPU-freie Contracts vom self-hosted NVIDIA-Gate; der NVIDIA-Lauf besitzt noch keinen automatischen Trigger unter .github/workflows.",
         "scripts/run_training_backends_acceptance.py erhaelt verified, not_run, failed und blocked getrennt und lehnt verified ohne Image-Digest und Hardwareattestation ab.",
         "Optionale Dependencies werden erst in opt-in Worker-Profilen geladen; vier Compose-Expansionen wurden lokal erfolgreich validiert. Echte NVIDIA-Evidenz bleibt not_run."
       ]
@@ -796,7 +806,7 @@
     "Alle Backends verwenden dieselben Dataset-, Job-, Attempt-, Event-, Artefakt-, Eval-, Approval- und Rollback-Grundvertraege.",
     "Backend-Auswahl basiert auf gemessenen Ananta-Benchmarks und Hardwareattestation statt Marketingaussagen.",
     "RTX-3080-10-GB-Eignung wird separat und ehrlich gemessen.",
-    "CI funktioniert ohne GPU; reale GPU-Freigabe benoetigt einen manuellen attestierten Lauf.",
+    "CI funktioniert ohne GPU; reale GPU-Freigabe benoetigt einen vollautomatischen attestierten Lauf ohne Human-in-the-loop.",
     "Software-, Modell-, Dataset- und Artefaktlizenzen werden getrennt geprueft.",
     "Neue Backends bleiben default-off, bis Lizenz-, Security-, Contract- und Live-Gates bestanden sind."
   ],
@@ -807,8 +817,8 @@
     "MTB-012 bis MTB-015: Benchmarks, Hardening, Release-Gates und Produktreview"
   ],
   "open_questions_for_implementation": [
-    "Fuer reale NVIDIA-Gates muessen Golden-Path-Modell und lizenzierter Benchmark-Dataset-Snapshot noch durch den Hub bereitgestellt werden.",
-    "Ein erreichbarer RTX-3080-10-GB-Runner ist fuer die not_run-Smokes und Rohdatenvergleiche erforderlich.",
+    "Fuer reale NVIDIA-Gates muessen Golden-Path-Modell und lizenzierter Benchmark-Dataset-Snapshot automatisiert, digestgebunden und ohne Operatorentscheidung durch den Hub bereitgestellt werden.",
+    "Ein maschinell reservierbarer RTX-3080-10-GB-Runner ist fuer die not_run-Smokes und Rohdatenvergleiche erforderlich; der Lauf darf nach seinem Trigger keinen menschlichen Eingriff benoetigen.",
     "AutoTrain bleibt local-only und default-off; ein spaeterer Cloud-Adapter waere ein eigener, neu zu pruefender Track.",
     "Welche Backends duerfen nach Benchmarks production-ready werden und welche bleiben experimental?",
     "Welche Distributed-Profile werden ausserhalb der RTX-3080 ueberhaupt benoetigt?"
@@ -817,18 +827,19 @@
     "Vier vorhandene Open-Source-Lizenzen rechtfertigen die technische Evaluation, aber nicht automatisch vier produktive Defaults; AutoTrain Advanced und torchtune sind upstream nicht mehr aktiv gewartet.",
     "Die Integration soll reale Wahlfreiheit und Vergleichbarkeit schaffen, ohne ML-Intern in mehrere konkurrierende Control Planes zu zerlegen.",
     "Bei Upstream-Lizenzwechseln oder nicht-offenen Zusatzkomponenten ist eine erneute explizite Pruefung erforderlich.",
-    "Implementierungsreview 2026-08-27: keine neue Control Plane, Worker-zu-Worker-Orchestrierung oder schwere Trainer-Abhaengigkeit im Hub; verbleibende Partial-Punkte sind reale externe Lizenz-/Vulnerability-/GPU-Evidenz und werden nicht als bestanden dargestellt."
+    "Implementierungsreview 2026-08-28 auf main@e56a9ea24: keine neue Control Plane, Worker-zu-Worker-Orchestrierung oder schwere Trainer-Abhaengigkeit im Hub; verbleibende Partial-Punkte sind automatisierbare Supply-Chain-/GPU-Evidenz und werden nicht als bestanden dargestellt.",
+    "Human-in-the-loop ist weder Testvoraussetzung noch einzige Produktionsroute: Freigabe-Evidenz muss maschinell erzeugbar und fail-closed pruefbar sein; bewusste Backend-Auswahl bleibt eine optionale Bedienfunktion."
   ],
   "tasks_status_summary": {
     "total": 15,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 9,
+      "partial": 8,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "progress_percent_done": 40.0,
+    "progress_percent_done": 46.7,
     "by_priority": {
       "P0": 8,
       "P1": 7,
@@ -842,8 +853,8 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 4,
-      "remaining": 7
+      "done": 5,
+      "remaining": 6
     },
     "milestones": {
       "total": 4,
@@ -857,11 +868,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 9,
+    "partial": 8,
     "blocked": 0,
-    "done": 6,
-    "count_based_percent": 40.0,
-    "weighted_percent": 84.5
+    "done": 7,
+    "count_based_percent": 46.7,
+    "weighted_percent": 85.0
   },
   "tasks_type_summary": {
     "total": 15,
@@ -885,14 +896,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 90.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 2,
@@ -1011,19 +1022,19 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 28.25,
-    "done_weight": 23.862,
-    "remaining_weight": 4.388,
+    "done_weight": 24.012,
+    "remaining_weight": 4.238,
     "blocked_weight": 0.0,
-    "weighted_percent": 84.5
+    "weighted_percent": 85.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "M0": {
         "total_tasks": 3,
-        "done": 1,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 33.3,
-        "weighted_percent": 89.0,
+        "count_based_percent": 66.7,
+        "weighted_percent": 92.0,
         "status": "in_progress"
       },
       "M1": {
@@ -1055,10 +1066,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T18:51:57.403606Z",
+    "generated_at": "2026-08-28T14:07:07.141456Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8efa663d8915e1dda3ef7956a694dc1b1455ff4615381f23f0be4c9767b72a1e",
+    "source_hash": "587bff22791f3c4312f6d3465fa220073863a87f424e94ff9ed9f1ad72329504",
     "is_stale": false
   }
 }
