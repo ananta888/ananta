@@ -549,7 +549,11 @@ def _live_probe(factor: int) -> dict[str, int]:
     worker.start()
     started.wait(timeout=1)
     samples: dict[str, list[float]] = {"audio": [], "transcript": [], "ui": []}
-    for index in range(90):
+    # Keep enough observations per signal for p99 to remain a percentile
+    # instead of degenerating into the single maximum scheduler delay.  With
+    # only 30 observations, nearest-rank p99 selected the maximum and made the
+    # isolation gate fail intermittently on an otherwise idle CI host.
+    for index in range(300):
         kind = ("audio", "transcript", "ui")[index % 3]
         began = time.perf_counter_ns()
         time.sleep(0.001)
