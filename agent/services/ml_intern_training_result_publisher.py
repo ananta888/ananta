@@ -107,7 +107,11 @@ class RegistryTrainingResultPublisher:
                 relative_adapter_dir,
                 must_exist=True,
             )
-        inspected = self._security.validate_adapter_tree(adapter_dir)
+        inspected = (
+            self._security.validate_needle_adapter_tree(adapter_dir)
+            if str(getattr(job, "backend", "") or "") == "needle"
+            else self._security.validate_adapter_tree(adapter_dir)
+        )
         request_spec = dict(job.request_spec or {})
         dataset_hash = str(request_spec.get("dataset_hash") or "").strip().lower() or None
         if dataset_hash is not None and (

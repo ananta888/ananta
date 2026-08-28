@@ -114,6 +114,22 @@ def test_upload_rejects_extension_media_and_content_mismatch(tmp_path: Path) -> 
     assert exc.value.reason_code == "content_type_mismatch"
 
 
+def test_needle_adapter_is_hashed_as_opaque_single_file(tmp_path: Path) -> None:
+    service = _service(tmp_path)
+    root = service.resolve_relative("needle")
+    root.mkdir()
+    (root / "adapter.pkl").write_bytes(b"opaque-worker-output")
+
+    inspected = service.validate_needle_adapter_tree(root)
+
+    assert inspected["files"][0]["name"] == "adapter.pkl"
+    assert len(inspected["tree_sha256"]) == 64
+
+    (root / "unexpected.json").write_text("{}")
+    with pytest.raises(ArtifactSecurityError, match="only adapter.pkl"):
+        service.validate_needle_adapter_tree(root)
+
+
 def _store_zip(service: MlInternArtifactSecurityService, payload: bytes, name: str = "adapter.zip") -> Path:
     stored = service.store_upload(
         io.BytesIO(payload),

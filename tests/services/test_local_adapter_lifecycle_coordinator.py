@@ -206,7 +206,9 @@ def test_promotion_revalidates_staged_bundle_restarts_and_replays(tmp_path) -> N
 
     assert first == replay
     assert len(registry.promotions) == 1
-    assert runtime.restarts == [{"target": "needle2", "candidate_sha256": "b" * 64}]
+    assert runtime.restarts == [
+        {"target": "needle2", "candidate_id": "candidate-1", "candidate_sha256": "b" * 64}
+    ]
 
 
 def test_concurrent_hub_promotions_share_one_release_transaction(tmp_path) -> None:

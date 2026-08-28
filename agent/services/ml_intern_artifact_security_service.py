@@ -421,6 +421,47 @@ class MlInternArtifactSecurityService:
             ).hexdigest(),
         }
 
+    def validate_needle_adapter_tree(self, adapter_root: str | Path) -> dict[str, Any]:
+        """Validate the opaque Needle LoRA without ever deserializing pickle."""
+
+        root = self.ensure_internal_path(adapter_root, must_exist=True)
+        if not root.is_dir() or root.is_symlink():
+            raise ArtifactSecurityError("invalid_adapter_tree", "adapter root must be a regular directory")
+        children = list(root.iterdir())
+        if len(children) != 1:
+            raise ArtifactSecurityError(
+                "needle_adapter_file_count_invalid",
+                "Needle adapter tree must contain only adapter.pkl",
+            )
+        adapter = children[0]
+        if adapter.name != "adapter.pkl" or adapter.is_symlink() or not adapter.is_file():
+            raise ArtifactSecurityError(
+                "needle_adapter_file_invalid",
+                "Needle adapter tree must contain one regular adapter.pkl",
+            )
+        size = adapter.stat().st_size
+        if size < 1 or size > self.policy.max_file_bytes:
+            raise ArtifactSecurityError("needle_adapter_size_invalid", "Needle adapter size is invalid")
+        rows = [
+            {
+                "name": adapter.name,
+                "size_bytes": size,
+                "sha256": _hash_file(adapter, chunk_bytes=self.policy.chunk_bytes),
+            }
+        ]
+        return {
+            "files": rows,
+            "total_bytes": size,
+            "tree_sha256": hashlib.sha256(
+                json.dumps(
+                    rows,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                ).encode("utf-8")
+            ).hexdigest(),
+        }
+
     def promote_verified_tree(
         self,
         source_root: str | Path,

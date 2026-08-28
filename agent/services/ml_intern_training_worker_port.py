@@ -616,6 +616,7 @@ class HttpMlInternTrainingWorkerPort:
             job_id,
             artifacts,
             job_type=job_type,
+            backend=str(spec.get("backend") or ""),
             attempt_id=str(status["attempt_id"]),
             tenant_scope_digest=str(spec.get("_tenant_scope_digest") or ""),
         )
@@ -644,6 +645,7 @@ class HttpMlInternTrainingWorkerPort:
         artifacts: Sequence[Any],
         *,
         job_type: str,
+        backend: str,
         attempt_id: str,
         tenant_scope_digest: str,
     ) -> list[dict[str, Any]]:
@@ -699,6 +701,8 @@ class HttpMlInternTrainingWorkerPort:
         required = (
             {"eval_report.json", "evaluation.json", "evaluation_manifest.json"}
             if job_type == "evaluate_lora"
+            else {"adapter.pkl", "training_manifest.json"}
+            if backend == "needle"
             else {"adapter_config.json", "adapter_model.safetensors", "training_manifest.json"}
         )
         present = {item["name"] for item in admitted}

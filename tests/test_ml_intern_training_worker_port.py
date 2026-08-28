@@ -10,7 +10,6 @@ from typing import Any, Mapping
 
 import pytest
 
-from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.services.ml_intern_training_worker_port import (
     WORKER_CONTRACT_VERSION,
     HttpMlInternTrainingWorkerPort,
@@ -21,6 +20,7 @@ from agent.services.ml_intern_training_worker_port import (
     _validate_worker_event,
     _validate_worker_status,
 )
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 
 ENDPOINT = "http://lora-training-worker:8095/internal/v1/lora-training"
 TOKEN = "internal-lora-worker-token-at-least-24-characters"
@@ -449,9 +449,10 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
     port._download_artifacts = (  # type: ignore[method-assign]  # noqa: SLF001
         lambda _job_id,
         _artifacts,
-        *,
-        job_type,
-        attempt_id,
+            *,
+            job_type,
+            backend,
+            attempt_id,
         tenant_scope_digest: []
     )
 

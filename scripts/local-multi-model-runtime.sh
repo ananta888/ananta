@@ -27,6 +27,9 @@ KAT_CTX="${ANANTA_KAT_CTX:-32768}"
 KAT_EXPERT_GB="${ANANTA_KAT_EXPERT_GB:-4}"
 KAT_RAM_GB="${ANANTA_KAT_RAM_GB:-40}"
 VRAM_RESERVE_MIB="${ANANTA_LOCAL_VRAM_RESERVE_MIB:-1536}"
+ADAPTER_ACTIVATION_FILE="${ANANTA_LOCAL_ADAPTER_ACTIVATION_FILE:-$STATE_DIR/active-adapters.v1.json}"
+ADAPTER_SERVING_ROOT="${ANANTA_LOCAL_ADAPTER_SERVING_ROOT:-$STATE_DIR/candidates}"
+LFM_LORA=""
 
 info() { printf '[local-models] %s\n' "$*"; }
 fail() { printf '[local-models] ERROR: %s\n' "$*" >&2; exit 1; }
@@ -56,6 +59,66 @@ load_effective_contexts() {
 }
 
 load_effective_contexts
+
+load_effective_adapters() {
+    [ -r "$ADAPTER_ACTIVATION_FILE" ] || return 0
+    local values activation_values_file
+    activation_values_file="$(mktemp)"
+    if ! env \
+        ANANTA_LOCAL_ADAPTER_ACTIVATION_FILE="$ADAPTER_ACTIVATION_FILE" \
+        ANANTA_LOCAL_ADAPTER_SERVING_ROOT="$ADAPTER_SERVING_ROOT" \
+        python3 - >"$activation_values_file" <<'PY'
+import hashlib
+import json
+import os
+from pathlib import Path
+
+manifest = Path(os.environ["ANANTA_LOCAL_ADAPTER_ACTIVATION_FILE"])
+root = Path(os.environ["ANANTA_LOCAL_ADAPTER_SERVING_ROOT"]).resolve(strict=True)
+payload = json.loads(manifest.read_text(encoding="utf-8"))
+if payload.get("schema_version") != "ananta.local-adapter-serving-activation.v1":
+    raise SystemExit("invalid local adapter activation schema")
+targets = payload.get("targets")
+if not isinstance(targets, dict) or set(targets) - {"needle2", "lfm2.5-2.6b-agentic"}:
+    raise SystemExit("invalid local adapter activation targets")
+
+def selected(target, suffix):
+    entry = targets.get(target)
+    if entry is None:
+        return ""
+    if not isinstance(entry, dict) or entry.get("target") != target:
+        raise SystemExit("invalid local adapter activation entry")
+    path = Path(str(entry.get("serving_path") or ""))
+    resolved = path.resolve(strict=True)
+    if path.is_symlink() or not resolved.is_file() or resolved.suffix != suffix:
+        raise SystemExit("invalid local adapter serving artifact")
+    try:
+        resolved.relative_to(root)
+    except ValueError as exc:
+        raise SystemExit("local adapter serving artifact escaped its root") from exc
+    digest = hashlib.sha256()
+    with resolved.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != entry.get("serving_sha256"):
+        raise SystemExit("local adapter serving digest mismatch")
+    return str(resolved)
+
+print(selected("lfm2.5-2.6b-agentic", ".gguf"))
+print(selected("needle2", ".cact"))
+PY
+    then
+        rm -f "$activation_values_file"
+        fail "invalid local adapter activation projection"
+    fi
+    mapfile -t values < "$activation_values_file"
+    rm -f "$activation_values_file"
+    [ "${#values[@]}" -eq 2 ] || fail "incomplete local adapter activation projection"
+    LFM_LORA="${values[0]}"
+    [ -z "${values[1]}" ] || NEEDLE_WEIGHTS="${values[1]}"
+}
+
+load_effective_adapters
 
 require_file() {
     [ -f "$1" ] || fail "missing file: $1"
@@ -126,12 +189,14 @@ preflight() {
 start_lfm() {
     pid_alive lfm && { info "LFM already running"; return; }
     mkdir -p "$STATE_DIR"
+    local lora_args=()
+    [ -z "$LFM_LORA" ] || lora_args=(--lora "$LFM_LORA")
     nohup env LD_LIBRARY_PATH="$LLAMA_BIN_DIR:$CUDA_LIB_DIR:${LD_LIBRARY_PATH:-}" \
             LLAMA_API_KEY="$MODEL_API_KEY" \
             "$LLAMA_BIN_DIR/llama-server" \
             --model "$LFM_MODEL" --alias lfm2.5-2.6b-agentic-q8_0 \
             --host "$MODEL_BIND_HOST" --port "$LFM_PORT" --ctx-size "$LFM_CTX" \
-            --parallel 1 --n-gpu-layers 99 --no-mmap \
+            --parallel 1 --n-gpu-layers 99 --no-mmap "${lora_args[@]}" \
             >"$STATE_DIR/lfm.log" 2>&1 &
     printf '%s\n' "$!" > "$STATE_DIR/lfm.pid"
     wait_ready lfm "http://$MODEL_BIND_HOST:$LFM_PORT/v1/models"

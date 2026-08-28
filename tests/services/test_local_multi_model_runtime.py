@@ -137,3 +137,13 @@ def test_deployed_local_profiles_cover_consumer_roles_without_synthetic_default(
         "summarizer": "local_lfm25_agentic_fast",
         "any": "local_lfm25_agentic_fast",
     }
+
+
+def test_runtime_script_rehashes_projected_adapters_before_loading_them():
+    script = (ROOT / "scripts/local-multi-model-runtime.sh").read_text(encoding="utf-8")
+
+    assert "ananta.local-adapter-serving-activation.v1" in script
+    assert "local adapter serving artifact escaped its root" in script
+    assert "local adapter serving digest mismatch" in script
+    assert 'lora_args=(--lora "$LFM_LORA")' in script
+    assert 'ANANTA_NEEDLE_WEIGHTS="$NEEDLE_WEIGHTS"' in script

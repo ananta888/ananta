@@ -257,9 +257,29 @@ targets. Only the Hub lifecycle may atomically promote them after revalidating
 offline, Shadow, Canary and policy digests; a failed runtime restart triggers a
 compensating Registry rollback and a base-runtime restart.
 
-Automatic weight activation remains blocked until both serving-compatible,
-non-executable adapter formats exist. Needle's current finetune CLI emits a
-pickle artifact, which the artifact-security service correctly rejects; the
-installed LFM GGUF cannot consume an unconverted PEFT directory. Neither
-restriction may be bypassed by allowing pickle or claiming a restart selected
-weights that were not safely materialized.
+Automatic weight activation is now a Hub-owned offline materialization step.
+`LocalAdapterServingActivationService` resolves only the exact approved,
+tenant-scoped Registry candidate and rechecks its complete artifact-tree hash.
+For Needle the transport admits exactly one opaque `adapter.pkl` file without
+deserializing it; the pinned `needle build` command merges it with the pinned
+base checkpoint and writes a `.cact` serving archive. For LFM the pinned local
+llama.cpp `convert_lora_to_gguf.py` converts the PEFT directory to a GGUF LoRA
+that `llama-server --lora` can consume. Both converters run with Hugging Face
+and Transformers offline and have a one-hour hard timeout.
+
+The Hub writes `active-adapters.v1.json` atomically with candidate and serving
+SHA-256 values. `scripts/local-multi-model-runtime.sh` accepts only the two
+known targets, confines resolved files to `ANANTA_LOCAL_ADAPTER_SERVING_ROOT`,
+rehashes them before every start and passes the selected `.cact` or GGUF LoRA
+to the corresponding runtime. A conversion, projection, admission or restart
+failure restores the previous projection automatically; Registry rollback
+then restarts that previous candidate, or the base runtime when no predecessor
+exists. No operator confirmation or human-in-the-loop test is required.
+
+Configure the pinned local tools and state paths through
+`ANANTA_LOCAL_ADAPTER_ACTIVATION_FILE`,
+`ANANTA_LOCAL_ADAPTER_SERVING_ROOT`, `ANANTA_NEEDLE_TRAINING_BIN`,
+`ANANTA_NEEDLE_BASE_CHECKPOINT`, `ANANTA_LFM_TRAINING_PYTHON`,
+`ANANTA_LFM_LORA_CONVERTER` and `ANANTA_LFM_TRAINING_MODEL_DIR`. The Hub
+composition uses `build_local_adapter_serving_activation`; Workers receive
+neither the activation projection nor Registry mutation authority.

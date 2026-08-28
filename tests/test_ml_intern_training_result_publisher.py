@@ -48,6 +48,35 @@ def test_result_publisher_propagates_only_hub_bound_provenance(tmp_path) -> None
     assert values["provenance_verified"] is True
 
 
+def test_needle_result_uses_opaque_adapter_validator(tmp_path) -> None:
+    publisher = RegistryTrainingResultPublisher(
+        artifact_root=tmp_path,
+        registry_path=tmp_path / "registry.json",
+    )
+    publisher._security = MagicMock()  # noqa: SLF001
+    publisher._security.resolve_relative.return_value = tmp_path / "adapter"  # noqa: SLF001
+    publisher._security.validate_needle_adapter_tree.return_value = {  # noqa: SLF001
+        "tree_sha256": "b" * 64,
+        "total_bytes": 17,
+    }
+    publisher._registry = MagicMock()  # noqa: SLF001
+    job = SimpleNamespace(
+        id="job-needle",
+        backend="needle",
+        request_spec={"method": "lora", "release_target": "needle2"},
+        base_model="needle-base",
+        dataset_id="dataset-1",
+        tenant_id="tenant-1",
+        owner_subject="admin-1",
+    )
+
+    publisher.publish(job, {"adapter_id": "adapter-needle"})
+
+    publisher._security.validate_needle_adapter_tree.assert_called_once()  # noqa: SLF001
+    publisher._security.validate_adapter_tree.assert_not_called()  # noqa: SLF001
+    assert publisher._registry.register_trained.call_args.kwargs["release_target"] == "needle2"  # noqa: SLF001
+
+
 def test_worker_binding_cannot_supply_missing_hub_attempt(tmp_path) -> None:
     publisher = RegistryTrainingResultPublisher(
         artifact_root=tmp_path,

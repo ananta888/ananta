@@ -42,7 +42,13 @@ class LocalAdapterRegistryPort(Protocol):
 
 
 class LocalAdapterRuntimeRestartPort(Protocol):
-    def restart(self, *, target: str, candidate_sha256: str | None) -> bool: ...
+    def restart(
+        self,
+        *,
+        target: str,
+        candidate_id: str | None,
+        candidate_sha256: str | None,
+    ) -> bool: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -346,7 +352,11 @@ class LocalAdapterLifecycleCoordinator:
         )
         revision = _registry_revision(promoted.get("registry_revision"), fallback=0)
         try:
-            restarted = self._runtime.restart(target=bundle.target, candidate_sha256=bundle.candidate_sha256)
+            restarted = self._runtime.restart(
+                target=bundle.target,
+                candidate_id=bundle.candidate_id,
+                candidate_sha256=bundle.candidate_sha256,
+            )
         except Exception:
             restarted = False
         if not restarted:
@@ -357,7 +367,8 @@ class LocalAdapterLifecycleCoordinator:
             try:
                 rollback_restarted = self._runtime.restart(
                     target=bundle.target,
-                    candidate_sha256=None,
+                    candidate_id=_optional_text(rolled_back.get("rollback_target_id")),
+                    candidate_sha256=_optional_digest(rolled_back.get("rollback_target_sha256")),
                 )
             except Exception:
                 rollback_restarted = False
@@ -420,8 +431,12 @@ class LocalAdapterLifecycleCoordinator:
             if decision.promote:
                 return False
             reason = decision.reason_codes[0]
-            self._registry.rollback(candidate_id=bundle.candidate_id, reason_code=reason)
-            if not self._runtime.restart(target=bundle.target, candidate_sha256=None):
+            rolled_back = self._registry.rollback(candidate_id=bundle.candidate_id, reason_code=reason)
+            if not self._runtime.restart(
+                target=bundle.target,
+                candidate_id=_optional_text(rolled_back.get("rollback_target_id")),
+                candidate_sha256=_optional_digest(rolled_back.get("rollback_target_sha256")),
+            ):
                 self._audit(
                     "local_adapter_rollback_restart_failed",
                     {
@@ -461,6 +476,16 @@ def _registry_revision(value: object, *, fallback: int) -> int:
     if revision < 0:
         raise RuntimeError("local_adapter_registry_revision_invalid")
     return revision
+
+
+def _optional_text(value: object) -> str | None:
+    normalized = str(value or "").strip()
+    return normalized or None
+
+
+def _optional_digest(value: object) -> str | None:
+    normalized = str(value or "").strip()
+    return _digest(normalized) if normalized else None
 
 
 def _now() -> str:

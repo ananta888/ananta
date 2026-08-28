@@ -9,6 +9,12 @@ from agent.services.local_adapter_lifecycle_coordinator import (
     LocalAdapterLifecycleCoordinator,
     LocalAdapterLifecycleRepository,
 )
+from agent.services.local_adapter_serving_activation import (
+    LocalAdapterCandidateSource,
+    LocalAdapterServingActivationService,
+    LocalAdapterServingProjection,
+    SubprocessLocalAdapterServingMaterializer,
+)
 from agent.services.local_model_runtime_lifecycle_service import (
     LocalRuntimeLifecycleService,
 )
@@ -75,6 +81,7 @@ class MlInternLocalAdapterRegistryPort:
             "registry_revision": deprecated.registry_version,
             "reason_code": reason_code,
             "rollback_target_id": target.adapter_id if target is not None else None,
+            "rollback_target_sha256": getattr(target, "artifact_sha256", None) if target is not None else None,
         }
 
     def _record(self, candidate_id: str):
@@ -96,26 +103,88 @@ class LocalModelRuntimeRestartAdapter:
         *,
         lifecycle: LocalRuntimeLifecycleService,
         capabilities: Sequence[LocalModelCapability],
+        activation: LocalAdapterServingActivationService,
     ) -> None:
         self._lifecycle = lifecycle
         self._capabilities = tuple(capabilities)
+        self._activation = activation
 
-    def restart(self, *, target: str, candidate_sha256: str | None) -> bool:
+    def restart(
+        self,
+        *,
+        target: str,
+        candidate_id: str | None,
+        candidate_sha256: str | None,
+    ) -> bool:
         if target not in {"needle2", "lfm2.5-2.6b-agentic"}:
             raise ValueError("local_adapter_target_invalid")
         binding = candidate_sha256 or "base-model"
-        request_id = f"adapter-restart-{target}-{binding}"
-        decision = self._lifecycle.evaluate(
-            request_id=request_id,
-            capabilities=self._capabilities,
+        previous = self._activation.switch(
+            target=target,
+            candidate_id=candidate_id,
+            candidate_sha256=candidate_sha256,
         )
-        if not decision.admitted:
+        try:
+            decision = self._lifecycle.evaluate(
+                request_id=f"adapter-restart-{target}-{binding}",
+                capabilities=self._capabilities,
+            )
+            if not decision.admitted:
+                self._activation.restore(target=target, previous=previous)
+                return False
+            receipt = self._lifecycle.apply(
+                decision_id=decision.decision_id,
+                action="restart",
+            )
+        except Exception:
+            self._activation.restore(target=target, previous=previous)
+            raise
+        if receipt.status != "completed":
+            self._activation.restore(target=target, previous=previous)
             return False
-        receipt = self._lifecycle.apply(
-            decision_id=decision.decision_id,
-            action="restart",
+        return True
+
+
+class MlInternLocalAdapterCandidateSourcePort:
+    """Resolves only an approved, ownership-scoped Registry candidate."""
+
+    def __init__(
+        self,
+        *,
+        registry: MlInternAdapterRegistryService,
+        principal: MlInternTrainingPrincipal,
+    ) -> None:
+        self._registry = registry
+        self._principal = principal
+
+    def resolve(
+        self,
+        *,
+        candidate_id: str,
+        target: str,
+        candidate_sha256: str,
+    ) -> LocalAdapterCandidateSource:
+        record = self._registry.get(
+            candidate_id,
+            tenant_id=self._principal.tenant_id,
+            owner_subject=self._principal.subject,
         )
-        return receipt.status == "completed"
+        if record is None:
+            raise RegistryNotFoundError(f"adapter {candidate_id!r} not found")
+        artifact_directory = str(record.artifact_paths.get("adapter_dir") or "").strip()
+        if (
+            record.status != "approved"
+            or record.release_target != target
+            or record.artifact_sha256 != candidate_sha256
+            or not artifact_directory
+        ):
+            raise ValueError("local_adapter_serving_candidate_unverified")
+        return LocalAdapterCandidateSource(
+            candidate_id=record.adapter_id,
+            target=target,
+            artifact_directory=Path(artifact_directory),
+            candidate_sha256=candidate_sha256,
+        )
 
 
 def build_local_adapter_lifecycle_coordinator(
@@ -127,6 +196,7 @@ def build_local_adapter_lifecycle_coordinator(
     minimum_score: float,
     lifecycle: LocalRuntimeLifecycleService,
     capabilities: Sequence[LocalModelCapability],
+    activation: LocalAdapterServingActivationService,
     audit_sink: Callable[[str, Mapping[str, object]], None],
 ) -> LocalAdapterLifecycleCoordinator:
     """Compose existing Hub authorities without exposing them to Workers."""
@@ -142,13 +212,47 @@ def build_local_adapter_lifecycle_coordinator(
         runtime=LocalModelRuntimeRestartAdapter(
             lifecycle=lifecycle,
             capabilities=capabilities,
+            activation=activation,
         ),
         audit_sink=audit_sink,
     )
 
 
+def build_local_adapter_serving_activation(
+    *,
+    registry: MlInternAdapterRegistryService,
+    principal: MlInternTrainingPrincipal,
+    projection_path: str | Path,
+    output_root: str | Path,
+    needle_binary: str | Path,
+    needle_base_checkpoint: str | Path,
+    lfm_python: str | Path,
+    lfm_converter: str | Path,
+    lfm_base_snapshot: str | Path,
+) -> LocalAdapterServingActivationService:
+    """Compose the fully automatic, offline Hub serving conversion path."""
+
+    return LocalAdapterServingActivationService(
+        sources=MlInternLocalAdapterCandidateSourcePort(
+            registry=registry,
+            principal=principal,
+        ),
+        materializer=SubprocessLocalAdapterServingMaterializer(
+            output_root=output_root,
+            needle_binary=needle_binary,
+            needle_base_checkpoint=needle_base_checkpoint,
+            lfm_python=lfm_python,
+            lfm_converter=lfm_converter,
+            lfm_base_snapshot=lfm_base_snapshot,
+        ),
+        projection=LocalAdapterServingProjection(projection_path),
+    )
+
+
 __all__ = [
     "LocalModelRuntimeRestartAdapter",
+    "MlInternLocalAdapterCandidateSourcePort",
     "MlInternLocalAdapterRegistryPort",
+    "build_local_adapter_serving_activation",
     "build_local_adapter_lifecycle_coordinator",
 ]
