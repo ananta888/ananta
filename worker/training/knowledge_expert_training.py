@@ -45,9 +45,8 @@ class KnowledgeExpertTrainingRequest:
             raise ValueError("knowledge_expert_training_binding_required")
         if self.target_layer != "final_ffn":
             raise ValueError("knowledge_expert_training_target_layer_denied")
-        if not self.target_modules or not all(
-            module in {"gate_proj", "up_proj", "down_proj"} for module in self.target_modules
-        ):
+        required_modules = {"gate_proj", "up_proj", "down_proj"}
+        if set(self.target_modules) != required_modules or len(self.target_modules) != len(required_modules):
             raise ValueError("knowledge_expert_training_target_modules_denied")
         if not 1 <= self.lora_rank <= 64 or not 1 <= self.lora_alpha <= 256:
             raise ValueError("knowledge_expert_training_lora_config_invalid")

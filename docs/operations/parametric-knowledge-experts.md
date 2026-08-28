@@ -18,3 +18,25 @@ contents or raw high-cardinality tenant/expert identifiers.
 GA is forbidden while research reproduction, runtime capability, security,
 benchmark or operations gates are blocked. A passing unit test or mock runtime
 does not change those gate states.
+
+The Hub stores rollout state in
+`ANANTA_KNOWLEDGE_EXPERTS_ROLLOUT_STATE` (default
+`data/knowledge-expert-rollout.sqlite3`). Admission requires explicit passing
+research-reproduction, runtime-capability, security, benchmark and operations
+signals. A failed or incomplete signal returns the scope to `off`; it never
+opens an approval prompt or waits for an operator.
+
+Each observation has an idempotency identifier and is bound to the current
+`shadow`, `canary` or `ga` stage. Scope/security violations, conflicts,
+hallucinations, OOM and cache errors stop the rollout immediately. Error rate,
+mean quality delta and p95 latency are evaluated against the configured policy.
+After the bounded shadow window the Hub atomically activates the candidate and
+uses a stable scope/request hash for canary assignment. After the canary window
+it promotes to GA. A stop during canary or GA automatically compare-and-swaps
+back to the last-good generation. If that rollback CAS fails, the controller
+records `knowledge_expert_automatic_rollback_failed` and continues to return a
+non-result-affecting decision so RAG/base remains the serving path.
+
+No rollout test or production rollout transition requires a human response.
+Operators can still disable routing or investigate an incident, but lack of an
+operator must never pause automatic completion, stop evaluation or fallback.

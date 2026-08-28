@@ -70,3 +70,15 @@ def test_training_failure_and_invalid_artifact_abort_backend_state():
     with pytest.raises(ValueError, match="result_invalid"):
         KnowledgeExpertTrainingExecutor({"fake": invalid}).execute(_request())
     assert invalid.aborted is True
+
+
+@pytest.mark.parametrize(
+    "target_modules",
+    [
+        ("gate_proj",),
+        ("gate_proj", "up_proj", "gate_proj"),
+    ],
+)
+def test_training_requires_the_complete_final_ffn_module_set(target_modules):
+    with pytest.raises(ValueError, match="target_modules_denied"):
+        _request(target_modules=target_modules).validate()

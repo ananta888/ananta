@@ -635,6 +635,10 @@ class Settings(BaseSettings):
         default="off",
         validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ROLLOUT",
     )
+    knowledge_experts_rollout_state: str = Field(
+        default="data/knowledge-expert-rollout.sqlite3",
+        validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ROLLOUT_STATE",
+    )
     knowledge_experts_policy_profile: str = Field(
         default="rag-default",
         validation_alias="ANANTA_KNOWLEDGE_EXPERTS_POLICY_PROFILE",

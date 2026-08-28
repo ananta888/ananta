@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from agent.services.knowledge_expert_benchmark_gate import KnowledgeExpertBenchmarkGate
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -61,3 +63,34 @@ def test_benchmark_gate_blocks_binding_mismatch_and_security_regression():
     regressed = _runs()
     regressed[-1]["security_holdout_score"] = 0.9
     assert _gate().evaluate(regressed)["reason_code"] == "benchmark_security_regression"
+
+
+def test_benchmark_gate_fails_closed_on_ambiguous_or_non_finite_reports():
+    duplicated = _runs()
+    duplicated.append(dict(duplicated[-1]))
+    assert _gate().evaluate(duplicated)["reason_code"] == "benchmark_variant_duplicate"
+
+    unexpected = _runs()
+    unexpected[-1]["variant"] = "client_invented"
+    assert _gate().evaluate(unexpected)["reason_code"] == "benchmark_variants_unexpected"
+
+    non_finite = _runs()
+    non_finite[-1]["quality_score"] = float("nan")
+    assert _gate().evaluate(non_finite) == {
+        "schema": "ananta.knowledge-expert-benchmark-gate.v1",
+        "passed": False,
+        "reason_code": "benchmark_metric_invalid",
+        "details": ["uncertainty_router", "quality_score"],
+    }
+
+
+def test_benchmark_gate_rejects_unknown_config_versions_and_dense_only_matrix():
+    config = json.loads((ROOT / "config/benchmarks/knowledge-experts.v1.json").read_text())
+    config["version"] = "2.0.0"
+    with pytest.raises(ValueError, match="benchmark_config_invalid"):
+        KnowledgeExpertBenchmarkGate(config)
+
+    config["version"] = "1.0.0"
+    config["required_variants"] = ["dense"]
+    with pytest.raises(ValueError, match="benchmark_config_invalid"):
+        KnowledgeExpertBenchmarkGate(config)

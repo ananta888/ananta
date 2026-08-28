@@ -740,6 +740,13 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         initialize_codecompass_sira_rollout,
         app,
     )
+    from agent.bootstrap.knowledge_expert_rollout import initialize_knowledge_expert_rollout
+
+    run_startup_phase(
+        "knowledge_expert_rollout",
+        initialize_knowledge_expert_rollout,
+        app,
+    )
     from agent.bootstrap.local_model_runtime import (
         initialize_local_model_runtime_services,
     )

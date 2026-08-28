@@ -76,14 +76,7 @@ class PeftTrlTrainingBackend:
                 )
             elif config.gradient_checkpointing:
                 model.gradient_checkpointing_enable()
-            peft_config = LoraConfig(
-                r=config.lora_rank,
-                lora_alpha=config.lora_alpha,
-                lora_dropout=config.lora_dropout,
-                bias="none",
-                task_type="CAUSAL_LM",
-                target_modules=list(config.target_modules),
-            )
+            peft_config = self._create_peft_config(LoraConfig, model, config)
             train_rows = [
                 {"text": self._render_record(row, tokenizer)} for row in iter_jsonl(context.dataset.train_path)
             ]
@@ -112,6 +105,18 @@ class PeftTrlTrainingBackend:
                     "out_of_memory", "model preparation exhausted memory", retryable=True
                 ) from exc
             raise TrainingBackendError("model_load_failed", f"local model could not be prepared: {exc}") from exc
+
+    @staticmethod
+    def _create_peft_config(lora_config_type: Any, model: Any, config: Any) -> Any:
+        del model
+        return lora_config_type(
+            r=config.lora_rank,
+            lora_alpha=config.lora_alpha,
+            lora_dropout=config.lora_dropout,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=list(config.target_modules),
+        )
 
     def train(self, context: TrainingContext, prepared: Any) -> dict[str, Any]:
         try:

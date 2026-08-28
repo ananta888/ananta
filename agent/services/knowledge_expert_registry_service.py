@@ -181,6 +181,30 @@ class KnowledgeExpertRegistryService:
             "previous_generation_id": expected_active_generation,
         }
 
+    def switch(
+        self,
+        *,
+        bank_id: str,
+        expected_generation_id: str,
+        target_generation_id: str,
+    ) -> bool:
+        """Idempotently switch one admitted generation for automatic rollout."""
+
+        current = self._store.active_generation(bank_id)
+        if current == target_generation_id:
+            return True
+        if current != expected_generation_id:
+            return False
+        try:
+            self.activate(
+                bank_id=bank_id,
+                generation_id=target_generation_id,
+                expected_active_generation=expected_generation_id,
+            )
+        except ValueError:
+            return False
+        return True
+
     def revoke_manifest(self, digest: str) -> None:
         if self._store.get_manifest(digest) is None:
             raise ValueError("knowledge_expert_manifest_unknown")
