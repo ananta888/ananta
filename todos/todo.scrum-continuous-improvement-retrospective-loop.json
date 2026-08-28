@@ -2,14 +2,14 @@
   "$schema": "../todo.schema.json",
   "version": 3,
   "created": "2026-08-22",
-  "updated": "2026-08-22",
+  "updated": "2026-08-28",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "scrum_continuous_improvement_retrospective_loop",
   "status": "open",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "main@1044b5339d74a91431d0454e7f4b9e40b7e39220",
+    "reviewed_commit_range": "main@cbb637935",
     "review_goal": "Den vorhandenen Scrum-, Hub-, Worker-Task-Proposal-, Architecture-Governance- und Evolution/Evolver-Unterbau zu drei getrennten, gekoppelten Feedback-Loops erweitern: während eines laufenden Sprints den Fortschritt zum Sprint Goal beobachten und den Kurs anpassen; sprintübergreifend Architekturzielbild, Guardrails und ADRs anhand realer Delivery-Evidenz weiterentwickeln; nach einem Sprint die Arbeitsweise retrospektiv untersuchen, konkrete Verbesserungen ableiten, kontrolliert in den nächsten Sprint übernehmen und ihre Wirkung messen.",
     "reviewed_paths": [
       "config/blueprints/standard/blueprints.json",
@@ -32,7 +32,9 @@
       "Worker können Folgearbeit als begrenzte Proposal an den Hub melden.",
       "Der Hub bleibt Control Plane für Tasks, Routing, Policies, Freigaben, Audit und Zustandsübergänge.",
       "Ein eigenes Architecture-Governance-Team mit Enterprise-, Solution-, Security-, Data-, Integration-Architect und unabhängigem Decision Reviewer ist bereits als Standard-Blueprint vorhanden.",
-      "Architecture Governance produziert Context Map, Architecture Guardrails, ADRs, Review-Artefakte und einen Architecture Decision Handoff; die bestehende Boundary verbietet ausdrücklich, dass Architecture Governance den Product Backlog ordnet oder Implementation/Release selbst freigibt."
+      "Architecture Governance produziert Context Map, Architecture Guardrails, ADRs, Review-Artefakte und einen Architecture Decision Handoff; die bestehende Boundary verbietet ausdrücklich, dass Architecture Governance den Product Backlog ordnet oder Implementation/Release selbst freigibt.",
+      "Der erneute Source-Audit auf main@cbb637935 findet weiterhin kein produktives Sprint-Domänenmodell, keinen persistenten Sprint-Lifecycle, keine Architecture-Baseline-Revisionen und keinen gekoppelten Sprint-Control-/Architecture-/Retrospective-Loop.",
+      "CognitiveStyleRetrospectiveService und ExecutionImprovementLoopService sind eng begrenzte, wiederverwendbare Evidenz- beziehungsweise Task-Rework-Dienste. Sie erfüllen keine SCI-Akzeptanzkriterien fuer Sprintzustand, Commitments oder sprintuebergreifende Wirkungsmessung."
     ],
     "design_conclusion": "Continuous Improvement soll nicht als separates zweites Evolutionssystem implementiert werden. Die Scrum-Retrospektive wird auf die vorhandene EvolutionEngine-, Proposal-, Review-, Validation-, Apply-, Planning- und Hub-Infrastruktur gesetzt. Der laufende Sprint erhält einen eigenständigen Sprint-Goal-Control-Loop für inspect-and-adapt. Zusätzlich wird Architecture Governance als sprintübergreifender Regelkreis angebunden: Architektur liefert versionierte Zielbilder, Guardrails und ADRs an Delivery; Sprints liefern reale technische Evidenz zurück; daraus können kontrollierte Architecture Change Proposals und neue Architekturrevisionen entstehen, die erst nach Review/Gate spätere Sprints beeinflussen."
   },
@@ -748,6 +750,7 @@
       "open": 28
     },
     "notes": [
+      "Source-Audit 2026-08-28 gegen main@cbb637935: Alle 28 SCI-Items bleiben offen; vorhandene generische Evolution-, Cognitive-Style- und Execution-Rework-Dienste werden nicht als Scrum-Lifecycle-Evidenz ueberbewertet.",
       "Die vorhandene Evolution-/Evolver- und Architecture-Governance-Infrastruktur ist wiederzuverwenden; keine parallelen zweiten Systeme bauen.",
       "Architektur ist sprintübergreifend: Sie wird weder aus jedem Sprint neu erfunden noch unabhängig von realer Delivery unveränderlich festgeschrieben.",
       "Der Architecture Loop lautet: Baseline/Guardrails -> Sprint -> technische Evidenz/Architecture Debt -> Architecture Review -> neue Revision -> spätere Sprints.",
@@ -758,14 +761,34 @@
       "Der Hub bleibt technische Control Plane; sein Kern ist kein unkontrolliertes Mutationsziel."
     ],
     "recommended_order": [
-      "cross_sprint_architecture_loop",
-      "sprint_iteration_model",
-      "sprint_goal_control_loop",
-      "retrospective_evidence",
-      "improvement_proposals",
-      "measurement_and_feedback",
-      "next_sprint_application",
-      "scrum_blueprint_integration"
+      "SCI-001",
+      "SCI-013",
+      "SCI-024",
+      "SCI-002",
+      "SCI-003",
+      "SCI-025",
+      "SCI-004",
+      "SCI-019",
+      "SCI-026",
+      "SCI-005",
+      "SCI-020",
+      "SCI-027",
+      "SCI-006",
+      "SCI-021",
+      "SCI-028",
+      "SCI-007",
+      "SCI-022",
+      "SCI-023",
+      "SCI-008",
+      "SCI-016",
+      "SCI-009",
+      "SCI-010",
+      "SCI-011",
+      "SCI-014",
+      "SCI-012",
+      "SCI-015",
+      "SCI-017",
+      "SCI-018"
     ]
   }
 }
