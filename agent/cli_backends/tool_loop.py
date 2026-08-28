@@ -323,20 +323,13 @@ def run_ananta_worker_tool_loop(
         tiny_candidate_used = False
         if iteration == 1 and not tool_results and str(tiny_router_cfg.get("mode") or "disabled").lower() != "disabled":
             try:
-                from agent.services.lmstudio_request_registry import (
-                    _get_current_context,
-                    is_cancelled,
-                )
-                from agent.services.tiny_router.service import (
-                    get_tiny_tool_router_service,
-                )
-
-                tiny_decision = get_tiny_tool_router_service().route(
+                request_registry = _ctx.lmstudio_request_registry_helpers
+                tiny_decision = _ctx.tiny_tool_router_service.route(
                     prompt=prompt,
                     allowed_tools=cfg.get("allowed_tools"),
                     config=tiny_router_cfg,
                     mutation_mode=mutation_mode,
-                    cancel_check=lambda: is_cancelled(*_get_current_context()),
+                    cancel_check=lambda: request_registry.is_cancelled(*request_registry._get_current_context()),
                 )
                 if tiny_decision.status == "candidate" and tiny_decision.candidate:
                     message = {
@@ -499,11 +492,7 @@ def run_ananta_worker_tool_loop(
             # UTCR-009: validate arguments and attach warnings to result
             arg_warnings = _validate_tool_arguments(registry.get_tool(tool_name), arguments)
             if tiny_candidate_used:
-                from agent.services.unified_tool_execution_service import (
-                    get_unified_tool_execution_service,
-                )
-
-                result = get_unified_tool_execution_service().execute(
+                result = _ctx.unified_tool_execution_service.execute(
                     tool_name=tool_name,
                     arguments=arguments,
                     allowed_tools=cfg.get("allowed_tools"),

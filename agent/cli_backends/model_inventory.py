@@ -5,13 +5,14 @@ from __future__ import annotations
 import threading
 import time
 from collections.abc import Callable, Mapping
+from typing import Protocol
 
+from agent.cli_backends.context import default_context as _ctx
 from agent.cli_backends.routing import (
     CLI_BACKEND_CAPABILITIES,
     get_cli_backend_runtime_status,
 )
 from agent.config import settings
-from agent.services.model_inventory_service import ModelInventorySnapshot
 from ananta_contracts.model_catalog import (
     ModelAvailability,
     ModelCapabilityClaim,
@@ -22,9 +23,14 @@ from ananta_contracts.model_catalog import (
     ModelSourceKind,
 )
 
-INVENTORIED_CLI_BACKENDS = (
-    "codex", "claude_code", "opencode", "aider", "mistral_code"
-)
+INVENTORIED_CLI_BACKENDS = ("codex", "claude_code", "opencode", "aider", "mistral_code")
+
+
+class ModelInventorySnapshotPort(Protocol):
+    """Structural result contract consumed by the inventory aggregator."""
+
+    models: tuple[ModelInventoryDescriptor, ...]
+    degraded_reason_code: str | None
 
 
 class CliRuntimeStatusCache:
@@ -64,7 +70,7 @@ class CliBackendModelInventoryAdapter:
         self.source_id = f"cli:{backend_id}"
         self._status_cache = status_cache
 
-    def collect(self, *, force_refresh: bool = False) -> ModelInventorySnapshot:
+    def collect(self, *, force_refresh: bool = False) -> ModelInventorySnapshotPort:
         status = dict(self._status_cache.load().get(self.backend_id) or {})
         model_id = self._default_model() or "cli-default"
         installed = bool(status.get("binary_available"))
@@ -89,21 +95,9 @@ class CliBackendModelInventoryAdapter:
             else ModelHealth.UNAVAILABLE
         )
         auth_mode = str(status.get("auth_mode") or "").strip() or None
-        diagnostics = {
-            str(value or "").strip()
-            for value in (status.get("diagnostics") or ())
-        }
-        auth_ready = (
-            False
-            if any("missing_api_key" in value for value in diagnostics)
-            else None
-        )
-        display_name = str(
-            (CLI_BACKEND_CAPABILITIES.get(self.backend_id) or {}).get(
-                "display_name"
-            )
-            or self.backend_id
-        )
+        diagnostics = {str(value or "").strip() for value in (status.get("diagnostics") or ())}
+        auth_ready = False if any("missing_api_key" in value for value in diagnostics) else None
+        display_name = str((CLI_BACKEND_CAPABILITIES.get(self.backend_id) or {}).get("display_name") or self.backend_id)
         descriptor = ModelInventoryDescriptor(
             provider_id=self.backend_id,
             model_id=model_id,
@@ -112,9 +106,7 @@ class CliBackendModelInventoryAdapter:
             runtime=self._runtime(status),
             source_ids=(self.source_id,),
             source_kinds=(
-                (self.source_kind, ModelSourceKind.OBSERVED_RUNTIME)
-                if last_success
-                else (self.source_kind,)
+                (self.source_kind, ModelSourceKind.OBSERVED_RUNTIME) if last_success else (self.source_kind,)
             ),
             availability=availability,
             health=health,
@@ -138,7 +130,7 @@ class CliBackendModelInventoryAdapter:
                 ),
             ),
         )
-        return ModelInventorySnapshot(models=(descriptor,))
+        return _ctx.model_inventory_snapshot_factory(models=(descriptor,))
 
     def _default_model(self) -> str | None:
         attribute = {
@@ -163,10 +155,7 @@ class CliBackendModelInventoryAdapter:
 
 def build_cli_model_inventory_adapters() -> tuple[CliBackendModelInventoryAdapter, ...]:
     cache = CliRuntimeStatusCache()
-    return tuple(
-        CliBackendModelInventoryAdapter(backend_id, cache)
-        for backend_id in INVENTORIED_CLI_BACKENDS
-    )
+    return tuple(CliBackendModelInventoryAdapter(backend_id, cache) for backend_id in INVENTORIED_CLI_BACKENDS)
 
 
 __all__ = [

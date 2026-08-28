@@ -13,6 +13,7 @@ Or via monkeypatch:
 The property has a setter so that instance attribute assignment works
 (without a setter, Python raises AttributeError).
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -65,34 +66,54 @@ class CliBackendContext:
     """
 
     approval_request_service = _ServiceProperty(
-        lambda: __import__("agent.services.approval_request_service", fromlist=["get_approval_request_service"]).get_approval_request_service()
+        lambda: __import__(
+            "agent.services.approval_request_service", fromlist=["get_approval_request_service"]
+        ).get_approval_request_service()
     )
     ananta_tool_policy_service = _ServiceProperty(
-        lambda: __import__("agent.services.ananta_tool_policy_service", fromlist=["get_ananta_tool_policy_service"]).get_ananta_tool_policy_service()
+        lambda: __import__(
+            "agent.services.ananta_tool_policy_service", fromlist=["get_ananta_tool_policy_service"]
+        ).get_ananta_tool_policy_service()
     )
     ananta_tool_registry_service = _ServiceProperty(
-        lambda: __import__("agent.services.ananta_tool_registry_service", fromlist=["get_ananta_tool_registry_service"]).get_ananta_tool_registry_service()
+        lambda: __import__(
+            "agent.services.ananta_tool_registry_service", fromlist=["get_ananta_tool_registry_service"]
+        ).get_ananta_tool_registry_service()
     )
     ananta_workspace_mutation_policy_service = _ServiceProperty(
-        lambda: __import__("agent.services.ananta_workspace_mutation_policy", fromlist=["get_ananta_workspace_mutation_policy_service"]).get_ananta_workspace_mutation_policy_service()
+        lambda: __import__(
+            "agent.services.ananta_workspace_mutation_policy", fromlist=["get_ananta_workspace_mutation_policy_service"]
+        ).get_ananta_workspace_mutation_policy_service()
     )
     generated_source_line_policy_service = _ServiceProperty(
-        lambda: __import__("agent.services.generated_source_line_policy_service", fromlist=["get_generated_source_line_policy_service"]).get_generated_source_line_policy_service()
+        lambda: __import__(
+            "agent.services.generated_source_line_policy_service", fromlist=["get_generated_source_line_policy_service"]
+        ).get_generated_source_line_policy_service()
     )
     worker_workspace_service = _ServiceProperty(
-        lambda: __import__("agent.services.worker_workspace_service", fromlist=["get_worker_workspace_service"]).get_worker_workspace_service()
+        lambda: __import__(
+            "agent.services.worker_workspace_service", fromlist=["get_worker_workspace_service"]
+        ).get_worker_workspace_service()
     )
     model_invocation_service = _ServiceProperty(
-        lambda: __import__("agent.services.model_invocation_service", fromlist=["ModelInvocationService"]).ModelInvocationService
+        lambda: __import__(
+            "agent.services.model_invocation_service", fromlist=["ModelInvocationService"]
+        ).ModelInvocationService
     )
     opencode_runtime_service = _ServiceProperty(
-        lambda: __import__("agent.services.opencode_runtime_service", fromlist=["get_opencode_runtime_service"]).get_opencode_runtime_service()
+        lambda: __import__(
+            "agent.services.opencode_runtime_service", fromlist=["get_opencode_runtime_service"]
+        ).get_opencode_runtime_service()
     )
     live_terminal_session_service = _ServiceProperty(
-        lambda: __import__("agent.services.live_terminal_session_service", fromlist=["get_live_terminal_session_service"]).get_live_terminal_session_service()
+        lambda: __import__(
+            "agent.services.live_terminal_session_service", fromlist=["get_live_terminal_session_service"]
+        ).get_live_terminal_session_service()
     )
     architecture_analysis_planner = _ServiceProperty(
-        lambda: __import__("agent.services.architecture_analysis_planner_service", fromlist=["get_architecture_analysis_planner"]).get_architecture_analysis_planner()
+        lambda: __import__(
+            "agent.services.architecture_analysis_planner_service", fromlist=["get_architecture_analysis_planner"]
+        ).get_architecture_analysis_planner()
     )
     ananta_tool_executor = _ServiceProperty(
         lambda: __import__("agent.services.tools", fromlist=["execute_ananta_tool"]).execute_ananta_tool
@@ -101,7 +122,9 @@ class CliBackendContext:
         lambda: __import__("agent.services.tools._evidence", fromlist=["build_tool_result"]).build_tool_result
     )
     workspace_path_resolver = _ServiceProperty(
-        lambda: __import__("agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]).resolve_workspace_path
+        lambda: __import__(
+            "agent.services.tools.repo_tools", fromlist=["resolve_workspace_path"]
+        ).resolve_workspace_path
     )
     workspace_path_error_type = _ServiceProperty(
         lambda: __import__("agent.services.tools.repo_tools", fromlist=["WorkspacePathError"]).WorkspacePathError
@@ -117,6 +140,36 @@ class CliBackendContext:
             "agent.services.token_budget_service",
             fromlist=["TokenBudgetService"],
         ).TokenBudgetService()
+    )
+    terminal_bridge_factory = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.terminal_bridge",
+            fromlist=["build_terminal_bridge"],
+        ).build_terminal_bridge
+    )
+    model_inventory_snapshot_factory = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.model_inventory_service",
+            fromlist=["ModelInventorySnapshot"],
+        ).ModelInventorySnapshot
+    )
+    lmstudio_request_registry_helpers = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.lmstudio_request_registry",
+            fromlist=["_get_current_context", "is_cancelled"],
+        )
+    )
+    tiny_tool_router_service = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.tiny_router.service",
+            fromlist=["get_tiny_tool_router_service"],
+        ).get_tiny_tool_router_service()
+    )
+    unified_tool_execution_service = _ServiceProperty(
+        lambda: __import__(
+            "agent.services.unified_tool_execution_service",
+            fromlist=["get_unified_tool_execution_service"],
+        ).get_unified_tool_execution_service()
     )
 
 

@@ -8,10 +8,10 @@ import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Any, Callable, Protocol
 
+from agent.cli_backends.context import default_context as _ctx
 from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
-from agent.services.terminal_bridge import PipeBridge, PtyBridge, build_terminal_bridge
 
 SUPPORTED_ACCOUNT_LOGIN_BACKENDS = frozenset({"codex", "claude_code"})
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
@@ -20,8 +20,24 @@ _DEVICE_CODE = re.compile(r"\b[A-Z0-9]{4,6}-[A-Z0-9]{4,6}\b")
 _SESSION_TTL_SECONDS = 15 * 60
 _MAX_INPUT_LENGTH = 4096
 
-Bridge = PtyBridge | PipeBridge
-BridgeFactory = Callable[..., Bridge]
+
+class TerminalBridgePort(Protocol):
+    """Minimal terminal process boundary required by account login."""
+
+    process: Any
+
+    def start(self) -> None: ...
+
+    def wait_for_output(self, timeout: float) -> bool: ...
+
+    def drain(self) -> list[str]: ...
+
+    def write(self, value: str) -> None: ...
+
+    def close(self) -> None: ...
+
+
+BridgeFactory = Callable[..., TerminalBridgePort]
 RunCommand = Callable[..., subprocess.CompletedProcess[str]]
 
 
@@ -33,7 +49,7 @@ class CliBackendAccountLoginError(RuntimeError):
 class _LoginSession:
     session_id: str
     backend: str
-    bridge: Bridge
+    bridge: TerminalBridgePort
     created_at: float
     expires_at: float
     output: str = ""
@@ -52,12 +68,12 @@ class CliBackendAccountLoginService:
     def __init__(
         self,
         *,
-        bridge_factory: BridgeFactory = build_terminal_bridge,
+        bridge_factory: BridgeFactory | None = None,
         binary_resolver: Callable[[str], str | None] = resolve_provisioned_backend_binary,
         run_command: RunCommand = subprocess.run,
         clock: Callable[[], float] = time.time,
     ) -> None:
-        self._bridge_factory = bridge_factory
+        self._bridge_factory = bridge_factory or _ctx.terminal_bridge_factory
         self._binary_resolver = binary_resolver
         self._run_command = run_command
         self._clock = clock
@@ -66,11 +82,7 @@ class CliBackendAccountLoginService:
 
     def account_status(self, backend_id: str) -> dict:
         backend, binary = self._resolve_backend(backend_id)
-        command = (
-            [binary, "login", "status"]
-            if backend == "codex"
-            else [binary, "auth", "status", "--json"]
-        )
+        command = [binary, "login", "status"] if backend == "codex" else [binary, "auth", "status", "--json"]
         try:
             result = self._run_command(
                 command,
@@ -90,11 +102,7 @@ class CliBackendAccountLoginService:
     def start(self, backend_id: str) -> dict:
         backend, binary = self._resolve_backend(backend_id)
         self._expire_sessions()
-        command = (
-            [binary, "login", "--device-auth"]
-            if backend == "codex"
-            else [binary, "auth", "login", "--claudeai"]
-        )
+        command = [binary, "login", "--device-auth"] if backend == "codex" else [binary, "auth", "login", "--claudeai"]
         bridge = self._bridge_factory(binary, argv=command)
         try:
             bridge.start()
@@ -175,18 +183,14 @@ class CliBackendAccountLoginService:
             url_match = _HTTPS_URL.search(clean_output)
             code_match = _DEVICE_CODE.search(clean_output)
             requires_input = (
-                session.backend == "claude_code"
-                and "Paste code here" in clean_output
-                and state == "pending"
+                session.backend == "claude_code" and "Paste code here" in clean_output and state == "pending"
             )
             return {
                 "backend": session.backend,
                 "session_id": session.session_id,
                 "status": state,
                 "authenticated": state == "authenticated",
-                "verification_url": (
-                    url_match.group(0).rstrip(".,);") if url_match else None
-                ),
+                "verification_url": (url_match.group(0).rstrip(".,);") if url_match else None),
                 "user_code": code_match.group(0) if code_match else None,
                 "requires_input": requires_input,
                 "expires_at": session.expires_at,
