@@ -251,7 +251,11 @@ def test_default_selection_has_stable_429_and_retry_after(
         }
     }
     monkeypatch.setattr(provider_routes, "ModelDefaultSelectionCommand", _Command)
-    monkeypatch.setattr(provider_routes, "ModelDefaultSelectionService", _Selector)
+    monkeypatch.setattr(
+        provider_routes,
+        "build_persisted_default_selection_service",
+        lambda **_kwargs: _Selector(),
+    )
     monkeypatch.setattr(
         provider_routes,
         "_model_catalog_service",

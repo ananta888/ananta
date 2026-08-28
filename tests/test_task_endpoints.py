@@ -32,6 +32,46 @@ def _enable_legacy_cli_step_path(app):
     app.config["AGENT_CONFIG"] = cfg
 
 
+@pytest.fixture(autouse=True)
+def _seed_task_relationship_targets(app):
+    """Create the real FK targets used by task endpoint scenarios."""
+
+    from sqlmodel import Session
+
+    from agent.database import engine
+    from agent.db_models.agents import AgentInfoDB
+    from agent.db_models.teams import TeamDB
+
+    with app.app_context(), Session(engine) as session:
+        session.add_all(
+            [
+                TeamDB(id=team_id, name=f"Fixture {team_id}", is_active=True)
+                for team_id in ("team-arch", "team-keep", "team-a", "team-b")
+            ]
+        )
+        session.add_all(
+            [
+                AgentInfoDB(
+                    url=url,
+                    name=f"fixture-worker-{index}",
+                    role="worker",
+                    token="tok",
+                )
+                for index, url in enumerate(
+                    (
+                        "http://agent-1:5000",
+                        "http://worker-1:5000",
+                        "http://worker-x:5001",
+                        "http://worker-y:5001",
+                        "http://worker-z:5001",
+                    ),
+                    start=1,
+                )
+            ]
+        )
+        session.commit()
+
+
 @pytest.fixture
 def force_hub_role(monkeypatch):
     monkeypatch.setattr("agent.config.settings.role", "hub")
@@ -341,11 +381,16 @@ def test_task_unassign(client, app, admin_auth_header):
     with app.app_context():
         from agent.routes.tasks.utils import _get_local_task_status, _update_local_task_status
 
-        _update_local_task_status(tid, "assigned", assigned_agent_url="http://agent-1:5000")
+        agent_url = "http://agent-1:5000"
+        _update_local_task_status(
+            tid,
+            "assigned",
+            assigned_agent_url=agent_url,
+        )
 
         task = _get_local_task_status(tid)
         assert task["status"] == "assigned"
-        assert task["assigned_agent_url"] == "http://agent-1:5000"
+        assert task["assigned_agent_url"] == agent_url
 
     # 2. Unassign aufrufen
     response = client.post(f"/tasks/{tid}/unassign", headers=admin_auth_header)

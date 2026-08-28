@@ -9,7 +9,17 @@ from sqlmodel import Session
 from agent.artifacts.goal_artifact_repository import GoalArtifactRepository
 from agent.artifacts.goal_artifact_service import GoalArtifactService
 from agent.database import engine
-from agent.db_models import ArtifactDB, ArtifactVersionDB, OrganizationInstanceDB, ProjectDB
+from agent.db_models import (
+    ArtifactDB,
+    ArtifactVersionDB,
+    GoalDB,
+    OrganizationInstanceDB,
+    OrganizationRoleSlotDB,
+    OrganizationTeamLinkDB,
+    OrganizationUnitDB,
+    ProjectDB,
+    TeamDB,
+)
 from agent.repositories.organization_runtime import (
     SqlArtifactVersionReader,
     SqlHandoffStateStore,
@@ -38,6 +48,7 @@ def _scope(db_session) -> tuple[str, str, str]:
             created_by_subject_id="test-hub",
         )
     )
+    db_session.flush()
     db_session.add(
         OrganizationInstanceDB(
             tenant_id=tenant_id,
@@ -61,6 +72,96 @@ def _scope(db_session) -> tuple[str, str, str]:
 
 def _session_factory() -> Session:
     return Session(engine)
+
+
+def _seed_handoff_scope(
+    db_session: Session,
+    *,
+    tenant_id: str,
+    project_id: str,
+    organization_id: str,
+) -> None:
+    db_session.add_all(
+        [
+            TeamDB(id="team-a", name="Producer team", is_active=True),
+            TeamDB(id="team-b", name="Consumer team", is_active=True),
+        ]
+    )
+    db_session.flush()
+    db_session.add_all(
+        [
+            OrganizationUnitDB(
+                id="unit-a",
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_key="unit-a",
+                name="Producer unit",
+                unit_kind="team",
+            ),
+            OrganizationUnitDB(
+                id="unit-b",
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_key="unit-b",
+                name="Consumer unit",
+                unit_kind="team",
+            ),
+        ]
+    )
+    db_session.flush()
+    db_session.add_all(
+        [
+            OrganizationTeamLinkDB(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_id="unit-a",
+                team_id="team-a",
+            ),
+            OrganizationTeamLinkDB(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_id="unit-b",
+                team_id="team-b",
+            ),
+            OrganizationRoleSlotDB(
+                id="producer-slot",
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_id="unit-a",
+                slot_key="producer",
+                role_template_key="producer",
+                role_template_version=1,
+            ),
+            OrganizationRoleSlotDB(
+                id="consumer-slot",
+                tenant_id=tenant_id,
+                project_id=project_id,
+                organization_id=organization_id,
+                unit_id="unit-b",
+                slot_key="consumer",
+                role_template_key="consumer",
+                role_template_version=1,
+            ),
+        ]
+    )
+    db_session.flush()
+    db_session.add(
+        GoalDB(
+            id="goal-a",
+            tenant_id=tenant_id,
+            project_id=project_id,
+            organization_id=organization_id,
+            unit_id="unit-a",
+            team_id="team-a",
+            goal="Exercise persisted handoff lifecycle",
+        )
+    )
+    db_session.commit()
 
 
 def test_sql_budget_ledger_reserves_replays_and_settles(db_session) -> None:
@@ -196,6 +297,12 @@ def test_sql_event_store_replays_one_redacted_event(db_session) -> None:
 
 def test_sql_handoff_store_cas_and_lifecycle_resolution(db_session) -> None:
     tenant_id, project_id, organization_id = _scope(db_session)
+    _seed_handoff_scope(
+        db_session,
+        tenant_id=tenant_id,
+        project_id=project_id,
+        organization_id=organization_id,
+    )
     store = SqlHandoffStateStore(
         tenant_id=tenant_id,
         project_id=project_id,

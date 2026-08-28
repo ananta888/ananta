@@ -10,6 +10,7 @@ from sqlmodel import Session
 import agent.services.background.speech_reconciliation_queue_pump as pump_module
 from agent.database import engine
 from agent.db_models.speech_reconciliation import (
+    SpeechReconciliationAttemptDB,
     SpeechReconciliationCheckpointDB,
     SpeechReconciliationJobDB,
 )
@@ -448,14 +449,39 @@ def test_sql_queue_source_loads_durable_jobs_latest_checkpoint_and_tenant_activi
 
     queued_id = "speech-reconciliation-queue-source"
     running_id = "speech-reconciliation-queue-source-running"
+    attempt_id = "speech-reconciliation-attempt-queue-source"
     with Session(engine) as session:
         session.add(row(queued_id, "queued"))
         session.add(row(running_id, "running"))
+        session.flush()
+        session.add(
+            SpeechReconciliationAttemptDB(
+                id=attempt_id,
+                job_id=queued_id,
+                tenant_id="tenant-queue-source",
+                owner_subject="owner-queue-source",
+                attempt_number=1,
+                state="fenced",
+                worker_id_digest=digest("queue-worker"),
+                worker_capability_digest=digest("queue-capability"),
+                location_digest=digest("local"),
+                resource_profile_digest=digest("queue-resource-profile"),
+                fencing_token_digest=digest("queue-fencing-token"),
+                fencing_epoch=1,
+                lease_expires_at_ms=now - 1,
+                deadline_at_ms=now + 60_000,
+                last_heartbeat_at_ms=now - 1,
+                created_at_ms=now - 2,
+                updated_at_ms=now - 1,
+                finished_at_ms=now - 1,
+            )
+        )
+        session.flush()
         for sequence in (1, 2):
             session.add(
                 SpeechReconciliationCheckpointDB(
                     job_id=queued_id,
-                    attempt_id="speech-reconciliation-attempt-queue-source",
+                    attempt_id=attempt_id,
                     tenant_id="tenant-queue-source",
                     owner_subject="owner-queue-source",
                     fencing_epoch=1,

@@ -3,8 +3,8 @@ import time
 import jwt
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
-from agent.repository import audit_repo, goal_repo, plan_node_repo, plan_repo, policy_decision_repo, task_repo, verification_record_repo
+from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
+from agent.repository import audit_repo, goal_repo, plan_node_repo, plan_repo, policy_decision_repo, task_repo, team_repo, verification_record_repo
 from agent.services.verification_service import get_verification_service
 
 
@@ -168,6 +168,7 @@ class TestVerificationGovernance:
         assert payload["cost_summary"]["tasks_with_cost"] == 1
 
     def test_non_admin_governance_summary_is_sanitized(self, client, admin_auth_header):
+        team_repo.save(TeamDB(id="team-a", name="Governance fixture team", is_active=True))
         goal = goal_repo.save(GoalDB(goal="Review secure flow", summary="Review secure flow", status="planned", team_id="team-a"))
         task_repo.save(TaskDB(id="vg-goal-task-2", title="Task", status="assigned", goal_id=goal.id, goal_trace_id=goal.trace_id, task_kind="coding"))
         client.post(

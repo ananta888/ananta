@@ -7,6 +7,19 @@ def test_list_tasks_filtering(client, app, admin_auth_header):
     """Testet die Filterung von Tasks über die API."""
 
     with app.app_context():
+        from sqlmodel import Session
+
+        from agent.database import engine
+        from agent.db_models.agents import AgentInfoDB
+
+        with Session(engine) as session:
+            session.add_all(
+                [
+                    AgentInfoDB(url="agent-a", name="Agent A", role="worker"),
+                    AgentInfoDB(url="agent-b", name="Agent B", role="worker"),
+                ]
+            )
+            session.commit()
         # Testdaten anlegen
         _update_local_task_status("T1", "completed", assigned_agent_url="agent-a")
         _update_local_task_status("T2", "failed", assigned_agent_url="agent-b")

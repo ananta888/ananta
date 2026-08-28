@@ -6,8 +6,8 @@ import pytest
 import jwt
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
-from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo
+from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
+from agent.repository import agent_repo, audit_repo, goal_repo, plan_node_repo, plan_repo, task_repo, team_repo
 from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.utils import _get_local_task_status
 
@@ -243,6 +243,7 @@ def test_planning_slots_use_explicit_capacity_override() -> None:
 
 class TestGoalsAPIPlanningRecovery:
     def test_create_goal_advanced_overrides_preserve_provenance(self, client, admin_auth_header):
+        team_repo.save(TeamDB(id="team-advanced", name="Advanced planning", is_active=True))
         res = client.post(
             "/goals",
             headers=admin_auth_header,
@@ -506,6 +507,7 @@ class TestGoalsAPIPlanningRecovery:
         assert plan_node_repo.get_by_id(other_node.id).title == "Other step"
 
     def test_non_admin_goal_access_is_team_scoped(self, client, admin_auth_header, monkeypatch):
+        team_repo.save(TeamDB(id="team-a", name="Scoped team", is_active=True))
         _mock_goal_planning_llm(monkeypatch)
         monkeypatch.setattr("agent.services.planning_strategies.try_load_repo_context", lambda goal: None)
         open_res = client.post("/goals", headers=admin_auth_header, json={"goal": "Public goal"})

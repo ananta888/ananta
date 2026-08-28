@@ -3,7 +3,7 @@ import time
 import jwt
 
 from agent.config import settings
-from agent.db_models import GoalDB, InstructionOverlayDB, RoleDB, TaskDB, TemplateDB, UserInstructionProfileDB
+from agent.db_models import GoalDB, InstructionOverlayDB, RoleDB, TaskDB, TemplateDB, UserDB, UserInstructionProfileDB
 from agent.services.repository_registry import get_repository_registry
 from agent.services.task_scoped_execution_service import TaskScopedExecutionService
 
@@ -140,6 +140,13 @@ def test_instruction_effective_stack_resolves_profile_and_task_overlay(client, u
 def test_task_prompt_builder_exposes_instruction_layer_diagnostics(app):
     with app.app_context():
         repos = get_repository_registry()
+        repos.user_repo.save(
+            UserDB(
+                username="builder-user",
+                password_hash="test",
+                role="user",
+            )
+        )
         profile = repos.user_instruction_profile_repo.save(
             UserInstructionProfileDB(
                 owner_username="builder-user",
@@ -329,6 +336,13 @@ def test_overlay_scope_validation_blocks_invalid_session_binding(client, user_au
 def test_one_shot_overlay_is_consumed_on_runtime_prompt_build(app):
     with app.app_context():
         repos = get_repository_registry()
+        repos.user_repo.save(
+            UserDB(
+                username="oneshot-user",
+                password_hash="test",
+                role="user",
+            )
+        )
         repos.task_repo.save(TaskDB(id="inst-task-one-shot", title="One shot test", status="todo"))
         overlay = repos.instruction_overlay_repo.save(
             InstructionOverlayDB(

@@ -127,6 +127,7 @@ def _publish_source(root: Path, record) -> None:
                 reason_code="completed",
             )
         )
+        session.flush()
         session.add(
             SpeechAdaptationArtifactDB(
                 id=record.adapter_id,

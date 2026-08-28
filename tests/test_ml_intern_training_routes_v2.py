@@ -24,6 +24,8 @@ from agent.services.ml_intern_dataset_catalog_service import (
 )
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 
+_ASYNC_COMPLETION_TIMEOUT_SECONDS = 15.0
+
 
 def _configure(app, tmp_path: Path) -> Path:
     suffix = uuid.uuid4().hex
@@ -160,7 +162,10 @@ def test_admin_json_dataset_to_async_job_preview_sse_and_retention(
     assert accepted["events_url"].endswith(f"{accepted['id']}/events")
     assert "path" not in json.dumps(accepted["configuration"]).casefold()
 
-    deadline = time.monotonic() + 5
+    # The mock job still runs on the production-style Hub executor. A complete
+    # suite can temporarily contend for CPU, so keep the poll interval short
+    # while allowing enough wall-clock headroom for the terminal transition.
+    deadline = time.monotonic() + _ASYNC_COMPLETION_TIMEOUT_SECONDS
     detail = accepted
     while time.monotonic() < deadline and detail["status"] not in {"completed", "failed", "cancelled"}:
         response = client.get(accepted["poll_url"], headers=admin_auth_header)

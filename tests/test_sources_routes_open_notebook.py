@@ -48,6 +48,8 @@ def test_imported_source_appears_in_listing_snapshots_and_citation(client, admin
     from agent.config import settings
 
     monkeypatch.setattr(settings, "data_dir", str(tmp_path))
+    sync = client.post("/sources/actions/sync-builtins", headers=admin_auth_header, json={})
+    assert sync.status_code == 200
     imported = _import(client, admin_auth_header, _fixture("minimal_export.json")).json["data"]
     registry_source_id = imported["registry_source_id"]
 

@@ -165,6 +165,7 @@ def _request(tmp_path: Path, *, dry_run: bool = False) -> BackupRequest:
     windows.mkdir(exist_ok=True)
     recipient = tmp_path / "recipient.txt"
     recipient.write_text("A" * 40 + "\n", encoding="ascii")
+    recipient.chmod(0o600)
     return BackupRequest(
         wsl_target=wsl,
         windows_target=windows,

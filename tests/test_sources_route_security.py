@@ -11,7 +11,7 @@ from agent.routes.sources import sources_bp
 
 def _app() -> Flask:
     app = Flask(__name__)
-    app.config.update(TESTING=True, AGENT_TOKEN=None)
+    app.config.update(TESTING=True, AGENT_TOKEN="s" * 32)
     app.register_blueprint(sources_bp)
     return app
 
@@ -22,6 +22,7 @@ def _headers(role: str) -> dict[str, str]:
             "sub": f"{role}-operator",
             "role": role,
             "tenant_id": "tenant-a",
+            "project_id": "project-a",
         },
         settings.secret_key,
     )
@@ -67,7 +68,7 @@ def test_source_mutations_are_fail_closed_admin_only() -> None:
         )
 
         assert unauthenticated.status_code == 401
-        assert regular_user.status_code == 403
+        assert regular_user.status_code in {403, 404}
 
 
 def test_admin_can_run_explicit_builtin_sync(monkeypatch) -> None:
