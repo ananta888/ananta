@@ -438,7 +438,7 @@ def test_choose_candidates_auto_excludes_disabled_claude():
     assert "claude_code" not in candidates
 
 
-def test_choose_candidates_auto_includes_enabled_installed_claude():
+def test_choose_candidates_auto_excludes_enabled_installed_claude_without_paid_fallback():
     from agent.cli_backends.routing import _choose_candidates
 
     app = _fake_app({"claude_cli": {"enabled": True}})
@@ -448,6 +448,23 @@ def test_choose_candidates_auto_includes_enabled_installed_claude():
          patch("agent.cli_backends.opencode.settings", settings), \
          patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
         candidates = _choose_candidates(requested="auto", prompt="hello")
+    assert "claude_code" not in candidates
+
+
+def test_choose_candidates_auto_includes_enabled_installed_claude_when_paid_fallback_allowed():
+    from agent.cli_backends.routing import _choose_candidates
+
+    app = _fake_app({"claude_cli": {"enabled": True}})
+    settings = _fake_settings()
+    with app.app_context(), \
+         patch("agent.cli_backends.routing.settings", settings), \
+         patch("agent.cli_backends.opencode.settings", settings), \
+         patch("agent.cli_backends.routing.shutil.which", return_value="/usr/bin/claude"):
+        candidates = _choose_candidates(
+            requested="auto",
+            prompt="hello",
+            routing_policy={"allow_paid_coding_agent_fallback": True},
+        )
     assert "claude_code" in candidates
 
 
