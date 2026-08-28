@@ -7,7 +7,7 @@
   "status": "partial",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "main@63d8135e31204c3755d27fbfb1f2500d9c278636",
+    "reviewed_commit_range": "main@6ce975968d1eecb5beb6a8e648e5e29e709fceae",
     "review_goal": "Den im SIRA-Paper und in facebookresearch/sira beschriebenen corpus-diskriminativen Retrieval-Ansatz rechtssicher, reproduzierbar und inkrementell in die bestehende CodeCompass-Retrieval-Architektur integrieren. Ziel ist nicht eine isolierte Kopie, sondern ein optionales Ananta-Profil, das Offline-Corpus-Enrichment, LLM-gestützte Query-Kompilierung, Corpus-Statistik und genau einen gewichteten BM25/FTS-Retrieval-Aufruf mit vorhandenen Graph-, Symbol-, Vektor-, Policy-, Ranking- und Context-Curation-Komponenten verbindet.",
     "reviewed_paths": [
       "worker/retrieval/codecompass_fts_engine.py",
@@ -15,6 +15,12 @@
       "worker/retrieval/retrieval_contract.py",
       "worker/retrieval/retrieval_service.py",
       "worker/retrieval/retrieval_trace.py",
+      "worker/retrieval/sira/",
+      "agent/routes/codecompass_retrieve.py",
+      "agent/services/codecompass_sira_config_service.py",
+      "agent/services/codecompass_sira_status_service.py",
+      "scripts/evaluate_sira_retrieval.py",
+      "scripts/manage_sira_index.py",
       "docs/architecture/agent-codecompass-hybrid-retrieval.md",
       "docs/architecture/codecompass-context-curation.md",
       "docs/rag-query-translation-strategy.md",
@@ -39,14 +45,15 @@
       }
     ],
     "current_state": [
-      "CodeCompass besitzt BM25/FTS5, Exact-/Symbol-, Graph- und Vektorsignale, universelle Fusion, Policy-Filter, Budgets und Traces.",
-      "Die aktuelle Query-Umschreibung ist ein kleines deterministisches Synonym-Mapping; corpus-statistische SIRA-Kompilierung ist nicht implementiert.",
-      "Die vorhandene Modell- und Reranking-Infrastruktur ist wiederverwendbar, aber SIRA-spezifische Ports, Artefakte, Termstatistik und Rolloutvertraege fehlen.",
+      "CodeCompass besitzt weiterhin BM25/FTS5, Exact-/Symbol-, Graph- und Vektorsignale, universelle Fusion, Policy-Filter, Budgets und Traces; SIRA erweitert ausschließlich den vorhandenen codecompass_fts-Kanal.",
+      "Das optionale SIRA-Profil implementiert versioniertes Offline-Enrichment, corpus-gebundene Termstatistik, sichere Query-Expansion, genau eine gewichtete lexikalische Abfrage, adaptives Routing und budgetiertes Pointwise-Reranking.",
+      "Konfiguration, Status-API, Angular-Betriebsansicht, atomare Indexartefakte, CLI-Lifecycle, Fallbacks, Kill-Switches und deterministische Benchmark-Gates sind im Repository vorhanden und automatisiert getestet.",
+      "Offen bleiben ein Hub-gesteuerter produktiver Synchronisierungs-/Kompaktierungsauftrag sowie reale Multi-Repository-, Modell-, Latenz-, Kosten- und Canary-Nachweise; solche externen Ergebnisse werden nicht aus synthetischen Fixtures abgeleitet.",
       "Die offizielle Referenz setzt Python >=3.12, CUDA/H100-nahe Ausfuehrung und stark gepinnte aktuelle ML-Abhaengigkeiten voraus; Ananta adaptiert daher den Ansatz provider- und hardwareunabhaengig statt das Repository direkt einzubetten."
     ],
     "design_conclusion": "SIRA wird als optionales, versioniertes Retrieval-Profil hinter vorhandenen Ports implementiert. Offline erzeugte Begriffe bleiben von Quelltext getrennt, werden inkrementell gepflegt und an Snapshot, Prompt und Modell gebunden. Online erzeugte Query-Begriffe werden gegen scope-gebundene Corpus-Statistiken validiert und zu genau einer gewichteten BM25/FTS-Abfrage kompiliert. Exact-, Symbol-, Graph-, Vektor-, Security-, Ranking- und Budgetpfade werden wiederverwendet; sichere Baseline-Fallbacks bleiben jederzeit verfügbar.",
     "upstream_revision": "facebookresearch/sira@b33f5b71a1870f09b378d8e79afb6ad9e704709b",
-    "audited_at": "2026-08-27"
+    "audited_at": "2026-08-28"
   },
   "purpose": "CodeCompass soll wie ein Repository-Experte aus einer Nutzerfrage eine präzise, corpus-spezifische lexikalische Suchaktion erzeugen können, ohne kostspielige iterative Suchschleifen zu benötigen. Gleichzeitig müssen Anantas hybride Vorteile, inkrementelle Indexpflege, lokale Modellwahl, Datenschutz, Erklärbarkeit und robuste Fallbacks erhalten bleiben.",
   "goal": "Ein aktiviertes SIRA-Profil verbessert auf gebundenen Multi-Repository-Golden-Sets Recall@k, nDCG@k beziehungsweise Evidence-Coverage gegenüber bestehendem BM25/FTS und erreicht gegenüber mehrstufigem agentischem Retrieval vergleichbare oder bessere Qualität mit höchstens einem lexikalischen Retrieval-Aufruf. Es bleibt vollständig abschaltbar, verliert niemals die Originalquery, weitet keinen Scope aus und fällt bei Modell-, Statistik- oder Indexfehlern kontrolliert auf die bestehende Retrieval-Pipeline zurück.",
@@ -136,7 +143,7 @@
       "SIRA-022"
     ]
   },
-  "updated_at": "2026-08-27",
+  "updated_at": "2026-08-28",
   "title": "CodeCompass: SIRA-inspiriertes corpus-diskriminatives Retrieval",
   "status_scale": [
     "todo",
