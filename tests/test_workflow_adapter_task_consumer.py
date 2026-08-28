@@ -410,9 +410,19 @@ def test_forwarded_knowledge_index_result_is_validated_and_persisted(monkeypatch
     validated = []
 
     class JobService:
-        def materialize_worker_result(self, *, job_id, result, task):
+        def materialize_worker_result(
+            self,
+            *,
+            job_id,
+            result,
+            task,
+            authenticated_worker_id,
+            transfer_deadline,
+        ):
             assert job_id == "knowledge-index-" + "a" * 32
             assert task["verification_status"] == {}
+            assert authenticated_worker_id is None
+            assert transfer_deadline is None
             assert set(result) == {
                 "schema",
                 "job_id",

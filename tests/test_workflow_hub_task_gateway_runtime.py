@@ -152,6 +152,7 @@ def test_production_hub_rejects_oversized_signing_keyring(
 ) -> None:
     path = tmp_path / "oversized-signing-keyring.json"
     path.write_bytes(b"{" + b" " * 65_536 + b"}")
+    path.chmod(0o600)
     monkeypatch.setenv("ANANTA_WORKFLOW_AUTH_SIGNING_KEYRING_FILE", str(path))
     reset_workflow_hub_task_gateway_service()
 

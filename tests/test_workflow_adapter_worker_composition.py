@@ -266,6 +266,7 @@ def test_production_profile_is_typed_and_unknown_fields_fail_closed(
         ),
         encoding="utf-8",
     )
+    invalid.chmod(0o600)
     with pytest.raises(
         WorkflowAdapterWorkerProfileError,
         match="workflow_adapter_worker_profile_invalid",

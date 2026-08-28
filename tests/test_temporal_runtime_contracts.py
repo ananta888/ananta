@@ -289,8 +289,10 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
         json.dumps(asymmetric.verification_mapping()),
         encoding="utf-8",
     )
+    keyring.chmod(0o600)
     token = tmp_path / "hub-token"
     token.write_text("signed-hub-service-token", encoding="utf-8")
+    token.chmod(0o600)
     config = TemporalWorkerConfig.from_env(
         {
             "ANANTA_WORKFLOW_AUTH_VERIFICATION_KEYRING_FILE": str(keyring),
@@ -321,6 +323,7 @@ def test_worker_config_requires_absolute_credential_references_and_supports_keyr
         ),
         encoding="utf-8",
     )
+    legacy.chmod(0o600)
     with pytest.raises(TemporalWorkerConfigError, match="legacy HMAC"):
         TemporalWorkerConfig.from_env({"ANANTA_TEMPORAL_AUTH_KEYRING_FILE": str(legacy)})
     compatibility = TemporalWorkerConfig.from_env(

@@ -243,6 +243,7 @@ def test_worker_runtime_loads_public_ed25519_but_not_legacy_hmac(tmp_path) -> No
         json.dumps(signer.verification_mapping()),
         encoding="utf-8",
     )
+    public_keyring.chmod(0o600)
     accepted = _activity_result(
         build_command_authority_activity(TemporalWorkerConfig(authorization_keyring_file=str(public_keyring))),
         _issue(signer).to_dict(),
@@ -260,6 +261,7 @@ def test_worker_runtime_loads_public_ed25519_but_not_legacy_hmac(tmp_path) -> No
         ),
         encoding="utf-8",
     )
+    legacy_keyring.chmod(0o600)
     legacy_command = _issue(HmacKeyRing({"hmac-key": "h" * 32}, active_key_id="hmac-key"))
     rejected = _activity_result(
         build_command_authority_activity(

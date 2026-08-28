@@ -43,15 +43,26 @@ def test_same_plan_compiles_to_every_temporal_example_scenario() -> None:
         assert workflow_input.steps[2].depends_on == ("publish",)
 
 
-def test_native_and_pinned_langgraph_drills_use_real_runtime_paths() -> None:
+def test_native_drill_uses_real_runtime_path() -> None:
     plan = load_plan()
 
     native = run_native_drill(plan)
-    langgraph = run_langgraph_drill(plan)
 
-    assert native["plan_hash"] == langgraph["plan_hash"] == plan.plan_hash
+    assert native["plan_hash"] == plan.plan_hash
     assert native["scenarios"]["failure"]["attempts"] == 2
     assert native["scenarios"]["resume"]["terminal_status"] == "completed"
+
+
+def test_pinned_langgraph_drill_uses_real_runtime_path() -> None:
+    pytest.importorskip(
+        "langgraph.graph",
+        reason="pinned LangGraph runtime extra is not installed",
+    )
+    plan = load_plan()
+
+    langgraph = run_langgraph_drill(plan)
+
+    assert langgraph["plan_hash"] == plan.plan_hash
     assert langgraph["framework_path"] == "langgraph.graph.StateGraph"
     assert langgraph["scenarios"]["approval"]["approved_terminal_status"] == "completed"
     assert langgraph["scenarios"]["crash"]["production_equivalent"] is False

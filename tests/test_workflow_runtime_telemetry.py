@@ -135,6 +135,7 @@ def test_runtime_telemetry_uses_secret_file_headers_and_exports_after_append(
     exporter = _Exporter()
     headers_file = tmp_path / "otel-headers.json"
     headers_file.write_text('{"Authorization":"opaque-collector-credential"}', encoding="utf-8")
+    headers_file.chmod(0o600)
     captured = {}
 
     def build_exporter(**values):
