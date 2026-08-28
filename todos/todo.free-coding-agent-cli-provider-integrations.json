@@ -4,8 +4,39 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "free-coding-agent-cli-provider-integrations",
   "created": "2026-08-16",
-  "last_updated": "2026-08-16",
-  "status": "todo",
+  "last_updated": "2026-08-28",
+  "status": "partial",
+  "review_basis": {
+    "reviewed_commit": "bcc8ae481f7c490fa4dbb59ed3e0163b8f32b1f3",
+    "review_goal": "Veralteten Nullstand gegen den CLI-Backend-Source-of-Truth, vorhandene Worker-Adapter und aktuelle offizielle Automationspfade pruefen",
+    "repository_state": "main entsprach origin/main; Arbeitsbaum war vor dem Audit sauber",
+    "verification": "155 Codex-, Claude-, OpenCode-, Aider-, Namespace-, Provisioning- und Routing-Regressionsfaelle bestanden"
+  },
+  "current_state": {
+    "source_of_truth": "agent.cli_backends.*",
+    "implemented_cli_backends": ["sgpt", "codex", "claude_code", "opencode", "aider", "mistral_code"],
+    "provider_contract_gap": "Provider-spezifische Runner und Routingtabellen existieren, aber kein geschlossener CodingAgentProvider-Lifecycle-Vertrag mit integration_kind und free_class.",
+    "new_provider_status": {
+      "qwen_code": "official_headless_available_but_not_integrated",
+      "gemini_cli": "official_headless_available_but_not_integrated",
+      "github_copilot_cli": "experimental_plan_only_adapter",
+      "jules": "official_alpha_api_available_but_not_integrated",
+      "windsurf": "ide_external_no_official_headless_contract_verified",
+      "cline": "official_headless_cli_available_but_not_integrated",
+      "kilo_code": "official_autonomous_cli_available_but_not_integrated"
+    }
+  },
+  "research_sources": [
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/headless.md",
+    "https://github.com/QwenLM/qwen-code/blob/main/README.md",
+    "https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx",
+    "https://developers.google.com/jules/api",
+    "https://docs.github.com/en/copilot/concepts/agents/copilot-cli/about-copilot-cli",
+    "https://docs.cline.bot/usage/cli-overview",
+    "https://kilo.ai/docs/code-with-ai/platforms/cli",
+    "https://docs.windsurf.com/de/windsurf/terminal",
+    "https://aider.chat/docs/scripting.html"
+  ],
   "purpose": "Ananta neben den bereits vorgesehenen bzw. vorhandenen Codex-CLI-, Claude-CLI- und OpenCode-Pfaden um weitere kostenlose, Free-Tier- oder Open-Source-Coding-Agenten zu erweitern. Qwen Code/Qwen Coder hat dabei hoechste Prioritaet. Anbieter sollen nicht ueber Sonderlogik direkt in Worker eingebaut werden, sondern ueber einen gemeinsamen versionierten Coding-Agent-Adapter mit Capability Discovery, Auth-Status, Sessionsteuerung, Streaming, Quoten-/Kostenmetadaten und sauberer Fehlerbehandlung.",
   "goal": "Einen gemeinsamen Coding-Agent-Provider-Layer etablieren, ueber den Ananta Codex CLI, Claude CLI, OpenCode und zusaetzlich Qwen Code/Qwen Coder, Google Jules, Google Antigravity/Gemini-Coding-CLI, GitHub Copilot Free, Windsurf, Cline, Aider und Kilo Code dort nutzen kann, wo ein technisch belastbarer automatisierbarer Zugriff existiert. Kostenlose Software/BYOK und wirklich kostenlos enthaltene Modellnutzung muessen in UI und Routing klar unterschieden werden.",
   "non_goals": [
@@ -21,11 +52,12 @@
       "display_name": "Qwen Code / Qwen Coder",
       "priority": "P0",
       "integration_target": "CLI zuerst; Cloud-Coder nur bei offizieller automatisierbarer Schnittstelle",
-      "free_class": "free-tier-or-provider-auth",
+      "free_class": "open-source-client-byok-or-paid-plan",
       "notes": [
         "Explizit als erster neuer Provider integrieren.",
         "Qwen Code CLI und coder.qwen.ai als getrennte Oberflaechen/Produkte behandeln.",
-        "Auth-Modi, Headless-Aufruf, Session Resume, Tool-Modus und aktuelle Quoten waehrend der Implementierung gegen offizielle Dokumentation pruefen."
+        "Offizieller Headless-Aufruf, JSON/stream-json und Session Resume sind dokumentiert.",
+        "Der fruehere Qwen-OAuth-Free-Tier wurde laut Upstream am 2026-04-15 eingestellt; keine kostenlose Inferenz versprechen."
       ]
     },
     {
@@ -41,13 +73,13 @@
     },
     {
       "id": "google-antigravity-gemini",
-      "display_name": "Google Antigravity / Gemini Coding",
+      "display_name": "Google Gemini CLI / Antigravity",
       "priority": "P1",
       "integration_target": "offizieller CLI-/Agent-Pfad",
       "free_class": "free-tier",
       "notes": [
-        "Aktuellen offiziellen CLI-Namen und Auth-Pfad bei Implementierung verifizieren.",
-        "Provider-Adapter nur auf dokumentierte nicht-interaktive Schnittstellen aufsetzen."
+        "Der aktuelle offizielle Automationspfad ist Gemini CLI mit Headless-Modus und API-Key-/Vertex-AI-Authentifizierung.",
+        "Antigravity nicht als eigenstaendigen CLI-Vertrag erfinden."
       ]
     },
     {
@@ -68,8 +100,8 @@
       "integration_target": "Capability Check fuer CLI/headless agent",
       "free_class": "free-or-limited-plan",
       "notes": [
-        "IDE-orientierten Anbieter nur integrieren, wenn ein stabiler automatisierbarer offizieller Pfad existiert.",
-        "Sonst lediglich als externe Entwicklungsumgebung dokumentieren."
+        "Die offizielle Doku belegt IDE/Cascade und integriertes Terminal, aber keinen stabilen externen Headless-Agent-Vertrag.",
+        "Als externe Entwicklungsumgebung dokumentieren; nicht als CLI anbieten."
       ]
     },
     {
@@ -80,7 +112,7 @@
       "free_class": "open-source-client-byok",
       "notes": [
         "Kostenlose Software klar von kostenpflichtiger oder extern bereitgestellter Inferenz trennen.",
-        "Provider kann sinnvoll sein, wenn ein automatisierbarer Laufmodus existiert."
+        "Ein offizieller Headless-/JSON-CLI-Pfad ist inzwischen dokumentiert und bleibt als spaetere Adapterintegration offen."
       ]
     },
     {
@@ -101,7 +133,7 @@
       "integration_target": "Capability Check fuer CLI/headless; sonst IDE-Integration",
       "free_class": "open-source-client-byok-or-free-tier",
       "notes": [
-        "Aktuellen Headless-/CLI-Support und Provider-Modi vor Implementierung verifizieren."
+        "Der offizielle CLI-Pfad bietet kilo run --auto, Exitcodes und policybasierte automatische Ablehnung/Freigabe."
       ]
     }
   ],
@@ -140,12 +172,23 @@
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
+  "critical_path_tasks": [
+    "FCA-001",
+    "FCA-002",
+    "FCA-003",
+    "FCA-004",
+    "FCA-005",
+    "FCA-006",
+    "FCA-007",
+    "FCA-016",
+    "FCA-019"
+  ],
   "milestones": [
     {
       "id": "M1",
       "title": "Bestehende CLI-Architektur inventarisieren und gemeinsamen Contract definieren",
       "task_ids": ["FCA-001", "FCA-002", "FCA-003"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M2",
@@ -157,19 +200,19 @@
       "id": "M3",
       "title": "Weitere CLI- und Free-Tier-Provider",
       "task_ids": ["FCA-008", "FCA-009", "FCA-010", "FCA-011"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
       "title": "Cloud-/IDE-Agenten und Capability-Gates",
       "task_ids": ["FCA-012", "FCA-013", "FCA-014", "FCA-015"],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
       "title": "Routing, UI, Quoten, Security und Tests",
       "task_ids": ["FCA-016", "FCA-017", "FCA-018", "FCA-019", "FCA-020"],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -177,10 +220,10 @@
       "id": "FCA-001",
       "title": "Bestehende Codex-/Claude-/OpenCode-Integration als IST-Zustand kartieren",
       "type": "analysis",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Alle Process-Spawning-, PTY-, Session-, Workspace-, Auth-, Streaming-, Tool- und Permission-Pfade der bestehenden drei Integrationen erfassen.",
@@ -192,16 +235,20 @@
         "Codex CLI, Claude CLI und OpenCode sind mit ihren Faehigkeiten und Sonderfaellen dokumentiert.",
         "Kein Refactoring startet ohne Regression-Baseline."
       ],
-      "dependencies": []
+      "dependencies": [],
+      "evidence": [
+        "docs/cli-backends-architecture.md dokumentiert Namespace, Modulgrenzen, Context-DIP und Regressionstests.",
+        "155 fokussierte Codex-, Claude-, OpenCode-, Aider-, Namespace-, Provisioning- und Routingtests bestanden am 2026-08-28."
+      ]
     },
     {
       "id": "FCA-002",
       "title": "CodingAgentProvider Contract und Capability-Modell definieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 45,
       "implementation": {
         "notes": [
           "Contract fuer detect/version/auth_status/start/resume/send/cancel/terminate/health/capabilities definieren.",
@@ -213,16 +260,20 @@
         "Neue Provider koennen ohne Worker-Core-Sonderfall registriert werden.",
         "Nicht unterstuetzte Faehigkeiten sind explizit und maschinenlesbar."
       ],
-      "dependencies": ["FCA-001"]
+      "dependencies": ["FCA-001"],
+      "evidence": [
+        "agent.providers.interfaces und registry liefern generische Descriptor-, Health- und Factory-Seams; agent.cli_backends.routing besitzt Capability- und Discovery-Bausteine.",
+        "Der geforderte geschlossene CodingAgentProvider-Vertrag fuer detect, auth, start, stream, cancel und Session Resume fehlt noch."
+      ]
     },
     {
       "id": "FCA-003",
       "title": "Generischen externen CLI Process Adapter extrahieren",
       "type": "refactor",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "implementation": {
         "notes": [
           "Gemeinsames Process Lifecycle Management fuer CLI-Agenten bereitstellen.",
@@ -234,7 +285,11 @@
         "Mindestens bestehender OpenCode-Pfad und neuer Qwen-Code-Pfad koennen denselben Prozessadapter verwenden.",
         "Abbruch hinterlaesst keine Zombie-Prozesse."
       ],
-      "dependencies": ["FCA-002"]
+      "dependencies": ["FCA-002"],
+      "evidence": [
+        "Semaphore-, Timeout- und argv-basierte Runner existieren, sind aber ueber agent.cli_backends.opencode und simple_command_runners verteilt.",
+        "Ein gemeinsamer Prozessgruppen-/Streaming-/Cancellation-Adapter fuer neue Coding-Agent-CLIs fehlt."
+      ]
     },
     {
       "id": "FCA-004",
@@ -311,7 +366,7 @@
       "implementation": {
         "notes": [
           "Mock-CLI fuer deterministische CI-Tests bereitstellen.",
-          "Optionalen echten Smoke-Test hinter explizitem Secret/Auth-Gate halten.",
+          "Optionalen echten Smoke-Test vollautomatisch mit vorab bereitgestelltem Secret/Auth-Gate ausfuehren; niemals auf interaktive Anmeldung oder Freigabe warten.",
           "Codex, Claude und OpenCode Regressionen parallel pruefen."
         ]
       },
@@ -325,10 +380,10 @@
       "id": "FCA-008",
       "title": "Aider CLI Adapter integrieren",
       "type": "provider",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 75,
       "implementation": {
         "notes": [
           "Aider als Open-Source-CLI/BYOK kennzeichnen, nicht als automatisch kostenlose Inferenz.",
@@ -339,7 +394,11 @@
         "Aider ist ueber denselben Provider-Contract startbar.",
         "Kosten-/Free-Class wird korrekt angezeigt."
       ],
-      "dependencies": ["FCA-003"]
+      "dependencies": ["FCA-003"],
+      "evidence": [
+        "Aider ist in agent.cli_backends Routing, Preflight, Modellinventar, Runner und Semaphore sowie als Worker-Adapter implementiert.",
+        "Der vorhandene Pfad besitzt noch nicht den neuen gemeinsamen Lifecycle-/Free-Class-Vertrag."
+      ]
     },
     {
       "id": "FCA-009",
@@ -365,10 +424,10 @@
       "id": "FCA-010",
       "title": "GitHub Copilot Free CLI/Agent Capability pruefen",
       "type": "provider",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 25,
       "implementation": {
         "notes": [
           "Pruefen, welche offiziellen CLI-/Agent-Funktionen im Free-Plan automatisierbar nutzbar sind.",
@@ -379,16 +438,20 @@
         "Unterstuetzte Free-Tier-Faehigkeiten sind exakt abgegrenzt.",
         "Bei geeigneter offizieller Schnittstelle existiert ein Provider Adapter."
       ],
-      "dependencies": ["FCA-002"]
+      "dependencies": ["FCA-002"],
+      "evidence": [
+        "worker.adapters.copilot_cli_adapter ist ein explizit opt-in plan-only Stub und fuehrt noch keinen Copilot-CLI-Task aus.",
+        "Die offizielle Copilot CLI bietet inzwischen programmatic prompt, JSONL, autonome Modi und granulare Toolfreigaben fuer alle Copilot-Plaene."
+      ]
     },
     {
       "id": "FCA-011",
       "title": "Free-/Local-Model Kombinationen fuer OpenCode und Aider vereinheitlichen",
       "type": "routing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 55,
       "implementation": {
         "notes": [
           "OpenCode/Aider sollen vorhandene Ananta OpenAI-kompatible, lokale oder Free-Tier-Endpunkte ueber deklarative Konfiguration nutzen koennen.",
@@ -399,7 +462,11 @@
         "Ein Coding-Client kann ohne Codeaenderung auf einen anderen erlaubten Modellprovider geroutet werden.",
         "UI zeigt Client und Inferenzanbieter getrennt."
       ],
-      "dependencies": ["FCA-002", "FCA-008"]
+      "dependencies": ["FCA-002", "FCA-008"],
+      "evidence": [
+        "OpenCode und Aider akzeptieren getrennte Modellkonfigurationen; lokale OpenAI-kompatible Laufzeiten sind im Hub inventarisierbar.",
+        "Eine geschlossene Client-versus-Inferenzanbieter-Projektion mit free_class fuer Router und UI fehlt."
+      ]
     },
     {
       "id": "FCA-012",
@@ -424,10 +491,10 @@
       "id": "FCA-013",
       "title": "Windsurf Capability Check",
       "type": "spike",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 100,
       "implementation": {
         "notes": [
           "Pruefen, ob stabiler offizieller Headless-/CLI-Agent existiert.",
@@ -437,7 +504,11 @@
       "acceptance_criteria": [
         "Windsurf wird nicht faelschlich als CLI-Provider angeboten."
       ],
-      "dependencies": ["FCA-002"]
+      "dependencies": ["FCA-002"],
+      "evidence": [
+        "Die aktuelle offizielle Windsurf-Dokumentation beschreibt Cascade, IDE Command und ein IDE-integriertes Terminal, aber keinen externen headless Coding-Agent-CLI-Vertrag.",
+        "Windsurf wird im Ananta CLI-Backend-Source-of-Truth nicht als ausfuehrbarer Provider angeboten und bleibt ide_external."
+      ]
     },
     {
       "id": "FCA-014",
@@ -481,10 +552,10 @@
       "id": "FCA-016",
       "title": "Provider Registry, Auto-Discovery und Health Status erweitern",
       "type": "platform",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 55,
       "implementation": {
         "notes": [
           "Alle Provider deklarativ registrieren.",
@@ -496,16 +567,20 @@
         "Ananta kann alle konfigurierten Provider mit Status auflisten.",
         "Ein defekter optionaler Provider beeintraechtigt andere Provider nicht."
       ],
-      "dependencies": ["FCA-002", "FCA-005"]
+      "dependencies": ["FCA-002", "FCA-005"],
+      "evidence": [
+        "GenericProviderRegistry sowie CLI-Preflight, Runtime-Status, Diagnose und Modellinventar existieren und isolieren fehlende optionale Binaries.",
+        "Neue Provider und Auth-/Quota-/Free-Class-Zustaende sind noch nicht deklarativ registriert."
+      ]
     },
     {
       "id": "FCA-017",
       "title": "UI fuer Coding-Agent-Auswahl, Free-Class und Faehigkeiten",
       "type": "ui",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "implementation": {
         "notes": [
           "Codex CLI, Claude CLI, OpenCode und neue Provider in einer einheitlichen Auswahl zeigen.",
@@ -517,16 +592,20 @@
         "Nutzer erkennt vor Task-Start, welcher Client und welcher Inferenz-/Account-Typ verwendet wird.",
         "Nicht verfuegbare Provider sind erklaert statt kommentarlos ausgeblendet."
       ],
-      "dependencies": ["FCA-016"]
+      "dependencies": ["FCA-016"],
+      "evidence": [
+        "Bestehende Settings-/Diagnoseoberflaechen zeigen CLI-Verfuegbarkeit und Modellwahl.",
+        "integration_kind, free_class, Auth-, Quota- und unsupported-Badges fehlen."
+      ]
     },
     {
       "id": "FCA-018",
       "title": "Kosten-/Quota-bewusstes Fallback Routing",
       "type": "routing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 30,
       "implementation": {
         "notes": [
           "Optionale Strategie free-first -> local -> paid konfigurieren.",
@@ -538,16 +617,20 @@
         "Quota-Erschoepfung eines Free-Providers kann kontrolliert auf einen erlaubten Ersatz wechseln.",
         "Paid-Fallback kann global und je Workspace deaktiviert werden."
       ],
-      "dependencies": ["FCA-006", "FCA-016"]
+      "dependencies": ["FCA-006", "FCA-016"],
+      "evidence": [
+        "agent.cli_backends.routing besitzt erlaubnis-, Health-, Cooldown- und capabilitybasierte Kandidatenauswahl.",
+        "Free-first/local/paid-Klassen und ein hartes Verbot ungefragter Paid-Fallbacks fehlen."
+      ]
     },
     {
       "id": "FCA-019",
       "title": "Security- und Isolation-Policy fuer externe Coding-Agenten",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 50,
       "implementation": {
         "notes": [
           "Workspace-, Dateisystem-, Netzwerk-, Credential- und Tool-Rechte pro Provider explizit begrenzen.",
@@ -559,16 +642,20 @@
         "Provider erhaelt nur explizit erlaubte Credentials und Workspace-Rechte.",
         "Security-Tests decken Secret Leakage, Path Escape, Process Escape und untrusted output ab."
       ],
-      "dependencies": ["FCA-003"]
+      "dependencies": ["FCA-003"],
+      "evidence": [
+        "Bestehende Codex-/Claude-/OpenCode-Pfade besitzen argv-, Workspace-, Policy- und Secret-Regressionen.",
+        "Der kleine Aider-Runner kopiert noch die gesamte uebergebene Umgebung; eine gemeinsame explizite Credential-Allowlist fehlt."
+      ]
     },
     {
       "id": "FCA-020",
       "title": "Kompatibilitaetsmatrix, Benchmarks und Dokumentation",
       "type": "docs-test",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 35,
       "implementation": {
         "notes": [
           "Matrix fuer install/auth/headless/session/tools/MCP/context/git/structured output/free class pflegen.",
@@ -581,7 +668,11 @@
         "Qwen Code ist als P0-Referenz vollstaendig dokumentiert und getestet.",
         "Jeder weitere Kandidat ist entweder integriert oder mit technischem Grund als blocked/unsupported markiert."
       ],
-      "dependencies": ["FCA-007", "FCA-008", "FCA-009", "FCA-010", "FCA-012", "FCA-013", "FCA-014", "FCA-015", "FCA-017", "FCA-018", "FCA-019"]
+      "dependencies": ["FCA-007", "FCA-008", "FCA-009", "FCA-010", "FCA-012", "FCA-013", "FCA-014", "FCA-015", "FCA-017", "FCA-018", "FCA-019"],
+      "evidence": [
+        "docs/cli-backends-architecture.md und docs/worker/comparison_aider_opencode_shellgpt_copilot.md bilden Teile der Bestandsmatrix ab.",
+        "Die aktuelle offizielle Providerklassifikation ist im Track korrigiert; Qwen-Referenzintegration und einheitlicher Benchmark fehlen."
+      ]
     }
   ],
   "definition_of_done": [
@@ -591,7 +682,7 @@
     "Provider Discovery, Auth-Status, Capabilities, Start, Streaming, Cancel, Timeout und Fehler-Mapping verwenden gemeinsame Contracts.",
     "Free-first Routing kann Quota-Erschoepfung behandeln, ohne ungefragt kostenpflichtige Nutzung zu starten.",
     "Bestehende Codex-, Claude- und OpenCode-Pfade bleiben regressionstest-gruen.",
-    "Security-, Unit-, Integration- und mindestens optionale echte Smoke-Tests sind dokumentiert."
+    "Security-, Unit-, Integration- und optionale echte Smoke-Tests sind vollautomatisch, bounded und ohne erforderlichen Human-in-the-loop dokumentiert."
   ],
   "recommended_order": [
     "FCA-001",
@@ -614,5 +705,110 @@
     "FCA-017",
     "FCA-018",
     "FCA-020"
-  ]
+  ],
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {"todo": 8, "in_progress": 0, "partial": 10, "blocked": 0, "done": 2},
+    "progress_percent_done": 10.0,
+    "by_priority": {"P0": 9, "P1": 8, "P2": 3, "P3": 0},
+    "by_risk": {"low": 3, "medium": 11, "high": 5, "critical": 1},
+    "critical_path": {"total": 9, "done": 1, "remaining": 8},
+    "milestones": {"total": 5, "todo": 1, "in_progress": 4, "blocked": 0, "done": 0}
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 8,
+    "in_progress": 0,
+    "partial": 10,
+    "blocked": 0,
+    "done": 2,
+    "count_based_percent": 10.0,
+    "weighted_percent": 31.5
+  },
+  "tasks_type_summary": {
+    "total": 20,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1},
+        "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 45.0
+      },
+      "refactor": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 35.0
+      },
+      "provider": {
+        "total": 6,
+        "by_status": {"todo": 4, "in_progress": 0, "partial": 2, "blocked": 0, "done": 0},
+        "done": 0, "partial": 2, "blocked": 0, "progress_percent": 16.7
+      },
+      "test": {
+        "total": 1,
+        "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+        "done": 0, "partial": 0, "blocked": 0, "progress_percent": 0.0
+      },
+      "routing": {
+        "total": 2,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 2, "blocked": 0, "done": 0},
+        "done": 0, "partial": 2, "blocked": 0, "progress_percent": 42.5
+      },
+      "spike": {
+        "total": 4,
+        "by_status": {"todo": 3, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1},
+        "done": 1, "partial": 0, "blocked": 0, "progress_percent": 25.0
+      },
+      "platform": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 55.0
+      },
+      "ui": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 30.0
+      },
+      "security": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 50.0
+      },
+      "docs-test": {
+        "total": 1,
+        "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0},
+        "done": 0, "partial": 1, "blocked": 0, "progress_percent": 35.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 31.25,
+    "done_weight": 9.85,
+    "remaining_weight": 21.4,
+    "blocked_weight": 0.0,
+    "weighted_percent": 31.5
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {"total_tasks": 3, "done": 1, "blocked": 0, "count_based_percent": 33.3, "weighted_percent": 56.4, "status": "in_progress"},
+      "M2": {"total_tasks": 4, "done": 0, "blocked": 0, "count_based_percent": 0.0, "weighted_percent": 0.0, "status": "todo"},
+      "M3": {"total_tasks": 4, "done": 0, "blocked": 0, "count_based_percent": 0.0, "weighted_percent": 38.8, "status": "in_progress"},
+      "M4": {"total_tasks": 4, "done": 1, "blocked": 0, "count_based_percent": 25.0, "weighted_percent": 22.2, "status": "in_progress"},
+      "M5": {"total_tasks": 5, "done": 0, "blocked": 0, "count_based_percent": 0.0, "weighted_percent": 40.3, "status": "in_progress"}
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-28T16:34:44.148976Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "e40684becc6cc1a6fef4e976b278ac4ce8ba8e6741ae176a946aa293b27b798b",
+    "is_stale": false
+  }
 }
