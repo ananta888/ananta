@@ -22,7 +22,7 @@
     "reviewed_repository": "ananta888/ananta",
     "reviewed_branch": "main",
     "reviewed_at": "2026-08-28",
-    "reviewed_commit_range": "main@c1720afbe089972c7692df5b4a7e40a3090184fa; Arbeitsbaum vor dem Audit sauber und mit origin/main synchron.",
+    "reviewed_commit_range": "main@dddeaba7d0fa85e2ae68792c71898fcc1ac9b8be; Arbeitsbaum vor dem Audit sauber und mit origin/main synchron.",
     "review_goal": "Bestehende Provider-, Routing-, Tiny-Router-, LoRA-, Worker- und Container-Bausteine erfassen und den tatsächlichen Umsetzungsstand von Runtime, Integration und automatisiertem Training ohne Überclaim dokumentieren.",
     "reviewed_paths": [
       "AGENTS.md",
@@ -49,6 +49,11 @@
       "tests/services/test_local_adapter_evaluation_service.py",
       "agent/services/local_multi_model_runtime.py",
       "agent/services/local_adapter_lifecycle.py",
+      "agent/services/local_adapter_lifecycle_adapters.py",
+      "agent/services/local_adapter_lifecycle_coordinator.py",
+      "agent/services/local_adapter_release_target.py",
+      "agent/services/local_adapter_training_base_verifier.py",
+      "config/models/local-adapter-training-bases.v1.json",
       "deploy/systemd/ananta-local-model-runtime.service",
       "docker/compose-next/compose.lora-training.yml",
       "scripts/local-multi-model-runtime.sh",
@@ -163,7 +168,7 @@
       "Ein realer 9709-Sekunden-Parallel-Soak, kontrollierte Crash-Recovery und die containerisierten Netzwerkgrenzen wurden erfolgreich geprüft."
     ],
     "implemented_but_not_productively_wired": [
-      "Offline-Evaluation, Shadow, Canary und atomare Promotion sind implementiert und fail-closed verdrahtet, können ohne freigegebenes Dataset und trainierte Candidates aber keine reale Produktivfreigabe erzeugen.",
+      "Offline-Evaluation, Shadow, Canary sowie Registry-Promotion und Rollback sind implementiert und fail-closed verdrahtet, können ohne freigegebenes Dataset und trainierte Candidates aber keine reale Produktivfreigabe erzeugen.",
       "Automatische Aktivierung trainierter Needle-.pkl- oder LFM-PEFT-Gewichte bleibt gesperrt, bis ein sicherer Serving-Konverter und reale freigegebene Candidates vorliegen."
     ],
     "existing_ananta_foundation": [
@@ -178,7 +183,8 @@
       "Freigegebene, grounded Trainings- und Holdout-Datasets sowie daraus erzeugte Candidates fehlen.",
       "Es liegen keine freigegebenen SRC_*-/RUN_*-IDs für Golden-/OOD-/Abstain-/Injection-Daten oder reale Trainings- und Release-Läufe vor.",
       "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf mit registrierter RUN_* Evidenz fehlt.",
-      "Sichere Serving-Konverter für trainierte Needle-.pkl- und LFM-PEFT-Candidates fehlen."
+      "Sichere Serving-Konverter für trainierte Needle-.pkl- und LFM-PEFT-Candidates fehlen.",
+      "Der aktuelle Runtime-Restart-Adapter bindet den promoted Candidate nicht an die tatsächlich gestartete Serving-Konfiguration; Registry-Promotion plus Neustart allein ist daher noch keine produktive Aktivierung."
     ]
   },
   "feature_flags": [
@@ -355,10 +361,11 @@
       "evidence": ["agent/services/local_adapter_rollout_service.py", "tests/services/test_local_adapter_rollout_service.py"]
     },
     {
-      "id": "LMM-LIFE-005", "title": "Atomare automatische Promotion und Rollback mit Registry-Restart integrieren", "status": "done", "priority": "P0", "risk": "critical", "type": "integration", "milestone_id": "M06", "depends_on": ["LMM-LIFE-004"], "progress_percent": 100,
+      "id": "LMM-LIFE-005", "title": "Atomare automatische Promotion und Rollback mit Registry-Restart integrieren", "status": "partial", "priority": "P0", "risk": "critical", "type": "integration", "milestone_id": "M06", "depends_on": ["LMM-LIFE-004"], "progress_percent": 70,
       "description": "Nach allen Gates aktiviert der Hub exakt eine hashgebundene Candidate-Version; die alte Version bleibt rückrollbar und der Runtime-Prozess wird kontrolliert neu gestartet.",
       "acceptance_criteria": ["Training kann niemals direkt den Registry-Status approved setzen.", "Promotion prüft alle aktuellen Dataset-, Candidate-, Evaluation-, Shadow-, Canary- und Policy-Digests erneut.", "Aktivierung ist atomar und idempotent.", "Rollback stellt den letzten sicheren Vorgänger wieder her und auditiert Grund und Version.", "Needle-Prozessrestart berücksichtigt, dass Gewichte im selben Prozess nicht sicher entladen werden."],
-      "evidence": ["agent/services/local_adapter_lifecycle_coordinator.py", "agent/services/local_adapter_lifecycle_adapters.py", "agent/services/ml_intern_adapter_registry_service.py", "tests/services/test_local_adapter_lifecycle_coordinator.py", "tests/services/test_local_adapter_lifecycle_adapters.py"]
+      "remaining_work": ["Candidate-Digest und target-spezifisches Serving-Artefakt atomar in eine Runtime-Aktivierungsprojektion schreiben, diese Projektion beim Neustart verifizieren und bei Fehlern gemeinsam mit der Registry auf den sicheren Vorgänger zurückrollen."],
+      "evidence": ["Registry-Zustand, Digest-Revalidierung, kompensierender Rollback und kontrollierter Neustart sind implementiert.", "agent/services/local_adapter_lifecycle_coordinator.py", "agent/services/local_adapter_lifecycle_adapters.py", "agent/services/ml_intern_adapter_registry_service.py", "tests/services/test_local_adapter_lifecycle_coordinator.py", "tests/services/test_local_adapter_lifecycle_adapters.py", "Auditbefund: LocalModelRuntimeRestartAdapter.restart übergibt candidate_sha256 nur in der Request-ID; die gestartete Runtime-Konfiguration konsumiert weder Candidate-Pfad noch Candidate-Digest."]
     },
     {
       "id": "LMM-QA-001", "title": "Fokussierte Unit- und bestehende Routing-Regressionstests abschließen", "status": "done", "priority": "P0", "risk": "medium", "type": "test", "milestone_id": "M07", "depends_on": ["LMM-BASE-004", "LMM-LIFE-001"], "progress_percent": 100,
@@ -400,11 +407,11 @@
   ],
   "tasks_status_summary": {
     "total": 31,
-    "by_status": {"todo": 0, "in_progress": 0, "partial": 2, "blocked": 1, "done": 28},
-    "progress_percent_done": 90.3,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 3, "blocked": 1, "done": 27},
+    "progress_percent_done": 87.1,
     "by_priority": {"P0": 28, "P1": 3, "P2": 0},
     "by_risk": {"low": 1, "medium": 4, "high": 12, "critical": 14},
-    "critical_path": {"total": 16, "done": 13, "remaining": 3},
+    "critical_path": {"total": 16, "done": 12, "remaining": 4},
     "milestones": {"total": 7, "todo": 0, "in_progress": 3, "blocked": 0, "done": 4}
   },
   "tasks_type_summary": {
@@ -418,7 +425,7 @@
       "contract": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "api": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "observability": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "integration": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "integration": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 1}, "done": 1, "partial": 1, "blocked": 0, "progress_percent": 85.0},
       "data": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "model": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "training": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 0.0},
@@ -434,19 +441,19 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 2,
+    "partial": 3,
     "blocked": 1,
-    "done": 28,
-    "count_based_percent": 90.3,
-    "weighted_percent": 95.8
+    "done": 27,
+    "count_based_percent": 87.1,
+    "weighted_percent": 94.9
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 47.5,
-    "done_weight": 45.525,
-    "remaining_weight": 1.975,
+    "done_weight": 45.075,
+    "remaining_weight": 2.425,
     "blocked_weight": 1.5,
-    "weighted_percent": 95.8
+    "weighted_percent": 94.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -455,17 +462,17 @@
       "M03": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M04": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M05": {"total_tasks": 4, "done": 3, "blocked": 1, "count_based_percent": 75.0, "weighted_percent": 76.9, "status": "in_progress"},
-      "M06": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 95.7, "status": "in_progress"},
+      "M06": {"total_tasks": 5, "done": 3, "blocked": 0, "count_based_percent": 60.0, "weighted_percent": 89.3, "status": "in_progress"},
       "M07": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 97.5, "status": "in_progress"}
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T13:22:47.522850Z",
+    "generated_at": "2026-08-28T17:15:13.857642Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "9b9395a000e19510fdc632b9c08eed35bec27f6ade7618572db44faacb38acfb",
+    "source_hash": "0d844df8eb4971963ea722a46359f9c2e26e94537af899edee1b4bdf8cbbf596",
     "is_stale": false
   },
   "execution_stage_summary": {
@@ -478,14 +485,14 @@
     "offline_evaluation": "partial_implementation_complete_real_holdout_missing",
     "shadow": "done_implementation",
     "canary": "done_implementation",
-    "automatic_promotion_and_rollback": "done_fail_closed_implementation",
+    "automatic_promotion_and_rollback": "partial_registry_atomic_runtime_candidate_binding_missing",
     "production_release": "blocked"
   },
   "summary_notes": [
     "Persistente Hub-Consumer für Placement, Runtime-Control, Evaluation, Shadow, Canary, Promotion und Rollback sind implementiert und getestete Zustandswechsel bleiben fail-closed.",
     "Runtime-Skripte, authentifizierte Docker-Bridge, Compose-Overlay und systemd-Supervision sind operativ; Real-Soak, Crash-Recovery und Container-Netzwerkgrenzen wurden geprüft.",
     "Anantas vorhandene Provider-, Tiny-Router- und LoRA-Subsysteme werden wiederverwendet; es wird kein paralleles Hub- oder Worker-Orchestrierungssystem geschaffen.",
-    "Der Audit auf main@c1720afbe stuft das deterministische Evaluationsfixture als repository-lokal umsetzbar statt extern blockiert ein; reale Trainings- und Release-Evidenz bleibt davon unberührt.",
+    "Der Audit auf main@dddeaba7d bestätigt das deterministische Evaluationsfixture und korrigiert LMM-LIFE-005: Registry-Promotion plus generischer Restart aktiviert noch kein Candidate-Artefakt.",
     "Needle- und agentischer LFM-Trainingsstand sind vollständig hashgebunden und offline load-verifiziert; reale Jobs, Candidates und Release-Evidenz bleiben ohne gültige SRC_*-/RUN_*-Dataset-Evidenz fail-closed.",
     "Das Todo gilt erst als done, wenn freigegebene Datasets vorliegen, alle realen Lifecycle-Stufen durchlaufen sind und registrierte Release-Evidenz besteht."
   ],
