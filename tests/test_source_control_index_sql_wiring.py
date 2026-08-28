@@ -44,7 +44,11 @@ from agent.sources.registered_workspace_connector import (
 )
 from ananta_contracts.source_control import ProviderLocation, SourceAccessGrant
 
-NOW = datetime.now(timezone.utc)
+
+def _current_time() -> datetime:
+    """Resolve time at test execution, not during multi-hour collection."""
+
+    return datetime.now(timezone.utc)
 
 
 def _engine():
@@ -65,8 +69,8 @@ def _connection_values(connection_id: str) -> dict[str, object]:
         "sensitivity": "internal",
         "state": "active",
         "lock_version": 1,
-        "created_at_epoch": NOW.timestamp(),
-        "updated_at_epoch": NOW.timestamp(),
+        "created_at_epoch": _current_time().timestamp(),
+        "updated_at_epoch": _current_time().timestamp(),
     }
 
 
@@ -87,8 +91,8 @@ def test_current_execution_authority_is_rebuilt_from_exact_sql_state() -> None:
         policy_version="policy-v1",
         policy_snapshot_digest="d" * 64,
         state="active",
-        issued_at=NOW - timedelta(minutes=1),
-        expires_at=NOW + timedelta(hours=1),
+        issued_at=_current_time() - timedelta(minutes=1),
+        expires_at=_current_time() + timedelta(hours=1),
     )
     with Session(database) as session:
         session.add(SourceConnectionDB(**_connection_values(connection_id)))
@@ -106,7 +110,7 @@ def test_current_execution_authority_is_rebuilt_from_exact_sql_state() -> None:
                 content_manifest_id="manifest_" + "e" * 64,
                 content_manifest_digest="e" * 64,
                 admission_state="admitted",
-                captured_at_epoch=NOW.timestamp(),
+                captured_at_epoch=_current_time().timestamp(),
             )
         )
         session.add(
@@ -137,8 +141,8 @@ def test_current_execution_authority_is_rebuilt_from_exact_sql_state() -> None:
                 rejected_type_findings=0,
                 malformed_archive_findings=0,
                 scan_error_count=0,
-                evaluated_at_epoch=NOW.timestamp(),
-                persisted_at_epoch=NOW.timestamp(),
+                evaluated_at_epoch=_current_time().timestamp(),
+                persisted_at_epoch=_current_time().timestamp(),
             )
         )
         session.add(
@@ -160,7 +164,7 @@ def test_current_execution_authority_is_rebuilt_from_exact_sql_state() -> None:
                 issued_at_epoch=grant.issued_at.timestamp(),
                 expires_at_epoch=grant.expires_at.timestamp(),
                 lock_version=1,
-                updated_at_epoch=NOW.timestamp(),
+                updated_at_epoch=_current_time().timestamp(),
             )
         )
         session.add(
@@ -171,8 +175,8 @@ def test_current_execution_authority_is_rebuilt_from_exact_sql_state() -> None:
                 consumption_mode="one_time",
                 grant_lock_version=1,
                 concurrency_version=1,
-                created_at=NOW,
-                updated_at=NOW,
+                created_at=_current_time(),
+                updated_at=_current_time(),
             )
         )
         session.commit()
@@ -238,7 +242,7 @@ def test_workspace_payload_adapter_reopens_only_the_exact_manifest(
                 selector_id="workspace-1",
                 relative_path=".",
                 binding_digest="3" * 64,
-                created_at_epoch=NOW.timestamp(),
+                created_at_epoch=_current_time().timestamp(),
             )
         )
         session.add(
@@ -255,7 +259,7 @@ def test_workspace_payload_adapter_reopens_only_the_exact_manifest(
                 content_manifest_id="manifest_" + snapshot.manifest_digest,
                 content_manifest_digest=snapshot.manifest_digest,
                 admission_state="admitted",
-                captured_at_epoch=NOW.timestamp(),
+                captured_at_epoch=_current_time().timestamp(),
             )
         )
         session.commit()
