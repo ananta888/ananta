@@ -107,3 +107,84 @@ def codecompass_sira_status():
         worker_status=current_app.extensions.get("codecompass_sira_worker_status"),
     )
     return api_response(result)
+
+
+@codecompass_retrieve_bp.route("/api/codecompass/sira/operations", methods=["POST"])
+def create_codecompass_sira_operation():
+    """Queue one fully automated operation; no approval workflow is involved."""
+
+    authorization_error = authorize_route_request(
+        action=SourceControlAction.index,
+        resource_kind="sira_index_operation",
+        collection=True,
+        require_project_scope=True,
+    )
+    if authorization_error is not None:
+        return authorization_error
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        raise BadRequestError("invalid_json_object")
+    if _contains_authority_field(body):
+        raise BadRequestError("backend_fields_not_allowed")
+    allowed = {
+        "operation",
+        "repository_id",
+        "snapshot_artifact_id",
+        "idempotency_key",
+    }
+    unknown = sorted(set(body).difference(allowed))
+    if unknown:
+        raise BadRequestError("sira_index_operation_unknown_fields:" + ",".join(unknown))
+    principal = g.source_control_principal
+    try:
+        from agent.services.codecompass_sira_index_operation_service import (
+            SiraIndexOperationConflict,
+            get_codecompass_sira_index_operation_service,
+        )
+
+        result = get_codecompass_sira_index_operation_service().submit(
+            operation=str(body.get("operation") or ""),
+            tenant_id=str(principal.tenant_id or ""),
+            project_id=str(principal.project_id or ""),
+            repository_id=str(body.get("repository_id") or ""),
+            snapshot_artifact_id=str(body.get("snapshot_artifact_id") or ""),
+            idempotency_key=str(body.get("idempotency_key") or ""),
+            actor_id=str(principal.subject_id or ""),
+        )
+    except SiraIndexOperationConflict as exc:
+        return api_response(
+            status="error",
+            message=str(exc),
+            data={"reason_code": str(exc)},
+            code=409,
+        )
+    except ValueError as exc:
+        raise BadRequestError(str(exc)) from exc
+    return api_response(result, code=202)
+
+
+@codecompass_retrieve_bp.route(
+    "/api/codecompass/sira/operations/<operation_id>",
+    methods=["GET"],
+)
+def get_codecompass_sira_operation(operation_id: str):
+    principal = g.source_control_principal
+    if not principal.tenant_id or not principal.project_id:
+        return api_response(
+            status="error",
+            message="forbidden",
+            data={"reason_code": "source_control_principal_scope_required"},
+            code=403,
+        )
+    from agent.services.codecompass_sira_index_operation_service import (
+        get_codecompass_sira_index_operation_service,
+    )
+
+    result = get_codecompass_sira_index_operation_service().get(
+        operation_id,
+        tenant_id=principal.tenant_id,
+        project_id=principal.project_id,
+    )
+    if result is None:
+        return api_response(status="error", message="not_found", code=404)
+    return api_response(result)

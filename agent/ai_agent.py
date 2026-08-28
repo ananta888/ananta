@@ -214,6 +214,10 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     from worker.mail_task_execution import build_mail_task_handler
     from worker.planning import OrganizationCategoryResearchTaskHandler
+    from worker.retrieval.sira.index_operation_handler import (
+        LocalSiraIndexOperationRuntime,
+        SiraIndexOperationTaskHandler,
+    )
     from worker.retrieval.vector_index_execution import (
         ConfiguredVectorIndexExecution,
     )
@@ -266,6 +270,43 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         ],
     )
     _advertise_worker_capabilities(app, planning_research_capabilities)
+
+    sira_snapshot_root = str(settings.codecompass_sira_snapshot_root or "").strip()
+    sira_layer_root = str(settings.codecompass_sira_layer_root or "").strip()
+    sira_registered = bool(sira_snapshot_root and sira_layer_root)
+    if sira_registered:
+        register_task_handler(
+            "codecompass_sira_index_operation",
+            SiraIndexOperationTaskHandler(
+                LocalSiraIndexOperationRuntime(
+                    snapshot_root=sira_snapshot_root,
+                    layer_root=sira_layer_root,
+                )
+            ),
+            app=app,
+            capabilities=["retrieval", "index_write", "sira_index"],
+            safety_flags={
+                "requires_review": False,
+                "worker_only": True,
+                "hub_delegation_required": True,
+                "worker_orchestration_forbidden": True,
+                "client_filesystem_paths_forbidden": True,
+            },
+            verification_hooks=[
+                "sira_index_operation_v1",
+                "scope_binding",
+                "idempotency_key",
+                "atomic_activation",
+            ],
+        )
+        _advertise_worker_capabilities(
+            app,
+            ["retrieval", "index_write", "sira_index"],
+        )
+    app.extensions["sira_index_worker_registration"] = {
+        "ready": sira_registered,
+        "reason_code": None if sira_registered else "sira_index_worker_paths_required",
+    }
 
     knowledge_index_registered = False
     try:
@@ -456,6 +497,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     registered = [
         "planning_research",
+        *(["codecompass_sira_index_operation"] if sira_registered else []),
         *(["codecompass_index_build"] if knowledge_index_registered else []),
         *(["vector_index_operation"] if vector_registered else []),
         "mail_operation",

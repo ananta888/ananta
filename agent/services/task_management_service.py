@@ -10,7 +10,6 @@ from agent.common.audit import log_audit
 from agent.common.governance_codes import GovernanceReasonCode
 from agent.metrics import TASK_RECEIVED
 from agent.research_backend import resolve_research_backend_config
-from agent.services.task_dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
 from agent.routes.tasks.orchestration_policy import (
     derive_required_capabilities,
     enforce_assignment_policy,
@@ -43,6 +42,16 @@ from agent.services.retrieval_vector_scope_ingress_policy import (
     find_reserved_retrieval_vector_scope_marker,
     preserve_hub_retrieval_vector_scope,
     reserved_retrieval_vector_scope_ingress_error,
+)
+from agent.services.sira_index_task_ingress_policy import (
+    bound_sira_index_mutation_error,
+    find_reserved_sira_index_marker,
+    reserved_sira_index_ingress_error,
+)
+from agent.services.task_dependency_policy import (
+    followup_exists,
+    normalize_depends_on,
+    validate_dependencies_and_cycles,
 )
 from agent.services.task_queue_service import get_task_queue_service
 from agent.services.task_runtime_service import get_local_task_status, update_local_task_status
@@ -299,22 +308,24 @@ class TaskManagementService:
             "updated_ids": updated_ids,
             "skipped_reserved_count": len(skipped_reserved_ids),
             "skipped_reserved_ids": skipped_reserved_ids,
-            "skipped_knowledge_index_count": len(
-                skipped_knowledge_index_ids
-            ),
+            "skipped_knowledge_index_count": len(skipped_knowledge_index_ids),
             "skipped_knowledge_index_ids": skipped_knowledge_index_ids,
         }
 
     def create_task(self, *, data: Any, source: str, created_by: str) -> dict[str, Any]:
         input_data = data.model_dump()
+        reserved_sira_marker = find_reserved_sira_index_marker(
+            input_data,
+            source=source,
+        )
+        if reserved_sira_marker:
+            return reserved_sira_index_ingress_error(reserved_sira_marker)
         reserved_knowledge_marker = find_reserved_knowledge_index_marker(
             input_data,
             source=source,
         )
         if reserved_knowledge_marker:
-            return reserved_knowledge_index_ingress_error(
-                reserved_knowledge_marker
-            )
+            return reserved_knowledge_index_ingress_error(reserved_knowledge_marker)
         reserved_marker = find_reserved_vector_index_marker(input_data, source=source)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
@@ -390,13 +401,12 @@ class TaskManagementService:
 
     def patch_task(self, *, task_id: str, data: Any) -> dict[str, Any]:
         update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-        reserved_knowledge_marker = find_reserved_knowledge_index_marker(
-            update_data
-        )
+        reserved_sira_marker = find_reserved_sira_index_marker(update_data)
+        if reserved_sira_marker:
+            return reserved_sira_index_ingress_error(reserved_sira_marker)
+        reserved_knowledge_marker = find_reserved_knowledge_index_marker(update_data)
         if reserved_knowledge_marker:
-            return reserved_knowledge_index_ingress_error(
-                reserved_knowledge_marker
-            )
+            return reserved_knowledge_index_ingress_error(reserved_knowledge_marker)
         reserved_marker = find_reserved_vector_index_marker(update_data)
         if reserved_marker:
             return reserved_vector_index_ingress_error(reserved_marker)
@@ -409,6 +419,12 @@ class TaskManagementService:
         existing = get_local_task_status(task_id)
         if not existing:
             return {"error": "not_found", "code": 404}
+        sira_conflict = bound_sira_index_mutation_error(
+            existing,
+            action="patch",
+        )
+        if sira_conflict:
+            return sira_conflict
         bound_conflict = bound_knowledge_index_mutation_error(
             existing,
             action="patch",

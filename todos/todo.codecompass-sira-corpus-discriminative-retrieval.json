@@ -17,8 +17,12 @@
       "worker/retrieval/retrieval_trace.py",
       "worker/retrieval/sira/",
       "agent/routes/codecompass_retrieve.py",
+      "agent/services/codecompass_sira_index_operation_service.py",
+      "agent/services/sira_index_task_ingress_policy.py",
       "agent/services/codecompass_sira_config_service.py",
       "agent/services/codecompass_sira_status_service.py",
+      "ananta_contracts/sira_index_operation.py",
+      "tests/test_codecompass_sira_index_operations.py",
       "scripts/evaluate_sira_retrieval.py",
       "scripts/manage_sira_index.py",
       "docs/architecture/agent-codecompass-hybrid-retrieval.md",
@@ -48,7 +52,8 @@
       "CodeCompass besitzt weiterhin BM25/FTS5, Exact-/Symbol-, Graph- und Vektorsignale, universelle Fusion, Policy-Filter, Budgets und Traces; SIRA erweitert ausschließlich den vorhandenen codecompass_fts-Kanal.",
       "Das optionale SIRA-Profil implementiert versioniertes Offline-Enrichment, corpus-gebundene Termstatistik, sichere Query-Expansion, genau eine gewichtete lexikalische Abfrage, adaptives Routing und budgetiertes Pointwise-Reranking.",
       "Konfiguration, Status-API, Angular-Betriebsansicht, atomare Indexartefakte, CLI-Lifecycle, Fallbacks, Kill-Switches und deterministische Benchmark-Gates sind im Repository vorhanden und automatisiert getestet.",
-      "Offen bleiben ein Hub-gesteuerter produktiver Synchronisierungs-/Kompaktierungsauftrag sowie reale Multi-Repository-, Modell-, Latenz-, Kosten- und Canary-Nachweise; solche externen Ergebnisse werden nicht aus synthetischen Fixtures abgeleitet.",
+      "Der produktive Synchronisierungs-/Kompaktierungspfad ist Hub-gesteuert, idempotent, scope-gebunden und ohne Human-in-the-Loop über API, zentrale Taskqueue und einen Worker-lokalen Handler verfügbar.",
+      "Offen bleiben reale Multi-Repository-, Modell-, Latenz-, Kosten- und Canary-Nachweise; solche externen Ergebnisse werden nicht aus synthetischen Fixtures abgeleitet.",
       "Die offizielle Referenz setzt Python >=3.12, CUDA/H100-nahe Ausfuehrung und stark gepinnte aktuelle ML-Abhaengigkeiten voraus; Ananta adaptiert daher den Ansatz provider- und hardwareunabhaengig statt das Repository direkt einzubetten."
     ],
     "design_conclusion": "SIRA wird als optionales, versioniertes Retrieval-Profil hinter vorhandenen Ports implementiert. Offline erzeugte Begriffe bleiben von Quelltext getrennt, werden inkrementell gepflegt und an Snapshot, Prompt und Modell gebunden. Online erzeugte Query-Begriffe werden gegen scope-gebundene Corpus-Statistiken validiert und zu genau einer gewichteten BM25/FTS-Abfrage kompiliert. Exact-, Symbol-, Graph-, Vektor-, Security-, Ranking- und Budgetpfade werden wiederverwendet; sichere Baseline-Fallbacks bleiben jederzeit verfügbar.",
@@ -207,7 +212,7 @@
     {
       "id": "M2",
       "title": "Offline-Corpus-Enrichment und inkrementelle Pflege",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "SIRA-007",
         "SIRA-008",
@@ -546,7 +551,7 @@
     {
       "id": "SIRA-009",
       "title": "Inkrementelle Enrichment-Schichten an CodeCompass-Synchronisierung anbinden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "depends_on": [
         "SIRA-006",
@@ -561,7 +566,7 @@
       "type": "implementation",
       "milestone_id": "M2",
       "risk": "critical",
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "implementation": [
         "Nur neue oder inhaltlich geänderte Chunks neu anreichern; gelöschte Chunks tombstonen.",
         "Basis-Snapshot und absteigende Delta-Schichten unterstützen, damit kleine Änderungen keinen Vollaufbau erzwingen.",
@@ -578,7 +583,8 @@
       ],
       "evidence": [
         "worker/retrieval/sira/incremental_enrichment.py implements deterministic change sets, tombstones, idempotent base/delta layers, pointer-last activation and compaction; scripts/manage_sira_index.py exposes build, diagnostics and compaction.",
-        "tests/test_sira_incremental_enrichment.py proves one-file targeting, idempotency and compaction. A production Hub queue/API trigger wired to the deployed CodeCompass synchronizer remains deployment work; direct Hub access to Worker files was intentionally not introduced."
+        "ananta_contracts/sira_index_operation.py, agent/services/codecompass_sira_index_operation_service.py, agent/routes/codecompass_retrieve.py and worker/retrieval/sira/index_operation_handler.py provide a strict Hub-queued sync/compact API, task binding, Worker-local execution and bounded automatic failure path without exposing filesystem authority.",
+        "tests/test_codecompass_sira_index_operations.py and tests/test_sira_incremental_enrichment.py prove scope binding, generic-ingress protection, idempotency conflict detection, one-file targeting, atomic activation and compaction without Human-in-the-Loop."
       ]
     },
     {
@@ -1075,7 +1081,8 @@
     "Implementation completed on 2026-08-27 against main@91f91eba2 after the separately pushed source audit.",
     "Large regression evidence: 420 Python tests passed and 29 were skipped; 3371 Angular tests passed and one was skipped; Angular production build and lint completed with 88 pre-existing warnings and zero errors.",
     "The deterministic seven-query fixture reports +0.428571 for Recall@10, nDCG@10, MRR and evidence coverage; this is not a production-repository or latency claim.",
-    "Remaining partial work requires deployed CodeCompass synchronization/canary infrastructure or real multi-repository/model measurements; no SRC_* or RUN_* identifiers were available or invented.",
+    "The final targeted SIRA and adjacent queue, authorization, configuration and Worker-registration regression block passed 146 tests in 84.36 seconds.",
+    "The Hub-queued SIRA synchronization and compaction path is implemented and covered by targeted contract, security, runtime and task-ingress tests; remaining partial work requires real multi-repository/model measurements and deployed canary evidence.",
     "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced."
   ],
   "audit_findings": {
@@ -1090,11 +1097,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 3,
+      "partial": 2,
       "blocked": 0,
-      "done": 19
+      "done": 20
     },
-    "progress_percent_done": 86.4,
+    "progress_percent_done": 90.9,
     "by_priority": {
       "P0": 17,
       "P1": 5,
@@ -1108,15 +1115,15 @@
     },
     "critical_path": {
       "total": 18,
-      "done": 15,
-      "remaining": 3
+      "done": 16,
+      "remaining": 2
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 2,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -1183,14 +1190,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 7
+          "done": 8
         },
-        "done": 7,
-        "partial": 1,
+        "done": 8,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 98.8
+        "progress_percent": 100.0
       },
       "security": {
         "total": 1,
@@ -1281,10 +1288,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 38.5,
-    "done_weight": 37.75,
-    "remaining_weight": 0.75,
+    "done_weight": 37.9,
+    "remaining_weight": 0.6,
     "blocked_weight": 0.0,
-    "weighted_percent": 98.1
+    "weighted_percent": 98.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1306,11 +1313,11 @@
       },
       "M2": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 97.9,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M3": {
         "total_tasks": 4,
@@ -1350,19 +1357,19 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 3,
+    "partial": 2,
     "blocked": 0,
-    "done": 19,
-    "count_based_percent": 86.4,
-    "weighted_percent": 98.1
+    "done": 20,
+    "count_based_percent": 90.9,
+    "weighted_percent": 98.4
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T19:47:09.346647Z",
+    "generated_at": "2026-08-28T12:45:40.868022Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "739b07671368703aed38463270b42aed529e7b156c547ef779b39afafe6b0035",
+    "source_hash": "f9872480a80ede4f4d428e9ca9922c1fb6cd2908b4926c2a5d6765618b553c78",
     "is_stale": false
   }
 }

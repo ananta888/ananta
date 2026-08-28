@@ -568,6 +568,14 @@ class Settings(BaseSettings):
         default=True,
         validation_alias="CODECOMPASS_SIRA_LOCAL_MODELS_ONLY",
     )
+    codecompass_sira_snapshot_root: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_SIRA_SNAPSHOT_ROOT",
+    )
+    codecompass_sira_layer_root: str = Field(
+        default="",
+        validation_alias="CODECOMPASS_SIRA_LAYER_ROOT",
+    )
     knowledge_experts_enabled: bool = Field(
         default=False,
         validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ENABLED",

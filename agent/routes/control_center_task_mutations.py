@@ -30,6 +30,11 @@ from agent.services.recovery_task_mutation_policy import (
     RecoveryTaskMutationConflict,
     ensure_external_recovery_mutation_allowed,
 )
+from agent.services.sira_index_task_ingress_policy import (
+    bound_sira_index_mutation_error,
+    find_reserved_sira_index_marker,
+    reserved_sira_index_ingress_error,
+)
 from agent.services.task_runtime_service import (
     update_local_task_status,
 )
@@ -54,16 +59,21 @@ class ControlCenterTaskMutationRoutes:
         """B04: POST /api/tasks."""
 
         body = request.get_json(silent=True) or {}
+        sira_marker = find_reserved_sira_index_marker(body)
+        if sira_marker is not None:
+            result = reserved_sira_index_ingress_error(sira_marker)
+            return api_response(
+                status="error",
+                message=result["error"],
+                data=result["data"],
+                code=result["code"],
+            )
         vector_error = reserved_vector_mutation_response(body)
         if vector_error is not None:
             return vector_error
-        knowledge_index_marker = find_reserved_knowledge_index_marker(
-            body
-        )
+        knowledge_index_marker = find_reserved_knowledge_index_marker(body)
         if knowledge_index_marker is not None:
-            result = reserved_knowledge_index_ingress_error(
-                knowledge_index_marker
-            )
+            result = reserved_knowledge_index_ingress_error(knowledge_index_marker)
             return api_response(
                 status="error",
                 message=result["error"],
@@ -109,17 +119,12 @@ class ControlCenterTaskMutationRoutes:
             id=str(uuid.uuid4()),
             title=title,
             description=str(body.get("description") or ""),
-            status=normalize_task_status(
-                str(body.get("status") or "backlog")
-            ),
+            status=normalize_task_status(str(body.get("status") or "backlog")),
             priority=str(body.get("priority") or "Medium"),
             team_id=(project_scope.team_id if project_scope else None),
             tenant_id=(project_scope.tenant_id if project_scope else None),
             project_id=(project_scope.project_id if project_scope else None),
-            task_kind=(
-                str(body.get("task_kind") or "").strip()
-                or None
-            ),
+            task_kind=(str(body.get("task_kind") or "").strip() or None),
         )
         if project_scope is not None and principal is not None:
             task.history = [
@@ -159,10 +164,18 @@ class ControlCenterTaskMutationRoutes:
                 code=404,
             )
         body = request.get_json(silent=True) or {}
-        vector_error = (
-            reserved_vector_mutation_response(task)
-            or reserved_vector_mutation_response(body)
+        sira_error = bound_sira_index_mutation_error(
+            task,
+            action="control_center_patch",
         )
+        if sira_error is not None:
+            return api_response(
+                status="error",
+                message=sira_error["error"],
+                data=sira_error["data"],
+                code=sira_error["code"],
+            )
+        vector_error = reserved_vector_mutation_response(task) or reserved_vector_mutation_response(body)
         if vector_error is not None:
             return vector_error
         knowledge_index_error = bound_knowledge_index_mutation_error(
@@ -191,21 +204,12 @@ class ControlCenterTaskMutationRoutes:
 
         values: dict[str, Any] = {}
         if "title" in body:
-            values["title"] = (
-                str(body.get("title") or "").strip()
-                or task.title
-            )
+            values["title"] = str(body.get("title") or "").strip() or task.title
         if "description" in body:
-            values["description"] = str(
-                body.get("description") or ""
-            )
+            values["description"] = str(body.get("description") or "")
         if "priority" in body:
-            values["priority"] = str(
-                body.get("priority") or task.priority
-            )
-        target_status = normalize_task_status(
-            str(body.get("status") or task.status)
-        )
+            values["priority"] = str(body.get("priority") or task.priority)
+        target_status = normalize_task_status(str(body.get("status") or task.status))
         actor = self._user_id_provider()
         update_local_task_status(
             task_id,
@@ -234,9 +238,7 @@ class ControlCenterTaskMutationRoutes:
                 "status": saved.status,
             },
         )
-        return api_response(
-            data={"task": self._task_serializer(saved)}
-        )
+        return api_response(data={"task": self._task_serializer(saved)})
 
     def register(self, blueprint: Blueprint) -> None:
         blueprint.add_url_rule(
