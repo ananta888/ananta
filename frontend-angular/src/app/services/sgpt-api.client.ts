@@ -10,6 +10,11 @@ export type SgptBackend =
   | 'claude_code'
   | 'aider'
   | 'mistral_code'
+  | 'qwen_code'
+  | 'gemini_cli'
+  | 'copilot_cli'
+  | 'cline'
+  | 'kilo_code'
   | 'auto';
 
 /** Shell-GPT / Coding-Backend-Endpunkte. */

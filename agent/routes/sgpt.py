@@ -13,6 +13,7 @@ from agent.cli_backends.sgpt import (
     resolve_codex_runtime_config,
     run_llm_cli_command,
 )
+from agent.cli_backends.coding_agent_profiles import coding_agent_descriptors
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.gateways.worker_gateway import get_worker_gateway
@@ -254,24 +255,73 @@ def list_cli_backends():
 @check_auth
 def capability_matrix():
     capabilities = get_cli_backend_capabilities()
+    descriptors = {item.provider_id: item for item in coding_agent_descriptors()}
     matrix = []
     for backend, info in (capabilities or {}).items():
+        descriptor = descriptors.get(backend)
+        item = {
+            "backend": backend,
+            "available": bool(info.get("available")),
+            "supports_model_selection": bool(info.get("supports_model_selection")),
+            "risk_level": (
+                "high"
+                if backend
+                in {
+                    "codex",
+                    "claude_code",
+                    "aider",
+                    "opencode",
+                    "mistral_code",
+                    "qwen_code",
+                    "gemini_cli",
+                    "copilot_cli",
+                    "cline",
+                    "kilo_code",
+                }
+                else "medium"
+            ),
+            "task_fit": {
+                "coding": backend
+                in {"ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code"},
+                "analysis": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
+                "doc": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
+                "ops": backend in {"ananta-worker", "opencode", "sgpt", "codex"},
+            },
+            "allowed_flags": info.get("supported_options", info.get("supported_flags", [])),
+        }
+        if descriptor is not None:
+            headless = descriptor.capabilities.headless
+            item.update(
+                {
+                    "integration_kind": descriptor.integration_kind.value,
+                    "free_class": descriptor.free_class.value,
+                    "capabilities": descriptor.capabilities.as_dict(),
+                    "automation_reason": descriptor.automation_reason,
+                    "task_fit": {
+                        "coding": headless and descriptor.capabilities.git_changes,
+                        "analysis": headless and descriptor.capabilities.reasoning,
+                        "doc": headless and descriptor.capabilities.reasoning,
+                        "ops": headless and descriptor.capabilities.tools,
+                    },
+                }
+            )
+        matrix.append(item)
+    known = {item["backend"] for item in matrix}
+    for descriptor in coding_agent_descriptors():
+        if descriptor.provider_id in known:
+            continue
         matrix.append(
             {
-                "backend": backend,
-                "available": bool(info.get("available")),
-                "supports_model_selection": bool(info.get("supports_model_selection")),
-                "risk_level": "high"
-                if backend in {"codex", "claude_code", "aider", "opencode", "mistral_code"}
-                else "medium",
-                "task_fit": {
-                    "coding": backend
-                    in {"ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code"},
-                    "analysis": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
-                    "doc": backend in {"ananta-worker", "sgpt", "codex", "claude_code", "opencode"},
-                    "ops": backend in {"ananta-worker", "opencode", "sgpt", "codex"},
-                },
-                "allowed_flags": info.get("supported_options", []),
+                "backend": descriptor.provider_id,
+                "available": False,
+                "supports_model_selection": False,
+                "risk_level": "high",
+                "task_fit": {"coding": False, "analysis": False, "doc": False, "ops": False},
+                "allowed_flags": [],
+                "integration_kind": descriptor.integration_kind.value,
+                "free_class": descriptor.free_class.value,
+                "capabilities": descriptor.capabilities.as_dict(),
+                "automation_reason": descriptor.automation_reason,
             }
         )
     return api_response(data={"items": matrix, "policy": "capability_matrix_v1"})

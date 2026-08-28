@@ -23,7 +23,18 @@ from ananta_contracts.model_catalog import (
     ModelSourceKind,
 )
 
-INVENTORIED_CLI_BACKENDS = ("codex", "claude_code", "opencode", "aider", "mistral_code")
+INVENTORIED_CLI_BACKENDS = (
+    "codex",
+    "claude_code",
+    "opencode",
+    "aider",
+    "mistral_code",
+    "qwen_code",
+    "gemini_cli",
+    "copilot_cli",
+    "cline",
+    "kilo_code",
+)
 
 
 class ModelInventorySnapshotPort(Protocol):
@@ -139,7 +150,9 @@ class CliBackendModelInventoryAdapter:
             "opencode": "opencode_default_model",
             "aider": "aider_default_model",
             "mistral_code": "mistral_code_default_model",
-        }[self.backend_id]
+        }.get(self.backend_id)
+        if attribute is None:
+            return None
         return str(getattr(settings, attribute, None) or "").strip() or None
 
     def _runtime(self, status: Mapping) -> ModelRuntime:

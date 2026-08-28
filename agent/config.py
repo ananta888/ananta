@@ -48,9 +48,7 @@ def _resolve_file_managed_secret_key(
     except FileCredentialConfigurationError as exc:
         raise SecretKeyConfigurationError("SECRET_KEY file is invalid") from exc
     if inline_secret_key and inline_secret_key != file_secret_key:
-        raise SecretKeyConfigurationError(
-            "inline SECRET_KEY conflicts with file-managed SECRET_KEY"
-        )
+        raise SecretKeyConfigurationError("inline SECRET_KEY conflicts with file-managed SECRET_KEY")
     return file_secret_key
 
 
@@ -115,7 +113,9 @@ class Settings(BaseSettings):
     prompt_trace_redact_by_default: bool = Field(default=True, validation_alias="PROMPT_TRACE_REDACT_BY_DEFAULT")
     prompt_trace_retention_days: int = Field(default=30, validation_alias="PROMPT_TRACE_RETENTION_DAYS")
     prompt_trace_max_raw_chars: int = Field(default=8000, validation_alias="PROMPT_TRACE_MAX_RAW_CHARS")
-    prompt_trace_allowed_raw_access_modes: list = Field(default_factory=list, validation_alias="PROMPT_TRACE_ALLOWED_RAW_ACCESS_MODES")
+    prompt_trace_allowed_raw_access_modes: list = Field(
+        default_factory=list, validation_alias="PROMPT_TRACE_ALLOWED_RAW_ACCESS_MODES"
+    )
 
     # Timeouts
     http_timeout: int = Field(default=60, validation_alias="HTTP_TIMEOUT")
@@ -249,14 +249,18 @@ class Settings(BaseSettings):
     )
     terminal_feature_enabled: bool = Field(default=False, validation_alias="TERMINAL_FEATURE_ENABLED")
     terminal_hub_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_TARGET_ENABLED")
-    terminal_hub_as_worker_target_enabled: bool = Field(default=False, validation_alias="TERMINAL_HUB_AS_WORKER_TARGET_ENABLED")
+    terminal_hub_as_worker_target_enabled: bool = Field(
+        default=False, validation_alias="TERMINAL_HUB_AS_WORKER_TARGET_ENABLED"
+    )
     terminal_worker_target_enabled: bool = Field(default=True, validation_alias="TERMINAL_WORKER_TARGET_ENABLED")
     terminal_policy_version: str = Field(default="terminal-policy.v1", validation_alias="TERMINAL_POLICY_VERSION")
     terminal_idle_timeout_seconds: int = Field(default=900, validation_alias="TERMINAL_IDLE_TIMEOUT_SECONDS")
     terminal_max_lifetime_seconds: int = Field(default=14400, validation_alias="TERMINAL_MAX_LIFETIME_SECONDS")
     terminal_attach_token_ttl_seconds: int = Field(default=60, validation_alias="TERMINAL_ATTACH_TOKEN_TTL_SECONDS")
     terminal_recording_enabled_remote: bool = Field(default=True, validation_alias="TERMINAL_RECORDING_ENABLED_REMOTE")
-    terminal_recording_enabled_local_dev: bool = Field(default=False, validation_alias="TERMINAL_RECORDING_ENABLED_LOCAL_DEV")
+    terminal_recording_enabled_local_dev: bool = Field(
+        default=False, validation_alias="TERMINAL_RECORDING_ENABLED_LOCAL_DEV"
+    )
     terminal_oidc_enabled: bool = Field(default=False, validation_alias="TERMINAL_OIDC_ENABLED")
     terminal_oidc_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_ISSUER")
     terminal_oidc_browser_issuer: str = Field(default="", validation_alias="TERMINAL_OIDC_BROWSER_ISSUER")
@@ -270,8 +274,12 @@ class Settings(BaseSettings):
     ssh_ca_step_ca_url: str = Field(default="", validation_alias="SSH_CA_STEP_CA_URL")
     ssh_ca_step_ca_provisioner: str = Field(default="ananta-oidc", validation_alias="SSH_CA_STEP_CA_PROVISIONER")
     ssh_ca_step_ca_ca_fingerprint: str = Field(default="", validation_alias="SSH_CA_STEP_CA_CA_FINGERPRINT")
-    ssh_certificate_validity_seconds_worker: int = Field(default=3600, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_WORKER")
-    ssh_certificate_validity_seconds_hub: int = Field(default=900, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_HUB")
+    ssh_certificate_validity_seconds_worker: int = Field(
+        default=3600, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_WORKER"
+    )
+    ssh_certificate_validity_seconds_hub: int = Field(
+        default=900, validation_alias="SSH_CERTIFICATE_VALIDITY_SECONDS_HUB"
+    )
     ssh_broad_principals_allowed: bool = Field(default=False, validation_alias="SSH_BROAD_PRINCIPALS_ALLOWED")
     ssh_terminal_wrapper_required: bool = Field(default=True, validation_alias="SSH_TERMINAL_WRAPPER_REQUIRED")
     ssh_audit_enabled: bool = Field(default=True, validation_alias="SSH_AUDIT_ENABLED")
@@ -304,8 +312,12 @@ class Settings(BaseSettings):
 
     # Task Engine (te-004)
     task_engine_enabled: bool = Field(default=True, validation_alias="TASK_ENGINE_ENABLED")
-    task_engine_deterministic_bypass_enabled: bool = Field(default=True, validation_alias="TASK_ENGINE_DETERMINISTIC_BYPASS_ENABLED")
-    task_engine_strict_unknown_tool_policy: bool = Field(default=False, validation_alias="TASK_ENGINE_STRICT_UNKNOWN_TOOL_POLICY")
+    task_engine_deterministic_bypass_enabled: bool = Field(
+        default=True, validation_alias="TASK_ENGINE_DETERMINISTIC_BYPASS_ENABLED"
+    )
+    task_engine_strict_unknown_tool_policy: bool = Field(
+        default=False, validation_alias="TASK_ENGINE_STRICT_UNKNOWN_TOOL_POLICY"
+    )
 
     # Extensions
     extensions: str = Field(default="", validation_alias="AGENT_EXTENSIONS")
@@ -318,7 +330,9 @@ class Settings(BaseSettings):
     evolver_analyze_path: str = Field(default="/evolution/analyze", validation_alias="EVOLVER_ANALYZE_PATH")
     evolver_health_path: Optional[str] = Field(default=None, validation_alias="EVOLVER_HEALTH_PATH")
     evolver_timeout_seconds: float = Field(default=30.0, validation_alias="EVOLVER_TIMEOUT_SECONDS")
-    evolver_connect_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_CONNECT_TIMEOUT_SECONDS")
+    evolver_connect_timeout_seconds: Optional[float] = Field(
+        default=None, validation_alias="EVOLVER_CONNECT_TIMEOUT_SECONDS"
+    )
     evolver_read_timeout_seconds: Optional[float] = Field(default=None, validation_alias="EVOLVER_READ_TIMEOUT_SECONDS")
     evolver_max_response_bytes: int = Field(default=1048576, validation_alias="EVOLVER_MAX_RESPONSE_BYTES")
     evolver_retry_count: int = Field(default=0, validation_alias="EVOLVER_RETRY_COUNT")
@@ -361,7 +375,9 @@ class Settings(BaseSettings):
     disable_llm_check: bool = Field(default=False, validation_alias="DISABLE_LLM_CHECK")
 
     # Redaction
-    redaction_visibility: int = Field(default=1, validation_alias="REDACTION_VISIBILITY") # 1 = USER, 2 = ADMIN, 0 = PUBLIC
+    redaction_visibility: int = Field(
+        default=1, validation_alias="REDACTION_VISIBILITY"
+    )  # 1 = USER, 2 = ADMIN, 0 = PUBLIC
 
     auth_rate_limit_window_short_seconds: int = Field(
         default=60, validation_alias="AUTH_RATE_LIMIT_WINDOW_SHORT_SECONDS"
@@ -384,9 +400,7 @@ class Settings(BaseSettings):
     hub_self_registration_require_admin_approval: bool = Field(
         default=False, validation_alias="HUB_SELF_REGISTRATION_REQUIRE_ADMIN_APPROVAL"
     )
-    hub_registration_public_base_url: str = Field(
-        default="", validation_alias="HUB_REGISTRATION_PUBLIC_BASE_URL"
-    )
+    hub_registration_public_base_url: str = Field(default="", validation_alias="HUB_REGISTRATION_PUBLIC_BASE_URL")
     hub_registration_verification_ttl_seconds: int = Field(
         default=86400, validation_alias="HUB_REGISTRATION_VERIFICATION_TTL_SECONDS"
     )
@@ -433,17 +447,33 @@ class Settings(BaseSettings):
     sgpt_shell_interaction: bool = Field(default=True, validation_alias="SGPT_SHELL_INTERACTION")
     sgpt_execution_backend: str = Field(default="ananta-worker", validation_alias="SGPT_EXECUTION_BACKEND")
     # ananta-worker context budget (CCSH-006)
-    ananta_worker_context_files_per_batch: int = Field(default=3, validation_alias="ANANTA_WORKER_CONTEXT_FILES_PER_BATCH")
-    ananta_worker_context_per_file_chars: int = Field(default=4000, validation_alias="ANANTA_WORKER_CONTEXT_PER_FILE_CHARS")
-    ananta_worker_context_max_iterations: int = Field(default=8, validation_alias="ANANTA_WORKER_CONTEXT_MAX_ITERATIONS")
+    ananta_worker_context_files_per_batch: int = Field(
+        default=3, validation_alias="ANANTA_WORKER_CONTEXT_FILES_PER_BATCH"
+    )
+    ananta_worker_context_per_file_chars: int = Field(
+        default=4000, validation_alias="ANANTA_WORKER_CONTEXT_PER_FILE_CHARS"
+    )
+    ananta_worker_context_max_iterations: int = Field(
+        default=8, validation_alias="ANANTA_WORKER_CONTEXT_MAX_ITERATIONS"
+    )
     ananta_worker_context_line_window: int = Field(default=5, validation_alias="ANANTA_WORKER_CONTEXT_LINE_WINDOW")
-    ananta_worker_context_max_snippet_chars: int = Field(default=8000, validation_alias="ANANTA_WORKER_CONTEXT_MAX_SNIPPET_CHARS")
+    ananta_worker_context_max_snippet_chars: int = Field(
+        default=8000, validation_alias="ANANTA_WORKER_CONTEXT_MAX_SNIPPET_CHARS"
+    )
     ananta_worker_full_scan_enabled: bool = Field(default=True, validation_alias="ANANTA_WORKER_FULL_SCAN_ENABLED")
     ananta_worker_full_scan_max_batches: int = Field(default=8, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_BATCHES")
-    ananta_worker_full_scan_files_per_batch: int = Field(default=3, validation_alias="ANANTA_WORKER_FULL_SCAN_FILES_PER_BATCH")
-    ananta_worker_full_scan_max_ref_chars: int = Field(default=4000, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_REF_CHARS")
-    ananta_worker_full_scan_summary_chars: int = Field(default=12000, validation_alias="ANANTA_WORKER_FULL_SCAN_SUMMARY_CHARS")
-    ananta_worker_full_scan_max_total_ref_count: int = Field(default=120, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_TOTAL_REF_COUNT")
+    ananta_worker_full_scan_files_per_batch: int = Field(
+        default=3, validation_alias="ANANTA_WORKER_FULL_SCAN_FILES_PER_BATCH"
+    )
+    ananta_worker_full_scan_max_ref_chars: int = Field(
+        default=4000, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_REF_CHARS"
+    )
+    ananta_worker_full_scan_summary_chars: int = Field(
+        default=12000, validation_alias="ANANTA_WORKER_FULL_SCAN_SUMMARY_CHARS"
+    )
+    ananta_worker_full_scan_max_total_ref_count: int = Field(
+        default=120, validation_alias="ANANTA_WORKER_FULL_SCAN_MAX_TOTAL_REF_COUNT"
+    )
     worker_default_execution_profile: str = Field(
         default="balanced",
         validation_alias="WORKER_DEFAULT_EXECUTION_PROFILE",
@@ -464,19 +494,24 @@ class Settings(BaseSettings):
     # and the CLI manages ~/.claude/.
     claude_path: str = Field(default="claude", validation_alias="CLAUDE_CODE_PATH")
     claude_default_model: str = Field(
-        default="claude-code-default", validation_alias="CLAUDE_CODE_DEFAULT_MODEL",
+        default="claude-code-default",
+        validation_alias="CLAUDE_CODE_DEFAULT_MODEL",
     )
     claude_auth_mode: str = Field(
-        default="claude_login", validation_alias="CLAUDE_CODE_AUTH_MODE",
+        default="claude_login",
+        validation_alias="CLAUDE_CODE_AUTH_MODE",
     )
     claude_permission_mode: str = Field(
-        default="plan", validation_alias="CLAUDE_CODE_PERMISSION_MODE",
+        default="plan",
+        validation_alias="CLAUDE_CODE_PERMISSION_MODE",
     )
     claude_timeout_seconds: int = Field(
-        default=1800, validation_alias="CLAUDE_CODE_TIMEOUT_SECONDS",
+        default=1800,
+        validation_alias="CLAUDE_CODE_TIMEOUT_SECONDS",
     )
     claude_max_concurrent_runs: int = Field(
-        default=1, validation_alias="CLAUDE_CODE_MAX_CONCURRENT_RUNS",
+        default=1,
+        validation_alias="CLAUDE_CODE_MAX_CONCURRENT_RUNS",
     )
     opencode_path: str = Field(default="opencode", validation_alias="OPENCODE_PATH")
     opencode_default_model: Optional[str] = Field(
@@ -512,8 +547,12 @@ class Settings(BaseSettings):
     rag_route_quota_default_repo: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_REPO")
     rag_route_quota_default_semantic: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_DEFAULT_SEMANTIC")
     rag_route_quota_codecompass_vector: int = Field(default=6, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR")
-    rag_route_quota_codecompass_vector_default: int = Field(default=4, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DEFAULT")
-    rag_route_quota_codecompass_vector_docs: int = Field(default=1, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DOCS")
+    rag_route_quota_codecompass_vector_default: int = Field(
+        default=4, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DEFAULT"
+    )
+    rag_route_quota_codecompass_vector_docs: int = Field(
+        default=1, validation_alias="RAG_ROUTE_QUOTA_CODECOMPASS_VECTOR_DOCS"
+    )
     obsidian_vaults: dict = Field(default_factory=dict, validation_alias="ANANTA_OBSIDIAN_VAULTS")
     obsidian_ranking_factor: float = Field(default=0.7, validation_alias="ANANTA_OBSIDIAN_RANKING_FACTOR")
     rag_scan_exclude_dirs: str = Field(
@@ -700,9 +739,7 @@ class Settings(BaseSettings):
     # CCRDS: runtime domain scope (hard path boundaries from domain discovery
     # artifacts / descriptors). Disabled by default — `domain:`-prefixed
     # chat_retrieval_domain_hint values stay soft hints until enabled.
-    codecompass_domain_scope_enabled: bool = Field(
-        default=False, validation_alias="CODECOMPASS_DOMAIN_SCOPE_ENABLED"
-    )
+    codecompass_domain_scope_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_DOMAIN_SCOPE_ENABLED")
     codecompass_domain_artifact_path: str = Field(
         default="artifacts/codecompass/domains.detected.json",
         validation_alias="CODECOMPASS_DOMAIN_ARTIFACT_PATH",
@@ -710,9 +747,7 @@ class Settings(BaseSettings):
     codecompass_domain_descriptor_root: str = Field(
         default="domains", validation_alias="CODECOMPASS_DOMAIN_DESCRIPTOR_ROOT"
     )
-    codecompass_scope_strict_mode: bool = Field(
-        default=True, validation_alias="CODECOMPASS_SCOPE_STRICT_MODE"
-    )
+    codecompass_scope_strict_mode: bool = Field(default=True, validation_alias="CODECOMPASS_SCOPE_STRICT_MODE")
     codecompass_scope_allow_relation_expansion: bool = Field(
         default=False, validation_alias="CODECOMPASS_SCOPE_ALLOW_RELATION_EXPANSION"
     )
@@ -947,7 +982,21 @@ class Settings(BaseSettings):
     @classmethod
     def validate_sgpt_execution_backend(cls, v: str) -> str:
         aliases = {"ananta_worker": "ananta-worker", "ananta-worker": "ananta-worker", "shellgpt": "sgpt"}
-        allowed = {"sgpt", "ananta-worker", "codex", "opencode", "aider", "mistral_code", "auto"}
+        allowed = {
+            "sgpt",
+            "ananta-worker",
+            "codex",
+            "claude_code",
+            "opencode",
+            "aider",
+            "mistral_code",
+            "qwen_code",
+            "gemini_cli",
+            "copilot_cli",
+            "cline",
+            "kilo_code",
+            "auto",
+        }
         val = (v or "").strip().lower()
         val = aliases.get(val, val)
         if val not in allowed:

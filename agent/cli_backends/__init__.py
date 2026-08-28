@@ -1,7 +1,7 @@
 """agent.cli_backends — LLM-CLI backend subsystem public API.
 
 This package is the **public API** for the LLM-CLI backend subsystem
-(sgpt, opencode, codex, aider, mistral). It is also the source of truth
+(sgpt, opencode, codex, aider, mistral and optional coding agents). It is also the source of truth
 for backend orchestration code after the SGDEC migration.
 
 Service-owned dependencies are resolved through
@@ -15,6 +15,11 @@ from __future__ import annotations
 
 __all__ = [
     "context",
+    "coding_agent_contract",
+    "coding_agent_process",
+    "coding_agent_profiles",
+    "coding_agent_selection",
+    "jules",
     "helpers",
     "routing",
     "semaphore",

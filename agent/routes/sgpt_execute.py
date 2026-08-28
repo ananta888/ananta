@@ -564,6 +564,9 @@ def execute_sgpt_request(  # noqa: C901
                     "mode": "adaptive",
                     "task_kind": task_kind,
                     "policy_version": (routing_cfg["policy_version"]),
+                    "coding_agent_free_first": routing_cfg.get("coding_agent_free_first", True),
+                    "allow_paid_coding_agent_fallback": routing_cfg.get("allow_paid_coding_agent_fallback", False),
+                    "coding_agent_permission_mode": routing_cfg.get("coding_agent_permission_mode", "workspace_write"),
                 },
             )
         append_stage(

@@ -6,14 +6,8 @@ import sys
 import time
 from typing import Any
 
-from agent.config import settings
-from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
-from agent.research_backend import (
-    RESEARCH_BACKEND_PROVIDERS,
-    get_research_backend_preflight,
-    is_research_backend,
-    resolve_research_backend_config,
-)
+from agent.cli_backends.coding_agent_contract import FreeClass
+from agent.cli_backends.coding_agent_profiles import CLI_PROFILES, EXISTING_DESCRIPTORS
 from agent.cli_backends.helpers import (
     _classify_runtime_target,
     _get_agent_config,
@@ -22,10 +16,29 @@ from agent.cli_backends.helpers import (
     _is_probably_local_base_url,
     _normalize_openai_base_url,
 )
+from agent.config import settings
+from agent.local_llm_backends import get_local_openai_backends
+from agent.research_backend import (
+    RESEARCH_BACKEND_PROVIDERS,
+    get_research_backend_preflight,
+    is_research_backend,
+    resolve_research_backend_config,
+)
 
 log = logging.getLogger(__name__)
 
-SUPPORTED_CLI_BACKENDS = {"sgpt", "ananta-worker", "codex", "opencode", "claude_code", "aider", "mistral_code", *RESEARCH_BACKEND_PROVIDERS}
+PROFILE_CLI_BACKENDS = frozenset({"qwen_code", "gemini_cli", "copilot_cli", "cline", "kilo_code"})
+SUPPORTED_CLI_BACKENDS = {
+    "sgpt",
+    "ananta-worker",
+    "codex",
+    "opencode",
+    "claude_code",
+    "aider",
+    "mistral_code",
+    *PROFILE_CLI_BACKENDS,
+    *RESEARCH_BACKEND_PROVIDERS,
+}
 CLI_BACKEND_INSTALL_HINTS = {
     "sgpt": "python -m pip install shell-gpt",
     "ananta-worker": "python -m pip install shell-gpt",
@@ -38,8 +51,15 @@ CLI_BACKEND_INSTALL_HINTS = {
     "claude_code": "npm i -g @anthropic-ai/claude-code",
     "aider": "python -m pip install aider-chat",
     "mistral_code": "npm i -g mistral-code",
+    "qwen_code": "npm install -g @qwen-code/qwen-code",
+    "gemini_cli": "npm install -g @google/gemini-cli",
+    "copilot_cli": "Install GitHub Copilot CLI from the official GitHub release channel.",
+    "cline": "Install Cline CLI from the official Cline release channel.",
+    "kilo_code": "npm install -g @kilocode/cli",
     "deerflow": "Clone deer-flow and configure research_backend.command plus research_backend.working_dir.",
-    "ananta_research": "Install or clone ananta_research and configure research_backend.command plus research_backend.working_dir.",
+    "ananta_research": (
+        "Install or clone ananta_research and configure research_backend.command plus research_backend.working_dir."
+    ),
 }
 CLI_BACKEND_VERIFY_COMMANDS = {
     "sgpt": "python -m sgpt --help",
@@ -49,6 +69,11 @@ CLI_BACKEND_VERIFY_COMMANDS = {
     "claude_code": "claude --version",
     "aider": "aider --help",
     "mistral_code": "mistral-code --help",
+    "qwen_code": "qwen --version",
+    "gemini_cli": "gemini --version",
+    "copilot_cli": "copilot --version",
+    "cline": "cline --version",
+    "kilo_code": "kilo --version",
     "deerflow": "python main.py --help",
     "ananta_research": "configure research_backend.command",
 }
@@ -101,6 +126,20 @@ CLI_BACKEND_CAPABILITIES = {
         "supported_flags": [],
         "supports_temperature": False,
         "supports_top_p": False,
+    },
+    **{
+        backend_id: {
+            "display_name": CLI_PROFILES[backend_id].descriptor.display_name,
+            "supports_model": CLI_PROFILES[backend_id].model_flag is not None,
+            "supports_model_selection": CLI_PROFILES[backend_id].model_flag is not None,
+            "supported_flags": [],
+            "supports_temperature": False,
+            "supports_top_p": False,
+            "integration_kind": CLI_PROFILES[backend_id].descriptor.integration_kind.value,
+            "free_class": CLI_PROFILES[backend_id].descriptor.free_class.value,
+            "capabilities": CLI_PROFILES[backend_id].descriptor.capabilities.as_dict(),
+        }
+        for backend_id in PROFILE_CLI_BACKENDS
     },
     "deerflow": {
         "display_name": "DeerFlow",
@@ -160,6 +199,8 @@ def _resolve_backend_binary(backend: str) -> str | None:
         return shutil.which(settings.aider_path or "aider")
     if backend == "mistral_code":
         return shutil.which(settings.mistral_code_path or "mistral-code")
+    if backend in PROFILE_CLI_BACKENDS:
+        return shutil.which(CLI_PROFILES[backend].binary_name)
     return None
 
 
@@ -178,6 +219,8 @@ def _configured_backend_command(backend: str) -> str:
         return settings.aider_path or "aider"
     if backend == "mistral_code":
         return settings.mistral_code_path or "mistral-code"
+    if backend in PROFILE_CLI_BACKENDS:
+        return CLI_PROFILES[backend].binary_name
     return ""
 
 
@@ -439,7 +482,9 @@ def get_cli_backend_preflight(*, runtime_scope: str = "full") -> dict[str, dict]
                     "ps_url": ollama_activity.get("ps_url"),
                     "active_count": int(ollama_activity.get("active_count") or 0),
                     "gpu_active": bool(ollama_activity.get("gpu_active")),
-                    "executor_summary": dict(ollama_activity.get("executor_summary") or {"gpu": 0, "cpu": 0, "unknown": 0}),
+                    "executor_summary": dict(
+                        ollama_activity.get("executor_summary") or {"gpu": 0, "cpu": 0, "unknown": 0}
+                    ),
                     "active_models": list(ollama_activity.get("active_models") or []),
                 },
                 "runtime_scope": scope,
@@ -550,16 +595,77 @@ def diagnose_cli_backend(backend: str, *, timeout: float = 15.0) -> dict:
 
 
 def get_cli_backend_capabilities() -> dict[str, dict]:
-    return {k: dict(v) for k, v in CLI_BACKEND_CAPABILITIES.items()}
+    result: dict[str, dict] = {}
+    for backend_id, raw in CLI_BACKEND_CAPABILITIES.items():
+        item = dict(raw)
+        item.setdefault("supports_model_selection", bool(item.get("supports_model")))
+        item.setdefault("supported_options", list(item.get("supported_flags") or []))
+        item.setdefault("install_hint", CLI_BACKEND_INSTALL_HINTS.get(backend_id))
+        item["available"] = bool(_resolve_backend_binary(backend_id))
+        result[backend_id] = item
+    return result
 
 
 def _prioritize_code_backends(candidates: list[str]) -> list[str]:
-    code_pref = ["ananta-worker", "sgpt", "codex", "claude_code", "aider", "opencode", "mistral_code", "deerflow", "ananta_research", "browser_use"]
+    code_pref = [
+        "ananta-worker",
+        "sgpt",
+        "codex",
+        "claude_code",
+        "qwen_code",
+        "aider",
+        "opencode",
+        "gemini_cli",
+        "copilot_cli",
+        "cline",
+        "kilo_code",
+        "mistral_code",
+        "deerflow",
+        "ananta_research",
+        "browser_use",
+    ]
     ordered = [c for c in code_pref if c in candidates]
     for candidate in candidates:
         if candidate not in ordered:
             ordered.append(candidate)
     return ordered
+
+
+def _apply_coding_agent_cost_policy(candidates: list[str], policy: dict) -> list[str]:
+    if not bool(policy.get("coding_agent_free_first", True)):
+        return candidates
+    allow_paid = bool(policy.get("allow_paid_coding_agent_fallback", False))
+    descriptors = {
+        **{backend_id: profile.descriptor for backend_id, profile in CLI_PROFILES.items()},
+        **EXISTING_DESCRIPTORS,
+    }
+    original_index = {backend_id: index for index, backend_id in enumerate(candidates)}
+    free_rank = {
+        FreeClass.INCLUDED_FREE_INFERENCE: 0,
+        FreeClass.FREE_TIER_LIMITED: 1,
+        FreeClass.OPEN_SOURCE_BYOK: 2,
+        FreeClass.PAID_OR_UNKNOWN: 3,
+    }
+    preferred = candidates[:1]
+    fallback = candidates[1:]
+    eligible: list[str] = []
+    for backend_id in fallback:
+        descriptor = descriptors.get(backend_id)
+        if descriptor is not None and descriptor.free_class is FreeClass.PAID_OR_UNKNOWN and not allow_paid:
+            continue
+        if str(_BACKEND_RUNTIME.get(backend_id, {}).get("quota_state") or "") == "exhausted":
+            continue
+        eligible.append(backend_id)
+    eligible.sort(
+        key=lambda backend_id: (
+            free_rank.get(
+                descriptors[backend_id].free_class if backend_id in descriptors else FreeClass.PAID_OR_UNKNOWN,
+                4,
+            ),
+            original_index[backend_id],
+        )
+    )
+    return preferred + eligible
 
 
 def _split_cooldown_candidates(candidates: list[str], now: float) -> tuple[list[str], list[str]]:
@@ -596,7 +702,9 @@ def _choose_candidates(
         if "claude_code" in candidates:
             from agent.cli_backends.opencode import resolve_claude_runtime_config
 
-            claude_ready = bool(resolve_claude_runtime_config().get("enabled")) and bool(_resolve_backend_binary("claude_code"))
+            claude_ready = bool(resolve_claude_runtime_config().get("enabled")) and bool(
+                _resolve_backend_binary("claude_code")
+            )
             if not claude_ready:
                 candidates = [c for c in candidates if c != "claude_code"]
     else:
@@ -609,6 +717,8 @@ def _choose_candidates(
     code_like = any(k in p for k in ["refactor", "code", "patch", "test", "bug", "fix"])
     if code_like:
         candidates = _prioritize_code_backends(candidates)
+    if requested == "auto":
+        candidates = _apply_coding_agent_cost_policy(candidates, policy)
 
     active, cooled = _split_cooldown_candidates(candidates, time.time())
     return active + cooled

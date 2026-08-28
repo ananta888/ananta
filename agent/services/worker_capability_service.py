@@ -66,7 +66,19 @@ class WorkerCapabilityService:
 
     def build_tooling_capability_map(self) -> dict[str, dict]:
         capabilities = get_cli_backend_capabilities()
-        tool_keys = ("sgpt", "codex", "opencode", "aider", "mistral_code")
+        tool_keys = (
+            "sgpt",
+            "codex",
+            "claude_code",
+            "opencode",
+            "aider",
+            "mistral_code",
+            "qwen_code",
+            "gemini_cli",
+            "copilot_cli",
+            "cline",
+            "kilo_code",
+        )
         mapping: dict[str, dict] = {}
         for key in tool_keys:
             info = capabilities.get(key) or {}

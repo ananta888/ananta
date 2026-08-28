@@ -129,6 +129,7 @@ def _build_lora_registry_summary(cfg: dict) -> dict:
     try:
         from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
         from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
+
         lora_rt = normalize_lora_runtime_config(cfg.get("lora_runtime") or {})
         registry_path = lora_rt.get("adapter_registry_path", "artifacts/lora/adapter_registry.json")
         svc = MlInternAdapterRegistryService(registry_path)
@@ -163,9 +164,7 @@ def set_config():
         migration = build_model_routing_legacy_migration_service(
             legacy_config=dict(current_cfg or {}),
             model_profiles_path=str(
-                current_app.config.get("MODEL_PROFILES_PATH")
-                or os.environ.get("MODEL_PROFILES_PATH")
-                or ""
+                current_app.config.get("MODEL_PROFILES_PATH") or os.environ.get("MODEL_PROFILES_PATH") or ""
             ).strip(),
         )
         release_gate = migration.release_gate()
@@ -235,7 +234,8 @@ def set_config():
         normalized_fallback = {
             "allow_hub_worker_fallback": bool(fallback_cfg.get("allow_hub_worker_fallback", True)),
             "escalate_on_fallback_block": bool(fallback_cfg.get("escalate_on_fallback_block", True)),
-            "fallback_block_status": str(fallback_cfg.get("fallback_block_status") or "blocked").strip().lower() or "blocked",
+            "fallback_block_status": str(fallback_cfg.get("fallback_block_status") or "blocked").strip().lower()
+            or "blocked",
         }
         if normalized_fallback["fallback_block_status"] not in {"blocked", "failed", "todo"}:
             return api_response(status="error", message="invalid_fallback_block_status", code=400)
@@ -244,9 +244,13 @@ def set_config():
         routing_fallback_cfg = new_cfg.get("routing_fallback_policy")
         if not isinstance(routing_fallback_cfg, dict):
             return api_response(status="error", message="invalid_routing_fallback_policy", code=400)
-        if "fallback_order" in routing_fallback_cfg and not isinstance(routing_fallback_cfg.get("fallback_order"), list):
+        if "fallback_order" in routing_fallback_cfg and not isinstance(
+            routing_fallback_cfg.get("fallback_order"), list
+        ):
             return api_response(status="error", message="invalid_routing_fallback_order", code=400)
-        new_cfg["routing_fallback_policy"] = get_routing_decision_service().normalize_fallback_policy(routing_fallback_cfg)
+        new_cfg["routing_fallback_policy"] = get_routing_decision_service().normalize_fallback_policy(
+            routing_fallback_cfg
+        )
     if "result_memory_policy" in new_cfg:
         memory_cfg = new_cfg.get("result_memory_policy")
         if not isinstance(memory_cfg, dict):
@@ -305,9 +309,27 @@ def set_config():
         mode_cfg = new_cfg.get("cli_session_mode")
         if not isinstance(mode_cfg, dict):
             return api_response(status="error", message="invalid_cli_session_mode", code=400)
-        backends = [str(item or "").strip().lower() for item in list(mode_cfg.get("stateful_backends") or []) if str(item or "").strip()]
+        backends = [
+            str(item or "").strip().lower()
+            for item in list(mode_cfg.get("stateful_backends") or [])
+            if str(item or "").strip()
+        ]
         for backend in backends:
-            if backend not in {"sgpt", "codex", "opencode", "aider", "mistral_code", "deerflow", "ananta_research"}:
+            if backend not in {
+                "sgpt",
+                "codex",
+                "claude_code",
+                "opencode",
+                "aider",
+                "mistral_code",
+                "qwen_code",
+                "gemini_cli",
+                "copilot_cli",
+                "cline",
+                "kilo_code",
+                "deerflow",
+                "ananta_research",
+            }:
                 return api_response(status="error", message="invalid_cli_session_backend", code=400)
         try:
             max_turns = int(mode_cfg.get("max_turns_per_session", 40))
@@ -347,7 +369,9 @@ def set_config():
         if target_provider not in {None, "ollama", "lmstudio"}:
             return api_response(status="error", message="invalid_opencode_target_provider", code=400)
         target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
-        target_model = str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
+        target_model = (
+            str(opencode_runtime_cfg.get("target_model") or opencode_runtime_cfg.get("model") or "").strip() or None
+        )
         new_cfg["opencode_runtime"] = {
             "tool_mode": tool_mode,
             "execution_mode": execution_mode,
@@ -362,10 +386,14 @@ def set_config():
             return api_response(status="error", message="invalid_worker_runtime", code=400)
         workspace_root = worker_runtime_cfg.get("workspace_root")
         workspace_root = str(workspace_root).strip() if workspace_root is not None else None
-        workspace_reuse_mode = str(worker_runtime_cfg.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
+        workspace_reuse_mode = (
+            str(worker_runtime_cfg.get("workspace_reuse_mode") or "goal_worker").strip().lower() or "goal_worker"
+        )
         if workspace_reuse_mode not in {"task", "goal_worker"}:
             return api_response(status="error", message="invalid_worker_workspace_reuse_mode", code=400)
-        current_worker_runtime = current_cfg.get("worker_runtime") if isinstance(current_cfg.get("worker_runtime"), dict) else {}
+        current_worker_runtime = (
+            current_cfg.get("worker_runtime") if isinstance(current_cfg.get("worker_runtime"), dict) else {}
+        )
         default_execution_profile = normalize_worker_execution_profile(
             worker_runtime_cfg.get("default_execution_profile")
             or current_worker_runtime.get("default_execution_profile")
@@ -384,7 +412,9 @@ def set_config():
                 if provider_cfg is None:
                     provider_cfg = {}
                 if not isinstance(provider_cfg, dict):
-                    return api_response(status="error", message="invalid_worker_semantic_output_embedding_provider", code=400)
+                    return api_response(
+                        status="error", message="invalid_worker_semantic_output_embedding_provider", code=400
+                    )
                 fields_cfg = raw_semantic.get("fields")
                 if fields_cfg is None:
                     fields_cfg = {}
@@ -429,8 +459,12 @@ def set_config():
                         minimum=0.5,
                         maximum=1.0,
                     ),
-                    "min_margin": _bounded_float(raw_semantic.get("min_margin"), default=0.03, minimum=0.0, maximum=1.0),
-                    "lexical_weight": _bounded_float(raw_semantic.get("lexical_weight"), default=0.35, minimum=0.0, maximum=1.0),
+                    "min_margin": _bounded_float(
+                        raw_semantic.get("min_margin"), default=0.03, minimum=0.0, maximum=1.0
+                    ),
+                    "lexical_weight": _bounded_float(
+                        raw_semantic.get("lexical_weight"), default=0.35, minimum=0.0, maximum=1.0
+                    ),
                     "embedding_provider": {
                         "provider": str(provider_cfg.get("provider") or "local").strip().lower() or "local",
                         "dimensions": _bounded_int(provider_cfg.get("dimensions"), default=12, minimum=4, maximum=4096),
@@ -438,7 +472,9 @@ def set_config():
                         "base_url": str(provider_cfg.get("base_url") or "").strip() or None,
                         "api_key": str(provider_cfg.get("api_key") or "").strip() or None,
                         "model": str(provider_cfg.get("model") or "").strip() or None,
-                        "timeout_seconds": _bounded_int(provider_cfg.get("timeout_seconds"), default=20, minimum=1, maximum=120),
+                        "timeout_seconds": _bounded_int(
+                            provider_cfg.get("timeout_seconds"), default=20, minimum=1, maximum=120
+                        ),
                     },
                     "fields": {
                         "risk_classification": {
@@ -510,7 +546,9 @@ def set_config():
         if not isinstance(doom_loop_cfg, dict):
             return api_response(status="error", message="invalid_doom_loop_policy", code=400)
         merged_doom_loop_policy = (current_cfg.get("doom_loop_policy", {}) or {}).copy()
-        merged_doom_loop_policy.update({key: value for key, value in doom_loop_cfg.items() if key != "severity_actions"})
+        merged_doom_loop_policy.update(
+            {key: value for key, value in doom_loop_cfg.items() if key != "severity_actions"}
+        )
         if isinstance(doom_loop_cfg.get("severity_actions"), dict):
             existing_severity_actions = (
                 dict(merged_doom_loop_policy.get("severity_actions") or {})
@@ -613,13 +651,9 @@ def set_config():
         if emb_cfg.get("base_url"):
             normalized_emb["base_url"] = str(emb_cfg["base_url"]).strip()
         if emb_cfg.get("policy_profile"):
-            normalized_emb["policy_profile"] = str(
-                emb_cfg["policy_profile"]
-            ).strip()
+            normalized_emb["policy_profile"] = str(emb_cfg["policy_profile"]).strip()
         if emb_cfg.get("api_key_ref"):
-            normalized_emb["api_key_ref"] = str(
-                emb_cfg["api_key_ref"]
-            ).strip()
+            normalized_emb["api_key_ref"] = str(emb_cfg["api_key_ref"]).strip()
         if emb_cfg.get("api_key_env"):
             normalized_emb["api_key_env"] = str(emb_cfg["api_key_env"]).strip()
         if emb_cfg.get("model"):

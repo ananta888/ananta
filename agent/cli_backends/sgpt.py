@@ -10,6 +10,7 @@ import time
 
 from agent.config import settings
 from agent.cli_backends.budget import check_prompt_budget
+from agent.cli_backends.coding_agent_profiles import run_profile_coding_agent
 from agent.research_backend import is_research_backend, run_research_backend_command
 from agent.cli_backends.helpers import (
     _get_agent_config,
@@ -27,6 +28,7 @@ from agent.cli_backends.semaphore import (
     _get_backend_semaphore,
 )
 from agent.cli_backends.routing import (
+    PROFILE_CLI_BACKENDS,
     SUPPORTED_CLI_BACKENDS,
     CLI_BACKEND_INSTALL_HINTS,
     CLI_BACKEND_VERIFY_COMMANDS,
@@ -179,7 +181,11 @@ def _run_ananta_worker_iterative(
         )
 
         mutation_cfg = get_workspace_mutation_config(workdir)
-        if mutation_cfg.get("enabled") and workdir and str(mutation_cfg.get("resolved_mode") or "read_only") != "read_only":
+        if (
+            mutation_cfg.get("enabled")
+            and workdir
+            and str(mutation_cfg.get("resolved_mode") or "read_only") != "read_only"
+        ):
             return run_ananta_worker_workspace_mutation(
                 prompt,
                 workdir,
@@ -240,8 +246,7 @@ def _run_ananta_worker_iterative(
     if len(batches) == 1:
         batch = batches[0]
         file_blocks = "\n\n".join(
-            f"{_format_block_header(b)}\n```{b.get('lang', 'text')}\n{b.get('content', '')}\n```"
-            for b in batch
+            f"{_format_block_header(b)}\n```{b.get('lang', 'text')}\n{b.get('content', '')}\n```" for b in batch
         )
         enriched = f"{prompt.rstrip()}\n\n---\n\n{file_blocks}"
         return run_sgpt_command(prompt=enriched, options=options, timeout=timeout, model=model, workdir=workdir)
@@ -281,9 +286,7 @@ def _run_ananta_worker_iterative(
             if progress_path:
                 try:
                     progress_path.parent.mkdir(parents=True, exist_ok=True)
-                    progress_path.write_text(
-                        "\n\n---\n\n".join(progress_parts), encoding="utf-8"
-                    )
+                    progress_path.write_text("\n\n---\n\n".join(progress_parts), encoding="utf-8")
                 except OSError:
                     pass
         if rc != 0 and not out:
@@ -306,10 +309,7 @@ def _run_ananta_worker_iterative(
             last_rc, last_out, last_err = rc, out, err
             if progress_path:
                 try:
-                    final_text = (
-                        "\n\n---\n\n".join(progress_parts)
-                        + f"\n\n---\n\n## Finales Ergebnis\n\n{out.strip()}"
-                    )
+                    final_text = "\n\n---\n\n".join(progress_parts) + f"\n\n---\n\n## Finales Ergebnis\n\n{out.strip()}"
                     progress_path.write_text(final_text, encoding="utf-8")
                 except OSError:
                     pass
@@ -341,7 +341,17 @@ def run_llm_cli_command(
         if not normalized or "/" in normalized:
             return normalized
         provider = str(getattr(settings, "default_provider", "") or _get_runtime_default_provider()).strip().lower()
-        if provider in {"openai", "anthropic", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot"}:
+        if provider in {
+            "openai",
+            "anthropic",
+            "gemini",
+            "groq",
+            "openrouter",
+            "bedrock",
+            "azure",
+            "vertexai",
+            "copilot",
+        }:
             return f"{provider}/{normalized}"
         return normalized
 
@@ -350,7 +360,9 @@ def run_llm_cli_command(
     for name in candidates:
         started = time.time()
         if name == "sgpt":
-            rc, out, err = run_sgpt_command(prompt=prompt, options=options or [], timeout=timeout, model=model, workdir=workdir)
+            rc, out, err = run_sgpt_command(
+                prompt=prompt, options=options or [], timeout=timeout, model=model, workdir=workdir
+            )
         elif name == "ananta-worker":
             rc, out, err = _run_ananta_worker_iterative(
                 prompt=prompt,
@@ -368,16 +380,9 @@ def run_llm_cli_command(
                 timeout=timeout,
                 session=session,
                 workdir=workdir,
-                tool_mode=str(
-                    (routing_policy or {}).get("opencode_tool_mode") or ""
-                ).strip()
-                or None,
-                context_token_limit=(routing_policy or {}).get(
-                    "opencode_context_token_limit"
-                ),
-                output_token_limit=(routing_policy or {}).get(
-                    "opencode_output_token_limit"
-                ),
+                tool_mode=str((routing_policy or {}).get("opencode_tool_mode") or "").strip() or None,
+                context_token_limit=(routing_policy or {}).get("opencode_context_token_limit"),
+                output_token_limit=(routing_policy or {}).get("opencode_output_token_limit"),
             )
         elif name == "claude_code":
             rc, out, err = run_claude_command(prompt=prompt, model=model, timeout=timeout, workdir=workdir)
@@ -385,6 +390,24 @@ def run_llm_cli_command(
             rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
         elif name == "mistral_code":
             rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
+        elif name in PROFILE_CLI_BACKENDS:
+            permission_mode = str((routing_policy or {}).get("coding_agent_permission_mode") or "workspace_write")
+            if permission_mode not in {"read_only", "workspace_write", "autonomous"}:
+                permission_mode = "read_only"
+            session_id = str((session or {}).get("id") or "").strip() or None
+            with _acquire_backend_permit(name, timeout=timeout) as ticket:
+                if not ticket.acquired:
+                    rc, out, err = -1, "", f"Backend '{name}' ist ausgelastet (semaphore_exhausted)"
+                else:
+                    rc, out, err = run_profile_coding_agent(
+                        name,
+                        prompt=prompt,
+                        model=model,
+                        timeout=timeout,
+                        workdir=workdir,
+                        session_id=session_id,
+                        permission_mode=permission_mode,
+                    )
         elif is_research_backend(name):
             rc, out, err = run_research_backend_command(
                 prompt=prompt,
@@ -400,6 +423,15 @@ def run_llm_cli_command(
         rt = _BACKEND_RUNTIME.setdefault(name, {})
         rt["last_rc"] = rc
         rt["last_latency_ms"] = int((time.time() - started) * 1000)
+        if name in PROFILE_CLI_BACKENDS:
+            normalized_error = str(err or "").lower()
+            rt["quota_state"] = (
+                "exhausted"
+                if any(marker in normalized_error for marker in ("quota", "rate limit", "usage limit"))
+                else "available"
+                if rc == 0
+                else "unknown"
+            )
         if rc == 0 or out:
             rt["last_success_at"] = now
             rt["consecutive_failures"] = 0

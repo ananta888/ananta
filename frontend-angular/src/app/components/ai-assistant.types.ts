@@ -71,4 +71,16 @@ export interface AssistantRuntimeContext {
   configSnapshot?: any;
 }
 
-export type CliBackend = 'auto' | 'sgpt' | 'codex' | 'opencode' | 'claude_code' | 'aider' | 'mistral_code';
+export type CliBackend =
+  | 'auto'
+  | 'sgpt'
+  | 'codex'
+  | 'opencode'
+  | 'claude_code'
+  | 'aider'
+  | 'mistral_code'
+  | 'qwen_code'
+  | 'gemini_cli'
+  | 'copilot_cli'
+  | 'cline'
+  | 'kilo_code';

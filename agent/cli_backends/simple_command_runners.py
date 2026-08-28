@@ -6,6 +6,21 @@ import subprocess
 from collections.abc import Callable, Mapping
 from typing import Any
 
+_PROCESS_ENVIRONMENT_KEYS = frozenset({"HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"})
+_AIDER_AUTH_ENVIRONMENT_KEYS = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "AZURE_API_KEY",
+        "AZURE_API_BASE",
+        "GEMINI_API_KEY",
+        "GOOGLE_API_KEY",
+        "OPENAI_API_BASE",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENROUTER_API_KEY",
+    }
+)
+
 
 def run_aider_command(
     prompt: str,
@@ -37,9 +52,19 @@ def run_aider_command(
                 "",
                 "Backend 'aider' ist ausgelastet (semaphore_exhausted)",
             )
-        env = environ.copy()
+        inherited_environment = environ.copy()
+        env = {
+            name: value
+            for name, value in inherited_environment.items()
+            if name in _PROCESS_ENVIRONMENT_KEYS or name in _AIDER_AUTH_ENVIRONMENT_KEYS
+        }
+        env.update({"CI": "1", "NO_COLOR": "1"})
         try:
-            logger.info(f"Zentraler Aider-Aufruf: {args}")
+            logger.info(
+                "Zentraler Aider-Aufruf: binary=%s model_configured=%s",
+                aider_resolved,
+                bool(selected_model),
+            )
             result = run_process(
                 args,
                 capture_output=True,

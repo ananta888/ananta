@@ -5,7 +5,6 @@ import logging
 import threading
 from dataclasses import dataclass
 
-from agent.config import settings
 from agent.cli_backends.helpers import _get_agent_config
 
 
@@ -22,6 +21,11 @@ _DEFAULT_BACKEND_PARALLEL_LIMITS: dict[str, int] = {
     "claude_code": 1,
     "aider": 1,
     "mistral_code": 1,
+    "qwen_code": 1,
+    "gemini_cli": 1,
+    "copilot_cli": 1,
+    "cline": 1,
+    "kilo_code": 1,
 }
 
 

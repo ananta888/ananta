@@ -18,6 +18,7 @@ def _default_opencode_model() -> str | None:
         return "qwen2.5-coder:7b"
     return configured or None
 
+
 def build_default_agent_config() -> dict:
     opencode_default_model = _default_opencode_model()
     return {
@@ -368,6 +369,9 @@ def build_default_agent_config() -> dict:
         "sgpt_routing": {
             "policy_version": "v2",
             "default_backend": "ananta-worker",
+            "coding_agent_free_first": True,
+            "allow_paid_coding_agent_fallback": False,
+            "coding_agent_permission_mode": "workspace_write",
             "backend_parallel_limits": {
                 "sgpt": 1,
                 "ananta-worker": 1,
@@ -375,6 +379,11 @@ def build_default_agent_config() -> dict:
                 "opencode": 1,
                 "aider": 1,
                 "mistral_code": 1,
+                "qwen_code": 1,
+                "gemini_cli": 1,
+                "copilot_cli": 1,
+                "cline": 1,
+                "kilo_code": 1,
             },
             "task_kind_backend": {
                 "coding": "ananta-worker",
@@ -461,10 +470,12 @@ def build_default_agent_config() -> dict:
         },
         "opencode_runtime": {
             "tool_mode": "toolless" if str(settings.default_provider or "").strip().lower() == "ollama" else "full",
-            "execution_mode": (os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "live_terminal").strip().lower() or "live_terminal",
-            "interactive_launch_mode": (
-                os.environ.get("ANANTA_OPENCODE_INTERACTIVE_LAUNCH_MODE") or "run"
-            ).strip().lower() or "run",
+            "execution_mode": (os.environ.get("ANANTA_OPENCODE_EXECUTION_MODE") or "live_terminal").strip().lower()
+            or "live_terminal",
+            "interactive_launch_mode": (os.environ.get("ANANTA_OPENCODE_INTERACTIVE_LAUNCH_MODE") or "run")
+            .strip()
+            .lower()
+            or "run",
             "target_provider": (
                 str(settings.default_provider or "").strip().lower()
                 if str(settings.default_provider or "").strip().lower() in {"ollama", "lmstudio"}
@@ -630,8 +641,15 @@ def build_default_agent_config() -> dict:
             },
             "escalate_to_strict_risks": ["high", "critical"],
             "strict_path_markers": [
-                "auth", "oidc", "keycloak", "deployment", "kubernetes",
-                "secret", "security", ".github", "docker-compose",
+                "auth",
+                "oidc",
+                "keycloak",
+                "deployment",
+                "kubernetes",
+                "secret",
+                "security",
+                ".github",
+                "docker-compose",
             ],
             "require_materialized_scope": True,
             "allowed_new_file_globs": [],
@@ -719,8 +737,12 @@ def build_default_agent_config() -> dict:
                 "strict": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
             },
             "human_required_tools": [
-                "git.push", "git.commit", "secret.read", "service.restart",
-                "network.fetch_arbitrary", "shell.run_unrestricted",
+                "git.push",
+                "git.commit",
+                "secret.read",
+                "service.restart",
+                "network.fetch_arbitrary",
+                "shell.run_unrestricted",
                 "external_worker.execute_mutation",
             ],
             "goal_pre_approvals": {

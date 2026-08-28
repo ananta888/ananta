@@ -37,6 +37,11 @@ def runtime_routing_config(agent_cfg: dict | None) -> dict[str, Any]:
         "policy_version": str(cfg.get("policy_version") or "v3"),
         "default_backend": str(cfg.get("default_backend") or "ananta-worker").strip().lower(),
         "task_kind_backend": cfg.get("task_kind_backend") or {},
+        "coding_agent_free_first": bool(cfg.get("coding_agent_free_first", True)),
+        "allow_paid_coding_agent_fallback": bool(cfg.get("allow_paid_coding_agent_fallback", False)),
+        "coding_agent_permission_mode": str(cfg.get("coding_agent_permission_mode") or "workspace_write")
+        .strip()
+        .lower(),
     }
 
 
@@ -53,16 +58,24 @@ def resolve_cli_backend(
     if backend != "auto":
         return backend, f"explicit_backend:{backend}", routing_cfg
 
-    normalized_required = [str(item or "").strip().lower() for item in (required_capabilities or []) if str(item or "").strip()]
+    normalized_required = [
+        str(item or "").strip().lower() for item in (required_capabilities or []) if str(item or "").strip()
+    ]
     research_capability_backend = routing_cfg.get("research_capability_backend") or {}
     if str(task_kind or "").strip().lower() == "research":
         for specialization in ("deep_research", "repo_research", "document_research"):
             mapped = str(research_capability_backend.get(specialization) or "").strip().lower()
             if specialization in normalized_required and mapped in supported_backends:
                 return mapped, f"research_capability_policy:{specialization}->{mapped}", routing_cfg
-        configured_research_backend = str(resolve_research_backend_config(agent_cfg=agent_cfg).get("provider") or "").strip().lower()
+        configured_research_backend = (
+            str(resolve_research_backend_config(agent_cfg=agent_cfg).get("provider") or "").strip().lower()
+        )
         if configured_research_backend in supported_backends:
-            return configured_research_backend, f"research_backend_policy:research->{configured_research_backend}", routing_cfg
+            return (
+                configured_research_backend,
+                f"research_backend_policy:research->{configured_research_backend}",
+                routing_cfg,
+            )
 
     kind_map = routing_cfg.get("task_kind_backend") or {}
     mapped = str(kind_map.get(task_kind) or kind_map.get("*") or "").strip().lower()
@@ -90,10 +103,20 @@ def review_policy(
         str(x).strip().lower() for x in (cfg.get("research_backends") or ["deerflow", "ananta_research", "browser_use"])
     }
     review_task_kinds = {str(x).strip().lower() for x in (cfg.get("task_kinds") or ["research"])}
-    base_required = enabled and str(backend or "").strip().lower() in review_backends and str(task_kind or "").strip().lower() in review_task_kinds
+    base_required = (
+        enabled
+        and str(backend or "").strip().lower() in review_backends
+        and str(task_kind or "").strip().lower() in review_task_kinds
+    )
 
-    terminal_risk = normalize_risk_level(str(cfg.get("terminal_risk_level") or "high"), default="high") if uses_terminal else "low"
-    file_risk = normalize_risk_level(str(cfg.get("file_access_risk_level") or "medium"), default="medium") if uses_file_access else "low"
+    terminal_risk = (
+        normalize_risk_level(str(cfg.get("terminal_risk_level") or "high"), default="high") if uses_terminal else "low"
+    )
+    file_risk = (
+        normalize_risk_level(str(cfg.get("file_access_risk_level") or "medium"), default="medium")
+        if uses_file_access
+        else "low"
+    )
     explicit_risk = normalize_risk_level(risk_level or "low", default="low")
     effective_risk = max_risk_level(explicit_risk, terminal_risk, file_risk)
     min_review_level = normalize_risk_level(str(cfg.get("min_risk_level_for_review") or "high"), default="high")
@@ -127,18 +150,27 @@ def evaluate_trigger_precheck(
     enabled = bool(cfg.get("enabled", True))
     normalized_source = str(source or "").strip().lower()
     risk_map = dict(cfg.get("source_risk_map") or {})
-    risk_level = str(risk_map.get(normalized_source) or {
-        "generic": "medium",
-        "github": "medium",
-        "jira": "medium",
-        "email": "medium",
-        "slack": "low",
-    }.get(normalized_source, "high")).strip().lower()
+    risk_level = (
+        str(
+            risk_map.get(normalized_source)
+            or {
+                "generic": "medium",
+                "github": "medium",
+                "jira": "medium",
+                "email": "medium",
+                "slack": "low",
+            }.get(normalized_source, "high")
+        )
+        .strip()
+        .lower()
+    )
     tasks = list(parsed_tasks or [])
     allowed_sources = {
         str(item or "").strip().lower() for item in (cfg.get("allowed_sources") or []) if str(item or "").strip()
     }
-    blocked_sources = {str(item or "").strip().lower() for item in (cfg.get("blocked_sources") or []) if str(item or "").strip()}
+    blocked_sources = {
+        str(item or "").strip().lower() for item in (cfg.get("blocked_sources") or []) if str(item or "").strip()
+    }
     max_tasks_per_event = max(1, min(int(cfg.get("max_tasks_per_event") or 20), 100))
 
     decision = "approved"
@@ -161,7 +193,10 @@ def evaluate_trigger_precheck(
         allowed = False
         decision = "blocked"
         reason = "too_many_tasks"
-    elif enabled and any(not (str((task or {}).get("title") or "").strip() or str((task or {}).get("description") or "").strip()) for task in tasks):
+    elif enabled and any(
+        not (str((task or {}).get("title") or "").strip() or str((task or {}).get("description") or "").strip())
+        for task in tasks
+    ):
         allowed = False
         decision = "blocked"
         reason = "incomplete_task_payload"
@@ -200,6 +235,7 @@ def resolve_lora_adapter_routing(
     Returns a public, path-free policy decision.  Worker execution re-checks
     the selected adapter against the registry before materializing artifacts.
     """
+
     def no_adapter(reason_code: str, *, fallback: bool = True) -> dict[str, Any]:
         return {
             "adapter_used": False,
@@ -223,6 +259,7 @@ def resolve_lora_adapter_routing(
     configured_fallback = True
     try:
         from agent.services.ml_intern_training_config_service import normalize_lora_runtime_config
+
         lora_rt = normalize_lora_runtime_config((agent_cfg or {}).get("lora_runtime") or {})
         configured_fallback = bool(lora_rt.get("fallback_to_base_model", True))
         if not lora_rt.get("enabled") or not lora_rt.get("routing_enabled"):

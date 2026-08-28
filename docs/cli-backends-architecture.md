@@ -1,5 +1,10 @@
 # agent.cli_backends — LLM-CLI Backend Subsystem Architecture
 
+Optional coding-agent CLIs and cloud agents use the closed provider contract
+documented in [coding-agent-providers.md](coding-agent-providers.md). This is an
+additive layer inside the same `agent.cli_backends` source of truth; it does not
+move provider selection or orchestration out of the Hub.
+
 **Track:** SGDEC
 **Status:** Welle 1+2+3 complete. `agent.cli_backends.*` is the source of
 truth; the legacy `agent.common.sgpt_*` shim layer is deleted.

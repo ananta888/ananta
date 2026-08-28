@@ -123,6 +123,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   useHybridContext = false;
   cliBackend: CliBackend = 'auto';
   availableCliBackends: CliBackend[] = ['auto', 'sgpt', 'codex', 'opencode', 'aider', 'mistral_code'];
+  cliBackendMetadata: Record<string, any> = {};
   cliRuntime: Record<string, any> = {};
   chatHistory: ChatMessage[] = [];
   chatThreads: ChatThread[] = [];
@@ -589,13 +590,13 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
     this.agentApi.sgptBackends(hub.url).subscribe({
       next: data => {
         const supported = Object.keys(data?.supported_backends || {});
+        this.cliBackendMetadata = data?.supported_backends || {};
         const dynamic: CliBackend[] = ['auto'];
-        if (supported.includes('sgpt')) dynamic.push('sgpt');
-        if (supported.includes('codex')) dynamic.push('codex');
-        if (supported.includes('opencode')) dynamic.push('opencode');
-        if (supported.includes('claude_code')) dynamic.push('claude_code');
-        if (supported.includes('aider')) dynamic.push('aider');
-        if (supported.includes('mistral_code')) dynamic.push('mistral_code');
+        const known: CliBackend[] = [
+          'sgpt', 'codex', 'opencode', 'claude_code', 'aider', 'mistral_code',
+          'qwen_code', 'gemini_cli', 'copilot_cli', 'cline', 'kilo_code',
+        ];
+        dynamic.push(...known.filter(backend => supported.includes(backend)));
         this.availableCliBackends = dynamic;
         this.cliRuntime = (data?.runtime && typeof data.runtime === 'object') ? data.runtime : {};
         if (!this.availableCliBackends.includes(this.cliBackend)) {
@@ -609,7 +610,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       next: cfg => {
         const value = String(cfg?.sgpt_execution_backend || '').toLowerCase();
         if (
-          (value === 'auto' || value === 'sgpt' || value === 'codex' || value === 'opencode' || value === 'claude_code' || value === 'aider' || value === 'mistral_code') &&
+          this.isCliBackend(value) &&
           this.availableCliBackends.includes(value as CliBackend)
         ) {
           this.cliBackend = value as CliBackend;
@@ -618,6 +619,13 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
       },
       error: () => {}
     });
+  }
+
+  private isCliBackend(value: string): value is CliBackend {
+    return [
+      'auto', 'sgpt', 'codex', 'opencode', 'claude_code', 'aider', 'mistral_code',
+      'qwen_code', 'gemini_cli', 'copilot_cli', 'cline', 'kilo_code',
+    ].includes(value);
   }
 
   onCliBackendChange() {
