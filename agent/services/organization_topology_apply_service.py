@@ -1720,7 +1720,11 @@ class OrganizationTopologyApplyService:
             "limits": _angular_limits(limits),
             "applicable": not any(row.severity == "blocker" for row in diagnostics),
         }
-        preview = OrganizationTopologyPatchPreview(**payload, patch_digest=canonical_sha256(payload))
+        preview = OrganizationTopologyPatchPreview(
+            **payload,
+            patch_digest="0" * 64,
+        )
+        preview = preview.model_copy(update={"patch_digest": canonical_sha256(preview.digest_payload())})
         return _Evaluation(preview=preview, unit_activity=state.activity_by_unit)
 
     def _stage_operations(self, uow, state, operations, *, operation_key: str, principal_id: str):
