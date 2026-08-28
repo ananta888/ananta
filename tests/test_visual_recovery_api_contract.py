@@ -6,7 +6,7 @@ from typing import Any
 import jwt
 
 from agent.config import settings
-from agent.db_models import GoalDB, PlanDB, PlanNodeDB, TaskDB
+from agent.db_models import GoalDB, PlanDB, PlanNodeDB, TaskDB, TeamDB
 from agent.services.model_recovery_signal import build_model_recovery_signal
 from agent.services.recovery_plan_contract import (
     calculate_recovery_plan_digest,
@@ -17,12 +17,17 @@ from agent.services.task_recovery_planning_service import (
 )
 
 
-def _team_auth_headers(team_id: str) -> dict[str, str]:
+def _team_auth_headers(
+    team_id: str,
+    *,
+    role: str = "user",
+) -> dict[str, str]:
     now = int(time.time())
     token = jwt.encode(
         {
             "sub": f"operator-{team_id}",
-            "role": "user",
+            "role": role,
+            "tenant_id": team_id,
             "team_id": team_id,
             "iat": now,
             "exp": now + 3600,
@@ -353,7 +358,6 @@ def test_invalid_graph_step_recovery_merge_fails_closed_without_model_plan(
 def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
     client,
     app,
-    admin_auth_header,
     monkeypatch,
 ) -> None:
     import agent.services.task_recovery_planning_service as recovery_module
@@ -363,10 +367,21 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
     from agent.services.repository_registry import get_repository_registry
 
     same_team_headers = _team_auth_headers("team-recovery")
+    same_team_admin_headers = _team_auth_headers(
+        "team-recovery",
+        role="admin",
+    )
     other_team_headers = _team_auth_headers("team-other")
 
     with app.app_context():
         repositories = get_repository_registry(app)
+        repositories.team_repo.save(
+            TeamDB(
+                id="team-recovery",
+                name="Recovery API fixture team",
+                is_active=True,
+            )
+        )
         goal = repositories.goal_repo.save(
             GoalDB(
                 id="goal-recovery-api",
@@ -375,6 +390,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
                 status="in_progress",
                 source="test",
                 team_id="team-recovery",
+                tenant_id="team-recovery",
             )
         )
         source_task = repositories.task_repo.save(
@@ -389,6 +405,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
                 goal_id=goal.id,
                 goal_trace_id=goal.trace_id,
                 team_id=goal.team_id,
+                tenant_id=goal.tenant_id,
                 worker_execution_context={
                     "model_routing": {
                         "preferred_profile_id": "local_ollama_phi4_mini",
@@ -459,7 +476,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
 
     patch_response = client.patch(
         f"/goals/{goal.id}/plans/{plan_id}/nodes/{node.id}",
-        headers=admin_auth_header,
+        headers=same_team_admin_headers,
         json={
             "title": "Operator-reviewed bounded recovery",
             "priority": "High",
@@ -481,7 +498,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
 
     stale_grant_response = client.post(
         f"/api/approvals/{old_approval_id}/decision",
-        headers=admin_auth_header,
+        headers=same_team_admin_headers,
         json={
             "decision": "granted",
             "reason": "Review complete after the node edit",
@@ -525,7 +542,7 @@ def test_recovery_plan_http_patch_refreshes_digest_bound_admin_approval(
 
     stale_grant_reuse = client.post(
         f"/api/approvals/{old_approval_id}/decision",
-        headers=admin_auth_header,
+        headers=same_team_admin_headers,
         json={"decision": "granted"},
     )
     assert stale_grant_reuse.status_code == 409

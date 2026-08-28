@@ -6,6 +6,7 @@ from typing import Any
 
 import pytest
 
+from agent.auth import resolve_configured_agent_token
 from agent.db_models import AgentInfoDB, GoalDB, PlanDB, PlanNodeDB, TaskDB
 from agent.services.model_recovery_signal import build_model_recovery_signal
 from agent.services.task_recovery_planning_service import (
@@ -486,7 +487,10 @@ def test_worker_exhaustion_flows_through_hub_tick_and_admin_approval(
 
     decision = client.post(
         f"/api/approvals/{approval_id}/decision",
-        headers=admin_auth_header,
+        headers={
+            "Authorization": "Bearer "
+            + str(resolve_configured_agent_token(app.config) or "")
+        },
         json={
             "decision": "granted",
             "reason": "approved deterministic recovery plan",

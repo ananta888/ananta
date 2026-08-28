@@ -677,6 +677,14 @@ class TaskRecoveryPlanningService:
         approval = self._approval_service().create_pending_request(
             task_id=source_task_id,
             goal_id=goal_id,
+            tenant_id=str(getattr(goal, "tenant_id", "") or "").strip()
+            or None,
+            project_id=str(getattr(goal, "project_id", "") or "").strip()
+            or None,
+            organization_id=str(
+                getattr(goal, "organization_id", "") or ""
+            ).strip()
+            or None,
             trace_id=str(getattr(plan, "trace_id", "") or "") or None,
             tool_name=RECOVERY_MATERIALIZE_TOOL,
             arguments={
@@ -700,6 +708,15 @@ class TaskRecoveryPlanningService:
                 "source_task_id": source_task_id,
                 "recovery_key": recovery_key,
                 "team_id": team_id,
+                "tenant_id": str(
+                    getattr(goal, "tenant_id", "") or ""
+                ).strip(),
+                "project_id": str(
+                    getattr(goal, "project_id", "") or ""
+                ).strip(),
+                "organization_id": str(
+                    getattr(goal, "organization_id", "") or ""
+                ).strip(),
             },
         )
         plan.rationale = {

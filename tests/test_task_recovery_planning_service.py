@@ -673,6 +673,7 @@ def test_recovery_materialization_decision_api_requires_admin(
     approval = service.create_pending_request(
         task_id="task-api-approval",
         goal_id="goal-api-approval",
+        tenant_id="admin",
         tool_name=RECOVERY_MATERIALIZE_TOOL,
         arguments={"plan_id": "plan-api-approval"},
         target_fingerprint="digest-api-approval",
@@ -684,7 +685,9 @@ def test_recovery_materialization_decision_api_requires_admin(
         json={"decision": "granted"},
     )
 
-    assert forbidden.status_code == 403
+    # Tenant-bound non-admin callers must not learn that an unscoped legacy
+    # approval exists; the route deliberately hides it as not found.
+    assert forbidden.status_code == 404
     assert service.get_request(approval.id).status == "pending"
 
     granted = client.post(
@@ -762,7 +765,11 @@ def test_recovery_approval_details_are_team_scoped(
     app,
     monkeypatch,
 ):
-    goal = Record(id="goal-private", team_id="team-b")
+    goal = Record(
+        id="goal-private",
+        team_id="team-b",
+        tenant_id="tenant-private",
+    )
     repos = Record(goal_repo=Record(get_by_id=lambda goal_id: (goal if goal_id == goal.id else None)))
     monkeypatch.setattr(
         "agent.services.repository_registry.get_repository_registry",
@@ -771,18 +778,33 @@ def test_recovery_approval_details_are_team_scoped(
     approval = Record(
         tool_name=RECOVERY_MATERIALIZE_TOOL,
         goal_id=goal.id,
+        tenant_id="tenant-private",
+        project_id=None,
+        organization_id=None,
+        scope={},
     )
 
     with app.test_request_context("/api/approvals"):
         g.is_admin = False
-        g.user = {"sub": "user-a", "team_id": "team-a"}
+        g.user = {
+            "sub": "user-a",
+            "team_id": "team-a",
+            "tenant_id": "tenant-private",
+        }
         assert _can_view_approval(approval) is False
 
-        g.user = {"sub": "user-b", "team_id": "team-b"}
+        g.user = {
+            "sub": "user-b",
+            "team_id": "team-b",
+            "tenant_id": "tenant-private",
+        }
         assert _can_view_approval(approval) is True
 
         g.is_admin = True
-        g.user = {"sub": "admin"}
+        g.user = {
+            "sub": "admin",
+            "tenant_id": "tenant-private",
+        }
         assert _can_view_approval(approval) is True
 
 
