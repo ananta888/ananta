@@ -74,6 +74,19 @@
       "default": null,
       "title": "Dispatch Lease Token"
     },
+    "knowledge_index_dispatch": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Knowledge Index Dispatch"
+    },
     "model": {
       "anyOf": [
         {
@@ -149,6 +162,34 @@
       ],
       "default": null
     },
+    "routing_task_kind": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Routing Task Kind"
+    },
+    "routing_tools": {
+      "anyOf": [
+        {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Routing Tools"
+    },
     "strategy_mode": {
       "anyOf": [
         {
@@ -184,6 +225,19 @@
       ],
       "default": null,
       "title": "Temperature"
+    },
+    "vector_index_dispatch": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vector Index Dispatch"
     }
   },
   "title": "TaskStepProposeRequest",

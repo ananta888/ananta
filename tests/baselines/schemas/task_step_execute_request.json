@@ -36,6 +36,19 @@
       "default": null,
       "title": "Dispatch Lease Token"
     },
+    "knowledge_index_dispatch": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Knowledge Index Dispatch"
+    },
     "recovery_proposal_context": {
       "anyOf": [
         {
@@ -150,6 +163,19 @@
       ],
       "default": null,
       "title": "Tool Calls"
+    },
+    "vector_index_dispatch": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Vector Index Dispatch"
     }
   },
   "title": "TaskStepExecuteRequest",

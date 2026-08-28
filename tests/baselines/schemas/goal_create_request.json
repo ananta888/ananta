@@ -108,6 +108,18 @@
       "title": "Mode Data",
       "type": "object"
     },
+    "project_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Project Id"
+    },
     "source": {
       "anyOf": [
         {

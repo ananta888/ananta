@@ -25,6 +25,19 @@
       "default": null,
       "title": "Comparisons"
     },
+    "inference": {
+      "anyOf": [
+        {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Inference"
+    },
     "raw": {
       "title": "Raw",
       "type": "string"
