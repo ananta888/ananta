@@ -1950,8 +1950,8 @@
     {
       "evidence": [
         {
-          "line_end": 1064,
-          "line_start": 1064,
+          "line_end": 1069,
+          "line_start": 1069,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "RerankAdapter.execute",
           "verification_status": "verified"
@@ -1984,8 +1984,8 @@
     {
       "evidence": [
         {
-          "line_end": 1079,
-          "line_start": 1079,
+          "line_end": 1088,
+          "line_start": 1088,
           "path": "agent/visual_process/step_adapters.py",
           "symbol": "EmbedApiAdapter",
           "verification_status": "verified"
@@ -2052,22 +2052,22 @@
     {
       "evidence": [
         {
-          "line_end": 280,
-          "line_start": 280,
+          "line_end": 319,
+          "line_start": 319,
           "path": "frontend-angular/src/app/features/visual-process/vp-editor-state.facade.ts",
           "symbol": "VpEditorStateFacade.afterMutation",
           "verification_status": "verified"
         },
         {
-          "line_end": 326,
-          "line_start": 326,
+          "line_end": 417,
+          "line_start": 417,
           "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
           "symbol": "VisualProcessEditorComponent.onNodeMouseDown",
           "verification_status": "verified"
         },
         {
-          "line_end": 328,
-          "line_start": 328,
+          "line_end": 419,
+          "line_start": 419,
           "path": "frontend-angular/src/app/features/visual-process/visual-process-editor.component.ts",
           "symbol": "VisualProcessEditorComponent.onMouseUp",
           "verification_status": "verified"

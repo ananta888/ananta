@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const configuredBaseUrl = process.env.E2E_FRONTEND_URL;
+const localPort = 4201;
+
 export default defineConfig({
   testDir: './tests',
   testMatch: [
@@ -17,11 +20,20 @@ export default defineConfig({
   reporter: [['list']],
   use: {
     ...devices['Desktop Chrome'],
-    baseURL: process.env.E2E_FRONTEND_URL || 'http://127.0.0.1:4201',
+    baseURL: configuredBaseUrl || `http://127.0.0.1:${localPort}`,
     actionTimeout: 15_000,
     navigationTimeout: 30_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
+  webServer: configuredBaseUrl
+    ? undefined
+    : {
+        command: 'npm run start:e2e',
+        port: localPort,
+        timeout: 120_000,
+        reuseExistingServer: true,
+        env: { E2E_PORT: String(localPort) },
+      },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 });

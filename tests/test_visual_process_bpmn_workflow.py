@@ -184,5 +184,5 @@ def test_visual_process_bpmn_and_workflow_routes(
         json={"workflow_request": payload["workflow_request"]},
         headers=auth_headers,
     )
-    assert started.status_code == 200
+    assert started.status_code == 200, started.get_json()
     assert started.get_json()["backend"] == "ananta-native"

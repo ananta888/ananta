@@ -282,13 +282,16 @@ test('zwei Tabs bleiben zustandsisoliert; die AI-Snake-Prozessansicht mutiert im
       forbiddenMutations.push(`${current.method()} ${path}`);
     }
   });
+  const assistantLauncher = secondPage.getByTestId('assistant-dock-launcher');
+  if (await assistantLauncher.isVisible().catch(() => false)) await assistantLauncher.click();
   const openAssistant = secondPage.getByRole('button', { name: 'Assistant oeffnen' });
   if (await openAssistant.isVisible().catch(() => false)) await openAssistant.click();
-  const processTab = secondPage.locator('[data-waypoint="snake.tab-process"]');
-  if (!(await processTab.isVisible().catch(() => false))) {
-    await secondPage.getByTitle('AI-Snake Chat').click({ force: true });
-  }
-  await expect(processTab).toBeVisible();
+  const openSnakeChat = secondPage.locator('[data-waypoint="assistant.tab-chat"]');
+  await expect(openSnakeChat).toBeVisible();
+  await openSnakeChat.click();
+  const processTab = secondPage
+    .getByTestId('assistant-snake-chat-panel')
+    .getByRole('button', { name: 'Prozess', exact: true });
   await processTab.click();
 
   const readOnlyPanel = secondPage.locator('.process-panel');

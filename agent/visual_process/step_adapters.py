@@ -30,6 +30,11 @@ from agent.visual_process.models import VisualProcessStep
 from agent.visual_process.step_executor import StepAdapter, StepExecutionResult
 
 
+_BUILTIN_TOKEN_OVERLAP_RERANKER_DIGEST = "sha256:" + hashlib.sha256(
+    b"ananta.visual-process.token-overlap-reranker.v1"
+).hexdigest()
+
+
 class _MlInternTrainingControlPort(Protocol):
     def create_job(
         self,
@@ -1063,7 +1068,11 @@ class RerankAdapter(StepAdapter):
         # and NodeDefinitions expose only the canonical ``weight`` field.
         weight = float(step.metadata.get("weight", step.metadata.get("reranker_weight", 0.15)))
         enabled = bool(step.metadata.get("enabled", True))
-        reranker = Reranker(enabled=enabled, weight=weight)
+        reranker = Reranker(
+            enabled=enabled,
+            weight=weight,
+            model_digest=_BUILTIN_TOKEN_OVERLAP_RERANKER_DIGEST,
+        )
         reranked = reranker.rerank(query=query, candidates=candidates)
         return StepExecutionResult(
             status="success",
