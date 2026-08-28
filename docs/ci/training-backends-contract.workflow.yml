@@ -6,6 +6,7 @@ on:
       - "ananta_contracts/training_backend.py"
       - "worker/training/**"
       - "config/licenses/training-backends.v1.json"
+      - "config/security/training-backend-scanners.v1.json"
       - "benchmarks/training_backends/**"
       - "scripts/*training_backend*"
       - "tests/worker/test_*training_backend*.py"
@@ -40,5 +41,6 @@ jobs:
           tests/test_ml_intern_backend_selection_service.py
           tests/test_training_backend_benchmark_contract.py
           tests/test_training_backend_acceptance_contract.py
+          tests/test_training_backend_image_gate.py
           tests/test_training_backend_license_register.py
           tests/security/test_training_backend_isolation.py

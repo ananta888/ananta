@@ -6,10 +6,10 @@
   "track": "mlintern_multi_training_backends",
   "title": "ML-Intern: optionale Backends fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
   "review_basis": {
-    "reviewed_commit_range": "e56a9ea2475ef7c1b5040c544e252b383ab292e7",
-    "review_goal": "Aufgabenstatus, automatisierbare Acceptance-Gates und verbleibende Lauf-Evidenz gegen den synchronen Quellcode-Stand pruefen",
-    "repository_state": "main entsprach origin/main; Arbeitsbaum war vor dem Audit sauber",
-    "verification": "Lizenzvalidator und 56 fokussierte Contract-, Adapter-, Registry-, Artefakt-, Benchmark-, Acceptance- und Isolationstests bestanden"
+    "reviewed_commit_range": "b2a88f75f113cb8a5b7387eb6f112d4e5fb99c00 plus Implementierungsstand vom 2026-08-28",
+    "review_goal": "Automatischen Image-/Supply-Chain-Gate implementieren, alle vier Images neu bauen und reale Findings fail-closed bewerten",
+    "repository_state": "Audit-Commit war auf origin/main; Implementierung wurde vor der Todo-Aktualisierung mit realen Images verifiziert",
+    "verification": "Vier aktuelle Images gebaut; vier netzlose read-only Install-Smokes bestanden; digestgepinnte Syft-/Grype-Scans ausgefuehrt; 30 fokussierte Gate-, Acceptance-, Lizenz-, Adapter- und Isolationstests bestanden"
   },
   "status": "partial",
   "priority": "P1",
@@ -107,8 +107,8 @@
       "Unsloth Audio",
       "Unsloth Embeddings",
       "Needle",
-      "Axolotl (default-off, Live-Evidenz not_run)",
-      "LLaMA-Factory (default-off, Live-Evidenz not_run)",
+      "Axolotl (default-off, Image-Gate failed, Live-Evidenz not_run)",
+      "LLaMA-Factory (default-off, Image-Gate failed, Live-Evidenz not_run)",
       "AutoTrain Advanced (experimental, default-off, Production-No-Go)",
       "torchtune (experimental, default-off, Production-No-Go)"
     ],
@@ -203,7 +203,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 80.0,
+      "progress_percent": 90.0,
       "depends_on": [],
       "target_files": [
         "docs/research/training-backend-matrix.md",
@@ -229,7 +229,8 @@
         "Lizenz- und Release-Audit vom 2026-08-27 gegen offizielle GitHub-Releases, LICENSE-Dateien und PyPI-Artefakte; keine SRC_*-/RUN_*-IDs vorhanden.",
         "Axolotl 0.18.0 und LlamaFactory 0.9.5 sind aktive Kandidaten; AutoTrain Advanced 0.8.36 und torchtune 0.6.1 melden sich upstream als nicht mehr gewartet.",
         "config/licenses/training-backends.v1.json und scripts/validate_training_backend_licenses.py validieren Pins, Quellen, SPDX-Allowlist und default-off fail-closed.",
-        "Vier durch uv vollstaendig versionsaufgeloeste Dependency-Locks sowie getrennte pip-inspect-Inventories sind vorhanden; transitive Lizenz- und Vulnerability-Scan-Ergebnisse fehlen noch."
+        "Vier durch uv vollstaendig versionsaufgeloeste Dependency-Locks sowie getrennte pip-inspect-Inventories sind vorhanden.",
+        "Der automatische Image-Gate erzeugte reale SBOMs und Grype-Ergebnisse. Ungeklaerte Paketlizenzen bleiben mit 204 (Axolotl), 46 (LLaMA-Factory), 43 (AutoTrain) und 37 (torchtune) ein maschineller Freigabeblocker."
       ]
     },
     {
@@ -320,7 +321,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 80.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "MTB-003"
       ],
@@ -348,7 +349,8 @@
       "evidence": [
         "worker/training/backends/axolotl.py kapselt die gepinnte CLI ueber festen argv, exakte Versionspruefung, Offline-Umgebung und gemeinsame Artefaktnormalisierung.",
         "Dockerfile.training-axolotl und compose.training-axolotl.yml sind opt-in, non-root, internal-network-only und trennen Control- und Trainer-Dependencies.",
-        "CPU-Contract-, Prozessgruppen-, Config- und Artefakttests bestehen; ein echter attestierter NVIDIA-LoRA-Smoke bleibt not_run."
+        "CPU-Contract-, Prozessgruppen-, Config- und Artefakttests bestehen; Image-Build, exakte Paketversion und netzloser read-only Install-Smoke wurden real verifiziert.",
+        "Der Supply-Chain-Gate blockiert den aktuellen Image-Digest wegen 8 Critical-, 55 High-Findings und 204 ungeklaerten Paketlizenzen; ein echter attestierter NVIDIA-LoRA-Smoke bleibt not_run."
       ]
     },
     {
@@ -359,7 +361,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 78.0,
+      "progress_percent": 83.0,
       "depends_on": [
         "MTB-003"
       ],
@@ -387,7 +389,8 @@
       "evidence": [
         "worker/training/backends/llamafactory.py verwendet ausschliesslich llamafactory-cli train mit worker-erzeugter Config; keine Upstream-WebUI und kein Host-Port werden exponiert.",
         "Das isolierte, versionsgelockte Containerprofil und negative Config-/Compose-Tests bestehen.",
-        "Ein identischer realer Dataset-Snapshot-Lauf gegen Unsloth und die Sichtpruefung von Tokenizer-/Template-Semantik bleiben not_run."
+        "Image-Build, exakte Paketversion und netzloser read-only Install-Smoke wurden real verifiziert; der Supply-Chain-Gate blockiert wegen 9 Critical-, 75 High-Findings und 46 ungeklaerten Paketlizenzen.",
+        "Ein identischer realer Dataset-Snapshot-Lauf gegen Unsloth und die maschinelle Pruefung von Tokenizer-/Template-Semantik bleiben not_run."
       ]
     },
     {
@@ -398,7 +401,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 75.0,
+      "progress_percent": 80.0,
       "depends_on": [
         "MTB-003"
       ],
@@ -427,6 +430,7 @@
       "evidence": [
         "AutoTrain 0.8.36 ist als local-only, offline, experimental, default-off und unmaintained implementiert; Hub-Upload und externe Reporter sind fest deaktiviert.",
         "Capability-, Policy-, Prozessumgebungs- und Compose-Isolationstests bestehen ohne Cloud-Credentials.",
+        "Image-Build, exakte Paketversion und netzloser read-only Install-Smoke wurden real verifiziert; der Supply-Chain-Gate blockiert wegen 10 Critical-, 95 High-Findings und 43 ungeklaerten Paketlizenzen.",
         "Ein echter netzwerkisolierter Trainingslauf bleibt not_run; production bleibt wegen offizieller Wartungsabkuendigung No-Go."
       ]
     },
@@ -438,7 +442,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 75.0,
+      "progress_percent": 80.0,
       "depends_on": [
         "MTB-003"
       ],
@@ -467,6 +471,7 @@
       "evidence": [
         "worker/training/torchtune_recipe_registry.py erlaubt nur das intern gebundene Single-Device-LoRA-Recipe; Request-gesteuerte Imports existieren nicht.",
         "Exakte Checkpoint-Provenance blockiert einen stillen Backend-Wechsel; Config-, Registry- und Isolationstests bestehen.",
+        "Image-Build, exakte Paketversion und netzloser read-only Install-Smoke wurden real verifiziert; der Supply-Chain-Gate blockiert wegen 8 Critical-, 38 High-Findings und 37 ungeklaerten Paketlizenzen.",
         "Ein echter gepinnter Single-GPU-Smoke und eine reale Checkpoint-Konvertierungspruefung bleiben not_run; production bleibt No-Go."
       ]
     },
@@ -681,7 +686,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 85.0,
+      "progress_percent": 92.0,
       "depends_on": [
         "MTB-004",
         "MTB-005",
@@ -691,7 +696,9 @@
       ],
       "target_files": [
         "docs/security/training-backend-threat-model.md",
+        "config/security/training-backend-scanners.v1.json",
         "config/policies/training-backend-egress.v1.json",
+        "scripts/run_training_backend_image_gate.py",
         "tests/security/test_training_backend_isolation.py"
       ],
       "implementation": [
@@ -715,7 +722,9 @@
         "worker/training/runtime_artifact_service.py",
         "Vier digestgepinnte, non-root, read-only, capability-reduzierte und internal-network-only Profile sowie deny-by-default Egress-Policy sind vorhanden.",
         "Trainer-Dependencies sind vom Control-Runtime getrennt, vollstaendig versionsgelockt und erzeugen ein eigenes pip-inspect-Inventar.",
-        "Statische Isolation, Secret-freie Subprozessumgebung, Injection, Path-/Symlink- und Artefakttests bestehen; reale Image-SBOM-/Vulnerability-Scan-Ergebnisse fehlen noch."
+        "Statische Isolation, Secret-freie Subprozessumgebung, Injection, Path-/Symlink- und Artefakttests bestehen.",
+        "Der vollautomatische Gate baut Images, prueft non-root/offline/read-only Installationen und fuehrt digestgepinnte Syft-/Grype-Scans als aufrufende UID/GID aus; Critical, High und ungeklaerte Lizenzen haben maschinell den Grenzwert null.",
+        "Alle vier realen Scans endeten korrekt failed. Die Findings bleiben Produktblocker und werden weder durch Operatorfreigabe noch CPU-Tests in Erfolg umgedeutet."
       ]
     },
     {
@@ -726,7 +735,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 65.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "MTB-012",
         "MTB-013"
@@ -753,9 +762,9 @@
         "NVIDIA-Freigabe benoetigt einen echten, attestierten Minimal-Trainingslauf."
       ],
       "evidence": [
-        "Installierbare Workflow-Vorlagen unter docs/ci trennen GPU-freie Contracts vom self-hosted NVIDIA-Gate; der NVIDIA-Lauf besitzt noch keinen automatischen Trigger unter .github/workflows.",
+        "Installierbare Workflow-Vorlagen unter docs/ci trennen GPU-freie Contracts vom self-hosted NVIDIA-Gate; der NVIDIA-Prerequisite-Workflow besitzt automatische Schedule- und main-Push-Trigger, baut und scannt alle Images und benoetigt keine bereitgestellte manuelle Evidence-Datei.",
         "scripts/run_training_backends_acceptance.py erhaelt verified, not_run, failed und blocked getrennt und lehnt verified ohne Image-Digest und Hardwareattestation ab.",
-        "Optionale Dependencies werden erst in opt-in Worker-Profilen geladen; vier Compose-Expansionen wurden lokal erfolgreich validiert. Echte NVIDIA-Evidenz bleibt not_run."
+        "Optionale Dependencies werden erst in opt-in Worker-Profilen geladen; vier Compose-Expansionen und vier aktuelle Image-Builds wurden lokal erfolgreich validiert. Echte NVIDIA-Trainings-Evidenz bleibt not_run und kann durch den automatischen Image-Gate nicht ersetzt werden."
       ]
     },
     {
@@ -828,7 +837,8 @@
     "Die Integration soll reale Wahlfreiheit und Vergleichbarkeit schaffen, ohne ML-Intern in mehrere konkurrierende Control Planes zu zerlegen.",
     "Bei Upstream-Lizenzwechseln oder nicht-offenen Zusatzkomponenten ist eine erneute explizite Pruefung erforderlich.",
     "Implementierungsreview 2026-08-28 auf main@e56a9ea24: keine neue Control Plane, Worker-zu-Worker-Orchestrierung oder schwere Trainer-Abhaengigkeit im Hub; verbleibende Partial-Punkte sind automatisierbare Supply-Chain-/GPU-Evidenz und werden nicht als bestanden dargestellt.",
-    "Human-in-the-loop ist weder Testvoraussetzung noch einzige Produktionsroute: Freigabe-Evidenz muss maschinell erzeugbar und fail-closed pruefbar sein; bewusste Backend-Auswahl bleibt eine optionale Bedienfunktion."
+    "Human-in-the-loop ist weder Testvoraussetzung noch einzige Produktionsroute: Freigabe-Evidenz muss maschinell erzeugbar und fail-closed pruefbar sein; bewusste Backend-Auswahl bleibt eine optionale Bedienfunktion.",
+    "Realer Image-Gate vom 2026-08-28: alle vier Builds und Install-Smokes bestanden; alle vier Freigaben wurden wegen Critical-/High-CVEs und ungeklaerten transitive Lizenzen automatisch verweigert."
   ],
   "tasks_status_summary": {
     "total": 15,
@@ -872,7 +882,7 @@
     "blocked": 0,
     "done": 7,
     "count_based_percent": 46.7,
-    "weighted_percent": 85.0
+    "weighted_percent": 88.4
   },
   "tasks_type_summary": {
     "total": 15,
@@ -889,7 +899,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 90.0
       },
       "architecture": {
         "total": 1,
@@ -917,7 +927,7 @@
         "done": 1,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 92.5
+        "progress_percent": 96.0
       },
       "implementation": {
         "total": 5,
@@ -931,7 +941,7 @@
         "done": 1,
         "partial": 4,
         "blocked": 0,
-        "progress_percent": 81.6
+        "progress_percent": 85.6
       },
       "artifact": {
         "total": 1,
@@ -1001,7 +1011,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 75.0
       },
       "documentation": {
         "total": 1,
@@ -1022,10 +1032,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 28.25,
-    "done_weight": 24.012,
-    "remaining_weight": 4.238,
+    "done_weight": 24.967,
+    "remaining_weight": 3.283,
     "blocked_weight": 0.0,
-    "weighted_percent": 85.0
+    "weighted_percent": 88.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1034,7 +1044,7 @@
         "done": 2,
         "blocked": 0,
         "count_based_percent": 66.7,
-        "weighted_percent": 92.0,
+        "weighted_percent": 96.0,
         "status": "in_progress"
       },
       "M1": {
@@ -1042,7 +1052,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 77.4,
+        "weighted_percent": 82.4,
         "status": "in_progress"
       },
       "M2": {
@@ -1058,7 +1068,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 25.0,
-        "weighted_percent": 73.6,
+        "weighted_percent": 78.2,
         "status": "in_progress"
       }
     }
@@ -1066,10 +1076,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T14:07:07.141456Z",
+    "generated_at": "2026-08-28T16:21:54.499109Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "587bff22791f3c4312f6d3465fa220073863a87f424e94ff9ed9f1ad72329504",
+    "source_hash": "ce1b37835be2d1db4cad2385eb6de7600cc463d6e8e9d6abb93b539d256166f4",
     "is_stale": false
   }
 }

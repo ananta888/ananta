@@ -27,6 +27,7 @@ data_test/
 
 # Python-Cache-Dateien
 __pycache__/
+**/__pycache__/
 *.py[cod]
 
 # Virtuelle Umgebungen

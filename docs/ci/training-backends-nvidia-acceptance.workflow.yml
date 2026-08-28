@@ -1,25 +1,42 @@
 name: Training backend NVIDIA acceptance
 
 on:
+  schedule:
+    - cron: "17 3 * * 2"
+  push:
+    branches: [main]
+    paths:
+      - "docker/compose-next/Dockerfile.training-*"
+      - "docker/compose-next/requirements.training-*"
+      - "worker/training/**"
+      - "config/security/training-backend-scanners.v1.json"
+      - "scripts/run_training_backend_image_gate.py"
   workflow_dispatch:
-    inputs:
-      evidence_path:
-        description: Existing bounded acceptance evidence to validate
-        required: true
-        type: string
 
 permissions:
   contents: read
 
 jobs:
-  validate-evidence:
+  automatic-image-prerequisite:
     runs-on: [self-hosted, linux, x64, nvidia]
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.12"
-      - name: Validate supplied evidence
-        env:
-          EVIDENCE_PATH: ${{ inputs.evidence_path }}
-        run: python scripts/run_training_backends_acceptance.py "$EVIDENCE_PATH" --print-sha256
+      - name: Run automatic build, install smoke, SBOM and vulnerability gate
+        run: >-
+          python scripts/run_training_backend_image_gate.py
+          --build
+          --scan
+          --output artifacts/training-backend-image-gate.json
+          --timeout-seconds 7200
+      - name: Retain bounded machine evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: training-backend-image-gate
+          path: artifacts/training-backend-image-gate.json
+          if-no-files-found: error
+          retention-days: 30

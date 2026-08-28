@@ -20,7 +20,7 @@ WebUI or accept arbitrary trainer arguments.
 | Artifact poisoning | Model/dataset/config/backend/version binding plus SHA-256 manifest admission |
 | Checkpoint confusion | Exact backend, version, model, dataset, config and format comparison |
 | Cancellation escape | One process group per attempt, TERM then bounded KILL, Hub fencing remains authoritative |
-| Supply-chain drift | Exact top-level package pin, pip inventory, SBOM/vulnerability/manual release gates |
+| Supply-chain drift | Exact top-level package pin, pip inventory, digest-pinned SBOM/vulnerability scanners and machine-decided fail-closed release gate |
 
 No container uses privileged mode, Docker socket, host networking or a public
 port. Model and dataset mounts remain read-only; only the attempt/state volume

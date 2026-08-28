@@ -30,6 +30,9 @@ GGUF export.
 ## RTX 3080 interpretation
 
 The 10-GB profile is a benchmark target, not a compatibility promise. A
-backend becomes verified for it only after the manual NVIDIA gate records the
-exact model, dataset, versions, driver, CUDA runtime, peak VRAM and result
-digests. CPU contract results cannot satisfy that gate.
+backend becomes verified for it only after the fully automatic NVIDIA gate records
+the exact model, dataset, versions, driver, CUDA runtime, peak VRAM and result
+digests. The machine must return `not_run`, `blocked` or `failed` when a required
+input or attestation is absent; no operator decision may convert that result to
+`verified`. CPU contract and image-supply-chain results cannot satisfy the live
+training gate.

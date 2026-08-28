@@ -29,19 +29,35 @@ docker compose -f docker/compose-next/compose.lora-training.yml \
   --profile training-axolotl config
 ```
 
-Build and start only after the image inventory and security scan pass local policy.
-The Worker health probe reports unavailable when the exact package or executable is
-missing; other backends and the Ananta core remain operational.
+Build and start only after the automatic image gate passes local policy:
+
+```console
+python scripts/run_training_backend_image_gate.py \
+  --build --scan --output artifacts/training-backend-image-gate.json
+```
+
+The gate builds all four images, executes netless/read-only installation smokes,
+creates an SBOM with the digest-pinned Syft image and evaluates vulnerabilities
+with the digest-pinned Grype image. Critical, high and unresolved-license limits
+are machine-owned by `config/security/training-backend-scanners.v1.json`; no human
+approval can reinterpret a failure as success. The Worker health probe reports
+unavailable when the exact package or executable is missing; other backends and
+the Ananta core remain operational.
 
 ## Verify
 
 Install the reviewed templates from `docs/ci/` under `.github/workflows/` using
-a GitHub credential with `workflow` scope, then run the CPU contract workflow
-first. A real GPU result is only `verified` when the
-evidence includes the immutable container digest, GPU/driver attestation and all
-declared test results. Use `scripts/run_training_backends_acceptance.py` to validate
-such evidence. `not_run`, `blocked` and `failed` are distinct and must never be
-rewritten as success.
+a GitHub credential with `workflow` scope. The CPU contract runs on repository
+changes; the self-hosted NVIDIA prerequisite also runs weekly and on relevant
+main-branch changes without operator input. A manual dispatch is only an optional
+retry mechanism. It is never required by a test or release path.
+
+A real GPU result is only `verified` when the evidence includes the immutable
+container digest, GPU/driver attestation and all declared test results. Use
+`scripts/run_training_backends_acceptance.py` to validate such evidence.
+`not_run`, `blocked` and `failed` are distinct and must never be rewritten as
+success. The automatic image prerequisite alone cannot claim that real training,
+CUDA behavior, VRAM bounds or model quality were verified.
 
 Training success does not activate an adapter. Evaluation, Hub approval, registry
 admission and promotion remain mandatory.
