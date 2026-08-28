@@ -53,7 +53,6 @@ services:
       - --realm=ananta.semantic-media.gate
       - --user=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_USER:?Set an ephemeral TURN user}:${ANANTA_SEMANTIC_MEDIA_TURN_GATE_PASSWORD:?Set an ephemeral TURN password}
       - --listening-port=3478
-      - --external-ip=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_EXTERNAL_IP:-127.0.0.1}
       - --min-port=49160
       - --max-port=49200
       - --log-file=stdout

@@ -120,10 +120,10 @@ def test_local_turn_compose_exposes_only_loopback_relay_ports() -> None:
     )
     service = document["services"]["semantic-media-turn-gate"]
 
-    assert (
-        "--external-ip=${ANANTA_SEMANTIC_MEDIA_TURN_GATE_EXTERNAL_IP:-127.0.0.1}"
-        in service["command"]
-    )
+    # The container must discover and advertise its bridge address. Forcing
+    # 127.0.0.1 here produces relay candidates that point back at each browser
+    # process and makes real host-to-container TURN traffic unreachable.
+    assert not any(str(argument).startswith("--external-ip=") for argument in service["command"])
     assert (
         "${ANANTA_SEMANTIC_MEDIA_TURN_GATE_BIND_IP:-127.0.0.1}:"
         "49160-49200:49160-49200/udp"

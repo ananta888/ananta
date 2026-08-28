@@ -137,7 +137,7 @@ _CONFIG_SUFFIXES = (
     ".yaml",
     ".yml",
 )
-_MAX_PROGRAM_SOURCE_FILES = 2_048
+_MAX_PROGRAM_SOURCE_FILES = 4_096
 _IGNORED_SOURCE_PARTS = frozenset({"__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache"})
 
 

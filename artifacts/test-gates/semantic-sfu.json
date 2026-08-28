@@ -1,19 +1,18 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "f17575bef283527eacaeb0d64bf87fdeb9c63ba5b0d4ada334cc3c93ecd86968",
-  "config_sha256": "51e7ffe26cca1109ce9af45e22f2bdeae5f0a9dfe9bef0b32ba83a21d11487bc",
+  "source_sha256": "38a109e96cbc5f1b709ff2a8e169308557e912f256e9f256eb56422a7b73adce",
+  "config_sha256": "c804bf373f658ec78a8de040e68ee5b193002fc09b9ba264a238f4e1b7d03256",
   "evidence_recomputed": true,
   "tests": [],
   "measurements": {
     "external_live_failover_verified": true,
     "live_failover_browser_engine_count": 2,
-    "sfu_boundary_packet_count": 8336,
-    "turn_boundary_packet_count": 1570,
+    "sfu_boundary_packet_count": 7385,
+    "turn_boundary_packet_count": 1613,
     "turn_relay_engine_count": 2
   },
   "reasons": [
-    "group_capture_evidence_source_stale",
     "load_drops_exceeded"
   ],
   "verdict": "fail"

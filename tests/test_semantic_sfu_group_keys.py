@@ -139,6 +139,7 @@ def test_signed_epoch_routes_only_opaque_packages_and_tracks_receivers_independe
     )
     assert len(bob["packages"]) == 1
     assert bob["packages"][0]["recipient_id"] == "bob"
+    assert bob["packages"][0]["publisher_id"] == "alice"
     assert "content_key" not in repr(bob)
 
     service.acknowledge_package(

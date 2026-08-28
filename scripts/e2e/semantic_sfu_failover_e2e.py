@@ -106,6 +106,7 @@ class IsolatedHubRuntime:
         self.start_count = 0
         self.sigkill_count = 0
         self._log_handle = None
+        self._last_killed_at: float | None = None
 
     @property
     def url(self) -> str:
@@ -114,11 +115,17 @@ class IsolatedHubRuntime:
     def start(self) -> None:
         if self.process is not None and self.process.poll() is None:
             raise LiveFailoverError("isolated_hub_already_running")
+        if self._last_killed_at is not None:
+            remaining_lease = 31.0 - (time.monotonic() - self._last_killed_at)
+            if remaining_lease > 0:
+                time.sleep(remaining_lease)
         self._log_handle = self.log_path.open("a", encoding="utf-8")
+        process_env = dict(self.env)
+        process_env["AGENT_NAME"] = f"{self.env['AGENT_NAME']}-incarnation-{self.start_count + 1}"
         self.process = subprocess.Popen(
             [sys.executable, str(HUB_FIXTURE), "serve", "--port", str(self.port)],
             cwd=ROOT,
-            env=self.env,
+            env=process_env,
             stdout=self._log_handle,
             stderr=subprocess.STDOUT,
             text=True,
@@ -146,6 +153,7 @@ class IsolatedHubRuntime:
         os.killpg(self.process.pid, signal.SIGKILL)
         self.process.wait(timeout=15)
         self.sigkill_count += 1
+        self._last_killed_at = time.monotonic()
         self._close_log()
         try:
             urllib.request.urlopen(f"{self.url}/healthz", timeout=1)

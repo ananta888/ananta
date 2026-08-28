@@ -41,6 +41,7 @@ class WebrtcEpochService:
         lease_seconds: int = 30,
         advance: bool = False,
         audit_event_factory: Callable[[int], SemanticMediaAuditEvent] | None = None,
+        takeover_audit_event_factory: Callable[[int], SemanticMediaAuditEvent] | None = None,
     ) -> EpochClaimResult:
         if scope_kind not in {"session", "room"} or not _id(scope_id) or not _id(hub_id):
             return EpochClaimResult(False, "scope_invalid")
@@ -54,6 +55,7 @@ class WebrtcEpochService:
             lease_seconds=lease_seconds,
             advance=advance,
             audit_event_factory=audit_event_factory,
+            takeover_audit_event_factory=takeover_audit_event_factory,
         )
 
     def accept_sequence(

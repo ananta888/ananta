@@ -22,6 +22,7 @@ def test_epoch_handover_is_monotonic_and_rejects_split_brain() -> None:
     now[0] += 31
     takeover = service.claim_epoch(scope_kind="session", scope_id=scope, hub_id="hub-b", lease_seconds=30)
     assert takeover.ok and takeover.epoch == 2
+    assert takeover.ownership_changed is True
 
 
 def test_sender_traffic_class_windows_survive_service_recreation() -> None:

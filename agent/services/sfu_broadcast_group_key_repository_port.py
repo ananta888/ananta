@@ -43,6 +43,7 @@ class SfuGroupKeyPackageWrite:
 @dataclass(frozen=True, slots=True)
 class SfuGroupKeyPackageDelivery:
     authorization: GroupKeyEpochAuthorization
+    publisher_id: str
     package_ref: str
     opaque_package: bytes
     package_digest: str

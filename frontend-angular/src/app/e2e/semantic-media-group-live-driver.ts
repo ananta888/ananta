@@ -120,6 +120,7 @@ class ProductGroupParticipantDriver implements SemanticMediaGroupParticipantDriv
   private activeKey: Uint8Array | null = null;
   private desiredPublicationIds: readonly string[] = Object.freeze([]);
   private localPublicationIds: readonly string[] = Object.freeze([]);
+  private audienceVendorIdentities: Readonly<Record<string, string>> = Object.freeze({});
   private published: SfuPublishedTrack[] = [];
   private releases: Array<() => void> = [];
   private mediaElements: HTMLMediaElement[] = [];
@@ -213,6 +214,10 @@ class ProductGroupParticipantDriver implements SemanticMediaGroupParticipantDriv
         throw new Error('semantic_group_publication_admission_missing');
       }
       this.admissionToken = token;
+      this.audienceVendorIdentities = Object.freeze({
+        ...this.audienceVendorIdentities,
+        ...token.authorizedSubscriberLivekitIdentities,
+      });
       revision = token.revision;
     }
     this.localPublicationIds = Object.freeze(publicationIds);
@@ -309,11 +314,16 @@ class ProductGroupParticipantDriver implements SemanticMediaGroupParticipantDriv
     const room = this.requireRoom();
     if (this.localPublicationIds.length !== 2) throw new Error('semantic_group_publications_missing');
     const audience = normalizedMembers(audienceIds, false);
+    const vendorAudience = audience.map(participantId => {
+      const vendorIdentity = this.audienceVendorIdentities[participantId];
+      if (!vendorIdentity) throw new Error('semantic_group_vendor_audience_missing');
+      return vendorIdentity;
+    });
     this.videoFixture = createVideoFixture();
     this.audioFixture = await createAudioFixture();
     this.published.push(await room.publish(this.localPublicationIds[0], 'camera', this.videoFixture.track));
     this.published.push(await room.publish(this.localPublicationIds[1], 'microphone', this.audioFixture.track));
-    room.setTrackAudience(new Map(this.published.map(publication => [publication.trackSid, audience])));
+    room.setTrackAudience(new Map(this.published.map(publication => [publication.trackSid, vendorAudience])));
     return this.published.length;
   }
 
@@ -363,6 +373,7 @@ class ProductGroupParticipantDriver implements SemanticMediaGroupParticipantDriv
     this.admissionToken = null;
     this.localPublicationIds = Object.freeze([]);
     this.desiredPublicationIds = Object.freeze([]);
+    this.audienceVendorIdentities = Object.freeze({});
   }
 
   private async installReceived(installed: ReceivedSfuGroupEpoch): Promise<void> {

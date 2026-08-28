@@ -25,8 +25,13 @@ describe('SemanticSfuAdmissionApiService', () => {
     })).toMatchObject({ roomId, membershipEpoch: 3, revision: 0, joined: false });
     expect(parseSemanticSfuToken({
       ok: true, server_url: 'wss://sfu.test', access_token: 'jwt', expires_at: 1_900_000_000,
-      room_id: roomId, membership_epoch: 3, revision: 2, publication,
-    }).publication?.authorized_subscriber_ids).toEqual(['bob']);
+      room_id: roomId, livekit_identity: 'lk_alice', membership_epoch: 3, revision: 2, publication,
+      authorized_subscriber_livekit_identities: { bob: 'lk_bob' },
+    })).toMatchObject({
+      livekitIdentity: 'lk_alice',
+      authorizedSubscriberLivekitIdentities: { bob: 'lk_bob' },
+      publication: { authorized_subscriber_ids: ['bob'] },
+    });
     expect(() => parseSemanticSfuState({
       ok: true, room_id: roomId, membership_epoch: 3, revision: 0,
       joined: false, publications: [], subscriptions: [], participants: ['mallory'],

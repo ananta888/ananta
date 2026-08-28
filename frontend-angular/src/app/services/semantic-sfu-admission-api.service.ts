@@ -60,6 +60,8 @@ export interface SemanticSfuToken {
   readonly accessToken: string;
   readonly expiresAt: number;
   readonly roomId: string;
+  readonly livekitIdentity?: string;
+  readonly authorizedSubscriberLivekitIdentities: Readonly<Record<string, string>>;
   readonly membershipEpoch: number;
   readonly revision: number;
   readonly publication: SemanticSfuPublication | null;
@@ -197,7 +199,14 @@ export function parseSemanticSfuToken(
   const required = [
     'ok', 'server_url', 'access_token', 'expires_at', 'room_id', 'membership_epoch', 'revision',
   ];
-  const allowed = new Set([...required, 'publication', 'subscription', 'capacity_profile']);
+  const allowed = new Set([
+    ...required,
+    'livekit_identity',
+    'authorized_subscriber_livekit_identities',
+    'publication',
+    'subscription',
+    'capacity_profile',
+  ]);
   if (Object.keys(row).some(key => !allowed.has(key)) || required.some(key => !(key in row))) {
     fail('sfu_token_response_invalid');
   }
@@ -213,6 +222,12 @@ export function parseSemanticSfuToken(
     accessToken: row['access_token'],
     expiresAt: positiveInteger(row['expires_at']),
     roomId: resolvedRoomId,
+    ...(row['livekit_identity'] === undefined
+      ? {}
+      : { livekitIdentity: identifier(row['livekit_identity']) }),
+    authorizedSubscriberLivekitIdentities: identifierMap(
+      row['authorized_subscriber_livekit_identities'] ?? {},
+    ),
     membershipEpoch: positiveInteger(row['membership_epoch']),
     revision: nonnegativeInteger(row['revision']),
     publication: row['publication'] === undefined ? null : parsePublication(row['publication']),
@@ -270,6 +285,13 @@ function parseSubscription(raw: unknown): SemanticSfuSubscription {
     revision: positiveInteger(row['revision']),
     status: 'authorized',
   });
+}
+
+function identifierMap(raw: unknown): Readonly<Record<string, string>> {
+  const row = record(raw, 'sfu_identity_map_invalid');
+  return Object.freeze(Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [identifier(key), identifier(value)]),
+  ));
 }
 
 function mutationContext(value: SemanticSfuMutationContext): Record<string, unknown> {

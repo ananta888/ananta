@@ -33,7 +33,6 @@ from agent.services.sfu_hub_secret_envelope import (
 )
 from agent.services.webrtc_group_key_authorization_service import GroupKeyEpochAuthorization
 
-
 MAX_GROUP_KEY_PACKAGES = 250
 MAX_GROUP_KEY_PACKAGE_BYTES = 8 * 1024
 MAX_GROUP_KEY_TOTAL_BYTES = MAX_GROUP_KEY_PACKAGES * MAX_GROUP_KEY_PACKAGE_BYTES
@@ -281,7 +280,17 @@ class InMemorySfuBroadcastGroupKeyRepository:
             scope=f"{row.tenant_id}:{row.authorization_id}", aad=aad,
         )
         return SfuGroupKeyPackageDelivery(
-            state.authorization, row.package_ref, opaque, row.package_digest, row.expires_at_ms
+            state.authorization,
+            _publisher_id(
+                state.authorization,
+                state.session_id,
+                state.publisher_digest,
+                self._envelope,
+            ),
+            row.package_ref,
+            opaque,
+            row.package_digest,
+            row.expires_at_ms,
         )
 
     def _destroy_packages(self, authorization_id: str, *, status: str) -> None:
@@ -412,8 +421,19 @@ class SqlSfuBroadcastGroupKeyRepository:
                     SfuBroadcastGroupKeyPackageDB.authorization_id == authorization_id
                 )).all()
                 if existing:
-                    existing_shape = {(item.id, item.recipient_digest, item.package_digest, item.package_bytes) for item in existing}
-                    desired_shape = {(item.package_ref, item.recipient_digest, item.package_digest, len(item.opaque_package)) for item in packages}
+                    existing_shape = {
+                        (item.id, item.recipient_digest, item.package_digest, item.package_bytes)
+                        for item in existing
+                    }
+                    desired_shape = {
+                        (
+                            item.package_ref,
+                            item.recipient_digest,
+                            item.package_digest,
+                            len(item.opaque_package),
+                        )
+                        for item in packages
+                    }
                     if existing_shape != desired_shape:
                         return _result("conflict", state=state, reason="sfu_group_package_conflict")
                 else:
@@ -471,7 +491,11 @@ class SqlSfuBroadcastGroupKeyRepository:
                 deliveries: list[SfuGroupKeyPackageDelivery] = []
                 for row in rows:
                     authorization = db.get(SfuBroadcastGroupKeyAuthorizationDB, row.authorization_id)
-                    if authorization is None or authorization.status != "active" or authorization.expires_at_ms <= now_ms:
+                    if (
+                        authorization is None
+                        or authorization.status != "active"
+                        or authorization.expires_at_ms <= now_ms
+                    ):
                         continue
                     if row.sealed_package is None or row.wrapping_nonce is None or not row.wrapping_key_id:
                         continue
@@ -483,6 +507,12 @@ class SqlSfuBroadcastGroupKeyRepository:
                     )
                     deliveries.append(SfuGroupKeyPackageDelivery(
                         _authorization_from_row(authorization, self._envelope),
+                        _publisher_id(
+                            _authorization_from_row(authorization, self._envelope),
+                            authorization.session_id,
+                            authorization.publisher_digest,
+                            self._envelope,
+                        ),
                         row.id, opaque, row.package_digest, row.expires_at_ms,
                     ))
                 next_cursor = rows[-1].id if rows else cursor
@@ -750,8 +780,20 @@ class SqlSfuBroadcastGroupKeyRepository:
             status=row.status,
             package_count=row.package_count,
             total_package_bytes=row.total_package_bytes,
-            delivered_member_ids=tuple(sorted(member_digests[digest] for digest in delivered_digests if digest in member_digests)),
-            acknowledged_member_ids=tuple(sorted(member_digests[digest] for digest in ack_digests if digest in member_digests)),
+            delivered_member_ids=tuple(
+                sorted(
+                    member_digests[digest]
+                    for digest in delivered_digests
+                    if digest in member_digests
+                )
+            ),
+            acknowledged_member_ids=tuple(
+                sorted(
+                    member_digests[digest]
+                    for digest in ack_digests
+                    if digest in member_digests
+                )
+            ),
             fencing_token=row.fencing_token,
             version=row.version,
         )
@@ -816,6 +858,23 @@ def _validate_packages(
     ):
         return _result("conflict", state=state, reason="sfu_group_package_bounds_exceeded")
     return None
+
+
+def _publisher_id(
+    authorization: GroupKeyEpochAuthorization,
+    session_id: str,
+    publisher_digest: str,
+    envelope: SfuHubSecretEnvelopePort,
+) -> str:
+    for member in authorization.member_ids:
+        candidates = envelope.blind_candidates(
+            purpose="sfu-group-key-subject",
+            scope=f"{authorization.tenant_id}:{session_id}",
+            value=member,
+        )
+        if any(candidate.digest == publisher_digest for candidate in candidates):
+            return member
+    raise SfuBroadcastGroupKeyRepositoryError("sfu_group_publisher_unavailable")
 
 
 def _same_packages(existing: list[_StoredPackage], desired: tuple[SfuGroupKeyPackageWrite, ...]) -> bool:

@@ -686,6 +686,25 @@ class SemanticSfuAdmissionService:
             ttl_seconds=max(60, min(600, self._ttl * 4)),
             fencing_token=max(1, state.revision),
         )
+        authorized_subscribers = sorted({
+            str(subscriber_id)
+            for publication in state.publications.values()
+            if publication["participant_id"] == member.participant_id
+            and publication["status"] != "revoked"
+            for subscriber_id in publication.get("authorized_subscriber_ids") or ()
+        })
+        subscriber_vendor_identities = {
+            subscriber_id: self._vendor_identities.issue_identity(
+                tenant_id=member.tenant_id,
+                room_id=room,
+                membership_ref=subscriber_id,
+                membership_epoch=member.epoch,
+                identity_epoch=member.epoch,
+                ttl_seconds=max(60, min(600, self._ttl * 4)),
+                fencing_token=max(1, state.revision),
+            ).identity_handle
+            for subscriber_id in authorized_subscribers
+        }
         claims = {
             "iss": self._api_key,
             "sub": vendor_identity.identity_handle,
@@ -720,6 +739,7 @@ class SemanticSfuAdmissionService:
             "expires_at": expires,
             "room_id": room,
             "livekit_identity": vendor_identity.identity_handle,
+            "authorized_subscriber_livekit_identities": subscriber_vendor_identities,
             "membership_epoch": member.epoch,
             "revision": state.revision,
         }, room)

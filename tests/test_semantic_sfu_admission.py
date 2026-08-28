@@ -125,6 +125,8 @@ def test_publication_intersects_source_permission_and_issues_only_camera(service
     assert claims["video"]["canPublishSources"] == ["camera"]
     assert claims["video"]["canSubscribe"] is False
     assert result["publication"]["constraints"]["max_bitrate_bps"] == 1_000_000
+    assert set(result["authorized_subscriber_livekit_identities"]) == {"bob"}
+    assert result["authorized_subscriber_livekit_identities"]["bob"].startswith("lk_")
 
 
 def test_publication_token_accumulates_only_current_hub_authorized_sources(

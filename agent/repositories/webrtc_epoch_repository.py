@@ -22,6 +22,7 @@ class EpochClaimResult:
     reason: str
     epoch: int | None = None
     generation: int | None = None
+    ownership_changed: bool = False
 
 
 class WebrtcEpochRepository:
@@ -40,6 +41,7 @@ class WebrtcEpochRepository:
         lease_seconds: int,
         advance: bool,
         audit_event_factory: Callable[[int], SemanticMediaAuditEvent] | None = None,
+        takeover_audit_event_factory: Callable[[int], SemanticMediaAuditEvent] | None = None,
     ) -> EpochClaimResult:
         scope_key = f"{scope_kind}:{scope_id}"
         for attempt in range(2):
@@ -79,14 +81,25 @@ class WebrtcEpochRepository:
                     row.lease_expires_at = now + lease_seconds
                     row.updated_at = now
                     session.add(row)
-                    if audit_event_factory is not None:
+                    selected_audit_factory = (
+                        takeover_audit_event_factory
+                        if ownership_change and takeover_audit_event_factory is not None
+                        else audit_event_factory
+                    )
+                    if selected_audit_factory is not None:
                         SqlSemanticMediaAuditOutbox.enqueue_in_session(
                             session,
-                            audit_event_factory(row.epoch),
+                            selected_audit_factory(row.epoch),
                         )
                     session.commit()
                     session.refresh(row)
-                    return EpochClaimResult(True, "ok", row.epoch, row.generation)
+                    return EpochClaimResult(
+                        True,
+                        "ok",
+                        row.epoch,
+                        row.generation,
+                        ownership_changed=ownership_change,
+                    )
             except IntegrityError:
                 if attempt:
                     raise

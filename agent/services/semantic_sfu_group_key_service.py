@@ -7,12 +7,6 @@ service boundary in a plaintext field.
 
 from __future__ import annotations
 
-from agent.services.sfu_broadcast_control_observability import (
-    SfuBroadcastControlObservationPort,
-    control_observer_or_null,
-    observed_control_path,
-)
-
 import base64
 import binascii
 import hashlib
@@ -23,12 +17,12 @@ from dataclasses import asdict, dataclass
 from typing import Any, Callable, Mapping, Protocol
 
 from agent.config import settings
-from agent.repositories.webrtc_epoch_repository import WebrtcEpochRepository
 from agent.repositories.sfu_broadcast_group_key_repository import (
     InMemorySfuBroadcastGroupKeyRepository,
     SfuBroadcastGroupKeyRepositoryError,
     SqlSfuBroadcastGroupKeyRepository,
 )
+from agent.repositories.webrtc_epoch_repository import WebrtcEpochRepository
 from agent.services.semantic_media_audit_service import (
     SemanticMediaAuditEvent,
     SemanticMediaAuditPort,
@@ -42,6 +36,11 @@ from agent.services.sfu_broadcast_capacity_profile_resolver import (
     SfuBroadcastCapacityProfilePort,
     get_sfu_broadcast_capacity_profile_resolver,
 )
+from agent.services.sfu_broadcast_control_observability import (
+    SfuBroadcastControlObservationPort,
+    control_observer_or_null,
+    observed_control_path,
+)
 from agent.services.sfu_broadcast_group_key_repository_port import (
     SfuBroadcastGroupKeyRepositoryPort,
     SfuGroupKeyEpochState,
@@ -53,7 +52,6 @@ from agent.services.sfu_hub_secret_envelope import (
     derive_sfu_hub_envelope,
 )
 from agent.services.share_relay_compatibility_service import (
-    ShareRelayCompatibilityError,
     ShareRelayCompatibilityService,
     get_share_relay_compatibility_service,
 )
@@ -226,12 +224,20 @@ class SemanticSfuGroupKeyService:
                 reason=reason,
                 idempotency_key=idempotency_key,
             )
+            takeover_audit_factory = self._audit_event_factory(
+                tenant_id=tenant_id,
+                session_id=session_id,
+                room_id=room_id,
+                reason="hub_failover",
+                idempotency_key=idempotency_key,
+            )
             if current_epoch is None:
                 claimed = self._epochs.claim_epoch(
                     scope_kind="room",
                     scope_id=room_id,
                     hub_id=self._hub_id,
                     audit_event_factory=audit_factory,
+                    takeover_audit_event_factory=takeover_audit_factory,
                 )
             else:
                 claimed = self._epochs.claim_epoch(
@@ -240,9 +246,12 @@ class SemanticSfuGroupKeyService:
                     hub_id=self._hub_id,
                     advance=True,
                     audit_event_factory=audit_factory,
+                    takeover_audit_event_factory=takeover_audit_factory,
                 )
             if not claimed.ok or claimed.epoch is None:
                 raise SfuGroupKeyError(f"sfu_group_{claimed.reason}", 409)
+            if claimed.ownership_changed:
+                reason = "hub_failover"
             try:
                 signed = self._authorization.authorize(
                     tenant_id=tenant_id,
@@ -421,6 +430,7 @@ class SemanticSfuGroupKeyService:
             "kind": "sfu_group_key_package",
             "authorization": asdict(item.authorization),
             "package_ref": item.package_ref,
+            "publisher_id": item.publisher_id,
             "recipient_id": actor_id,
             "membership_epoch": item.authorization.membership_epoch,
             "opaque_package_b64": base64.b64encode(item.opaque_package).decode("ascii"),

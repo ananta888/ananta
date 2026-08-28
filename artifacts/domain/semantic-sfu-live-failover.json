@@ -44,8 +44,8 @@
         "disconnected_client_count": 4,
         "hub_api_unavailable_verified": true,
         "hub_sigkill_acknowledged": true,
-        "ordinary_min_inbound_bytes": 3339,
-        "ordinary_min_outbound_bytes": 3296,
+        "ordinary_min_inbound_bytes": 5635,
+        "ordinary_min_outbound_bytes": 5635,
         "ordinary_peer_connection_count": 4,
         "ordinary_receiver_count": 2,
         "reconnecting_client_count": 4,
@@ -53,12 +53,12 @@
         "sfu_sigkill_acknowledged": true
       },
       "pre_failure": {
-        "publisher_outbound_bytes": 6408,
+        "publisher_outbound_bytes": 6407,
         "receiver_count": 2,
         "receiver_min_decoded_samples": 18,
-        "receiver_min_inbound_bytes": 3820,
+        "receiver_min_inbound_bytes": 3819,
         "stale_probe_initial_decoded_samples": 13,
-        "stale_probe_initial_inbound_bytes": 2798
+        "stale_probe_initial_inbound_bytes": 2939
       },
       "recovery": {
         "admission_revision_after_restart": 8,
@@ -73,11 +73,11 @@
         "reason": "hub_failover",
         "receiver_count": 2,
         "receiver_min_decoded_samples": 18,
-        "receiver_min_inbound_bytes": 3913,
+        "receiver_min_inbound_bytes": 3794,
         "sfu_restart_acknowledged": true,
         "signature_verification_count": 12,
         "stale_key_probe_decoded_samples": 0,
-        "stale_key_probe_inbound_bytes": 2777
+        "stale_key_probe_inbound_bytes": 2918
       },
       "verdict": "pass"
     },
@@ -112,8 +112,8 @@
         "disconnected_client_count": 4,
         "hub_api_unavailable_verified": true,
         "hub_sigkill_acknowledged": true,
-        "ordinary_min_inbound_bytes": 9082,
-        "ordinary_min_outbound_bytes": 9082,
+        "ordinary_min_inbound_bytes": 12236,
+        "ordinary_min_outbound_bytes": 12236,
         "ordinary_peer_connection_count": 4,
         "ordinary_receiver_count": 2,
         "reconnecting_client_count": 4,
@@ -121,12 +121,12 @@
         "sfu_sigkill_acknowledged": true
       },
       "pre_failure": {
-        "publisher_outbound_bytes": 1882,
+        "publisher_outbound_bytes": 2767,
         "receiver_count": 2,
-        "receiver_min_decoded_samples": 13,
-        "receiver_min_inbound_bytes": 1712,
+        "receiver_min_decoded_samples": 18,
+        "receiver_min_inbound_bytes": 2597,
         "stale_probe_initial_decoded_samples": 13,
-        "stale_probe_initial_inbound_bytes": 1712
+        "stale_probe_initial_inbound_bytes": 1946
       },
       "recovery": {
         "admission_revision_after_restart": 8,
@@ -140,12 +140,12 @@
         "previous_group_key_epoch": 1,
         "reason": "hub_failover",
         "receiver_count": 2,
-        "receiver_min_decoded_samples": 17,
-        "receiver_min_inbound_bytes": 2578,
+        "receiver_min_decoded_samples": 18,
+        "receiver_min_inbound_bytes": 2525,
         "sfu_restart_acknowledged": true,
         "signature_verification_count": 12,
         "stale_key_probe_decoded_samples": 0,
-        "stale_key_probe_inbound_bytes": 1927
+        "stale_key_probe_inbound_bytes": 2525
       },
       "verdict": "pass"
     }
@@ -163,13 +163,13 @@
     "capture_image": "nicolaka/netshoot@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b",
     "compose_project_removed": true,
     "ephemeral_hub_state_removed": true,
-    "hub_boundary_capture_bytes": 425626,
+    "hub_boundary_capture_bytes": 461414,
     "hub_boundary_capture_persisted": false,
     "hub_boundary_capture_verified": true,
     "hub_boundary_credential_scan_performed": false,
     "hub_boundary_filter_protocol": "tcp_control_only",
     "hub_boundary_known_marker_matches": 0,
-    "hub_boundary_packet_count": 1534,
+    "hub_boundary_packet_count": 1604,
     "hub_boundary_rtp_rtcp_packet_count": 0,
     "hub_process_identity_changed": true,
     "hub_restart_count": 2,
