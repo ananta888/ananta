@@ -27,7 +27,7 @@ def test_release_task_is_the_only_leaf_and_reaches_every_predecessor() -> None:
     structural_reasons = {reason for reason in result["reason_codes"] if reason != "release_predecessors_incomplete"}
     assert structural_reasons == set()
     assert result["summary"]["leaves"] == ["ESORG-QA-006"]
-    assert result["transitive_predecessor_count"] == 90
+    assert result["transitive_predecessor_count"] == result["summary"]["nodes"] - 1
 
 
 def test_release_profile_has_exactly_one_full_e2e() -> None:

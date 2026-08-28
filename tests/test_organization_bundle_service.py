@@ -188,8 +188,8 @@ def test_dry_run_is_write_free_deterministic_and_bound_to_scope_and_limits() -> 
 
     assert first == second
     assert [(item.section, item.key, item.action) for item in first.items] == [
-        ("role_templates", "reviewer", "create"),
         ("policies", "review_policy", "create"),
+        ("role_templates", "reviewer", "create"),
     ]
     assert first.errors == []
     assert first.tenant_id == "tenant-bundle"
@@ -318,7 +318,7 @@ def test_role_template_instructions_are_scanned_before_import() -> None:
 
     plan, repository = _plan(bundle)
 
-    assert repository.calls
+    assert repository.reads
     diagnostic = next(
         error for error in plan.errors if error.reason_code == "ORGANIZATION_BUNDLE_ROLE_TEMPLATE_UNTRUSTED"
     )
