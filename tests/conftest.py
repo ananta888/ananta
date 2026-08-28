@@ -16,7 +16,10 @@ if "worker_engine" not in sys.modules:
     sys.modules["worker_engine"] = MagicMock()
 
 # Test environment defaults
-os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["DATABASE_URL"] = (
+    f"sqlite:///file:ananta-pytest-{os.getpid()}"
+    "?mode=memory&cache=shared&uri=true"
+)
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
 os.environ["AGENT_NAME"] = "test-agent"
 os.environ.setdefault(
@@ -245,8 +248,7 @@ def workflow_runtime_auth_keyring_file(tmp_path, monkeypatch):
 
 def _db_runtime() -> dict[str, Any]:
     _ensure_test_db()
-    from sqlalchemy import inspect
-    from sqlalchemy import text
+    from sqlalchemy import inspect, text
     from sqlalchemy.exc import IntegrityError, OperationalError
     from sqlmodel import Session, delete
 
@@ -264,6 +266,7 @@ def _db_runtime() -> dict[str, Any]:
         BlueprintWorkflowStepDB,
         ConfigDB,
         ContextBundleDB,
+        CrossTeamTaskDependencyDB,
         EvolutionProposalDB,
         EvolutionRunDB,
         ExtractedDocumentDB,
@@ -318,6 +321,7 @@ def _db_runtime() -> dict[str, Any]:
         RefreshTokenDB,
         RetrievalRunDB,
         RoleDB,
+        RoleTemplateRevisionDB,
         ScheduledTaskDB,
         SemanticCapabilityAdvertisementDB,
         SemanticComputeCandidateKeyDB,
@@ -391,12 +395,10 @@ def _db_runtime() -> dict[str, Any]:
         WorkerSlotLeaseDB,
         WorkflowCommandNonceDB,
         WorkflowControlBindingDB,
+        WorkflowDefinitionRevisionDB,
         WorkflowProviderBudgetDB,
         WorkflowProviderBudgetReservationDB,
         WorkflowRuntimeReadModelDB,
-        WorkflowDefinitionRevisionDB,
-        RoleTemplateRevisionDB,
-        CrossTeamTaskDependencyDB,
     )
 
     return {

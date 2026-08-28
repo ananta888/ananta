@@ -14,6 +14,16 @@ from agent.config import settings
 # Datenbank-URL aus zentralen Einstellungen beziehen
 DATABASE_URL = settings.effective_database_url
 
+
+def _is_in_memory_sqlite(url: str) -> bool:
+    normalized = str(url or "").lower()
+    return normalized.startswith("sqlite:///:memory:") or (
+        normalized.startswith("sqlite")
+        and "mode=memory" in normalized
+        and "uri=true" in normalized
+    )
+
+
 connect_args = {}
 engine_kwargs = {
     "echo": False,
@@ -26,6 +36,11 @@ if DATABASE_URL.startswith("sqlite"):
     if DATABASE_URL == "sqlite:///:memory:":
         # Share the in-memory test database across repository sessions.
         engine_kwargs["poolclass"] = StaticPool
+    elif _is_in_memory_sqlite(DATABASE_URL):
+        # A named shared-cache URI lets concurrent test threads use separate
+        # DBAPI connections.  The default QueuePool retains at least one
+        # connection, so the process-local in-memory schema stays alive.
+        pass
     else:
         # SQLite file DBs under high parallel E2E load can exhaust QueuePool and return 500s.
         # NullPool avoids connection checkout starvation by opening short-lived connections.
@@ -72,10 +87,6 @@ def _finalize_database_initialization() -> None:
     _ensure_schema_compat()
     verify_sqlite_foreign_key_integrity()
     ensure_default_user()
-
-
-def _is_in_memory_sqlite(url: str) -> bool:
-    return url.startswith("sqlite:///:memory:")
 
 
 def _is_postgresql(url: str) -> bool:

@@ -1,6 +1,29 @@
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.pool import StaticPool
+
+
+def test_named_memory_database_supports_distinct_concurrent_connections():
+    import agent.database as db
+
+    assert db._is_in_memory_sqlite(db.DATABASE_URL)
+    assert not isinstance(db.engine.pool, StaticPool)
+
+    rendezvous = threading.Barrier(2)
+
+    def connection_identity() -> int:
+        with db.engine.connect() as connection:
+            rendezvous.wait(timeout=5)
+            connection.execute(text("SELECT 1")).scalar_one()
+            return id(connection.connection.dbapi_connection)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        identities = list(executor.map(lambda _: connection_identity(), range(2)))
+
+    assert len(set(identities)) == 2
 
 
 def test_ensure_schema_compat_does_not_mutate_schema_at_runtime(monkeypatch):
