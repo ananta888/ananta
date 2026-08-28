@@ -86,8 +86,12 @@ def test_auxiliary_repositories_resolve_tasks_monkeypatches_dynamically(
         def desc(self):
             return "patched-desc"
 
+        def asc(self):
+            return "patched-asc"
+
     class PatchedArchivedTask:
         archived_at = SortableField()
+        id = SortableField()
 
     class PatchedAgentSession:
         pass
@@ -99,8 +103,8 @@ def test_auxiliary_repositories_resolve_tasks_monkeypatches_dynamically(
         pass
 
     class Statement:
-        def order_by(self, value):
-            assert value == "patched-desc"
+        def order_by(self, *values):
+            assert values == ("patched-desc", "patched-asc")
             return self
 
         def offset(self, value):

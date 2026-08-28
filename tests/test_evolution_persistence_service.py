@@ -65,9 +65,7 @@ def test_analyze_task_persists_run_proposals_and_audit_events():
             title="Investigate failed queue task",
             description="Verification failed after retry.",
             status="failed",
-            goal_id="G-EVO",
             goal_trace_id="trace-evo",
-            plan_id="P-EVO",
             required_capabilities=["coding"],
             verification_spec={"required": True},
         )

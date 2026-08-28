@@ -44,13 +44,14 @@ def _resource_admission() -> dict[str, object]:
     }
 
 
-def test_worker_port_admits_every_composed_unsloth_backend() -> None:
+def test_worker_port_admits_every_composed_training_backend() -> None:
     default = inspect.signature(HttpMlInternTrainingWorkerPort.__init__).parameters[
         "admitted_backends"
     ].default
 
     assert set(default) == {
         "mock",
+        "needle",
         "peft_trl",
         "unsloth",
         "unsloth_vision",

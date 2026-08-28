@@ -8,6 +8,7 @@ def test_docker_layout_keeps_active_and_legacy_sources_separate():
         path.name for path in ROOT.glob("docker-compose*.yml")
     }
     assert root_compose_files == {
+        "docker-compose.hrm-experiments.yml",
         "docker-compose.semantic-media.yml",
         "docker-compose.sfu-broadcast-turn.yml",
         "docker-compose.sfu-broadcast.yml",

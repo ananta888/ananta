@@ -16,7 +16,7 @@ def test_native_langchain_and_mcp_adapters_share_the_descriptor_contract() -> No
     mcp.register(
         {
             "tool_id": "mcp.read",
-            "tool_name": "MCP read",
+            "tool_name": "mcp.read",
             "description": "Read an MCP resource.",
             "capability": "mcp_read",
             "risk_class": "low",

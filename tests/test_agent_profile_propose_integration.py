@@ -175,8 +175,6 @@ def test_user_overlay_cannot_suppress_agent_profile_template(app):
             created_at=time.time(),
             updated_at=time.time(),
         )
-        repos.instruction_overlay_repo.save(overlay)
-
         task = {
             "id": "t-aprl-overlay",
             "task_kind": "bug_fix",
@@ -188,11 +186,16 @@ def test_user_overlay_cannot_suppress_agent_profile_template(app):
                 }
             },
         }
-        result = get_instruction_layer_service().assemble_for_task(
-            task=task,
-            base_prompt="fix a bug",
-            system_prompt="sys",
-        )
+        with patch.object(
+            repos.instruction_overlay_repo,
+            "get_by_id",
+            return_value=overlay,
+        ):
+            result = get_instruction_layer_service().assemble_for_task(
+                task=task,
+                base_prompt="fix a bug",
+                system_prompt="sys",
+            )
 
     diagnostics = result.get("diagnostics") or {}
     applied = [l["layer"] for l in list(diagnostics.get("applied_layers") or [])]

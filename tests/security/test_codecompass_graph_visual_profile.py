@@ -33,6 +33,9 @@ TWO_DIMENSIONAL_RENDERER = (
 THREE_DIMENSIONAL_RENDERER = (
     GRAPH_FEATURE / "components/graph-3d-view/graph-3d-view.component.ts"
 )
+SHARED_THREE_DIMENSIONAL_RENDERER = (
+    ROOT / "frontend-angular/src/app/features/graph-rendering/components/force-graph-3d-renderer.component.ts"
+)
 
 
 def _source(path: Path) -> str:
@@ -139,11 +142,13 @@ def test_tooltip_and_renderer_sources_have_no_executable_html_sink() -> None:
     tooltip = _source(TOOLTIP_HELPER)
     renderer_2d = _source(TWO_DIMENSIONAL_RENDERER)
     renderer_3d = _source(THREE_DIMENSIONAL_RENDERER)
+    shared_renderer_3d = _source(SHARED_THREE_DIMENSIONAL_RENDERER)
     assert "tooltip.textContent = text" in tooltip
     assert "element.textContent = text" in renderer_2d
-    assert "graphVisualTooltipElement(graphVisualTooltipText(" in renderer_3d
-    assert ".nodeLabel(" in renderer_3d
-    assert ".linkLabel(" in renderer_3d
+    assert renderer_3d.count("tooltip: graphVisualTooltipText(") >= 4
+    assert "element.textContent = text" in shared_renderer_3d
+    assert ".nodeLabel(" in shared_renderer_3d
+    assert ".linkLabel(" in shared_renderer_3d
 
 
 def test_local_storage_failures_and_corrupt_values_recover_to_the_default_profile() -> None:

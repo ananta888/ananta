@@ -742,9 +742,11 @@ def test_task_propose_interactive_terminal_retries_timeout_with_compact_context_
     assert len(calls) == 2
     assert int(calls[0]["timeout"]) >= 420
     assert int(calls[1]["timeout"]) >= 540
-    assert len((calls[1]["research_context"] or {}).get("artifact_ids") or []) < len(
-        (calls[0]["research_context"] or {}).get("artifact_ids") or []
-    )
+    assert (calls[0]["research_context"] or {}).get("artifact_ids") == []
+    for field in ("knowledge_collection_ids", "repo_scope_refs"):
+        assert len((calls[1]["research_context"] or {}).get(field) or []) < len(
+            (calls[0]["research_context"] or {}).get(field) or []
+        )
     assert len(str((calls[1]["research_context"] or {}).get("prompt_section") or "")) <= len(
         str((calls[0]["research_context"] or {}).get("prompt_section") or "")
     )

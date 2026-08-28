@@ -51,7 +51,14 @@ def test_llm_generate_exposes_assistant_capabilities_metadata(client, app):
     with patch("agent.routes.config.generate_text", return_value='{"answer":"ok","tool_calls":[]}'):
         res = client.post(
             "/llm/generate",
-            json={"prompt": "hello"},
+            json={
+                "prompt": "hello",
+                "config": {
+                    "provider": "ollama",
+                    "model": "m1",
+                    "base_url": "http://localhost:11434/api/generate",
+                },
+            },
             headers={"Authorization": "Bearer secret-token"},
         )
     assert res.status_code == 200

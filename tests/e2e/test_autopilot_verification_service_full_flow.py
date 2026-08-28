@@ -5,8 +5,9 @@ verification evidence into TaskCompletionPolicyService.
 """
 from __future__ import annotations
 
-import subprocess
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 from agent.services.task_completion_policy_service import get_task_completion_policy_service
@@ -35,7 +36,7 @@ def _verify_with_pytest(workspace: Path) -> bool:
     env = dict(os.environ)
     env["PYTHONPATH"] = str(workspace) + (os.pathsep + env["PYTHONPATH"] if env.get("PYTHONPATH") else "")
     proc = subprocess.run(
-        ["pytest", "-q", "tests/test_app.py"],
+        [sys.executable, "-m", "pytest", "-q", "tests/test_app.py"],
         cwd=str(workspace),
         env=env,
         capture_output=True,
