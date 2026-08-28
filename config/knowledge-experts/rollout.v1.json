@@ -1,0 +1,27 @@
+{
+  "schema": "ananta.knowledge-expert-rollout.v1",
+  "version": "1.0.0",
+  "enabled": false,
+  "stage": "off",
+  "fallback_mode": "rag_only",
+  "canary_percent": 0,
+  "required_gates": [
+    "research_reproduction",
+    "runtime_capability",
+    "security",
+    "benchmark",
+    "operations"
+  ],
+  "gate_status": {
+    "research_reproduction": "blocked",
+    "runtime_capability": "blocked",
+    "security": "pending",
+    "benchmark": "blocked",
+    "operations": "pending"
+  },
+  "rollback": {
+    "strategy": "active_generation_compare_and_swap",
+    "target": "last_good_generation",
+    "rag_continuity_required": true
+  }
+}

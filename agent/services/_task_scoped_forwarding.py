@@ -1626,18 +1626,28 @@ def persist_forwarded_execution(
     )
     if assistant_request is not None:
         verification_status["visual_process_assistant_request"] = assistant_request
-    from agent.services.unsloth_worker_result_service import (
-        get_unsloth_worker_result_projector,
-    )
-
     unsloth_completion_outbox_task_id = None
-    unsloth_projection = (
-        get_unsloth_worker_result_projector().project(
+    worker_context = task.get("worker_execution_context")
+    unsloth_context = (
+        worker_context.get("unsloth_task")
+        if isinstance(worker_context, Mapping)
+        else None
+    )
+    unsloth_projection = None
+    if (
+        isinstance(unsloth_context, Mapping)
+        or response.get("schema")
+        == "ananta.unsloth-worker-task-result.v1"
+    ):
+        from agent.services.unsloth_worker_result_service import (
+            get_unsloth_worker_result_projector,
+        )
+
+        unsloth_projection = get_unsloth_worker_result_projector().project(
             task_id=tid,
             task=task,
             response=response,
         )
-    )
     if unsloth_projection is not None:
         unsloth_completion_outbox_task_id = (
             str(

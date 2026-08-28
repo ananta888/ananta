@@ -1,0 +1,12 @@
+{
+  "schema": "ananta.parametric-knowledge-eligibility-policy.v1",
+  "version": "parametric-knowledge-eligibility.v1",
+  "default_decision": "deny",
+  "allowed_sensitivity": ["public", "internal"],
+  "allowed_license_spdx": ["Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "CC-BY-4.0", "MIT"],
+  "citation_required_mode": "rag_only",
+  "unknown_provenance_mode": "deny",
+  "revoked_source_mode": "deny",
+  "volatile_knowledge_mode": "deny",
+  "authoritative_approval_required": true
+}

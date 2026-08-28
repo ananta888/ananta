@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/knowledge_expert_bank.v1.json",
+  "title": "Ananta Knowledge Expert Bank v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "bank_id", "generation_id", "tenant_id", "workspace_id", "repository_id", "previous_generation_id", "expert_manifest_digests", "status", "policy_digest", "created_at", "signing_key_id", "signature"],
+  "properties": {
+    "schema": {"const": "ananta.knowledge-expert-bank.v1"},
+    "bank_id": {"$ref": "#/$defs/identifier"},
+    "generation_id": {"$ref": "#/$defs/identifier"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "workspace_id": {"$ref": "#/$defs/identifier"},
+    "repository_id": {"$ref": "#/$defs/identifier"},
+    "previous_generation_id": {"type": "string", "maxLength": 192},
+    "expert_manifest_digests": {"type": "array", "minItems": 1, "maxItems": 100000, "uniqueItems": true, "items": {"$ref": "#/$defs/digest"}},
+    "status": {"enum": ["candidate", "admitted", "active", "superseded", "revoked"]},
+    "policy_digest": {"$ref": "#/$defs/digest"},
+    "created_at": {"type": "string", "format": "date-time"},
+    "signing_key_id": {"$ref": "#/$defs/identifier"},
+    "signature": {"type": "string", "minLength": 1, "maxLength": 1024}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

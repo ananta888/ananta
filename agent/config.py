@@ -568,6 +568,18 @@ class Settings(BaseSettings):
         default=True,
         validation_alias="CODECOMPASS_SIRA_LOCAL_MODELS_ONLY",
     )
+    knowledge_experts_enabled: bool = Field(
+        default=False,
+        validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ENABLED",
+    )
+    knowledge_experts_rollout: str = Field(
+        default="off",
+        validation_alias="ANANTA_KNOWLEDGE_EXPERTS_ROLLOUT",
+    )
+    knowledge_experts_policy_profile: str = Field(
+        default="rag-default",
+        validation_alias="ANANTA_KNOWLEDGE_EXPERTS_POLICY_PROFILE",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

@@ -26,9 +26,9 @@ from agent.routes.chat import chat_bp  # New: Chat API
 from agent.routes.classroom import classroom_bp
 from agent.routes.codecompass_domain_scope import codecompass_domain_scope_bp
 from agent.routes.codecompass_graph import codecompass_graph_bp
+from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.codecompass_retrieve import codecompass_retrieve_bp
-from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
 from agent.routes.context_policy import context_policy_bp
@@ -51,6 +51,8 @@ from agent.routes.instruction_layers import instruction_layers_bp
 from agent.routes.integrations_workflows import integrations_workflows_bp
 from agent.routes.job_applications import job_app_bp
 from agent.routes.knowledge import knowledge_bp
+from agent.routes.knowledge_experts import knowledge_experts_bp
+from agent.routes.knowledge_hygiene import knowledge_hygiene_bp
 from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_internal_bp
 from agent.routes.mail_control import mail_control_bp
 from agent.routes.mcp import mcp_bp
@@ -113,7 +115,6 @@ from agent.routes.webrtc_sfu_node_enrollment import webrtc_sfu_node_enrollment_b
 from agent.routes.webrtc_sfu_node_observations import webrtc_sfu_node_observations_bp
 from agent.routes.webrtc_signaling import webrtc_signaling_bp
 from agent.routes.wiki_graph import wiki_graph_bp
-from agent.routes.knowledge_hygiene import knowledge_hygiene_bp
 from agent.routes.worker_pool import worker_pool_bp
 from agent.routes.worker_tool_loop_diagnostics import worker_tool_loop_diagnostics_bp
 from agent.routes.workflow_adapters import workflow_adapters_bp
@@ -150,6 +151,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(hub_direct_diagnostics_bp)
     app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
+    app.register_blueprint(knowledge_experts_bp)
     app.register_blueprint(knowledge_hygiene_bp)
     app.register_blueprint(ml_intern_training_bp)
     app.register_blueprint(model_intelligence_bp)

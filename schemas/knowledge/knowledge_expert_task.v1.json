@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/knowledge_expert_task.v1.json",
+  "title": "Knowledge Expert Task v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "task_id", "attempt_id", "task_type", "worker_audience", "tenant_id", "workspace_id", "repository_id", "input_digest", "policy_digest", "deadline"],
+  "properties": {
+    "schema": {"const": "ananta.knowledge-expert-task.v1"},
+    "task_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "attempt_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "task_type": {"enum": ["compile_dataset", "train_expert", "evaluate_expert", "publish_bank", "revoke_expert", "garbage_collect"]},
+    "worker_audience": {"type": "string", "minLength": 1, "maxLength": 192},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "workspace_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "repository_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "input_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "policy_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "deadline": {"type": "string", "format": "date-time", "maxLength": 64}
+  }
+}

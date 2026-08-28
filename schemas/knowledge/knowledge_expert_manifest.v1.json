@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/knowledge_expert_manifest.v1.json",
+  "title": "Ananta Knowledge Expert Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "expert_id", "generation_id", "tenant_id", "workspace_id", "repository_id", "knowledge_unit_ids", "knowledge_unit_digest", "adapter_format", "adapter_digest", "adapter_size_bytes", "compatibility", "peft_configuration_digest", "training_dataset_digest", "evaluation_status", "evaluation_digest", "policy_decision_digest", "signing_key_id", "signature"],
+  "properties": {
+    "schema": {"const": "ananta.knowledge-expert-manifest.v1"},
+    "expert_id": {"$ref": "#/$defs/identifier"},
+    "generation_id": {"$ref": "#/$defs/identifier"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "workspace_id": {"$ref": "#/$defs/identifier"},
+    "repository_id": {"$ref": "#/$defs/identifier"},
+    "knowledge_unit_ids": {"type": "array", "minItems": 1, "maxItems": 4096, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+    "knowledge_unit_digest": {"$ref": "#/$defs/digest"},
+    "adapter_format": {"const": "safetensors"},
+    "adapter_digest": {"$ref": "#/$defs/digest"},
+    "adapter_size_bytes": {"type": "integer", "minimum": 1, "maximum": 68719476736},
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_model_digest", "tokenizer_digest", "architecture", "target_layer", "target_modules", "runtime_provider", "runtime_version", "kv_cache_safe"],
+      "properties": {
+        "base_model_digest": {"$ref": "#/$defs/digest"},
+        "tokenizer_digest": {"$ref": "#/$defs/digest"},
+        "architecture": {"$ref": "#/$defs/identifier"},
+        "target_layer": {"$ref": "#/$defs/identifier"},
+        "target_modules": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+        "runtime_provider": {"$ref": "#/$defs/identifier"},
+        "runtime_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "kv_cache_safe": {"type": "boolean"}
+      }
+    },
+    "peft_configuration_digest": {"$ref": "#/$defs/digest"},
+    "training_dataset_digest": {"$ref": "#/$defs/digest"},
+    "evaluation_status": {"enum": ["pending", "passed", "failed", "revoked"]},
+    "evaluation_digest": {"$ref": "#/$defs/digest"},
+    "policy_decision_digest": {"$ref": "#/$defs/digest"},
+    "signing_key_id": {"$ref": "#/$defs/identifier"},
+    "signature": {"type": "string", "minLength": 1, "maxLength": 1024}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

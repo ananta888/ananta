@@ -1,0 +1,17 @@
+{
+  "schema": "ananta.knowledge-expert-resource-profile.v1",
+  "profile_id": "rtx3080-10gb-safe",
+  "vram_capacity_bytes": 10737418240,
+  "vram_reserve_bytes": 1610612736,
+  "maximum_active_experts": 3,
+  "warm_cache_experts": 8,
+  "fallback_mode": "rag_only",
+  "measurements_required": [
+    "cold_load_ms",
+    "warm_load_ms",
+    "hot_switch_ms",
+    "retrieval_ms",
+    "inference_ms"
+  ],
+  "status": "unverified"
+}

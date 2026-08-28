@@ -2,15 +2,18 @@ from __future__ import annotations
 
 from flask import Blueprint, current_app, g, request
 
-from agent.auth import check_auth
+from agent.auth import check_auth, get_authenticated_source_control_principal
 from agent.common.audit import log_audit
 from agent.common.logging import get_correlation_id
-from agent.services.exposure_policy_service import get_exposure_policy_service
-from agent.services.repository_registry import get_repository_registry
-from agent.services.service_registry import get_core_services
-from agent.services.system_health_service import build_system_health_payload
+from agent.services.codecompass_retrieval_capability_service import (
+    resolve_request_capability,
+)
 from agent.services.execution_audit_service import get_execution_audit_service
-from agent.auth import get_authenticated_source_control_principal
+from agent.services.exposure_policy_service import get_exposure_policy_service
+from agent.services.knowledge_augmentation_adapters import (
+    KnowledgeAugmentationAdapters,
+    default_knowledge_augmentation_adapters,
+)
 from agent.services.operation_policy_observability_service import (
     get_operation_policy_observability_service,
 )
@@ -23,9 +26,9 @@ from agent.services.operation_registry_service import (
     OperationDescriptor,
     get_operation_registry_service,
 )
-from agent.services.codecompass_retrieval_capability_service import (
-    resolve_request_capability,
-)
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
+from agent.services.system_health_service import build_system_health_payload
 
 mcp_bp = Blueprint("mcp", __name__)
 
@@ -50,7 +53,35 @@ def _mcp_context() -> dict:
             principal=get_authenticated_source_control_principal(),
             requested_scope={},
         ),
+        "knowledge_augmentation_adapters": _knowledge_augmentation_adapters(),
+        "knowledge_augmentation_context": _knowledge_augmentation_context(),
     }
+
+
+def _knowledge_augmentation_context() -> dict:
+    provider = current_app.extensions.get("knowledge_augmentation_context_provider")
+    identity = dict(getattr(g, "user", {}) or getattr(g, "auth_payload", {}) or {})
+    tenant_id = str(identity.get("tenant_id") or identity.get("tenant") or "").strip()
+    if callable(provider) and tenant_id:
+        return dict(provider(tenant_id=tenant_id))
+    return {
+        "global_enabled": False,
+        "model_enabled": False,
+        "task_enabled": False,
+        "domain_enabled": False,
+        "data_class_enabled": False,
+        "runtime_ready": False,
+        "expert_selected": False,
+        "citation_required": True,
+        "rag_available": True,
+    }
+
+
+def _knowledge_augmentation_adapters() -> KnowledgeAugmentationAdapters:
+    configured = current_app.extensions.get("knowledge_augmentation_adapters")
+    if isinstance(configured, KnowledgeAugmentationAdapters):
+        return configured
+    return default_knowledge_augmentation_adapters()
 
 
 def _classroom_gateway():
@@ -296,7 +327,11 @@ def mcp_jsonrpc():
             result = registry.call_tool(name=tool_name, arguments=arguments, context=_mcp_context())
             log_audit(
                 "mcp_tool_called",
-                {"tool": tool_name, "trace_id": trace_id, "operation_id": descriptor.operation_id if descriptor else None},
+                {
+                    "tool": tool_name,
+                    "trace_id": trace_id,
+                    "operation_id": descriptor.operation_id if descriptor else None,
+                },
             )
             get_execution_audit_service().emit_tool_call(
                 trace_id=trace_id,
@@ -332,7 +367,11 @@ def mcp_jsonrpc():
             result = registry.read_resource(uri=resource_uri, context=_mcp_context())
             log_audit(
                 "mcp_resource_read",
-                {"uri": resource_uri, "trace_id": trace_id, "operation_id": descriptor.operation_id if descriptor else None},
+                {
+                    "uri": resource_uri,
+                    "trace_id": trace_id,
+                    "operation_id": descriptor.operation_id if descriptor else None,
+                },
             )
             get_execution_audit_service().emit_tool_call(
                 trace_id=trace_id,

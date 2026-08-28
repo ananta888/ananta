@@ -7,6 +7,7 @@ import { ControlCenterArtifactBrowserComponent } from './components/control-cent
 import { ControlCenterPolicyApprovalComponent } from './components/control-center-policy-approval.component';
 import { ControlCenterWorkersComponent } from './components/control-center-workers.component';
 import { ControlCenterPlaceholderComponent } from './components/control-center-placeholder.component';
+import { KnowledgeExpertControlComponent } from './knowledge-experts/knowledge-expert-control.component';
 
 export const controlCenterRoutes: Routes = [{
   path: 'control-center',
@@ -20,5 +21,6 @@ export const controlCenterRoutes: Routes = [{
     { path: 'workers', component: ControlCenterWorkersComponent },
     { path: 'policies', component: ControlCenterPolicyApprovalComponent },
     { path: 'codecompass', component: ControlCenterPlaceholderComponent },
+    { path: 'knowledge-experts', component: KnowledgeExpertControlComponent },
   ],
 }];

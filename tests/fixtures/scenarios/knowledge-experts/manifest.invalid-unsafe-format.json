@@ -1,0 +1,30 @@
+{
+  "schema": "ananta.knowledge-expert-manifest.v1",
+  "expert_id": "expert-fixture",
+  "generation_id": "generation-fixture",
+  "tenant_id": "tenant-fixture",
+  "workspace_id": "workspace-fixture",
+  "repository_id": "repository-fixture",
+  "knowledge_unit_ids": ["unit-fixture"],
+  "knowledge_unit_digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "adapter_format": "pickle",
+  "adapter_digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "adapter_size_bytes": 1024,
+  "compatibility": {
+    "base_model_digest": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "tokenizer_digest": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "architecture": "llama",
+    "target_layer": "final_ffn",
+    "target_modules": ["down_proj"],
+    "runtime_provider": "fixture-runtime",
+    "runtime_version": "1",
+    "kv_cache_safe": true
+  },
+  "peft_configuration_digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "training_dataset_digest": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "evaluation_status": "passed",
+  "evaluation_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+  "policy_decision_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+  "signing_key_id": "fixture-key",
+  "signature": "deterministic-fixture-signature"
+}

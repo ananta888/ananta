@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/knowledge_expert_dataset.v1.json",
+  "title": "Knowledge Expert Dataset Manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "dataset_digest", "augmentation_model_digest", "train_record_count", "held_out_record_count", "rejection_counts"],
+  "properties": {
+    "schema": {"const": "ananta.knowledge-expert-dataset.v1"},
+    "dataset_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "augmentation_model_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "train_record_count": {"type": "integer", "minimum": 1},
+    "held_out_record_count": {"type": "integer", "minimum": 1},
+    "rejection_counts": {"type": "object", "propertyNames": {"pattern": "^[a-z0-9_]{1,64}$"}, "additionalProperties": {"type": "integer", "minimum": 1}}
+  }
+}

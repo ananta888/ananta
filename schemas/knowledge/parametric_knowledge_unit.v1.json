@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/parametric_knowledge_unit.v1.json",
+  "title": "Ananta Parametric Knowledge Unit v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "unit_id", "tenant_id", "workspace_id", "repository_id", "source_id", "source_revision", "content_hash", "provenance_digest", "domain", "parent_id", "relations", "sensitivity", "retention_until", "license_spdx", "citation_ref", "citation_required", "stable", "approval_state", "revoked"],
+  "properties": {
+    "schema": {"const": "ananta.parametric-knowledge-unit.v1"},
+    "unit_id": {"$ref": "#/$defs/identifier"},
+    "tenant_id": {"$ref": "#/$defs/identifier"},
+    "workspace_id": {"$ref": "#/$defs/identifier"},
+    "repository_id": {"$ref": "#/$defs/identifier"},
+    "source_id": {"type": "string", "pattern": "^(SRC|RUN)_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"},
+    "source_revision": {"type": "string", "minLength": 1, "maxLength": 512},
+    "content_hash": {"$ref": "#/$defs/digest"},
+    "provenance_digest": {"$ref": "#/$defs/digest"},
+    "domain": {"$ref": "#/$defs/identifier"},
+    "parent_id": {"type": "string", "maxLength": 512},
+    "relations": {"type": "array", "maxItems": 256, "uniqueItems": true, "items": {"$ref": "#/$defs/identifier"}},
+    "sensitivity": {"enum": ["public", "internal", "personal", "secret", "unknown"]},
+    "retention_until": {"type": "string", "format": "date-time"},
+    "license_spdx": {"type": "string", "minLength": 1, "maxLength": 128},
+    "citation_ref": {"type": "string", "minLength": 1, "maxLength": 512},
+    "citation_required": {"type": "boolean"},
+    "stable": {"type": "boolean"},
+    "approval_state": {"enum": ["unreviewed", "approved", "denied"]},
+    "revoked": {"type": "boolean"}
+  },
+  "$defs": {
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

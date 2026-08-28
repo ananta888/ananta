@@ -523,6 +523,10 @@ def test_knowledge_retrieval_preflight_route_returns_source_diagnostics(client, 
 def test_knowledge_source_records_index_route_always_delegates_wiki_records(
     client, admin_auth_header, monkeypatch
 ):
+    class StubSourceRegistry:
+        def get_source(self, source_id):
+            return {"source_id": source_id}
+
     class StubJobService:
         def submit_source_records_job(self, **kwargs):
             source_scope = kwargs["source_scope"]
@@ -537,6 +541,7 @@ def test_knowledge_source_records_index_route_always_delegates_wiki_records(
         "agent.routes.knowledge.get_knowledge_index_job_service",
         lambda: StubJobService(),
     )
+    monkeypatch.setattr("agent.routes.knowledge.SourceRegistry", StubSourceRegistry)
     response = client.post(
         "/knowledge/sources/index-records",
         headers=admin_auth_header,
@@ -562,6 +567,10 @@ def test_knowledge_source_records_index_route_always_delegates_wiki_records(
 
 
 def test_knowledge_source_records_index_route_supports_async_jobs(client, admin_auth_header, monkeypatch):
+    class StubSourceRegistry:
+        def get_source(self, source_id):
+            return {"source_id": source_id}
+
     class StubJobService:
         def submit_source_records_job(self, **kwargs):
             assert kwargs["source_scope"] == "wiki"
@@ -569,6 +578,7 @@ def test_knowledge_source_records_index_route_supports_async_jobs(client, admin_
             return {"job_id": "job-source-1", "status": "queued", "source_scope": kwargs["source_scope"]}
 
     monkeypatch.setattr("agent.routes.knowledge.get_knowledge_index_job_service", lambda: StubJobService())
+    monkeypatch.setattr("agent.routes.knowledge.SourceRegistry", StubSourceRegistry)
     response = client.post(
         "/knowledge/sources/index-records",
         headers=admin_auth_header,

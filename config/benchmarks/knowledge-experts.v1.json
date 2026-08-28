@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.knowledge-expert-benchmark-config.v1",
+  "version": "1.0.0",
+  "required_variants": [
+    "dense",
+    "rag",
+    "sft_lora",
+    "single_expert",
+    "multi_expert",
+    "expert_plus_rag",
+    "retrieval_only_router",
+    "always_on_router",
+    "uncertainty_router"
+  ],
+  "required_bindings": [
+    "model_digest",
+    "tokenizer_digest",
+    "dataset_digest",
+    "hardware_digest",
+    "software_digest"
+  ],
+  "promotion": {
+    "minimum_quality_delta_over_dense": 0.01,
+    "maximum_general_holdout_regression": 0.0,
+    "maximum_security_holdout_regression": 0.0
+  },
+  "latency_metrics": [
+    "retrieval_ms",
+    "cold_load_ms",
+    "warm_load_ms",
+    "hot_switch_ms",
+    "inference_ms"
+  ]
+}

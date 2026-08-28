@@ -82,6 +82,16 @@ class MCPRegistryService:
             input_schema={"type": "object", "properties": {}, "additionalProperties": False},
         ),
         MCPToolSpec(
+            name="knowledge_augmentation.decide",
+            description="Resolve the Hub-owned parametric expert/RAG policy without selecting an expert.",
+            input_schema={
+                "type": "object",
+                "required": ["profile_id"],
+                "properties": {"profile_id": {"type": "string"}},
+                "additionalProperties": False,
+            },
+        ),
+        MCPToolSpec(
             name="codecompass.architecture_overview",
             description="Budgeted hierarchical architecture overview for a project question.",
             input_schema={
@@ -112,7 +122,11 @@ class MCPRegistryService:
         MCPToolSpec(
             name="codecompass.layers_heads",
             description="List incremental CodeCompass layer heads/profiles. Read-only.",
-            input_schema={"type": "object", "additionalProperties": False, "properties": {"profile_id": {"type": "string"}}},
+            input_schema={
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {"profile_id": {"type": "string"}},
+            },
         ),
         MCPToolSpec(
             name="codecompass.layers_plan",
@@ -130,7 +144,10 @@ class MCPRegistryService:
         ),
         MCPToolSpec(
             name="codecompass.architecture_intelligence",
-            description="Read-only architecture intelligence: communities, smells, health. Derived projection, not source evidence.",
+            description=(
+                "Read-only architecture intelligence: communities, smells, health. "
+                "Derived projection, not source evidence."
+            ),
             input_schema={
                 "type": "object",
                 "additionalProperties": False,
@@ -380,10 +397,8 @@ class MCPRegistryService:
             ]
             return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
 
-        if name == "knowledge.list_collections":
-            collection_repo = context["knowledge_collection_repo"]
-            items = [item.model_dump() for item in collection_repo.get_all()]
-            return {"content": [{"type": "json", "json": {"items": items, "count": len(items)}}]}
+        if name in {"knowledge.list_collections", "knowledge_augmentation.decide"}:
+            return self._call_knowledge_tool(name=name, args=args, context=context)
 
         if name in {"codecompass.architecture_overview", "codecompass.architecture_expand"}:
             from agent.services.tools.codecompass_architecture_tools import (
@@ -405,7 +420,10 @@ class MCPRegistryService:
 
             profile_id = str(args.get("profile_id") or "")
             service = get_codecompass_layer_service()
-            payload = {"profiles": service.list_profiles(), "head": service.show_head(profile_id) if profile_id else None}
+            payload = {
+                "profiles": service.list_profiles(),
+                "head": service.show_head(profile_id) if profile_id else None,
+            }
             return {"content": [{"type": "json", "json": payload}]}
 
         if name == "codecompass.layers_plan":
@@ -451,7 +469,11 @@ class MCPRegistryService:
 
             result = get_codecompass_rlm_service().analyze(
                 str(args.get("query") or ""),
-                capability=context.get("codecompass_capability") if isinstance(context.get("codecompass_capability"), dict) else None,
+                capability=(
+                    context.get("codecompass_capability")
+                    if isinstance(context.get("codecompass_capability"), dict)
+                    else None
+                ),
                 enabled=bool(args.get("enabled", False)),
                 max_depth=int(args.get("max_depth") or 3),
                 max_fanout=int(args.get("max_fanout") or 4),
@@ -561,6 +583,23 @@ class MCPRegistryService:
             return {"content": [{"type": "json", "json": payload}]}
 
         raise KeyError("unknown_tool")
+
+    @staticmethod
+    def _call_knowledge_tool(*, name: str, args: dict[str, Any], context: dict[str, Any]) -> dict[str, Any]:
+        if name == "knowledge.list_collections":
+            collection_repo = context["knowledge_collection_repo"]
+            items = [item.model_dump() for item in collection_repo.get_all()]
+            result: Any = {"items": items, "count": len(items)}
+        else:
+            adapter = context["knowledge_augmentation_adapters"]
+            result = adapter.for_mcp(
+                {
+                    "schema": "ananta.knowledge-augmentation-request.v1",
+                    "profile_id": str(args.get("profile_id") or ""),
+                },
+                hub_context=dict(context.get("knowledge_augmentation_context") or {}),
+            )
+        return {"content": [{"type": "json", "json": result}]}
 
     def read_resource(self, *, uri: str, context: dict[str, Any]) -> dict[str, Any]:
         normalized_uri = str(uri or "").strip()

@@ -212,7 +212,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 35.0,
       "implementation": {
         "files_to_create": [
           "docs/research/dmoe-parametric-knowledge-injection.md",
@@ -235,17 +235,17 @@
       "depends_on": [],
       "evidence": [
         "arXiv:2606.14243v1 and its CC BY 4.0 HTML were reviewed on 2026-08-27; no official source repository or checkpoint link was present or found in exact author/title searches.",
-        "The paper specifies Llama-3.2-1B-Instruct and Qwen2.5-1.5B-Instruct, 27,613 DPR Wikipedia passages, LoRA rank 4/alpha 16, one epoch, threshold 2.0, top-k 3 and A100 80GB measurements. No local DMoE PoC or measured reproduction exists yet."
+        "docs/research/dmoe-parametric-knowledge-reproduction.md and experiments/dmoe/README.md record a NO-GO gate and the exact missing measurements. On 2026-08-27 the local RTX 3080 had about 7.9 GiB occupied by unrelated processes and the project venv lacked torch/transformers/peft; no local paper reproduction or measured improvement exists yet."
       ]
     },
     {
       "id": "DMOE-002",
       "title": "Versionierte Knowledge-Unit- und Expert-Vertraege definieren",
       "type": "schema",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "schemas/knowledge/parametric_knowledge_unit.v1.json",
@@ -271,17 +271,17 @@
       ],
       "evidence": [
         "worker/training/contracts.py already binds datasets, base-model snapshots, adapters, hashes and closed training configuration; CodeCompass records carry source/revision/provenance fields.",
-        "DMoE-specific KnowledgeUnit, ExpertManifest and immutable ExpertBank contracts, final-layer/runtime binding and negative fixtures do not exist."
+        "ananta_contracts/parametric_knowledge.py plus schemas/knowledge define closed KnowledgeUnit, ExpertManifest and ExpertBank contracts with exact model/tokenizer/runtime/final-FFN bindings; deterministic golden and unsafe-format fixtures are exercised by tests/test_parametric_knowledge_contracts.py."
       ]
     },
     {
       "id": "DMOE-003",
       "title": "Eligibility-Policy fuer parametrisierbares Wissen bauen",
       "type": "policy",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/parametric_knowledge_eligibility_policy.py",
@@ -305,17 +305,17 @@
       ],
       "evidence": [
         "Existing source-access, tenant, egress, redaction and training contracts provide reusable fail-closed policy seams.",
-        "No parametric-knowledge eligibility decision currently classifies stability, sensitivity, revocability, citation duty and license as allow/deny/require_approval."
+        "agent/services/parametric_knowledge_eligibility_policy.py implements fail-closed allow/deny/require_approval decisions for stability, scope, sensitivity, revocation, retention, citation duty, license and authoritative approval; tests include secret and cross-tenant denial."
       ]
     },
     {
       "id": "DMOE-004",
       "title": "CodeCompass Knowledge-Unit Compiler entwickeln",
       "type": "indexing",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "rag-helper/rag_helper/application/parametric_knowledge_compiler.py",
@@ -344,17 +344,17 @@
       ],
       "evidence": [
         "worker/retrieval/codecompass_document_normalizer.py, chunk_metadata.py and governed knowledge-index execution provide typed, revision-bound compiler inputs.",
-        "No deterministic KnowledgeUnit compiler or training-sample lineage manifest exists for parametric experts."
+        "worker/training/knowledge_unit_compiler.py deterministically preserves CodeCompass parent/relations, source revision and digests while separating training text from manifests; tests/test_knowledge_unit_compiler.py proves stable ordering and lineage."
       ]
     },
     {
       "id": "DMOE-005",
       "title": "Dataset-Qualitaet und Kontaminationsschutz implementieren",
       "type": "data_quality",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "worker/training/knowledge_dataset_validator.py",
@@ -380,7 +380,7 @@
       ],
       "evidence": [
         "worker/training/datasets.py and the training contracts validate bounded local splits and hashes; repository security tests provide reusable secret/scope fixtures.",
-        "DMoE augmentation, contamination, memorization-risk, duplicate/conflict and source-held-out quality gates are absent."
+        "worker/training/knowledge_expert_dataset_quality.py adds bounded augmentation, secret/prompt-injection rejection, duplicate and contradiction removal, deterministic held-out isolation and raw-text-free reports, covered by tests/test_knowledge_unit_compiler.py."
       ]
     },
     {
@@ -390,7 +390,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 65.0,
+      "progress_percent": 85.0,
       "implementation": {
         "files_to_create": [
           "worker/training/knowledge_expert_trainer_port.py",
@@ -417,17 +417,17 @@
       ],
       "evidence": [
         "worker/training/backends and FrozenTrainingBackendRegistry already provide replaceable LoRA/QLoRA backends, capability projection, evaluation and adapter export.",
-        "No knowledge-expert training request constrains target modules to the final FFN, and no backend has demonstrated DMoE expert output parity."
+        "worker/training/knowledge_expert_training.py provides a replaceable one-job backend port, restricts LoRA targets to final-FFN gate/up/down modules, validates safetensors output and invokes abort cleanup on failure. tests/test_knowledge_expert_training.py passes; real DMoE output parity remains unmeasured."
       ]
     },
     {
       "id": "DMOE-007",
       "title": "Expert-Artefaktformat, Registry und unveraenderliche Versionen bauen",
       "type": "artifact",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 50.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "worker/training/knowledge_expert_artifact.py",
@@ -453,17 +453,17 @@
       ],
       "evidence": [
         "worker/training/runtime_artifact_service.py plus the Hub-side model/adapter catalogs and evaluation promotion services provide hash-bound artifact and promotion foundations.",
-        "A signed safetensors-only ExpertBank registry with immutable generations, atomic aliases and exact tokenizer/runtime/target-layer compatibility is missing."
+        "Knowledge-expert signing, public-key-only verification and registry services now enforce Ed25519 signatures, passed evaluation, safetensors, immutable generations, exact scope/compatibility, promotion evidence, activation CAS, revocation and cache invalidation; governance tests cover tampering and rollback conflicts."
       ]
     },
     {
       "id": "DMOE-008",
       "title": "Router-Kandidaten ueber CodeCompass Hybrid Retrieval bestimmen",
       "type": "retrieval",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/knowledge_expert_candidate_service.py",
@@ -490,7 +490,7 @@
       ],
       "evidence": [
         "CodeCompassRetriever and HybridRetrievalService already combine lexical, symbol, graph and vector candidates; the SIRA profile adds snapshot-bound corpus-discriminative lexical routing.",
-        "Expert manifests/text surrogates are not indexed as an allowlisted expert candidate type and cannot yet be resolved without raw paths."
+        "worker/retrieval/knowledge_expert_index_projector.py emits the dedicated knowledge_expert_manifest surrogate kind, and codecompass_knowledge_expert_candidates.py consumes only exact manifest-digest IDs from the canonical CodeCompass retrieval contract while failing closed on empty or mismatched scope."
       ]
     },
     {
@@ -500,7 +500,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 30.0,
+      "progress_percent": 80.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/knowledge_expert_trigger.py",
@@ -525,17 +525,17 @@
       ],
       "evidence": [
         "worker/retrieval/sira/router.py demonstrates bounded default-off routing, fallback reasons and a circuit breaker reusable behind a DMoE policy port.",
-        "No token-entropy signal, calibrated uncertainty threshold, hysteresis or Hub-owned expert activation decision exists."
+        "worker/retrieval/knowledge_expert_router.py implements bounded entropy thresholding, candidate-only selection, revocation/scope filters and token hysteresis; the benchmark matrix now requires retrieval-only, always-on and uncertainty variants, but no measured routing ablation exists yet."
       ]
     },
     {
       "id": "DMOE-010",
       "title": "Runtime-Port fuer cache-sichere dynamische Experten definieren",
       "type": "runtime",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/dynamic_expert_runtime_port.py",
@@ -560,18 +560,18 @@
         "DMOE-002"
       ],
       "evidence": [
-        "No Worker runtime contract can attest final-layer FFN placement, logits/entropy access, dynamic expert composition, tokenizer/model binding or KV-cache safety.",
-        "Generic PEFT inference is not evidence for the paper-specific dynamic runtime capability."
+        "ananta_contracts/knowledge_expert_runtime.py is framework-neutral and binds final layer, target modules, entropy, atomic composition, model/tokenizer digests and KV-cache safety.",
+        "worker/inference/knowledge_expert_capability_probe.py accepts only the complete explicit proof set; provider names cannot imply support. Runtime negative tests cover every required capability."
       ]
     },
     {
       "id": "DMOE-011",
       "title": "Expert Hot-Swap, Residency und KV-Cache-Integritaet umsetzen",
       "type": "runtime",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 80.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/knowledge_expert_residency_manager.py",
@@ -597,18 +597,18 @@
         "DMOE-010"
       ],
       "evidence": [
-        "No expert residency manager, asynchronous safetensors loader, hot/warm/cold cache or generation-bound atomic expert switch exists.",
-        "No current test proves KV-cache integrity across a mid-generation expert change."
+        "worker/inference/knowledge_expert_runtime.py verifies artifact type/size/streamed SHA-256, budgets adapter residency, loads before an atomic generation switch and cleans newly loaded experts after failure; unsafe KV-cache capability is denied in tests.",
+        "A concrete framework adapter, asynchronous loader and measured cold/warm/hot behavior are still absent, so real mid-generation recompute behavior remains unverified."
       ]
     },
     {
       "id": "DMOE-012",
       "title": "Konflikt- und Kompositionsregeln fuer mehrere Experten entwickeln",
       "type": "correctness",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/knowledge_expert_composition_policy.py",
@@ -633,18 +633,18 @@
         "DMOE-011"
       ],
       "evidence": [
-        "There is no DMoE expert merge/composition implementation or conflict detector for overlapping, contradictory or revoked KnowledgeUnits.",
-        "Existing retrieval fusion combines evidence scores, not LoRA parameter deltas, and must not be treated as substitutable evidence."
+        "KnowledgeExpertCompositionPolicy rejects duplicate experts, overlapping KnowledgeUnits, incompatible model/tokenizer/runtime modules and missing atomic/KV-safe capabilities.",
+        "agent/services/knowledge_expert_promotion_gate.py requires passing single, every pairwise and full multi-expert composition plus general/security holdouts before a bank can enter the registry."
       ]
     },
     {
       "id": "DMOE-013",
       "title": "Kanonische Hybridpolicy DMoE plus RAG plus Basismodell bauen",
       "type": "orchestration",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/parametric_rag_hybrid_policy.py",
@@ -671,17 +671,17 @@
       ],
       "evidence": [
         "Existing retrieval profiles, CodeCompass hybrid fusion, typed degradation and SIRA modes preserve RAG/base fallbacks and provide an OCP integration point.",
-        "No canonical Hub policy currently chooses expert_only, rag_only, expert_plus_rag or base_only from DMoE capability, uncertainty and citation rules."
+        "agent/services/knowledge_augmentation_policy_service.py deterministically resolves base_only, rag_only, expert_only and expert_plus_rag with bounded reason codes; all global/model/task/domain/data-class disables and missing capabilities preserve RAG fallback."
       ]
     },
     {
       "id": "DMOE-014",
       "title": "Provenance, Zitierbarkeit und Antwort-Evidence erhalten",
       "type": "provenance",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/knowledge_expert_evidence_service.py",
@@ -707,17 +707,17 @@
       ],
       "evidence": [
         "SourceRef, ContextBundle, CodeCompass provenance and evidence services already fail closed on unknown source identifiers and preserve revision bindings.",
-        "Parametric support is not linked from an active expert generation back to KnowledgeUnits, and citation-mode retrieval after expert use is not implemented."
+        "agent/services/knowledge_expert_evidence_service.py binds expert support to the exact non-revoked KnowledgeUnits and source revisions and requires the existing evidence port in citation mode; unknown identifiers or revisions fail closed."
       ]
     },
     {
       "id": "DMOE-015",
       "title": "Inkrementelle Expert-Aktualisierung und Invalidierung anbinden",
       "type": "lifecycle",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/knowledge_expert_refresh_planner.py",
@@ -743,17 +743,17 @@
       ],
       "evidence": [
         "CodeCompass knowledge-index revisions, vector replay guards and SIRA base/delta/tombstone layers provide reusable deterministic delta and pointer-last patterns.",
-        "No expert refresh planner maps source/graph changes to retrain, revoke, split, merge or review while preserving the active bank on failure."
+        "agent/services/knowledge_expert_refresh_planner.py deterministically classifies unchanged/retrain/revoke/review units and all affected manifest digests; worker delta execution cannot activate, and active-bank mutation remains a later Hub CAS after successful tasks."
       ]
     },
     {
       "id": "DMOE-016",
       "title": "Hub-owned Training-, Evaluation- und Aktivierungs-Tasks integrieren",
       "type": "task_engine",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "ananta_contracts/knowledge_expert_task.py",
@@ -780,17 +780,17 @@
       ],
       "evidence": [
         "The Hub-owned LoRA training flow already controls queueing, signed Worker assignment, attempts, cancellation, evaluation and promotion while Workers execute one job.",
-        "DMoE compile_dataset, train_expert, evaluate_expert, publish_bank, revoke_expert and garbage_collect state machines and activation CAS are absent."
+        "ananta_contracts/knowledge_expert_task.py closes all six task types and binds attempt, audience, scope, input/policy digests and deadline. Hub task/activation services reject cancelled or stale results; the Worker handler executes one assigned job and explicitly denies orchestration/activation fields."
       ]
     },
     {
       "id": "DMOE-017",
       "title": "Supply-Chain-, Tenant- und Model-Security haerten",
       "type": "security",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/knowledge_expert_security_policy.py",
@@ -817,7 +817,7 @@
       ],
       "evidence": [
         "Ananta already has Ed25519 capability envelopes, tenant/scope binding, egress policy, artifact hashes, adapter trust checks and extensive isolation tests.",
-        "Knowledge-expert signatures, safetensors-only admission, poisoning/backdoor gates and model-extraction controls are not composed into one DMoE security boundary."
+        "KnowledgeExpertSecurityPolicy composes verified signature, exact tenant/workspace/repository, passed evaluation, safetensors, poisoning, backdoor and extraction-risk gates; signing/verifier and registry tests reject tampering, unsafe format, revocation and cross-tenant access."
       ]
     },
     {
@@ -827,7 +827,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 55.0,
+      "progress_percent": 70.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/knowledge_expert_resource_planner.py",
@@ -853,17 +853,17 @@
       ],
       "evidence": [
         "worker/training/vram_admission.py includes an rtx3080-safe profile and rejects estimated training OOM before execution.",
-        "It does not budget inference base weights, KV cache, active experts, RAM/disk residency or cold/warm/hot swap latency together; no DMoE measurement exists."
+        "worker/inference/knowledge_expert_resource_planner.py jointly admits base weights, KV cache, active adapter VRAM, warm RAM and disk and selects rag_only before expected OOM; config/knowledge-experts/rtx3080-inference.v1.json remains unverified because cold/warm/hot measurements do not exist."
       ]
     },
     {
       "id": "DMOE-019",
       "title": "Observability, Audit und Kostenmetriken ergaenzen",
       "type": "observability",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/knowledge_expert_observer.py",
@@ -889,17 +889,17 @@
       ],
       "evidence": [
         "Training, retrieval and audit subsystems already expose bounded status, duration, resource and fallback diagnostics.",
-        "No unified DMoE observation contract records expert candidates, uncertainty trigger, activation, residency, composition conflicts and comparable RAG costs."
+        "Hub and Worker observation services now expose bounded event/reason dimensions, hashed tenant buckets, cold/warm/hot/retrieval/inference latency, adapter bytes and per-mode/RAG-baseline costs without prompts, source text or raw IDs."
       ]
     },
     {
       "id": "DMOE-020",
       "title": "Control-Center UI fuer Expert-Banken und Hybridpolicy bauen",
       "type": "ui",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "frontend-angular/src/app/features/knowledge-experts/knowledge-expert-control-center.component.ts",
@@ -926,17 +926,17 @@
       ],
       "evidence": [
         "The Angular model-training and operations consoles provide reusable task, evaluation, artifact and status UI patterns.",
-        "There is no knowledge-expert bank view or policy-authorized activation, rollback, revocation and RAG/expert/hybrid comparison surface."
+        "The Hub-only /api/knowledge-experts facade and Angular Control Center show enabled state, gates, active/candidate generations, policy/provenance, RAG fallback and confirmed activate/rollback/revoke/disable commands; clients never call Workers or activate artifacts directly."
       ]
     },
     {
       "id": "DMOE-021",
       "title": "Agent-, MCP-, API- und n8n-Vertraege bereitstellen",
       "type": "integration",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "agent/services/tools/knowledge_augmentation_tools.py",
@@ -962,7 +962,7 @@
       ],
       "evidence": [
         "CodeCompass already has a canonical Agent/MCP/HTTP/n8n retrieval contract that denies backend credentials and preserves baseline compatibility.",
-        "No KnowledgeAugmentationService exposes the same bounded DMoE decision across those consumers, and clients cannot yet select an allowlisted Hub policy profile."
+        "KnowledgeAugmentationAdapters uses one canonical policy for internal agents, MCP, HTTP and n8n; the MCP registry and /api/knowledge-experts/decisions accept only an allowlisted profile ID and deny client expert, scope, runtime or artifact authority. Existing RAG remains the default response."
       ]
     },
     {
@@ -972,7 +972,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 25.0,
+      "progress_percent": 70.0,
       "implementation": {
         "files_to_create": [
           "config/benchmarks/parametric-knowledge-injection.v1.json",
@@ -1000,7 +1000,7 @@
       ],
       "evidence": [
         "Generic retrieval and multi-backend training benchmark runners provide reproducible artifact and metric patterns.",
-        "No bound Dense/RAG/SFT-LoRA/single-expert/multi-expert/hybrid DMoE matrix, cache-reuse measurement or general/security holdout gate exists."
+        "config/benchmarks/knowledge-experts.v1.json and KnowledgeExpertBenchmarkGate require bound Dense/RAG/SFT-LoRA/single/multi/hybrid plus routing ablations, separated latency metrics, exact environment digests and zero accepted general/security regression. No measured benchmark run exists yet."
       ]
     },
     {
@@ -1010,7 +1010,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 85.0,
       "implementation": {
         "files_to_create": [
           "tests/integration/test_parametric_knowledge_pipeline.py",
@@ -1039,17 +1039,17 @@
       ],
       "evidence": [
         "Existing training, knowledge-index, retrieval, capability and security suites cover many reusable failure primitives.",
-        "The complete Source-to-Expert-to-Answer path and DMoE-specific stale, corrupt, OOM, timeout, cache, poisoning, backdoor and cross-tenant cases are unimplemented."
+        "The DMoE unit/integration suite now covers deterministic source compilation, contamination, tamper/signature, stale/cancelled/audience tasks, empty/cross-tenant scope, corrupt artifacts, expected OOM fallback, atomic-switch cleanup, unsafe cache capability, poisoning/backdoor gates and grounded evidence. A live model Source-to-Answer run remains absent."
       ]
     },
     {
       "id": "DMOE-024",
       "title": "Feature Flags, Canary-Rollout und produktive Betriebsdokumentation",
       "type": "rollout",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 40.0,
+      "progress_percent": 100.0,
       "implementation": {
         "files_to_create": [
           "docs/architecture/codecompass-dmoe-parametric-knowledge.md",
@@ -1077,7 +1077,7 @@
       ],
       "evidence": [
         "Default-off flags, shadow/canary patterns, immutable promotion and rollback runbooks exist in adjacent retrieval/training subsystems.",
-        "No DMoE rollout configuration or proven atomic rollback to a last-good ExpertBank exists; GA must remain blocked by the research/runtime/security/benchmark gates."
+        "Default-off settings, config/knowledge-experts/rollout.v1.json, KnowledgeExpertRolloutService and operations documentation keep RAG independent, block canary/GA unless every named gate passes and route rollback through the Hub generation CAS to the last-good generation."
       ]
     }
   ],
@@ -1132,13 +1132,13 @@
   "tasks_status_summary": {
     "total": 24,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 21,
+      "partial": 7,
       "blocked": 0,
-      "done": 0
+      "done": 17
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 70.8,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -1152,8 +1152,8 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 0,
-      "remaining": 19
+      "done": 13,
+      "remaining": 6
     },
     "milestones": {
       "total": 5,
@@ -1165,18 +1165,18 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 21,
+    "partial": 7,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 34.6
+    "done": 17,
+    "count_based_percent": 70.8,
+    "weighted_percent": 90.9
   },
   "summary_notes": [
     "Audit on 2026-08-27 against main@9a03a1b26 and arXiv:2606.14243v1.",
-    "Twenty-one tasks have reusable foundations only, while DMOE-010 through DMOE-012 remain entirely todo because runtime placement, hot-swap/KV-cache safety and parameter composition do not exist.",
-    "The research gate remains mandatory: no official upstream code/checkpoints were located and no paper result is treated as Ananta release evidence.",
+    "Implementation on 2026-08-27 completed 17 of 24 tasks and raised weighted progress to 90.9%; seven tasks remain partial only where real model/runtime measurements or a live end-to-end run are still absent.",
+    "The research gate remains mandatory: no official upstream code/checkpoints were located, the local GPU was already substantially occupied, and no paper result or test-double result is treated as Ananta release evidence.",
     "The Hub remains the control plane; Workers may train or infer one delegated task and may not activate experts or orchestrate follow-up work.",
     "No SRC_* or RUN_* identifiers were provided or invented."
   ],
@@ -1226,9 +1226,9 @@
   },
   "audit_findings": {
     "format": "The file was migrated to the canonical todo.track.schema.json contract with task_ids, milestone_id, depends_on and derived summaries.",
-    "scope": "All 24 tasks and their dependency order are preserved; no task was removed or marked complete during the source audit.",
+    "scope": "All 24 tasks and their dependency order are preserved. The implementation pass completes contract, policy, registry, routing, task, security, provenance, UI and integration work while retaining explicit partial states for unmeasured runtime/research gates.",
     "upstream": "Only the CC BY 4.0 arXiv v1 paper is attributable. No official implementation license, source revision or checkpoints can be recorded because no release was located.",
-    "current_state": "Ananta has substantial reusable CodeCompass, LoRA training, promotion, provenance, security and RTX-3080 admission foundations, but no DMoE runtime, expert bank, entropy router or measured reproduction.",
+    "current_state": "Ananta now has closed expert contracts, Hub-owned admission/task/activation policy, signed immutable banks, canonical CodeCompass candidates, an entropy router, framework-neutral capability/residency ports, hybrid evidence, Control Center and rollout gates. Concrete model integration and measured reproduction remain blocked.",
     "solid": "New work must extend narrow contracts and ports. Hub policy/task ownership and Worker execution stay separate; generic training/retrieval services must not absorb DMoE orchestration responsibilities."
   },
   "tasks_type_summary": {
@@ -1246,63 +1246,63 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 15.0
+        "progress_percent": 35.0
       },
       "schema": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 30.0
+        "progress_percent": 100.0
       },
       "policy": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 100.0
       },
       "indexing": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 100.0
       },
       "data_quality": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 30.0
+        "progress_percent": 100.0
       },
       "training": {
         "total": 1,
@@ -1316,35 +1316,35 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 65.0
+        "progress_percent": 85.0
       },
       "artifact": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 100.0
       },
       "retrieval": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "routing": {
         "total": 1,
@@ -1358,105 +1358,105 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 30.0
+        "progress_percent": 80.0
       },
       "runtime": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 0,
+        "done": 1,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 90.0
       },
       "correctness": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "orchestration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 100.0
       },
       "provenance": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "lifecycle": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 100.0
       },
       "task_engine": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "performance": {
         "total": 1,
@@ -1470,49 +1470,49 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 70.0
       },
       "observability": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 100.0
       },
       "ui": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 100.0
       },
       "integration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 100.0
       },
       "benchmark": {
         "total": 1,
@@ -1526,7 +1526,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 70.0
       },
       "test": {
         "total": 1,
@@ -1540,72 +1540,72 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 25.0
+        "progress_percent": 85.0
       },
       "rollout": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 41.25,
-    "done_weight": 14.262,
-    "remaining_weight": 26.988,
+    "done_weight": 37.487,
+    "remaining_weight": 3.763,
     "blocked_weight": 0.0,
-    "weighted_percent": 34.6
+    "weighted_percent": 90.9
   },
   "milestone_progress_summary": {
     "milestones": {
       "M0": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 22.5,
+        "count_based_percent": 66.7,
+        "weighted_percent": 74.0,
         "status": "in_progress"
       },
       "M1": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 45.7,
+        "count_based_percent": 75.0,
+        "weighted_percent": 95.7,
         "status": "in_progress"
       },
       "M2": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 20.0,
+        "count_based_percent": 60.0,
+        "weighted_percent": 91.8,
         "status": "in_progress"
       },
       "M3": {
         "total_tasks": 9,
-        "done": 0,
+        "done": 8,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 43.3,
+        "count_based_percent": 88.9,
+        "weighted_percent": 96.0,
         "status": "in_progress"
       },
       "M4": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 30.2,
+        "count_based_percent": 33.3,
+        "weighted_percent": 85.0,
         "status": "in_progress"
       }
     }
@@ -1613,10 +1613,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T19:52:14.442407Z",
+    "generated_at": "2026-08-27T20:30:34.759777Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "11a65fec45fd244b9831ad7d3497e599035b00ec3d6b5e04631c746b5387d9b6",
+    "source_hash": "8c651a24d8981879b8e70f6b1a8800a54351022708f5512554ee21f6efc3f308",
     "is_stale": false
   }
 }

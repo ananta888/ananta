@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/knowledge/parametric_answer_evidence.v1.json",
+  "title": "Parametric Answer Evidence v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "expert_manifest_digest", "knowledge_unit_ids", "source_ids", "citations", "citation_required"],
+  "properties": {
+    "schema": {"const": "ananta.parametric-answer-evidence.v1"},
+    "expert_manifest_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "knowledge_unit_ids": {"type": "array", "maxItems": 4096, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 192}},
+    "source_ids": {"type": "array", "maxItems": 4096, "uniqueItems": true, "items": {"type": "string", "minLength": 1, "maxLength": 192}},
+    "citations": {"type": "array", "maxItems": 4096, "items": {"type": "object", "additionalProperties": false, "required": ["source_id", "revision"], "properties": {"source_id": {"type": "string", "minLength": 1, "maxLength": 192}, "revision": {"type": "string", "maxLength": 512}}}},
+    "citation_required": {"type": "boolean"}
+  }
+}
