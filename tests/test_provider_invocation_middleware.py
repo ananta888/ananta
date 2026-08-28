@@ -64,6 +64,16 @@ def hub_bound_context(
     )
 
 
+def test_legacy_invocations_receive_independent_budget_scopes() -> None:
+    first = ProviderInvocationContext.from_value(None)
+    second = ProviderInvocationContext.from_value(None)
+
+    assert first.run_id.startswith("legacy-unbound:")
+    assert second.run_id.startswith("legacy-unbound:")
+    assert first.run_id != second.run_id
+    assert first.for_attempt(1, retry_id="retry-1").run_id == first.run_id
+
+
 def test_external_egress_is_fail_closed() -> None:
     subject = ProviderInvocationMiddleware()
 

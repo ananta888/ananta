@@ -78,3 +78,16 @@ def test_openai_max_output_tokens_are_sent_to_provider(mock_post):
     assert result == "bounded"
     payload = mock_post.call_args[1]["json"]
     assert payload["max_tokens"] == 7
+
+
+def test_unbound_calls_do_not_share_a_process_lifetime_attempt_budget(mock_post):
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"choices": [{"message": {"content": "ok"}}]}
+    mock_post.return_value = mock_response
+
+    with patch.object(settings, "retry_count", 0):
+        results = [generate_text(f"call-{index}", provider="openai") for index in range(65)]
+
+    assert results == ["ok"] * 65
+    assert mock_post.call_count == 65

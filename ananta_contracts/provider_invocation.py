@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import uuid
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -65,7 +66,10 @@ class ProviderInvocationContext:
 
         return cls(
             tenant_id="legacy-system",
-            run_id="legacy-unbound",
+            # An unbound call has no Hub run whose aggregate budget can be
+            # shared safely. Give each top-level invocation its own budget
+            # scope; retries derive from and retain this context.
+            run_id=f"legacy-unbound:{uuid.uuid4().hex}",
             policy_version="legacy-provider-policy-v1",
             prompt_version="legacy-prompt-v1",
             external_egress_allowed=True,
