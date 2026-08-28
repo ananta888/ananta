@@ -1,7 +1,7 @@
 {
   "$schema": "todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-08-27",
+  "updated_at": "2026-08-28",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass_dmoe_parametric_knowledge_injection",
   "title": "CodeCompass DMoE – modulare parametrische Wissensinjektion mit RAG-Hybridfallback",
@@ -390,7 +390,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 85.0,
+      "progress_percent": 60.0,
       "implementation": {
         "files_to_create": [
           "worker/training/knowledge_expert_trainer_port.py",
@@ -417,7 +417,11 @@
       ],
       "evidence": [
         "worker/training/backends and FrozenTrainingBackendRegistry already provide replaceable LoRA/QLoRA backends, capability projection, evaluation and adapter export.",
-        "worker/training/knowledge_expert_training.py provides a replaceable one-job backend port, restricts LoRA targets to final-FFN gate/up/down modules, validates safetensors output and invokes abort cleanup on failure. tests/test_knowledge_expert_training.py passes; real DMoE output parity remains unmeasured."
+        "worker/training/knowledge_expert_training.py provides a replaceable one-job backend port, restricts LoRA targets to final-FFN gate/up/down modules, validates safetensors output and invokes abort cleanup on failure. tests/test_knowledge_expert_training.py passes; real DMoE output parity remains unmeasured.",
+        "Source audit at main@94a047f7e found that no production backend implements KnowledgeExpertTrainingBackendPort; all train_expert calls are test doubles, so deterministic real PEFT training/export is not yet repository-complete."
+      ],
+      "remaining_work": [
+        "Implement a Worker-only adapter from KnowledgeExpertTrainingBackendPort to the existing admitted PEFT/TRL training lifecycle with strict request/context/artifact binding and cleanup."
       ]
     },
     {
@@ -571,7 +575,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 80.0,
+      "progress_percent": 65.0,
       "implementation": {
         "files_to_create": [
           "worker/inference/knowledge_expert_residency_manager.py",
@@ -598,7 +602,12 @@
       ],
       "evidence": [
         "worker/inference/knowledge_expert_runtime.py verifies artifact type/size/streamed SHA-256, budgets adapter residency, loads before an atomic generation switch and cleans newly loaded experts after failure; unsafe KV-cache capability is denied in tests.",
-        "A concrete framework adapter, asynchronous loader and measured cold/warm/hot behavior are still absent, so real mid-generation recompute behavior remains unverified."
+        "A concrete framework adapter, asynchronous loader and measured cold/warm/hot behavior are still absent, so real mid-generation recompute behavior remains unverified.",
+        "Source audit at main@94a047f7e confirms that DynamicExpertRuntimePort has no production implementation; atomic switch and cache safety are currently proven only through a test double and capability declarations."
+      ],
+      "remaining_work": [
+        "Implement a concrete fail-closed local runtime adapter or keep activation blocked until an attested provider can load, atomically switch and unload final-FFN experts.",
+        "Keep cold/warm/hot and mid-generation cache behavior unverified until a real runtime run supplies measurements."
       ]
     },
     {
@@ -972,7 +981,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 70.0,
+      "progress_percent": 55.0,
       "implementation": {
         "files_to_create": [
           "config/benchmarks/parametric-knowledge-injection.v1.json",
@@ -1000,7 +1009,12 @@
       ],
       "evidence": [
         "Generic retrieval and multi-backend training benchmark runners provide reproducible artifact and metric patterns.",
-        "config/benchmarks/knowledge-experts.v1.json and KnowledgeExpertBenchmarkGate require bound Dense/RAG/SFT-LoRA/single/multi/hybrid plus routing ablations, separated latency metrics, exact environment digests and zero accepted general/security regression. No measured benchmark run exists yet."
+        "config/benchmarks/knowledge-experts.v1.json and KnowledgeExpertBenchmarkGate require bound Dense/RAG/SFT-LoRA/single/multi/hybrid plus routing ablations, separated latency metrics, exact environment digests and zero accepted general/security regression. No measured benchmark run exists yet.",
+        "Source audit at main@94a047f7e found that the gate overwrites duplicate variants, does not reject unexpected variants, and converts quality/holdout values with float() without finite/range checks; malformed evidence can therefore crash or produce an unsafe decision."
+      ],
+      "remaining_work": [
+        "Close and validate the benchmark report contract, reject duplicate/unexpected variants and non-finite/out-of-range metrics, and return bounded fail-closed decisions.",
+        "Keep measured model and hardware results unverified until a real benchmark run exists."
       ]
     },
     {
@@ -1046,10 +1060,10 @@
       "id": "DMOE-024",
       "title": "Feature Flags, Canary-Rollout und produktive Betriebsdokumentation",
       "type": "rollout",
-      "status": "done",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 100.0,
+      "progress_percent": 55.0,
       "implementation": {
         "files_to_create": [
           "docs/architecture/codecompass-dmoe-parametric-knowledge.md",
@@ -1077,7 +1091,12 @@
       ],
       "evidence": [
         "Default-off flags, shadow/canary patterns, immutable promotion and rollback runbooks exist in adjacent retrieval/training subsystems.",
-        "Default-off settings, config/knowledge-experts/rollout.v1.json, KnowledgeExpertRolloutService and operations documentation keep RAG independent, block canary/GA unless every named gate passes and route rollback through the Hub generation CAS to the last-good generation."
+        "Default-off settings, config/knowledge-experts/rollout.v1.json, KnowledgeExpertRolloutService and operations documentation keep RAG independent, block canary/GA unless every named gate passes and route rollback through the Hub generation CAS to the last-good generation.",
+        "Source audit at main@94a047f7e found that KnowledgeExpertRolloutService is a static in-memory config reader. It has no persistent per-scope lifecycle, observation window, automatic stop evaluation or automatic CAS rollback for quality, conflict, hallucination, latency, OOM, cache or security events."
+      ],
+      "remaining_work": [
+        "Implement a persistent Hub-owned shadow/canary/GA controller with deterministic assignment, bounded headless observations, automatic stop conditions and an idempotent last-good generation rollback port.",
+        "Keep deployed canary evidence unverified until a real observation window is supplied."
       ]
     }
   ],
@@ -1134,11 +1153,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 7,
+      "partial": 8,
       "blocked": 0,
-      "done": 17
+      "done": 16
     },
-    "progress_percent_done": 70.8,
+    "progress_percent_done": 66.7,
     "by_priority": {
       "P0": 20,
       "P1": 4,
@@ -1152,8 +1171,8 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 13,
-      "remaining": 6
+      "done": 12,
+      "remaining": 7
     },
     "milestones": {
       "total": 5,
@@ -1167,15 +1186,15 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 7,
+    "partial": 8,
     "blocked": 0,
-    "done": 17,
-    "count_based_percent": 70.8,
-    "weighted_percent": 90.9
+    "done": 16,
+    "count_based_percent": 66.7,
+    "weighted_percent": 86.2
   },
   "summary_notes": [
     "Audit on 2026-08-27 against main@9a03a1b26 and arXiv:2606.14243v1.",
-    "Implementation on 2026-08-27 completed 17 of 24 tasks and raised weighted progress to 90.9%; seven tasks remain partial only where real model/runtime measurements or a live end-to-end run are still absent.",
+    "The 2026-08-28 source refresh found repository gaps behind four prior progress claims: production expert training, concrete runtime switching, closed benchmark validation and automatic rollout/rollback.",
     "The research gate remains mandatory: no official upstream code/checkpoints were located, the local GPU was already substantially occupied, and no paper result or test-double result is treated as Ananta release evidence.",
     "The Hub remains the control plane; Workers may train or infer one delegated task and may not activate experts or orchestrate follow-up work.",
     "No SRC_* or RUN_* identifiers were provided or invented."
@@ -1199,8 +1218,8 @@
     "critical"
   ],
   "review_basis": {
-    "reviewed_commit_range": "main@9a03a1b26c4f792d173cbcf8cdd51bb3faeadef0",
-    "audited_at": "2026-08-27",
+    "reviewed_commit_range": "main@94a047f7e2f4e3e3b8266bc7fc3bea3ecde5a33c",
+    "audited_at": "2026-08-28",
     "reviewed_paths": [
       "worker/training/contracts.py",
       "worker/training/backend_registry.py",
@@ -1226,9 +1245,9 @@
   },
   "audit_findings": {
     "format": "The file was migrated to the canonical todo.track.schema.json contract with task_ids, milestone_id, depends_on and derived summaries.",
-    "scope": "All 24 tasks and their dependency order are preserved. The implementation pass completes contract, policy, registry, routing, task, security, provenance, UI and integration work while retaining explicit partial states for unmeasured runtime/research gates.",
+    "scope": "All 24 tasks and their dependency order are preserved. The refreshed source audit corrects overclaims in production training, concrete runtime, benchmark validation and automatic rollout while retaining separately unverified real-model evidence.",
     "upstream": "Only the CC BY 4.0 arXiv v1 paper is attributable. No official implementation license, source revision or checkpoints can be recorded because no release was located.",
-    "current_state": "Ananta now has closed expert contracts, Hub-owned admission/task/activation policy, signed immutable banks, canonical CodeCompass candidates, an entropy router, framework-neutral capability/residency ports, hybrid evidence, Control Center and rollout gates. Concrete model integration and measured reproduction remain blocked.",
+    "current_state": "Ananta has closed expert contracts, Hub-owned admission/task/activation policy, signed immutable banks, canonical CodeCompass candidates, an entropy router, framework-neutral capability/residency ports, hybrid evidence and Control Center. A production training adapter, concrete attested runtime, closed benchmark validation and persistent automatic rollout remain repository gaps; measured reproduction remains unverified.",
     "solid": "New work must extend narrow contracts and ports. Hub policy/task ownership and Worker execution stay separate; generic training/retrieval services must not absorb DMoE orchestration responsibilities."
   },
   "tasks_type_summary": {
@@ -1316,7 +1335,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 85.0
+        "progress_percent": 60.0
       },
       "artifact": {
         "total": 1,
@@ -1372,7 +1391,7 @@
         "done": 1,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 90.0
+        "progress_percent": 82.5
       },
       "correctness": {
         "total": 1,
@@ -1526,7 +1545,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 70.0
+        "progress_percent": 55.0
       },
       "test": {
         "total": 1,
@@ -1547,24 +1566,24 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
-          "done": 1
+          "done": 0
         },
-        "done": 1,
-        "partial": 0,
+        "done": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 100.0
+        "progress_percent": 55.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 41.25,
-    "done_weight": 37.487,
-    "remaining_weight": 3.763,
+    "done_weight": 35.562,
+    "remaining_weight": 5.688,
     "blocked_weight": 0.0,
-    "weighted_percent": 90.9
+    "weighted_percent": 86.2
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1581,7 +1600,7 @@
         "done": 3,
         "blocked": 0,
         "count_based_percent": 75.0,
-        "weighted_percent": 95.7,
+        "weighted_percent": 88.6,
         "status": "in_progress"
       },
       "M2": {
@@ -1589,7 +1608,7 @@
         "done": 3,
         "blocked": 0,
         "count_based_percent": 60.0,
-        "weighted_percent": 91.8,
+        "weighted_percent": 89.1,
         "status": "in_progress"
       },
       "M3": {
@@ -1602,10 +1621,10 @@
       },
       "M4": {
         "total_tasks": 3,
-        "done": 1,
+        "done": 0,
         "blocked": 0,
-        "count_based_percent": 33.3,
-        "weighted_percent": 85.0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 64.1,
         "status": "in_progress"
       }
     }
@@ -1613,10 +1632,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T20:30:34.759777Z",
+    "generated_at": "2026-08-28T17:57:14.940712Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8c651a24d8981879b8e70f6b1a8800a54351022708f5512554ee21f6efc3f308",
+    "source_hash": "220207e245a0cc81aa8e00fe0603f158b9f8116c3cc282ce95855876c929f55d",
     "is_stale": false
   }
 }
