@@ -21,8 +21,8 @@
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
     "reviewed_branch": "main",
-    "reviewed_at": "2026-08-27",
-    "reviewed_commit_range": "main@0f9bbd9851424ce6e141bd2d60c994272da177c1; Arbeitsbaum vor dem Audit sauber und mit origin/main synchron.",
+    "reviewed_at": "2026-08-28",
+    "reviewed_commit_range": "main@c1720afbe089972c7692df5b4a7e40a3090184fa; Arbeitsbaum vor dem Audit sauber und mit origin/main synchron.",
     "review_goal": "Bestehende Provider-, Routing-, Tiny-Router-, LoRA-, Worker- und Container-Bausteine erfassen und den tatsächlichen Umsetzungsstand von Runtime, Integration und automatisiertem Training ohne Überclaim dokumentieren.",
     "reviewed_paths": [
       "AGENTS.md",
@@ -42,6 +42,11 @@
       "agent/services/ml_intern_dataset_validation_service.py",
       "agent/services/ml_intern_adapter_registry_service.py",
       "agent/services/ml_intern_lora_inference_service.py",
+      "agent/services/ml_intern_backend_selection_service.py",
+      "agent/services/ml_intern_training_control_service.py",
+      "worker/training/backends/",
+      "tests/fixtures/",
+      "tests/services/test_local_adapter_evaluation_service.py",
       "agent/services/local_multi_model_runtime.py",
       "agent/services/local_adapter_lifecycle.py",
       "deploy/systemd/ananta-local-model-runtime.service",
@@ -291,9 +296,9 @@
       "evidence": ["agent/services/local_tool_training_snapshot_service.py", "ananta_contracts/local_tool_training.py", "tests/services/test_local_tool_training_snapshot_service.py"]
     },
     {
-      "id": "LMM-DATA-004", "title": "Unveränderliches Golden-, OOD-, Abstain- und Injection-Set kuratieren", "status": "blocked", "priority": "P0", "risk": "high", "type": "data", "milestone_id": "M04", "depends_on": ["LMM-DATA-003"], "progress_percent": 0,
+      "id": "LMM-DATA-004", "title": "Unveränderliches Golden-, OOD-, Abstain- und Injection-Set kuratieren", "status": "todo", "priority": "P0", "risk": "high", "type": "data", "milestone_id": "M04", "depends_on": ["LMM-DATA-003"], "progress_percent": 0,
       "description": "Ein unabhängiges, minimales Golden Set deckt sichere Toolwahl, Argumente, No-Tool, Out-of-domain, Prompt-Injection und fehlerhafte Schemas ab.",
-      "blocked_reason": "Es liegt noch kein freigegebenes, provenance-gebundenes Trainings- und Evaluationsdataset mit gültigen SRC_*-/RUN_*-IDs vor.",
+      "remaining_work": ["Ein kleines handkuratiertes, deterministisches Testfixture mit separaten Slice-Grenzwerten erstellen und durch einen geschlossenen Loader validieren; reale Trainingsfreigabe bleibt unabhängig davon an gültige SRC_*-/RUN_*-Evidenz gebunden."],
       "acceptance_criteria": ["Golden Records stammen nicht aus Candidate-Selbstantworten.", "Jeder Slice besitzt eigene unveränderliche Grenzwerte.", "Fixtures sind deterministisch, minimal und ohne volatile IDs oder Zeitstempel.", "Fixture-Commit nennt die abhängigen Tests im Commit-Body."]
     },
     {
@@ -391,7 +396,7 @@
   ],
   "tasks_status_summary": {
     "total": 31,
-    "by_status": {"todo": 0, "in_progress": 0, "partial": 2, "blocked": 4, "done": 25},
+    "by_status": {"todo": 1, "in_progress": 0, "partial": 2, "blocked": 3, "done": 25},
     "progress_percent_done": 80.6,
     "by_priority": {"P0": 28, "P1": 3, "P2": 0},
     "by_risk": {"low": 1, "medium": 4, "high": 12, "critical": 14},
@@ -410,7 +415,7 @@
       "api": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "observability": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "integration": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "data": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 1}, "done": 1, "partial": 0, "blocked": 1, "progress_percent": 50.0},
+      "data": {"total": 2, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 50.0},
       "model": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 2, "done": 0}, "done": 0, "partial": 0, "blocked": 2, "progress_percent": 0.0},
       "training": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 0.0},
       "policy": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
@@ -423,10 +428,10 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 0,
+    "todo_remaining": 1,
     "in_progress": 0,
     "partial": 2,
-    "blocked": 4,
+    "blocked": 3,
     "done": 25,
     "count_based_percent": 80.6,
     "weighted_percent": 84.3
@@ -436,7 +441,7 @@
     "total_weight": 47.5,
     "done_weight": 40.025,
     "remaining_weight": 7.475,
-    "blocked_weight": 7.0,
+    "blocked_weight": 5.0,
     "weighted_percent": 84.3
   },
   "milestone_progress_summary": {
@@ -444,7 +449,7 @@
       "M01": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M02": {"total_tasks": 5, "done": 5, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M03": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M04": {"total_tasks": 4, "done": 3, "blocked": 1, "count_based_percent": 75.0, "weighted_percent": 71.4, "status": "in_progress"},
+      "M04": {"total_tasks": 4, "done": 3, "blocked": 0, "count_based_percent": 75.0, "weighted_percent": 71.4, "status": "in_progress"},
       "M05": {"total_tasks": 4, "done": 1, "blocked": 3, "count_based_percent": 25.0, "weighted_percent": 23.1, "status": "in_progress"},
       "M06": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 95.7, "status": "in_progress"},
       "M07": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 97.5, "status": "in_progress"}
@@ -453,17 +458,17 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-27T17:45:39.760873Z",
+    "generated_at": "2026-08-28T12:52:58.773110Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "dae8f43d0a0c98b47574757b58faa57d48d737b0756c0c0bcc66bacd15817301",
+    "source_hash": "77971955e49c0b307f4585ec634fcbfc0fdb5b47fd39d46e4eab9b9f3e87fe86",
     "is_stale": false
   },
   "execution_stage_summary": {
     "runtime_smoke": "done_bounded",
     "production_provider_integration": "done_hub_status_admission_control_and_audit",
     "hub_routing_integration": "done_profiles_fallback_and_candidate_fencing",
-    "dataset_pipeline": "done_implementation_blocked_real_provenance_dataset",
+    "dataset_pipeline": "implementation_done_curated_fixture_todo_real_provenance_fail_closed",
     "needle_training": "blocked_missing_base_checkpoint_and_dataset",
     "lfm_training": "blocked_missing_agentic_transformers_snapshot_and_dataset",
     "offline_evaluation": "partial_implementation_complete_real_holdout_missing",
@@ -476,6 +481,7 @@
     "Persistente Hub-Consumer für Placement, Runtime-Control, Evaluation, Shadow, Canary, Promotion und Rollback sind implementiert und getestete Zustandswechsel bleiben fail-closed.",
     "Runtime-Skripte, authentifizierte Docker-Bridge, Compose-Overlay und systemd-Supervision sind operativ; Real-Soak, Crash-Recovery und Container-Netzwerkgrenzen wurden geprüft.",
     "Anantas vorhandene Provider-, Tiny-Router- und LoRA-Subsysteme werden wiederverwendet; es wird kein paralleles Hub- oder Worker-Orchestrierungssystem geschaffen.",
+    "Der Audit auf main@c1720afbe stuft das deterministische Evaluationsfixture als repository-lokal umsetzbar statt extern blockiert ein; reale Trainings- und Release-Evidenz bleibt davon unberührt.",
     "Das Todo gilt erst als done, wenn reale Base-Checkpoints und Datasets vorliegen, alle Lifecycle-Stufen verdrahtet sind und registrierte Release-Evidenz besteht."
   ],
   "end_summaries": [
