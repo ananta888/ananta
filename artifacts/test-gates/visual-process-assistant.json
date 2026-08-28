@@ -10,7 +10,7 @@
   ],
   "release_allowed": false,
   "schema": "ananta.visual-process-assistant-functional-gate.v1",
-  "source_revision": "worktree-sha256:bf94e5280ea323f99a9c26bbbc74585fb94043f2e9f9a234428ff42370272827",
+  "source_revision": "worktree-sha256:b934e38a618c58100e252205bdfd63929fdaf1fdf0c3ecd76839612f29f78afe",
   "status": "blocked",
   "suites": [
     {

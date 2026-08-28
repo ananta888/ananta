@@ -1,16 +1,14 @@
 {
   "gate_source_revisions": {
-    "functional": "worktree-sha256:43d1866379c83016b74a31135f641658cf37e06e264c793ef429f93f7cd668de",
+    "functional": "worktree-sha256:b934e38a618c58100e252205bdfd63929fdaf1fdf0c3ecd76839612f29f78afe",
     "performance": "worktree-sha256:e10c6152e9b894386a9e6441cd839423cfbd2d965f3bd170f501b6072919385c"
   },
   "reason_codes": [
-    "authoritative_source_evidence_unavailable",
-    "test_failure",
-    "test_failure"
+    "authoritative_source_evidence_unavailable"
   ],
   "release_allowed": false,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:8fd47cc48b6d95e42bf808300873fd4f7d8971db42337e55360aa6dc30ca731d",
+  "source_revision": "worktree-sha256:9774084f23a78867229a89ec9b6c6dd07f96f9747e91563305b307be8b4cab0a",
   "status": "blocked",
   "tasks": [
     {
@@ -24,9 +22,9 @@
             "tests/test_visual_process_definition_contract.py",
             "tests/test_visual_process_registry_migration_acceptance.py"
           ],
-          "reason_code": "test_failure",
+          "reason_code": "",
           "statement": "Python-/TypeScript-Contracts für Graph, NodeDefinitions, Context, HelpResponse und WorkflowPatch sind paritätisch; die Registry-Migration ist backend- und frontendseitig ausführbar.",
-          "status": "blocked"
+          "status": "passed"
         },
         {
           "criterion_id": "VPA-QA-001-AC2",
@@ -52,9 +50,9 @@
           "evidence_paths": [
             "frontend-angular/tests/visual-process-assistant-isolation.spec.ts"
           ],
-          "reason_code": "test_failure",
+          "reason_code": "",
           "statement": "Zwei Editorinstanzen bleiben isoliert und die AI-Snake-Prozessansicht ist read-only.",
-          "status": "blocked"
+          "status": "passed"
         },
         {
           "criterion_id": "VPA-QA-001-AC5",
