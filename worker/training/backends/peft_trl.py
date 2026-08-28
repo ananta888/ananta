@@ -15,6 +15,7 @@ from typing import Any, Mapping
 
 from worker.training.backends.base import TrainingBackendError, TrainingContext, TrainingOutcome
 from worker.training.datasets import iter_jsonl
+from worker.training.local_transformers_tokenizer import load_local_tokenizer
 
 
 class PeftTrlTrainingBackend:
@@ -36,7 +37,7 @@ class PeftTrlTrainingBackend:
             import torch
             from datasets import Dataset
             from peft import LoraConfig, prepare_model_for_kbit_training
-            from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
+            from transformers import AutoModelForCausalLM, BitsAndBytesConfig
         except ImportError as exc:  # pragma: no cover - guarded by availability, version-dependent
             raise TrainingBackendError("dependency_unavailable", str(exc)) from exc
 
@@ -57,11 +58,7 @@ class PeftTrlTrainingBackend:
             )
 
         try:
-            tokenizer = AutoTokenizer.from_pretrained(
-                str(context.model_path),
-                local_files_only=True,
-                trust_remote_code=False,
-            )
+            tokenizer = load_local_tokenizer(context.model_path)
             if tokenizer.pad_token_id is None:
                 tokenizer.pad_token = tokenizer.eos_token
             model = AutoModelForCausalLM.from_pretrained(

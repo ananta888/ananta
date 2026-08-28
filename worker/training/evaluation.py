@@ -16,6 +16,7 @@ from worker.training.backends.base import ProgressCallback, TrainingBackendError
 from worker.training.backends.peft_trl import PeftTrlTrainingBackend
 from worker.training.contracts import AdapterEvaluationJobRequest
 from worker.training.datasets import VerifiedValidationDataset, iter_jsonl
+from worker.training.local_transformers_tokenizer import load_local_tokenizer
 from worker.training.process_control import CancellationToken
 
 
@@ -107,7 +108,6 @@ class PeftAdapterEvaluator:
             from peft import PeftModel
             from transformers import (
                 AutoModelForCausalLM,
-                AutoTokenizer,
                 BitsAndBytesConfig,
                 DataCollatorForLanguageModeling,
                 Trainer,
@@ -123,11 +123,7 @@ class PeftAdapterEvaluator:
             rows = [rows[index] for index in indices]
         context.emit("phase", {"phase": "loading_model"})
         try:
-            tokenizer = AutoTokenizer.from_pretrained(
-                str(context.model_path),
-                local_files_only=True,
-                trust_remote_code=False,
-            )
+            tokenizer = load_local_tokenizer(context.model_path)
             if tokenizer.pad_token_id is None:
                 tokenizer.pad_token = tokenizer.eos_token
             texts = [PeftTrlTrainingBackend._render_record(row, tokenizer) for row in rows]

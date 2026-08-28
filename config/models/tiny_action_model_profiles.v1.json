@@ -94,7 +94,7 @@
       "adapter": "openai_compatible",
       "dialect": "openai",
       "license_id": "LFM-1.0",
-      "source_url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B-Base",
+      "source_url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B",
       "commercial_use_allowed": true,
       "research_only": false,
       "supports_confidence": false,

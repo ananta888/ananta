@@ -7,7 +7,7 @@
   "track": "ananta-local-multi-model-runtime-and-automated-needle-training",
   "status": "partial",
   "created_at": "2026-08-23",
-  "updated_at": "2026-08-27",
+  "updated_at": "2026-08-28",
   "purpose": "Ananta wird additiv als lokales Multi-Modell-System betrieben: Der Hub routet leichte Arbeit zu LFM2.5-2.6B, schwere Coding-, Debugging-, Repository- und Planungsarbeit zu KAT-Coder v2.5 und verwendet Needle 2 ausschließlich als CPU-seitigen Kandidatenlieferanten für Intent, Tool-Auswahl und Argumentextraktion. Zusätzlich entstehen getrennte, versionierte SFT-LoRA-Lernpfade für Needle und den bereits agentisch nachtrainierten LFM-Stand, ohne produktive Gewichte ungeprüft zu überschreiben.",
   "goal": "KAT, LFM und Needle laufen reproduzierbar und ressourcensicher parallel. Jede Modellwahl, Degradation und jeder Fallback wird vom Hub entschieden und auditiert. Erfolgreiche, unabhängig bewertete Interaktionen können datenschutzkonform in unveränderliche Datasets überführt werden. Training, Offline-Evaluation, Shadow, Canary, Promotion und Rollback laufen deterministisch über Hub-eigene Zustandsübergänge; Worker und Modelle erhalten keine Orchestrierungs- oder Selbstfreigabeautorität.",
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
@@ -158,12 +158,13 @@
       "Die produktive Compose-Topologie routet LFM- und KAT-Aufrufe aus Hub/Workern; Needle ist authentifiziert im Shadow-Modus erreichbar.",
       "Der Operator-Runtime-Adapter wird über eine systemd-Unit dauerhaft überwacht und kontrolliert als Prozessgruppe beendet.",
       "Hub-eigene persistente Admission, Resource-Readmodel, Control-Receipts, Invocation-Audit und idempotente Runtime-Aktionen sind produktiv verdrahtet.",
-      "Governed Collector, Redaction vor Persistenz, immutable zeitbasierte Snapshots sowie Offline-, Shadow-, Canary-, Promotion- und Rollback-Controller sind implementiert.",
+      "Governed Collector, Redaction vor Persistenz, immutable zeitbasierte Snapshots, kuratiertes Evaluationsfixture sowie Offline-, Shadow-, Canary-, Promotion- und Rollback-Controller sind implementiert.",
+      "Needle- und agentische LFM-Trainingsbasen sind vollständig hashgebunden und durch automatische Offline-Load- beziehungsweise Adapter-Attach-Smokes verifiziert.",
       "Ein realer 9709-Sekunden-Parallel-Soak, kontrollierte Crash-Recovery und die containerisierten Netzwerkgrenzen wurden erfolgreich geprüft."
     ],
     "implemented_but_not_productively_wired": [
       "Offline-Evaluation, Shadow, Canary und atomare Promotion sind implementiert und fail-closed verdrahtet, können ohne freigegebenes Dataset und trainierte Candidates aber keine reale Produktivfreigabe erzeugen.",
-      "Automatische Aktivierung trainierter Needle-.pkl- oder LFM-PEFT-Gewichte bleibt gesperrt, bis ein sicherer Serving-Konverter und hashgebundene trainierbare Base-Snapshots vorliegen."
+      "Automatische Aktivierung trainierter Needle-.pkl- oder LFM-PEFT-Gewichte bleibt gesperrt, bis ein sicherer Serving-Konverter und reale freigegebene Candidates vorliegen."
     ],
     "existing_ananta_foundation": [
       "Generisches profilbasiertes Modellrouting mit Security-, Capability- und Fallback-Entscheidungen.",
@@ -174,7 +175,7 @@
       "Hub-eigene Task-, Assignment-, Lease-, Audit- und Worker-Delegationsgrenzen."
     ],
     "primary_gaps": [
-      "Trainierbare Base-Checkpoints und kuratierte Trainingsdaten fehlen.",
+      "Freigegebene, grounded Trainings- und Holdout-Datasets sowie daraus erzeugte Candidates fehlen.",
       "Es liegen keine freigegebenen SRC_*-/RUN_*-IDs für Golden-/OOD-/Abstain-/Injection-Daten oder reale Trainings- und Release-Läufe vor.",
       "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf mit registrierter RUN_* Evidenz fehlt.",
       "Sichere Serving-Konverter für trainierte Needle-.pkl- und LFM-PEFT-Candidates fehlen."
@@ -193,7 +194,7 @@
     {"id": "M01", "title": "Inventur und reproduzierbarer lokaler Parallelbetrieb", "status": "done", "task_ids": ["LMM-BASE-001", "LMM-BASE-002", "LMM-BASE-003", "LMM-BASE-004"]},
     {"id": "M02", "title": "Produktive Provider- und Ressourcenintegration", "status": "done", "task_ids": ["LMM-PROV-001", "LMM-PROV-002", "LMM-PROV-003", "LMM-PROV-004", "LMM-PROV-005"]},
     {"id": "M03", "title": "Hub-Routing und Needle-Kandidatenpfad", "status": "done", "task_ids": ["LMM-ROUTE-001", "LMM-ROUTE-002", "LMM-ROUTE-003", "LMM-ROUTE-004"]},
-    {"id": "M04", "title": "Governed Dataset-Erzeugung", "status": "in_progress", "task_ids": ["LMM-DATA-001", "LMM-DATA-002", "LMM-DATA-003", "LMM-DATA-004"]},
+    {"id": "M04", "title": "Governed Dataset-Erzeugung", "status": "done", "task_ids": ["LMM-DATA-001", "LMM-DATA-002", "LMM-DATA-003", "LMM-DATA-004"]},
     {"id": "M05", "title": "Needle- und LFM-SFT-LoRA-Training", "status": "in_progress", "task_ids": ["LMM-TRAIN-001", "LMM-TRAIN-002", "LMM-TRAIN-003", "LMM-TRAIN-004"]},
     {"id": "M06", "title": "Offline-, Shadow-, Canary- und Release-Lifecycle", "status": "in_progress", "task_ids": ["LMM-LIFE-001", "LMM-LIFE-002", "LMM-LIFE-003", "LMM-LIFE-004", "LMM-LIFE-005"]},
     {"id": "M07", "title": "Resilienz, Soak und Produktionsfreigabe", "status": "in_progress", "task_ids": ["LMM-QA-001", "LMM-QA-002", "LMM-QA-003", "LMM-QA-004", "LMM-QA-005"]}
@@ -296,10 +297,11 @@
       "evidence": ["agent/services/local_tool_training_snapshot_service.py", "ananta_contracts/local_tool_training.py", "tests/services/test_local_tool_training_snapshot_service.py"]
     },
     {
-      "id": "LMM-DATA-004", "title": "Unveränderliches Golden-, OOD-, Abstain- und Injection-Set kuratieren", "status": "todo", "priority": "P0", "risk": "high", "type": "data", "milestone_id": "M04", "depends_on": ["LMM-DATA-003"], "progress_percent": 0,
+      "id": "LMM-DATA-004", "title": "Unveränderliches Golden-, OOD-, Abstain- und Injection-Set kuratieren", "status": "done", "priority": "P0", "risk": "high", "type": "data", "milestone_id": "M04", "depends_on": ["LMM-DATA-003"], "progress_percent": 100,
       "description": "Ein unabhängiges, minimales Golden Set deckt sichere Toolwahl, Argumente, No-Tool, Out-of-domain, Prompt-Injection und fehlerhafte Schemas ab.",
-      "remaining_work": ["Ein kleines handkuratiertes, deterministisches Testfixture mit separaten Slice-Grenzwerten erstellen und durch einen geschlossenen Loader validieren; reale Trainingsfreigabe bleibt unabhängig davon an gültige SRC_*-/RUN_*-Evidenz gebunden."],
-      "acceptance_criteria": ["Golden Records stammen nicht aus Candidate-Selbstantworten.", "Jeder Slice besitzt eigene unveränderliche Grenzwerte.", "Fixtures sind deterministisch, minimal und ohne volatile IDs oder Zeitstempel.", "Fixture-Commit nennt die abhängigen Tests im Commit-Body."]
+      "acceptance_criteria": ["Golden Records stammen nicht aus Candidate-Selbstantworten.", "Jeder Slice besitzt eigene unveränderliche Grenzwerte.", "Fixtures sind deterministisch, minimal und ohne volatile IDs oder Zeitstempel.", "Fixture-Commit nennt die abhängigen Tests im Commit-Body."],
+      "target_files": ["ananta_contracts/local_adapter_evaluation_fixture.py", "agent/services/local_adapter_evaluation_fixture_gate.py", "tests/fixtures/scenarios/local-adapter-curated-evaluation.v1.json", "tests/test_local_adapter_evaluation_fixture.py"],
+      "evidence": ["Der geschlossene Fixture-Vertrag erzwingt maintainer_authored_contract, candidate_generated=false, training_eligible=false, unverified_no_source_ids und exakt die fünf erforderlichen Slices mit separaten unveränderlichen Grenzwerten.", "Das minimale Fixture besitzt keine Zeitstempel, Zufalls-IDs oder Umgebungspfade; sein kanonischer SHA-256 ist im abhängigen Test fest gebunden.", "tests/test_local_adapter_evaluation_fixture.py und tests/services/test_local_adapter_evaluation_service.py bestanden gemeinsam mit 7 Tests; das Gate bindet den Evaluationsreport an den exakten Fixture-Digest."]
     },
     {
       "id": "LMM-TRAIN-001", "title": "Versionierten, ressourcenbegrenzten Trainingsstarter bereitstellen", "status": "done", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M05", "depends_on": ["LMM-DATA-003"], "progress_percent": 100,
@@ -308,21 +310,23 @@
       "evidence": ["scripts/run-local-adapter-training.sh", "worker/training/backends/needle.py", "tests/test_local_adapter_training_request_script.py", "tests/worker/test_needle_training_backend.py"]
     },
     {
-      "id": "LMM-TRAIN-002", "title": "Unquantisierten Needle-2-Base-Checkpoint pinnen und verifizieren", "status": "blocked", "priority": "P0", "risk": "high", "type": "model", "milestone_id": "M05", "depends_on": ["LMM-DATA-004"], "progress_percent": 0,
+      "id": "LMM-TRAIN-002", "title": "Unquantisierten Needle-2-Base-Checkpoint pinnen und verifizieren", "status": "done", "priority": "P0", "risk": "high", "type": "model", "milestone_id": "M05", "depends_on": ["LMM-DATA-004"], "progress_percent": 100,
       "description": "Die installierte needle2.cact ist ein Inferenzblob; finetune benötigt den passenden unquantisierten Base-Checkpoint derselben Runtime-/Tokenizer-Revision.",
-      "blocked_reason": "Der trainierbare Needle-Base-Checkpoint ist lokal nicht vorhanden.",
-      "acceptance_criteria": ["Checkpoint, Tokenizer, cactus-needle-Version und Hash sind gepinnt.", "Lizenz und lokale Verwendung sind dokumentiert.", "Ein Load-only-Smoke läuft ohne Netzwerkzugriff.", "Checkpoint und produktive .cact-Version sind kompatibel belegt."]
+      "acceptance_criteria": ["Checkpoint, Tokenizer, cactus-needle-Version und Hash sind gepinnt.", "Lizenz und lokale Verwendung sind dokumentiert.", "Ein Load-only-Smoke läuft ohne Netzwerkzugriff.", "Checkpoint und produktive .cact-Version sind kompatibel belegt."],
+      "target_files": ["config/models/local-adapter-training-bases.v1.json", "ananta_contracts/local_adapter_training_base.py", "agent/services/local_adapter_training_base_verifier.py", "scripts/verify_local_adapter_training_bases.py", "docs/operations/local-kat-lfm-needle-runtime.md", "tests/test_local_adapter_training_bases.py"],
+      "evidence": ["Cactus-Compute/needle2@98fbd955b0347e78059be0c253cc1ffa09b87bc7 ist mit Checkpoint-, Tokenizer- und Snapshot-Hash sowie cactus-needle==2.0.9 Wheel-Hash und Apache-2.0 gebunden.", "Der automatische Offline-Smoke verifizierte 2/2 Dateien und lud SimpleAttentionNetwork mit vocab_size=8192 und max_seq_len=2048; die produktive .cact ist separat mit demselben Upstream-Stand und SHA-256 gebunden."]
     },
     {
-      "id": "LMM-TRAIN-003", "title": "Agentischen LFM2.5-2.6B-Transformers-Snapshot als SFT-Base pinnen", "status": "blocked", "priority": "P0", "risk": "critical", "type": "model", "milestone_id": "M05", "depends_on": ["LMM-DATA-004"], "progress_percent": 0,
+      "id": "LMM-TRAIN-003", "title": "Agentischen LFM2.5-2.6B-Transformers-Snapshot als SFT-Base pinnen", "status": "done", "priority": "P0", "risk": "critical", "type": "model", "milestone_id": "M05", "depends_on": ["LMM-DATA-004"], "progress_percent": 100,
       "description": "Das vorhandene Q8_0-GGUF bleibt Inferenzbaseline; SFT-LoRA benötigt den exakt passenden agentisch nachtrainierten Transformers-/Safetensors-Stand.",
-      "blocked_reason": "Lokal wurde nur das Q8_0-GGUF gefunden; die genaue agentische Transformers-Revision und ihr Snapshot fehlen.",
-      "acceptance_criteria": ["Base-Modell-ID, Revision und vollständiger Tree-Hash sind fest gebunden.", "Der Snapshot entspricht dem gewünschten agentischen Stand und nicht versehentlich nur LFM2.5-2.6B-Base.", "Tokenizer und Chat-Template sind zur Serving-Baseline kompatibel.", "Load-only- und Adapter-Attach-Smoke bestehen offline."]
+      "acceptance_criteria": ["Base-Modell-ID, Revision und vollständiger Tree-Hash sind fest gebunden.", "Der Snapshot entspricht dem gewünschten agentischen Stand und nicht versehentlich nur LFM2.5-2.6B-Base.", "Tokenizer und Chat-Template sind zur Serving-Baseline kompatibel.", "Load-only- und Adapter-Attach-Smoke bestehen offline."],
+      "target_files": ["config/models/local-adapter-training-bases.v1.json", "config/models/tiny_action_model_profiles.v1.json", "ananta_contracts/local_adapter_training_base.py", "agent/services/local_adapter_training_base_verifier.py", "worker/training/local_transformers_tokenizer.py", "worker/training/backends/peft_trl.py", "worker/training/evaluation.py", "worker/training/inference.py", "scripts/verify_local_adapter_training_bases.py", "docs/operations/local-kat-lfm-needle-runtime.md", "tests/test_local_adapter_training_bases.py", "tests/worker/test_local_transformers_tokenizer.py"],
+      "evidence": ["LiquidAI/LFM2.5-2.6B@654f9463ce32b05d0429d76fe1f580b27d4c1ac0 ist als agentischer, vom -Base-Repository getrennter Snapshot mit 11 Dateihashes und kanonischem Tree-Hash gebunden; die falsche -Base-Quellreferenz wurde korrigiert.", "Der Offline-Smoke verifizierte 11/11 Dateien, 266 indexgebundene Safetensors-Tensoren, Lfm2ForCausalLM, das lokale Chat-Template und einen Rank-8-PEFT-Attach auf q/k/v/out_proj.", "Der Worker-Kompatibilitätsadapter lädt upstream TokenizersBackend-Metadaten unter Transformers 4.57 vollständig lokal, ohne Snapshot-Mutation, Remote-Code oder Netzwerkfallback."]
     },
     {
       "id": "LMM-TRAIN-004", "title": "Needle- und LFM-SFT-LoRA-Jobs über isolierte Worker ausführen", "status": "blocked", "priority": "P0", "risk": "critical", "type": "training", "milestone_id": "M05", "depends_on": ["LMM-TRAIN-001", "LMM-TRAIN-002", "LMM-TRAIN-003"], "progress_percent": 0,
       "description": "Der Hub erzeugt getrennte, begrenzte Trainingsjobs und behandelt Outputs ausschließlich als Candidates.",
-      "blocked_reason": "Die beiden trainierbaren, hashgebundenen Base-Snapshots und ein freigegebenes Dataset mit gültigen SRC_*-/RUN_*-IDs fehlen; ein realer Trainingslauf darf nicht fingiert werden.",
+      "blocked_reason": "Die beiden trainierbaren, hashgebundenen Base-Snapshots sind verifiziert; es fehlen ein freigegebenes Dataset mit gültigen SRC_*-/RUN_*-IDs und daraus erzeugte Candidates. Ein realer Trainingslauf darf nicht fingiert werden.",
       "acceptance_criteria": ["Needle nutzt 2 bis 4 CPU-Kerne mit niedriger Priorität.", "LFM nutzt zunächst einen kleinen Rank-8-SFT-LoRA-Lauf mit reproduzierbarem Seed.", "Training besitzt keinen Schreibzugriff auf produktive Modellpfade.", "Cancellation, Timeout, Crash und Teiloutput werden fail-closed behandelt.", "Job-, Dataset-, Base- und Candidate-Hashes sind vollständig gebunden."]
     },
     {
@@ -384,7 +388,7 @@
     {
       "id": "LMM-QA-005", "title": "Betrieb, Recovery, Messwerte und bekannte Grenzen dokumentieren", "status": "done", "priority": "P1", "risk": "low", "type": "documentation", "milestone_id": "M07", "depends_on": ["LMM-BASE-004"], "progress_percent": 100,
       "description": "Start, Stop, Preflight, sichere Budgets, gemessene Einzel- und Parallelwerte, Trainingsvoraussetzungen und aktuelle Grenzen sind dokumentiert.",
-      "acceptance_criteria": ["Betriebsbefehle sind reproduzierbar angegeben.", "Einzeltests und Parallel-Smoke werden nicht vermischt.", "5-GiB-Fehlannahme und 4-GiB-Sicherheitsdefault sind erklärt.", "Fehlende Base-Checkpoints, Datasets, Soak- und Release-Evidenz sind ausdrücklich benannt."],
+      "acceptance_criteria": ["Betriebsbefehle sind reproduzierbar angegeben.", "Einzeltests und Parallel-Smoke werden nicht vermischt.", "5-GiB-Fehlannahme und 4-GiB-Sicherheitsdefault sind erklärt.", "Fehlende freigegebene Datasets, reale Trainingsläufe und Release-Evidenz sind ausdrücklich benannt."],
       "evidence": ["docs/operations/local-kat-lfm-needle-runtime.md"]
     }
   ],
@@ -396,12 +400,12 @@
   ],
   "tasks_status_summary": {
     "total": 31,
-    "by_status": {"todo": 1, "in_progress": 0, "partial": 2, "blocked": 3, "done": 25},
-    "progress_percent_done": 80.6,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 2, "blocked": 1, "done": 28},
+    "progress_percent_done": 90.3,
     "by_priority": {"P0": 28, "P1": 3, "P2": 0},
     "by_risk": {"low": 1, "medium": 4, "high": 12, "critical": 14},
-    "critical_path": {"total": 16, "done": 10, "remaining": 6},
-    "milestones": {"total": 7, "todo": 0, "in_progress": 4, "blocked": 0, "done": 3}
+    "critical_path": {"total": 16, "done": 13, "remaining": 3},
+    "milestones": {"total": 7, "todo": 0, "in_progress": 3, "blocked": 0, "done": 4}
   },
   "tasks_type_summary": {
     "total": 31,
@@ -415,8 +419,8 @@
       "api": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "observability": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "integration": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "data": {"total": 2, "by_status": {"todo": 1, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 50.0},
-      "model": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 2, "done": 0}, "done": 0, "partial": 0, "blocked": 2, "progress_percent": 0.0},
+      "data": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
+      "model": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "training": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 0.0},
       "policy": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "evaluation": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0}, "done": 0, "partial": 1, "blocked": 0, "progress_percent": 80.0},
@@ -428,29 +432,29 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 1,
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 2,
-    "blocked": 3,
-    "done": 25,
-    "count_based_percent": 80.6,
-    "weighted_percent": 84.3
+    "blocked": 1,
+    "done": 28,
+    "count_based_percent": 90.3,
+    "weighted_percent": 95.8
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 47.5,
-    "done_weight": 40.025,
-    "remaining_weight": 7.475,
-    "blocked_weight": 5.0,
-    "weighted_percent": 84.3
+    "done_weight": 45.525,
+    "remaining_weight": 1.975,
+    "blocked_weight": 1.5,
+    "weighted_percent": 95.8
   },
   "milestone_progress_summary": {
     "milestones": {
       "M01": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M02": {"total_tasks": 5, "done": 5, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M03": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
-      "M04": {"total_tasks": 4, "done": 3, "blocked": 0, "count_based_percent": 75.0, "weighted_percent": 71.4, "status": "in_progress"},
-      "M05": {"total_tasks": 4, "done": 1, "blocked": 3, "count_based_percent": 25.0, "weighted_percent": 23.1, "status": "in_progress"},
+      "M04": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
+      "M05": {"total_tasks": 4, "done": 3, "blocked": 1, "count_based_percent": 75.0, "weighted_percent": 76.9, "status": "in_progress"},
       "M06": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 95.7, "status": "in_progress"},
       "M07": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 97.5, "status": "in_progress"}
     }
@@ -458,19 +462,19 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T12:52:58.773110Z",
+    "generated_at": "2026-08-28T13:22:47.522850Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "77971955e49c0b307f4585ec634fcbfc0fdb5b47fd39d46e4eab9b9f3e87fe86",
+    "source_hash": "9b9395a000e19510fdc632b9c08eed35bec27f6ade7618572db44faacb38acfb",
     "is_stale": false
   },
   "execution_stage_summary": {
     "runtime_smoke": "done_bounded",
     "production_provider_integration": "done_hub_status_admission_control_and_audit",
     "hub_routing_integration": "done_profiles_fallback_and_candidate_fencing",
-    "dataset_pipeline": "implementation_done_curated_fixture_todo_real_provenance_fail_closed",
-    "needle_training": "blocked_missing_base_checkpoint_and_dataset",
-    "lfm_training": "blocked_missing_agentic_transformers_snapshot_and_dataset",
+    "dataset_pipeline": "done_curated_fixture_real_provenance_training_fail_closed",
+    "needle_training": "base_verified_offline_job_blocked_missing_grounded_dataset",
+    "lfm_training": "agentic_base_verified_offline_adapter_attach_passed_job_blocked_missing_grounded_dataset",
     "offline_evaluation": "partial_implementation_complete_real_holdout_missing",
     "shadow": "done_implementation",
     "canary": "done_implementation",
@@ -482,7 +486,8 @@
     "Runtime-Skripte, authentifizierte Docker-Bridge, Compose-Overlay und systemd-Supervision sind operativ; Real-Soak, Crash-Recovery und Container-Netzwerkgrenzen wurden geprüft.",
     "Anantas vorhandene Provider-, Tiny-Router- und LoRA-Subsysteme werden wiederverwendet; es wird kein paralleles Hub- oder Worker-Orchestrierungssystem geschaffen.",
     "Der Audit auf main@c1720afbe stuft das deterministische Evaluationsfixture als repository-lokal umsetzbar statt extern blockiert ein; reale Trainings- und Release-Evidenz bleibt davon unberührt.",
-    "Das Todo gilt erst als done, wenn reale Base-Checkpoints und Datasets vorliegen, alle Lifecycle-Stufen verdrahtet sind und registrierte Release-Evidenz besteht."
+    "Needle- und agentischer LFM-Trainingsstand sind vollständig hashgebunden und offline load-verifiziert; reale Jobs, Candidates und Release-Evidenz bleiben ohne gültige SRC_*-/RUN_*-Dataset-Evidenz fail-closed.",
+    "Das Todo gilt erst als done, wenn freigegebene Datasets vorliegen, alle realen Lifecycle-Stufen durchlaufen sind und registrierte Release-Evidenz besteht."
   ],
   "end_summaries": [
     {
@@ -493,8 +498,9 @@
         "Operator-Preflight und kontrollierter Parallelstart",
         "Erfolgreicher gemeinsamer Hardware-Smoke mit sicherem 4-GiB-KAT-Tier",
         "Persistente Hub-Admission, Status-/Ressourcen-Readmodel, Control-Receipts und providerneutrale Invocation-Telemetrie",
-        "Governed Collector, Redaction, immutable Snapshots sowie Offline-, Shadow-, Canary-, Promotion- und Rollback-Controller",
+        "Governed Collector, Redaction, immutable Snapshots, kuratiertes Evaluationsfixture sowie Offline-, Shadow-, Canary-, Promotion- und Rollback-Controller",
         "Hub-only Trainingsrequests mit isoliertem Needle-Worker-Backend",
+        "Hashgebundene Needle- und agentische LFM-Trainingsbasen mit vollständig automatischen Offline-Load- und Adapter-Attach-Smokes",
         "Realer Long-Context-Parallel-Soak, Crash-Recovery und containerisierte Least-Privilege-Topologie"
       ]
     },
@@ -502,8 +508,7 @@
       "summary_id": "not-yet-integrated",
       "title": "Extern blockiert oder noch real nachzuweisen",
       "items": [
-        "Freigegebenes Golden-/OOD-/Abstain-/Injection-Dataset mit gültigen SRC_*-/RUN_*-IDs",
-        "Trainierbare hashgebundene Needle- und agentische LFM-Base-Snapshots",
+        "Freigegebenes Trainings- und Holdout-Dataset mit gültigen SRC_*-/RUN_*-IDs",
         "Reale Needle- und LFM-Trainings-, Evaluations- und Release-Läufe",
         "Sichere Serving-Konverter für trainierte Needle-.pkl- und LFM-PEFT-Candidates",
         "Vollständiger Goal-bis-Verification-E2E mit registrierter RUN_* Evidenz"

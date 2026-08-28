@@ -1,0 +1,69 @@
+{
+  "schema_version": "ananta.local-adapter-training-bases.v1",
+  "bases": [
+    {
+      "catalog_id": "needle2-unquantized-98fbd955",
+      "release_target": "needle2",
+      "training_backend": "needle",
+      "upstream_model_id": "Cactus-Compute/needle2",
+      "upstream_revision": "98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+      "license_id": "Apache-2.0",
+      "source_url": "https://huggingface.co/Cactus-Compute/needle2/tree/98fbd955b0347e78059be0c253cc1ffa09b87bc7",
+      "snapshot_tree_sha256": "57fcc785c3410bff6aa3a97ab52ea2ddc229e3a42f0db92e0ead6cb89015803f",
+      "artifacts": [
+        {
+          "relative_path": "checkpoints/needle2.pkl",
+          "role": "checkpoint",
+          "size_bytes": 90426504,
+          "sha256": "4b0a972d163ffc7678fb3c36bace508114872e9d2ce9e10f225825752d3795bc"
+        },
+        {
+          "relative_path": "tokenizer/tokenizer.model",
+          "role": "tokenizer",
+          "size_bytes": 132396,
+          "sha256": "0871b8e3df78e0dd7ccc236e187fc055f75cd57ebe3bec76ca8103030b8fe659"
+        }
+      ],
+      "serving_baseline": {
+        "format": "cact",
+        "sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "compatibility_basis": "same_upstream_revision"
+      },
+      "training_runtime": {
+        "package": "cactus-needle",
+        "version": "2.0.9",
+        "distribution_sha256": "2e407ebfa75a7d5be85fb45b7e689ee81219a90761375ce389a3da2854b617ac",
+        "source_revision": "571fcd68f48b6649c91f353eb91d0a0c9b9135ce"
+      }
+    },
+    {
+      "catalog_id": "lfm2.5-2.6b-agentic-654f9463",
+      "release_target": "lfm2.5-2.6b-agentic",
+      "training_backend": "peft_trl",
+      "upstream_model_id": "LiquidAI/LFM2.5-2.6B",
+      "upstream_revision": "654f9463ce32b05d0429d76fe1f580b27d4c1ac0",
+      "license_id": "LFM-1.0",
+      "source_url": "https://huggingface.co/LiquidAI/LFM2.5-2.6B/tree/654f9463ce32b05d0429d76fe1f580b27d4c1ac0",
+      "snapshot_tree_sha256": "afa2de02c772df67fad9e9c01d8dd5ada8e89daef181ed58cc641e6482e0d196",
+      "artifacts": [
+        {"relative_path": ".gitattributes", "role": "repository_metadata", "size_bytes": 1570, "sha256": "34448b82c17d60fec9b65b1f093c115ddbaadc04beb1b0140b6bfed2e012a930"},
+        {"relative_path": "LICENSE", "role": "license", "size_bytes": 10574, "sha256": "4d28ca14dedc0b3d0fcc2b3339f0e79931faa33874f3d24f522183a8fc70068c"},
+        {"relative_path": "README.md", "role": "documentation", "size_bytes": 18337, "sha256": "003ceb63ec63a5b06b17f5e7b7a7d907695f037ad18720cabbcf8d8d68813f24"},
+        {"relative_path": "chat_template.jinja", "role": "chat_template", "size_bytes": 5443, "sha256": "ea663864491de7ade391839479860ca95541f892f72665c73251fbd4643b1bef"},
+        {"relative_path": "config.json", "role": "configuration", "size_bytes": 1467, "sha256": "480f63fa8e1efa534ae8b92774b3b53b8d6812d62a726e9ecfc866933662f273"},
+        {"relative_path": "generation_config.json", "role": "configuration", "size_bytes": 327, "sha256": "7366b93f26f8830e7a94441a3d2b9f344ceb9e1e31a808e0656df40720075874"},
+        {"relative_path": "model-00001-of-00002.safetensors", "role": "weights", "size_bytes": 5329406264, "sha256": "05be188e6570a7642b4690545ab22ebf4d0a6068775dd776a452eebf738854cc"},
+        {"relative_path": "model-00002-of-00002.safetensors", "role": "weights", "size_bytes": 65021192, "sha256": "532f803a9e6f127adc124d977503b438d8cc9c18f96e0862bf6835e38867bca8"},
+        {"relative_path": "model.safetensors.index.json", "role": "weights_index", "size_bytes": 21425, "sha256": "1be35d0d99dc56f68e6c5b306f7d4d99b6da97d1ab41ee753832bf1495655c4a"},
+        {"relative_path": "tokenizer.json", "role": "tokenizer", "size_bytes": 17905598, "sha256": "695be7802a0e4b8a81048f0ff5ebb7fc811a0ba5a6be63dbb24deb5a81096f41"},
+        {"relative_path": "tokenizer_config.json", "role": "configuration", "size_bytes": 363, "sha256": "11f1de897317b489dd09199284528382eeb17f566398b16e2039bb2266d26b09"}
+      ],
+      "serving_baseline": {
+        "format": "gguf-q8_0",
+        "sha256": "1e22128dfa128bdfb684da167e74e072d0a056baa7d06d9f280291e2839b0fc9",
+        "compatibility_basis": "same_agentic_model_release"
+      },
+      "training_runtime": null
+    }
+  ]
+}

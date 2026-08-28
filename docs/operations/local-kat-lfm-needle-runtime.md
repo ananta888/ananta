@@ -185,6 +185,40 @@ tree after producing the local binary.
 
 ## Needle and LFM SFT-LoRA
 
+The immutable source of truth for both training bases is
+`config/models/local-adapter-training-bases.v1.json`. It binds every required
+file by relative path, byte size and SHA-256, plus a canonical snapshot-tree
+digest. The catalog deliberately distinguishes training bases from the active
+serving artifacts:
+
+- Needle uses `Cactus-Compute/needle2` revision
+  `98fbd955b0347e78059be0c253cc1ffa09b87bc7`, the unquantized
+  `checkpoints/needle2.pkl`, its matching tokenizer, and `cactus-needle==2.0.9`
+  (Apache-2.0). The serving `.cact` is bound separately to the same upstream
+  revision.
+- LFM uses the post-trained agentic `LiquidAI/LFM2.5-2.6B` revision
+  `654f9463ce32b05d0429d76fe1f580b27d4c1ac0` (LFM-1.0), never the `-Base`
+  repository. Its two Safetensors shards, index, tokenizer and chat template
+  are all pinned. The Q8_0 GGUF remains a separately hashed serving baseline.
+
+Verify local copies and run the bounded load-only smokes with networking forced
+offline:
+
+```bash
+python scripts/verify_local_adapter_training_bases.py \
+  --needle-root "${ANANTA_NEEDLE_TRAINING_MODEL_DIR}" \
+  --needle-python "${ANANTA_NEEDLE_TRAINING_PYTHON}" \
+  --lfm-root "${ANANTA_LFM_TRAINING_MODEL_DIR}" \
+  --lfm-python "${ANANTA_LFM_TRAINING_PYTHON}"
+```
+
+The LFM smoke validates every indexed Safetensors tensor without materializing
+the full model, loads the exact local tokenizer and chat template, constructs
+the model on the meta device, and attaches a Rank-8 PEFT adapter. Transformers
+4.57 uses the Worker-owned local tokenizer compatibility seam for the upstream
+`TokenizersBackend` metadata introduced by Transformers 5; it neither mutates
+the snapshot nor permits remote code or a network fallback.
+
 Training request drafts are created with a catalog-owned immutable Dataset ID:
 
 ```bash

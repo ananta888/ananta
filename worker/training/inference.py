@@ -17,6 +17,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Protocol
 
+from worker.training.local_transformers_tokenizer import load_local_tokenizer
+
 CONTRACT_VERSION = "ananta.lora-inference.v1"
 GENERATION_CAPABILITY = "ml_intern_lora_text_generation"
 MANAGEMENT_CAPABILITY = "ml_intern_lora_cache_management"
@@ -86,7 +88,7 @@ class PeftLoraModelExecutor:
     def load(self, *, base_model_path: Path, adapter_path: Path) -> tuple[Any, Any]:
         try:
             from peft import PeftModel
-            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers import AutoModelForCausalLM
         except ImportError as exc:  # pragma: no cover - guarded by availability
             raise LoraInferenceWorkerError(
                 "inference_dependency_unavailable",
@@ -101,11 +103,7 @@ class PeftLoraModelExecutor:
             local_files_only=True,
             trust_remote_code=False,
         )
-        tokenizer = AutoTokenizer.from_pretrained(
-            str(base_model_path),
-            local_files_only=True,
-            trust_remote_code=False,
-        )
+        tokenizer = load_local_tokenizer(base_model_path)
         if getattr(tokenizer, "pad_token", None) is None:
             tokenizer.pad_token = tokenizer.eos_token
         model = PeftModel.from_pretrained(
