@@ -6,7 +6,7 @@
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "scrum_continuous_improvement_retrospective_loop",
-  "status": "open",
+  "status": "completed",
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "main@cbb637935",
@@ -84,7 +84,7 @@
         {
           "id": "SCI-001",
           "title": "Explizite Sprint-Entität bzw. revisionsgebundene Iteration einführen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "tasks": [
             "Bestehende Goal-, Track-, Task- und Organization-Modelle auf geeignete Iterationsbindung prüfen.",
@@ -102,7 +102,7 @@
         {
           "id": "SCI-002",
           "title": "Sprint Lifecycle definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-001"],
           "tasks": [
@@ -119,7 +119,7 @@
         {
           "id": "SCI-003",
           "title": "Sprint Goal und begrenztes Arbeitspaket explizit machen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-001"],
           "tasks": [
@@ -142,7 +142,7 @@
         {
           "id": "SCI-024",
           "title": "Versioniertes sprintübergreifendes Architecture Baseline Model",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "tasks": [
             "Bestehende Architecture-Governance-Artefakte Enterprise Context Map, Architecture Guardrails, ADR, Security/Data/Integration Reviews und Architecture Decision Handoff als versionierte Architecture Baseline zusammenführen beziehungsweise eindeutig referenzieren.",
@@ -159,7 +159,7 @@
         {
           "id": "SCI-025",
           "title": "Architecture-to-Sprint Handoff und Guardrail Binding",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-024", "SCI-001"],
           "tasks": [
@@ -177,7 +177,7 @@
         {
           "id": "SCI-026",
           "title": "Sprint Architecture Evidence und Architecture Debt zurückführen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-025"],
           "tasks": [
@@ -195,7 +195,7 @@
         {
           "id": "SCI-027",
           "title": "Architecture Change Proposal, Review und Revisionswechsel",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-026"],
           "tasks": [
@@ -214,7 +214,7 @@
         {
           "id": "SCI-028",
           "title": "Architekturwirkung über Folgesprints messen",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "depends_on": ["SCI-027", "SCI-013"],
           "tasks": [
@@ -237,7 +237,7 @@
         {
           "id": "SCI-019",
           "title": "Autoritativen Sprint Progress Snapshot definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-001", "SCI-003", "SCI-025"],
           "tasks": [
@@ -254,7 +254,7 @@
         {
           "id": "SCI-020",
           "title": "Adaptive Trigger statt starrem Daily Meeting",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-019"],
           "tasks": [
@@ -271,7 +271,7 @@
         {
           "id": "SCI-021",
           "title": "Sprint-Goal-Erreichbarkeit und Kursabweichung bewerten",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-019", "SCI-020"],
           "tasks": [
@@ -289,7 +289,7 @@
         {
           "id": "SCI-022",
           "title": "Kontrollierte Sprint-Backlog-Kurskorrektur",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-021"],
           "tasks": [
@@ -306,7 +306,7 @@
         {
           "id": "SCI-023",
           "title": "Expliziter Ausnahmeprozess für Sprint-Goal-Änderung oder Sprint-Abbruch",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-021"],
           "tasks": [
@@ -328,7 +328,7 @@
         {
           "id": "SCI-004",
           "title": "Retrospective Evidence Bundle erzeugen",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-002"],
           "tasks": [
@@ -346,7 +346,7 @@
         {
           "id": "SCI-005",
           "title": "Mehrperspektivische Agenten-Retrospektive",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-004"],
           "tasks": [
@@ -363,7 +363,7 @@
         {
           "id": "SCI-006",
           "title": "Root-Cause- und Improvement-Hypothesen ableiten",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-005"],
           "tasks": [
@@ -385,7 +385,7 @@
         {
           "id": "SCI-007",
           "title": "Scrum Retrospective an EvolutionEngine anbinden",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-006"],
           "tasks": [
@@ -402,7 +402,7 @@
         {
           "id": "SCI-008",
           "title": "Improvement Proposal Taxonomie definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-007"],
           "tasks": [
@@ -419,7 +419,7 @@
         {
           "id": "SCI-009",
           "title": "Improvement Proposal Review und Policy Gates",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-008"],
           "tasks": [
@@ -442,7 +442,7 @@
         {
           "id": "SCI-010",
           "title": "Improvement Commitment als eigenes versioniertes Objekt",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-009"],
           "tasks": [
@@ -456,7 +456,7 @@
         {
           "id": "SCI-011",
           "title": "Sprint N+1 bindet Improvement Commitments und gültige Architecture Revision",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-010", "SCI-027"],
           "tasks": [
@@ -472,7 +472,7 @@
         {
           "id": "SCI-012",
           "title": "Experimentelle Verbesserungen und A/B-artige Vergleiche",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "depends_on": ["SCI-011"],
           "tasks": [
@@ -493,7 +493,7 @@
         {
           "id": "SCI-013",
           "title": "Continuous-Improvement-Metriken definieren",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "tasks": [
             "Rework-, Retry-/Failure-, Gate-Rejection-, Handoff-, Cycle-Time-, Kosten-, Blocked-Time- und Plan-vs-Actual-Metriken erfassen.",
@@ -508,7 +508,7 @@
         {
           "id": "SCI-014",
           "title": "Post-Sprint Effect Evaluation",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-010", "SCI-013"],
           "tasks": [
@@ -524,7 +524,7 @@
         {
           "id": "SCI-015",
           "title": "Rollback und erneute Verbesserungsschleife",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-014"],
           "tasks": [
@@ -546,7 +546,7 @@
         {
           "id": "SCI-016",
           "title": "Scrum-Workflow um Retrospective, Sprint-Goal-Control und Architecture Handoff erweitern",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-007", "SCI-020", "SCI-022", "SCI-025"],
           "tasks": [
@@ -564,7 +564,7 @@
         {
           "id": "SCI-017",
           "title": "Continuous Improvement, Sprint Control und Architecture Evolution UI",
-          "status": "open",
+          "status": "completed",
           "priority": "P1",
           "depends_on": ["SCI-010", "SCI-014", "SCI-022", "SCI-027"],
           "tasks": [
@@ -581,7 +581,7 @@
         {
           "id": "SCI-018",
           "title": "End-to-End Three-Loop Acceptance Scenario",
-          "status": "open",
+          "status": "completed",
           "priority": "P0",
           "depends_on": ["SCI-001", "SCI-002", "SCI-004", "SCI-005", "SCI-007", "SCI-009", "SCI-010", "SCI-011", "SCI-013", "SCI-014", "SCI-016", "SCI-019", "SCI-020", "SCI-021", "SCI-022", "SCI-023", "SCI-024", "SCI-025", "SCI-026", "SCI-027", "SCI-028"],
           "scenario": [
@@ -742,15 +742,50 @@
     "Hub-Kerncode und Security-Invarianten werden nicht vom laufenden Evolver oder Architecture Loop selbst mutiert.",
     "Ein vollständiger In-Sprint-Loop, Cross-Sprint-Architecture-Loop und Sprint-N -> Retro -> Improvement -> Sprint-N+1 -> Measurement-Zyklus sind durch E2E-Tests abgesichert."
   ],
+  "implementation_evidence": {
+    "SCI-001_SCI-002_SCI-003": [
+      "ScrumSprintControlService persists stable sprint_id, sequence, predecessor, timestamps, distinct Product/Sprint Goals, original and current task sets, bounded execution budgets and lifecycle revisions.",
+      "The lifecycle is closed over planned -> active -> review -> retrospective -> improvement_pending/closed; review cannot be skipped and abort is available only through the evidence-bound exception policy."
+    ],
+    "SCI-024_SCI-025_SCI-026_SCI-027_SCI-028": [
+      "ScrumArchitectureLoopService creates immutable parent-linked baselines, projects scoped guardrails with a digest, records relevance-filtered delivery evidence and debt, independently reviews changes and materializes future draft revisions.",
+      "Architecture effect evaluation classifies improved, neutral, regressed or inconclusive outcomes from bounded loss/cost metrics; active Sprint handoffs never change retroactively."
+    ],
+    "SCI-019_SCI-020_SCI-021_SCI-022_SCI-023": [
+      "Sprint snapshots bind the Sprint revision, task DAG states, failures, rework, budgets, scope delta and architecture findings. Ten trigger kinds, sequence debounce, reachability classification, audited backlog adjustment and a separate fully automatic goal exception policy are implemented."
+    ],
+    "SCI-004_SCI-005_SCI-006": [
+      "ScrumRetrospectiveService produces bounded evidence bundles without raw prompts, requires Product Owner/Scrum Master/Developer perspectives, preserves dissent and alternative causes, and emits evidence-linked hypotheses without causal claims."
+    ],
+    "SCI-007_SCI-008_SCI-009": [
+      "EvolutionRetrospectiveAnalysisAdapter reuses the existing EvolutionService facade behind a narrow port. Deterministic analysis remains available if the provider fails. Proposal taxonomy and automatic evidence/scope/security/rollback/measurement gates reject protected or high-risk direct mutations without waiting for a human."
+    ],
+    "SCI-010_SCI-011_SCI-012": [
+      "Versioned accepted commitments bind owner, metrics and rollback rule into Sprint N+1 together with its current architecture handoff. Stable digest-based cohort assignment supports bounded experiments."
+    ],
+    "SCI-013_SCI-014_SCI-015": [
+      "Commitment effects compare bound baseline and observed metrics with sample-size handling. Regression atomically marks the commitment rolled_back; inconclusive evidence is not promoted to success."
+    ],
+    "SCI-016_SCI-017_SCI-018": [
+      "config/blueprints/standard/workflows.d/scrum-continuous-improvement.json adds a strict ten-step reusable workflow while preserving normal Hub task delegation.",
+      "The authenticated Control Center dashboard shows Sprint, architecture, commitment and effect histories from a project-scoped Hub read model.",
+      "tests/test_scrum_continuous_improvement.py covers the complete three-loop Sprint N -> retrospective -> commitment -> Sprint N+1 -> measurement cycle, architecture revision feedback, automatic exceptions, protected-target denial, rollback and restart persistence. API, bootstrap, catalog and Angular tests cover product composition."
+    ],
+    "verification": [
+      "32 focused Python tests passed with Ruff clean before Todo finalization, including Scrum, API, bootstrap, blueprint catalog, EvolutionEngine, app composition and frontend integration coverage.",
+      "Angular Scrum dashboard tests passed 2/2 and the Angular production build completed successfully."
+    ]
+  },
   "meta": {
     "total_items": 28,
     "by_status": {
-      "completed": 0,
+      "completed": 28,
       "partial": 0,
-      "open": 28
+      "open": 0
     },
     "notes": [
-      "Source-Audit 2026-08-28 gegen main@cbb637935: Alle 28 SCI-Items bleiben offen; vorhandene generische Evolution-, Cognitive-Style- und Execution-Rework-Dienste werden nicht als Scrum-Lifecycle-Evidenz ueberbewertet.",
+      "Source-Audit vor Implementation am 2026-08-28 gegen main@cbb637935: Alle 28 SCI-Items waren offen; vorhandene generische Evolution-, Cognitive-Style- und Execution-Rework-Dienste wurden nicht als Scrum-Lifecycle-Evidenz ueberbewertet.",
+      "Implementation 2026-08-28: Alle 28 SCI-Items sind durch persistente Hub-Dienste, API, Standard-Workflow, Control-Center-Read-Model und automatisierte Tests abgeschlossen; kein Test und kein Produktionspfad wartet auf einen Menschen.",
       "Die vorhandene Evolution-/Evolver- und Architecture-Governance-Infrastruktur ist wiederzuverwenden; keine parallelen zweiten Systeme bauen.",
       "Architektur ist sprintübergreifend: Sie wird weder aus jedem Sprint neu erfunden noch unabhängig von realer Delivery unveränderlich festgeschrieben.",
       "Der Architecture Loop lautet: Baseline/Guardrails -> Sprint -> technische Evidenz/Architecture Debt -> Architecture Review -> neue Revision -> spätere Sprints.",

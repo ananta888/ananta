@@ -86,6 +86,7 @@ from agent.routes.semantic_media_privacy import semantic_media_privacy_bp
 from agent.routes.semantic_sfu_admission import semantic_sfu_admission_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.routes.share_sessions import share_sessions_bp
+from agent.routes.scrum_continuous_improvement import scrum_continuous_improvement_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
@@ -217,6 +218,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(network_profiles_bp)
     app.register_blueprint(snakes_bp)
     app.register_blueprint(share_sessions_bp)
+    app.register_blueprint(scrum_continuous_improvement_bp)
     app.register_blueprint(pair_groups_bp)
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
     app.register_blueprint(repair_bp)

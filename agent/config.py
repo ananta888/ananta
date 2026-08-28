@@ -643,6 +643,10 @@ class Settings(BaseSettings):
         default="rag-default",
         validation_alias="ANANTA_KNOWLEDGE_EXPERTS_POLICY_PROFILE",
     )
+    scrum_improvement_state: str = Field(
+        default="data/scrum-continuous-improvement.sqlite3",
+        validation_alias="ANANTA_SCRUM_IMPROVEMENT_STATE",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

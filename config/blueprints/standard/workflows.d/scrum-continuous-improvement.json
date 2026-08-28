@@ -1,0 +1,144 @@
+{
+  "schema": "organization_workflow_catalog.v1",
+  "version": 1,
+  "workflow_definitions": [
+    {
+      "key": "scrum_continuous_improvement",
+      "version": 1,
+      "mode": "strict_gated",
+      "default_failure_policy": "block",
+      "steps": [
+        {
+          "step_id": "architecture_handoff",
+          "title": "Project active architecture revision and guardrails",
+          "task_kind": "planning",
+          "owner_role_ref": "architecture_decision_reviewer@1",
+          "target_team_selector": {"team_blueprint_ref": "architecture_governance@1", "cardinality": 1, "routing": "single"},
+          "depends_on": [],
+          "inputs": ["product_goal", "candidate_sprint_scope", "active_architecture_baseline"],
+          "outputs": ["architecture_sprint_handoff"],
+          "gate": {
+            "required": true,
+            "acceptance_checks": ["active_revision", "scope_projection", "guardrail_digest"],
+            "approval_role_ref": "architecture_decision_reviewer@1",
+            "independent_principal_required": true
+          },
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "sprint_plan",
+          "title": "Bind Sprint Goal, backlog, architecture and commitments",
+          "task_kind": "planning",
+          "owner_role_ref": "scrum_product_owner@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["architecture_handoff"],
+          "inputs": ["product_goal", "architecture_sprint_handoff", "accepted_improvement_commitments"],
+          "outputs": ["versioned_sprint"],
+          "gate": {
+            "required": true,
+            "acceptance_checks": ["bounded_scope", "distinct_sprint_goal", "predecessor_terminal"],
+            "approval_role_ref": "scrum_master@1",
+            "independent_principal_required": true
+          },
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "sprint_execution",
+          "title": "Execute Hub-delegated Sprint tasks",
+          "task_kind": "coding",
+          "owner_role_ref": "scrum_developer@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["sprint_plan"],
+          "inputs": ["versioned_sprint", "architecture_sprint_handoff"],
+          "outputs": ["increment", "task_evidence", "architecture_evidence"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "sprint_control",
+          "title": "Inspect Sprint Goal reachability and adapt backlog",
+          "task_kind": "review",
+          "owner_role_ref": "scrum_master@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["sprint_execution"],
+          "inputs": ["versioned_sprint", "task_evidence", "architecture_evidence"],
+          "outputs": ["sprint_progress_snapshot", "sprint_control_decision", "audited_scope_delta"],
+          "gate": {"required": false, "acceptance_checks": [], "approval_role_ref": null, "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "product_review",
+          "title": "Review the delivered increment",
+          "task_kind": "review",
+          "owner_role_ref": "scrum_product_owner@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["sprint_control"],
+          "inputs": ["increment", "sprint_progress_snapshot"],
+          "outputs": ["product_review", "delivery_metrics"],
+          "gate": {"required": true, "acceptance_checks": ["increment_evidence"], "approval_role_ref": "scrum_product_owner@1", "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "retrospective",
+          "title": "Analyze evidence from multiple Scrum perspectives",
+          "task_kind": "review",
+          "owner_role_ref": "scrum_master@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["product_review"],
+          "inputs": ["sprint_progress_snapshot", "delivery_metrics", "task_evidence"],
+          "outputs": ["retrospective_evidence_bundle", "root_cause_hypotheses", "dissent_record"],
+          "gate": {"required": true, "acceptance_checks": ["evidence_bound", "perspectives_complete", "no_causal_overclaim"], "approval_role_ref": "scrum_master@1", "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "improvement_review",
+          "title": "Review bounded measurable improvement proposals",
+          "task_kind": "review",
+          "owner_role_ref": "architecture_decision_reviewer@1",
+          "target_team_selector": {"team_blueprint_ref": "architecture_governance@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["retrospective"],
+          "inputs": ["root_cause_hypotheses", "retrospective_evidence_bundle"],
+          "outputs": ["reviewed_improvement_proposals", "architecture_change_handoffs"],
+          "gate": {"required": true, "acceptance_checks": ["scope", "security", "rollback", "measurable"], "approval_role_ref": "architecture_decision_reviewer@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "commitment",
+          "title": "Create versioned improvement commitments",
+          "task_kind": "planning",
+          "owner_role_ref": "scrum_master@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["improvement_review"],
+          "inputs": ["reviewed_improvement_proposals"],
+          "outputs": ["accepted_improvement_commitments"],
+          "gate": {"required": true, "acceptance_checks": ["owner", "metrics", "rollback_rule"], "approval_role_ref": "scrum_master@1", "independent_principal_required": false},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "architecture_feedback",
+          "title": "Review sprint architecture evidence for future revisions",
+          "task_kind": "review",
+          "owner_role_ref": "architecture_decision_reviewer@1",
+          "target_team_selector": {"team_blueprint_ref": "architecture_governance@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["product_review"],
+          "inputs": ["architecture_evidence", "delivery_metrics"],
+          "outputs": ["architecture_debt", "architecture_change_proposal", "future_architecture_revision"],
+          "gate": {"required": true, "acceptance_checks": ["evidence", "migration", "compatibility", "future_sprints_only"], "approval_role_ref": "architecture_decision_reviewer@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        },
+        {
+          "step_id": "effect_evaluation",
+          "title": "Measure improvement and architecture effects in later Sprints",
+          "task_kind": "testing",
+          "owner_role_ref": "scrum_master@1",
+          "target_team_selector": {"team_blueprint_ref": "enterprise_product_delivery_scrum@1", "cardinality": 1, "routing": "single"},
+          "depends_on": ["commitment", "architecture_feedback"],
+          "inputs": ["accepted_improvement_commitments", "future_architecture_revision", "delivery_metrics"],
+          "outputs": ["improvement_effect", "architecture_effect", "automatic_rollback_decision"],
+          "gate": {"required": true, "acceptance_checks": ["baseline", "sample_size", "outcome_classification"], "approval_role_ref": "architecture_decision_reviewer@1", "independent_principal_required": true},
+          "failure_policy": "block"
+        }
+      ]
+    }
+  ]
+}

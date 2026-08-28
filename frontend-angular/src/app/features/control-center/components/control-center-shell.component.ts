@@ -33,6 +33,7 @@ import { ControlCenterStateFacade } from '../services/control-center-state.facad
           <a routerLink="policies" queryParamsHandling="preserve" data-waypoint="cc.policies">Policies</a>
           <a routerLink="codecompass" queryParamsHandling="preserve" data-waypoint="cc.codecompass">CodeCompass</a>
           <a routerLink="knowledge-experts" queryParamsHandling="preserve" data-waypoint="cc.knowledge-experts">Knowledge Experts</a>
+          <a routerLink="scrum-improvement" queryParamsHandling="preserve" data-waypoint="cc.scrum-improvement">Scrum Improvement</a>
         </nav>
       </aside>
       <main class="cc-center"><router-outlet /></main>

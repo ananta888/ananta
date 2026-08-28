@@ -731,6 +731,13 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.scrum_continuous_improvement import initialize_scrum_continuous_improvement
+
+    run_startup_phase(
+        "scrum_continuous_improvement",
+        initialize_scrum_continuous_improvement,
+        app,
+    )
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )
