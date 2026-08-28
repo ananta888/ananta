@@ -174,6 +174,24 @@ When extending the system:
 - make decisions observable and auditable
 - avoid uncontrolled execution paths
 
+## Fully Automated Execution
+
+- Tests of every kind must be fully headless and self-contained. A test must
+  never require a person to approve, click, type, review, or otherwise unblock
+  its execution.
+- Approval and review behavior in tests must be exercised through automated
+  policy fixtures, API calls, or deterministic test doubles. Tests must fail
+  with a bounded diagnostic instead of waiting for interactive input.
+- Productive workflows that expose human-in-the-loop gates must also provide a
+  policy-controlled, auditable headless mode. Eligible approvals may be
+  granted only by an explicit auto-approval or pre-authorization policy owned
+  by the hub.
+- A headless run must never bypass a mandatory security policy. If policy does
+  not permit automatic approval, the run must terminate or return a bounded,
+  machine-readable blocked result; it must not wait indefinitely for a human.
+- Interactive approval remains an optional operating mode, never a technical
+  prerequisite for running tests or completing a bounded automation run.
+
 ---
 
 # Engineering Principles
