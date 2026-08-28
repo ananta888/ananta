@@ -44,6 +44,7 @@ class NativeGraphRequest:
     plan: ExecutionPlan
     run_id: str
     control_task_id: str
+    correlation_id: str = ""
     input_data: dict[str, Any] = field(default_factory=dict)
     secret_refs: tuple[str, ...] = ()
     tenant_parallel_limit: int = 4

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import uuid
 from pathlib import Path
 
 from flask import Flask
@@ -178,7 +179,7 @@ def test_workflow_signal_is_bounded_validated_and_secret_redacted(
     _admit_test_runtime_release(monkeypatch)
     client = _workflow_app(agent_token=None).test_client()
     owner = _user_headers(subject="signal-owner", tenant_id="tenant-signal")
-    workflow_id = "wf-signal-bounds"
+    workflow_id = f"wf-signal-bounds-{uuid.uuid4().hex}"
     started = client.post(
         "/api/visual-process/workflow/start",
         json=_workflow_payload(workflow_id, gate=True),
@@ -210,13 +211,19 @@ def test_workflow_signal_is_bounded_validated_and_secret_redacted(
     assert malformed.status_code == 400
     assert oversized.status_code == 413
     assert invalid_payload.status_code == 422
-    assert accepted.status_code == 200
+    assert accepted.status_code == 200, accepted.get_json()
+    events = accepted.get_json()["events"]
     signal_event = next(
-        event
-        for event in accepted.get_json()["events"]
-        if event["event_type"] == "workflow.approval.granted"
+        (
+            event
+            for event in events
+            if event["event_type"] == "workflow.approval.granted"
+        ),
+        None,
     )
-    assert signal_event["actor"] == "signal-owner"
+    assert signal_event is not None, [event["event_type"] for event in events]
+    assert signal_event["actor"] == "runtime-source"
+    assert "spoofed" not in str(signal_event)
     assert "secret-value" not in str(signal_event)
     assert "api_key" not in str(signal_event)
 

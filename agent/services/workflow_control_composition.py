@@ -204,6 +204,45 @@ _TEMPORAL_COMMAND_STATUSES = frozenset(
 )
 
 
+def _resolve_command_step_id(
+    binding: WorkflowControlRunBinding,
+    *,
+    status: Mapping[str, Any],
+    payload: Mapping[str, Any],
+) -> str:
+    """Resolve public gate identities back to their owning execution node."""
+
+    explicit = str(payload.get("step_id") or "").strip()
+    if explicit:
+        return explicit
+    current = str(status.get("current_step_id") or "").strip()
+    if current:
+        return current
+
+    open_gates = status.get("open_gates")
+    open_gate = (
+        str(open_gates[0] or "").strip()
+        if isinstance(open_gates, list) and open_gates
+        else ""
+    )
+    if open_gate:
+        request_step_ids = {step.step_id for step in binding.request.steps}
+        if open_gate in request_step_ids:
+            return open_gate
+        execution_plan = binding.execution_plan
+        nodes = execution_plan.get("nodes") if isinstance(execution_plan, Mapping) else None
+        if isinstance(nodes, list):
+            for node in nodes:
+                if not isinstance(node, Mapping):
+                    continue
+                if str(node.get("gate_id") or "").strip() == open_gate:
+                    node_id = str(node.get("node_id") or "").strip()
+                    if node_id:
+                        return node_id
+
+    return binding.request.steps[0].step_id
+
+
 def _canonical_public_status(
     binding: WorkflowControlRunBinding,
     status: dict[str, Any],
@@ -1554,15 +1593,11 @@ class AuthorizedWorkflowBackend:
         command_id: str = "",
     ) -> WorkflowControlCommand:
         status = self._bindings.last_status(binding.workflow_id) or {}
-        step_id = str(payload.get("step_id") or "").strip()
-        if not step_id:
-            step_id = str(status.get("current_step_id") or "").strip()
-        if not step_id:
-            open_gates = status.get("open_gates")
-            if isinstance(open_gates, list) and open_gates:
-                step_id = str(open_gates[0] or "").strip()
-        if not step_id:
-            step_id = binding.request.steps[0].step_id
+        step_id = _resolve_command_step_id(
+            binding,
+            status=status,
+            payload=payload,
+        )
         try:
             expected_revision = int(status.get("revision", 0))
         except (TypeError, ValueError) as exc:

@@ -884,7 +884,7 @@ class NativeGraphOrchestrator:
             raise ValueError("native_side_effect_result_not_reconciled")
         event = side_effect_event(
             record,
-            correlation_id=request.run_id,
+            correlation_id=request.correlation_id or request.run_id,
             causation_id=result.result_id,
             actor="native-worker",
         )
@@ -997,7 +997,7 @@ class NativeGraphOrchestrator:
             attempt=attempt,
             event_type=event_type,
             actor=actor,
-            correlation_id=request.run_id,
+            correlation_id=request.correlation_id or request.run_id,
             causation_id=request.control_task_id,
             dedupe_key=dedupe_key,
             payload={

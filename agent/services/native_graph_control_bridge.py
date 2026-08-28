@@ -286,6 +286,7 @@ class NativeGraphWorkflowControlBridge:
             plan=resolved_plan,
             run_id=binding.run_id,
             control_task_id=self._control_task_id(binding.run_id),
+            correlation_id=str(binding.request.correlation_id or binding.run_id),
             input_data=input_data,
             secret_refs=secret_refs,
             tenant_parallel_limit=self._parallel_limit(metadata.get("tenant_parallel_limit"), default=4),

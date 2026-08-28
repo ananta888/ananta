@@ -100,6 +100,9 @@ from agent.services.workflow_transition_ownership_reservation import (
     build_workflow_transition_ownership_reservation_effect,
 )
 from agent.services.workflow_transition_persistence import SQLAlchemyWorkflowTransitionStore
+from agent.services.workflow_transition_public_projection import (
+    WorkflowTransitionPublicStatusProjector,
+)
 from agent.services.workflow_transition_queue_reservation import (
     WorkflowTransitionQueueReservationExecutor,
     WorkflowTransitionQueueReservationObserver,
@@ -740,7 +743,7 @@ def build_native_command_transition_runtime(
     transitions = SQLAlchemyWorkflowTransitionStore(
         bind,
         clock=clock,
-        receipt_projector=NativeTransitionPublicProjector(),
+        receipt_projector=WorkflowTransitionPublicStatusProjector(),
     )
     ownership = SQLAlchemyExecutionOwnershipStore(bind)
     events = SQLAlchemyEventStore(bind)

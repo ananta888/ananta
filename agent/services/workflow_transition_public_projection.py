@@ -48,6 +48,8 @@ def canonical_workflow_public_status(
             binding=binding,
             previous=(dict(previous) if previous else None),
             runtime_id=runtime_id,
+            events=tuple(safe_status.get("events") or ()),
+            event_cursor=str(safe_status.get("event_cursor") or ""),
             observed_at=float(raw_observed_at),
         )
 
@@ -64,7 +66,7 @@ def canonical_workflow_public_status(
         previous=None,
         runtime_id=runtime_id,
         events=tuple(safe_status.get("events") or ()),
-        event_cursor=safe_status.get("event_cursor") or "",
+        event_cursor=str(safe_status.get("event_cursor") or ""),
         observed_at=float(raw_observed_at),
         allow_initial_ack="revision" not in source_observation,
     )
