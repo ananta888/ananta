@@ -731,6 +731,15 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
         app,
     )
     run_startup_phase("core_services", initialize_core_services, app)
+    from agent.bootstrap.codecompass_sira_rollout import (
+        initialize_codecompass_sira_rollout,
+    )
+
+    run_startup_phase(
+        "codecompass_sira_rollout",
+        initialize_codecompass_sira_rollout,
+        app,
+    )
     from agent.bootstrap.local_model_runtime import (
         initialize_local_model_runtime_services,
     )

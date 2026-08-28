@@ -506,7 +506,11 @@ def build_default_agent_config() -> dict:
                 "codecompass_fts": bool(settings.codecompass_fts_enabled),
                 "sira": {
                     "schema": "codecompass.sira-config.v1",
-                    "mode": str(settings.codecompass_sira_mode or "off").strip().lower(),
+                    "mode": (
+                        str(settings.codecompass_sira_mode or "off").strip().lower()
+                        if settings.codecompass_sira_online_expansion_enabled
+                        else "off"
+                    ),
                     "enrichment_model": str(settings.codecompass_sira_enrichment_model or "").strip(),
                     "query_model": str(settings.codecompass_sira_query_model or "").strip(),
                     "rerank_model": str(settings.codecompass_sira_rerank_model or "").strip(),

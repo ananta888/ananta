@@ -25,3 +25,7 @@ Metrics should aggregate expansion calls, cache hits, accepted/rejected terms,
 FTS/rerank latency, tokens, cost, index size, incremental update time and
 fallback reasons. Query text, path and record IDs belong in access-controlled
 traces, not metric labels.
+The Hub status read model includes the persistent automatic rollout stage,
+revision, gate-policy binding, redacted observation counts and last reason
+code. It never reads Worker files and never exposes request IDs, queries, paths,
+model prompts or candidate contents.

@@ -5,6 +5,7 @@ from typing import Any, Mapping
 
 import pytest
 
+from worker.retrieval.sira.channel_provider import SiraFtsChannelProvider
 from worker.retrieval.sira.config import SiraConfig, SiraMode
 from worker.retrieval.sira.contracts import CorpusBinding
 from worker.retrieval.sira.enriched_fts_store import EnrichedFtsStore
@@ -135,6 +136,57 @@ def test_shadow_does_not_change_selected_results(tmp_path: Path):
     assert result["shadow_candidates"][0]["record_id"] == "r1"
     assert result["trace"]["shadow_non_effecting"] is True
     assert result["trace"]["lexical_retrieval_calls"] == 2
+
+
+def test_hub_rollout_mode_controls_effect_and_static_off_remains_kill_switch(tmp_path: Path):
+    shadow = _build(tmp_path / "shadow", mode=SiraMode.PREFERRED).retrieve(
+        query="payment failure handling",
+        top_k=4,
+        corpus_ready=True,
+        rollout_mode=SiraMode.SHADOW,
+    )
+    assert shadow["mode"] == "shadow"
+    assert shadow["selected_candidates"][0]["record_id"] == "baseline"
+    assert shadow["shadow_candidates"][0]["record_id"] == "r1"
+
+    killed = _build(tmp_path / "off", mode=SiraMode.OFF).retrieve(
+        query="payment failure handling",
+        top_k=4,
+        corpus_ready=True,
+        rollout_mode=SiraMode.PREFERRED,
+    )
+    assert killed["mode"] == "off"
+    assert killed["selected_candidates"][0]["record_id"] == "baseline"
+    assert killed["shadow_candidates"] == []
+
+
+def test_profiled_channel_requires_hub_rollout_decision(tmp_path: Path):
+    class Baseline:
+        def search(self, **kwargs):
+            return [{"record_id": "baseline", "path": "baseline.py", "content": kwargs["query"]}]
+
+    provider = SiraFtsChannelProvider(baseline=Baseline(), sira=_build(tmp_path))
+    with pytest.raises(ValueError, match="sira_rollout_decision_required"):
+        provider.search_profiled(
+            query="payment failure handling",
+            top_k=4,
+            retrieval_profile={"name": "corpus_discriminative_lexical"},
+        )
+
+    selected = provider.search_profiled(
+        query="payment failure handling",
+        top_k=4,
+        retrieval_profile={
+            "name": "corpus_discriminative_lexical",
+            "rollout": {
+                "schema": "codecompass.sira-rollout-decision.v1",
+                "stage": "shadow",
+                "result_affecting": False,
+            },
+        },
+    )
+    assert selected[0]["record_id"] == "baseline"
+    assert selected[0]["metadata"]["sira_trace"]["shadow_non_effecting"] is True
 
 
 def test_preferred_falls_back_and_required_fails_typed(tmp_path: Path):

@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/codecompass.sira-evaluation-policy.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "minimum_verified_queries",
+    "minimum_repository_count",
+    "minimum_aggregate_delta",
+    "minimum_delta_ci95_lower",
+    "protected_query_classes",
+    "maximum_protected_class_regression",
+    "efficiency_budgets"
+  ],
+  "properties": {
+    "schema": {"const": "codecompass.sira-evaluation-policy.v1"},
+    "minimum_verified_queries": {"type": "integer", "minimum": 1},
+    "minimum_repository_count": {"type": "integer", "minimum": 1},
+    "minimum_aggregate_delta": {"$ref": "#/$defs/metricThresholds"},
+    "minimum_delta_ci95_lower": {"$ref": "#/$defs/metricThresholds"},
+    "protected_query_classes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 128}
+    },
+    "maximum_protected_class_regression": {"type": "number", "minimum": 0, "maximum": 1},
+    "efficiency_budgets": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "number", "minimum": 0}
+    }
+  },
+  "$defs": {
+    "metricThresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recall", "ndcg", "mrr", "evidence_coverage"],
+      "properties": {
+        "recall": {"type": "number", "minimum": -1, "maximum": 1},
+        "ndcg": {"type": "number", "minimum": -1, "maximum": 1},
+        "mrr": {"type": "number", "minimum": -1, "maximum": 1},
+        "evidence_coverage": {"type": "number", "minimum": -1, "maximum": 1}
+      }
+    }
+  }
+}

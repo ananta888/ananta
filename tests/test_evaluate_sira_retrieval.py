@@ -29,6 +29,10 @@ def test_evaluation_computes_metrics_and_skips_unverified_labels():
     assert report["unverified_query_count"] == 1
     assert report["aggregate"]["recall_at_2"]["delta"] == 0.5
     assert report["aggregate"]["mrr"]["candidate"] == 1.0
+    assert report["query_classes"]["bugfix"]["verified_query_count"] == 1
+    assert report["aggregate"]["mrr"]["delta_ci95"]["method"] == "normal_paired_delta"
+    assert report["activation_gate"]["passed"] is False
+    assert report["activation_gate"]["reason_codes"] == ["sira_evaluation_policy_missing"]
 
 
 def test_evaluation_rejects_snapshot_mismatch():

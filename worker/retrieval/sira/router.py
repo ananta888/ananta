@@ -49,20 +49,26 @@ class SiraRouter:
         *,
         query: str,
         corpus_ready: bool,
+        mode: SiraMode | None = None,
         baseline_margin: float | None = None,
         expansion_cached: bool = False,
         model_budget_available: bool = True,
     ) -> RoutingDecision:
+        effective_mode = mode or self._config.mode
+        if self._config.mode == SiraMode.OFF:
+            effective_mode = SiraMode.OFF
+        elif self._config.mode == SiraMode.SHADOW and effective_mode != SiraMode.OFF:
+            effective_mode = SiraMode.SHADOW
         features = {
-            "mode": self._config.mode.value,
+            "mode": effective_mode.value,
             "corpus_ready": bool(corpus_ready),
             "baseline_margin": baseline_margin,
             "expansion_cached": bool(expansion_cached),
             "model_budget_available": bool(model_budget_available),
             "exact_query_kind": classify_exact_query(query) or "",
         }
-        required = self._config.mode == SiraMode.REQUIRED
-        if self._config.mode == SiraMode.OFF:
+        required = effective_mode == SiraMode.REQUIRED
+        if effective_mode == SiraMode.OFF:
             return RoutingDecision(False, False, False, "mode_off", features=features)
         if not corpus_ready:
             return RoutingDecision(False, False, required, "corpus_unavailable", features=features)
@@ -71,7 +77,7 @@ class SiraRouter:
         if classify_exact_query(query):
             return RoutingDecision(
                 True,
-                self._config.mode == SiraMode.SHADOW,
+                effective_mode == SiraMode.SHADOW,
                 required,
                 "exact_query_original_only",
                 features=features,
@@ -84,11 +90,11 @@ class SiraRouter:
             and not expansion_cached
         ):
             return RoutingDecision(False, False, False, "baseline_high_confidence", features=features)
-        if self._config.mode == SiraMode.ON_DEMAND and baseline_margin is None and not expansion_cached:
+        if effective_mode == SiraMode.ON_DEMAND and baseline_margin is None and not expansion_cached:
             return RoutingDecision(False, False, False, "on_demand_not_requested", features=features)
         return RoutingDecision(
             True,
-            self._config.mode == SiraMode.SHADOW,
+            effective_mode == SiraMode.SHADOW,
             required,
             "sira_selected",
             features=features,

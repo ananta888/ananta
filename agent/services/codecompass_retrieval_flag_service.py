@@ -45,6 +45,8 @@ def _relation_dependency_ready(*, graph_enabled: bool) -> bool:
 def evaluate_codecompass_retrieval_flags(*, settings) -> dict[str, dict[str, Any]]:
     fts_enabled = bool(getattr(settings, "codecompass_fts_enabled", False))
     sira_mode = str(getattr(settings, "codecompass_sira_mode", "off") or "off").strip().lower()
+    if not bool(getattr(settings, "codecompass_sira_online_expansion_enabled", True)):
+        sira_mode = "off"
     vector_enabled = bool(getattr(settings, "codecompass_vector_enabled", False))
     graph_enabled = bool(getattr(settings, "codecompass_graph_enabled", False))
     relation_enabled = bool(getattr(settings, "codecompass_relation_expansion_enabled", False))

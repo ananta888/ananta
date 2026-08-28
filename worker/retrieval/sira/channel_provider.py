@@ -4,6 +4,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from worker.retrieval.codecompass_fts_engine import CodeCompassFtsEngine
+from worker.retrieval.sira.config import SiraMode
 from worker.retrieval.sira.service import SiraRetrievalService
 
 
@@ -45,6 +46,21 @@ class SiraFtsChannelProvider:
         retrieval_intent: str | None = None,
     ) -> list[dict[str, Any]]:
         del task_kind, retrieval_intent
+        rollout = retrieval_profile.get("rollout")
+        if not isinstance(rollout, Mapping) or rollout.get("schema") != "codecompass.sira-rollout-decision.v1":
+            raise ValueError("sira_rollout_decision_required")
+        stage = str(rollout.get("stage") or "off")
+        result_affecting = rollout.get("result_affecting") is True
+        if stage == "shadow" and result_affecting:
+            raise ValueError("sira_shadow_result_affecting_forbidden")
+        if stage == "shadow":
+            rollout_mode = SiraMode.SHADOW
+        elif stage in {"canary", "preferred"} and result_affecting:
+            rollout_mode = SiraMode.PREFERRED
+        elif stage in {"off", "canary"} and not result_affecting:
+            rollout_mode = SiraMode.OFF
+        else:
+            raise ValueError("sira_rollout_decision_invalid")
         result = self._sira.retrieve(
             query=query,
             top_k=top_k,
@@ -56,6 +72,7 @@ class SiraFtsChannelProvider:
             ),
             expansion_cached=bool(retrieval_profile.get("expansion_cached", False)),
             model_budget_available=bool(retrieval_profile.get("model_budget_available", True)),
+            rollout_mode=rollout_mode,
         )
         self._last_trace = dict(result.get("trace") or {})
         selected: list[dict[str, Any]] = []

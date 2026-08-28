@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import statistics
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
@@ -37,6 +38,7 @@ def evaluate(
     baseline: Mapping[str, Any],
     candidate: Mapping[str, Any],
     top_k: int = 10,
+    policy: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     golden_binding = dict(golden.get("binding") or {})
     if dict(baseline.get("binding") or {}) != golden_binding or dict(candidate.get("binding") or {}) != golden_binding:
@@ -68,6 +70,13 @@ def evaluate(
             {
                 "query_id": query_id,
                 "query_class": str(scenario.get("query_class") or "unknown"),
+                "repository_id": str(
+                    scenario.get("repository_id")
+                    or golden_binding.get("repository_id")
+                    or golden_binding.get("repository_revision")
+                    or "unknown"
+                ),
+                "language": str(scenario.get("language") or "unknown"),
                 "verification_status": verification,
                 "baseline": base,
                 "candidate": sira,
@@ -85,18 +94,72 @@ def evaluate(
     }
     for values in aggregate.values():
         values["delta"] = values["candidate"] - values["baseline"]
-    return {
+    for key, values in aggregate.items():
+        values["delta_ci95"] = _mean_ci95([float(row["delta"][key]) for row in verified])
+    query_classes = _groups(verified, key="query_class", metric_keys=keys)
+    repositories = _groups(verified, key="repository_id", metric_keys=keys)
+    report = {
         "schema": "codecompass.sira-evaluation.v1",
         "binding": golden_binding,
         "top_k": top_k,
         "verified_query_count": len(verified),
         "unverified_query_count": len(rows) - len(verified),
         "aggregate": aggregate,
+        "query_classes": query_classes,
+        "repositories": repositories,
         "queries": rows,
         "efficiency": {
             "baseline": dict(baseline.get("efficiency") or {}),
             "candidate": dict(candidate.get("efficiency") or {}),
         },
+    }
+    if policy is None:
+        report["activation_gate"] = {
+            "passed": False,
+            "policy_sha256": "",
+            "reason_codes": ["sira_evaluation_policy_missing"],
+        }
+    else:
+        from agent.services.codecompass_sira_evaluation_gate import CodeCompassSiraEvaluationGate
+
+        report["activation_gate"] = CodeCompassSiraEvaluationGate().assess(report, policy).to_dict()
+    return report
+
+
+def _groups(
+    rows: Sequence[Mapping[str, Any]],
+    *,
+    key: str,
+    metric_keys: Sequence[str],
+) -> dict[str, Any]:
+    grouped: dict[str, list[Mapping[str, Any]]] = {}
+    for row in rows:
+        grouped.setdefault(str(row.get(key) or "unknown"), []).append(row)
+    result: dict[str, Any] = {}
+    for group_id, members in sorted(grouped.items()):
+        values: dict[str, Any] = {"verified_query_count": len(members)}
+        for metric in metric_keys:
+            baseline = statistics.fmean(float(item["baseline"][metric]) for item in members)
+            candidate = statistics.fmean(float(item["candidate"][metric]) for item in members)
+            values[metric] = {
+                "baseline": baseline,
+                "candidate": candidate,
+                "delta": candidate - baseline,
+                "delta_ci95": _mean_ci95([float(item["delta"][metric]) for item in members]),
+            }
+        result[group_id] = values
+    return result
+
+
+def _mean_ci95(values: Sequence[float]) -> dict[str, Any]:
+    if not values:
+        return {"lower": -1.0, "upper": 1.0, "method": "normal_paired_delta"}
+    mean = statistics.fmean(values)
+    margin = 0.0 if len(values) == 1 else 1.96 * statistics.stdev(values) / math.sqrt(len(values))
+    return {
+        "lower": max(-1.0, mean - margin),
+        "upper": min(1.0, mean + margin),
+        "method": "normal_paired_delta",
     }
 
 
@@ -106,12 +169,17 @@ def main() -> int:
     parser.add_argument("--baseline", required=True)
     parser.add_argument("--candidate", required=True)
     parser.add_argument("--top-k", type=int, default=10)
+    parser.add_argument(
+        "--policy",
+        default="config/retrieval/codecompass-sira-evaluation-policy.v1.json",
+    )
     args = parser.parse_args()
     payload = evaluate(
         golden=json.loads(Path(args.golden).read_text(encoding="utf-8")),
         baseline=json.loads(Path(args.baseline).read_text(encoding="utf-8")),
         candidate=json.loads(Path(args.candidate).read_text(encoding="utf-8")),
         top_k=max(1, int(args.top_k)),
+        policy=json.loads(Path(args.policy).read_text(encoding="utf-8")),
     )
     print(json.dumps(payload, sort_keys=True, ensure_ascii=True, indent=2))
     return 0

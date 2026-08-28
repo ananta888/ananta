@@ -25,6 +25,7 @@ class Catalog:
 def _settings(**overrides):
     values = {
         "codecompass_sira_mode": "preferred",
+        "codecompass_sira_online_expansion_enabled": True,
         "codecompass_sira_enrichment_model": "",
         "codecompass_sira_query_model": "query-model",
         "codecompass_sira_rerank_model": "",
@@ -51,4 +52,12 @@ def test_off_mode_needs_no_model_catalog():
     resolved = CodeCompassSiraConfigService().resolve(
         settings=_settings(codecompass_sira_mode="off", codecompass_sira_query_model="")
     )
+    assert resolved["mode"] == "off"
+
+
+def test_online_kill_switch_forces_off_without_needing_model_catalog():
+    resolved = CodeCompassSiraConfigService().resolve(
+        settings=_settings(codecompass_sira_online_expansion_enabled=False)
+    )
+
     assert resolved["mode"] == "off"

@@ -593,6 +593,14 @@ class Settings(BaseSettings):
     )
     codecompass_fts_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_FTS_ENABLED")
     codecompass_sira_mode: str = Field(default="off", validation_alias="CODECOMPASS_SIRA_MODE")
+    codecompass_sira_online_expansion_enabled: bool = Field(
+        default=True,
+        validation_alias="CODECOMPASS_SIRA_ONLINE_EXPANSION_ENABLED",
+    )
+    codecompass_sira_offline_enrichment_enabled: bool = Field(
+        default=True,
+        validation_alias="CODECOMPASS_SIRA_OFFLINE_ENRICHMENT_ENABLED",
+    )
     codecompass_sira_enrichment_model: str = Field(
         default="",
         validation_alias="CODECOMPASS_SIRA_ENRICHMENT_MODEL",
@@ -614,6 +622,10 @@ class Settings(BaseSettings):
     codecompass_sira_layer_root: str = Field(
         default="",
         validation_alias="CODECOMPASS_SIRA_LAYER_ROOT",
+    )
+    codecompass_sira_rollout_state: str = Field(
+        default="data/sira-rollout.sqlite3",
+        validation_alias="CODECOMPASS_SIRA_ROLLOUT_STATE",
     )
     knowledge_experts_enabled: bool = Field(
         default=False,

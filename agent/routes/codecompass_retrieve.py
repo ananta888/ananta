@@ -101,10 +101,21 @@ def codecompass_sira_status():
     from agent.config import settings
     from agent.services.codecompass_sira_status_service import CodeCompassSiraStatusService
 
+    principal = getattr(g, "source_control_principal", None)
+    rollout_scope_id = ":".join(
+        value
+        for value in (
+            str(getattr(principal, "tenant_id", "") or "").strip(),
+            str(getattr(principal, "project_id", "") or "").strip(),
+        )
+        if value
+    )
     result = CodeCompassSiraStatusService().build(
         settings=settings,
         model_catalog=current_app.extensions.get("codecompass_sira_model_catalog"),
         worker_status=current_app.extensions.get("codecompass_sira_worker_status"),
+        rollout_status=current_app.extensions.get("codecompass_sira_rollout_service"),
+        rollout_scope_id=rollout_scope_id or None,
     )
     return api_response(result)
 
@@ -112,6 +123,16 @@ def codecompass_sira_status():
 @codecompass_retrieve_bp.route("/api/codecompass/sira/operations", methods=["POST"])
 def create_codecompass_sira_operation():
     """Queue one fully automated operation; no approval workflow is involved."""
+
+    from agent.config import settings
+
+    if not settings.codecompass_sira_offline_enrichment_enabled:
+        return api_response(
+            status="error",
+            message="sira_offline_enrichment_disabled",
+            data={"reason_code": "sira_offline_enrichment_disabled"},
+            code=409,
+        )
 
     authorization_error = authorize_route_request(
         action=SourceControlAction.index,

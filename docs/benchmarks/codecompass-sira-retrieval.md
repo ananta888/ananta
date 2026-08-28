@@ -25,13 +25,23 @@ Run candidate comparisons with:
 python3 scripts/evaluate_sira_retrieval.py \
   --golden tests/fixtures/retrieval/sira_golden_queries.json \
   --baseline benchmarks/retrieval/sira_baseline.json \
-  --candidate <bound-candidate.json>
+  --candidate <bound-candidate.json> \
+  --policy config/retrieval/codecompass-sira-evaluation-policy.v1.json
 ```
 
 The evaluator rejects binding mismatch and reports Recall@k, nDCG@k, MRR and
-evidence coverage per verified query and in aggregate. Unverified labels produce
-no quality metric. Candidate files should additionally report p50/p95/p99,
-lexical/model calls, tokens, cost, cache hit rate, index size and update time.
+evidence coverage per verified query, query class, repository and aggregate,
+including paired-delta 95-percent uncertainty intervals. Unverified labels
+produce no quality metric. The closed policy additionally requires exact
+repository/model/prompt/index bindings, minimum repository/query coverage,
+protected-class non-regression and numeric latency, token, cost, index-size and
+update-time budgets. Missing or nonnumeric measurements fail the activation
+gate; efficiency values are never silently assumed.
+
+The repository fixture intentionally fails the production activation gate: it
+has only one tiny corpus, lacks real model/prompt/index binding digests and has
+no environment measurements. It remains useful for deterministic contract
+regression but cannot activate SIRA.
 
 Production activation requires a separately captured, repository-, model-,
 prompt- and index-bound benchmark across Python, TypeScript/JavaScript, Java and

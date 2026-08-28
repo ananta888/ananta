@@ -18,7 +18,11 @@ class CodeCompassSiraConfigService:
         config = SiraConfig.from_mapping(
             {
                 "schema": "codecompass.sira-config.v1",
-                "mode": str(getattr(settings, "codecompass_sira_mode", "off") or "off"),
+                "mode": (
+                    str(getattr(settings, "codecompass_sira_mode", "off") or "off")
+                    if bool(getattr(settings, "codecompass_sira_online_expansion_enabled", True))
+                    else "off"
+                ),
                 "enrichment_model": str(getattr(settings, "codecompass_sira_enrichment_model", "") or ""),
                 "query_model": str(getattr(settings, "codecompass_sira_query_model", "") or ""),
                 "rerank_model": str(getattr(settings, "codecompass_sira_rerank_model", "") or ""),

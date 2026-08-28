@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
-from worker.retrieval.sira.config import SiraConfig
+from worker.retrieval.sira.config import SiraConfig, SiraMode
 from worker.retrieval.sira.contracts import CorpusBinding, PointwiseRerankerPort
 from worker.retrieval.sira.hybrid_adapter import SiraHybridAdapter
 from worker.retrieval.sira.query_expander import QueryExpander
@@ -51,6 +51,7 @@ class SiraRetrievalService:
         query: str,
         top_k: int,
         corpus_ready: bool,
+        rollout_mode: SiraMode | None = None,
         baseline_margin: float | None = None,
         expansion_cached: bool = False,
         model_budget_available: bool = True,
@@ -58,6 +59,7 @@ class SiraRetrievalService:
         decision = self._router.decide(
             query=query,
             corpus_ready=corpus_ready,
+            mode=rollout_mode,
             baseline_margin=baseline_margin,
             expansion_cached=expansion_cached,
             model_budget_available=model_budget_available,
@@ -117,7 +119,7 @@ class SiraRetrievalService:
                 return {
                     "schema": "codecompass.sira-selection.v1",
                     "profile": "corpus_discriminative_lexical",
-                    "mode": self._config.mode.value,
+                    "mode": str(decision.features.get("mode") or self._config.mode.value),
                     "selected_candidates": baseline,
                     "shadow_candidates": adapted,
                     "trace": {**trace, "lexical_retrieval_calls": 2, "shadow_non_effecting": True},
@@ -125,7 +127,7 @@ class SiraRetrievalService:
             return {
                 "schema": "codecompass.sira-selection.v1",
                 "profile": "corpus_discriminative_lexical",
-                "mode": self._config.mode.value,
+                "mode": str(decision.features.get("mode") or self._config.mode.value),
                 "selected_candidates": adapted,
                 "shadow_candidates": [],
                 "trace": trace,
@@ -156,7 +158,7 @@ class SiraRetrievalService:
         return {
             "schema": "codecompass.sira-selection.v1",
             "profile": "corpus_discriminative_lexical",
-            "mode": self._config.mode.value,
+            "mode": str((decision.get("features") or {}).get("mode") or self._config.mode.value),
             "selected_candidates": [dict(item) for item in candidates],
             "shadow_candidates": [],
             "trace": {

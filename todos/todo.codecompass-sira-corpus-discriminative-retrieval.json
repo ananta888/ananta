@@ -51,9 +51,9 @@
     "current_state": [
       "CodeCompass besitzt weiterhin BM25/FTS5, Exact-/Symbol-, Graph- und Vektorsignale, universelle Fusion, Policy-Filter, Budgets und Traces; SIRA erweitert ausschließlich den vorhandenen codecompass_fts-Kanal.",
       "Das optionale SIRA-Profil implementiert versioniertes Offline-Enrichment, corpus-gebundene Termstatistik, sichere Query-Expansion, genau eine gewichtete lexikalische Abfrage, adaptives Routing und budgetiertes Pointwise-Reranking.",
-      "Konfiguration, Status-API, Angular-Betriebsansicht, atomare Indexartefakte, CLI-Lifecycle, Fallbacks und grundlegende Kill-Switches sind im Repository vorhanden und automatisiert getestet; der aktuelle Evaluator berichtet Metriken, erzwingt aber noch keine Release-Gates.",
+      "Konfiguration, Status-API, Angular-Betriebsansicht, atomare Indexartefakte, CLI-Lifecycle, Fallbacks, getrennte Kill-Switches und geschlossene Release-Gates sind im Repository vorhanden und automatisiert getestet.",
       "Der produktive Synchronisierungs-/Kompaktierungspfad ist Hub-gesteuert, idempotent, scope-gebunden und ohne Human-in-the-Loop über API, zentrale Taskqueue und einen Worker-lokalen Handler verfügbar.",
-      "Offen sind sowohl repository-lokal umsetzbare Benchmark-Gates, Unsicherheits-/Budgetauswertung und Hub-eigene Canary-Automatisierung als auch reale Multi-Repository-, Modell-, Latenz-, Kosten- und Canary-Nachweise; externe Ergebnisse werden nicht aus synthetischen Fixtures abgeleitet.",
+      "Die repository-lokal umsetzbaren Benchmark-, Unsicherheits-, Budget- und Hub-Canary-Bausteine sind implementiert. Offen bleiben reale Multi-Repository-, Modell-, Latenz-, Kosten- und Canary-Nachweise; externe Ergebnisse werden nicht aus synthetischen Fixtures abgeleitet.",
       "Die offizielle Referenz setzt Python >=3.12, CUDA/H100-nahe Ausfuehrung und stark gepinnte aktuelle ML-Abhaengigkeiten voraus; Ananta adaptiert daher den Ansatz provider- und hardwareunabhaengig statt das Repository direkt einzubetten."
     ],
     "design_conclusion": "SIRA wird als optionales, versioniertes Retrieval-Profil hinter vorhandenen Ports implementiert. Offline erzeugte Begriffe bleiben von Quelltext getrennt, werden inkrementell gepflegt und an Snapshot, Prompt und Modell gebunden. Online erzeugte Query-Begriffe werden gegen scope-gebundene Corpus-Statistiken validiert und zu genau einer gewichteten BM25/FTS-Abfrage kompiliert. Exact-, Symbol-, Graph-, Vektor-, Security-, Ranking- und Budgetpfade werden wiederverwendet; sichere Baseline-Fallbacks bleiben jederzeit verfügbar.",
@@ -981,7 +981,7 @@
       "type": "evaluation",
       "milestone_id": "M6",
       "risk": "critical",
-      "progress_percent": 60.0,
+      "progress_percent": 90.0,
       "implementation": [
         "Gegen Original-BM25/FTS, vorhandenes Hybrid-Retrieval, Dense-only, Query-Normalisierung und mehrstufiges Agent-Retrieval vergleichen.",
         "Ablationen für Corpus-Enrichment, Query-Expansion, DF-Filter, Gewichtung, Reranker und adaptives Routing ausführen.",
@@ -999,11 +999,11 @@
       ],
       "evidence": [
         "The bound seven-class fixture and evaluator cover Recall@10, nDCG@10, MRR, evidence coverage, exact/no-result/adversarial non-regression and binding mismatch; all automated SIRA and relevant security tests pass.",
-        "The deterministic fixture improves all four aggregate metrics by 0.428571 and makes no production claim. The evaluator currently passes efficiency fields through without validation and has no threshold policy, per-class/repository gates, uncertainty calculation or Pareto decision.",
+        "The deterministic fixture improves all four aggregate metrics by 0.428571 and makes no production claim. The evaluator now computes paired-delta 95-percent intervals and per-class/per-repository metrics; the server-owned closed policy gates complete bindings, minimum coverage, aggregate and protected-class non-regression plus numeric efficiency budgets.",
+        "The rollout controller independently reassesses the full report and policy instead of trusting a caller-supplied pass flag, so benchmark admission fails closed.",
         "Multi-repository Python/TypeScript/Java, real-model ablations, latency, token, cost and update-time measurements remain unverified deployment evidence."
       ],
       "remaining_work": [
-        "Implement a closed benchmark policy contract with aggregate and protected-class non-regression thresholds, bound efficiency budgets, uncertainty reporting and a fail-closed activation decision.",
         "Keep real multi-repository/model results unverified until corresponding evidence is actually supplied."
       ]
     },
@@ -1024,7 +1024,7 @@
       "type": "rollout",
       "milestone_id": "M6",
       "risk": "critical",
-      "progress_percent": 55.0,
+      "progress_percent": 95.0,
       "implementation": [
         "Zunächst off, danach shadow ohne Ergebniswirkung, anschließend kleiner canary und erst nach Gates preferred aktivieren.",
         "Shadow-Ergebnisse, Kosten und Latenz gegen aktive Pipeline vergleichen, ohne doppelte sensible Telemetrie zu speichern.",
@@ -1040,11 +1040,12 @@
       ],
       "evidence": [
         "Default-off, shadow non-effecting selection, per-reranker kill switch, circuit breaker, binding rejection and baseline rollback paths are implemented and tested; docs/release/codecompass-sira-rollout.md defines gates and stop conditions.",
-        "The current configuration has no persisted Hub rollout state, deterministic canary assignment, observation accumulator, automatic stop decision or atomic mode rollback.",
+        "The Hub now owns a SQLite-persisted off/shadow/canary/preferred state machine, deterministic canary assignment, idempotent observation accumulation, automatic promotion and immediate fail-closed rollback conditions.",
+        "The Hub-generated typed retrieval profile is required by the Worker SIRA channel. Shadow remains baseline-authoritative, static off remains a final Worker kill switch, and online expansion, offline enrichment and reranking have independent switches.",
+        "Automated rollback tests cover incompatible enrichment/index state, model outage, partial delta and security regression without any human approval or interaction.",
         "A real canary observation window and a deployed rollback exercise cannot be truthfully claimed from the repository-only run and remain release evidence."
       ],
       "remaining_work": [
-        "Implement a Hub-owned persistent rollout controller for off, shadow, canary and preferred with benchmark admission, deterministic bounded canary selection, automatic stop conditions and idempotent rollback.",
         "Keep deployed observation-window evidence unverified until a real run is supplied."
       ]
     },
@@ -1092,7 +1093,7 @@
     "Large regression evidence: 420 Python tests passed and 29 were skipped; 3371 Angular tests passed and one was skipped; Angular production build and lint completed with 88 pre-existing warnings and zero errors.",
     "The deterministic seven-query fixture reports +0.428571 for Recall@10, nDCG@10, MRR and evidence coverage; this is not a production-repository or latency claim.",
     "The final targeted SIRA and adjacent queue, authorization, configuration and Worker-registration regression block passed 146 tests in 84.36 seconds.",
-    "The Hub-queued SIRA synchronization and compaction path is implemented and covered by targeted contract, security, runtime and task-ingress tests; the refreshed audit also identifies missing fail-closed benchmark gates and a missing Hub canary controller as repository work.",
+    "The closed benchmark policy, uncertainty and efficiency gates plus the persistent Hub-owned rollout controller are implemented; the final SIRA, feature-flag and startup regression block passed 75 tests in 46.87 seconds.",
     "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced."
   ],
   "audit_findings": {
@@ -1100,7 +1101,7 @@
     "scope": "22 Aufgaben bleiben erhalten; Reihenfolge und Abhaengigkeiten wurden nicht erweitert.",
     "upstream": "SIRA ist eine kleine Forschungsreferenz mit MIT-Hauptlizenz und Apache-2.0-abgeleitetem bm25x-Unterbaum; direkte Runtime-Uebernahme ist wegen Python-/CUDA-/Dependency-Annahmen nicht vorgesehen.",
     "solid": "Narrow Worker ports and the runtime-neutral ananta_contracts configuration preserve SRP, OCP and DIP; the Hub imports no Worker implementation, and SIRA remains the existing codecompass_fts channel.",
-    "implementation": "20 tasks are repository-complete. SIRA-020 and SIRA-021 retain repository implementation gaps plus separately unverified production evidence."
+    "implementation": "All repository implementation gaps for SIRA-020 and SIRA-021 are closed. Both remain partial only because real multi-repository/model and deployed canary evidence has not been supplied and cannot be inferred from fixtures."
   },
   "tasks_status_summary": {
     "total": 22,
@@ -1179,7 +1180,7 @@
         "done": 1,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 80.0
+        "progress_percent": 95.0
       },
       "architecture": {
         "total": 4,
@@ -1277,7 +1278,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 55.0
+        "progress_percent": 95.0
       },
       "documentation": {
         "total": 1,
@@ -1298,10 +1299,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 38.5,
-    "done_weight": 37.225,
-    "remaining_weight": 1.275,
+    "done_weight": 38.275,
+    "remaining_weight": 0.225,
     "blocked_weight": 0.0,
-    "weighted_percent": 96.7
+    "weighted_percent": 99.4
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1358,7 +1359,7 @@
         "done": 1,
         "blocked": 0,
         "count_based_percent": 33.3,
-        "weighted_percent": 74.5,
+        "weighted_percent": 95.5,
         "status": "in_progress"
       }
     }
@@ -1371,15 +1372,15 @@
     "blocked": 0,
     "done": 20,
     "count_based_percent": 90.9,
-    "weighted_percent": 96.7
+    "weighted_percent": 99.4
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T17:32:36.233729Z",
+    "generated_at": "2026-08-28T17:50:28.443795Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "f118e533c889378b03263c2089fcbf143f09aab2a410f9ec4674ab1dc26dc889",
+    "source_hash": "a4752a485122e93828f372f0176f0a2b10be1788c1119e055791aa1060f6634b",
     "is_stale": false
   }
 }
