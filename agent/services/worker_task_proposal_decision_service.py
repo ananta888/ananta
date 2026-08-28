@@ -13,7 +13,7 @@ from agent.db_models import (
     TaskDB,
     WorkerTaskProposalDB,
 )
-from agent.routes.tasks.dependency_policy import validate_dependency_graph
+from agent.services.task_dependency_policy import validate_dependency_graph
 from agent.services.approval_request_service import (
     ApprovalRequestService,
     canonical_approval_intent_key,

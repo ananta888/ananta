@@ -10,7 +10,7 @@ from agent.common.audit import log_audit
 from agent.common.governance_codes import GovernanceReasonCode
 from agent.metrics import TASK_RECEIVED
 from agent.research_backend import resolve_research_backend_config
-from agent.routes.tasks.dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
+from agent.services.task_dependency_policy import followup_exists, normalize_depends_on, validate_dependencies_and_cycles
 from agent.routes.tasks.orchestration_policy import (
     derive_required_capabilities,
     enforce_assignment_policy,

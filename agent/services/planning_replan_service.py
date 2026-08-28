@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from agent.db_models import PlanningArtifactRevisionDB, PlanningLineageDB, TaskDB
-from agent.routes.tasks.dependency_policy import validate_dependency_graph
+from agent.services.task_dependency_policy import validate_dependency_graph
 from agent.services.planning_artifact_transition_service import (
     PlanningOperationContext,
     PlanningTransitionError,

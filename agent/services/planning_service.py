@@ -12,7 +12,7 @@ from typing import Any, Optional
 from flask import current_app, g
 
 from agent.db_models import PlanDB, PlanNodeDB
-from agent.routes.tasks.dependency_policy import normalize_depends_on, validate_dependency_graph
+from agent.services.task_dependency_policy import normalize_depends_on, validate_dependency_graph
 from agent.services.lifecycle_service import get_task_lifecycle_service
 from agent.services.planning_feature_flags import (
     get_goal_feature_flags,
