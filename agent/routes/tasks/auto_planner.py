@@ -8,6 +8,7 @@ Dieses Modul ermoeglicht:
 """
 
 import json
+import logging
 import os
 import threading
 import time
@@ -24,13 +25,7 @@ from agent.db_models import ConfigDB
 from agent.llm_integration import generate_text, probe_lmstudio_runtime, probe_ollama_runtime
 from agent.models import AutoPlannerAnalyzeRequest, AutoPlannerConfigureRequest, AutoPlannerPlanRequest
 from agent.services.goal_planning_recovery_service import register_recovery_planner_callback
-from agent.services.recovery_task_mutation_policy import (
-    recovery_task_role,
-)
-from agent.services.repository_registry import get_repository_registry
-from agent.services.service_registry import get_core_services
 from agent.services.planning_service import get_planning_service as get_fallback_planning_service
-from agent.services.task_state_machine_service import can_autopilot_dispatch
 from agent.services.planning_utils import (
     build_planning_prompt,
     extract_json_payload,
@@ -42,8 +37,15 @@ from agent.services.planning_utils import (
     try_load_repo_context,
     validate_goal,
 )
+from agent.services.recovery_task_mutation_policy import (
+    recovery_task_role,
+)
+from agent.services.repository_registry import get_repository_registry
+from agent.services.service_registry import get_core_services
+from agent.services.task_state_machine_service import can_autopilot_dispatch
 
 auto_planner_bp = Blueprint("tasks_auto_planner", __name__)
+log = logging.getLogger(__name__)
 
 
 def _repos():
@@ -61,7 +63,16 @@ def get_planning_service():
 
 
 def _log():
-    return get_core_services().log_service.bind(__name__)
+    # Blueprint registration happens before the app-bound core-service
+    # registry exists.  Startup recovery failures must still be observable,
+    # but must not turn a recoverable persistence problem into an application
+    # context failure.
+    if not has_app_context():
+        return log
+    try:
+        return get_core_services().log_service.bind(__name__)
+    except RuntimeError:
+        return log
 
 AUTO_PLANNER_STATE_KEY = "auto_planner_state"
 

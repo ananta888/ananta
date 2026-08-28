@@ -17,9 +17,28 @@ from agent.routes.tasks.auto_planner import (
     _parse_followup_analysis,
     _parse_subtasks_from_llm_response,
 )
-from agent.services.planning_utils import match_goal_template
-from agent.services.planning_service import get_planning_service
 from agent.routes.tasks.triggers import TriggerEngine
+from agent.services.planning_service import get_planning_service
+from agent.services.planning_utils import match_goal_template
+
+
+def test_init_auto_planner_logs_restore_failure_without_application_context(monkeypatch):
+    import agent.routes.tasks.auto_planner as auto_planner_module
+
+    fallback_logger = MagicMock()
+    monkeypatch.setattr(auto_planner_module, "log", fallback_logger)
+    monkeypatch.setattr(
+        auto_planner_module.auto_planner,
+        "restore",
+        MagicMock(side_effect=RuntimeError("missing bootstrap table")),
+    )
+
+    auto_planner_module.init_auto_planner()
+
+    fallback_logger.warning.assert_called_once()
+    message, error = fallback_logger.warning.call_args.args
+    assert message == "Auto planner restore failed: %s"
+    assert str(error) == "missing bootstrap table"
 
 
 class TestAutoPlannerParsing:
