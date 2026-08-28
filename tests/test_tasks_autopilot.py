@@ -5,15 +5,14 @@ from pathlib import Path
 import pytest
 
 from agent.config import settings
-from agent.db_models import AgentInfoDB, GoalDB, TaskDB
-from agent.repository import agent_repo, goal_repo, task_repo
+from agent.db_models import AgentInfoDB, GoalDB, TaskDB, TeamDB
+from agent.repository import agent_repo, goal_repo, task_repo, team_repo
 from agent.routes.tasks.auto_planner import auto_planner
+from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.autopilot_tick_engine import (
     _effective_agent_cfg_for_task,
     _resolve_autonomous_repair_budget,
-    _should_terminalize_no_executable_strategy,
 )
-from agent.routes.tasks.autopilot import autonomous_loop
 from agent.routes.tasks.quality_gates import evaluate_quality_gates
 from agent.routes.tasks.utils import _update_local_task_status
 
@@ -33,6 +32,27 @@ def _disable_followup_side_effects():
     finally:
         auto_planner.auto_followup_enabled = previous_followups
         auto_planner.auto_start_autopilot = previous_autostart
+
+
+@pytest.fixture(autouse=True)
+def _seed_autopilot_team_targets(app):
+    autonomous_loop.stop(persist=False)
+    autonomous_loop.goal = ""
+    autonomous_loop.team_id = ""
+    for team_id in ("cb-team", "team-a", "team-b"):
+        team_repo.save(
+            TeamDB(
+                id=team_id,
+                name=f"Autopilot fixture {team_id}",
+                is_active=False,
+            )
+        )
+    try:
+        yield
+    finally:
+        autonomous_loop.stop(persist=False)
+        autonomous_loop.goal = ""
+        autonomous_loop.team_id = ""
 
 
 def test_autopilot_start_status_stop(client, app, monkeypatch):
@@ -118,7 +138,15 @@ def test_autopilot_repair_budget_reads_propose_policy_fields():
 def test_parallel_autopilot_ticks_do_not_duplicate_dispatch(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     task_repo.save(TaskDB(id="tick-race-1", title="Tick Race Task", status="todo"))
-    agent_repo.save(AgentInfoDB(url="http://worker-race:5001", name="worker-race", role="worker", token="tok", status="online"))
+    agent_repo.save(
+        AgentInfoDB(
+            url="http://worker-race:5001",
+            name="worker-race",
+            role="worker",
+            token="tok",
+            status="online",
+        )
+    )
 
     responses = [
         {"status": "success", "data": {"reason": "run", "command": "echo ok"}},
@@ -149,11 +177,21 @@ def test_autopilot_tick_without_workers_marks_reason(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
     headers = _auth_headers(app)
-    task_repo.save(TaskDB(id="auto-1", title="Autopilot Candidate", status="todo"))
+    autonomous_loop.stop(persist=False)
+    autonomous_loop.goal = ""
+    autonomous_loop.team_id = "cb-team"
+    task_repo.save(
+        TaskDB(
+            id="auto-1",
+            title="Autopilot Candidate",
+            status="todo",
+            team_id="cb-team",
+        )
+    )
 
     res = client.post("/tasks/autopilot/tick", headers=headers)
     assert res.status_code == 200
-    assert res.json["data"]["reason"] == "no_available_workers"
+    assert res.json["data"]["reason"] == "no_available_workers", res.json
     assert res.json["data"]["dispatched"] == 0
 
 
@@ -345,6 +383,8 @@ def test_autopilot_retries_transient_worker_failure(app, monkeypatch):
 
 def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
+    monkeypatch.setattr(settings, "hub_can_be_worker", False)
+    monkeypatch.setattr(settings, "hub_url", "")
     app.config["AGENT_CONFIG"] = {
         **(app.config.get("AGENT_CONFIG") or {}),
         "autonomous_resilience": {
@@ -360,6 +400,10 @@ def test_autopilot_opens_circuit_breaker_after_threshold(app, monkeypatch):
     autonomous_loop.team_id = "cb-team"
     task_repo.save(TaskDB(id="cb-1", title="CB Task 1", status="todo", team_id="cb-team"))
     task_repo.save(TaskDB(id="cb-2", title="CB Task 2", status="todo", team_id="cb-team"))
+    for existing_worker in agent_repo.get_all():
+        existing_worker.status = "offline"
+        existing_worker.last_seen = 0
+        agent_repo.save(existing_worker)
     agent_repo.save(
         AgentInfoDB(url="http://worker-cb:5001", name="worker-cb", role="worker", token="tok", status="online")
     )
@@ -411,11 +455,18 @@ def test_autopilot_records_hub_fallback_and_workspace_lifecycle(app, monkeypatch
         res = autonomous_loop.tick_once()
 
     updated = task_repo.get_by_id("hub-fallback-1")
-    assert res["dispatched"] == 1
+    local_worker = agent_repo.get_by_url("http://localhost:5000")
+    assert res["dispatched"] == 1, res
     assert updated is not None
+    assert local_worker is not None
+    assert local_worker.registration_provenance == "hub_worker_fallback"
     assert any((entry.get("event_type") == "hub_worker_fallback") for entry in (updated.history or []))
     assert any((entry.get("event_type") == "execution_scope_allocated") for entry in (updated.history or []))
-    assert any((entry.get("event_type") == "workspace_released" and entry.get("cleanup_state") == "completed") for entry in (updated.history or []))
+    assert any(
+        entry.get("event_type") == "workspace_released"
+        and entry.get("cleanup_state") == "completed"
+        for entry in (updated.history or [])
+    )
     scope = dict(updated.verification_status or {}).get("execution_scope") or {}
     provenance = dict(updated.verification_status or {}).get("execution_provenance") or {}
     assert scope.get("workspace_id") == "ws-hub-fallback-1"
@@ -437,7 +488,14 @@ def test_autopilot_blocks_hub_fallback_when_policy_disallows_it(app, monkeypatch
             "fallback_block_status": "blocked",
         },
     }
-    task_repo.save(TaskDB(id="hub-fallback-blocked-1", title="Hub Fallback Blocked Task", status="todo", priority="High"))
+    task_repo.save(
+        TaskDB(
+            id="hub-fallback-blocked-1",
+            title="Hub Fallback Blocked Task",
+            status="todo",
+            priority="High",
+        )
+    )
 
     def _should_not_forward(*args, **kwargs):
         raise AssertionError("forward_to_worker should not be called when fallback is blocked")
@@ -674,6 +732,14 @@ def test_autopilot_circuit_reset_endpoint(client, app, monkeypatch):
     monkeypatch.setattr(settings, "role", "hub")
     app.config["AGENT_TOKEN"] = "secret-token"
     headers = _auth_headers(app)
+    agent_repo.save(
+        AgentInfoDB(
+            url="http://worker-rs:5001",
+            name="worker-rs",
+            role="worker",
+            status="online",
+        )
+    )
     task_repo.save(
         TaskDB(id="cb-reset-1", title="CB Reset Task", status="assigned", assigned_agent_url="http://worker-rs:5001")
     )

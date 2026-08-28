@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from agent.config import settings
-from agent.db_models import ConfigDB
+from agent.db_models import AgentInfoDB, ConfigDB
 from agent.services.knowledge_index_task_ingress_policy import (
     has_bound_knowledge_index_job,
 )
@@ -67,7 +67,12 @@ class AutopilotSupportService:
     ) -> tuple[list[Any], int]:
         repos = get_repository_registry(app)
         now = time.time()
-        grace_seconds = max(10, int((((app_config or {}).get("AGENT_CONFIG") or {}).get("autopilot_worker_policy", {}) or {}).get("worker_restart_grace_seconds", 120) or 120))
+        agent_config = (app_config or {}).get("AGENT_CONFIG") or {}
+        worker_policy = agent_config.get("autopilot_worker_policy", {}) or {}
+        grace_seconds = max(
+            10,
+            int(worker_policy.get("worker_restart_grace_seconds", 120) or 120),
+        )
         all_workers = [a for a in repos.agent_repo.get_all() if (a.role or "").lower() == "worker"]
         workers_online_count = len([w for w in all_workers if w.status == "online"])
         workers = [
@@ -87,10 +92,24 @@ class AutopilotSupportService:
             my_url = (settings.agent_url or f"http://localhost:{settings.port}").rstrip("/")
             has_local = any((getattr(w, "url", "") or "").rstrip("/") == my_url for w in workers)
             if not has_local:
+                local_record = repos.agent_repo.get_by_url(my_url)
+                if local_record is None:
+                    local_record = repos.agent_repo.save(
+                        AgentInfoDB(
+                            url=my_url,
+                            name=str(settings.agent_name or "hub-as-worker"),
+                            role="worker",
+                            token=app_config.get("AGENT_TOKEN"),
+                            status="online",
+                            registration_validated=True,
+                            registration_provenance="hub_worker_fallback",
+                            last_seen=now,
+                        )
+                    )
                 workers.append(
                     SimpleNamespace(
-                        url=my_url,
-                        token=app_config.get("AGENT_TOKEN"),
+                        url=local_record.url,
+                        token=getattr(local_record, "token", None),
                         status="online",
                         role="worker",
                         team_id=team_id,
