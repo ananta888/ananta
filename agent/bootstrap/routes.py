@@ -39,6 +39,7 @@ from agent.routes.debug.command_guardrails import command_guardrails_bp
 from agent.routes.debug.prompt_render import prompt_render_bp
 from agent.routes.debug.prompt_traces import prompt_traces_bp
 from agent.routes.demo import demo_bp
+from agent.routes.dendritic_memory import dendritic_memory_bp
 from agent.routes.deterministic_run import det_run_bp
 from agent.routes.diff3 import diff3_bp
 from agent.routes.dspy_optimization import dspy_optimization_bp
@@ -132,6 +133,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(dendritic_memory_bp)
     app.register_blueprint(dspy_optimization_bp)
     configure_project_lifecycle(app)
     app.register_blueprint(system_bp, url_prefix="/api/system")

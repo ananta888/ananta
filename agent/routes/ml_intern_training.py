@@ -6,7 +6,7 @@ import re
 import time
 from typing import Any, Mapping
 
-from flask import Blueprint, Response, g, request, stream_with_context
+from flask import Blueprint, Response, current_app, g, request, stream_with_context
 from werkzeug.exceptions import RequestEntityTooLarge
 
 from agent.auth import admin_required, check_auth
@@ -136,6 +136,21 @@ def capabilities():
             executable_operations=(
                 tuple(_unsloth_mutation_executors(services)) if _unsloth_confirmation_secret() is not None else ()
             ),
+        )
+        dendritic = current_app.extensions.get("dendritic_memory_capabilities")
+        result["dendritic_memory_experiment"] = (
+            dendritic.projection()
+            if dendritic is not None
+            else {
+                "schema": "ananta.dendritic-memory-capability.v1",
+                "state": "disabled",
+                "available": False,
+                "reason_code": "dendritic_experiment_not_configured",
+                "experimental": True,
+                "not_production_ready": True,
+                "claims_not_verified": True,
+                "human_intervention_required": False,
+            }
         )
         return api_response(data=result)
     except (RuntimeError, ValueError) as exc:

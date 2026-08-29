@@ -41,6 +41,31 @@
       "docker/"
     ]
   },
+  "implementation_review": {
+    "reviewed_at": "2026-08-29",
+    "state": "implemented_locally_release_blocked",
+    "implemented_boundaries": [
+      "Separate dependency-free v1 job, configuration and Memory Pack contracts plus strict JSON Schemas",
+      "Hub-only default-off policy, capability projection, immutable tenant job revisions, HMAC attempt fencing and automatic cancellation",
+      "HMAC-attested Base-vs-LoRA-vs-dendritic evaluation with parameter matching, multi-seed and leakage gates",
+      "Safetensors-only executable artifact validation, separate experiment registry, composition, revoke and default-off runtime transitions",
+      "Execution-only deterministic mock backend and lazy Torch branch-projection reference module with reversible target injection",
+      "Capability-bound Angular workbench using only Hub APIs and no human confirmation or approval requirement"
+    ],
+    "remaining_local_gaps": [
+      "Production HTTP Worker endpoint, checkpoint/resume and reconciler integration",
+      "Real local-model catalog adapter, end-to-end training loop and parameter-matched LoRA benchmark runs",
+      "Persistent audit/delete/GC, runtime module loader and Hub automation endpoint around the attested activation service",
+      "Full comparison, Pack registry and job-monitor Angular projections plus Playwright flow",
+      "Alembic upgrade/downgrade and real CPU/GPU model integration coverage"
+    ],
+    "release_blockers": [
+      "allowed_source_refs_empty",
+      "allowed_run_refs_empty",
+      "required_security_benchmark_gpu_staging_rollback_revoke_delete_runs_missing"
+    ],
+    "human_intervention_required": false
+  },
   "priority": "P0",
   "status_scale": [
     "todo",
@@ -151,7 +176,7 @@
       "exit_criteria": [
         "Terminologie, ADR und Threat Model akzeptiert"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M1",
@@ -251,15 +276,15 @@
       "exit_criteria": [
         "Runbook, Grenzen und Release-Gate sind vollstaendig"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
     {
       "id": "DEND-001",
       "title": "Experimentgrenze und Terminologie festschreiben",
-      "status": "partial",
-      "progress_percent": 20.0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M0",
@@ -281,8 +306,8 @@
     {
       "id": "DEND-002",
       "title": "ADR fuer additive Backend-Architektur erstellen",
-      "status": "partial",
-      "progress_percent": 10.0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M0",
@@ -306,8 +331,8 @@
     {
       "id": "DEND-003",
       "title": "Threat Model und Missbrauchsgrenzen ergaenzen",
-      "status": "partial",
-      "progress_percent": 15.0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M0",
@@ -332,7 +357,7 @@
       "id": "DEND-010",
       "title": "Training-Contract v3 entwerfen",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 85.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M1",
@@ -359,7 +384,8 @@
     {
       "id": "DEND-011",
       "title": "Experimentkonfiguration typisieren und begrenzen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 85.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M1",
@@ -378,14 +404,13 @@
         "Seed, Precision, Device-Profil und deterministische Modi werden explizit gespeichert.",
         "Ungueltige Kombinationen liefern stabile Reason-Codes statt stiller Defaults."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-012",
       "title": "Capability-Profil fuer experimentelle Backends erweitern",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 85.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M1",
@@ -410,7 +435,7 @@
       "id": "DEND-013",
       "title": "Worker-Contract separat versionieren",
       "status": "partial",
-      "progress_percent": 15.0,
+      "progress_percent": 65.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M1",
@@ -436,7 +461,7 @@
       "id": "DEND-014",
       "title": "Repository- und DB-Projektion additiv erweitern",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 30.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M1",
@@ -463,7 +488,8 @@
     {
       "id": "DEND-020",
       "title": "Experiment-Backend-Port definieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 80.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M2",
@@ -482,13 +508,13 @@
         "Timeout, Cancellation und Checkpointing sind Teil des Ports.",
         "Unit-Tests pruefen, dass unbekannte Backends fail-closed abgelehnt werden."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-021",
       "title": "Dendritisches Modul als austauschbare Torch-Komponente implementieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 80.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M2",
@@ -507,13 +533,13 @@
         "Parameterzahl und trainierbare Parameter werden exakt berichtet.",
         "NaN/Inf, OOM und ungueltige Shapes erzeugen stabile Fehlerkategorien."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-022",
       "title": "Sichere Modell-Injektion und Ziel-Layer-Aufloesung",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 60.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
@@ -533,13 +559,13 @@
         "Originalgewichte bleiben standardmaessig eingefroren und werden nach dem Lauf hashbasiert auf Unveraendertheit geprueft.",
         "Injection und vollstaendiges Unpatching werden in Tests nachgewiesen."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-023",
       "title": "Memory-Pack-Artefaktformat v1 definieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 85.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
@@ -559,14 +585,13 @@
         "Import lehnt fehlende Dateien, Hashabweichungen, unbekannte Architekturversionen und Basismodell-Mismatch ab.",
         "Artefakt kann ohne absolute Serverpfade exportiert und wieder importiert werden."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-024",
       "title": "Mock-Backend fuer vollstaendige Control-Plane-Tests",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 80.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M2",
@@ -591,7 +616,7 @@
       "id": "DEND-025",
       "title": "Cancellation, Checkpoint und Resume absichern",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 55.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
@@ -618,7 +643,7 @@
       "id": "DEND-030",
       "title": "Benchmark-Suite und Baselines definieren",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 70.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M3",
@@ -643,7 +668,8 @@
     {
       "id": "DEND-031",
       "title": "Continual-Learning- und Interferenztests implementieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 45.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M3",
@@ -663,14 +689,13 @@
         "Ein fehlerhaftes Pack darf nicht die uebrige Komposition aktivieren.",
         "Ergebnisse enthalten Konfidenzintervalle oder mehrere Seeds statt nur Bestwerte."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-032",
       "title": "Recall-, Generalisierungs- und Leakage-Pruefung",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 75.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M3",
@@ -695,7 +720,7 @@
       "id": "DEND-033",
       "title": "Compute-, Speicher- und Latenzbudget messen",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 50.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M3",
@@ -720,7 +745,7 @@
       "id": "DEND-034",
       "title": "Reproduzierbarkeit und Ergebnisprovenienz",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 50.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M3",
@@ -745,7 +770,7 @@
       "id": "DEND-040",
       "title": "Experiment-Registry vom produktiven Adapter-Lifecycle trennen",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 80.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
@@ -770,7 +795,8 @@
     {
       "id": "DEND-041",
       "title": "Pack-Komposition als expliziten Hub-Job modellieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 70.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M4",
@@ -790,13 +816,13 @@
         "Ein Parent-Revoke verhindert neue Aktivierungen abgeleiteter Kompositionen.",
         "Kompositionsjob ist idempotent und auditierbar."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-042",
       "title": "Experimentelle Runtime-Aktivierung hinter Feature Flag",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 55.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
@@ -816,14 +842,13 @@
         "Fehler beim Laden fallen auf das unveraenderte Basismodell oder eine explizit konfigurierte sichere Route zurueck.",
         "LoRA-Runtime-Routen werden nicht still semantisch umgedeutet."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-043",
       "title": "Audit, Approval und Loeschung vollstaendig abbilden",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 45.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
@@ -849,7 +874,7 @@
       "id": "DEND-050",
       "title": "Angular-Wizard um Experimentalmodus erweitern",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 70.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M5",
@@ -879,7 +904,7 @@
       "id": "DEND-051",
       "title": "Experimentuebersicht und Vergleichsreport in Angular",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 15.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M5",
@@ -905,7 +930,7 @@
       "id": "DEND-052",
       "title": "Memory-Pack-Verwaltung in bestehender Adapter-Ansicht",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 15.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M5",
@@ -931,7 +956,7 @@
       "id": "DEND-053",
       "title": "Jobmonitor um neue Phasen und Metriken erweitern",
       "status": "partial",
-      "progress_percent": 10.0,
+      "progress_percent": 15.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M5",
@@ -958,7 +983,7 @@
       "id": "DEND-060",
       "title": "Unit- und Contract-Testmatrix vervollstaendigen",
       "status": "partial",
-      "progress_percent": 5.0,
+      "progress_percent": 55.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M6",
@@ -987,7 +1012,8 @@
     {
       "id": "DEND-061",
       "title": "Integrationstest mit kleinem lokalem Open-Weight-Modell",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 20.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M6",
@@ -1008,14 +1034,13 @@
         "Test vergleicht gegen eine parameterbudget-gematchte LoRA-Baseline.",
         "Artefakte werden nach Testende vollstaendig bereinigt."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-062",
       "title": "Angular E2E fuer vollstaendigen Experimentalfluss",
       "status": "partial",
-      "progress_percent": 5.0,
+      "progress_percent": 25.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M6",
@@ -1044,7 +1069,7 @@
       "id": "DEND-063",
       "title": "Migration-, Rollback- und Kompatibilitaetstest",
       "status": "partial",
-      "progress_percent": 5.0,
+      "progress_percent": 20.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M6",
@@ -1070,7 +1095,8 @@
     {
       "id": "DEND-070",
       "title": "Dokumentation und Experimentprotokoll veroeffentlichen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 70.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M7",
@@ -1093,14 +1119,13 @@
         "Datenschutz- und Lizenzhinweise entsprechen Dataset-Katalog und Secret-Scan.",
         "Dokumentation nennt konkrete Testkommandos und erwartete sichere Defaults."
       ],
-      "test_gates": [],
-      "progress_percent": 0.0
+      "test_gates": []
     },
     {
       "id": "DEND-071",
       "title": "Release-Gate fuer experimentelle Freigabe",
       "status": "blocked",
-      "progress_percent": 0.0,
+      "progress_percent": 30.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M7",
@@ -1153,13 +1178,13 @@
   "tasks_status_summary": {
     "total": 33,
     "by_status": {
-      "todo": 10,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 22,
+      "partial": 29,
       "blocked": 1,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 9.1,
     "by_priority": {
       "P0": 22,
       "P1": 11,
@@ -1178,10 +1203,10 @@
     },
     "milestones": {
       "total": 8,
-      "todo": 1,
+      "todo": 0,
       "in_progress": 7,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -1190,43 +1215,43 @@
       "unspecified": {
         "total": 33,
         "by_status": {
-          "todo": 10,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 22,
+          "partial": 29,
           "blocked": 1,
-          "done": 0
+          "done": 3
         },
-        "done": 0,
-        "partial": 22,
+        "done": 3,
+        "partial": 29,
         "blocked": 1,
-        "progress_percent": 6.8
+        "progress_percent": 59.5
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 45.5,
-    "done_weight": 3.175,
-    "remaining_weight": 42.325,
+    "done_weight": 26.675,
+    "remaining_weight": 18.825,
     "blocked_weight": 1.0,
-    "weighted_percent": 7.0
+    "weighted_percent": 58.6
   },
   "milestone_progress_summary": {
     "milestones": {
       "M0": {
         "total_tasks": 3,
-        "done": 0,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 15.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M1": {
         "total_tasks": 5,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 8.7,
+        "weighted_percent": 67.7,
         "status": "in_progress"
       },
       "M2": {
@@ -1234,7 +1259,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 3.3,
+        "weighted_percent": 74.7,
         "status": "in_progress"
       },
       "M3": {
@@ -1242,7 +1267,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 8.0,
+        "weighted_percent": 56.3,
         "status": "in_progress"
       },
       "M4": {
@@ -1250,7 +1275,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 4.4,
+        "weighted_percent": 63.3,
         "status": "in_progress"
       },
       "M5": {
@@ -1258,7 +1283,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 10.0,
+        "weighted_percent": 30.7,
         "status": "in_progress"
       },
       "M6": {
@@ -1266,7 +1291,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 3.5,
+        "weighted_percent": 28.5,
         "status": "in_progress"
       },
       "M7": {
@@ -1274,28 +1299,28 @@
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 54.0,
+        "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 10,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 22,
+    "partial": 29,
     "blocked": 1,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 7.0
+    "done": 3,
+    "count_based_percent": 9.1,
+    "weighted_percent": 58.6
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-29T14:15:37.657967Z",
+    "generated_at": "2026-08-29T14:43:06.257789Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "fc35b6201bab93b5b705150f5c1f4b9bcb97471495d9ea811500c651f4c144df",
+    "source_hash": "828f03d57195755606ae4a2d745c2e3e79740c99cfffdd01d203f9db00c29a96",
     "is_stale": false
   }
 }

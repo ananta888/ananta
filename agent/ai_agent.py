@@ -747,6 +747,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     from agent.bootstrap.dspy_optimization import initialize_dspy_optimization
 
     run_startup_phase("dspy_optimization", initialize_dspy_optimization, app)
+    from agent.bootstrap.dendritic_memory import initialize_dendritic_memory
+
+    run_startup_phase("dendritic_memory", initialize_dendritic_memory, app)
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )

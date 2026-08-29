@@ -670,6 +670,23 @@ class Settings(BaseSettings):
     dspy_optimization_policy_path: str = Field(
         default="config/dspy/optimization_defaults.v1.json", validation_alias="ANANTA_DSPY_OPTIMIZATION_POLICY_PATH"
     )
+    dendritic_memory_enabled: bool = Field(default=False, validation_alias="ANANTA_DENDRITIC_MEMORY_ENABLED")
+    dendritic_memory_mode: str = Field(default="disabled", validation_alias="ANANTA_DENDRITIC_MEMORY_MODE")
+    dendritic_memory_runtime_enabled: bool = Field(
+        default=False, validation_alias="ANANTA_DENDRITIC_MEMORY_RUNTIME_ENABLED"
+    )
+    dendritic_memory_automatic_activation_enabled: bool = Field(
+        default=False, validation_alias="ANANTA_DENDRITIC_MEMORY_AUTOMATIC_ACTIVATION_ENABLED"
+    )
+    dendritic_memory_policy_path: str = Field(
+        default="config/dendritic-memory/policy.v1.json", validation_alias="ANANTA_DENDRITIC_MEMORY_POLICY_PATH"
+    )
+    dendritic_memory_state: str = Field(
+        default="data/dendritic-memory.sqlite3", validation_alias="ANANTA_DENDRITIC_MEMORY_STATE"
+    )
+    dendritic_memory_artifact_root: str = Field(
+        default="data/dendritic-memory-artifacts", validation_alias="ANANTA_DENDRITIC_MEMORY_ARTIFACT_ROOT"
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

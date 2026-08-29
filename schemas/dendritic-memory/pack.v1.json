@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/dendritic-memory/pack.v1.json",
+  "title": "Dendritic Memory Pack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "pack_id", "base_model_id", "base_model_snapshot_digest", "architecture_version", "target_layers", "parameter_count", "trainable_parameter_count", "dataset_manifest_digest", "split_digests", "configuration_digest", "metrics_digest", "files", "parent_pack_digests", "experimental", "production_eligible", "claims_verified", "executable"],
+  "properties": {
+    "schema": {"const": "ananta.dendritic-memory-pack.v1"},
+    "tenant_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "pack_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "base_model_id": {"type": "string", "minLength": 1, "maxLength": 192},
+    "base_model_snapshot_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "architecture_version": {"const": "branch-projection-v1"},
+    "target_layers": {"type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": {"type": "string"}},
+    "parameter_count": {"type": "integer", "minimum": 1, "maximum": 100000000},
+    "trainable_parameter_count": {"type": "integer", "minimum": 1, "maximum": 100000000},
+    "dataset_manifest_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "split_digests": {"type": "object", "additionalProperties": false, "required": ["train", "validation", "test"], "properties": {"train": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "validation": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "test": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}},
+    "configuration_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "metrics_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "files": {"type": "array", "minItems": 1, "maxItems": 2, "items": {"type": "object", "additionalProperties": false, "required": ["name", "sha256", "size_bytes", "media_type"], "properties": {"name": {"enum": ["weights.safetensors", "report.json"]}, "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "size_bytes": {"type": "integer", "minimum": 1, "maximum": 2147483648}, "media_type": {"type": "string", "minLength": 1, "maxLength": 128}}}},
+    "parent_pack_digests": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "experimental": {"const": true},
+    "production_eligible": {"const": false},
+    "claims_verified": {"const": false},
+    "executable": {"type": "boolean"}
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema": "ananta.dendritic-memory-policy.v1",
+  "enabled": false,
+  "mode": "disabled",
+  "runtime_enabled": false,
+  "automatic_activation_enabled": false,
+  "allowed_base_models": [],
+  "allowed_target_prefixes": ["model.layers."],
+  "max_pack_bytes": 268435456,
+  "max_active_packs": 4,
+  "human_intervention_required": false
+}

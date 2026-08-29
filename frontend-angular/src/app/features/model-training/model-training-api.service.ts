@@ -14,6 +14,9 @@ import {
   AdapterSummary,
   AttachValidationDatasetRequest,
   CreateTrainingJobRequest,
+  DendriticDryRunResult,
+  DendriticExperimentRequest,
+  DendriticRunAcceptance,
   DatasetDetail,
   DatasetDeletionResult,
   DatasetListFilters,
@@ -68,8 +71,31 @@ export class ModelTrainingApiService extends ApiBaseService {
     return `${hubUrl.replace(/\/+$/, '')}/api/ml-intern-lora-runtime${path}`;
   }
 
+  private dendriticEndpoint(hubUrl: string, path: string): string {
+    return `${hubUrl.replace(/\/+$/, '')}/api/ml-intern-training/dendritic-memory${path}`;
+  }
+
   capabilities(hubUrl: string): Observable<TrainingCapabilities> {
     return this.core.get<TrainingCapabilities>(this.endpoint(hubUrl, '/capabilities'), hubUrl, undefined, false);
+  }
+
+  dryRunDendriticExperiment(
+    hubUrl: string,
+    payload: DendriticExperimentRequest,
+  ): Observable<DendriticDryRunResult> {
+    return this.core.post<DendriticDryRunResult>(this.dendriticEndpoint(hubUrl, '/dry-run'), payload, hubUrl);
+  }
+
+  createDendriticExperiment(
+    hubUrl: string,
+    payload: DendriticExperimentRequest,
+    key: string,
+  ): Observable<DendriticRunAcceptance> {
+    return this.core.request<DendriticRunAcceptance>('POST', this.dendriticEndpoint(hubUrl, '/runs'), hubUrl, {
+      body: payload,
+      headers: { 'Idempotency-Key': key },
+      timeoutMs: 30_000,
+    });
   }
 
   recommendBackend(

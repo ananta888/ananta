@@ -180,6 +180,7 @@ export interface TrainingCapabilities {
   gpu_profiles: TrainingGpuProfile[];
   base_models: TrainingBaseModel[];
   unsloth?: UnslothCapabilities;
+  dendritic_memory_experiment?: DendriticMemoryCapability;
   limits: {
     max_dataset_bytes?: number;
     max_adapter_bytes?: number;
@@ -200,6 +201,78 @@ export interface TrainingCapabilities {
     storage_retention_seconds?: number;
     max_cleanup_items?: number;
   };
+}
+
+export interface DendriticMemoryCapability {
+  schema: 'ananta.dendritic-memory-capability.v1';
+  state: 'disabled' | 'unavailable' | 'degraded' | 'available';
+  available: boolean;
+  reason_code?: string | null;
+  contract_version?: string;
+  experimental: true;
+  not_production_ready: true;
+  claims_not_verified: true;
+  mode?: 'disabled' | 'mock' | 'local';
+  runtime_enabled?: boolean;
+  automatic_activation_enabled?: boolean;
+  limits?: {
+    max_pack_bytes?: number;
+    max_active_packs?: number;
+    max_branches?: number;
+    max_hidden_dimension?: number;
+    max_steps?: number;
+  };
+  human_intervention_required: false;
+}
+
+export interface DendriticExperimentConfiguration {
+  schema: 'ananta.dendritic-memory-config.v1';
+  target_layers: string[];
+  branch_count: number;
+  hidden_dimension: number;
+  top_k: number;
+  routing_enabled: boolean;
+  readout: 'residual_sum' | 'gated_residual';
+  max_steps: number;
+  max_memory_bytes: number;
+  seed: number;
+  precision: 'float32' | 'bfloat16' | 'float16';
+  device_profile: 'cpu-safe' | 'rtx3080-safe' | 'generic-safe';
+  deterministic: boolean;
+}
+
+export interface DendriticExperimentRequest {
+  spec: {
+    schema: 'ananta.dendritic-memory-job.v1';
+    spec_id: string;
+    job_type: 'train_dendritic_memory';
+    mode: TrainingMode;
+    dataset_manifest_digest: string;
+    base_model_id: string;
+    base_model_snapshot_digest: string;
+    configuration: DendriticExperimentConfiguration;
+    parent_pack_digests: string[];
+  };
+}
+
+export interface DendriticDryRunResult {
+  admissible: boolean;
+  reason_codes: string[];
+  spec_digest: string;
+  model_download_performed: false;
+  worker_call_performed: false;
+  human_intervention_required: false;
+}
+
+export interface DendriticRunAcceptance {
+  run_id: string;
+  state: string;
+  revision: number;
+  replayed: boolean;
+  experimental: true;
+  not_production_ready: true;
+  claims_not_verified: true;
+  human_intervention_required: false;
 }
 
 export type TrainingMode = 'dry_run' | 'live';

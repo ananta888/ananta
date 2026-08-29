@@ -19,6 +19,7 @@ import { ModelTrainingFacade } from './model-training.facade';
 import { ModelTrainingJobMonitorService } from './model-training-job-monitor.service';
 import { ModelTrainingTab, TrainingJobAcceptance } from './model-training.models';
 import { TrainingWizardComponent } from './training-wizard/training-wizard.component';
+import { DendriticMemoryWorkbenchComponent } from './training-wizard/dendritic-memory-workbench.component';
 import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-panel.component';
 
 @Component({
@@ -42,6 +43,7 @@ import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-pa
     TrainingJobDetailComponent,
     TrainingJobListComponent,
     TrainingWizardComponent,
+    DendriticMemoryWorkbenchComponent,
     UnslothCapabilityPanelComponent,
   ],
   providers: [ModelTrainingFacade, ModelTrainingJobMonitorService],
@@ -142,6 +144,11 @@ import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-pa
             }
             @case ('training') {
               <app-model-training-wizard (jobCreated)="showAcceptedJob($event)" />
+              @if (facade.capabilities()?.dendritic_memory_experiment?.available) {
+                <app-dendritic-memory-workbench
+                  [hubUrl]="facade.hubUrl()"
+                  [capability]="facade.capabilities()?.dendritic_memory_experiment" />
+              }
             }
             @case ('jobs') {
               <app-model-training-job-list />

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/dendritic-memory/job.v1.json",
+  "title": "Dendritic memory job v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "spec_id", "job_type", "mode", "dataset_manifest_digest", "base_model_id", "base_model_snapshot_digest", "configuration", "parent_pack_digests"],
+  "properties": {
+    "schema": {"const": "ananta.dendritic-memory-job.v1"},
+    "tenant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "spec_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "job_type": {"enum": ["train_dendritic_memory", "evaluate_dendritic_memory", "compose_dendritic_memory"]},
+    "mode": {"enum": ["dry_run", "live"]},
+    "dataset_manifest_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "base_model_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$"},
+    "base_model_snapshot_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "configuration": {"$ref": "config.v1.json"},
+    "parent_pack_digests": {"type": "array", "maxItems": 16, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-f0-9]{64}$"}}
+  }
+}
