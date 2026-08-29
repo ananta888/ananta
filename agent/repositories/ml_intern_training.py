@@ -47,6 +47,26 @@ def _serialized_write(callback: Callable[_P, _R]) -> Callable[_P, _R]:
     return guarded
 
 
+def _serialized_sqlite_read(callback: Callable[_P, _R]) -> Callable[_P, _R]:
+    """Fence a SQLite read against this repository's process-local writes.
+
+    Named shared-cache SQLite reports ``SQLITE_LOCKED`` immediately when an
+    asynchronous writer owns the same table. File-backed SQLite benefits from
+    the same deterministic boundary, while PostgreSQL reads remain concurrent.
+    """
+
+    @wraps(callback)
+    def guarded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        repository = args[0]
+        dialect = getattr(getattr(repository, "_engine", None), "dialect", None)
+        if getattr(dialect, "name", None) != "sqlite":
+            return callback(*args, **kwargs)
+        with _REPOSITORY_WRITE_LOCK:
+            return callback(*args, **kwargs)
+
+    return guarded
+
+
 def _is_slot_or_idempotency_conflict(exc: IntegrityError) -> bool:
     """Whether this integrity failure means the slot is simply taken.
 
@@ -346,6 +366,7 @@ class MlInternTrainingRepository:
                         return existing, True
         raise MlInternTrainingRepositoryConflict("training_capacity_exhausted")
 
+    @_serialized_sqlite_read
     def get_job(self, principal: MlInternTrainingPrincipal, job_id: str) -> MlInternTrainingJobDB | None:
         with Session(self._engine) as session:
             return session.exec(self._job_query(principal).where(MlInternTrainingJobDB.id == job_id)).first()
