@@ -231,7 +231,9 @@ async function parsePacket(
   }
   const ciphertext = decodeB64(String(value['ciphertext_b64']));
   if (!ciphertext.byteLength || ciphertext.byteLength > MAX_CIPHERTEXT_BYTES) throw new Error('peer_overlay_ciphertext_size_invalid');
-  const digest = await crypto.subtle.digest('SHA-256', ciphertext);
+  const digestInput = new Uint8Array(ciphertext.byteLength);
+  digestInput.set(ciphertext);
+  const digest = await crypto.subtle.digest('SHA-256', digestInput);
   const hex = [...new Uint8Array(digest)].map(item => item.toString(16).padStart(2, '0')).join('');
   if (hex !== value['ciphertext_digest']) throw new Error('peer_overlay_ciphertext_digest_mismatch');
   const signature = decodeB64(String(value['signature_b64']));
