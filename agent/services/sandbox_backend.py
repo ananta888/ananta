@@ -14,7 +14,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
-
 # ── Data classes ──────────────────────────────────────────────────────────────
 
 @dataclass
@@ -95,6 +94,9 @@ class FakeSandbox:
             "config": config,
             "files": {},
             "stopped": False,
+            "frozen": False,
+            "terminated": False,
+            "isolated": config.network == "none",
         }
         return sandbox_id
 
@@ -102,6 +104,9 @@ class FakeSandbox:
         """Record exec call, return deterministic fake output. Raises if sandbox unknown."""
         if sandbox_id not in self._sandboxes:
             raise KeyError(f"Unknown sandbox: {sandbox_id}")
+        state = self._sandboxes[sandbox_id]
+        if state["stopped"] or state["frozen"] or state["terminated"]:
+            raise RuntimeError("sandbox_execution_fenced")
         cmd_hash = hashlib.sha256(json.dumps(cmd).encode()).hexdigest()[:16]
         self._exec_log.append(
             {"sandbox_id": sandbox_id, "cmd": cmd, "timeout": timeout}
@@ -135,6 +140,32 @@ class FakeSandbox:
 
     def cleanup(self, sandbox_id: str) -> None:
         self._sandboxes.pop(sandbox_id, None)
+
+    def freeze(self, sandbox_id: str) -> None:
+        """Freeze execution while preserving deterministic forensic state."""
+        if sandbox_id not in self._sandboxes:
+            raise KeyError(f"Unknown sandbox: {sandbox_id}")
+        self._sandboxes[sandbox_id]["frozen"] = True
+
+    def terminate(self, sandbox_id: str) -> None:
+        """Fence all further execution without deleting sandbox state."""
+        if sandbox_id not in self._sandboxes:
+            raise KeyError(f"Unknown sandbox: {sandbox_id}")
+        self._sandboxes[sandbox_id]["terminated"] = True
+        self._sandboxes[sandbox_id]["stopped"] = True
+
+    def isolate(self, sandbox_id: str) -> None:
+        """Record an emergency network deny state independent of cleanup."""
+        if sandbox_id not in self._sandboxes:
+            raise KeyError(f"Unknown sandbox: {sandbox_id}")
+        self._sandboxes[sandbox_id]["isolated"] = True
+        self._sandboxes[sandbox_id]["config"].network = "none"
+
+    def safety_state(self, sandbox_id: str) -> dict[str, bool]:
+        if sandbox_id not in self._sandboxes:
+            raise KeyError(f"Unknown sandbox: {sandbox_id}")
+        state = self._sandboxes[sandbox_id]
+        return {key: bool(state[key]) for key in ("stopped", "frozen", "terminated", "isolated")}
 
     def get_exec_log(self) -> list[dict[str, Any]]:
         """Return copy of recorded exec calls (test helper)."""

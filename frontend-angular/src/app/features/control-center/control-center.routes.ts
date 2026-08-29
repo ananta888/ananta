@@ -9,6 +9,7 @@ import { ControlCenterWorkersComponent } from './components/control-center-worke
 import { ControlCenterPlaceholderComponent } from './components/control-center-placeholder.component';
 import { KnowledgeExpertControlComponent } from './knowledge-experts/knowledge-expert-control.component';
 import { ScrumImprovementComponent } from './scrum-improvement/scrum-improvement.component';
+import { AgentSafetyComponent } from './agent-safety/agent-safety.component';
 
 export const controlCenterRoutes: Routes = [{
   path: 'control-center',
@@ -24,5 +25,6 @@ export const controlCenterRoutes: Routes = [{
     { path: 'codecompass', component: ControlCenterPlaceholderComponent },
     { path: 'knowledge-experts', component: KnowledgeExpertControlComponent },
     { path: 'scrum-improvement', component: ScrumImprovementComponent },
+    { path: 'agent-safety', component: AgentSafetyComponent },
   ],
 }];

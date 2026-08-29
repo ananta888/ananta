@@ -1,4 +1,5 @@
 """Tests for SandboxBackend, FakeSandbox, SandboxAuditService — COSMOS-005."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -6,15 +7,14 @@ from pathlib import Path
 import pytest
 
 from agent.services.sandbox_backend import (
-    ExecResult,
     FakeSandbox,
     SandboxAuditService,
     SandboxBackend,
     SandboxConfig,
 )
 
-
 # ── FakeSandbox — lifecycle ───────────────────────────────────────────────────
+
 
 def test_fake_sandbox_start_returns_id():
     sb = FakeSandbox()
@@ -61,7 +61,31 @@ def test_fake_sandbox_cleanup_removes():
     assert sid not in sb._sandboxes
 
 
+def test_fake_sandbox_safety_controls_are_idempotent_and_fence_execution():
+    sb = FakeSandbox()
+    sandbox_id = sb.start(SandboxConfig(network="allowed"))
+
+    sb.isolate(sandbox_id)
+    sb.isolate(sandbox_id)
+    assert sb.safety_state(sandbox_id)["isolated"] is True
+
+    sb.freeze(sandbox_id)
+    sb.freeze(sandbox_id)
+    with pytest.raises(RuntimeError, match="sandbox_execution_fenced"):
+        sb.exec(sandbox_id, ["echo", "blocked"])
+
+    sb.terminate(sandbox_id)
+    sb.terminate(sandbox_id)
+    assert sb.safety_state(sandbox_id) == {
+        "stopped": True,
+        "frozen": True,
+        "terminated": True,
+        "isolated": True,
+    }
+
+
 # ── SandboxConfig defaults ────────────────────────────────────────────────────
+
 
 def test_sandbox_config_default_network_none():
     config = SandboxConfig()
@@ -69,6 +93,7 @@ def test_sandbox_config_default_network_none():
 
 
 # ── SandboxAuditService ───────────────────────────────────────────────────────
+
 
 def test_audit_exec_has_cmd_hash():
     sb = FakeSandbox()
@@ -91,6 +116,7 @@ def test_network_policy_valid_values():
 
 
 # ── Protocol compliance ───────────────────────────────────────────────────────
+
 
 def test_sandbox_backend_protocol_compliance():
     """FakeSandbox must satisfy the SandboxBackend protocol at runtime."""

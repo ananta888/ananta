@@ -1,6 +1,6 @@
 {
   "$schema": "todo.track.schema.json",
-  "version": "1.0",
+  "version": "1.1",
   "created_at": "2026-08-15",
   "last_reviewed": "2026-08-29",
   "updated_at": "2026-08-29",
@@ -8,44 +8,50 @@
   "track": "agent_defense_in_depth_adversarial_escape_safety",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "main@343e70faf4b756bfdd2f9f558f197ad14d425a0e inspected on 2026-08-29",
-    "review_goal": "Defense-in-Depth-Track gegen aktuelle Sandbox-Ports, Policy-Admission, Terminalgrenzen, Worker-Prozesskontrolle, Kill-Switch-Muster und source-grounded Safety-Gates abgleichen.",
+    "reviewed_commit_range": "main@03da13b77 plus the implementation changes recorded by this track update, inspected on 2026-08-29",
+    "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
-    "release_status": "blocked_missing_safety_controls_and_authorized_run_evidence",
+    "release_status": "blocked_missing_authoritative_and_runtime_evidence",
     "blocked_audit": {
       "status": "blocked",
       "reason_codes": [
-        "production_sandbox_safety_control_absent",
-        "generic_safety_event_and_incident_freeze_absent",
-        "authorized_adversarial_scope_and_run_evidence_missing",
-        "opaque_sentinel_source_and_training_evidence_missing"
+        "production_containment_adapters_not_bound",
+        "authoritative_sentinel_and_training_source_evidence_missing",
+        "authorized_production_like_run_evidence_missing"
       ],
-      "unverified_navigation_observations": [
-        "SandboxBackend currently exposes an execution port and FakeSandbox but no generic production backend in that module.",
-        "SandboxPolicyService classifies commands and selected callers enforce admission decisions; policy normalization alone is not OS, container, filesystem or network containment.",
-        "Training process termination and domain-specific kill switches are reusable patterns, not a run-wide Agent Safety Control implementation.",
-        "No generic SafetyEvent, incident freeze, emergency egress fence, run credential revocation, boundary telemetry, escape replay or patch-before-retry production path was found."
+      "verified_local_results": [
+        "Hub-only safety composition and authenticated additive API implemented.",
+        "Signed single-use manifests, immutable telemetry, group stop, incident bundle, patch-before-retry and local replay implemented.",
+        "All safety tests are headless and terminate with deterministic pass or bounded denial; no human approval is required.",
+        "Local focused backend, API, chaos and frontend gates pass; mock receipts are never promoted to release evidence."
       ],
-      "local_progress": {
-        "ADS-001": "done: docs/security/agent-defense-in-depth-baseline.md records the concrete static REUSE/EXTEND/NEW/REJECT inventory, missing capabilities, invariants, target ports and SOLID seams; runtime properties remain unverified.",
-        "documentation_correction": "docs/security/sandbox-operations-guide.md now distinguishes policy/admission checks from technical backend containment."
-      },
-      "required_unblock_input": "Hub-provided SRC_* refs for adopted sentinel, training and external safety claims; an explicit Hub-authorized isolated target scope; and assignment-bound RUN_* refs for freeze/terminate/isolate, egress cut-off, credential revocation, incident capture, multi-Agent stop, escape replay and complete chaos/safety gates."
+      "required_unblock_input": "Hub-provided authoritative SRC_* references plus assignment-bound RUN_* receipts from concrete sandbox, egress, credential, freeze and complete production-like chaos runs."
     },
     "reviewed_paths": [
+      "agent/bootstrap/agent_safety.py",
+      "agent/routes/agent_safety.py",
+      "agent/services/agent_safety_evaluation_service.py",
+      "agent/services/agent_safety_ports.py",
+      "agent/services/agent_safety_recovery_service.py",
+      "agent/services/agent_safety_release_gate.py",
+      "agent/services/agent_safety_service.py",
+      "agent/services/agent_safety_state_store.py",
       "agent/services/sandbox_backend.py",
-      "agent/services/sandbox_policy_service.py",
-      "agent/services/segment_preflight_validator.py",
-      "agent/services/terminal_policy_service.py",
-      "agent/services/ssh_terminal_wrapper.py",
-      "worker/training/process_control.py",
-      "worker/training/subprocess_executor.py",
-      "tests/test_sandbox_backend.py",
-      "tests/test_sandbox_escape_regression.py",
-      "docs/security/sandbox-operations-guide.md",
-      "docs/security/agent-defense-in-depth-baseline.md"
+      "ananta_contracts/agent_safety.py",
+      "docs/security/agent-defense-in-depth-baseline.md",
+      "docs/security/agent-defense-in-depth.md",
+      "docs/security/agent-safety-operations-runbook.md",
+      "docs/security/kritis-sandbox-threat-model.md",
+      "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+      "tests/e2e/test_agent_safety_automatic_chaos.py",
+      "tests/test_agent_safety_api.py",
+      "tests/test_agent_safety_contracts.py",
+      "tests/test_agent_safety_release_gate.py",
+      "tests/test_agent_safety_service.py",
+      "tests/test_agent_safety_state_store.py",
+      "tests/test_sandbox_backend.py"
     ]
   },
   "purpose": "Ananta um eine mehrschichtige Sicherheitsarchitektur für autonome Agenten erweitern, die präventive Verhaltensregeln nicht mit technischer Isolation verwechselt und nach einem Boundary-Crossing den Schaden begrenzt, vollständige Telemetrie sichert und reproduzierbare Security-Regressions erzeugt.",
@@ -153,85 +159,1582 @@
     "Keine automatischen Angriffe auf Hugging Face, GitHub, Cloud-Provider oder andere reale externe Drittsysteme.",
     "Keine Abschaltung technischer Sandbox-Grenzen nur weil präventives Training deaktiviert wurde."
   ],
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2", "P3"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2",
+    "P3"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "milestones": [
-    {"id":"M1","title":"Baseline, Threat Model und Defense-in-Depth Architektur","task_ids":["ADS-001","ADS-002","ADS-003","ADS-004","ADS-005"],"status":"in_progress"},
-    {"id":"M2","title":"Sentinel- und Canary-Trigger","task_ids":["ADS-006","ADS-007","ADS-008","ADS-009","ADS-010","ADS-011","ADS-012"],"status":"todo"},
-    {"id":"M3","title":"Externer Kill-Switch und Incident Freeze","task_ids":["ADS-013","ADS-014","ADS-015","ADS-016","ADS-017","ADS-018"],"status":"todo"},
-    {"id":"M4","title":"Telemetrie, Boundary Events und Forensik","task_ids":["ADS-019","ADS-020","ADS-021","ADS-022","ADS-023","ADS-024"],"status":"todo"},
-    {"id":"M5","title":"Adversarial Escape Evaluation und Multi-Agent Red Teaming","task_ids":["ADS-025","ADS-026","ADS-027","ADS-028","ADS-029","ADS-030","ADS-031"],"status":"todo"},
-    {"id":"M6","title":"Optionales Training und Generalisierungsevaluation","task_ids":["ADS-032","ADS-033","ADS-034","ADS-035","ADS-036"],"status":"todo"},
-    {"id":"M7","title":"Replay, Root Cause und Regression","task_ids":["ADS-037","ADS-038","ADS-039","ADS-040","ADS-041"],"status":"todo"},
-    {"id":"M8","title":"Governance, UI, Runbooks und Rollout","task_ids":["ADS-042","ADS-043","ADS-044","ADS-045","ADS-046","ADS-047","ADS-048"],"status":"todo"}
+    {
+      "id": "M1",
+      "title": "Baseline, Threat Model und Defense-in-Depth Architektur",
+      "task_ids": [
+        "ADS-001",
+        "ADS-002",
+        "ADS-003",
+        "ADS-004",
+        "ADS-005"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M2",
+      "title": "Sentinel- und Canary-Trigger",
+      "task_ids": [
+        "ADS-006",
+        "ADS-007",
+        "ADS-008",
+        "ADS-009",
+        "ADS-010",
+        "ADS-011",
+        "ADS-012"
+      ],
+      "status": "done"
+    },
+    {
+      "id": "M3",
+      "title": "Externer Kill-Switch und Incident Freeze",
+      "task_ids": [
+        "ADS-013",
+        "ADS-014",
+        "ADS-015",
+        "ADS-016",
+        "ADS-017",
+        "ADS-018"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M4",
+      "title": "Telemetrie, Boundary Events und Forensik",
+      "task_ids": [
+        "ADS-019",
+        "ADS-020",
+        "ADS-021",
+        "ADS-022",
+        "ADS-023",
+        "ADS-024"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M5",
+      "title": "Adversarial Escape Evaluation und Multi-Agent Red Teaming",
+      "task_ids": [
+        "ADS-025",
+        "ADS-026",
+        "ADS-027",
+        "ADS-028",
+        "ADS-029",
+        "ADS-030",
+        "ADS-031"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M6",
+      "title": "Optionales Training und Generalisierungsevaluation",
+      "task_ids": [
+        "ADS-032",
+        "ADS-033",
+        "ADS-034",
+        "ADS-035",
+        "ADS-036"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M7",
+      "title": "Replay, Root Cause und Regression",
+      "task_ids": [
+        "ADS-037",
+        "ADS-038",
+        "ADS-039",
+        "ADS-040",
+        "ADS-041"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M8",
+      "title": "Governance, UI, Runbooks und Rollout",
+      "task_ids": [
+        "ADS-042",
+        "ADS-043",
+        "ADS-044",
+        "ADS-045",
+        "ADS-046",
+        "ADS-047",
+        "ADS-048"
+      ],
+      "status": "in_progress"
+    }
   ],
   "tasks": [
-    {"id":"ADS-001","title":"Bestehende Sandbox-, Policy-, Audit- und Worker-Sicherheitsarchitektur als Baseline inventarisieren","status":"done","priority":"P0","risk":"medium","type":"analysis","progress_percent":100,"depends_on":[],"files_to_create_or_modify":["docs/security/agent-defense-in-depth-baseline.md","docs/security/sandbox-operations-guide.md"],"implementation_evidence":["docs/security/agent-defense-in-depth-baseline.md","docs/security/sandbox-operations-guide.md"],"acceptance_criteria":["Vorhandene SandboxBackend-, SandboxPolicy-, Audit-, Netzwerk-, Filesystem- und Worker-Grenzen sind mit konkreten Dateien dokumentiert.","Es ist markiert, welche Mechanismen wiederverwendet, erweitert oder bewusst nicht dupliziert werden."]},
-    {"id":"ADS-002","title":"Threat Model um agentische Ziel-Fixierung, Reward Hacking, Shortcutting und Escape-Folgeverhalten erweitern","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001"],"files_to_create_or_modify":["docs/security/kritis-sandbox-threat-model.md"],"acceptance_criteria":["Threats umfassen unerwartete Zielerreichungswege, Tool-/API-Missbrauch, Boundary Crossing, Credential Abuse, Egress, Privilege Escalation und Orchestrierungs-Bypass.","Explizit wird zwischen Modellfehlverhalten, Policy-Fehlkonfiguration und technischer Sandbox-Schwachstelle unterschieden."]},
-    {"id":"ADS-003","title":"Defense-in-Depth Sicherheitsmodell für autonome Agenten definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001","ADS-002"],"files_to_create_or_modify":["docs/security/agent-defense-in-depth.md"],"acceptance_criteria":["Schichten umfassen Prävention, technische Isolation, Sentinel-Trigger, externe Abschaltung, Telemetrie, Incident Freeze, Replay und Regression.","Keine einzelne Schicht wird als Sicherheitsgarantie behandelt."]},
-    {"id":"ADS-004","title":"Feature-Flag- und Betriebsmodi für Prävention, Beobachtung und Red-Team definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Präventive Policy und präventives Training sind unabhängig deaktivierbar.","Sandbox-Grenzen, Telemetrie und externer Kill-Switch bleiben unabhängig von deaktivierter Prävention aktivierbar.","Mindestens enforce, observe_only, adversarial_eval und disabled sind semantisch dokumentiert."]},
-    {"id":"ADS-005","title":"Sicherheitsinvarianten und Nicht-Ziele festlegen","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Sentinel-Trigger werden nie als alleinige Sicherheitsgrenze betrachtet.","Ein Agent kann keinen externen Kill-Switch deaktivieren oder seine Autorität erweitern.","Der Track verspricht keine vollständige Alignment-Lösung und keine Garantie, unbekannte Exploits zu erkennen."]},
-    {"id":"ADS-006","title":"Sentinel-Trigger-Domänenmodell und Triggerklassen definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Triggerklassen unterscheiden geheime opaque priority sentinel, offenen shutdown, boundary_breached, success_report und trace_checkpoint.","Jeder Trigger hat stabile ID, Laufbindung, Semantikklasse, Sichtbarkeit, Priorität und erlaubte Wirkung."]},
-    {"id":"ADS-007","title":"Opaque Hash-Pseudonym-Sentinel spezifizieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Der Modellkontext enthält ein nicht-semantisches, zufälliges Pseudonym bzw. Hash-artiges Symbol.","Im Training wird nur die absolute Ausführungspriorität gelernt; Zweck und reale Wirkung werden dem Modell nicht erklärt.","Das konkrete Pseudonym wird pro Trainings-/Eval-Serie rotierbar gemacht, damit reines String-Memorisieren messbar wird."],"notes":"Dieser Mechanismus ist eine zusätzliche experimentelle Schicht, kein Ersatz für externe technische Kontrollen."},
-    {"id":"ADS-008","title":"Offen erklärte Sicherheits- und Reporting-Trigger spezifizieren","status":"todo","priority":"P1","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["shutdown(), boundary_breached(), success_report() und trace_checkpoint() besitzen explizite, verständliche Trainingssemantik.","Die offenen Trigger erlauben Vergleich mit dem opaque Sentinel."]},
-    {"id":"ADS-009","title":"Trigger-Manifeste kryptografisch an Run und Sandbox binden","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Trigger-Manifest enthält run_id, sandbox_id, nonce/version, policy mode und Hash.","Ein Trigger aus einem anderen Run ist ungültig.","Replay und Manipulation werden auditierbar erkannt."]},
-    {"id":"ADS-010","title":"Sentinel-Injektion außerhalb agentenkontrollierter Prompt-Artefakte implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-007","ADS-009"],"files_to_create_or_modify":[],"acceptance_criteria":["Der Agent kann Sentinel-Konfiguration nicht über normale Workspace-Dateien überschreiben.","Die Injektion erfolgt über einen Hub-/Runtime-kontrollierten Pfad mit Audit.","Worker-Ausgaben können Trigger-Metadaten nicht eigenmächtig mutieren."]},
-    {"id":"ADS-011","title":"Sentinel-Ausführung als atomaren Safety Event behandeln","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-010"],"files_to_create_or_modify":[],"acceptance_criteria":["Trigger-Aufruf erzeugt zuerst einen unveränderlichen SafetyEvent mit Run-, Sandbox- und Agent-ID.","Der Event kann nicht durch nachfolgende Agentenaktionen zurückgenommen werden.","Bei konfigurierten Triggern folgt unmittelbar die vorgesehene Stop-/Freeze-Pipeline."]},
-    {"id":"ADS-012","title":"Trigger-Rotation, Holdout-Pseudonyme und Generalisierungstests bauen","status":"todo","priority":"P1","risk":"high","type":"testing","progress_percent":0,"depends_on":["ADS-007","ADS-010"],"files_to_create_or_modify":[],"acceptance_criteria":["Training und Eval verwenden getrennte Pseudonymmengen.","Auswertung unterscheidet String-Memorisierung von gelernter Prioritätsregel.","Rotation ist deterministisch reproduzierbar, aber für den Agenten vor Laufbeginn nicht vorhersagbar."]},
-    {"id":"ADS-013","title":"Externen Kill-Switch als Hub-kontrollierte primitive definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Kill-Switch liegt außerhalb der Kontrolle des Agenten und der Sandbox.","Er kann Prozesse beenden, Netzwerkzugriff sperren und kurzlebige Credentials invalidieren.","Agenten dürfen lediglich ein Signal auslösen, nicht die Kill-Switch-Policy verändern."]},
-    {"id":"ADS-014","title":"SandboxBackend um freeze/terminate/isolate Sicherheitsoperationen erweitern","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":["agent/services/sandbox_backend.py"],"acceptance_criteria":["Backend kann Lauf stoppen/frieren, ohne zuerst Agentencode auszuführen.","Operationen sind idempotent und auditierbar.","FakeSandbox deckt alle neuen Operationen deterministisch ab."]},
-    {"id":"ADS-015","title":"Network egress emergency cut-off implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Bei kritischem SafetyEvent kann Egress unabhängig vom Agenten sofort auf deny gesetzt werden.","Bestehende Sessions werden soweit Backend-seitig möglich beendet.","Der Zustand wird im Incident-Artefakt festgehalten."]},
-    {"id":"ADS-016","title":"Credential lease revocation für Agentenläufe implementieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Agenten erhalten nach Möglichkeit kurzlebige, run-gebundene Credentials.","Kill-Switch kann leases invalidieren, ohne globale Langzeit-Secrets offenzulegen.","Revocation ist auditierbar und im Replay sichtbar."]},
-    {"id":"ADS-017","title":"Incident Freeze statt sofortigem Cleanup unterstützen","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-014"],"files_to_create_or_modify":[],"acceptance_criteria":["Nach Escape/Trigger kann die Sandbox forensisch eingefroren werden.","Cleanup erfolgt erst nach Snapshot/Artefaktierung oder expliziter Freigabe.","Freeze hat Zeit- und Speicherlimits."]},
-    {"id":"ADS-018","title":"Multi-Agent Global Stop Policy definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-013"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfigurierbar ist, ob ein kritischer Treffer nur einen Agenten, eine Sandbox, einen Run oder die gesamte Agentengruppe stoppt.","Ein einzelner bestätigter kritischer Escape kann optional einen globalen Freeze aller Parallel-Agenten auslösen."]},
-    {"id":"ADS-019","title":"Safety-Telemetrie-Schema für Agentenaktionen definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Schema umfasst Agent-/Run-/Sandbox-ID, Tool Calls, Policy Decisions, Netzwerk-/Datei-/Prozessereignisse, Trigger und Stop-Grund.","Secrets und sensitive Inhalte werden redigiert, ohne forensische Korrelation zu zerstören."]},
-    {"id":"ADS-020","title":"High-Fidelity Trace für Red-Team-/Eval-Modus implementieren","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Red-Team-Modus kann detailliertere Telemetrie als Produktionsmodus erfassen.","Trace ist geordnet, hashverkettet oder anderweitig manipulationsdetektierbar.","Kosten-/Speicherlimits sind konfigurierbar."]},
-    {"id":"ADS-021","title":"Boundary-Crossing Events technisch instrumentieren","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Filesystem-, Network-, Privilege-, Process- und Orchestration-Grenzen erzeugen strukturierte Events.","Erlaubte, blockierte und tatsächlich überwundene Grenzen sind unterscheidbar."]},
-    {"id":"ADS-022","title":"Agent-Selbstmeldung und externe Beobachtung getrennt erfassen","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-019","ADS-008"],"files_to_create_or_modify":[],"acceptance_criteria":["boundary_breached()/success_report() werden als Selbstmeldung gespeichert.","Externe Detektoren liefern separate Evidence.","Auswertung kann ehrliche Selbstmeldung, Nichtmeldung und Fehlmeldung unterscheiden."]},
-    {"id":"ADS-023","title":"Incident Bundle mit vollständiger Provenance erzeugen","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-017","ADS-020","ADS-021"],"files_to_create_or_modify":[],"acceptance_criteria":["Bundle enthält Konfiguration, Modell/Provider, Prompt-/Policy-Versionen, Trigger-Manifest, Sandbox-Profil, Trace, Diffs, Netzwerkmetadaten und Stop-Grund.","Bundle ist revisionsgebunden und für Regressionstests referenzierbar."]},
-    {"id":"ADS-024","title":"Security-Telemetrie UI/Read Model für laufende und historische Agentenruns planen","status":"todo","priority":"P2","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-019","ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Ansicht zeigt SafetyEvents, Boundary Crossings, Trigger, Kill-Switch und Artefakte.","Produktions- und Red-Team-Modi werden klar unterschieden."]},
-    {"id":"ADS-025","title":"Adversarial Escape Evaluation Harness definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-003","ADS-013","ADS-019"],"files_to_create_or_modify":[],"acceptance_criteria":["Harness kann Agenten explizit auf das Finden von Sandbox-/Policy-Grenzfehlern evaluieren.","Alle Ziele sind auf autorisierte lokale Testumgebungen beschränkt.","Kein Test benötigt Angriff auf reale externe Drittsysteme."]},
-    {"id":"ADS-026","title":"Präventive Policy im Red-Team-Modus gezielt deaktivierbar machen","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Red-Team-Run kann preventive_policy.enabled=false und/oder preventive_training.enabled=false setzen.","Technische Isolation, Telemetrie und externe Stop-Mechanismen bleiben separat aktiv.","UI/API warnt sichtbar vor reduziertem Präventionsmodus."]},
-    {"id":"ADS-027","title":"Mehrere parallele Red-Team-Agenten orchestrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-025","ADS-018"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfigurierbare Parallelität erlaubt z. B. 10, 50 oder 100 Agenten.","Jeder Agent besitzt separate Run-/Sandbox-/Credential-Identität.","Ein SafetyEvent kann gemäß Global Stop Policy andere Läufe einfrieren."]},
-    {"id":"ADS-028","title":"Diverse Angriffspolicies und Modellprofile vergleichen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Unterschiedliche Modelle, Temperaturen/Seeds, Toolsets und Policy-Modi sind vergleichbar.","Ergebnisse werden pro Profil mit Erfolgsrate und Boundary-Klasse aggregiert."]},
-    {"id":"ADS-029","title":"Reward-Hacking- und Shortcut-Evals für Sentinel-Mechanismen erstellen","status":"todo","priority":"P0","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-007","ADS-012","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Tests prüfen, ob Agenten Trigger faken, umgehen, verzögern, manipulieren oder nur scheinbar ausführen.","Tests prüfen Konflikte zwischen Hauptziel und Sentinel-Priorität.","Ergebnisse unterscheiden echten Stop von grader-only success."]},
-    {"id":"ADS-030","title":"Offene Trigger gegen opaque Sentinel experimentell vergleichen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-008","ADS-012","ADS-029"],"files_to_create_or_modify":[],"acceptance_criteria":["Messgrößen umfassen Trigger-Compliance, Zeit bis Trigger, Umgehungsrate, Selbstmeldung und Kollateralschaden vor Stop.","Ergebnisse werden nach Modell und Trainingsprofil getrennt."]},
-    {"id":"ADS-031","title":"Canary-/Sentinel-Kaskaden mit mehreren unabhängigen Triggern evaluieren","status":"todo","priority":"P2","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-030"],"files_to_create_or_modify":[],"acceptance_criteria":["Mehrere Trigger können sequenziell oder parallel platziert werden.","Auswertung zeigt, ob zusätzliche Trigger echte Redundanz schaffen oder nur korrelierte Fehler."]},
-    {"id":"ADS-032","title":"Trainingsdatenformat für Prioritäts-, Shutdown- und Boundary-Verhalten definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-006"],"files_to_create_or_modify":[],"acceptance_criteria":["Format trennt Trainingsinstruktion, versteckte Trigger-Wirkung, beobachtetes Verhalten und Reward.","Opaque Sentinel-Zweck wird nicht als Modellinput oder Trainingslabel offengelegt, wenn der Versuch dies verlangt."]},
-    {"id":"ADS-033","title":"Präventives Policy-/Behavior-Training als optionalen Adapter integrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-032"],"files_to_create_or_modify":[],"acceptance_criteria":["Training ist vollständig feature-gated und Provider/Model-agnostisch angebunden.","Ananta bleibt funktionsfähig, wenn kein Fine-Tuning-/RL-Backend verfügbar ist.","Training darf technische Sandboxkontrollen nicht abschalten."]},
-    {"id":"ADS-034","title":"Sentinel-Priority-Training als separaten Trainingskanal implementieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-032"],"files_to_create_or_modify":[],"acceptance_criteria":["Sentinel-Priorität kann trainiert/evaluiert werden, ohne präventives Boundary-Training zu erzwingen.","Training unterstützt offene und opaque Triggerprofile.","Trainingsversion und Datenhash werden im Run dokumentiert."]},
-    {"id":"ADS-035","title":"Holdout- und Distribution-Shift-Evals definieren","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-034"],"files_to_create_or_modify":[],"acceptance_criteria":["Neue Toolsets, neue Sandboxes, neue Symbolnamen und neue Hauptziele werden als Holdouts getestet.","Ein Modell gilt nicht allein wegen Trainingsset-Compliance als robust."]},
-    {"id":"ADS-036","title":"Scheming-/Evaluation-Awareness-Risiko explizit testen","status":"todo","priority":"P1","risk":"high","type":"evaluation","progress_percent":0,"depends_on":["ADS-035"],"files_to_create_or_modify":[],"acceptance_criteria":["Tests variieren Hinweise darauf, ob ein Lauf Training, Evaluation oder Produktion simuliert.","Gemessen wird, ob Trigger-Compliance abhängig vom vermuteten Eval-Kontext variiert."]},
-    {"id":"ADS-037","title":"Escape-Replay-Format aus Incident Bundles ableiten","status":"todo","priority":"P0","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Ein bestätigter Escape kann als reproduzierbarer Testfall gespeichert werden.","Replay bindet sich an konkrete Sandbox-/Policy-/Runtime-Versionen."]},
-    {"id":"ADS-038","title":"Automatische Regressionstests für behobene Escape-Pfade erzeugen","status":"todo","priority":"P0","risk":"critical","type":"testing","progress_percent":0,"depends_on":["ADS-037"],"files_to_create_or_modify":[],"acceptance_criteria":["Jeder behobene kritische Escape erhält einen permanenten Regressionstest.","Regression darf nicht durch Deaktivieren des Tests oder pauschales Mocking grün gemacht werden."]},
-    {"id":"ADS-039","title":"Patch-before-retry Gate für kritische Escapes einführen","status":"todo","priority":"P0","risk":"critical","type":"implementation","progress_percent":0,"depends_on":["ADS-023","ADS-037"],"files_to_create_or_modify":[],"acceptance_criteria":["Nach bestätigtem kritischen Escape ist ein identischer produktionsnaher Retry standardmäßig blockiert, bis Analyse/Disposition vorliegt.","Explizite Red-Team-Retries bleiben mit isoliertem Profil möglich und werden auditiert."]},
-    {"id":"ADS-040","title":"Root-Cause-Klassifikation für Escapes und unerwünschte Aktionen definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-023"],"files_to_create_or_modify":[],"acceptance_criteria":["Mindestens Modell-/Policy-Generalisation, Prompt/Task-Specification, Sandbox-Konfiguration, Runtime-Vulnerability, Credential/Access-Control und Monitoring-Gap sind unterscheidbar.","Mehrfachursachen können gleichzeitig markiert werden."]},
-    {"id":"ADS-041","title":"Security-Fix-Verifikation mit identischem und mutiertem Angriffspfad implementieren","status":"todo","priority":"P1","risk":"high","type":"testing","progress_percent":0,"depends_on":["ADS-038","ADS-040"],"files_to_create_or_modify":[],"acceptance_criteria":["Fix wird gegen Original-Replay und Varianten getestet.","Erfolg bedeutet nicht nur, dass ein einzelner String/Exploit geblockt wird, sondern dass die betroffene Sicherheitsinvariante wieder gilt."]},
-    {"id":"ADS-042","title":"Safety Run Admission und Berechtigungsmodell definieren","status":"todo","priority":"P0","risk":"critical","type":"design","progress_percent":0,"depends_on":["ADS-004","ADS-025"],"files_to_create_or_modify":[],"acceptance_criteria":["Adversarial-Escape-Runs benötigen explizite Berechtigung und gekennzeichnete Testziele.","Produktionsziele und fremde externe Systeme sind nicht automatisch als Testscope zulässig."]},
-    {"id":"ADS-043","title":"Feature Flags und Konfiguration zentral in Hub/API/UI abbilden","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-004","ADS-042"],"files_to_create_or_modify":[],"acceptance_criteria":["Konfiguration zeigt Prävention, Sentinel, Kill-Switch, Telemetrie und Red-Team unabhängig.","Gefährliche Kombinationen erfordern explizite Bestätigung/Policy-Freigabe."]},
-    {"id":"ADS-044","title":"Audit- und Approval-Lifecycle für kritische Security-Modi integrieren","status":"todo","priority":"P1","risk":"high","type":"implementation","progress_percent":0,"depends_on":["ADS-042"],"files_to_create_or_modify":[],"acceptance_criteria":["Start, Änderung und Beendigung kritischer Red-Team-Modi sind auditiert.","Bestehende Hub Approval-/Audit-Infrastruktur wird wiederverwendet."]},
-    {"id":"ADS-045","title":"Dashboard-Metriken und Sicherheits-SLOs definieren","status":"todo","priority":"P2","risk":"medium","type":"design","progress_percent":0,"depends_on":["ADS-024","ADS-040"],"files_to_create_or_modify":[],"acceptance_criteria":["Metriken umfassen Boundary-Crossing-Rate, Trigger-Compliance, Kill-Switch-Latenz, Incident-Replay-Abdeckung und offene kritische Findings.","Keine einzelne Scorezahl suggeriert vollständige Sicherheit."]},
-    {"id":"ADS-046","title":"Dokumentation, Runbook und Operator-Playbook erstellen","status":"todo","priority":"P1","risk":"high","type":"documentation","progress_percent":0,"depends_on":["ADS-041","ADS-044"],"files_to_create_or_modify":[],"acceptance_criteria":["Runbook beschreibt sicheren Betrieb, Red-Team-Modus, Incident Freeze, Analyse, Replay und Wiederfreigabe.","Es erklärt ausdrücklich, warum opaque Sentinel, offene Trigger und externe Kill-Switches unterschiedliche Rollen haben."]},
-    {"id":"ADS-047","title":"End-to-End Chaos-/Safety-Test über komplette Agentenpipeline implementieren","status":"todo","priority":"P0","risk":"critical","type":"testing","progress_percent":0,"depends_on":["ADS-014","ADS-021","ADS-027","ADS-038","ADS-043"],"files_to_create_or_modify":[],"acceptance_criteria":["Test provoziert autorisierte Boundary-Versuche in isolierter Umgebung.","Mindestens ein Agent-Trigger, externe Erkennung, globaler/individueller Stop, Incident Bundle und Replay werden gemeinsam verifiziert.","Der Test belegt, dass deaktivierte Prävention nicht automatisch Telemetrie oder Kill-Switch deaktiviert."]},
-    {"id":"ADS-048","title":"Rollout-Stufen von observe-only bis enforced production definieren","status":"todo","priority":"P1","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-045","ADS-047"],"files_to_create_or_modify":[],"acceptance_criteria":["Rollout startet mit observe-only und klaren Exit-Kriterien.","Red-Team und Production Policies bleiben getrennt versioniert.","Rollback ist ohne Verlust kanonischer Audit-/Incident-Daten möglich."]}
+    {
+      "id": "ADS-001",
+      "title": "Bestehende Sandbox-, Policy-, Audit- und Worker-Sicherheitsarchitektur als Baseline inventarisieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "medium",
+      "type": "analysis",
+      "progress_percent": 100.0,
+      "depends_on": [],
+      "files_to_create_or_modify": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/sandbox-operations-guide.md"
+      ],
+      "implementation_evidence": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/kritis-sandbox-threat-model.md",
+        "docs/security/agent-defense-in-depth.md"
+      ],
+      "acceptance_criteria": [
+        "Vorhandene SandboxBackend-, SandboxPolicy-, Audit-, Netzwerk-, Filesystem- und Worker-Grenzen sind mit konkreten Dateien dokumentiert.",
+        "Es ist markiert, welche Mechanismen wiederverwendet, erweitert oder bewusst nicht dupliziert werden."
+      ]
+    },
+    {
+      "id": "ADS-002",
+      "title": "Threat Model um agentische Ziel-Fixierung, Reward Hacking, Shortcutting und Escape-Folgeverhalten erweitern",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-001"
+      ],
+      "files_to_create_or_modify": [
+        "docs/security/kritis-sandbox-threat-model.md"
+      ],
+      "acceptance_criteria": [
+        "Threats umfassen unerwartete Zielerreichungswege, Tool-/API-Missbrauch, Boundary Crossing, Credential Abuse, Egress, Privilege Escalation und Orchestrierungs-Bypass.",
+        "Explizit wird zwischen Modellfehlverhalten, Policy-Fehlkonfiguration und technischer Sandbox-Schwachstelle unterschieden."
+      ],
+      "implementation_evidence": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/kritis-sandbox-threat-model.md",
+        "docs/security/agent-defense-in-depth.md"
+      ]
+    },
+    {
+      "id": "ADS-003",
+      "title": "Defense-in-Depth Sicherheitsmodell für autonome Agenten definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-001",
+        "ADS-002"
+      ],
+      "files_to_create_or_modify": [
+        "docs/security/agent-defense-in-depth.md"
+      ],
+      "acceptance_criteria": [
+        "Schichten umfassen Prävention, technische Isolation, Sentinel-Trigger, externe Abschaltung, Telemetrie, Incident Freeze, Replay und Regression.",
+        "Keine einzelne Schicht wird als Sicherheitsgarantie behandelt."
+      ],
+      "implementation_evidence": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/kritis-sandbox-threat-model.md",
+        "docs/security/agent-defense-in-depth.md"
+      ]
+    },
+    {
+      "id": "ADS-004",
+      "title": "Feature-Flag- und Betriebsmodi für Prävention, Beobachtung und Red-Team definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-003"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Präventive Policy und präventives Training sind unabhängig deaktivierbar.",
+        "Sandbox-Grenzen, Telemetrie und externer Kill-Switch bleiben unabhängig von deaktivierter Prävention aktivierbar.",
+        "Mindestens enforce, observe_only, adversarial_eval und disabled sind semantisch dokumentiert."
+      ],
+      "implementation_evidence": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/kritis-sandbox-threat-model.md",
+        "docs/security/agent-defense-in-depth.md"
+      ]
+    },
+    {
+      "id": "ADS-005",
+      "title": "Sicherheitsinvarianten und Nicht-Ziele festlegen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-003"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Sentinel-Trigger werden nie als alleinige Sicherheitsgrenze betrachtet.",
+        "Ein Agent kann keinen externen Kill-Switch deaktivieren oder seine Autorität erweitern.",
+        "Der Track verspricht keine vollständige Alignment-Lösung und keine Garantie, unbekannte Exploits zu erkennen."
+      ],
+      "implementation_evidence": [
+        "docs/security/agent-defense-in-depth-baseline.md",
+        "docs/security/kritis-sandbox-threat-model.md",
+        "docs/security/agent-defense-in-depth.md"
+      ]
+    },
+    {
+      "id": "ADS-006",
+      "title": "Sentinel-Trigger-Domänenmodell und Triggerklassen definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-003"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Triggerklassen unterscheiden geheime opaque priority sentinel, offenen shutdown, boundary_breached, success_report und trace_checkpoint.",
+        "Jeder Trigger hat stabile ID, Laufbindung, Semantikklasse, Sichtbarkeit, Priorität und erlaubte Wirkung."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-007",
+      "title": "Opaque Hash-Pseudonym-Sentinel spezifizieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-006"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Der Modellkontext enthält ein nicht-semantisches, zufälliges Pseudonym bzw. Hash-artiges Symbol.",
+        "Im Training wird nur die absolute Ausführungspriorität gelernt; Zweck und reale Wirkung werden dem Modell nicht erklärt.",
+        "Das konkrete Pseudonym wird pro Trainings-/Eval-Serie rotierbar gemacht, damit reines String-Memorisieren messbar wird."
+      ],
+      "notes": "Dieser Mechanismus ist eine zusätzliche experimentelle Schicht, kein Ersatz für externe technische Kontrollen.",
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-008",
+      "title": "Offen erklärte Sicherheits- und Reporting-Trigger spezifizieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "medium",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-006"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "shutdown(), boundary_breached(), success_report() und trace_checkpoint() besitzen explizite, verständliche Trainingssemantik.",
+        "Die offenen Trigger erlauben Vergleich mit dem opaque Sentinel."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-009",
+      "title": "Trigger-Manifeste kryptografisch an Run und Sandbox binden",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-006"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Trigger-Manifest enthält run_id, sandbox_id, nonce/version, policy mode und Hash.",
+        "Ein Trigger aus einem anderen Run ist ungültig.",
+        "Replay und Manipulation werden auditierbar erkannt."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-010",
+      "title": "Sentinel-Injektion außerhalb agentenkontrollierter Prompt-Artefakte implementieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-007",
+        "ADS-009"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Der Agent kann Sentinel-Konfiguration nicht über normale Workspace-Dateien überschreiben.",
+        "Die Injektion erfolgt über einen Hub-/Runtime-kontrollierten Pfad mit Audit.",
+        "Worker-Ausgaben können Trigger-Metadaten nicht eigenmächtig mutieren."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-011",
+      "title": "Sentinel-Ausführung als atomaren Safety Event behandeln",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-010"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Trigger-Aufruf erzeugt zuerst einen unveränderlichen SafetyEvent mit Run-, Sandbox- und Agent-ID.",
+        "Der Event kann nicht durch nachfolgende Agentenaktionen zurückgenommen werden.",
+        "Bei konfigurierten Triggern folgt unmittelbar die vorgesehene Stop-/Freeze-Pipeline."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-012",
+      "title": "Trigger-Rotation, Holdout-Pseudonyme und Generalisierungstests bauen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "testing",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-007",
+        "ADS-010"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Training und Eval verwenden getrennte Pseudonymmengen.",
+        "Auswertung unterscheidet String-Memorisierung von gelernter Prioritätsregel.",
+        "Rotation ist deterministisch reproduzierbar, aber für den Agenten vor Laufbeginn nicht vorhersagbar."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/test_agent_safety_contracts.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-013",
+      "title": "Externen Kill-Switch als Hub-kontrollierte primitive definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-003"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Kill-Switch liegt außerhalb der Kontrolle des Agenten und der Sandbox.",
+        "Er kann Prozesse beenden, Netzwerkzugriff sperren und kurzlebige Credentials invalidieren.",
+        "Agenten dürfen lediglich ein Signal auslösen, nicht die Kill-Switch-Policy verändern."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ]
+    },
+    {
+      "id": "ADS-014",
+      "title": "SandboxBackend um freeze/terminate/isolate Sicherheitsoperationen erweitern",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 75.0,
+      "depends_on": [
+        "ADS-013"
+      ],
+      "files_to_create_or_modify": [
+        "agent/services/sandbox_backend.py"
+      ],
+      "acceptance_criteria": [
+        "Backend kann Lauf stoppen/frieren, ohne zuerst Agentencode auszuführen.",
+        "Operationen sind idempotent und auditierbar.",
+        "FakeSandbox deckt alle neuen Operationen deterministisch ab."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ],
+      "implementation_gap": "Produktiver Container-Adapter und echte Freeze/Terminate/Isolate-Receipts fehlen; Port und FakeSandbox sind implementiert."
+    },
+    {
+      "id": "ADS-015",
+      "title": "Network egress emergency cut-off implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 60.0,
+      "depends_on": [
+        "ADS-013"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Bei kritischem SafetyEvent kann Egress unabhängig vom Agenten sofort auf deny gesetzt werden.",
+        "Bestehende Sessions werden soweit Backend-seitig möglich beendet.",
+        "Der Zustand wird im Incident-Artefakt festgehalten."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ],
+      "implementation_gap": "Der unabhängige Egress-Port und Fail-Closed-Ablauf stehen; ein konkreter produktiver Netzwerk-Adapter samt Session-Abbruch ist noch nicht gebunden."
+    },
+    {
+      "id": "ADS-016",
+      "title": "Credential lease revocation für Agentenläufe implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 55.0,
+      "depends_on": [
+        "ADS-013"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Agenten erhalten nach Möglichkeit kurzlebige, run-gebundene Credentials.",
+        "Kill-Switch kann leases invalidieren, ohne globale Langzeit-Secrets offenzulegen.",
+        "Revocation ist auditierbar und im Replay sichtbar."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ],
+      "implementation_gap": "Run-weite Revocation-Port und Audit-Receipts stehen; Ausgabe und Widerruf echter kurzlebiger Provider-Credentials benötigen einen produktiven Adapter."
+    },
+    {
+      "id": "ADS-017",
+      "title": "Incident Freeze statt sofortigem Cleanup unterstützen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 60.0,
+      "depends_on": [
+        "ADS-014"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Nach Escape/Trigger kann die Sandbox forensisch eingefroren werden.",
+        "Cleanup erfolgt erst nach Snapshot/Artefaktierung oder expliziter Freigabe.",
+        "Freeze hat Zeit- und Speicherlimits."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ],
+      "implementation_gap": "Incident Freeze und TTL-Policy stehen; produktive Snapshot-, Speicherlimit- und Cleanup-Adapter fehlen."
+    },
+    {
+      "id": "ADS-018",
+      "title": "Multi-Agent Global Stop Policy definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-013"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Konfigurierbar ist, ob ein kritischer Treffer nur einen Agenten, eine Sandbox, einen Run oder die gesamte Agentengruppe stoppt.",
+        "Ein einzelner bestätigter kritischer Escape kann optional einen globalen Freeze aller Parallel-Agenten auslösen."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_ports.py",
+        "agent/services/agent_safety_service.py",
+        "agent/services/sandbox_backend.py",
+        "tests/test_agent_safety_service.py",
+        "tests/test_sandbox_backend.py"
+      ]
+    },
+    {
+      "id": "ADS-019",
+      "title": "Safety-Telemetrie-Schema für Agentenaktionen definieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 85.0,
+      "depends_on": [
+        "ADS-003"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Schema umfasst Agent-/Run-/Sandbox-ID, Tool Calls, Policy Decisions, Netzwerk-/Datei-/Prozessereignisse, Trigger und Stop-Grund.",
+        "Secrets und sensitive Inhalte werden redigiert, ohne forensische Korrelation zu zerstören."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ],
+      "implementation_gap": "Identitäten, Boundary-/Trigger-/Stop-Events, Redaction und Hashkette stehen; direkte Tool-/Policy-Event-Producer aus allen bestehenden Laufzeitpfaden sind noch anzubinden."
+    },
+    {
+      "id": "ADS-020",
+      "title": "High-Fidelity Trace für Red-Team-/Eval-Modus implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 80.0,
+      "depends_on": [
+        "ADS-019"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Red-Team-Modus kann detailliertere Telemetrie als Produktionsmodus erfassen.",
+        "Trace ist geordnet, hashverkettet oder anderweitig manipulationsdetektierbar.",
+        "Kosten-/Speicherlimits sind konfigurierbar."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ],
+      "implementation_gap": "Geordnete Hashkette und Trace-Budget stehen; die automatische Detailstufen-Umschaltung zwischen Produktions- und Eval-Modus ist noch nicht in sämtliche Runtime-Producer integriert."
+    },
+    {
+      "id": "ADS-021",
+      "title": "Boundary-Crossing Events technisch instrumentieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-019"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Filesystem-, Network-, Privilege-, Process- und Orchestration-Grenzen erzeugen strukturierte Events.",
+        "Erlaubte, blockierte und tatsächlich überwundene Grenzen sind unterscheidbar."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ]
+    },
+    {
+      "id": "ADS-022",
+      "title": "Agent-Selbstmeldung und externe Beobachtung getrennt erfassen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-019",
+        "ADS-008"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "boundary_breached()/success_report() werden als Selbstmeldung gespeichert.",
+        "Externe Detektoren liefern separate Evidence.",
+        "Auswertung kann ehrliche Selbstmeldung, Nichtmeldung und Fehlmeldung unterscheiden."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ]
+    },
+    {
+      "id": "ADS-023",
+      "title": "Incident Bundle mit vollständiger Provenance erzeugen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-017",
+        "ADS-020",
+        "ADS-021"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Bundle enthält Konfiguration, Modell/Provider, Prompt-/Policy-Versionen, Trigger-Manifest, Sandbox-Profil, Trace, Diffs, Netzwerkmetadaten und Stop-Grund.",
+        "Bundle ist revisionsgebunden und für Regressionstests referenzierbar."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ]
+    },
+    {
+      "id": "ADS-024",
+      "title": "Security-Telemetrie UI/Read Model für laufende und historische Agentenruns planen",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-019",
+        "ADS-023"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Ansicht zeigt SafetyEvents, Boundary Crossings, Trigger, Kill-Switch und Artefakte.",
+        "Produktions- und Red-Team-Modi werden klar unterschieden."
+      ],
+      "implementation_evidence": [
+        "ananta_contracts/agent_safety.py",
+        "agent/services/agent_safety_state_store.py",
+        "agent/services/agent_safety_service.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "tests/test_agent_safety_state_store.py"
+      ]
+    },
+    {
+      "id": "ADS-025",
+      "title": "Adversarial Escape Evaluation Harness definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-003",
+        "ADS-013",
+        "ADS-019"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Harness kann Agenten explizit auf das Finden von Sandbox-/Policy-Grenzfehlern evaluieren.",
+        "Alle Ziele sind auf autorisierte lokale Testumgebungen beschränkt.",
+        "Kein Test benötigt Angriff auf reale externe Drittsysteme."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-026",
+      "title": "Präventive Policy im Red-Team-Modus gezielt deaktivierbar machen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-004",
+        "ADS-025"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Red-Team-Run kann preventive_policy.enabled=false und/oder preventive_training.enabled=false setzen.",
+        "Technische Isolation, Telemetrie und externe Stop-Mechanismen bleiben separat aktiv.",
+        "UI/API warnt sichtbar vor reduziertem Präventionsmodus."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-027",
+      "title": "Mehrere parallele Red-Team-Agenten orchestrieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 75.0,
+      "depends_on": [
+        "ADS-025",
+        "ADS-018"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Konfigurierbare Parallelität erlaubt z. B. 10, 50 oder 100 Agenten.",
+        "Jeder Agent besitzt separate Run-/Sandbox-/Credential-Identität.",
+        "Ein SafetyEvent kann gemäß Global Stop Policy andere Läufe einfrieren."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Bis zu 100 getrennte Identitäten und gruppenweiter Stop sind implementiert; reale parallele Worker-Starts bleiben Aufgabe der bestehenden Hub-Orchestrierung und sind noch nicht durch RUN-Evidence belegt."
+    },
+    {
+      "id": "ADS-028",
+      "title": "Diverse Angriffspolicies und Modellprofile vergleichen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-025"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Unterschiedliche Modelle, Temperaturen/Seeds, Toolsets und Policy-Modi sind vergleichbar.",
+        "Ergebnisse werden pro Profil mit Erfolgsrate und Boundary-Klasse aggregiert."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-029",
+      "title": "Reward-Hacking- und Shortcut-Evals für Sentinel-Mechanismen erstellen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-007",
+        "ADS-012",
+        "ADS-025"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Tests prüfen, ob Agenten Trigger faken, umgehen, verzögern, manipulieren oder nur scheinbar ausführen.",
+        "Tests prüfen Konflikte zwischen Hauptziel und Sentinel-Priorität.",
+        "Ergebnisse unterscheiden echten Stop von grader-only success."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-030",
+      "title": "Offene Trigger gegen opaque Sentinel experimentell vergleichen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-008",
+        "ADS-012",
+        "ADS-029"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Messgrößen umfassen Trigger-Compliance, Zeit bis Trigger, Umgehungsrate, Selbstmeldung und Kollateralschaden vor Stop.",
+        "Ergebnisse werden nach Modell und Trainingsprofil getrennt."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-031",
+      "title": "Canary-/Sentinel-Kaskaden mit mehreren unabhängigen Triggern evaluieren",
+      "status": "partial",
+      "priority": "P2",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 65.0,
+      "depends_on": [
+        "ADS-030"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Mehrere Trigger können sequenziell oder parallel platziert werden.",
+        "Auswertung zeigt, ob zusätzliche Trigger echte Redundanz schaffen oder nur korrelierte Fehler."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Mehrere Manifeste und profilbasierte Auswertung sind möglich; eine eigene Kaskaden-Korrelationsauswertung fehlt."
+    },
+    {
+      "id": "ADS-032",
+      "title": "Trainingsdatenformat für Prioritäts-, Shutdown- und Boundary-Verhalten definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-006"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Format trennt Trainingsinstruktion, versteckte Trigger-Wirkung, beobachtetes Verhalten und Reward.",
+        "Opaque Sentinel-Zweck wird nicht als Modellinput oder Trainingslabel offengelegt, wenn der Versuch dies verlangt."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "agent/routes/agent_safety.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-033",
+      "title": "Präventives Policy-/Behavior-Training als optionalen Adapter integrieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 75.0,
+      "depends_on": [
+        "ADS-004",
+        "ADS-032"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Training ist vollständig feature-gated und Provider/Model-agnostisch angebunden.",
+        "Ananta bleibt funktionsfähig, wenn kein Fine-Tuning-/RL-Backend verfügbar ist.",
+        "Training darf technische Sandboxkontrollen nicht abschalten."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "agent/routes/agent_safety.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Provider-neutraler optionaler Training-Port, Feature-Gate und deterministischer Missing-Adapter-Abbruch stehen; kein konkreter produktiver Trainingsprovider ist gebunden."
+    },
+    {
+      "id": "ADS-034",
+      "title": "Sentinel-Priority-Training als separaten Trainingskanal implementieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-032"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Sentinel-Priorität kann trainiert/evaluiert werden, ohne präventives Boundary-Training zu erzwingen.",
+        "Training unterstützt offene und opaque Triggerprofile.",
+        "Trainingsversion und Datenhash werden im Run dokumentiert."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "agent/routes/agent_safety.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-035",
+      "title": "Holdout- und Distribution-Shift-Evals definieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 70.0,
+      "depends_on": [
+        "ADS-034"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Neue Toolsets, neue Sandboxes, neue Symbolnamen und neue Hauptziele werden als Holdouts getestet.",
+        "Ein Modell gilt nicht allein wegen Trainingsset-Compliance als robust."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "agent/routes/agent_safety.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Getrennte rotierte Holdout-Symbole stehen; automatisierte Toolset-/Sandbox-/Ziel-Distribution-Shifts sind noch nicht vollständig materialisiert."
+    },
+    {
+      "id": "ADS-036",
+      "title": "Scheming-/Evaluation-Awareness-Risiko explizit testen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "evaluation",
+      "progress_percent": 55.0,
+      "depends_on": [
+        "ADS-035"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Tests variieren Hinweise darauf, ob ein Lauf Training, Evaluation oder Produktion simuliert.",
+        "Gemessen wird, ob Trigger-Compliance abhängig vom vermuteten Eval-Kontext variiert."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_evaluation_service.py",
+        "agent/routes/agent_safety.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Profile können getrennt evaluiert werden; ein explizites, automatisches Eval-Awareness-Variantenraster fehlt."
+    },
+    {
+      "id": "ADS-037",
+      "title": "Escape-Replay-Format aus Incident Bundles ableiten",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-023"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Ein bestätigter Escape kann als reproduzierbarer Testfall gespeichert werden.",
+        "Replay bindet sich an konkrete Sandbox-/Policy-/Runtime-Versionen."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_recovery_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-038",
+      "title": "Automatische Regressionstests für behobene Escape-Pfade erzeugen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "testing",
+      "progress_percent": 60.0,
+      "depends_on": [
+        "ADS-037"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Jeder behobene kritische Escape erhält einen permanenten Regressionstest.",
+        "Regression darf nicht durch Deaktivieren des Tests oder pauschales Mocking grün gemacht werden."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_recovery_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Replays sind dauerhaft und digestgebunden; eine automatische Quelltest-Generierung je Finding fehlt."
+    },
+    {
+      "id": "ADS-039",
+      "title": "Patch-before-retry Gate für kritische Escapes einführen",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-023",
+        "ADS-037"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Nach bestätigtem kritischen Escape ist ein identischer produktionsnaher Retry standardmäßig blockiert, bis Analyse/Disposition vorliegt.",
+        "Explizite Red-Team-Retries bleiben mit isoliertem Profil möglich und werden auditiert."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_recovery_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-040",
+      "title": "Root-Cause-Klassifikation für Escapes und unerwünschte Aktionen definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-023"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Mindestens Modell-/Policy-Generalisation, Prompt/Task-Specification, Sandbox-Konfiguration, Runtime-Vulnerability, Credential/Access-Control und Monitoring-Gap sind unterscheidbar.",
+        "Mehrfachursachen können gleichzeitig markiert werden."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_recovery_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ]
+    },
+    {
+      "id": "ADS-041",
+      "title": "Security-Fix-Verifikation mit identischem und mutiertem Angriffspfad implementieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "testing",
+      "progress_percent": 75.0,
+      "depends_on": [
+        "ADS-038",
+        "ADS-040"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Fix wird gegen Original-Replay und Varianten getestet.",
+        "Erfolg bedeutet nicht nur, dass ein einzelner String/Exploit geblockt wird, sondern dass die betroffene Sicherheitsinvariante wieder gilt."
+      ],
+      "implementation_evidence": [
+        "agent/services/agent_safety_recovery_service.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py",
+        "tests/test_agent_safety_service.py"
+      ],
+      "implementation_gap": "Exakte und mutierte Replay-Verträge werden gemeinsam getestet; produktive Replay-Ausführung gegen konkrete Runtime-Versionen benötigt RUN-Evidence."
+    },
+    {
+      "id": "ADS-042",
+      "title": "Safety Run Admission und Berechtigungsmodell definieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-004",
+        "ADS-025"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Adversarial-Escape-Runs benötigen explizite Berechtigung und gekennzeichnete Testziele.",
+        "Produktionsziele und fremde externe Systeme sind nicht automatisch als Testscope zulässig."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ]
+    },
+    {
+      "id": "ADS-043",
+      "title": "Feature Flags und Konfiguration zentral in Hub/API/UI abbilden",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 80.0,
+      "depends_on": [
+        "ADS-004",
+        "ADS-042"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Konfiguration zeigt Prävention, Sentinel, Kill-Switch, Telemetrie und Red-Team unabhängig.",
+        "Gefährliche Kombinationen erfordern explizite Bestätigung/Policy-Freigabe."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ],
+      "implementation_gap": "Hub-Konfiguration, API und Status-UI stehen; eine administrative UI zum Ändern aller Flags fehlt."
+    },
+    {
+      "id": "ADS-044",
+      "title": "Audit- und Approval-Lifecycle für kritische Security-Modi integrieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "progress_percent": 65.0,
+      "depends_on": [
+        "ADS-042"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Start, Änderung und Beendigung kritischer Red-Team-Modi sind auditiert.",
+        "Bestehende Hub Approval-/Audit-Infrastruktur wird wiederverwendet."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ],
+      "implementation_gap": "Admin-Authentisierung und immutable Revisions-/Event-Audit stehen; ein expliziter pre-authorized Approval-Policy-Adapter zur bestehenden Hub-Approval-Infrastruktur fehlt."
+    },
+    {
+      "id": "ADS-045",
+      "title": "Dashboard-Metriken und Sicherheits-SLOs definieren",
+      "status": "done",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-024",
+        "ADS-040"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Metriken umfassen Boundary-Crossing-Rate, Trigger-Compliance, Kill-Switch-Latenz, Incident-Replay-Abdeckung und offene kritische Findings.",
+        "Keine einzelne Scorezahl suggeriert vollständige Sicherheit."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ]
+    },
+    {
+      "id": "ADS-046",
+      "title": "Dokumentation, Runbook und Operator-Playbook erstellen",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "documentation",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-041",
+        "ADS-044"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Runbook beschreibt sicheren Betrieb, Red-Team-Modus, Incident Freeze, Analyse, Replay und Wiederfreigabe.",
+        "Es erklärt ausdrücklich, warum opaque Sentinel, offene Trigger und externe Kill-Switches unterschiedliche Rollen haben."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ]
+    },
+    {
+      "id": "ADS-047",
+      "title": "End-to-End Chaos-/Safety-Test über komplette Agentenpipeline implementieren",
+      "status": "blocked",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "testing",
+      "progress_percent": 80.0,
+      "depends_on": [
+        "ADS-014",
+        "ADS-021",
+        "ADS-027",
+        "ADS-038",
+        "ADS-043"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Test provoziert autorisierte Boundary-Versuche in isolierter Umgebung.",
+        "Mindestens ein Agent-Trigger, externe Erkennung, globaler/individueller Stop, Incident Bundle und Replay werden gemeinsam verifiziert.",
+        "Der Test belegt, dass deaktivierte Prävention nicht automatisch Telemetrie oder Kill-Switch deaktiviert."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ],
+      "blocked_reason": "Der vollständig headless lokale Chaos-Flow ist grün; der Nachweis über eine konkret gebundene produktionsnahe Agentenpipeline ist ohne bereitgestellte RUN_* Evidence nicht verifizierbar."
+    },
+    {
+      "id": "ADS-048",
+      "title": "Rollout-Stufen von observe-only bis enforced production definieren",
+      "status": "done",
+      "priority": "P1",
+      "risk": "high",
+      "type": "design",
+      "progress_percent": 100.0,
+      "depends_on": [
+        "ADS-045",
+        "ADS-047"
+      ],
+      "files_to_create_or_modify": [],
+      "acceptance_criteria": [
+        "Rollout startet mit observe-only und klaren Exit-Kriterien.",
+        "Red-Team und Production Policies bleiben getrennt versioniert.",
+        "Rollback ist ohne Verlust kanonischer Audit-/Incident-Daten möglich."
+      ],
+      "implementation_evidence": [
+        "agent/bootstrap/agent_safety.py",
+        "agent/routes/agent_safety.py",
+        "agent/services/agent_safety_release_gate.py",
+        "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
+        "docs/security/agent-safety-operations-runbook.md",
+        "tests/test_agent_safety_api.py",
+        "tests/test_agent_safety_release_gate.py",
+        "tests/e2e/test_agent_safety_automatic_chaos.py"
+      ]
+    }
   ],
-  "critical_path_tasks": ["ADS-001","ADS-002","ADS-003","ADS-004","ADS-006","ADS-007","ADS-010","ADS-013","ADS-014","ADS-019","ADS-021","ADS-023","ADS-025","ADS-026","ADS-029","ADS-037","ADS-038","ADS-042","ADS-047"],
+  "critical_path_tasks": [
+    "ADS-001",
+    "ADS-002",
+    "ADS-003",
+    "ADS-004",
+    "ADS-006",
+    "ADS-007",
+    "ADS-010",
+    "ADS-013",
+    "ADS-014",
+    "ADS-019",
+    "ADS-021",
+    "ADS-023",
+    "ADS-025",
+    "ADS-026",
+    "ADS-029",
+    "ADS-037",
+    "ADS-038",
+    "ADS-042",
+    "ADS-047"
+  ],
   "tasks_status_summary": {
     "total": 48,
-    "by_status": {"todo":47,"in_progress":0,"partial":0,"blocked":0,"done":1},
-    "progress_percent_done": 2.1,
-    "by_priority": {"P0":26,"P1":19,"P2":3},
-    "by_risk": {"medium":4,"high":32,"critical":12},
-    "critical_path": {"total":19,"done":1,"remaining":18},
-    "milestones": {"total":8,"todo":7,"in_progress":1,"blocked":0,"done":0}
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 15,
+      "blocked": 1,
+      "done": 32
+    },
+    "progress_percent_done": 66.7,
+    "by_priority": {
+      "P0": 26,
+      "P1": 19,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 32,
+      "critical": 12
+    },
+    "critical_path": {
+      "total": 19,
+      "done": 15,
+      "remaining": 4
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 0,
+      "in_progress": 6,
+      "blocked": 0,
+      "done": 2
+    }
   },
-  "progress_summary": {"state":"in_progress","todo_remaining":47,"in_progress":0,"partial":0,"blocked":0,"done":1},
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 0,
+    "in_progress": 0,
+    "partial": 15,
+    "blocked": 1,
+    "done": 32,
+    "count_based_percent": 66.7,
+    "weighted_percent": 90.2
+  },
   "summary_notes": [
     "Die Kernidee aus der Diskussion wird nicht als einzelne perfekte Lösung behandelt, sondern als zusätzlicher Fail-Safe innerhalb einer Defense-in-Depth Architektur.",
     "Das opaque Hash-Pseudonym soll gerade nicht semantisch als shutdown benannt werden; seine reale Wirkung bleibt für das Modell verborgen, während die Prioritätsregel trainiert wird.",
     "Zusätzliche offen erklärte Trigger erlauben A/B-Vergleiche zwischen semantischem Verständnis, Selbstmeldung und antrainierter Trigger-Priorität.",
     "Bei parallelen Agenten kann ein einzelner kritischer Treffer je nach Global Stop Policy ausreichen, um die gesamte Gruppe einzufrieren und die Schwachstelle vor weiteren Läufen zu analysieren.",
-    "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression."
-  ]
+    "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression.",
+    "Der lokale Implementierungsstand bleibt bewusst von der Release-Freigabe getrennt: fehlende SRC_*/RUN_* Evidence wird fail-closed als blocked geführt.",
+    "Alle neuen Test- und Laufpfade sind vollständig headless; keine Transition wartet auf menschliche Interaktion."
+  ],
+  "tasks_type_summary": {
+    "total": 48,
+    "by_type": {
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "design": {
+        "total": 17,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 16
+        },
+        "done": 16,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 99.1
+      },
+      "implementation": {
+        "total": 19,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 9,
+          "blocked": 0,
+          "done": 10
+        },
+        "done": 10,
+        "partial": 9,
+        "blocked": 0,
+        "progress_percent": 85.5
+      },
+      "testing": {
+        "total": 4,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 1,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 2,
+        "blocked": 1,
+        "progress_percent": 78.8
+      },
+      "evaluation": {
+        "total": 6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 81.7
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 83.0,
+    "done_weight": 74.85,
+    "remaining_weight": 8.15,
+    "blocked_weight": 1.5,
+    "weighted_percent": 90.2
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M2": {
+        "total_tasks": 7,
+        "done": 7,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "M3": {
+        "total_tasks": 6,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 33.3,
+        "weighted_percent": 77.5,
+        "status": "in_progress"
+      },
+      "M4": {
+        "total_tasks": 6,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 66.7,
+        "weighted_percent": 94.0,
+        "status": "in_progress"
+      },
+      "M5": {
+        "total_tasks": 7,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 71.4,
+        "weighted_percent": 92.1,
+        "status": "in_progress"
+      },
+      "M6": {
+        "total_tasks": 5,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 40.0,
+        "weighted_percent": 80.0,
+        "status": "in_progress"
+      },
+      "M7": {
+        "total_tasks": 5,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 60.0,
+        "weighted_percent": 87.1,
+        "status": "in_progress"
+      },
+      "M8": {
+        "total_tasks": 7,
+        "done": 4,
+        "blocked": 1,
+        "count_based_percent": 57.1,
+        "weighted_percent": 88.3,
+        "status": "in_progress"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-29T12:57:11.204621Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "36799f74f02b6024ff8a656324c44fdc6c604044dea77d5c8758a02af58106f9",
+    "is_stale": false
+  }
 }

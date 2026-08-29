@@ -14,6 +14,7 @@ from agent.routes.admin.sfu_broadcast_feature_flags import (
     sfu_broadcast_feature_flags_bp,
 )
 from agent.routes.ai_snake_config import ai_snake_config_bp
+from agent.routes.agent_safety import agent_safety_bp
 from agent.routes.approvals import approvals_bp
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
@@ -215,6 +216,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(terminal_bp)
     app.register_blueprint(oidc_bp)
     app.register_blueprint(ai_snake_config_bp)
+    app.register_blueprint(agent_safety_bp)
     app.register_blueprint(network_profiles_bp)
     app.register_blueprint(snakes_bp)
     app.register_blueprint(share_sessions_bp)
