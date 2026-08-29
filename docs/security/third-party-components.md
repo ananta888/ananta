@@ -116,3 +116,22 @@ Baseline date: 2026-08-27. The machine-readable source of truth is
 Every live image still requires a dependency lock, SBOM, vulnerability scan,
 container digest and explicit release approval. The two unmaintained projects
 cannot become production-ready merely by passing contract tests.
+
+## Optional DSPy optimization worker
+
+Baseline observation date: 2026-08-29. The optional worker pins `dspy==3.2.1`;
+the official release tag resolves to commit `29448ae12756abdd14bd8796c819247ebb83673c`.
+DSPy declares the MIT license with copyright held by Stanford Future Data
+Systems. Its package metadata includes OpenAI, LiteLLM, Pydantic, Diskcache,
+Cloudpickle and GEPA among the direct dependency set.
+
+This is an unverified navigation baseline, not release evidence: no allowed
+`SRC_*` reference has been supplied. A release still requires an immutable
+source-catalog binding, complete transitive license/security inventory,
+dependency lock, SBOM, vulnerability scan, built image digest and allowed
+`RUN_*` evidence. Until then the optional image and production release remain
+blocked even when local contract tests pass.
+
+Cloudpickle may be present transitively but Ananta forbids executable program
+deserialization. DSPy imports stay in `worker/optimization/dspy/`; the Hub,
+contracts and standard worker remain dependency-free.

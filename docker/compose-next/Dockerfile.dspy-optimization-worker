@@ -1,0 +1,26 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ARG ANANTA_RUNTIME_UID=10007
+ARG ANANTA_RUNTIME_GID=10007
+
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+RUN groupadd --gid "${ANANTA_RUNTIME_GID}" ananta-dspy \
+    && useradd --uid "${ANANTA_RUNTIME_UID}" --gid "${ANANTA_RUNTIME_GID}" \
+       --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-dspy \
+    && install -d -o "${ANANTA_RUNTIME_UID}" -g "${ANANTA_RUNTIME_GID}" -m 0750 /app/data /attempt-output
+
+WORKDIR /app
+COPY . /app
+RUN pip install --no-cache-dir . \
+    && pip install --no-cache-dir --requirement docker/compose-next/requirements.dspy-optimization.txt \
+    && pip check \
+    && chown -R "${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}" /app
+
+USER ${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}
+EXPOSE 5000
+CMD ["python", "-m", "agent.ai_agent"]

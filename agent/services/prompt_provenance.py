@@ -1,11 +1,10 @@
 """PromptProvenanceChain: ordered provenance entries for LLM prompt construction. PTI-008."""
+
 from __future__ import annotations
 
 import hashlib
-import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
-
 
 ENTRY_TYPES = {
     "system_default",
@@ -21,6 +20,7 @@ ENTRY_TYPES = {
     "rag_context",
     "tool_definitions",
     "prompt_optimizer",
+    "dspy_optimized_program",
     "final_render",
     "inline_fallback",
 }
@@ -158,6 +158,30 @@ class PromptProvenanceChain:
 
     def add_final_render(self, *, output_hash: str | None = None) -> "PromptProvenanceChain":
         return self.add(type="final_render", output_hash=output_hash)
+
+    def add_dspy_optimized_program(
+        self,
+        *,
+        run_id: str,
+        program_digest: str,
+        dataset_digest: str,
+        metric_digest: str,
+        optimizer_digest: str,
+        export_digest: str,
+        applied: bool,
+        reason_not_applied: str | None = None,
+    ) -> "PromptProvenanceChain":
+        return self.add(
+            type="dspy_optimized_program",
+            id=run_id,
+            version="ananta.prompt-program.v1",
+            checksum=export_digest,
+            applied=applied,
+            reason_not_applied=reason_not_applied,
+            input_hash=program_digest,
+            output_hash=export_digest,
+            summary=(f"dataset={dataset_digest};metric={metric_digest};optimizer={optimizer_digest}"),
+        )
 
     def entries(self) -> list[ProvenanceEntry]:
         return list(self._entries)

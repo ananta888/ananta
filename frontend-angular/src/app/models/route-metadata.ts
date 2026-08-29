@@ -95,6 +95,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   'admin-diagnostics': { label: 'Admin-Diagnose', area: 'System', navGroup: 'Konfiguration', navOrder: 32, adminOnly: true, expertOnly: true },
   'role-audit': { label: 'Rollenänderungen', area: 'System', navGroup: 'Konfiguration', navOrder: 33, adminOnly: true, expertOnly: true },
   'sfu-broadcast-operations': { label: 'SFU Broadcast', area: 'System', navGroup: 'Konfiguration', navOrder: 34, roles: ['admin', 'operator'], expertOnly: true },
+  'dspy-optimization': { label: 'DSPy Optimization', area: 'System', navGroup: 'Konfiguration', navOrder: 35, adminOnly: true, expertOnly: true },
   settings: { label: 'Einstellungen', area: 'System', navGroup: 'Konfiguration', navOrder: 40, expertOnly: true },
   panel: { label: 'Agent Panel', area: 'System' },
   task: { label: 'Task Details', area: 'Operate' },

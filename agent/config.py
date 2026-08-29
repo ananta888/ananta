@@ -659,6 +659,17 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="ANANTA_PEER_OVERLAY_DATA_ENABLED",
     )
+    dspy_optimization_enabled: bool = Field(default=False, validation_alias="ANANTA_DSPY_OPTIMIZATION_ENABLED")
+    dspy_optimization_mode: str = Field(default="disabled", validation_alias="ANANTA_DSPY_OPTIMIZATION_MODE")
+    dspy_optimization_state: str = Field(
+        default="data/dspy-optimization.sqlite3", validation_alias="ANANTA_DSPY_OPTIMIZATION_STATE"
+    )
+    dspy_optimization_artifact_root: str = Field(
+        default="data/dspy-optimization-artifacts", validation_alias="ANANTA_DSPY_OPTIMIZATION_ARTIFACT_ROOT"
+    )
+    dspy_optimization_policy_path: str = Field(
+        default="config/dspy/optimization_defaults.v1.json", validation_alias="ANANTA_DSPY_OPTIMIZATION_POLICY_PATH"
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

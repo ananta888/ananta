@@ -1,0 +1,24 @@
+{
+  "schema": "ananta.dspy-optimization-policy.v1",
+  "enabled": false,
+  "mode": "disabled",
+  "allow_pickle": false,
+  "allow_unsafe_lm_state": false,
+  "weight_optimization_enabled": false,
+  "external_dataset_download_enabled": false,
+  "allowed_program_kinds": ["planning_structured_tasks", "rag_answer", "structured_extraction"],
+  "allowed_optimizers": ["labeled_few_shot", "bootstrap_few_shot"],
+  "allowed_retrievers": ["codecompass"],
+  "budgets": {
+    "max_model_calls": 100,
+    "max_tokens": 500000,
+    "max_cost_micros": 0,
+    "timeout_seconds": 1800,
+    "max_concurrency": 2,
+    "max_dataset_records": 10000,
+    "max_artifact_bytes": 10485760,
+    "max_retries": 2
+  },
+  "promotion_mode": "automatic_after_all_gates",
+  "human_intervention_required": false
+}

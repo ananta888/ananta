@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.optimization-dataset.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "dataset_id", "version", "content_digest", "record_schema_digest", "split_digests", "split_record_ids", "license_id", "sensitivity", "retention_days", "source_refs"],
+  "properties": {
+    "schema": {"const": "ananta.optimization-dataset.v1"},
+    "tenant_id": {"type": "string"},
+    "dataset_id": {"type": "string"},
+    "version": {"type": "integer", "minimum": 1},
+    "content_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "record_schema_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "split_digests": {"type": "object", "additionalProperties": false, "required": ["train", "validation", "test"], "properties": {"train": {"type": "string"}, "validation": {"type": "string"}, "test": {"type": "string"}}},
+    "split_record_ids": {"type": "object", "additionalProperties": false, "required": ["train", "validation", "test"], "properties": {"train": {"type": "array", "items": {"type": "string"}}, "validation": {"type": "array", "items": {"type": "string"}}, "test": {"type": "array", "items": {"type": "string"}}}},
+    "license_id": {"type": "string"},
+    "sensitivity": {"enum": ["public", "internal", "confidential", "restricted"]},
+    "retention_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC_"}}
+  }
+}

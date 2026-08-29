@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.dspy-optimization-spec.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "spec_id", "program_kind", "dataset_manifest_digest", "metric_set_digest", "optimizer_id", "optimizer_config_digest", "seed", "provider_bindings", "budgets"],
+  "properties": {
+    "schema": {"const": "ananta.dspy-optimization-spec.v1"},
+    "tenant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "spec_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,191}$"},
+    "program_kind": {"enum": ["planning_structured_tasks", "rag_answer", "structured_extraction"]},
+    "dataset_manifest_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "metric_set_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "optimizer_id": {"enum": ["labeled_few_shot", "bootstrap_few_shot"]},
+    "optimizer_config_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "provider_bindings": {"type": "object", "minProperties": 1, "maxProperties": 4},
+    "budgets": {"type": "object", "additionalProperties": false, "required": ["max_model_calls", "max_tokens", "max_cost_micros", "timeout_seconds", "max_concurrency", "max_dataset_records", "max_artifact_bytes"], "properties": {
+      "max_model_calls": {"type": "integer", "minimum": 1, "maximum": 10000},
+      "max_tokens": {"type": "integer", "minimum": 1, "maximum": 50000000},
+      "max_cost_micros": {"type": "integer", "minimum": 0, "maximum": 10000000000},
+      "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+      "max_concurrency": {"type": "integer", "minimum": 1, "maximum": 16},
+      "max_dataset_records": {"type": "integer", "minimum": 1, "maximum": 100000},
+      "max_artifact_bytes": {"type": "integer", "minimum": 1024, "maximum": 104857600},
+      "max_retries": {"type": "integer", "minimum": 0, "maximum": 10}
+    }}
+  }
+}

@@ -1,0 +1,76 @@
+name: ananta-dspy-optimization
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ROLE: hub
+      ANANTA_DSPY_OPTIMIZATION_ENABLED: "1"
+      ANANTA_DSPY_OPTIMIZATION_MODE: local
+    networks:
+      dspy-control: {}
+
+  dspy-optimization-worker:
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.dspy-optimization-worker
+    image: ${ANANTA_DSPY_WORKER_IMAGE:-ananta-dspy-optimization-worker}:${ANANTA_DSPY_WORKER_TAG:-local}
+    profiles: [dspy-optimization]
+    init: true
+    read_only: true
+    privileged: false
+    user: "10007:10007"
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    pids_limit: 128
+    environment:
+      ROLE: worker
+      ANANTA_QUICKSTART_ROLE: worker
+      AGENT_NAME: ${ANANTA_DSPY_WORKER_ID:-ananta-dspy-optimization-worker}
+      AGENT_URL: http://dspy-optimization-worker:5000
+      HUB_URL: http://ai-agent-hub:5000
+      ANANTA_DSPY_OPTIMIZATION_MODE: local
+      AGENT_TOKEN_FILE: /run/secrets/dspy_worker_service_token
+      REGISTRATION_TOKEN_FILE: /run/secrets/dspy_worker_registration_token
+      SECRET_KEY_FILE: /run/secrets/dspy_worker_session_key
+    tmpfs:
+      - /tmp:size=268435456,mode=1770,uid=10007,gid=10007,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10007,gid=10007,noexec,nosuid,nodev
+    volumes:
+      - type: volume
+        source: dspy-worker-data
+        target: /app/data
+        volume: {nocopy: true}
+    secrets:
+      - source: dspy_worker_service_token
+        target: dspy_worker_service_token
+        uid: "10007"
+        gid: "10007"
+        mode: 0400
+      - source: dspy_worker_registration_token
+        target: dspy_worker_registration_token
+        uid: "10007"
+        gid: "10007"
+        mode: 0400
+      - source: dspy_worker_session_key
+        target: dspy_worker_session_key
+        uid: "10007"
+        gid: "10007"
+        mode: 0400
+    networks:
+      dspy-control: {}
+
+networks:
+  dspy-control:
+    internal: true
+
+volumes:
+  hub-data: {}
+  dspy-worker-data: {}
+
+secrets:
+  dspy_worker_service_token: {external: true}
+  dspy_worker_registration_token: {external: true}
+  dspy_worker_session_key: {external: true}

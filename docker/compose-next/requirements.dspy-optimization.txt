@@ -1,0 +1,3 @@
+# Optional isolated worker dependency; release lock/SBOM remains blocked until
+# assignment-bound upstream evidence is registered.
+dspy==3.2.1

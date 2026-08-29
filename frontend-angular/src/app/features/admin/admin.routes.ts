@@ -35,4 +35,10 @@ export const adminRoutes: Routes = [
     data: routeDataFor('sfu-broadcast-operations'),
     loadComponent: () => import('./sfu-broadcast-operator.component').then(m => m.SfuBroadcastOperatorComponent),
   },
+  {
+    path: 'dspy-optimization',
+    canActivate: [adminGuard],
+    data: routeDataFor('dspy-optimization'),
+    loadComponent: () => import('./dspy-optimization-workbench.component').then(m => m.DspyOptimizationWorkbenchComponent),
+  },
 ];

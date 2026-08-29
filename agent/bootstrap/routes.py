@@ -13,8 +13,8 @@ from agent.routes.admin.planning_review import planning_review_bp
 from agent.routes.admin.sfu_broadcast_feature_flags import (
     sfu_broadcast_feature_flags_bp,
 )
-from agent.routes.ai_snake_config import ai_snake_config_bp
 from agent.routes.agent_safety import agent_safety_bp
+from agent.routes.ai_snake_config import ai_snake_config_bp
 from agent.routes.approvals import approvals_bp
 from agent.routes.artifacts import artifacts_bp
 from agent.routes.auth import auth_bp
@@ -41,6 +41,7 @@ from agent.routes.debug.prompt_traces import prompt_traces_bp
 from agent.routes.demo import demo_bp
 from agent.routes.deterministic_run import det_run_bp
 from agent.routes.diff3 import diff3_bp
+from agent.routes.dspy_optimization import dspy_optimization_bp
 from agent.routes.effective_workflow import effective_workflow_bp
 from agent.routes.evolution import evolution_bp
 from agent.routes.freecad_client_surface import freecad_client_surface_bp
@@ -82,13 +83,13 @@ from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
 from agent.routes.restricted_inference_management import restricted_inference_management_bp
 from agent.routes.run_control import run_control_bp
+from agent.routes.scrum_continuous_improvement import scrum_continuous_improvement_bp
 from agent.routes.semantic_media_contracts import semantic_media_contracts_bp
 from agent.routes.semantic_media_debug import semantic_media_debug_bp
 from agent.routes.semantic_media_privacy import semantic_media_privacy_bp
 from agent.routes.semantic_sfu_admission import semantic_sfu_admission_bp
 from agent.routes.sgpt import sgpt_bp
 from agent.routes.share_sessions import share_sessions_bp
-from agent.routes.scrum_continuous_improvement import scrum_continuous_improvement_bp
 from agent.routes.snakes import snakes_bp
 from agent.routes.snapshot_diff_api import snapshot_diff_bp
 from agent.routes.sources import sources_bp
@@ -131,6 +132,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(dspy_optimization_bp)
     configure_project_lifecycle(app)
     app.register_blueprint(system_bp, url_prefix="/api/system")
     app.register_blueprint(demo_bp)

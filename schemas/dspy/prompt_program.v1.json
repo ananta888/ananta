@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "ananta.prompt-program.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "program_id", "program_kind", "module_graph", "signatures", "demonstrations", "model_roles", "source_program_digest", "exporter_version"],
+  "properties": {
+    "schema": {"const": "ananta.prompt-program.v1"},
+    "tenant_id": {"type": "string"},
+    "program_id": {"type": "string"},
+    "program_kind": {"enum": ["planning_structured_tasks", "rag_answer", "structured_extraction"]},
+    "module_graph": {"type": "array", "maxItems": 256, "items": {"type": "object"}},
+    "signatures": {"type": "array", "maxItems": 256, "items": {"type": "object"}},
+    "demonstrations": {"type": "array", "maxItems": 256, "items": {"type": "object"}},
+    "model_roles": {"type": "object", "maxProperties": 4, "additionalProperties": {"type": "string"}},
+    "source_program_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "exporter_version": {"type": "string"}
+  }
+}

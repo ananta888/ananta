@@ -152,6 +152,12 @@ duckdb = [
     # installs do not import this package.
     "duckdb>=1.1,<2",
 ]
+dspy = [
+    # Optional optimization-worker dependency. Core and Hub never import it.
+    # 3.2.1 is the current observed stable release; release verification still
+    # requires assignment-bound source evidence.
+    "dspy==3.2.1",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"
@@ -193,6 +199,8 @@ packages = [
     "worker.core",
     "worker.loop",
     "worker.model_intelligence",
+    "worker.optimization",
+    "worker.optimization.dspy",
     "worker.planning",
     "worker.repair",
     "worker.retrieval",

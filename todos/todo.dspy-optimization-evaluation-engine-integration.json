@@ -17,9 +17,11 @@
     "dspy_repository": "https://github.com/stanfordnlp/dspy",
     "dspy_reviewed_commit": "3f06959ebbb80fb0bda001e1f802d70c2d5be7f7",
     "observed_latest_stable_tag": "3.2.1",
-    "observed_latest_stable_tag_commit": "27a8e2a134b0b8dbd2d7433ea67ffe9be627d376",
+    "observed_latest_stable_tag_object": "27a8e2a134b0b8dbd2d7433ea67ffe9be627d376",
+    "observed_latest_stable_tag_commit": "29448ae12756abdd14bd8796c819247ebb83673c",
     "observed_prerelease_tag": "3.3.0b1",
-    "observed_prerelease_tag_commit": "ee3687c36e832010a38c4091fcb8cf1d4c9fb841",
+    "observed_prerelease_tag_object": "ee3687c36e832010a38c4091fcb8cf1d4c9fb841",
+    "observed_prerelease_tag_commit": "b2829b7ae3b6e276ac6a8bef66a7ec519dbc923f",
     "observed_main_project_version": "3.3.0b1",
     "observed_dspy_license": "MIT",
     "note": "Die aktuellen Upstream-Navigationsergebnisse bleiben unverified: Git-Refs und offizielle DSPy-Seiten wurden am 2026-08-29 gelesen, aber keine assignment-bound SRC_* oder RUN_* IDs bereitgestellt. Im aktuellen Ananta-Stand existieren weiterhin weder DSPy-Produktionscode noch Dependency-Pin, isoliertes Worker-Profil oder gebundener Source Catalog. ProviderExecutionBinding, Artifact-/Prompt-Provenance, Planning-Optimizer und Evaluation-/Promotion-Services sind wiederverwendbare Ananta-Grundlagen, aber keine DSPy-Implementierung oder Release-Evidence.",
@@ -86,6 +88,29 @@
       "Lokale Testausgaben koennen Entwicklungsdiagnostik liefern, ersetzen aber keine freigegebene Release-Evidence.",
       "Fehlende Evidenz muss als unverified, pending oder failed dargestellt werden; Identifikatoren duerfen nicht erfunden werden."
     ]
+  },
+  "implementation_review": {
+    "reviewed_at": "2026-08-29",
+    "state": "implemented_locally_release_blocked",
+    "implemented_boundaries": [
+      "Hub-owned default-off job lifecycle, HMAC attempt fencing, tenant revisions and automatic cancellation",
+      "Dependency-free contracts, exact ProviderExecutionBinding roles, bounded LM usage and scoped retrieval ports",
+      "Closed module and optimizer registries, JSON-only program export and content-addressed tenant artifact storage",
+      "Deterministic evaluation, HMAC-attested program-bound automatic promotion, stable canary assignment and rollback",
+      "Optional isolated worker packaging, import-boundary detector, API and Angular operator read model"
+    ],
+    "remaining_local_gaps": [
+      "Real DSPy 3.2.1 Legacy-/Typed-BaseLM and optimizer compatibility execution",
+      "Full dependency lock, SBOM, vulnerability scan and CI compatibility matrix",
+      "Production CodeCompass adapter, native prompt-program runtime integration and task-specific use-case E2E",
+      "Complete telemetry, retention/legal-hold and browser/load/failure-recovery suites"
+    ],
+    "release_blockers": [
+      "allowed_source_refs_empty",
+      "allowed_run_refs_empty",
+      "assignment_bound_upstream_and_runtime_evidence_missing"
+    ],
+    "human_intervention_required": false
   },
   "architecture_decisions": [
     {
@@ -189,7 +214,8 @@
       "timeout_seconds": 1800,
       "max_concurrency": 2,
       "cache_scope": "tenant_dataset_program_model_optimizer",
-      "promotion_requires_confirmation": true,
+      "promotion_requires_confirmation": false,
+      "promotion_mode": "automatic_after_all_gates",
       "dataset_policy": {
         "require_manifest": true,
         "require_hashes": true,
@@ -256,7 +282,7 @@
         "DSPY-003",
         "DSPY-004"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M2",
@@ -269,7 +295,7 @@
         "DSPY-009",
         "DSPY-010"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
@@ -284,7 +310,7 @@
         "DSPY-017",
         "DSPY-018"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -298,7 +324,7 @@
         "DSPY-024",
         "DSPY-025"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -312,7 +338,7 @@
         "DSPY-031",
         "DSPY-032"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M6",
@@ -324,7 +350,7 @@
         "DSPY-036",
         "DSPY-037"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M7",
@@ -334,7 +360,7 @@
         "DSPY-039",
         "DSPY-040"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -360,13 +386,13 @@
         "Der BaseLM-Vertragswechsel zwischen Legacy- und Typed-LM-Pfad ist als Compatibility-Risiko festgehalten.",
         "Ohne bereitgestellte SRC_* Evidenz bleibt die Release-Baseline explizit unverified."
       ],
-      "progress_percent": 15.0,
+      "progress_percent": 70.0,
       "blocked_reason": "Offizielle Upstream-Navigation ist dokumentierbar, aber eine assignment-bound unveraenderliche SRC_*-Baseline fuer Version, Lizenz und transitive Abhaengigkeiten fehlt."
     },
     {
       "id": "DSPY-002",
       "title": "ADR fuer DSPy als OptimizationEngine statt Runtime oder Provider verabschieden",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -387,12 +413,15 @@
         "ReAct, freie Tools, MCP-Importe und Fine-Tuning sind fuer Phase 1 explizit ausgeschlossen.",
         "SRP, OCP, ISP, LSP und DIP werden fuer die geplanten Ports nachvollziehbar abgebildet."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/decisions/ADR-dspy-optimization-engine.md"
+      ]
     },
     {
       "id": "DSPY-003",
       "title": "Threat Model und Datenfluss fuer Optimierung, Evaluation und Promotion erstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -412,12 +441,15 @@
         "Roh-Prompts, Roh-Outputs und Code-Snippets besitzen Redaktions-, Retention- und Zugriffsklassen.",
         "Negative Security-Tests und verantwortliche Owner sind jeder kritischen Bedrohung zugeordnet."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "implementation_evidence": [
+        "docs/security/dspy-optimization-threat-model.md"
+      ]
     },
     {
       "id": "DSPY-004",
       "title": "SOLID-konforme Ports und Verantwortungsmatrix definieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "medium",
       "type": "architecture",
@@ -439,12 +471,17 @@
         "Persistenz-, API-, Worker- und Domain-Logik befinden sich nicht in einer gemeinsamen Service-Klasse.",
         "Ein Architecture-Test verhindert neue verbotene Importkanten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "implementation_evidence": [
+        "agent/services/dspy_optimization_ports.py",
+        "scripts/check_dspy_import_boundaries.py",
+        "tests/dspy_optimization/test_import_boundaries.py"
+      ]
     },
     {
       "id": "DSPY-005",
       "title": "Versionierte OptimizationSpec-, Run- und PromptProgram-Contracts erstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -468,12 +505,19 @@
         "Contracts besitzen Groessenlimits, kanonische JSON-Serialisierung, SHA-256-Content-Digests und Upcast-Regeln.",
         "Schema-, Roundtrip-, Fuzz- und Rueckwaertskompatibilitaetstests sind vorhanden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "ananta_contracts/dspy_optimization.py",
+        "schemas/dspy/optimization_spec.v1.json",
+        "schemas/dspy/prompt_program.v1.json",
+        "tests/dspy_optimization/test_contracts_and_policy.py"
+      ],
+      "implementation_gap": "Explizites OptimizationRun-JSON-Schema, Property-Fuzzing und versionierte Upcasts fehlen."
     },
     {
       "id": "DSPY-006",
       "title": "DSPy als optionale, gepinnte Dependency und separates Worker-Profil paketieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "dependency",
@@ -496,12 +540,18 @@
         "Dependency-Konflikte mit Pydantic, OpenAI-SDK, LiteLLM, LlamaIndex und bestehenden Extras werden automatisiert geprueft.",
         "Development-, CI- und Release-Profile dokumentieren denselben Dependency-Stand."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "pyproject.toml",
+        "docker/compose-next/Dockerfile.dspy-optimization-worker",
+        "docker/compose-next/compose.dspy-optimization.yml"
+      ],
+      "implementation_gap": "Transitiv vollstaendiger Lock, SBOM, Scan und gebauter Image-Digest fehlen und bleiben evidence-blocked."
     },
     {
       "id": "DSPY-007",
       "title": "Default-off-Konfiguration und Policy-Validierung implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "configuration",
@@ -526,12 +576,17 @@
         "Konfigurationsaenderungen erzeugen einen Digest und Audit-Event.",
         "Config-Parsing funktioniert ohne DSPy-Import."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "implementation_evidence": [
+        "config/dspy/optimization_defaults.v1.json",
+        "agent/services/dspy_optimization_policy.py",
+        "tests/dspy_optimization/test_contracts_and_policy.py"
+      ]
     },
     {
       "id": "DSPY-008",
       "title": "OptimizationEngine-Capability-, Health- und Support-Projektion bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "architecture",
@@ -554,12 +609,17 @@
         "Capabilities werden vor Jobannahme deterministisch validiert.",
         "Health-Probes fuehren keine Modellaufrufe oder externen Netzwerkzugriffe aus."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "implementation_evidence": [
+        "agent/services/dspy_engine_capability_service.py",
+        "worker/optimization/dspy/compatibility.py",
+        "agent/routes/dspy_optimization.py"
+      ]
     },
     {
       "id": "DSPY-009",
       "title": "Hub-gesteuerten OptimizationJob-Lifecycle implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -583,12 +643,18 @@
         "Cancel, Timeout, Worker-Verlust und Hub-Neustart besitzen definierte Recovery-Zustaende.",
         "Jeder Zustandswechsel erzeugt ein secret-freies Audit- und Workflow-Event."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "agent/services/dspy_optimization_job_service.py",
+        "agent/services/dspy_optimization_state_store.py",
+        "tests/dspy_optimization/test_job_lifecycle.py"
+      ],
+      "implementation_gap": "Fresh-attempt-Recovery nach Worker-Verlust und kanonische Workflow-Event-Publikation fehlen."
     },
     {
       "id": "DSPY-010",
       "title": "Tenantgebundene Artifact- und Persistence-Grenze fuer DSPy-Runs entwerfen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -612,12 +678,17 @@
         "Artifact-Referenzen binden Schema, Digest, Groesse, Media Type, Producer Run und Tenant.",
         "Delete, Retention, Legal Hold und Promotion-Referenzen verhindern verwaiste oder vorzeitig geloeschte Kandidaten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "agent/services/dspy_program_artifact_store.py",
+        "tests/dspy_optimization/test_artifacts_runner_and_release.py"
+      ],
+      "implementation_gap": "Retention, Legal Hold und referenzsicheres Delete sind noch nicht implementiert."
     },
     {
       "id": "DSPY-011",
       "title": "AnantaBaseLM-Bridge fuer DSPy Legacy- und Typed-LM-Vertraege implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -641,12 +712,17 @@
         "Providerfehler werden auf stabile Ananta-Reason-Codes abgebildet; Rohfehler und Secrets verlassen den Worker nicht.",
         "Serialisierung der LM-State entfernt API-Keys, Base-URLs und Modelllisten unabhaengig von DSPy-Flags."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "tests/dspy_optimization/test_lm_bridge.py"
+      ],
+      "implementation_gap": "Der autorisierte Ananta-Port ist implementiert; echte Legacy-/Typed-BaseLM-Compatibility gegen den optionalen Pin fehlt."
     },
     {
       "id": "DSPY-012",
       "title": "ProviderExecutionBinding und Authorization fuer jeden Optimizer-Aufruf erzwingen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -670,12 +746,18 @@
         "Direkte Nutzung von dspy.LM oder LiteLLM mit Umgebungscredentials wird durch Code- und Integrationstests verhindert.",
         "Audit verknuepft jeden Call mit run_id, attempt_id, binding_id, role, budget counter und redigiertem request hash."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "ananta_contracts/provider_execution.py",
+        "scripts/check_dspy_import_boundaries.py"
+      ],
+      "implementation_gap": "Rollenbindungen und direkte Importumgehungen sind geschlossen; geordnete Multi-Attempt-Fallbacks fehlen."
     },
     {
       "id": "DSPY-013",
       "title": "Usage-, Kosten-, Cache- und Trace-Metadaten aus DSPy normalisieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -698,12 +780,17 @@
         "Budgetzaehler sind monoton, thread-safe und gegen doppelte Callback-Ereignisse idempotent.",
         "Ein fehlender Usage-Wert fuehrt je nach Policy zu konservativer Schaetzung oder fail-closed, nie zu Nullkostenfreigabe."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "tests/dspy_optimization/test_lm_bridge.py"
+      ],
+      "implementation_gap": "Usage und idempotente Budgets sind vorhanden; Ananta-Preisprofile, Cache- und Trace-Aggregation fehlen."
     },
     {
       "id": "DSPY-014",
       "title": "CodeCompass- und Hybrid-Retrieval-Bridge fuer DSPy bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -727,12 +814,16 @@
         "DSPy kann keine URL-, Dateipfad-, VectorDB- oder Retriever-Implementierung aus Programm-Artefakten laden.",
         "Cross-Tenant-, unbekannte Scope-, Failover- und Backend-unavailable-Faelle besitzen fail-closed Tests."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/retriever_bridge.py"
+      ],
+      "implementation_gap": "Der scope-gebundene Port ist implementiert; produktive CodeCompass-/Qdrant-Adapterverdrahtung und Failure-Tests fehlen."
     },
     {
       "id": "DSPY-015",
       "title": "Allowlist fuer DSPy Signatures, Module und ProgramGraph definieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -757,12 +848,16 @@
         "Unbekannte Module, Felder, Typen, Konfigurationen und serialisierte Klassen werden vor Modellaufrufen abgelehnt.",
         "Registry und Exporter besitzen LSP- und Contracttests fuer jede freigegebene Modulart."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/module_registry.py",
+        "tests/dspy_optimization/test_serializer_and_registries.py"
+      ]
     },
     {
       "id": "DSPY-016",
       "title": "Policy-gesteuerte Optimizer Registry implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -785,12 +880,16 @@
         "Unbekannte oder in der installierten DSPy-Version fehlende Optimizer ergeben einen stabilen compatibility error.",
         "Weight-Optimizer und BootstrapFinetune werden im Produktionspfad abgelehnt und nur ueber den Unsloth-Handoff adressiert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/optimizer_registry.py",
+        "tests/dspy_optimization/test_serializer_and_registries.py"
+      ]
     },
     {
       "id": "DSPY-017",
       "title": "Isolierten DSPy Optimization Worker und JobRunner implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "integration",
@@ -819,12 +918,18 @@
         "Cancel und Timeout unterbrechen neue Calls, sichern einen terminalen Zustand und beseitigen temporaere Ressourcen.",
         "Mock-, Local- und Cloud-gated-Modi besitzen getrennte Admission- und E2E-Tests."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/job_runner.py",
+        "worker/optimization/dspy/engine_adapter.py",
+        "docker/compose-next/compose.dspy-optimization.yml"
+      ],
+      "implementation_gap": "Single-job-Runner und isoliertes Image existieren; Checkpoint-Resume und echte DSPy-Dependency-E2E fehlen."
     },
     {
       "id": "DSPY-018",
       "title": "Globale Budgets, Concurrency, Retry, Cache und Cancellation durchsetzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "runtime",
@@ -849,12 +954,18 @@
         "Cache Keys enthalten Tenant, Dataset-, Program-, Model-, Provider-, Optimizer-, Metric- und Config-Digests; Cross-Tenant-Treffer sind ausgeschlossen.",
         "Budgeterschoepfung, Cancellation und fehlende Usage enden mit stabilen Reason Codes und niemals mit automatischer Promotion."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/lm_bridge.py",
+        "worker/optimization/dspy/job_runner.py",
+        "ananta_contracts/dspy_optimization.py"
+      ],
+      "implementation_gap": "Calls, Tokens, Kosten, Dataset, Artefakt und Cancellation sind bounded; Wall-Time, Parallelisierung, Retry und Cache fehlen."
     },
     {
       "id": "DSPY-019",
       "title": "Versionierte Dataset-Manifeste, Splits und Datenschutzregeln einfuehren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -878,12 +989,18 @@
         "Record-Anzahl, Feldgroesse, Gesamtgroesse und verschachtelte Tiefe sind begrenzt.",
         "Dataset-Aenderungen erzeugen neue Digests und invalidieren vorhandene Evaluation- oder Promotion-Evidenz."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "ananta_contracts/dspy_optimization.py",
+        "schemas/dspy/dataset_manifest.v1.json",
+        "tests/dspy_optimization/test_contracts_and_policy.py"
+      ],
+      "implementation_gap": "Disjunkte Splits und Manifestgrenzen sind umgesetzt; konkrete PII-/Secret-Redaction-Adapter fehlen."
     },
     {
       "id": "DSPY-020",
       "title": "Deterministische und semantische Metric-Bridge implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -907,12 +1024,17 @@
         "Per-Record-Scores und Aggregate sind reproduzierbar an Metric- und Dataset-Digests gebunden.",
         "Metric-Gaming wird durch Holdout-Testset, Mindestfallzahl und getrennte Optimierungs-/Release-Metriken begrenzt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "agent/services/dspy_evaluation_bridge_service.py",
+        "tests/dspy_optimization/test_evaluation_promotion.py"
+      ],
+      "implementation_gap": "Deterministische Gate-Prioritaet und numerische Fail-closed-Regeln bestehen; task-spezifische Metrics und separater Judge-Port fehlen."
     },
     {
       "id": "DSPY-021",
       "title": "Reproduzierbaren Baseline-Kandidaten-Vergleich anbinden",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -938,12 +1060,17 @@
         "Nicht vergleichbare Runs erhalten einen klaren reason_code statt eines irrefuehrenden Delta-Werts.",
         "Testset-Ergebnisse sind fuer den Optimizer nicht als Trainingsfeedback verfuegbar."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "agent/services/dspy_evaluation_bridge_service.py",
+        "tests/dspy_optimization/test_evaluation_promotion.py"
+      ],
+      "implementation_gap": "Vergleichbarkeit, Mindestfallzahl und Regressionen sind gated; Wiederholungen, Warmups und Unsicherheitsintervalle fehlen."
     },
     {
       "id": "DSPY-022",
       "title": "Sicheren JSON-only DSPy-Program-State-Serializer bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -968,12 +1095,17 @@
         "DSPy-, Python- und Schema-Versionen sowie Compatibility-Profil werden als nicht ausfuehrbare Metadaten gespeichert.",
         "Malicious-, Corrupt-, Oversized-, Unknown-Module- und Endpoint-Injection-Fixtures werden sicher abgelehnt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/artifact_serializer.py",
+        "agent/services/dspy_program_artifact_store.py",
+        "tests/dspy_optimization/test_serializer_and_registries.py"
+      ]
     },
     {
       "id": "DSPY-023",
       "title": "DSPy-Program-State in kanonisches Ananta PromptProgram exportieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
@@ -997,12 +1129,18 @@
         "Exportierte Artefakte besitzen Source-Program-, Exporter-, Schema- und Content-Digests.",
         "Golden- und Differentialtests erkennen Upstream-Format- oder Rendering-Aenderungen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/engine_adapter.py",
+        "worker/optimization/dspy/artifact_serializer.py",
+        "tests/dspy_optimization/test_engine_state_projection.py"
+      ],
+      "implementation_gap": "Closed State-Projektion und native JSON-Ausgabe bestehen; Golden-Differentialtest gegen einen real installierten Pin fehlt."
     },
     {
       "id": "DSPY-024",
       "title": "DSPy-Optimierung in PromptProvenance und Artifact-Traceability integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "integration",
@@ -1027,12 +1165,16 @@
         "Provenienz bleibt bei Rollback erhalten und wird nicht ueberschrieben.",
         "API, CLI und UI zeigen dieselbe kanonische Provenienzprojektion."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "agent/services/prompt_provenance.py",
+        "tests/dspy_optimization/test_provenance_and_handoff.py"
+      ]
     },
     {
       "id": "DSPY-025",
       "title": "Explizite Promotion-, Canary- und Rollback-Gates implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "governance",
@@ -1051,18 +1193,23 @@
       "description": "Nur evaluierten, policy-konformen und explizit bestaetigten Kandidaten eine aktive Revision geben.",
       "acceptance_criteria": [
         "PromotionPlan bindet Tenant, Kandidatendigest, Baseline, Evaluation, Dataset, Metriken, Mindestschwellen, Zielscope und erwartete Registry-Revision.",
-        "Plan und Bestaetigung verwenden einen HMAC-sicheren beziehungsweise digestgebundenen Zwei-Schritt wie bestehende Unsloth-Promotionen.",
+        "Plan und Ausfuehrung sind digest-, evaluation- und revisionsgebunden; vollautomatische Promotion ist nur nach allen positiven Gates erlaubt.",
         "Deterministische Fehler, Security-Verstoesse, fehlende Evidenz, Kostenregressionen oder nicht vergleichbare Runs blockieren Promotion.",
         "Canary-Scope und Rollout-Anteil sind begrenzt und koennen ohne Neuoptimierung erweitert oder zurueckgenommen werden.",
         "Rollback aktiviert atomar eine bekannte vorherige Revision und erhaelt vollstaendige Audit-Historie.",
         "Optimierer oder Worker besitzen keine Promotion- oder Registry-Schreibberechtigung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "agent/services/dspy_promotion_service.py",
+        "agent/services/dspy_evaluation_bridge_service.py",
+        "tests/dspy_optimization/test_evaluation_promotion.py"
+      ]
     },
     {
       "id": "DSPY-026",
       "title": "PlanningStructuredTasks als ersten produktiven Use Case anbinden",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1087,12 +1234,17 @@
         "Ein Fehler im DSPy-Artefakt faellt kontrolliert auf die bekannte Baseline zurueck.",
         "Differential- und Regressionstests decken goal-to-plan-to-task ohne Worker-to-Worker-Orchestrierung ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 60.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/module_registry.py",
+        "agent/services/planning_prompt_optimizer_service.py"
+      ],
+      "implementation_gap": "Closed Signatur und bestehender Fallback existieren; nativer promoted-program Runtime-Adapter und Differential-E2E fehlen."
     },
     {
       "id": "DSPY-027",
       "title": "CodeCompass-RAG-Antwortprogramm als zweiten Use Case integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1117,12 +1269,17 @@
         "Leere, widerspruechliche, gesperrte und degradierte Retrieval-Ergebnisse besitzen definierte Ausgaben.",
         "Release-Gates verlangen einen unabhaengigen Holdout-Satz mit code- und wiki-spezifischen Faellen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/module_registry.py",
+        "worker/optimization/dspy/retriever_bridge.py"
+      ],
+      "implementation_gap": "Signatur und autorisierter Retrieval-Port stehen; produktiver Store-Adapter, Holdout und RAG-Metriken fehlen."
     },
     {
       "id": "DSPY-028",
       "title": "Strukturierte Extraktion und Output-Reparatur als dritten Use Case integrieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1146,12 +1303,16 @@
         "Feldgenauigkeit, Vollstaendigkeit, Zusatzfelder, Formatstabilitaet, Tokens und Latenz werden bewertet.",
         "Golden-Datasets enthalten valide, invalide, adversariale, mehrsprachige und uebergrosse Eingaben."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/module_registry.py"
+      ],
+      "implementation_gap": "Closed Signatur besteht; schema-spezifischer Reparaturadapter, Metriken und adversariale Golden-Datasets fehlen."
     },
     {
       "id": "DSPY-029",
       "title": "Shadow-, A/B- und Canary-Rollout ohne Seiteneffekte bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "governance",
@@ -1171,17 +1332,22 @@
       "acceptance_criteria": [
         "Shadow-Ausfuehrung beeinflusst keine Task-, Tool-, Artifact- oder Benutzerergebnisse und besitzt ein separates Budget.",
         "A/B-Zuordnung ist tenant-, scope- und revisionsgebunden sowie stabil hashbasiert.",
-        "Canary-Rollout besitzt Maximalanteil, Laufzeit, Mindeststichprobe, Stop-Kriterien und manuelle Kill-Switches.",
+        "Canary-Rollout besitzt Maximalanteil, Laufzeit, Mindeststichprobe, automatische Stop-Kriterien und einen zusaetzlichen Operator-Kill-Switch.",
         "Security-, Parse-, Kosten- oder Latenzregressionen koennen automatisch stoppen, aber niemals automatisch vollstaendig promoten.",
         "Vergleichsdaten sind redigiert, retention-begrenzt und gegen Cross-Tenant-Vermischung geschuetzt.",
         "Rollback und Baseline-Fallback werden in E2E-Tests unter laufender Last geprueft."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "agent/services/dspy_promotion_service.py",
+        "tests/dspy_optimization/test_evaluation_promotion.py"
+      ],
+      "implementation_gap": "Stabile Canary-Zuordnung und Rollback bestehen; Shadow-Budget, Laufzeitfenster und Last-E2E fehlen."
     },
     {
       "id": "DSPY-030",
       "title": "Kontrollierten DSPy-zu-Unsloth-Dataset-Handoff definieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "integration",
@@ -1207,12 +1373,16 @@
         "Unsloth validiert Dataset, Base Model, Lizenz, Hardware und Promotion weiterhin eigenstaendig.",
         "PII-, Secret-, Duplicate-, Poisoning- und Lizenzchecks laufen vor dem Handoff erneut."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 75.0,
+      "implementation_evidence": [
+        "agent/services/dspy_unsloth_handoff_service.py",
+        "tests/dspy_optimization/test_provenance_and_handoff.py"
+      ]
     },
     {
       "id": "DSPY-031",
       "title": "Hub-API und CLI fuer DSPy-Experimente bereitstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "api",
@@ -1238,12 +1408,17 @@
         "Listen- und Detailendpunkte sind tenantisoliert, paginiert und bounded.",
         "Fehlercodes und Beispiele sind in OpenAPI- und CLI-Dokumentation abgedeckt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "agent/routes/dspy_optimization.py",
+        "tests/dspy_optimization/test_bootstrap_api.py"
+      ],
+      "implementation_gap": "Hub-API mit Auth, Dry-run, Revision und Idempotenz besteht; CLI und OpenAPI-Beispiele fehlen."
     },
     {
       "id": "DSPY-032",
       "title": "Angular-Arbeitsbereich fuer DSPy-Optimierung und Vergleich bauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "frontend",
@@ -1265,15 +1440,21 @@
         "Nur vom Hub projizierte Capabilities, ProviderProfileRefs, Datasets, Metriken und Optimizer sind auswählbar.",
         "Vor Start werden geschätzte Calls, Token-/Kosten-/Zeitlimits, Datenlokalität und Risiken verständlich dargestellt.",
         "Run-Status, Budgetverbrauch, Fehlergrund, Baseline-Kandidat-Deltas, Provenienz und Artefaktdigests sind sichtbar.",
-        "Promotion und Rollback besitzen getrennte Bestätigungsdialoge mit Zielscope und Registry-Revision.",
+        "Promotion und Rollback zeigen Zielscope, Gate-Entscheid und Registry-Revision; UI-Interaktion ist keine technische Ablaufvoraussetzung.",
         "Frontend-Unit-, Accessibility- und Browser-E2E-Tests decken Happy Path, Cancel, Failure, Promotion und Rollback ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/features/admin/dspy-optimization-workbench.component.ts",
+        "frontend-angular/src/app/services/dspy-optimization-api.service.ts",
+        "frontend-angular/src/app/features/admin/dspy-optimization-workbench.component.spec.ts"
+      ],
+      "implementation_gap": "Capability-, Run- und Cancel-Sicht stehen; Create-, Vergleichs-, Provenienz-, Promotion- und Browser-E2E-Oberflaechen fehlen."
     },
     {
       "id": "DSPY-033",
       "title": "Observability, Audit und Betriebsmetriken ergaenzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "observability",
@@ -1299,12 +1480,17 @@
         "Dashboards und Alerts fuer stuck jobs, Kostenanstieg, Error-Rate, Policy-Verstoesse und Promotionfehler sind definiert.",
         "Logging-Tests pruefen Redaction gegen typische API-Key-, Authorization-, Prompt- und Quellcode-Leaks."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "agent/services/dspy_optimization_state_store.py",
+        "agent/services/dspy_optimization_job_service.py"
+      ],
+      "implementation_gap": "Inhaltsfreie Revisionen und Reason Codes bestehen; Prometheus, Trace-Verknuepfung, Dashboards, Alerts und Redaction-Tests fehlen."
     },
     {
       "id": "DSPY-034",
       "title": "Security-Hardening und Missbrauchsschutz vollstaendig durchsetzen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1331,12 +1517,19 @@
         "Cross-Tenant-, Replay-, Stale-Attempt-, Cache-, Path-Traversal-, Symlink-, Poisoning- und Promotion-Angriffe besitzen negative Tests.",
         "Ein Security-Gate prueft Dependency-Vulnerabilities, SBOM, Containerrechte, Secrets und verbotene Imports vor Release."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 75.0,
+      "implementation_evidence": [
+        "scripts/check_dspy_import_boundaries.py",
+        "docker/compose-next/compose.dspy-optimization.yml",
+        "worker/optimization/dspy/artifact_serializer.py",
+        "tests/dspy_optimization/test_import_boundaries.py"
+      ],
+      "implementation_gap": "Least-privilege, JSON-only, Pfad- und Importkontrollen bestehen; Dependency-/SBOM-/Secrets-Scans und vollstaendige Attack-Matrix fehlen."
     },
     {
       "id": "DSPY-035",
       "title": "Unit-, Contract-, Property- und Compatibility-Testpaket implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "testing",
@@ -1362,12 +1555,16 @@
         "Tests laufen ohne Netzwerk, DSPy-Dependency im Core, externe Modelle, GPU oder Qdrant.",
         "Coverage-Gates konzentrieren sich auf Authorization, Budget, Serialization, Tenant-Isolation und Promotion."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "tests/dspy_optimization/"
+      ],
+      "implementation_gap": "Network-free Unit-/Contract-/Securitytests bestehen; Property-Fuzzing und echte Pin-Compatibility-Matrix fehlen."
     },
     {
       "id": "DSPY-036",
       "title": "Integration-, E2E-, Reproduzierbarkeits- und Failure-Recovery-Tests erstellen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "testing",
@@ -1396,12 +1593,18 @@
         "Canary und Shadow beweisen fehlende Seiteneffekte sowie sicheren Baseline-Fallback.",
         "Echte Provider-, Performance- oder Produktionsclaims bleiben ohne bereitgestellte RUN_* Evidenz unverified."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "tests/dspy_optimization/test_artifacts_runner_and_release.py",
+        "tests/dspy_optimization/test_job_lifecycle.py",
+        "tests/dspy_optimization/test_bootstrap_api.py"
+      ],
+      "implementation_gap": "Deterministische Fake-E2E-, Cancel-, Replay- und stale-Fencing-Pfade bestehen; Crash/Restart/Storage/Shadow/Last-E2E fehlen."
     },
     {
       "id": "DSPY-037",
       "title": "CI-, Dependency-, Container- und Release-Gates einrichten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "release",
@@ -1426,12 +1629,18 @@
         "Schema-, Unit-, Security-, Integration- und deterministische E2E-Suites muessen vor Release bestehen.",
         "Release-Artefakte enthalten keine Datasets, Roh-Prompts, Caches, Credentials oder lokale Run-Ausgaben."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "scripts/check_dspy_import_boundaries.py",
+        "docker/compose-next/Dockerfile.dspy-optimization-worker",
+        "agent/services/dspy_release_gate.py"
+      ],
+      "implementation_gap": "Import- und Release-Gate sowie Containerprofil stehen; CI-Matrix, vollstaendiger Lock, SBOM und Vulnerability-Scan fehlen."
     },
     {
       "id": "DSPY-038",
       "title": "Benutzer-, Entwickler-, Security- und Betriebsdokumentation vervollstaendigen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -1460,12 +1669,18 @@
         "Runbook deckt stuck job, Budgetabbruch, Providerfehler, Cache, inkompatibles Artefakt, Canary-Stop und Rollback ab.",
         "Upgrade- und Exit-Anleitung beschreibt DSPy-Versionwechsel sowie native Nutzung exportierter PromptProgramme."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "docs/integrations/dspy-optimization-engine.md",
+        "docs/security/dspy-optimization-threat-model.md",
+        "docs/operations/dspy-optimization-runbook.md"
+      ],
+      "implementation_gap": "Architektur, Setup, Security und Betrieb sind dokumentiert; drei vollstaendige Use-Case-Tutorials fehlen."
     },
     {
       "id": "DSPY-039",
       "title": "DSPy-Upstream-Kompatibilitaet und kontrollierte Upgrade-Pipeline etablieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "compatibility",
@@ -1494,7 +1709,13 @@
         "Breaking Changes fuehren zu capability_degraded oder blocked statt stiller Verhaltensaenderung.",
         "Rollback auf den vorherigen Dependency-Lock und vorherige Worker-Images ist dokumentiert und getestet."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 50.0,
+      "implementation_evidence": [
+        "worker/optimization/dspy/compatibility.py",
+        "worker/optimization/dspy/engine_adapter.py",
+        "docs/integrations/dspy-optimization-engine.md"
+      ],
+      "implementation_gap": "Exakter Pin und degraded-Versionserkennung bestehen; isolierte Upgrade-CI, Artefakt-Upcasts und reale Adaptermatrix fehlen."
     },
     {
       "id": "DSPY-040",
@@ -1523,11 +1744,11 @@
         "Ein freigegebener DSPy-, Worker-Image-, Ananta-, Dataset-, Program-, Metric- und Provider-Digest ist im Evidenzpaket gebunden.",
         "Schema-, Unit-, Security-, Integration-, Reproduzierbarkeits-, Failure-Recovery- und Rollback-Gates sind bestanden.",
         "Baseline-Kandidat-Vergleich zeigt definierte Mindestverbesserung ohne unzulaessige Qualitaets-, Kosten-, Latenz- oder Policy-Regression.",
-        "Canary besitzt Owner, Zeitfenster, Stop-Kriterien, Monitoring, Incident-Pfad und getesteten manuellen Kill-Switch.",
-        "Promotion wird explizit bestaetigt; automatische Vollaktivierung bleibt ausgeschlossen.",
+        "Canary besitzt Owner, Zeitfenster, automatische Stop-Kriterien, Monitoring, Incident-Pfad und zusaetzlichen Operator-Kill-Switch.",
+        "Promotion darf nach expliziter Hub-Policy vollautomatisch laufen; rote oder fehlende Gates blockieren terminal statt auf Menschen zu warten.",
         "Release-Claims werden nur mit bereitgestellten SRC_* und RUN_* IDs als verified markiert; andernfalls bleibt der Track partial oder blocked."
       ],
-      "progress_percent": 0.0,
+      "progress_percent": 35.0,
       "blocked_reason": "Keine assignment-bound SRC_*- und RUN_*-Evidence fuer Upstream, Runtime, Qualitaet, Security, Kosten und Rollback vorhanden."
     }
   ],
@@ -1570,13 +1791,13 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 38,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 35,
       "blocked": 2,
-      "done": 0
+      "done": 3
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 7.5,
     "by_priority": {
       "P0": 27,
       "P1": 13,
@@ -1590,13 +1811,13 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 0,
-      "remaining": 25
+      "done": 3,
+      "remaining": 22
     },
     "milestones": {
       "total": 7,
-      "todo": 7,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 7,
       "blocked": 0,
       "done": 0
     }
@@ -1616,235 +1837,235 @@
         "done": 0,
         "partial": 0,
         "blocked": 1,
-        "progress_percent": 15.0
+        "progress_percent": 70.0
       },
       "architecture": {
         "total": 5,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 4,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 0,
+        "done": 1,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 88.0
       },
       "security": {
         "total": 5,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 4,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 0,
+        "done": 1,
+        "partial": 4,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 85.0
       },
       "contract": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 2,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 85.0
       },
       "dependency": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 65.0
       },
       "configuration": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 90.0
       },
       "integration": {
         "total": 13,
         "by_status": {
-          "todo": 13,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 12,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 0,
+        "done": 1,
+        "partial": 12,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 71.9
       },
       "runtime": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 70.0
       },
       "governance": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 2,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 77.5
       },
       "api": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 70.0
       },
       "frontend": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 65.0
       },
       "observability": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 45.0
       },
       "testing": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 2,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 72.5
       },
       "release": {
         "total": 2,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 1,
-        "progress_percent": 0.0
+        "progress_percent": 45.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 85.0
       },
       "compatibility": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 50.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 38,
+    "state": "in_progress",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 35,
     "blocked": 2,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.4
+    "done": 3,
+    "count_based_percent": 7.5,
+    "weighted_percent": 73.7
   },
   "execution_stage_summary": {
-    "current_stage": "planning",
-    "next_gate": "architecture_and_security_review",
+    "current_stage": "local_implementation_validation",
+    "next_gate": "assignment_bound_evidence_and_runtime_compatibility",
     "release_eligibility": "not_eligible",
-    "reason": "No implementation or supplied source/run evidence exists for this track."
+    "reason": "A default-off local implementation exists, but no allowed assignment-bound source or runtime evidence proves upstream compatibility or release readiness."
   },
   "summary_notes": [
     "DSPy ist fuer Ananta besonders als Offline-/Pre-Inference-Optimierungs- und Evaluationsschicht sinnvoll, nicht als Ersatz fuer die Hub-Worker-Runtime.",
@@ -1872,7 +2093,7 @@
         "ADR, Threat Model, Contracts und optionales Dependency-Profil fertigstellen.",
         "AnantaBaseLM, CodeCompassRetrieverBridge und BootstrapFewShot mit Fake-LM implementieren.",
         "PlanningStructuredTasks als ersten Dataset-/Metric-basierten Use Case anbinden.",
-        "JSON-only Kandidatenartefakt, Baselinevergleich, manuelle Promotion und Rollback nachweisen.",
+        "JSON-only Kandidatenartefakt, Baselinevergleich, policy-gesteuerte Promotion und Rollback nachweisen.",
         "Erst danach MIPROv2, GEPA, UI-Ausbau und Unsloth-Handoff aktivieren."
       ]
     }
@@ -1880,78 +2101,78 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 72.0,
-    "done_weight": 0.3,
-    "remaining_weight": 71.7,
+    "done_weight": 53.05,
+    "remaining_weight": 18.95,
     "blocked_weight": 3.5,
-    "weighted_percent": 0.4
+    "weighted_percent": 73.7
   },
   "milestone_progress_summary": {
     "milestones": {
       "M1": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 1,
-        "count_based_percent": 0.0,
-        "weighted_percent": 4.6,
-        "status": "todo"
+        "count_based_percent": 25.0,
+        "weighted_percent": 86.9,
+        "status": "in_progress"
       },
       "M2": {
         "total_tasks": 6,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 82.3,
+        "status": "in_progress"
       },
       "M3": {
         "total_tasks": 8,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 12.5,
+        "weighted_percent": 76.8,
+        "status": "in_progress"
       },
       "M4": {
         "total_tasks": 7,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 14.3,
+        "weighted_percent": 83.0,
+        "status": "in_progress"
       },
       "M5": {
         "total_tasks": 7,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 62.5,
+        "status": "in_progress"
       },
       "M6": {
         "total_tasks": 5,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 63.0,
+        "status": "in_progress"
       },
       "M7": {
         "total_tasks": 3,
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 56.0,
+        "status": "in_progress"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-29T13:32:42.053126Z",
+    "generated_at": "2026-08-29T14:01:21.837086Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "7a95845285487ecdda9f521fb3e9c43f074d00ef42731e79446517ad922575cb",
+    "source_hash": "ca3a7c7a7e934972f189c2ff549cad59ce6faad4386fc1d2a468e4c0f17ba379",
     "is_stale": false
   }
 }
