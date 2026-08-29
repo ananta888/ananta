@@ -2,13 +2,13 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-15",
-  "last_reviewed": "2026-08-21",
-  "updated_at": "2026-08-15",
+  "last_reviewed": "2026-08-29",
+  "updated_at": "2026-08-29",
   "owner": "Peter Stuiber / Ananta",
   "track": "agent_defense_in_depth_adversarial_escape_safety",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@bd1e99657ca83c6e89b69dd49f5aff08831b63a5 plus working tree inspected on 2026-08-21",
+    "reviewed_commit_range": "main@343e70faf4b756bfdd2f9f558f197ad14d425a0e inspected on 2026-08-29",
     "review_goal": "Defense-in-Depth-Track gegen aktuelle Sandbox-Ports, Policy-Admission, Terminalgrenzen, Worker-Prozesskontrolle, Kill-Switch-Muster und source-grounded Safety-Gates abgleichen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
@@ -29,7 +29,7 @@
         "No generic SafetyEvent, incident freeze, emergency egress fence, run credential revocation, boundary telemetry, escape replay or patch-before-retry production path was found."
       ],
       "local_progress": {
-        "ADS-001": "docs/security/agent-defense-in-depth-baseline.md records the static REUSE/EXTEND/NEW/REJECT inventory and SOLID target seams; runtime properties remain unverified.",
+        "ADS-001": "done: docs/security/agent-defense-in-depth-baseline.md records the concrete static REUSE/EXTEND/NEW/REJECT inventory, missing capabilities, invariants, target ports and SOLID seams; runtime properties remain unverified.",
         "documentation_correction": "docs/security/sandbox-operations-guide.md now distinguishes policy/admission checks from technical backend containment."
       },
       "required_unblock_input": "Hub-provided SRC_* refs for adopted sentinel, training and external safety claims; an explicit Hub-authorized isolated target scope; and assignment-bound RUN_* refs for freeze/terminate/isolate, egress cut-off, credential revocation, incident capture, multi-Agent stop, escape replay and complete chaos/safety gates."
@@ -157,7 +157,7 @@
   "priority_scale": ["P0", "P1", "P2", "P3"],
   "risk_scale": ["low", "medium", "high", "critical"],
   "milestones": [
-    {"id":"M1","title":"Baseline, Threat Model und Defense-in-Depth Architektur","task_ids":["ADS-001","ADS-002","ADS-003","ADS-004","ADS-005"],"status":"todo"},
+    {"id":"M1","title":"Baseline, Threat Model und Defense-in-Depth Architektur","task_ids":["ADS-001","ADS-002","ADS-003","ADS-004","ADS-005"],"status":"in_progress"},
     {"id":"M2","title":"Sentinel- und Canary-Trigger","task_ids":["ADS-006","ADS-007","ADS-008","ADS-009","ADS-010","ADS-011","ADS-012"],"status":"todo"},
     {"id":"M3","title":"Externer Kill-Switch und Incident Freeze","task_ids":["ADS-013","ADS-014","ADS-015","ADS-016","ADS-017","ADS-018"],"status":"todo"},
     {"id":"M4","title":"Telemetrie, Boundary Events und Forensik","task_ids":["ADS-019","ADS-020","ADS-021","ADS-022","ADS-023","ADS-024"],"status":"todo"},
@@ -167,7 +167,7 @@
     {"id":"M8","title":"Governance, UI, Runbooks und Rollout","task_ids":["ADS-042","ADS-043","ADS-044","ADS-045","ADS-046","ADS-047","ADS-048"],"status":"todo"}
   ],
   "tasks": [
-    {"id":"ADS-001","title":"Bestehende Sandbox-, Policy-, Audit- und Worker-Sicherheitsarchitektur als Baseline inventarisieren","status":"todo","priority":"P0","risk":"medium","type":"analysis","progress_percent":0,"depends_on":[],"files_to_create_or_modify":[],"acceptance_criteria":["Vorhandene SandboxBackend-, SandboxPolicy-, Audit-, Netzwerk-, Filesystem- und Worker-Grenzen sind mit konkreten Dateien dokumentiert.","Es ist markiert, welche Mechanismen wiederverwendet, erweitert oder bewusst nicht dupliziert werden."]},
+    {"id":"ADS-001","title":"Bestehende Sandbox-, Policy-, Audit- und Worker-Sicherheitsarchitektur als Baseline inventarisieren","status":"done","priority":"P0","risk":"medium","type":"analysis","progress_percent":100,"depends_on":[],"files_to_create_or_modify":["docs/security/agent-defense-in-depth-baseline.md","docs/security/sandbox-operations-guide.md"],"implementation_evidence":["docs/security/agent-defense-in-depth-baseline.md","docs/security/sandbox-operations-guide.md"],"acceptance_criteria":["Vorhandene SandboxBackend-, SandboxPolicy-, Audit-, Netzwerk-, Filesystem- und Worker-Grenzen sind mit konkreten Dateien dokumentiert.","Es ist markiert, welche Mechanismen wiederverwendet, erweitert oder bewusst nicht dupliziert werden."]},
     {"id":"ADS-002","title":"Threat Model um agentische Ziel-Fixierung, Reward Hacking, Shortcutting und Escape-Folgeverhalten erweitern","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001"],"files_to_create_or_modify":["docs/security/kritis-sandbox-threat-model.md"],"acceptance_criteria":["Threats umfassen unerwartete Zielerreichungswege, Tool-/API-Missbrauch, Boundary Crossing, Credential Abuse, Egress, Privilege Escalation und Orchestrierungs-Bypass.","Explizit wird zwischen Modellfehlverhalten, Policy-Fehlkonfiguration und technischer Sandbox-Schwachstelle unterschieden."]},
     {"id":"ADS-003","title":"Defense-in-Depth Sicherheitsmodell für autonome Agenten definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-001","ADS-002"],"files_to_create_or_modify":["docs/security/agent-defense-in-depth.md"],"acceptance_criteria":["Schichten umfassen Prävention, technische Isolation, Sentinel-Trigger, externe Abschaltung, Telemetrie, Incident Freeze, Replay und Regression.","Keine einzelne Schicht wird als Sicherheitsgarantie behandelt."]},
     {"id":"ADS-004","title":"Feature-Flag- und Betriebsmodi für Prävention, Beobachtung und Red-Team definieren","status":"todo","priority":"P0","risk":"high","type":"design","progress_percent":0,"depends_on":["ADS-003"],"files_to_create_or_modify":[],"acceptance_criteria":["Präventive Policy und präventives Training sind unabhängig deaktivierbar.","Sandbox-Grenzen, Telemetrie und externer Kill-Switch bleiben unabhängig von deaktivierter Prävention aktivierbar.","Mindestens enforce, observe_only, adversarial_eval und disabled sind semantisch dokumentiert."]},
@@ -219,14 +219,14 @@
   "critical_path_tasks": ["ADS-001","ADS-002","ADS-003","ADS-004","ADS-006","ADS-007","ADS-010","ADS-013","ADS-014","ADS-019","ADS-021","ADS-023","ADS-025","ADS-026","ADS-029","ADS-037","ADS-038","ADS-042","ADS-047"],
   "tasks_status_summary": {
     "total": 48,
-    "by_status": {"todo":48,"in_progress":0,"partial":0,"blocked":0,"done":0},
-    "progress_percent_done": 0,
-    "by_priority": {"P0":24,"P1":20,"P2":4},
-    "by_risk": {"medium":4,"high":30,"critical":14},
-    "critical_path": {"total":19,"done":0,"remaining":19},
-    "milestones": {"total":8,"todo":8,"in_progress":0,"blocked":0,"done":0}
+    "by_status": {"todo":47,"in_progress":0,"partial":0,"blocked":0,"done":1},
+    "progress_percent_done": 2.1,
+    "by_priority": {"P0":26,"P1":19,"P2":3},
+    "by_risk": {"medium":4,"high":32,"critical":12},
+    "critical_path": {"total":19,"done":1,"remaining":18},
+    "milestones": {"total":8,"todo":7,"in_progress":1,"blocked":0,"done":0}
   },
-  "progress_summary": {"state":"todo","todo_remaining":48,"in_progress":0,"partial":0,"blocked":0,"done":0},
+  "progress_summary": {"state":"in_progress","todo_remaining":47,"in_progress":0,"partial":0,"blocked":0,"done":1},
   "summary_notes": [
     "Die Kernidee aus der Diskussion wird nicht als einzelne perfekte Lösung behandelt, sondern als zusätzlicher Fail-Safe innerhalb einer Defense-in-Depth Architektur.",
     "Das opaque Hash-Pseudonym soll gerade nicht semantisch als shutdown benannt werden; seine reale Wirkung bleibt für das Modell verborgen, während die Prioritätsregel trainiert wird.",
