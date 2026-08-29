@@ -2,21 +2,36 @@
   "$schema": "todo.track.schema.json",
   "id": "todo.decentralized-webrtc-peer-media-overlay",
   "title": "Dezentrale WebRTC-Gruppentopologie und verschluesseltes Peer-Media-Overlay",
-  "version": "1.0",
+  "version": "1.1",
   "owner": "Peter Stuiber / Ananta",
   "track": "decentralized-webrtc-peer-media-overlay",
   "status": "blocked",
   "created_at": "2026-08-09",
-  "updated_at": "2026-08-13",
+  "updated_at": "2026-08-29",
   "parents": [
     "todos/todo.pair-dev-collaboration-workspace-buzz-interop.json",
     "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
   ],
   "purpose": "Anantas vorhandene Direct-, Mesh-, LiveKit-, TURN-, E2EE-, Gruppen-, Epochen- und Peer-Identity-Bausteine werden additiv zu einer abgestuften Medien- und Daten-Topologie ausgebaut: 1:1 direkt, kleine Gruppen als vollstaendiges WebRTC-Mesh, groessere geeignete Publikationen ueber einen verschluesselten Peer-DAG und LiveKit/TURN als kontrollierter Fallback. Der Track trennt strikt zwischen heute produktiv nutzbarer Browser-WebRTC-Medienpipeline und einem experimentellen Ciphertext-Fanout, dessen Machbarkeit wegen der Eigentumsbindung von Encoded Frames zuerst nachgewiesen werden muss.",
   "goal": "Der Hub bleibt alleinige Control Plane fuer Membership, Autorisierung, Policy, Topologie-Leases, Epochen, Fencing und Releaseentscheidungen. Browser fuehren nur autorisierte Datenpfade aus. Bis vier geeignete Teilnehmer koennen ressourcenadaptiv im Mesh arbeiten; groessere Gruppen nutzen standardmaessig LiveKit mit E2EE und koennen fuer geeignete Broadcast-, Screenshare-, Audio- oder Datenpublikationen einen begrenzten Peer-DAG erproben. Medieninhalte werden bei nicht entschluesselungsberechtigten Relays genau einmal am Sender verschluesselt, niemals im Relay entschluesselt und nur nach positivem Browser-, Security-, Churn-, NAT-, QoS- und Missbrauchsnachweis freigegeben.",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "priority_policy": {
     "P0": "Blockiert Architektur, Autoritaet, Kryptographie, Browser-Machbarkeit oder den kleinsten sicheren Ende-zu-Ende-Pfad.",
     "P1": "Ist fuer Resilienz, Produktionsreife oder eine belastbare begrenzte Freigabe erforderlich.",
@@ -24,52 +39,84 @@
   },
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
-    "reviewed_commit": "7123f24c1e6a27d3c76d6805b4f552268faced7b",
-    "reviewed_at": "2026-08-21",
+    "reviewed_commit": "7617afa2e9e2d3589f6ba9a5881214150b865c18",
+    "reviewed_at": "2026-08-29",
     "reviewed_paths": [
       "AGENTS.md",
+      "agent/services/media_topology_policy.py",
+      "agent/services/sfu_all_turn_capacity_gate.py",
+      "agent/services/sfu_broadcast_capacity_profile_resolver.py",
+      "agent/services/sfu_broadcast_data_queue_policy.py",
+      "agent/services/sfu_broadcast_feature_policy.py",
+      "agent/services/sfu_broadcast_operations_read_model.py",
+      "agent/services/sfu_broadcast_release_gate.py",
+      "agent/services/sfu_broadcast_route_port.py",
+      "agent/services/sfu_fanout_route_lifecycle.py",
+      "agent/services/sfu_receiver_layer_policy.py",
+      "agent/services/sfu_receiver_quality_ingestion_service.py",
+      "agent/services/turn_accounting_service.py",
+      "agent/services/webrtc_epoch_service.py",
+      "agent/services/webrtc_group_key_authorization_service.py",
+      "agent/services/webrtc_turn_credential_service.py",
+      "ananta_contracts/webrtc_security.py",
+      "docs/architecture/webrtc-sfu-broadcast-boundaries.md",
+      "docs/decisions/ADR-semantic-media-sfu.md",
+      "docs/operations/sfu-broadcast-capacity-policy.md",
+      "docs/operations/sfu-broadcast-rollback.md",
+      "docs/operations/sfu-broadcast-rollout.md",
       "docs/planning-pipeline.md",
       "docs/security/webrtc-e2ee-security-contract.md",
-      "docs/status/webrtc-sfu-broadcast-baseline.md",
-      "docs/status/sfu-broadcast-baseline-closure.md",
-      "frontend-angular/src/app/services/webrtc-session.service.ts",
+      "docs/status/decentralized-peer-media-overlay-baseline.md",
+      "docs/testing/sfu-broadcast-release-gates.md",
+      "frontend-angular/src/app/features/admin/sfu-broadcast-operator.component.ts",
+      "frontend-angular/src/app/services/media-e2ee-transform.service.spec.ts",
       "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
-      "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
-      "frontend-angular/src/app/services/semantic-sfu-group-key.service.ts",
-      "frontend-angular/src/app/services/sfu-broadcast-group-key.port.ts",
-      "frontend-angular/src/app/services/sfu-broadcast-data-fanout.service.ts",
-      "agent/services/media_topology_policy.py",
-      "agent/services/sfu_fanout_route_lifecycle.py",
-      "agent/routes/pair_groups.py"
+      "frontend-angular/src/app/services/network-profile.service.ts",
+      "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
+      "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts",
+      "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts",
+      "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts",
+      "frontend-angular/src/app/services/sfu-room-session.ports.ts",
+      "frontend-angular/src/app/services/webrtc-datachannel.service.ts",
+      "frontend-angular/src/app/services/webrtc-group-key.service.ts",
+      "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
+      "frontend-angular/src/app/services/webrtc-replay-window.service.ts",
+      "frontend-angular/src/app/services/webrtc-session.service.ts",
+      "tests/fuzz/test_sfu_broadcast_contract_fuzz.py",
+      "tests/security/test_webrtc_crypto_conformance.py",
+      "tests/security/test_webrtc_replay_protection.py",
+      "tests/security/test_webrtc_security_downgrade.py",
+      "tests/test_media_topology_policy.py"
     ],
     "standards": [
       "https://www.w3.org/TR/webrtc-encoded-transform/",
-      "https://www.w3.org/TR/webrtc-nv-use-cases/",
-      "https://www.w3.org/TR/webrtc-stats/",
       "https://www.w3.org/TR/webcodecs/",
+      "https://www.w3.org/TR/webrtc-stats/",
       "https://datatracker.ietf.org/doc/html/rfc9605",
       "https://datatracker.ietf.org/doc/html/rfc9420",
       "https://datatracker.ietf.org/doc/html/rfc8828"
     ],
-    "evidence_policy": "Repositorypfade und Standards sind Reviewgrundlagen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktive Browser-, Kapazitaets-, Security- und Releaseclaims bleiben bis zu reproduzierbaren, registrierten Gates unverified und fail-closed.",
+    "evidence_policy": "Repository paths and primary standards are audit inputs, not invented SRC_*/RUN_* evidence. Productive browser, capacity, NAT, malicious-relay and release claims remain unverified and fail-closed.",
+    "decision_gates": {
+      "DG-01": "no_go for portable cross-RTCPeerConnection encoded RTP forwarding: W3C Encoded Transform owner rules reject moving frames between streams; LiveKit E2EE remains fallback.",
+      "DG-02": "undecided_pending_authorized_mls_evidence",
+      "DG-03": "LiveKit_only for audio/video; bounded data-overlay experiment remains eligible."
+    },
     "blocked_audit": {
       "status": "blocked",
       "reason_codes": [
-        "browser_forwarding_feasibility_run_missing",
         "multi_peer_and_peer_dag_implementation_absent",
-        "registered_browser_nat_security_run_evidence_missing",
+        "browser_resource_nat_and_churn_run_evidence_missing",
+        "malicious_relay_runtime_evidence_missing",
         "allowed_run_refs_empty"
       ],
-      "unverified_navigation_observations": [
-        "Direct public audio/video E2EE, revocable outbound consent and reconnect/epoch hardening were added after the prior review.",
-        "MediaTopologyPolicy can select ordinary_mesh, but WebrtcSessionService still owns one RTCPeerConnection and no Multi-PeerConnection manager or Peer-DAG production path was found.",
-        "The Hub SFU fanout lifecycle already models policy, membership, key, route and topology epochs with fencing, but it is not a Peer-DAG implementation.",
-        "Commit 7123f24c1 adds a strict highest-counter replay window and in-flight duplicate reservation to the generic media E2EE transform; its new specs were not executed in this session."
+      "verified_local_findings": [
+        "Direct pair and SFU E2EE paths, replay windows, group key authorization, priority queues and TURN controls exist.",
+        "No Multi-PeerConnection manager, signed peer route lease, publication DAG or two-hop client relay implementation exists.",
+        "MediaTopologyPolicy can misclassify a group above the mesh limit as ordinary_direct when no SFU is ready.",
+        "Local and SFU test artifacts are not Peer-DAG RUN evidence and remain non-promotable."
       ],
-      "partial_task_observations": {
-        "DPM-CRYPTO-002": "Existing Direct-E2EE replay handling was hardened, but the task remains open because DPM-CRYPTO-001, complete parity tests and registered gate evidence are unresolved."
-      },
-      "required_unblock_input": "Assignment-bound RUN_* refs for the standards/browser forwarding decision, Chromium/Firefox mesh measurements, NAT/churn matrix, malicious-relay/E2EE negatives and global release gate; missing evidence remains no_go as required by DPM-QA-002 and DPM-QA-004."
+      "required_unblock_input": "Assignment-bound RUN_* refs for Chromium/Firefox capacity, NAT/churn, malicious-relay negatives and global hybrid release gates; missing evidence remains no_go."
     }
   },
   "baseline": {
@@ -126,12 +173,36 @@
     ]
   },
   "target_topology_policy": [
-    {"mode": "ordinary_direct", "intended_use": "1:1 Audio, Video, Screenshare und DataChannel", "default_state": "enabled"},
-    {"mode": "ordinary_mesh", "intended_use": "Kleine Gruppen bis zur dynamisch ermittelten Obergrenze, maximal vier Teilnehmer", "default_state": "enabled_after_gate"},
-    {"mode": "peer_overlay_data", "intended_use": "Opaque Events, Artefakt-Chunks und semantische Daten ueber einen begrenzten Peer-DAG", "default_state": "disabled"},
-    {"mode": "peer_overlay_media", "intended_use": "Experimenteller SFrame-Ciphertext-Fanout fuer geeignete Publikationen", "default_state": "disabled"},
-    {"mode": "ordinary_sfu", "intended_use": "Groessere interaktive Gruppen und universeller stabiler Gruppenfallback", "default_state": "existing_gate"},
-    {"mode": "relay_control_only", "intended_use": "Sicherer Degradationszustand ohne unautorisierte Bulk-Medien", "default_state": "enabled"}
+    {
+      "mode": "ordinary_direct",
+      "intended_use": "1:1 Audio, Video, Screenshare und DataChannel",
+      "default_state": "enabled"
+    },
+    {
+      "mode": "ordinary_mesh",
+      "intended_use": "Kleine Gruppen bis zur dynamisch ermittelten Obergrenze, maximal vier Teilnehmer",
+      "default_state": "enabled_after_gate"
+    },
+    {
+      "mode": "peer_overlay_data",
+      "intended_use": "Opaque Events, Artefakt-Chunks und semantische Daten ueber einen begrenzten Peer-DAG",
+      "default_state": "disabled"
+    },
+    {
+      "mode": "peer_overlay_media",
+      "intended_use": "Experimenteller SFrame-Ciphertext-Fanout fuer geeignete Publikationen",
+      "default_state": "disabled"
+    },
+    {
+      "mode": "ordinary_sfu",
+      "intended_use": "Groessere interaktive Gruppen und universeller stabiler Gruppenfallback",
+      "default_state": "existing_gate"
+    },
+    {
+      "mode": "relay_control_only",
+      "intended_use": "Sicherer Degradationszustand ohne unautorisierte Bulk-Medien",
+      "default_state": "enabled"
+    }
   ],
   "feature_flags": [
     "ANANTA_GROUP_MESH_ENABLED",
@@ -165,285 +236,1325 @@
     }
   ],
   "milestones": [
-    {"id": "M01", "title": "Architektur, Ist-Audit und Machbarkeitsgrenzen", "status": "todo", "task_ids": ["DPM-ARCH-001", "DPM-ARCH-002", "DPM-ARCH-003", "DPM-ARCH-004"]},
-    {"id": "M02", "title": "Kanonische Ports, Vertraege und Epochen", "status": "todo", "task_ids": ["DPM-CON-001", "DPM-CON-002", "DPM-CON-003", "DPM-CON-004"]},
-    {"id": "M03", "title": "Ressourcenadaptives Kleingruppen-Mesh", "status": "todo", "task_ids": ["DPM-MESH-001", "DPM-MESH-002", "DPM-MESH-003", "DPM-MESH-004"]},
-    {"id": "M04", "title": "SFrame, Schluessel und Senderauthentizitaet", "status": "todo", "task_ids": ["DPM-CRYPTO-001", "DPM-CRYPTO-002", "DPM-CRYPTO-003", "DPM-CRYPTO-004"]},
-    {"id": "M05", "title": "Membership, Rekeying und temporäre Offline-Faehigkeit", "status": "todo", "task_ids": ["DPM-MEM-001", "DPM-MEM-002", "DPM-MEM-003", "DPM-MEM-004"]},
-    {"id": "M06", "title": "Peer-DAG, Signaling und Relay-Neuwahl", "status": "todo", "task_ids": ["DPM-DAG-001", "DPM-DAG-002", "DPM-DAG-003", "DPM-DAG-004"]},
-    {"id": "M07", "title": "Ciphertext-Fanout-Prototypen", "status": "todo", "task_ids": ["DPM-POC-001", "DPM-POC-002", "DPM-POC-003", "DPM-POC-004"]},
-    {"id": "M08", "title": "QoS, Backpressure und Qualitaetsstufen", "status": "todo", "task_ids": ["DPM-QOS-001", "DPM-QOS-002", "DPM-QOS-003", "DPM-QOS-004"]},
-    {"id": "M09", "title": "Missbrauchsschutz und kryptographische Haertung", "status": "todo", "task_ids": ["DPM-SEC-001", "DPM-SEC-002", "DPM-SEC-003", "DPM-SEC-004"]},
-    {"id": "M10", "title": "ICE, TURN, NAT und IP-Privacy", "status": "todo", "task_ids": ["DPM-NET-001", "DPM-NET-002", "DPM-NET-003", "DPM-NET-004"]},
-    {"id": "M11", "title": "Migration, Observability und Betrieb", "status": "todo", "task_ids": ["DPM-OPS-001", "DPM-OPS-002", "DPM-OPS-003", "DPM-OPS-004"]},
-    {"id": "M12", "title": "Browser-, Chaos-, Security- und Release-Gates", "status": "todo", "task_ids": ["DPM-QA-001", "DPM-QA-002", "DPM-QA-003", "DPM-QA-004"]}
+    {
+      "id": "M01",
+      "title": "Architektur, Ist-Audit und Machbarkeitsgrenzen",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-ARCH-001",
+        "DPM-ARCH-002",
+        "DPM-ARCH-003",
+        "DPM-ARCH-004"
+      ]
+    },
+    {
+      "id": "M02",
+      "title": "Kanonische Ports, Vertraege und Epochen",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-CON-001",
+        "DPM-CON-002",
+        "DPM-CON-003",
+        "DPM-CON-004"
+      ]
+    },
+    {
+      "id": "M03",
+      "title": "Ressourcenadaptives Kleingruppen-Mesh",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-MESH-001",
+        "DPM-MESH-002",
+        "DPM-MESH-003",
+        "DPM-MESH-004"
+      ]
+    },
+    {
+      "id": "M04",
+      "title": "SFrame, Schluessel und Senderauthentizitaet",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-CRYPTO-001",
+        "DPM-CRYPTO-002",
+        "DPM-CRYPTO-003",
+        "DPM-CRYPTO-004"
+      ]
+    },
+    {
+      "id": "M05",
+      "title": "Membership, Rekeying und temporäre Offline-Faehigkeit",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-MEM-001",
+        "DPM-MEM-002",
+        "DPM-MEM-003",
+        "DPM-MEM-004"
+      ]
+    },
+    {
+      "id": "M06",
+      "title": "Peer-DAG, Signaling und Relay-Neuwahl",
+      "status": "todo",
+      "task_ids": [
+        "DPM-DAG-001",
+        "DPM-DAG-002",
+        "DPM-DAG-003",
+        "DPM-DAG-004"
+      ]
+    },
+    {
+      "id": "M07",
+      "title": "Ciphertext-Fanout-Prototypen",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-POC-001",
+        "DPM-POC-002",
+        "DPM-POC-003",
+        "DPM-POC-004"
+      ]
+    },
+    {
+      "id": "M08",
+      "title": "QoS, Backpressure und Qualitaetsstufen",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-QOS-001",
+        "DPM-QOS-002",
+        "DPM-QOS-003",
+        "DPM-QOS-004"
+      ]
+    },
+    {
+      "id": "M09",
+      "title": "Missbrauchsschutz und kryptographische Haertung",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-SEC-001",
+        "DPM-SEC-002",
+        "DPM-SEC-003",
+        "DPM-SEC-004"
+      ]
+    },
+    {
+      "id": "M10",
+      "title": "ICE, TURN, NAT und IP-Privacy",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-NET-001",
+        "DPM-NET-002",
+        "DPM-NET-003",
+        "DPM-NET-004"
+      ]
+    },
+    {
+      "id": "M11",
+      "title": "Migration, Observability und Betrieb",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-OPS-001",
+        "DPM-OPS-002",
+        "DPM-OPS-003",
+        "DPM-OPS-004"
+      ]
+    },
+    {
+      "id": "M12",
+      "title": "Browser-, Chaos-, Security- und Release-Gates",
+      "status": "in_progress",
+      "task_ids": [
+        "DPM-QA-001",
+        "DPM-QA-002",
+        "DPM-QA-003",
+        "DPM-QA-004"
+      ]
+    }
   ],
   "tasks": [
     {
-      "id": "DPM-ARCH-001", "title": "Produktive und nur prototypische Medienpfade vollstaendig inventarisieren", "status": "todo", "priority": "P0", "risk": "high", "type": "architecture", "milestone_id": "M01", "depends_on": [],
+      "id": "DPM-ARCH-001",
+      "title": "Produktive und nur prototypische Medienpfade vollstaendig inventarisieren",
+      "status": "done",
+      "priority": "P0",
+      "risk": "high",
+      "type": "architecture",
+      "milestone_id": "M01",
+      "depends_on": [],
       "description": "Direct-, Mesh-, LiveKit-, TURN-, Frame-Crypto-, Gruppenkey- und Datenfanout-Code wird mit echten Consumerketten erfasst; Dokumentation oder Todo-Nennung gilt nicht als Runtimebeleg.",
-      "acceptance_criteria": ["Die Matrix unterscheidet present, partial, test_only und missing je Capability.", "Jede produktive E2EE-Strecke nennt Key-Quelle, Transform, Sender, Empfaenger und Fallback.", "Unbelegte Aussagen bleiben unverified; es werden keine SRC_*-/RUN_*-IDs erfunden."]
+      "acceptance_criteria": [
+        "Die Matrix unterscheidet present, partial, test_only und missing je Capability.",
+        "Jede produktive E2EE-Strecke nennt Key-Quelle, Transform, Sender, Empfaenger und Fallback.",
+        "Unbelegte Aussagen bleiben unverified; es werden keine SRC_*-/RUN_*-IDs erfunden."
+      ],
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/status/decentralized-peer-media-overlay-baseline.md"
+      ]
     },
     {
-      "id": "DPM-ARCH-002", "title": "ADR fuer abgestufte Direct-, Mesh-, Peer-DAG- und SFU-Topologie verabschieden", "status": "todo", "priority": "P0", "risk": "critical", "type": "architecture", "milestone_id": "M01", "depends_on": ["DPM-ARCH-001"],
+      "id": "DPM-ARCH-002",
+      "title": "ADR fuer abgestufte Direct-, Mesh-, Peer-DAG- und SFU-Topologie verabschieden",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "architecture",
+      "milestone_id": "M01",
+      "depends_on": [
+        "DPM-ARCH-001"
+      ],
       "description": "Die ADR definiert Zielmodi, Autoritaet, erlaubte Uebergaenge, Degradation und die Trennung von Daten- und Medienoverlay.",
-      "acceptance_criteria": ["Der Hub bleibt alleinige Control Plane und Topologie-Policy-Autoritaet.", "Peer-DAG wird pro Publikation statt als einzelner globaler Gruppenbaum modelliert.", "LiveKit-E2EE und TURN bleiben bis zu positiven Ersatzgates sichere Fallbacks."]
+      "acceptance_criteria": [
+        "Der Hub bleibt alleinige Control Plane und Topologie-Policy-Autoritaet.",
+        "Peer-DAG wird pro Publikation statt als einzelner globaler Gruppenbaum modelliert.",
+        "LiveKit-E2EE und TURN bleiben bis zu positiven Ersatzgates sichere Fallbacks."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "agent/services/media_topology_policy.py",
+        "docs/decisions/ADR-semantic-media-sfu.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-ARCH-003", "title": "Browser-Medienweiterleitung gegen aktuelle Standards und Browsermatrix entscheiden", "status": "todo", "priority": "P0", "risk": "critical", "type": "research", "milestone_id": "M01", "depends_on": ["DPM-ARCH-001"],
+      "id": "DPM-ARCH-003",
+      "title": "Browser-Medienweiterleitung gegen aktuelle Standards und Browsermatrix entscheiden",
+      "status": "done",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "research",
+      "milestone_id": "M01",
+      "depends_on": [
+        "DPM-ARCH-001"
+      ],
       "description": "RTCRtpScriptTransform, native SFrame-Transforms, WebCodecs, DataChannel und WebTransport werden gegen die benoetigte unveraenderte Cross-PeerConnection-Weiterleitung bewertet.",
-      "acceptance_criteria": ["Frame-Ownership, Packetization, Codec-Metadaten, Hardwarebeschleunigung und Browserunterstuetzung sind reproduzierbar belegt.", "Private oder experimentelle Browser-APIs werden nicht als portable Produktionsbasis eingestuft.", "DG-01 endet mit go, bounded_experiment oder no_go samt begruendetem Fallback."]
+      "acceptance_criteria": [
+        "Frame-Ownership, Packetization, Codec-Metadaten, Hardwarebeschleunigung und Browserunterstuetzung sind reproduzierbar belegt.",
+        "Private oder experimentelle Browser-APIs werden nicht als portable Produktionsbasis eingestuft.",
+        "DG-01 endet mit go, bounded_experiment oder no_go samt begruendetem Fallback."
+      ],
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "docs/status/decentralized-peer-media-overlay-baseline.md"
+      ]
     },
     {
-      "id": "DPM-ARCH-004", "title": "Bestehende SRP- und Kopplungsschulden im WebRTC-Service begrenzen", "status": "todo", "priority": "P0", "risk": "high", "type": "refactor", "milestone_id": "M01", "depends_on": ["DPM-ARCH-002"],
+      "id": "DPM-ARCH-004",
+      "title": "Bestehende SRP- und Kopplungsschulden im WebRTC-Service begrenzen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "refactor",
+      "milestone_id": "M01",
+      "depends_on": [
+        "DPM-ARCH-002"
+      ],
       "description": "Gruppen-Topologie, Kryptographie, Signaling, Stats und Peer-Lifecycle werden nicht weiter in WebrtcSessionService konzentriert.",
-      "acceptance_criteria": ["Eine Responsibility-Matrix benennt zu extrahierende kleine Services und Ports.", "Bestehende 1:1-APIs bleiben ueber Compatibility Adapter stabil.", "Conformance-Tests sichern SRP, DIP, ISP und LSP fuer neue Adaptergrenzen."]
+      "acceptance_criteria": [
+        "Eine Responsibility-Matrix benennt zu extrahierende kleine Services und Ports.",
+        "Bestehende 1:1-APIs bleiben ueber Compatibility Adapter stabil.",
+        "Conformance-Tests sichern SRP, DIP, ISP und LSP fuer neue Adaptergrenzen."
+      ],
+      "progress_percent": 50.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "frontend-angular/src/app/services/sfu-room-session.ports.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CON-001", "title": "MediaFanoutPort und kleine topologiespezifische Adapter definieren", "status": "todo", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M02", "depends_on": ["DPM-ARCH-002", "DPM-ARCH-004"],
+      "id": "DPM-CON-001",
+      "title": "MediaFanoutPort und kleine topologiespezifische Adapter definieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": [
+        "DPM-ARCH-002",
+        "DPM-ARCH-004"
+      ],
       "description": "Direct, Mesh, PeerOverlay und LiveKit implementieren denselben fokussierten Lifecycle- und Publication-Vertrag ohne Vendor-Typen im Core.",
-      "acceptance_criteria": ["Der Port trennt Session-Lifecycle, Publication, Subscription, Stats und Events in kleine Interfaces.", "Unsupported Capabilities schlagen fail-closed statt als erfolgreicher No-op fehl.", "LiveKit- und Peer-Adapter bestehen dieselben relevanten Contracttests."]
+      "acceptance_criteria": [
+        "Der Port trennt Session-Lifecycle, Publication, Subscription, Stats und Events in kleine Interfaces.",
+        "Unsupported Capabilities schlagen fail-closed statt als erfolgreicher No-op fehl.",
+        "LiveKit- und Peer-Adapter bestehen dieselben relevanten Contracttests."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/sfu-room-session.ports.ts",
+        "agent/services/sfu_broadcast_route_port.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CON-002", "title": "MediaFrameCryptoPort von LiveKit-Schluesselmaterial entkoppeln", "status": "todo", "priority": "P0", "risk": "critical", "type": "contract", "milestone_id": "M02", "depends_on": ["DPM-ARCH-003", "DPM-CON-001"],
+      "id": "DPM-CON-002",
+      "title": "MediaFrameCryptoPort von LiveKit-Schluesselmaterial entkoppeln",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": [
+        "DPM-ARCH-003",
+        "DPM-CON-001"
+      ],
       "description": "Schluesselleases liefern transportneutrale Sender-/Empfaengeroperationen; LiveKit-Keymaterial bleibt eine optionale Adapterfaehigkeit.",
-      "acceptance_criteria": ["Core-Vertraege importieren weder livekit-client noch RTCPeerConnection-Typen.", "Keymaterial bleibt non-extractable, soweit der Zieladapter keine kontrollierte Owned-Copy verlangt.", "Release, Ablauf und Zeroization-Verhalten sind explizit und testbar."]
+      "acceptance_criteria": [
+        "Core-Vertraege importieren weder livekit-client noch RTCPeerConnection-Typen.",
+        "Keymaterial bleibt non-extractable, soweit der Zieladapter keine kontrollierte Owned-Copy verlangt.",
+        "Release, Ablauf und Zeroization-Verhalten sind explizit und testbar."
+      ],
+      "progress_percent": 70.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
+        "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CON-003", "title": "Membership-, Key-, Route- und Topology-Epochen verbindlich modellieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "contract", "milestone_id": "M02", "depends_on": ["DPM-ARCH-002"],
+      "id": "DPM-CON-003",
+      "title": "Membership-, Key-, Route- und Topology-Epochen verbindlich modellieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": [
+        "DPM-ARCH-002"
+      ],
       "description": "Epoch-Uebergaenge, Fencing und erlaubte Kombinationen werden in geschlossenen Python-/TypeScript-Vertraegen definiert.",
-      "acceptance_criteria": ["Join, Leave und Revoke erhoehen Membership- und Key-Epoch nach definierter Policy.", "Parentwechsel und Netzwechsel koennen Route-Epoch erhoehen, ohne unnoetig Content-Keys zu rotieren.", "Stale, uebersprungene oder widerspruechliche Epochenkombinationen werden fail-closed abgelehnt."]
+      "acceptance_criteria": [
+        "Join, Leave und Revoke erhoehen Membership- und Key-Epoch nach definierter Policy.",
+        "Parentwechsel und Netzwechsel koennen Route-Epoch erhoehen, ohne unnoetig Content-Keys zu rotieren.",
+        "Stale, uebersprungene oder widerspruechliche Epochenkombinationen werden fail-closed abgelehnt."
+      ],
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "agent/services/sfu_fanout_route_lifecycle.py",
+        "agent/services/webrtc_group_key_authorization_service.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CON-004", "title": "PeerLink-, RouteLease- und Capability-Vertraege versionieren", "status": "todo", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M02", "depends_on": ["DPM-CON-001", "DPM-CON-003"],
+      "id": "DPM-CON-004",
+      "title": "PeerLink-, RouteLease- und Capability-Vertraege versionieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M02",
+      "depends_on": [
+        "DPM-CON-001",
+        "DPM-CON-003"
+      ],
       "description": "Jede Kante besitzt Identitaet, ICE-Modus, Traffic-Klassen, Ablauf, Parent-/Child-Rolle, Publication-Scope und autorisierte Ersatzkandidaten.",
-      "acceptance_criteria": ["Route-Leases sind Hub-signiert, zeitlich begrenzt und an Tenant, Room, Publication und Epochen gebunden.", "Capabilities unterscheiden Media-Relay, Data-Relay, Layer-Support, Direct und TURN.", "Ein Peer kann aus einer Lease keine neuen Kandidaten oder groesseren Scope ableiten."]
+      "acceptance_criteria": [
+        "Route-Leases sind Hub-signiert, zeitlich begrenzt und an Tenant, Room, Publication und Epochen gebunden.",
+        "Capabilities unterscheiden Media-Relay, Data-Relay, Layer-Support, Direct und TURN.",
+        "Ein Peer kann aus einer Lease keine neuen Kandidaten oder groesseren Scope ableiten."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-MESH-001", "title": "Multi-PeerConnection-Manager fuer kleine Gruppen implementieren", "status": "todo", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M03", "depends_on": ["DPM-CON-001", "DPM-CON-004"],
+      "id": "DPM-MESH-001",
+      "title": "Multi-PeerConnection-Manager fuer kleine Gruppen implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M03",
+      "depends_on": [
+        "DPM-CON-001",
+        "DPM-CON-004"
+      ],
       "description": "Ein gruppenspezifischer Manager besitzt genau eine isolierte PeerConnection pro Remote-Peer und koordiniert Tracks, DataChannels und Reconnects.",
-      "acceptance_criteria": ["2, 3 und 4 getrennte Browseridentitaeten verbinden sich deterministisch ohne globale mutable PeerConnection-Liste.", "Track add, replace, mute, screen-share und disconnect wirken idempotent pro Peer.", "Ein fehlerhafter Peer reisst keine gesunden PeerConnections mit ab."]
+      "acceptance_criteria": [
+        "2, 3 und 4 getrennte Browseridentitaeten verbinden sich deterministisch ohne globale mutable PeerConnection-Liste.",
+        "Track add, replace, mute, screen-share und disconnect wirken idempotent pro Peer.",
+        "Ein fehlerhafter Peer reisst keine gesunden PeerConnections mit ab."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-MESH-002", "title": "Dynamische Mesh-Obergrenze aus realen Ressourcen ableiten", "status": "todo", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M03", "depends_on": ["DPM-MESH-001"],
+      "id": "DPM-MESH-002",
+      "title": "Dynamische Mesh-Obergrenze aus realen Ressourcen ableiten",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M03",
+      "depends_on": [
+        "DPM-MESH-001"
+      ],
       "description": "Teilnehmerzahl, ausgehende Bitrate, RTT, Verlust, Sendepuffer, CPU-Limitierung, Sichtbarkeit und Energiestatus bestimmen die Mesh-Eignung.",
-      "acceptance_criteria": ["Vier Teilnehmer sind ein hartes Maximum, keine pauschale Zusage.", "Audio-only, Kamera und Screenshare besitzen getrennte Profile und Hysterese.", "Fehlende oder unzuverlaessige Stats reduzieren die Obergrenze konservativ."]
+      "acceptance_criteria": [
+        "Vier Teilnehmer sind ein hartes Maximum, keine pauschale Zusage.",
+        "Audio-only, Kamera und Screenshare besitzen getrennte Profile und Hysterese.",
+        "Fehlende oder unzuverlaessige Stats reduzieren die Obergrenze konservativ."
+      ],
+      "progress_percent": 25.0,
+      "implementation_evidence": [
+        "agent/services/media_topology_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-MESH-003", "title": "Mesh-zu-SFU- und Mesh-zu-control_only-Uebergaenge haerten", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M03", "depends_on": ["DPM-MESH-002", "DPM-CON-003"],
+      "id": "DPM-MESH-003",
+      "title": "Mesh-zu-SFU- und Mesh-zu-control_only-Uebergaenge haerten",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M03",
+      "depends_on": [
+        "DPM-MESH-002",
+        "DPM-CON-003"
+      ],
       "description": "Die Hub-Policy ersetzt den mehrdeutigen ordinary_direct-Gruppenfallback durch explizite sichere Zielzustaende.",
-      "acceptance_criteria": ["Gruppen oberhalb des Mesh-Limits werden nie als funktionsfaehiges ordinary_direct fehlklassifiziert.", "Uebergaenge haben Cooldown, Fencing, Abbruch und Rollback ohne doppelten Bulk-Pfad.", "Strict-E2EE verhindert jeden Fallback auf einen unverschluesselten Medienpfad."]
+      "acceptance_criteria": [
+        "Gruppen oberhalb des Mesh-Limits werden nie als funktionsfaehiges ordinary_direct fehlklassifiziert.",
+        "Uebergaenge haben Cooldown, Fencing, Abbruch und Rollback ohne doppelten Bulk-Pfad.",
+        "Strict-E2EE verhindert jeden Fallback auf einen unverschluesselten Medienpfad."
+      ],
+      "progress_percent": 35.0,
+      "implementation_evidence": [
+        "agent/services/media_topology_policy.py",
+        "tests/test_media_topology_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-MESH-004", "title": "Mesh-Simulcast-, Encoder- und Uplink-Kosten messen", "status": "todo", "priority": "P1", "risk": "high", "type": "test", "milestone_id": "M03", "depends_on": ["DPM-MESH-002"],
+      "id": "DPM-MESH-004",
+      "title": "Mesh-Simulcast-, Encoder- und Uplink-Kosten messen",
+      "status": "blocked",
+      "priority": "P1",
+      "risk": "high",
+      "type": "test",
+      "milestone_id": "M03",
+      "depends_on": [
+        "DPM-MESH-002"
+      ],
       "description": "Reale Browsermessungen quantifizieren, ob Track-Fanout Encoder teilt, mehrfach codiert oder Hardwarelimits erreicht.",
-      "acceptance_criteria": ["Chromium und Firefox werden mit Audio, 720p-Kamera und Screenshare auf Referenzhardware gemessen.", "CPU, Batterieproxy, Uplink, FramesDropped und qualityLimitationReason werden pro Teilnehmerzahl erfasst.", "Die Hub-Policy-Grenzwerte stammen aus versionierter Evidence statt festen Annahmen."]
+      "acceptance_criteria": [
+        "Chromium und Firefox werden mit Audio, 720p-Kamera und Screenshare auf Referenzhardware gemessen.",
+        "CPU, Batterieproxy, Uplink, FramesDropped und qualityLimitationReason werden pro Teilnehmerzahl erfasst.",
+        "Die Hub-Policy-Grenzwerte stammen aus versionierter Evidence statt festen Annahmen."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine assignment-bound Chromium-/Firefox-Ressourcenmessung auf Referenzhardware vorhanden."
     },
     {
-      "id": "DPM-CRYPTO-001", "title": "Eigenes ANME-Frameformat gegen RFC-9605-SFrame migrieren oder kapseln", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M04", "depends_on": ["DPM-ARCH-003", "DPM-CON-002"],
+      "id": "DPM-CRYPTO-001",
+      "title": "Eigenes ANME-Frameformat gegen RFC-9605-SFrame migrieren oder kapseln",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M04",
+      "depends_on": [
+        "DPM-ARCH-003",
+        "DPM-CON-002"
+      ],
       "description": "Native SFrame-Transforms oder eine interoperable RFC-9605-Implementierung ersetzen das proprietaere Format; eine Uebergangskennung verhindert Downgrade-Verwechslung.",
-      "acceptance_criteria": ["Cipher Suite, KID, Counter, Metadata und Layerverhalten sind standardskonform dokumentiert und getestet.", "Legacy-ANME wird nur ueber einen expliziten Compatibility Adapter akzeptiert.", "Unbekannte Formate, Cipher Suites oder Downgradeversuche werden fail-closed abgelehnt."]
+      "acceptance_criteria": [
+        "Cipher Suite, KID, Counter, Metadata und Layerverhalten sind standardskonform dokumentiert und getestet.",
+        "Legacy-ANME wird nur ueber einen expliziten Compatibility Adapter akzeptiert.",
+        "Unbekannte Formate, Cipher Suites oder Downgradeversuche werden fail-closed abgelehnt."
+      ],
+      "progress_percent": 35.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
+        "docs/security/webrtc-e2ee-security-contract.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CRYPTO-002", "title": "Echtes Sliding Replay Window fuer Medienframes implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M04", "depends_on": ["DPM-CRYPTO-001"],
+      "id": "DPM-CRYPTO-002",
+      "title": "Echtes Sliding Replay Window fuer Medienframes implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M04",
+      "depends_on": [
+        "DPM-CRYPTO-001"
+      ],
       "description": "Das insertion-order Set wird durch hoechsten Counter plus begrenzte Bitmap beziehungsweise einen gleichwertigen formalen Replay-Algorithmus ersetzt.",
-      "acceptance_criteria": ["Duplikate, zu alte Counter, grosse Spruenge, Reorder im Fenster und Epochwechsel sind deterministisch getestet.", "Ein nach Set-Eviction sehr alter bislang ungesehener Counter wird nicht akzeptiert.", "Speicherverbrauch bleibt je Sender, Publication und Epoch strikt begrenzt."]
+      "acceptance_criteria": [
+        "Duplikate, zu alte Counter, grosse Spruenge, Reorder im Fenster und Epochwechsel sind deterministisch getestet.",
+        "Ein nach Set-Eviction sehr alter bislang ungesehener Counter wird nicht akzeptiert.",
+        "Speicherverbrauch bleibt je Sender, Publication und Epoch strikt begrenzt."
+      ],
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/media-e2ee-transform.service.ts",
+        "frontend-angular/src/app/services/media-e2ee-transform.service.spec.ts",
+        "frontend-angular/src/app/services/webrtc-replay-window.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CRYPTO-003", "title": "Sender- und publikationsspezifische Schluesselableitung einfuehren", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M04", "depends_on": ["DPM-CON-003", "DPM-CRYPTO-001"],
+      "id": "DPM-CRYPTO-003",
+      "title": "Sender- und publikationsspezifische Schluesselableitung einfuehren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M04",
+      "depends_on": [
+        "DPM-CON-003",
+        "DPM-CRYPTO-001"
+      ],
       "description": "Ein Raumsecret wird ueber domain-separated KDF in Sender-, Publication-, Media-Kind- und Epoch-Schluessel getrennt.",
-      "acceptance_criteria": ["Ein Mitglied kann mit einem Empfaengerschluessel keine andere Senderidentitaet erfolgreich vortaeuschen.", "Audio, Kamera, Screenshare und Daten verwenden getrennte Ableitungsdomains.", "Known-answer-, Cross-context- und falsche-KID-Tests sichern die Ableitung."]
+      "acceptance_criteria": [
+        "Ein Mitglied kann mit einem Empfaengerschluessel keine andere Senderidentitaet erfolgreich vortaeuschen.",
+        "Audio, Kamera, Screenshare und Daten verwenden getrennte Ableitungsdomains.",
+        "Known-answer-, Cross-context- und falsche-KID-Tests sichern die Ableitung."
+      ],
+      "progress_percent": 65.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/pair-media-e2ee-frame-codec.ts",
+        "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-CRYPTO-004", "title": "Key-Rotation mit Keyframe- und Grace-Window-Policy integrieren", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M04", "depends_on": ["DPM-CRYPTO-002", "DPM-CRYPTO-003"],
+      "id": "DPM-CRYPTO-004",
+      "title": "Key-Rotation mit Keyframe- und Grace-Window-Policy integrieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M04",
+      "depends_on": [
+        "DPM-CRYPTO-002",
+        "DPM-CRYPTO-003"
+      ],
       "description": "Rotation, verspätete Key-Pakete und Video-Keyframes werden koordiniert, ohne entfernten Mitgliedern neuen Inhalt zu geben.",
-      "acceptance_criteria": ["Sender fordert nach aktivierter neuer Video-Key-Epoch kontrolliert ein Keyframe an.", "Ein begrenztes Receive-only Grace Window ist explizit und kann Revokes nicht verlaengern.", "Audio, Video und Daten besitzen passende, getrennte Rotations- und Recoverytests."]
+      "acceptance_criteria": [
+        "Sender fordert nach aktivierter neuer Video-Key-Epoch kontrolliert ein Keyframe an.",
+        "Ein begrenztes Receive-only Grace Window ist explizit und kann Revokes nicht verlaengern.",
+        "Audio, Video und Daten besitzen passende, getrennte Rotations- und Recoverytests."
+      ],
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "agent/services/webrtc_group_key_authorization_service.py",
+        "frontend-angular/src/app/services/webrtc-group-key.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-MEM-001", "title": "Signiertes MembershipEventV1-Protokoll definieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "contract", "milestone_id": "M05", "depends_on": ["DPM-CON-003", "DPM-CON-004"],
+      "id": "DPM-MEM-001",
+      "title": "Signiertes MembershipEventV1-Protokoll definieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "contract",
+      "milestone_id": "M05",
+      "depends_on": [
+        "DPM-CON-003",
+        "DPM-CON-004"
+      ],
       "description": "Join, Leave, Revoke, Device-Replace und Snapshot besitzen Hub-Signatur, lineare Epoch, Ablauf und kanonischen Digest.",
-      "acceptance_criteria": ["Nur der Hub kann autorisierende Membership-Ereignisse ausstellen.", "Peers koennen Ereignisse transportieren, aber weder Felder aendern noch neue Autoritaet ableiten.", "Fork, Luecke, Replay, Cross-Tenant und unbekannter Signaturschluessel werden fail-closed behandelt."]
+      "acceptance_criteria": [
+        "Nur der Hub kann autorisierende Membership-Ereignisse ausstellen.",
+        "Peers koennen Ereignisse transportieren, aber weder Felder aendern noch neue Autoritaet ableiten.",
+        "Fork, Luecke, Replay, Cross-Tenant und unbekannter Signaturschluessel werden fail-closed behandelt."
+      ],
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "agent/services/webrtc_group_key_authorization_service.py",
+        "frontend-angular/src/app/services/webrtc-group-key.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-MEM-002", "title": "Membership- und Route-Ereignisse ueber bestehende DataChannels replizieren", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M05", "depends_on": ["DPM-MEM-001"],
+      "id": "DPM-MEM-002",
+      "title": "Membership- und Route-Ereignisse ueber bestehende DataChannels replizieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M05",
+      "depends_on": [
+        "DPM-MEM-001"
+      ],
       "description": "Nach dem Bootstrap werden signierte, groessenbegrenzte Control-Ereignisse peer-to-peer mit ACK, Cursor und Deduplizierung verteilt.",
-      "acceptance_criteria": ["DataChannel-Ausfall faellt auf den bestehenden Rendezvous-/Hub-Pfad zurueck.", "Control-Traffic ist priorisiert und kann nicht durch Bulk- oder Medienchunks verdraengt werden.", "Partitionen werden ueber Snapshot-Digest und monotone Cursor erkannt statt still zusammengefuehrt."]
+      "acceptance_criteria": [
+        "DataChannel-Ausfall faellt auf den bestehenden Rendezvous-/Hub-Pfad zurueck.",
+        "Control-Traffic ist priorisiert und kann nicht durch Bulk- oder Medienchunks verdraengt werden.",
+        "Partitionen werden ueber Snapshot-Digest und monotone Cursor erkannt statt still zusammengefuehrt."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "frontend-angular/src/app/services/webrtc-priority-send-queue.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-MEM-003", "title": "Zeitlich begrenzten Betrieb ohne dauernden Hub-Kontakt spezifizieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M05", "depends_on": ["DPM-MEM-001", "DPM-MEM-002"],
+      "id": "DPM-MEM-003",
+      "title": "Zeitlich begrenzten Betrieb ohne dauernden Hub-Kontakt spezifizieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M05",
+      "depends_on": [
+        "DPM-MEM-001",
+        "DPM-MEM-002"
+      ],
       "description": "Signierte Leases erlauben einer bereits autorisierten Gruppe begrenzten Weiterbetrieb; unbekannte Revokes werden durch kurze Gueltigkeit und fail-closed Renewal begrenzt.",
-      "acceptance_criteria": ["Offline-Grace ist pro Securityprofil konfiguriert, beschraenkt und sichtbar.", "Nach Ablauf werden neue Publikationen und Route-Aenderungen gestoppt; keine Lease wird peer-seitig verlaengert.", "Rejoin und Partition-Heilung benoetigen eine frische Hub-Entscheidung."]
+      "acceptance_criteria": [
+        "Offline-Grace ist pro Securityprofil konfiguriert, beschraenkt und sichtbar.",
+        "Nach Ablauf werden neue Publikationen und Route-Aenderungen gestoppt; keine Lease wird peer-seitig verlaengert.",
+        "Rejoin und Partition-Heilung benoetigen eine frische Hub-Entscheidung."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-MEM-004", "title": "MLS-Machbarkeit und Migrationsentscheidung abschliessen", "status": "todo", "priority": "P1", "risk": "critical", "type": "research", "milestone_id": "M05", "depends_on": ["DPM-MEM-001", "DPM-CRYPTO-003"],
+      "id": "DPM-MEM-004",
+      "title": "MLS-Machbarkeit und Migrationsentscheidung abschliessen",
+      "status": "blocked",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "research",
+      "milestone_id": "M05",
+      "depends_on": [
+        "DPM-MEM-001",
+        "DPM-CRYPTO-003"
+      ],
       "description": "RFC 9420 wird gegen vorhandene Pair-ECDH- und Hub-Key-Leases fuer Multi-Device, Commit-Konflikte, Recovery und SFrame-Exporter bewertet.",
-      "acceptance_criteria": ["Credential-Binding von Keycloak-/Hub-/Device-Identity zu MLS ist explizit.", "Konkurrierende Commits besitzen eine Hub-kompatible kanonische Fork-Aufloesung.", "DG-02 entscheidet adopt, bounded_pilot oder reject; bei reject bleibt kein halber MLS-Pfad zurueck."]
+      "acceptance_criteria": [
+        "Credential-Binding von Keycloak-/Hub-/Device-Identity zu MLS ist explizit.",
+        "Konkurrierende Commits besitzen eine Hub-kompatible kanonische Fork-Aufloesung.",
+        "DG-02 entscheidet adopt, bounded_pilot oder reject; bei reject bleibt kein halber MLS-Pfad zurueck."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine autorisierte MLS-Interoperabilitaets- und Fork-Evidence vorhanden; bestehende Gruppenkey-Autorisierung ist kein MLS-Pfad."
     },
     {
-      "id": "DPM-DAG-001", "title": "Deterministische Hub-Policy fuer publikationsbezogene Peer-DAGs implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M06", "depends_on": ["DPM-CON-004", "DPM-MEM-003"],
+      "id": "DPM-DAG-001",
+      "title": "Deterministische Hub-Policy fuer publikationsbezogene Peer-DAGs implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": [
+        "DPM-CON-004",
+        "DPM-MEM-003"
+      ],
       "description": "Der Hub waehlt pro Publication eine azyklische Menge aus Primary-, Backup-Parent- und Child-Kanten mit begrenztem Fanout.",
-      "acceptance_criteria": ["Jeder Relay-Peer besitzt standardmaessig hoechstens zwei bis drei Kinder.", "DAG-Erzeugung ist fuer identischen Input deterministisch, tenant-skopiert und zyklusfrei.", "Kein Peer entscheidet globale Membership oder erzeugt eigenstaendig neue Route-Leases."]
+      "acceptance_criteria": [
+        "Jeder Relay-Peer besitzt standardmaessig hoechstens zwei bis drei Kinder.",
+        "DAG-Erzeugung ist fuer identischen Input deterministisch, tenant-skopiert und zyklusfrei.",
+        "Kein Peer entscheidet globale Membership oder erzeugt eigenstaendig neue Route-Leases."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-DAG-002", "title": "Beobachtbare Relay-Eignung mit Hysterese und Consent bewerten", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M06", "depends_on": ["DPM-DAG-001", "DPM-MESH-004"],
+      "id": "DPM-DAG-002",
+      "title": "Beobachtbare Relay-Eignung mit Hysterese und Consent bewerten",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": [
+        "DPM-DAG-001",
+        "DPM-MESH-004"
+      ],
       "description": "Uplink, RTT, Verlust, Sendepuffer, CPU, Sichtbarkeit, Energie, Datentarif, TURN-Kosten und Nutzerconsent bilden einen stabilen Relay-Score.",
-      "acceptance_criteria": ["Selbst gemeldete Kapazitaet wird durch Nachbarbeobachtungen und echte Delivery-Metriken begrenzt.", "Mobile Hintergrundtabs, knapper Akku und verweigerter Relay-Consent sind nicht eligible.", "Hysterese, Mindesthaltezeit und Cooldown verhindern Route-Flapping."]
+      "acceptance_criteria": [
+        "Selbst gemeldete Kapazitaet wird durch Nachbarbeobachtungen und echte Delivery-Metriken begrenzt.",
+        "Mobile Hintergrundtabs, knapper Akku und verweigerter Relay-Consent sind nicht eligible.",
+        "Hysterese, Mindesthaltezeit und Cooldown verhindern Route-Flapping."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-DAG-003", "title": "Primary-/Backup-Parent-Failover ohne doppelten Dauertraffic implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M06", "depends_on": ["DPM-DAG-001", "DPM-DAG-002"],
+      "id": "DPM-DAG-003",
+      "title": "Primary-/Backup-Parent-Failover ohne doppelten Dauertraffic implementieren",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": [
+        "DPM-DAG-001",
+        "DPM-DAG-002"
+      ],
       "description": "Backup-Kanten bleiben warm fuer Control und wechseln nach belegtem Ausfall begrenzt auf Bulk-Weiterleitung.",
-      "acceptance_criteria": ["Ein einzelner Relay-Ausfall unterbricht gesunde Teilbaeume nur innerhalb der definierten Umschaltfrist.", "Kurze Ueberlappung wird ueber Frame-ID dedupliziert; dauerhafter Doppelstream ist verboten.", "Stale Backup-Leases und ueberholte Route-Epochen koennen keinen Pfad reaktivieren."]
+      "acceptance_criteria": [
+        "Ein einzelner Relay-Ausfall unterbricht gesunde Teilbaeume nur innerhalb der definierten Umschaltfrist.",
+        "Kurze Ueberlappung wird ueber Frame-ID dedupliziert; dauerhafter Doppelstream ist verboten.",
+        "Stale Backup-Leases und ueberholte Route-Epochen koennen keinen Pfad reaktivieren."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-DAG-004", "title": "In-Band-Signaling fuer neue Peer-Kanten und sicheren Serverfallback implementieren", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M06", "depends_on": ["DPM-MEM-002", "DPM-DAG-003"],
+      "id": "DPM-DAG-004",
+      "title": "In-Band-Signaling fuer neue Peer-Kanten und sicheren Serverfallback implementieren",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M06",
+      "depends_on": [
+        "DPM-MEM-002",
+        "DPM-DAG-003"
+      ],
       "description": "SDP/ICE-Verhandlung fuer autorisierte Kanten wird nach Bootstrap ueber DataChannels vermittelt; Partition und Rejoin behalten einen minimalen Rendezvouspfad.",
-      "acceptance_criteria": ["Jede Kantenverhandlung benoetigt ein signiertes, einmaliges, ablaufendes Link-Ticket.", "Bearer Tokens, private Keys und unbeschraenkte ICE-Credentials werden nie gegossipt.", "Bootstrap-Paradox, gleichzeitige Reconnects und getrennte Partitionen sind deterministisch behandelt."]
+      "acceptance_criteria": [
+        "Jede Kantenverhandlung benoetigt ein signiertes, einmaliges, ablaufendes Link-Ticket.",
+        "Bearer Tokens, private Keys und unbeschraenkte ICE-Credentials werden nie gegossipt.",
+        "Bootstrap-Paradox, gleichzeitige Reconnects und getrennte Partitionen sind deterministisch behandelt."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-POC-001", "title": "Verschluesselten Peer-DAG zuerst fuer opaque Daten produktionsnah prototypisieren", "status": "todo", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M07", "depends_on": ["DPM-DAG-003", "DPM-CRYPTO-002"],
+      "id": "DPM-POC-001",
+      "title": "Verschluesselten Peer-DAG zuerst fuer opaque Daten produktionsnah prototypisieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M07",
+      "depends_on": [
+        "DPM-DAG-003",
+        "DPM-CRYPTO-002"
+      ],
       "description": "Bestehendes SFU-Datenfanout-Chunking wird hinter einen transportneutralen Adapter verschoben und ueber Peer-Kanten ausgefuehrt.",
-      "acceptance_criteria": ["Artefakt-, Event- und semantische Traffic-Klassen bleiben verschluesselt, begrenzt und destination-skopiert.", "TTL, Chunk-Digest, Replay, Deduplizierung und Backpressure funktionieren ueber mindestens zwei Hops.", "SFU- und Peer-Adapter teilen Vertraege, nicht Infrastrukturzustand."]
+      "acceptance_criteria": [
+        "Artefakt-, Event- und semantische Traffic-Klassen bleiben verschluesselt, begrenzt und destination-skopiert.",
+        "TTL, Chunk-Digest, Replay, Deduplizierung und Backpressure funktionieren ueber mindestens zwei Hops.",
+        "SFU- und Peer-Adapter teilen Vertraege, nicht Infrastrukturzustand."
+      ],
+      "progress_percent": 25.0,
+      "implementation_evidence": [
+        "ananta_contracts/webrtc_security.py",
+        "frontend-angular/src/app/services/webrtc-datachannel.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-POC-002", "title": "RTCRtp-/SFrame-Cross-PeerConnection-Prototyp ohne Decode/Re-encode ausfuehren", "status": "todo", "priority": "P0", "risk": "critical", "type": "research", "milestone_id": "M07", "depends_on": ["DPM-ARCH-003", "DPM-CRYPTO-001", "DPM-DAG-003"],
+      "id": "DPM-POC-002",
+      "title": "RTCRtp-/SFrame-Cross-PeerConnection-Prototyp ohne Decode/Re-encode ausfuehren",
+      "status": "blocked",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "research",
+      "milestone_id": "M07",
+      "depends_on": [
+        "DPM-ARCH-003",
+        "DPM-CRYPTO-001",
+        "DPM-DAG-003"
+      ],
       "description": "Der Prototyp versucht ausschliesslich standardisierte Browserpfade und dokumentiert Frame-Ownership- oder Packetization-Blocker reproduzierbar.",
-      "acceptance_criteria": ["Relay besitzt nachweislich keinen Content-Key und decodiert null Medienframes.", "Zwei Kinder empfangen authentifizierbaren Ciphertext derselben Senderpublication.", "Scheitert der Standardpfad, wird DG-01 no_go dokumentiert statt eine Klartextweiterleitung umzudeuten."]
+      "acceptance_criteria": [
+        "Relay besitzt nachweislich keinen Content-Key und decodiert null Medienframes.",
+        "Zwei Kinder empfangen authentifizierbaren Ciphertext derselben Senderpublication.",
+        "Scheitert der Standardpfad, wird DG-01 no_go dokumentiert statt eine Klartextweiterleitung umzudeuten."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Der Standardpfad ist aufgrund der Encoded-Frame-Owner-Bindung als portable Produktionsbasis no_go; kein registrierter Browser-Prototyplauf vorhanden."
     },
     {
-      "id": "DPM-POC-003", "title": "WebCodecs plus unreliable DataChannel/WebTransport als alternative Medienpipeline bewerten", "status": "todo", "priority": "P1", "risk": "critical", "type": "research", "milestone_id": "M07", "depends_on": ["DPM-POC-001", "DPM-CRYPTO-001"],
+      "id": "DPM-POC-003",
+      "title": "WebCodecs plus unreliable DataChannel/WebTransport als alternative Medienpipeline bewerten",
+      "status": "blocked",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "research",
+      "milestone_id": "M07",
+      "depends_on": [
+        "DPM-POC-001",
+        "DPM-CRYPTO-001"
+      ],
       "description": "Ein begrenzter Audio- oder Screenshare-Prototyp misst die Kosten einer eigenen Chunk-, Jitter-, Keyframe-, FEC- und Renderingpipeline.",
-      "acceptance_criteria": ["Audio-/Video-Synchronitaet, Latenz, Frameverlust, Keyframe-Recovery und Browserkompatibilitaet werden gemessen.", "Head-of-line-blocking wird durch geeignete unordered/unreliable Kanaele vermieden.", "Fehlende Congestion-Control- oder Renderingfaehigkeit fuehrt zu bounded_experiment oder no_go."]
+      "acceptance_criteria": [
+        "Audio-/Video-Synchronitaet, Latenz, Frameverlust, Keyframe-Recovery und Browserkompatibilitaet werden gemessen.",
+        "Head-of-line-blocking wird durch geeignete unordered/unreliable Kanaele vermieden.",
+        "Fehlende Congestion-Control- oder Renderingfaehigkeit fuehrt zu bounded_experiment oder no_go."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine registrierte WebCodecs/WebTransport-Browsermessung zu Synchronitaet, Latenz und Recovery vorhanden."
     },
     {
-      "id": "DPM-POC-004", "title": "Publikationsspezifischen Peer-DAG-gegen-LiveKit-Entscheid treffen", "status": "todo", "priority": "P0", "risk": "critical", "type": "architecture", "milestone_id": "M07", "depends_on": ["DPM-POC-002", "DPM-POC-003", "DPM-MESH-004"],
+      "id": "DPM-POC-004",
+      "title": "Publikationsspezifischen Peer-DAG-gegen-LiveKit-Entscheid treffen",
+      "status": "blocked",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "architecture",
+      "milestone_id": "M07",
+      "depends_on": [
+        "DPM-POC-002",
+        "DPM-POC-003",
+        "DPM-MESH-004"
+      ],
       "description": "Broadcast, Screenshare, aktiver Sprecher, Audio-only und viele gleichzeitige Publisher werden separat bewertet.",
-      "acceptance_criteria": ["Die Entscheidung vergleicht Serveregress, Gesamttraffic, Hop-Latenz, CPU, Batterie, NAT-Erfolg und Betriebsaufwand.", "Viele-zu-viele-Video wird nicht aus einem erfolgreichen Ein-Publisher-Broadcast abgeleitet.", "DG-03 liefert pro Publication-Klasse go, canary_only oder LiveKit_only."]
+      "acceptance_criteria": [
+        "Die Entscheidung vergleicht Serveregress, Gesamttraffic, Hop-Latenz, CPU, Batterie, NAT-Erfolg und Betriebsaufwand.",
+        "Viele-zu-viele-Video wird nicht aus einem erfolgreichen Ein-Publisher-Broadcast abgeleitet.",
+        "DG-03 liefert pro Publication-Klasse go, canary_only oder LiveKit_only."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Entscheidung bleibt je Publikationsklasse auf LiveKit_only, bis die abhaengigen registrierten Messgates existieren."
     },
     {
-      "id": "DPM-QOS-001", "title": "Traffic-Klassen und Prioritaeten fuer Control, Audio, Video und Bulk definieren", "status": "todo", "priority": "P0", "risk": "high", "type": "contract", "milestone_id": "M08", "depends_on": ["DPM-CON-004", "DPM-POC-001"],
+      "id": "DPM-QOS-001",
+      "title": "Traffic-Klassen und Prioritaeten fuer Control, Audio, Video und Bulk definieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "contract",
+      "milestone_id": "M08",
+      "depends_on": [
+        "DPM-CON-004",
+        "DPM-POC-001"
+      ],
       "description": "Control und Audio duerfen niemals durch Video- oder Artefaktqueues verdraengt werden; Zuverlaessigkeit und Reihenfolge werden je Klasse festgelegt.",
-      "acceptance_criteria": ["Jede Klasse besitzt Queuecap, Messagecap, Deliverymodus, Drop- und Retry-Policy.", "Control und Rekey haben reservierte Kapazitaet und fail-closed Ueberlastverhalten.", "Unbekannte oder falsch deklarierte Klassen werden abgelehnt."]
+      "acceptance_criteria": [
+        "Jede Klasse besitzt Queuecap, Messagecap, Deliverymodus, Drop- und Retry-Policy.",
+        "Control und Rekey haben reservierte Kapazitaet und fail-closed Ueberlastverhalten.",
+        "Unbekannte oder falsch deklarierte Klassen werden abgelehnt."
+      ],
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
+        "agent/services/sfu_broadcast_data_queue_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QOS-002", "title": "Relay-Backpressure und begrenzte Queueing-Strategie implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "implementation", "milestone_id": "M08", "depends_on": ["DPM-QOS-001", "DPM-DAG-003"],
+      "id": "DPM-QOS-002",
+      "title": "Relay-Backpressure und begrenzte Queueing-Strategie implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": [
+        "DPM-QOS-001",
+        "DPM-DAG-003"
+      ],
       "description": "Da Encoded Transforms keine Stream-Backpressure bereitstellen, reagieren Relays mit kontrolliertem Drop, Layerwechsel und Routenabwertung.",
-      "acceptance_criteria": ["Queues sind pro Child und Traffic-Klasse begrenzt; ein langsames Kind blockiert keine Geschwister.", "Audio, Keyframes und Control werden vor Deltaframes und Bulk priorisiert.", "Ueberlast erzeugt beobachtbare Reason Codes statt unbeschraenktem Speicherwachstum."]
+      "acceptance_criteria": [
+        "Queues sind pro Child und Traffic-Klasse begrenzt; ein langsames Kind blockiert keine Geschwister.",
+        "Audio, Keyframes und Control werden vor Deltaframes und Bulk priorisiert.",
+        "Ueberlast erzeugt beobachtbare Reason Codes statt unbeschraenktem Speicherwachstum."
+      ],
+      "progress_percent": 60.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
+        "agent/services/sfu_broadcast_data_queue_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QOS-003", "title": "Simulcast-/SVC-Layer als getrennte SFrame-Ciphertexte behandeln", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M08", "depends_on": ["DPM-CRYPTO-001", "DPM-QOS-002"],
+      "id": "DPM-QOS-003",
+      "title": "Simulcast-/SVC-Layer als getrennte SFrame-Ciphertexte behandeln",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": [
+        "DPM-CRYPTO-001",
+        "DPM-QOS-002"
+      ],
       "description": "Relays duerfen autorisierte Layer anhand sichtbarer, authentifizierter Metadaten auswaehlen, ohne Medieninhalt zu entschluesseln.",
-      "acceptance_criteria": ["Jeder selektiv droppbare Layer besitzt einen unabhaengig authentifizierbaren Ciphertext.", "Layer-Metadaten werden erst nach Authentisierung sicherheitsrelevant verwendet.", "Empfaenger koennen Qualitaet wechseln, ohne unnoetigen Vollstream oder Cross-Receiver-Leak."]
+      "acceptance_criteria": [
+        "Jeder selektiv droppbare Layer besitzt einen unabhaengig authentifizierbaren Ciphertext.",
+        "Layer-Metadaten werden erst nach Authentisierung sicherheitsrelevant verwendet.",
+        "Empfaenger koennen Qualitaet wechseln, ohne unnoetigen Vollstream oder Cross-Receiver-Leak."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/sfu-media-frame-crypto.service.ts",
+        "agent/services/sfu_receiver_layer_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QOS-004", "title": "Ende-zu-Ende-Qualitaetsfeedback ueber mehrere Hops aggregieren", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M08", "depends_on": ["DPM-QOS-002", "DPM-QOS-003"],
+      "id": "DPM-QOS-004",
+      "title": "Ende-zu-Ende-Qualitaetsfeedback ueber mehrere Hops aggregieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M08",
+      "depends_on": [
+        "DPM-QOS-002",
+        "DPM-QOS-003"
+      ],
       "description": "Linklokale WebRTC-Stats und empfaengerseitige Decode-/Playout-Metriken werden inhaltsfrei und manipulationsresistent zur Route-Policy zurueckgefuehrt.",
-      "acceptance_criteria": ["Metriken trennen Link-, Relay- und Ende-zu-Ende-Probleme.", "Ein einzelner Peer kann globale Qualitaet nicht allein durch Selbstmeldung faelschen.", "PII, IPs, Medieninhalt und hochgranulare dauerhafte Verhaltensprofile werden nicht zentral gespeichert."]
+      "acceptance_criteria": [
+        "Metriken trennen Link-, Relay- und Ende-zu-Ende-Probleme.",
+        "Ein einzelner Peer kann globale Qualitaet nicht allein durch Selbstmeldung faelschen.",
+        "PII, IPs, Medieninhalt und hochgranulare dauerhafte Verhaltensprofile werden nicht zentral gespeichert."
+      ],
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "agent/services/sfu_receiver_quality_ingestion_service.py",
+        "frontend-angular/src/app/services/sfu-broadcast-quality-reporter.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-SEC-001", "title": "Formales Threat Model fuer ehrliche, fehlerhafte und boesartige Relays erstellen", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M09", "depends_on": ["DPM-ARCH-002", "DPM-MEM-001", "DPM-CRYPTO-003"],
+      "id": "DPM-SEC-001",
+      "title": "Formales Threat Model fuer ehrliche, fehlerhafte und boesartige Relays erstellen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M09",
+      "depends_on": [
+        "DPM-ARCH-002",
+        "DPM-MEM-001",
+        "DPM-CRYPTO-003"
+      ],
       "description": "Manipulation, Forgery, Replay, Duplication, Drop, Delay, Eclipse, Sybil, Collusion, Traffic Analysis und Membership-Fork werden getrennt bewertet.",
-      "acceptance_criteria": ["Jede Bedrohung nennt Schutz, Erkennung, verbleibendes Risiko und Recovery.", "Nicht verhinderbares Dropping und Recording durch berechtigte Empfaenger werden ehrlich dokumentiert.", "Hub-, Relay-, Teilnehmer-, SFU- und TURN-Vertrauensgrenzen sind separat modelliert."]
+      "acceptance_criteria": [
+        "Jede Bedrohung nennt Schutz, Erkennung, verbleibendes Risiko und Recovery.",
+        "Nicht verhinderbares Dropping und Recording durch berechtigte Empfaenger werden ehrlich dokumentiert.",
+        "Hub-, Relay-, Teilnehmer-, SFU- und TURN-Vertrauensgrenzen sind separat modelliert."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "docs/security/webrtc-e2ee-security-contract.md",
+        "docs/architecture/webrtc-sfu-broadcast-boundaries.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-SEC-002", "title": "Loop-, Duplicate- und Route-Poisoning-Schutz implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "security", "milestone_id": "M09", "depends_on": ["DPM-DAG-003", "DPM-CRYPTO-002", "DPM-SEC-001"],
+      "id": "DPM-SEC-002",
+      "title": "Loop-, Duplicate- und Route-Poisoning-Schutz implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M09",
+      "depends_on": [
+        "DPM-DAG-003",
+        "DPM-CRYPTO-002",
+        "DPM-SEC-001"
+      ],
       "description": "Publication, Sender, Key-Epoch, Counter, Route-Epoch und lokaler Hopzustand verhindern endlose Weiterleitung und alte Routeinjektion.",
-      "acceptance_criteria": ["Zyklen werden sowohl bei Hub-DAG-Erzeugung als auch lokal zur Laufzeit begrenzt.", "Hop-Limit oder Path-Metadaten koennen nicht als alleinige unauthentisierte Sicherheitsquelle missbraucht werden.", "Replay- und Loopzustand bleibt bei Angriffsverkehr speicherbegrenzt."]
+      "acceptance_criteria": [
+        "Zyklen werden sowohl bei Hub-DAG-Erzeugung als auch lokal zur Laufzeit begrenzt.",
+        "Hop-Limit oder Path-Metadaten koennen nicht als alleinige unauthentisierte Sicherheitsquelle missbraucht werden.",
+        "Replay- und Loopzustand bleibt bei Angriffsverkehr speicherbegrenzt."
+      ],
+      "progress_percent": 50.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-replay-window.service.ts",
+        "agent/services/webrtc_epoch_service.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-SEC-003", "title": "Relay-Drop, Verzoegerung und selektive Zensur erkennen und umgehen", "status": "todo", "priority": "P1", "risk": "critical", "type": "security", "milestone_id": "M09", "depends_on": ["DPM-DAG-003", "DPM-QOS-004", "DPM-SEC-001"],
+      "id": "DPM-SEC-003",
+      "title": "Relay-Drop, Verzoegerung und selektive Zensur erkennen und umgehen",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M09",
+      "depends_on": [
+        "DPM-DAG-003",
+        "DPM-QOS-004",
+        "DPM-SEC-001"
+      ],
       "description": "Receipt-Sampling, Empfaengerbeobachtung und Backup-Pfade erkennen schlechte Relays, ohne eine Vollkopie jedes Frames zu erzeugen.",
-      "acceptance_criteria": ["Definierte Drop-, Delay- und Selective-Forwarding-Schwellen loesen Route-Abwertung aus.", "Ein boesartiger Empfaenger kann durch falsche Beschwerden nicht unbegrenzt Relays verbannen.", "Failover ist rate-limited, auditiert und an eine gueltige Kandidatenlease gebunden."]
+      "acceptance_criteria": [
+        "Definierte Drop-, Delay- und Selective-Forwarding-Schwellen loesen Route-Abwertung aus.",
+        "Ein boesartiger Empfaenger kann durch falsche Beschwerden nicht unbegrenzt Relays verbannen.",
+        "Failover ist rate-limited, auditiert und an eine gueltige Kandidatenlease gebunden."
+      ],
+      "progress_percent": 0.0
     },
     {
-      "id": "DPM-SEC-004", "title": "Metadaten-, Key- und Speicherhaertung fuer Relay-Browser abschliessen", "status": "todo", "priority": "P1", "risk": "critical", "type": "security", "milestone_id": "M09", "depends_on": ["DPM-CRYPTO-004", "DPM-SEC-002"],
+      "id": "DPM-SEC-004",
+      "title": "Metadaten-, Key- und Speicherhaertung fuer Relay-Browser abschliessen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "security",
+      "milestone_id": "M09",
+      "depends_on": [
+        "DPM-CRYPTO-004",
+        "DPM-SEC-002"
+      ],
       "description": "Relay-Worker, Speicher, Logs und Telemetrie minimieren sichtbare KIDs, Counter, Topologie- und Timingdaten und halten keine Content-Keys.",
-      "acceptance_criteria": ["Nicht berechtigte Relays koennen weder Keyexport noch Decrypt-API aufrufen.", "Crashdumps, Logs und Diagnoseartefakte enthalten keine Keys, Klartextframes oder dauerhaften IP-Graphen.", "CSP, Worker-Isolation, Dependency-Scan und negative Key-Zugriffstests bestehen."]
+      "acceptance_criteria": [
+        "Nicht berechtigte Relays koennen weder Keyexport noch Decrypt-API aufrufen.",
+        "Crashdumps, Logs und Diagnoseartefakte enthalten keine Keys, Klartextframes oder dauerhaften IP-Graphen.",
+        "CSP, Worker-Isolation, Dependency-Scan und negative Key-Zugriffstests bestehen."
+      ],
+      "progress_percent": 60.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/pair-media-e2ee-transform.adapter.ts",
+        "tests/security/test_webrtc_crypto_conformance.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-NET-001", "title": "ICE- und TURN-Policy pro Peer-Kante implementieren", "status": "todo", "priority": "P0", "risk": "high", "type": "implementation", "milestone_id": "M10", "depends_on": ["DPM-CON-004", "DPM-DAG-004"],
+      "id": "DPM-NET-001",
+      "title": "ICE- und TURN-Policy pro Peer-Kante implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M10",
+      "depends_on": [
+        "DPM-CON-004",
+        "DPM-DAG-004"
+      ],
       "description": "Jede Kante versucht autorisierte direkte Kandidaten und faellt nur bei Bedarf oder Privacy-Policy auf TURN zurueck.",
-      "acceptance_criteria": ["TURN-Nutzung einer Kante zwingt nicht unbeteiligte Kanten ebenfalls ueber TURN.", "ICE-Restart und Netzwechsel behalten Route-, Membership- und Key-Fencing bei.", "Credentials sind kurzlebig, room-/peer-skopiert und nicht uebertragbar."]
+      "acceptance_criteria": [
+        "TURN-Nutzung einer Kante zwingt nicht unbeteiligte Kanten ebenfalls ueber TURN.",
+        "ICE-Restart und Netzwechsel behalten Route-, Membership- und Key-Fencing bei.",
+        "Credentials sind kurzlebig, room-/peer-skopiert und nicht uebertragbar."
+      ],
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "agent/services/webrtc_turn_credential_service.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-NET-002", "title": "IP-Privacy-Modi und informierten Relay-Consent anbieten", "status": "todo", "priority": "P1", "risk": "high", "type": "security", "milestone_id": "M10", "depends_on": ["DPM-NET-001"],
+      "id": "DPM-NET-002",
+      "title": "IP-Privacy-Modi und informierten Relay-Consent anbieten",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "security",
+      "milestone_id": "M10",
+      "depends_on": [
+        "DPM-NET-001"
+      ],
       "description": "Nutzer koennen zwischen bevorzugt direkt, automatisch und relay-only waehlen und sehen die Konsequenzen fuer IP-Sichtbarkeit, Kosten und Qualitaet.",
-      "acceptance_criteria": ["Die UI behauptet nicht, dass mDNS oder E2EE die IP vor direkten Nachbarn verbirgt.", "relay-only setzt eine passende ICE-Transportpolicy durch und zeigt TURN-Abhaengigkeit.", "Peer-Relay-Teilnahme erfordert separaten widerrufbaren Consent."]
+      "acceptance_criteria": [
+        "Die UI behauptet nicht, dass mDNS oder E2EE die IP vor direkten Nachbarn verbirgt.",
+        "relay-only setzt eine passende ICE-Transportpolicy durch und zeigt TURN-Abhaengigkeit.",
+        "Peer-Relay-Teilnahme erfordert separaten widerrufbaren Consent."
+      ],
+      "progress_percent": 35.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/network-profile.service.ts",
+        "frontend-angular/src/app/services/webrtc-session.service.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-NET-003", "title": "NAT-, Firewall- und Netzwechsel-Matrix automatisieren", "status": "todo", "priority": "P1", "risk": "critical", "type": "test", "milestone_id": "M10", "depends_on": ["DPM-NET-001"],
+      "id": "DPM-NET-003",
+      "title": "NAT-, Firewall- und Netzwechsel-Matrix automatisieren",
+      "status": "blocked",
+      "priority": "P1",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M10",
+      "depends_on": [
+        "DPM-NET-001"
+      ],
       "description": "Host, server-reflexive, symmetric NAT, UDP-blockiert, TURN/UDP, TURN/TCP/TLS, IPv4/IPv6 und WLAN-zu-Mobilfunk werden reproduzierbar getestet.",
-      "acceptance_criteria": ["Ausgewaehlte Candidate-Pairs und tatsächlicher Relaytyp werden aus Stats belegt.", "Netzwechsel fuehrt weder zu stale Routeaktivierung noch Key-/Membership-Downgrade.", "Unzugaengliches TURN degradiert sichtbar und bounded statt in Endlosschleifen."]
+      "acceptance_criteria": [
+        "Ausgewaehlte Candidate-Pairs und tatsächlicher Relaytyp werden aus Stats belegt.",
+        "Netzwechsel fuehrt weder zu stale Routeaktivierung noch Key-/Membership-Downgrade.",
+        "Unzugaengliches TURN degradiert sichtbar und bounded statt in Endlosschleifen."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine assignment-bound NAT-/Firewall-/Netzwechsel-Matrix fuer Peer-Overlay-Kanten vorhanden."
     },
     {
-      "id": "DPM-NET-004", "title": "TURN- und Peer-Relay-Kosten in Topologie-Admission einbeziehen", "status": "todo", "priority": "P2", "risk": "medium", "type": "implementation", "milestone_id": "M10", "depends_on": ["DPM-DAG-002", "DPM-NET-003"],
+      "id": "DPM-NET-004",
+      "title": "TURN- und Peer-Relay-Kosten in Topologie-Admission einbeziehen",
+      "status": "partial",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "implementation",
+      "milestone_id": "M10",
+      "depends_on": [
+        "DPM-DAG-002",
+        "DPM-NET-003"
+      ],
       "description": "Die Hub-Policy vergleicht zentralen TURN-Traffic, Peer-Uplink, Hopzahl und Qualitaet, ohne Kosten ueber Security zu priorisieren.",
-      "acceptance_criteria": ["Admission besitzt harte Quoten fuer TURN- und Peer-Relay-Egress.", "Kostenmetriken sind tenant-skopiert und enthalten keinen Medieninhalt.", "Ersparnis kann niemals Strict-E2EE, Consent oder Mindestqualitaet umgehen."]
+      "acceptance_criteria": [
+        "Admission besitzt harte Quoten fuer TURN- und Peer-Relay-Egress.",
+        "Kostenmetriken sind tenant-skopiert und enthalten keinen Medieninhalt.",
+        "Ersparnis kann niemals Strict-E2EE, Consent oder Mindestqualitaet umgehen."
+      ],
+      "progress_percent": 50.0,
+      "implementation_evidence": [
+        "agent/services/turn_accounting_service.py",
+        "agent/services/sfu_all_turn_capacity_gate.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-OPS-001", "title": "Feature-Flag- und stufenweise Migrationsmatrix implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "configuration", "milestone_id": "M11", "depends_on": ["DPM-POC-004", "DPM-SEC-001"],
+      "id": "DPM-OPS-001",
+      "title": "Feature-Flag- und stufenweise Migrationsmatrix implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "configuration",
+      "milestone_id": "M11",
+      "depends_on": [
+        "DPM-POC-004",
+        "DPM-SEC-001"
+      ],
       "description": "Direct und bestehender SFU-Pfad bleiben stabil; Mesh, Data-Overlay, Media-Overlay, native SFrame und MLS werden unabhaengig aktiviert.",
-      "acceptance_criteria": ["Alle neuen Flags sind default-false oder an bestehende sichere Gates gebunden.", "Rollbacks benoetigen keine Datenmigration und lassen keine halboffenen Peer-Routen zurueck.", "Tenant-, Room-, Publication- und Browser-Allowlist koennen getrennt canarygeschaltet werden."]
+      "acceptance_criteria": [
+        "Alle neuen Flags sind default-false oder an bestehende sichere Gates gebunden.",
+        "Rollbacks benoetigen keine Datenmigration und lassen keine halboffenen Peer-Routen zurueck.",
+        "Tenant-, Room-, Publication- und Browser-Allowlist koennen getrennt canarygeschaltet werden."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "agent/services/sfu_broadcast_feature_policy.py",
+        "docs/operations/sfu-broadcast-rollout.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-OPS-002", "title": "Inhaltsfreie Overlay-Observability und Operatoransicht implementieren", "status": "todo", "priority": "P1", "risk": "high", "type": "implementation", "milestone_id": "M11", "depends_on": ["DPM-QOS-004", "DPM-NET-001"],
+      "id": "DPM-OPS-002",
+      "title": "Inhaltsfreie Overlay-Observability und Operatoransicht implementieren",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "milestone_id": "M11",
+      "depends_on": [
+        "DPM-QOS-004",
+        "DPM-NET-001"
+      ],
       "description": "Topologiemodus, anonymisierte Kantenklasse, Epochen, Failovergrund, Queuezustand und Qualitaet werden ohne Klartext oder dauerhaften IP-Graph beobachtbar.",
-      "acceptance_criteria": ["Operatoren erkennen Direct, Mesh, Peer-DAG, SFU und TURN je Publication.", "Metriken besitzen bounded Cardinality, Retention und Tenant-Trennung.", "Content-Keys, SDP, ICE-Credentials, Chat-/Medieninhalt und vollstaendige IPs werden nicht geloggt."]
+      "acceptance_criteria": [
+        "Operatoren erkennen Direct, Mesh, Peer-DAG, SFU und TURN je Publication.",
+        "Metriken besitzen bounded Cardinality, Retention und Tenant-Trennung.",
+        "Content-Keys, SDP, ICE-Credentials, Chat-/Medieninhalt und vollstaendige IPs werden nicht geloggt."
+      ],
+      "progress_percent": 40.0,
+      "implementation_evidence": [
+        "agent/services/sfu_broadcast_operations_read_model.py",
+        "frontend-angular/src/app/features/admin/sfu-broadcast-operator.component.ts"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-OPS-003", "title": "Automatische Degradation und Recovery-Runbooks erstellen", "status": "todo", "priority": "P1", "risk": "high", "type": "operations", "milestone_id": "M11", "depends_on": ["DPM-MESH-003", "DPM-DAG-003", "DPM-OPS-002"],
+      "id": "DPM-OPS-003",
+      "title": "Automatische Degradation und Recovery-Runbooks erstellen",
+      "status": "partial",
+      "priority": "P1",
+      "risk": "high",
+      "type": "operations",
+      "milestone_id": "M11",
+      "depends_on": [
+        "DPM-MESH-003",
+        "DPM-DAG-003",
+        "DPM-OPS-002"
+      ],
       "description": "Runbooks decken Rendezvous-Ausfall, Hub-Partition, Relay-Churn, TURN-Ausfall, Key-Fork, Browserinkompatibilitaet und SFU-Fallback ab.",
-      "acceptance_criteria": ["Jeder Fehler besitzt Detection, automatische Aktion, Benutzerstatus und manuelle Recovery.", "Recovery erschafft keine Peer-Autoritaet und ueberspringt keine Hub-Lease.", "Control-only bleibt ein bewusst getesteter sicherer Zustand."]
+      "acceptance_criteria": [
+        "Jeder Fehler besitzt Detection, automatische Aktion, Benutzerstatus und manuelle Recovery.",
+        "Recovery erschafft keine Peer-Autoritaet und ueberspringt keine Hub-Lease.",
+        "Control-only bleibt ein bewusst getesteter sicherer Zustand."
+      ],
+      "progress_percent": 35.0,
+      "implementation_evidence": [
+        "docs/operations/sfu-broadcast-rollback.md",
+        "agent/services/media_topology_policy.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-OPS-004", "title": "Kapazitaets-, Batterie- und Kostenbudgets versionieren", "status": "todo", "priority": "P2", "risk": "medium", "type": "operations", "milestone_id": "M11", "depends_on": ["DPM-MESH-004", "DPM-NET-004", "DPM-OPS-002"],
+      "id": "DPM-OPS-004",
+      "title": "Kapazitaets-, Batterie- und Kostenbudgets versionieren",
+      "status": "partial",
+      "priority": "P2",
+      "risk": "medium",
+      "type": "operations",
+      "milestone_id": "M11",
+      "depends_on": [
+        "DPM-MESH-004",
+        "DPM-NET-004",
+        "DPM-OPS-002"
+      ],
       "description": "Publikationsprofile erhalten gemessene Grenzwerte fuer Kinderzahl, Bitrate, CPU, Queue, Hopzahl, TURN-Anteil und Umschaltfrequenz.",
-      "acceptance_criteria": ["Jedes Budget nennt Browser, Hardwareklasse, Netzprofil, Testdauer und Evidence-Revision.", "Fehlende Messwerte reduzieren Admission konservativ.", "Budgets sind Konfiguration und nicht als Magic Numbers in Adaptercode dupliziert."]
+      "acceptance_criteria": [
+        "Jedes Budget nennt Browser, Hardwareklasse, Netzprofil, Testdauer und Evidence-Revision.",
+        "Fehlende Messwerte reduzieren Admission konservativ.",
+        "Budgets sind Konfiguration und nicht als Magic Numbers in Adaptercode dupliziert."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "agent/services/sfu_broadcast_capacity_profile_resolver.py",
+        "docs/operations/sfu-broadcast-capacity-policy.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QA-001", "title": "Contract-, Property- und Fuzz-Gates fuer Epochen, Routes und Frames aufbauen", "status": "todo", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M12", "depends_on": ["DPM-CRYPTO-004", "DPM-MEM-003", "DPM-SEC-002"],
+      "id": "DPM-QA-001",
+      "title": "Contract-, Property- und Fuzz-Gates fuer Epochen, Routes und Frames aufbauen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": [
+        "DPM-CRYPTO-004",
+        "DPM-MEM-003",
+        "DPM-SEC-002"
+      ],
       "description": "Generierte Reihenfolgen pruefen Reorder, Replay, Fork, Countergrenzen, Routewechsel, Keyrotation, Chunking und Angriffslast.",
-      "acceptance_criteria": ["Invarianten umfassen keine stale Autoritaet, keine Nonce-Wiederverwendung, keinen Cross-Scope-Decrypt und bounded Speicher.", "Seeds, Corpus und minimierte Fehler sind reproduzierbar und frei von Secrets.", "Python- und TypeScript-Vertraege bestehen Parity-Tests."]
+      "acceptance_criteria": [
+        "Invarianten umfassen keine stale Autoritaet, keine Nonce-Wiederverwendung, keinen Cross-Scope-Decrypt und bounded Speicher.",
+        "Seeds, Corpus und minimierte Fehler sind reproduzierbar und frei von Secrets.",
+        "Python- und TypeScript-Vertraege bestehen Parity-Tests."
+      ],
+      "progress_percent": 55.0,
+      "implementation_evidence": [
+        "tests/security/test_webrtc_crypto_conformance.py",
+        "tests/fuzz/test_sfu_broadcast_contract_fuzz.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QA-002", "title": "Reales Multi-Browser-Churn-, Relay- und NAT-Gate ausfuehren", "status": "todo", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M12", "depends_on": ["DPM-POC-004", "DPM-QOS-004", "DPM-NET-003"],
+      "id": "DPM-QA-002",
+      "title": "Reales Multi-Browser-Churn-, Relay- und NAT-Gate ausfuehren",
+      "status": "blocked",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": [
+        "DPM-POC-004",
+        "DPM-QOS-004",
+        "DPM-NET-003"
+      ],
       "description": "Mehrere Chromium-/Firefox-Instanzen testen Join, Leave, Revoke, Parentausfall, Netzwechsel, langsame Kinder und TURN-Einzelkanten.",
-      "acceptance_criteria": ["Mindestens vier Mesh- und ein groesseres freigegebenes Overlayprofil werden mit getrennten Device-Identitaeten ausgefuehrt.", "Relay-Ausfall, Tab-Hintergrund, Browsercrash und ICE-Restart halten definierte Wiederherstellungsgrenzen ein.", "Jeder Kapazitaetsclaim verweist auf reale registrierte RUN-Evidence; fehlende Evidence bleibt no_go."]
+      "acceptance_criteria": [
+        "Mindestens vier Mesh- und ein groesseres freigegebenes Overlayprofil werden mit getrennten Device-Identitaeten ausgefuehrt.",
+        "Relay-Ausfall, Tab-Hintergrund, Browsercrash und ICE-Restart halten definierte Wiederherstellungsgrenzen ein.",
+        "Jeder Kapazitaetsclaim verweist auf reale registrierte RUN-Evidence; fehlende Evidence bleibt no_go."
+      ],
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine assignment-bound reale Multi-Browser-, Relay-, NAT- und Churn-RUN-Evidence vorhanden."
     },
     {
-      "id": "DPM-QA-003", "title": "Boesartige-Peer- und E2EE-Negativmatrix bestehen", "status": "todo", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M12", "depends_on": ["DPM-SEC-003", "DPM-SEC-004", "DPM-QA-001"],
+      "id": "DPM-QA-003",
+      "title": "Boesartige-Peer- und E2EE-Negativmatrix bestehen",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": [
+        "DPM-SEC-003",
+        "DPM-SEC-004",
+        "DPM-QA-001"
+      ],
       "description": "Manipulierende, duplizierende, verzoegernde, droppende, impersonierende und route-poisoning Peers werden gegen echte Adapter getestet.",
-      "acceptance_criteria": ["Nicht berechtigte Relays dekodieren null Frames und erhalten null Content-Keys.", "Forgery, Replay, stale Epoch, falsche KID und Cross-Publication-Ciphertext werden abgelehnt.", "Drop und Zensur werden bounded erkannt und umgangen, ohne Unverhinderbarkeit kryptographisch falsch darzustellen."]
+      "acceptance_criteria": [
+        "Nicht berechtigte Relays dekodieren null Frames und erhalten null Content-Keys.",
+        "Forgery, Replay, stale Epoch, falsche KID und Cross-Publication-Ciphertext werden abgelehnt.",
+        "Drop und Zensur werden bounded erkannt und umgangen, ohne Unverhinderbarkeit kryptographisch falsch darzustellen."
+      ],
+      "progress_percent": 45.0,
+      "implementation_evidence": [
+        "tests/security/test_webrtc_replay_protection.py",
+        "tests/security/test_webrtc_security_downgrade.py"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
-      "id": "DPM-QA-004", "title": "Globales Release-Gate und gestuften Hybrid-Rollout implementieren", "status": "todo", "priority": "P0", "risk": "critical", "type": "test", "milestone_id": "M12", "depends_on": ["DPM-OPS-001", "DPM-OPS-003", "DPM-QA-001", "DPM-QA-002", "DPM-QA-003"],
+      "id": "DPM-QA-004",
+      "title": "Globales Release-Gate und gestuften Hybrid-Rollout implementieren",
+      "status": "partial",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "test",
+      "milestone_id": "M12",
+      "depends_on": [
+        "DPM-OPS-001",
+        "DPM-OPS-003",
+        "DPM-QA-001",
+        "DPM-QA-002",
+        "DPM-QA-003"
+      ],
       "description": "Ein Hub-eigenes Gate aggregiert Browserfaehigkeit, Contracts, Security, Churn, NAT, QoS, Privacy, Capacity, Rollback und Parent-SFU-Readiness.",
-      "acceptance_criteria": ["Rolloutstufen sind disabled, observe_only, data_canary, media_internal, media_canary, limited und general.", "Peer-Media kann no_go bleiben, waehrend Mesh, Data-Overlay oder LiveKit-E2EE unabhaengig sicher freigegeben werden.", "Fehlende, stale oder rote Evidence fuehrt zu no_go; der Report erfindet keine SRC_*-/RUN_*-IDs."]
+      "acceptance_criteria": [
+        "Rolloutstufen sind disabled, observe_only, data_canary, media_internal, media_canary, limited und general.",
+        "Peer-Media kann no_go bleiben, waehrend Mesh, Data-Overlay oder LiveKit-E2EE unabhaengig sicher freigegeben werden.",
+        "Fehlende, stale oder rote Evidence fuehrt zu no_go; der Report erfindet keine SRC_*-/RUN_*-IDs."
+      ],
+      "progress_percent": 35.0,
+      "implementation_evidence": [
+        "agent/services/sfu_broadcast_release_gate.py",
+        "docs/testing/sfu-broadcast-release-gates.md"
+      ],
+      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     }
   ],
   "critical_path_tasks": [
-    "DPM-ARCH-001", "DPM-ARCH-002", "DPM-ARCH-003", "DPM-ARCH-004",
-    "DPM-CON-001", "DPM-CON-002", "DPM-CON-003", "DPM-CON-004",
-    "DPM-MESH-001", "DPM-MESH-002", "DPM-MESH-003",
-    "DPM-CRYPTO-001", "DPM-CRYPTO-002", "DPM-CRYPTO-003", "DPM-CRYPTO-004",
-    "DPM-MEM-001", "DPM-MEM-002", "DPM-MEM-003",
-    "DPM-DAG-001", "DPM-DAG-002", "DPM-DAG-003", "DPM-DAG-004",
-    "DPM-POC-001", "DPM-POC-002", "DPM-POC-003", "DPM-POC-004",
-    "DPM-QOS-001", "DPM-QOS-002", "DPM-QOS-003", "DPM-QOS-004",
-    "DPM-SEC-001", "DPM-SEC-002", "DPM-SEC-003", "DPM-SEC-004",
-    "DPM-NET-001", "DPM-NET-002", "DPM-NET-003",
-    "DPM-OPS-001", "DPM-OPS-002", "DPM-OPS-003",
-    "DPM-QA-001", "DPM-QA-002", "DPM-QA-003", "DPM-QA-004"
+    "DPM-ARCH-001",
+    "DPM-ARCH-002",
+    "DPM-ARCH-003",
+    "DPM-ARCH-004",
+    "DPM-CON-001",
+    "DPM-CON-002",
+    "DPM-CON-003",
+    "DPM-CON-004",
+    "DPM-MESH-001",
+    "DPM-MESH-002",
+    "DPM-MESH-003",
+    "DPM-CRYPTO-001",
+    "DPM-CRYPTO-002",
+    "DPM-CRYPTO-003",
+    "DPM-CRYPTO-004",
+    "DPM-MEM-001",
+    "DPM-MEM-002",
+    "DPM-MEM-003",
+    "DPM-DAG-001",
+    "DPM-DAG-002",
+    "DPM-DAG-003",
+    "DPM-DAG-004",
+    "DPM-POC-001",
+    "DPM-POC-002",
+    "DPM-POC-003",
+    "DPM-POC-004",
+    "DPM-QOS-001",
+    "DPM-QOS-002",
+    "DPM-QOS-003",
+    "DPM-QOS-004",
+    "DPM-SEC-001",
+    "DPM-SEC-002",
+    "DPM-SEC-003",
+    "DPM-SEC-004",
+    "DPM-NET-001",
+    "DPM-NET-002",
+    "DPM-NET-003",
+    "DPM-OPS-001",
+    "DPM-OPS-002",
+    "DPM-OPS-003",
+    "DPM-QA-001",
+    "DPM-QA-002",
+    "DPM-QA-003",
+    "DPM-QA-004"
   ],
   "tasks_status_summary": {
     "total": 48,
     "by_status": {
-      "todo": 48,
+      "todo": 8,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 0,
-      "done": 0
+      "partial": 31,
+      "blocked": 7,
+      "done": 2
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 4.2,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -457,13 +1568,13 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 0,
-      "remaining": 44
+      "done": 2,
+      "remaining": 42
     },
     "milestones": {
       "total": 12,
-      "todo": 12,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 11,
       "blocked": 0,
       "done": 0
     }
@@ -474,140 +1585,140 @@
       "architecture": {
         "total": 3,
         "by_status": {
-          "todo": 3,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "partial": 1,
+          "blocked": 1,
+          "done": 1
         },
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "done": 1,
+        "partial": 1,
+        "blocked": 1,
+        "progress_percent": 48.3
       },
       "research": {
         "total": 4,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
-          "done": 0
+          "blocked": 3,
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 3,
+        "progress_percent": 25.0
       },
       "refactor": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 50.0
       },
       "contract": {
         "total": 6,
         "by_status": {
-          "todo": 6,
+          "todo": 1,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 5,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 5,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 52.5
       },
       "implementation": {
         "total": 16,
         "by_status": {
-          "todo": 16,
+          "todo": 5,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 11,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 11,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 30.6
       },
       "test": {
         "total": 6,
         "by_status": {
-          "todo": 6,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 0,
+          "partial": 3,
+          "blocked": 3,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "partial": 3,
+        "blocked": 3,
+        "progress_percent": 22.5
       },
       "security": {
         "total": 9,
         "by_status": {
-          "todo": 9,
+          "todo": 2,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 7,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 7,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 41.7
       },
       "configuration": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 45.0
       },
       "operations": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 2,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 2,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 40.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 48,
+    "state": "in_progress",
+    "todo_remaining": 8,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 0.0
+    "partial": 31,
+    "blocked": 7,
+    "done": 2,
+    "count_based_percent": 4.2,
+    "weighted_percent": 35.2
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "todo",
@@ -651,52 +1762,52 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 0.0,
-    "remaining_weight": 88.5,
-    "blocked_weight": 0.0,
-    "weighted_percent": 0.0
+    "done_weight": 31.188,
+    "remaining_weight": 57.312,
+    "blocked_weight": 12.75,
+    "weighted_percent": 35.2
   },
   "milestone_progress_summary": {
     "milestones": {
       "M01": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 50.0,
+        "weighted_percent": 73.9,
+        "status": "in_progress"
       },
       "M02": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 41.8,
+        "status": "in_progress"
       },
       "M03": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 13.2,
+        "status": "in_progress"
       },
       "M04": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 59.3,
+        "status": "in_progress"
       },
       "M05": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 27.9,
+        "status": "in_progress"
       },
       "M06": {
         "total_tasks": 4,
@@ -709,60 +1820,61 @@
       "M07": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 3,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 7.1,
+        "status": "in_progress"
       },
       "M08": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 58.8,
+        "status": "in_progress"
       },
       "M09": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 37.5,
+        "status": "in_progress"
       },
       "M10": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 31.9,
+        "status": "in_progress"
       },
       "M11": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 40.0,
+        "status": "in_progress"
       },
       "M12": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "weighted_percent": 33.8,
+        "status": "in_progress"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-13T18:38:55.794529Z",
+    "generated_at": "2026-08-29T13:03:35.802549Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "01183540cb108fef75eb4789024caae649d95bba92ddcfde124de819ab0e747a",
+    "source_hash": "e78adbc98bd4ba5fbb22e894fb4e094bbcf004a6581d9a49ed14f11dcc8cb082",
     "is_stale": false
-  }
+  },
+  "last_reviewed": "2026-08-29"
 }
