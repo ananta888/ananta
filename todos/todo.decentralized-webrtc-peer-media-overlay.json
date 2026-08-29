@@ -294,7 +294,7 @@
     {
       "id": "M06",
       "title": "Peer-DAG, Signaling und Relay-Neuwahl",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "DPM-DAG-001",
         "DPM-DAG-002",
@@ -393,7 +393,7 @@
     {
       "id": "DPM-ARCH-002",
       "title": "ADR fuer abgestufte Direct-, Mesh-, Peer-DAG- und SFU-Topologie verabschieden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
@@ -407,12 +407,10 @@
         "Peer-DAG wird pro Publikation statt als einzelner globaler Gruppenbaum modelliert.",
         "LiveKit-E2EE und TURN bleiben bis zu positiven Ersatzgates sichere Fallbacks."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
-        "agent/services/media_topology_policy.py",
-        "docs/decisions/ADR-semantic-media-sfu.md"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "docs/decisions/ADR-decentralized-peer-overlay.md"
+      ]
     },
     {
       "id": "DPM-ARCH-003",
@@ -453,10 +451,11 @@
         "Bestehende 1:1-APIs bleiben ueber Compatibility Adapter stabil.",
         "Conformance-Tests sichern SRP, DIP, ISP und LSP fuer neue Adaptergrenzen."
       ],
-      "progress_percent": 50.0,
+      "progress_percent": 80.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/webrtc-session.service.ts",
-        "frontend-angular/src/app/services/sfu-room-session.ports.ts"
+        "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
+        "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
+        "agent/services/peer_overlay_topology_service.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -478,10 +477,10 @@
         "Unsupported Capabilities schlagen fail-closed statt als erfolgreicher No-op fehl.",
         "LiveKit- und Peer-Adapter bestehen dieselben relevanten Contracttests."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 75.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/sfu-room-session.ports.ts",
-        "agent/services/sfu_broadcast_route_port.py"
+        "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
+        "frontend-angular/src/app/services/sfu-room-session.ports.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -527,17 +526,18 @@
         "Parentwechsel und Netzwechsel koennen Route-Epoch erhoehen, ohne unnoetig Content-Keys zu rotieren.",
         "Stale, uebersprungene oder widerspruechliche Epochenkombinationen werden fail-closed abgelehnt."
       ],
-      "progress_percent": 65.0,
+      "progress_percent": 90.0,
       "implementation_evidence": [
-        "agent/services/sfu_fanout_route_lifecycle.py",
-        "agent/services/webrtc_group_key_authorization_service.py"
+        "ananta_contracts/peer_overlay.py",
+        "agent/services/peer_overlay_control_service.py",
+        "tests/test_peer_overlay_contracts.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
       "id": "DPM-CON-004",
       "title": "PeerLink-, RouteLease- und Capability-Vertraege versionieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -552,12 +552,17 @@
         "Capabilities unterscheiden Media-Relay, Data-Relay, Layer-Support, Direct und TURN.",
         "Ein Peer kann aus einer Lease keine neuen Kandidaten oder groesseren Scope ableiten."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "ananta_contracts/peer_overlay.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
+        "tests/test_peer_overlay_contracts.py"
+      ]
     },
     {
       "id": "DPM-MESH-001",
       "title": "Multi-PeerConnection-Manager fuer kleine Gruppen implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -572,7 +577,12 @@
         "Track add, replace, mute, screen-share und disconnect wirken idempotent pro Peer.",
         "Ein fehlerhafter Peer reisst keine gesunden PeerConnections mit ab."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.ts",
+        "frontend-angular/src/app/services/peer-overlay/multi-peer-connection-manager.service.spec.ts"
+      ],
+      "implementation_gap": "Der isolierte, idempotente Manager ist lokal getestet; assignment-bound reale Multi-Browser-Evidence fehlt."
     },
     {
       "id": "DPM-MESH-002",
@@ -591,9 +601,10 @@
         "Audio-only, Kamera und Screenshare besitzen getrennte Profile und Hysterese.",
         "Fehlende oder unzuverlaessige Stats reduzieren die Obergrenze konservativ."
       ],
-      "progress_percent": 25.0,
+      "progress_percent": 75.0,
       "implementation_evidence": [
-        "agent/services/media_topology_policy.py"
+        "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-mesh-admission.policy.spec.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -615,10 +626,11 @@
         "Uebergaenge haben Cooldown, Fencing, Abbruch und Rollback ohne doppelten Bulk-Pfad.",
         "Strict-E2EE verhindert jeden Fallback auf einen unverschluesselten Medienpfad."
       ],
-      "progress_percent": 35.0,
+      "progress_percent": 80.0,
       "implementation_evidence": [
         "agent/services/media_topology_policy.py",
-        "tests/test_media_topology_policy.py"
+        "tests/test_media_topology_policy.py",
+        "tests/chaos/test_semantic_sfu_failover.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -760,10 +772,11 @@
         "Peers koennen Ereignisse transportieren, aber weder Felder aendern noch neue Autoritaet ableiten.",
         "Fork, Luecke, Replay, Cross-Tenant und unbekannter Signaturschluessel werden fail-closed behandelt."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 90.0,
       "implementation_evidence": [
-        "agent/services/webrtc_group_key_authorization_service.py",
-        "frontend-angular/src/app/services/webrtc-group-key.service.ts"
+        "ananta_contracts/peer_overlay.py",
+        "agent/services/peer_overlay_control_service.py",
+        "tests/test_peer_overlay_contracts.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -794,7 +807,7 @@
     {
       "id": "DPM-MEM-003",
       "title": "Zeitlich begrenzten Betrieb ohne dauernden Hub-Kontakt spezifizieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -809,7 +822,13 @@
         "Nach Ablauf werden neue Publikationen und Route-Aenderungen gestoppt; keine Lease wird peer-seitig verlaengert.",
         "Rejoin und Partition-Heilung benoetigen eine frische Hub-Entscheidung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "agent/services/peer_overlay_control_service.py",
+        "docs/decisions/ADR-decentralized-peer-overlay.md",
+        "docs/operations/peer-overlay.md"
+      ],
+      "implementation_gap": "Die harte 120-Sekunden-Grenze ist implementiert; profilbezogene Konfiguration und reale Partition-Evidence fehlen."
     },
     {
       "id": "DPM-MEM-004",
@@ -835,7 +854,7 @@
     {
       "id": "DPM-DAG-001",
       "title": "Deterministische Hub-Policy fuer publikationsbezogene Peer-DAGs implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -850,12 +869,16 @@
         "DAG-Erzeugung ist fuer identischen Input deterministisch, tenant-skopiert und zyklusfrei.",
         "Kein Peer entscheidet globale Membership oder erzeugt eigenstaendig neue Route-Leases."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "agent/services/peer_overlay_topology_service.py",
+        "tests/test_peer_overlay_topology_service.py"
+      ]
     },
     {
       "id": "DPM-DAG-002",
       "title": "Beobachtbare Relay-Eignung mit Hysterese und Consent bewerten",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -870,12 +893,17 @@
         "Mobile Hintergrundtabs, knapper Akku und verweigerter Relay-Consent sind nicht eligible.",
         "Hysterese, Mindesthaltezeit und Cooldown verhindern Route-Flapping."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 75.0,
+      "implementation_evidence": [
+        "agent/services/peer_overlay_topology_service.py",
+        "agent/services/peer_overlay_relay_health_policy.py"
+      ],
+      "implementation_gap": "Consent, konservative Fremdbeobachtung und Failover-Cooldown sind vorhanden; reale Ressourcenmessungen und Mindesthaltezeit-Evidence fehlen."
     },
     {
       "id": "DPM-DAG-003",
       "title": "Primary-/Backup-Parent-Failover ohne doppelten Dauertraffic implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -890,12 +918,18 @@
         "Kurze Ueberlappung wird ueber Frame-ID dedupliziert; dauerhafter Doppelstream ist verboten.",
         "Stale Backup-Leases und ueberholte Route-Epochen koennen keinen Pfad reaktivieren."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 80.0,
+      "implementation_evidence": [
+        "agent/services/peer_overlay_relay_health_policy.py",
+        "agent/services/peer_overlay_control_service.py",
+        "tests/test_peer_overlay_relay_health_policy.py"
+      ],
+      "implementation_gap": "Hub-Entscheid, Cooldown und One-use-Backup-Ticket sind implementiert; reale Browser-Umschaltfrist und Churn-Evidence fehlen."
     },
     {
       "id": "DPM-DAG-004",
       "title": "In-Band-Signaling fuer neue Peer-Kanten und sicheren Serverfallback implementieren",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -910,7 +944,14 @@
         "Bearer Tokens, private Keys und unbeschraenkte ICE-Credentials werden nie gegossipt.",
         "Bootstrap-Paradox, gleichzeitige Reconnects und getrennte Partitionen sind deterministisch behandelt."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 75.0,
+      "implementation_evidence": [
+        "ananta_contracts/peer_overlay.py",
+        "agent/services/peer_overlay_control_service.py",
+        "agent/services/peer_overlay_state_store.py",
+        "tests/test_peer_overlay_control_service.py"
+      ],
+      "implementation_gap": "Signierte, ablaufende One-use-Kantentickets und Hub-Fallback sind implementiert; produktive DataChannel-Signaling-Adapter fehlen."
     },
     {
       "id": "DPM-POC-001",
@@ -930,10 +971,11 @@
         "TTL, Chunk-Digest, Replay, Deduplizierung und Backpressure funktionieren ueber mindestens zwei Hops.",
         "SFU- und Peer-Adapter teilen Vertraege, nicht Infrastrukturzustand."
       ],
-      "progress_percent": 25.0,
+      "progress_percent": 80.0,
       "implementation_evidence": [
-        "ananta_contracts/webrtc_security.py",
-        "frontend-angular/src/app/services/webrtc-datachannel.service.ts"
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts",
+        "ananta_contracts/peer_overlay.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1022,8 +1064,8 @@
       ],
       "progress_percent": 80.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
-        "agent/services/sfu_broadcast_data_queue_policy.py"
+        "ananta_contracts/peer_overlay.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1045,10 +1087,10 @@
         "Audio, Keyframes und Control werden vor Deltaframes und Bulk priorisiert.",
         "Ueberlast erzeugt beobachtbare Reason Codes statt unbeschraenktem Speicherwachstum."
       ],
-      "progress_percent": 60.0,
+      "progress_percent": 85.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/webrtc-priority-send-queue.ts",
-        "agent/services/sfu_broadcast_data_queue_policy.py"
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1105,7 +1147,7 @@
     {
       "id": "DPM-SEC-001",
       "title": "Formales Threat Model fuer ehrliche, fehlerhafte und boesartige Relays erstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1121,17 +1163,15 @@
         "Nicht verhinderbares Dropping und Recording durch berechtigte Empfaenger werden ehrlich dokumentiert.",
         "Hub-, Relay-, Teilnehmer-, SFU- und TURN-Vertrauensgrenzen sind separat modelliert."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
-        "docs/security/webrtc-e2ee-security-contract.md",
-        "docs/architecture/webrtc-sfu-broadcast-boundaries.md"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "docs/security/peer-overlay-threat-model.md"
+      ]
     },
     {
       "id": "DPM-SEC-002",
       "title": "Loop-, Duplicate- und Route-Poisoning-Schutz implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1147,17 +1187,17 @@
         "Hop-Limit oder Path-Metadaten koennen nicht als alleinige unauthentisierte Sicherheitsquelle missbraucht werden.",
         "Replay- und Loopzustand bleibt bei Angriffsverkehr speicherbegrenzt."
       ],
-      "progress_percent": 50.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/webrtc-replay-window.service.ts",
-        "agent/services/webrtc_epoch_service.py"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "agent/services/peer_overlay_topology_service.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.ts",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
+      ]
     },
     {
       "id": "DPM-SEC-003",
       "title": "Relay-Drop, Verzoegerung und selektive Zensur erkennen und umgehen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -1173,7 +1213,13 @@
         "Ein boesartiger Empfaenger kann durch falsche Beschwerden nicht unbegrenzt Relays verbannen.",
         "Failover ist rate-limited, auditiert und an eine gueltige Kandidatenlease gebunden."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0,
+      "implementation_evidence": [
+        "agent/services/peer_overlay_relay_health_policy.py",
+        "agent/services/peer_overlay_control_service.py",
+        "tests/test_peer_overlay_relay_health_policy.py"
+      ],
+      "implementation_gap": "Schwellen, Quorum, Cooldown, Audit und Backup-Lease-Bindung sind implementiert; reale Mehrhop-Delay-/Drop-Evidence fehlt."
     },
     {
       "id": "DPM-SEC-004",
@@ -1218,9 +1264,10 @@
         "ICE-Restart und Netzwechsel behalten Route-, Membership- und Key-Fencing bei.",
         "Credentials sind kurzlebig, room-/peer-skopiert und nicht uebertragbar."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 75.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/webrtc-session.service.ts",
+        "ananta_contracts/peer_overlay.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-media-fanout.ports.ts",
         "agent/services/webrtc_turn_credential_service.py"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
@@ -1242,10 +1289,11 @@
         "relay-only setzt eine passende ICE-Transportpolicy durch und zeigt TURN-Abhaengigkeit.",
         "Peer-Relay-Teilnahme erfordert separaten widerrufbaren Consent."
       ],
-      "progress_percent": 35.0,
+      "progress_percent": 60.0,
       "implementation_evidence": [
-        "frontend-angular/src/app/services/network-profile.service.ts",
-        "frontend-angular/src/app/services/webrtc-session.service.ts"
+        "agent/services/peer_overlay_topology_service.py",
+        "docs/decisions/ADR-decentralized-peer-overlay.md",
+        "docs/security/peer-overlay-threat-model.md"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1312,10 +1360,11 @@
         "Rollbacks benoetigen keine Datenmigration und lassen keine halboffenen Peer-Routen zurueck.",
         "Tenant-, Room-, Publication- und Browser-Allowlist koennen getrennt canarygeschaltet werden."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 70.0,
       "implementation_evidence": [
-        "agent/services/sfu_broadcast_feature_policy.py",
-        "docs/operations/sfu-broadcast-rollout.md"
+        "agent/config.py",
+        "agent/services/peer_overlay_release_gate.py",
+        "docs/operations/peer-overlay.md"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1337,17 +1386,18 @@
         "Metriken besitzen bounded Cardinality, Retention und Tenant-Trennung.",
         "Content-Keys, SDP, ICE-Credentials, Chat-/Medieninhalt und vollstaendige IPs werden nicht geloggt."
       ],
-      "progress_percent": 40.0,
+      "progress_percent": 65.0,
       "implementation_evidence": [
-        "agent/services/sfu_broadcast_operations_read_model.py",
-        "frontend-angular/src/app/features/admin/sfu-broadcast-operator.component.ts"
+        "agent/services/peer_overlay_control_service.py",
+        "agent/routes/peer_overlay.py",
+        "docs/operations/peer-overlay.md"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
       "id": "DPM-OPS-003",
       "title": "Automatische Degradation und Recovery-Runbooks erstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "operations",
@@ -1363,12 +1413,12 @@
         "Recovery erschafft keine Peer-Autoritaet und ueberspringt keine Hub-Lease.",
         "Control-only bleibt ein bewusst getesteter sicherer Zustand."
       ],
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
-        "docs/operations/sfu-broadcast-rollback.md",
-        "agent/services/media_topology_policy.py"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "docs/operations/peer-overlay.md",
+        "agent/services/media_topology_policy.py",
+        "agent/services/peer_overlay_control_service.py"
+      ]
     },
     {
       "id": "DPM-OPS-004",
@@ -1415,10 +1465,11 @@
         "Seeds, Corpus und minimierte Fehler sind reproduzierbar und frei von Secrets.",
         "Python- und TypeScript-Vertraege bestehen Parity-Tests."
       ],
-      "progress_percent": 55.0,
+      "progress_percent": 70.0,
       "implementation_evidence": [
-        "tests/security/test_webrtc_crypto_conformance.py",
-        "tests/fuzz/test_sfu_broadcast_contract_fuzz.py"
+        "tests/test_peer_overlay_contracts.py",
+        "tests/test_peer_overlay_topology_service.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
@@ -1463,17 +1514,18 @@
         "Forgery, Replay, stale Epoch, falsche KID und Cross-Publication-Ciphertext werden abgelehnt.",
         "Drop und Zensur werden bounded erkannt und umgangen, ohne Unverhinderbarkeit kryptographisch falsch darzustellen."
       ],
-      "progress_percent": 45.0,
+      "progress_percent": 75.0,
       "implementation_evidence": [
-        "tests/security/test_webrtc_replay_protection.py",
-        "tests/security/test_webrtc_security_downgrade.py"
+        "tests/test_peer_overlay_contracts.py",
+        "tests/test_peer_overlay_relay_health_policy.py",
+        "frontend-angular/src/app/services/peer-overlay/peer-overlay-data-relay.spec.ts"
       ],
       "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
     },
     {
       "id": "DPM-QA-004",
       "title": "Globales Release-Gate und gestuften Hybrid-Rollout implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1491,12 +1543,11 @@
         "Peer-Media kann no_go bleiben, waehrend Mesh, Data-Overlay oder LiveKit-E2EE unabhaengig sicher freigegeben werden.",
         "Fehlende, stale oder rote Evidence fuehrt zu no_go; der Report erfindet keine SRC_*-/RUN_*-IDs."
       ],
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "implementation_evidence": [
-        "agent/services/sfu_broadcast_release_gate.py",
-        "docs/testing/sfu-broadcast-release-gates.md"
-      ],
-      "implementation_gap": "Peer-overlay-specific acceptance criteria remain incomplete; existing direct/SFU capability is not promoted to Peer-DAG completion."
+        "agent/services/peer_overlay_release_gate.py",
+        "tests/test_peer_overlay_release_gate.py"
+      ]
     }
   ],
   "critical_path_tasks": [
@@ -1548,13 +1599,13 @@
   "tasks_status_summary": {
     "total": 48,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 31,
+      "partial": 32,
       "blocked": 7,
-      "done": 2
+      "done": 9
     },
-    "progress_percent_done": 4.2,
+    "progress_percent_done": 18.8,
     "by_priority": {
       "P0": 31,
       "P1": 15,
@@ -1568,13 +1619,13 @@
     },
     "critical_path": {
       "total": 44,
-      "done": 2,
-      "remaining": 42
+      "done": 9,
+      "remaining": 35
     },
     "milestones": {
       "total": 12,
-      "todo": 1,
-      "in_progress": 11,
+      "todo": 0,
+      "in_progress": 12,
       "blocked": 0,
       "done": 0
     }
@@ -1587,14 +1638,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 1,
-          "done": 1
+          "done": 2
         },
-        "done": 1,
-        "partial": 1,
+        "done": 2,
+        "partial": 0,
         "blocked": 1,
-        "progress_percent": 48.3
+        "progress_percent": 66.7
       },
       "research": {
         "total": 4,
@@ -1622,63 +1673,63 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 50.0
+        "progress_percent": 80.0
       },
       "contract": {
         "total": 6,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 5,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 5,
         "blocked": 0,
-        "progress_percent": 52.5
+        "progress_percent": 84.2
       },
       "implementation": {
         "total": 16,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 11,
+          "partial": 15,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 11,
+        "done": 1,
+        "partial": 15,
         "blocked": 0,
-        "progress_percent": 30.6
+        "progress_percent": 70.0
       },
       "test": {
         "total": 6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 2,
           "blocked": 3,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 3,
+        "done": 1,
+        "partial": 2,
         "blocked": 3,
-        "progress_percent": 22.5
+        "progress_percent": 40.8
       },
       "security": {
         "total": 9,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 7,
           "blocked": 0,
-          "done": 0
+          "done": 2
         },
-        "done": 0,
+        "done": 2,
         "partial": 7,
         "blocked": 0,
-        "progress_percent": 41.7
+        "progress_percent": 75.0
       },
       "configuration": {
         "total": 1,
@@ -1692,33 +1743,33 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 70.0
       },
       "operations": {
         "total": 2,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 2,
+        "done": 1,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 40.0
+        "progress_percent": 72.5
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 8,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 31,
+    "partial": 32,
     "blocked": 7,
-    "done": 2,
-    "count_based_percent": 4.2,
-    "weighted_percent": 35.2
+    "done": 9,
+    "count_based_percent": 18.8,
+    "weighted_percent": 64.9
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "todo",
@@ -1762,27 +1813,27 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 88.5,
-    "done_weight": 31.188,
-    "remaining_weight": 57.312,
+    "done_weight": 57.438,
+    "remaining_weight": 31.062,
     "blocked_weight": 12.75,
-    "weighted_percent": 35.2
+    "weighted_percent": 64.9
   },
   "milestone_progress_summary": {
     "milestones": {
       "M01": {
         "total_tasks": 4,
-        "done": 2,
+        "done": 3,
         "blocked": 0,
-        "count_based_percent": 50.0,
-        "weighted_percent": 73.9,
+        "count_based_percent": 75.0,
+        "weighted_percent": 94.3,
         "status": "in_progress"
       },
       "M02": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 41.8,
+        "count_based_percent": 25.0,
+        "weighted_percent": 84.3,
         "status": "in_progress"
       },
       "M03": {
@@ -1790,7 +1841,7 @@
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 13.2,
+        "weighted_percent": 55.5,
         "status": "in_progress"
       },
       "M04": {
@@ -1806,23 +1857,23 @@
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 27.9,
+        "weighted_percent": 53.6,
         "status": "in_progress"
       },
       "M06": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 25.0,
+        "weighted_percent": 80.6,
+        "status": "in_progress"
       },
       "M07": {
         "total_tasks": 4,
         "done": 0,
         "blocked": 3,
         "count_based_percent": 0.0,
-        "weighted_percent": 7.1,
+        "weighted_percent": 22.9,
         "status": "in_progress"
       },
       "M08": {
@@ -1830,15 +1881,15 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 58.8,
+        "weighted_percent": 63.2,
         "status": "in_progress"
       },
       "M09": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 37.5,
+        "count_based_percent": 50.0,
+        "weighted_percent": 84.3,
         "status": "in_progress"
       },
       "M10": {
@@ -1846,23 +1897,23 @@
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 31.9,
+        "weighted_percent": 45.2,
         "status": "in_progress"
       },
       "M11": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 40.0,
+        "count_based_percent": 25.0,
+        "weighted_percent": 75.0,
         "status": "in_progress"
       },
       "M12": {
         "total_tasks": 4,
-        "done": 0,
+        "done": 1,
         "blocked": 1,
-        "count_based_percent": 0.0,
-        "weighted_percent": 33.8,
+        "count_based_percent": 25.0,
+        "weighted_percent": 61.2,
         "status": "in_progress"
       }
     }
@@ -1870,10 +1921,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-29T13:03:35.802549Z",
+    "generated_at": "2026-08-29T13:29:43.126678Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "e78adbc98bd4ba5fbb22e894fb4e094bbcf004a6581d9a49ed14f11dcc8cb082",
+    "source_hash": "a10bfbf10aae2ec852a2f9058a1995e595be99c57b0eca18e705829071852636",
     "is_stale": false
   },
   "last_reviewed": "2026-08-29"

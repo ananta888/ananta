@@ -20,9 +20,7 @@ MediaTopology = Literal[
     "relay_control_only",
 ]
 
-_BULK_TOPOLOGIES = frozenset(
-    {"ordinary_direct", "ordinary_mesh", "ordinary_sfu", "semantic_sfu"}
-)
+_BULK_TOPOLOGIES = frozenset({"ordinary_direct", "ordinary_mesh", "ordinary_sfu", "semantic_sfu"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,9 +125,10 @@ class MediaTopologyPolicy:
 
     def _ordinary_fallback(self, value: MediaTopologyContext) -> MediaTopology:
         if value.ordinary_direct_healthy:
-            return "ordinary_direct" if value.participant_count <= 2 else (
-                "ordinary_mesh" if value.participant_count <= self._mesh_limit else "ordinary_direct"
-            )
+            if value.participant_count <= 2:
+                return "ordinary_direct"
+            if value.participant_count <= self._mesh_limit:
+                return "ordinary_mesh"
         if (
             value.sfu_enabled
             and value.sfu_admitted
@@ -137,7 +136,11 @@ class MediaTopologyPolicy:
             and (value.sfu_e2ee_ready or not value.strict_e2ee)
         ):
             return "ordinary_sfu"
-        return "relay_control_only" if value.relay_control_available else "ordinary_direct"
+        # A healthy 1:1 connection is not a functional group route.  Above the
+        # mesh limit, fail to the bounded control plane even when that plane is
+        # currently unavailable; callers must never present a direct pair as
+        # successfully carrying group media.
+        return "relay_control_only"
 
     @staticmethod
     def _direct_or_control(value: MediaTopologyContext) -> MediaTopology:

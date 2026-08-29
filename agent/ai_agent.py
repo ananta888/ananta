@@ -741,6 +741,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     from agent.bootstrap.agent_safety import initialize_agent_safety
 
     run_startup_phase("agent_safety", initialize_agent_safety, app)
+    from agent.bootstrap.peer_overlay import initialize_peer_overlay
+
+    run_startup_phase("peer_overlay", initialize_peer_overlay, app)
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )

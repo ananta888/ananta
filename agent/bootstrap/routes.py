@@ -76,6 +76,7 @@ from agent.routes.organization_source_catalogs import organization_source_catalo
 from agent.routes.organization_topology import organization_topology_bp
 from agent.routes.organization_topology_patches import organization_topology_patches_bp
 from agent.routes.pair_groups import pair_groups_bp
+from agent.routes.peer_overlay import peer_overlay_bp
 from agent.routes.projects import projects_bp
 from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
@@ -222,6 +223,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(share_sessions_bp)
     app.register_blueprint(scrum_continuous_improvement_bp)
     app.register_blueprint(pair_groups_bp)
+    app.register_blueprint(peer_overlay_bp)
     app.register_blueprint(rendezvous_bp, url_prefix="/api")
     app.register_blueprint(repair_bp)
     app.register_blueprint(webrtc_signaling_bp, url_prefix="/api")

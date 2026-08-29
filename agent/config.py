@@ -651,6 +651,14 @@ class Settings(BaseSettings):
         default="data/agent-safety.sqlite3",
         validation_alias="ANANTA_AGENT_SAFETY_STATE",
     )
+    peer_overlay_state: str = Field(
+        default="data/peer-overlay.sqlite3",
+        validation_alias="ANANTA_PEER_OVERLAY_STATE",
+    )
+    peer_overlay_data_enabled: bool = Field(
+        default=False,
+        validation_alias="ANANTA_PEER_OVERLAY_DATA_ENABLED",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",
