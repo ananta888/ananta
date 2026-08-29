@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "project": "ananta",
   "owner": "Ananta maintainers",
@@ -100,9 +100,9 @@
     "Messbarer Rollout über Baseline, Ablation, Shadow, Canary und Rollback."
   ],
   "validation_plan": {
-    "schema": "python3 devtools/validate_todo_schema.py todos/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+    "schema": "python3 devtools/validate_todo_schema.py todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
     "static": [
-      "python3 -m json.tool todos/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+      "python3 -m json.tool todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
       "python3 scripts/validate_todo_consistency.py"
     ],
     "implementation": [

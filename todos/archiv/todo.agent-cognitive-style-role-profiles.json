@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.schema.json",
+  "$schema": "../todo.schema.json",
   "version": 1,
   "created": "2026-08-22",
   "updated": "2026-08-25",
@@ -24,7 +24,7 @@
   "cross_track_dependencies": [
     {
       "track": "central-model-selection-settings",
-      "todo": "todos/todo.central-model-selection-settings.json",
+      "todo": "todos/archiv/todo.central-model-selection-settings.json",
       "required_tasks": ["CMS-ARCH-001", "CMS-ARCH-002", "CMS-ARCH-003", "CMS-BE-006", "CMS-BE-008", "CMS-SEC-001"],
       "blocks": ["ACS-007", "ACS-010", "ACS-011", "ACS-012"],
       "reason": "Style-aware Routing, Erklärbarkeit und Evolution dürfen keine zweite Modellwahl- oder Routing-Domain erzeugen."

@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.central-model-selection-settings",
   "title": "Zentrale Modellwahl in den Ananta-Einstellungen",
   "version": "1.0",
@@ -37,7 +37,7 @@
   "cross_track_dependencies": [
     {
       "track": "agent_cognitive_style_role_profiles",
-      "todo": "todos/todo.agent-cognitive-style-role-profiles.json",
+      "todo": "todos/archiv/todo.agent-cognitive-style-role-profiles.json",
       "relationship": "provides_foundation_for",
       "consumer_tasks": ["ACS-007", "ACS-010", "ACS-011", "ACS-012"],
       "constraint": "Cognitive Style darf nur als weicher Rankingbeitrag im bestehenden Hub-Resolver erscheinen und weder Rechte noch eine zweite Routing-Domain erzeugen."

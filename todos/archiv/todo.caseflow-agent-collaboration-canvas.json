@@ -6,9 +6,9 @@
   "id": "todo.caseflow-agent-collaboration-canvas",
   "title": "CaseFlow Agent Collaboration Canvas mit Rollen, Beziehungen, Runtime und Trace",
   "created_at": "2026-08-12",
-  "updated_at": "2026-08-15",
+  "updated_at": "2026-08-29",
   "project": "Ananta",
-  "status": "in_progress",
+  "status": "done",
   "priority": "P0",
   "status_scale": [
     "todo",

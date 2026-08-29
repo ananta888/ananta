@@ -407,4 +407,4 @@ Providerprozesse am Leben; Modellwahl und Aufgabensteuerung bleiben beim Hub.
 - [`local-kat-lfm-needle-rtx3080.model_routing.json`](../../config/models/local-kat-lfm-needle-rtx3080.model_routing.json) – Hub-Routingregeln;
 - [`compose.local-kat-lfm-needle.yml`](../../docker/compose-next/compose.local-kat-lfm-needle.yml) – additive Containerverdrahtung;
 - [`ananta-local-model-runtime.service`](../../deploy/systemd/ananta-local-model-runtime.service) – überwachte Host-Runtime;
-- [`todo.ananta-local-multi-model-runtime-and-automated-needle-training.json`](../../todos/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json) – Status, offene Gates und Messnotizen.
+- [`todo.ananta-local-multi-model-runtime-and-automated-needle-training.json`](../../todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json) – Status, offene Gates und Messnotizen.

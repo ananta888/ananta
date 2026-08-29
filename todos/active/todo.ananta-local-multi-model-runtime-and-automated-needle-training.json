@@ -1,5 +1,5 @@
 {
-  "$schema": "todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "id": "todo.ananta-local-multi-model-runtime-and-automated-needle-training",
   "title": "Lokale KAT-, LFM- und Needle-Runtime mit automatisiertem Adapter-Lifecycle",
   "version": "1.0",
