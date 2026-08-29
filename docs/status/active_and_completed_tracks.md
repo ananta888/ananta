@@ -6,6 +6,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
+| `todos/active/todo.agent-defense-in-depth-adversarial-escape-safety.json` | `agent_defense_in_depth_adversarial_escape_safety` | Defense-in-depth implementation is largely complete; grounded external release evidence remains fail-closed |
 | `todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json` | `ananta-local-multi-model-runtime-and-automated-needle-training` | Repository implementation is complete; real dataset, lifecycle, and registered release evidence remain fail-closed |
 | `todos/active/todo.codecompass-dmoe-parametric-knowledge-injection.json` | `codecompass_dmoe_parametric_knowledge_injection` | Repository-side DMoE implementation is complete; dynamic-runtime and real-model evidence remain unverified |
 | `todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json` | `codecompass_sira_corpus_discriminative_retrieval` | SIRA implementation is nearly complete and awaits authoritative source and run evidence |
