@@ -2,22 +2,27 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-02",
-  "last_reviewed": "2026-08-21",
+  "updated_at": "2026-08-29",
+  "last_reviewed": "2026-08-29",
   "owner": "Peter Stuiber / Ananta",
   "track": "dspy-optimization-evaluation-engine-integration",
   "status": "blocked",
   "purpose": "DSPy als optionale, isolierte Optimierungs- und Evaluations-Engine in Ananta integrieren. DSPy soll versionierte Prompt-Programme anhand freigegebener Datensaetze und Metriken optimieren, ohne Anantas Hub-Worker-Orchestrierung, Provider-Routing, CodeCompass-Retrieval, Policies, Budgets, Audit oder Artifact-Promotion zu umgehen.",
   "goal": "Ananta kann fuer klar begrenzte Planungs-, strukturierte Ausgabe- und RAG-Aufgaben reproduzierbare DSPy-Experimente ausfuehren, Baseline und Kandidat vergleichen, sichere JSON-Programm-Artefakte erzeugen und erfolgreiche Kandidaten nach expliziter Freigabe ausrollen oder zurueckrollen. DSPy bleibt optional, standardmaessig deaktiviert und aus dem Ananta-Kern sowie dem normalen Inferenz-Hot-Path entkoppelt.",
   "source_review": {
-    "reviewed_at": "2026-08-21",
+    "reviewed_at": "2026-08-29",
     "grounding_status": "repository_inspected_without_provided_source_or_run_ids",
     "ananta_repository": "https://github.com/ananta888/ananta",
-    "ananta_reviewed_commit": "d54f0e9b2553c9514146eaca7483dca803b7244a",
+    "ananta_reviewed_commit": "8d34030f8f9d082e4d85933c2d653494e8d6abc7",
     "dspy_repository": "https://github.com/stanfordnlp/dspy",
-    "dspy_reviewed_commit": "c69136b29aca4c00ca6da7667f7b80783188980e",
-    "observed_dspy_project_version": "3.3.0b1",
+    "dspy_reviewed_commit": "3f06959ebbb80fb0bda001e1f802d70c2d5be7f7",
+    "observed_latest_stable_tag": "3.2.1",
+    "observed_latest_stable_tag_commit": "27a8e2a134b0b8dbd2d7433ea67ffe9be627d376",
+    "observed_prerelease_tag": "3.3.0b1",
+    "observed_prerelease_tag_commit": "ee3687c36e832010a38c4091fcb8cf1d4c9fb841",
+    "observed_main_project_version": "3.3.0b1",
     "observed_dspy_license": "MIT",
-    "note": "Die historische Upstream-Beobachtung bleibt unverified. Auch beim erneuten Ananta-Abgleich am 2026-08-21 wurden keine SRC_* oder RUN_* IDs bereitgestellt und weder DSPy-Produktionscode noch ein DSPy-Dependency-Pin oder gebundener Source Catalog gefunden. Deshalb gelten die Beobachtungen nicht als source-grounded Release-Evidence; Release-, Kompatibilitaets-, Kosten- und Leistungsclaims muessen mit bereitgestellten unveraenderlichen Evidenz-IDs belegt werden.",
+    "note": "Die aktuellen Upstream-Navigationsergebnisse bleiben unverified: Git-Refs und offizielle DSPy-Seiten wurden am 2026-08-29 gelesen, aber keine assignment-bound SRC_* oder RUN_* IDs bereitgestellt. Im aktuellen Ananta-Stand existieren weiterhin weder DSPy-Produktionscode noch Dependency-Pin, isoliertes Worker-Profil oder gebundener Source Catalog. ProviderExecutionBinding, Artifact-/Prompt-Provenance, Planning-Optimizer und Evaluation-/Promotion-Services sind wiederverwendbare Ananta-Grundlagen, aber keine DSPy-Implementierung oder Release-Evidence.",
     "blocked_audit": {
       "status": "blocked",
       "reason_codes": [
@@ -28,6 +33,8 @@
       ],
       "unverified_navigation_observations": [
         "No DSPy production namespace, optional dependency pin, adapter, contract, schema, or test was found in the current Ananta source tree.",
+        "The official DSPy release page identifies 3.2.1 as the latest stable release and 3.3.0b1 as a prerelease; main currently declares 3.3.0b1 and remains unsuitable as an unbounded production dependency.",
+        "Ananta already has Hub-owned ProviderExecutionBinding, artifact/provenance, planning-evaluation and promotion seams that can be composed instead of duplicated.",
         "The Hub-owned Organization Source Catalog and Category Research pipeline is the available authority path for a future grounded research revision.",
         "DSPY-001 is a root dependency and DSPY-040 explicitly keeps release completion partial or blocked without provided evidence IDs."
       ],
@@ -44,7 +51,12 @@
       "docs/planning-pipeline.md",
       "agent/services/organization_source_catalog_publisher_service.py",
       "agent/services/organization_category_research_service.py",
-      "agent/services/planning_category_pipeline_service.py"
+      "agent/services/planning_category_pipeline_service.py",
+      "ananta_contracts/provider_execution.py",
+      "agent/services/planning_prompt_optimizer_service.py",
+      "agent/services/prompt_provenance.py",
+      "agent/services/model_intelligence_evaluation_service.py",
+      "agent/services/unsloth_evaluation_promotion_service.py"
     ]
   },
   "status_scale": [
@@ -329,7 +341,7 @@
     {
       "id": "DSPY-001",
       "title": "Unveraenderliche DSPy-Upstream-, Lizenz- und Support-Baseline festlegen",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "type": "analysis",
@@ -348,7 +360,8 @@
         "Der BaseLM-Vertragswechsel zwischen Legacy- und Typed-LM-Pfad ist als Compatibility-Risiko festgehalten.",
         "Ohne bereitgestellte SRC_* Evidenz bleibt die Release-Baseline explizit unverified."
       ],
-      "progress_percent": 0
+      "progress_percent": 15.0,
+      "blocked_reason": "Offizielle Upstream-Navigation ist dokumentierbar, aber eine assignment-bound unveraenderliche SRC_*-Baseline fuer Version, Lizenz und transitive Abhaengigkeiten fehlt."
     },
     {
       "id": "DSPY-002",
@@ -374,7 +387,7 @@
         "ReAct, freie Tools, MCP-Importe und Fine-Tuning sind fuer Phase 1 explizit ausgeschlossen.",
         "SRP, OCP, ISP, LSP und DIP werden fuer die geplanten Ports nachvollziehbar abgebildet."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-003",
@@ -399,7 +412,7 @@
         "Roh-Prompts, Roh-Outputs und Code-Snippets besitzen Redaktions-, Retention- und Zugriffsklassen.",
         "Negative Security-Tests und verantwortliche Owner sind jeder kritischen Bedrohung zugeordnet."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-004",
@@ -426,7 +439,7 @@
         "Persistenz-, API-, Worker- und Domain-Logik befinden sich nicht in einer gemeinsamen Service-Klasse.",
         "Ein Architecture-Test verhindert neue verbotene Importkanten."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-005",
@@ -455,7 +468,7 @@
         "Contracts besitzen Groessenlimits, kanonische JSON-Serialisierung, SHA-256-Content-Digests und Upcast-Regeln.",
         "Schema-, Roundtrip-, Fuzz- und Rueckwaertskompatibilitaetstests sind vorhanden."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-006",
@@ -483,7 +496,7 @@
         "Dependency-Konflikte mit Pydantic, OpenAI-SDK, LiteLLM, LlamaIndex und bestehenden Extras werden automatisiert geprueft.",
         "Development-, CI- und Release-Profile dokumentieren denselben Dependency-Stand."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-007",
@@ -513,7 +526,7 @@
         "Konfigurationsaenderungen erzeugen einen Digest und Audit-Event.",
         "Config-Parsing funktioniert ohne DSPy-Import."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-008",
@@ -541,7 +554,7 @@
         "Capabilities werden vor Jobannahme deterministisch validiert.",
         "Health-Probes fuehren keine Modellaufrufe oder externen Netzwerkzugriffe aus."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-009",
@@ -570,7 +583,7 @@
         "Cancel, Timeout, Worker-Verlust und Hub-Neustart besitzen definierte Recovery-Zustaende.",
         "Jeder Zustandswechsel erzeugt ein secret-freies Audit- und Workflow-Event."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-010",
@@ -599,7 +612,7 @@
         "Artifact-Referenzen binden Schema, Digest, Groesse, Media Type, Producer Run und Tenant.",
         "Delete, Retention, Legal Hold und Promotion-Referenzen verhindern verwaiste oder vorzeitig geloeschte Kandidaten."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-011",
@@ -628,7 +641,7 @@
         "Providerfehler werden auf stabile Ananta-Reason-Codes abgebildet; Rohfehler und Secrets verlassen den Worker nicht.",
         "Serialisierung der LM-State entfernt API-Keys, Base-URLs und Modelllisten unabhaengig von DSPy-Flags."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-012",
@@ -657,7 +670,7 @@
         "Direkte Nutzung von dspy.LM oder LiteLLM mit Umgebungscredentials wird durch Code- und Integrationstests verhindert.",
         "Audit verknuepft jeden Call mit run_id, attempt_id, binding_id, role, budget counter und redigiertem request hash."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-013",
@@ -685,7 +698,7 @@
         "Budgetzaehler sind monoton, thread-safe und gegen doppelte Callback-Ereignisse idempotent.",
         "Ein fehlender Usage-Wert fuehrt je nach Policy zu konservativer Schaetzung oder fail-closed, nie zu Nullkostenfreigabe."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-014",
@@ -714,7 +727,7 @@
         "DSPy kann keine URL-, Dateipfad-, VectorDB- oder Retriever-Implementierung aus Programm-Artefakten laden.",
         "Cross-Tenant-, unbekannte Scope-, Failover- und Backend-unavailable-Faelle besitzen fail-closed Tests."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-015",
@@ -744,7 +757,7 @@
         "Unbekannte Module, Felder, Typen, Konfigurationen und serialisierte Klassen werden vor Modellaufrufen abgelehnt.",
         "Registry und Exporter besitzen LSP- und Contracttests fuer jede freigegebene Modulart."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-016",
@@ -772,7 +785,7 @@
         "Unbekannte oder in der installierten DSPy-Version fehlende Optimizer ergeben einen stabilen compatibility error.",
         "Weight-Optimizer und BootstrapFinetune werden im Produktionspfad abgelehnt und nur ueber den Unsloth-Handoff adressiert."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-017",
@@ -806,7 +819,7 @@
         "Cancel und Timeout unterbrechen neue Calls, sichern einen terminalen Zustand und beseitigen temporaere Ressourcen.",
         "Mock-, Local- und Cloud-gated-Modi besitzen getrennte Admission- und E2E-Tests."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-018",
@@ -836,7 +849,7 @@
         "Cache Keys enthalten Tenant, Dataset-, Program-, Model-, Provider-, Optimizer-, Metric- und Config-Digests; Cross-Tenant-Treffer sind ausgeschlossen.",
         "Budgeterschoepfung, Cancellation und fehlende Usage enden mit stabilen Reason Codes und niemals mit automatischer Promotion."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-019",
@@ -865,7 +878,7 @@
         "Record-Anzahl, Feldgroesse, Gesamtgroesse und verschachtelte Tiefe sind begrenzt.",
         "Dataset-Aenderungen erzeugen neue Digests und invalidieren vorhandene Evaluation- oder Promotion-Evidenz."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-020",
@@ -894,7 +907,7 @@
         "Per-Record-Scores und Aggregate sind reproduzierbar an Metric- und Dataset-Digests gebunden.",
         "Metric-Gaming wird durch Holdout-Testset, Mindestfallzahl und getrennte Optimierungs-/Release-Metriken begrenzt."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-021",
@@ -925,7 +938,7 @@
         "Nicht vergleichbare Runs erhalten einen klaren reason_code statt eines irrefuehrenden Delta-Werts.",
         "Testset-Ergebnisse sind fuer den Optimizer nicht als Trainingsfeedback verfuegbar."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-022",
@@ -955,7 +968,7 @@
         "DSPy-, Python- und Schema-Versionen sowie Compatibility-Profil werden als nicht ausfuehrbare Metadaten gespeichert.",
         "Malicious-, Corrupt-, Oversized-, Unknown-Module- und Endpoint-Injection-Fixtures werden sicher abgelehnt."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-023",
@@ -984,7 +997,7 @@
         "Exportierte Artefakte besitzen Source-Program-, Exporter-, Schema- und Content-Digests.",
         "Golden- und Differentialtests erkennen Upstream-Format- oder Rendering-Aenderungen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-024",
@@ -1014,7 +1027,7 @@
         "Provenienz bleibt bei Rollback erhalten und wird nicht ueberschrieben.",
         "API, CLI und UI zeigen dieselbe kanonische Provenienzprojektion."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-025",
@@ -1044,7 +1057,7 @@
         "Rollback aktiviert atomar eine bekannte vorherige Revision und erhaelt vollstaendige Audit-Historie.",
         "Optimierer oder Worker besitzen keine Promotion- oder Registry-Schreibberechtigung."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-026",
@@ -1074,7 +1087,7 @@
         "Ein Fehler im DSPy-Artefakt faellt kontrolliert auf die bekannte Baseline zurueck.",
         "Differential- und Regressionstests decken goal-to-plan-to-task ohne Worker-to-Worker-Orchestrierung ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-027",
@@ -1104,7 +1117,7 @@
         "Leere, widerspruechliche, gesperrte und degradierte Retrieval-Ergebnisse besitzen definierte Ausgaben.",
         "Release-Gates verlangen einen unabhaengigen Holdout-Satz mit code- und wiki-spezifischen Faellen."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-028",
@@ -1133,7 +1146,7 @@
         "Feldgenauigkeit, Vollstaendigkeit, Zusatzfelder, Formatstabilitaet, Tokens und Latenz werden bewertet.",
         "Golden-Datasets enthalten valide, invalide, adversariale, mehrsprachige und uebergrosse Eingaben."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-029",
@@ -1163,7 +1176,7 @@
         "Vergleichsdaten sind redigiert, retention-begrenzt und gegen Cross-Tenant-Vermischung geschuetzt.",
         "Rollback und Baseline-Fallback werden in E2E-Tests unter laufender Last geprueft."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-030",
@@ -1194,7 +1207,7 @@
         "Unsloth validiert Dataset, Base Model, Lizenz, Hardware und Promotion weiterhin eigenstaendig.",
         "PII-, Secret-, Duplicate-, Poisoning- und Lizenzchecks laufen vor dem Handoff erneut."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-031",
@@ -1225,7 +1238,7 @@
         "Listen- und Detailendpunkte sind tenantisoliert, paginiert und bounded.",
         "Fehlercodes und Beispiele sind in OpenAPI- und CLI-Dokumentation abgedeckt."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-032",
@@ -1255,7 +1268,7 @@
         "Promotion und Rollback besitzen getrennte Bestätigungsdialoge mit Zielscope und Registry-Revision.",
         "Frontend-Unit-, Accessibility- und Browser-E2E-Tests decken Happy Path, Cancel, Failure, Promotion und Rollback ab."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-033",
@@ -1286,7 +1299,7 @@
         "Dashboards und Alerts fuer stuck jobs, Kostenanstieg, Error-Rate, Policy-Verstoesse und Promotionfehler sind definiert.",
         "Logging-Tests pruefen Redaction gegen typische API-Key-, Authorization-, Prompt- und Quellcode-Leaks."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-034",
@@ -1318,7 +1331,7 @@
         "Cross-Tenant-, Replay-, Stale-Attempt-, Cache-, Path-Traversal-, Symlink-, Poisoning- und Promotion-Angriffe besitzen negative Tests.",
         "Ein Security-Gate prueft Dependency-Vulnerabilities, SBOM, Containerrechte, Secrets und verbotene Imports vor Release."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-035",
@@ -1349,7 +1362,7 @@
         "Tests laufen ohne Netzwerk, DSPy-Dependency im Core, externe Modelle, GPU oder Qdrant.",
         "Coverage-Gates konzentrieren sich auf Authorization, Budget, Serialization, Tenant-Isolation und Promotion."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-036",
@@ -1383,7 +1396,7 @@
         "Canary und Shadow beweisen fehlende Seiteneffekte sowie sicheren Baseline-Fallback.",
         "Echte Provider-, Performance- oder Produktionsclaims bleiben ohne bereitgestellte RUN_* Evidenz unverified."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-037",
@@ -1413,7 +1426,7 @@
         "Schema-, Unit-, Security-, Integration- und deterministische E2E-Suites muessen vor Release bestehen.",
         "Release-Artefakte enthalten keine Datasets, Roh-Prompts, Caches, Credentials oder lokale Run-Ausgaben."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-038",
@@ -1447,7 +1460,7 @@
         "Runbook deckt stuck job, Budgetabbruch, Providerfehler, Cache, inkompatibles Artefakt, Canary-Stop und Rollback ab.",
         "Upgrade- und Exit-Anleitung beschreibt DSPy-Versionwechsel sowie native Nutzung exportierter PromptProgramme."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-039",
@@ -1481,12 +1494,12 @@
         "Breaking Changes fuehren zu capability_degraded oder blocked statt stiller Verhaltensaenderung.",
         "Rollback auf den vorherigen Dependency-Lock und vorherige Worker-Images ist dokumentiert und getestet."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0
     },
     {
       "id": "DSPY-040",
       "title": "Produktionsabnahme mit Evidenzpaket und kontrolliertem Rollout abschliessen",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "type": "release",
@@ -1514,7 +1527,8 @@
         "Promotion wird explizit bestaetigt; automatische Vollaktivierung bleibt ausgeschlossen.",
         "Release-Claims werden nur mit bereitgestellten SRC_* und RUN_* IDs als verified markiert; andernfalls bleibt der Track partial oder blocked."
       ],
-      "progress_percent": 0
+      "progress_percent": 0.0,
+      "blocked_reason": "Keine assignment-bound SRC_*- und RUN_*-Evidence fuer Upstream, Runtime, Qualitaet, Security, Kosten und Rollback vorhanden."
     }
   ],
   "critical_path_tasks": [
@@ -1556,13 +1570,13 @@
   "tasks_status_summary": {
     "total": 40,
     "by_status": {
-      "todo": 40,
+      "todo": 38,
       "in_progress": 0,
       "partial": 0,
-      "blocked": 0,
+      "blocked": 2,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 27,
       "P1": 13,
@@ -1590,31 +1604,241 @@
   "tasks_type_summary": {
     "total": 40,
     "by_type": {
-      "analysis": 1,
-      "architecture": 5,
-      "security": 5,
-      "contract": 2,
-      "dependency": 1,
-      "configuration": 1,
-      "integration": 13,
-      "runtime": 1,
-      "governance": 2,
-      "api": 1,
-      "frontend": 1,
-      "observability": 1,
-      "testing": 2,
-      "release": 2,
-      "documentation": 1,
-      "compatibility": 1
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 1,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 15.0
+      },
+      "architecture": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "contract": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "dependency": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "configuration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 13,
+        "by_status": {
+          "todo": 13,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "runtime": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "governance": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "api": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "frontend": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "observability": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "testing": {
+        "total": 2,
+        "by_status": {
+          "todo": 2,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "release": {
+        "total": 2,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 1,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 0.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "compatibility": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
-    "state": "not_started",
-    "todo_remaining": 40,
+    "state": "todo",
+    "todo_remaining": 38,
     "in_progress": 0,
     "partial": 0,
-    "blocked": 0,
-    "done": 0
+    "blocked": 2,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 0.4
   },
   "execution_stage_summary": {
     "current_stage": "planning",
@@ -1652,5 +1876,82 @@
         "Erst danach MIPROv2, GEPA, UI-Ausbau und Unsloth-Handoff aktivieren."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 72.0,
+    "done_weight": 0.3,
+    "remaining_weight": 71.7,
+    "blocked_weight": 3.5,
+    "weighted_percent": 0.4
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 1,
+        "count_based_percent": 0.0,
+        "weighted_percent": 4.6,
+        "status": "todo"
+      },
+      "M2": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M3": {
+        "total_tasks": 8,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M4": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M5": {
+        "total_tasks": 7,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M6": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "M7": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 1,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-29T13:32:42.053126Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "7a95845285487ecdda9f521fb3e9c43f074d00ef42731e79446517ad922575cb",
+    "is_stale": false
+  }
 }
