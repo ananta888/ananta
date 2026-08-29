@@ -4,29 +4,29 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ml-intern-dendritic-memory-experiment-workbench",
   "created": "2026-07-18",
-  "updated": "2026-08-21",
+  "updated": "2026-08-29",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@28b04d107527641d924cc9b3c597740f44766f7a plus working tree inspected on 2026-08-21",
+    "reviewed_commit_range": "760935fa38bf5796f8216ffbf0110d93efaf614e",
     "review_goal": "Dendritic-Memory-Experimenttrack gegen den aktuellen ml_intern-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
-    "release_status": "blocked_missing_implementation_and_run_evidence",
-    "grounding_note": "Im aktuellen Quellbaum wurden keine Dendritic-Memory-Produktionskomponenten oder Evidenzbindungen gefunden. Externe Inspiration und praktische Release-, GPU-, Staging-, Security- und Benchmarkaussagen bleiben ohne bereitgestellte SRC_* beziehungsweise RUN_* IDs unverified.",
+    "release_status": "blocked_missing_assignment_evidence_and_dendritic_implementation",
+    "grounding_note": "Im aktuellen Quellbaum wurden weiterhin keine Dendritic-Memory-Produktionskomponenten oder Evidenzbindungen gefunden. Wiederverwendbare ml_intern-Control-Plane-, Worker-, Registry-, Evaluations- und Angular-Seams existieren, erfuellen aber die dendritischen Contracts und Gates noch nicht. Externe Inspiration und praktische Release-, GPU-, Staging-, Security- und Benchmarkaussagen bleiben ohne bereitgestellte SRC_* beziehungsweise RUN_* IDs unverified.",
     "blocked_audit": {
-      "date": "2026-08-21",
+      "date": "2026-08-29",
       "status": "blocked",
       "reason_codes": [
-        "dendritic_implementation_absent",
+        "dendritic_specific_implementation_absent",
         "allowed_source_refs_empty",
         "allowed_run_refs_empty",
         "required_complex_release_runs_not_grounded"
       ],
       "unverified_navigation_observations": [
-        "No dendritic_memory production namespace, contract, schema, Worker backend, Memory Pack registry, frontend integration, or test was found.",
-        "The current TODO has no later implementation commit after its original addition.",
-        "The existing ml_intern LoRA path remains a review target and must not be semantically overloaded by an ungrounded experiment."
+        "No dendritic_memory production namespace, contract, schema, Worker backend, Memory Pack registry, frontend integration, or test exists at reviewed commit 760935fa38bf5796f8216ffbf0110d93efaf614e.",
+        "Reusable ml_intern infrastructure now includes strict Hub-owned job, Worker transport, artifact, evaluation, registry, migration and Angular seams.",
+        "The existing ml_intern LoRA path must remain backward-compatible and must not be semantically overloaded by the experiment."
       ],
       "required_unblock_input": "Hub-provided SRC_* refs for any external architecture, dependency and license claims, plus assignment-bound RUN_* refs for the required security, benchmark, GPU/staging, rollback, revoke and deletion gates."
     },
@@ -42,9 +42,24 @@
     ]
   },
   "priority": "P0",
-  "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
-  "priority_scale": ["P0", "P1", "P2"],
-  "risk_scale": ["low", "medium", "high", "critical"],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "Einen klar gekennzeichneten, standardmaessig deaktivierten Experimentierbaukasten fuer dendritische beziehungsweise branchende parameterbasierte Memory-Module in die bestehende ml-intern Trainingsplattform integrieren. Ziel ist nicht, die Aussagen des referenzierten Videos zu uebernehmen, sondern sie als falsifizierbare Hypothesen mit denselben Hub-, Worker-, Dataset-, Audit-, Evaluation-, Registry- und Rollback-Grenzen wie bestehendes LoRA/QLoRA zu untersuchen.",
   "goal": "Administratoren koennen auf lokalen Open-Weight-Modellen reproduzierbare dendritische Memory-Experimente konfigurieren, trainieren, gegen Basismodell und parameterbudget-gematchtes LoRA vergleichen, als getrennte Memory Packs verwalten, kontrolliert kombinieren und wieder entfernen. Das Feature bleibt experimentell, produktionsgesperrt und vollstaendig auditierbar.",
   "external_inspiration": {
@@ -61,33 +76,46 @@
   "current_state_findings": [
     {
       "status": "verified",
-      "finding": "Der bestehende v2-Contract erlaubt nur die Jobtypen dataset_validate, train_lora, evaluate_lora, register_adapter, export_adapter und merge_adapter_optional; Backends sind mock, peft_trl und unsloth; Methoden sind lora oder qlora.",
-      "evidence_paths": ["agent/services/ml_intern_training_contract.py"]
+      "finding": "Der bestehende v2-Contract erlaubt weiterhin nur die Jobtypen dataset_validate, train_lora, evaluate_lora, register_adapter, export_adapter und merge_adapter_optional. Seine Backend-Allowlist umfasst inzwischen AutoTrain, Axolotl, LlamaFactory, Mock, Needle, PEFT/TRL, TorchTune und mehrere Unsloth-Varianten; Methoden bleiben lora oder qlora.",
+      "evidence_paths": [
+        "agent/services/ml_intern_training_contract.py"
+      ]
     },
     {
       "status": "verified",
       "finding": "Der Hub-Worker-Port ist aktuell explizit auf den versionierten Contract ananta.lora-training.v1 und den internen Pfad /internal/v1/lora-training begrenzt.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"]
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ]
     },
     {
       "status": "verified",
       "finding": "Der Worker-Port erzwingt exakte Endpoint-Allowlist, private Adressaufloesung, Bearer-Token, Response-/Artefaktlimits, Tenant-Scope-Digest, Attempt-ID und Fencing-Token.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"]
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ]
     },
     {
       "status": "verified",
       "finding": "Der Hub importiert im Livepfad keine ML-Runtime; reales Training wird an einen isolierten Worker delegiert.",
-      "evidence_paths": ["docs/ml-intern-lora-finetuning.md"]
+      "evidence_paths": [
+        "docs/ml-intern-lora-finetuning.md"
+      ]
     },
     {
       "status": "verified",
       "finding": "Das Angular-Feature /model-training besitzt bereits Dataset-, Wizard-, Jobmonitor-, Evaluation- und Adapterbereiche und spricht ausschliesslich mit Hub-APIs.",
-      "evidence_paths": ["frontend-angular/src/app/features/model-training/README.md"]
+      "evidence_paths": [
+        "frontend-angular/src/app/features/model-training/README.md"
+      ]
     },
     {
       "status": "verified",
       "finding": "Bestehende Architektur weist Admission, Idempotenz, Tenantbindung, Queue, Audit, Approval und Runtime-Routing dem Hub zu; der Worker fuehrt nur materialisierte Auftraege aus.",
-      "evidence_paths": ["docs/ml-intern-lora-finetuning.md", "docs/ml-intern-adapter-boundary.md"]
+      "evidence_paths": [
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/ml-intern-adapter-boundary.md"
+      ]
     }
   ],
   "core_decisions": [
@@ -97,8 +125,9 @@
     "Basismodell bleibt standardmaessig eingefroren.",
     "Memory Packs werden als nicht vertrauenswuerdige experimentelle Artefakte behandelt.",
     "Base-vs-LoRA-vs-Experiment ist verpflichtender Vergleich.",
-    "Keine Produktionsaktivierung ohne spaetere separate Architektur- und Sicherheitsentscheidung.",
-    "UI, API und Reports muessen Experimentalstatus dauerhaft sichtbar halten."
+    "Keine Produktionsaktivierung ohne positive, deterministische Architektur-, Sicherheits- und Runtime-Gates.",
+    "UI, API und Reports muessen Experimentalstatus dauerhaft sichtbar halten.",
+    "Tests und produktive Automatisierung duerfen niemals eine menschliche Freigabe, Checkbox oder manuelle Bestaetigung voraussetzen."
   ],
   "non_goals": [
     "Keine Behauptung einer biologisch korrekten Neuronensimulation.",
@@ -106,31 +135,140 @@
     "Kein automatischer Download von Modellen, Code oder Trainingsdaten.",
     "Keine Ausfuehrung beliebigen Python-Codes aus Experimentkonfigurationen.",
     "Keine Worker-zu-Worker-Orchestrierung.",
-    "Keine automatische Freigabe oder Runtime-Aktivierung.",
+    "Keine ungepruefte Freigabe oder Runtime-Aktivierung; ein vollautomatischer Pfad nach allen deterministischen Hub-Gates bleibt Pflicht.",
     "Kein Ersatz von RAG, CodeCompass oder externem Wissensspeicher.",
     "Keine gemeinsame Registry-Semantik, die Memory Packs als normale LoRA-Adapter tarnt."
   ],
   "milestones": [
-    {"id": "M0", "title": "Governance und Forschungsgrenze", "exit_criteria": ["Terminologie, ADR und Threat Model akzeptiert"]},
-    {"id": "M1", "title": "Versionierte Contracts und Persistenz", "exit_criteria": ["API-, Capability-, Worker- und DB-Vertraege sind kompatibel und getestet"]},
-    {"id": "M2", "title": "Isolierter Experiment-Worker und Artefakte", "exit_criteria": ["Mock und reale Referenzimplementierung erzeugen sichere Memory Packs"]},
-    {"id": "M3", "title": "Falsifizierbare Benchmarks", "exit_criteria": ["Vergleich, Interferenz, Leakage und Ressourcenmessung sind reproduzierbar"]},
-    {"id": "M4", "title": "Registry, Komposition und Runtime-Gates", "exit_criteria": ["Lifecycle, Revoke, Compose und optionaler Runtimepfad sind fail-closed"]},
-    {"id": "M5", "title": "Angular Control Center", "exit_criteria": ["Wizard, Monitor, Reports und Packverwaltung sind typisiert und klar experimentell"]},
-    {"id": "M6", "title": "Test-, Migrations- und Sicherheitsgates", "exit_criteria": ["Unit, Integration, E2E, Migration und Rollback sind gruen"]},
-    {"id": "M7", "title": "Dokumentation und Releaseentscheidung", "exit_criteria": ["Runbook, Grenzen und Release-Gate sind vollstaendig"]}
+    {
+      "id": "M0",
+      "title": "Governance und Forschungsgrenze",
+      "task_ids": [
+        "DEND-001",
+        "DEND-002",
+        "DEND-003"
+      ],
+      "exit_criteria": [
+        "Terminologie, ADR und Threat Model akzeptiert"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M1",
+      "title": "Versionierte Contracts und Persistenz",
+      "task_ids": [
+        "DEND-010",
+        "DEND-011",
+        "DEND-012",
+        "DEND-013",
+        "DEND-014"
+      ],
+      "exit_criteria": [
+        "API-, Capability-, Worker- und DB-Vertraege sind kompatibel und getestet"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M2",
+      "title": "Isolierter Experiment-Worker und Artefakte",
+      "task_ids": [
+        "DEND-020",
+        "DEND-021",
+        "DEND-022",
+        "DEND-023",
+        "DEND-024",
+        "DEND-025"
+      ],
+      "exit_criteria": [
+        "Mock und reale Referenzimplementierung erzeugen sichere Memory Packs"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M3",
+      "title": "Falsifizierbare Benchmarks",
+      "task_ids": [
+        "DEND-030",
+        "DEND-031",
+        "DEND-032",
+        "DEND-033",
+        "DEND-034"
+      ],
+      "exit_criteria": [
+        "Vergleich, Interferenz, Leakage und Ressourcenmessung sind reproduzierbar"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M4",
+      "title": "Registry, Komposition und Runtime-Gates",
+      "task_ids": [
+        "DEND-040",
+        "DEND-041",
+        "DEND-042",
+        "DEND-043"
+      ],
+      "exit_criteria": [
+        "Lifecycle, Revoke, Compose und optionaler Runtimepfad sind fail-closed"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M5",
+      "title": "Angular Control Center",
+      "task_ids": [
+        "DEND-050",
+        "DEND-051",
+        "DEND-052",
+        "DEND-053"
+      ],
+      "exit_criteria": [
+        "Wizard, Monitor, Reports und Packverwaltung sind typisiert und klar experimentell"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M6",
+      "title": "Test-, Migrations- und Sicherheitsgates",
+      "task_ids": [
+        "DEND-060",
+        "DEND-061",
+        "DEND-062",
+        "DEND-063"
+      ],
+      "exit_criteria": [
+        "Unit, Integration, E2E, Migration und Rollback sind gruen"
+      ],
+      "status": "in_progress"
+    },
+    {
+      "id": "M7",
+      "title": "Dokumentation und Releaseentscheidung",
+      "task_ids": [
+        "DEND-070",
+        "DEND-071"
+      ],
+      "exit_criteria": [
+        "Runbook, Grenzen und Release-Gate sind vollstaendig"
+      ],
+      "status": "todo"
+    }
   ],
   "tasks": [
     {
       "id": "DEND-001",
       "title": "Experimentgrenze und Terminologie festschreiben",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 20.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M0",
       "depends_on": [],
       "description": "Die Funktion als experimentellen Forschungsbaukasten definieren. Marketingbegriffe aus dem Video werden nicht als verifizierte Architekturwahrheiten uebernommen.",
-      "evidence_paths": ["docs/ml-intern-lora-finetuning.md", "docs/ml-intern-adapter-boundary.md"],
+      "evidence_paths": [
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/ml-intern-adapter-boundary.md"
+      ],
       "acceptance_criteria": [
         "Eine neue Dokumentation bezeichnet Dendron/Dentatron nur als externe Inspiration beziehungsweise Hypothese.",
         "UI, API und Artefakte verwenden den neutralen internen Namen dendritic_memory_experiment.",
@@ -143,13 +281,19 @@
     {
       "id": "DEND-002",
       "title": "ADR fuer additive Backend-Architektur erstellen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M0",
-      "depends_on": ["DEND-001"],
+      "depends_on": [
+        "DEND-001"
+      ],
       "description": "Eine Architecture Decision Record beschreibt die Erweiterung als neuen Job- und Artefakttyp hinter bestehenden Hub-/Worker-Grenzen.",
-      "evidence_paths": ["docs/ml-intern-adapter-boundary.md", "agent/services/ml_intern_training_worker_port.py"],
+      "evidence_paths": [
+        "docs/ml-intern-adapter-boundary.md",
+        "agent/services/ml_intern_training_worker_port.py"
+      ],
       "acceptance_criteria": [
         "ADR dokumentiert Hub-Eigentum fuer Admission, Policy, Idempotenz, Audit, Approval und Routing.",
         "Worker bleiben reine Ausfuehrer und orchestrieren keine weiteren Worker.",
@@ -162,17 +306,23 @@
     {
       "id": "DEND-003",
       "title": "Threat Model und Missbrauchsgrenzen ergaenzen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 15.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M0",
-      "depends_on": ["DEND-001"],
+      "depends_on": [
+        "DEND-001"
+      ],
       "description": "Bedrohungen fuer trainierbare Memory Packs, Datenabfluss, versteckte Faehigkeiten, Pack-Stacking und Artefaktmanipulation modellieren.",
-      "evidence_paths": ["agent/services/ml_intern_artifact_security_service.py", "docs/operations/lora-training.md"],
+      "evidence_paths": [
+        "agent/services/ml_intern_artifact_security_service.py",
+        "docs/operations/lora-training.md"
+      ],
       "acceptance_criteria": [
         "Threat Model behandelt Poisoning, Cross-Tenant-Zugriff, unautorisierte Pack-Aktivierung, Zip-Bomben, Pfadtraversal und Modellgewichts-Manipulation.",
         "Memory Packs werden wie nicht vertrauenswuerdige Adapter behandelt und vor Registrierung gehasht, begrenzt und geprueft.",
-        "Kein Pack darf ohne explizites Approval in eine Runtime-Route gelangen.",
+        "Kein Pack darf ohne eine positive, revisionsgebundene Hub-Policy-Entscheidung in eine Runtime-Route gelangen; diese Entscheidung muss nach allen Gates vollautomatisch moeglich sein.",
         "Trainingsbeispiele, Secrets oder personenbezogene Rohdaten erscheinen nicht in Events oder Auditlogs.",
         "Negative Sicherheitstests werden als verpflichtende Gates benannt."
       ],
@@ -181,13 +331,19 @@
     {
       "id": "DEND-010",
       "title": "Training-Contract v3 entwerfen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M1",
-      "depends_on": ["DEND-002"],
+      "depends_on": [
+        "DEND-002"
+      ],
       "description": "Den bestehenden CreateTrainingJobCommand additiv erweitern oder einen separaten v3-Command einfuehren, ohne v2-Clients zu brechen.",
-      "evidence_paths": ["agent/services/ml_intern_training_contract.py", "docs/contracts/mlintern-training-job.schema.json"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_contract.py",
+        "docs/contracts/mlintern-training-job.schema.json"
+      ],
       "acceptance_criteria": [
         "Bestehende Konstanten JOB_TYPES, BACKENDS, MODES und v2-Validierung bleiben fuer alte Requests kompatibel.",
         "Neue Jobtypen umfassen mindestens train_dendritic_memory, evaluate_dendritic_memory und compose_dendritic_memory.",
@@ -196,7 +352,9 @@
         "Request-Digests bleiben kanonisch und idempotent.",
         "Contract-Tests decken alte und neue Payloads sowie Downgrade-/Unknown-Field-Faelle ab."
       ],
-      "test_gates": ["pytest tests/test_ml_intern_training_contract_v2.py"]
+      "test_gates": [
+        "pytest tests/test_ml_intern_training_contract_v2.py"
+      ]
     },
     {
       "id": "DEND-011",
@@ -205,9 +363,13 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M1",
-      "depends_on": ["DEND-010"],
+      "depends_on": [
+        "DEND-010"
+      ],
       "description": "Ein eigenes Schema fuer Branches, Routing, Ziel-Layer, Readout, Pack-Groesse und Trainingsgrenzen definieren.",
-      "evidence_paths": ["agent/services/ml_intern_training_contract.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_contract.py"
+      ],
       "acceptance_criteria": [
         "Konfiguration besitzt eine eigene experiment_config-Struktur mit expliziter Schemaversion.",
         "Zulaessige Felder sind allowlist-basiert; freie Python-Klassen, Importpfade oder Code-Strings sind verboten.",
@@ -216,18 +378,25 @@
         "Seed, Precision, Device-Profil und deterministische Modi werden explizit gespeichert.",
         "Ungueltige Kombinationen liefern stabile Reason-Codes statt stiller Defaults."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-012",
       "title": "Capability-Profil fuer experimentelle Backends erweitern",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M1",
-      "depends_on": ["DEND-010"],
+      "depends_on": [
+        "DEND-010"
+      ],
       "description": "Capabilities sollen getrennt ausweisen, ob das Experiment verfuegbar, kompiliert, GPU-kompatibel und administrativ freigeschaltet ist.",
-      "evidence_paths": ["agent/routes/ml_intern_training.py", "docs/ml-intern-capability-profile.md"],
+      "evidence_paths": [
+        "agent/routes/ml_intern_training.py",
+        "docs/ml-intern-capability-profile.md"
+      ],
       "acceptance_criteria": [
         "GET /api/ml-intern-training/capabilities liefert einen eigenen experimentellen Capability-Block.",
         "Fehlende optionale Dependencies ergeben available=false plus Reason-Code und keinen Serverfehler.",
@@ -240,13 +409,19 @@
     {
       "id": "DEND-013",
       "title": "Worker-Contract separat versionieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 15.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M1",
-      "depends_on": ["DEND-010", "DEND-011"],
+      "depends_on": [
+        "DEND-010",
+        "DEND-011"
+      ],
       "description": "Fuer experimentelle Jobs einen eigenen internen Worker-Endpunkt und Envelope definieren.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ],
       "acceptance_criteria": [
         "Der neue Contract verwendet eine neue Versionskennung und einen getrennten internen Basispfad.",
         "Status-, Event- und Artefaktfelder sind allowlist-basiert wie im bestehenden Worker-Port.",
@@ -260,13 +435,20 @@
     {
       "id": "DEND-014",
       "title": "Repository- und DB-Projektion additiv erweitern",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M1",
-      "depends_on": ["DEND-010"],
+      "depends_on": [
+        "DEND-010"
+      ],
       "description": "Experiment-Metadaten persistieren, ohne bestehende Tabellenfelder umzudeuten.",
-      "evidence_paths": ["agent/db_models/ml_intern_training.py", "agent/repositories/ml_intern_training.py", "agent/services/ml_intern_training_repository_port.py"],
+      "evidence_paths": [
+        "agent/db_models/ml_intern_training.py",
+        "agent/repositories/ml_intern_training.py",
+        "agent/services/ml_intern_training_repository_port.py"
+      ],
       "acceptance_criteria": [
         "Migration ist additiv und besitzt einen getesteten Downgrade-Pfad.",
         "Job-Spezifikation speichert Experiment-Schemaversion, jedoch keine unbounded Rohobjekte.",
@@ -274,7 +456,9 @@
         "Bestehende LoRA-Jobs lassen sich nach Migration unveraendert lesen.",
         "Repository-Tests pruefen Isolation, Idempotenz, Fremdschluessel und konkurrierende Updates."
       ],
-      "test_gates": ["pytest tests/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"]
+      "test_gates": [
+        "pytest tests/test_ml_intern_training_migration.py tests/test_ml_intern_training_repository.py"
+      ]
     },
     {
       "id": "DEND-020",
@@ -283,9 +467,13 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M2",
-      "depends_on": ["DEND-013"],
+      "depends_on": [
+        "DEND-013"
+      ],
       "description": "Ein enges Python-Protokoll fuer Prepare, Train, Evaluate, Export und Compose definieren.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ],
       "acceptance_criteria": [
         "Port akzeptiert nur materialisierte, validierte Inputs und gibt typisierte Ergebnisse zurueck.",
         "Port kennt keine Hub-Repository-, Approval- oder Routing-Services.",
@@ -294,7 +482,8 @@
         "Timeout, Cancellation und Checkpointing sind Teil des Ports.",
         "Unit-Tests pruefen, dass unbekannte Backends fail-closed abgelehnt werden."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-021",
@@ -303,9 +492,13 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M2",
-      "depends_on": ["DEND-020"],
+      "depends_on": [
+        "DEND-020"
+      ],
       "description": "Eine kleine, klar begrenzte Referenzkomponente mit Branch-Projektionen, Routing und Readout bereitstellen.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ],
       "acceptance_criteria": [
         "Implementierung liegt ausschliesslich im isolierten Training-Worker beziehungsweise dessen ML-Runtime.",
         "Keine Torch-/Transformers-Imports gelangen in den Hub-Livepfad.",
@@ -314,7 +507,8 @@
         "Parameterzahl und trainierbare Parameter werden exakt berichtet.",
         "NaN/Inf, OOM und ungueltige Shapes erzeugen stabile Fehlerkategorien."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-022",
@@ -323,9 +517,14 @@
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
-      "depends_on": ["DEND-021", "DEND-011"],
+      "depends_on": [
+        "DEND-021",
+        "DEND-011"
+      ],
       "description": "Das Modul nur an explizit zugelassenen Transformer-Layern einsetzen.",
-      "evidence_paths": ["agent/services/ml_intern_training_worker_port.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_worker_port.py"
+      ],
       "acceptance_criteria": [
         "Basismodell wird ausschliesslich aus dem vorhandenen read-only Modellkatalog geladen.",
         "Keine Remote-Code-Ausfuehrung und kein trust_remote_code=true ohne separate Policy.",
@@ -334,7 +533,8 @@
         "Originalgewichte bleiben standardmaessig eingefroren und werden nach dem Lauf hashbasiert auf Unveraendertheit geprueft.",
         "Injection und vollstaendiges Unpatching werden in Tests nachgewiesen."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-023",
@@ -343,9 +543,14 @@
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
-      "depends_on": ["DEND-021"],
+      "depends_on": [
+        "DEND-021"
+      ],
       "description": "Ein portables, pruefbares Artefakt aus Safetensors plus Manifest erzeugen.",
-      "evidence_paths": ["agent/services/ml_intern_artifact_security_service.py", "agent/services/ml_intern_adapter_registry_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_artifact_security_service.py",
+        "agent/services/ml_intern_adapter_registry_service.py"
+      ],
       "acceptance_criteria": [
         "Gewichte werden als safetensors gespeichert; Pickle-basierte Formate sind im Produktpfad verboten.",
         "Manifest enthaelt Base-Model-ID und Snapshot-Hash, Architekturversion, Ziel-Layer, Parameterzahl, Dataset-/Split-Hashes, Seed und Metriken.",
@@ -354,18 +559,25 @@
         "Import lehnt fehlende Dateien, Hashabweichungen, unbekannte Architekturversionen und Basismodell-Mismatch ab.",
         "Artefakt kann ohne absolute Serverpfade exportiert und wieder importiert werden."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-024",
       "title": "Mock-Backend fuer vollstaendige Control-Plane-Tests",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M2",
-      "depends_on": ["DEND-020", "DEND-023"],
+      "depends_on": [
+        "DEND-020",
+        "DEND-023"
+      ],
       "description": "Deterministische Mock-Ausfuehrung fuer UI, API, Events, Registry und Rollback erstellen.",
-      "evidence_paths": ["tests/e2e/test_lora_training_control_center_mock.py"],
+      "evidence_paths": [
+        "tests/e2e/test_lora_training_control_center_mock.py"
+      ],
       "acceptance_criteria": [
         "Mock erzeugt reproduzierbare Progress-, Checkpoint-, Metric- und Artifact-Events.",
         "Mock benoetigt keine GPU und keine Modellgewichte.",
@@ -378,13 +590,20 @@
     {
       "id": "DEND-025",
       "title": "Cancellation, Checkpoint und Resume absichern",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M2",
-      "depends_on": ["DEND-020"],
+      "depends_on": [
+        "DEND-020"
+      ],
       "description": "Die bestehenden Job-/Attempt-/Fencing-Regeln auf Experimentjobs uebertragen.",
-      "evidence_paths": ["agent/services/ml_intern_training_job_service.py", "agent/services/ml_intern_training_reconciliation_service.py", "agent/services/background/ml_intern_training_reconciler.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_job_service.py",
+        "agent/services/ml_intern_training_reconciliation_service.py",
+        "agent/services/background/ml_intern_training_reconciler.py"
+      ],
       "acceptance_criteria": [
         "Cancel-Request wird monotonic verarbeitet und von veralteten Attempts nicht ueberschrieben.",
         "Checkpoint enthaelt Job-, Attempt-, Fencing-, Modell- und Konfigurationsbindung.",
@@ -398,13 +617,19 @@
     {
       "id": "DEND-030",
       "title": "Benchmark-Suite und Baselines definieren",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M3",
-      "depends_on": ["DEND-021"],
+      "depends_on": [
+        "DEND-021"
+      ],
       "description": "Die Video-Claims als falsifizierbare Hypothesen gegen etablierte Baselines testen.",
-      "evidence_paths": ["agent/services/ml_intern_evaluation_store_service.py", "tests/test_ml_intern_lora_eval_integration.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_evaluation_store_service.py",
+        "tests/test_ml_intern_lora_eval_integration.py"
+      ],
       "acceptance_criteria": [
         "Jeder Lauf vergleicht mindestens Basismodell, parameterbudget-gematchtes LoRA und dendritisches Modul.",
         "Datensplits sind deterministisch, disjunkt und ueber Hashes nachvollziehbar.",
@@ -422,9 +647,14 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M3",
-      "depends_on": ["DEND-030", "DEND-023"],
+      "depends_on": [
+        "DEND-030",
+        "DEND-023"
+      ],
       "description": "Mehrere Packs in variierter Reihenfolge trainieren, laden und kombinieren.",
-      "evidence_paths": ["agent/services/ml_intern_evaluation_store_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_evaluation_store_service.py"
+      ],
       "acceptance_criteria": [
         "Tests messen Forward Transfer, Backward Transfer, Forgetting und Interferenz.",
         "Pack-Reihenfolge wird permutiert und als Variable protokolliert.",
@@ -433,18 +663,24 @@
         "Ein fehlerhaftes Pack darf nicht die uebrige Komposition aktivieren.",
         "Ergebnisse enthalten Konfidenzintervalle oder mehrere Seeds statt nur Bestwerte."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-032",
       "title": "Recall-, Generalisierungs- und Leakage-Pruefung",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M3",
-      "depends_on": ["DEND-030"],
+      "depends_on": [
+        "DEND-030"
+      ],
       "description": "Nahezu perfekter Recall darf nicht mit Auswendiglernen oder Datensatz-Leakage verwechselt werden.",
-      "evidence_paths": ["agent/services/ml_intern_dataset_repository_bridge_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_dataset_repository_bridge_service.py"
+      ],
       "acceptance_criteria": [
         "Exakte und normalisierte Duplikate zwischen Train und Validation werden verhindert.",
         "Paraphrasierte, strukturell neue und Out-of-Distribution-Beispiele werden getrennt geprueft.",
@@ -458,13 +694,18 @@
     {
       "id": "DEND-033",
       "title": "Compute-, Speicher- und Latenzbudget messen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M3",
-      "depends_on": ["DEND-030"],
+      "depends_on": [
+        "DEND-030"
+      ],
       "description": "Den Nutzen gegen Parameterzahl, VRAM, RAM, Laufzeit und Inferenzlatenz bewerten.",
-      "evidence_paths": ["docs/operations/lora-training.md"],
+      "evidence_paths": [
+        "docs/operations/lora-training.md"
+      ],
       "acceptance_criteria": [
         "Parameterbudget wird gegen LoRA fair gematcht oder Abweichung transparent ausgewiesen.",
         "Peak-VRAM, Host-RAM, Trainingsdauer, Artefaktgroesse und Tokens/s werden erfasst.",
@@ -478,13 +719,18 @@
     {
       "id": "DEND-034",
       "title": "Reproduzierbarkeit und Ergebnisprovenienz",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M3",
-      "depends_on": ["DEND-030"],
+      "depends_on": [
+        "DEND-030"
+      ],
       "description": "Jedes Experiment muss auf Modell-, Code-, Daten- und Konfigurationsstand zurueckfuehrbar sein.",
-      "evidence_paths": ["agent/services/ml_intern_training_result_publisher.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_result_publisher.py"
+      ],
       "acceptance_criteria": [
         "Report enthaelt Repository-Revision, Worker-Image-Digest, Dependency-Lock-Hash und CUDA-/Torch-Version.",
         "Base-Model-Snapshot, Dataset-Splits, Experimentkonfiguration und Seeds sind gehasht.",
@@ -498,13 +744,19 @@
     {
       "id": "DEND-040",
       "title": "Experiment-Registry vom produktiven Adapter-Lifecycle trennen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
-      "depends_on": ["DEND-023", "DEND-014"],
+      "depends_on": [
+        "DEND-023",
+        "DEND-014"
+      ],
       "description": "Memory Packs sollen verwaltet werden koennen, ohne als normale LoRA-Adapter zu erscheinen.",
-      "evidence_paths": ["agent/services/ml_intern_adapter_registry_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_adapter_registry_service.py"
+      ],
       "acceptance_criteria": [
         "Registry unterscheidet lora_adapter und experimental_memory_pack typisiert.",
         "Experimentartefakte koennen nicht durch bestehendes Adapter-Approval versehentlich produktiv werden.",
@@ -522,9 +774,14 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M4",
-      "depends_on": ["DEND-040", "DEND-031"],
+      "depends_on": [
+        "DEND-040",
+        "DEND-031"
+      ],
       "description": "Stacking/Komposition nicht als UI-seitiges Zusammenkopieren, sondern als validierten Job behandeln.",
-      "evidence_paths": ["agent/services/ml_intern_training_control_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_control_service.py"
+      ],
       "acceptance_criteria": [
         "Kompositionsrequest enthaelt geordnete Pack-IDs, erwartete Hashes, Basismodell und Policy.",
         "Alle Packs muessen denselben zugelassenen Basismodell-Snapshot und kompatible Architekturversionen besitzen.",
@@ -533,7 +790,8 @@
         "Ein Parent-Revoke verhindert neue Aktivierungen abgeleiteter Kompositionen.",
         "Kompositionsjob ist idempotent und auditierbar."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-042",
@@ -542,31 +800,43 @@
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
-      "depends_on": ["DEND-040", "DEND-041"],
+      "depends_on": [
+        "DEND-040",
+        "DEND-041"
+      ],
       "description": "Optionalen Inferenzpfad nur nach separater Freigabe und ausschliesslich lokal aktivieren.",
-      "evidence_paths": ["agent/routes/ml_intern_lora_runtime.py"],
+      "evidence_paths": [
+        "agent/routes/ml_intern_lora_runtime.py"
+      ],
       "acceptance_criteria": [
-        "Feature ist standardmaessig deaktiviert und benoetigt Serverkonfiguration plus Admin-Bestaetigung.",
+        "Feature ist standardmaessig deaktiviert und benoetigt Serverkonfiguration plus positive, revisionsgebundene Hub-Policy-Gates; kein Mensch ist fuer den Lauf erforderlich.",
         "Runtime prueft Modellhash, Packhash, Registrystatus und Capability vor dem Laden.",
-        "Keine automatische Aktivierung nach Training oder Evaluation.",
+        "Keine ungesteuerte Aktivierung nach Training oder Evaluation; automatische Aktivierung ist ausschliesslich nach allen positiven Gates erlaubt.",
         "Unload und Rollback entladen Module und geben Ressourcen nachweisbar frei.",
         "Fehler beim Laden fallen auf das unveraenderte Basismodell oder eine explizit konfigurierte sichere Route zurueck.",
         "LoRA-Runtime-Routen werden nicht still semantisch umgedeutet."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-043",
       "title": "Audit, Approval und Loeschung vollstaendig abbilden",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M4",
-      "depends_on": ["DEND-040"],
+      "depends_on": [
+        "DEND-040"
+      ],
       "description": "Entscheidungen und Artefaktlebenszyklus nachvollziehbar machen.",
-      "evidence_paths": ["agent/services/ml_intern_training_control_service.py", "agent/services/ml_intern_evaluation_store_service.py"],
+      "evidence_paths": [
+        "agent/services/ml_intern_training_control_service.py",
+        "agent/services/ml_intern_evaluation_store_service.py"
+      ],
       "acceptance_criteria": [
-        "Approval speichert Actor, Zeitpunkt, Scope, Begruendung, Report-ID und Artefakthash.",
+        "Die Freigabeentscheidung speichert Policy-Actor, Zeitpunkt, Scope, Reason-Code, Report-ID und Artefakthash; ein automatischer Policy-Actor ist zulaessig.",
         "Loeschung ist nur erlaubt, wenn keine aktive Route oder abhaengige Komposition besteht, oder erfolgt als geregelter Revoke/GC-Prozess.",
         "Auditlog enthaelt keine Trainingsbeispiele oder Geheimnisse.",
         "Cross-Tenant-IDs liefern keine Existenzinformationen.",
@@ -578,33 +848,49 @@
     {
       "id": "DEND-050",
       "title": "Angular-Wizard um Experimentalmodus erweitern",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M5",
-      "depends_on": ["DEND-012", "DEND-010"],
+      "depends_on": [
+        "DEND-012",
+        "DEND-010"
+      ],
       "description": "Den vorhandenen capability-gebundenen Trainingswizard erweitern, nicht duplizieren.",
-      "evidence_paths": ["frontend-angular/src/app/features/model-training/training-wizard", "frontend-angular/src/app/features/model-training/model-training-api.service.ts", "frontend-angular/src/app/features/model-training/model-training.facade.ts"],
+      "evidence_paths": [
+        "frontend-angular/src/app/features/model-training/training-wizard",
+        "frontend-angular/src/app/features/model-training/model-training-api.service.ts",
+        "frontend-angular/src/app/features/model-training/model-training.facade.ts"
+      ],
       "acceptance_criteria": [
         "Neue Auswahl erscheint nur bei serverseitig verfuegbarer Capability.",
         "Standard bleibt Dry-run und LoRA/QLoRA; Experimentalmodus ist nicht vorausgewaehlt.",
         "Warnhinweis nennt Forschungsstatus, fehlende Produktfreigabe und Ressourcenrisiken.",
         "Formularfelder werden aus typisierten Limits aufgebaut und client- sowie serverseitig validiert.",
-        "Live-Start verlangt Checkbox und begruendete Risikobestaetigung analog zum bestehenden Flow.",
+        "Der interaktive Live-Start darf eine Bestaetigung anbieten; API, Automation und Tests muessen denselben sicheren Lauf vollstaendig ohne menschliche Interaktion ausfuehren koennen.",
         "Worker-URL, Serverpfade und interne Dateinamen erscheinen in keinem Frontend-DTO."
       ],
-      "test_gates": ["cd frontend-angular && npm run test:unit && npm run build && npm run lint"]
+      "test_gates": [
+        "cd frontend-angular && npm run test:unit && npm run build && npm run lint"
+      ]
     },
     {
       "id": "DEND-051",
       "title": "Experimentuebersicht und Vergleichsreport in Angular",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M5",
-      "depends_on": ["DEND-030", "DEND-050"],
+      "depends_on": [
+        "DEND-030",
+        "DEND-050"
+      ],
       "description": "Base-, LoRA- und Experimentergebnisse verstaendlich und ohne ueberzogene Claims vergleichen.",
-      "evidence_paths": ["frontend-angular/src/app/features/model-training/evaluation"],
+      "evidence_paths": [
+        "frontend-angular/src/app/features/model-training/evaluation"
+      ],
       "acceptance_criteria": [
         "Report zeigt gleiche Datensplits, Parameterbudgets, Seeds und Hardwarekontext.",
         "Train-, Validation-, Transfer- und Leakage-Metriken werden getrennt visualisiert.",
@@ -618,17 +904,23 @@
     {
       "id": "DEND-052",
       "title": "Memory-Pack-Verwaltung in bestehender Adapter-Ansicht",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "high",
       "milestone_id": "M5",
-      "depends_on": ["DEND-040", "DEND-050"],
+      "depends_on": [
+        "DEND-040",
+        "DEND-050"
+      ],
       "description": "Die vorhandene Registry-Oberflaeche typisiert erweitern.",
-      "evidence_paths": ["frontend-angular/src/app/features/model-training/adapters"],
+      "evidence_paths": [
+        "frontend-angular/src/app/features/model-training/adapters"
+      ],
       "acceptance_criteria": [
         "Pack- und LoRA-Artefakte sind visuell und im DTO eindeutig getrennt.",
         "Erlaubte Aktionen richten sich nach serverseitigem Lifecycle und Capability.",
-        "Compose, Evaluate, Export, Revoke, Delete und Rollback verlangen Bestaetigung.",
+        "Compose, Evaluate, Export, Revoke, Delete und Rollback verlangen positive Hub-Policy-Gates; UI-Bestaetigungen sind optional und kein Laufzeit- oder Test-Erfordernis.",
         "Produktiv-Aktivieren ist fuer experimentelle Packs nicht verfuegbar, solange Policy dies verbietet.",
         "Hashes, Base-Model-Bindung und Parent-Provenienz sind einsehbar.",
         "Fehlgeschlagene Aktionen aktualisieren den Zustand aus dem Server und erfinden keinen lokalen Erfolg."
@@ -638,13 +930,20 @@
     {
       "id": "DEND-053",
       "title": "Jobmonitor um neue Phasen und Metriken erweitern",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 10.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M5",
-      "depends_on": ["DEND-013", "DEND-050"],
+      "depends_on": [
+        "DEND-013",
+        "DEND-050"
+      ],
       "description": "Bestehende SSE-/Polling-Logik wiederverwenden.",
-      "evidence_paths": ["frontend-angular/src/app/features/model-training/jobs", "frontend-angular/src/app/features/model-training/model-training-job-monitor.service.ts"],
+      "evidence_paths": [
+        "frontend-angular/src/app/features/model-training/jobs",
+        "frontend-angular/src/app/features/model-training/model-training-job-monitor.service.ts"
+      ],
       "acceptance_criteria": [
         "Neue Events sind monoton sequenziert und mit bestehenden Cursorregeln kompatibel.",
         "Branch-, Routing- oder Pack-Metriken werden nur aus allowlist-basierten Eventfeldern angezeigt.",
@@ -658,13 +957,23 @@
     {
       "id": "DEND-060",
       "title": "Unit- und Contract-Testmatrix vervollstaendigen",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 5.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M6",
-      "depends_on": ["DEND-010", "DEND-013", "DEND-020", "DEND-040"],
+      "depends_on": [
+        "DEND-010",
+        "DEND-013",
+        "DEND-020",
+        "DEND-040"
+      ],
       "description": "Alle neuen Contracts, Ports, Schemas und Lifecycle-Regeln mit gezielten Tests absichern.",
-      "evidence_paths": ["tests/test_ml_intern_training_contract_v2.py", "tests/test_ml_intern_training_worker_port.py", "tests/test_ml_intern_training_control_service.py"],
+      "evidence_paths": [
+        "tests/test_ml_intern_training_contract_v2.py",
+        "tests/test_ml_intern_training_worker_port.py",
+        "tests/test_ml_intern_training_control_service.py"
+      ],
       "acceptance_criteria": [
         "Bestehende v2-, LoRA- und Worker-Port-Tests bleiben gruen.",
         "Neue Tests pruefen gueltige und ungueltige Experimentpayloads, Reason-Codes und Grenzen.",
@@ -682,9 +991,15 @@
       "priority": "P0",
       "risk": "high",
       "milestone_id": "M6",
-      "depends_on": ["DEND-022", "DEND-023", "DEND-030"],
+      "depends_on": [
+        "DEND-022",
+        "DEND-023",
+        "DEND-030"
+      ],
       "description": "Ein reproduzierbarer CPU-/GPU-Integrationstest prueft echte Injektion, Training, Export, Import und Evaluation.",
-      "evidence_paths": ["tests/test_ml_intern_lora_eval_integration.py"],
+      "evidence_paths": [
+        "tests/test_ml_intern_lora_eval_integration.py"
+      ],
       "acceptance_criteria": [
         "Testmodell wird nur aus dem zugelassenen lokalen Modellkatalog verwendet und nicht automatisch heruntergeladen.",
         "Test ueberspringt sauber mit Reason, wenn optionale ML-Abhaengigkeiten oder Hardware fehlen.",
@@ -693,23 +1008,33 @@
         "Test vergleicht gegen eine parameterbudget-gematchte LoRA-Baseline.",
         "Artefakte werden nach Testende vollstaendig bereinigt."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-062",
       "title": "Angular E2E fuer vollstaendigen Experimentalfluss",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 5.0,
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M6",
-      "depends_on": ["DEND-024", "DEND-050", "DEND-052", "DEND-053"],
+      "depends_on": [
+        "DEND-024",
+        "DEND-050",
+        "DEND-052",
+        "DEND-053"
+      ],
       "description": "Dataset bis Revoke ueber Mock-Backend testen.",
-      "evidence_paths": ["frontend-angular/tests/model-training.spec.ts", "tests/e2e/test_lora_training_control_center_mock.py"],
+      "evidence_paths": [
+        "frontend-angular/tests/model-training.spec.ts",
+        "tests/e2e/test_lora_training_control_center_mock.py"
+      ],
       "acceptance_criteria": [
-        "E2E deckt Capability aus, Capability an, Dry-run, Live-Bestaetigung, Cancel und Fehler ab.",
+        "E2E deckt Capability aus, Capability an, Dry-run, vollautomatischen Live-Start, Cancel und Fehler ohne menschliche Interaktion ab.",
         "Experimentbadge ist auf Wizard, Job, Report und Registry sichtbar.",
         "Ein Experimentartefakt kann nicht ueber den normalen LoRA-Produktivbutton aktiviert werden.",
-        "Compose zeigt Reihenfolge und Parent-Packs vor Bestaetigung.",
+        "Compose zeigt Reihenfolge und Parent-Packs vor Ausfuehrung; der Test nutzt eine automatische Policy-Entscheidung.",
         "Reload waehrend laufendem Job rekonstruiert Status ueber SSE/Polling.",
         "Playwright-Test laeuft ohne echte GPU und ohne Netzwerkdownload."
       ],
@@ -718,13 +1043,20 @@
     {
       "id": "DEND-063",
       "title": "Migration-, Rollback- und Kompatibilitaetstest",
-      "status": "todo",
+      "status": "partial",
+      "progress_percent": 5.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M6",
-      "depends_on": ["DEND-014", "DEND-042"],
+      "depends_on": [
+        "DEND-014",
+        "DEND-042"
+      ],
       "description": "Releasefaehigkeit und Rueckkehr zum alten Stand pruefen.",
-      "evidence_paths": ["tests/test_ml_intern_training_migration.py", "tests/test_ml_intern_training_routes_v2.py"],
+      "evidence_paths": [
+        "tests/test_ml_intern_training_migration.py",
+        "tests/test_ml_intern_training_routes_v2.py"
+      ],
       "acceptance_criteria": [
         "Upgrade und Downgrade funktionieren auf einer Datenbank mit bestehenden LoRA-Datasets, Jobs, Evaluations und Adaptern.",
         "Alte API-Clients erhalten unveraenderte Antworten, solange sie keine neuen Felder anfordern.",
@@ -742,9 +1074,17 @@
       "priority": "P1",
       "risk": "medium",
       "milestone_id": "M7",
-      "depends_on": ["DEND-060", "DEND-061", "DEND-062"],
+      "depends_on": [
+        "DEND-060",
+        "DEND-061",
+        "DEND-062"
+      ],
       "description": "Entwickler-, Betreiber- und Nutzerinformationen ergaenzen.",
-      "evidence_paths": ["docs/ml-intern-lora-finetuning.md", "docs/operations/lora-training.md", "frontend-angular/src/app/features/model-training/README.md"],
+      "evidence_paths": [
+        "docs/ml-intern-lora-finetuning.md",
+        "docs/operations/lora-training.md",
+        "frontend-angular/src/app/features/model-training/README.md"
+      ],
       "acceptance_criteria": [
         "Dokumentation erklaert Architektur, Grenzen, Datenfluss, Artefakte, Benchmarks und Abschaltung.",
         "Video und externe Claims werden als Inspiration verlinkt, aber nicht als Beleg behandelt.",
@@ -753,18 +1093,25 @@
         "Datenschutz- und Lizenzhinweise entsprechen Dataset-Katalog und Secret-Scan.",
         "Dokumentation nennt konkrete Testkommandos und erwartete sichere Defaults."
       ],
-      "test_gates": []
+      "test_gates": [],
+      "progress_percent": 0.0
     },
     {
       "id": "DEND-071",
       "title": "Release-Gate fuer experimentelle Freigabe",
-      "status": "todo",
+      "status": "blocked",
+      "progress_percent": 0.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M7",
-      "depends_on": ["DEND-063", "DEND-070"],
+      "depends_on": [
+        "DEND-063",
+        "DEND-070"
+      ],
       "description": "Klare Kriterien festlegen, wann das Feature ueberhaupt in einem Release sichtbar werden darf.",
-      "evidence_paths": ["docs/operations/lora-training.md"],
+      "evidence_paths": [
+        "docs/operations/lora-training.md"
+      ],
       "acceptance_criteria": [
         "Alle P0-Aufgaben sind abgeschlossen und CI-Gates gruen.",
         "Feature bleibt standardmaessig ausgeschaltet.",
@@ -782,7 +1129,8 @@
     "Der Hub importiert weiterhin keine Torch-, Transformers-, PEFT- oder Unsloth-Runtime im Livepfad.",
     "Experimentjobs, Artefakte und UI-Zustaende sind tenantgebunden, idempotent, auditierbar und fail-closed.",
     "Feature ist ohne explizite Serverfreigabe nicht sichtbar und nicht ausfuehrbar.",
-    "Kein Memory Pack wird automatisch aktiviert oder als produktionsreif markiert.",
+    "Kein Memory Pack wird ungeprueft aktiviert oder als produktionsreif markiert; nach allen positiven Gates bleibt eine vollautomatische Aktivierung moeglich.",
+    "Kein Test und kein produktiver Automationspfad benoetigt Human-in-the-Loop.",
     "Alle Leistungsbehauptungen beruhen auf reproduzierbaren Reports mit Baselines, mehreren Seeds und Leakage-Pruefung.",
     "Basismodellgewichte bleiben im Standardpfad unveraendert und werden hashbasiert kontrolliert.",
     "Artefakte verwenden sichere, nicht Pickle-basierte Gewichtsformate und vollstaendige Hash-/Provenienzmanifeste.",
@@ -801,5 +1149,153 @@
     "cd frontend-angular && npm run build",
     "cd frontend-angular && npm run lint",
     "cd frontend-angular && npx playwright test tests/model-training.spec.ts --project=chromium"
-  ]
+  ],
+  "tasks_status_summary": {
+    "total": 33,
+    "by_status": {
+      "todo": 10,
+      "in_progress": 0,
+      "partial": 22,
+      "blocked": 1,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 22,
+      "P1": 11,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 7,
+      "high": 14,
+      "critical": 12
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 1,
+      "in_progress": 7,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 33,
+    "by_type": {
+      "unspecified": {
+        "total": 33,
+        "by_status": {
+          "todo": 10,
+          "in_progress": 0,
+          "partial": 22,
+          "blocked": 1,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 22,
+        "blocked": 1,
+        "progress_percent": 6.8
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 45.5,
+    "done_weight": 3.175,
+    "remaining_weight": 42.325,
+    "blocked_weight": 1.0,
+    "weighted_percent": 7.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M0": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 15.0,
+        "status": "in_progress"
+      },
+      "M1": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 8.7,
+        "status": "in_progress"
+      },
+      "M2": {
+        "total_tasks": 6,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 3.3,
+        "status": "in_progress"
+      },
+      "M3": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 8.0,
+        "status": "in_progress"
+      },
+      "M4": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 4.4,
+        "status": "in_progress"
+      },
+      "M5": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 10.0,
+        "status": "in_progress"
+      },
+      "M6": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 3.5,
+        "status": "in_progress"
+      },
+      "M7": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 1,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 10,
+    "in_progress": 0,
+    "partial": 22,
+    "blocked": 1,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 7.0
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-29T14:15:37.657967Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "fc35b6201bab93b5b705150f5c1f4b9bcb97471495d9ea811500c651f4c144df",
+    "is_stale": false
+  }
 }
