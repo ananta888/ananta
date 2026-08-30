@@ -346,7 +346,7 @@ def test_m3_release_seam_revalidates_source_bound_real_sfu_artifacts(tmp_path: P
     expected_status = "passed" if report["verdict"] == "pass" else "failed"
     assert evidence.status == expected_status
     assert set(report["reasons"]) <= set(evidence.reason_codes)
-    assert "sfu_gate_report_decision_stale" in evidence.reason_codes
+    assert "sfu_gate_report_decision_stale" not in evidence.reason_codes
     assert "sfu_gate_report_source_stale" not in evidence.reason_codes
     assert evidence.measurements["external_live_failover_verified"] is True
     report["source_sha256"] = "0" * 64

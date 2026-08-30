@@ -1,10 +1,31 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "ab747220136b65195a476aa8e653dfe1807d17a10db709b65f434abc25ad70b4",
+  "source_sha256": "f6c9a12267c0ab5df3e29a7b460a7821bb764ac5fe553174daf994e180501e17",
   "config_sha256": "c804bf373f658ec78a8de040e68ee5b193002fc09b9ba264a238f4e1b7d03256",
   "evidence_recomputed": true,
-  "tests": [],
+  "tests": [
+    {
+      "command": "ruff check agent/services/semantic_sfu_admission_service.py agent/routes/semantic_sfu_admission.py agent/services/media_topology_policy.py agent/services/semantic_fanout_coordination_service.py scripts/e2e/semantic_sfu_group_e2e.py scripts/e2e/semantic_media_group_e2e.py scripts/e2e/semantic_media_packet_capture.py scripts/e2e/semantic_sfu_failover_e2e.py scripts/e2e/semantic_sfu_hub_e2e.py tests/test_semantic_sfu_admission.py tests/test_semantic_sfu_admission_repository.py tests/test_semantic_sfu_admission_migration.py tests/test_semantic_sfu_group_keys.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py tests/test_sfu_broadcast_gate_foundation.py tests/fuzz/test_sfu_broadcast_contract_fuzz.py tests/fuzz/test_sfu_broadcast_state_machine_fuzz.py tests/security/test_sfu_broadcast_gate_security.py",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check scripts/spikes/semantic_sfu_failover.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "node --check scripts/spikes/semantic_sfu_three_peer.mjs",
+      "exit_code": 0
+    },
+    {
+      "command": "pytest -q tests/test_semantic_sfu_admission.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/e2e/test_semantic_sfu_spike.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py",
+      "exit_code": 0
+    },
+    {
+      "command": "npx vitest run src/app/services/webrtc-media-session.service.spec.ts src/app/services/webrtc-media-publication.service.spec.ts src/app/services/webrtc-media-health.service.spec.ts src/app/services/webrtc-ordinary-health-monitor.service.spec.ts src/app/services/semantic-media-transport-state-machine.spec.ts src/app/services/sfu-media-frame-crypto.service.spec.ts src/app/services/livekit-sfu-transport.service.spec.ts src/app/services/media-e2ee-transform.service.spec.ts src/app/services/semantic-receiver-path.service.spec.ts",
+      "exit_code": 0
+    }
+  ],
   "measurements": {
     "external_live_failover_verified": true,
     "live_failover_browser_engine_count": 2,
