@@ -2,16 +2,16 @@
   "gate_id": "visual-process-assistant",
   "policy": {
     "all_required": true,
+    "functional_release_is_not_grounding_evidence": true,
     "missing_evidence_blocks_release": true,
+    "runtime_source_authority_required": true,
     "source_grounding_fail_closed": true
   },
-  "reason_codes": [
-    "grounded_source_authority_positive:authoritative_source_evidence_unavailable"
-  ],
-  "release_allowed": false,
+  "reason_codes": [],
+  "release_allowed": true,
   "schema": "ananta.visual-process-assistant-functional-gate.v1",
-  "source_revision": "worktree-sha256:b934e38a618c58100e252205bdfd63929fdaf1fdf0c3ecd76839612f29f78afe",
-  "status": "blocked",
+  "source_revision": "worktree-sha256:f80575168fc25c05044ddca2acb6f10de9e55e43f680514f59b3531124680ce6",
+  "status": "passed",
   "suites": [
     {
       "evidence_paths": [
@@ -70,7 +70,7 @@
       ],
       "status": "passed",
       "suite_id": "hub_worker_codecompass_integration",
-      "test_count": 7
+      "test_count": 8
     },
     {
       "evidence_paths": [
@@ -115,24 +115,34 @@
       "working_directory": "frontend-angular"
     },
     {
+      "authority_scope": "isolated_hub_preauthorized_test_policy",
       "evidence_mode": "positive_source_authority",
-      "evidence_paths": [],
+      "evidence_paths": [
+        "scripts/generate_codecompass_e2e_gate.py",
+        "scripts/visual_process_test_authority.py",
+        "tests/test_codecompass_e2e_acceptance_gate.py"
+      ],
       "implementation_paths": [
         "scripts/generate_codecompass_e2e_gate.py",
+        "scripts/visual_process_test_authority.py",
         "tests/test_codecompass_e2e_acceptance_gate.py"
       ],
       "implementation_status": "available",
-      "missing_reason_code": "authoritative_source_evidence_unavailable",
-      "purpose": "Positiver CodeCompass-Authority-Pfad mit extern bereitgestellter, verifizierter Source-Identität",
-      "reason_code": "authoritative_source_evidence_unavailable",
+      "production_grounding_released": false,
+      "purpose": "Positiver CodeCompass-Authority-Pfad mit expliziter, Hub-vorautorisierter Test-Policy-Identität; keine Produktions-Grounding-Freigabe",
+      "reason_code": "",
       "reproduce": [
         "python",
-        "scripts/generate_codecompass_e2e_gate.py",
-        "--check"
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_codecompass_e2e_acceptance_gate.py",
+        "-k",
+        "positive_authority_mode_releases_only_hub_preauthorized_test_ids"
       ],
-      "status": "not_run",
+      "status": "passed",
       "suite_id": "grounded_source_authority_positive",
-      "test_count": 0
+      "test_count": 1
     },
     {
       "evidence_paths": [
@@ -180,13 +190,15 @@
     },
     {
       "evidence_paths": [
+        "tests/security/visual_process_assistant/test_patch_approval_policy.py",
         "tests/security/visual_process_assistant/test_security_gates.py"
       ],
       "implementation_paths": [
-        "tests/security/visual_process_assistant/test_security_gates.py"
+        "tests/security/visual_process_assistant/test_security_gates.py",
+        "tests/security/visual_process_assistant/test_patch_approval_policy.py"
       ],
       "implementation_status": "available",
-      "purpose": "Fail-closed Source-, Secret-, Injection-, Revision-, Tenant- und Patch-Governance",
+      "purpose": "Fail-closed Source-, Secret-, Injection-, Revision-, Tenant- und Patch-Governance einschliesslich default-off Hub-Auto-Approval",
       "reason_code": "",
       "reproduce": [
         "python",
@@ -197,7 +209,7 @@
       ],
       "status": "passed",
       "suite_id": "assistant_security",
-      "test_count": 7
+      "test_count": 9
     },
     {
       "evidence_paths": [
@@ -207,7 +219,7 @@
         "tests/integration/visual_process_assistant/test_rollback.py"
       ],
       "implementation_status": "available",
-      "purpose": "Vier deaktivierte Flags erhalten Legacy-Editor, Graphen, Runtime-Overlay und Read-only-Ansicht",
+      "purpose": "Deaktivierte Feature-Flags und Auto-Approval-Policy erhalten Legacy-Editor, Graphen, Runtime-Overlay und Read-only-Ansicht",
       "reason_code": "",
       "reproduce": [
         "python",

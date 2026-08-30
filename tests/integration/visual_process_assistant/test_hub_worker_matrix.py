@@ -3,7 +3,6 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-import os
 import time
 import uuid
 from pathlib import Path
@@ -30,6 +29,7 @@ from agent.services.visual_process_assistant_service import (
 from agent.services.visual_process_definition_service import VisualProcessDefinitionService
 from agent.visual_process.models import VisualProcessGraph, VisualProcessStep
 from ananta_contracts.retrieval import SourceRef
+from scripts.visual_process_test_authority import HUB_PREAUTHORIZED_TEST_SOURCE_ID
 from worker.core.model_provider import ModelProviderResult
 from worker.retrieval.codecompass_channel_providers import JsonlSymbolProvider
 from worker.retrieval.codecompass_retriever import CodeCompassRetriever
@@ -90,22 +90,17 @@ def _persist_graph(principal: ChatSessionPrincipal) -> VisualProcessGraph:
     return result.graph
 
 
-def _external_authorized_source_id() -> str:
-    singular = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_ID") or "").strip()
-    plural = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_IDS") or "")
-    candidates = [singular] if singular else [item.strip() for item in plural.split(",") if item.strip()]
-    if not candidates:
-        pytest.skip("authoritative_source_evidence_unavailable")
-    # The contract validates the externally supplied identity.  The test never
-    # substitutes a generated identifier when authority is unavailable.
+def _hub_preauthorized_test_source_id() -> str:
+    # The isolated Hub test policy supplies this identity explicitly. It is
+    # never derived from a path/content hash or released as production evidence.
     SourceRef(
-        source_id=candidates[0],
+        source_id=HUB_PREAUTHORIZED_TEST_SOURCE_ID,
         source_version=REPOSITORY_REVISION,
         tenant_id="authority-validation",
         scope="repository",
         provenance_digest="d" * 64,
     )
-    return candidates[0]
+    return HUB_PREAUTHORIZED_TEST_SOURCE_ID
 
 
 def _persist_source_catalog(
@@ -420,7 +415,7 @@ def test_persisted_hub_worker_outcome_matrix(
     symbol_record = None
     authorized_source_id = None
     if scenario == "success":
-        authorized_source_id = _external_authorized_source_id()
+        authorized_source_id = _hub_preauthorized_test_source_id()
         catalog, symbol_record = _persist_source_catalog(
             principal=principal,
             source_id=authorized_source_id,

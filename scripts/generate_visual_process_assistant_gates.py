@@ -73,6 +73,7 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "agent/services/visual_process_context_service.py",
     "agent/services/visual_process_definition_service.py",
     "agent/services/visual_process_location_service.py",
+    "agent/services/visual_process_patch_approval_policy.py",
     "agent/services/visual_process_patch_service.py",
     "agent/visual_process/node_definitions.py",
     "agent/visual_process/models.py",
@@ -124,6 +125,7 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "scripts/generate_codecompass_e2e_gate.py",
     "scripts/generate_visual_process_assistant_gates.py",
     "scripts/run_visual_process_assistant_functional_gate.py",
+    "scripts/visual_process_test_authority.py",
     "tests/test_visual_process_assistant_baseline.py",
     "artifacts/domain/visual-process-assistant-baseline.json",
     "tests/test_visual_process_assistant_contracts.py",
@@ -134,6 +136,7 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
     "tests/test_codecompass_e2e_acceptance_gate.py",
     "tests/security/visual_process_assistant/test_security_gates.py",
+    "tests/security/visual_process_assistant/test_patch_approval_policy.py",
     "tests/integration/visual_process_assistant/test_rollback.py",
     # Missing expected suites are part of the projection using an explicit
     # sentinel. Creating either file therefore invalidates older evidence.
@@ -218,18 +221,27 @@ FUNCTIONAL_SUITES: tuple[dict[str, Any], ...] = (
     },
     {
         "suite_id": "grounded_source_authority_positive",
-        "purpose": "Positiver CodeCompass-Authority-Pfad mit extern bereitgestellter, verifizierter Source-Identität",
+        "purpose": (
+            "Positiver CodeCompass-Authority-Pfad mit expliziter, Hub-vorautorisierter "
+            "Test-Policy-Identität; keine Produktions-Grounding-Freigabe"
+        ),
         "reproduce": [
             "python",
-            "scripts/generate_codecompass_e2e_gate.py",
-            "--check",
+            "-m",
+            "pytest",
+            "-q",
+            "tests/test_codecompass_e2e_acceptance_gate.py",
+            "-k",
+            "positive_authority_mode_releases_only_hub_preauthorized_test_ids",
         ],
         "implementation_paths": [
             "scripts/generate_codecompass_e2e_gate.py",
+            "scripts/visual_process_test_authority.py",
             "tests/test_codecompass_e2e_acceptance_gate.py",
         ],
         "evidence_mode": "positive_source_authority",
-        "missing_reason_code": "authoritative_source_evidence_unavailable",
+        "authority_scope": "isolated_hub_preauthorized_test_policy",
+        "production_grounding_released": False,
     },
     {
         "suite_id": "editor_patch_e2e",
@@ -259,13 +271,22 @@ FUNCTIONAL_SUITES: tuple[dict[str, Any], ...] = (
     },
     {
         "suite_id": "assistant_security",
-        "purpose": "Fail-closed Source-, Secret-, Injection-, Revision-, Tenant- und Patch-Governance",
+        "purpose": (
+            "Fail-closed Source-, Secret-, Injection-, Revision-, Tenant- und Patch-Governance "
+            "einschliesslich default-off Hub-Auto-Approval"
+        ),
         "reproduce": ["python", "-m", "pytest", "-q", "tests/security/visual_process_assistant"],
-        "implementation_paths": ["tests/security/visual_process_assistant/test_security_gates.py"],
+        "implementation_paths": [
+            "tests/security/visual_process_assistant/test_security_gates.py",
+            "tests/security/visual_process_assistant/test_patch_approval_policy.py",
+        ],
     },
     {
         "suite_id": "feature_flag_rollback",
-        "purpose": "Vier deaktivierte Flags erhalten Legacy-Editor, Graphen, Runtime-Overlay und Read-only-Ansicht",
+        "purpose": (
+            "Deaktivierte Feature-Flags und Auto-Approval-Policy erhalten Legacy-Editor, "
+            "Graphen, Runtime-Overlay und Read-only-Ansicht"
+        ),
         "reproduce": ["python", "-m", "pytest", "-q", "tests/integration/visual_process_assistant/test_rollback.py"],
         "implementation_paths": ["tests/integration/visual_process_assistant/test_rollback.py"],
     },
@@ -462,6 +483,8 @@ def build_functional_report(evidence: Mapping[str, Any] | None = None) -> dict[s
             "all_required": True,
             "missing_evidence_blocks_release": True,
             "source_grounding_fail_closed": True,
+            "functional_release_is_not_grounding_evidence": True,
+            "runtime_source_authority_required": True,
         },
     }
 

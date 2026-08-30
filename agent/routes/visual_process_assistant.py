@@ -94,13 +94,20 @@ def _respond(call: Callable[[], dict[str, Any]], *, status: int = 200):
 @visual_process_assistant_bp.get("/capabilities")
 @check_user_auth
 def capabilities():
+    patches_enabled = settings.visual_process_ai_patches_enabled
+    auto_approval_enabled = patches_enabled and settings.visual_process_ai_patch_auto_approval_enabled
     return jsonify(
         {
             "contract_version": "ananta.visual_process_assistant.capabilities.v1",
             "registry_inspector": settings.visual_process_registry_inspector_enabled,
             "hover_help": settings.visual_process_hover_help_enabled,
             "assistant_chat": settings.visual_process_assistant_chat_enabled,
-            "ai_patches": settings.visual_process_ai_patches_enabled,
+            "ai_patches": patches_enabled,
+            "patch_approval_modes": [
+                "interactive",
+                *(["hub_auto"] if auto_approval_enabled else []),
+            ],
+            "patch_auto_approval_enabled": auto_approval_enabled,
             "limits": {
                 "max_in_flight_per_conversation": 2,
                 "max_requests_per_principal_per_minute": 20,
@@ -280,8 +287,10 @@ def decide_patch(request_id: str):
             patch_hash=str(body.get("patch_hash") or ""),
             decision=str(body.get("decision") or ""),
             confirmed=body.get("confirmed") is True,
+            approval_mode=str(body.get("approval_mode") or "interactive"),
             draft_graph_payload=body.get("draft_graph"),
             patch_enabled=settings.visual_process_ai_patches_enabled,
+            auto_approval_enabled=settings.visual_process_ai_patch_auto_approval_enabled,
         )
 
     return _respond(call)

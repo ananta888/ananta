@@ -49,6 +49,10 @@ from agent.services.visual_process_context_service import (
     VisualProcessPromptAssembly,
 )
 from agent.services.visual_process_definition_service import VisualProcessDefinitionService
+from agent.services.visual_process_patch_approval_policy import (
+    VisualProcessPatchApprovalError,
+    VisualProcessPatchApprovalPolicy,
+)
 from agent.services.visual_process_patch_service import (
     VisualProcessPatchService,
 )
@@ -122,6 +126,7 @@ class VisualProcessAssistantService:
         *,
         context_service: VisualProcessContextService | None = None,
         patch_service: VisualProcessPatchService | None = None,
+        patch_approval_policy: VisualProcessPatchApprovalPolicy | None = None,
         source_authority: SourceCatalogAuthorityService | None = None,
         clock=time.time,
         retrieval_timeout_ms: int | None = None,
@@ -129,6 +134,7 @@ class VisualProcessAssistantService:
     ) -> None:
         self._contexts = context_service or VisualProcessContextService()
         self._patches = patch_service or VisualProcessPatchService()
+        self._patch_approval = patch_approval_policy or VisualProcessPatchApprovalPolicy()
         self._source_authority = source_authority or get_source_catalog_authority_service()
         self._clock = clock
         self._retrieval_timeout_ms = int(
@@ -842,15 +848,25 @@ class VisualProcessAssistantService:
         decision: str,
         confirmed: bool,
         patch_enabled: bool,
+        approval_mode: str = "interactive",
+        auto_approval_enabled: bool = False,
         draft_graph_payload: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         normalized = str(decision or "").strip().lower()
         if normalized not in {"accepted", "rejected"}:
             raise VisualProcessAssistantError("assistant_patch_decision_invalid")
-        if normalized == "accepted" and not confirmed:
-            raise VisualProcessAssistantError("assistant_patch_confirmation_required", status_code=428)
         if not patch_enabled:
             raise VisualProcessAssistantError("assistant_patch_feature_disabled", status_code=404)
+        approval = None
+        if normalized == "accepted":
+            try:
+                approval = self._patch_approval.authorize_acceptance(
+                    mode=approval_mode,
+                    confirmed=confirmed,
+                    hub_auto_enabled=auto_approval_enabled,
+                )
+            except VisualProcessPatchApprovalError as exc:
+                raise VisualProcessAssistantError(exc.reason_code, status_code=exc.status_code) from exc
         with Session(engine) as db:
             self._owned_request(db, request_id, principal)
             audit = db.exec(
@@ -901,7 +917,7 @@ class VisualProcessAssistantService:
                 audit.reason_codes = sorted(
                     {
                         *current_preview.policy_reason_codes,
-                        "patch_user_confirmed",
+                        approval.reason_code,
                     }
                 )
             else:
@@ -916,6 +932,10 @@ class VisualProcessAssistantService:
                 "patch_hash": audit.patch_hash,
                 "decision": audit.decision,
                 "reason_codes": list(audit.reason_codes),
+                "approval_mode": approval.mode if approval is not None else "none",
+                "human_intervention_required": (
+                    approval.human_intervention_required if approval is not None else False
+                ),
                 "apply_mode": "local_editor_command_only" if normalized == "accepted" else "none",
                 "preview": copy.deepcopy(audit.result_json),
             }

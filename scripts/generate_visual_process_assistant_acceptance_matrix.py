@@ -15,7 +15,7 @@ FUNCTIONAL_INPUT = ROOT / "artifacts/test-gates/visual-process-assistant.json"
 PERFORMANCE_INPUT = ROOT / "artifacts/test-gates/visual-process-assistant-performance.json"
 OUTPUT = ROOT / "artifacts/test-gates/visual-process-assistant-acceptance-matrix.json"
 SOURCE_PROJECTION = (
-    "todos/active/todo.visual-process-contextual-node-configuration-ai-snake-codecompass.json",
+    "todos/archiv/todo.visual-process-contextual-node-configuration-ai-snake-codecompass.json",
     "docs/architecture/visual-process-assistant.md",
     "scripts/generate_visual_process_assistant_acceptance_matrix.py",
     "artifacts/test-gates/visual-process-assistant.json",
@@ -171,8 +171,14 @@ def build_matrix(
         _criterion(
             "VPA-QA-001-AC2",
             "Hub-Task, Worker, CodeCompass, Prompt-Snapshot und HelpResponse "
-            "laufen ohne Retrieval-Fake; positives Grounding besitzt externe Autorität.",
-            passed=_passed(integration) and _passed(authority),
+            "laufen ohne Retrieval-Fake; eine isolierte Hub-Test-Policy prueft den positiven "
+            "Authority-Pfad, waehrend Produktions-Grounding weiterhin Laufzeitautoritaet verlangt.",
+            passed=(
+                _passed(integration)
+                and _passed(authority)
+                and authority.get("authority_scope") == "isolated_hub_preauthorized_test_policy"
+                and authority.get("production_grounding_released") is False
+            ),
             evidence_paths=[
                 *(integration.get("evidence_paths") or []),
                 *(authority.get("evidence_paths") or []),

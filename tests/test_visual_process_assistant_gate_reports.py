@@ -132,15 +132,15 @@ def test_functional_runner_counts_vitest_tests_without_counting_test_files() -> 
     assert _executed_test_count(output) == 3
 
 
-def test_committed_reports_are_deterministic_and_fail_closed() -> None:
+def test_committed_reports_are_deterministic_and_runtime_grounding_stays_fail_closed() -> None:
     functional_evidence = json.loads(FUNCTIONAL_EVIDENCE_INPUT.read_text(encoding="utf-8"))
     functional = build_functional_report(functional_evidence)
     performance_evidence = json.loads(PERFORMANCE_EVIDENCE_INPUT.read_text(encoding="utf-8"))
     performance = build_performance_report(performance_evidence)
 
-    assert functional["status"] == "blocked"
+    assert functional["status"] == "passed"
     assert performance["status"] == "passed"
-    assert functional["release_allowed"] is False
+    assert functional["release_allowed"] is True
     assert performance["release_allowed"] is True
     functional_statuses = {item["suite_id"]: item["status"] for item in functional["suites"]}
     assert functional_statuses == {
@@ -148,15 +148,19 @@ def test_committed_reports_are_deterministic_and_fail_closed() -> None:
         "hub_worker_codecompass_integration": "passed",
         "registry_backend_acceptance": "passed",
         "registry_frontend_acceptance": "passed",
-        "grounded_source_authority_positive": "not_run",
+        "grounded_source_authority_positive": "passed",
         "editor_patch_e2e": "passed",
         "editor_isolation_e2e": "passed",
         "assistant_security": "passed",
         "feature_flag_rollback": "passed",
     }
-    assert functional["reason_codes"] == [
-        "grounded_source_authority_positive:authoritative_source_evidence_unavailable",
-    ]
+    assert functional["reason_codes"] == []
+    authority = next(
+        item for item in functional["suites"] if item["suite_id"] == "grounded_source_authority_positive"
+    )
+    assert authority["authority_scope"] == "isolated_hub_preauthorized_test_policy"
+    assert authority["production_grounding_released"] is False
+    assert functional["policy"]["runtime_source_authority_required"] is True
     performance_statuses = {item["gate_id"]: item["status"] for item in performance["gates"]}
     assert performance_statuses == {
         "hover_reference_graph": "passed",

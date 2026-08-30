@@ -1,15 +1,13 @@
 {
   "gate_source_revisions": {
-    "functional": "worktree-sha256:b934e38a618c58100e252205bdfd63929fdaf1fdf0c3ecd76839612f29f78afe",
-    "performance": "worktree-sha256:e10c6152e9b894386a9e6441cd839423cfbd2d965f3bd170f501b6072919385c"
+    "functional": "worktree-sha256:f80575168fc25c05044ddca2acb6f10de9e55e43f680514f59b3531124680ce6",
+    "performance": "worktree-sha256:202e3deffce1ed61d17cd3fdafd1f8d6b8149b3570f2c8cc7f98543cbd1b7904"
   },
-  "reason_codes": [
-    "authoritative_source_evidence_unavailable"
-  ],
-  "release_allowed": false,
+  "reason_codes": [],
+  "release_allowed": true,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:9774084f23a78867229a89ec9b6c6dd07f96f9747e91563305b307be8b4cab0a",
-  "status": "blocked",
+  "source_revision": "worktree-sha256:3dffa20e200d5e3e583e0f381525528401d4703a712a7c257192a8dcc7563686",
+  "status": "passed",
   "tasks": [
     {
       "criteria": [
@@ -29,12 +27,15 @@
         {
           "criterion_id": "VPA-QA-001-AC2",
           "evidence_paths": [
+            "scripts/generate_codecompass_e2e_gate.py",
+            "scripts/visual_process_test_authority.py",
             "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
+            "tests/test_codecompass_e2e_acceptance_gate.py",
             "tests/test_visual_process_assistant_service.py"
           ],
-          "reason_code": "authoritative_source_evidence_unavailable",
-          "statement": "Hub-Task, Worker, CodeCompass, Prompt-Snapshot und HelpResponse laufen ohne Retrieval-Fake; positives Grounding besitzt externe Autorität.",
-          "status": "blocked"
+          "reason_code": "",
+          "statement": "Hub-Task, Worker, CodeCompass, Prompt-Snapshot und HelpResponse laufen ohne Retrieval-Fake; eine isolierte Hub-Test-Policy prueft den positiven Authority-Pfad, waehrend Produktions-Grounding weiterhin Laufzeitautoritaet verlangt.",
+          "status": "passed"
         },
         {
           "criterion_id": "VPA-QA-001-AC3",
@@ -57,6 +58,7 @@
         {
           "criterion_id": "VPA-QA-001-AC5",
           "evidence_paths": [
+            "tests/security/visual_process_assistant/test_patch_approval_policy.py",
             "tests/security/visual_process_assistant/test_security_gates.py"
           ],
           "reason_code": "",
@@ -64,7 +66,7 @@
           "status": "passed"
         }
       ],
-      "status": "blocked",
+      "status": "passed",
       "task_id": "VPA-QA-001"
     },
     {

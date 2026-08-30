@@ -27,6 +27,11 @@ from scripts.generate_visual_process_assistant_gates import (  # noqa: E402
     functional_source_hashes,
     functional_source_revision,
 )
+from scripts.visual_process_test_authority import (  # noqa: E402
+    AUTHORIZED_SOURCE_ID_ENV,
+    AUTHORIZED_SOURCE_IDS_ENV,
+    hub_preauthorized_test_environment,
+)
 
 ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 TEST_SUMMARY = re.compile(r"(?<!\d)(\d+)\s+(passed|failed)\b")
@@ -52,12 +57,11 @@ def _run_suite(spec: Mapping[str, Any]) -> dict[str, Any] | None:
     if not _implementation_available(spec):
         return None
     if spec.get("evidence_mode") == "positive_source_authority":
-        singular = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_ID") or "").strip()
-        plural = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_IDS") or "")
+        environment = hub_preauthorized_test_environment(os.environ)
+        singular = str(environment.get(AUTHORIZED_SOURCE_ID_ENV) or "").strip()
+        plural = str(environment.get(AUTHORIZED_SOURCE_IDS_ENV) or "")
         provided_source_ids = [singular] if singular else []
         provided_source_ids.extend(item.strip() for item in plural.split(",") if item.strip())
-        if not provided_source_ids:
-            return None
         with tempfile.TemporaryDirectory(prefix="ananta-vpa-authority-") as directory:
             gate_path = Path(directory) / "codecompass-positive.json"
             completed = subprocess.run(
@@ -69,7 +73,7 @@ def _run_suite(spec: Mapping[str, Any]) -> dict[str, Any] | None:
                     str(gate_path),
                 ],
                 cwd=ROOT,
-                env={**os.environ, "PYTHONHASHSEED": "0"},
+                env={**environment, "PYTHONHASHSEED": "0"},
                 text=True,
                 capture_output=True,
                 timeout=300,

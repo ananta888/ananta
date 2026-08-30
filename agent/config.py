@@ -301,6 +301,10 @@ class Settings(BaseSettings):
         default=False,
         validation_alias="VISUAL_PROCESS_AI_PATCHES_ENABLED",
     )
+    visual_process_ai_patch_auto_approval_enabled: bool = Field(
+        default=False,
+        validation_alias="VISUAL_PROCESS_AI_PATCH_AUTO_APPROVAL_ENABLED",
+    )
     visual_process_assistant_retrieval_timeout_ms: int = Field(
         default=5_000,
         validation_alias="VISUAL_PROCESS_ASSISTANT_RETRIEVAL_TIMEOUT_MS",

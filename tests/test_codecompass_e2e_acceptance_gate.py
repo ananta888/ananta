@@ -8,7 +8,12 @@ import sys
 from pathlib import Path
 
 import jsonschema
-import pytest
+
+from scripts.visual_process_test_authority import (
+    AUTHORIZED_SOURCE_ID_ENV,
+    AUTHORIZED_SOURCE_IDS_ENV,
+    hub_preauthorized_test_environment,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT = ROOT / "artifacts/test-gates/codecompass-e2e.json"
@@ -89,8 +94,8 @@ def test_positive_authority_mode_requires_explicit_external_identity(
 ) -> None:
     output = tmp_path / "must-not-exist.json"
     environment = dict(os.environ)
-    environment.pop("ANANTA_TEST_AUTHORIZED_SOURCE_ID", None)
-    environment.pop("ANANTA_TEST_AUTHORIZED_SOURCE_IDS", None)
+    environment.pop(AUTHORIZED_SOURCE_ID_ENV, None)
+    environment.pop(AUTHORIZED_SOURCE_IDS_ENV, None)
 
     result = subprocess.run(
         [
@@ -112,15 +117,15 @@ def test_positive_authority_mode_requires_explicit_external_identity(
     assert not output.exists()
 
 
-def test_positive_authority_mode_releases_only_externally_supplied_ids(
+def test_positive_authority_mode_releases_only_hub_preauthorized_test_ids(
     tmp_path: Path,
 ) -> None:
-    singular = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_ID") or "").strip()
-    plural = str(os.environ.get("ANANTA_TEST_AUTHORIZED_SOURCE_IDS") or "")
+    environment = hub_preauthorized_test_environment(os.environ)
+    singular = str(environment.get(AUTHORIZED_SOURCE_ID_ENV) or "").strip()
+    plural = str(environment.get(AUTHORIZED_SOURCE_IDS_ENV) or "")
     supplied = [singular] if singular else []
     supplied.extend(item.strip() for item in plural.split(",") if item.strip())
-    if not supplied:
-        pytest.skip("authoritative_source_evidence_unavailable")
+    assert supplied
 
     output = tmp_path / "positive.json"
     subprocess.run(
@@ -132,6 +137,7 @@ def test_positive_authority_mode_releases_only_externally_supplied_ids(
             str(output),
         ],
         cwd=ROOT,
+        env=environment,
         check=True,
         capture_output=True,
         text=True,

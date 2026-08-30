@@ -26,6 +26,24 @@ def test_assistant_chat_flag_is_fail_closed(client, admin_auth_header, monkeypat
     assert response.get_json()["error_code"] == "assistant_feature_disabled"
 
 
+def test_patch_auto_approval_capability_requires_patch_feature(
+    client,
+    admin_auth_header,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(settings, "visual_process_ai_patches_enabled", False)
+    monkeypatch.setattr(settings, "visual_process_ai_patch_auto_approval_enabled", True)
+
+    response = client.get(
+        "/api/visual-process/assistant/v1/capabilities",
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["patch_auto_approval_enabled"] is False
+    assert response.get_json()["patch_approval_modes"] == ["interactive"]
+
+
 @pytest.mark.parametrize(
     ("status_code", "reason_code"),
     [
@@ -157,3 +175,46 @@ def test_assistant_patch_refresh_endpoint_delegates_a_new_hub_request(
     assert captured["client_request_id"] == "refresh-client"
     assert captured["idempotency_key"] == "refresh-idem"
     assert captured["patch_enabled"] is True
+
+
+def test_assistant_patch_decision_delegates_explicit_hub_auto_policy(
+    client,
+    admin_auth_header,
+    monkeypatch,
+) -> None:
+    captured = {}
+
+    class _Service:
+        @staticmethod
+        def decide_patch(**kwargs):
+            captured.update(kwargs)
+            return {
+                "decision": "accepted",
+                "approval_mode": kwargs["approval_mode"],
+                "human_intervention_required": False,
+            }
+
+    monkeypatch.setattr(settings, "visual_process_assistant_chat_enabled", True)
+    monkeypatch.setattr(settings, "visual_process_ai_patches_enabled", True)
+    monkeypatch.setattr(settings, "visual_process_ai_patch_auto_approval_enabled", True)
+    monkeypatch.setattr(
+        "agent.routes.visual_process_assistant.visual_process_assistant_service",
+        _Service(),
+    )
+
+    response = client.post(
+        "/api/visual-process/assistant/v1/requests/request-1/patch-decisions",
+        headers=admin_auth_header,
+        json={
+            "patch_hash": "a" * 64,
+            "decision": "accepted",
+            "approval_mode": "hub_auto",
+            "confirmed": False,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["human_intervention_required"] is False
+    assert captured["approval_mode"] == "hub_auto"
+    assert captured["confirmed"] is False
+    assert captured["auto_approval_enabled"] is True

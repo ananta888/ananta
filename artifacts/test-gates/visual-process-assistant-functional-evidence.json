@@ -2,10 +2,11 @@
   "results": {
     "assistant_security": {
       "evidence_paths": [
+        "tests/security/visual_process_assistant/test_patch_approval_policy.py",
         "tests/security/visual_process_assistant/test_security_gates.py"
       ],
       "status": "passed",
-      "test_count": 7
+      "test_count": 9
     },
     "contract_parity": {
       "evidence_paths": [
@@ -37,13 +38,22 @@
       "status": "passed",
       "test_count": 5
     },
+    "grounded_source_authority_positive": {
+      "evidence_paths": [
+        "scripts/generate_codecompass_e2e_gate.py",
+        "scripts/visual_process_test_authority.py",
+        "tests/test_codecompass_e2e_acceptance_gate.py"
+      ],
+      "status": "passed",
+      "test_count": 1
+    },
     "hub_worker_codecompass_integration": {
       "evidence_paths": [
         "tests/integration/visual_process_assistant/test_hub_worker_matrix.py",
         "tests/test_visual_process_assistant_service.py"
       ],
       "status": "passed",
-      "test_count": 7
+      "test_count": 8
     },
     "registry_backend_acceptance": {
       "evidence_paths": [
@@ -62,18 +72,19 @@
   },
   "schema": "ananta.visual-process-assistant-functional-evidence.v1",
   "source_hashes": {
-    "agent/config.py": "b5e43806739af8516ea009c0b5ec8a3c4b6edf1e7b06be0cf5956da0178e234f",
+    "agent/config.py": "030d5925795caa1f3ea569f03e9ef9caad53c1e85eeb0cd79700f5b020d65a53",
     "agent/db_models/visual_process.py": "8b789b6c74439a6d9c150ab1fa2330b9be18f03b2358c0122da1d0874c28c4f6",
     "agent/db_models/visual_process_assistant.py": "db553b6dd36a2fc90ebada0d082146bff46e1356096f49a78c427eec4c0bd893",
     "agent/routes/visual_process.py": "fa1c4c626c8a0c3908bc1a0d9495bbcf7e10b5068c2cd3090ed6ae6b021702b0",
-    "agent/routes/visual_process_assistant.py": "a3a6c4f5dc415a9c3ce7fb0f09ae415245478a8b5fa36e5e49b801b0a5ef3760",
+    "agent/routes/visual_process_assistant.py": "e4cdd02ae0571062c509c5cb1e890f6f2daee5bad842c799c45d8efbc6311a96",
     "agent/services/codecompass_editor_context_contract.py": "9de1049e8a1db86b836d77b64ee0d423e7646705f8f8af208677b0fb73a3117e",
     "agent/services/retrieval_source_contract.py": "3838028231616dd9c529f6e90c7ad6618b01f43d306940aaef86ef01a4abb02d",
     "agent/services/source_catalog_authority_service.py": "c5a8addbb74c8fcc82510eb885650c953adca9d362537865dfcf670d75501345",
-    "agent/services/visual_process_assistant_service.py": "72b21cfd2807b2de8460169193eae73ef09c80206017ce9f286dfe1b008a4811",
+    "agent/services/visual_process_assistant_service.py": "687bc6168ec6c057f3bc3eff5a71d4677deef67ee47b387c8f4c81d95b88790b",
     "agent/services/visual_process_context_service.py": "82abbdd9c2f0608e82db3cffb6f491adf613c12eae6caa0363157091aaecc6c4",
     "agent/services/visual_process_definition_service.py": "4010e7a49570733ed9a8aca5db8e5a8af794b1eefca9353fd83bef9b499af43f",
     "agent/services/visual_process_location_service.py": "afd6dc504c5f2f8bb2a2106dea1d929732dfc87ca1e6c53ed6fef2a0d84c4b08",
+    "agent/services/visual_process_patch_approval_policy.py": "02d7615a29692fceb97bd7bed1e7a07ea9833417b1c67b5c31ddf165e58c7fd5",
     "agent/services/visual_process_patch_service.py": "7e1a753bcbda2e83ddeff87ab604f62513f154b2bd6e6f93bd8cfcec157ef233",
     "agent/visual_process/models.py": "18f2b74c57c8dea47b5bd2a86f2d554d484e35b0f2db862b486bf2ff93534a67",
     "agent/visual_process/node_definitions.py": "f13477fb278f79b1802bf2aa77cfc7278f763481c31e8123e210092ce3ea2aa9",
@@ -84,7 +95,7 @@
     "ananta_contracts/visual_process_assistant.py": "2a8c6550b253fc13c64cf21a9a7cabaf275176983d402b53ee05b9f1f94450d5",
     "artifacts/domain/visual-process-assistant-baseline.json": "e92cf9ab2ad8332f839ed5e5a94addd160efa5be32e4f234ac521c42c4e21428",
     "artifacts/test-gates/codecompass-e2e.json": "53a055d2804a8324a6c42ed4895bc818fa90056f06578f07239fbfa7c9686d43",
-    "docs/architecture/visual-process-assistant.md": "5ddc3f2e6dd04bfcd9cfbe341819772622107e3ea06c23d2e827785938d8cc41",
+    "docs/architecture/visual-process-assistant.md": "d4859bf92979ff1fde9e0dec2d8ccf9442260bad56c85565e1ab6bf4e59e6aa0",
     "frontend-angular/playwright.vpa-functional.config.ts": "e98e2e08b502338195138b86066b834b0ec821198095489ff256df80fad89955",
     "frontend-angular/src/app/components/ai-snake-process-panel.component.ts": "d4fa92720df6963834b901a424c1b192102ade2cc08819d18a35807d220398cd",
     "frontend-angular/src/app/features/visual-process/visual-process-api.service.ts": "2d8357f3d205bc7c266eb59e45e80aa74ba6f8a91f594fa81cbc2eaa2a1a75ec",
@@ -124,12 +135,14 @@
     "schemas/worker/codecompass_snapshot_manifest.v1.json": "0730ed26187be8a12b199813c637b5c92bbd94dbe2c5d3a8812606de6d54c37e",
     "scripts/generate_codecompass_e2e_gate.py": "382b88447c2a8432790b4b2349638e8498b72f7e12255f8ebca7fe4b6b6d7381",
     "scripts/generate_visual_process_assistant_baseline.py": "ff0be383754974b4fc2873ef0b302d1356aea96e4650c689102f4045ff748f1a",
-    "scripts/generate_visual_process_assistant_gates.py": "181d37c148af75a263c45547ab5897bfe38cac6384f070851e61a1bdb85c48c7",
-    "scripts/run_visual_process_assistant_functional_gate.py": "14bcb220035b89f250e23d7057d5f5f368a0883adb9f283749760d498c3bb328",
-    "tests/integration/visual_process_assistant/test_hub_worker_matrix.py": "ca5244f6d8d0805892f45e119d6158302e77a634710abaae85165b50e9ac0cde",
-    "tests/integration/visual_process_assistant/test_rollback.py": "f5cf5f46e007935b44e6086ea1000bc875e1b7bc239a7ad0e371acf83a0e7e83",
+    "scripts/generate_visual_process_assistant_gates.py": "47335aef0bc65ae412c97758523c0ae3b9781c2e5e0a298954f704eeae19e06c",
+    "scripts/run_visual_process_assistant_functional_gate.py": "2bb6fe6374ba091be170c913b72a4f224a9e799d22672df4b9a015046e801fc1",
+    "scripts/visual_process_test_authority.py": "dfb064eb8cd6f66d5a4243b43307335e211a7642f0ada6b002dc3cb79d4b14ef",
+    "tests/integration/visual_process_assistant/test_hub_worker_matrix.py": "72dfa668b6d7eed9b879d62eb7da821e7feb2c144a893cdcfd2cbbd510da8e72",
+    "tests/integration/visual_process_assistant/test_rollback.py": "9ae42b07bd9af771aa58b23f277d6548c7b780f0f900a3bd71a940d7297251f1",
+    "tests/security/visual_process_assistant/test_patch_approval_policy.py": "a63824a1869478eb1b1e5b5ff39e425a97f5edc4a7bb9b61f8fee53b716daa7c",
     "tests/security/visual_process_assistant/test_security_gates.py": "95cff74670d77a4d2f91afe91711e715869cab97ae2a80b5c1186805628377e3",
-    "tests/test_codecompass_e2e_acceptance_gate.py": "f365cb763144e47b3af3a2adf75cb1542b4847d0ecec500053498cfcebab47d6",
+    "tests/test_codecompass_e2e_acceptance_gate.py": "a3504f8320f36a33e693f4a90ae9310c0db1196e162e378ecb39db12efec8e8f",
     "tests/test_visual_process_assistant_baseline.py": "c9c4d565521c755d132cfc0c650b3bbdca66bd8d35d12ba2c1c4e421e8832647",
     "tests/test_visual_process_assistant_contracts.py": "9af1c3eec595f02c2307c5bc5cd5403d64e0399e6c7d145e2836c599c8e8071b",
     "tests/test_visual_process_assistant_service.py": "098c6de1183ac1f7b1a6fd64e4ad2c97448813a2af4d690ed64fc73d77e9f96a",
@@ -140,5 +153,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:b934e38a618c58100e252205bdfd63929fdaf1fdf0c3ecd76839612f29f78afe"
+  "source_revision": "worktree-sha256:f80575168fc25c05044ddca2acb6f10de9e55e43f680514f59b3531124680ce6"
 }

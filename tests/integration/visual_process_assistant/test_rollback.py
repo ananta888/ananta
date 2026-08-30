@@ -23,6 +23,7 @@ FEATURE_FIELDS = (
     "visual_process_hover_help_enabled",
     "visual_process_assistant_chat_enabled",
     "visual_process_ai_patches_enabled",
+    "visual_process_ai_patch_auto_approval_enabled",
 )
 ARCHITECTURE_DOC = ROOT / "docs/architecture/visual-process-assistant.md"
 
@@ -71,7 +72,7 @@ def _alembic(database: Path, *arguments: str) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_all_four_assistant_feature_flags_default_off_and_fail_closed(
+def test_all_assistant_feature_and_auto_approval_flags_default_off_and_fail_closed(
     client,
     admin_auth_header,
     monkeypatch,
@@ -90,6 +91,7 @@ def test_all_four_assistant_feature_flags_default_off_and_fail_closed(
         "hover_help": False,
         "assistant_chat": False,
         "ai_patches": False,
+        "patch_auto_approval_enabled": False,
     }.items() <= capabilities.get_json().items()
 
     registry = client.get(

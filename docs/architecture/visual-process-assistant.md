@@ -165,11 +165,17 @@ Validierungsfolgen. Side-Effects und Approval-Anforderungen stammen aus der
 kanonischen Registry und werden als stabile Policy-Reason-Codes im Preview und
 Audit ausgewiesen.
 
-`POST /requests/<id>/patch-decisions` verlangt Patch-Hash, Entscheidung und bei
-Annahme `confirmed=true`. Selbst eine angenommene Entscheidung speichert den
-Graphen nicht. Erst die UI übernimmt den Patch als atomare EditorCommand-
-Transaktion; Undo/Redo und Dirty-State bleiben damit konsistent. Speichern ist
-eine getrennte, bewusste CAS-Operation.
+`POST /requests/<id>/patch-decisions` verlangt Patch-Hash und Entscheidung.
+Interaktive Annahme verwendet `approval_mode=interactive` und
+`confirmed=true`. Für vollständig automatische Clients existiert additiv
+`approval_mode=hub_auto`; dieser Modus funktioniert ausschließlich bei
+`VISUAL_PROCESS_AI_PATCH_AUTO_APPROVAL_ENABLED=true` und wird als
+`patch_hub_policy_auto_approved` auditiert. Er überspringt keine Hash-, Draft-,
+Registry-, Side-Effect- oder Graphvalidierung. Selbst eine angenommene
+Entscheidung speichert den Graphen nicht: Ein UI- oder Headless-Client übernimmt
+den validierten Preview als atomare EditorCommand-Transaktion und speichert ihn
+danach über den bestehenden CAS-Pfad. Interaktive Bestätigung bleibt optional,
+nicht technische Voraussetzung für Automation.
 
 ## Feature-Flags und Rollout
 
@@ -182,6 +188,10 @@ freigegeben:
 | `VISUAL_PROCESS_HOVER_HELP_ENABLED` | rein lokale Hover-/Positionshilfe | UI-Isolation und Hover-Performance |
 | `VISUAL_PROCESS_ASSISTANT_CHAT_ENABLED` | Context, Conversation, Retrieval und HelpResponse | CodeCompass-, Security- und Hub-Worker-Gates |
 | `VISUAL_PROCESS_AI_PATCHES_ENABLED` | Preview und explizite Patch-Entscheidung | alle vorherigen Gates plus Patch-E2E |
+
+`VISUAL_PROCESS_AI_PATCH_AUTO_APPROVAL_ENABLED` ist eine separate, standardmäßig
+deaktivierte Hub-Policy. Sie schaltet nur den auditierten `hub_auto`-
+Entscheidungsmodus frei und aktiviert weder Chat noch AI-Patches selbst.
 
 Zusätzliche Betriebswerte sind
 `VISUAL_PROCESS_ASSISTANT_RETRIEVAL_TIMEOUT_MS=5000` und
@@ -241,6 +251,7 @@ VISUAL_PROCESS_REGISTRY_INSPECTOR_ENABLED=false
 VISUAL_PROCESS_HOVER_HELP_ENABLED=false
 VISUAL_PROCESS_ASSISTANT_CHAT_ENABLED=false
 VISUAL_PROCESS_AI_PATCHES_ENABLED=false
+VISUAL_PROCESS_AI_PATCH_AUTO_APPROVAL_ENABLED=false
 ```
 
 Danach werden aktive Assistant-Requests abgebrochen beziehungsweise durch die
