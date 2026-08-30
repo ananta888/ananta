@@ -2,10 +2,10 @@
   "$schema": "../todo.track.schema.json",
   "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
   "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
-  "version": "1.4",
+  "version": "1.5",
   "owner": "Peter Stuiber / Ananta",
   "track": "hermes-inspired-kanban-model-dashboard-angular-tui",
-  "status": "partial",
+  "status": "done",
   "created_at": "2026-07-23",
   "updated_at": "2026-08-30",
   "purpose": "Eine gemeinsame, quellcodekonforme Projektion des bestehenden Ananta-Hub-Tasksystems als Hermes-inspiriertes Kanban sowie eine kompakte Projektion des bestehenden Backend-Provider-Katalogs fuer Angular und die prompt_toolkit-basierte Operator-TUI schaffen.",
@@ -139,7 +139,7 @@
     {
       "id": "M6",
       "title": "Security, Betrieb und Release",
-      "status": "in_progress",
+      "status": "done",
       "task_ids": [
         "HKM-SEC-002",
         "HKM-OPS-001",
@@ -731,10 +731,10 @@
       "title": "Reproduzierbares Performanceprofil und Non-Regression-Budgets",
       "milestone": "M6",
       "type": "performance",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 90.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "HKM-INT-001"
       ],
@@ -783,11 +783,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 24
+      "done": 25
     },
-    "progress_percent_done": 96.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 18,
       "P1": 7,
@@ -801,15 +801,15 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 24,
-      "remaining": 1
+      "done": 25,
+      "remaining": 0
     },
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 5
+      "done": 6
     }
   },
   "tasks_type_summary": {
@@ -988,14 +988,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 90.0
+        "progress_percent": 100.0
       },
       "release": {
         "total": 1,
@@ -1014,14 +1014,14 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "done",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 24,
-    "count_based_percent": 96.0,
-    "weighted_percent": 99.5
+    "done": 25,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "estimated_effort": {
     "mvp_developer_days": "unverified",
@@ -1054,16 +1054,16 @@
     "completed_INT001: Gemeinsame deterministische Fixtures und ein echter bidirektionaler Angular-zu-Hub-zu-TUI-Lauf sind gruen; derselbe Task durchlaeuft Revision 7 zu 8 zu 9/10, und 409-Konfliktcode sowie Snapshot-Reload bleiben stabil.",
     "completed_REL001_implementation: Versioniertes Evidence-Schema, sieben-Suite-Allowlist, Producer, fail-closed Gate sowie getrennte Rollout-/Rollback-Stufen sind im realen Code implementiert. Das schliesst die Implementierungsaufgabe ab, ist aber keine aktuelle Release-Attestierung.",
     "performance_evidence_OPS002: Das formale Profil sowie reale Backend-, Angular-, TUI- und PTY-Metriken liegen vor; die absoluten Budgets sind gruen. Das Profil bildet 1000 Tasks in vier kanonischen Spalten und mindestens zehn deterministischen Views oder Statusgruppen sowie den geforderten Event-Burst ab.",
-    "audit_2026_08_30_OPS002: Der Baseline-Kandidat hat den Zustand candidate_unapproved und das Gate blockiert mit baseline_approval_required. Die bisher vorausgesetzte organisatorische Review-Freigabe widerspricht der verbindlichen vollautomatischen Headless-Regel; deshalb fehlen noch eine Hub-eigene Freigabepolicy, Manipulations-Negativtests und frische commitgebundene Evidence.",
-    "release_attestation_pending: Eine aktuelle Release-Attestierung bleibt bis zu einem frischen Candidate-Commit, einer policy-auditierten approved Baseline und einem gruenden fail-closed Gate offen; eine interaktive Freigabe darf dabei nur optional sein."
+    "completed_OPS002_headless_policy: Eine versionierte Hub-Policy promoviert nur frische, commitgebundene Kandidaten mit passendem Profil, unveraenderten Quellartefakten, kompatibler Umgebung und gruenden absoluten Budgets; Manipulation, Fremdaenderungen und menschlich beschriftete Scheinfreigaben blockieren fail-closed.",
+    "completed_release_attestation_2026_08_30: Der commitgebundene Sieben-Suite-Producer fuer 89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1 ist fuer Contract, Backend, Angular, TUI, Security, Accessibility und Performance gruen. Das Release-Gate hat keine Reason Codes und alle vier Rollout-Stufen sind passed; ein Mensch war an keiner Test- oder Freigabestufe erforderlich."
   ],
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.0,
-    "done_weight": 48.75,
-    "remaining_weight": 0.25,
+    "done_weight": 49.0,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 99.5
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1109,21 +1109,21 @@
       },
       "M6": {
         "total_tasks": 4,
-        "done": 3,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 75.0,
-        "weighted_percent": 96.9,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T12:12:38.480083Z",
+    "generated_at": "2026-08-30T12:50:05.105364Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "2adf441583b633af30cb3fb771bab9bc8bbfa64130e649a9bfd468ac97557896",
+    "source_hash": "fb66caaccc2a02ba79888d9c784d50efb6e91980629036b5efa1e2c293eac044",
     "is_stale": false
   }
 }
