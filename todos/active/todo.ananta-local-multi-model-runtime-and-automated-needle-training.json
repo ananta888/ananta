@@ -7,7 +7,7 @@
   "track": "ananta-local-multi-model-runtime-and-automated-needle-training",
   "status": "partial",
   "created_at": "2026-08-23",
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-08-30",
   "purpose": "Ananta wird additiv als lokales Multi-Modell-System betrieben: Der Hub routet leichte Arbeit zu LFM2.5-2.6B, schwere Coding-, Debugging-, Repository- und Planungsarbeit zu KAT-Coder v2.5 und verwendet Needle 2 ausschließlich als CPU-seitigen Kandidatenlieferanten für Intent, Tool-Auswahl und Argumentextraktion. Zusätzlich entstehen getrennte, versionierte SFT-LoRA-Lernpfade für Needle und den bereits agentisch nachtrainierten LFM-Stand, ohne produktive Gewichte ungeprüft zu überschreiben.",
   "goal": "KAT, LFM und Needle laufen reproduzierbar und ressourcensicher parallel. Jede Modellwahl, Degradation und jeder Fallback wird vom Hub entschieden und auditiert. Erfolgreiche, unabhängig bewertete Interaktionen können datenschutzkonform in unveränderliche Datasets überführt werden. Training, Offline-Evaluation, Shadow, Canary, Promotion und Rollback laufen deterministisch über Hub-eigene Zustandsübergänge; Worker und Modelle erhalten keine Orchestrierungs- oder Selbstfreigabeautorität.",
   "status_scale": ["todo", "in_progress", "partial", "blocked", "done"],
@@ -21,8 +21,8 @@
   "review_basis": {
     "reviewed_repository": "ananta888/ananta",
     "reviewed_branch": "main",
-    "reviewed_at": "2026-08-28",
-    "reviewed_commit_range": "main@dddeaba7d0fa85e2ae68792c71898fcc1ac9b8be; Arbeitsbaum vor dem Audit sauber und mit origin/main synchron.",
+    "reviewed_at": "2026-08-30",
+    "reviewed_commit_range": "main@9507fa5a2; vorhandene, themenfremde Nutzeränderungen im Arbeitsbaum wurden vom Audit ausgeschlossen.",
     "review_goal": "Bestehende Provider-, Routing-, Tiny-Router-, LoRA-, Worker- und Container-Bausteine erfassen und den tatsächlichen Umsetzungsstand von Runtime, Integration und automatisiertem Training ohne Überclaim dokumentieren.",
     "reviewed_paths": [
       "AGENTS.md",
@@ -51,13 +51,18 @@
       "agent/services/local_adapter_lifecycle.py",
       "agent/services/local_adapter_lifecycle_adapters.py",
       "agent/services/local_adapter_lifecycle_coordinator.py",
+      "agent/services/local_adapter_evaluation_fixture_gate.py",
       "agent/services/local_adapter_release_target.py",
+      "agent/services/local_adapter_rollout_service.py",
+      "agent/services/local_adapter_serving_activation.py",
       "agent/services/local_adapter_training_base_verifier.py",
       "config/models/local-adapter-training-bases.v1.json",
       "deploy/systemd/ananta-local-model-runtime.service",
       "docker/compose-next/compose.lora-training.yml",
       "scripts/local-multi-model-runtime.sh",
-      "scripts/run-local-adapter-training.sh"
+      "scripts/run-local-adapter-training.sh",
+      "worker/training/backends/needle.py",
+      "worker/training/backends/peft_trl.py"
     ],
     "evidence_policy": "Repositorypfade, lokale SHA-256-Werte und direkt beobachtete Messungen sind technische Reviewgrundlagen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Grounded Claims benötigen ausschließlich tatsächlich bereitgestellte SRC_*-/RUN_*-IDs; fehlende IDs bleiben unverified und fail-closed.",
     "current_evidence": {
@@ -135,12 +140,13 @@
         "problem": "ModelRoutingUsageProjection ist ein prozesslokaler globaler Speicher und kann keinen Hub-weiten, restartfesten Auditvertrag erfüllen.",
         "principles": ["DIP", "SRP"],
         "treatment": "Die vorhandene Projektion bleibt kompatibler Metrik-Cache; autoritative Runtime- und Invocation-Fakten werden über einen injizierten persistenten Port gebunden."
-      },
+      }
+    ],
+    "cleaned_violations": [
       {
-        "problem": "scripts/run-local-adapter-training.sh führt den Needle-Finetune-Pfad direkt auf dem Host mit einem freien Dataset-Pfad aus; damit umgeht dieser Entwicklungspfad Hub-Task-, Assignment- und Worker-Grenzen.",
+        "problem": "Der frühere direkte Host-Finetune-Pfad umging Hub-Task-, Assignment- und Worker-Grenzen.",
         "principles": ["SRP", "DIP"],
-        "architecture_conflict": "hub_task_control_bypass",
-        "treatment": "Der direkte Lauf bleibt bis zur Migration nicht produktionsfähig. Beide Targets erzeugen ausschließlich einen geschlossenen Hub-Trainingsrequest; reale Ausführung erfolgt nur durch einen delegierten isolierten Worker."
+        "resolution": "scripts/run-local-adapter-training.sh erzeugt heute für beide Targets ausschließlich einen geschlossenen Hub-Trainingsrequest; reale Ausführung erfolgt nur durch einen delegierten isolierten Worker."
       }
     ],
     "introduced_violations": [],
@@ -492,7 +498,8 @@
     "Anantas vorhandene Provider-, Tiny-Router- und LoRA-Subsysteme werden wiederverwendet; es wird kein paralleles Hub- oder Worker-Orchestrierungssystem geschaffen.",
     "Der Audit auf main@dddeaba7d identifizierte die fehlende Candidate-Aktivierung; die Implementierung materialisiert Needle und LFM nun automatisch offline, projiziert das Serving-Artefakt atomar und verifiziert es beim Runtime-Start.",
     "Needle- und agentischer LFM-Trainingsstand sind vollständig hashgebunden und offline load-verifiziert; reale Jobs, Candidates und Release-Evidenz bleiben ohne gültige SRC_*-/RUN_*-Dataset-Evidenz fail-closed.",
-    "Das Todo gilt erst als done, wenn freigegebene Datasets vorliegen, alle realen Lifecycle-Stufen durchlaufen sind und registrierte Release-Evidenz besteht."
+    "Das Todo gilt erst als done, wenn freigegebene Datasets vorliegen, alle realen Lifecycle-Stufen durchlaufen sind und registrierte Release-Evidenz besteht.",
+    "Audit 2026-08-30 gegen main@9507fa5a2: Hub-Delegation, isolierte Needle-/PEFT-TRL-Worker, automatische Evaluation, Shadow, Canary, Serving-Materialisierung, Promotion und Rollback sind im Quellstand vorhanden. LMM-TRAIN-004 ist nicht durch fehlenden Code, sondern ausschließlich durch das fehlende freigegebene Dataset und nicht bereitgestellte gültige SRC_*/RUN_*-IDs blockiert; reale Kandidaten oder Release-Nachweise werden nicht fingiert."
   ],
   "end_summaries": [
     {
