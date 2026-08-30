@@ -2,13 +2,13 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.1",
   "created_at": "2026-08-15",
-  "last_reviewed": "2026-08-29",
-  "updated_at": "2026-08-29",
+  "last_reviewed": "2026-08-30",
+  "updated_at": "2026-08-30",
   "owner": "Peter Stuiber / Ananta",
   "track": "agent_defense_in_depth_adversarial_escape_safety",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "main@03da13b77 plus the implementation changes recorded by this track update, inspected on 2026-08-29",
+    "reviewed_commit_range": "main@11970aad4, inspected on 2026-08-30",
     "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
@@ -25,7 +25,9 @@
         "Hub-only safety composition and authenticated additive API implemented.",
         "Signed single-use manifests, immutable telemetry, group stop, incident bundle, patch-before-retry and local replay implemented.",
         "All safety tests are headless and terminate with deterministic pass or bounded denial; no human approval is required.",
-        "Local focused backend, API, chaos and frontend gates pass; mock receipts are never promoted to release evidence."
+        "Focused backend, API, chaos and sandbox baseline: 36 tests passed on 2026-08-30.",
+        "Focused Angular safety baseline: 2 tests passed on 2026-08-30.",
+        "Mock receipts are never promoted to release evidence."
       ],
       "required_unblock_input": "Hub-provided authoritative SRC_* references plus assignment-bound RUN_* receipts from concrete sandbox, egress, credential, freeze and complete production-like chaos runs."
     },
