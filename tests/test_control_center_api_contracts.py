@@ -359,3 +359,25 @@ def test_control_center_stream_event_visibility_requires_exact_user_and_tenant()
         project_id='project-b',
         session_id='',
     ) is False
+
+
+def test_control_center_event_poller_has_joinable_lifecycle(monkeypatch):
+    import agent.routes.control_center_api as control_center
+
+    class _EmptyRepository:
+        @staticmethod
+        def get_all():
+            return []
+
+    class _Repositories:
+        task_repo = _EmptyRepository()
+        policy_decision_repo = _EmptyRepository()
+
+    monkeypatch.setattr(control_center, "_repos", lambda: _Repositories())
+    control_center._ensure_event_poller()
+    thread = control_center._EVENT_POLL_THREAD
+
+    assert thread is not None and thread.is_alive()
+    assert control_center.stop_control_center_event_poller(timeout_seconds=2.0) is True
+    assert not thread.is_alive()
+    assert control_center._EVENT_POLL_THREAD is None

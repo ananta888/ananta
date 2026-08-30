@@ -1,4 +1,3 @@
-import concurrent.futures
 import contextlib
 import logging
 import os
@@ -428,24 +427,13 @@ class AutonomousLoopManager:
                 timeout_seconds = max(1.0, min(10.0, float(timeout_cfg)))
             except Exception:
                 timeout_seconds = 3.0
-            pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            try:
-                future = pool.submit(
-                    get_provider_observer_service().snapshot,
-                    agent_config=agent_cfg,
-                    provider_urls=provider_urls,
-                )
-                status["provider_observer"] = future.result(timeout=timeout_seconds)
-            finally:
-                pool.shutdown(wait=False, cancel_futures=True)
-        except concurrent.futures.TimeoutError:
-            status["provider_observer"] = {
-                "enabled": True,
-                "source": "hub_direct_probe",
-                "error": "provider_observer_timeout_guard",
-                "providers": {},
-                "observed_at": time.time(),
-            }
+            status["provider_observer"] = get_provider_observer_service().snapshot(
+                agent_config={
+                    **agent_cfg,
+                    "provider_observer_timeout_seconds": timeout_seconds,
+                },
+                provider_urls=provider_urls,
+            )
         except Exception as exc:
             status["provider_observer"] = {
                 "enabled": True,

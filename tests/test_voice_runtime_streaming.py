@@ -510,7 +510,7 @@ def test_stream_deadline_includes_recognizer_model_loading(monkeypatch):
             closed.set()
 
     monotonic_values = iter((10.0, 12.0))
-    monkeypatch.setattr("voice_runtime.streaming.time.monotonic", lambda: next(monotonic_values))
+    monkeypatch.setattr("voice_runtime.streaming.monotonic", lambda: next(monotonic_values))
     manager = StreamSessionManager(lambda *_args: _Recognizer(), default_deadline_seconds=1)
 
     with pytest.raises(StreamProtocolError) as error:

@@ -1,5 +1,6 @@
-from unittest.mock import patch
+import threading
 import time
+from unittest.mock import patch
 
 
 def test_provider_observer_probes_and_caches():
@@ -199,19 +200,64 @@ def test_provider_observer_probe_timeout_does_not_propagate():
     assert snap["providers"]["lmstudio"]["status"] == "probe_exception"
 
 
-def test_autopilot_status_provider_observer_timeout_guard(client, admin_auth_header, app):
+def test_provider_observer_total_deadline_skips_remaining_probes():
+    from agent.services.provider_observer_service import ProviderObserverService
+
+    svc = ProviderObserverService()
+    cfg = {
+        "provider_observer_enabled": True,
+        "provider_observer_include_ollama_activity": False,
+        "provider_observer_timeout_seconds": 0.25,
+    }
+    urls = {
+        "ollama": "http://ollama:11434",
+        "lmstudio": "http://lmstudio:1234/v1",
+    }
+
+    def _consume_budget(*_args, **_kwargs):
+        time.sleep(0.3)
+        return {"ok": False, "status": "timeout"}
+
+    with patch(
+        "agent.services.provider_observer_service.probe_ollama_runtime",
+        side_effect=_consume_budget,
+    ), patch(
+        "agent.services.provider_observer_service.probe_lmstudio_runtime",
+    ) as lmstudio_probe:
+        snapshot = svc.snapshot(agent_config=cfg, provider_urls=urls)
+
+    assert snapshot["providers"]["ollama"]["status"] == "timeout"
+    assert snapshot["providers"]["lmstudio"]["status"] == "probe_deadline_exceeded"
+    lmstudio_probe.assert_not_called()
+
+
+def test_autopilot_status_uses_bounded_observer_without_detached_thread(
+    client,
+    admin_auth_header,
+    app,
+):
     with app.app_context():
         cfg = dict(app.config.get("AGENT_CONFIG") or {})
         cfg["provider_observer_enabled"] = True
         cfg["provider_observer_timeout_seconds"] = 1
         app.config["AGENT_CONFIG"] = cfg
 
-    def _slow_snapshot(**_kwargs):
-        time.sleep(5)
-        return {"enabled": True, "providers": {}}
+    caller_thread = threading.current_thread()
+
+    def _bounded_snapshot(**_kwargs):
+        assert threading.current_thread() is caller_thread
+        return {
+            "enabled": True,
+            "providers": {
+                "lmstudio": {
+                    "ok": False,
+                    "status": "probe_deadline_exceeded",
+                }
+            },
+        }
 
     with patch("agent.routes.tasks.autopilot.get_provider_observer_service") as observer_factory:
-        observer_factory.return_value.snapshot.side_effect = _slow_snapshot
+        observer_factory.return_value.snapshot.side_effect = _bounded_snapshot
         started = time.time()
         res = client.get("/tasks/autopilot/status", headers=admin_auth_header)
         elapsed = time.time() - started
@@ -219,8 +265,8 @@ def test_autopilot_status_provider_observer_timeout_guard(client, admin_auth_hea
     assert res.status_code == 200
     data = (res.json or {}).get("data") or {}
     observer = data.get("provider_observer") or {}
-    assert observer.get("error") == "provider_observer_timeout_guard"
-    assert elapsed < 4.5
+    assert observer["providers"]["lmstudio"]["status"] == "probe_deadline_exceeded"
+    assert elapsed < 1.0
 
 
 def test_provider_observer_timeout_clamped_to_max():

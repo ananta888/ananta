@@ -645,7 +645,24 @@ def cleanup_db_and_runtime():
     """Ensure every test leaves DB + runtime state clean."""
 
     def _reset_runtime_state():
+        # Voice corrections run on the hub-owned executor and may still hold a
+        # SQLAlchemy session after the request that scheduled them returned.
+        # Drain them before deleting rows; concurrent SQLite cleanup can
+        # otherwise cross a test boundary or even crash the interpreter.
+        from agent.services.voice_live_run_correction_service import (
+            get_voice_live_run_correction_service,
+        )
+
+        if not get_voice_live_run_correction_service().wait_for_idle(timeout=10.0):
+            raise RuntimeError("voice live correction executor did not become idle")
+
         reset_auth_state()
+        try:
+            from agent.routes.control_center_api import stop_control_center_event_poller
+
+            stop_control_center_event_poller()
+        except Exception:
+            pass
         try:
             _settings().shell_path = "sh"
         except Exception:
@@ -748,6 +765,8 @@ def cleanup_db_and_runtime():
         try:
             import agent.llm_resilience as _res
 
+            for values in _res.CIRCUIT_BREAKER.values():
+                values.clear()
             _res._RATE_LIMIT_WINDOW.clear()
             _res._ERR_SUCCESS_WINDOW.clear()
             _res._ERR_FAILURE_WINDOW.clear()

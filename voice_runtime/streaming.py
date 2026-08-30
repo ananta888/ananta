@@ -13,10 +13,10 @@ import math
 import re
 import secrets
 import threading
-import time
 import wave
 from dataclasses import asdict, dataclass, field, replace
 from enum import Enum
+from time import monotonic
 from typing import TYPE_CHECKING, Callable, Protocol, cast
 
 from .backends.base import TranscriptionResult, VoiceBackend
@@ -590,7 +590,7 @@ class StreamSession:
             self.state = StreamState.FINALIZING
             try:
                 recognizer = self._active_recognizer()
-                remaining_seconds = max(0.001, self.deadline_monotonic - time.monotonic())
+                remaining_seconds = max(0.001, self.deadline_monotonic - monotonic())
                 tighten_deadline = getattr(recognizer, "tighten_deadline", None)
                 if callable(tighten_deadline):
                     tighten_deadline(remaining_seconds)
@@ -653,7 +653,7 @@ class StreamSession:
         return event
 
     def _check_deadline(self) -> None:
-        if time.monotonic() > self.deadline_monotonic:
+        if monotonic() > self.deadline_monotonic:
             self.state = StreamState.FAILED
             self._release_audio_state()
             raise StreamProtocolError("stream.deadline_exceeded", "stream deadline exceeded", 504, False)
@@ -791,7 +791,7 @@ class StreamSessionManager:
                 pcm_byte_budget,
             )
         validated_session_id = _validate_requested_session_id(requested_session_id)
-        started_monotonic = time.monotonic()
+        started_monotonic = monotonic()
         with self._lock:
             self._cleanup_locked()
             session_id = validated_session_id or self._new_session_id_locked()
@@ -840,7 +840,7 @@ class StreamSessionManager:
                     max_bytes=effective_max_bytes,
                     max_audio_seconds=effective_audio_seconds,
                 )
-            remaining_deadline = requested_deadline - (time.monotonic() - started_monotonic)
+            remaining_deadline = requested_deadline - (monotonic() - started_monotonic)
             if remaining_deadline <= 0:
                 recognizer.close()
                 raise StreamProtocolError(
@@ -859,7 +859,7 @@ class StreamSessionManager:
                 max_events=self._max_events,
                 max_chunks=self._max_chunks_per_session,
                 replay_window_chunks=self._replay_window_chunks,
-                deadline_monotonic=time.monotonic() + remaining_deadline,
+                deadline_monotonic=monotonic() + remaining_deadline,
                 execution_policy=dict(execution_policy or {}),
             )
             session._append_event(
@@ -917,7 +917,7 @@ class StreamSessionManager:
     def _cleanup_locked(self) -> None:
         if not self._sessions:
             return
-        now = time.monotonic()
+        now = monotonic()
         expired = [
             session_id
             for session_id, session in self._sessions.items()

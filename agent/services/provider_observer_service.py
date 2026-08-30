@@ -22,23 +22,29 @@ class ProviderObserverService:
             value = default
         return max(min_v, min(value, max_v))
 
-    @staticmethod
-    def _cfg_int(cfg: dict[str, Any], key: str, default: int, min_v: int, max_v: int) -> int:
-        try:
-            value = int(cfg.get(key, default))
-        except Exception:
-            value = default
-        return max(min_v, min(value, max_v))
-
-    def _probe_provider(self, provider: str, base_url: str, timeout_s: int, include_activity: bool) -> dict[str, Any]:
+    def _probe_provider(
+        self,
+        provider: str,
+        base_url: str,
+        timeout_s: float,
+        include_activity: bool,
+        *,
+        deadline_monotonic: float,
+    ) -> dict[str, Any]:
         started_at = time.time()
         error_detail: str | None = None
         try:
+            remaining = max(0.05, deadline_monotonic - time.monotonic())
             if provider == "ollama":
-                runtime = probe_ollama_runtime(base_url, timeout=timeout_s)
-                activity = probe_ollama_activity(base_url, timeout=timeout_s) if include_activity else None
+                runtime = probe_ollama_runtime(base_url, timeout=min(timeout_s, remaining))
+                remaining = deadline_monotonic - time.monotonic()
+                activity = (
+                    probe_ollama_activity(base_url, timeout=min(timeout_s, max(0.05, remaining)))
+                    if include_activity and remaining > 0
+                    else None
+                )
             elif provider == "lmstudio":
-                runtime = probe_lmstudio_runtime(base_url, timeout=timeout_s)
+                runtime = probe_lmstudio_runtime(base_url, timeout=min(timeout_s, remaining))
                 activity = None
             else:
                 runtime = {"ok": False, "status": "unsupported_provider_probe"}
@@ -72,7 +78,7 @@ class ProviderObserverService:
     ) -> dict[str, Any]:
         cfg = dict(agent_config or {})
         ttl_seconds = self._cfg_float(cfg, "provider_observer_ttl_seconds", 8.0, 1.0, 60.0)
-        timeout_seconds = self._cfg_int(cfg, "provider_observer_timeout_seconds", 3, 1, 15)
+        timeout_seconds = self._cfg_float(cfg, "provider_observer_timeout_seconds", 3.0, 0.25, 15.0)
         include_activity = bool(cfg.get("provider_observer_include_ollama_activity", True))
         enabled = bool(cfg.get("provider_observer_enabled", True))
         now = time.time()
@@ -93,6 +99,7 @@ class ProviderObserverService:
             }
 
         out: dict[str, Any] = {}
+        deadline_monotonic = time.monotonic() + timeout_seconds
         for provider, base_url in providers:
             key = f"{provider}|{base_url}"
             with self._lock:
@@ -106,7 +113,28 @@ class ProviderObserverService:
                 continue
 
             # Never hold cache lock while probing network endpoints.
-            item = self._probe_provider(provider, base_url, timeout_seconds, include_activity=include_activity)
+            if time.monotonic() >= deadline_monotonic:
+                item = {
+                    "provider": provider,
+                    "base_url": base_url,
+                    "ok": False,
+                    "status": "probe_deadline_exceeded",
+                    "candidate_count": 0,
+                    "runtime": {},
+                    "activity": None,
+                    "started_at": time.time(),
+                    "ended_at": time.time(),
+                    "latency_ms": 0,
+                    "source": "hub_direct_probe",
+                }
+            else:
+                item = self._probe_provider(
+                    provider,
+                    base_url,
+                    timeout_seconds,
+                    include_activity=include_activity,
+                    deadline_monotonic=deadline_monotonic,
+                )
             item["observed_at"] = time.time()
             item["cache_hit"] = False
             with self._lock:

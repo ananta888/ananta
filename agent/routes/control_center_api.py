@@ -49,6 +49,7 @@ _EVENT_COND = threading.Condition(_EVENT_LOCK)
 _EVENT_LOG: list[dict[str, Any]] = []
 _EVENT_MAX = 2000
 _EVENT_POLL_THREAD: threading.Thread | None = None
+_EVENT_POLL_STOP = threading.Event()
 _EVENT_LAST_TASK_TS = 0.0
 _EVENT_LAST_POLICY_TS = 0.0
 
@@ -314,7 +315,7 @@ def _append_event(
 
 def _event_poll_loop() -> None:
     global _EVENT_LAST_TASK_TS, _EVENT_LAST_POLICY_TS
-    while True:
+    while not _EVENT_POLL_STOP.is_set():
         try:
             repos = _repos()
             task_rows = repos.task_repo.get_all() or []
@@ -358,7 +359,7 @@ def _event_poll_loop() -> None:
         except Exception:
             # Keep stream infrastructure alive even if one poll cycle fails.
             pass
-        time.sleep(2)
+        _EVENT_POLL_STOP.wait(timeout=2.0)
 
 
 def _ensure_event_poller() -> None:
@@ -366,8 +367,27 @@ def _ensure_event_poller() -> None:
     with _EVENT_LOCK:
         if _EVENT_POLL_THREAD and _EVENT_POLL_THREAD.is_alive():
             return
+        _EVENT_POLL_STOP.clear()
         _EVENT_POLL_THREAD = threading.Thread(target=_event_poll_loop, daemon=True, name="control-center-event-poller")
         _EVENT_POLL_THREAD.start()
+
+
+def stop_control_center_event_poller(*, timeout_seconds: float = 5.0) -> bool:
+    """Stop and join the process-local poller through an explicit lifecycle seam."""
+
+    global _EVENT_POLL_THREAD
+    with _EVENT_LOCK:
+        thread = _EVENT_POLL_THREAD
+        _EVENT_POLL_STOP.set()
+        _EVENT_COND.notify_all()
+    if thread is not None and thread is not threading.current_thread():
+        thread.join(timeout=max(0.0, float(timeout_seconds)))
+    stopped = thread is None or not thread.is_alive()
+    if stopped:
+        with _EVENT_LOCK:
+            if _EVENT_POLL_THREAD is thread:
+                _EVENT_POLL_THREAD = None
+    return stopped
 
 
 @control_center_api_bp.route("/tasks/<task_id>", methods=["GET"])

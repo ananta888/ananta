@@ -5,7 +5,7 @@ import json
 import re
 import threading
 import time
-from concurrent.futures import Future, ThreadPoolExecutor, wait
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
@@ -79,6 +79,7 @@ class VoiceLiveRunCorrectionService:
         self._scheduled_keys: set[tuple[str, str, str, int]] = set()
         self._capacity = threading.BoundedSemaphore(2)
         self._futures_lock = threading.Lock()
+        self._idle_condition = threading.Condition(self._futures_lock)
 
     def prepare(
         self,
@@ -196,12 +197,14 @@ class VoiceLiveRunCorrectionService:
         )
 
     def wait_for_idle(self, timeout: float = 5.0) -> bool:
-        with self._futures_lock:
-            pending = tuple(self._futures)
-        if not pending:
+        deadline = time.monotonic() + max(0.0, timeout)
+        with self._idle_condition:
+            while self._futures:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._idle_condition.wait(timeout=remaining)
             return True
-        _done, unfinished = wait(pending, timeout=max(0.0, timeout))
-        return not unfinished
 
     @staticmethod
     def correction_requested(configuration: Mapping[str, Any]) -> bool:
@@ -565,10 +568,11 @@ class VoiceLiveRunCorrectionService:
         future: Future[None],
         key: tuple[str, str, str, int],
     ) -> None:
-        with self._futures_lock:
+        with self._idle_condition:
             self._futures.discard(future)
             self._scheduled_keys.discard(key)
             self._capacity.release()
+            self._idle_condition.notify_all()
 
 
 voice_live_run_correction_service = VoiceLiveRunCorrectionService()
