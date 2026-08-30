@@ -157,6 +157,8 @@
   "baseline_comparison": {
     "max_regression_percent": 15.0,
     "required_approval_status": "approved",
+    "required_approval_method": "hub_policy",
+    "approval_policy_path": "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json",
     "approved_baseline_path": "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json",
     "metrics": {
       "backend.snapshot_p50_ms": "lower_is_better",

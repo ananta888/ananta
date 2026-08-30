@@ -1,0 +1,18 @@
+{
+  "schema": "ananta.kanban-model-dashboard.baseline-approval-policy.v1",
+  "policy_id": "kanban-model-dashboard.formal-baseline-auto-approval.v1",
+  "policy_version": 1,
+  "enabled": true,
+  "authority": "hub-control-plane",
+  "approval_principal": "hub-policy:kanban-model-dashboard.formal-baseline-auto-approval.v1",
+  "profile_id": "kanban-model-dashboard.formal-performance.v1",
+  "required_candidate_status": "candidate_unapproved",
+  "max_candidate_age_seconds": 86400,
+  "required_source_artifacts": [
+    "backend",
+    "angular",
+    "tui",
+    "pty"
+  ],
+  "require_absolute_budgets": true
+}

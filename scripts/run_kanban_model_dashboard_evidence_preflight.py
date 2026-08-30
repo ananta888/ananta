@@ -4,16 +4,25 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import subprocess
 from dataclasses import asdict, is_dataclass
 from datetime import datetime
-import json
 from pathlib import Path
-import subprocess
 from typing import Any, Callable, Mapping, Sequence
 
 if __package__:
+    from scripts.performance.kanban_baseline_approval_policy import (
+        protected_candidate_sha256,
+        validate_policy_approval,
+    )
     from scripts.run_kanban_model_dashboard_evidence import REQUIRED_SUITES, SUITE_SPECS
 else:
+    from performance.kanban_baseline_approval_policy import (
+        protected_candidate_sha256,
+        validate_policy_approval,
+    )
     from run_kanban_model_dashboard_evidence import REQUIRED_SUITES, SUITE_SPECS
 
 
@@ -31,6 +40,12 @@ APPROVED_BASELINE_RELATIVE = Path(
 )
 PERFORMANCE_GATE_RELATIVE = Path(
     "artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json"
+)
+APPROVAL_POLICY_RELATIVE = Path(
+    "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json"
+)
+FORMAL_PROFILE_RELATIVE = Path(
+    "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json"
 )
 MAX_JSON_BYTES = 4 * 1024 * 1024
 
@@ -75,15 +90,43 @@ def _read_git_state(root: Path) -> tuple[str | None, bool, str | None]:
     return head or None, bool(status.strip()), None
 
 
-def _approved_baseline(document: Mapping[str, Any] | None) -> bool:
-    if document is None:
+def _file_sha256(root: Path, relative: Path) -> str | None:
+    path = root / relative
+    if not path.exists() or path.is_symlink() or not path.is_file():
+        return None
+    try:
+        resolved = path.resolve(strict=True)
+        resolved.relative_to(root.resolve(strict=True))
+        raw = resolved.read_bytes()
+    except OSError:
+        return None
+    if len(raw) > MAX_JSON_BYTES:
+        return None
+    return hashlib.sha256(raw).hexdigest()
+
+
+def _approved_baseline(
+    document: Mapping[str, Any] | None,
+    *,
+    candidate: Mapping[str, Any] | None,
+    candidate_sha256: str | None,
+    policy: Mapping[str, Any] | None,
+    policy_sha256: str | None,
+    profile_sha256: str | None,
+) -> bool:
+    if (
+        document is None
+        or candidate is None
+        or candidate_sha256 is None
+        or policy is None
+        or policy_sha256 is None
+        or profile_sha256 is None
+    ):
         return False
     approved_at = document.get("approved_at")
     if (
         document.get("schema") != PERFORMANCE_BASELINE_SCHEMA
         or document.get("approval_status") != "approved"
-        or not isinstance(document.get("approved_by"), str)
-        or not document["approved_by"].strip()
         or not isinstance(approved_at, str)
     ):
         return False
@@ -91,7 +134,22 @@ def _approved_baseline(document: Mapping[str, Any] | None) -> bool:
         parsed = datetime.fromisoformat(approved_at.replace("Z", "+00:00"))
     except ValueError:
         return False
-    return parsed.tzinfo is not None
+    approval = document.get("approval")
+    profile = document.get("profile")
+    return bool(
+        parsed.tzinfo is not None
+        and isinstance(approval, Mapping)
+        and approval.get("candidate_sha256") == candidate_sha256
+        and protected_candidate_sha256(document)
+        == protected_candidate_sha256(candidate)
+        and isinstance(profile, Mapping)
+        and profile.get("sha256") == profile_sha256
+        and validate_policy_approval(
+            baseline=document,
+            policy=policy,
+            policy_sha256=policy_sha256,
+        )
+    )
 
 
 def _blocked_gate_contract(document: Mapping[str, Any] | None) -> bool:
@@ -144,7 +202,11 @@ def run_preflight(
     head_sha, worktree_dirty, git_error = git_state_reader(root)
     candidate = _read_json(root, BASELINE_CANDIDATE_RELATIVE)
     approved = _read_json(root, APPROVED_BASELINE_RELATIVE)
+    policy = _read_json(root, APPROVAL_POLICY_RELATIVE)
     gate = _read_json(root, PERFORMANCE_GATE_RELATIVE)
+    candidate_sha256 = _file_sha256(root, BASELINE_CANDIDATE_RELATIVE)
+    policy_sha256 = _file_sha256(root, APPROVAL_POLICY_RELATIVE)
+    profile_sha256 = _file_sha256(root, FORMAL_PROFILE_RELATIVE)
     contract = _orchestrator_contract()
 
     uncommitted_candidate = worktree_dirty or not bool(
@@ -152,7 +214,15 @@ def run_preflight(
         and contract["configured_suite_count"] == 7
         and contract["performance_approved_baseline_only"]
     )
-    baseline_approval_required = not _approved_baseline(approved)
+    approved_baseline_valid = _approved_baseline(
+        approved,
+        candidate=candidate,
+        candidate_sha256=candidate_sha256,
+        policy=policy,
+        policy_sha256=policy_sha256,
+        profile_sha256=profile_sha256,
+    )
+    baseline_approval_required = not approved_baseline_valid
 
     reason_codes = []
     if uncommitted_candidate:
@@ -172,7 +242,7 @@ def run_preflight(
         boundaries.append(
             {
                 "code": "baseline_approval_required",
-                "category": "operational",
+                "category": "technical_policy",
             }
         )
 
@@ -198,7 +268,17 @@ def run_preflight(
             },
             "approved_baseline": {
                 "path": APPROVED_BASELINE_RELATIVE.as_posix(),
-                "present_and_approved": _approved_baseline(approved),
+                "present_and_approved": approved_baseline_valid,
+                "approval_method": (
+                    (approved.get("approval") or {}).get("method")
+                    if approved is not None
+                    and isinstance(approved.get("approval"), Mapping)
+                    else None
+                ),
+            },
+            "approval_policy": {
+                "path": APPROVAL_POLICY_RELATIVE.as_posix(),
+                "present": policy is not None,
             },
             "last_gate": {
                 "path": PERFORMANCE_GATE_RELATIVE.as_posix(),

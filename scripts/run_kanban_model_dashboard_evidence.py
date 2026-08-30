@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Protocol, Sequence
 
-
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
 PRODUCER_NAME = "kanban-model-dashboard-evidence-producer"
@@ -443,6 +442,7 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
             "scripts/performance/run_tui_kanban_local_diagnostic.py",
             "scripts/performance/"
             "run_kanban_model_dashboard_performance_suite.py",
+            "scripts/performance/kanban_baseline_approval_policy.py",
             "scripts/e2e/tui_kanban_pty_resize.py",
             "frontend-angular/tests/kanban-performance.local.spec.ts",
             "config/test-profiles/kanban-model-dashboard/"
@@ -451,6 +451,8 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
             "local-tui-performance.v1.json",
             "config/test-profiles/kanban-model-dashboard/"
             "formal-performance.v1.json",
+            "config/test-profiles/kanban-model-dashboard/"
+            "baseline-approval-policy.v1.json",
             "config/test-profiles/kanban-model-dashboard/baselines/"
             "formal-performance-approved.v1.json",
         ),

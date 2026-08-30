@@ -18,19 +18,31 @@ Formal performance evidence uses only:
 `config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json`
 
 The baseline must use schema
-`ananta.kanban-model-dashboard.performance-baseline.v1`, set
-`approval_status` to `approved`, identify a non-empty `approved_by`, and carry
-a timezone-qualified `approved_at`.
+`ananta.kanban-model-dashboard.performance-baseline.v1` and carry a valid
+attestation from the versioned hub policy at
+`config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json`.
+The policy verifies the candidate commit, bounded worktree state, profile and
+source hashes, runtime compatibility metadata, absolute budgets, and freshness.
+Missing or modified attestation data fails closed.
 
-The following artifact is review material only and cannot replace the approved
+The following artifact is policy input only and cannot replace the approved
 baseline:
 
 `artifacts/test-gates/kanban-model-dashboard-performance-baseline-candidate.v1.json`
 
 Its `candidate_unapproved` state therefore cannot yield passed release
-evidence. Until organizational approval is represented at the reserved
-approved-baseline path, the performance gate remains blocked exactly with
-`baseline_approval_required`.
+evidence. Promote it automatically after the four diagnostics and candidate
+generation have completed:
+
+```bash
+python3 scripts/performance/kanban_baseline_approval_policy.py
+```
+
+No human response, UI action, or external review board is required. An
+interactive review may be added as an optional co-signature, but is never a
+technical prerequisite. If the policy cannot prove all required conditions,
+promotion fails and the performance gate remains blocked with
+`baseline_approval_required` or `baseline_approval_invalid`.
 
 ## Dirty worktree boundary
 
@@ -39,7 +51,6 @@ commands. Any tracked or untracked source change is reported as
 `uncommitted_candidate`. This prevents a dirty worktree from being described
 as commit-bound passed evidence for `HEAD`.
 
-In the current development state, the expected remaining boundaries are:
-
-1. `uncommitted_candidate` (technical)
-2. `baseline_approval_required` (operational)
+After a policy-approved baseline and its candidate are committed, the
+read-only preflight is expected to report `ready`. A dirty source worktree is
+still reported as `uncommitted_candidate`.

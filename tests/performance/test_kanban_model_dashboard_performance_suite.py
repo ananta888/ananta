@@ -3,10 +3,13 @@ from __future__ import annotations
 import copy
 import hashlib
 import json
-from pathlib import Path
 
 import pytest
 
+from scripts.performance.kanban_baseline_approval_policy import (
+    DEFAULT_POLICY,
+    protected_candidate_sha256,
+)
 from scripts.performance.run_kanban_model_dashboard_performance_suite import (
     BASELINE_SCHEMA,
     ROOT,
@@ -16,7 +19,6 @@ from scripts.performance.run_kanban_model_dashboard_performance_suite import (
     normalise_measurements,
     validate_profile,
 )
-
 
 PROFILE_PATH = (
     ROOT
@@ -193,6 +195,30 @@ def _commit() -> dict[str, str]:
     return {"sha": "a" * 40, "ref": "refs/heads/main", "source": "git_metadata_files"}
 
 
+def _policy() -> tuple[dict, str]:
+    payload = DEFAULT_POLICY.read_bytes()
+    return json.loads(payload), hashlib.sha256(payload).hexdigest()
+
+
+def _policy_approved(candidate: dict, *, approved_at: str) -> tuple[dict, dict, str]:
+    policy, policy_hash = _policy()
+    approved = copy.deepcopy(candidate)
+    approved["approval_status"] = "approved"
+    approved["approved_by"] = policy["approval_principal"]
+    approved["approved_at"] = approved_at
+    approved["approval"] = {
+        "method": "hub_policy",
+        "decision": "approved",
+        "policy_id": policy["policy_id"],
+        "policy_version": policy["policy_version"],
+        "policy_sha256": policy_hash,
+        "candidate_sha256": "b" * 64,
+        "candidate_commit_sha": candidate["commit"]["sha"],
+        "protected_payload_sha256": protected_candidate_sha256(approved),
+    }
+    return approved, policy, policy_hash
+
+
 def _normalised() -> tuple[dict, str, dict, dict]:
     profile, profile_hash = _profile()
     backend, angular, tui, pty = _reports(profile)
@@ -321,10 +347,10 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
         commit=_commit(),
         created_at="2026-07-24T12:00:00+00:00",
     )
-    approved = copy.deepcopy(candidate)
-    approved["approval_status"] = "approved"
-    approved["approved_by"] = "performance-review-board"
-    approved["approved_at"] = "2026-07-24T12:30:00+00:00"
+    approved, policy, policy_hash = _policy_approved(
+        candidate,
+        approved_at="2026-07-24T12:30:00+00:00",
+    )
     at_limit = dict(measurements)
     at_limit["backend.snapshot_p95_ms"] = (
         measurements["backend.snapshot_p95_ms"] * 1.15
@@ -339,6 +365,8 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
         environment=environment,
         commit=_commit(),
         baseline=approved,
+        approval_policy=policy,
+        approval_policy_sha256=policy_hash,
     )
     outside = dict(at_limit)
     outside["backend.snapshot_p95_ms"] = (
@@ -353,6 +381,8 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
         environment=environment,
         commit=_commit(),
         baseline=approved,
+        approval_policy=policy,
+        approval_policy_sha256=policy_hash,
     )
 
     assert accepted["status"] == "passed"
@@ -366,3 +396,38 @@ def test_approved_baseline_allows_exactly_fifteen_percent_regression() -> None:
             "metrics": ["backend.snapshot_p95_ms"],
         }
     ]
+
+
+def test_human_label_without_policy_attestation_is_rejected() -> None:
+    profile, profile_hash, measurements, details = _normalised()
+    environment = _environment()
+    candidate = build_baseline_candidate(
+        profile=profile,
+        profile_sha256=profile_hash,
+        measurements=measurements,
+        details=details,
+        sources={},
+        environment=environment,
+        commit=_commit(),
+        created_at="2026-07-24T12:00:00+00:00",
+    )
+    candidate["approval_status"] = "approved"
+    candidate["approved_by"] = "performance-review-board"
+    candidate["approved_at"] = "2026-07-24T12:30:00+00:00"
+    policy, policy_hash = _policy()
+
+    report = build_gate_report(
+        profile=profile,
+        profile_sha256=profile_hash,
+        measurements=measurements,
+        details=details,
+        sources={},
+        environment=environment,
+        commit=_commit(),
+        baseline=candidate,
+        approval_policy=policy,
+        approval_policy_sha256=policy_hash,
+    )
+
+    assert report["status"] == "failed"
+    assert report["blockers"] == [{"code": "baseline_approval_invalid"}]

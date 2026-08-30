@@ -17,6 +17,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+try:
+    from scripts.performance.kanban_baseline_approval_policy import (
+        DEFAULT_POLICY,
+        validate_policy_approval,
+    )
+except ModuleNotFoundError:
+    from kanban_baseline_approval_policy import (  # type: ignore
+        DEFAULT_POLICY,
+        validate_policy_approval,
+    )
+
 
 ROOT = Path(__file__).resolve().parents[2]
 LOCAL_SCOPE = "local_diagnostic_not_release_evidence"
@@ -210,6 +221,14 @@ def validate_profile(profile: dict[str, Any]) -> None:
         raise SuiteValidationError("formal_profile_regression_must_equal_15")
     if baseline.get("required_approval_status") != "approved":
         raise SuiteValidationError("formal_profile_approval_status_invalid")
+    if baseline.get("required_approval_method") != "hub_policy":
+        raise SuiteValidationError("formal_profile_approval_method_invalid")
+    policy_path = _text(
+        baseline.get("approval_policy_path"),
+        "approval_policy_path",
+    )
+    if policy_path != _repo_path(DEFAULT_POLICY):
+        raise SuiteValidationError("formal_profile_approval_policy_path_invalid")
     approved_path = _text(
         baseline.get("approved_baseline_path"),
         "approved_baseline_path",
@@ -817,7 +836,7 @@ def build_baseline_candidate(
         "measurement_details": details,
         "source_artifacts": sources,
         "absolute_evaluation": absolute,
-        "candidate_status": "ready_for_organizational_review",
+        "candidate_status": "ready_for_policy_evaluation",
     }
 
 
@@ -828,6 +847,8 @@ def evaluate_baseline(
     measurements: dict[str, float | int],
     environment: dict[str, Any],
     baseline: dict[str, Any],
+    approval_policy: dict[str, Any] | None = None,
+    approval_policy_sha256: str | None = None,
 ) -> dict[str, Any]:
     if baseline.get("schema") != BASELINE_SCHEMA or baseline.get("baseline_version") != 1:
         raise SuiteValidationError("baseline_schema_invalid")
@@ -848,12 +869,15 @@ def evaluate_baseline(
         == environment.get("compatibility")
     )
     approval_status = str(baseline.get("approval_status") or "")
-    approval_valid = (
+    approval_valid = bool(
         approval_status == "approved"
-        and isinstance(baseline.get("approved_by"), str)
-        and bool(baseline["approved_by"].strip())
-        and isinstance(baseline.get("approved_at"), str)
-        and bool(baseline["approved_at"].strip())
+        and approval_policy is not None
+        and isinstance(approval_policy_sha256, str)
+        and validate_policy_approval(
+            baseline=baseline,
+            policy=approval_policy,
+            policy_sha256=approval_policy_sha256,
+        )
     )
     prior = _mapping(baseline.get("measurements"), "baseline_measurements")
     comparison = _mapping(profile["baseline_comparison"], "baseline_comparison")
@@ -911,6 +935,8 @@ def build_gate_report(
     environment: dict[str, Any],
     commit: dict[str, str],
     baseline: dict[str, Any],
+    approval_policy: dict[str, Any] | None = None,
+    approval_policy_sha256: str | None = None,
     evaluated_at: str | None = None,
 ) -> dict[str, Any]:
     absolute = evaluate_absolute(measurements, profile)
@@ -920,6 +946,8 @@ def build_gate_report(
         measurements=measurements,
         environment=environment,
         baseline=baseline,
+        approval_policy=approval_policy,
+        approval_policy_sha256=approval_policy_sha256,
     )
     blockers: list[dict[str, Any]] = []
     failed_budgets = [
@@ -1029,6 +1057,7 @@ def parse_args() -> argparse.Namespace:
     )
     _add_common_inputs(evaluate)
     evaluate.add_argument("--baseline", type=Path, required=True)
+    evaluate.add_argument("--approval-policy", type=Path, default=DEFAULT_POLICY)
     evaluate.add_argument("--output", type=Path, default=DEFAULT_GATE)
     return parser.parse_args()
 
@@ -1064,6 +1093,7 @@ def main() -> int:
             status = report["candidate_status"]
         else:
             baseline, _baseline_bytes = load_json(args.baseline)
+            approval_policy, approval_policy_bytes = load_json(args.approval_policy)
             report = build_gate_report(
                 profile=inputs["profile"],
                 profile_sha256=inputs["profile_sha256"],
@@ -1073,6 +1103,8 @@ def main() -> int:
                 environment=environment,
                 commit=commit,
                 baseline=baseline,
+                approval_policy=approval_policy,
+                approval_policy_sha256=_sha256_bytes(approval_policy_bytes),
             )
             status = report["status"]
             exit_code = 0 if status == "passed" else 2 if status == "blocked" else 1
