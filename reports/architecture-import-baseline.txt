@@ -104,5 +104,3 @@ Layer violation: agent.routes.organization_topology_patches imports agent.reposi
 Layer violation: agent.routes.source_control_git_authorizations imports agent.repositories.hub_git_authorization_repository (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.source_control_public_remotes imports agent.repositories.source_control_public_remote_repository (Layer agent.routes -> agent.repositories not allowed)
 Layer violation: agent.routes.source_control_workspace_registrations imports agent.repositories.source_control_workspace_registration_repository (Layer agent.routes -> agent.repositories not allowed)
-Layer violation: agent.services.planning_replan_service imports agent.routes.tasks.dependency_policy (Layer agent.services -> agent.routes not allowed)
-Layer violation: agent.services.worker_task_proposal_decision_service imports agent.routes.tasks.dependency_policy (Layer agent.services -> agent.routes not allowed)

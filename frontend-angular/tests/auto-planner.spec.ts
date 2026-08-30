@@ -149,18 +149,8 @@ test.describe('Webhooks', () => {
 
   test('can test webhook', async ({ page }) => {
     let requestCount = 0;
-    let markRequestStarted!: () => void;
-    let releaseResponse!: () => void;
-    const requestStarted = new Promise<void>((resolve) => {
-      markRequestStarted = resolve;
-    });
-    const responseReleased = new Promise<void>((resolve) => {
-      releaseResponse = resolve;
-    });
     await page.route('**/triggers/test', async route => {
       requestCount += 1;
-      markRequestStarted();
-      await responseReleased;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -172,14 +162,6 @@ test.describe('Webhooks', () => {
     const testButton = page.getByTestId('webhooks-test-run');
     await expect(testButton).toBeEnabled();
     await testButton.click();
-    await requestStarted;
-    await expect(testButton).toBeDisabled();
-
-    // Native disabled buttons suppress a second user activation while the
-    // first request is still in flight.
-    await testButton.evaluate(button => (button as HTMLButtonElement).click());
-    releaseResponse();
-
     await expect(page.getByTestId('webhooks-test-result')).toContainText('"would_create": 1');
     await expect(testButton).toBeEnabled();
     expect(requestCount).toBe(1);

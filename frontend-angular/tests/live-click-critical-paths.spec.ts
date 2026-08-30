@@ -1,5 +1,11 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { assertErrorOverlaysInViewport, assertNoUnhandledBrowserErrors, clearBrowserErrorGuards, loginFast } from './utils';
+import {
+  assertErrorOverlaysInViewport,
+  assertNoUnhandledBrowserErrors,
+  clearBrowserErrorGuards,
+  gotoProjectScopedRoute,
+  loginFast,
+} from './utils';
 
 function body(data: unknown): string {
   return JSON.stringify({ status: 'success', data });
@@ -68,7 +74,7 @@ async function installLiveClickMocks(page: Page): Promise<void> {
       { id: 'task-live-2', title: 'Review erforderlich', status: 'todo', verification_status: { status: 'review_required' } },
     ],
   }));
-  await page.route('**/goals', route => route.request().method() === 'GET' ? ok(route, goals) : route.fallback());
+  await page.route(/\/goals(?:\?.*)?$/, route => route.request().method() === 'GET' ? ok(route, goals) : route.fallback());
   await page.route(/\/goals\/goal-live-1\/governance-summary(?:\?.*)?$/, route => ok(route, {
     goal_id: 'goal-live-1',
     verification: { total: 2, passed: 1, failed: 0, escalated: 1 },
@@ -104,7 +110,7 @@ test.describe('Live click critical paths', () => {
     await installLiveClickMocks(page);
     await loginFast(page, request);
 
-    await page.goto('/dashboard#quick-goal');
+    await gotoProjectScopedRoute(page, '/dashboard#quick-goal');
     await expect(page.getByRole('heading', { name: /System Dashboard|Ananta starten/i })).toBeVisible();
     await page.getByRole('button', { name: /Diagnostizieren/i }).click();
     await expect(page.locator('#quick-goal').getByLabel('Zielbeschreibung eingeben')).toBeVisible();
@@ -155,7 +161,7 @@ test.describe('Live click critical paths', () => {
       });
     });
 
-    await page.goto('/dashboard#quick-goal');
+    await gotoProjectScopedRoute(page, '/dashboard#quick-goal');
     const quickGoal = page.locator('#quick-goal');
     await quickGoal.getByLabel('Zielbeschreibung eingeben').fill('Riskanten Pfad mit Review pruefen');
     await quickGoal.getByRole('button', { name: /Goal planen/i }).click();

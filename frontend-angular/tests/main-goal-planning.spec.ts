@@ -50,7 +50,7 @@ test.describe('Main Goal UI Planning', () => {
       expect(createdTeamId).toBeTruthy();
       cleanup.trackTeam(createdTeamId);
 
-      await page.route('**/goals', async route => {
+      await page.route(/\/goals(?:\?.*)?$/, async route => {
         const method = route.request().method();
         if (method === 'GET') {
           await route.fulfill({

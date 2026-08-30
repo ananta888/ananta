@@ -510,19 +510,7 @@ export async function loginFast(
   // for every caller, including tests on routes that need no project at all.
   await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
 
-  const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
-  const appNav = page.locator('.app-nav');
-  const loginForm = page.locator('input[name="username"]');
-
-  await expect.poll(async () => {
-    const url = page.url();
-    const hasDashboard = await dashboardHeading.isVisible().catch(() => false);
-    const hasNav = await appNav.isVisible().catch(() => false);
-    const hasLogin = await loginForm.isVisible().catch(() => false);
-    if (hasDashboard || hasNav) return 'authenticated';
-    if (/\/login(?:[?#]|$)/.test(url) || hasLogin) return 'login';
-    return 'pending';
-  }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
+  await expectAuthenticatedShell(page);
 
   if (username === ADMIN_USERNAME) {
     await assertAdminSession(request, String(accessToken));
@@ -982,10 +970,12 @@ export async function ensureLoginAttemptsCleared(ip?: string) {
 export async function expectAuthenticatedShell(page: Page): Promise<void> {
   const dashboardHeading = page.getByRole('heading', { name: /System Dashboard|Ananta starten/i });
   const appNav = page.locator('.app-nav');
+  const logoutButton = page.getByRole('button', { name: /Logout|Abmelden/i });
   const loginForm = page.locator('input[name="username"]');
   await expect.poll(async () => {
     if (await dashboardHeading.isVisible().catch(() => false)) return 'authenticated';
     if (await appNav.isVisible().catch(() => false)) return 'authenticated';
+    if (await logoutButton.isVisible().catch(() => false)) return 'authenticated';
     if (/\/login(?:[?#]|$)/.test(page.url()) || await loginForm.isVisible().catch(() => false)) return 'login';
     return 'pending';
   }, { timeout: 30000, intervals: [500, 1000, 2000] }).toBe('authenticated');
@@ -1112,8 +1102,13 @@ export async function gotoProjectScopedRoute(
   if (!projectId) {
     throw new Error(`${path} is project-scoped and no usable project could be established`);
   }
-  const separator = path.includes('?') ? '&' : '?';
-  await page.goto(`${path}${separator}projectId=${encodeURIComponent(projectId)}`, {
+  // Add the project query before a fragment. String concatenation turns
+  // `/dashboard#quick-goal` into `/dashboard#quick-goal?projectId=...`, where
+  // the browser treats the project id as part of the fragment and the guard
+  // never receives it.
+  const target = new URL(path, 'http://e2e.local');
+  target.searchParams.set('projectId', projectId);
+  await page.goto(`${target.pathname}${target.search}${target.hash}`, {
     waitUntil: options.waitUntil ?? 'domcontentloaded',
   });
 
@@ -1129,7 +1124,7 @@ export async function gotoProjectScopedRoute(
   // keeps the next failure legible instead of surfacing as a missing element
   // on a page the test never meant to be on.
   const landed = new URL(page.url()).pathname;
-  if (!landed.startsWith(path.split('?')[0])) {
+  if (!landed.startsWith(target.pathname)) {
     throw new Error(
       `${path} redirected to ${landed} even with projectId=${projectId}: ` +
       `the project context did not accept that project (${items.length} project(s) listed)`,

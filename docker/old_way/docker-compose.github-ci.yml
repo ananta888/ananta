@@ -17,6 +17,7 @@ services:
       dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
+      CORS_ORIGINS: "http://angular-frontend:4200"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
@@ -33,6 +34,7 @@ services:
       dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
+      CORS_ORIGINS: "http://angular-frontend:4200"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""
@@ -49,6 +51,7 @@ services:
       dockerfile: docker/old_way/Dockerfile.quickstart-no-ollama
     environment:
       ANANTA_QUICKSTART_MODE: "agent-only"
+      CORS_ORIGINS: "http://angular-frontend:4200"
       DEFAULT_PROVIDER: "mock"
       DEFAULT_MODEL: "mock"
       OLLAMA_URL: ""

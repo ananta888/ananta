@@ -1,6 +1,8 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { AsyncPipe, DatePipe } from '@angular/common';
+import { map } from 'rxjs';
 import { StatusChipComponent } from './status-chip.component';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
 import { ApprovalsApiService } from '../../../services/approvals-api.service';
@@ -42,7 +44,7 @@ interface ApprovalRequestRow {
     <div class="grid">
       <section class="panel">
         <h4>Decision Log</h4>
-        @for (d of decisions; track d) {
+        @for (d of decisions(); track d.id) {
           <div class="row">
             <div>
               <strong>{{ d.actionId }}</strong>
@@ -97,18 +99,20 @@ interface ApprovalRequestRow {
             }
           </select>
         </label>
-        @if (pendingRows.length) {
+        @if (pendingRows().length) {
           <div>
             <label>Pending Action
-              <select [(ngModel)]="selectedPendingId">
-                @for (p of pendingRows; track p) {
+              <select
+                [ngModel]="selectedPendingId || pendingRows()[0]?.id"
+                (ngModelChange)="selectedPendingId = $event">
+                @for (p of pendingRows(); track p.id) {
                   <option [value]="p.id">
                     {{ p.actionId }} · {{ p.reason }} · {{ p.toolCallId || p.id }}
                   </option>
                 }
               </select>
             </label>
-            <button (click)="approveSelected()" [disabled]="!selectedPendingId">Narrow Approval senden</button>
+            <button (click)="approveSelected()" [disabled]="!pendingRows().length">Narrow Approval senden</button>
           </div>
         } @else {
           <p class="muted">Keine pending approvals für diese Session.</p>
@@ -129,9 +133,26 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
   readonly state = inject(ControlCenterStateFacade);
   private approvalsApi = inject(ApprovalsApiService);
   private system = inject(SystemFacade);
-  decisions: DecisionRow[] = [];
+  private destroyRef = inject(DestroyRef);
+  readonly decisions = toSignal(
+    this.state.policyDecisions$.pipe(
+      map((rows) => rows.map((row): DecisionRow => ({
+        id: row.id,
+        actionId: row.action_id || row.id,
+        decision: row.decision as DecisionRow['decision'],
+        reason: row.reason,
+        matchedRuleIds: row.matched_rule_ids || [],
+        toolCallId: row.tool_call_id,
+      }))),
+    ),
+    { initialValue: [] as DecisionRow[] },
+  );
+  readonly pendingRows = computed(() =>
+    this.decisions().filter((decision) =>
+      decision.decision === 'require_approval' && Boolean(decision.toolCallId)
+    )
+  );
   selectedSessionId = '';
-  pendingRows: DecisionRow[] = [];
   selectedPendingId = '';
   lastPayload = '';
   resultMessage = '';
@@ -165,26 +186,12 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadApprovalRequests();
-    this.state.sessions$.subscribe((sessions) => {
+    this.state.sessions$.pipe(takeUntilDestroyed(this.destroyRef)).subscribe((sessions) => {
       if (!this.selectedSessionId && sessions.length) {
         this.selectedSessionId = sessions[0].id;
       }
       if (this.selectedSessionId) {
         this.state.loadPolicyDecisions(this.selectedSessionId);
-      }
-    });
-    this.state.policyDecisions$.subscribe((rows) => {
-      this.decisions = rows.map((row) => ({
-        id: row.id,
-        actionId: row.action_id || row.id,
-        decision: (row.decision as 'allow' | 'deny' | 'require_approval'),
-        reason: row.reason,
-        matchedRuleIds: row.matched_rule_ids || [],
-        toolCallId: row.tool_call_id,
-      }));
-      this.pendingRows = this.decisions.filter((d) => d.decision === 'require_approval' && !!d.toolCallId);
-      if (!this.selectedPendingId || !this.pendingRows.some((d) => d.id === this.selectedPendingId)) {
-        this.selectedPendingId = this.pendingRows[0]?.id || '';
       }
     });
     this.state.loadSessions();
@@ -197,8 +204,10 @@ export class ControlCenterPolicyApprovalComponent implements OnInit {
   }
 
   approveSelected(): void {
-    const pending = this.pendingRows.find((row) => row.id === this.selectedPendingId);
+    const rows = this.pendingRows();
+    const pending = rows.find((row) => row.id === this.selectedPendingId) || rows[0];
     if (!pending || !pending.toolCallId) return;
+    this.selectedPendingId = pending.id;
     const payload = {
       action_id: pending.actionId,
       tool_call_id: pending.toolCallId,

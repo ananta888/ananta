@@ -172,7 +172,10 @@ test.describe('Settings Config', () => {
     await expect(accountTab).toHaveClass(/active-toggle/);
     await systemTab.click();
     await expect(systemTab).toHaveClass(/active-toggle/);
-    await page.getByRole('button', { name: /Aktualisieren/i }).click();
+    await page.getByRole('heading', { name: 'System-Einstellungen' })
+      .locator('..')
+      .getByRole('button', { name: /^Aktualisieren$/i })
+      .click();
 
     const verified = await waitForConfigValue(
       request,

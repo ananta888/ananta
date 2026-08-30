@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 import { assistantInput, ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Global Dock', () => {
   test('is available across main routes and can interact on each page', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     await page.evaluate(() => {
       localStorage.removeItem('ananta.ai-assistant.pending-plan');
@@ -52,7 +52,7 @@ test.describe('AI Assistant Global Dock', () => {
   test('uses fullscreen overlay behavior on mobile when expanded', async ({ page, request }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     const container = page.locator('[data-testid="assistant-dock"], .ai-assistant-container').first();
     const header = page.locator('[data-testid="assistant-dock-header"], .ai-assistant-container .header, .ai-assistant-container button').first();
@@ -64,7 +64,7 @@ test.describe('AI Assistant Global Dock', () => {
   test('sends template summary in assistant context for llm requests', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
     if (!(await hasAssistantDock(page))) test.skip(true, 'Assistant dock not available in this environment.');
     let capturedContext: any = null;
     let readModelRequested = false;

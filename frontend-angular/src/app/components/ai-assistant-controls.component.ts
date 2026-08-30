@@ -36,6 +36,16 @@ import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
         <button class="cancel-btn" (click)="retryLast.emit()">Retry last</button>
       }
     </div>
+    <label class="hybrid-toggle">
+      <input
+        type="checkbox"
+        data-testid="assistant-hybrid-toggle"
+        aria-label="Hybrid Context"
+        [ngModel]="useHybridContext"
+        (ngModelChange)="useHybridContextChange.emit($event)"
+        [disabled]="busy">
+      Hybrid Context
+    </label>
   `,
   styles: [`
     .input-area { display: flex; gap: 5px; }

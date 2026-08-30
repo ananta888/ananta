@@ -1,3 +1,5 @@
+import { TestBed } from '@angular/core/testing';
+
 import { AiAssistantControlsComponent } from './ai-assistant-controls.component';
 
 describe('AiAssistantControlsComponent', () => {
@@ -47,5 +49,20 @@ describe('AiAssistantControlsComponent', () => {
     expect(cmp.runtimeContext.route).toBe('/');
     expect(cmp.runtimeContext.agents).toEqual([]);
     expect(cmp.runtimeContext.hasConfig).toBe(false);
+  });
+
+  it('keeps the supported hybrid context mode operator-selectable', async () => {
+    await TestBed.configureTestingModule({
+      imports: [AiAssistantControlsComponent],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(AiAssistantControlsComponent);
+    fixture.detectChanges();
+
+    const toggle = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-hybrid-toggle"]'
+    ) as HTMLInputElement | null;
+    expect(toggle).not.toBeNull();
+    expect(toggle?.getAttribute('aria-label')).toBe('Hybrid Context');
   });
 });

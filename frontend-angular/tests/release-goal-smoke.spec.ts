@@ -1,5 +1,5 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
-import { assertNoUnhandledBrowserErrors, loginFast } from './utils';
+import { assertNoUnhandledBrowserErrors, gotoProjectScopedRoute, loginFast } from './utils';
 
 type MockGoal = {
   id: string;
@@ -70,7 +70,7 @@ async function installGoalSmokeMocks(page: Page) {
       ],
     });
   });
-  await page.route('**/goals', async route => {
+  await page.route(/\/goals(?:\?.*)?$/, async route => {
     if (route.request().method() === 'GET') {
       await fulfillJson(route, goals);
       return;
@@ -118,7 +118,7 @@ test.describe('Release goal smoke E2E', () => {
     await loginFast(page, request);
     await installGoalSmokeMocks(page);
 
-    await page.goto('/dashboard');
+    await gotoProjectScopedRoute(page, '/dashboard');
     const quickGoal = page.locator('#quick-goal');
     await expect(quickGoal.getByLabel('Zielbeschreibung eingeben')).toBeVisible();
     await quickGoal.getByLabel('Zielbeschreibung eingeben').fill('Release Smoke Goal planen');
@@ -137,7 +137,7 @@ test.describe('Release goal smoke E2E', () => {
     await loginFast(page, request);
     await installGoalSmokeMocks(page);
 
-    await page.goto('/dashboard');
+    await gotoProjectScopedRoute(page, '/dashboard');
     await expect(page.getByRole('heading', { name: /Gefuehrter Ziel-Assistent/i })).toBeVisible();
     const wizard = page.locator('app-dashboard-guided-goal-wizard');
     await wizard.getByRole('button', { name: /Diagnose/i }).click();

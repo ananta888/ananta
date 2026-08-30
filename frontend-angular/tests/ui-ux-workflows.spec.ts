@@ -3,6 +3,7 @@ import {
   HUB_URL,
   assertNoUnhandledBrowserErrors,
   createJourneyCleanupPolicy,
+  gotoProjectScopedRoute,
   loginFast,
   openTeamsAdminStudio,
   requestWithRetry,
@@ -89,7 +90,7 @@ test.describe('UI UX Workflows', () => {
       }
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', data: [] }) });
     });
-    await page.route('**/goals', async route => {
+    await page.route(/\/goals(?:\?.*)?$/, async route => {
       if (route.request().method() === 'GET') {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ status: 'success', data: goals }) });
         return;
@@ -142,7 +143,7 @@ test.describe('UI UX Workflows', () => {
       });
     });
 
-    await page.goto('/auto-planner');
+    await gotoProjectScopedRoute(page, '/auto-planner');
     await expect(page.getByTestId('auto-planner-goal-input')).toBeVisible();
     await page.getByTestId('auto-planner-goal-input').fill(`UI Workflow Goal ${Date.now()}`);
     await page.getByTestId('auto-planner-goal-plan').click();

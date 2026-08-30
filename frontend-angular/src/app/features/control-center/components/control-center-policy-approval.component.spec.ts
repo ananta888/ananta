@@ -4,6 +4,8 @@ import { vi } from 'vitest';
 
 import { ControlCenterPolicyApprovalComponent } from './control-center-policy-approval.component';
 import { ControlCenterStateFacade } from '../services/control-center-state.facade';
+import { ApprovalsApiService } from '../../../services/approvals-api.service';
+import { SystemFacade } from '../../system/system.facade';
 
 class MockStateFacade {
   sessions$ = new BehaviorSubject<any[]>([{ id: 's1' }]);
@@ -16,11 +18,23 @@ class MockStateFacade {
   approveAction = vi.fn().mockReturnValue(of({ approved: true }));
 }
 
+const CONTROL_CENTER_TEST_PROVIDERS = [
+  { provide: ControlCenterStateFacade, useClass: MockStateFacade },
+  {
+    provide: ApprovalsApiService,
+    useValue: {
+      listRequests: vi.fn(() => of({ requests: [] })),
+      decide: vi.fn(() => of({ status: 'success' })),
+    },
+  },
+  { provide: SystemFacade, useValue: { resolveHubAgent: vi.fn(() => null) } },
+];
+
 describe('ControlCenterPolicyApprovalComponent', () => {
   it('renders decision log from backend facade state', async () => {
     await TestBed.configureTestingModule({
       imports: [ControlCenterPolicyApprovalComponent],
-      providers: [{ provide: ControlCenterStateFacade, useClass: MockStateFacade }],
+      providers: CONTROL_CENTER_TEST_PROVIDERS,
     }).compileComponents();
 
     const fixture = TestBed.createComponent(ControlCenterPolicyApprovalComponent);
@@ -34,7 +48,7 @@ describe('ControlCenterPolicyApprovalComponent', () => {
   it('sends narrow approval from selected pending row', async () => {
     await TestBed.configureTestingModule({
       imports: [ControlCenterPolicyApprovalComponent],
-      providers: [{ provide: ControlCenterStateFacade, useClass: MockStateFacade }],
+      providers: CONTROL_CENTER_TEST_PROVIDERS,
     }).compileComponents();
 
     const fixture = TestBed.createComponent(ControlCenterPolicyApprovalComponent);
@@ -48,5 +62,32 @@ describe('ControlCenterPolicyApprovalComponent', () => {
     const facade = TestBed.inject(ControlCenterStateFacade) as any;
     expect(facade.approveAction).toHaveBeenCalledWith({ action_id: 'approve:s1', tool_call_id: 'tc-1', session_id: 's1', scope: 'single_action' });
     expect(cmp.resultMessage).toContain('erfolgreich');
+  });
+
+  it('renders policy decisions emitted after the initial view pass', async () => {
+    await TestBed.configureTestingModule({
+      imports: [ControlCenterPolicyApprovalComponent],
+      providers: CONTROL_CENTER_TEST_PROVIDERS,
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(ControlCenterPolicyApprovalComponent);
+    fixture.detectChanges();
+    const facade = TestBed.inject(ControlCenterStateFacade) as unknown as MockStateFacade;
+
+    facade.policyDecisions$.next([
+      {
+        id: 'd-async',
+        decision: 'require_approval',
+        reason: 'tool blocked',
+        matched_rule_ids: ['RULE-DENY-1'],
+        action_id: 'approve:async',
+        tool_call_id: 'tc-async',
+      },
+    ]);
+    fixture.detectChanges();
+
+    expect(fixture.nativeElement.textContent).toContain('tool blocked');
+    expect(fixture.nativeElement.textContent).toContain('RULE-DENY-1');
+    expect(fixture.nativeElement.textContent).toContain('Narrow Approval senden');
   });
 });

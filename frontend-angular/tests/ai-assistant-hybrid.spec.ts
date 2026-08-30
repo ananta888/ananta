@@ -1,12 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 import { ensureAssistantExpanded } from './helpers/assistant-dock';
 
 test.describe('AI Assistant Hybrid Context', () => {
   test.describe.configure({ timeout: 120000 });
   test('renders context debug and citation preview in hybrid mode', async ({ page, request }) => {
     await loginFast(page, request);
-    await page.goto('/dashboard', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/dashboard');
 
     let executeSeen = false;
     let executeFlag = false;
