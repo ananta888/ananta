@@ -7,7 +7,7 @@
   "status": "partial",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "main@f434554d9842dd7e1808059439c9dd7c7ac486ee",
+    "reviewed_commit_range": "main@6cedcfddb",
     "review_goal": "Den im SIRA-Paper und in facebookresearch/sira beschriebenen corpus-diskriminativen Retrieval-Ansatz rechtssicher, reproduzierbar und inkrementell in die bestehende CodeCompass-Retrieval-Architektur integrieren. Ziel ist nicht eine isolierte Kopie, sondern ein optionales Ananta-Profil, das Offline-Corpus-Enrichment, LLM-gestützte Query-Kompilierung, Corpus-Statistik und genau einen gewichteten BM25/FTS-Retrieval-Aufruf mit vorhandenen Graph-, Symbol-, Vektor-, Policy-, Ranking- und Context-Curation-Komponenten verbindet.",
     "reviewed_paths": [
       "worker/retrieval/codecompass_fts_engine.py",
@@ -18,11 +18,14 @@
       "worker/retrieval/sira/",
       "agent/routes/codecompass_retrieve.py",
       "agent/services/codecompass_sira_index_operation_service.py",
+      "agent/services/codecompass_sira_evaluation_gate.py",
+      "agent/services/codecompass_sira_rollout_service.py",
       "agent/services/sira_index_task_ingress_policy.py",
       "agent/services/codecompass_sira_config_service.py",
       "agent/services/codecompass_sira_status_service.py",
       "ananta_contracts/sira_index_operation.py",
       "tests/test_codecompass_sira_index_operations.py",
+      "tests/test_codecompass_sira_rollout_service.py",
       "scripts/evaluate_sira_retrieval.py",
       "scripts/manage_sira_index.py",
       "docs/architecture/agent-codecompass-hybrid-retrieval.md",
@@ -58,7 +61,7 @@
     ],
     "design_conclusion": "SIRA wird als optionales, versioniertes Retrieval-Profil hinter vorhandenen Ports implementiert. Offline erzeugte Begriffe bleiben von Quelltext getrennt, werden inkrementell gepflegt und an Snapshot, Prompt und Modell gebunden. Online erzeugte Query-Begriffe werden gegen scope-gebundene Corpus-Statistiken validiert und zu genau einer gewichteten BM25/FTS-Abfrage kompiliert. Exact-, Symbol-, Graph-, Vektor-, Security-, Ranking- und Budgetpfade werden wiederverwendet; sichere Baseline-Fallbacks bleiben jederzeit verfügbar.",
     "upstream_revision": "facebookresearch/sira@b33f5b71a1870f09b378d8e79afb6ad9e704709b",
-    "audited_at": "2026-08-28"
+    "audited_at": "2026-08-30"
   },
   "purpose": "CodeCompass soll wie ein Repository-Experte aus einer Nutzerfrage eine präzise, corpus-spezifische lexikalische Suchaktion erzeugen können, ohne kostspielige iterative Suchschleifen zu benötigen. Gleichzeitig müssen Anantas hybride Vorteile, inkrementelle Indexpflege, lokale Modellwahl, Datenschutz, Erklärbarkeit und robuste Fallbacks erhalten bleiben.",
   "goal": "Ein aktiviertes SIRA-Profil verbessert auf gebundenen Multi-Repository-Golden-Sets Recall@k, nDCG@k beziehungsweise Evidence-Coverage gegenüber bestehendem BM25/FTS und erreicht gegenüber mehrstufigem agentischem Retrieval vergleichbare oder bessere Qualität mit höchstens einem lexikalischen Retrieval-Aufruf. Es bleibt vollständig abschaltbar, verliert niemals die Originalquery, weitet keinen Scope aus und fällt bei Modell-, Statistik- oder Indexfehlern kontrolliert auf die bestehende Retrieval-Pipeline zurück.",
@@ -100,16 +103,16 @@
     "Messbarer Rollout über Baseline, Ablation, Shadow, Canary und Rollback."
   ],
   "validation_plan": {
-    "schema": "python3 devtools/validate_todo_schema.py todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+    "schema": ".venv/bin/python devtools/validate_todo_schema.py todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
     "static": [
-      "python3 -m json.tool todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
-      "python3 scripts/validate_todo_consistency.py"
+      ".venv/bin/python -m json.tool todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json",
+      ".venv/bin/python scripts/validate_todo_consistency.py --todo todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json"
     ],
     "implementation": [
-      "pytest -q tests/test_sira_*",
-      "pytest -q tests/test_codecompass_fts_engine.py",
-      "python3 scripts/retrieval_benchmark.py --payload-file <bound-payloads>",
-      "python3 scripts/evaluate_sira_retrieval.py --baseline <baseline> --candidate <candidate>"
+      ".venv/bin/pytest -q tests/test_sira_*",
+      ".venv/bin/pytest -q tests/test_codecompass_fts_engine.py",
+      ".venv/bin/python scripts/retrieval_benchmark.py --payload-file <bound-payloads>",
+      ".venv/bin/python scripts/evaluate_sira_retrieval.py --golden <golden> --baseline <baseline> --candidate <candidate>"
     ]
   },
   "dependency_graph": {
@@ -148,7 +151,7 @@
       "SIRA-022"
     ]
   },
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-08-30",
   "title": "CodeCompass: SIRA-inspiriertes corpus-diskriminatives Retrieval",
   "status_scale": [
     "todo",
@@ -1094,14 +1097,15 @@
     "The deterministic seven-query fixture reports +0.428571 for Recall@10, nDCG@10, MRR and evidence coverage; this is not a production-repository or latency claim.",
     "The final targeted SIRA and adjacent queue, authorization, configuration and Worker-registration regression block passed 146 tests in 84.36 seconds.",
     "The closed benchmark policy, uncertainty and efficiency gates plus the persistent Hub-owned rollout controller are implemented; the final SIRA, feature-flag and startup regression block passed 75 tests in 46.87 seconds.",
-    "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced."
+    "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced.",
+    "Audit 2026-08-30: SIRA-020 und SIRA-021 wurden erneut gegen main@6cedcfddb geprueft. Evaluation, server-owned Policy Gate, persistente automatische Shadow-Canary-Preferred-Zustandsmaschine, Kill-Switches und automatische Rollbacks sind implementiert; lokal ist keine Source-Luecke offen. Die Validierungsbefehle wurden an die tatsaechlichen CLI-Vertraege angepasst."
   ],
   "audit_findings": {
     "format": "Das bisherige category_meta-Format wurde in den kanonischen Planning-Track-Vertrag mit flachen tasks[] und milestones[] ueberfuehrt.",
     "scope": "22 Aufgaben bleiben erhalten; Reihenfolge und Abhaengigkeiten wurden nicht erweitert.",
-    "upstream": "SIRA ist eine kleine Forschungsreferenz mit MIT-Hauptlizenz und Apache-2.0-abgeleitetem bm25x-Unterbaum; direkte Runtime-Uebernahme ist wegen Python-/CUDA-/Dependency-Annahmen nicht vorgesehen.",
+    "upstream": "SIRA ist eine kleine Forschungsreferenz mit MIT-Hauptlizenz und Apache-2.0-abgeleitetem bm25x-Unterbaum; direkte Runtime-Uebernahme ist wegen Python-/CUDA-/Dependency-Annahmen nicht vorgesehen. Der offizielle Upstream-HEAD wurde am 2026-08-30 erneut als b33f5b71a1870f09b378d8e79afb6ad9e704709b bestaetigt.",
     "solid": "Narrow Worker ports and the runtime-neutral ananta_contracts configuration preserve SRP, OCP and DIP; the Hub imports no Worker implementation, and SIRA remains the existing codecompass_fts channel.",
-    "implementation": "All repository implementation gaps for SIRA-020 and SIRA-021 are closed. Both remain partial only because real multi-repository/model and deployed canary evidence has not been supplied and cannot be inferred from fixtures."
+    "implementation": "All repository implementation gaps for SIRA-020 and SIRA-021 are closed. Both remain partial only because real multi-repository/model and deployed canary evidence has not been supplied and cannot be inferred from fixtures. Rollout progression and rollback are fully automatic and require no human approval or interactive test step."
   },
   "tasks_status_summary": {
     "total": 22,
