@@ -4,18 +4,19 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "free-coding-agent-cli-provider-integrations",
   "created": "2026-08-16",
-  "last_updated": "2026-08-28",
+  "last_updated": "2026-08-30",
   "status": "partial",
   "review_basis": {
-    "reviewed_commit": "bcc8ae481f7c490fa4dbb59ed3e0163b8f32b1f3",
-    "review_goal": "Veralteten Nullstand gegen den CLI-Backend-Source-of-Truth, vorhandene Worker-Adapter und aktuelle offizielle Automationspfade pruefen",
-    "repository_state": "main entsprach origin/main; Arbeitsbaum war vor dem Audit sauber",
-    "verification": "155 Codex-, Claude-, OpenCode-, Aider-, Namespace-, Provisioning- und Routing-Regressionsfaelle bestanden"
+    "reviewed_commit": "0dbdc24873c31d044ce3105658787648bec2c334",
+    "review_goal": "Die vier offenen FCA-Aufgaben vor der Weiterarbeit gegen den CLI-Backend-Source-of-Truth, die aktuelle offizielle Qwen-Automation und den real verfuegbaren Laufzeitstand pruefen",
+    "repository_state": "main entsprach origin/main; nur zwei bereits vorhandene, sachfremde WebRTC-Compose-Aenderungen waren uncommitted und blieben unangetastet",
+    "verification": "86 fokussierte Coding-Agent-, OpenCode-, Aider-, Modellinventar-, Routing- und Budget-Regressionsfaelle bestanden in 524.98 Sekunden"
   },
   "current_state": {
     "source_of_truth": "agent.cli_backends.*",
     "implemented_cli_backends": ["sgpt", "codex", "claude_code", "opencode", "aider", "mistral_code", "qwen_code", "gemini_cli", "copilot_cli", "cline", "kilo_code"],
-    "provider_contract_gap": "Der geschlossene Provider- und Process-Vertrag ist fuer neue Profile aktiv; nur der komplexe bestehende OpenCode-Runtime-Pfad verwendet noch seinen kompatiblen Alt-Runner.",
+    "provider_contract_gap": "Der geschlossene Provider- und Process-Vertrag ist fuer neue Profile aktiv; der OpenCode-Standardpfad verwendet noch den Alt-Runner und Aider besitzt noch keinen gemeinsamen deklarativen Inferenzziel-Resolver.",
+    "local_qwen_preflight": "qwen_binary_not_installed_and_supported_auth_environment_not_configured",
     "new_provider_status": {
       "qwen_code": "integrated_headless_reference_provider_live_auth_smoke_open",
       "gemini_cli": "integrated_official_headless_profile",
@@ -43,6 +44,7 @@
   },
   "research_sources": [
     "https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/headless.md",
+    "https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/auth.md",
     "https://github.com/QwenLM/qwen-code/blob/main/README.md",
     "https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx",
     "https://developers.google.com/jules/api",
@@ -303,7 +305,7 @@
       "dependencies": ["FCA-002"],
       "evidence": [
         "BoundedCodingAgentProcess standardisiert absolute argv, Environment-Allowlist, Streaming, Output-Limit, Timeout, Cancellation und Process-Group-Kill.",
-        "Qwen und alle neuen CLI-Profile verwenden den Adapter; der komplexe bestehende OpenCode-Runtime-Pfad verwendet seinen kompatiblen Alt-Runner weiterhin und verhindert den Status done."
+        "Qwen und alle neuen CLI-Profile verwenden den Adapter; der OpenCode-Standardpfad verwendet weiterhin subprocess.run ohne gemeinsamen Cancellation-/Process-Group-Vertrag und verhindert den Status done."
       ]
     },
     {
@@ -354,7 +356,7 @@
       "dependencies": ["FCA-004"],
       "evidence": [
         "Das Qwen-Profil startet den offiziellen Headless-Pfad mit stream-json, safe-mode, auto-edit, Tool-/Walltime-Bounds, Modell und Session Resume.",
-        "Deterministische Adaptertests decken Start, Streaming, Timeout, Cancellation, Output-Bounds und Secret-Redaktion ab; ein berechtigter echter Inferenzlauf ist extern noch offen."
+        "Deterministische Adaptertests decken Start, Streaming, Timeout, Cancellation, Output-Bounds und Secret-Redaktion ab; am 2026-08-30 waren weder qwen-Binary noch eine unterstuetzte Auth-Umgebung vorhanden, daher bleibt ein berechtigter echter Inferenzlauf extern offen."
       ]
     },
     {
@@ -404,7 +406,7 @@
       "dependencies": ["FCA-005", "FCA-006"],
       "evidence": [
         "Vollautomatische Tests pruefen Startvertrag, Stream, Fehler, Quota, Timeout, Cancel, Secret-Redaktion und Prozessgruppenbereinigung.",
-        "55 Backendtests sind gruen; der optionale echte Qwen-Smoke bleibt mangels expliziter Providerberechtigung nicht ausgefuehrt."
+        "86 fokussierte Backend- und Routingtests sind am 2026-08-30 gruen; fuer den optionalen echten Qwen-Smoke fehlen lokal Binary und explizit bereitgestellte Auth, interaktive Anmeldung ist kein zulaessiger Testpfad."
       ]
     },
     {
@@ -499,8 +501,8 @@
       ],
       "dependencies": ["FCA-002", "FCA-008"],
       "evidence": [
-        "OpenCode und Aider akzeptieren getrennte Modellkonfigurationen; lokale OpenAI-kompatible Laufzeiten sind im Hub inventarisierbar.",
-        "Die Assistant-Auswahl zeigt Client, free_class und das getrennte Runtime-Inferenzziel; nicht alle CLI-eigenen Provider koennen ihren effektiven Account-Modellprovider vor einem Lauf melden."
+        "OpenCode und Aider akzeptieren getrennte Modellnamen; lokale OpenAI-kompatible Laufzeiten sind im Hub inventarisierbar, aber nur OpenCode besitzt bereits einen Runtime-Zielresolver.",
+        "Die Assistant-Auswahl zeigt Client, free_class und das getrennte Runtime-Inferenzziel; Aider benoetigt noch denselben deklarativen Zielvertrag und alle nicht aufloesbaren CLI-Accountziele muessen explizit unknown bleiben."
       ]
     },
     {
