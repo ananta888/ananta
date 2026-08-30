@@ -319,7 +319,14 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
                     "--reporter=json",
                 ),
                 cwd="frontend-angular",
-                env=(("E2E_BROWSERS", "chromium,firefox"),),
+                env=(
+                    ("E2E_BROWSERS", "chromium,firefox"),
+                    ("E2E_PORT", "4217"),
+                    (
+                        "E2E_RESULTS_DIR",
+                        "/tmp/ananta-kanban-model-dashboard-accessibility-v1",
+                    ),
+                ),
                 timeout_seconds=1_200,
                 validator="playwright",
                 minimum_passed=4,
@@ -958,7 +965,7 @@ def _validate_performance_result(
             and isinstance(value.get("resize_measurements"), list)
         )
     else:
-        profile_sha = value.get("profile_sha256")
+        profile_sha = _nested(value, "profile", "sha256")
         valid = (
             value.get("status") == "passed"
             and value.get("release_evidence") is True

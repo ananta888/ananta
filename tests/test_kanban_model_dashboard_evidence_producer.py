@@ -16,6 +16,7 @@ from scripts.run_kanban_model_dashboard_evidence import (
     ExecutionResult,
     SUITE_SPECS,
     _atomic_write_json,
+    _validate_performance_result,
 )
 
 
@@ -277,3 +278,31 @@ def test_atomic_writer_preserves_previous_file_on_partial_replace(
 def test_allowlist_contains_exactly_the_seven_release_suites() -> None:
     assert tuple(SUITE_SPECS) == REQUIRED_SUITES
     assert len(REQUIRED_SUITES) == 7
+    accessibility = SUITE_SPECS["accessibility"].commands[0]
+    assert dict(accessibility.env)["E2E_RESULTS_DIR"] == (
+        "/tmp/ananta-kanban-model-dashboard-accessibility-v1"
+    )
+    assert dict(accessibility.env)["E2E_PORT"] == "4217"
+
+
+def test_performance_gate_validator_reads_versioned_profile_projection() -> None:
+    value = {
+        "schema": "ananta.kanban-model-dashboard.performance-gate.v1",
+        "status": "passed",
+        "release_evidence": True,
+        "formal_gate_eligible": True,
+        "blockers": [],
+        "commit": {"sha": COMMIT},
+        "profile": {"sha256": "b" * 64},
+        "environment": {},
+        "measurements": {},
+        "absolute_evaluation": {},
+        "baseline_evaluation": {},
+    }
+
+    result = _validate_performance_result("performance_gate", value, COMMIT)
+
+    assert result == {
+        "schema": "ananta.kanban-model-dashboard.performance-gate.v1",
+        "requirements_satisfied": True,
+    }
