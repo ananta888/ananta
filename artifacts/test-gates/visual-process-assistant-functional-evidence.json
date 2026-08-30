@@ -72,7 +72,7 @@
   },
   "schema": "ananta.visual-process-assistant-functional-evidence.v1",
   "source_hashes": {
-    "agent/config.py": "030d5925795caa1f3ea569f03e9ef9caad53c1e85eeb0cd79700f5b020d65a53",
+    "agent/config.py": "de3df3116f1fbd398605a4781f2fd8780fdb4fbd7731cded1bcb0731aa232465",
     "agent/db_models/visual_process.py": "8b789b6c74439a6d9c150ab1fa2330b9be18f03b2358c0122da1d0874c28c4f6",
     "agent/db_models/visual_process_assistant.py": "db553b6dd36a2fc90ebada0d082146bff46e1356096f49a78c427eec4c0bd893",
     "agent/routes/visual_process.py": "fa1c4c626c8a0c3908bc1a0d9495bbcf7e10b5068c2cd3090ed6ae6b021702b0",
@@ -153,5 +153,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:f80575168fc25c05044ddca2acb6f10de9e55e43f680514f59b3531124680ce6"
+  "source_revision": "worktree-sha256:5e2de3f2777c37ea54231b389f33cefb8c679b1d9192b84aa30351ab1511cc34"
 }
