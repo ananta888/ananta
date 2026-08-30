@@ -28,8 +28,8 @@
   "repository": {
     "full_name": "ananta888/ananta",
     "branch": "main",
-    "analyzed_commit": "b1b776421",
-    "analyzed_at": "2026-08-01",
+    "analyzed_commit": "1c8b0762a",
+    "analyzed_at": "2026-08-30",
     "previous_baseline": "5e24e95771cd675178696986374883c4b5e0e9af",
     "baseline_state": "locally_verified_external_release_unverified"
   },
@@ -55,7 +55,7 @@
       "artifacts/test-gates/source-control-center-recovery-drill-verification.json#sha256=dacef2d7bce0e801fe7500d5c7408a3fcd93e6dce8cc354426be7413ccf61272",
       "artifacts/test-gates/source-control-center-rollout-verification.json#sha256=f8a89012a90539af96c158691f497679b8785a959315b81e8f8cd27b260987ed",
       "artifacts/test-gates/source-control-github-onboarding-verification.json#sha256=f9f4de252e93b3fbc4bd865cdb586e6acbd97f7fd99b88e4159fcc7d7aded2ef",
-      "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=98a247a3bbe875f3a4ec9035d3d4e428164402143f1a1941ca494c89f1e08087"
+      "artifacts/test-gates/source-control-center-live-browser-verification.json#sha256=c891e5a83d8ad0d4fe7af23a271739ccc663961aa115b585bdbfc8cd877e815c"
     ],
     "state": "local_gates_passed_production_unverified",
     "rules": [
@@ -2193,7 +2193,8 @@
     "Public Git/GitHub und Workspace-Snapshot sind lokal ueber das sichtbare Hauptmenue Quellen & Indexierung, den Projekt-CTA Git oder Ordner hinzufügen, den Project-Binding-Hinweis und die vier Quellkarten bis zur Aktivierung verifiziert. Beide nutzten genau den Hub-owned Prepare-Index-Access-Aggregatpfad; Worker orchestrierten keine Worker und der Browser keine Policy-/Grant-Sequenz.",
     "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden.",
     "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert.",
-    "2026-08-17: Built-in GitHub App/OAuth provisioner added. Default bleibt unavailable. Adapter loest github-installation:<id> und gespeicherte github-oauth-Grants serverseitig, fordert contents:read, persistiert keine Tokens und gibt keine Tokens an Angular. Live-Installation und OAuth-Grant bleiben extern unverified."
+    "2026-08-17: Built-in GitHub App/OAuth provisioner added. Default bleibt unavailable. Adapter loest github-installation:<id> und gespeicherte github-oauth-Grants serverseitig, fordert contents:read, persistiert keine Tokens und gibt keine Tokens an Angular. Live-Installation und OAuth-Grant bleiben extern unverified.",
+    "2026-08-30 Audit: Der aktuelle Quellstand bestaetigt die Hub-owned Source-, Index-, Policy-, GitHub-App/OAuth-, Observability-, E2E- und Release-Gate-Pfade. Die vier partial Tasks besitzen keine lokal offene Source-Luecke; offen bleiben ausschliesslich reale private GitHub-/Cloud- und Produktionsbetriebsnachweise sowie bereitgestellte gueltige SRC_*/RUN_*-IDs. Der veraltete zentrale Live-Browser-Evidence-Hash wurde auf den tatsaechlichen stabilen Artefaktdigest korrigiert."
   ],
   "end_summaries": [
     {
@@ -2230,10 +2231,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-01T19:40:23.559597Z",
+    "generated_at": "2026-08-30T19:39:28.727775Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "06be509b85f6c4d0fc4e386f8b8208a469f64534c7c3ed4719fc852ab166e504",
+    "source_hash": "5b69553c054bccce903313ace7e871e7f548f36909b4b7b0d1c7fc9cac26c0b8",
     "is_stale": false
   },
   "milestone_progress_summary": {
