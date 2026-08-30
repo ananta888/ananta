@@ -42,13 +42,13 @@
     }
   ],
   "samples": {
-    "render_tick": 20,
-    "resize_region_rebuild": 20,
+    "render_tick": 30,
+    "resize_region_rebuild": 30,
     "event_loop": 30
   },
   "operations_per_sample": {
-    "render_tick": 20,
-    "resize_region_rebuild": 20
+    "render_tick": 100,
+    "resize_region_rebuild": 100
   },
   "absolute_budgets": {
     "render_tick_p95_ms": 150.0,
