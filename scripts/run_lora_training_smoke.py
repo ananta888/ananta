@@ -128,6 +128,13 @@ _MOCK_CAPABILITY_EVIDENCE = {
 _PACKAGE_NAMES = ("torch", "transformers", "datasets", "peft", "trl", "safetensors", "bitsandbytes")
 _SAFE_MODEL_BASENAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 CommandRunner = Callable[[Sequence[str]], subprocess.CompletedProcess[str]]
+_MOCK_GATE_SUITE_ORDER = (
+    "hub_control",
+    "hub_unsloth",
+    "worker_control",
+    "worker_unsloth",
+    "control_plane_e2e",
+)
 
 __all__ = [
     "_aggregate_nvidia_runs",
@@ -181,6 +188,24 @@ def _suite_sha256(paths: Sequence[str]) -> str:
         digest.update(_file_sha256(path).encode("ascii"))
         digest.update(b"\x00")
     return digest.hexdigest()
+
+
+def _mock_gate_suite_name(path: str) -> str:
+    if path.startswith("tests/e2e/"):
+        return "control_plane_e2e"
+    if path.startswith("tests/worker/"):
+        return "worker_unsloth" if "unsloth" in path else "worker_control"
+    return "hub_unsloth" if "unsloth" in path else "hub_control"
+
+
+def _mock_gate_suites() -> tuple[tuple[str, tuple[str, ...]], ...]:
+    grouped = {
+        name: tuple(path for path in MOCK_GATE_TESTS if _mock_gate_suite_name(path) == name)
+        for name in _MOCK_GATE_SUITE_ORDER
+    }
+    if any(not paths for paths in grouped.values()) or sum(map(len, grouped.values())) != len(MOCK_GATE_TESTS):
+        raise ValueError("lora_mock_gate_suite_partition_invalid")
+    return tuple((name, grouped[name]) for name in _MOCK_GATE_SUITE_ORDER)
 
 
 def _docker_copy_tree_paths(relative_root: str) -> tuple[str, ...]:
@@ -238,22 +263,47 @@ def _worker_image_fingerprint() -> dict[str, str]:
 
 
 def _mock_gate(runner: CommandRunner) -> dict[str, Any]:
-    command = [_python_executable(), "-m", "pytest", "-q", *MOCK_GATE_TESTS]
-    result = runner(command)
-    combined = f"{result.stdout}\n{result.stderr}"
-    match = re.search(r"(?P<count>\d+) passed", combined)
-    status = "passed" if result.returncode == 0 else "failed"
+    legacy_command = [_python_executable(), "-m", "pytest", "-q", *MOCK_GATE_TESTS]
+    suite_reports: list[dict[str, Any]] = []
+    isolated_commands: list[list[str]] = []
+    for name, paths in _mock_gate_suites():
+        command = [_python_executable(), "-m", "pytest", "-q", *paths]
+        isolated_commands.append(command)
+        result = runner(command)
+        combined = f"{result.stdout}\n{result.stderr}"
+        match = re.search(r"(?P<count>\d+) passed", combined)
+        reason_code = (
+            "lora_mock_gate_suite_passed"
+            if result.returncode == 0
+            else f"lora_mock_gate_suite_signal:{-result.returncode}"
+            if result.returncode < 0
+            else f"lora_mock_gate_suite_exit:{result.returncode}"
+        )
+        suite_reports.append(
+            {
+                "name": name,
+                "status": "passed" if result.returncode == 0 else "failed",
+                "returncode": int(result.returncode),
+                "reason_code": reason_code,
+                "tests_passed": int(match.group("count")) if match else None,
+                "suite_sha256": _suite_sha256(paths),
+            }
+        )
+    status = "passed" if all(item["status"] == "passed" for item in suite_reports) else "failed"
+    counts = [item["tests_passed"] for item in suite_reports]
     return {
         "status": status,
-        "returncode": int(result.returncode),
-        "tests_passed": int(match.group("count")) if match else None,
+        "returncode": 0 if status == "passed" else 1,
+        "tests_passed": sum(counts) if all(isinstance(count, int) for count in counts) else None,
         "suite_sha256": _suite_sha256(MOCK_GATE_TESTS),
         "worker_image": _worker_image_fingerprint(),
         "capabilities_proven": sorted(_MOCK_CAPABILITY_EVIDENCE) if status == "passed" else [],
         "capability_evidence": {
             capability: list(paths) for capability, paths in sorted(_MOCK_CAPABILITY_EVIDENCE.items())
         },
-        "reproduce": list(command),
+        "reproduce": list(legacy_command),
+        "isolated_reproduce": isolated_commands,
+        "suites": suite_reports,
     }
 
 

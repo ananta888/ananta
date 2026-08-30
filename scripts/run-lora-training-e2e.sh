@@ -9,4 +9,4 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
 fi
 
 cd "${ROOT_DIR}"
-exec "${PYTHON_BIN}" scripts/run_lora_training_smoke.py "$@"
+exec "${PYTHON_BIN}" -m scripts.run_lora_training_smoke "$@"

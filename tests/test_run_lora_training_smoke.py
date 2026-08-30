@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import scripts.run_lora_training_smoke as smoke_gate
-
 import json
 import os
 import subprocess
@@ -9,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import scripts.run_lora_training_smoke as smoke_gate
 from scripts.run_lora_training_smoke import (
     _nvidia_probe,
     _tree_sha256,
@@ -18,9 +17,33 @@ from scripts.run_lora_training_smoke import (
 )
 
 
+def test_shell_entrypoint_resolves_the_scripts_package_outside_repository(tmp_path: Path) -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+    result = subprocess.run(
+        ["bash", str(repository_root / "scripts/run-lora-training-e2e.sh"), "--help"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "Run the local LoRA training acceptance gate" in result.stdout
+
+
 def test_gate_records_mock_success_and_never_copies_process_output() -> None:
+    calls = 0
+
     def runner(command):
-        return subprocess.CompletedProcess(command, 0, stdout="77 passed\nprivate-secret-marker", stderr="")
+        nonlocal calls
+        count = 77 if calls == 0 else 0
+        calls += 1
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=f"{count} passed\nprivate-secret-marker",
+            stderr="",
+        )
 
     report = run_gate(run_mock=True, nvidia_model=None, runner=runner)
 
@@ -56,6 +79,29 @@ def test_gate_records_mock_success_and_never_copies_process_output() -> None:
     )
     assert report["nvidia_live_proof"] is False
     assert "private-secret-marker" not in json.dumps(report)
+
+
+def test_mock_gate_isolates_suites_and_reports_native_process_signals() -> None:
+    calls = 0
+
+    def runner(command):
+        nonlocal calls
+        calls += 1
+        return subprocess.CompletedProcess(
+            command,
+            -11 if calls == 2 else 0,
+            stdout="1 passed",
+            stderr="native-detail-must-not-leak",
+        )
+
+    report = smoke_gate._mock_gate(runner)
+
+    assert report["status"] == "failed"
+    assert report["returncode"] == 1
+    assert len(report["suites"]) == 5
+    assert report["suites"][1]["reason_code"] == "lora_mock_gate_suite_signal:11"
+    assert len(report["isolated_reproduce"]) == 5
+    assert "native-detail-must-not-leak" not in json.dumps(report)
 
 
 def test_required_nvidia_turns_missing_hardware_into_failed_gate() -> None:
