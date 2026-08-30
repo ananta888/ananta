@@ -118,10 +118,13 @@ export class AiAssistantControlsComponent {
     }
     const metadata = this.backendMetadata?.[this.cliBackend] || {};
     const inferenceTarget = this.selectedCliRuntime?.target_provider || 'CLI-Account bzw. konfigurierter Modellprovider';
+    const inferenceModel = this.selectedCliRuntime?.target_model
+      ? ` · Modell: ${this.selectedCliRuntime.target_model}`
+      : '';
     const availability = metadata.available === false
       ? `Nicht verfügbar: ${metadata.install_hint || 'CLI ist auf diesem Laufzeitziel nicht installiert.'}`
       : 'verfügbar oder noch nicht geprüft';
-    return `Client: ${this.backendLabel(this.cliBackend)} · Inferenz/Account: ${this.freeClassLabel(metadata.free_class)} · Ziel: ${inferenceTarget} · ${availability}`;
+    return `Client: ${this.backendLabel(this.cliBackend)} · Client-Kostenklasse: ${this.freeClassLabel(metadata.free_class)} · Inferenzanbieter: ${inferenceTarget}${inferenceModel} · ${availability}`;
   }
 
   private freeClassLabel(value: string): string {

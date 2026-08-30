@@ -8,6 +8,7 @@ from typing import Any
 
 from agent.cli_backends.coding_agent_contract import FreeClass
 from agent.cli_backends.coding_agent_profiles import CLI_PROFILES, EXISTING_DESCRIPTORS
+from agent.cli_backends.coding_agent_targets import resolve_aider_inference_target
 from agent.cli_backends.helpers import (
     _classify_runtime_target,
     _get_agent_config,
@@ -277,6 +278,8 @@ def get_cli_backend_runtime_status() -> dict[str, dict]:
             runtime_entry["target_kind"] = opencode_runtime.get("target_kind")
             runtime_entry["target_provider_type"] = opencode_runtime.get("target_provider_type")
             runtime_entry["diagnostics"] = list(opencode_runtime.get("diagnostics") or [])
+        if name == "aider":
+            runtime_entry.update(resolve_aider_inference_target().public_metadata())
         if name == "claude_code":
             from agent.cli_backends.opencode import resolve_claude_runtime_config
 

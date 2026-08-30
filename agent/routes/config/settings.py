@@ -13,6 +13,8 @@ from agent.config import settings as runtime_settings
 from agent.config_defaults import sync_runtime_state
 from agent.db_models import ConfigDB
 from agent.governance_modes import governance_mode_catalog, resolve_governance_mode
+from agent.local_llm_backends import get_local_openai_backends
+from agent.routes.operation_gate import operation_gate
 from agent.runtime_profiles import resolve_runtime_profile, runtime_profile_catalog
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config
 from agent.services.dashboard_feature_flag_service import (
@@ -22,8 +24,9 @@ from agent.services.dashboard_feature_flag_service import (
 )
 from agent.services.exposure_policy_service import get_exposure_policy_service
 from agent.services.governance_profile_service import build_effective_policy_profile
-from agent.services.platform_governance_service import get_platform_governance_service
-from agent.routes.operation_gate import operation_gate
+from agent.services.model_routing_legacy_migration_service import (
+    build_model_routing_legacy_migration_service,
+)
 from agent.services.operation_policy_revision_service import (
     OperationPolicyRevisionError,
     get_operation_policy_revision_service,
@@ -32,9 +35,7 @@ from agent.services.operation_policy_service import (
     OperationPolicyConfigError,
     get_operation_policy_service,
 )
-from agent.services.model_routing_legacy_migration_service import (
-    build_model_routing_legacy_migration_service,
-)
+from agent.services.platform_governance_service import get_platform_governance_service
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 from agent.services.repository_registry import get_repository_registry
 from agent.services.result_memory_service import normalize_result_memory_policy
@@ -94,6 +95,26 @@ def _merge_nested_config_block(current_cfg: dict, new_cfg: dict, key: str) -> di
         merged.update(new_cfg[key])
         new_cfg = {**new_cfg, key: merged}
     return new_cfg
+
+
+def _configured_coding_target_providers(current_cfg: dict, new_cfg: dict) -> set[str]:
+    candidate_cfg = dict(current_cfg or {})
+    for key in ("default_provider", "default_model", "local_openai_backends", "remote_ananta_backends"):
+        if key in new_cfg:
+            candidate_cfg[key] = new_cfg[key]
+    provider_urls = dict(current_app.config.get("PROVIDER_URLS", {}) or {})
+    providers = {
+        str(entry.get("provider") or "").strip().lower()
+        for entry in get_local_openai_backends(
+            agent_cfg=candidate_cfg,
+            provider_urls=provider_urls,
+            default_provider=str(candidate_cfg.get("default_provider") or "").strip().lower() or None,
+            default_model=str(candidate_cfg.get("default_model") or ""),
+        )
+        if str(entry.get("provider") or "").strip()
+    }
+    providers.update({"ollama", "lmstudio"})
+    return providers
 
 
 @settings_bp.route("/config", methods=["GET"])
@@ -366,7 +387,8 @@ def set_config():
         if interactive_launch_mode not in {"run", "tui"}:
             return api_response(status="error", message="invalid_opencode_interactive_launch_mode", code=400)
         target_provider = str(opencode_runtime_cfg.get("target_provider") or "").strip().lower() or None
-        if target_provider not in {None, "ollama", "lmstudio"}:
+        allowed_target_providers = _configured_coding_target_providers(current_cfg, new_cfg)
+        if target_provider is not None and target_provider not in allowed_target_providers:
             return api_response(status="error", message="invalid_opencode_target_provider", code=400)
         target_profile = str(opencode_runtime_cfg.get("target_profile") or "").strip() or None
         target_model = (
@@ -379,6 +401,25 @@ def set_config():
             "target_profile": target_profile,
             "target_provider": target_provider,
             "target_model": target_model,
+        }
+    if "aider_cli" in new_cfg:
+        aider_cfg = new_cfg.get("aider_cli")
+        if not isinstance(aider_cfg, dict):
+            return api_response(status="error", message="invalid_aider_cli", code=400)
+        target_provider = str(aider_cfg.get("target_provider") or "").strip().lower() or None
+        allowed_target_providers = _configured_coding_target_providers(current_cfg, new_cfg)
+        if target_provider is not None and target_provider not in allowed_target_providers:
+            return api_response(status="error", message="invalid_aider_target_provider", code=400)
+        target_model = str(aider_cfg.get("model") or aider_cfg.get("default_model") or "").strip() or None
+        if target_model and len(target_model) > 300:
+            return api_response(status="error", message="invalid_aider_model", code=400)
+        api_key_profile = str(aider_cfg.get("api_key_profile") or "").strip() or None
+        if api_key_profile and (len(api_key_profile) > 100 or any(ord(char) < 32 for char in api_key_profile)):
+            return api_response(status="error", message="invalid_aider_api_key_profile", code=400)
+        new_cfg["aider_cli"] = {
+            "target_provider": target_provider,
+            "model": target_model,
+            "api_key_profile": api_key_profile,
         }
     if "worker_runtime" in new_cfg:
         worker_runtime_cfg = new_cfg.get("worker_runtime")
@@ -516,6 +557,7 @@ def set_config():
         "llm_config",
         "research_backend",
         "opencode_runtime",
+        "aider_cli",
         "worker_runtime",
         "planning_policy",
         "specialized_worker_profiles",

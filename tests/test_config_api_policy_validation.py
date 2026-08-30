@@ -518,6 +518,44 @@ def test_set_config_validates_opencode_execution_mode(client, admin_token):
     assert runtime_cfg.get("target_provider") == "ollama"
 
 
+def test_set_config_routes_opencode_and_aider_to_declared_local_provider(client, admin_token):
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    payload = {
+        "local_openai_backends": [
+            {
+                "id": "local_coder",
+                "name": "Local Coder",
+                "base_url": "http://127.0.0.1:9000/v1",
+                "models": ["qwen3-coder"],
+            }
+        ],
+        "opencode_runtime": {"target_provider": "local_coder", "target_model": "qwen3-coder"},
+        "aider_cli": {"target_provider": "local_coder", "model": "qwen3-coder"},
+    }
+
+    response = client.post("/config", json=payload, headers=headers)
+
+    assert response.status_code == 200
+    config = (client.get("/config", headers=headers).json.get("data") or {})
+    assert config["opencode_runtime"]["target_provider"] == "local_coder"
+    assert config["aider_cli"] == {
+        "target_provider": "local_coder",
+        "model": "qwen3-coder",
+        "api_key_profile": None,
+    }
+
+
+def test_set_config_rejects_undeclared_aider_target(client, admin_token):
+    response = client.post(
+        "/config",
+        json={"aider_cli": {"target_provider": "untrusted_remote", "model": "model"}},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 400
+    assert response.json["message"] == "invalid_aider_target_provider"
+
+
 def test_set_config_validates_worker_runtime_workspace_reuse_mode(client, admin_token):
     headers = {"Authorization": f"Bearer {admin_token}"}
     bad = client.post("/config", json={"worker_runtime": {"workspace_reuse_mode": "agent"}}, headers=headers)

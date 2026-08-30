@@ -237,22 +237,13 @@ def test_opencode_runtime_config_lmstudio_unchanged(flask_app_with_agent_config)
 
 
 # ---------------------------------------------------------------------------
-# Workaround documentation test: the known target_provider bug
+# Declarative target-provider regression
 # ---------------------------------------------------------------------------
 
-def test_opencode_target_provider_cliproxyapi_with_no_default_provider_drops_to_none(flask_app_with_agent_config):
-    """If the user sets *only* opencode_runtime.target_provider=
-    cliproxyapi (without default_provider), the runtime-config cannot
-    resolve a base_url and produces a degraded result.
-
-    Without default_provider, target_provider falls back to
-    settings.default_provider ('lmstudio' in the test env, but
-    overridden to '' by the fixture). The forced_target_provider was
-    reset to None on line 173-174 because cliproxyapi is not in
-    {ollama, lmstudio}.
-    """
+def test_opencode_target_provider_cliproxyapi_works_without_default_provider(flask_app_with_agent_config):
+    """A configured local provider is a valid explicit OpenCode target."""
     cfg = {
-        "opencode_runtime": {"target_provider": "cliproxyapi"},
+        "opencode_runtime": {"target_provider": "cliproxyapi", "target_model": "gpt-5.5-codex"},
         "local_openai_backends": [
             {
                 "id": "cliproxyapi",
@@ -266,12 +257,9 @@ def test_opencode_target_provider_cliproxyapi_with_no_default_provider_drops_to_
     with flask_app_with_agent_config.app_context():
         from agent.cli_backends.opencode import resolve_opencode_runtime_config
         res = resolve_opencode_runtime_config()
-    # Either None (no settings fallback) or 'lmstudio' (if settings
-    # override leaks). The key invariant: provider_config is None
-    # because no base_url was resolvable through the
-    # opencode_runtime.target_provider path.
-    assert res["target_provider"] != "cliproxyapi"
-    assert res["provider_config"] is None
+    assert res["target_provider"] == "cliproxyapi"
+    assert res["base_url"] == "http://localhost:8317/v1"
+    assert res["provider_config"] is not None
 
 
 def test_opencode_target_provider_cliproxyapi_via_default_provider_works(flask_app_with_agent_config):

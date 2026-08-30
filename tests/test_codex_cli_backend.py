@@ -1,6 +1,8 @@
 import time
 from unittest.mock import MagicMock, patch
 
+from agent.cli_backends.coding_agent_contract import ProcessExecutionResult
+
 
 def test_run_codex_command_injects_lmstudio_openai_compatible_env():
     from agent.cli_backends.sgpt import run_codex_command
@@ -310,16 +312,15 @@ def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
     captured = {}
 
     def _fake_run(args, **kwargs):
-        env = kwargs["env"]
+        env = kwargs["environment"]
         captured["args"] = args
         captured["config_path"] = f"{env['XDG_CONFIG_HOME']}/opencode/config.json"
         with open(captured["config_path"], encoding="utf-8") as handle:
             captured["config"] = handle.read()
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "ok"
-        mock_result.stderr = ""
-        return mock_result
+        return ProcessExecutionResult(0, "ok", "", "completed", 1)
+
+    process_runner = MagicMock()
+    process_runner.run.side_effect = _fake_run
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {
@@ -332,7 +333,7 @@ def test_run_opencode_command_writes_temp_provider_config_for_ollama(app):
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
-            patch("agent.cli_backends.sgpt.subprocess.run", side_effect=_fake_run),
+            patch("agent.cli_backends.opencode._OPENCODE_PROCESS_RUNNER", process_runner),
         ):
             mock_settings.opencode_path = "opencode"
             mock_settings.opencode_default_model = "opencode/glm-5-free"
@@ -650,19 +651,18 @@ def test_build_default_agent_config_prefers_ollama_opencode_model(monkeypatch):
     assert cfg["opencode_runtime"]["target_provider"] == "ollama"
 
 
-def test_run_opencode_command_passes_workdir_to_subprocess(app):
+def test_run_opencode_command_passes_workdir_to_process_adapter(app, tmp_path):
     from agent.cli_backends.sgpt import run_opencode_command
 
     captured: dict = {}
 
     def _fake_run(args, **kwargs):
         captured["cwd"] = kwargs.get("cwd")
-        captured["input"] = kwargs.get("input")
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "ok"
-        mock_result.stderr = ""
-        return mock_result
+        captured["input"] = kwargs.get("input_text")
+        return ProcessExecutionResult(0, "ok", "", "completed", 1)
+
+    process_runner = MagicMock()
+    process_runner.run.side_effect = _fake_run
 
     with app.app_context():
         app.config["AGENT_CONFIG"] = {"default_provider": "ollama"}
@@ -670,14 +670,14 @@ def test_run_opencode_command_passes_workdir_to_subprocess(app):
         with (
             patch("agent.cli_backends.sgpt.shutil.which", return_value=r"C:\tools\opencode.cmd"),
             patch("agent.cli_backends.sgpt.settings") as mock_settings,
-            patch("agent.cli_backends.sgpt.subprocess.run", side_effect=_fake_run),
+            patch("agent.cli_backends.opencode._OPENCODE_PROCESS_RUNNER", process_runner),
         ):
             mock_settings.opencode_path = "opencode"
             mock_settings.default_provider = "ollama"
             mock_settings.ollama_url = "http://127.0.0.1:11434/api/chat"
-            run_opencode_command("say hi", workdir="/tmp/ananta-workdir")
+            run_opencode_command("say hi", workdir=str(tmp_path))
 
-    assert captured["cwd"] == "/tmp/ananta-workdir"
+    assert captured["cwd"] == tmp_path.resolve()
     assert captured["input"] == "say hi"
 
 

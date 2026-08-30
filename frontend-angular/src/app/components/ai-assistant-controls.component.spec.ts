@@ -35,11 +35,13 @@ describe('AiAssistantControlsComponent', () => {
         install_hint: 'npm install qwen',
       },
     };
-    cmp.selectedCliRuntime = { target_provider: 'openrouter' };
+    cmp.selectedCliRuntime = { target_provider: 'openrouter', target_model: 'qwen/qwen3-coder:free' };
 
     expect(cmp.backendOptionLabel('qwen_code')).toContain('Open Source / BYOK');
     expect(cmp.backendOptionLabel('qwen_code')).toContain('nicht installiert');
-    expect(cmp.selectedBackendExplanation()).toContain('Ziel: openrouter');
+    expect(cmp.selectedBackendExplanation()).toContain('Client-Kostenklasse: Open Source / BYOK');
+    expect(cmp.selectedBackendExplanation()).toContain('Inferenzanbieter: openrouter');
+    expect(cmp.selectedBackendExplanation()).toContain('Modell: qwen/qwen3-coder:free');
     expect(cmp.selectedBackendExplanation()).toContain('npm install qwen');
   });
 

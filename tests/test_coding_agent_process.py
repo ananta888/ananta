@@ -1,3 +1,7 @@
+import os
+import signal
+import threading
+import time
 from pathlib import Path
 from threading import Event
 
@@ -73,6 +77,41 @@ def test_process_adapter_honors_preexisting_cancellation(tmp_path: Path) -> None
 
     assert result.return_code == 130
     assert result.reason_code == "cancelled"
+
+
+def test_process_adapter_cancellation_terminates_child_process_group(tmp_path: Path) -> None:
+    child_pid_file = tmp_path / "child.pid"
+    cancellation = Event()
+    timer = threading.Timer(0.2, cancellation.set)
+    timer.start()
+    try:
+        result = BoundedCodingAgentProcess().run(
+            (
+                "/bin/sh",
+                "-c",
+                f"sleep 20 & child=$!; printf '%s' \"$child\" > {child_pid_file}; wait",
+            ),
+            cwd=tmp_path,
+            environment={"PATH": "/usr/bin:/bin"},
+            timeout_seconds=5,
+            cancellation=cancellation,
+            maximum_output_chars=4096,
+        )
+    finally:
+        timer.cancel()
+
+    assert result.return_code == 130
+    child_pid = int(child_pid_file.read_text(encoding="utf-8"))
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        try:
+            os.kill(child_pid, 0)
+        except ProcessLookupError:
+            break
+        time.sleep(0.05)
+    else:
+        os.kill(child_pid, signal.SIGKILL)
+        raise AssertionError("child process survived coding-agent cancellation")
 
 
 def test_process_output_is_untrusted_data_and_never_executed(tmp_path: Path) -> None:

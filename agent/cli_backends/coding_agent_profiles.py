@@ -36,6 +36,7 @@ class CodingAgentCliProfile:
     static_arguments: tuple[str, ...]
     permission_arguments: Mapping[str, tuple[str, ...]]
     auth_environment: tuple[str, ...] = ()
+    passthrough_environment: tuple[str, ...] = ()
     model_flag: str | None = None
     resume_flag: str | None = None
     prompt_transport: str = "stdin"
@@ -154,7 +155,11 @@ class CliCodingAgentProvider:
             maximum_output_chars=request.maximum_output_chars,
             input_text=input_text,
             event_sink=event_sink,
-            secret_values=tuple(environment.get(name, "") for name in self.profile.auth_environment),
+            secret_values=tuple(
+                value
+                for name in self.profile.auth_environment
+                if (value := environment.get(name, ""))
+            ),
         )
         reason_code = execution.reason_code
         if execution.return_code != 0 and _looks_like_quota_exhaustion(execution.stderr):
@@ -181,7 +186,7 @@ class CliCodingAgentProvider:
         return self.profile.minimum_version is None or version >= self.profile.minimum_version
 
     def _allowed_environment(self) -> dict[str, str]:
-        allowed = _BASE_ENVIRONMENT.union(self.profile.auth_environment)
+        allowed = _BASE_ENVIRONMENT.union(self.profile.auth_environment).union(self.profile.passthrough_environment)
         result = {name: value for name in allowed if (value := self._environment.get(name)) is not None}
         result.update({"CI": "1", "NO_COLOR": "1"})
         result.update({str(name): str(value) for name, value in self.profile.fixed_environment.items()})
@@ -250,10 +255,20 @@ CLI_PROFILES = {
             "autonomous": ("--approval-mode", "yolo", "--max-session-turns", "30"),
         },
         auth_environment=(
+            "ANTHROPIC_API_KEY",
+            "BAILIAN_CODING_PLAN_API_KEY",
             "DASHSCOPE_API_KEY",
+            "GEMINI_API_KEY",
             "OPENAI_API_KEY",
             "OPENROUTER_API_KEY",
-            "QWEN_API_KEY",
+        ),
+        passthrough_environment=(
+            "ANTHROPIC_BASE_URL",
+            "ANTHROPIC_MODEL",
+            "GEMINI_MODEL",
+            "OPENAI_BASE_URL",
+            "OPENAI_MODEL",
+            "QWEN_MODEL",
         ),
         model_flag="--model",
         resume_flag="--resume",
@@ -322,6 +337,7 @@ CLI_PROFILES = {
             "OPENAI_API_KEY",
             "OPENROUTER_API_KEY",
         ),
+        passthrough_environment=("OPENAI_API_BASE", "OPENAI_BASE_URL"),
         model_flag="--model",
         prompt_transport="argument",
         prompt_flag="--message",

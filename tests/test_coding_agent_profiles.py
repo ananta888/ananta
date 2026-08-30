@@ -71,6 +71,42 @@ def test_qwen_probe_rejects_unverified_version_instead_of_silent_execution() -> 
     assert probe.reason_code == "version_unverified"
 
 
+def test_qwen_current_auth_and_model_environment_are_classified_separately(tmp_path: Path) -> None:
+    runner = RecordingRunner()
+    provider = CliCodingAgentProvider(
+        CLI_PROFILES["qwen_code"],
+        process_runner=runner,
+        binary_resolver=lambda _name: "/opt/bin/qwen",
+        version_probe=lambda _binary, _arguments: (0, "0.22.2"),
+        environment={
+            "PATH": "/opt/bin",
+            "BAILIAN_CODING_PLAN_API_KEY": "current-secret",
+            "OPENAI_BASE_URL": "http://127.0.0.1:9000/v1",
+            "QWEN_MODEL": "qwen3-coder",
+        },
+    )
+
+    assert provider.detect().auth_status.value == "ready"
+    provider.run(CodingAgentRunRequest(prompt="fix", workspace=tmp_path, timeout_seconds=60))
+
+    _argv, kwargs = runner.calls[0]
+    assert kwargs["environment"]["BAILIAN_CODING_PLAN_API_KEY"] == "current-secret"
+    assert kwargs["environment"]["OPENAI_BASE_URL"] == "http://127.0.0.1:9000/v1"
+    assert kwargs["environment"]["QWEN_MODEL"] == "qwen3-coder"
+    assert kwargs["secret_values"] == ("current-secret",)
+
+
+def test_qwen_endpoint_without_credential_does_not_claim_auth_ready() -> None:
+    provider = CliCodingAgentProvider(
+        CLI_PROFILES["qwen_code"],
+        binary_resolver=lambda _name: "/opt/bin/qwen",
+        version_probe=lambda _binary, _arguments: (0, "0.22.2"),
+        environment={"OPENAI_BASE_URL": "http://127.0.0.1:9000/v1", "QWEN_MODEL": "qwen3-coder"},
+    )
+
+    assert provider.detect().auth_status.value == "unknown"
+
+
 def test_provider_normalizes_quota_failure_for_fallback(tmp_path: Path) -> None:
     class QuotaRunner:
         def run(self, _argv, **_kwargs):

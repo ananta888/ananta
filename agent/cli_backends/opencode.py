@@ -8,11 +8,17 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import threading
+from pathlib import Path
 
 from flask import current_app, has_app_context
 
 from agent.cli_backends import simple_command_runners
 from agent.cli_backends.budget import check_prompt_budget
+from agent.cli_backends.coding_agent_contract import CodingAgentRunRequest, EventSink, ProcessRunnerPort
+from agent.cli_backends.coding_agent_process import BoundedCodingAgentProcess
+from agent.cli_backends.coding_agent_profiles import build_cli_coding_agent_provider
+from agent.cli_backends.coding_agent_targets import resolve_aider_inference_target
 from agent.cli_backends.context import default_context as _ctx
 from agent.cli_backends.helpers import (
     _classify_runtime_target,
@@ -35,10 +41,41 @@ from agent.llm_integration import (
     probe_ollama_runtime,
     resolve_ollama_model,
 )
-from agent.local_llm_backends import resolve_local_openai_backend
+from agent.local_llm_backends import get_local_openai_backends, resolve_local_openai_backend
 from agent.model_selection import normalize_legacy_model_name
 
 log = logging.getLogger(__name__)
+
+_PROCESS_ENVIRONMENT_KEYS = frozenset({"HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"})
+_OPENCODE_AUTH_ENVIRONMENT_KEYS = frozenset(
+    {
+        "ANTHROPIC_API_KEY",
+        "AWS_ACCESS_KEY_ID",
+        "AWS_DEFAULT_REGION",
+        "AWS_REGION",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN",
+        "AZURE_OPENAI_API_KEY",
+        "AZURE_OPENAI_ENDPOINT",
+        "COPILOT_GITHUB_TOKEN",
+        "GEMINI_API_KEY",
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "GOOGLE_API_KEY",
+        "GOOGLE_APPLICATION_CREDENTIALS",
+        "GOOGLE_CLOUD_LOCATION",
+        "GOOGLE_CLOUD_PROJECT",
+        "GROQ_API_KEY",
+        "MISTRAL_API_KEY",
+        "OPENAI_API_BASE",
+        "OPENAI_API_KEY",
+        "OPENAI_BASE_URL",
+        "OPENROUTER_API_KEY",
+        "XAI_API_KEY",
+    }
+)
+_OPENCODE_MAXIMUM_OUTPUT_CHARS = 1_000_000
+_OPENCODE_PROCESS_RUNNER: ProcessRunnerPort = BoundedCodingAgentProcess()
 
 
 def _build_codex_runtime_diagnostics(*, base_url: str | None, api_key: str | None, is_local: bool) -> list[str]:
@@ -179,9 +216,19 @@ def resolve_opencode_runtime_config(
         except Exception:
             resolved_profile = None
     _native_passthrough = {"opencode", "anthropic", "openai", "gemini", "groq", "openrouter", "bedrock", "azure", "vertexai", "copilot", "native"}
+    configured_local_providers = {
+        str(entry.get("provider") or "").strip().lower()
+        for entry in get_local_openai_backends(
+            agent_cfg=agent_cfg,
+            provider_urls=provider_urls,
+            default_provider=_get_runtime_default_provider(),
+            default_model=str(agent_cfg.get("default_model") or ""),
+        )
+        if str(entry.get("provider") or "").strip()
+    }
     if forced_target_provider in _native_passthrough:
         forced_target_provider = "__native__"
-    elif forced_target_provider not in {"ollama", "lmstudio"}:
+    elif forced_target_provider not in {"ollama", "lmstudio", *configured_local_providers}:
         forced_target_provider = None
     configured_default_model = (
         forced_target_model
@@ -193,6 +240,7 @@ def resolve_opencode_runtime_config(
     known_provider_prefixes = _native_passthrough | {
         "ollama",
         "lmstudio",
+        *configured_local_providers,
         *{
             str(provider_id).strip().lower()
             for provider_id in provider_urls
@@ -365,6 +413,9 @@ def run_opencode_command(
     tool_mode: str | None = None,
     context_token_limit: int | None = None,
     output_token_limit: int | None = None,
+    cancellation: threading.Event | None = None,
+    event_sink: EventSink | None = None,
+    maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
 ) -> tuple[int, str, str]:
     """Führt einen OpenCode-CLI-Aufruf aus. Gibt (returncode, stdout, stderr) zurück."""
     budget_error = check_prompt_budget(
@@ -410,6 +461,9 @@ def run_opencode_command(
             timeout=timeout,
             workdir=workdir,
             output_format=None,
+            cancellation=cancellation,
+            event_sink=event_sink,
+            maximum_output_chars=maximum_output_chars,
         )
         terminal_session_id = str(session_info.get("terminal_session_id") or session.get("id") or "").strip()
         if terminal_session_id:
@@ -428,6 +482,9 @@ def run_opencode_command(
         tool_mode=tool_mode,
         context_token_limit=context_token_limit,
         output_token_limit=output_token_limit,
+        cancellation=cancellation,
+        event_sink=event_sink,
+        maximum_output_chars=maximum_output_chars,
     )
     return rc, out, err
 
@@ -442,6 +499,10 @@ def _run_opencode_subprocess(
     tool_mode: str | None = None,
     context_token_limit: int | None = None,
     output_token_limit: int | None = None,
+    cancellation: threading.Event | None = None,
+    event_sink: EventSink | None = None,
+    maximum_output_chars: int = _OPENCODE_MAXIMUM_OUTPUT_CHARS,
+    process_runner: ProcessRunnerPort | None = None,
 ) -> tuple[int, str, str, str]:
     opencode_bin = settings.opencode_path or "opencode"
     opencode_resolved = shutil.which(opencode_bin)
@@ -452,7 +513,12 @@ def _run_opencode_subprocess(
     with _acquire_backend_permit("opencode", timeout=timeout) as ticket:
         if not ticket.acquired:
             return -1, "", "Backend 'opencode' ist ausgelastet (semaphore_exhausted)", opencode_bin
-        env = os.environ.copy()
+        env = {
+            name: value
+            for name, value in os.environ.items()
+            if name in _PROCESS_ENVIRONMENT_KEYS or name in _OPENCODE_AUTH_ENVIRONMENT_KEYS
+        }
+        env.update({"CI": "1", "NO_COLOR": "1"})
         runtime_cfg = resolve_opencode_runtime_config(
             model=model,
             tool_mode=tool_mode,
@@ -486,19 +552,30 @@ def _run_opencode_subprocess(
                     [segment for segment in [env_prefix.strip(), " ".join(shlex.quote(part) for part in args)] if segment]
                 )
                 log.info(f"Zentraler OpenCode-Aufruf: {args}")
-                result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
+                workspace = Path(workdir or os.getcwd()).resolve()
+                if not workspace.is_dir():
+                    return -1, "", "OpenCode workdir is not a directory", visible_command
+                result = (process_runner or _OPENCODE_PROCESS_RUNNER).run(
                     args,
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                    errors="replace",
-                    env=env,
-                    timeout=timeout,
-                    cwd=workdir or None,
-                    input=str(prompt or ""),
+                    cwd=workspace,
+                    environment=env,
+                    timeout_seconds=float(timeout),
+                    cancellation=cancellation or threading.Event(),
+                    maximum_output_chars=maximum_output_chars,
+                    input_text=str(prompt or ""),
+                    event_sink=event_sink,
+                    secret_values=tuple(
+                        value
+                        for name, value in env.items()
+                        if name in _OPENCODE_AUTH_ENVIRONMENT_KEYS and value
+                    ),
                 )
-                return result.returncode, result.stdout, result.stderr, visible_command
-        except subprocess.TimeoutExpired:
+                if result.reason_code == "timeout":
+                    return -1, "", "Timeout", visible_command
+                if result.reason_code == "cancelled":
+                    return 130, result.stdout, result.stderr or "Cancelled", visible_command
+                return result.return_code, result.stdout, result.stderr, visible_command
+        except subprocess.TimeoutExpired:  # pragma: no cover - legacy injected runner compatibility
             log.error("OpenCode Timeout")
             return -1, "", "Timeout", " ".join(shlex.quote(part) for part in args)
         except Exception as e:
@@ -1107,19 +1184,42 @@ def apply_reviewed_diff(diff: str, workdir: str | None = None) -> dict:
     return result
 
 
-def run_aider_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:
+def run_aider_command(
+    prompt: str,
+    model: str | None = None,
+    timeout: int = 60,
+    workdir: str | None = None,
+    cancellation: threading.Event | None = None,
+    event_sink: EventSink | None = None,
+    maximum_output_chars: int = 1_000_000,
+) -> tuple[int, str, str]:
     """Führt einen Aider-CLI-Aufruf aus (non-interactive)."""
-    return simple_command_runners.run_aider_command(
-        prompt,
-        model,
-        timeout,
-        settings=settings,
-        which=shutil.which,
-        run_process=subprocess.run,
-        acquire_permit=_acquire_backend_permit,
-        logger=log,
-        environ=os.environ,
-    )
+    target = resolve_aider_inference_target(model)
+    with _acquire_backend_permit("aider", timeout=timeout) as ticket:
+        if not ticket.acquired:
+            return -1, "", "Backend 'aider' ist ausgelastet (semaphore_exhausted)"
+        try:
+            request = CodingAgentRunRequest(
+                prompt=prompt,
+                workspace=Path(workdir or os.getcwd()),
+                timeout_seconds=float(timeout),
+                model=target.cli_model,
+                maximum_output_chars=maximum_output_chars,
+                cancellation=cancellation or threading.Event(),
+            )
+            provider = build_cli_coding_agent_provider(
+                "aider",
+                binary_resolver=lambda _name: shutil.which(settings.aider_path or "aider"),
+                environment={**os.environ, **target.process_environment()},
+            )
+            result = provider.run(request, event_sink=event_sink)
+        except ValueError as exc:
+            return 64, "", str(exc)
+        if result.reason_code == "timeout":
+            return -1, "", "Timeout"
+        if result.reason_code == "cancelled":
+            return 130, result.stdout, result.stderr or "Cancelled"
+        return result.return_code, result.stdout, result.stderr or ("" if result.succeeded else result.reason_code)
 
 
 def run_mistral_code_command(prompt: str, model: str | None = None, timeout: int = 60) -> tuple[int, str, str]:

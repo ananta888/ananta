@@ -21,7 +21,13 @@ from typing import TYPE_CHECKING, Callable
 
 from flask import current_app, has_app_context
 
-from agent.cli_backends.sgpt import SUPPORTED_CLI_BACKENDS, resolve_codex_runtime_config
+from agent.cli_backends.coding_agent_targets import resolve_aider_inference_target
+from agent.cli_backends.sgpt import (
+    PROFILE_CLI_BACKENDS,
+    SUPPORTED_CLI_BACKENDS,
+    resolve_codex_runtime_config,
+    resolve_opencode_runtime_config,
+)
 from agent.research_artifact import normalize_research_artifact
 from agent.runtime_policy import resolve_cli_backend, review_policy
 from agent.security_risk import (
@@ -816,6 +822,34 @@ def routing_dimensions(
                 "max_hops": runtime_cfg.get("max_hops"),
             }
         )
+        return dimensions
+    if backend == "opencode":
+        opencode_runtime = resolve_opencode_runtime_config(model=model) if has_app_context() else {}
+        dimensions.update(
+            {
+                "inference_provider": opencode_runtime.get("target_provider"),
+                "inference_model": opencode_runtime.get("target_model") or dimensions["inference_model"],
+                "inference_base_url": opencode_runtime.get("base_url"),
+                "inference_target_kind": opencode_runtime.get("target_kind"),
+                "inference_target_provider_type": opencode_runtime.get("target_provider_type"),
+            }
+        )
+        return dimensions
+    if backend == "aider":
+        aider_target = resolve_aider_inference_target(model, agent_config=cfg)
+        dimensions.update(
+            {
+                "inference_provider": aider_target.provider_id,
+                "inference_model": aider_target.model,
+                "inference_base_url": aider_target.base_url,
+                "inference_target_kind": aider_target.target_kind,
+                "inference_target_provider_type": aider_target.provider_type,
+            }
+        )
+        return dimensions
+    if backend in PROFILE_CLI_BACKENDS:
+        # CLI-owned account routing is not knowable before a run unless the
+        # provider exposes it. Preserve unknown rather than inventing a target.
         return dimensions
     dimensions["inference_provider"] = str(cfg.get("default_provider") or "").strip().lower() or None
     return dimensions

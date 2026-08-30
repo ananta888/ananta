@@ -235,7 +235,7 @@ def normalize_opencode_runtime_config(value: dict | None) -> dict:
     if interactive_launch_mode not in {"run", "tui"}:
         interactive_launch_mode = "run"
     target_provider = str(payload.get("target_provider") or "").strip().lower() or None
-    if target_provider not in {"ollama", "lmstudio"}:
+    if target_provider and any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_-" for character in target_provider):
         target_provider = None
     target_profile = str(payload.get("target_profile") or "").strip() or None
     target_model = str(payload.get("target_model") or payload.get("model") or "").strip() or None

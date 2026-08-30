@@ -387,7 +387,7 @@ def run_llm_cli_command(
         elif name == "claude_code":
             rc, out, err = run_claude_command(prompt=prompt, model=model, timeout=timeout, workdir=workdir)
         elif name == "aider":
-            rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout)
+            rc, out, err = run_aider_command(prompt=prompt, model=model, timeout=timeout, workdir=workdir)
         elif name == "mistral_code":
             rc, out, err = run_mistral_code_command(prompt=prompt, model=model, timeout=timeout)
         elif name in PROFILE_CLI_BACKENDS:
