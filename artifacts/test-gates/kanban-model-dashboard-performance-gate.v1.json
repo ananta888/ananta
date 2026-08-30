@@ -2,49 +2,49 @@
   "absolute_evaluation": {
     "checks": {
       "angular.filter_p50_ms": {
-        "actual": 907.3999999761581,
+        "actual": 899.2999999523163,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "angular.filter_p95_ms": {
-        "actual": 917.5,
+        "actual": 912.2000000476837,
         "budget": 1800.0,
         "operator": "<=",
         "passed": true
       },
       "angular.render_p50_ms": {
-        "actual": 1213.3999999761581,
+        "actual": 1258.6000000238419,
         "budget": 4000.0,
         "operator": "<=",
         "passed": true
       },
       "angular.render_p95_ms": {
-        "actual": 1233.2000000476837,
+        "actual": 1275.3000000715256,
         "budget": 5000.0,
         "operator": "<=",
         "passed": true
       },
       "backend.move_p50_ms": {
-        "actual": 0.0005477105150930583,
+        "actual": 0.0005358984926715493,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "backend.move_p95_ms": {
-        "actual": 0.0005789080169051886,
+        "actual": 0.0005678809247910976,
         "budget": 2500.0,
         "operator": "<=",
         "passed": true
       },
       "backend.snapshot_p50_ms": {
-        "actual": 0.04246467398479581,
+        "actual": 0.04349929094314575,
         "budget": 1000.0,
         "operator": "<=",
         "passed": true
       },
       "backend.snapshot_p95_ms": {
-        "actual": 0.042822430143132806,
+        "actual": 0.04382695001550019,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
@@ -62,13 +62,13 @@
         "passed": true
       },
       "browser.long_task_total_p95_ms": {
-        "actual": 349.0,
+        "actual": 321.0,
         "budget": 3000.0,
         "operator": "<=",
         "passed": true
       },
       "browser.longest_task_p95_ms": {
-        "actual": 168.0,
+        "actual": 142.0,
         "budget": 900.0,
         "operator": "<=",
         "passed": true
@@ -86,7 +86,7 @@
         "passed": true
       },
       "events.observed_rate_per_second": {
-        "actual": 102.80147204930257,
+        "actual": 102.85588588809242,
         "budget": 100.0,
         "operator": ">=",
         "passed": true
@@ -98,25 +98,25 @@
         "passed": true
       },
       "tui.pty_resize_p50_ms": {
-        "actual": 5.925,
+        "actual": 5.888,
         "budget": 1000.0,
         "operator": "<=",
         "passed": true
       },
       "tui.pty_resize_p95_ms": {
-        "actual": 36.185,
+        "actual": 10.301,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "tui.render_p50_ms": {
-        "actual": 1.265248202253133,
+        "actual": 1.2488786014728248,
         "budget": 50.0,
         "operator": "<=",
         "passed": true
       },
       "tui.render_p95_ms": {
-        "actual": 1.5139019000343978,
+        "actual": 1.458289398578927,
         "budget": 100.0,
         "operator": "<=",
         "passed": true
@@ -131,56 +131,56 @@
     "checks": {
       "angular.filter_p50_ms": {
         "baseline": 907.3999999761581,
-        "current": 907.3999999761581,
+        "current": 899.2999999523163,
         "direction": "lower_is_better",
         "limit": 1043.5099999725817,
         "passed": true
       },
       "angular.filter_p95_ms": {
         "baseline": 917.5,
-        "current": 917.5,
+        "current": 912.2000000476837,
         "direction": "lower_is_better",
         "limit": 1055.125,
         "passed": true
       },
       "angular.render_p50_ms": {
         "baseline": 1213.3999999761581,
-        "current": 1213.3999999761581,
+        "current": 1258.6000000238419,
         "direction": "lower_is_better",
         "limit": 1395.4099999725818,
         "passed": true
       },
       "angular.render_p95_ms": {
         "baseline": 1233.2000000476837,
-        "current": 1233.2000000476837,
+        "current": 1275.3000000715256,
         "direction": "lower_is_better",
         "limit": 1418.1800000548362,
         "passed": true
       },
       "backend.move_p50_ms": {
         "baseline": 0.0005477105150930583,
-        "current": 0.0005477105150930583,
+        "current": 0.0005358984926715493,
         "direction": "lower_is_better",
         "limit": 0.0006298670923570171,
         "passed": true
       },
       "backend.move_p95_ms": {
         "baseline": 0.0005789080169051886,
-        "current": 0.0005789080169051886,
+        "current": 0.0005678809247910976,
         "direction": "lower_is_better",
         "limit": 0.0006657442194409668,
         "passed": true
       },
       "backend.snapshot_p50_ms": {
         "baseline": 0.04246467398479581,
-        "current": 0.04246467398479581,
+        "current": 0.04349929094314575,
         "direction": "lower_is_better",
         "limit": 0.048834375082515175,
         "passed": true
       },
       "backend.snapshot_p95_ms": {
         "baseline": 0.042822430143132806,
-        "current": 0.042822430143132806,
+        "current": 0.04382695001550019,
         "direction": "lower_is_better",
         "limit": 0.04924579466460272,
         "passed": true
@@ -201,14 +201,14 @@
       },
       "browser.long_task_total_p95_ms": {
         "baseline": 349.0,
-        "current": 349.0,
+        "current": 321.0,
         "direction": "lower_is_better",
         "limit": 401.34999999999997,
         "passed": true
       },
       "browser.longest_task_p95_ms": {
         "baseline": 168.0,
-        "current": 168.0,
+        "current": 142.0,
         "direction": "lower_is_better",
         "limit": 193.2,
         "passed": true
@@ -229,7 +229,7 @@
       },
       "events.observed_rate_per_second": {
         "baseline": 102.80147204930257,
-        "current": 102.80147204930257,
+        "current": 102.85588588809242,
         "direction": "higher_is_better",
         "limit": 87.38125124190718,
         "passed": true
@@ -243,28 +243,28 @@
       },
       "tui.pty_resize_p50_ms": {
         "baseline": 5.925,
-        "current": 5.925,
+        "current": 5.888,
         "direction": "lower_is_better",
         "limit": 6.813749999999999,
         "passed": true
       },
       "tui.pty_resize_p95_ms": {
         "baseline": 36.185,
-        "current": 36.185,
+        "current": 10.301,
         "direction": "lower_is_better",
         "limit": 41.61275,
         "passed": true
       },
       "tui.render_p50_ms": {
         "baseline": 1.265248202253133,
-        "current": 1.265248202253133,
+        "current": 1.2488786014728248,
         "direction": "lower_is_better",
         "limit": 1.4550354325911028,
         "passed": true
       },
       "tui.render_p95_ms": {
         "baseline": 1.5139019000343978,
-        "current": 1.5139019000343978,
+        "current": 1.458289398578927,
         "direction": "lower_is_better",
         "limit": 1.7409871850395573,
         "passed": true
@@ -281,7 +281,7 @@
   "blockers": [],
   "commit": {
     "ref": "refs/heads/main",
-    "sha": "8b4e50588627e042c4de1383517a843ce5be5972",
+    "sha": "a30788e0fb0bd5ba181938f570b2dce04936a00b",
     "source": "git_metadata_files"
   },
   "environment": {
@@ -346,11 +346,11 @@
       }
     }
   },
-  "evaluated_at": "2026-08-30T12:24:38.592961+00:00",
+  "evaluated_at": "2026-08-30T12:33:55.486641+00:00",
   "evidence_classification": "formal_release_evidence",
   "formal_gate_eligible": true,
   "measurement_details": {
-    "angular_retained_heap_p95_mb": 22.363872528076172,
+    "angular_retained_heap_p95_mb": 22.367565155029297,
     "angular_runtime": {
       "browser": {
         "name": "chromium",
@@ -364,8 +364,8 @@
       }
     },
     "event_rates_per_source": {
-      "backend": 45081152.90117725,
-      "tui": 102.80147204930257
+      "backend": 45799003.8589917,
+      "tui": 102.85588588809242
     },
     "lost_events_per_source": {
       "backend": 0,
@@ -373,26 +373,26 @@
     }
   },
   "measurements": {
-    "angular.filter_p50_ms": 907.3999999761581,
-    "angular.filter_p95_ms": 917.5,
-    "angular.render_p50_ms": 1213.3999999761581,
-    "angular.render_p95_ms": 1233.2000000476837,
-    "backend.move_p50_ms": 0.0005477105150930583,
-    "backend.move_p95_ms": 0.0005789080169051886,
-    "backend.snapshot_p50_ms": 0.04246467398479581,
-    "backend.snapshot_p95_ms": 0.042822430143132806,
+    "angular.filter_p50_ms": 899.2999999523163,
+    "angular.filter_p95_ms": 912.2000000476837,
+    "angular.render_p50_ms": 1258.6000000238419,
+    "angular.render_p95_ms": 1275.3000000715256,
+    "backend.move_p50_ms": 0.0005358984926715493,
+    "backend.move_p95_ms": 0.0005678809247910976,
+    "backend.snapshot_p50_ms": 0.04349929094314575,
+    "backend.snapshot_p95_ms": 0.04382695001550019,
     "browser.long_task_count_p50": 3.0,
     "browser.long_task_count_p95": 3.0,
-    "browser.long_task_total_p95_ms": 349.0,
-    "browser.longest_task_p95_ms": 168.0,
+    "browser.long_task_total_p95_ms": 321.0,
+    "browser.longest_task_p95_ms": 142.0,
     "events.deduplicated": 100,
     "events.lost": 0,
-    "events.observed_rate_per_second": 102.80147204930257,
+    "events.observed_rate_per_second": 102.85588588809242,
     "memory.peak_rss_mb": 175.1953125,
-    "tui.pty_resize_p50_ms": 5.925,
-    "tui.pty_resize_p95_ms": 36.185,
-    "tui.render_p50_ms": 1.265248202253133,
-    "tui.render_p95_ms": 1.5139019000343978
+    "tui.pty_resize_p50_ms": 5.888,
+    "tui.pty_resize_p95_ms": 10.301,
+    "tui.render_p50_ms": 1.2488786014728248,
+    "tui.render_p95_ms": 1.458289398578927
   },
   "profile": {
     "id": "kanban-model-dashboard.formal-performance.v1",
@@ -406,22 +406,22 @@
     "angular": {
       "path": "artifacts/angular-kanban-local-performance-diagnostic.json",
       "schema": "ananta.kanban-performance-local-diagnostic.v1",
-      "sha256": "42f5ead3f0f9fb37fd45f893fd0004bde3b8f8b5a2738174e32122b02d64db5d"
+      "sha256": "df059799cc2eea14a68b4b750492d2dcf7d04265fd470d745521afe001e2250c"
     },
     "backend": {
       "path": "artifacts/kanban-local-performance-diagnostic.json",
       "schema": "ananta.kanban-local-performance-diagnostic.v1",
-      "sha256": "956996c8e4865c51e133c77603fdd0886c5e09a53bd1eb640f90c7b0fc7be003"
+      "sha256": "61e20888d4cbd047347cd7542ca3b3eac01b0a0b54fcd96359cfd32e1f77a7dd"
     },
     "pty": {
       "path": "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
       "schema": "ananta.tui-kanban-pty-local-diagnostic.v1",
-      "sha256": "fba38212e5cd08857d45a425a167cc970314d0f439c162d7ad158ac4a4da9fa2"
+      "sha256": "1af2ffa7358f267f890d49f4be8d970a718aeea6b877c6080b6c6a4d28bdcc24"
     },
     "tui": {
       "path": "artifacts/tui-kanban-local-performance-diagnostic.json",
       "schema": "ananta.tui-kanban-local-performance-diagnostic.v1",
-      "sha256": "a065d4140205a773c636779431361b2de2e19f4cc2c432ea1f6c78bb69c0dd1f"
+      "sha256": "14f72b5ea1513f85f18d128353e7a08c6306647740cfe453d31897dbbabe74b1"
     }
   },
   "status": "passed",
