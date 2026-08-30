@@ -1,31 +1,31 @@
 {
   "$schema": "todo.track.schema.json",
-  "version": "1.0",
+  "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "nanochat-inspired-end-to-end-llm-research-training",
   "created": "2026-08-16",
-  "updated": "2026-08-21",
-  "last_updated": "2026-08-16",
+  "updated": "2026-08-30",
+  "last_updated": "2026-08-30",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@d7d37ab87e6c2c79efb639e0496b5cd82a58b382 plus working tree inspected on 2026-08-21",
+    "reviewed_commit_range": "4ae68b8bd3f0bf1ffb33df2cf99872cc413d9f5c",
     "review_goal": "Nanochat-inspirierten Research-Training-Track gegen den aktuellen LoRA-Control-Plane-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
-    "release_status": "blocked_missing_upstream_and_run_evidence",
+    "release_status": "blocked_missing_assignment_evidence_and_research_training_implementation",
     "blocked_audit": {
       "status": "blocked",
       "reason_codes": [
         "nanochat_upstream_evidence_missing",
-        "research_training_implementation_absent",
+        "research_training_specific_execution_path_absent",
         "allowed_source_refs_empty",
         "allowed_run_refs_empty"
       ],
       "unverified_navigation_observations": [
-        "No Nanochat or generic Research Training production namespace, tokenizer-training backend, from-scratch pretraining backend, full-model SFT path, or RL backend was found.",
-        "The only matching checkpoint-manager wording belongs to the existing LoRA/Unsloth backend and is not Nanochat implementation evidence.",
-        "The current TODO has no later implementation commit after its original addition."
+        "No Nanochat or generic Research Training production namespace, tokenizer-training backend, from-scratch pretraining backend, full-model SFT path, or RL backend exists at reviewed commit 4ae68b8bd3f0bf1ffb33df2cf99872cc413d9f5c.",
+        "Existing LoRA/Unsloth checkpoint, backend registry, dataset, evaluation, artifact, reconciliation and fencing seams are reusable foundations but are not Research Training implementation evidence.",
+        "The additive dendritic-memory experiment path demonstrates a separate default-off Hub/Worker experiment boundary but does not implement NanoChat lifecycle stages."
       ],
       "required_unblock_input": "Hub-provided SRC_* refs binding the immutable Nanochat revision, license, dependencies and adopted design claims, plus assignment-bound RUN_* refs for tokenizer, pretraining, DDP, SFT, RL, sandbox, recovery, benchmark and promotion gates."
     },
@@ -50,8 +50,33 @@
     "Keine implizite Promotion eines trainierten Modells in produktive Agent-Routen.",
     "Keine Annahme, dass nanochat-Hyperparameter fuer beliebige Architekturen, Hardware oder Datensaetze compute-optimal sind.",
     "Kein Zwang zu WandB oder einem externen Telemetrieanbieter.",
-    "Keine Aufgabe von Anantas tenant-, owner-, policy-, idempotency- und auditgebundenen Trainingsvertraegen."
+    "Keine Aufgabe von Anantas tenant-, owner-, policy-, idempotency- und auditgebundenen Trainingsvertraegen.",
+    "Keine Tests oder produktiven Automationslaeufe, die auf menschliche Freigaben, Eingaben oder Bestaetigungen warten; optionale Interaktion darf nur eine zusaetzliche Betriebsart sein."
   ],
+  "implementation_review": {
+    "reviewed_at": "2026-08-30",
+    "state": "research_specific_path_absent_reusable_foundations_present",
+    "reusable_foundations": [
+      "Hub-owned tenant, idempotency, capacity, execution-lease, attempt, fencing and reconciliation services for LoRA jobs",
+      "Worker backend registry, bounded external-process execution, VRAM admission, checkpoint resume adapters and artifact normalization",
+      "Dataset catalog, split, validation, privacy, license and artifact-security services",
+      "Evaluation, promotion, runtime rollback and default-off experiment patterns from LoRA, Unsloth and dendritic-memory subsystems",
+      "Angular model-training control center with typed Hub-only API access"
+    ],
+    "research_specific_gaps": [
+      "Versioned ResearchRun, pipeline, recipe, stage-attempt, tokenizer and full-model-lineage contracts",
+      "Tokenizer training, from-scratch pretraining, full-model SFT and optional RL execution backends",
+      "Research stage DAG, resource preflight, immutable checkpoint lineage and stage resume",
+      "Task evaluation, inference benchmark, research promotion and full-model runtime release gates",
+      "Research API, worker transport, Angular projections and end-to-end automatic test matrix"
+    ],
+    "release_blockers": [
+      "allowed_source_refs_empty",
+      "allowed_run_refs_empty",
+      "required_tokenizer_pretraining_sft_rl_gpu_sandbox_recovery_benchmark_runs_missing"
+    ],
+    "human_intervention_required": false
+  },
   "source_review": {
     "grounding_status": "unverified_missing_assignment_refs",
     "allowed_source_refs": [],
@@ -106,7 +131,7 @@
       },
       {
         "path": "docs/ml-intern-lora-finetuning.md",
-        "observation": "Hub ist Autoritaet fuer Admission, Tenant-Bindung, Idempotenz, Policy, Queue, Audit, Worker-Auswahl, Fencing, Approval und Runtime-Routing; reales Training laeuft isoliert auf Workern."
+        "observation": "Hub ist Autoritaet fuer Admission, Tenant-Bindung, Idempotenz, Policy, Queue, Audit, Worker-Auswahl, Fencing, automatische oder optionale interaktive Freigabe und Runtime-Routing; reales Training laeuft isoliert auf Workern."
       },
       {
         "path": "worker/training/evaluation.py",
@@ -139,7 +164,7 @@
       "Dataset-Katalog, Upload, Split, Validierung und Privacy-/Lizenzmetadaten.",
       "Hub/Worker-Trennung, Queue, Capacity/Execution Leases, Fencing und Audit.",
       "LoRA/QLoRA-Training ueber bestehende Backends.",
-      "Adapter-Registry, Evaluation, Approval, Export und Runtime-Rollback.",
+      "Adapter-Registry, Evaluation, policy-gesteuerte Freigabe, Export und Runtime-Rollback.",
       "Lokale Inferenzpfade und isolierte Worker-Ausfuehrung."
     ],
     "main_gaps": [
@@ -160,7 +185,7 @@
     "Jede Stage ist resumierbar, idempotent, reproduzierbar und erzeugt immutable Artefakte.",
     "Dataset-, Tokenizer-, Model-, Optimizer-, Code- und Recipe-Digests werden in jeder Lineage gespeichert.",
     "Keine Trainingsdaten ohne nachweisbare Quelle, Lizenz-/Policy-Status und freigegebenen Scope.",
-    "Keine Full-Model-Promotion ohne definierte Evaluation Gates und explizites Approval.",
+    "Keine Full-Model-Promotion ohne definierte Evaluation Gates und eine explizite, auditierbare Hub-Policy-Entscheidung; ein vollautomatischer Pfad muss moeglich bleiben.",
     "Auto-Recipes duerfen Vorschlaege liefern, muessen aber alle abgeleiteten Werte transparent materialisieren.",
     "Hardwareprofile und Precision werden vor Start validiert; OOM-Risiken muessen im Dry-Run sichtbar sein.",
     "Backends liefern normalisierte Metriken und Events; Hub und UI kennen keine backendinternen Implementierungsdetails.",
@@ -352,7 +377,7 @@
         "NCH-003",
         "NCH-004"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M2",
@@ -363,7 +388,7 @@
         "NCH-007",
         "NCH-008"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M3",
@@ -374,7 +399,7 @@
         "NCH-011",
         "NCH-012"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -384,7 +409,7 @@
         "NCH-014",
         "NCH-015"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -394,7 +419,7 @@
         "NCH-017",
         "NCH-018"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M6",
@@ -405,7 +430,7 @@
         "NCH-021",
         "NCH-022"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M7",
@@ -416,7 +441,7 @@
         "NCH-025",
         "NCH-026"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "M8",
@@ -427,7 +452,7 @@
         "NCH-029",
         "NCH-030"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -435,10 +460,10 @@
       "id": "NCH-001",
       "title": "Research-Training Contracts und ArtifactKinds definieren",
       "type": "schema",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 10.0,
       "implementation": {
         "notes": [
           "Neue Contracts fuer ResearchRun, Pipeline, StageAttempt, TrainingRecipe, TokenizerArtifact, ModelCheckpointArtifact und ModelLineage definieren.",
@@ -463,10 +488,10 @@
       "id": "NCH-002",
       "title": "Bestehende LoRA-Control-Plane auf Research Jobs generalisieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "Admission, Tenant/Owner Binding, Idempotency, Queue, Capacity Leases, Execution Leases, Attempts, Heartbeats und Fencing wiederverwenden.",
@@ -487,15 +512,15 @@
       "id": "NCH-003",
       "title": "Research Safety Envelope und Capability Gates definieren",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Capabilities full_weight_training, tokenizer_training, rl_training, multi_gpu_training und code_exec_eval getrennt deklarieren.",
           "Default Research Mode auf dry_run/disabled setzen.",
-          "Explizite Admin-/Policy-Freigabe fuer kostenintensive oder riskante Stages verlangen.",
+          "Explizite Hub-Policy-Autorisierung fuer kostenintensive oder riskante Stages verlangen; deterministisch geeignete Runs koennen automatisch autorisiert werden.",
           "Max GPU hours, max estimated cost, max storage, max dataset size und max checkpoint count definieren."
         ]
       },
@@ -512,10 +537,10 @@
       "id": "NCH-004",
       "title": "Reproduzierbarkeits- und Provenance-Manifest einfuehren",
       "type": "schema",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Git/source revision, container/image digest, Python/torch/CUDA, backend version, dataset digest, tokenizer digest, recipe digest, seed und hardware profile speichern.",
@@ -537,7 +562,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "BPE als initiale Implementierung; spaeter weitere Tokenizer hinter Port.",
@@ -565,10 +590,10 @@
       "id": "NCH-006",
       "title": "Tokenizer-Evaluation und Compression Metrics erweitern",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "Bytes/token, chars/token, unknown/special token rates und representative-domain splits messen.",
@@ -590,7 +615,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "PyTorch-DDP-first Research Backend mit klarer BackendPort-Schnittstelle.",
@@ -620,10 +645,10 @@
       "id": "NCH-008",
       "title": "Base-Model Evaluation Suite aufbauen",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "Validation loss und vocab-size-invariante Metrik wie bits-per-byte aufnehmen.",
@@ -648,7 +673,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Bestehende Chat-/Instruction-Dataset-Normalisierung wiederverwenden.",
@@ -671,10 +696,10 @@
       "id": "NCH-010",
       "title": "Task Framework fuer standardisierte Chat-/Capability-Evals einfuehren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "TaskSequence/TaskMixture-Idee adaptieren.",
@@ -700,10 +725,10 @@
       "id": "NCH-011",
       "title": "Chat-Evaluation als Promotion Gate integrieren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "Base-vs-SFT-vs-RL Vergleichsreport erzeugen.",
@@ -723,10 +748,10 @@
       "id": "NCH-012",
       "title": "Inference Benchmark Stage implementieren",
       "type": "performance",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "TTFT, tokens/s, p50/p95 latency, peak VRAM/RAM und max stable context messen.",
@@ -751,7 +776,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "RewardProvider, rollout policy, sampling config, advantage strategy, optimizer profile und safety limits versionieren.",
@@ -775,7 +800,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Batched rollout generation mit OOM-bounded chunking.",
@@ -798,10 +823,10 @@
       "id": "NCH-015",
       "title": "RL Evaluation und Regression Gates implementieren",
       "type": "evaluation",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 10.0,
       "implementation": {
         "notes": [
           "Pass@k, reward distribution, variance/collapse indicators und non-target task regressions messen.",
@@ -821,16 +846,16 @@
       "id": "NCH-016",
       "title": "Nanochat-artigen RecipeResolver fuer Modellskalierung implementieren",
       "type": "architecture",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 10.0,
       "implementation": {
         "notes": [
           "Optionalen depth/scale dial einfuehren.",
           "Width, heads, sequence length, batch sizing, LR, weight decay und horizon als transparent resolved config ableiten.",
           "Formeln versionieren und pro Backend/ModelFamily begrenzen.",
-          "Manual mode bleibt voll unterstuetzt."
+          "Explizite Konfiguration bleibt voll unterstuetzt; weder Tests noch Headless-Laeufe benoetigen manuelle Eingaben."
         ],
         "files_to_create": [
           "worker/training/research/recipe_resolver.py"
@@ -852,7 +877,7 @@
       "status": "todo",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Mehrere depth/scale Recipes als Sweep planen.",
@@ -875,10 +900,10 @@
       "id": "NCH-018",
       "title": "Budget- und Hardware-aware Preflight Planner bauen",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 25.0,
       "implementation": {
         "notes": [
           "VRAM-Schaetzung, device batch size, gradient accumulation, precision, expected walltime/FLOPs und storage schaetzen.",
@@ -888,7 +913,7 @@
       },
       "acceptance_criteria": [
         "Dry-run startet keine GPU-Arbeit.",
-        "Unrealistische Konfiguration wird vor Queueing abgelehnt oder explizit bestaetigungspflichtig.",
+        "Unrealistische Konfiguration wird vor Queueing abgelehnt oder durch eine vorab konfigurierte Hub-Policy automatisch auf ein zulaessiges Profil reduziert.",
         "Budgetgrenzen werden Stage-uebergreifend aggregiert."
       ],
       "dependencies": [
@@ -900,10 +925,10 @@
       "id": "NCH-019",
       "title": "Research Pipeline Orchestrator im Hub implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 10.0,
       "implementation": {
         "notes": [
           "Stage DAG verwalten; nur erfolgreiche/approved Inputs fuer Folge-Stage freigeben.",
@@ -926,10 +951,10 @@
       "id": "NCH-020",
       "title": "Worker Capability Discovery fuer Research Training erweitern",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "GPU count, VRAM, compute capability, supported dtypes, torch distributed, storage headroom und backend versions melden.",
@@ -952,7 +977,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Endpoints fuer recipes, pipelines, runs, stages, artifacts, evaluations, benchmarks und lineage.",
@@ -976,19 +1001,19 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Bestehenden /model-training Bereich erweitern statt neue Insel-App.",
           "Modi klar trennen: Adapter Fine-Tuning vs Full Model Research.",
           "Pipeline graph, resolved recipe, Kosten-/VRAM-Preflight, Stage Timeline, Lineage und Eval-Vergleich anzeigen.",
-          "Risk acknowledgement fuer Full-weight und RL."
+          "Risiken fuer Full-weight und RL sichtbar darstellen, ohne eine Checkbox oder menschliche Bestaetigung als technische Laufvoraussetzung einzufuehren."
         ]
       },
       "acceptance_criteria": [
         "Default bleibt sicherer Adapter/dry-run Flow.",
         "Nutzer erkennt jederzeit aktuelle Stage und Parent Artifacts.",
-        "Promotion ist separate bestaetigte Aktion."
+        "Promotion ist eine separate, auditierbare Hub-Policy-Aktion und kann nach allen deterministischen Gates vollautomatisch erfolgen."
       ],
       "dependencies": [
         "NCH-021"
@@ -998,10 +1023,10 @@
       "id": "NCH-023",
       "title": "Unified Checkpoint Manager und immutable Lineage Store bauen",
       "type": "storage",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Atomic staging -> digest verify -> publish.",
@@ -1026,10 +1051,10 @@
       "id": "NCH-024",
       "title": "Stage Resume, Retry und Preemption Robustheit implementieren",
       "type": "reliability",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Checkpoint cadence konfigurierbar.",
@@ -1051,10 +1076,10 @@
       "id": "NCH-025",
       "title": "TelemetryPort und Research Metrics normalisieren",
       "type": "observability",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Ananta-native event/metrics sink als Default.",
@@ -1076,10 +1101,10 @@
       "id": "NCH-026",
       "title": "Artifact Storage Quotas und Cleanup fuer Full Models erweitern",
       "type": "storage",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "Groesse von Full-Weight-Checkpoints, optimizer states, tokenizer data und eval artifacts separat quotaen.",
@@ -1099,10 +1124,10 @@
       "id": "NCH-027",
       "title": "Dataset Governance fuer Pretraining erweitern",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 25.0,
       "implementation": {
         "notes": [
           "Pretraining braucht staerkere Provenance als kleine SFT-Datasets: source manifests, license policy, robots/consent metadata soweit vorhanden, PII/secret scan, dedup status.",
@@ -1125,10 +1150,10 @@
       "id": "NCH-028",
       "title": "Security Hardening fuer Eval Tool-/Code-Ausfuehrung",
       "type": "security",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 25.0,
       "implementation": {
         "notes": [
           "Code tasks nur in existierender isolierter Sandbox/Runner-Infrastruktur.",
@@ -1152,7 +1177,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Tiny deterministic fixture: tokenizer -> tiny pretrain -> base eval -> SFT -> chat eval -> optional mock RL -> infer bench -> export.",
@@ -1179,10 +1204,10 @@
       "id": "NCH-030",
       "title": "Gestuften Rollout und Upstream nanochat Watch definieren",
       "type": "rollout",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "implementation": {
         "notes": [
           "Phase 0 schemas/dry-run, Phase 1 tiny local models, Phase 2 single-GPU research, Phase 3 multi-GPU, Phase 4 optional RL.",
@@ -1191,7 +1216,7 @@
         ]
       },
       "acceptance_criteria": [
-        "Production routes bleiben bis explizitem Approval unberuehrt.",
+        "Production routes bleiben bis zu einer expliziten Hub-Policy-Entscheidung unberuehrt; geeignete Runs koennen ohne menschlichen Eingriff automatisch freigegeben werden.",
         "Jede Phase besitzt Exit Criteria.",
         "Rollback deaktiviert Research Features ohne Adapter-Training zu beeintraechtigen."
       ],
@@ -1199,6 +1224,23 @@
         "NCH-029"
       ]
     }
+  ],
+  "critical_path_tasks": [
+    "NCH-001",
+    "NCH-003",
+    "NCH-004",
+    "NCH-005",
+    "NCH-007",
+    "NCH-009",
+    "NCH-010",
+    "NCH-018",
+    "NCH-019",
+    "NCH-020",
+    "NCH-023",
+    "NCH-024",
+    "NCH-027",
+    "NCH-028",
+    "NCH-029"
   ],
   "implementation_order": [
     "NCH-001",
@@ -1256,12 +1298,343 @@
     "Kein Full-Weight-Training umgeht Hub Admission, Policy, Fencing, Quotas oder Audit.",
     "Bestehendes LoRA/QLoRA-Training bleibt API- und Verhaltenskompatibel.",
     "Single-GPU und Multi-GPU Research Runs koennen ueber dieselbe Pipeline beschrieben werden.",
-    "Promotion bewertet sowohl Qualitaet als auch Runtime-Performance und erfordert explizite Freigabe."
+    "Promotion bewertet sowohl Qualitaet als auch Runtime-Performance und erfordert eine explizite, auditierbare Hub-Policy-Entscheidung mit vollautomatischem Modus."
   ],
   "reference": {
     "upstream": "https://github.com/karpathy/nanochat",
     "upstream_review_date": "2026-08-16",
     "integration_strategy": "inspired-adapter-not-vendor",
     "license_note": "Vor etwaiger direkter Codeuebernahme nanochat-Lizenz und Third-Party-Hinweise erneut pruefen; bevorzugt Konzepte/Architektur ueber eigene Implementierung uebernehmen."
+  },
+  "tasks_status_summary": {
+    "total": 30,
+    "by_status": {
+      "todo": 9,
+      "in_progress": 0,
+      "partial": 20,
+      "blocked": 1,
+      "done": 0
+    },
+    "progress_percent_done": 0.0,
+    "by_priority": {
+      "P0": 18,
+      "P1": 11,
+      "P2": 1,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 3,
+      "high": 13,
+      "critical": 14
+    },
+    "critical_path": {
+      "total": 15,
+      "done": 0,
+      "remaining": 15
+    },
+    "milestones": {
+      "total": 8,
+      "todo": 0,
+      "in_progress": 8,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 30,
+    "by_type": {
+      "schema": {
+        "total": 3,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 10.0
+      },
+      "architecture": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 12.5
+      },
+      "security": {
+        "total": 3,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 23.3
+      },
+      "backend": {
+        "total": 7,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 3,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 7.1
+      },
+      "evaluation": {
+        "total": 5,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 5,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 5,
+        "blocked": 0,
+        "progress_percent": 14.0
+      },
+      "performance": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 15.0
+      },
+      "research": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "api": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "frontend": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "storage": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 2,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "reliability": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "observability": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 20.0
+      },
+      "testing": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "rollout": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 1,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 0.0
+      }
+    }
+  },
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 49.5,
+    "done_weight": 5.525,
+    "remaining_weight": 43.975,
+    "blocked_weight": 2.0,
+    "weighted_percent": 11.2
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "M1": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 16.7,
+        "status": "in_progress"
+      },
+      "M2": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 6.9,
+        "status": "in_progress"
+      },
+      "M3": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 12.0,
+        "status": "in_progress"
+      },
+      "M4": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 4.0,
+        "status": "in_progress"
+      },
+      "M5": {
+        "total_tasks": 3,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 11.5,
+        "status": "in_progress"
+      },
+      "M6": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 6.4,
+        "status": "in_progress"
+      },
+      "M7": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 20.0,
+        "status": "in_progress"
+      },
+      "M8": {
+        "total_tasks": 4,
+        "done": 0,
+        "blocked": 1,
+        "count_based_percent": 0.0,
+        "weighted_percent": 11.5,
+        "status": "in_progress"
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "in_progress",
+    "todo_remaining": 9,
+    "in_progress": 0,
+    "partial": 20,
+    "blocked": 1,
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 11.2
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-30T09:28:04.116890Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "4aece332ae7ed6113ee148aed93a8bdb9f3d745d78acc24c4ca2c4c135866198",
+    "is_stale": false
   }
 }
