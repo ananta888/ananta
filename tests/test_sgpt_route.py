@@ -1,5 +1,3 @@
-import json
-import pathlib
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -63,25 +61,16 @@ def test_sgpt_execute_rejects_unsupported_flags_for_opencode(client, admin_auth_
 
 
 def test_sgpt_execute_opencode_backend(client, admin_auth_header):
-    with (
-        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\opencode.cmd"),
-        patch("subprocess.run") as mock_run,
-    ):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "ok from opencode\n"
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
-
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok from opencode\n", "", "opencode")
         payload = {"prompt": "say hi", "backend": "opencode"}
         response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
         assert response.json["data"]["backend"] == "opencode"
-        called_args = mock_run.call_args[0][0]
-        assert called_args[0].endswith("opencode.cmd")
-        assert called_args[1] == "run"
+        assert mock_run.call_args.kwargs["backend"] == "opencode"
+        assert mock_run.call_args.args[0] == "say hi"
 
 
 def test_sgpt_execute_codex_backend(client, admin_auth_header):
@@ -108,26 +97,17 @@ def test_sgpt_execute_codex_backend(client, admin_auth_header):
 
 
 def test_sgpt_execute_aider_backend(client, admin_auth_header):
-    with (
-        patch("agent.cli_backends.opencode.shutil.which", return_value=r"C:\tools\aider.exe"),
-        patch("subprocess.run") as mock_run,
-    ):
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "ok from aider\n"
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
-
+    with patch("agent.routes.sgpt.run_llm_cli_command") as mock_run:
+        mock_run.return_value = (0, "ok from aider\n", "", "aider")
         payload = {"prompt": "refactor this", "backend": "aider", "model": "gpt-4o-mini"}
         response = client.post("/api/sgpt/execute", json=payload, headers=admin_auth_header)
 
         assert response.status_code == 200
         assert response.json["status"] == "success"
         assert response.json["data"]["backend"] == "aider"
-        called_args = mock_run.call_args[0][0]
-        assert called_args[0].endswith("aider.exe")
-        assert "--message" in called_args
-        assert "--model" in called_args
+        assert mock_run.call_args.kwargs["backend"] == "aider"
+        assert mock_run.call_args.args[0] == "refactor this"
+        assert mock_run.call_args.kwargs["model"] == "gpt-4o-mini"
 
 
 def test_sgpt_execute_mistral_code_backend(client, admin_auth_header):
