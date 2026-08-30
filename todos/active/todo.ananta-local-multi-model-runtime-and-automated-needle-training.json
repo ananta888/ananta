@@ -375,7 +375,7 @@
       "id": "LMM-QA-001", "title": "Fokussierte Unit- und bestehende Routing-Regressionstests abschließen", "status": "done", "priority": "P0", "risk": "medium", "type": "test", "milestone_id": "M07", "depends_on": ["LMM-BASE-004", "LMM-LIFE-001"], "progress_percent": 100,
       "description": "Neue Placement-, Routing-, Promotion- und Rollback-Policies sowie bestehender Tiny Router und Worker-Modellrouting wurden fokussiert geprüft.",
       "acceptance_criteria": ["Neue Policy-Tests bestehen.", "Tiny-Router-Verträge und Quality-Gate bestehen.", "Worker-Modellrouting bleibt kompatibel.", "Konfigurationsloader und Routingdatei akzeptieren die neuen Profile."],
-      "evidence": ["210 fokussierte Runtime-, Lifecycle-, Training-, Transport-, Artifact-Security- und Registry-Tests bestanden (210 passed).", "75 Ollama-/LM-Studio-Kompatibilitätstests bestanden oder wurden umgebungsbedingt übersprungen (75 passed, 5 skipped).", "Fast-Suite: 37 passed, 1 skipped.", "Keine registrierten RUN_* IDs vorhanden."]
+      "evidence": ["210 fokussierte Runtime-, Lifecycle-, Training-, Transport-, Artifact-Security- und Registry-Tests bestanden (210 passed).", "75 Ollama-/LM-Studio-Kompatibilitätstests bestanden oder wurden umgebungsbedingt übersprungen (75 passed, 5 skipped).", "Fast-Suite: 37 passed, 1 skipped.", "Verifikation 2026-08-30: 458 fokussierte Adapter-/Training-Tests bestanden, 1 umgebungsbedingter Test wurde uebersprungen; zusaetzlich bestanden 9 Runtime- und 103 Angular-Modelltraining-Tests.", "Der reparierte scripts/run-lora-training-e2e.sh-Entry-Point isoliert Hub-, Unsloth-, Worker- und E2E-Suiten in getrennten Python-Prozessen; das automatische Gate bestand mit 361 Tests und 1 erwarteten Skip, waehrend fehlende lokale NVIDIA-Modellkonfiguration ehrlich not_run blieb.", "Keine registrierten RUN_* IDs vorhanden."]
     },
     {
       "id": "LMM-QA-002", "title": "Long-Context- und Parallel-Soak unter realer Last durchführen", "status": "done", "priority": "P0", "risk": "high", "type": "performance", "milestone_id": "M07", "depends_on": ["LMM-PROV-003", "LMM-ROUTE-004"], "progress_percent": 100,
@@ -473,10 +473,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T17:30:10.196595Z",
+    "generated_at": "2026-08-30T20:21:33.794931Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "8808392f89586e90289d607336fa10696083ca3ef3733af14fdbcd3e0799c9f0",
+    "source_hash": "98a00eac31fa019a2d5265ac63dc7b641a373931d80da51bedd1417ce52c613c",
     "is_stale": false
   },
   "execution_stage_summary": {
@@ -499,7 +499,8 @@
     "Der Audit auf main@dddeaba7d identifizierte die fehlende Candidate-Aktivierung; die Implementierung materialisiert Needle und LFM nun automatisch offline, projiziert das Serving-Artefakt atomar und verifiziert es beim Runtime-Start.",
     "Needle- und agentischer LFM-Trainingsstand sind vollständig hashgebunden und offline load-verifiziert; reale Jobs, Candidates und Release-Evidenz bleiben ohne gültige SRC_*-/RUN_*-Dataset-Evidenz fail-closed.",
     "Das Todo gilt erst als done, wenn freigegebene Datasets vorliegen, alle realen Lifecycle-Stufen durchlaufen sind und registrierte Release-Evidenz besteht.",
-    "Audit 2026-08-30 gegen main@9507fa5a2: Hub-Delegation, isolierte Needle-/PEFT-TRL-Worker, automatische Evaluation, Shadow, Canary, Serving-Materialisierung, Promotion und Rollback sind im Quellstand vorhanden. LMM-TRAIN-004 ist nicht durch fehlenden Code, sondern ausschließlich durch das fehlende freigegebene Dataset und nicht bereitgestellte gültige SRC_*/RUN_*-IDs blockiert; reale Kandidaten oder Release-Nachweise werden nicht fingiert."
+    "Audit 2026-08-30 gegen main@9507fa5a2: Hub-Delegation, isolierte Needle-/PEFT-TRL-Worker, automatische Evaluation, Shadow, Canary, Serving-Materialisierung, Promotion und Rollback sind im Quellstand vorhanden. LMM-TRAIN-004 ist nicht durch fehlenden Code, sondern ausschließlich durch das fehlende freigegebene Dataset und nicht bereitgestellte gültige SRC_*/RUN_*-IDs blockiert; reale Kandidaten oder Release-Nachweise werden nicht fingiert.",
+    "Verifikation 2026-08-30: Der dokumentierte LoRA-E2E-Wrapper konnte sein scripts-Paket nicht aufloesen und der monolithische Mock-Gate-Prozess zeigte nichtdeterministische native SIGSEGV-Abstuerze. Modul-Entry-Point, Prozessisolation und begrenzte Suite-/Signaldiagnostik wurden implementiert; danach bestanden das offizielle automatische Gate sowie 458 fokussierte Python-, 9 Runtime- und 103 Angular-Tests."
   ],
   "end_summaries": [
     {
