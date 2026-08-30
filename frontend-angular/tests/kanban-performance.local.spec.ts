@@ -7,6 +7,7 @@ const PAGE_COUNT = CARD_COUNT / PAGE_SIZE;
 const VIEW_GROUP_COUNT = 10;
 const SAMPLE_COUNT = 3;
 const MEBIBYTE = 1024 * 1024;
+const PROJECT_ID = 'kanban-performance-project';
 
 const STATUS_GROUPS = [
   { status: 'todo', columnId: 'todo' },
@@ -192,6 +193,22 @@ async function installFixtures(page: Page): Promise<{ cardPageRequests: () => nu
     role: 'admin',
     capabilities: [],
   }));
+  await page.route('**/api/projects', route => json(route, {
+    items: [{
+      id: PROJECT_ID,
+      name: 'Kanban performance project',
+      description: 'Deterministic local performance fixture',
+      status: 'active',
+      is_active: true,
+      origin: 'native',
+      team_id: null,
+      version: 1,
+      created_at: 1,
+      updated_at: 1,
+      archived_at: null,
+    }],
+    count: 1,
+  }));
   await page.route('**/config/features/v1', route => json(route, {
     schema: 'ananta.dashboard-feature-flags.v1',
     features: {
@@ -317,7 +334,10 @@ test('local diagnostic Kanban performance with 1000 paginated cards and 10 views
   for (const viewport of VIEWPORTS) {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
 
-    await page.goto(`/board?diagnostic=${viewport.name}-warmup`, { waitUntil: 'domcontentloaded' });
+    await page.goto(
+      `/board?projectId=${PROJECT_ID}&diagnostic=${viewport.name}-warmup`,
+      { waitUntil: 'domcontentloaded' },
+    );
     await expect(page.getByTestId('kanban-board')).toBeVisible();
     await expect(page.locator('.kanban-card')).toHaveCount(CARD_COUNT);
     await page.getByRole('searchbox', { name: 'Suche' }).fill('needle-0420');
@@ -327,7 +347,7 @@ test('local diagnostic Kanban performance with 1000 paginated cards and 10 views
     for (let sampleIndex = 0; sampleIndex < SAMPLE_COUNT; sampleIndex += 1) {
       const heapBefore = await heapBytes(page, cdp);
       await page.goto(
-        `/board?diagnostic=${viewport.name}-${sampleIndex}`,
+        `/board?projectId=${PROJECT_ID}&diagnostic=${viewport.name}-${sampleIndex}`,
         { waitUntil: 'domcontentloaded' },
       );
       await expect(page.getByTestId('kanban-board')).toBeVisible();
