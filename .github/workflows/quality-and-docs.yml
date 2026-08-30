@@ -171,7 +171,7 @@ jobs:
           container_id="$(docker compose \
             -f docker/compose-next/compose.qdrant.yml \
             --profile qdrant ps -q qdrant)"
-          expected_image_ref="qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+          expected_image_ref="qdrant/qdrant:v1.18.3@sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
           observed_image_ref="$(docker inspect \
             --format '{{.Config.Image}}' "${container_id}")"
           test "${observed_image_ref}" = "${expected_image_ref}"
@@ -198,7 +198,7 @@ jobs:
               client.close()
           PY
           )"
-          test "${observed_server_version}" = "1.18.2"
+          test "${observed_server_version}" = "1.18.3"
           {
             echo "server_image_id=$(docker inspect --format '{{.Image}}' "${container_id}")"
             echo "server_image_ref=${observed_image_ref}"

@@ -30,7 +30,7 @@ CODECOMPASS_HUB_READ_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-hub-re
 WIKI_HUB_READ_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-wiki-hub-read.yml"
 QUICKSTART_COMPOSE = ROOT / "docker/compose-next/compose.stack.quickstart.yml"
 QUALITY_WORKFLOW = ROOT / ".github/workflows/quality-and-docs.yml"
-EXPECTED_IMAGE = "qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+EXPECTED_IMAGE = "qdrant/qdrant:v1.18.3@sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
 DOCKERIGNORE = ROOT / ".dockerignore"
 QUICKSTART_DOCKERFILE = (
     ROOT / "docker/compose-next/Dockerfile.quickstart-no-ollama"

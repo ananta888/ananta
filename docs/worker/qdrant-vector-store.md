@@ -2,7 +2,7 @@
 
 Ananta supports [Qdrant](https://qdrant.tech/) as an optional worker-side VectorStore. JSON is the default; the Hub owns policy/tasks and workers only execute delegated work.
 
-The tested pair is Qdrant Server `1.18.2` with `qdrant-client==1.18.0`, pinned to image `qdrant/qdrant:v1.18.2@sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c`.
+The tested pair is Qdrant Server `1.18.3` with `qdrant-client==1.18.0`, pinned to image `qdrant/qdrant:v1.18.3@sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286`.
 
 Runtime code uses `query_points`. The Python client is an optional dependency:
 

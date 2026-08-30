@@ -48,9 +48,9 @@ from worker.retrieval.vector_store_endpoint_policy import (  # noqa: E402
 
 DEFAULT_CONFIG = ROOT / "config/benchmarks/qdrant-vector-store.v1.json"
 QDRANT_IMAGE_DIGEST = (
-    "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+    "sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
 )
-QDRANT_SERVER_VERSION = "1.18.2"
+QDRANT_SERVER_VERSION = "1.18.3"
 QDRANT_IMAGE_REFERENCE = f"qdrant/qdrant:v{QDRANT_SERVER_VERSION}@{QDRANT_IMAGE_DIGEST}"
 
 

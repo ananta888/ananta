@@ -141,9 +141,9 @@ def test_percentiles_memory_units_and_evidence_schema() -> None:
         args=argparse.Namespace(
             profile="small",
             qdrant_url="http://127.0.0.1:6333",
-            _observed_qdrant_server="1.18.2",
+            _observed_qdrant_server="1.18.3",
             _observed_qdrant_digest=(
-                "sha256:75eab8c4ba42096724fdcfde8b4de0b5713d529dde32f285a1f86fdcb2c9e50c"
+                "sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
             ),
         ),
         started_at="2026-07-25T00:00:00+00:00",
@@ -182,17 +182,17 @@ def test_missing_reference_host_approval_is_inconclusive_preflight() -> None:
 
 def test_server_and_exact_digest_reference_are_observed_not_assumed() -> None:
     args = argparse.Namespace(
-        _observed_qdrant_server="1.18.2",
+        _observed_qdrant_server="1.18.3",
         _observed_qdrant_digest=QDRANT_IMAGE_DIGEST,
     )
 
     fingerprint = _software_fingerprint(args)
 
-    assert fingerprint["qdrant_server"] == "1.18.2"
+    assert fingerprint["qdrant_server"] == "1.18.3"
     assert fingerprint["qdrant_image_digest"] == QDRANT_IMAGE_DIGEST
     assert _verified_image_digest(QDRANT_IMAGE_REFERENCE) == QDRANT_IMAGE_DIGEST
     assert _verified_image_digest(f"mirror/{QDRANT_IMAGE_REFERENCE}") == ""
-    assert _verified_image_digest("qdrant/qdrant:v1.18.2") == ""
+    assert _verified_image_digest("qdrant/qdrant:v1.18.3") == ""
 
 
 def test_completed_artifact_requires_verified_source_commit(
@@ -204,7 +204,7 @@ def test_completed_artifact_requires_verified_source_commit(
         args=argparse.Namespace(
             profile="small",
             qdrant_url="https://localhost:6333",
-            _observed_qdrant_server="1.18.2",
+            _observed_qdrant_server="1.18.3",
             _observed_qdrant_digest=QDRANT_IMAGE_DIGEST,
         ),
         started_at="2026-07-25T00:00:00+00:00",
