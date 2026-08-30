@@ -2194,7 +2194,8 @@
     "Private GitHub-App-/OAuth-Installation und Grant, Claude-/Cloud-Produktion, realer Produktionsreceiver beziehungsweise Paging, Produktionsmetriken, bereitgestellte gueltige SRC_*/RUN_*-IDs und organisatorische Freigabe bleiben extern offen. Es wurden keine Source- oder Run-IDs erfunden.",
     "Prepare-Index-Access ist fail-closed auf local_container mit lokaler Datenresidenz sowie local/redacted/one_time beschraenkt; Confirmation, OCC, Idempotenz und negative Auswahlfaelle sind lokal verifiziert.",
     "2026-08-17: Built-in GitHub App/OAuth provisioner added. Default bleibt unavailable. Adapter loest github-installation:<id> und gespeicherte github-oauth-Grants serverseitig, fordert contents:read, persistiert keine Tokens und gibt keine Tokens an Angular. Live-Installation und OAuth-Grant bleiben extern unverified.",
-    "2026-08-30 Audit: Der aktuelle Quellstand bestaetigt die Hub-owned Source-, Index-, Policy-, GitHub-App/OAuth-, Observability-, E2E- und Release-Gate-Pfade. Die vier partial Tasks besitzen keine lokal offene Source-Luecke; offen bleiben ausschliesslich reale private GitHub-/Cloud- und Produktionsbetriebsnachweise sowie bereitgestellte gueltige SRC_*/RUN_*-IDs. Der veraltete zentrale Live-Browser-Evidence-Hash wurde auf den tatsaechlichen stabilen Artefaktdigest korrigiert."
+    "2026-08-30 Audit: Der aktuelle Quellstand bestaetigt die Hub-owned Source-, Index-, Policy-, GitHub-App/OAuth-, Observability-, E2E- und Release-Gate-Pfade. Die vier partial Tasks besitzen keine lokal offene Source-Luecke; offen bleiben ausschliesslich reale private GitHub-/Cloud- und Produktionsbetriebsnachweise sowie bereitgestellte gueltige SRC_*/RUN_*-IDs. Der veraltete zentrale Live-Browser-Evidence-Hash wurde auf den tatsaechlichen stabilen Artefaktdigest korrigiert.",
+    "2026-08-30 Verifikation: 430 fokussierte Backend-Tests und 122 Angular-Tests liefen vollautomatisch fehlerfrei. Das Release-Gate bestaetigt alle 11 lokalen Gates als passed und verweigert die Freigabe erwartungsgemaess fail-closed, solange Produktionsnachweise und gueltige SRC_*/RUN_*-IDs fehlen."
   ],
   "end_summaries": [
     {
@@ -2339,6 +2340,13 @@
     }
   ],
   "latest_verification_results": {
+    "audit_2026_08_30": {
+      "backend_focused": "430/430 passed",
+      "angular_focused": "122/122 passed",
+      "release_gate_local": "11/11 passed",
+      "release_allowed": false,
+      "production_verification": "unverified_missing_valid_source_and_run_ids"
+    },
     "backend": "167/167 passed",
     "postgres_identifier_fix": "14/14 passed",
     "authorization_production_fix": "147/147 passed",
