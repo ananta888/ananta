@@ -10,15 +10,15 @@ import pytest
 from scripts.run_kanban_model_dashboard_evidence import (
     EVIDENCE_RELATIVE_DIR,
     REQUIRED_SUITES,
+    SUITE_SPECS,
     CommandSpec,
     EvidenceProducer,
     EvidenceProducerError,
     ExecutionResult,
-    SUITE_SPECS,
     _atomic_write_json,
     _validate_performance_result,
+    _validate_playwright,
 )
-
 
 COMMIT = "a" * 40
 NOW = datetime(2026, 7, 24, 10, 0, tzinfo=timezone.utc)
@@ -305,4 +305,36 @@ def test_performance_gate_validator_reads_versioned_profile_projection() -> None
     assert result == {
         "schema": "ananta.kanban-model-dashboard.performance-gate.v1",
         "requirements_satisfied": True,
+    }
+
+
+def test_playwright_validator_extracts_one_report_from_harness_logs() -> None:
+    spec = CommandSpec(
+        argv=("{npx}", "playwright", "test"),
+        validator="playwright",
+        minimum_passed=4,
+    )
+    report = {
+        "config": {
+            "projects": [
+                {"name": "chromium"},
+                {"name": "firefox"},
+            ]
+        },
+        "suites": [],
+        "stats": {"expected": 4, "unexpected": 0, "skipped": 0},
+    }
+    stdout = (
+        "hub startup log {not-json}\n"
+        + json.dumps(report)
+        + "\nworker shutdown log\n"
+    ).encode()
+
+    result = _validate_playwright(spec, stdout, b"")
+
+    assert result == {
+        "expected": 4,
+        "unexpected": 0,
+        "skipped": 0,
+        "projects": ["chromium", "firefox"],
     }

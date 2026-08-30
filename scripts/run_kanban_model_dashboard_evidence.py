@@ -868,11 +868,28 @@ def _validate_playwright(
     _stderr: bytes,
 ) -> dict[str, Any]:
     try:
-        report = json.loads(stdout)
-    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        decoded = stdout.decode("utf-8")
+    except UnicodeDecodeError as exc:
         raise EvidenceProducerError("playwright_json_result_invalid") from exc
-    if not isinstance(report, Mapping):
+    decoder = json.JSONDecoder()
+    reports: list[Mapping[str, Any]] = []
+    for index, character in enumerate(decoded):
+        if character != "{":
+            continue
+        try:
+            candidate, _end = decoder.raw_decode(decoded[index:])
+        except json.JSONDecodeError:
+            continue
+        if (
+            isinstance(candidate, Mapping)
+            and isinstance(candidate.get("stats"), Mapping)
+            and isinstance(candidate.get("config"), Mapping)
+            and isinstance(candidate.get("suites"), list)
+        ):
+            reports.append(candidate)
+    if len(reports) != 1:
         raise EvidenceProducerError("playwright_json_result_invalid")
+    report = reports[0]
     stats = report.get("stats")
     config = report.get("config")
     if not isinstance(stats, Mapping) or not isinstance(config, Mapping):
