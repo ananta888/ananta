@@ -1611,6 +1611,7 @@
       "Current-source audit 2026-08-30: spreadsheet-specific production code is still absent; openpyxl value extraction is navigation-only and not workbook semantics.",
       "Die alte Hybridstruktur aus Implementierungs-Tasks, Milestones und manuell gepflegten Track-Summaries wurde entfernt; Phase 2 entsteht erst nach Research und Promotion als separates Track-Artefakt.",
       "Diese Datei ist ein passiver, handgepflegter Category-Research-Backlog-Seed und kein gebundenes Research-Ergebnis oder ausführbarer Planning Track.",
+      "Experimental implementation 2026-08-30: a default-off canonical-snapshot/mock-executor slice now exists, but no Category-Item is completed and no LibreOffice/source-grounded readiness is claimed.",
       "Komplexe GPU-, Multi-Container-, End-to-End-, große Dokument- und reale Provider-Tests bleiben bis zur ausdrücklichen Freigabe unausgeführt.",
       "Repository-Pfade und das archivierte LoRA-Control-Center sind Reviewziele. Ohne assignment-bound Evidenz wird weder ihre Wiederverwendbarkeit noch ihr Implementierungsstatus behauptet.",
       "Security, Consent, Dokumentversionen und Hub-Worker-Verträge werden vor abhängiger Implementierung erforscht; Worker publizieren keine finalen Dokumentversionen."
@@ -1667,6 +1668,34 @@
       "allowed_source_refs_empty",
       "allowed_run_refs_empty"
     ],
+    "human_intervention_required": false
+  },
+  "experimental_implementation_slice": {
+    "implemented_at": "2026-08-30",
+    "implementation_base_commit": "88a13a3d4",
+    "state": "default_off_mock_slice_implemented_research_and_release_blocked",
+    "implemented": [
+      "Closed canonical WorkbookSnapshot, structured Formula AST, Action, Validator and Proposal contracts",
+      "Default-off Hub policy, tenant/owner API, immutable SQLite versions and optimistic concurrency",
+      "Deterministic bounded mock execution adapter with direct cell diff and no office/network/macro capability",
+      "Idempotent proposal replay and atomic exact-version automatic Hub promotion after deterministic validation",
+      "Angular Spreadsheet Studio route for mock workbooks and fully automatic bounded cell proposals",
+      "Architecture boundary detector, threat model, operations note and automatic contract/saga/API tests"
+    ],
+    "deliberately_unverified": [
+      "LibreOffice, UNO, XLSX, ODS and CSV parsing/rendering/recalculation fidelity",
+      "Worker transport, container sandbox, archive scanning, indirect formula diffs and recovery",
+      "Feedback/consent/dataset/LoRA/evaluation/adapter flows",
+      "All assignment-bound source and run claims"
+    ],
+    "release_blockers": [
+      "assignment_bound_source_catalog_missing",
+      "allowed_source_refs_empty",
+      "allowed_run_refs_empty",
+      "real_libreoffice_worker_and_fidelity_runs_missing"
+    ],
+    "category_items_completed": [],
+    "category_item_status_note": "All research items remain open because local implementation cannot replace assignment-bound SRC_*/RUN_* evidence or Hub promotion.",
     "human_intervention_required": false
   }
 }

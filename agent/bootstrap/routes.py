@@ -100,6 +100,7 @@ from agent.routes.speech_adaptation_control import speech_adaptation_control_bp
 from agent.routes.speech_evidence_consents import speech_evidence_consents_bp
 from agent.routes.speech_evidence_sync import speech_evidence_sync_bp
 from agent.routes.speech_reconciliation import speech_reconciliation_bp
+from agent.routes.spreadsheet_studio import spreadsheet_studio_bp
 from agent.routes.system import system_bp
 from agent.routes.tasks import register_tasks_blueprints, tasks_bp
 from agent.routes.teams import teams_bp
@@ -135,6 +136,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(spreadsheet_studio_bp)
     app.register_blueprint(collaboration_workspaces_bp)
     app.register_blueprint(research_training_bp)
     app.register_blueprint(dendritic_memory_bp)

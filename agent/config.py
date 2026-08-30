@@ -710,6 +710,16 @@ class Settings(BaseSettings):
         default="data/collaboration-workspace.sqlite3",
         validation_alias="ANANTA_COLLABORATION_WORKSPACE_STATE",
     )
+    spreadsheet_studio_enabled: bool = Field(default=False, validation_alias="ANANTA_SPREADSHEET_STUDIO_ENABLED")
+    spreadsheet_studio_mode: str = Field(default="disabled", validation_alias="ANANTA_SPREADSHEET_STUDIO_MODE")
+    spreadsheet_studio_automatic_promotion_enabled: bool = Field(
+        default=False,
+        validation_alias="ANANTA_SPREADSHEET_STUDIO_AUTOMATIC_PROMOTION_ENABLED",
+    )
+    spreadsheet_studio_state: str = Field(
+        default="data/spreadsheet-studio.sqlite3",
+        validation_alias="ANANTA_SPREADSHEET_STUDIO_STATE",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

@@ -1,0 +1,318 @@
+"""Closed dependency-free contracts for governed spreadsheet transformations."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import math
+import re
+from collections.abc import Mapping, Sequence
+from dataclasses import asdict, dataclass
+from typing import Any, ClassVar
+
+_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_CELL = re.compile(r"^[A-Z]{1,3}[1-9][0-9]{0,6}$")
+ACTION_KINDS = frozenset({"set_value", "clear_cell", "set_formula"})
+FORMULA_OPS = frozenset({"literal", "cell", "add", "subtract", "multiply", "divide", "sum_range"})
+VALIDATOR_KINDS = frozenset({"equals", "number_range", "formula_present", "cell_empty"})
+
+
+class SpreadsheetContractError(ValueError):
+    pass
+
+
+def canonical_json(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False)
+
+
+def canonical_digest(value: Any) -> str:
+    return hashlib.sha256(canonical_json(value).encode()).hexdigest()
+
+
+def require_id(value: object, field: str) -> str:
+    text = str(value or "").strip()
+    if not _ID.fullmatch(text):
+        raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+    return text
+
+
+def require_digest(value: object, field: str) -> str:
+    text = str(value or "").strip().lower()
+    if not _DIGEST.fullmatch(text):
+        raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+    return text
+
+
+def require_cell(value: object, field: str = "cell") -> str:
+    text = str(value or "").strip().upper()
+    if not _CELL.fullmatch(text):
+        raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+    return text
+
+
+def _exact(value: Mapping[str, Any], fields: set[str], name: str) -> None:
+    if set(value) != fields:
+        raise SpreadsheetContractError(f"spreadsheet_{name}_fields_invalid")
+
+
+def _json_scalar(value: object, field: str) -> str | int | float | bool | None:
+    if value is None or isinstance(value, (str, bool)):
+        if isinstance(value, str) and len(value.encode()) > 16_384:
+            raise SpreadsheetContractError(f"spreadsheet_{field}_too_large")
+        return value
+    if isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value)):
+        return value
+    raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+
+
+def validate_formula(value: object, *, depth: int = 0, nodes: list[int] | None = None) -> dict[str, Any]:
+    if not isinstance(value, Mapping) or depth > 8:
+        raise SpreadsheetContractError("spreadsheet_formula_invalid")
+    counter = nodes if nodes is not None else [0]
+    counter[0] += 1
+    if counter[0] > 64:
+        raise SpreadsheetContractError("spreadsheet_formula_too_complex")
+    op = str(value.get("op") or "").strip()
+    if op not in FORMULA_OPS:
+        raise SpreadsheetContractError("spreadsheet_formula_op_invalid")
+    if op == "literal":
+        _exact(value, {"op", "value"}, "formula_literal")
+        return {"op": op, "value": _json_scalar(value.get("value"), "formula_literal")}
+    if op == "cell":
+        _exact(value, {"op", "sheet_id", "cell"}, "formula_cell")
+        return {
+            "op": op,
+            "sheet_id": require_id(value.get("sheet_id"), "formula_sheet_id"),
+            "cell": require_cell(value.get("cell"), "formula_cell"),
+        }
+    if op == "sum_range":
+        _exact(value, {"op", "sheet_id", "start", "end"}, "formula_range")
+        return {
+            "op": op,
+            "sheet_id": require_id(value.get("sheet_id"), "formula_sheet_id"),
+            "start": require_cell(value.get("start"), "formula_start"),
+            "end": require_cell(value.get("end"), "formula_end"),
+        }
+    _exact(value, {"op", "left", "right"}, "formula_binary")
+    return {
+        "op": op,
+        "left": validate_formula(value.get("left"), depth=depth + 1, nodes=counter),
+        "right": validate_formula(value.get("right"), depth=depth + 1, nodes=counter),
+    }
+
+
+@dataclass(frozen=True, slots=True)
+class WorkbookSnapshotV1:
+    SCHEMA: ClassVar[str] = "ananta.spreadsheet-workbook-snapshot.v1"
+    schema: str
+    snapshot_id: str
+    document_version_id: str
+    sheets: tuple[Mapping[str, Any], ...]
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> WorkbookSnapshotV1:
+        _exact(value, {"schema", "snapshot_id", "document_version_id", "sheets"}, "snapshot")
+        raw_sheets = value.get("sheets")
+        if (
+            value.get("schema") != cls.SCHEMA
+            or not isinstance(raw_sheets, Sequence)
+            or isinstance(raw_sheets, (str, bytes))
+        ):
+            raise SpreadsheetContractError("spreadsheet_snapshot_invalid")
+        if not 1 <= len(raw_sheets) <= 64:
+            raise SpreadsheetContractError("spreadsheet_sheet_count_invalid")
+        sheets: list[dict[str, Any]] = []
+        sheet_ids: set[str] = set()
+        total_cells = 0
+        for raw in raw_sheets:
+            if not isinstance(raw, Mapping):
+                raise SpreadsheetContractError("spreadsheet_sheet_invalid")
+            _exact(raw, {"sheet_id", "name", "hidden", "cells"}, "sheet")
+            sheet_id = require_id(raw.get("sheet_id"), "sheet_id")
+            name = str(raw.get("name") or "").strip()
+            cells = raw.get("cells")
+            if sheet_id in sheet_ids or not 1 <= len(name) <= 128 or not isinstance(raw.get("hidden"), bool):
+                raise SpreadsheetContractError("spreadsheet_sheet_invalid")
+            if not isinstance(cells, Sequence) or isinstance(cells, (str, bytes)):
+                raise SpreadsheetContractError("spreadsheet_cells_invalid")
+            normalized_cells: list[dict[str, Any]] = []
+            addresses: set[str] = set()
+            for cell in cells:
+                if not isinstance(cell, Mapping):
+                    raise SpreadsheetContractError("spreadsheet_cell_invalid")
+                _exact(cell, {"address", "value", "formula", "style_ref"}, "cell")
+                address = require_cell(cell.get("address"))
+                if address in addresses:
+                    raise SpreadsheetContractError("spreadsheet_cell_duplicate")
+                formula = cell.get("formula")
+                normalized_cells.append(
+                    {
+                        "address": address,
+                        "value": _json_scalar(cell.get("value"), "cell_value"),
+                        "formula": validate_formula(formula) if formula is not None else None,
+                        "style_ref": require_id(cell.get("style_ref"), "style_ref") if cell.get("style_ref") else None,
+                    }
+                )
+                addresses.add(address)
+            total_cells += len(normalized_cells)
+            if total_cells > 100_000:
+                raise SpreadsheetContractError("spreadsheet_cell_limit_exceeded")
+            sheets.append({"sheet_id": sheet_id, "name": name, "hidden": raw["hidden"], "cells": normalized_cells})
+            sheet_ids.add(sheet_id)
+        return cls(
+            cls.SCHEMA,
+            require_id(value.get("snapshot_id"), "snapshot_id"),
+            require_id(value.get("document_version_id"), "document_version_id"),
+            tuple(sheets),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema": self.schema,
+            "snapshot_id": self.snapshot_id,
+            "document_version_id": self.document_version_id,
+            "sheets": [dict(sheet) for sheet in self.sheets],
+        }
+
+    @property
+    def digest(self) -> str:
+        return canonical_digest(self.to_dict())
+
+
+@dataclass(frozen=True, slots=True)
+class SpreadsheetProposalV1:
+    SCHEMA: ClassVar[str] = "ananta.spreadsheet-proposal.v1"
+    schema: str
+    proposal_id: str
+    document_id: str
+    expected_version: int
+    base_snapshot_digest: str
+    actions: tuple[Mapping[str, Any], ...]
+    validators: tuple[Mapping[str, Any], ...]
+    automatic_promotion: bool
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> SpreadsheetProposalV1:
+        _exact(
+            value,
+            {
+                "schema",
+                "proposal_id",
+                "document_id",
+                "expected_version",
+                "base_snapshot_digest",
+                "actions",
+                "validators",
+                "automatic_promotion",
+            },
+            "proposal",
+        )
+        if value.get("schema") != cls.SCHEMA or not isinstance(value.get("automatic_promotion"), bool):
+            raise SpreadsheetContractError("spreadsheet_proposal_invalid")
+        version = value.get("expected_version")
+        if not isinstance(version, int) or isinstance(version, bool) or version < 1:
+            raise SpreadsheetContractError("spreadsheet_expected_version_invalid")
+        raw_actions = value.get("actions")
+        raw_validators = value.get("validators")
+        if (
+            not isinstance(raw_actions, Sequence)
+            or isinstance(raw_actions, (str, bytes))
+            or not 1 <= len(raw_actions) <= 1_000
+        ):
+            raise SpreadsheetContractError("spreadsheet_actions_invalid")
+        if (
+            not isinstance(raw_validators, Sequence)
+            or isinstance(raw_validators, (str, bytes))
+            or len(raw_validators) > 100
+        ):
+            raise SpreadsheetContractError("spreadsheet_validators_invalid")
+        return cls(
+            cls.SCHEMA,
+            require_id(value.get("proposal_id"), "proposal_id"),
+            require_id(value.get("document_id"), "document_id"),
+            version,
+            require_digest(value.get("base_snapshot_digest"), "base_snapshot_digest"),
+            tuple(_action(item) for item in raw_actions),
+            tuple(_validator(item) for item in raw_validators),
+            bool(value["automatic_promotion"]),
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            **asdict(self),
+            "actions": [dict(item) for item in self.actions],
+            "validators": [dict(item) for item in self.validators],
+        }
+
+    @property
+    def digest(self) -> str:
+        return canonical_digest(self.to_dict())
+
+
+def _action(value: object) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise SpreadsheetContractError("spreadsheet_action_invalid")
+    _exact(value, {"action_id", "kind", "sheet_id", "cell", "value", "formula"}, "action")
+    kind = str(value.get("kind") or "")
+    if kind not in ACTION_KINDS:
+        raise SpreadsheetContractError("spreadsheet_action_kind_invalid")
+    raw_formula = value.get("formula")
+    if (kind == "set_formula") != (raw_formula is not None):
+        raise SpreadsheetContractError("spreadsheet_action_formula_invalid")
+    if kind != "set_value" and value.get("value") is not None:
+        raise SpreadsheetContractError("spreadsheet_action_value_invalid")
+    return {
+        "action_id": require_id(value.get("action_id"), "action_id"),
+        "kind": kind,
+        "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+        "cell": require_cell(value.get("cell")),
+        "value": _json_scalar(value.get("value"), "action_value"),
+        "formula": validate_formula(raw_formula) if raw_formula is not None else None,
+    }
+
+
+def _validator(value: object) -> dict[str, Any]:
+    if not isinstance(value, Mapping):
+        raise SpreadsheetContractError("spreadsheet_validator_invalid")
+    _exact(value, {"validator_id", "kind", "sheet_id", "cell", "expected", "minimum", "maximum"}, "validator")
+    kind = str(value.get("kind") or "")
+    if kind not in VALIDATOR_KINDS:
+        raise SpreadsheetContractError("spreadsheet_validator_kind_invalid")
+    minimum = value.get("minimum")
+    maximum = value.get("maximum")
+    if kind == "number_range" and (
+        not isinstance(minimum, (int, float))
+        or isinstance(minimum, bool)
+        or not isinstance(maximum, (int, float))
+        or isinstance(maximum, bool)
+        or not math.isfinite(float(minimum))
+        or not math.isfinite(float(maximum))
+        or float(minimum) > float(maximum)
+    ):
+        raise SpreadsheetContractError("spreadsheet_validator_range_invalid")
+    return {
+        "validator_id": require_id(value.get("validator_id"), "validator_id"),
+        "kind": kind,
+        "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+        "cell": require_cell(value.get("cell")),
+        "expected": _json_scalar(value.get("expected"), "validator_expected"),
+        "minimum": float(minimum) if kind == "number_range" else None,
+        "maximum": float(maximum) if kind == "number_range" else None,
+    }
+
+
+__all__ = [
+    "ACTION_KINDS",
+    "FORMULA_OPS",
+    "VALIDATOR_KINDS",
+    "SpreadsheetContractError",
+    "SpreadsheetProposalV1",
+    "WorkbookSnapshotV1",
+    "canonical_digest",
+    "canonical_json",
+    "require_cell",
+    "require_digest",
+    "require_id",
+    "validate_formula",
+]
