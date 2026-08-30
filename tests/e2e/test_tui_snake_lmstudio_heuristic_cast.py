@@ -84,13 +84,15 @@ def _probe_lmstudio_chat(api_base: str) -> str:
 
 # ── rendered cast test (no live LM Studio required) ───────────────────────────
 
-def test_snake_lmstudio_heuristic_cast_rendered_markers() -> None:
+def test_snake_lmstudio_heuristic_cast_rendered_markers(tmp_path: Path) -> None:
     """Rendered cast must contain heuristic, mouse-follow, and chat markers."""
     payload = record_tui_demo(
         run_id="test-snake-lmstudio-heuristic-rendered",
         flow_id="tui-snake-heuristic-cast",
         enabled=True,
         scene="snake-lmstudio-heuristic",
+        sync_targets=[tmp_path / "operator_tui_splash.cast"],
+        artifact_root=tmp_path / "artifacts",
     )
 
     assert payload["status"] == "recorded", f"record_tui_demo failed: {payload}"
@@ -139,7 +141,7 @@ def test_snake_lmstudio_heuristic_cast_rendered_markers() -> None:
 
 # ── live LM Studio E2E test ───────────────────────────────────────────────────
 
-def test_snake_lmstudio_heuristic_cast_live_connectivity() -> None:
+def test_snake_lmstudio_heuristic_cast_live_connectivity(tmp_path: Path) -> None:
     """With live LM Studio: probe chat, record cast, verify full marker set."""
     api_base = _require_live_lmstudio()
     chat_reply = _probe_lmstudio_chat(api_base)
@@ -150,6 +152,8 @@ def test_snake_lmstudio_heuristic_cast_live_connectivity() -> None:
         flow_id="tui-snake-heuristic-live",
         enabled=True,
         scene="snake-lmstudio-heuristic",
+        sync_targets=[tmp_path / "operator_tui_splash.cast"],
+        artifact_root=tmp_path / "artifacts",
     )
 
     assert payload["status"] == "recorded"

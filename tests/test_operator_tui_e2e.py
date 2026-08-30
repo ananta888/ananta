@@ -22,7 +22,6 @@ from typing import NamedTuple
 
 _ANSI_RE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]|\x1b.")
 _W, _H = 100, 30
-_CAST_FILE = Path(__file__).parent / "output" / "operator_tui_e2e.cast"
 _SPLASH_CAST_FILE = Path(__file__).parent / "output" / "operator_tui_splash.cast"
 
 _CLEAR = "\x1b[2J\x1b[H"   # clear screen + cursor home
@@ -192,13 +191,10 @@ def test_e2e_unknown_command_does_not_crash() -> None:
 
 # ── recording ────────────────────────────────────────────────────────────────
 
-def test_e2e_produces_cast_recording() -> None:
+def test_e2e_produces_cast_recording(tmp_path: Path) -> None:
     """
-    Drives the TUI through key states and writes the result to
-    tests/output/operator_tui_e2e.cast (asciinema v2, ANSI-free frames).
-
-    To replay:   asciinema play tests/output/operator_tui_e2e.cast
-    To inspect:  python -c "import json; [print(json.loads(l)) for l in open('tests/output/operator_tui_e2e.cast')]"
+    Drives the TUI through key states and writes an isolated asciinema v2
+    recording with ANSI-free frames.
     """
     rec = _Recorder()
 
@@ -213,11 +209,12 @@ def test_e2e_produces_cast_recording() -> None:
     rec.capture("09-inspect",      "--section", "tasks",     "--command", ":inspect")
     rec.capture("10-system-refresh","--section", "system",   "--command", ":refresh")
 
-    rec.save(_CAST_FILE)
+    cast_file = tmp_path / "operator_tui_e2e.cast"
+    rec.save(cast_file)
 
     # ── structural assertions ────────────────────────────────────────────────
-    assert _CAST_FILE.exists()
-    raw = _CAST_FILE.read_text(encoding="utf-8")
+    assert cast_file.exists()
+    raw = cast_file.read_text(encoding="utf-8")
     lines = raw.strip().split("\n")
 
     # header + one event per frame
@@ -239,7 +236,6 @@ def test_e2e_produces_cast_recording() -> None:
         assert "\x1b" not in content, f"ANSI escape found in cast event at t={t}"
 
     # ── content spot-checks ──────────────────────────────────────────────────
-    events = {json.loads(l)[2]: json.loads(l) for l in lines[1:]}
     frames_by_label = {f.label: f.screen for f in rec._frames}
 
     assert "DASHBOARD" in frames_by_label["01-dashboard"]
