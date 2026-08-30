@@ -50,6 +50,15 @@ class TriggerClass(StrEnum):
     TRACE_CHECKPOINT = "trace_checkpoint"
 
 
+class RuntimeEventType(StrEnum):
+    TOOL_CALL = "tool_call"
+    POLICY_DECISION = "policy_decision"
+    NETWORK = "network"
+    FILESYSTEM = "filesystem"
+    PROCESS = "process"
+    ORCHESTRATION = "orchestration"
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
 
@@ -76,11 +85,14 @@ class SafetyPolicy:
     telemetry_enabled: bool
     external_kill_switch_enabled: bool
     incident_freeze_enabled: bool
+    sentinel_enabled: bool = True
+    adversarial_evaluation_enabled: bool = False
     adversarial_scope: tuple[str, ...] = ()
     global_stop_scope: StopScope = StopScope.RUN
     max_parallel_agents: int = 1
     max_trace_events: int = 10_000
     freeze_ttl_seconds: int = 900
+    max_snapshot_bytes: int = 262_144
 
     def __post_init__(self) -> None:
         require_token(self.policy_id, "policy_id")
@@ -91,12 +103,16 @@ class SafetyPolicy:
         if self.mode == SafetyMode.ADVERSARIAL_EVAL:
             if not self.adversarial_scope or any(not item.startswith("local:") for item in self.adversarial_scope):
                 raise ValueError("agent_safety_adversarial_scope_not_local")
+            if not self.adversarial_evaluation_enabled:
+                raise ValueError("agent_safety_adversarial_evaluation_not_enabled")
         if not 1 <= self.max_parallel_agents <= 100:
             raise ValueError("agent_safety_parallelism_out_of_bounds")
         if not 100 <= self.max_trace_events <= 100_000:
             raise ValueError("agent_safety_trace_budget_out_of_bounds")
         if not 30 <= self.freeze_ttl_seconds <= 86_400:
             raise ValueError("agent_safety_freeze_ttl_out_of_bounds")
+        if not 1_024 <= self.max_snapshot_bytes <= 1_048_576:
+            raise ValueError("agent_safety_snapshot_budget_out_of_bounds")
 
     def as_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -238,6 +254,7 @@ __all__ = [
     "SentinelManifest",
     "StopScope",
     "TriggerClass",
+    "RuntimeEventType",
     "canonical_digest",
     "require_token",
     "utc_now",

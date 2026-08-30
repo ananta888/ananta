@@ -30,6 +30,37 @@ def test_automatic_boundary_stop_incident_patch_and_mutated_replay(tmp_path) -> 
         global_stop_scope="group",
         max_parallel_agents=100,
     )
+    controls.configure_policy(
+        policy_id="sentinel-policy",
+        revision=1,
+        mode="adversarial_eval",
+        preventive_policy_enabled=False,
+        preventive_training_enabled=False,
+        telemetry_enabled=True,
+        external_kill_switch_enabled=True,
+        incident_freeze_enabled=True,
+        adversarial_scope=["local:escape-fixture"],
+        global_stop_scope="run",
+        max_parallel_agents=1,
+    )
+    controls.register_run(
+        tenant_id="tenant-1",
+        project_id="project-1",
+        run_id="sentinel-run",
+        group_id="sentinel-group",
+        policy_id="sentinel-policy",
+        target_ref="local:escape-fixture",
+        agents=[{"agent_id": "sentinel-agent", "sandbox_id": "sentinel-sandbox"}],
+    )
+    manifest = controls.issue_sentinel(
+        run_id="sentinel-run",
+        sandbox_id="sentinel-sandbox",
+        trigger_class="opaque_priority",
+        effect="freeze",
+    )
+    triggered = controls.consume_sentinel(manifest=manifest, agent_id="sentinel-agent")
+    assert triggered["event"]["event_type"] == "sentinel_triggered"
+    assert triggered["containment"]["scope"] == "run"
     for index in range(3):
         controls.register_run(
             tenant_id="tenant-1",
@@ -52,6 +83,7 @@ def test_automatic_boundary_stop_incident_patch_and_mutated_replay(tmp_path) -> 
     )
     containment = event["containment"]
     assert containment["state"] == "enforced"
+    assert containment["scope"] == "group"
     assert len(containment["receipts"]) == 9
     assert all(not store.get("run", f"run-{index}")["execution_allowed"] for index in range(3))
 

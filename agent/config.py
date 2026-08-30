@@ -655,6 +655,18 @@ class Settings(BaseSettings):
         default="data/agent-safety.sqlite3",
         validation_alias="ANANTA_AGENT_SAFETY_STATE",
     )
+    agent_safety_runtime_adapter: str = Field(
+        default="unavailable",
+        validation_alias="ANANTA_AGENT_SAFETY_RUNTIME_ADAPTER",
+    )
+    agent_safety_managed_sandboxes: str = Field(
+        default="",
+        validation_alias="ANANTA_AGENT_SAFETY_MANAGED_SANDBOXES",
+    )
+    agent_safety_snapshot_root: str = Field(
+        default="data/agent-safety-snapshots",
+        validation_alias="ANANTA_AGENT_SAFETY_SNAPSHOT_ROOT",
+    )
     peer_overlay_state: str = Field(
         default="data/peer-overlay.sqlite3",
         validation_alias="ANANTA_PEER_OVERLAY_STATE",

@@ -15,6 +15,19 @@ The implementation deliberately separates these interfaces:
 - `AgentSafetyStateStorePort`: persist immutable revisions and events;
 - `AgentSafetyControlService`: coordinate decisions under Hub authority.
 
+The opt-in Docker runtime gateway is exposed through separate sandbox-control,
+egress, snapshot and cleanup adapters. They use exact, server-configured
+sandbox identifiers; wildcards and Docker's fuzzy target resolution are
+rejected. Freeze uses `docker pause`, termination uses `docker kill`, and
+egress fencing disconnects every inspected network. Bounded forensic snapshots
+contain only reduced container state and network names; environment variables,
+commands and mount sources are excluded.
+
+`HubCredentialLeaseAuthority` issues one short-lived opaque capability per
+run/Agent, persists only its digest and revokes the whole run atomically. The
+token is returned once to the Hub caller and is never written into the run or
+incident record.
+
 This protects SRP and ISP. Runtime adapters can be replaced without changing
 policy semantics (OCP/LSP), and the Hub depends on ports rather than container
 technology (DIP).
@@ -44,6 +57,10 @@ No layer is described as a complete alignment or containment guarantee.
 Admission and rejection are fully automatic. No test or production path waits
 for a person. Organizational deployment policy may withhold configuration, but
 the runtime outcome is a deterministic denial rather than a pending HITL gate.
+Every policy revision is checked by `AgentSafetyAdmissionPolicy` and records an
+immutable allow/deny decision bound to the request digest. This explicit
+Hub-owned preauthorization path cannot disable telemetry or the external kill
+switch.
 
 ## Sentinel contract
 
@@ -88,6 +105,14 @@ an explicitly isolated red-team retry. Patched dispositions require a patch
 digest. Both the exact replay and mutated variants retain the source bundle
 digest; deleting or broadly mocking a regression is not a valid fix.
 
+A patched incident automatically creates a durable executable regression case.
+Fix verification requires the exact replay and at least one mutated replay to
+restore the security invariant while remaining contained. Distribution-shift
+matrices span toolsets, sandboxes, trigger symbols and goals. Separate
+evaluation-awareness grids compare training, evaluation, production and
+unspecified hints. Trigger-cascade reports preserve individual rates, cascade
+gain and correlated failure pairs.
+
 ## Metrics and rollout
 
 Dashboards report boundary outcomes by class, self-report/external-observation
@@ -99,3 +124,6 @@ Rollout proceeds through `observe_only`, isolated canary and enforced profiles.
 Exit criteria are source-bound passing contract/security tests plus real
 deployment `RUN_*` receipts for the concrete adapters. Rollback changes the
 active policy revision; immutable events and incidents remain available.
+Release gates validate exact assignment allowlists in addition to identifier
+syntax. A syntactically plausible but unknown `SRC_*` or `RUN_*` remains
+unverified and cannot release the feature.

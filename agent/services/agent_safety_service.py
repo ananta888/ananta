@@ -4,18 +4,23 @@ from __future__ import annotations
 
 import secrets
 import uuid
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from typing import Any, Mapping
 
+from agent.services.agent_safety_admission_policy import AgentSafetyAdmissionPolicy
 from agent.services.agent_safety_errors import AgentSafetyDenied
 from agent.services.agent_safety_ports import (
+    CredentialLeaseAuthorityPort,
     CredentialLeaseRevocationPort,
     EgressFencePort,
+    ForensicSnapshotPort,
     SandboxSafetyControlPort,
 )
 from agent.services.agent_safety_state_store import AgentSafetyStateStorePort
 from ananta_contracts.agent_safety import (
     BoundaryClass,
+    RuntimeEventType,
     SafetyAction,
     SafetyEvent,
     SafetyMode,
@@ -43,6 +48,9 @@ class AgentSafetyControlService:
         sandbox_control: SandboxSafetyControlPort,
         egress_fence: EgressFencePort,
         credential_revocation: CredentialLeaseRevocationPort,
+        admission_policy: AgentSafetyAdmissionPolicy | None = None,
+        credential_lease_authority: CredentialLeaseAuthorityPort | None = None,
+        forensic_snapshot: ForensicSnapshotPort | None = None,
     ) -> None:
         if len(manifest_signing_key) < 32:
             raise ValueError("agent_safety_manifest_signing_key_too_short")
@@ -51,31 +59,48 @@ class AgentSafetyControlService:
         self._sandbox_control = sandbox_control
         self._egress_fence = egress_fence
         self._credential_revocation = credential_revocation
+        self._admission_policy = admission_policy
+        self._credential_lease_authority = credential_lease_authority
+        self._forensic_snapshot = forensic_snapshot
 
     def configure_policy(self, **payload: Any) -> dict[str, Any]:
+        mode = SafetyMode(str(payload.get("mode") or SafetyMode.ENFORCE))
         policy = SafetyPolicy(
             policy_id=require_token(payload.get("policy_id"), "policy_id"),
             revision=int(payload.get("revision") or 1),
-            mode=SafetyMode(str(payload.get("mode") or SafetyMode.ENFORCE)),
+            mode=mode,
             preventive_policy_enabled=bool(payload.get("preventive_policy_enabled", True)),
             preventive_training_enabled=bool(payload.get("preventive_training_enabled", False)),
             telemetry_enabled=bool(payload.get("telemetry_enabled", True)),
             external_kill_switch_enabled=bool(payload.get("external_kill_switch_enabled", True)),
             incident_freeze_enabled=bool(payload.get("incident_freeze_enabled", True)),
+            sentinel_enabled=bool(payload.get("sentinel_enabled", True)),
+            adversarial_evaluation_enabled=bool(
+                payload.get("adversarial_evaluation_enabled", mode == SafetyMode.ADVERSARIAL_EVAL)
+            ),
             adversarial_scope=tuple(str(item) for item in payload.get("adversarial_scope") or ()),
             global_stop_scope=StopScope(str(payload.get("global_stop_scope") or StopScope.RUN)),
             max_parallel_agents=int(payload.get("max_parallel_agents") or 1),
             max_trace_events=int(payload.get("max_trace_events") or 10_000),
             freeze_ttl_seconds=int(payload.get("freeze_ttl_seconds") or 900),
+            max_snapshot_bytes=int(payload.get("max_snapshot_bytes") or 262_144),
         )
         current = self._store.get("policy", policy.policy_id)
         expected = int(current.get("revision") or 0) if current else 0
         if current and policy.revision <= int(current.get("policy_revision") or 0):
             raise AgentSafetyDenied("agent_safety_policy_revision_not_monotonic")
+        authorization = (
+            self._admission_policy.authorize_configuration(payload) if self._admission_policy is not None else None
+        )
         return self._store.append(
             "policy",
             policy.policy_id,
-            {**policy.as_dict(), "policy_revision": policy.revision, "configured_at": utc_now()},
+            {
+                **policy.as_dict(),
+                "policy_revision": policy.revision,
+                "configured_at": utc_now(),
+                "authorization": authorization,
+            },
             expected_revision=expected,
         )
 
@@ -121,7 +146,73 @@ class AgentSafetyControlService:
             "provenance": _normalized_provenance(provenance),
             "registered_at": utc_now(),
         }
-        return self._store.append("run", run_id, run, expected_revision=0)
+        stored = self._store.append("run", run_id, run, expected_revision=0)
+        if self._credential_lease_authority is None:
+            return stored
+        grants = [
+            self._credential_lease_authority.issue(
+                run_id=run_id,
+                agent_id=str(agent["agent_id"]),
+                ttl_seconds=min(int(policy["freeze_ttl_seconds"]), 3_600),
+            )
+            for agent in normalized_agents
+        ]
+        stored = self._store.append(
+            "run",
+            run_id,
+            {**stored, "credential_lease_refs": [grant.lease_id for grant in grants]},
+            expected_revision=int(stored["revision"]),
+        )
+        return {**stored, "credential_lease_grants": [asdict(grant) for grant in grants]}
+
+    def register_run_group(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        group_id: str,
+        run_prefix: str,
+        policy_id: str,
+        target_ref: str,
+        agents: list[Mapping[str, Any]],
+        provenance: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        policy = self._require_policy(policy_id)
+        if not 1 <= len(agents) <= int(policy["max_parallel_agents"]):
+            raise AgentSafetyDenied("agent_safety_run_parallelism_denied")
+        normalized_prefix = require_token(run_prefix, "run_prefix")
+        identities = [
+            (
+                require_token(value.get("agent_id"), "agent_id"),
+                require_token(value.get("sandbox_id"), "sandbox_id"),
+            )
+            for value in agents
+        ]
+        if len(set(identities)) != len(identities):
+            raise ValueError("agent_safety_duplicate_agent_binding")
+        run_ids = [f"{normalized_prefix}-{index + 1}" for index in range(len(identities))]
+        if any(self._store.get("run", run_id) for run_id in run_ids):
+            raise AgentSafetyDenied("agent_safety_run_group_id_conflict")
+        runs = [
+            self.register_run(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                run_id=run_id,
+                group_id=group_id,
+                policy_id=policy_id,
+                target_ref=target_ref,
+                agents=[{"agent_id": agent_id, "sandbox_id": sandbox_id}],
+                provenance=provenance,
+            )
+            for run_id, (agent_id, sandbox_id) in zip(run_ids, identities, strict=True)
+        ]
+        return {
+            "group_id": require_token(group_id, "group_id"),
+            "run_ids": run_ids,
+            "runs": runs,
+            "parallel_agent_count": len(runs),
+            "human_intervention_required": False,
+        }
 
     def issue_sentinel(
         self,
@@ -133,6 +224,9 @@ class AgentSafetyControlService:
         ttl_seconds: int = 300,
     ) -> dict[str, Any]:
         run = self._require_active_run(run_id)
+        policy = self._require_policy(str(run["policy_id"]))
+        if policy.get("sentinel_enabled", True) is False:
+            raise AgentSafetyDenied("agent_safety_sentinel_disabled")
         if sandbox_id not in {item["sandbox_id"] for item in run["agents"]}:
             raise AgentSafetyDenied("agent_safety_sandbox_not_bound")
         trigger = TriggerClass(trigger_class)
@@ -252,12 +346,39 @@ class AgentSafetyControlService:
             )
         return event
 
+    def record_runtime_event(
+        self,
+        *,
+        run_id: str,
+        sandbox_id: str,
+        agent_id: str,
+        event_type: str,
+        detector_id: str,
+        metadata: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        runtime_type = RuntimeEventType(event_type)
+        self._require_agent_binding(run_id, sandbox_id, agent_id)
+        run = self._require_active_run(run_id)
+        details = _telemetry_details(
+            metadata or {}, high_fidelity=SafetyMode(str(run["mode"])) == SafetyMode.ADVERSARIAL_EVAL
+        )
+        return self._record_event(
+            run_id=run_id,
+            sandbox_id=sandbox_id,
+            agent_id=agent_id,
+            event_type=runtime_type.value,
+            severity="info",
+            source=require_token(detector_id, "detector_id"),
+            details=details,
+        )
+
     def emergency_stop(self, *, run_id: str, action: str, reason: str) -> dict[str, Any]:
         source_run = self._require_run(run_id)
         policy = self._require_policy(source_run["policy_id"])
         selected = self._runs_for_scope(source_run, StopScope(policy["global_stop_scope"]))
         operation_id = f"aso_{uuid.uuid4().hex}"
         receipts: list[dict[str, Any]] = []
+        snapshots: list[dict[str, Any]] = []
         all_enforced = True
         for run in selected:
             for agent in run["agents"]:
@@ -275,15 +396,40 @@ class AgentSafetyControlService:
                 )
                 receipts.extend([control.as_dict(), fence.as_dict()])
                 all_enforced = all_enforced and control.enforced and fence.enforced
+                if (
+                    SafetyAction(action) == SafetyAction.FREEZE
+                    and bool(policy.get("incident_freeze_enabled"))
+                    and self._forensic_snapshot is not None
+                ):
+                    snapshots.append(
+                        self._forensic_snapshot.capture(
+                            operation_id=operation_id,
+                            run_id=str(run["run_id"]),
+                            sandbox_id=str(agent["sandbox_id"]),
+                            max_bytes=int(policy.get("max_snapshot_bytes") or 262_144),
+                        )
+                    )
             revoked = self._credential_revocation.revoke(operation_id=operation_id, run_id=run["run_id"])
             receipts.append(revoked.as_dict())
             all_enforced = all_enforced and revoked.enforced
             current = self._require_run(run["run_id"])
             state = SafetyAction(action).value if all_enforced else "containment_failed_closed"
+            freeze_expires_at = (
+                _iso(datetime.now(timezone.utc) + timedelta(seconds=int(policy["freeze_ttl_seconds"])))
+                if SafetyAction(action) == SafetyAction.FREEZE
+                else None
+            )
             self._store.append(
                 "run",
                 run["run_id"],
-                {**current, "state": state, "execution_allowed": False, "stop_reason": reason, "stopped_at": utc_now()},
+                {
+                    **current,
+                    "state": state,
+                    "execution_allowed": False,
+                    "stop_reason": reason,
+                    "stopped_at": utc_now(),
+                    "freeze_expires_at": freeze_expires_at,
+                },
                 expected_revision=int(current["revision"]),
             )
         result = {
@@ -293,6 +439,9 @@ class AgentSafetyControlService:
             "action": SafetyAction(action).value,
             "state": "enforced" if all_enforced else "failed_closed",
             "receipts": receipts,
+            "snapshot_receipts": snapshots,
+            "runtime_evidence_verified": bool(receipts)
+            and all(bool(receipt.get("runtime_verified")) for receipt in receipts),
             "completed_at": utc_now(),
         }
         stored = self._store.append("control_operation", operation_id, result, expected_revision=0)
@@ -320,6 +469,7 @@ class AgentSafetyControlService:
             ],
             "control_operation_digest": canonical_digest(operation or {}),
             "event_count": len(events),
+            "telemetry_schema_version": 1,
             "redaction_applied": True,
             "created_at": utc_now(),
         }
@@ -343,6 +493,7 @@ class AgentSafetyControlService:
             for event in self._store.list_events(run_id=selected_run_id, limit=1000)
         ]
         return {
+            "policies": self._store.list("policy"),
             "runs": runs,
             "incidents": incidents,
             "controls": controls,
@@ -445,6 +596,28 @@ def _normalized_provenance(value: Mapping[str, Any] | None) -> dict[str, str]:
     if set(source).difference(allowed):
         raise ValueError("agent_safety_provenance_field_invalid")
     return {key: str(source[key]).strip() for key in sorted(source) if str(source[key]).strip()}
+
+
+def _telemetry_details(value: Mapping[str, Any], *, high_fidelity: bool) -> dict[str, Any]:
+    normalized = dict(value)
+    if high_fidelity:
+        return {"detail_level": "high_fidelity", **normalized}
+    safe_keys = {
+        "action",
+        "boundary_class",
+        "decision",
+        "duration_ms",
+        "exit_code",
+        "outcome",
+        "policy_id",
+        "resource_class",
+        "tool_name",
+    }
+    return {
+        "detail_level": "production_minimized",
+        "detail_digest": canonical_digest(normalized),
+        **{key: normalized[key] for key in sorted(normalized) if key in safe_keys},
+    }
 
 
 def _safety_metrics(

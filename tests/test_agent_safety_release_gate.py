@@ -33,3 +33,26 @@ def test_release_gate_reports_missing_automatic_containment_and_local_gates() ->
     assert "agent_safety_containment_adapter_unavailable" in result["reason_codes"]
     assert result["source_refs"] == []
     assert result["run_refs"] == []
+
+
+def test_release_gate_accepts_only_exact_assignment_allowlists_without_human_review() -> None:
+    local_gates = {gate: True for gate in AgentSafetyReleaseGate.REQUIRED_LOCAL_GATES}
+    unprovided = AgentSafetyReleaseGate().evaluate(
+        local_gates=local_gates,
+        containment_available=True,
+        source_refs=["SRC_fixture_source"],
+        run_refs=["RUN_fixture_runtime"],
+    )
+    assert unprovided["release_allowed"] is False
+
+    result = AgentSafetyReleaseGate(
+        allowed_source_refs={"SRC_fixture_source"},
+        allowed_run_refs={"RUN_fixture_runtime"},
+    ).evaluate(
+        local_gates=local_gates,
+        containment_available=True,
+        source_refs=["SRC_fixture_source"],
+        run_refs=["RUN_fixture_runtime"],
+    )
+    assert result["release_allowed"] is True
+    assert result["human_intervention_required"] is False

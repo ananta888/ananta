@@ -15,6 +15,7 @@ BACKGROUND_SERVICE_NAMES = (
     "ml_intern_training_reconciler",
     "speech_adaptation_dispatcher",
     "speech_evidence_retention_reconciler",
+    "agent_safety_retention_reconciler",
     "semantic_media_audit_reconciler",
     "mail_polling_scheduler",
     "sfu_broadcast_reconciler_scheduler",
@@ -69,6 +70,10 @@ class BackgroundServiceManager:
         self._start_service(
             "speech_evidence_retention_reconciler",
             self._start_speech_evidence_retention_reconciler,
+        )
+        self._start_service(
+            "agent_safety_retention_reconciler",
+            self._start_agent_safety_retention_reconciler,
         )
         self._start_service(
             "semantic_media_audit_reconciler",
@@ -129,6 +134,7 @@ class BackgroundServiceManager:
             ("mail_polling_scheduler", self._stop_mail_polling_scheduler),
             ("sfu_broadcast_reconciler_scheduler", self._stop_sfu_broadcast_reconciler_scheduler),
             ("speech_evidence_retention_reconciler", self._stop_speech_evidence_retention_reconciler),
+            ("agent_safety_retention_reconciler", self._stop_agent_safety_retention_reconciler),
         ):
             try:
                 stopper()
@@ -253,6 +259,13 @@ class BackgroundServiceManager:
 
         start_speech_evidence_retention_reconciler_thread(self.app)
 
+    def _start_agent_safety_retention_reconciler(self):
+        from agent.services.background.agent_safety_retention_reconciler import (
+            start_agent_safety_retention_reconciler,
+        )
+
+        start_agent_safety_retention_reconciler(self.app)
+
     def _start_semantic_media_audit_reconciler(self):
         from agent.services.background.semantic_media_audit_reconciler import (
             start_semantic_media_audit_reconciler_thread,
@@ -301,6 +314,13 @@ class BackgroundServiceManager:
         )
 
         stop_speech_evidence_retention_reconciler(self.app)
+
+    def _stop_agent_safety_retention_reconciler(self):
+        from agent.services.background.agent_safety_retention_reconciler import (
+            stop_agent_safety_retention_reconciler,
+        )
+
+        stop_agent_safety_retention_reconciler(self.app)
 
     def _stop_semantic_media_audit_reconciler(self):
         from agent.services.background.semantic_media_audit_reconciler import (

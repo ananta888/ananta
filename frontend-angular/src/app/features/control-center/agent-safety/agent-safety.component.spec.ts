@@ -12,7 +12,9 @@ describe('AgentSafetyComponent', () => {
     hubBaseUrl: vi.fn(() => 'http://hub.test'),
   };
   const api = {
+    configurePolicy: vi.fn(() => of({})),
     overview: vi.fn(() => of({
+      policies: [],
       runs: [{
         run_id: 'run-1', project_id: 'project-1', mode: 'adversarial_eval', state: 'freeze',
         execution_allowed: false, policy_id: 'policy-1', policy_revision: 2,
@@ -57,6 +59,7 @@ describe('AgentSafetyComponent', () => {
     expect(text).toContain('bundle-1');
     expect(text).toContain('boundary_crossing');
     expect(text).toContain('Offene Findings 1');
+    expect(text).toContain('Policy automatisch prüfen und speichern');
     expect(api.overview).toHaveBeenCalledWith('http://hub.test', 'project-1', undefined);
   });
 });

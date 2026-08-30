@@ -38,7 +38,7 @@ class AgentSafetyRecoveryService:
         bundle = self._store.get("incident_bundle", bundle_id)
         if not bundle:
             raise KeyError("agent_safety_incident_not_found")
-        return self._store.append(
+        stored = self._store.append(
             "incident_disposition",
             bundle_id,
             {
@@ -51,6 +51,29 @@ class AgentSafetyRecoveryService:
             },
             expected_revision=0,
         )
+        if disposition == "patched":
+            self.create_regression_case(bundle_id=bundle_id)
+        return stored
+
+    def create_regression_case(self, *, bundle_id: str) -> dict[str, Any]:
+        bundle = self._store.get("incident_bundle", require_token(bundle_id, "bundle_id"))
+        disposition = self._store.get("incident_disposition", bundle_id)
+        if not bundle or not disposition or disposition.get("disposition") != "patched":
+            raise AgentSafetyDenied("agent_safety_patched_disposition_required")
+        payload = {
+            "regression_id": f"asreg_{bundle_id}",
+            "bundle_id": bundle_id,
+            "run_id": bundle["run_id"],
+            "source_bundle_digest": bundle["bundle_digest"],
+            "patch_digest": disposition["patch_digest"],
+            "required_variants": ["exact", "mutated"],
+            "replay_ids": [],
+            "state": "pending",
+            "created_at": utc_now(),
+            "human_intervention_required": False,
+        }
+        existing = self._store.get("regression_case", payload["regression_id"])
+        return existing or self._store.append("regression_case", payload["regression_id"], payload, expected_revision=0)
 
     def create_replay(
         self,
@@ -82,7 +105,60 @@ class AgentSafetyRecoveryService:
             "created_at": utc_now(),
         }
         payload["replay_digest"] = canonical_digest(payload)
-        return self._store.append("replay", replay_id, payload, expected_revision=0)
+        stored = self._store.append("replay", replay_id, payload, expected_revision=0)
+        regression = self._store.get("regression_case", f"asreg_{bundle_id}")
+        if regression:
+            replay_ids = sorted({*list(regression.get("replay_ids") or []), replay_id})
+            self._store.append(
+                "regression_case",
+                str(regression["regression_id"]),
+                {**regression, "replay_ids": replay_ids},
+                expected_revision=int(regression["revision"]),
+            )
+        return stored
+
+    def verify_fix(
+        self,
+        *,
+        bundle_id: str,
+        verification_id: str,
+        results: list[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        regression = self._store.get("regression_case", f"asreg_{require_token(bundle_id, 'bundle_id')}")
+        if not regression:
+            raise AgentSafetyDenied("agent_safety_regression_case_required")
+        variants = {str(result.get("variant") or "") for result in results}
+        if not {"exact", "mutated"}.issubset(variants):
+            raise AgentSafetyDenied("agent_safety_fix_verification_variants_required")
+        replay_ids = set(regression.get("replay_ids") or [])
+        passed = bool(results) and all(
+            str(result.get("replay_id") or "") in replay_ids
+            and bool(result.get("contained"))
+            and bool(result.get("security_invariant_restored"))
+            for result in results
+        )
+        payload = {
+            "verification_id": require_token(verification_id, "verification_id"),
+            "regression_id": regression["regression_id"],
+            "bundle_id": bundle_id,
+            "patch_digest": regression["patch_digest"],
+            "result_digest": canonical_digest({"results": [dict(item) for item in results]}),
+            "variants": sorted(variants),
+            "state": "passed" if passed else "failed",
+            "verified_at": utc_now(),
+            "human_intervention_required": False,
+        }
+        stored = self._store.append("fix_verification", verification_id, payload, expected_revision=0)
+        current = self._store.get("regression_case", str(regression["regression_id"])) or regression
+        self._store.append(
+            "regression_case",
+            str(current["regression_id"]),
+            {**current, "state": stored["state"], "last_verification_id": verification_id},
+            expected_revision=int(current["revision"]),
+        )
+        if not passed:
+            raise AgentSafetyDenied("agent_safety_fix_verification_failed")
+        return stored
 
 
 __all__ = ["AgentSafetyRecoveryService"]

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import { ApiBaseService } from '../../../services/api-base.service';
-import { AgentSafetyOverview } from './agent-safety.models';
+import { AgentSafetyOverview, AgentSafetyPolicyCommand, AgentSafetyPolicyView } from './agent-safety.models';
 
 @Injectable({ providedIn: 'root' })
 export class AgentSafetyApiService extends ApiBaseService {
@@ -14,6 +14,12 @@ export class AgentSafetyApiService extends ApiBaseService {
       hubUrl,
       undefined,
       false,
+    );
+  }
+
+  configurePolicy(hubUrl: string, command: AgentSafetyPolicyCommand): Observable<AgentSafetyPolicyView> {
+    return this.core.post<AgentSafetyPolicyView>(
+      `${hubUrl}/api/agent-safety/policies`, command, hubUrl, undefined, false,
     );
   }
 }

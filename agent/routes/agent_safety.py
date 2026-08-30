@@ -71,6 +71,12 @@ def register_run():
     return _invoke(_service().register_run)
 
 
+@agent_safety_bp.post("/run-groups")
+@admin_required
+def register_run_group():
+    return _invoke(_service().register_run_group)
+
+
 @agent_safety_bp.post("/sentinels")
 @admin_required
 def issue_sentinel():
@@ -87,6 +93,12 @@ def consume_sentinel():
 @check_auth
 def record_boundary_event():
     return _invoke(_service().record_boundary_event)
+
+
+@agent_safety_bp.post("/runtime-events")
+@check_auth
+def record_runtime_event():
+    return _invoke(_service().record_runtime_event)
 
 
 @agent_safety_bp.post("/runs/<run_id>/stop")
@@ -108,6 +120,18 @@ def classify_incident(bundle_id: str):
 @admin_required
 def create_replay():
     return _invoke(_service("recovery").create_replay)
+
+
+@agent_safety_bp.post("/incidents/<bundle_id>/verify-fix")
+@admin_required
+def verify_fix(bundle_id: str):
+    return _invoke(_service("recovery").verify_fix, {**_payload(), "bundle_id": bundle_id})
+
+
+@agent_safety_bp.post("/retention/sweep")
+@admin_required
+def sweep_retention():
+    return _invoke(_service("retention").sweep_expired)
 
 
 @agent_safety_bp.post("/training/records")
@@ -132,6 +156,24 @@ def submit_training():
 @admin_required
 def evaluate_trials():
     return _invoke(_service("evaluation").evaluate_trials)
+
+
+@agent_safety_bp.post("/evaluations/distribution-shifts")
+@admin_required
+def build_distribution_shift_matrix():
+    return _invoke(_service("evaluation").build_distribution_shift_matrix)
+
+
+@agent_safety_bp.post("/evaluations/awareness")
+@admin_required
+def evaluate_awareness_variants():
+    return _invoke(_service("evaluation").evaluate_awareness_variants)
+
+
+@agent_safety_bp.post("/evaluations/trigger-cascades")
+@admin_required
+def evaluate_trigger_cascade():
+    return _invoke(_service("evaluation").evaluate_trigger_cascade)
 
 
 __all__ = ["agent_safety_bp"]

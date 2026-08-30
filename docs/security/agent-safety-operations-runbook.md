@@ -6,6 +6,9 @@
 2. Confirm `ANANTA_AGENT_SAFETY_STATE` points to durable storage.
 3. Check `/api/agent-safety/overview`; `containment_available` must be true for
    a release profile.
+   For Docker containment, set `ANANTA_AGENT_SAFETY_RUNTIME_ADAPTER=docker`
+   and an exact comma-separated `ANANTA_AGENT_SAFETY_MANAGED_SANDBOXES`
+   allowlist. `*` is invalid.
 4. Create a revisioned policy. Adversarial targets must use exact `local:*`
    identifiers and bounded parallelism.
 5. Register every Agent with a unique run, sandbox and group binding before it
@@ -32,12 +35,22 @@ remains non-executable.
 No step waits for a human. Missing evidence, adapters or dispositions return a
 stable denial immediately.
 
+The Control Center can submit a new policy revision through the same admin API.
+The Hub's automatic preauthorization policy records its digest-bound decision;
+unsafe combinations are denied immediately and never become pending approval.
+
 ## Freeze and cleanup
 
 Freeze preserves state and blocks execution. It is not cleanup. Retention must
 respect the policy TTL and storage limits. Cleanup is allowed only after the
 incident bundle exists or the bounded retention expires. Termination also does
 not delete the immutable ledger.
+
+With the Docker adapter enabled, the Hub captures a content-reduced snapshot
+before it stores the incident. The lifecycle-owned retention reconciler sweeps
+expired freezes at a bounded interval and removes only exact allowlisted
+sandboxes that already have an incident bundle. `/retention/sweep` exposes the
+same bounded operation for deterministic automation and diagnostics.
 
 ## Trigger rotation and training
 

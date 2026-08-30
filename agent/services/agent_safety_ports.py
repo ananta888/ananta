@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from typing import Protocol
+from typing import Any, Protocol
 
 from ananta_contracts.agent_safety import SafetyAction, utc_now
 
@@ -17,6 +17,8 @@ class SafetyControlReceipt:
     enforced: bool
     reason_code: str
     observed_at: str
+    adapter_id: str = "unavailable"
+    runtime_verified: bool = False
 
     def as_dict(self) -> dict[str, object]:
         value = asdict(self)
@@ -36,6 +38,29 @@ class EgressFencePort(Protocol):
 
 class CredentialLeaseRevocationPort(Protocol):
     def revoke(self, *, operation_id: str, run_id: str) -> SafetyControlReceipt: ...
+
+
+@dataclass(frozen=True, slots=True)
+class CredentialLeaseGrant:
+    lease_id: str
+    run_id: str
+    agent_id: str
+    token: str
+    expires_at: str
+
+
+class CredentialLeaseAuthorityPort(CredentialLeaseRevocationPort, Protocol):
+    def issue(self, *, run_id: str, agent_id: str, ttl_seconds: int) -> CredentialLeaseGrant: ...
+
+    def verify(self, *, run_id: str, lease_id: str, token: str) -> bool: ...
+
+
+class ForensicSnapshotPort(Protocol):
+    def capture(self, *, operation_id: str, run_id: str, sandbox_id: str, max_bytes: int) -> dict[str, Any]: ...
+
+
+class SandboxCleanupPort(Protocol):
+    def cleanup(self, *, operation_id: str, run_id: str, sandbox_id: str) -> SafetyControlReceipt: ...
 
 
 class UnavailableSafetyControl:
@@ -81,21 +106,45 @@ class RecordingSafetyAdapter(UnavailableSafetyControl, UnavailableEgressFence, U
     ) -> SafetyControlReceipt:
         del reason
         receipt = SafetyControlReceipt(
-            operation_id, run_id, sandbox_id, action, True, "sandbox_control_enforced", utc_now()
+            operation_id,
+            run_id,
+            sandbox_id,
+            action,
+            True,
+            "sandbox_control_enforced",
+            utc_now(),
+            "recording_test_adapter",
+            False,
         )
         self.receipts.append(receipt)
         return receipt
 
     def deny(self, *, operation_id: str, run_id: str, sandbox_id: str) -> SafetyControlReceipt:
         receipt = SafetyControlReceipt(
-            operation_id, run_id, sandbox_id, SafetyAction.ISOLATE, True, "egress_fence_enforced", utc_now()
+            operation_id,
+            run_id,
+            sandbox_id,
+            SafetyAction.ISOLATE,
+            True,
+            "egress_fence_enforced",
+            utc_now(),
+            "recording_test_adapter",
+            False,
         )
         self.receipts.append(receipt)
         return receipt
 
     def revoke(self, *, operation_id: str, run_id: str) -> SafetyControlReceipt:
         receipt = SafetyControlReceipt(
-            operation_id, run_id, "run-credentials", SafetyAction.ISOLATE, True, "credential_leases_revoked", utc_now()
+            operation_id,
+            run_id,
+            "run-credentials",
+            SafetyAction.ISOLATE,
+            True,
+            "credential_leases_revoked",
+            utc_now(),
+            "recording_test_adapter",
+            False,
         )
         self.receipts.append(receipt)
         return receipt
@@ -103,10 +152,14 @@ class RecordingSafetyAdapter(UnavailableSafetyControl, UnavailableEgressFence, U
 
 __all__ = [
     "CredentialLeaseRevocationPort",
+    "CredentialLeaseAuthorityPort",
+    "CredentialLeaseGrant",
     "EgressFencePort",
+    "ForensicSnapshotPort",
     "RecordingSafetyAdapter",
     "SafetyControlReceipt",
     "SandboxSafetyControlPort",
+    "SandboxCleanupPort",
     "UnavailableCredentialRevocation",
     "UnavailableEgressFence",
     "UnavailableSafetyControl",

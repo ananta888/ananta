@@ -12,6 +12,15 @@ _RUN_REF = re.compile(r"^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{2,255}$")
 class AgentSafetyReleaseGate:
     REQUIRED_LOCAL_GATES = frozenset({"contracts", "security", "chaos", "api", "frontend"})
 
+    def __init__(
+        self,
+        *,
+        allowed_source_refs: set[str] | frozenset[str] | None = None,
+        allowed_run_refs: set[str] | frozenset[str] | None = None,
+    ) -> None:
+        self._allowed_source_refs = frozenset(allowed_source_refs or ())
+        self._allowed_run_refs = frozenset(allowed_run_refs or ())
+
     def evaluate(
         self,
         *,
@@ -26,9 +35,17 @@ class AgentSafetyReleaseGate:
             reasons.append("agent_safety_local_gates_incomplete")
         if not containment_available:
             reasons.append("agent_safety_containment_adapter_unavailable")
-        if not source_refs or any(not _SOURCE_REF.fullmatch(value) for value in source_refs):
+        if (
+            not source_refs
+            or any(not _SOURCE_REF.fullmatch(value) for value in source_refs)
+            or not set(source_refs).issubset(self._allowed_source_refs)
+        ):
             reasons.append("agent_safety_authoritative_source_evidence_unavailable")
-        if not run_refs or any(not _RUN_REF.fullmatch(value) for value in run_refs):
+        if (
+            not run_refs
+            or any(not _RUN_REF.fullmatch(value) for value in run_refs)
+            or not set(run_refs).issubset(self._allowed_run_refs)
+        ):
             reasons.append("agent_safety_runtime_evidence_unavailable")
         return {
             "release_allowed": not reasons,

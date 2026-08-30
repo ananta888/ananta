@@ -33,6 +33,7 @@ export interface AgentSafetyIncidentView {
 }
 
 export interface AgentSafetyOverview {
+  policies: AgentSafetyPolicyView[];
   runs: AgentSafetyRunView[];
   incidents: AgentSafetyIncidentView[];
   controls: Array<{ operation_id: string; run_id: string; action: string; state: string }>;
@@ -49,4 +50,37 @@ export interface AgentSafetyOverview {
   };
   containment_available: boolean;
   human_intervention_required: false;
+}
+
+export interface AgentSafetyPolicyView {
+  policy_id: string;
+  policy_revision: number;
+  mode: string;
+  preventive_policy_enabled: boolean;
+  preventive_training_enabled: boolean;
+  sentinel_enabled: boolean;
+  telemetry_enabled: boolean;
+  external_kill_switch_enabled: boolean;
+  incident_freeze_enabled: boolean;
+  adversarial_evaluation_enabled: boolean;
+  adversarial_scope: string[];
+  global_stop_scope: string;
+  max_parallel_agents: number;
+}
+
+export interface AgentSafetyPolicyCommand {
+  policy_id: string;
+  revision: number;
+  mode: string;
+  preventive_policy_enabled: boolean;
+  preventive_training_enabled: boolean;
+  sentinel_enabled: boolean;
+  telemetry_enabled: true;
+  external_kill_switch_enabled: true;
+  incident_freeze_enabled: boolean;
+  adversarial_evaluation_enabled: boolean;
+  adversarial_scope: string[];
+  global_stop_scope: string;
+  max_parallel_agents: number;
+  automatic_authorization: true;
 }
