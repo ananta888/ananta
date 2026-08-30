@@ -365,7 +365,7 @@ class PlanningSummaryEngine:
             state = "done"
         elif in_progress > 0 or partial > 0:
             state = "in_progress"
-        elif blocked > 0 and done == 0 and in_progress == 0 and partial == 0 and todo == 0:
+        elif blocked > 0 and todo == 0:
             state = "blocked"
         else:
             state = "todo"

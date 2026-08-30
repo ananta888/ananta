@@ -120,6 +120,38 @@ def test_summary_engine_handles_mixed_statuses_and_reports_breakdowns() -> None:
     assert computed["weighted_progress_summary"]["blocked_weight"] > 0
 
 
+def test_summary_engine_reports_done_plus_blocked_track_as_blocked() -> None:
+    payload = _fixture_payload()
+    payload["tasks"] = [
+        {
+            "id": "T1",
+            "title": "Implemented",
+            "status": "done",
+            "priority": "P1",
+            "risk": "medium",
+            "type": "backend",
+            "acceptance_criteria": ["ok"],
+        },
+        {
+            "id": "T2",
+            "title": "External evidence missing",
+            "status": "blocked",
+            "priority": "P1",
+            "risk": "medium",
+            "type": "test",
+            "acceptance_criteria": ["ok"],
+            "progress_percent": 95,
+        },
+    ]
+    payload["milestones"] = [{"id": "M1", "title": "M1", "task_ids": ["T1", "T2"], "status": "todo"}]
+
+    computed, _ = PlanningSummaryEngine().recompute(payload)
+
+    assert computed["progress_summary"]["state"] == "blocked"
+    assert computed["progress_summary"]["done"] == 1
+    assert computed["progress_summary"]["blocked"] == 1
+
+
 def test_summary_engine_large_fixture_progress_is_deterministic() -> None:
     fixture = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "planning_tracks" / "large_track.json"
     payload = json.loads(fixture.read_text(encoding="utf-8"))
