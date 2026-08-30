@@ -336,8 +336,12 @@ class PlanningTrackTaskIntegrationService:
             raise ValueError("organization_planning_transition_service_required")
 
     def materialize_tasks(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
-        self._guard_organization_legacy_path(goal_id)
         with _MATERIALIZATION_LOCK:
+            # Keep the organization guard inside the same critical section as
+            # materialization.  The guard reads the Hub-owned goal repository;
+            # allowing that session to race SQLite writes defeated the lock's
+            # purpose and could crash the native driver in parallel callers.
+            self._guard_organization_legacy_path(goal_id)
             return self._materialize_tasks_locked(goal_id=goal_id, output_artifact_id=output_artifact_id)
 
     def _materialize_tasks_locked(self, *, goal_id: str, output_artifact_id: str) -> dict[str, Any]:
