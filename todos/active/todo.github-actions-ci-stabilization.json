@@ -2,22 +2,27 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-08-15",
-  "updated": "2026-08-17",
+  "updated": "2026-08-30",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "bec46329d",
+    "reviewed_commit_range": "69308b399",
     "review_goal": "Alle aktuell fehlgeschlagenen GitHub-Actions-Checks lokal reproduzierbar analysieren, echte Ursachen beheben und komplexe Punkte strukturiert nachhalten.",
     "reviewed_paths": [
-      "frontend-angular/src/app/services/context-access-policy-api.service.ts",
-      "frontend-angular/src/app/features/context-access-policy/policy-version-list.component.ts",
-      ".github/workflows"
+      "frontend-angular/tests",
+      "frontend-angular/src/app/components/ai-assistant-controls.component.ts",
+      "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
+      "reports/architecture-import-baseline.txt",
+      ".github/workflows/e2e-compose.yml",
+      ".github/workflows/quality-and-docs.yml"
     ],
     "latest_failed_run_ids": [
-      "31941104698",
-      "31941105723"
+      "33307559841",
+      "33307559864"
     ],
     "latest_success_run_ids": [
-      "31941106905"
+      "33307559845",
+      "33307559850",
+      "33307559861"
     ]
   },
   "categories": [
@@ -27,7 +32,7 @@
       "items": [
         {
           "id": "CI-001",
-          "status": "done",
+          "status": "completed",
           "workflow": "Visual Guide Tests",
           "workflow_job": "frontend-typecheck",
           "step": "frontend-typecheck",
@@ -63,7 +68,7 @@
         },
         {
           "id": "CI-002",
-          "status": "done",
+          "status": "completed",
           "workflow": "Backend Isolated Flows",
           "workflow_job": "isolated-flows",
           "step": "pytest tests/test_autonomous_scrum_e2e.py + test_autopilot_integration.py",
@@ -279,7 +284,7 @@
         },
         {
           "id": "CI-009",
-          "status": "done",
+          "status": "completed",
           "workflow": "OpenCode Full E2E Evidence / Real Worker Runtime Evidence / Deploy www.ananta.de",
           "workflow_job": "evidence scripts",
           "step": "claims & Hub readiness in evidence workflows",
@@ -332,7 +337,7 @@
           ],
           "commit_changes": [],
           "id": "CI-010",
-          "status": "done",
+          "status": "completed",
           "workflow": "Core Evidence Flow / Daemon Worker Runtime Evidence / Ananta Native Full E2E Evidence",
           "workflow_job": "evidence scripts",
           "step": "POST /tasks/orchestration/ingest",
@@ -366,7 +371,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-011",
-          "status": "done",
+          "status": "completed",
           "workflow": "ananta-codecompass-review",
           "workflow_job": "Build local CodeCompass graph",
           "step": "Compute blast radius",
@@ -393,7 +398,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-012",
-          "status": "done",
+          "status": "completed",
           "workflow": "Backend Deep Tests",
           "workflow_job": "backend-deep-tests (e2e-rag-runtime)",
           "step": "Run deep tests",
@@ -455,7 +460,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-014",
-          "status": "done",
+          "status": "completed",
           "workflow": "Quality And Docs",
           "workflow_job": "workflow-runtime-example-compose / workflow-runtime-release-gate",
           "step": "Validate and export example-only evidence / mandatory workflow-runtime release gate",
@@ -490,7 +495,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-015",
-          "status": "in_progress",
+          "status": "partial",
           "workflow": "E2E Compose",
           "workflow_job": "e2e-compose (mehrere Shards)",
           "step": "Run E2E shard",
@@ -521,7 +526,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-016",
-          "status": "done",
+          "status": "completed",
           "workflow": "Unsloth Release Gate",
           "workflow_job": "CPU contract and security / Angular contracts and Fake-Hub E2E",
           "step": "Run deterministic Unsloth contracts and security boundaries / Run Angular model-training contracts",
@@ -549,7 +554,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-017",
-          "status": "done",
+          "status": "completed",
           "workflow": "Quality And Docs",
           "workflow_job": "backend-checks",
           "step": "Source file line limit gate",
@@ -593,7 +598,7 @@
         },
         {
           "id": "CI-019",
-          "status": "done",
+          "status": "completed",
           "workflow": "Core Evidence Flow",
           "workflow_job": "core-evidence-flow",
           "step": "Run core evidence flow",
@@ -643,21 +648,58 @@
           ],
           "dependencies": [],
           "commit_changes": []
+        },
+        {
+          "id": "CI-021",
+          "status": "partial",
+          "workflow": "E2E Compose / Quality And Docs",
+          "workflow_job": "six E2E shards / backend-checks",
+          "step": "Current main regression matrix at 69308b399",
+          "severity": "critical",
+          "risk_assessment": "Hoch: Der gepushte Hauptstand ist in zwei verpflichtenden Workflows rot; sechs von acht Compose-Shards und der Standard-Backend-Gate sind betroffen.",
+          "observed_error": "E2E Compose 33307559841: compose-foundation-ui, compose-goal-core, compose-goal-smoke, compose-admin-core, compose-ai-interaction und compose-observability-network rot; foundation-auth und admin-entities gruen. Quality And Docs 33307559864: nur backend-checks rot, alle uebrigen Jobs gruen.",
+          "root_cause": "Die heruntergeladenen Playwright-Artefakte und Traces belegen mehrere unabhaengige Drifts: (1) drei Goal-Mocks treffen GET /goals?project_id=... nicht, weil sie nur **/goals registrieren; (2) zwei Release-Smokes oeffnen /dashboard ohne den erforderlichen aktiven Projektkontext; (3) loginFast erkennt eine mobile, auf /projects gelandete Admin-Sitzung nicht, weil .app-nav dort responsiv ausgeblendet ist; (4) der Hybrid-Context-Laufzeitpfad existiert, sein gebundener UI-Schalter wurde jedoch entfernt; (5) der Webhook-Test fuehrt waehrend eines absichtlich blockierten Route-Handlers eine weitere Browser-Protokollaktion aus und verlaengert dadurch den Request bis zum RxJS-Timeout; (6) der Settings-Test adressiert zwei gleichnamige Aktualisieren-Buttons; (7) der Policy-Decision-Request liefert im Trace HTTP 200 mit zwei Zeilen, die imperative Komponentenprojektion wird in der Ansicht dennoch nicht aktualisiert; (8) reports/architecture-import-baseline.txt enthaelt zwei inzwischen geloeste Importverletzungen.",
+          "affected_files_or_subsystems": [
+            "frontend-angular/tests/utils.ts",
+            "frontend-angular/tests/main-goal-planning.spec.ts",
+            "frontend-angular/tests/ui-ux-workflows.spec.ts",
+            "frontend-angular/tests/live-click-critical-paths.spec.ts",
+            "frontend-angular/tests/release-goal-smoke.spec.ts",
+            "frontend-angular/tests/settings-config.spec.ts",
+            "frontend-angular/tests/auto-planner.spec.ts",
+            "frontend-angular/src/app/components/ai-assistant-controls.component.ts",
+            "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
+            "reports/architecture-import-baseline.txt"
+          ],
+          "proposed_solution": "Projektgebundene Navigation und Query-faehige Mock-Vertraege ueber die vorhandenen Testhilfen vereinheitlichen; den mobilen Auth-Erfolgsmarker auf eine responsive-unabhaengige Shell-Identitaet umstellen; den weiterhin unterstuetzten Hybrid-Schalter wieder anbinden; den Webhook-Test ohne reentrante Browseraktion pruefen; den Settings-Locator auf seine Region begrenzen; die Policy-Projektion reaktiv bzw. explizit change-detection-sicher machen; ausschliesslich die zwei als geloest gemeldeten Baseline-Zeilen entfernen.",
+          "expected_result": "Beide Workflows laufen am selben Commit gruen; alle Tests bleiben headless, deterministisch und ohne menschliche Interaktion.",
+          "relevant_validations": [
+            "GitHub-Artefakte aller acht E2E-Shards aus Lauf 33307559841 lokal ausgewertet; jeder rote Test hat einen Screenshot, Trace oder error-context-Nachweis.",
+            "Policy-Trace: GET /api/sessions/sess-policy/policy-decisions liefert HTTP 200 und exakt dec-allow plus dec-pending; das Fehlerbild ist keine Backend-Ablehnung.",
+            "Quality-And-Docs-Lauf 33307559864: 16 von 17 Jobs gruen; backend-checks meldet exakt zwei stale baseline entries und null neue Architekturverletzungen.",
+            "Visual Guide Tests 33307559845, Backend Isolated Flows 33307559850 und Commit Lint 33307559861 sind am selben Commit gruen."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": [
+            "33307559841",
+            "33307559864"
+          ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 20,
+    "total_items": 21,
     "by_status": {
-      "completed": 6,
-      "partial": 4,
-      "open": 3,
+      "completed": 16,
+      "partial": 3,
+      "open": 2,
       "in_progress": 0,
       "blocked": 0,
-      "blocked_decision": 1,
+      "blocked_decision": 0,
       "planned": 0,
-      "done": 6
+      "done": 0
     },
     "notes": [
       "Kleine Fehler (z. B. Preview-Contract-Drift im Frontend) wurden zuerst umgesetzt und im Status completed geführt.",
@@ -668,9 +710,11 @@
       "CI-009-Nebenbefund: der CI-009-Eintrag trug im rohen JSON zwei 'status'-Schluessel ('in_progress', danach 'partial'). JSON-Parser behalten den letzten, weshalb Werkzeuge 'partial' sahen; der Widerspruch war im Dateitext aber vorhanden. Beim Aktualisieren auf 'done' wurde der Eintrag auf einen einzigen status-Schluessel zusammengefuehrt.",
       "Offen und ausserhalb CI-009 (nicht mitbehoben, damit der Scope eng bleibt): der Workflow 'Ananta Native Full E2E Evidence' (Run 31939074467) scheitert bereits vor dem Diff-Schritt mit '403 FORBIDDEN' auf /tasks/orchestration/ingest. Die dort vorgenommene Diff-Fenster-Korrektur ist deshalb lokal gegen die echte Fixture verifiziert, aber noch nicht durch einen gruenen CI-Run bestaetigt - das setzt voraus, dass zuvor der 403 auf dem Ingest-Pfad geklaert wird. Eigener Folgepunkt.",
       "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand.",
-      "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht."
+      "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht.",
+      "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden."
     ],
     "recommended_order": [
+      "CI-021",
       "CI-011",
       "CI-010",
       "CI-001",
