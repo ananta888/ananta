@@ -2,12 +2,12 @@
   "$schema": "../todo.track.schema.json",
   "id": "todo.hermes-inspired-kanban-model-dashboard-angular-tui",
   "title": "Hermes-inspiriertes Kanban und Modelle-Dashboard fuer Angular und TUI",
-  "version": "1.3",
+  "version": "1.4",
   "owner": "Peter Stuiber / Ananta",
   "track": "hermes-inspired-kanban-model-dashboard-angular-tui",
   "status": "partial",
   "created_at": "2026-07-23",
-  "updated_at": "2026-07-24",
+  "updated_at": "2026-08-30",
   "purpose": "Eine gemeinsame, quellcodekonforme Projektion des bestehenden Ananta-Hub-Tasksystems als Hermes-inspiriertes Kanban sowie eine kompakte Projektion des bestehenden Backend-Provider-Katalogs fuer Angular und die prompt_toolkit-basierte Operator-TUI schaffen.",
   "goal": "Das Hub-Tasksystem bleibt alleinige Wahrheit fuer Tasks, Status, Revisionen, Queue und Execution; Kanban ist nur eine bedienbare Projektion. Der Backend-Model-Catalog bleibt alleinige Provider-Wahrheit. Angular und TUI verwenden dieselben versionierten Projektionsvertraege, Autorisierungsregeln und Fehlersemantiken, ohne parallele Domain, direkte Provider-URLs oder Worker-Orchestrierung einzufuehren.",
   "repository_baseline": {
@@ -58,7 +58,8 @@
     "Eine Kartenverschiebung startet keinen Worker und veraendert keine Queue ausserhalb bestehender Hub-Kommandos.",
     "Jede TUI-Funktion bleibt ohne Maus per Tastatur erreichbar; Terminal-Drag-and-drop ist nicht erforderlich.",
     "Bestehende Planning-, Audit-, Event- und Observability-Systeme werden integriert statt dupliziert.",
-    "Feature-Flags sind default-false und erlauben einen getrennten, fail-closed Rollout."
+    "Feature-Flags sind default-false und erlauben einen getrennten, fail-closed Rollout.",
+    "Performance-Baselines koennen durch eine versionierte Hub-Policy vollautomatisch, fail-closed und auditierbar freigegeben werden; eine interaktive Freigabe bleibt optional und ist keine technische Voraussetzung fuer Tests oder Produktion."
   ],
   "status_scale": [
     "todo",
@@ -733,11 +734,13 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 95.0,
+      "progress_percent": 90.0,
       "depends_on": [
         "HKM-INT-001"
       ],
       "code_anchors": [
+        "scripts/performance/",
+        "config/test-profiles/kanban-model-dashboard/",
         "tests/",
         "frontend-angular/tests/",
         "artifacts/test-gates/"
@@ -745,7 +748,8 @@
       "acceptance_criteria": [
         "Ein versioniertes Referenzprofil mit Hardware-, Runtime- und Commit-Angaben misst eine deterministische Projektion aus 1000 Tasks in vier kanonischen Spalten sowie mindestens zehn deterministischen Views oder Statusgruppen und einen Burst aus 100 Events pro Sekunde.",
         "Das Profil erfasst p50/p95 fuer Snapshot-Laden, Move-Kommando, Angular-Filter, Angular-Render und TUI-Render-Tick sowie Peak-RSS, Long Tasks und verlorene oder deduplizierte Events.",
-        "Das Gate schlaegt fail-closed fehl, wenn ein dokumentiertes absolutes Budget ueberschritten wird oder eine Metrik die freigegebene Baseline um mehr als 15 Prozent verschlechtert; Baseline-Aenderungen benoetigen begruendete Review-Evidence."
+        "Das Gate schlaegt fail-closed fehl, wenn ein dokumentiertes absolutes Budget ueberschritten wird oder eine Metrik die freigegebene Baseline um mehr als 15 Prozent verschlechtert; Baseline-Aenderungen benoetigen begruendete Review-Evidence.",
+        "Eine versionierte, Hub-eigene Freigabepolicy kann einen frischen Baseline-Kandidaten ohne Mensch im Test vollautomatisch freigeben, wenn Commit, Profil, Laufzeitumgebung, Quellen-Hashes, absolute Budgets und Evidence-Integritaet passen; fehlende oder manipulierte Policy-Evidence blockiert fail-closed und die Freigabe bleibt vollstaendig auditiert."
       ]
     },
     {
@@ -991,7 +995,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 95.0
+        "progress_percent": 90.0
       },
       "release": {
         "total": 1,
@@ -1017,7 +1021,7 @@
     "blocked": 0,
     "done": 24,
     "count_based_percent": 96.0,
-    "weighted_percent": 99.7
+    "weighted_percent": 99.5
   },
   "estimated_effort": {
     "mvp_developer_days": "unverified",
@@ -1050,16 +1054,16 @@
     "completed_INT001: Gemeinsame deterministische Fixtures und ein echter bidirektionaler Angular-zu-Hub-zu-TUI-Lauf sind gruen; derselbe Task durchlaeuft Revision 7 zu 8 zu 9/10, und 409-Konfliktcode sowie Snapshot-Reload bleiben stabil.",
     "completed_REL001_implementation: Versioniertes Evidence-Schema, sieben-Suite-Allowlist, Producer, fail-closed Gate sowie getrennte Rollout-/Rollback-Stufen sind im realen Code implementiert. Das schliesst die Implementierungsaufgabe ab, ist aber keine aktuelle Release-Attestierung.",
     "performance_evidence_OPS002: Das formale Profil sowie reale Backend-, Angular-, TUI- und PTY-Metriken liegen vor; die absoluten Budgets sind gruen. Das Profil bildet 1000 Tasks in vier kanonischen Spalten und mindestens zehn deterministischen Views oder Statusgruppen sowie den geforderten Event-Burst ab.",
-    "remaining_OPS002_external: Der Baseline-Kandidat hat den Zustand candidate_unapproved; das Gate blockiert fail-closed mit baseline_approval_required. Es fehlt ausschliesslich die organisatorische Review-Freigabe der Baseline, die nicht durch Implementierung oder lokale Ausfuehrung ersetzt werden darf.",
-    "release_attestation_operational_blocker: Eine aktuelle Release-Attestierung bleibt bis zu einem Candidate-Commit und einer approved Baseline operational blockiert; dieser externe Zustand stuft die abgeschlossene REL001-Implementierung nicht zurueck."
+    "audit_2026_08_30_OPS002: Der Baseline-Kandidat hat den Zustand candidate_unapproved und das Gate blockiert mit baseline_approval_required. Die bisher vorausgesetzte organisatorische Review-Freigabe widerspricht der verbindlichen vollautomatischen Headless-Regel; deshalb fehlen noch eine Hub-eigene Freigabepolicy, Manipulations-Negativtests und frische commitgebundene Evidence.",
+    "release_attestation_pending: Eine aktuelle Release-Attestierung bleibt bis zu einem frischen Candidate-Commit, einer policy-auditierten approved Baseline und einem gruenden fail-closed Gate offen; eine interaktive Freigabe darf dabei nur optional sein."
   ],
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.0,
-    "done_weight": 48.875,
-    "remaining_weight": 0.125,
+    "done_weight": 48.75,
+    "remaining_weight": 0.25,
     "blocked_weight": 0.0,
-    "weighted_percent": 99.7
+    "weighted_percent": 99.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1108,7 +1112,7 @@
         "done": 3,
         "blocked": 0,
         "count_based_percent": 75.0,
-        "weighted_percent": 98.4,
+        "weighted_percent": 96.9,
         "status": "in_progress"
       }
     }
@@ -1116,10 +1120,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-07-24T16:40:31.051190Z",
+    "generated_at": "2026-08-30T12:12:38.480083Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "649d59dd87ddbc4f438f15ecb7f781e3ab1ae974fee5c30ccbb5da116eba079e",
+    "source_hash": "2adf441583b633af30cb3fb771bab9bc8bbfa64130e649a9bfd468ac97557896",
     "is_stale": false
   }
 }
