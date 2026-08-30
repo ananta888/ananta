@@ -39,7 +39,7 @@ from agent.cli.main import _run_tui
 
 def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> None:
     times = iter([0.0, 2.0])
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: next(times))
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: next(times))
     lines = [" " * 40] * 20
     game = {
         "active": True,
@@ -65,7 +65,7 @@ def test_trail_message_window_and_speed_scroll_over_full_text(monkeypatch) -> No
 
 
 def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 1.0)
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 1.0)
     lines = [" " * 40] * 20
     game = {
         "active": True,
@@ -89,7 +89,7 @@ def test_trail_message_remains_visible_when_snake_stops(monkeypatch) -> None:
 
 
 def test_trail_message_translates_newlines_for_display_only(monkeypatch) -> None:
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = [" " * 40] * 20
     game = {
         "active": True,
@@ -381,4 +381,3 @@ def test_region_index_tab_close_target() -> None:
 
 
 # ── T19: Integration Keyboard/Mouse ─────────────────────────────────────────
-

@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 import re
 import time
+from time import monotonic
 from textwrap import shorten
 from typing import TYPE_CHECKING
 
@@ -496,7 +497,7 @@ def _overlay_snake_message_effect(
     if not seq.strip():
         return out
     speed = max(0.2, min(60.0, float(trail_speed)))
-    phase = int(time.monotonic() * speed)
+    phase = int(monotonic() * speed)
     tail_offset = max(0, len(snake))
     height = max(1, len(out))
 
@@ -597,6 +598,4 @@ def _message_trail_positions(
         ty = (ty + dy) % h
         positions.append((tx, ty))
     return positions
-
-
 

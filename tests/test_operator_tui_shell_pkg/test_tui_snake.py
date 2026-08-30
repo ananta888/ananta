@@ -367,7 +367,7 @@ def test_snake_message_mode_accepts_command_bound_letters() -> None:
 
 
 def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypatch) -> None:
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = ["abcdefghij" + " " * 30] + [" " * 40] * 19
     game = {
         "active": True,
@@ -389,7 +389,7 @@ def test_fullscreen_snake_overlay_renders_message_tail_and_text_marking(monkeypa
 
 
 def test_snake_message_effect_is_disabled_by_default(monkeypatch) -> None:
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = [" " * 40] * 20
     game = {
         "active": True,
@@ -409,7 +409,7 @@ def test_snake_message_effect_is_disabled_by_default(monkeypatch) -> None:
 
 
 def test_fullscreen_overlay_renders_peer_snake_from_multi_snake_state(monkeypatch) -> None:
-    monkeypatch.setattr("client_surfaces.operator_tui.renderer.time.monotonic", lambda: 0.0)
+    monkeypatch.setattr("client_surfaces.operator_tui._renderer_snake_overlay.monotonic", lambda: 0.0)
     lines = [" " * 20 for _ in range(5)]
     game = {
         "active": True,
@@ -701,5 +701,4 @@ def test_snake_hover_selection_uses_delay_before_selecting_nav() -> None:
     assert s1.focus is FocusPane.HEADER
     assert s2.focus is FocusPane.HEADER
     assert s3.focus is FocusPane.NAVIGATION
-
 
