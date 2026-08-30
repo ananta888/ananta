@@ -20,6 +20,7 @@ import { ModelTrainingJobMonitorService } from './model-training-job-monitor.ser
 import { ModelTrainingTab, TrainingJobAcceptance } from './model-training.models';
 import { TrainingWizardComponent } from './training-wizard/training-wizard.component';
 import { DendriticMemoryWorkbenchComponent } from './training-wizard/dendritic-memory-workbench.component';
+import { ResearchTrainingWorkbenchComponent } from './training-wizard/research-training-workbench.component';
 import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-panel.component';
 
 @Component({
@@ -44,6 +45,7 @@ import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-pa
     TrainingJobListComponent,
     TrainingWizardComponent,
     DendriticMemoryWorkbenchComponent,
+    ResearchTrainingWorkbenchComponent,
     UnslothCapabilityPanelComponent,
   ],
   providers: [ModelTrainingFacade, ModelTrainingJobMonitorService],
@@ -148,6 +150,11 @@ import { UnslothCapabilityPanelComponent } from './unsloth/unsloth-capability-pa
                 <app-dendritic-memory-workbench
                   [hubUrl]="facade.hubUrl()"
                   [capability]="facade.capabilities()?.dendritic_memory_experiment" />
+              }
+              @if (facade.capabilities()?.research_training?.available) {
+                <app-research-training-workbench
+                  [hubUrl]="facade.hubUrl()"
+                  [capability]="facade.capabilities()?.research_training" />
               }
             }
             @case ('jobs') {

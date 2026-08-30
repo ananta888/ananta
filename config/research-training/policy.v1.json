@@ -1,0 +1,14 @@
+{
+  "schema": "ananta.research-training-policy.v1",
+  "enabled": false,
+  "mode": "disabled",
+  "automatic_release_enabled": false,
+  "allowed_model_families": [],
+  "max_gpu_hours": 24.0,
+  "max_storage_bytes": 53687091200,
+  "max_estimated_cost_microunits": 0,
+  "max_world_size": 8,
+  "max_stages": 16,
+  "max_artifact_bytes": 21474836480,
+  "human_intervention_required": false
+}

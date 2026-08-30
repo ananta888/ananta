@@ -687,6 +687,22 @@ class Settings(BaseSettings):
     dendritic_memory_artifact_root: str = Field(
         default="data/dendritic-memory-artifacts", validation_alias="ANANTA_DENDRITIC_MEMORY_ARTIFACT_ROOT"
     )
+    research_training_enabled: bool = Field(default=False, validation_alias="ANANTA_RESEARCH_TRAINING_ENABLED")
+    research_training_mode: str = Field(default="disabled", validation_alias="ANANTA_RESEARCH_TRAINING_MODE")
+    research_training_automatic_release_enabled: bool = Field(
+        default=False, validation_alias="ANANTA_RESEARCH_TRAINING_AUTOMATIC_RELEASE_ENABLED"
+    )
+    research_training_policy_path: str = Field(
+        default="config/research-training/policy.v1.json",
+        validation_alias="ANANTA_RESEARCH_TRAINING_POLICY_PATH",
+    )
+    research_training_state: str = Field(
+        default="data/research-training.sqlite3", validation_alias="ANANTA_RESEARCH_TRAINING_STATE"
+    )
+    research_training_artifact_root: str = Field(
+        default="data/research-training-artifacts",
+        validation_alias="ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

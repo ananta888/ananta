@@ -27,6 +27,11 @@ import {
   DatasetValidationReport,
   EvaluationReport,
   EvaluationScorerName,
+  ResearchRecipeRequest,
+  ResearchResolvedRecipe,
+  ResearchRunAcceptance,
+  ResearchTrainingPreflight,
+  ResearchTrainingRequest,
   TrainingCapabilities,
   TrainingBackendRecommendation,
   TrainingBackendRecommendationRequest,
@@ -75,6 +80,10 @@ export class ModelTrainingApiService extends ApiBaseService {
     return `${hubUrl.replace(/\/+$/, '')}/api/ml-intern-training/dendritic-memory${path}`;
   }
 
+  private researchEndpoint(hubUrl: string, path: string): string {
+    return `${hubUrl.replace(/\/+$/, '')}/api/ml-intern-training/research${path}`;
+  }
+
   capabilities(hubUrl: string): Observable<TrainingCapabilities> {
     return this.core.get<TrainingCapabilities>(this.endpoint(hubUrl, '/capabilities'), hubUrl, undefined, false);
   }
@@ -92,6 +101,29 @@ export class ModelTrainingApiService extends ApiBaseService {
     key: string,
   ): Observable<DendriticRunAcceptance> {
     return this.core.request<DendriticRunAcceptance>('POST', this.dendriticEndpoint(hubUrl, '/runs'), hubUrl, {
+      body: payload,
+      headers: { 'Idempotency-Key': key },
+      timeoutMs: 30_000,
+    });
+  }
+
+  resolveResearchRecipe(hubUrl: string, payload: ResearchRecipeRequest): Observable<ResearchResolvedRecipe> {
+    return this.core.post<ResearchResolvedRecipe>(this.researchEndpoint(hubUrl, '/recipes/resolve'), payload, hubUrl);
+  }
+
+  dryRunResearchTraining(
+    hubUrl: string,
+    payload: ResearchTrainingRequest,
+  ): Observable<ResearchTrainingPreflight> {
+    return this.core.post<ResearchTrainingPreflight>(this.researchEndpoint(hubUrl, '/dry-run'), payload, hubUrl);
+  }
+
+  createResearchTraining(
+    hubUrl: string,
+    payload: ResearchTrainingRequest,
+    key: string,
+  ): Observable<ResearchRunAcceptance> {
+    return this.core.request<ResearchRunAcceptance>('POST', this.researchEndpoint(hubUrl, '/runs'), hubUrl, {
       body: payload,
       headers: { 'Idempotency-Key': key },
       timeoutMs: 30_000,

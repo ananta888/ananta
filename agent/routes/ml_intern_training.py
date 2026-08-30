@@ -152,6 +152,31 @@ def capabilities():
                 "human_intervention_required": False,
             }
         )
+        research = current_app.extensions.get("research_training_capabilities")
+        result["research_training"] = (
+            research.projection()
+            if research is not None
+            else {
+                "schema": "ananta.research-training-capability.v1",
+                "state": "disabled",
+                "available": False,
+                "reason_code": "research_training_not_configured",
+                "mode": "disabled",
+                "automatic_release_enabled": False,
+                "worker": {
+                    "state": "unavailable",
+                    "reason_code": "research_worker_not_reported",
+                    "engine_version": None,
+                    "capabilities": [],
+                    "gpu_profiles": [],
+                    "network_probe_performed": False,
+                },
+                "experimental": True,
+                "not_production_ready": True,
+                "claims_not_verified": True,
+                "human_intervention_required": False,
+            }
+        )
         return api_response(data=result)
     except (RuntimeError, ValueError) as exc:
         return _error("training_runtime_configuration_invalid", str(exc), 503, retryable=True)

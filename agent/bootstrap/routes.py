@@ -82,6 +82,7 @@ from agent.routes.peer_overlay import peer_overlay_bp
 from agent.routes.projects import projects_bp
 from agent.routes.rendezvous import rendezvous_bp
 from agent.routes.repair import repair_bp
+from agent.routes.research_training import research_training_bp
 from agent.routes.restricted_inference_management import restricted_inference_management_bp
 from agent.routes.run_control import run_control_bp
 from agent.routes.scrum_continuous_improvement import scrum_continuous_improvement_bp
@@ -133,6 +134,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(research_training_bp)
     app.register_blueprint(dendritic_memory_bp)
     app.register_blueprint(dspy_optimization_bp)
     configure_project_lifecycle(app)

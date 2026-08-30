@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/recipe.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "recipe_id", "recipe_version", "model_family", "architecture", "depth", "context_length", "vocab_size", "max_steps", "seed", "precision", "world_size", "allow_rl", "resolved_hyperparameters"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-recipe.v1"},
+    "recipe_id": {"$ref": "#/$defs/id"},
+    "recipe_version": {"$ref": "#/$defs/id"},
+    "model_family": {"$ref": "#/$defs/id"},
+    "architecture": {"$ref": "#/$defs/id"},
+    "depth": {"type": "integer", "minimum": 1, "maximum": 128},
+    "context_length": {"type": "integer", "minimum": 128, "maximum": 262144},
+    "vocab_size": {"type": "integer", "minimum": 256, "maximum": 1048576},
+    "max_steps": {"type": "integer", "minimum": 1, "maximum": 100000000},
+    "seed": {"type": "integer", "minimum": 0, "maximum": 2147483647},
+    "precision": {"enum": ["float32", "bfloat16", "float16"]},
+    "world_size": {"type": "integer", "minimum": 1, "maximum": 1024},
+    "allow_rl": {"type": "boolean"},
+    "resolved_hyperparameters": {"type": "object", "minProperties": 1, "maxProperties": 32, "additionalProperties": {"type": "number"}}
+  },
+  "$defs": {"id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}}
+}

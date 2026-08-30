@@ -214,6 +214,7 @@ packages = [
     "worker.speech_training.backends",
     "worker.training",
     "worker.training.dendritic",
+    "worker.training.research",
     "worker.temporal",
 ]
 

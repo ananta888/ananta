@@ -181,6 +181,7 @@ export interface TrainingCapabilities {
   base_models: TrainingBaseModel[];
   unsloth?: UnslothCapabilities;
   dendritic_memory_experiment?: DendriticMemoryCapability;
+  research_training?: ResearchTrainingCapability;
   limits: {
     max_dataset_bytes?: number;
     max_adapter_bytes?: number;
@@ -265,6 +266,110 @@ export interface DendriticDryRunResult {
 }
 
 export interface DendriticRunAcceptance {
+  run_id: string;
+  state: string;
+  revision: number;
+  replayed: boolean;
+  experimental: true;
+  not_production_ready: true;
+  claims_not_verified: true;
+  human_intervention_required: false;
+}
+
+export interface ResearchTrainingCapability {
+  schema: 'ananta.research-training-capability.v1';
+  state: 'disabled' | 'unavailable' | 'degraded' | 'available';
+  available: boolean;
+  reason_code?: string | null;
+  mode: 'disabled' | 'mock' | 'local';
+  automatic_release_enabled: boolean;
+  worker: {
+    state: 'available' | 'degraded' | 'unavailable';
+    reason_code?: string | null;
+    engine_version?: string | null;
+    capabilities: string[];
+    gpu_profiles: string[];
+    network_probe_performed: boolean;
+  };
+  experimental: true;
+  not_production_ready: true;
+  claims_not_verified: true;
+  human_intervention_required: false;
+}
+
+export interface ResearchRecipeRequest {
+  recipe_id: string;
+  model_family: string;
+  architecture: string;
+  depth: number;
+  context_length: number;
+  vocab_size: number;
+  max_steps: number;
+  seed: number;
+  precision: 'float32' | 'bfloat16' | 'float16';
+  world_size: number;
+  allow_rl: boolean;
+}
+
+export interface ResearchTrainingRecipe extends ResearchRecipeRequest {
+  schema: 'ananta.research-training-recipe.v1';
+  recipe_version: string;
+  resolved_hyperparameters: Record<string, number>;
+}
+
+export interface ResearchResolvedRecipe extends ResearchTrainingRecipe {
+  recipe_digest: string;
+  resolution_is_deterministic: true;
+}
+
+export interface ResearchStage {
+  stage_id: string;
+  kind: 'tokenizer_train' | 'tokenizer_eval' | 'pretrain' | 'base_eval' | 'sft' | 'chat_eval' | 'rl' | 'rl_eval' | 'inference_benchmark' | 'export';
+  dependencies: string[];
+  required_capability: string;
+  max_attempts: number;
+  timeout_seconds: number;
+}
+
+export interface ResearchTrainingRequest {
+  spec: {
+    schema: 'ananta.research-training-run.v1';
+    spec_id: string;
+    mode: TrainingMode;
+    dataset_manifest_digest: string;
+    source_revision_digest: string;
+    recipe: ResearchTrainingRecipe;
+    pipeline: {
+      schema: 'ananta.research-training-pipeline.v1';
+      pipeline_id: string;
+      pipeline_version: string;
+      stages: ResearchStage[];
+      automatic_release: boolean;
+    };
+    budget: {
+      gpu_hours: number;
+      storage_bytes: number;
+      estimated_cost_microunits: number;
+    };
+  };
+}
+
+export interface ResearchTrainingPreflight {
+  admissible: boolean;
+  reason_codes: string[];
+  spec_digest: string;
+  recipe_digest: string;
+  pipeline_digest: string;
+  estimated_parameters: number;
+  estimated_vram_bytes_per_worker: number;
+  estimated_storage_bytes: number;
+  estimated_gpu_hours: number;
+  worker_call_performed: false;
+  model_download_performed: false;
+  human_intervention_required: false;
+}
+
+export interface ResearchRunAcceptance {
   run_id: string;
   state: string;
   revision: number;

@@ -55,25 +55,27 @@
   ],
   "implementation_review": {
     "reviewed_at": "2026-08-30",
-    "state": "research_specific_path_absent_reusable_foundations_present",
-    "reusable_foundations": [
-      "Hub-owned tenant, idempotency, capacity, execution-lease, attempt, fencing and reconciliation services for LoRA jobs",
-      "Worker backend registry, bounded external-process execution, VRAM admission, checkpoint resume adapters and artifact normalization",
-      "Dataset catalog, split, validation, privacy, license and artifact-security services",
-      "Evaluation, promotion, runtime rollback and default-off experiment patterns from LoRA, Unsloth and dendritic-memory subsystems",
-      "Angular model-training control center with typed Hub-only API access"
+    "state": "experimental_mock_slice_implemented_release_blocked",
+    "implemented": [
+      "Closed v1 recipe, pipeline, run and artifact contracts plus JSON Schemas",
+      "Default-off Hub policy, capability reporting, deterministic recipe resolution and resource preflight",
+      "Hub-owned immutable run revisions, DAG readiness, bounded retries and HMAC Worker attempt fencing",
+      "Atomic non-executable artifact storage and tenant-scoped immutable lineage",
+      "Deterministic evaluation attestations, strict SRC_/RUN_ grounding and automatic fail-closed release gate",
+      "Dependency-free Worker backend port, deterministic mock backend, checkpoint helper and evaluation task runner",
+      "Authenticated additive Research API, Angular workbench, boundary detector and automatic lifecycle tests"
     ],
-    "research_specific_gaps": [
-      "Versioned ResearchRun, pipeline, recipe, stage-attempt, tokenizer and full-model-lineage contracts",
-      "Tokenizer training, from-scratch pretraining, full-model SFT and optional RL execution backends",
-      "Research stage DAG, resource preflight, immutable checkpoint lineage and stage resume",
-      "Task evaluation, inference benchmark, research promotion and full-model runtime release gates",
-      "Research API, worker transport, Angular projections and end-to-end automatic test matrix"
+    "remaining_gaps": [
+      "Real tokenizer, Torch/DDP pretraining, full-model SFT and RL Worker adapters",
+      "Production Worker transport/scheduler integration, leases, heartbeats and preemption recovery",
+      "Safe executable safetensors/model export ingress and runtime activation",
+      "Durable quota reservations, retention/garbage collection and richer dataset governance",
+      "GPU/container integration, failure-injection and full LoRA regression matrix"
     ],
     "release_blockers": [
       "allowed_source_refs_empty",
       "allowed_run_refs_empty",
-      "required_tokenizer_pretraining_sft_rl_gpu_sandbox_recovery_benchmark_runs_missing"
+      "real_training_backends_and_gpu_sandbox_runs_missing"
     ],
     "human_intervention_required": false
   },
@@ -463,7 +465,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 10.0,
+      "progress_percent": 85.0,
       "implementation": {
         "notes": [
           "Neue Contracts fuer ResearchRun, Pipeline, StageAttempt, TrainingRecipe, TokenizerArtifact, ModelCheckpointArtifact und ModelLineage definieren.",
@@ -491,7 +493,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 15.0,
+      "progress_percent": 60.0,
       "implementation": {
         "notes": [
           "Admission, Tenant/Owner Binding, Idempotency, Queue, Capacity Leases, Execution Leases, Attempts, Heartbeats und Fencing wiederverwenden.",
@@ -515,7 +517,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20.0,
+      "progress_percent": 75.0,
       "implementation": {
         "notes": [
           "Capabilities full_weight_training, tokenizer_training, rl_training, multi_gpu_training und code_exec_eval getrennt deklarieren.",
@@ -540,7 +542,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 20.0,
+      "progress_percent": 60.0,
       "implementation": {
         "notes": [
           "Git/source revision, container/image digest, Python/torch/CUDA, backend version, dataset digest, tokenizer digest, recipe digest, seed und hardware profile speichern.",
@@ -559,10 +561,10 @@
       "id": "NCH-005",
       "title": "Tokenizer-Training als Worker-Backend implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 20.0,
       "implementation": {
         "notes": [
           "BPE als initiale Implementierung; spaeter weitere Tokenizer hinter Port.",
@@ -593,7 +595,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 15.0,
+      "progress_percent": 35.0,
       "implementation": {
         "notes": [
           "Bytes/token, chars/token, unknown/special token rates und representative-domain splits messen.",
@@ -612,10 +614,10 @@
       "id": "NCH-007",
       "title": "From-Scratch Pretraining Backend einfuehren",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "PyTorch-DDP-first Research Backend mit klarer BackendPort-Schnittstelle.",
@@ -648,7 +650,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 35.0,
       "implementation": {
         "notes": [
           "Validation loss und vocab-size-invariante Metrik wie bits-per-byte aufnehmen.",
@@ -670,10 +672,10 @@
       "id": "NCH-009",
       "title": "Full-Model SFT Stage implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 15.0,
       "implementation": {
         "notes": [
           "Bestehende Chat-/Instruction-Dataset-Normalisierung wiederverwenden.",
@@ -699,7 +701,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 55.0,
       "implementation": {
         "notes": [
           "TaskSequence/TaskMixture-Idee adaptieren.",
@@ -728,7 +730,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 45.0,
       "implementation": {
         "notes": [
           "Base-vs-SFT-vs-RL Vergleichsreport erzeugen.",
@@ -751,7 +753,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 45.0,
       "implementation": {
         "notes": [
           "TTFT, tokens/s, p50/p95 latency, peak VRAM/RAM und max stable context messen.",
@@ -773,10 +775,10 @@
       "id": "NCH-013",
       "title": "Experimentelles RL/Post-Training Contract definieren",
       "type": "schema",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 45.0,
       "implementation": {
         "notes": [
           "RewardProvider, rollout policy, sampling config, advantage strategy, optimizer profile und safety limits versionieren.",
@@ -797,10 +799,10 @@
       "id": "NCH-014",
       "title": "RL Rollout und Reward Engine implementieren",
       "type": "backend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 10.0,
       "implementation": {
         "notes": [
           "Batched rollout generation mit OOM-bounded chunking.",
@@ -826,7 +828,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 10.0,
+      "progress_percent": 35.0,
       "implementation": {
         "notes": [
           "Pass@k, reward distribution, variance/collapse indicators und non-target task regressions messen.",
@@ -849,7 +851,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 10.0,
+      "progress_percent": 85.0,
       "implementation": {
         "notes": [
           "Optionalen depth/scale dial einfuehren.",
@@ -874,10 +876,10 @@
       "id": "NCH-017",
       "title": "Scaling-Law und Miniseries Sweep Jobs einfuehren",
       "type": "research",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 35.0,
       "implementation": {
         "notes": [
           "Mehrere depth/scale Recipes als Sweep planen.",
@@ -903,7 +905,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 80.0,
       "implementation": {
         "notes": [
           "VRAM-Schaetzung, device batch size, gradient accumulation, precision, expected walltime/FLOPs und storage schaetzen.",
@@ -928,7 +930,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 10.0,
+      "progress_percent": 75.0,
       "implementation": {
         "notes": [
           "Stage DAG verwalten; nur erfolgreiche/approved Inputs fuer Folge-Stage freigeben.",
@@ -954,7 +956,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 15.0,
+      "progress_percent": 75.0,
       "implementation": {
         "notes": [
           "GPU count, VRAM, compute capability, supported dtypes, torch distributed, storage headroom und backend versions melden.",
@@ -974,10 +976,10 @@
       "id": "NCH-021",
       "title": "Research Training API erweitern",
       "type": "api",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 75.0,
       "implementation": {
         "notes": [
           "Endpoints fuer recipes, pipelines, runs, stages, artifacts, evaluations, benchmarks und lineage.",
@@ -998,10 +1000,10 @@
       "id": "NCH-022",
       "title": "Angular Model-Training UI um Research Mode erweitern",
       "type": "frontend",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 70.0,
       "implementation": {
         "notes": [
           "Bestehenden /model-training Bereich erweitern statt neue Insel-App.",
@@ -1026,7 +1028,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20.0,
+      "progress_percent": 60.0,
       "implementation": {
         "notes": [
           "Atomic staging -> digest verify -> publish.",
@@ -1054,7 +1056,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20.0,
+      "progress_percent": 50.0,
       "implementation": {
         "notes": [
           "Checkpoint cadence konfigurierbar.",
@@ -1079,7 +1081,7 @@
       "status": "partial",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 20.0,
+      "progress_percent": 45.0,
       "implementation": {
         "notes": [
           "Ananta-native event/metrics sink als Default.",
@@ -1104,7 +1106,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 20.0,
+      "progress_percent": 35.0,
       "implementation": {
         "notes": [
           "Groesse von Full-Weight-Checkpoints, optimizer states, tokenizer data und eval artifacts separat quotaen.",
@@ -1127,7 +1129,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 30.0,
       "implementation": {
         "notes": [
           "Pretraining braucht staerkere Provenance als kleine SFT-Datasets: source manifests, license policy, robots/consent metadata soweit vorhanden, PII/secret scan, dedup status.",
@@ -1153,7 +1155,7 @@
       "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 25.0,
+      "progress_percent": 60.0,
       "implementation": {
         "notes": [
           "Code tasks nur in existierender isolierter Sandbox/Runner-Infrastruktur.",
@@ -1174,10 +1176,10 @@
       "id": "NCH-029",
       "title": "E2E Research Pipeline Testmatrix erstellen",
       "type": "testing",
-      "status": "todo",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 65.0,
       "implementation": {
         "notes": [
           "Tiny deterministic fixture: tokenizer -> tiny pretrain -> base eval -> SFT -> chat eval -> optional mock RL -> infer bench -> export.",
@@ -1207,7 +1209,7 @@
       "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 25.0,
       "implementation": {
         "notes": [
           "Phase 0 schemas/dry-run, Phase 1 tiny local models, Phase 2 single-GPU research, Phase 3 multi-GPU, Phase 4 optional RL.",
@@ -1309,9 +1311,9 @@
   "tasks_status_summary": {
     "total": 30,
     "by_status": {
-      "todo": 9,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 20,
+      "partial": 29,
       "blocked": 1,
       "done": 0
     },
@@ -1347,16 +1349,16 @@
       "schema": {
         "total": 3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 3,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 2,
+        "partial": 3,
         "blocked": 0,
-        "progress_percent": 10.0
+        "progress_percent": 63.3
       },
       "architecture": {
         "total": 2,
@@ -1370,7 +1372,7 @@
         "done": 0,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 12.5
+        "progress_percent": 72.5
       },
       "security": {
         "total": 3,
@@ -1384,21 +1386,21 @@
         "done": 0,
         "partial": 3,
         "blocked": 0,
-        "progress_percent": 23.3
+        "progress_percent": 55.0
       },
       "backend": {
         "total": 7,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 7,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 3,
+        "partial": 7,
         "blocked": 0,
-        "progress_percent": 7.1
+        "progress_percent": 41.4
       },
       "evaluation": {
         "total": 5,
@@ -1412,7 +1414,7 @@
         "done": 0,
         "partial": 5,
         "blocked": 0,
-        "progress_percent": 14.0
+        "progress_percent": 41.0
       },
       "performance": {
         "total": 1,
@@ -1426,49 +1428,49 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 15.0
+        "progress_percent": 45.0
       },
       "research": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 35.0
       },
       "api": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 75.0
       },
       "frontend": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 70.0
       },
       "storage": {
         "total": 2,
@@ -1482,7 +1484,7 @@
         "done": 0,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 20.0
+        "progress_percent": 47.5
       },
       "reliability": {
         "total": 1,
@@ -1496,7 +1498,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 20.0
+        "progress_percent": 50.0
       },
       "observability": {
         "total": 1,
@@ -1510,21 +1512,21 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 20.0
+        "progress_percent": 45.0
       },
       "testing": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 0,
+          "partial": 1,
           "blocked": 0,
           "done": 0
         },
         "done": 0,
-        "partial": 0,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 65.0
       },
       "rollout": {
         "total": 1,
@@ -1538,17 +1540,17 @@
         "done": 0,
         "partial": 0,
         "blocked": 1,
-        "progress_percent": 0.0
+        "progress_percent": 25.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.5,
-    "done_weight": 5.525,
-    "remaining_weight": 43.975,
+    "done_weight": 24.8,
+    "remaining_weight": 24.7,
     "blocked_weight": 2.0,
-    "weighted_percent": 11.2
+    "weighted_percent": 50.1
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1557,7 +1559,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 16.7,
+        "weighted_percent": 70.0,
         "status": "in_progress"
       },
       "M2": {
@@ -1565,7 +1567,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 6.9,
+        "weighted_percent": 25.8,
         "status": "in_progress"
       },
       "M3": {
@@ -1573,7 +1575,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 12.0,
+        "weighted_percent": 41.7,
         "status": "in_progress"
       },
       "M4": {
@@ -1581,7 +1583,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 4.0,
+        "weighted_percent": 30.5,
         "status": "in_progress"
       },
       "M5": {
@@ -1589,7 +1591,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 11.5,
+        "weighted_percent": 68.5,
         "status": "in_progress"
       },
       "M6": {
@@ -1597,7 +1599,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 6.4,
+        "weighted_percent": 73.9,
         "status": "in_progress"
       },
       "M7": {
@@ -1605,7 +1607,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 20.0,
+        "weighted_percent": 47.5,
         "status": "in_progress"
       },
       "M8": {
@@ -1613,28 +1615,28 @@
         "done": 0,
         "blocked": 1,
         "count_based_percent": 0.0,
-        "weighted_percent": 11.5,
+        "weighted_percent": 43.5,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 9,
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 20,
+    "partial": 29,
     "blocked": 1,
     "done": 0,
     "count_based_percent": 0.0,
-    "weighted_percent": 11.2
+    "weighted_percent": 50.1
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T09:28:04.116890Z",
+    "generated_at": "2026-08-30T09:45:37.102276Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "4aece332ae7ed6113ee148aed93a8bdb9f3d745d78acc24c4ca2c4c135866198",
+    "source_hash": "3dc8e5bb8b381b234f88b7d9d00566a82957e115eb544135fd8c66890679fe82",
     "is_stale": false
   }
 }

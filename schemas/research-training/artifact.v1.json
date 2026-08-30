@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/research-training/artifact.v1.json",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tenant_id", "run_id", "stage_id", "attempt_id", "artifact_kind", "artifact_digest", "size_bytes", "parent_artifact_digests", "recipe_digest", "dataset_digest", "executable", "source_refs", "run_refs"],
+  "properties": {
+    "schema": {"const": "ananta.research-training-artifact.v1"},
+    "tenant_id": {"$ref": "#/$defs/id"},
+    "run_id": {"$ref": "#/$defs/id"},
+    "stage_id": {"$ref": "#/$defs/id"},
+    "attempt_id": {"$ref": "#/$defs/id"},
+    "artifact_kind": {"enum": ["tokenizer", "tokenizer_report", "base_checkpoint", "base_evaluation", "sft_checkpoint", "chat_evaluation", "rl_checkpoint", "rl_evaluation", "inference_benchmark", "model_export"]},
+    "artifact_digest": {"$ref": "#/$defs/digest"},
+    "size_bytes": {"type": "integer", "minimum": 1, "maximum": 1125899906842624},
+    "parent_artifact_digests": {"type": "array", "maxItems": 64, "uniqueItems": true, "items": {"$ref": "#/$defs/digest"}},
+    "recipe_digest": {"$ref": "#/$defs/digest"},
+    "dataset_digest": {"$ref": "#/$defs/digest"},
+    "executable": {"type": "boolean"},
+    "source_refs": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^SRC_[A-Za-z0-9._:-]{1,124}$"}},
+    "run_refs": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "string", "pattern": "^RUN_[A-Za-z0-9._:-]{1,124}$"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
