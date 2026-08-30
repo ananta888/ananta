@@ -1,0 +1,91 @@
+{
+  "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+  "evaluated_at": "2026-08-30T12:49:36.136202Z",
+  "evidence": [
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/contract.json",
+      "reason_codes": [],
+      "sha256": "147488f5acd7a7b49648abf3b8c6fc288fd33131c9dc12715fc84607d45c6638",
+      "status": "passed",
+      "suite": "contract"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/backend.json",
+      "reason_codes": [],
+      "sha256": "c5e67350efc754a3709a2b297f84799444974a8c6032e6971fa8ddb4356a1bc0",
+      "status": "passed",
+      "suite": "backend"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/angular.json",
+      "reason_codes": [],
+      "sha256": "0f991ba9f738033c8829167cd2a75e59778534317c86fef14c0220cf4d7ef090",
+      "status": "passed",
+      "suite": "angular"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/tui.json",
+      "reason_codes": [],
+      "sha256": "f8d5dade8d193117b49b9f57bf6a359ce9e521c2cc977a022ecffd3fd3c285d7",
+      "status": "passed",
+      "suite": "tui"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/security.json",
+      "reason_codes": [],
+      "sha256": "8c9f2d12827fd19c6a67e9cf5c615be7e960374702925ce77a6d5c42b832d894",
+      "status": "passed",
+      "suite": "security"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/accessibility.json",
+      "reason_codes": [],
+      "sha256": "3ca5deb59e58f566d0ea6c985fba1807da9936e33c653471520dc590473c8eef",
+      "status": "passed",
+      "suite": "accessibility"
+    },
+    {
+      "path": "/home/krusty/ananta/artifacts/e2e/kanban-model-dashboard/performance.json",
+      "reason_codes": [],
+      "sha256": "082c6e8840c6e0ca9a04f5029505fbc52d812d42cacaf3f0580e61a7867d1bde",
+      "status": "passed",
+      "suite": "performance"
+    }
+  ],
+  "excluded_actions": [
+    "worker_start",
+    "worker_orchestration",
+    "model_load",
+    "model_unload",
+    "direct_provider_url",
+    "shell_command"
+  ],
+  "fail_closed": true,
+  "profile_id": "kanban-model-dashboard-release-v1",
+  "profile_sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+  "reason_codes": [],
+  "rollout_stages": [
+    {
+      "id": "read_only_models",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "id": "read_only_board",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "id": "board_writes",
+      "reason_codes": [],
+      "status": "passed"
+    },
+    {
+      "id": "allowlisted_default_selection",
+      "reason_codes": [],
+      "status": "passed"
+    }
+  ],
+  "schema": "ananta.kanban-model-dashboard.release-result.v1",
+  "status": "passed"
+}

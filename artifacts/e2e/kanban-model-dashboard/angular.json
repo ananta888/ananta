@@ -1,0 +1,183 @@
+{
+  "candidate": {
+    "checkout_commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "evidence_path_not_in_candidate": true,
+    "input_blobs_verified": true,
+    "verified": true
+  },
+  "commands": [
+    {
+      "allowlist_argv": [
+        "{npx}",
+        "vitest",
+        "run",
+        "src/app/contracts/kanban-model-dashboard.fixture.spec.ts",
+        "src/app/features/tasks/kanban/kanban.store.spec.ts",
+        "src/app/features/system/model-dashboard/model-catalog.client.spec.ts"
+      ],
+      "argv": [
+        "/usr/bin/npx",
+        "vitest",
+        "run",
+        "src/app/contracts/kanban-model-dashboard.fixture.spec.ts",
+        "src/app/features/tasks/kanban/kanban.store.spec.ts",
+        "src/app/features/system/model-dashboard/model-catalog.client.spec.ts"
+      ],
+      "cwd": "frontend-angular",
+      "duration_ms": 2028.54,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:45:39.346127Z",
+      "index": 0,
+      "result_validation": {
+        "kind": "vitest",
+        "observed": {
+          "minimum_passed": 3,
+          "passed": 13
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:45:37.317587Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 476,
+      "stdout_sha256": "5ecbb3da7ea252ec1e2a042bb925d7df8d84f7bc4c850a9fb43474bc1b07cf41",
+      "timeout_seconds": 600
+    }
+  ],
+  "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+  "input_hashes": {
+    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+    "frontend-angular/package-lock.json": "653e8fe7341531cbdbefcec2c5494b9ff0d93728ea0a829a7da6d761138c05f5",
+    "frontend-angular/package.json": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1",
+    "frontend-angular/src/app/contracts/kanban-model-dashboard.fixture.spec.ts": "c05dc0d07ee10992a181cd248c869dac75de587fe2d979185ee88af5aadd4856",
+    "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.spec.ts": "6b47bfa413ebc0febac0d4353df7c67f676e76379fbbca19bea22a8b8893fe3b",
+    "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.ts": "7eb90bf4d381011ba955919149ac972aaed5cf3ef7f43ea5c9429874d567f372",
+    "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.component.ts": "6a7b053d63089c5f75246f0672ce1ae86e3cc70a9b0b8c497392d334e0892bc4",
+    "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.ts": "f2f5139e54dc3cea8757fd4985a222a526d82d9c1b42e30770045c73d11c51f4",
+    "frontend-angular/src/app/features/tasks/kanban/kanban-api.client.ts": "9a03d8187d9e032ba06a87971728e4434cf99af481f01e739fa560adc23fc92c",
+    "frontend-angular/src/app/features/tasks/kanban/kanban.store.spec.ts": "b238d8fe8fe8fab1acff31c9f1d210fcecdf634bfaaac81d5b2817736438d550",
+    "frontend-angular/src/app/features/tasks/kanban/kanban.store.ts": "f28a18691e05afe4196c1b258e1bad92f2af7a879b03b72ebe28a50ffd9c181f",
+    "pyproject.toml": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+    "requirements.txt": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+    "scripts/run_kanban_model_dashboard_evidence.py": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+    "scripts/run_kanban_model_dashboard_release_gate.py": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598"
+  },
+  "inputs": [
+    {
+      "candidate_sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "path": "scripts/run_kanban_model_dashboard_evidence.py",
+      "sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "size_bytes": 49288
+    },
+    {
+      "candidate_sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "path": "scripts/run_kanban_model_dashboard_release_gate.py",
+      "sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "size_bytes": 14161
+    },
+    {
+      "candidate_sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "path": "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
+      "sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "size_bytes": 1361
+    },
+    {
+      "candidate_sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "path": "pyproject.toml",
+      "sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "size_bytes": 7349
+    },
+    {
+      "candidate_sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "path": "requirements.txt",
+      "sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "size_bytes": 657
+    },
+    {
+      "candidate_sha256": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1",
+      "path": "frontend-angular/package.json",
+      "sha256": "4734282a76a787f901f5579d098b0daae75952e5e5ad25f807db3f1b2e3735c1",
+      "size_bytes": 4417
+    },
+    {
+      "candidate_sha256": "653e8fe7341531cbdbefcec2c5494b9ff0d93728ea0a829a7da6d761138c05f5",
+      "path": "frontend-angular/package-lock.json",
+      "sha256": "653e8fe7341531cbdbefcec2c5494b9ff0d93728ea0a829a7da6d761138c05f5",
+      "size_bytes": 708351
+    },
+    {
+      "candidate_sha256": "c05dc0d07ee10992a181cd248c869dac75de587fe2d979185ee88af5aadd4856",
+      "path": "frontend-angular/src/app/contracts/kanban-model-dashboard.fixture.spec.ts",
+      "sha256": "c05dc0d07ee10992a181cd248c869dac75de587fe2d979185ee88af5aadd4856",
+      "size_bytes": 5441
+    },
+    {
+      "candidate_sha256": "9a03d8187d9e032ba06a87971728e4434cf99af481f01e739fa560adc23fc92c",
+      "path": "frontend-angular/src/app/features/tasks/kanban/kanban-api.client.ts",
+      "sha256": "9a03d8187d9e032ba06a87971728e4434cf99af481f01e739fa560adc23fc92c",
+      "size_bytes": 9632
+    },
+    {
+      "candidate_sha256": "f28a18691e05afe4196c1b258e1bad92f2af7a879b03b72ebe28a50ffd9c181f",
+      "path": "frontend-angular/src/app/features/tasks/kanban/kanban.store.ts",
+      "sha256": "f28a18691e05afe4196c1b258e1bad92f2af7a879b03b72ebe28a50ffd9c181f",
+      "size_bytes": 10758
+    },
+    {
+      "candidate_sha256": "b238d8fe8fe8fab1acff31c9f1d210fcecdf634bfaaac81d5b2817736438d550",
+      "path": "frontend-angular/src/app/features/tasks/kanban/kanban.store.spec.ts",
+      "sha256": "b238d8fe8fe8fab1acff31c9f1d210fcecdf634bfaaac81d5b2817736438d550",
+      "size_bytes": 3291
+    },
+    {
+      "candidate_sha256": "7eb90bf4d381011ba955919149ac972aaed5cf3ef7f43ea5c9429874d567f372",
+      "path": "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.ts",
+      "sha256": "7eb90bf4d381011ba955919149ac972aaed5cf3ef7f43ea5c9429874d567f372",
+      "size_bytes": 18922
+    },
+    {
+      "candidate_sha256": "6b47bfa413ebc0febac0d4353df7c67f676e76379fbbca19bea22a8b8893fe3b",
+      "path": "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.spec.ts",
+      "sha256": "6b47bfa413ebc0febac0d4353df7c67f676e76379fbbca19bea22a8b8893fe3b",
+      "size_bytes": 757
+    },
+    {
+      "candidate_sha256": "6a7b053d63089c5f75246f0672ce1ae86e3cc70a9b0b8c497392d334e0892bc4",
+      "path": "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.component.ts",
+      "sha256": "6a7b053d63089c5f75246f0672ce1ae86e3cc70a9b0b8c497392d334e0892bc4",
+      "size_bytes": 50330
+    },
+    {
+      "candidate_sha256": "f2f5139e54dc3cea8757fd4985a222a526d82d9c1b42e30770045c73d11c51f4",
+      "path": "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.ts",
+      "sha256": "f2f5139e54dc3cea8757fd4985a222a526d82d9c1b42e30770045c73d11c51f4",
+      "size_bytes": 30651
+    }
+  ],
+  "produced_at": "2026-08-30T12:45:39.346366Z",
+  "producer": {
+    "allowlist_sha256": "3856bd4adad74b952cc39756dc08224c2b54a9e92eb0a79f7f437fb32eb8fd10",
+    "artifact_boundary": "post_candidate_ci_release_artifact",
+    "name": "kanban-model-dashboard-evidence-producer",
+    "version": "1"
+  },
+  "reason_codes": [],
+  "result_hashes": {},
+  "runtime": {
+    "ci": false,
+    "machine": "x86_64",
+    "npx_executable": "/usr/bin/npx",
+    "operating_system": "Linux",
+    "operating_system_release": "7.0.0-30-generic",
+    "python_executable": "/home/krusty/ananta/.venv/bin/python",
+    "python_implementation": "CPython",
+    "python_version": "3.12.14"
+  },
+  "schema": "ananta.kanban-model-dashboard.evidence.v1",
+  "started_at": "2026-08-30T12:45:37.253575Z",
+  "status": "passed",
+  "suite": "angular"
+}

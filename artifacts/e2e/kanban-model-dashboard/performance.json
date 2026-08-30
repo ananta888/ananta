@@ -1,0 +1,381 @@
+{
+  "candidate": {
+    "checkout_commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "evidence_path_not_in_candidate": true,
+    "input_blobs_verified": true,
+    "verified": true
+  },
+  "commands": [
+    {
+      "allowlist_argv": [
+        "{python}",
+        "scripts/performance/run_kanban_projection_local_diagnostic.py",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/local-performance.v1.json",
+        "--output",
+        "artifacts/kanban-local-performance-diagnostic.json"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "scripts/performance/run_kanban_projection_local_diagnostic.py",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/local-performance.v1.json",
+        "--output",
+        "artifacts/kanban-local-performance-diagnostic.json"
+      ],
+      "cwd": ".",
+      "duration_ms": 1673.782,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:48:35.509414Z",
+      "index": 0,
+      "result_validation": {
+        "kind": "performance_backend",
+        "observed": {
+          "requirements_satisfied": true,
+          "schema": "ananta.kanban-local-performance-diagnostic.v1"
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:48:33.835630Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 1534,
+      "stdout_sha256": "3978c1a093494c8afdd4dbde5ff5186aae2386251e87bb0823db01cdd12dfb6d",
+      "timeout_seconds": 900
+    },
+    {
+      "allowlist_argv": [
+        "{python}",
+        "scripts/performance/run_angular_kanban_local_diagnostic.py",
+        "--output",
+        "artifacts/angular-kanban-local-performance-diagnostic.json"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "scripts/performance/run_angular_kanban_local_diagnostic.py",
+        "--output",
+        "artifacts/angular-kanban-local-performance-diagnostic.json"
+      ],
+      "cwd": ".",
+      "duration_ms": 16569.501,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:48:52.079165Z",
+      "index": 1,
+      "result_validation": {
+        "kind": "performance_angular",
+        "observed": {
+          "requirements_satisfied": true,
+          "schema": "ananta.kanban-performance-local-diagnostic.v1"
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:48:35.509666Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 169,
+      "stdout_sha256": "a1a1d82523fdf9c956e9ae16bddcb9ad7128b319f50cd2e1b6bc8d3bd3ffbae1",
+      "timeout_seconds": 1200
+    },
+    {
+      "allowlist_argv": [
+        "{python}",
+        "scripts/performance/run_tui_kanban_local_diagnostic.py",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/local-tui-performance.v1.json",
+        "--output",
+        "artifacts/tui-kanban-local-performance-diagnostic.json"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "scripts/performance/run_tui_kanban_local_diagnostic.py",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/local-tui-performance.v1.json",
+        "--output",
+        "artifacts/tui-kanban-local-performance-diagnostic.json"
+      ],
+      "cwd": ".",
+      "duration_ms": 24515.314,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:49:16.594828Z",
+      "index": 2,
+      "result_validation": {
+        "kind": "performance_tui",
+        "observed": {
+          "requirements_satisfied": true,
+          "schema": "ananta.tui-kanban-local-performance-diagnostic.v1"
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:48:52.079515Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 3040,
+      "stdout_sha256": "510292c5de738b77a47be878899b5c537ffbcd3e57f73b8409bc0ffc35050710",
+      "timeout_seconds": 900
+    },
+    {
+      "allowlist_argv": [
+        "{python}",
+        "scripts/e2e/tui_kanban_pty_resize.py",
+        "--cards",
+        "1000",
+        "--timeout-seconds",
+        "15",
+        "--output",
+        "artifacts/tui-kanban-pty-resize-local-diagnostic.json"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "scripts/e2e/tui_kanban_pty_resize.py",
+        "--cards",
+        "1000",
+        "--timeout-seconds",
+        "15",
+        "--output",
+        "artifacts/tui-kanban-pty-resize-local-diagnostic.json"
+      ],
+      "cwd": ".",
+      "duration_ms": 5068.887,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:49:21.664117Z",
+      "index": 3,
+      "result_validation": {
+        "kind": "performance_pty",
+        "observed": {
+          "requirements_satisfied": true,
+          "schema": "ananta.tui-kanban-pty-local-diagnostic.v1"
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:49:16.595233Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "timeout_seconds": 300
+    },
+    {
+      "allowlist_argv": [
+        "{python}",
+        "scripts/performance/run_kanban_model_dashboard_performance_suite.py",
+        "evaluate",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json",
+        "--baseline",
+        "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json",
+        "--backend-result",
+        "artifacts/kanban-local-performance-diagnostic.json",
+        "--angular-result",
+        "artifacts/angular-kanban-local-performance-diagnostic.json",
+        "--tui-result",
+        "artifacts/tui-kanban-local-performance-diagnostic.json",
+        "--pty-result",
+        "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
+        "--output",
+        "artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "scripts/performance/run_kanban_model_dashboard_performance_suite.py",
+        "evaluate",
+        "--profile",
+        "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json",
+        "--baseline",
+        "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json",
+        "--backend-result",
+        "artifacts/kanban-local-performance-diagnostic.json",
+        "--angular-result",
+        "artifacts/angular-kanban-local-performance-diagnostic.json",
+        "--tui-result",
+        "artifacts/tui-kanban-local-performance-diagnostic.json",
+        "--pty-result",
+        "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
+        "--output",
+        "artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json"
+      ],
+      "cwd": ".",
+      "duration_ms": 546.15,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:49:22.210615Z",
+      "index": 4,
+      "result_validation": {
+        "kind": "performance_gate",
+        "observed": {
+          "requirements_satisfied": true,
+          "schema": "ananta.kanban-model-dashboard.performance-gate.v1"
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:49:21.664466Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 119,
+      "stdout_sha256": "acc4bd5f50777cad4f8e697ca15e2464d164eb40e78d4daeb063e5a4375b3b92",
+      "timeout_seconds": 300
+    }
+  ],
+  "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+  "input_hashes": {
+    "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json": "a5acbcc467641e1ce29c2e1b6abc8bef88fd984747b68a99fa69d302ba70de7b",
+    "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json": "e3ff425d8e0ac5a4b93d7089d75efdb3b603bda90746a0a27fd2d9104559ccb7",
+    "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json": "1267cc6d24aaaad67f1ca2f1328c817d6a3af99dfcd5f3116eb2b3a81f3bbc4c",
+    "config/test-profiles/kanban-model-dashboard/local-performance.v1.json": "ddb941337deb37acbc8f3a2770d9170bf5e8793959beb370cc1ef17aa76d4c0c",
+    "config/test-profiles/kanban-model-dashboard/local-tui-performance.v1.json": "aef70f83dbe129141e960bb9e1bb0eaea1851e2ccdbe747f550e335c44d7ca47",
+    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+    "frontend-angular/tests/kanban-performance.local.spec.ts": "e7a88736f9dda81660ec37f4607bfb3400cc84002097d5849c194b2aec89923a",
+    "pyproject.toml": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+    "requirements.txt": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+    "scripts/e2e/tui_kanban_pty_resize.py": "03cbc72a5c5a9b6c6038d68abe0a8db30af83ad37d73a41d950f46c79cbee818",
+    "scripts/performance/kanban_baseline_approval_policy.py": "b668ae61e089285f6d7b140ec70ca6499c486a20a8e69c8cc8c868dbc3ad26e0",
+    "scripts/performance/run_angular_kanban_local_diagnostic.py": "5c0961713ac7b615abef7ce3aef8521cbac6b4656d087d09088fc1306096b976",
+    "scripts/performance/run_kanban_model_dashboard_performance_suite.py": "b09f24b3e970a36df3c74c6f09147ad15238a9bb48e362a90429c9c52f64dc77",
+    "scripts/performance/run_kanban_projection_local_diagnostic.py": "7ff54621252bc9a000de613c5788c8793d249e84947bc974352b71ef4630c73f",
+    "scripts/performance/run_tui_kanban_local_diagnostic.py": "4a22b42605142cd3356b1913065bfd8bc0c10fbf5295a224866a5decdaf41cd3",
+    "scripts/run_kanban_model_dashboard_evidence.py": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+    "scripts/run_kanban_model_dashboard_release_gate.py": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598"
+  },
+  "inputs": [
+    {
+      "candidate_sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "path": "scripts/run_kanban_model_dashboard_evidence.py",
+      "sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "size_bytes": 49288
+    },
+    {
+      "candidate_sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "path": "scripts/run_kanban_model_dashboard_release_gate.py",
+      "sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "size_bytes": 14161
+    },
+    {
+      "candidate_sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "path": "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
+      "sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "size_bytes": 1361
+    },
+    {
+      "candidate_sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "path": "pyproject.toml",
+      "sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "size_bytes": 7349
+    },
+    {
+      "candidate_sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "path": "requirements.txt",
+      "sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "size_bytes": 657
+    },
+    {
+      "candidate_sha256": "7ff54621252bc9a000de613c5788c8793d249e84947bc974352b71ef4630c73f",
+      "path": "scripts/performance/run_kanban_projection_local_diagnostic.py",
+      "sha256": "7ff54621252bc9a000de613c5788c8793d249e84947bc974352b71ef4630c73f",
+      "size_bytes": 12795
+    },
+    {
+      "candidate_sha256": "5c0961713ac7b615abef7ce3aef8521cbac6b4656d087d09088fc1306096b976",
+      "path": "scripts/performance/run_angular_kanban_local_diagnostic.py",
+      "sha256": "5c0961713ac7b615abef7ce3aef8521cbac6b4656d087d09088fc1306096b976",
+      "size_bytes": 6843
+    },
+    {
+      "candidate_sha256": "4a22b42605142cd3356b1913065bfd8bc0c10fbf5295a224866a5decdaf41cd3",
+      "path": "scripts/performance/run_tui_kanban_local_diagnostic.py",
+      "sha256": "4a22b42605142cd3356b1913065bfd8bc0c10fbf5295a224866a5decdaf41cd3",
+      "size_bytes": 18836
+    },
+    {
+      "candidate_sha256": "b09f24b3e970a36df3c74c6f09147ad15238a9bb48e362a90429c9c52f64dc77",
+      "path": "scripts/performance/run_kanban_model_dashboard_performance_suite.py",
+      "sha256": "b09f24b3e970a36df3c74c6f09147ad15238a9bb48e362a90429c9c52f64dc77",
+      "size_bytes": 43593
+    },
+    {
+      "candidate_sha256": "b668ae61e089285f6d7b140ec70ca6499c486a20a8e69c8cc8c868dbc3ad26e0",
+      "path": "scripts/performance/kanban_baseline_approval_policy.py",
+      "sha256": "b668ae61e089285f6d7b140ec70ca6499c486a20a8e69c8cc8c868dbc3ad26e0",
+      "size_bytes": 15541
+    },
+    {
+      "candidate_sha256": "03cbc72a5c5a9b6c6038d68abe0a8db30af83ad37d73a41d950f46c79cbee818",
+      "path": "scripts/e2e/tui_kanban_pty_resize.py",
+      "sha256": "03cbc72a5c5a9b6c6038d68abe0a8db30af83ad37d73a41d950f46c79cbee818",
+      "size_bytes": 17451
+    },
+    {
+      "candidate_sha256": "e7a88736f9dda81660ec37f4607bfb3400cc84002097d5849c194b2aec89923a",
+      "path": "frontend-angular/tests/kanban-performance.local.spec.ts",
+      "sha256": "e7a88736f9dda81660ec37f4607bfb3400cc84002097d5849c194b2aec89923a",
+      "size_bytes": 17114
+    },
+    {
+      "candidate_sha256": "ddb941337deb37acbc8f3a2770d9170bf5e8793959beb370cc1ef17aa76d4c0c",
+      "path": "config/test-profiles/kanban-model-dashboard/local-performance.v1.json",
+      "sha256": "ddb941337deb37acbc8f3a2770d9170bf5e8793959beb370cc1ef17aa76d4c0c",
+      "size_bytes": 1103
+    },
+    {
+      "candidate_sha256": "aef70f83dbe129141e960bb9e1bb0eaea1851e2ccdbe747f550e335c44d7ca47",
+      "path": "config/test-profiles/kanban-model-dashboard/local-tui-performance.v1.json",
+      "sha256": "aef70f83dbe129141e960bb9e1bb0eaea1851e2ccdbe747f550e335c44d7ca47",
+      "size_bytes": 1267
+    },
+    {
+      "candidate_sha256": "1267cc6d24aaaad67f1ca2f1328c817d6a3af99dfcd5f3116eb2b3a81f3bbc4c",
+      "path": "config/test-profiles/kanban-model-dashboard/formal-performance.v1.json",
+      "sha256": "1267cc6d24aaaad67f1ca2f1328c817d6a3af99dfcd5f3116eb2b3a81f3bbc4c",
+      "size_bytes": 5195
+    },
+    {
+      "candidate_sha256": "a5acbcc467641e1ce29c2e1b6abc8bef88fd984747b68a99fa69d302ba70de7b",
+      "path": "config/test-profiles/kanban-model-dashboard/baseline-approval-policy.v1.json",
+      "sha256": "a5acbcc467641e1ce29c2e1b6abc8bef88fd984747b68a99fa69d302ba70de7b",
+      "size_bytes": 604
+    },
+    {
+      "candidate_sha256": "e3ff425d8e0ac5a4b93d7089d75efdb3b603bda90746a0a27fd2d9104559ccb7",
+      "path": "config/test-profiles/kanban-model-dashboard/baselines/formal-performance-approved.v1.json",
+      "sha256": "e3ff425d8e0ac5a4b93d7089d75efdb3b603bda90746a0a27fd2d9104559ccb7",
+      "size_bytes": 8425
+    }
+  ],
+  "produced_at": "2026-08-30T12:49:22.211106Z",
+  "producer": {
+    "allowlist_sha256": "ab33bc0a6b7cf732c7aacd92b97bd63b32bec444b3d747eeb070b89b756769ff",
+    "artifact_boundary": "post_candidate_ci_release_artifact",
+    "name": "kanban-model-dashboard-evidence-producer",
+    "version": "1"
+  },
+  "reason_codes": [],
+  "result_hashes": {
+    "artifacts/angular-kanban-local-performance-diagnostic.json": "e57e19f212a6317a96e384cc39290583e9fff4424356656892be7ada7db84b2c",
+    "artifacts/kanban-local-performance-diagnostic.json": "3978c1a093494c8afdd4dbde5ff5186aae2386251e87bb0823db01cdd12dfb6d",
+    "artifacts/test-gates/kanban-model-dashboard-performance-gate.v1.json": "cd635ae2f8f43a5f9a25065f799c8c3c45bf7451d89f9861f13845c6354f7a98",
+    "artifacts/tui-kanban-local-performance-diagnostic.json": "510292c5de738b77a47be878899b5c537ffbcd3e57f73b8409bc0ffc35050710",
+    "artifacts/tui-kanban-pty-resize-local-diagnostic.json": "d9f720e79e583c3e9f5454b7ead8333bc3694d394db444f3dd73a8d5100196cb"
+  },
+  "runtime": {
+    "ci": false,
+    "machine": "x86_64",
+    "npx_executable": "/usr/bin/npx",
+    "operating_system": "Linux",
+    "operating_system_release": "7.0.0-30-generic",
+    "python_executable": "/home/krusty/ananta/.venv/bin/python",
+    "python_implementation": "CPython",
+    "python_version": "3.12.14"
+  },
+  "schema": "ananta.kanban-model-dashboard.evidence.v1",
+  "started_at": "2026-08-30T12:48:33.708064Z",
+  "status": "passed",
+  "suite": "performance"
+}

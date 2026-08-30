@@ -1,0 +1,237 @@
+{
+  "candidate": {
+    "checkout_commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "evidence_path_not_in_candidate": true,
+    "input_blobs_verified": true,
+    "verified": true
+  },
+  "commands": [
+    {
+      "allowlist_argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_kanban_projection_service.py",
+        "tests/test_kanban_api.py",
+        "tests/test_kanban_durable_outbox.py",
+        "tests/test_kanban_outbox_migration.py",
+        "tests/test_kanban_event_stream_service.py",
+        "tests/test_kanban_event_api.py",
+        "tests/test_model_catalog_service.py",
+        "tests/test_model_catalog_api.py"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_kanban_projection_service.py",
+        "tests/test_kanban_api.py",
+        "tests/test_kanban_durable_outbox.py",
+        "tests/test_kanban_outbox_migration.py",
+        "tests/test_kanban_event_stream_service.py",
+        "tests/test_kanban_event_api.py",
+        "tests/test_model_catalog_service.py",
+        "tests/test_model_catalog_api.py"
+      ],
+      "cwd": ".",
+      "duration_ms": 64589.541,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:45:37.244470Z",
+      "index": 0,
+      "result_validation": {
+        "kind": "pytest",
+        "observed": {
+          "minimum_passed": 12,
+          "passed": 44
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:44:32.654927Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 1514,
+      "stdout_sha256": "f978b1dd8952939405fb2bf987413af38314072a868c04d71cb2401a7a02de36",
+      "timeout_seconds": 900
+    }
+  ],
+  "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+  "input_hashes": {
+    "agent/db_models/kanban_projection.py": "2133bd8a1621789649bb809a9bf468fc3025398fcb4ebf15c545c5ce54ab53a7",
+    "agent/repositories/kanban_projection.py": "2ec13e532bb4b7eaa4da387f4e6c19df5209cb9e33dc2f94417f8b8f0d1b049c",
+    "agent/routes/config/providers.py": "1a591dcac596daddfb012d4bf07e9cd82c88807fecf381b5fe017ba2881a4f61",
+    "agent/routes/tasks/kanban.py": "af4e8d6a9de96acf62ce24eceb0ae939b50444faa51bc5c756fdb3f43526e86c",
+    "agent/services/kanban_event_stream_service.py": "fe357bc38edc61ebd3d5086196b89d3b94f8c39fab7299bed277d17fbebd12ca",
+    "agent/services/kanban_projection_service.py": "59fd6053929d41b9a790bf179e678af3284f41c34d3de4f4b6728c3ff5e098a1",
+    "agent/services/model_catalog_service.py": "17e0dece878c50906893eca17ca55eebef3d4c4cefd36c9ba1cf173354aa2837",
+    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+    "migrations/versions/b8d0f2a4c6e8_add_kanban_event_outbox.py": "0aea2aadf0d4a3da7302a6a46b102e945073e248acc122d3367369e0d03fc55f",
+    "pyproject.toml": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+    "requirements.txt": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+    "scripts/run_kanban_model_dashboard_evidence.py": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+    "scripts/run_kanban_model_dashboard_release_gate.py": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+    "tests/test_kanban_api.py": "82badddae220bcbfcd861b74f3b257e7d3a2f0f2ace23fe91eab5b55355a1286",
+    "tests/test_kanban_durable_outbox.py": "7902fa6dace2c328e7d71e38dff6f3fa767b49f6eca0152a1bd1a1b388b376fd",
+    "tests/test_kanban_event_api.py": "edb565170826b1a01315b0e7b9dfe80d478e356295b6afeea9b5c8a86ca4a1b1",
+    "tests/test_kanban_event_stream_service.py": "b8b5a872afb2c07fb409c9d0a192a662d6fd9224ec8edf62f2dfc333745d6b7c",
+    "tests/test_kanban_outbox_migration.py": "845b4bbbae49315cbef4d6969cea0f15bc2470612bf554b28717025f1b4c3509",
+    "tests/test_kanban_projection_service.py": "8b76d457cccfe375d6300f05056d2ee23612f40f158395d4c0a2963564fbcc6c",
+    "tests/test_model_catalog_api.py": "1c3f4416a31c41a428bac14a8b44012113578385f3f3bd329fccdc379e1d0305",
+    "tests/test_model_catalog_service.py": "1ee659d4337a3b7a717f0aed0e1285528fdcfa00886a7487eb70f5806613850b"
+  },
+  "inputs": [
+    {
+      "candidate_sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "path": "scripts/run_kanban_model_dashboard_evidence.py",
+      "sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "size_bytes": 49288
+    },
+    {
+      "candidate_sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "path": "scripts/run_kanban_model_dashboard_release_gate.py",
+      "sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "size_bytes": 14161
+    },
+    {
+      "candidate_sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "path": "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
+      "sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "size_bytes": 1361
+    },
+    {
+      "candidate_sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "path": "pyproject.toml",
+      "sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "size_bytes": 7349
+    },
+    {
+      "candidate_sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "path": "requirements.txt",
+      "sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "size_bytes": 657
+    },
+    {
+      "candidate_sha256": "2133bd8a1621789649bb809a9bf468fc3025398fcb4ebf15c545c5ce54ab53a7",
+      "path": "agent/db_models/kanban_projection.py",
+      "sha256": "2133bd8a1621789649bb809a9bf468fc3025398fcb4ebf15c545c5ce54ab53a7",
+      "size_bytes": 2197
+    },
+    {
+      "candidate_sha256": "2ec13e532bb4b7eaa4da387f4e6c19df5209cb9e33dc2f94417f8b8f0d1b049c",
+      "path": "agent/repositories/kanban_projection.py",
+      "sha256": "2ec13e532bb4b7eaa4da387f4e6c19df5209cb9e33dc2f94417f8b8f0d1b049c",
+      "size_bytes": 14840
+    },
+    {
+      "candidate_sha256": "59fd6053929d41b9a790bf179e678af3284f41c34d3de4f4b6728c3ff5e098a1",
+      "path": "agent/services/kanban_projection_service.py",
+      "sha256": "59fd6053929d41b9a790bf179e678af3284f41c34d3de4f4b6728c3ff5e098a1",
+      "size_bytes": 43491
+    },
+    {
+      "candidate_sha256": "fe357bc38edc61ebd3d5086196b89d3b94f8c39fab7299bed277d17fbebd12ca",
+      "path": "agent/services/kanban_event_stream_service.py",
+      "sha256": "fe357bc38edc61ebd3d5086196b89d3b94f8c39fab7299bed277d17fbebd12ca",
+      "size_bytes": 20077
+    },
+    {
+      "candidate_sha256": "17e0dece878c50906893eca17ca55eebef3d4c4cefd36c9ba1cf173354aa2837",
+      "path": "agent/services/model_catalog_service.py",
+      "sha256": "17e0dece878c50906893eca17ca55eebef3d4c4cefd36c9ba1cf173354aa2837",
+      "size_bytes": 25005
+    },
+    {
+      "candidate_sha256": "af4e8d6a9de96acf62ce24eceb0ae939b50444faa51bc5c756fdb3f43526e86c",
+      "path": "agent/routes/tasks/kanban.py",
+      "sha256": "af4e8d6a9de96acf62ce24eceb0ae939b50444faa51bc5c756fdb3f43526e86c",
+      "size_bytes": 11446
+    },
+    {
+      "candidate_sha256": "1a591dcac596daddfb012d4bf07e9cd82c88807fecf381b5fe017ba2881a4f61",
+      "path": "agent/routes/config/providers.py",
+      "sha256": "1a591dcac596daddfb012d4bf07e9cd82c88807fecf381b5fe017ba2881a4f61",
+      "size_bytes": 44741
+    },
+    {
+      "candidate_sha256": "0aea2aadf0d4a3da7302a6a46b102e945073e248acc122d3367369e0d03fc55f",
+      "path": "migrations/versions/b8d0f2a4c6e8_add_kanban_event_outbox.py",
+      "sha256": "0aea2aadf0d4a3da7302a6a46b102e945073e248acc122d3367369e0d03fc55f",
+      "size_bytes": 2979
+    },
+    {
+      "candidate_sha256": "8b76d457cccfe375d6300f05056d2ee23612f40f158395d4c0a2963564fbcc6c",
+      "path": "tests/test_kanban_projection_service.py",
+      "sha256": "8b76d457cccfe375d6300f05056d2ee23612f40f158395d4c0a2963564fbcc6c",
+      "size_bytes": 6380
+    },
+    {
+      "candidate_sha256": "82badddae220bcbfcd861b74f3b257e7d3a2f0f2ace23fe91eab5b55355a1286",
+      "path": "tests/test_kanban_api.py",
+      "sha256": "82badddae220bcbfcd861b74f3b257e7d3a2f0f2ace23fe91eab5b55355a1286",
+      "size_bytes": 2619
+    },
+    {
+      "candidate_sha256": "7902fa6dace2c328e7d71e38dff6f3fa767b49f6eca0152a1bd1a1b388b376fd",
+      "path": "tests/test_kanban_durable_outbox.py",
+      "sha256": "7902fa6dace2c328e7d71e38dff6f3fa767b49f6eca0152a1bd1a1b388b376fd",
+      "size_bytes": 5490
+    },
+    {
+      "candidate_sha256": "845b4bbbae49315cbef4d6969cea0f15bc2470612bf554b28717025f1b4c3509",
+      "path": "tests/test_kanban_outbox_migration.py",
+      "sha256": "845b4bbbae49315cbef4d6969cea0f15bc2470612bf554b28717025f1b4c3509",
+      "size_bytes": 1949
+    },
+    {
+      "candidate_sha256": "b8b5a872afb2c07fb409c9d0a192a662d6fd9224ec8edf62f2dfc333745d6b7c",
+      "path": "tests/test_kanban_event_stream_service.py",
+      "sha256": "b8b5a872afb2c07fb409c9d0a192a662d6fd9224ec8edf62f2dfc333745d6b7c",
+      "size_bytes": 5006
+    },
+    {
+      "candidate_sha256": "edb565170826b1a01315b0e7b9dfe80d478e356295b6afeea9b5c8a86ca4a1b1",
+      "path": "tests/test_kanban_event_api.py",
+      "sha256": "edb565170826b1a01315b0e7b9dfe80d478e356295b6afeea9b5c8a86ca4a1b1",
+      "size_bytes": 9409
+    },
+    {
+      "candidate_sha256": "1ee659d4337a3b7a717f0aed0e1285528fdcfa00886a7487eb70f5806613850b",
+      "path": "tests/test_model_catalog_service.py",
+      "sha256": "1ee659d4337a3b7a717f0aed0e1285528fdcfa00886a7487eb70f5806613850b",
+      "size_bytes": 5591
+    },
+    {
+      "candidate_sha256": "1c3f4416a31c41a428bac14a8b44012113578385f3f3bd329fccdc379e1d0305",
+      "path": "tests/test_model_catalog_api.py",
+      "sha256": "1c3f4416a31c41a428bac14a8b44012113578385f3f3bd329fccdc379e1d0305",
+      "size_bytes": 21952
+    }
+  ],
+  "produced_at": "2026-08-30T12:45:37.244729Z",
+  "producer": {
+    "allowlist_sha256": "217a7983e1a4a656cd3ee37901417788ef1bd79c21e2640948510ccaf32ee9cc",
+    "artifact_boundary": "post_candidate_ci_release_artifact",
+    "name": "kanban-model-dashboard-evidence-producer",
+    "version": "1"
+  },
+  "reason_codes": [],
+  "result_hashes": {},
+  "runtime": {
+    "ci": false,
+    "machine": "x86_64",
+    "npx_executable": "/usr/bin/npx",
+    "operating_system": "Linux",
+    "operating_system_release": "7.0.0-30-generic",
+    "python_executable": "/home/krusty/ananta/.venv/bin/python",
+    "python_implementation": "CPython",
+    "python_version": "3.12.14"
+  },
+  "schema": "ananta.kanban-model-dashboard.evidence.v1",
+  "started_at": "2026-08-30T12:44:32.498869Z",
+  "status": "passed",
+  "suite": "backend"
+}

@@ -1,0 +1,166 @@
+{
+  "candidate": {
+    "checkout_commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+    "evidence_path_not_in_candidate": true,
+    "input_blobs_verified": true,
+    "verified": true
+  },
+  "commands": [
+    {
+      "allowlist_argv": [
+        "{python}",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_kanban_contracts.py",
+        "tests/test_model_catalog_contract.py",
+        "tests/test_kanban_model_dashboard_shared_contract.py",
+        "tests/client_surfaces/operator_tui/test_dashboard_shared_contract_fixture.py"
+      ],
+      "argv": [
+        "/home/krusty/ananta/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_kanban_contracts.py",
+        "tests/test_model_catalog_contract.py",
+        "tests/test_kanban_model_dashboard_shared_contract.py",
+        "tests/client_surfaces/operator_tui/test_dashboard_shared_contract_fixture.py"
+      ],
+      "cwd": ".",
+      "duration_ms": 15517.414,
+      "env_overrides": {},
+      "exit_code": 0,
+      "finished_at": "2026-08-30T12:44:32.421923Z",
+      "index": 0,
+      "result_validation": {
+        "kind": "pytest",
+        "observed": {
+          "minimum_passed": 4,
+          "passed": 8
+        },
+        "status": "passed"
+      },
+      "started_at": "2026-08-30T12:44:16.904508Z",
+      "status": "passed",
+      "stderr_bytes": 0,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_bytes": 1199,
+      "stdout_sha256": "b2d8fde7af551ed8bc27df53497be2e93f485acb80297c7a68ad33c2645151d9",
+      "timeout_seconds": 600
+    }
+  ],
+  "commit_sha": "89fc65d5a984a7a91bc8b2f136b0a2a17cba5fd1",
+  "input_hashes": {
+    "ananta_contracts/kanban.py": "b7d3e62764f72e7c5ef796b266119232953bd542f1064df9c3d1ef663fdac48b",
+    "ananta_contracts/kanban_events.py": "c8820fd1c8a5bb0b72de6143da4a4967518100720f1e33a3ea7a16fd0472442b",
+    "ananta_contracts/model_catalog.py": "8fc2a26b3aa3b0c105550f5d169152959f0b3567802b02589206a624496833e9",
+    "config/test-profiles/kanban-model-dashboard/release-gate.v1.json": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+    "pyproject.toml": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+    "requirements.txt": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+    "scripts/run_kanban_model_dashboard_evidence.py": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+    "scripts/run_kanban_model_dashboard_release_gate.py": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+    "tests/client_surfaces/operator_tui/test_dashboard_shared_contract_fixture.py": "24de93dc0fcde18f4f22e4cb65bcd9cf4b8c351a31b460c135d786f4e2a99cc8",
+    "tests/test_kanban_contracts.py": "5e31b43c36120fdc5f5676c38255708937340cb221d74614e8b5b72a8ae1bdaf",
+    "tests/test_kanban_model_dashboard_shared_contract.py": "97b9183165e34baa3872706f3878d5584534c9aea30fc681552a4545674ea988",
+    "tests/test_model_catalog_contract.py": "6aeb9964b7a1e0e1368fe7ce2914c8588eda9e7a2907206bbf3e2587aacdb352"
+  },
+  "inputs": [
+    {
+      "candidate_sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "path": "scripts/run_kanban_model_dashboard_evidence.py",
+      "sha256": "9e3e0cb2058c03e59008f4bbada3af9d52fa098e05d3c52ba39a264156eee08f",
+      "size_bytes": 49288
+    },
+    {
+      "candidate_sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "path": "scripts/run_kanban_model_dashboard_release_gate.py",
+      "sha256": "760bf70f08d2e049231078740fe7d2b31224756cc4c4a0c6c01cd36cb8862598",
+      "size_bytes": 14161
+    },
+    {
+      "candidate_sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "path": "config/test-profiles/kanban-model-dashboard/release-gate.v1.json",
+      "sha256": "e78439f21d0cca869ae54ee7c92254ca06d017cd3778d433753c5cde23c476da",
+      "size_bytes": 1361
+    },
+    {
+      "candidate_sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "path": "pyproject.toml",
+      "sha256": "b2f8c04ffd560e8f099a73e55d5e90b382ab6e063bce745234195b83d7ed79d7",
+      "size_bytes": 7349
+    },
+    {
+      "candidate_sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "path": "requirements.txt",
+      "sha256": "f6bee3e1c5476c6196ac8ef339c3826710f6f753955a219ce22fb385fd6677f2",
+      "size_bytes": 657
+    },
+    {
+      "candidate_sha256": "b7d3e62764f72e7c5ef796b266119232953bd542f1064df9c3d1ef663fdac48b",
+      "path": "ananta_contracts/kanban.py",
+      "sha256": "b7d3e62764f72e7c5ef796b266119232953bd542f1064df9c3d1ef663fdac48b",
+      "size_bytes": 7880
+    },
+    {
+      "candidate_sha256": "c8820fd1c8a5bb0b72de6143da4a4967518100720f1e33a3ea7a16fd0472442b",
+      "path": "ananta_contracts/kanban_events.py",
+      "sha256": "c8820fd1c8a5bb0b72de6143da4a4967518100720f1e33a3ea7a16fd0472442b",
+      "size_bytes": 4868
+    },
+    {
+      "candidate_sha256": "8fc2a26b3aa3b0c105550f5d169152959f0b3567802b02589206a624496833e9",
+      "path": "ananta_contracts/model_catalog.py",
+      "sha256": "8fc2a26b3aa3b0c105550f5d169152959f0b3567802b02589206a624496833e9",
+      "size_bytes": 15092
+    },
+    {
+      "candidate_sha256": "5e31b43c36120fdc5f5676c38255708937340cb221d74614e8b5b72a8ae1bdaf",
+      "path": "tests/test_kanban_contracts.py",
+      "sha256": "5e31b43c36120fdc5f5676c38255708937340cb221d74614e8b5b72a8ae1bdaf",
+      "size_bytes": 680
+    },
+    {
+      "candidate_sha256": "6aeb9964b7a1e0e1368fe7ce2914c8588eda9e7a2907206bbf3e2587aacdb352",
+      "path": "tests/test_model_catalog_contract.py",
+      "sha256": "6aeb9964b7a1e0e1368fe7ce2914c8588eda9e7a2907206bbf3e2587aacdb352",
+      "size_bytes": 3714
+    },
+    {
+      "candidate_sha256": "97b9183165e34baa3872706f3878d5584534c9aea30fc681552a4545674ea988",
+      "path": "tests/test_kanban_model_dashboard_shared_contract.py",
+      "sha256": "97b9183165e34baa3872706f3878d5584534c9aea30fc681552a4545674ea988",
+      "size_bytes": 2877
+    },
+    {
+      "candidate_sha256": "24de93dc0fcde18f4f22e4cb65bcd9cf4b8c351a31b460c135d786f4e2a99cc8",
+      "path": "tests/client_surfaces/operator_tui/test_dashboard_shared_contract_fixture.py",
+      "sha256": "24de93dc0fcde18f4f22e4cb65bcd9cf4b8c351a31b460c135d786f4e2a99cc8",
+      "size_bytes": 4265
+    }
+  ],
+  "produced_at": "2026-08-30T12:44:32.422337Z",
+  "producer": {
+    "allowlist_sha256": "4355c0e28164978460e115cc3de9fb2c53f859260d2d4c2f1d69a815e6ba11fb",
+    "artifact_boundary": "post_candidate_ci_release_artifact",
+    "name": "kanban-model-dashboard-evidence-producer",
+    "version": "1"
+  },
+  "reason_codes": [],
+  "result_hashes": {},
+  "runtime": {
+    "ci": false,
+    "machine": "x86_64",
+    "npx_executable": "/usr/bin/npx",
+    "operating_system": "Linux",
+    "operating_system_release": "7.0.0-30-generic",
+    "python_executable": "/home/krusty/ananta/.venv/bin/python",
+    "python_implementation": "CPython",
+    "python_version": "3.12.14"
+  },
+  "schema": "ananta.kanban-model-dashboard.evidence.v1",
+  "started_at": "2026-08-30T12:44:16.829797Z",
+  "status": "passed",
+  "suite": "contract"
+}
