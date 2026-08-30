@@ -1098,7 +1098,8 @@
     "The final targeted SIRA and adjacent queue, authorization, configuration and Worker-registration regression block passed 146 tests in 84.36 seconds.",
     "The closed benchmark policy, uncertainty and efficiency gates plus the persistent Hub-owned rollout controller are implemented; the final SIRA, feature-flag and startup regression block passed 75 tests in 46.87 seconds.",
     "The Hub remains the sole control plane. Direct Hub access to Worker index files and Worker-created orchestration were not introduced.",
-    "Audit 2026-08-30: SIRA-020 und SIRA-021 wurden erneut gegen main@6cedcfddb geprueft. Evaluation, server-owned Policy Gate, persistente automatische Shadow-Canary-Preferred-Zustandsmaschine, Kill-Switches und automatische Rollbacks sind implementiert; lokal ist keine Source-Luecke offen. Die Validierungsbefehle wurden an die tatsaechlichen CLI-Vertraege angepasst."
+    "Audit 2026-08-30: SIRA-020 und SIRA-021 wurden erneut gegen main@6cedcfddb geprueft. Evaluation, server-owned Policy Gate, persistente automatische Shadow-Canary-Preferred-Zustandsmaschine, Kill-Switches und automatische Rollbacks sind implementiert; lokal ist keine Source-Luecke offen. Die Validierungsbefehle wurden an die tatsaechlichen CLI-Vertraege angepasst.",
+    "Verifikation 2026-08-30: 53 fokussierte Python-Tests und 2 Angular-Tests liefen vollautomatisch fehlerfrei. Der reale Fixture-Evaluator reproduzierte +0.428571 fuer Recall@10, nDCG@10, MRR und Evidence-Coverage und verweigerte die Aktivierung korrekt fail-closed wegen fehlender Produktionsbindung, Repository-Abdeckung und Effizienzmessungen."
   ],
   "audit_findings": {
     "format": "Das bisherige category_meta-Format wurde in den kanonischen Planning-Track-Vertrag mit flachen tasks[] und milestones[] ueberfuehrt.",
