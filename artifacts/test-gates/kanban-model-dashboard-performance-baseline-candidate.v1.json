@@ -2,73 +2,73 @@
   "absolute_evaluation": {
     "checks": {
       "angular.filter_p50_ms": {
-        "actual": 415.90000000596046,
+        "actual": 907.3999999761581,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "angular.filter_p95_ms": {
-        "actual": 874.8000000119209,
+        "actual": 917.5,
         "budget": 1800.0,
         "operator": "<=",
         "passed": true
       },
       "angular.render_p50_ms": {
-        "actual": 1536.4000000059605,
+        "actual": 1213.3999999761581,
         "budget": 4000.0,
         "operator": "<=",
         "passed": true
       },
       "angular.render_p95_ms": {
-        "actual": 1570.9000000059605,
+        "actual": 1233.2000000476837,
         "budget": 5000.0,
         "operator": "<=",
         "passed": true
       },
       "backend.move_p50_ms": {
-        "actual": 0.0005983184964861721,
+        "actual": 0.0005477105150930583,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "backend.move_p95_ms": {
-        "actual": 0.000786841002991423,
+        "actual": 0.0005789080169051886,
         "budget": 2500.0,
         "operator": "<=",
         "passed": true
       },
       "backend.snapshot_p50_ms": {
-        "actual": 0.05629868898540735,
+        "actual": 0.04246467398479581,
         "budget": 1000.0,
         "operator": "<=",
         "passed": true
       },
       "backend.snapshot_p95_ms": {
-        "actual": 0.06494978803675622,
+        "actual": 0.042822430143132806,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "browser.long_task_count_p50": {
-        "actual": 4.0,
+        "actual": 3.0,
         "budget": 20.0,
         "operator": "<=",
         "passed": true
       },
       "browser.long_task_count_p95": {
-        "actual": 5.0,
+        "actual": 3.0,
         "budget": 30.0,
         "operator": "<=",
         "passed": true
       },
       "browser.long_task_total_p95_ms": {
-        "actual": 489.0,
+        "actual": 349.0,
         "budget": 3000.0,
         "operator": "<=",
         "passed": true
       },
       "browser.longest_task_p95_ms": {
-        "actual": 254.0,
+        "actual": 168.0,
         "budget": 900.0,
         "operator": "<=",
         "passed": true
@@ -86,37 +86,37 @@
         "passed": true
       },
       "events.observed_rate_per_second": {
-        "actual": 102.91734091596108,
+        "actual": 102.80147204930257,
         "budget": 100.0,
         "operator": ">=",
         "passed": true
       },
       "memory.peak_rss_mb": {
-        "actual": 154.8203125,
+        "actual": 175.1953125,
         "budget": 2048.0,
         "operator": "<=",
         "passed": true
       },
       "tui.pty_resize_p50_ms": {
-        "actual": 8.315,
+        "actual": 5.925,
         "budget": 1000.0,
         "operator": "<=",
         "passed": true
       },
       "tui.pty_resize_p95_ms": {
-        "actual": 44.67,
+        "actual": 36.185,
         "budget": 1500.0,
         "operator": "<=",
         "passed": true
       },
       "tui.render_p50_ms": {
-        "actual": 0.8960744511568919,
+        "actual": 1.265248202253133,
         "budget": 50.0,
         "operator": "<=",
         "passed": true
       },
       "tui.render_p95_ms": {
-        "actual": 1.0283538504154421,
+        "actual": 1.5139019000343978,
         "budget": 100.0,
         "operator": "<=",
         "passed": true
@@ -128,11 +128,11 @@
   "approved_at": null,
   "approved_by": null,
   "baseline_version": 1,
-  "candidate_created_at": "2026-07-24T18:30:46.478023+00:00",
-  "candidate_status": "ready_for_organizational_review",
+  "candidate_created_at": "2026-08-30T12:24:21.935995+00:00",
+  "candidate_status": "ready_for_policy_evaluation",
   "commit": {
     "ref": "refs/heads/main",
-    "sha": "b3560eb735c150a95d304c1745bc297f1a11e10f",
+    "sha": "8b4e50588627e042c4de1383517a843ce5be5972",
     "source": "git_metadata_files"
   },
   "environment": {
@@ -146,18 +146,18 @@
         "version": "148.0.7778.96"
       },
       "cpu": {
-        "logical_count": 16,
-        "model": "AMD Ryzen 9 7940HS w/ Radeon 780M Graphics"
+        "logical_count": 20,
+        "model": "13th Gen Intel(R) Core(TM) i7-13700H"
       },
       "memory": {
-        "total_bytes": 46185172992
+        "total_bytes": 65782554624
       },
       "node": {
-        "version": "v22.22.2"
+        "version": "v22.22.1"
       },
       "os": {
         "machine": "x86_64",
-        "release": "6.18.33.1-microsoft-standard-WSL2",
+        "release": "7.0.0-30-generic",
         "system": "Linux"
       },
       "playwright": {
@@ -165,55 +165,55 @@
       },
       "python": {
         "implementation": "CPython",
-        "version": "3.12.3"
+        "version": "3.12.14"
       }
     },
-    "compatibility_sha256": "b45a53d8e057c93926941aaaedc141e09e5f54c21bf9c59701a69215d815ab9e",
+    "compatibility_sha256": "eb856248acba4ff1516fbcb1279fb3c92d94e56213cc5db5edc7544f5e303b7f",
     "host": {
       "cpu": {
-        "logical_count": 16,
-        "model": "AMD Ryzen 9 7940HS w/ Radeon 780M Graphics"
+        "logical_count": 20,
+        "model": "13th Gen Intel(R) Core(TM) i7-13700H"
       },
-      "hostname": "KrustysFrame",
+      "hostname": "krusty-MINIPC-PN64-E1",
       "memory": {
-        "total_bytes": 46185172992
+        "total_bytes": 65782554624
       },
       "os": {
         "machine": "x86_64",
-        "release": "6.18.33.1-microsoft-standard-WSL2",
+        "release": "7.0.0-30-generic",
         "system": "Linux"
       }
     },
     "runtimes": {
       "node": {
-        "version": "v22.22.2"
+        "version": "v22.22.1"
       },
       "playwright": {
         "version": "Version 1.60.0"
       },
       "python": {
         "implementation": "CPython",
-        "version": "3.12.3"
+        "version": "3.12.14"
       }
     }
   },
   "measurement_details": {
-    "angular_retained_heap_p95_mb": 25.22311019897461,
+    "angular_retained_heap_p95_mb": 22.363872528076172,
     "angular_runtime": {
       "browser": {
         "name": "chromium",
         "version": "148.0.7778.96"
       },
       "node": {
-        "version": "v22.22.2"
+        "version": "v22.22.1"
       },
       "playwright": {
         "version": "Version 1.60.0"
       }
     },
     "event_rates_per_source": {
-      "backend": 60681318.19784553,
-      "tui": 102.91734091596108
+      "backend": 45081152.90117725,
+      "tui": 102.80147204930257
     },
     "lost_events_per_source": {
       "backend": 0,
@@ -221,53 +221,53 @@
     }
   },
   "measurements": {
-    "angular.filter_p50_ms": 415.90000000596046,
-    "angular.filter_p95_ms": 874.8000000119209,
-    "angular.render_p50_ms": 1536.4000000059605,
-    "angular.render_p95_ms": 1570.9000000059605,
-    "backend.move_p50_ms": 0.0005983184964861721,
-    "backend.move_p95_ms": 0.000786841002991423,
-    "backend.snapshot_p50_ms": 0.05629868898540735,
-    "backend.snapshot_p95_ms": 0.06494978803675622,
-    "browser.long_task_count_p50": 4.0,
-    "browser.long_task_count_p95": 5.0,
-    "browser.long_task_total_p95_ms": 489.0,
-    "browser.longest_task_p95_ms": 254.0,
+    "angular.filter_p50_ms": 907.3999999761581,
+    "angular.filter_p95_ms": 917.5,
+    "angular.render_p50_ms": 1213.3999999761581,
+    "angular.render_p95_ms": 1233.2000000476837,
+    "backend.move_p50_ms": 0.0005477105150930583,
+    "backend.move_p95_ms": 0.0005789080169051886,
+    "backend.snapshot_p50_ms": 0.04246467398479581,
+    "backend.snapshot_p95_ms": 0.042822430143132806,
+    "browser.long_task_count_p50": 3.0,
+    "browser.long_task_count_p95": 3.0,
+    "browser.long_task_total_p95_ms": 349.0,
+    "browser.longest_task_p95_ms": 168.0,
     "events.deduplicated": 100,
     "events.lost": 0,
-    "events.observed_rate_per_second": 102.91734091596108,
-    "memory.peak_rss_mb": 154.8203125,
-    "tui.pty_resize_p50_ms": 8.315,
-    "tui.pty_resize_p95_ms": 44.67,
-    "tui.render_p50_ms": 0.8960744511568919,
-    "tui.render_p95_ms": 1.0283538504154421
+    "events.observed_rate_per_second": 102.80147204930257,
+    "memory.peak_rss_mb": 175.1953125,
+    "tui.pty_resize_p50_ms": 5.925,
+    "tui.pty_resize_p95_ms": 36.185,
+    "tui.render_p50_ms": 1.265248202253133,
+    "tui.render_p95_ms": 1.5139019000343978
   },
   "profile": {
     "id": "kanban-model-dashboard.formal-performance.v1",
     "schema": "ananta.kanban-model-dashboard.performance-profile.v1",
-    "sha256": "ead95f451ed716b93d06b345833a1d43426178762c41208b9773557c334e7f79"
+    "sha256": "1267cc6d24aaaad67f1ca2f1328c817d6a3af99dfcd5f3116eb2b3a81f3bbc4c"
   },
   "schema": "ananta.kanban-model-dashboard.performance-baseline.v1",
   "source_artifacts": {
     "angular": {
       "path": "artifacts/angular-kanban-local-performance-diagnostic.json",
       "schema": "ananta.kanban-performance-local-diagnostic.v1",
-      "sha256": "14e9f35ccd11405b8f37ead96d891cf7d8a018c2e3181a450f5cffe42082e397"
+      "sha256": "42f5ead3f0f9fb37fd45f893fd0004bde3b8f8b5a2738174e32122b02d64db5d"
     },
     "backend": {
       "path": "artifacts/kanban-local-performance-diagnostic.json",
       "schema": "ananta.kanban-local-performance-diagnostic.v1",
-      "sha256": "65a8f53d855dbc11b621c52ac98e018bbe884e305ec52fc1c58a3a20d3d3b4e3"
+      "sha256": "956996c8e4865c51e133c77603fdd0886c5e09a53bd1eb640f90c7b0fc7be003"
     },
     "pty": {
       "path": "artifacts/tui-kanban-pty-resize-local-diagnostic.json",
       "schema": "ananta.tui-kanban-pty-local-diagnostic.v1",
-      "sha256": "e85b0a2190c1cb5eb6a4010b8078fa86e0e478dda2a85a2f94b9fded089b1c2a"
+      "sha256": "fba38212e5cd08857d45a425a167cc970314d0f439c162d7ad158ac4a4da9fa2"
     },
     "tui": {
       "path": "artifacts/tui-kanban-local-performance-diagnostic.json",
       "schema": "ananta.tui-kanban-local-performance-diagnostic.v1",
-      "sha256": "0b0ccd3420452cfa8f40e97ca3a3ebf7315025fa904c35b9042866695d64f43b"
+      "sha256": "a065d4140205a773c636779431361b2de2e19f4cc2c432ea1f6c78bb69c0dd1f"
     }
   }
 }
