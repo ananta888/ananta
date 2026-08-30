@@ -29,12 +29,23 @@ Production code imports from this namespace. The detector
 | `helpers.py` | backend config/runtime helpers | Source-of-truth |
 | `semaphore.py` | backend concurrency limits | Source-of-truth |
 | `routing.py` | backend capability/routing tables | Source-of-truth |
+| `coding_agent_contract.py` | closed provider, event, and process ports | Source-of-truth |
+| `coding_agent_process.py` | bounded shell-free lifecycle shared by OpenCode and profile CLIs | Source-of-truth |
+| `coding_agent_profiles.py` | declarative Qwen/Gemini/Copilot/Aider/Cline/Kilo profiles | Source-of-truth |
+| `coding_agent_targets.py` | client-independent inference-target resolution | Source-of-truth |
 | `provisioning.py` | pinned, Worker-local Codex/Claude provisioning | Source-of-truth |
 | `sgpt.py` | sgpt command integration | Source-of-truth |
 | `tool_loop.py` | hub-controlled worker tool loop | Source-of-truth |
 | `opencode.py` | opencode/codex/aider/mistral runners | Source-of-truth |
 | `architecture_scan.py` | architecture scan helpers | Source-of-truth |
 | `workspace_mutation/` | workspace mutation loop package | Source-of-truth |
+
+The OpenCode standard subprocess path and all declarative coding-agent profiles
+share `BoundedCodingAgentProcess`. It owns streaming, timeout/cancellation,
+bounded output, secret redaction, and process-group termination. Native and
+live-terminal OpenCode sessions keep their dedicated session transports because
+they are not one-shot subprocesses. Inference target resolution remains
+Hub-owned and separate from the CLI process lifecycle (SRP/DIP).
 
 ### 1.2 Service-Locator-Pattern (DIP)
 

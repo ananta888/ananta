@@ -47,6 +47,23 @@ limit. Fully autonomous `yolo` is available only through the explicit
 existing per-Worker container boundary. Qwen documents that `yolo` itself is
 not a sandbox.
 
+Current non-interactive Qwen authentication accepts pre-provisioned provider
+credentials such as `BAILIAN_CODING_PLAN_API_KEY`, `DASHSCOPE_API_KEY`,
+`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, or
+`GEMINI_API_KEY`. Endpoint/model selectors such as `OPENAI_BASE_URL`,
+`OPENAI_MODEL`, and `QWEN_MODEL` are passed separately and never count as proof
+that authentication is ready. The optional live gate is fully automatic:
+
+```bash
+ANANTA_QWEN_LIVE_SMOKE=1 \
+BAILIAN_CODING_PLAN_API_KEY='<provided-by-ci-secret-store>' \
+.venv/bin/python scripts/run_qwen_code_live_smoke.py
+```
+
+Without the explicit machine opt-in the gate emits a machine-readable skipped
+result. With opt-in it fails closed when binary or auth is absent; it never
+starts a login prompt and never prints task output or credentials.
+
 Cline receives an explicit command policy denying `sudo` and recursive delete
 patterns. Read-only requests use plan mode; write and autonomous requests use
 the official auto-approval flag. Jules sessions set `requirePlanApproval=false`
@@ -67,6 +84,27 @@ never selected unless `allow_paid_or_unknown` is explicitly enabled. Capability
 requirements are checked before selection, so a cheaper provider cannot be
 substituted if it lacks a required tool, structured-output, or sandbox feature.
 
+## Client and inference target
+
+The coding client and the model endpoint are independent routing dimensions.
+OpenCode and Aider can target any local OpenAI-compatible provider that is
+declared in `local_openai_backends` (or the built-in Ollama/LM Studio targets):
+
+```json
+{
+  "local_openai_backends": [
+    {"id": "local_coder", "base_url": "http://127.0.0.1:9000/v1", "models": ["qwen3-coder"]}
+  ],
+  "opencode_runtime": {"target_provider": "local_coder", "target_model": "qwen3-coder"},
+  "aider_cli": {"target_provider": "local_coder", "model": "qwen3-coder"}
+}
+```
+
+The Hub validates the target against declared providers. Runtime metadata and
+the Assistant UI report the CLI client, client cost class, inference provider,
+and model separately. Unknown CLI-account targets remain `unknown`; Ananta does
+not infer or invent them.
+
 ## Discovery and API projection
 
 `GET /sgpt/capability-matrix` exposes `integration_kind`, `free_class`, the
@@ -79,6 +117,7 @@ cached login state.
 ## Upstream contracts
 
 - [Qwen Code headless mode](https://github.com/QwenLM/qwen-code/blob/main/docs/users/features/headless.md)
+- [Qwen Code authentication](https://github.com/QwenLM/qwen-code/blob/main/docs/users/configuration/auth.md)
 - [Qwen Code README and authentication status](https://github.com/QwenLM/qwen-code/blob/main/README.md)
 - [Gemini CLI headless mode](https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/headless.md)
 - [Gemini CLI authentication](https://github.com/google-gemini/gemini-cli/blob/main/docs/get-started/authentication.mdx)
@@ -88,4 +127,3 @@ cached login state.
 - [Google Jules API](https://developers.google.com/jules/api)
 - [Aider scripting](https://aider.chat/docs/scripting.html)
 - [Windsurf terminal documentation](https://docs.windsurf.com/windsurf/terminal)
-
