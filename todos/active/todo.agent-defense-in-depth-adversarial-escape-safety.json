@@ -8,7 +8,7 @@
   "track": "agent_defense_in_depth_adversarial_escape_safety",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "main@11970aad4, inspected on 2026-08-30",
+    "reviewed_commit_range": "main@de817fa25, inspected on 2026-08-30",
     "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
@@ -17,7 +17,7 @@
     "blocked_audit": {
       "status": "blocked",
       "reason_codes": [
-        "production_containment_adapters_not_bound",
+        "production_containment_runtime_evidence_missing",
         "authoritative_sentinel_and_training_source_evidence_missing",
         "authorized_production_like_run_evidence_missing"
       ],
@@ -25,8 +25,10 @@
         "Hub-only safety composition and authenticated additive API implemented.",
         "Signed single-use manifests, immutable telemetry, group stop, incident bundle, patch-before-retry and local replay implemented.",
         "All safety tests are headless and terminate with deterministic pass or bounded denial; no human approval is required.",
-        "Focused backend, API, chaos and sandbox baseline: 36 tests passed on 2026-08-30.",
-        "Focused Angular safety baseline: 2 tests passed on 2026-08-30.",
+        "Concrete opt-in Docker containment, short-lived Credential Leases, bounded forensic snapshots and automatic TTL cleanup implemented.",
+        "Automatic policy preauthorization, high-fidelity/minimized telemetry, 100-run red-team groups, cascade/shift/awareness evals and durable regression verification implemented.",
+        "End-of-track backend, contract, API, chaos, sandbox, lifecycle and Docker-Ops gate: 81 tests passed on 2026-08-30.",
+        "Focused Angular safety gate: 3 tests passed; development production graph build passed on 2026-08-30.",
         "Mock receipts are never promoted to release evidence."
       ],
       "required_unblock_input": "Hub-provided authoritative SRC_* references plus assignment-bound RUN_* receipts from concrete sandbox, egress, credential, freeze and complete production-like chaos runs."
@@ -35,11 +37,16 @@
       "agent/bootstrap/agent_safety.py",
       "agent/routes/agent_safety.py",
       "agent/services/agent_safety_evaluation_service.py",
+      "agent/services/agent_safety_admission_policy.py",
       "agent/services/agent_safety_ports.py",
       "agent/services/agent_safety_recovery_service.py",
       "agent/services/agent_safety_release_gate.py",
+      "agent/services/agent_safety_retention_service.py",
+      "agent/services/agent_safety_runtime_adapters.py",
       "agent/services/agent_safety_service.py",
       "agent/services/agent_safety_state_store.py",
+      "agent/services/agent_safety_training_adapter.py",
+      "agent/services/background/agent_safety_retention_reconciler.py",
       "agent/services/sandbox_backend.py",
       "ananta_contracts/agent_safety.py",
       "docs/security/agent-defense-in-depth-baseline.md",
@@ -49,6 +56,7 @@
       "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
       "tests/e2e/test_agent_safety_automatic_chaos.py",
       "tests/test_agent_safety_api.py",
+      "tests/test_agent_safety_automation.py",
       "tests/test_agent_safety_contracts.py",
       "tests/test_agent_safety_release_gate.py",
       "tests/test_agent_safety_service.py",
@@ -218,7 +226,7 @@
         "ADS-017",
         "ADS-018"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M4",
@@ -231,7 +239,7 @@
         "ADS-023",
         "ADS-024"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M5",
@@ -245,7 +253,7 @@
         "ADS-030",
         "ADS-031"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M6",
@@ -257,7 +265,7 @@
         "ADS-035",
         "ADS-036"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M7",
@@ -269,7 +277,7 @@
         "ADS-040",
         "ADS-041"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M8",
@@ -609,11 +617,11 @@
     {
       "id": "ADS-014",
       "title": "SandboxBackend um freeze/terminate/isolate Sicherheitsoperationen erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-013"
       ],
@@ -628,20 +636,21 @@
       "implementation_evidence": [
         "agent/services/agent_safety_ports.py",
         "agent/services/agent_safety_service.py",
+        "agent/services/agent_safety_runtime_adapters.py",
         "agent/services/sandbox_backend.py",
         "tests/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
-      "implementation_gap": "Produktiver Container-Adapter und echte Freeze/Terminate/Isolate-Receipts fehlen; Port und FakeSandbox sind implementiert."
+      "completion_note": "Der opt-in Docker-Adapter erzwingt Freeze, Terminate und Isolate gegen eine exakte Hub-Allowlist und liefert runtime-verifizierte, idempotente Receipts; FakeSandbox und der konkrete Adapter sind deterministisch getestet."
     },
     {
       "id": "ADS-015",
       "title": "Network egress emergency cut-off implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-013"
       ],
@@ -658,16 +667,16 @@
         "tests/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
-      "implementation_gap": "Der unabhängige Egress-Port und Fail-Closed-Ablauf stehen; ein konkreter produktiver Netzwerk-Adapter samt Session-Abbruch ist noch nicht gebunden."
+      "completion_note": "Der konkrete Docker-Adapter inspiziert die gebundenen Netzwerke und trennt alle Sessions per force-disconnect; Zustand und Adapter-Receipt fließen in Control Operation und Incident Bundle."
     },
     {
       "id": "ADS-016",
       "title": "Credential lease revocation für Agentenläufe implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-013"
       ],
@@ -684,16 +693,16 @@
         "tests/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
-      "implementation_gap": "Run-weite Revocation-Port und Audit-Receipts stehen; Ausgabe und Widerruf echter kurzlebiger Provider-Credentials benötigen einen produktiven Adapter."
+      "completion_note": "Die Hub Credential Lease Authority gibt kurzlebige run-/agent-gebundene Capabilities aus, persistiert nur Token-Digests und widerruft alle aktiven Leases automatisch mit auditierbarem Runtime-Receipt."
     },
     {
       "id": "ADS-017",
       "title": "Incident Freeze statt sofortigem Cleanup unterstützen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-014"
       ],
@@ -710,7 +719,7 @@
         "tests/test_agent_safety_service.py",
         "tests/test_sandbox_backend.py"
       ],
-      "implementation_gap": "Incident Freeze und TTL-Policy stehen; produktive Snapshot-, Speicherlimit- und Cleanup-Adapter fehlen."
+      "completion_note": "Freeze erfasst vor dem Incident ein inhaltlich reduziertes, größenbegrenztes Snapshot-Artefakt; der lifecycle-eigene Reconciler entfernt nur abgelaufene Sandboxes mit vorhandenem Incident Bundle."
     },
     {
       "id": "ADS-018",
@@ -739,11 +748,11 @@
     {
       "id": "ADS-019",
       "title": "Safety-Telemetrie-Schema für Agentenaktionen definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "design",
-      "progress_percent": 85.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-003"
       ],
@@ -759,16 +768,16 @@
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "tests/test_agent_safety_state_store.py"
       ],
-      "implementation_gap": "Identitäten, Boundary-/Trigger-/Stop-Events, Redaction und Hashkette stehen; direkte Tool-/Policy-Event-Producer aus allen bestehenden Laufzeitpfaden sind noch anzubinden."
+      "completion_note": "Das versionierte Runtime-Event-Ingress deckt Tool-, Policy-, Netzwerk-, Datei-, Prozess- und Orchestrierungsereignisse ab; Identitäten, Redaction, Digest und Hashkette bleiben erhalten."
     },
     {
       "id": "ADS-020",
       "title": "High-Fidelity Trace für Red-Team-/Eval-Modus implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-019"
       ],
@@ -785,7 +794,7 @@
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "tests/test_agent_safety_state_store.py"
       ],
-      "implementation_gap": "Geordnete Hashkette und Trace-Budget stehen; die automatische Detailstufen-Umschaltung zwischen Produktions- und Eval-Modus ist noch nicht in sämtliche Runtime-Producer integriert."
+      "completion_note": "Das zentrale Runtime-Event-Ingress schaltet automatisch zwischen High-Fidelity im adversarial_eval und digestgebundener Produktions-Minimierung um; Trace- und Snapshot-Budgets sind policy-gesteuert."
     },
     {
       "id": "ADS-021",
@@ -940,11 +949,11 @@
     {
       "id": "ADS-027",
       "title": "Mehrere parallele Red-Team-Agenten orchestrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-025",
         "ADS-018"
@@ -960,7 +969,7 @@
         "tests/e2e/test_agent_safety_automatic_chaos.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Bis zu 100 getrennte Identitäten und gruppenweiter Stop sind implementiert; reale parallele Worker-Starts bleiben Aufgabe der bestehenden Hub-Orchestrierung und sind noch nicht durch RUN-Evidence belegt."
+      "completion_note": "Der Hub registriert automatisch bis zu 100 einzelne Runs mit jeweils eigener Agent-, Sandbox- und Credential-Lease-Identität; gruppenweiter Stop ist im vollständigen Chaos-Flow verifiziert."
     },
     {
       "id": "ADS-028",
@@ -1036,11 +1045,11 @@
     {
       "id": "ADS-031",
       "title": "Canary-/Sentinel-Kaskaden mit mehreren unabhängigen Triggern evaluieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "evaluation",
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-030"
       ],
@@ -1054,7 +1063,7 @@
         "tests/e2e/test_agent_safety_automatic_chaos.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Mehrere Manifeste und profilbasierte Auswertung sind möglich; eine eigene Kaskaden-Korrelationsauswertung fehlt."
+      "completion_note": "Die Kaskadenauswertung berechnet Einzelraten, Kaskadenrate, Redundanzgewinn und korrelierte Fehlerpaare für parallel oder sequenziell platzierte Trigger."
     },
     {
       "id": "ADS-032",
@@ -1081,11 +1090,11 @@
     {
       "id": "ADS-033",
       "title": "Präventives Policy-/Behavior-Training als optionalen Adapter integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-004",
         "ADS-032"
@@ -1101,7 +1110,7 @@
         "agent/routes/agent_safety.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Provider-neutraler optionaler Training-Port, Feature-Gate und deterministischer Missing-Adapter-Abbruch stehen; kein konkreter produktiver Trainingsprovider ist gebunden."
+      "completion_note": "Die konkrete Hub Training-Outbox persistiert providerneutrale, digestgebundene Aufträge zur Worker-Delegation; deaktiviertes oder nicht konsumiertes Training blockiert keine Safety-Kontrolle und wartet nie auf Menschen."
     },
     {
       "id": "ADS-034",
@@ -1129,11 +1138,11 @@
     {
       "id": "ADS-035",
       "title": "Holdout- und Distribution-Shift-Evals definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "evaluation",
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-034"
       ],
@@ -1147,16 +1156,16 @@
         "agent/routes/agent_safety.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Getrennte rotierte Holdout-Symbole stehen; automatisierte Toolset-/Sandbox-/Ziel-Distribution-Shifts sind noch nicht vollständig materialisiert."
+      "completion_note": "Die deterministische Matrix materialisiert das Kreuzprodukt aus Toolsets, Sandboxes, Symbolnamen und Hauptzielen mit Größenlimit und Digest; Train-/Holdout-Symbole bleiben getrennt."
     },
     {
       "id": "ADS-036",
       "title": "Scheming-/Evaluation-Awareness-Risiko explizit testen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "evaluation",
-      "progress_percent": 55.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-035"
       ],
@@ -1170,7 +1179,7 @@
         "agent/routes/agent_safety.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Profile können getrennt evaluiert werden; ein explizites, automatisches Eval-Awareness-Variantenraster fehlt."
+      "completion_note": "Ein vollständiges automatisches Variantenraster vergleicht Training, Evaluation, Produktion und unspezifizierten Kontext und meldet die Compliance-Spannweite sowie Eval-Awareness."
     },
     {
       "id": "ADS-037",
@@ -1197,11 +1206,11 @@
     {
       "id": "ADS-038",
       "title": "Automatische Regressionstests für behobene Escape-Pfade erzeugen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
-      "progress_percent": 60.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-037"
       ],
@@ -1215,7 +1224,7 @@
         "tests/e2e/test_agent_safety_automatic_chaos.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Replays sind dauerhaft und digestgebunden; eine automatische Quelltest-Generierung je Finding fehlt."
+      "completion_note": "Jede patched-Disposition erzeugt automatisch einen dauerhaften, digestgebundenen Regression Case; er verlangt ausführbare Exact- und Mutated-Replays und kann nicht durch Deaktivierung grün werden."
     },
     {
       "id": "ADS-039",
@@ -1265,11 +1274,11 @@
     {
       "id": "ADS-041",
       "title": "Security-Fix-Verifikation mit identischem und mutiertem Angriffspfad implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
-      "progress_percent": 75.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-038",
         "ADS-040"
@@ -1284,7 +1293,7 @@
         "tests/e2e/test_agent_safety_automatic_chaos.py",
         "tests/test_agent_safety_service.py"
       ],
-      "implementation_gap": "Exakte und mutierte Replay-Verträge werden gemeinsam getestet; produktive Replay-Ausführung gegen konkrete Runtime-Versionen benötigt RUN-Evidence."
+      "completion_note": "Der automatische Fix-Gate akzeptiert nur gebundene Exact- und Mutated-Replay-Ergebnisse, wenn beide enthalten sind und die Sicherheitsinvariante wiederhergestellt wurde; Fehler werden dauerhaft als failed gespeichert."
     },
     {
       "id": "ADS-042",
@@ -1317,11 +1326,11 @@
     {
       "id": "ADS-043",
       "title": "Feature Flags und Konfiguration zentral in Hub/API/UI abbilden",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 80.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-004",
         "ADS-042"
@@ -1341,16 +1350,16 @@
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "implementation_gap": "Hub-Konfiguration, API und Status-UI stehen; eine administrative UI zum Ändern aller Flags fehlt."
+      "completion_note": "Die Control-Center-Admin-UI zeigt und versioniert Prävention, Training, Sentinel, Freeze, Red-Team und Stop-Scope separat; Telemetrie und externer Kill-Switch bleiben zwingend aktiv."
     },
     {
       "id": "ADS-044",
       "title": "Audit- und Approval-Lifecycle für kritische Security-Modi integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
-      "progress_percent": 65.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-042"
       ],
@@ -1369,7 +1378,7 @@
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "implementation_gap": "Admin-Authentisierung und immutable Revisions-/Event-Audit stehen; ein expliziter pre-authorized Approval-Policy-Adapter zur bestehenden Hub-Approval-Infrastruktur fehlt."
+      "completion_note": "Die explizite Hub Preauthorization Policy prüft kritische Konfigurationen automatisch, bindet Allow/Deny an den Request-Digest und auditiert Start, Revision und Stop ohne ausstehende Human-Approval."
     },
     {
       "id": "ADS-045",
@@ -1434,7 +1443,7 @@
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
-      "progress_percent": 80.0,
+      "progress_percent": 95.0,
       "depends_on": [
         "ADS-014",
         "ADS-021",
@@ -1458,7 +1467,7 @@
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "blocked_reason": "Der vollständig headless lokale Chaos-Flow ist grün; der Nachweis über eine konkret gebundene produktionsnahe Agentenpipeline ist ohne bereitgestellte RUN_* Evidence nicht verifizierbar."
+      "blocked_reason": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Die Release-Attestierung über eine konkret gebundene produktionsnahe Pipeline bleibt ohne bereitgestellte und Hub-verifizierte SRC_*/RUN_* Evidence fail-closed."
     },
     {
       "id": "ADS-048",
@@ -1516,11 +1525,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 15,
+      "partial": 0,
       "blocked": 1,
-      "done": 32
+      "done": 47
     },
-    "progress_percent_done": 66.7,
+    "progress_percent_done": 97.9,
     "by_priority": {
       "P0": 26,
       "P1": 19,
@@ -1535,26 +1544,26 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 15,
-      "remaining": 4
+      "done": 18,
+      "remaining": 1
     },
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 6,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 2
+      "done": 7
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "todo",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 15,
+    "partial": 0,
     "blocked": 1,
-    "done": 32,
-    "count_based_percent": 66.7,
-    "weighted_percent": 90.2
+    "done": 47,
+    "count_based_percent": 97.9,
+    "weighted_percent": 99.9
   },
   "summary_notes": [
     "Die Kernidee aus der Diskussion wird nicht als einzelne perfekte Lösung behandelt, sondern als zusätzlicher Fail-Safe innerhalb einer Defense-in-Depth Architektur.",
@@ -1587,56 +1596,56 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 16
+          "done": 17
         },
-        "done": 16,
-        "partial": 1,
+        "done": 17,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 99.1
+        "progress_percent": 100.0
       },
       "implementation": {
         "total": 19,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 9,
+          "partial": 0,
           "blocked": 0,
-          "done": 10
+          "done": 19
         },
-        "done": 10,
-        "partial": 9,
+        "done": 19,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 85.5
+        "progress_percent": 100.0
       },
       "testing": {
         "total": 4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 0,
           "blocked": 1,
-          "done": 1
+          "done": 3
         },
-        "done": 1,
-        "partial": 2,
+        "done": 3,
+        "partial": 0,
         "blocked": 1,
-        "progress_percent": 78.8
+        "progress_percent": 98.8
       },
       "evaluation": {
         "total": 6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
+          "partial": 0,
           "blocked": 0,
-          "done": 3
+          "done": 6
         },
-        "done": 3,
-        "partial": 3,
+        "done": 6,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 81.7
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
@@ -1657,10 +1666,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 83.0,
-    "done_weight": 74.85,
-    "remaining_weight": 8.15,
+    "done_weight": 82.925,
+    "remaining_weight": 0.075,
     "blocked_weight": 1.5,
-    "weighted_percent": 90.2
+    "weighted_percent": 99.9
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1682,50 +1691,50 @@
       },
       "M3": {
         "total_tasks": 6,
-        "done": 2,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 33.3,
-        "weighted_percent": 77.5,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M4": {
         "total_tasks": 6,
-        "done": 4,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 66.7,
-        "weighted_percent": 94.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M5": {
         "total_tasks": 7,
-        "done": 5,
+        "done": 7,
         "blocked": 0,
-        "count_based_percent": 71.4,
-        "weighted_percent": 92.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M6": {
         "total_tasks": 5,
-        "done": 2,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 40.0,
-        "weighted_percent": 80.0,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M7": {
         "total_tasks": 5,
-        "done": 3,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 60.0,
-        "weighted_percent": 87.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M8": {
         "total_tasks": 7,
-        "done": 4,
+        "done": 6,
         "blocked": 1,
-        "count_based_percent": 57.1,
-        "weighted_percent": 88.3,
+        "count_based_percent": 85.7,
+        "weighted_percent": 99.4,
         "status": "in_progress"
       }
     }
@@ -1733,10 +1742,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-29T12:57:11.204621Z",
+    "generated_at": "2026-08-30T13:18:02.228233Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "36799f74f02b6024ff8a656324c44fdc6c604044dea77d5c8758a02af58106f9",
+    "source_hash": "6b09000bc7113b8f6cfae5a7121f70a45c396378e11b396a4824eb809ecbf2b4",
     "is_stale": false
   }
 }
