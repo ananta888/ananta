@@ -703,6 +703,13 @@ class Settings(BaseSettings):
         default="data/research-training-artifacts",
         validation_alias="ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT",
     )
+    collaboration_workspace_enabled: bool = Field(
+        default=False, validation_alias="ANANTA_COLLABORATION_WORKSPACE_ENABLED"
+    )
+    collaboration_workspace_state: str = Field(
+        default="data/collaboration-workspace.sqlite3",
+        validation_alias="ANANTA_COLLABORATION_WORKSPACE_STATE",
+    )
     codecompass_vector_enabled: bool = Field(default=False, validation_alias="CODECOMPASS_VECTOR_ENABLED")
     codecompass_vector_index_path: str = Field(
         default=".rag/codecompass/vector_index.json",

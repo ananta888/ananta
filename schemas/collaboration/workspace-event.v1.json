@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/workspace-event.v1.json",
+  "title": "WorkspaceEventV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "event_id", "workspace_id", "room_id", "thread_id", "event_type", "actor_binding_id", "idempotency_key", "correlation_id", "causation_id", "visibility", "retention", "occurred_at", "payload", "payload_digest", "source_refs", "run_refs"],
+  "properties": {
+    "schema": {"const": "ananta.workspace-event.v1"},
+    "event_id": {"type": "string"},
+    "workspace_id": {"type": "string"},
+    "room_id": {"type": ["string", "null"]},
+    "thread_id": {"type": ["string", "null"]},
+    "event_type": {"type": "string"},
+    "actor_binding_id": {"type": "string"},
+    "idempotency_key": {"type": "string"},
+    "correlation_id": {"type": "string"},
+    "causation_id": {"type": ["string", "null"]},
+    "visibility": {"enum": ["workspace", "room", "restricted"]},
+    "retention": {"enum": ["ephemeral", "standard", "audit", "legal_hold"]},
+    "occurred_at": {"type": "number"},
+    "payload": {"type": "object"},
+    "payload_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC_"}},
+    "run_refs": {"type": "array", "items": {"type": "string", "pattern": "^RUN_"}}
+  }
+}

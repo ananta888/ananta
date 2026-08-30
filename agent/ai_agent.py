@@ -753,6 +753,9 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     from agent.bootstrap.research_training import initialize_research_training
 
     run_startup_phase("research_training", initialize_research_training, app)
+    from agent.bootstrap.collaboration_workspace import initialize_collaboration_workspace
+
+    run_startup_phase("collaboration_workspace", initialize_collaboration_workspace, app)
     from agent.bootstrap.codecompass_sira_rollout import (
         initialize_codecompass_sira_rollout,
     )

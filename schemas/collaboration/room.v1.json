@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/room.v1.json",
+  "title": "CollaborationRoomV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "room_id", "room_kind", "title", "binding_kind", "binding_id"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-room.v1"},
+    "room_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "room_kind": {"enum": ["project", "goal", "task", "branch", "incident", "pair_session", "freeform"]},
+    "title": {"type": "string", "minLength": 1, "maxLength": 200},
+    "binding_kind": {"type": ["string", "null"]},
+    "binding_id": {"type": ["string", "null"]}
+  }
+}

@@ -39,6 +39,7 @@ export const routes: Routes = [
       { path: 'projects', children: PROJECT_ROUTES },
       { path: 'workspace', canActivate: [projectContextGuard], data: { breadcrumb: 'Arbeitsbereich', area: 'Operate', projectScoped: true }, loadComponent: () => import('./components/personal-workspace.component').then(m => m.PersonalWorkspaceComponent) },
       { path: 'chats', data: { breadcrumb: 'AI Chats', area: 'Operate' }, loadComponent: () => import('./features/chat/chat-page.component').then(m => m.ChatPageComponent) },
+      { path: 'collaboration', data: { breadcrumb: 'Collaboration', area: 'Operate' }, loadComponent: () => import('./features/collaboration/collaboration-workspace-page.component').then(m => m.CollaborationWorkspacePageComponent) },
       { path: 'classroom', pathMatch: 'full', redirectTo: 'caseflow/classroom' },
       { path: 'help', data: { breadcrumb: 'Hilfe', area: 'General' }, loadComponent: () => import('./components/help.component').then(m => m.HelpComponent) },
       { path: 'effective-workflow', data: { breadcrumb: 'Effective Workflow', area: 'Configure' }, loadComponent: () => import('./components/effective-workflow-explorer.component').then(m => m.EffectiveWorkflowExplorerComponent) },

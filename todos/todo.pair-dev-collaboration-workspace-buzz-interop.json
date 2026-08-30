@@ -455,7 +455,7 @@
         "Capability-Manifeste unterscheiden unterstützt, nicht unterstützt und temporär nicht verfügbar.",
         "Conformance-Tests verhindern erfolgreiche No-op-Implementierungen und sichern LSP/ISP."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 85.0
     },
     {
       "id": "PDCW-ARCH-005",
@@ -476,7 +476,7 @@
         "Ein Flag kann niemals bestehende SFU/TURN-, E2EE-, Approval- oder Hub-Policy-Gates umgehen.",
         "Die Matrix nennt pro Modus Autorität, Datenpersistenz, E2EE-Sichtbarkeit und Rollbackwirkung."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 65.0
     },
     {
       "id": "PDCW-ARCH-006",
@@ -496,7 +496,7 @@
         "Jeder Breaking-Risk nennt Compatibility Adapter, Telemetrie und frühesten Entfernungszeitpunkt.",
         "Architekturentscheidungen und bewusst nicht übernommene Buzz-Eigenschaften sind nachvollziehbar versioniert."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 70.0
     },
     {
       "id": "PDCW-EVT-001",
@@ -517,7 +517,7 @@
         "Unbekannte Authority-, Retention- oder Binding-Felder werden fail-closed abgelehnt.",
         "Python- und TypeScript-Typen werden aus demselben versionierten Vertrag geprüft."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 70.0
     },
     {
       "id": "PDCW-EVT-002",
@@ -537,7 +537,7 @@
         "Read-Cursor können pro Actor/Room fortgeschrieben werden, ohne fremde Cursor offenzulegen.",
         "Private Rooms sind weder über globale Listen noch über Thread-IDs indirekt auffindbar."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 60.0
     },
     {
       "id": "PDCW-EVT-003",
@@ -557,7 +557,7 @@
         "Große Inhalte werden ausschließlich als geprüfte Artifact-Referenzen übertragen.",
         "Buzz-/Nostr-IDs erscheinen nur in optionaler Adapterprovenienz und niemals als kanonische Event-ID."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 90.0
     },
     {
       "id": "PDCW-EVT-004",
@@ -576,7 +576,7 @@
         "Cursor, Typing und reine View-Deltas bleiben standardmäßig ephemeral; Decisions, Reviews und Task-Status sind durable.",
         "Die Policy verhindert Speicherung von Secrets, privatem Reasoning und unbeschränkten Toolausgaben."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 45.0
     },
     {
       "id": "PDCW-EVT-005",
@@ -596,7 +596,7 @@
         "Workspace-Sequenz und Projektion-Checkpoint bleiben unter Parallelität monoton und lückenbehandelbar.",
         "Migration Upgrade/Downgrade sowie Tenant- und Room-Isolation besitzen Datenbanktests."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 75.0
     },
     {
       "id": "PDCW-EVT-006",
@@ -615,7 +615,7 @@
         "Inbox bindet Origin, External-ID, Mapping-Version und Payload-Digest und erkennt Konfliktreplays.",
         "Alle Projektionen können aus Events und Checkpoints deterministisch neu aufgebaut und verglichen werden."
       ],
-      "progress_percent": 8.0
+      "progress_percent": 45.0
     },
     {
       "id": "PDCW-ID-001",
@@ -635,7 +635,7 @@
         "Displayname, Modellname oder externe npub-Adresse verleihen keine Berechtigung.",
         "Ambigue, verwaiste oder widersprüchliche Bindings werden nicht automatisch repariert oder zusammengeführt."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 75.0
     },
     {
       "id": "PDCW-ID-002",
@@ -654,7 +654,7 @@
         "External Keys ersetzen weder Hub-JWT noch Worker-Capability noch WebRTC-Key-Bindung.",
         "Unlink und Key-Rotation sperren neue Zustellungen und erzeugen einen stabilen Audit-Reason-Code."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-ID-003",
@@ -674,7 +674,7 @@
         "Join, Leave, Revoke und Ownership-Transfer sind CAS-geschützt, idempotent und event-/audit-projiziert.",
         "Gruppeneinladung materialisiert nur autorisierte Memberships und übernimmt keine ungeprüften Client-Permissions."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 75.0
     },
     {
       "id": "PDCW-ID-004",
@@ -695,7 +695,7 @@
         "Plantext, externe Tags und Actor-Selbstauskunft können Scopes nur reduzieren, niemals erweitern.",
         "Jede Entscheidung liefert erlaubte Projektion oder stabilen öffentlichen Reason-Code ohne vertrauliche Policy-Details."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 75.0
     },
     {
       "id": "PDCW-ID-005",
@@ -715,7 +715,7 @@
         "Read-/Ack-Cursor sind actor- und roomgebunden, monoton und bei Reconnect verwendbar.",
         "Globale Presence-Abfragen leaken keine privaten Workspace- oder Room-Mitgliedschaften."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 70.0
     },
     {
       "id": "PDCW-ID-006",
@@ -735,7 +735,7 @@
         "Outbox, Search und Bridges prüfen aktuelle Rechte vor Auslieferung erneut.",
         "Stale Sessions, Replay-Fenster und bereits geclaimte Delivery-Leases können Revocation nicht überholen."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 50.0
     },
     {
       "id": "PDCW-LIVE-001",
@@ -877,7 +877,7 @@
         "Project-, Goal-, Task-, Branch-, Incident-, Pair-Session- und Freeform-Rooms werden typisiert dargestellt.",
         "Bestehender AI-Snake Pair-Tab bleibt während Migration funktionsfähig."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 65.0
     },
     {
       "id": "PDCW-UI-002",
@@ -896,7 +896,7 @@
         "Archive stoppt neue normale Events, bewahrt History und besitzt einen getrennten Reopen-Grant.",
         "UI zeigt Binding, Retention, Sichtbarkeit und Bridge-Status verständlich an."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 65.0
     },
     {
       "id": "PDCW-UI-003",
@@ -916,7 +916,7 @@
         "Entscheidungen zeigen Actor-, Digest-, Revision-, Approval- und Reason-Code-Provenienz ohne Secrets.",
         "Pagination, neue Events und Reconnect erzeugen keine Duplikate oder Scroll-Sprünge außerhalb definierter Regeln."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-UI-004",
@@ -936,7 +936,7 @@
         "Warum ein Actor lesen, schreiben, steuern oder Ressourcen anbieten darf, ist über redigierte Reason-Codes erklärbar.",
         "Stale Presence und abgelaufene Offers werden sichtbar als stale/expired statt aktiv dargestellt."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 45.0
     },
     {
       "id": "PDCW-UI-005",
@@ -979,7 +979,7 @@
         "Artifact- und Code-Referenzen zeigen Digest, Version, Scope und partielle Verfügbarkeit.",
         "Vor neuen UI-Primitives wird vorhandenes shared/ui geprüft; feature-gebundene Komponenten bleiben lokal."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-AGT-001",
@@ -999,7 +999,7 @@
         "Ein Agent kann Mitglied mehrerer Rooms sein, ohne automatisch deren vollständigen Kontext oder Tools zu erhalten.",
         "Human-, Agent-, Worker- und Service-Events sind visuell unterscheidbar und kryptografisch/Hub-seitig zurechenbar."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-AGT-002",
@@ -1018,7 +1018,7 @@
         "Private Endpunkte, Rohtelemetrie, Secrets und vollständige lokale Pfade werden nicht in öffentlichen Offers offengelegt.",
         "Offer kann Eignung nur beschreiben oder reduzieren und niemals Hub-Lease oder Task-Routing erzwingen."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-AGT-003",
@@ -1038,7 +1038,7 @@
         "Lease enthält Fencing, Ablauf, Budget, erlaubte Operationen und exakte Resource-/Task-Bindung.",
         "Leaseverlust, Cancellation oder Revision-Mismatch verhindert Result-Admission."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-AGT-004",
@@ -1058,7 +1058,7 @@
         "Worker können keine Ziel-Worker, Team-, Agent-, Tool-, Kontext- oder Budgetautorität festlegen.",
         "Idempotency und Depth-/Loop-Grenzen verhindern Mention-Stürme und rekursive Agentenketten."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-AGT-005",
@@ -1079,7 +1079,7 @@
         "Stale UI, externe Reaktion oder Emoji kann keinen Approval-Grant wiederverwenden.",
         "Tests und Headless-Betrieb dürfen nie auf Approval, Takeover oder eine andere menschliche Reaktion warten; Policy entscheidet automatisch mit stabilem Reason-Code."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-AGT-006",
@@ -1099,7 +1099,7 @@
         "Correlation-/Causation-Graph, Hop-Count, Depth und dedizierte Workflow-Event-Ausschlüsse verhindern Selbsttrigger.",
         "Budget-/Policy-Denials erscheinen als redigierte Events und werden nicht automatisch erneut geplant."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 20.0
     },
     {
       "id": "PDCW-FLOW-001",
@@ -1119,7 +1119,7 @@
         "Task-Status in der Timeline ist Projektion; Room-Events schreiben nicht direkt TaskDB oder Queue.",
         "Löschen/Archivieren eines Fachobjekts besitzt definierte Room- und Retention-Folge."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 45.0
     },
     {
       "id": "PDCW-FLOW-002",
@@ -1138,7 +1138,7 @@
         "Room-Erstellung aus Branch ist idempotent; Rename, Delete, Force-Push und Fork besitzen explizite Semantik.",
         "Git-Anbindung funktioniert ohne Buzz und verwendet bestehende Ananta Git-/Workspace-Grenzen."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 40.0
     },
     {
       "id": "PDCW-FLOW-003",
@@ -1158,7 +1158,7 @@
         "Patches und Logs überschreiten Event-Limits nicht, sondern werden als digestgebundene Artifacts referenziert.",
         "Replay, reordered delivery und force-push erzeugen korrekte Ref-Projektionen ohne History-Umschreibung."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-FLOW-004",
@@ -1178,7 +1178,7 @@
         "Workertext und Toolausgabe werden als unverified Result oder redigierte Zusammenfassung markiert, bis Result-Admission erfolgt.",
         "Projektionen können weder Worker auslösen noch ihren Quellstatus zurückschreiben."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-FLOW-005",
@@ -1199,7 +1199,7 @@
         "Merge-Intent prüft Branch-Policy, CI, erforderliche Approvals, Actor-Berechtigung und aktuellen Head unmittelbar vor Ausführung.",
         "Room-Reaktion oder Buzz-Emoji ist ohne expliziten Hub-Approval-Vertrag niemals ausreichend."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-FLOW-006",
@@ -1218,7 +1218,7 @@
         "Release Notes können aus permission-gefilterten, belegten Events vorgeschlagen, aber nur über normalen Hub-Workflow veröffentlicht werden.",
         "Retention, Export und Tombstone respektieren Artifact-, Audit-, Security- und Tenant-Policy."
       ],
-      "progress_percent": 22.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-SRCH-001",
@@ -1238,7 +1238,7 @@
         "Index-Dokumente tragen Event-ID, Workspace-Sequenz, Projection-Version, Visibility und Retention.",
         "Revocation, Tombstone und Retention entfernen oder sperren Suchtreffer innerhalb definierter SLOs."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-SRCH-002",
@@ -1258,7 +1258,7 @@
         "Fehlende oder partielle CodeCompass-Abdeckung erzeugt sichtbare Hinweise statt negativer Sachbehauptungen.",
         "Room-/Task-Kontext kann den zulässigen Retrieval-Scope reduzieren, aber nie erweitern."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-SRCH-003",
@@ -1277,7 +1277,7 @@
         "Nicht mehr lesbare Quellen werden nicht über Snippets, Titel oder Cache offengelegt.",
         "Unverified Worker-/External-Claims bleiben klar von Hub-verifizierten Entscheidungen getrennt."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-SRCH-004",
@@ -1297,7 +1297,7 @@
         "Context Bundle bindet Actor, Task, Room, Source-Revision, Policy-Hash, Ablauf und zulässige Referenzen.",
         "Rebuild und Permission-Änderung invalidieren oder regenerieren betroffene Zusammenfassungen deterministisch."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 20.0
     },
     {
       "id": "PDCW-SRCH-005",
@@ -1317,7 +1317,7 @@
         "Historische Ansicht kennzeichnet später korrigierte, tombstoned oder veraltete Projektionen.",
         "Incident-Memory liefert belegte Threads und Root-Cause-/Fix-Referenzen statt unbelegter Zusammenfassung."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 40.0
     },
     {
       "id": "PDCW-SRCH-006",
@@ -1337,7 +1337,7 @@
         "Drift, Lag, orphan documents und stale visibility werden gemessen und blockieren Release oberhalb definierter Grenzen.",
         "Deletion-/Tombstone-Test beweist, dass Treffer, Snippets, Suggestions und Caches bereinigt werden."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-BUZZ-001",
@@ -1357,7 +1357,7 @@
         "Adapter-Capabilities und Mapping-Versionen sind versioniert und pro Workspace aktivierbar.",
         "Native Pair-Dev-Funktion bleibt bei fehlendem, deaktiviertem oder inkompatiblem Adapter vollständig verfügbar."
       ],
-      "progress_percent": 15.0
+      "progress_percent": 80.0
     },
     {
       "id": "PDCW-BUZZ-002",
@@ -1486,7 +1486,7 @@
         "Jede Trust Boundary besitzt Authentisierung, Autorisierung, Integrität, Confidentiality, Limits und Auditentscheidung.",
         "Kritische Risiken erhalten Owner, Mitigation-Task, Gate und sichere Default-Entscheidung."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 80.0
     },
     {
       "id": "PDCW-SEC-002",
@@ -1508,7 +1508,7 @@
         "Negative Matrix prüft Listen, Threads, Search, Artifacts, Cursors, Export, Bridge und Error Side-Channels.",
         "Multi-Hub-/Multi-Process-CAS und Cache Keys bleiben tenantqualifiziert."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 65.0
     },
     {
       "id": "PDCW-SEC-003",
@@ -1528,7 +1528,7 @@
         "Downgrade von strict_e2ee bleibt default-deny und an sichtbare scoped consent gebunden.",
         "Policy- oder Contract-Digest-Mismatch verhindert Live- und Durable-Aufnahme."
       ],
-      "progress_percent": 60.0
+      "progress_percent": 65.0
     },
     {
       "id": "PDCW-SEC-004",
@@ -1550,7 +1550,7 @@
         "URLs, Markdown, HTML, Patches, Attachments und Tooloutput besitzen Größen-, Typ-, Encoding-, Malware- und Path-Grenzen.",
         "Security-relevante Antworten ohne Evidenz werden nicht als belegte Negativaussage ausgegeben."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 40.0
     },
     {
       "id": "PDCW-SEC-005",
@@ -1573,7 +1573,7 @@
         "Audit-Kette erkennt Reihenfolge-/Digest-Manipulation und bleibt tenant-/workspace-separiert.",
         "Redaction-, Key-Custody- und Audit-Implementierungen können unabhängig ersetzt und mit fokussierten Contract-Tests geprüft werden."
       ],
-      "progress_percent": 50.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-SEC-006",
@@ -1594,7 +1594,7 @@
         "Queue-/Storage-/Search-/LLM-/Tool-Amplification wird im Native Core adversarial getestet; aktivierte Live-/Agent-/Bridge-Profile erweitern dieselbe Matrix.",
         "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-OPS-001",
@@ -1614,7 +1614,7 @@
         "Migration ist idempotent, revisiongebunden, dry-run-fähig und erzeugt Mapping-/Conflict-Report.",
         "Rollback deaktiviert neue Projektionen, ohne kanonische Events oder Legacy-Sessions zu löschen."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-OPS-002",
@@ -1634,7 +1634,7 @@
         "Legacy und neuer Client können dieselbe migrierte Session ohne Event-Duplikate verwenden.",
         "Deprecation-Telemetrie ist content-frei und nennt Clientversion, Contractversion und Reason-Code."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-OPS-003",
@@ -1655,7 +1655,7 @@
         "Correlation nutzt opaque IDs; Payload, Prompt, Secret, Key, Nonce und Message-Text bleiben ausgeschlossen.",
         "Cardinality-Budgets verhindern actor-/room-/event-id-basierte Metrikexplosion."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 25.0
     },
     {
       "id": "PDCW-OPS-004",
@@ -1675,7 +1675,7 @@
         "Export ist permission-, retention- und redaction-gefiltert und enthält kein Key-/Secretmaterial.",
         "Ein dokumentierter DR-Test misst RPO/RTO und beweist Standalone-Betrieb ohne Buzz."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 10.0
     },
     {
       "id": "PDCW-OPS-005",
@@ -1696,7 +1696,7 @@
         "Teilnehmer-, Event-, Room-, Queue-, Search- und Bridge-Caps stammen nur aus reproduzierbaren Messungen.",
         "Profile komponieren getrennte Durable-, Live- und Bridge-Adapter; optionale SFU-/Buzz-Konfiguration wird nicht in Native-Core-Services importiert."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 20.0
     },
     {
       "id": "PDCW-OPS-006",
@@ -1718,7 +1718,7 @@
         "Kein Runbook empfiehlt Datenlöschung, Force-Update oder Gate-Bypass als Standardreparatur.",
         "Feature-Flags können in definierter Reihenfolge deaktiviert werden, ohne Event-History zu verlieren."
       ],
-      "progress_percent": 12.0
+      "progress_percent": 30.0
     },
     {
       "id": "PDCW-QA-001",
@@ -1739,7 +1739,7 @@
         "Unknown Fields, Type Confusion, Oversize, stale Revision, bad Digest und invalid Scope sind abgedeckt.",
         "Schema-/Contract-Gate läuft deterministisch ohne Netzwerk und erzeugt content-freie Ergebnisse."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-QA-002",
@@ -1761,7 +1761,7 @@
         "Invarianten umfassen keine Authority Escalation, keine doppelte logische Wirkung, keine Cross-Tenant-Sichtbarkeit und bounded Ressourcen.",
         "Der native Korpus enthält Crash/Retry/Reorder/Revoke/Key-Rotate-Kombinationen; Echo-/Loop-Fälle eines optionalen Adapters werden additiv in dessen eigenem Gate ausgeführt und blockieren den adapterlosen Native Core nicht."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 55.0
     },
     {
       "id": "PDCW-QA-003",
@@ -1843,7 +1843,7 @@
         "Remote-Control, Recording/Persistence, optionaler Adapter-Export und E2EE-Downgrade besitzen sichtbare Consent-/Statusdarstellung, sobald die jeweilige Fähigkeit aktiviert ist.",
         "WCAG-relevante automatisierte und manuelle Prüfungen bestehen für Timeline, Threads, Actor-Liste, Cursor und Dialoge."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 35.0
     },
     {
       "id": "PDCW-QA-006",
@@ -1870,7 +1870,7 @@
         "Rolloutstufen sind disabled, observe_only, internal, canary, limited und general mit messbaren Entry-/Exit-Kriterien.",
         "Fehlende, stale oder rote Evidence führt zu no_go; Gate-Report erfindet keine SRC_*-/RUN_*-IDs und ist reproduzierbar."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 35.0
     }
   ],
   "critical_path_tasks": [
@@ -1963,7 +1963,7 @@
         "done": 0,
         "partial": 4,
         "blocked": 0,
-        "progress_percent": 66.2
+        "progress_percent": 73.8
       },
       "contract": {
         "total": 8,
@@ -1977,7 +1977,7 @@
         "done": 0,
         "partial": 8,
         "blocked": 0,
-        "progress_percent": 27.6
+        "progress_percent": 68.1
       },
       "configuration": {
         "total": 2,
@@ -1991,7 +1991,7 @@
         "done": 0,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 33.5
+        "progress_percent": 42.5
       },
       "documentation": {
         "total": 2,
@@ -2005,7 +2005,7 @@
         "done": 0,
         "partial": 2,
         "blocked": 0,
-        "progress_percent": 33.5
+        "progress_percent": 50.0
       },
       "implementation": {
         "total": 36,
@@ -2019,7 +2019,7 @@
         "done": 0,
         "partial": 33,
         "blocked": 3,
-        "progress_percent": 19.9
+        "progress_percent": 40.2
       },
       "security": {
         "total": 11,
@@ -2033,7 +2033,7 @@
         "done": 0,
         "partial": 10,
         "blocked": 1,
-        "progress_percent": 30.5
+        "progress_percent": 45.0
       },
       "test": {
         "total": 8,
@@ -2047,7 +2047,7 @@
         "done": 0,
         "partial": 7,
         "blocked": 1,
-        "progress_percent": 21.9
+        "progress_percent": 31.9
       },
       "migration": {
         "total": 1,
@@ -2061,7 +2061,7 @@
         "done": 0,
         "partial": 1,
         "blocked": 0,
-        "progress_percent": 12.0
+        "progress_percent": 35.0
       }
     }
   },
@@ -2073,12 +2073,12 @@
     "blocked": 5,
     "done": 0,
     "count_based_percent": 0.0,
-    "weighted_percent": 25.5
+    "weighted_percent": 45.6
   },
   "execution_stage_summary": {
-    "architecture_and_contracts": "todo",
-    "native_core": "todo",
-    "native_core_release": "todo",
+    "architecture_and_contracts": "in_progress",
+    "native_core": "in_progress",
+    "native_core_release": "blocked",
     "multi_participant_live": "todo",
     "agent_resource_collaboration": "todo",
     "agent_multi_participant_live_release": "todo",
@@ -2121,10 +2121,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 30.783,
-    "remaining_weight": 89.718,
+    "done_weight": 54.958,
+    "remaining_weight": 65.542,
     "blocked_weight": 7.25,
-    "weighted_percent": 25.5
+    "weighted_percent": 45.6
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2133,7 +2133,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 65.2,
+        "weighted_percent": 75.2,
         "status": "in_progress"
       },
       "M02": {
@@ -2141,7 +2141,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 8.0,
+        "weighted_percent": 64.2,
         "status": "in_progress"
       },
       "M03": {
@@ -2149,7 +2149,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 25.0,
+        "weighted_percent": 63.3,
         "status": "in_progress"
       },
       "M04": {
@@ -2165,7 +2165,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 18.0,
+        "weighted_percent": 48.3,
         "status": "in_progress"
       },
       "M06": {
@@ -2173,7 +2173,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 15.0,
+        "weighted_percent": 31.9,
         "status": "in_progress"
       },
       "M07": {
@@ -2181,7 +2181,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 22.0,
+        "weighted_percent": 36.1,
         "status": "in_progress"
       },
       "M08": {
@@ -2189,7 +2189,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 15.0,
+        "weighted_percent": 35.9,
         "status": "in_progress"
       },
       "M09": {
@@ -2197,7 +2197,7 @@
         "done": 0,
         "blocked": 5,
         "count_based_percent": 0.0,
-        "weighted_percent": 2.6,
+        "weighted_percent": 13.7,
         "status": "in_progress"
       },
       "M10": {
@@ -2205,7 +2205,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 41.3,
+        "weighted_percent": 53.4,
         "status": "in_progress"
       },
       "M11": {
@@ -2213,7 +2213,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 12.0,
+        "weighted_percent": 24.8,
         "status": "in_progress"
       },
       "M12": {
@@ -2221,7 +2221,7 @@
         "done": 0,
         "blocked": 0,
         "count_based_percent": 0.0,
-        "weighted_percent": 27.0,
+        "weighted_percent": 39.5,
         "status": "in_progress"
       }
     }
@@ -2229,32 +2229,34 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T09:49:45.694263Z",
+    "generated_at": "2026-08-30T10:03:20.453914Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ab9e23144258703e43ee6d3a2e2fc425a1654fcb0c964bbe29791fdcb82b34e9",
+    "source_hash": "9c929a6fcfbfe62bd8f75fb24c9a1981ad5c3b6822395fdfefe3664cdba49887",
     "is_stale": false
   },
   "implementation_review": {
     "reviewed_at": "2026-08-30",
-    "reviewed_commit": "1d8e0f963eb94cce6d59a34be78ff407370c6abb",
-    "state": "native_workspace_missing_reusable_pair_and_webrtc_foundations_present",
-    "reusable_foundations": [
-      "Hub-owned ShareSession, group, participant, permission, audit and relay APIs",
-      "Angular Pair-Session catalog, control plane, compact app/view sync and typed cursor/control envelopes",
-      "WebRTC P2P, relay fallback, E2EE epoch/replay/revocation and observe-only SFU/LiveKit building blocks",
-      "Hub workflow event-store/outbox patterns, task/lease governance and CodeCompass/source-control domains",
-      "Existing target architecture document with additive compatibility and independent release lanes"
+    "implementation_base_commit": "22126b8ce",
+    "state": "native_core_initial_slice_implemented_release_blocked",
+    "implemented": [
+      "Closed actor-binding, room and workspace-event contracts plus JSON Schemas",
+      "Default-off Hub composition, authenticated additive API and Angular workspace/room/timeline shell",
+      "Tenant-scoped append-only SQLite event sequences with idempotency and transactional outbox rows",
+      "Revisioned memberships, role policy, immediate revocation, presence lease epochs and monotonic read cursors",
+      "Permission-aware bounded search and exact SRC_/RUN_ grounding for decision and system projections",
+      "Dry-run ShareSession migration mapping and adapter-neutral disabled CollaborationBridgePort",
+      "Architecture boundary detector, threat model, operator notes and fully automatic negative/integration tests"
     ],
-    "missing_native_core": [
-      "Closed collaboration workspace/room/actor/event contracts and focused ports",
-      "Tenant-scoped append-only workspace store, inbox/outbox, projections, cursors and presence leases",
-      "Authenticated Workspace API and Angular room/thread timeline",
-      "Observe-only ShareSession dual-write/migration and permission-aware search",
-      "Generic bridge port plus pinned Buzz/Nostr adapter"
+    "remaining_gaps": [
+      "Production outbox/inbox consumers, projection rebuild/checkpoints and scalable search adapter",
+      "Per-room restricted visibility, thread/read models, artifact security and full secret-redaction pipeline",
+      "Observe-only ShareSession dual-write and executable idempotent migration/rollback",
+      "Agent resource offers/leases, task/workflow/Git/CodeCompass projection adapters",
+      "Multi-participant live browser evidence, backup/restore/load/chaos/accessibility gates",
+      "Pinned Buzz source, key custody, delivery adapter and conformance evidence"
     ],
     "release_blockers": [
-      "native_workspace_core_implementation_absent",
       "native_browser_and_load_run_evidence_missing",
       "multi_participant_live_run_evidence_missing",
       "buzz_source_and_conformance_evidence_missing"

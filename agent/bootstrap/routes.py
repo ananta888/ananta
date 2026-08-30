@@ -30,6 +30,7 @@ from agent.routes.codecompass_graph import codecompass_graph_bp
 from agent.routes.codecompass_layers import codecompass_layers_bp
 from agent.routes.codecompass_reload import codecompass_reload_bp
 from agent.routes.codecompass_retrieve import codecompass_retrieve_bp
+from agent.routes.collaboration_workspaces import collaboration_workspaces_bp
 from agent.routes.config import register_config_blueprints
 from agent.routes.config_graph import config_graph_bp
 from agent.routes.context_policy import context_policy_bp
@@ -134,6 +135,7 @@ from agent.ws_voice import register_ws_voice
 
 
 def register_blueprints(app: Flask) -> None:
+    app.register_blueprint(collaboration_workspaces_bp)
     app.register_blueprint(research_training_bp)
     app.register_blueprint(dendritic_memory_bp)
     app.register_blueprint(dspy_optimization_bp)
