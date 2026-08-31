@@ -9,5 +9,11 @@ export const SOURCE_CONTROL_CENTER_ROUTES: Routes = [
   { path: '', pathMatch: 'full', component: SourceOverviewComponent, canActivate: [projectContextGuard] },
   { path: 'add', component: SourceImportPageComponent, canActivate: [projectContextGuard] },
   { path: 'journey', component: SourceIndexJourneyComponent, canActivate: [projectContextGuard] },
+  {
+    path: 'controlling',
+    canActivate: [projectContextGuard],
+    loadComponent: () => import('../controlling/business-controlling-page.component')
+      .then(module => module.BusinessControllingPageComponent),
+  },
   { path: ':sourceId', component: SourceDetailComponent, canActivate: [projectContextGuard] },
 ];

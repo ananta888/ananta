@@ -21,6 +21,7 @@ from agent.routes.auth import auth_bp
 from agent.routes.auth_oidc import oidc_bp
 from agent.routes.blender_client_surface import blender_client_surface_bp
 from agent.routes.blueprint_routes import blueprint_bp
+from agent.routes.business_controlling import business_controlling_bp
 from agent.routes.caseflow import caseflow_bp
 from agent.routes.caseflow_discovery import discovery_bp
 from agent.routes.chat import chat_bp  # New: Chat API
@@ -180,6 +181,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(evolution_bp)
     app.register_blueprint(teams_bp)
     app.register_blueprint(blueprint_bp)
+    app.register_blueprint(business_controlling_bp)
     app.register_blueprint(organization_blueprints_bp)
     app.register_blueprint(organization_bundles_bp)
     app.register_blueprint(organization_instances_bp)

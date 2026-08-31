@@ -10,7 +10,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.db_models.business_controlling import BusinessControllingMappingDB, BusinessControllingProfileDB
-from agent.services.business_controlling_import_service import MappingConfirmation, TabularProfile
+from agent.services.business_controlling_import_service import (
+    ColumnProfile,
+    MappingConfirmation,
+    TabularProfile,
+)
 
 
 class BusinessControllingProfilePersistenceError(RuntimeError):
@@ -129,6 +133,42 @@ class SqlBusinessControllingProfileRepository:
                     ) from None
                 self._assert_mapping_identity(concurrent, tenant_id, project_id, confirmation, mapping)
         return confirmation
+
+    def get_profile(
+        self,
+        *,
+        tenant_id: str,
+        project_id: str,
+        profile_digest: str,
+    ) -> TabularProfile | None:
+        with Session(self._engine) as session:
+            row = session.exec(
+                select(BusinessControllingProfileDB).where(
+                    BusinessControllingProfileDB.profile_digest == profile_digest,
+                    BusinessControllingProfileDB.tenant_id == tenant_id,
+                    BusinessControllingProfileDB.project_id == project_id,
+                )
+            ).first()
+        if row is None:
+            return None
+        payload = row.payload
+        return TabularProfile(
+            source_revision_id=str(payload["source_revision_id"]),
+            revision_digest=str(payload["revision_digest"]),
+            row_count=int(payload["row_count"]),
+            duplicate_row_count=int(payload["duplicate_row_count"]),
+            columns=tuple(
+                ColumnProfile(
+                    header=str(column["header"]),
+                    inferred_type=str(column["inferred_type"]),
+                    null_count=int(column["null_count"]),
+                    invalid_count=int(column["invalid_count"]),
+                    invalid_locators=tuple(column.get("invalid_locators") or ()),
+                )
+                for column in payload["columns"]
+            ),
+            profile_digest=str(payload["profile_digest"]),
+        )
 
     @staticmethod
     def _assert_profile_identity(
