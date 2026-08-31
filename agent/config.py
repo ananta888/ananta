@@ -1,8 +1,5 @@
-import hashlib
-import json
 import logging
 import os
-import time
 from pathlib import Path
 from typing import Optional, Tuple, Type
 from urllib.parse import urlsplit
@@ -21,35 +18,27 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
-from ananta_contracts.file_credentials import (
-    FileCredentialConfigurationError,
-    read_file_managed_token,
+from agent.config_bootstrap import (
+    SecretKeyConfigurationError as SecretKeyConfigurationError,
 )
-
-
-class SecretKeyConfigurationError(RuntimeError):
-    """Raised when a file-managed Flask/JWT signing key is unsafe."""
-
-
-def _resolve_file_managed_secret_key(
-    *,
-    inline_secret_key: str,
-    secret_key_file: str,
-) -> str:
-    """Resolve one stable signing key without exposing it through the environment."""
-
-    try:
-        file_secret_key = read_file_managed_token(
-            secret_key_file,
-            description="SECRET_KEY file",
-            min_bytes=32,
-            max_bytes=16_384,
-        )
-    except FileCredentialConfigurationError as exc:
-        raise SecretKeyConfigurationError("SECRET_KEY file is invalid") from exc
-    if inline_secret_key and inline_secret_key != file_secret_key:
-        raise SecretKeyConfigurationError("inline SECRET_KEY conflicts with file-managed SECRET_KEY")
-    return file_secret_key
+from agent.config_bootstrap import (
+    initialize_settings as _initialize_settings,
+)
+from agent.config_bootstrap import (
+    resolve_file_managed_secret_key as _resolve_file_managed_secret_key,  # noqa: F401
+)
+from agent.config_model_context import (
+    lookup_model_context_tokens as _lookup_model_context_tokens,
+)
+from agent.config_model_context import (
+    parse_model_contexts as _parse_model_contexts,  # noqa: F401
+)
+from agent.config_token_persistence import (
+    save_agent_token as _save_agent_token,
+)
+from agent.config_token_persistence import (
+    update_dotenv as _update_dotenv_file,
+)
 
 
 class Settings(BaseSettings):
@@ -999,68 +988,11 @@ class Settings(BaseSettings):
 
     def save_agent_token(self, token: str) -> None:
         """Persistiert den Agent Token sicher."""
-        self.agent_token = token
-        if not self.agent_token_persistence:
-            return
-
-        try:
-            os.makedirs(self.secrets_dir, exist_ok=True)
-            path = self.token_path
-            # Wir nutzen hier direkt json.dump um Abhängigkeiten zu minimieren,
-            # aber halten uns an das Format von write_json (indent=2)
-            data = {"agent_token": token, "last_rotation": time.time()}
-
-            # Restriktive Berechtigungen falls Datei neu
-            if not os.path.exists(path):
-                try:
-                    fd = os.open(path, os.O_WRONLY | os.O_CREAT, 0o600)
-                    os.close(fd)
-                except Exception:
-                    pass
-
-            with open(path, "w", encoding="utf-8") as f:
-                json.dump(data, f, indent=2)
-
-            try:
-                os.chmod(path, 0o600)
-            except Exception:
-                pass
-
-            # Optional: .env Datei aktualisieren
-            if self.auto_update_dotenv:
-                self._update_dotenv("AGENT_TOKEN", token)
-
-            logging.getLogger("agent.config").info(f"Agent Token erfolgreich in {path} persistiert.")
-        except Exception as e:
-            logging.getLogger("agent.config").error(f"Fehler beim Persistieren des Agent Tokens: {e}")
+        _save_agent_token(self, token)
 
     def _update_dotenv(self, key: str, value: str) -> None:
         """Aktualisiert einen Wert in der .env Datei."""
-        dotenv_path = ".env"
-        if not os.path.exists(dotenv_path):
-            return
-
-        try:
-            with open(dotenv_path, "r", encoding="utf-8") as f:
-                lines = f.readlines()
-
-            updated = False
-            new_lines = []
-            for line in lines:
-                if line.startswith(f"{key}=") or line.startswith(f"export {key}="):
-                    new_lines.append(f"{key}={value}\n")
-                    updated = True
-                else:
-                    new_lines.append(line)
-
-            if not updated:
-                new_lines.append(f"{key}={value}\n")
-
-            with open(dotenv_path, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-            logging.getLogger("agent.config").info(f"{key} in .env aktualisiert.")
-        except Exception as e:
-            logging.getLogger("agent.config").error(f"Fehler beim Aktualisieren der .env: {e}")
+        _update_dotenv_file(key, value)
 
     # Redis
     redis_url: Optional[str] = Field(default=None, validation_alias="REDIS_URL")
@@ -1170,13 +1102,9 @@ class Settings(BaseSettings):
         return self
 
     model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        extra="ignore",
-        populate_by_name=True,
-        secrets_dir="secrets",  # Standardmäßig im Unterordner secrets/
+        env_file=".env", env_file_encoding="utf-8", extra="ignore",
+        populate_by_name=True, secrets_dir="secrets",
     )
-
     @classmethod
     def settings_customise_sources(
         cls,
@@ -1186,12 +1114,7 @@ class Settings(BaseSettings):
         dotenv_settings: PydanticBaseSettingsSource,
         file_secret_settings: PydanticBaseSettingsSource,
     ) -> Tuple[PydanticBaseSettingsSource, ...]:
-        sources: list[PydanticBaseSettingsSource] = [
-            init_settings,
-            env_settings,
-            file_secret_settings,
-            dotenv_settings,
-        ]
+        sources: list[PydanticBaseSettingsSource] = [init_settings, env_settings, file_secret_settings, dotenv_settings]
 
         # Vault Source hinzufügen, wenn konfiguriert
         vault_url = os.getenv("VAULT_URL")
@@ -1214,169 +1137,21 @@ class Settings(BaseSettings):
         return tuple(sources)
 
 
-# Per-model context token map (parsed lazily). Used by LMStudio strategy to size
-# prompts/batches when the /v1/models endpoint omits per-model context_length.
-def _parse_model_contexts(raw: str | None) -> dict[str, int]:
-    """Parse the JSON-encoded model->context_tokens map from settings.
-
-    Returns an empty dict on parse errors. Keys are kept lowercase; values are
-    positive int context-window sizes.
-    """
-    if not raw or not isinstance(raw, str):
-        return {}
-    try:
-        parsed = json.loads(raw)
-    except (TypeError, ValueError):
-        return {}
-    if not isinstance(parsed, dict):
-        return {}
-    result: dict[str, int] = {}
-    for k, v in parsed.items():
-        if not isinstance(k, str) or not k.strip():
-            continue
-        try:
-            tok = int(v)
-        except (TypeError, ValueError):
-            continue
-        if tok > 0:
-            result[k.strip().lower()] = tok
-    return result
-
-
 def lookup_model_context_tokens(model_id: str | None) -> int | None:
-    """Best-effort lookup of a model's context window from the configured map.
+    """Best-effort lookup of a model's configured context window."""
 
-    Returns the longest matching substring key's value, or None if nothing matches.
-    Substring match is bidirectional to handle both short ids and full ids.
-    """
-    if not model_id:
-        return None
-    needle = str(model_id).strip().lower()
-    if not needle:
-        return None
     try:
-        contexts = _parse_model_contexts(getattr(settings, "lmstudio_model_contexts", None))
+        return _lookup_model_context_tokens(
+            model_id,
+            getattr(settings, "lmstudio_model_contexts", None),
+        )
     except Exception:
         return None
-    if not contexts:
-        return None
-    # 1) exact match
-    if needle in contexts:
-        return int(contexts[needle])
-    # 2) bidirectional substring: pick the key with the longest overlap
-    best_key: str | None = None
-    best_len = 0
-    for key in contexts:
-        if key in needle or needle in key:
-            if len(key) > best_len:
-                best_key = key
-                best_len = len(key)
-    if best_key is not None:
-        return int(contexts[best_key])
-    return None
 
 
 # Instanz erstellen
 try:
-    settings = Settings()
-
-    # Post-init validation and security checks
-    logger = logging.getLogger("agent.config")
-    import secrets
-
-    # 1. SECRET_KEY Handling
-    if settings.secret_key_file:
-        settings.secret_key = _resolve_file_managed_secret_key(
-            inline_secret_key=settings.secret_key,
-            secret_key_file=settings.secret_key_file,
-        )
-        logger.info("SECRET_KEY loaded from the configured file-managed secret")
-
-    if not settings.secret_key:
-        # Versuche aus secrets_dir zu laden, falls Pydantic es nicht automatisch getan hat
-        secret_key_path = Path(settings.secrets_dir) / "secret_key"
-
-        if secret_key_path.exists():
-            try:
-                settings.secret_key = secret_key_path.read_text().strip()
-                logger.info(f"SECRET_KEY loaded from {secret_key_path}")
-            except Exception as e:
-                logger.error(f"Could not read SECRET_KEY from {secret_key_path}: {e}")
-
-        if not settings.secret_key:
-            # Generiere einen zufälligen Key, falls keiner angegeben wurde oder geladen werden konnte
-            settings.secret_key = secrets.token_urlsafe(32)
-            logger.warning("SECRET_KEY was not set. A random key has been generated.")
-
-            # Versuche den generierten Key zu persistieren
-            try:
-                os.makedirs(settings.secrets_dir, exist_ok=True)
-                secret_key_path.write_text(settings.secret_key)
-                logger.info(f"Generated SECRET_KEY persisted to {secret_key_path}")
-            except Exception as e:
-                logger.error(f"Could not persist generated SECRET_KEY to {secret_key_path}: {e}")
-
-    # 1b. Enforce a minimum effective key length for HS256.
-    # If a persisted/env key is too short, derive a deterministic 64-char key from SHA-256.
-    # This avoids PyJWT InsecureKeyLengthWarning while keeping restarts stable.
-    if settings.secret_key and len(settings.secret_key.encode("utf-8")) < 32:
-        short_len = len(settings.secret_key.encode("utf-8"))
-        settings.secret_key = hashlib.sha256(settings.secret_key.encode("utf-8")).hexdigest()
-        logger.warning(
-            "SECRET_KEY length (%s bytes) is below 32; using deterministic SHA-256 derived key at runtime.",
-            short_len,
-        )
-
-    # 2. MFA_ENCRYPTION_KEY Handling
-    if not settings.mfa_encryption_key:
-        mfa_key_path = Path(settings.secrets_dir) / "mfa_encryption_key"
-
-        if mfa_key_path.exists():
-            try:
-                settings.mfa_encryption_key = mfa_key_path.read_text().strip()
-                logger.info(f"MFA_ENCRYPTION_KEY loaded from {mfa_key_path}")
-            except Exception as e:
-                logger.error(f"Could not read MFA_ENCRYPTION_KEY from {mfa_key_path}: {e}")
-
-        # Hinweis: Wir generieren hier keinen Fallback-Key, da agent/common/mfa.py
-        # bereits einen Fallback aus SECRET_KEY ableitet, wenn MFA_ENCRYPTION_KEY None ist.
-        # Wenn der User jedoch eine dedizierte Datei wünscht, kann er diese nun dort ablegen.
-        # Falls wir automatische Persistenz wie bei SECRET_KEY wollen:
-        # if not settings.mfa_encryption_key:
-        #     settings.mfa_encryption_key = secrets.token_urlsafe(32)
-        #     ... persist ...
-        # Da die Aufgabe sagt "implement logic similar to secret_key",
-        # aber auch erwähnt "Currently, if MFA_ENCRYPTION_KEY is not set, it derives from SECRET_KEY",
-        # ist es am sichersten, es optional zu lassen, aber Dateiladen zu unterstützen.
-
-    # 3. AGENT_TOKEN Handling (Migration and Loading)
-    token_path = Path(settings.token_path)
-    # Migration von altem Pfad falls nötig (data/token.json -> secrets/agent_token.json)
-    old_token_path = Path(settings.data_dir) / "token.json"
-    if old_token_path.exists() and not token_path.exists():
-        try:
-            os.makedirs(settings.secrets_dir, exist_ok=True)
-            import shutil
-
-            shutil.move(str(old_token_path), str(token_path))
-            logger.info(f"Migrated agent token from {old_token_path} to {token_path}")
-        except Exception as e:
-            logger.error(f"Failed to migrate agent token: {e}")
-
-    if token_path.exists():
-        try:
-            with open(token_path, "r", encoding="utf-8") as f:
-                token_data = json.load(f)
-                if not settings.agent_token and not settings.agent_token_file:
-                    # An explicitly configured file secret supersedes the
-                    # legacy persisted inline token. Explicit AGENT_TOKEN plus
-                    # AGENT_TOKEN_FILE is still retained and checked for an
-                    # exact match by the authentication boundary.
-                    settings.agent_token = token_data.get("agent_token")
-                    if settings.agent_token:
-                        logger.info(f"Agent token loaded from {token_path}")
-        except Exception as e:
-            logger.error(f"Could not read agent token from {token_path}: {e}")
+    settings = _initialize_settings(Settings())
 
 except SecretKeyConfigurationError:
     # A configured production signing key is a security boundary. Falling back
