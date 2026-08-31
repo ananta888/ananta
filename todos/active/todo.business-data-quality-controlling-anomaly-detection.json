@@ -40,7 +40,7 @@
     {
       "id": "CTRL-FOUND-001",
       "title": "Canonical business-dataset and finding contracts define",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [],
       "repo_evidence": [

@@ -6,6 +6,8 @@ from ananta_contracts.business_controlling import (
     CONTRACT_VERSION,
     BusinessControllingContractError,
     BusinessFinding,
+    DatasetReceipt,
+    ExecutionReceipt,
     FindingDisposition,
     FindingKind,
     FindingSeverity,
@@ -55,3 +57,23 @@ def test_locator_rejects_raw_or_unbounded_reference_forms() -> None:
         RecordLocator.from_mapping(
             {"source_kind": "csv", "source_version": "v1", "locator_kind": "raw_value", "locator": "secret"}
         )
+
+
+def test_dataset_and_execution_receipts_are_closed_and_content_addressed() -> None:
+    dataset = DatasetReceipt.from_mapping(
+        {
+            "contract_version": CONTRACT_VERSION,
+            "dataset_id": "dataset_1",
+            "dataset_version": "version_1",
+            "source_digest": "c" * 64,
+            "period_start": "2026-01-01",
+            "period_end": "2026-01-31",
+            "currency": "EUR",
+            "column_mapping": {"amount": "amount_column", "period": "period_column"},
+        }
+    )
+    assert dataset.to_dict()["column_mapping"] == {"amount": "amount_column", "period": "period_column"}
+    receipt = ExecutionReceipt.from_mapping(
+        {"execution_id": "run_1", "input_digest": "d" * 64, "configuration_digest": "e" * 64, "output_digest": "f" * 64}
+    )
+    assert receipt.to_dict()["execution_id"] == "run_1"

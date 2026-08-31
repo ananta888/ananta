@@ -103,6 +103,78 @@ class RecordLocator:
 
 
 @dataclass(frozen=True)
+class DatasetReceipt:
+    """Versioned, content-addressed dataset metadata without raw records."""
+
+    contract_version: str
+    dataset_id: str
+    dataset_version: str
+    source_digest: str
+    period_start: str
+    period_end: str
+    currency: str
+    column_mapping: tuple[tuple[str, str], ...]
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "DatasetReceipt":
+        data = _closed(
+            value,
+            frozenset(
+                {
+                    "contract_version", "dataset_id", "dataset_version", "source_digest", "period_start", "period_end",
+                    "currency", "column_mapping",
+                }
+            ),
+        )
+        if data["contract_version"] != CONTRACT_VERSION:
+            raise BusinessControllingContractError("business_controlling_contract_version_invalid")
+        if not isinstance(data["period_start"], str) or not isinstance(data["period_end"], str):
+            raise BusinessControllingContractError("business_controlling_period_invalid")
+        if not isinstance(data["currency"], str) or not _CURRENCY.fullmatch(data["currency"]):
+            raise BusinessControllingContractError("business_controlling_currency_invalid")
+        mapping = data["column_mapping"]
+        if not isinstance(mapping, Mapping) or not mapping:
+            raise BusinessControllingContractError("business_controlling_mapping_invalid")
+        normalized_mapping = tuple(sorted((_identifier(key), _identifier(item)) for key, item in mapping.items()))
+        return cls(
+            CONTRACT_VERSION,
+            _identifier(data["dataset_id"]),
+            _identifier(data["dataset_version"]),
+            _digest(data["source_digest"]),
+            data["period_start"],
+            data["period_end"],
+            data["currency"],
+            normalized_mapping,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        payload = asdict(self)
+        payload["column_mapping"] = dict(self.column_mapping)
+        return payload
+
+
+@dataclass(frozen=True)
+class ExecutionReceipt:
+    execution_id: str
+    input_digest: str
+    configuration_digest: str
+    output_digest: str
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "ExecutionReceipt":
+        data = _closed(value, frozenset({"execution_id", "input_digest", "configuration_digest", "output_digest"}))
+        return cls(
+            _identifier(data["execution_id"]),
+            _digest(data["input_digest"]),
+            _digest(data["configuration_digest"]),
+            _digest(data["output_digest"]),
+        )
+
+    def to_dict(self) -> dict[str, str]:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
 class BusinessFinding:
     contract_version: str
     finding_id: str
@@ -168,6 +240,8 @@ __all__ = [
     "BusinessControllingContractError",
     "BusinessFinding",
     "CONTRACT_VERSION",
+    "DatasetReceipt",
+    "ExecutionReceipt",
     "FindingDisposition",
     "FindingKind",
     "FindingSeverity",
