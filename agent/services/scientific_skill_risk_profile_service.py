@@ -174,7 +174,7 @@ class ScientificSkillRiskProfiler:
         combined = "\n".join(texts[path] for path in sorted(texts))
         dependencies = self._dependencies(texts)
         capabilities = self._capabilities(manifest, combined, dependencies)
-        network_targets = self._network_targets(manifest, combined)
+        network_targets, invalid_network_reference = self._network_targets(manifest, combined)
         credential_requirements = tuple(
             sorted(
                 set(
@@ -188,6 +188,8 @@ class ScientificSkillRiskProfiler:
         context_budget = (sum(len(content) for content in declared_contents.values()) + 3) // 4
         classification = self._classification(capabilities, combined)
         reasons: set[str] = set()
+        if invalid_network_reference:
+            reasons.add("network_reference_invalid")
 
         declared_capabilities = set(manifest.declared_capabilities)
         declared_dependencies = set(manifest.declared_dependencies)
@@ -364,11 +366,23 @@ class ScientificSkillRiskProfiler:
         return tuple(ScientificSkillDependency(ecosystem, name) for ecosystem, name in sorted(found))
 
     @staticmethod
-    def _network_targets(manifest: ScientificSkillManifest, content: str) -> tuple[str, ...]:
+    def _network_targets(
+        manifest: ScientificSkillManifest,
+        content: str,
+    ) -> tuple[tuple[str, ...], bool]:
         urls = set(manifest.source_references)
         urls.update(re.findall(r"https?://[^\s)'\"<>]+", content))
-        targets = {urlsplit(url).hostname for url in urls}
-        return tuple(sorted(target for target in targets if target))
+        targets: set[str] = set()
+        invalid = False
+        for url in urls:
+            try:
+                target = urlsplit(url).hostname
+            except ValueError:
+                invalid = True
+                continue
+            if target:
+                targets.add(target)
+        return tuple(sorted(targets)), invalid
 
     @staticmethod
     def _classification(capabilities: set[str], content: str) -> str:

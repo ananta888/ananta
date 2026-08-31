@@ -172,3 +172,16 @@ def test_unknown_script_language_and_tampered_content_fail_closed(tmp_path: Path
     tampered[manifest.upstream_path] += b"tampered"
     with pytest.raises(ScientificSkillRiskProfileError, match="content_digest_mismatch"):
         ScientificSkillRiskProfiler().profile(manifest=manifest, declared_contents=tampered)
+
+
+def test_malformed_network_reference_is_reported_and_blocked_without_crashing(tmp_path: Path) -> None:
+    manifest, contents = _skill_package(
+        tmp_path / "skill",
+        body="Never copy the placeholder https://example.test[:port]/path into production.",
+    )
+
+    profile = ScientificSkillRiskProfiler().profile(manifest=manifest, declared_contents=contents)
+
+    assert profile.operating_mode is ScientificSkillOperatingMode.BLOCKED
+    assert profile.network_targets == ()
+    assert "network_reference_invalid" in profile.reason_codes
