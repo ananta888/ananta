@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import tempfile
@@ -32,6 +33,12 @@ ALLOWED_TIERS = {"static", "complex", "full_e2e"}
 
 class GateConfigurationError(ValueError):
     """Raised when the immutable release-gate inputs are malformed."""
+
+
+def _available_loopback_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as candidate:
+        candidate.bind(("127.0.0.1", 0))
+        return int(candidate.getsockname()[1])
 
 
 def _read_json(path: Path, *, maximum_bytes: int = 4_000_000) -> dict[str, Any]:
@@ -265,6 +272,12 @@ def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
         ) as pycache_dir:
             process_env = os.environ.copy()
             process_env["PYTHONPYCACHEPREFIX"] = pycache_dir
+            if suite["tier"] == "full_e2e":
+                process_env["E2E_RESULTS_DIR"] = str(
+                    Path(pycache_dir) / "playwright-results"
+                )
+                process_env["E2E_PORT"] = str(_available_loopback_port())
+                process_env["E2E_TEST_TIMEOUT_MS"] = "180000"
             completed = subprocess.run(
                 command,
                 cwd=ROOT / str(suite["cwd"]),

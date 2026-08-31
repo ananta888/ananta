@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 
-import { loginFast } from './utils';
+import { gotoProjectScopedRoute, loginFast } from './utils';
 
 const organizationId = 'organization-medium-eight';
 const definitionRevision = 'definition-revision-medium-eight';
@@ -152,7 +152,7 @@ test.describe('enterprise organization medium eight-team reference', () => {
         organization_instances: [], include_assignments: false, assignments: [],
       } }),
     }));
-    await page.route('**/api/organizations*', async route => {
+    await page.route(/\/api\/organizations(?:\/.*)?(?:\?.*)?$/, async route => {
       const url = new URL(route.request().url());
       const path = url.pathname;
       if (path.endsWith('/topology')) {
@@ -193,17 +193,18 @@ test.describe('enterprise organization medium eight-team reference', () => {
       await route.fulfill({ status: 404, contentType: 'application/json', body: '{}' });
     });
 
-    await page.goto('/organizations', { waitUntil: 'domcontentloaded' });
+    await gotoProjectScopedRoute(page, '/organizations');
     await expect(page.getByRole('heading', { name: 'Organisationen' })).toBeVisible();
     await expect(page.getByRole('treeitem')).toHaveCount(13);
-    await expect(page.getByText('8 Teams', { exact: false }).first()).toBeVisible();
+    await expect(page.getByLabel('Aktive Organisation')).toHaveValue(organizationId);
+    await expect(page.getByLabel('Aktive Organisation')).toContainText('8 Teams');
     await expect(page.getByText('revisionsgebunden')).toBeVisible();
 
     await page.getByRole('treeitem', { name: /Delivery Team 1/ }).click();
     await expect(page.getByRole('heading', { name: 'Inspector' })).toBeVisible();
     await expect(page.locator('.inspector').getByText('In Arbeit')).toBeVisible();
     await expect(page.getByText('Verified increment')).toBeVisible();
-    await page.getByRole('tab', { name: 'Graph' }).click();
+    await page.getByRole('tab', { name: '2D' }).click();
     await expect(page.getByRole('heading', { name: 'Graph' })).toBeVisible();
     await expect(page.locator('.node.selected')).toContainText('Delivery Team 1');
     await expect(page.locator('line.edge.organization')).toHaveCount(8);
@@ -222,6 +223,7 @@ test.describe('enterprise organization medium eight-team reference', () => {
     await page.getByLabel('Parent-ID').fill('delivery');
     await page.getByLabel('Stabiler Schlüssel').fill('temporary-review-team');
     await page.getByLabel('Bezeichnung').fill('Temporary Review Team');
+    await page.getByLabel('Team-Blueprint-Ref').fill('quality_security_release@1');
     await page.getByRole('button', { name: 'Draft prüfen' }).click();
     await expect(page.getByRole('heading', { name: 'Dry-run-Ergebnis' })).toBeVisible();
     await expect(page.getByText('discarded-patch-digest')).toBeVisible();
@@ -235,8 +237,8 @@ test.describe('enterprise organization medium eight-team reference', () => {
 
     await page.getByRole('button', { name: 'Import / Export' }).click();
     const download = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Ausgewählte Organisation exportieren' }).click();
-    expect((await download).suggestedFilename()).toBe('organization-definitions-enterprise_scrum_organization-1.bundle.v2.json');
-    await expect(page.getByText('Redigiertes Bundle wurde exportiert.')).toBeVisible();
+    await page.getByRole('button', { name: 'Bundle exportieren' }).click();
+    expect((await download).suggestedFilename()).toBe('organization-enterprise_scrum_organization-1.bundle.v2.json');
+    await expect(page.getByText('Bundle wurde mit explizit ausgewiesenem Redaktions- und Rebind-Umfang exportiert.')).toBeVisible();
   });
 });

@@ -120,3 +120,38 @@ def test_suite_runner_uses_private_python_bytecode_directory(
         "compileall",
     ]
     assert not Path(observed["bytecode_dir"]).exists()
+
+
+def test_full_e2e_uses_an_isolated_results_directory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, object] = {}
+
+    def fake_run(*_args: object, **kwargs: object):
+        results_dir = Path(str(kwargs["env"]["E2E_RESULTS_DIR"]))
+        observed["results_dir"] = results_dir
+        observed["port"] = str(kwargs["env"]["E2E_PORT"])
+        observed["test_timeout_ms"] = str(kwargs["env"]["E2E_TEST_TIMEOUT_MS"])
+        assert results_dir.parent.is_dir()
+        return subprocess.CompletedProcess([], 0, b"", b"")
+
+    monkeypatch.setattr(
+        "scripts.run_enterprise_organization_release_gate.subprocess.run",
+        fake_run,
+    )
+
+    result = _run_suite(
+        {
+            "id": "medium-eight-team-e2e",
+            "tier": "full_e2e",
+            "cwd": "frontend-angular",
+            "timeout_seconds": 10,
+            "command": ["npx", "playwright", "test", "example.spec.ts"],
+        }
+    )
+
+    assert result["status"] == "passed"
+    assert 0 < int(str(observed["port"])) < 65536
+    assert observed["test_timeout_ms"] == "180000"
+    assert isinstance(observed["results_dir"], Path)
+    assert not observed["results_dir"].parent.exists()

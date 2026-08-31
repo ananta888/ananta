@@ -370,6 +370,7 @@ export default async function globalSetup() {
         AGENT_NAME: "hub",
         AGENT_TOKEN: "hubsecret",
         PORT: String(hub.port),
+        CORS_ORIGINS: frontendBaseUrl,
         INITIAL_ADMIN_USER: adminUser,
         INITIAL_ADMIN_PASSWORD: adminPassword,
         ANANTA_SEMANTIC_SPEECH_RUNTIME_ENABLED: "true",
