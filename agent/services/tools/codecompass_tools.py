@@ -18,6 +18,12 @@ from agent.services.tools._evidence import (
     build_evidence_entry,
     build_tool_result,
 )
+from agent.services.tools.codecompass_repository_tools import (
+    codecompass_build_test_map as codecompass_build_test_map,
+)
+from agent.services.tools.codecompass_repository_tools import (
+    codecompass_repository_query as codecompass_repository_query,
+)
 
 _MAX_SEARCH_LIMIT = 20
 _MAX_GRAPH_NODES = 40
@@ -1062,106 +1068,4 @@ def codecompass_x86_find(
             "warnings": result.warnings,
         },
         error=result.error,
-    )
-
-
-# ----- RIG-006: Repository Intelligence tools -----
-
-_RIG_QUERY_MAX_NODES = 200
-_RIG_QUERY_MAX_RESULTS = 100
-_RIG_QUERY_MAX_PATHS_PER_RESULT = 5
-
-
-def _rig_graph_store(arguments: dict[str, Any]):
-    """Resolve the CodeCompassGraphStore for RIG tools.
-
-    ``arguments['graph_index_path']`` overrides the default location.
-    """
-    from ananta_codecompass.graph_store import CodeCompassGraphStore
-    idx = str(arguments.get("graph_index_path") or "").strip()
-    if idx:
-        return CodeCompassGraphStore(index_path=idx)
-    # Default: a stable path under the workspace. The caller is expected
-    # to have written a RIG index there via the import CLI (RIG-012).
-    return CodeCompassGraphStore(index_path=".codecompass/rig_index.json")
-
-
-def codecompass_repository_query(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """RIG-006: whitelisted RIG query against the graph store."""
-    from ananta_codecompass.repository_intelligence_query import (
-        ALLOWED_QUERY_TYPES,
-        run_query,
-    )
-    args = arguments or {}
-    query_type = str(args.get("query_type") or "").strip()
-    seed = str(args.get("seed") or "").strip()
-    if not query_type:
-        return build_tool_result(
-            tool_name="codecompass.repository_query",
-            tool_call_id=tool_call_id, status="error", error="query_type_required",
-        )
-    if not seed:
-        return build_tool_result(
-            tool_name="codecompass.repository_query",
-            tool_call_id=tool_call_id, status="error", error="seed_required",
-        )
-    if query_type not in ALLOWED_QUERY_TYPES:
-        return build_tool_result(
-            tool_name="codecompass.repository_query",
-            tool_call_id=tool_call_id, status="error",
-            error=f"unsupported_query_type:{query_type}",
-        )
-
-    store = _rig_graph_store(args)
-    max_results = min(int(args.get("max_results", _RIG_QUERY_MAX_RESULTS)),
-                      _RIG_QUERY_MAX_RESULTS)
-    try:
-        result = run_query(graph_store=store, query_type=query_type, seed=seed,
-                           max_results=max_results)
-    except ValueError as exc:
-        return build_tool_result(
-            tool_name="codecompass.repository_query",
-            tool_call_id=tool_call_id, status="error", error=str(exc),
-        )
-    return build_tool_result(
-        tool_name="codecompass.repository_query",
-        tool_call_id=tool_call_id,
-        status="ok" if not result.warnings else "degraded",
-        data={"query_result": result.as_dict()},
-        warnings=list(result.warnings),
-    )
-
-
-def codecompass_build_test_map(
-    *, workspace_dir: str, arguments: dict[str, Any], tool_call_id: str,
-) -> dict[str, Any]:
-    """RIG-006: convenience tool — build a build/test map for a target."""
-    from ananta_codecompass.repository_intelligence_query import run_query
-    args = arguments or {}
-    target = str(args.get("target") or "").strip()
-    if not target:
-        return build_tool_result(
-            tool_name="codecompass.build_test_map",
-            tool_call_id=tool_call_id, status="error", error="target_required",
-        )
-    store = _rig_graph_store(args)
-    components = run_query(graph_store=store, query_type="component-tests", seed=target)
-    deps = run_query(graph_store=store, query_type="package-dependents", seed=target)
-    evidence = sorted(set(components.evidence_paths) | set(deps.evidence_paths))
-    if len(evidence) > _RIG_QUERY_MAX_PATHS_PER_RESULT:
-        evidence = evidence[:_RIG_QUERY_MAX_PATHS_PER_RESULT]
-    return build_tool_result(
-        tool_name="codecompass.build_test_map",
-        tool_call_id=tool_call_id,
-        status="ok" if not (components.warnings or deps.warnings) else "degraded",
-        data={
-            "target": target,
-            "components": list(components.results),
-            "dependencies": list(deps.results),
-            "evidence_paths": evidence,
-            "warnings_components": list(components.warnings),
-            "warnings_dependencies": list(deps.warnings),
-        },
     )
