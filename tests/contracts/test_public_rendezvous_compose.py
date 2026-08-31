@@ -5,6 +5,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 COMPOSE = ROOT / "docker/old_way/docker-compose.public-rendezvous.yml"
+PUBLIC_CADDY = ROOT / "public-rendezvous/caddy/Caddyfile"
 KEYCLOAK_CONTAINERFILE = ROOT / "public-rendezvous/keycloak/Containerfile"
 KEYCLOAK_BASE = (
     "quay.io/keycloak/keycloak:26.6.1@sha256:dea26401d06341095cc4ea9d66896200b55de5ca1daa1d2fcbe58493afa6e0ad"
@@ -86,6 +87,23 @@ def test_public_edge_waits_for_healthy_backends_and_bind_mounts_are_selinux_safe
     assert services["keycloak"]["volumes"][1] == (
         "../../public-rendezvous/keycloak-themes/ananta-minimal:/opt/keycloak/themes/ananta-minimal:ro,Z"
     )
+
+
+def test_public_edge_preserves_rendezvous_paths_and_proxies_room_app_to_minipc():
+    caddyfile = PUBLIC_CADDY.read_text(encoding="utf-8")
+
+    for rendezvous_path in (
+        "/health",
+        "/info",
+        "/rendezvous/*",
+        "/webrtc/*",
+        "/signaling",
+    ):
+        assert rendezvous_path in caddyfile
+
+    assert "reverse_proxy rendezvous:5000" in caddyfile
+    assert "reverse_proxy https://minipc.ananta.de" in caddyfile
+    assert "header_up Host webrtc.ananta.de" in caddyfile
 
 
 def test_public_keycloak_login_theme_limits_locale_warmup():

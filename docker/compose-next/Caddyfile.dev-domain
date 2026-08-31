@@ -33,3 +33,14 @@ https://{$ANANTA_DEV_DOMAIN} {
 		reverse_proxy ai-agent-hub:5000
 	}
 }
+
+http://webrtc.ananta.de {
+	redir https://webrtc.ananta.de{uri} permanent
+}
+
+https://webrtc.ananta.de {
+	# The certificate is deployed out of band until DNS-01 automation is available.
+	tls /data/manual-certs/webrtc.ananta.de.crt /data/manual-certs/webrtc.ananta.de.key
+	encode zstd gzip
+	reverse_proxy webrtc-room-server:8080
+}
