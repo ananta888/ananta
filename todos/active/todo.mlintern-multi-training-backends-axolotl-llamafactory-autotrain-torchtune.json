@@ -1,17 +1,17 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-08-31",
   "owner": "Peter Stuiber / Ananta",
   "track": "mlintern_multi_training_backends",
   "title": "ML-Intern: optionale Backends fuer Axolotl, LLaMA-Factory, AutoTrain Advanced und torchtune",
   "review_basis": {
-    "reviewed_commit_range": "b2a88f75f113cb8a5b7387eb6f112d4e5fb99c00 plus Implementierungsstand vom 2026-08-28",
-    "review_goal": "Automatischen Image-/Supply-Chain-Gate implementieren, alle vier Images neu bauen und reale Findings fail-closed bewerten",
-    "repository_state": "Audit-Commit war auf origin/main; Implementierung wurde vor der Todo-Aktualisierung mit realen Images verifiziert",
-    "verification": "Vier aktuelle Images gebaut; vier netzlose read-only Install-Smokes bestanden; digestgepinnte Syft-/Grype-Scans ausgefuehrt; 30 fokussierte Gate-, Acceptance-, Lizenz-, Adapter- und Isolationstests bestanden"
+    "reviewed_commit_range": "main@623768ee6 plus upstream maintenance review on 2026-08-31",
+    "review_goal": "Repository-side implementation gaps von nicht durch Code loesbaren Supply-Chain-, GPU- und Upstream-Gates trennen",
+    "repository_state": "Adapter, Hub-Auswahl, Artefaktnormalisierung, Scanner, Benchmarkvertrag, Acceptance-Workflow und automatischer Rollback sind implementiert; alle optionalen Backends bleiben default-off",
+    "verification": "91 fokussierte Python- und 25 Angular-Tests bestanden. Die vorhandenen realen Image-Builds, Offline-Smokes und digestgebundenen Syft-/Grype-Scans bleiben gueltig; deren Critical-/High-/Lizenz-Findings werden nicht als Erfolg umgedeutet. Offizielle Upstream-Seiten bestaetigen AutoTrain und torchtune weiterhin als nicht aktiv gewartet."
   },
-  "status": "partial",
+  "status": "blocked",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -163,7 +163,7 @@
     {
       "id": "M1",
       "title": "Vier isolierte Backend-Adapter",
-      "status": "in_progress",
+      "status": "blocked",
       "task_ids": [
         "MTB-004",
         "MTB-005",
@@ -200,10 +200,11 @@
       "title": "Upstream- und Lizenzmatrix versionsgebunden erstellen",
       "type": "research",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 90.0,
+      "blocked_reason": "The versioned backend/license register and fail-closed validator are complete. Real SBOM scans still contain unresolved transitive package licenses; framework license metadata cannot legally establish those third-party licenses and no exception is permitted.",
       "depends_on": [],
       "target_files": [
         "docs/research/training-backend-matrix.md",
@@ -318,10 +319,11 @@
       "title": "Axolotl-Backend als isolierten Worker-Adapter integrieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 85.0,
+      "blocked_reason": "The isolated Axolotl adapter, image, process cleanup and normalized artifacts are implemented. The real image gate reports unresolved Critical/High findings and licenses, and a digest-bound NVIDIA LoRA run is unavailable; the capability must remain disabled.",
       "depends_on": [
         "MTB-003"
       ],
@@ -358,10 +360,11 @@
       "title": "LLaMA-Factory-Backend ohne exponierte Fremd-WebUI integrieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 83.0,
+      "blocked_reason": "The closed LlamaFactory CLI adapter, sandbox and template/tokenizer manifest bindings are implemented. Supply-chain findings remain above the zero-tolerance gate and no approved identical-snapshot GPU comparison exists.",
       "depends_on": [
         "MTB-003"
       ],
@@ -398,10 +401,11 @@
       "title": "AutoTrain-Advanced-Backend local-first integrieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "critical",
       "progress_percent": 80.0,
+      "blocked_reason": "The local-only, no-credential, no-egress AutoTrain adapter is implemented and default-off. Upstream officially declares the project unmaintained, the image fails the zero-tolerance supply-chain gate, and no real isolated training evidence is available.",
       "depends_on": [
         "MTB-003"
       ],
@@ -439,10 +443,11 @@
       "title": "torchtune-Backend mit versionsgebundenen Recipes integrieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 80.0,
+      "blocked_reason": "The allowlisted torchtune recipe adapter and fail-closed checkpoint provenance are implemented. Upstream ended active maintenance, current supply-chain scans fail, and real GPU/checkpoint-conversion evidence is unavailable.",
       "depends_on": [
         "MTB-003"
       ],
@@ -644,10 +649,11 @@
       "title": "Reproduzierbare Benchmark-Suite gegen Unsloth und PEFT/TRL bauen",
       "type": "benchmark",
       "milestone_id": "M3",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 55.0,
+      "blocked_reason": "The reproducible comparison matrix, hardware attestation contract and fail-closed decision runner are implemented. Actual Unsloth/PEFT and candidate-backend measurements require approved models, datasets and NVIDIA hardware evidence that has not been supplied.",
       "depends_on": [
         "MTB-010"
       ],
@@ -683,10 +689,11 @@
       "title": "Security-, Datenschutz- und Supply-Chain-Hardening abschliessen",
       "type": "security",
       "milestone_id": "M3",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 92.0,
+      "blocked_reason": "Container isolation, egress denial, artifact safety, redaction and automated digest-bound scanners are implemented. The scanners correctly fail on current Critical/High vulnerabilities and unresolved licenses; policy forbids human or automated exceptions from being invented.",
       "depends_on": [
         "MTB-004",
         "MTB-005",
@@ -732,10 +739,11 @@
       "title": "Release-Gates, CI und Hardware-Acceptance einrichten",
       "type": "test",
       "milestone_id": "M3",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 75.0,
+      "blocked_reason": "Automated CPU contracts, image gates, NVIDIA workflow, evidence-state separation and rollback preservation are implemented. Verified NVIDIA acceptance cannot be produced while supply-chain gates fail and no self-hosted GPU RUN_* evidence is available.",
       "depends_on": [
         "MTB-012",
         "MTB-013"
@@ -845,8 +853,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 8,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 8,
       "done": 7
     },
     "progress_percent_done": 46.7,
@@ -869,17 +877,17 @@
     "milestones": {
       "total": 4,
       "todo": 0,
-      "in_progress": 3,
-      "blocked": 0,
+      "in_progress": 2,
+      "blocked": 1,
       "done": 1
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 8,
-    "blocked": 0,
+    "partial": 0,
+    "blocked": 8,
     "done": 7,
     "count_based_percent": 46.7,
     "weighted_percent": 88.4
@@ -892,13 +900,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       },
       "architecture": {
@@ -920,13 +928,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 1
         },
         "done": 1,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 96.0
       },
       "implementation": {
@@ -934,13 +942,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 4,
           "done": 1
         },
         "done": 1,
-        "partial": 4,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 4,
         "progress_percent": 85.6
       },
       "artifact": {
@@ -990,13 +998,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 55.0
       },
       "test": {
@@ -1004,13 +1012,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 75.0
       },
       "documentation": {
@@ -1034,7 +1042,7 @@
     "total_weight": 28.25,
     "done_weight": 24.967,
     "remaining_weight": 3.283,
-    "blocked_weight": 0.0,
+    "blocked_weight": 16.25,
     "weighted_percent": 88.4
   },
   "milestone_progress_summary": {
@@ -1042,7 +1050,7 @@
       "M0": {
         "total_tasks": 3,
         "done": 2,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 66.7,
         "weighted_percent": 96.0,
         "status": "in_progress"
@@ -1050,10 +1058,10 @@
       "M1": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 4,
         "count_based_percent": 0.0,
         "weighted_percent": 82.4,
-        "status": "in_progress"
+        "status": "blocked"
       },
       "M2": {
         "total_tasks": 4,
@@ -1066,7 +1074,7 @@
       "M3": {
         "total_tasks": 4,
         "done": 1,
-        "blocked": 0,
+        "blocked": 3,
         "count_based_percent": 25.0,
         "weighted_percent": 78.2,
         "status": "in_progress"
@@ -1076,10 +1084,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T16:21:54.499109Z",
+    "generated_at": "2026-08-31T16:45:15.868755Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "ce1b37835be2d1db4cad2385eb6de7600cc463d6e8e9d6abb93b539d256166f4",
+    "source_hash": "80a9442ebfad5d4ea1b2332962e956847782cba1364f438657551a4295e2899b",
     "is_stale": false
   }
 }
