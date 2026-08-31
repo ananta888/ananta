@@ -117,7 +117,7 @@
     {
       "id": "CTRL-REC-004",
       "title": "Reconciliation and variance checks add",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [
         "CTRL-RULE-003"
@@ -278,8 +278,8 @@
   "meta": {
     "total_items": 9,
     "by_status": {
-      "done": 3,
-      "open": 6
+      "done": 4,
+      "open": 5
     },
     "recommended_order": [
       "CTRL-FOUND-001",
