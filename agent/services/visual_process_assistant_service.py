@@ -43,6 +43,21 @@ from agent.services.source_catalog_authority_service import (
     SourceCatalogAuthorityService,
     get_source_catalog_authority_service,
 )
+from agent.services.visual_process_assistant_errors import (
+    VisualProcessAssistantError as VisualProcessAssistantError,
+)
+from agent.services.visual_process_assistant_validation import (
+    bounded_identifier as _bounded_identifier,
+)
+from agent.services.visual_process_assistant_validation import (
+    envelope_hash as _envelope_hash,
+)
+from agent.services.visual_process_assistant_validation import (
+    required_text as _required_text,
+)
+from agent.services.visual_process_assistant_validation import (
+    stable_hash as _stable_hash,
+)
 from agent.services.visual_process_context_service import (
     PROMPT_VERSION,
     VisualProcessContextService,
@@ -93,29 +108,6 @@ ASSISTANT_CATALOG_TASK_KINDS = frozenset(
         "summarize",
     }
 )
-
-
-class VisualProcessAssistantError(RuntimeError):
-    def __init__(
-        self,
-        reason_code: str,
-        *,
-        status_code: int = 422,
-        retry_after: int | None = None,
-        details: Mapping[str, Any] | None = None,
-    ) -> None:
-        super().__init__(reason_code)
-        self.reason_code = reason_code
-        self.status_code = int(status_code)
-        self.retry_after = retry_after
-        self.details = dict(details or {})
-
-    def as_dict(self) -> dict[str, Any]:
-        return {
-            "error": self.reason_code,
-            "error_code": self.reason_code,
-            **self.details,
-        }
 
 
 class VisualProcessAssistantService:
@@ -1639,18 +1631,6 @@ class VisualProcessAssistantService:
             return
 
 
-def _stable_hash(value: Mapping[str, Any]) -> str:
-    return hashlib.sha256(
-        json.dumps(
-            dict(value),
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        ).encode("utf-8")
-    ).hexdigest()
-
-
 def _retrieval_error_code(
     *,
     consistency: str,
@@ -1747,31 +1727,6 @@ def _validated_evidence_conflicts(
             }
         )
     return sorted(conflicts, key=lambda item: (item["conflict_key"], item["source_ids"]))
-
-
-def _envelope_hash(value: Mapping[str, Any]) -> str:
-    payload = dict(value)
-    payload.pop("envelope_hash", None)
-    return _stable_hash(payload)
-
-
-def _required_text(payload: Mapping[str, Any], key: str, *, max_length: int) -> str:
-    value = str(payload.get(key) or "").strip()
-    if not value or len(value) > max_length or any(ord(char) < 32 for char in value):
-        raise VisualProcessAssistantError(f"{key}_invalid")
-    return value
-
-
-def _bounded_identifier(value: Any, reason_prefix: str) -> str:
-    result = str(value or "")
-    if (
-        not result
-        or result != result.strip()
-        or len(result) > 200
-        or any(ord(char) < 32 or ord(char) == 127 for char in result)
-    ):
-        raise VisualProcessAssistantError(f"{reason_prefix}_invalid")
-    return result
 
 
 visual_process_assistant_service = VisualProcessAssistantService()
