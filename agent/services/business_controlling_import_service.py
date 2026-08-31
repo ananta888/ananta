@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Protocol, Sequence
@@ -64,6 +65,14 @@ class TabularProfile:
     profile_digest: str
 
 
+@dataclass(frozen=True)
+class MappingConfirmation:
+    profile_digest: str
+    column_mapping: tuple[tuple[str, str], ...]
+    confirmed_by: str
+    confirmation_digest: str
+
+
 class BusinessControllingImportService:
     MAX_ROWS = 100_000
     MAX_COLUMNS = 256
@@ -113,6 +122,33 @@ class BusinessControllingImportService:
             columns=columns,
             profile_digest=profile_digest,
         )
+
+    @staticmethod
+    def confirm_mapping(
+        profile: TabularProfile,
+        mapping: Mapping[str, str],
+        *,
+        confirmed_by: str,
+    ) -> MappingConfirmation:
+        headers = {column.header for column in profile.columns}
+        if (
+            not confirmed_by
+            or not mapping
+            or not set(mapping).issubset(headers)
+            or len(set(mapping.values())) != len(mapping)
+            or any(not source or not target for source, target in mapping.items())
+        ):
+            raise BusinessControllingImportError("controlling_mapping_confirmation_invalid")
+        normalized = tuple(sorted((str(source), str(target)) for source, target in mapping.items()))
+        projection = {
+            "profile_digest": profile.profile_digest,
+            "column_mapping": normalized,
+            "confirmed_by": confirmed_by,
+        }
+        confirmation_digest = hashlib.sha256(
+            json.dumps(projection, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
+        ).hexdigest()
+        return MappingConfirmation(profile.profile_digest, normalized, confirmed_by, confirmation_digest)
 
     @classmethod
     def _validate_request(cls, request: TabularProfileRequest) -> None:
@@ -178,6 +214,7 @@ __all__ = [
     "BusinessControllingImportService",
     "ColumnProfile",
     "ControllingSourceAdmissionPort",
+    "MappingConfirmation",
     "TabularProfile",
     "TabularProfileRequest",
     "WorkbookRiskMetadata",

@@ -72,3 +72,21 @@ def test_profile_is_deterministic_and_rejects_ragged_rows() -> None:
     assert service.profile(_request()).profile_digest == service.profile(_request()).profile_digest
     with pytest.raises(BusinessControllingImportError, match="controlling_rows_invalid"):
         service.profile(_request(rows=(("only-one-cell",),)))
+
+
+def test_mapping_requires_explicit_valid_confirmation() -> None:
+    service = BusinessControllingImportService(_Admission())
+    profile = service.profile(_request())
+    confirmation = service.confirm_mapping(
+        profile,
+        {"amount": "amount", "period": "period"},
+        confirmed_by="operator-a",
+    )
+    assert confirmation.profile_digest == profile.profile_digest
+    assert confirmation.confirmation_digest == service.confirm_mapping(
+        profile,
+        {"period": "period", "amount": "amount"},
+        confirmed_by="operator-a",
+    ).confirmation_digest
+    with pytest.raises(BusinessControllingImportError, match="controlling_mapping_confirmation_invalid"):
+        service.confirm_mapping(profile, {"unknown": "amount"}, confirmed_by="operator-a")
