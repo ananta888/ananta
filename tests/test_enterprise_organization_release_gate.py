@@ -20,9 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_release_task_is_the_only_leaf_and_reaches_every_predecessor() -> None:
-    todo = json.loads(
-        DEFAULT_TODO.read_text(encoding="utf-8")
-    )
+    todo = json.loads(DEFAULT_TODO.read_text(encoding="utf-8"))
 
     result = evaluate_task_graph(todo, release_task_id="ESORG-QA-006")
 
@@ -155,3 +153,37 @@ def test_full_e2e_uses_an_isolated_results_directory(
     assert observed["test_timeout_ms"] == "180000"
     assert isinstance(observed["results_dir"], Path)
     assert not observed["results_dir"].parent.exists()
+
+
+def test_integration_suite_cannot_be_silently_skipped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    observed: dict[str, str] = {}
+
+    def fake_run(*_args: object, **kwargs: object):
+        observed["integration_opt_in"] = str(kwargs["env"].get("RUN_INTEGRATION_TESTS"))
+        return subprocess.CompletedProcess([], 0, b"", b"")
+
+    monkeypatch.setattr(
+        "scripts.run_enterprise_organization_release_gate.subprocess.run",
+        fake_run,
+    )
+
+    result = _run_suite(
+        {
+            "id": "small-runtime-matrix",
+            "tier": "complex",
+            "cwd": ".",
+            "timeout_seconds": 10,
+            "command": [
+                "python",
+                "-m",
+                "pytest",
+                "-q",
+                "tests/integration/test_small_organization_runtime_matrix.py",
+            ],
+        }
+    )
+
+    assert result["status"] == "passed"
+    assert observed["integration_opt_in"] == "1"

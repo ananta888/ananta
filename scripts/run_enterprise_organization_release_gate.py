@@ -272,6 +272,8 @@ def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
         ) as pycache_dir:
             process_env = os.environ.copy()
             process_env["PYTHONPYCACHEPREFIX"] = pycache_dir
+            if any(str(value).startswith("tests/integration/") for value in command):
+                process_env["RUN_INTEGRATION_TESTS"] = "1"
             if suite["tier"] == "full_e2e":
                 process_env["E2E_RESULTS_DIR"] = str(
                     Path(pycache_dir) / "playwright-results"
