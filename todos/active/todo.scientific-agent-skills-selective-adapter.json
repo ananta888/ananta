@@ -201,7 +201,7 @@
         {
           "id": "SAS-TRACE-007",
           "title": "Unveränderliche Skill-Provenienz und Ergebnisbelege erfassen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "type": "auditability",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 6,
-      "open": 4
+      "done": 7,
+      "open": 3
     },
     "recommended_order": [
       "SAS-INV-001",

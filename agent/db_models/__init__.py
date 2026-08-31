@@ -25,6 +25,7 @@ from .blueprints import (
     TerminalSessionDB,
 )
 from .business_controlling import BusinessControllingMappingDB, BusinessControllingProfileDB
+from .scientific_skill_provenance import ScientificSkillProvenanceReceiptDB
 from .caseflow import (
     CaseActionDB,
     CaseAgentRunDB,
@@ -410,6 +411,7 @@ __all__ = [
     "BlueprintWorkflowStepDB",
     "BusinessControllingMappingDB",
     "BusinessControllingProfileDB",
+    "ScientificSkillProvenanceReceiptDB",
     "ConfigDB",
     "ContextAccessPolicyDB",
     "ContextBundleDB",
