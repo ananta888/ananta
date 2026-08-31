@@ -12,314 +12,30 @@ import pathlib as _pl
 import re
 from typing import Any, Callable
 
-from agent.utils import log_llm_entry
+from agent.routes import snakes_rag_text_protocol as _text_protocol
+from agent.routes import snakes_rag_tools as _rag_tools
+from agent.routes.snakes_rag_synthesis import build_synthesis_prompt
 from agent.services.snake_chat_cancellation import is_chat_cancelled
-from agent.services.rag_context_packer import should_skip_initial_pack
+from agent.utils import log_llm_entry
 
 _log = logging.getLogger(__name__)
 
+_CHAT_TOOLS = _rag_tools._CHAT_TOOLS
+_CODECOMPASS_CHAT_TOOL_MAP = _rag_tools._CODECOMPASS_CHAT_TOOL_MAP
+_dispatch_tool = _rag_tools._dispatch_tool
+_tool_read_file = _rag_tools._tool_read_file
+_tool_search_codebase = _rag_tools._tool_search_codebase
+compact_initial_packed_context = _text_protocol.compact_initial_packed_context
+format_evidence_prompt = _text_protocol.format_evidence_prompt
+retire_initial_next_step_instruction = _text_protocol.retire_initial_next_step_instruction
+_full_prompt = _text_protocol.full_prompt
+_input_preview = _text_protocol.input_preview
+_looks_like_tool_request = _text_protocol.looks_like_tool_request
+_parse_file_sections = _text_protocol.parse_file_sections
+_parse_textual_tool_calls = _text_protocol.parse_textual_tool_calls
+_total_context_chars = _text_protocol.total_context_chars
+
 _UNLIMITED_TOOL_LOOP_MAX_ITERATIONS = 24
-
-_CHAT_TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "read_file",
-            "description": (
-                "Read the full content of a file from the project repository. "
-                "Use this when you need to inspect a specific file that was not "
-                "included in the initial context."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "Repo-relative path to the file, e.g. agent/config.py or todos/todo-erklaer-ai-snake.jsonl",
-                    }
-                },
-                "required": ["path"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "search_codebase",
-            "description": (
-                "Search the codebase by keyword and return matching file paths. "
-                "Use this when you are unsure which files contain relevant information."
-            ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Search query (keywords, function names, class names, etc.)",
-                    },
-                    "max_results": {
-                        "type": "integer",
-                        "description": "Maximum number of files to return (default 8, max 20)",
-                        "default": 8,
-                    },
-                },
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "codecompass_retrieve",
-            "description": "Retrieve grounded, hybrid CodeCompass evidence for a repository question.",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string"}},
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "codecompass_architecture_overview",
-            "description": "Load a hierarchical System/Subsystem/Component architecture overview.",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string"}},
-                "required": ["query"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "codecompass_architecture_expand",
-            "description": "Expand an architecture handle returned by an overview.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "handle": {"type": "string"},
-                    "query": {"type": "string"},
-                },
-                "required": ["handle"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "codecompass_architecture_dependencies",
-            "description": "Inspect bounded dependencies for an architecture handle.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "handle": {"type": "string"},
-                    "query": {"type": "string"},
-                },
-                "required": ["handle"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "codecompass_symbol_context",
-            "description": "Load grounded symbol-level CodeCompass evidence for a query.",
-            "parameters": {
-                "type": "object",
-                "properties": {"query": {"type": "string"}},
-                "required": ["query"],
-            },
-        },
-    },
-]
-
-_CODECOMPASS_CHAT_TOOL_MAP = {
-    "codecompass_retrieve": "codecompass.retrieve",
-    "codecompass_architecture_overview": "codecompass.architecture_overview",
-    "codecompass_architecture_expand": "codecompass.architecture_expand",
-    "codecompass_architecture_dependencies": "codecompass.architecture_dependencies",
-    "codecompass_symbol_context": "codecompass.symbol_context",
-}
-
-
-def _snake_codecompass_capability(repo_root: _pl.Path) -> dict[str, Any] | None:
-    """Issue a short-lived Hub-owned read scope for the active local index."""
-
-    try:
-        from agent.services.codecompass_retrieval_capability_service import (
-            bind_retrieval_capability,
-        )
-        from agent.services.repository_registry import get_repository_registry
-        from agent.services.tools.codecompass_tools import _resolve_graph_store
-
-        _store, index_id = _resolve_graph_store({})
-        if not index_id:
-            return None
-        index = get_repository_registry().knowledge_index_repo.get_by_id(index_id)
-        metadata = dict(getattr(index, "index_metadata", None) or {})
-        graph_binding = dict(metadata.get("graph_artifacts") or {})
-        revision = str(
-            graph_binding.get("graph_revision")
-            or metadata.get("codecompass_snapshot_revision")
-            or ""
-        ).strip()
-        source_id = str(
-            getattr(index, "source_path", None)
-            or metadata.get("source_id")
-            or repo_root.name
-        ).strip()
-        if not revision or not source_id:
-            return None
-        return bind_retrieval_capability(
-            {
-                "workspace_id": f"snake:{repo_root.name}",
-                "repository_id": source_id,
-                "source_scope": "repo_path",
-                "revision": revision,
-                "allowed_paths": [
-                    "agent",
-                    "worker",
-                    "ananta_codecompass",
-                    "rag-helper",
-                    "frontend-angular",
-                    "config",
-                    "docs",
-                    "scripts",
-                    "tests",
-                ],
-                "allowed_index_ids": [index_id],
-                "allowed_signals": ["exact", "graph", "vector"],
-            },
-            subject_id="ai-snake",
-            tenant_id="local",
-            ttl_seconds=300,
-        )
-    except Exception:
-        return None
-
-
-def _resolve_file(path: str, repo_root: _pl.Path) -> _pl.Path | None:
-    candidate = _pl.Path(path) if path.startswith("/") else repo_root / path
-    if candidate.exists() and candidate.is_file():
-        return candidate
-    if path.startswith("/app/"):
-        candidate = repo_root / path[5:]
-        if candidate.exists() and candidate.is_file():
-            return candidate
-    return None
-
-
-def _tool_read_file(path: str, repo_root: _pl.Path, max_chars: int) -> str:
-    resolved = _resolve_file(path.strip(), repo_root)
-    if resolved is None:
-        # Try to find the file by name anywhere in the repo
-        filename = _pl.Path(path.strip()).name
-        candidates: list[str] = []
-        _skip = {"__pycache__", ".git", ".claude", "node_modules", "dist", ".venv", "venv"}
-        try:
-            for p in repo_root.rglob(filename):
-                if p.is_file() and not any(part in _skip for part in p.parts):
-                    candidates.append(str(p.relative_to(repo_root)))
-                    if len(candidates) >= 3:
-                        break
-        except Exception:
-            pass
-        if len(candidates) == 1:
-            resolved = _resolve_file(candidates[0], repo_root)
-            if resolved is not None:
-                try:
-                    content = resolved.read_text(encoding="utf-8", errors="replace")
-                    if len(content) > max_chars:
-                        content = content[:max_chars] + f"\n... [abgeschnitten nach {max_chars} Zeichen]"
-                    return f"[Pfad automatisch korrigiert: {path} -> {candidates[0]}]\n{content}"
-                except OSError as exc:
-                    return f"[Fehler beim Lesen: {exc}]"
-        hint = (
-            f"\n[Korrekter Pfad: nutze read_file('{candidates[0]}') — "
-            f"Datei gefunden unter: {', '.join(candidates)}]"
-            if candidates else ""
-        )
-        return f"[Fehler: Datei nicht gefunden: {path}]{hint}"
-    try:
-        content = resolved.read_text(encoding="utf-8", errors="replace")
-        if len(content) > max_chars:
-            content = content[:max_chars] + f"\n... [abgeschnitten nach {max_chars} Zeichen]"
-        return content
-    except OSError as exc:
-        return f"[Fehler beim Lesen: {exc}]"
-
-
-def _tool_search_codebase(query: str, max_results: int, repo_root: _pl.Path) -> str:
-    try:
-        from agent.hybrid_orchestrator import RepositoryMapEngine
-        engine = RepositoryMapEngine(repo_root)
-        engine.build()
-        chunks = [
-            ch for ch in engine.search(query, top_k=max(1, min(max_results * 3, 40)))
-            if not should_skip_initial_pack(str(ch.source or ""))
-        ][:max(1, min(max_results, 20))]
-        if not chunks:
-            return "[Keine Treffer für diese Suche]"
-        lines = [f"- {ch.source}  (score: {ch.score:.1f})" for ch in chunks]
-        return "\n".join(lines)
-    except Exception as exc:
-        _log.debug("search_codebase tool failed: %s", exc)
-        return f"[Suche fehlgeschlagen: {exc}]"
-
-
-def _dispatch_tool(
-    name: str,
-    args: dict,
-    *,
-    repo_root: _pl.Path,
-    max_chars_per_file: int,
-) -> str:
-    if name == "read_file":
-        path = str(args.get("path") or "").strip()
-        if not path:
-            return "[Fehler: kein Pfad angegeben]"
-        return _tool_read_file(path, repo_root, max_chars_per_file)
-    if name == "search_codebase":
-        query = str(args.get("query") or "").strip()
-        max_r = max(1, min(int(args.get("max_results") or 8), 20))
-        if not query:
-            return "[Fehler: kein Suchbegriff angegeben]"
-        return _tool_search_codebase(query, max_r, repo_root)
-    mapped_name = _CODECOMPASS_CHAT_TOOL_MAP.get(name)
-    if mapped_name:
-        from agent.services.ananta_tool_policy_service import (
-            get_ananta_tool_policy_service,
-        )
-        from agent.services.tools import execute_ananta_tool
-
-        decision = get_ananta_tool_policy_service().evaluate(
-            tool_name=mapped_name,
-            arguments=dict(args or {}),
-            allowed_tools=list(_CODECOMPASS_CHAT_TOOL_MAP.values()),
-            mutation_mode="read_only",
-        )
-        if not decision.allowed:
-            return json.dumps(
-                {"status": "blocked", "policy": decision.as_dict()},
-                ensure_ascii=False,
-                sort_keys=True,
-            )
-        result = execute_ananta_tool(
-            tool_name=mapped_name,
-            arguments=dict(args or {}),
-            workspace_dir=str(repo_root),
-            tool_call_id=f"snake-{name}",
-            config=(
-                {"codecompass_capability": _snake_codecompass_capability(repo_root)}
-                if mapped_name == "codecompass.retrieve"
-                else None
-            ),
-        )
-        return json.dumps(result, ensure_ascii=False, sort_keys=True)[:20_000]
-    return f"[Unbekanntes Tool: {name}]"
-
 
 def run_rag_chat_tool_loop(
     *,
@@ -422,39 +138,6 @@ def run_rag_chat_tool_loop(
         trace["cancelled"] = True
         trace["error"] = "cancelled"
         return True
-
-    def _looks_like_tool_request(text: str) -> bool:
-        value = str(text or "").strip()
-        if not value:
-            return False
-        lowered = value.lower()
-        if "[tool_request]" in lowered or "[end_tool_request]" in lowered:
-            return True
-        if re.search(r'"(?:name|tool_name)"\s*:\s*"(?:read_file|search_codebase)"', value):
-            return True
-        if re.search(r'"tool_calls"\s*:', value):
-            return True
-        # Models that don't support native tool-calling (e.g. phi-3.5-mini) write
-        # function calls as Python-style text: [read_file('path')] or [search_codebase('q')]
-        if re.search(r'\[(?:read_file|search_codebase)\s*\(', value):
-            return True
-        return False
-
-    def _parse_textual_tool_calls(text: str) -> list[dict[str, Any]]:
-        """Extract [read_file('path')] / [search_codebase('q')] calls from model text."""
-        calls: list[dict[str, Any]] = []
-        seen: set[str] = set()
-        for m in re.finditer(r'\[read_file\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)\]', text):
-            key = f"read_file:{m.group(1)}"
-            if key not in seen:
-                seen.add(key)
-                calls.append({"name": "read_file", "args": {"path": m.group(1)}})
-        for m in re.finditer(r'\[search_codebase\s*\(\s*[\'"]([^\'"]+)[\'"]\s*\)\]', text):
-            key = f"search_codebase:{m.group(1)}"
-            if key not in seen:
-                seen.add(key)
-                calls.append({"name": "search_codebase", "args": {"query": m.group(1)}})
-        return calls
 
     def _summarize_file(path: str, content: str) -> str:
         """Intermediate LLM call: extract question-relevant info from a file into a compact summary."""
@@ -565,52 +248,13 @@ def run_rag_chat_tool_loop(
         trace["evidence"] = list(_evidence.values())
 
     def _evidence_prompt() -> str:
-        if not _evidence:
-            return ""
-        lines = [
-            "Recherche-Stand fuer die naechste LLM-Aktion:",
-            "Verwende diese fragebezogenen Zusammenfassungen als Arbeitsgedaechtnis.",
-            "Bereits gelesene oder im Initialkontext bereitgestellte Dateien:",
-        ]
-        for idx, item in enumerate(_evidence.values(), 1):
-            score = item.get("score")
-            score_txt = f", relevanz: {float(score):.1f}" if isinstance(score, int | float) else ""
-            lines.append(
-                f"{idx}. {item['path']} ({item.get('source')}{score_txt})\n"
-                f"   {item.get('summary')}"
-            )
-        q_hint = f" Beantworte dann konkret: {question[:200]}" if question else ""
-        lines.append(
-            "Wenn noch Informationen fehlen, lies gezielt eine weitere Datei, die eine offene Frage klaert. "
-            "Nutze search_codebase nur fuer voellig neue Begriffe, die in keiner Evidenz-Datei erwaehnt sind. "
-            f"Wenn die Evidenz reicht, antworte jetzt abschliessend.{q_hint}"
-        )
-        return "\n".join(lines)
+        return format_evidence_prompt(_evidence, question)
 
     def _compact_initial_packed_context() -> None:
-        """Remove bulky initial packed file bodies from follow-up LLM calls."""
         if not _evidence:
             return
-        marker = "=== Bereits gelesene CodeCompass-Top-Treffer ==="
-        next_marker = "=== Verfügbare Dateien"
-        replacement = (
-            "=== Bereits gelesene CodeCompass-Top-Treffer (kompakt) ===\n"
-            "Die Volltexte wurden fuer Folgeaufrufe entfernt. "
-            "Nutze den aktuellen Recherche-Stand in der letzten User-Nachricht.\n\n"
-        )
-        for msg in current_messages:
-            if msg.get("role") != "user":
-                continue
-            content = str(msg.get("content") or "")
-            start = content.find(marker)
-            if start < 0:
-                continue
-            end = content.find(next_marker, start)
-            if end < 0:
-                end = start + len(marker)
-            msg["content"] = content[:start] + replacement + content[end:]
+        if compact_initial_packed_context(current_messages):
             trace["initial_context_compacted_for_followups"] = True
-            return
 
     def _is_evidence_message(msg: dict[str, Any]) -> bool:
         return (
@@ -625,56 +269,17 @@ def run_rag_chat_tool_loop(
         current_messages.append({"role": "user", "content": evidence_text})
 
     def _retire_initial_next_step_instruction() -> None:
-        """Remove the one-shot first-read hint after research has started."""
-        for msg in current_messages:
-            if msg.get("role") != "user":
-                continue
-            content = str(msg.get("content") or "")
-            updated = re.sub(
-                r"\nNaechster Schritt: Beginne mit read_file\([^\n]+\) — lies diese Datei als erstes\.",
-                "",
-                content,
-                count=1,
-            )
-            if updated != content:
-                msg["content"] = updated
-                trace["initial_next_step_instruction_retired"] = True
-                return
+        if retire_initial_next_step_instruction(current_messages):
+            trace["initial_next_step_instruction_retired"] = True
 
     def _prepare_profile_final_synthesis_context(*, retry: bool = False) -> None:
-        """Give KAT a bounded evidence handoff instead of the full research transcript."""
-        evidence = _evidence_prompt()
-        architecture_budget = 1800 if retry else 3000
-        tool_budget = 2200 if retry else 4000
-        evidence_budget = 1800 if retry else 3500
-        hint_budget = 800 if retry else 1200
-        research_hint = last_non_tool_content[:hint_budget].strip()
-        synthesis_prompt = (
-            "Du bist das finale Coding-Synthesemodell. Beantworte die Nutzerfrage verbindlich, "
-            "konkret und ausschliesslich aus der folgenden Recherche-Evidenz. Fuehre keine "
-            "Tool-Aufrufe aus.\n\n"
-            f"Nutzerfrage: {question[:1000]}\n\n"
-            + (
-                "Architektur-Evidenz:\n"
-                + architecture_context[:architecture_budget]
-                + "\n\n"
-                if architecture_context.strip()
-                else ""
-            )
-            + (
-                "Weitere CodeCompass-Tool-Evidenz:\n"
-                + "\n\n".join(_codecompass_evidence)[-tool_budget:]
-                + "\n\n"
-                if _codecompass_evidence
-                else ""
-            )
-            + f"{evidence[:evidence_budget]}"
-        )
-        if research_hint:
-            synthesis_prompt += f"\n\nVorlaeufiger LFM-Recherchehinweis:\n{research_hint}"
-        synthesis_prompt += (
-            "\n\nAntworte auf Deutsch mit hoechstens 700 Woertern. "
-            "Nenne nur Beziehungen, die in der Evidenz belegt sind."
+        synthesis_prompt = build_synthesis_prompt(
+            question=question,
+            architecture_context=architecture_context,
+            codecompass_evidence=_codecompass_evidence,
+            evidence=_evidence_prompt(),
+            research_hint=last_non_tool_content,
+            retry=retry,
         )
         current_messages[:] = [{"role": "user", "content": synthesis_prompt}]
         trace["final_synthesis_context_chars"] = len(synthesis_prompt)
@@ -704,63 +309,6 @@ def run_rag_chat_tool_loop(
     _register_initial_evidence()
     _compact_initial_packed_context()
     _replace_or_append_evidence_message(_evidence_prompt())
-
-    def _input_preview(msgs: list[dict], max_chars: int = 2000) -> str:
-        """Short preview of the last 4 messages — for log entries only."""
-        parts = []
-        for m in msgs[-4:]:
-            role = str(m.get("role") or "")
-            content = str(m.get("content") or "")
-            if content:
-                parts.append(f"[{role}]\n{content[:max_chars]}")
-        return "\n\n---\n\n".join(parts)
-
-    def _full_prompt(msgs: list[dict]) -> str:
-        """Format ALL messages exactly as sent to the LLM — no truncation."""
-        parts = []
-        for i, m in enumerate(msgs):
-            role = str(m.get("role") or "")
-            content = str(m.get("content") or "")
-            if not content and m.get("tool_calls"):
-                tc_names = [
-                    str((tc.get("function") or {}).get("name") or "?")
-                    for tc in m["tool_calls"]
-                ]
-                tc_args = [
-                    str((tc.get("function") or {}).get("arguments") or "")
-                    for tc in m["tool_calls"]
-                ]
-                content = "\n".join(
-                    f"→ tool_call: {name}({args})"
-                    for name, args in zip(tc_names, tc_args)
-                )
-            if content:
-                parts.append(f"[{role} #{i+1}]\n{content}")
-        sep = "\n\n" + "=" * 60 + "\n\n"
-        return sep.join(parts)
-
-    def _total_context_chars(msgs: list[dict]) -> int:
-        return sum(len(str(m.get("content") or "")) for m in msgs)
-
-    def _parse_file_sections(user_content: str) -> list[dict[str, Any]]:
-        """Parse the '=== Verfügbare Dateien ===' block → list of {path, score}."""
-        import re
-        marker = "=== Verfügbare Dateien"
-        idx = user_content.find(marker)
-        if idx < 0:
-            # Fallback: old format with ### file blocks
-            sections = re.split(r"\n### ", "\n" + user_content)
-            return [{"path": s.partition("\n")[0].strip(), "chars": len(s.partition("\n")[2])}
-                    for s in sections[1:]]
-        block_start = user_content.find("\n", idx) + 1
-        block_end = user_content.find("\n\n", block_start)
-        block = user_content[block_start:block_end if block_end > 0 else block_start + 4000]
-        result = []
-        for line in block.splitlines():
-            m = re.match(r"\s*\d+\.\s+(.+?)\s+\(relevanz:\s*([\d.]+)\)", line)
-            if m:
-                result.append({"path": m.group(1).strip(), "score": float(m.group(2))})
-        return result
 
     # --- Pre-loop: log initial context summary and write context dump file ---
     _initial_user_content = str((current_messages[-1] or {}).get("content") or "")
@@ -1083,7 +631,9 @@ def run_rag_chat_tool_loop(
                             )
                         else:
                             duplicate_call_streak = 0
-                            result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+                            result = _dispatch_tool(
+                                fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file
+                            )
                             if not result.startswith("[Fehler"):
                                 if summarize_reads:
                                     result = _summarize_file(_req_path, result)
@@ -1105,9 +655,13 @@ def run_rag_chat_tool_loop(
                             force_final_next = True
                         else:
                             _already_searched.add(_query)
-                            result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+                            result = _dispatch_tool(
+                                fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file
+                            )
                     else:
-                        result = _dispatch_tool(fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file)
+                        result = _dispatch_tool(
+                            fn_name, args, repo_root=repo_root, max_chars_per_file=max_chars_per_file
+                        )
 
                     trace["tools_used"].append({
                         "iteration": _iteration,
@@ -1128,7 +682,12 @@ def run_rag_chat_tool_loop(
                             f"tool_call_{tool_call_count}",
                             f"Tool (textuell): {fn_name}({', '.join(f'{k}={v!r}' for k, v in list(args.items())[:2])})",
                             status="completed",
-                            details={"function": fn_name, "args": args, "result_chars": len(result), "source": "textual"},
+                            details={
+                                "function": fn_name,
+                                "args": args,
+                                "result_chars": len(result),
+                                "source": "textual",
+                            },
                             output_preview=result[:500] if result else None,
                         )
 
@@ -1136,7 +695,8 @@ def run_rag_chat_tool_loop(
                     "role": "user",
                     "content": (
                         "\n\n".join(result_parts)
-                        + "\n\nBitte beantworte jetzt die Frage auf Basis dieser Ergebnisse und des vorhandenen Kontexts."
+                        + "\n\nBitte beantworte jetzt die Frage auf Basis dieser Ergebnisse "
+                        "und des vorhandenen Kontexts."
                     ),
                 })
                 _compact_initial_packed_context()
@@ -1172,7 +732,8 @@ def run_rag_chat_tool_loop(
                     )
                 continue
             fallback = last_non_tool_content or (
-                "Unklar, bitte Kontext pruefen. Das Modell hat statt einer finalen Antwort erneut einen Tool-Aufruf ausgegeben."
+                "Unklar, bitte Kontext pruefen. Das Modell hat statt einer finalen Antwort "
+                "erneut einen Tool-Aufruf ausgegeben."
             )
             trace["final_finish_reason"] = "rejected_tool_request_fallback"
             return fallback, trace
