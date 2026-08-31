@@ -82,6 +82,6 @@
     "schemas/webrtc/speech_transport_contract.v1.json": "65e5effd9a4b5e70fe13a559e30711815d6a78282b43beda9858dae970665a8d",
     "voice_runtime/source_correction.py": "e956643c3ab428d2964747e68bb2acfc80c2897f45529435231dcf92e096dd7b",
     "voice_runtime/speech_quality_policy.py": "3439340feed99bf8a228ada9a8b1c58e9f72dbb0c236a10aad28333cdcc027b2",
-    "voice_runtime/streaming.py": "ea5e4839f783dabf2378c3c26d50f5d1a6a60ccfa405227060cbe8fde7fefe07"
+    "voice_runtime/streaming.py": "124631df769c95116368cf9db1847577dd71ae29f2efe6d8996762d190e3dac4"
   }
 }
