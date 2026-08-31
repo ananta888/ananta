@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
-import time
+from time import monotonic
 from dataclasses import dataclass
 from typing import Any
 
@@ -32,7 +32,7 @@ def _jwks_cache_age(issuer: str, *, now: float) -> float:
 
 
 def _fetch_jwks(issuer: str) -> dict[str, Any]:
-    now = time.monotonic()
+    now = monotonic()
     cached = _jwks_cache.get(issuer)
     normal_cache_age = min(cfg.OIDC_JWKS_TTL, cfg.OIDC_JWKS_MAX_AGE_SECONDS)
     if cached and _jwks_cache_age(issuer, now=now) < normal_cache_age:
@@ -43,12 +43,12 @@ def _fetch_jwks(issuer: str) -> dict[str, Any]:
         resp.raise_for_status()
         data = resp.json()
         _jwks_cache[issuer] = data
-        _jwks_fetched_at[issuer] = time.monotonic()
+        _jwks_fetched_at[issuer] = monotonic()
         log.debug("JWKS refreshed from %s", url)
         return data
     except Exception as exc:
         log.warning("JWKS fetch failed for %s: %s", issuer, exc)
-        cache_age = _jwks_cache_age(issuer, now=time.monotonic())
+        cache_age = _jwks_cache_age(issuer, now=monotonic())
         if cached and cache_age <= cfg.OIDC_JWKS_MAX_AGE_SECONDS:
             log.warning("Using stale JWKS for %s (age %.1fs)", issuer, cache_age)
             return cached

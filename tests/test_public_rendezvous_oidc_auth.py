@@ -119,7 +119,7 @@ def test_jwks_refresh_failure_uses_only_bounded_stale_cache(public_oidc_auth, mo
     monkeypatch.setattr(public_oidc_auth.cfg, "OIDC_JWKS_MAX_AGE_SECONDS", 30)
 
     monotonic_now = iter((111.0, 111.0, 131.0, 131.0))
-    monkeypatch.setattr(public_oidc_auth.time, "monotonic", lambda: next(monotonic_now))
+    monkeypatch.setattr(public_oidc_auth, "monotonic", lambda: next(monotonic_now))
 
     def failed_refresh(*_args, **_kwargs):
         raise OSError("identity provider unavailable")
@@ -137,7 +137,7 @@ def test_jwks_hard_max_age_overrides_long_normal_ttl(public_oidc_auth, monkeypat
     public_oidc_auth._jwks_fetched_at[issuer] = 100.0
     monkeypatch.setattr(public_oidc_auth.cfg, "OIDC_JWKS_TTL", 3_600)
     monkeypatch.setattr(public_oidc_auth.cfg, "OIDC_JWKS_MAX_AGE_SECONDS", 30)
-    monkeypatch.setattr(public_oidc_auth.time, "monotonic", lambda: 131.0)
+    monkeypatch.setattr(public_oidc_auth, "monotonic", lambda: 131.0)
     monkeypatch.setattr(
         public_oidc_auth.requests,
         "get",
