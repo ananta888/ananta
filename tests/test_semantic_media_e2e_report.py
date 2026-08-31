@@ -655,7 +655,7 @@ def test_pair_gate_isolates_projects_under_one_deadline_and_attributes_failure(
     monotonic = iter((100.0, 110.0, 125.0))
     monkeypatch.setattr(semantic_media_e2e_report.shutil, "which", lambda _name: "/usr/bin/npx")
     monkeypatch.setattr(semantic_media_e2e_report, "_configure_isolated_ports", fake_configure)
-    monkeypatch.setattr(semantic_media_e2e_report.time, "monotonic", lambda: next(monotonic))
+    monkeypatch.setattr(semantic_media_e2e_report, "monotonic", lambda: next(monotonic))
     monkeypatch.setattr(semantic_media_e2e_report.subprocess, "Popen", fake_popen)
     monkeypatch.setattr(semantic_media_e2e_report.os, "killpg", fake_killpg)
 

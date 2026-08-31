@@ -12,7 +12,7 @@ import signal
 import socket
 import subprocess
 import tempfile
-import time
+from time import monotonic
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -378,7 +378,7 @@ def _run_playwright_project(
     command = ["npx", "playwright", "test", f"tests/{spec}", "--reporter=json"]
     if project_name:
         command.extend(("--project", project_name))
-    remaining = deadline - time.monotonic()
+    remaining = deadline - monotonic()
     if remaining <= 0:
         raise _PlaywrightProjectTimeout(project_name, b"", b"")
     project_environment = dict(environment)
@@ -499,7 +499,7 @@ def run_playwright_gate(
         environment["ANANTA_PAIR_RELAY_CANARY"] = privacy_canaries[1]
     isolated_pair_projects = spec == "semantic-media-pair.spec.ts"
     project_names = required_browsers if isolated_pair_projects else ("",)
-    deadline = time.monotonic() + timeout_seconds
+    deadline = monotonic() + timeout_seconds
     project_runs: list[_PlaywrightProjectRun] = []
     try:
         with tempfile.TemporaryDirectory(prefix="ananta-semantic-playwright-") as temporary:
