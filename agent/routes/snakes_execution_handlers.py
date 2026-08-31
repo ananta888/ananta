@@ -25,11 +25,6 @@ from flask import Blueprint, Response, current_app, has_app_context, jsonify, re
 
 from agent.config import settings
 from agent.llm_integration import generate_text
-from agent.services.chat_session_security import (
-    ChatSessionPrincipal,
-    authorize_session,
-    chat_session_mutation_lock,
-)
 from agent.services.openai_credential_endpoint_binding import (
     OpenAICredentialEndpointBindingError,
     bind_openai_credential_endpoint,
@@ -67,6 +62,13 @@ from .snakes_chat_helpers import (
     _trace_feature_enabled,
     _with_answer_budget_instruction,
 )
+from .snakes_execution_session_helpers import (
+    normalize_client_context_history as _normalize_client_context_history,
+)
+from .snakes_execution_session_helpers import (
+    owned_chat_session_snapshot as _owned_chat_session_snapshot,
+)
+from .snakes_execution_session_helpers import public_snake_message as _public_snake_message
 from .snakes_full_scan import _SCAN_CANCELS as _FULL_SCAN_CANCELS
 from .snakes_full_scan import worker_chat_full_scan as _worker_chat_full_scan
 from .snakes_rag_iterative import worker_chat_rag_iterative as _worker_chat_rag_iterative
@@ -96,6 +98,14 @@ from .snakes_state import (
     _snake_stream_query_auth,
     _snakes,
     snakes_bp,
+)
+from .snakes_trace_routes import (
+    chat_trace_detail,
+    chat_trace_events,
+    chat_traces_list,
+)
+from .snakes_trace_routes import (
+    trace_owned_snake as _trace_owned_snake,
 )
 from .snakes_visual_guide import (
     _VISUAL_GUIDE_EXECUTOR,
@@ -800,76 +810,6 @@ def _spawn_ai_chat_reply(
     thread.start()
 
 
-def _normalize_client_context_history(raw_history: Any) -> list[dict[str, str]] | None:
-    """Validate the optional browser-controlled continuation context."""
-    if raw_history is None:
-        return None
-    if not isinstance(raw_history, list):
-        raise ValueError("context_history muss eine Liste sein")
-    normalized: list[dict[str, str]] = []
-    for item in raw_history[-20:]:
-        if not isinstance(item, dict):
-            raise ValueError("context_history Eintraege muessen Objekte sein")
-        role = str(item.get("role") or "").strip()
-        content = str(item.get("content") or "").strip()
-        if role not in {"user", "assistant"} or not content:
-            raise ValueError("ungueltiger context_history Eintrag")
-        normalized.append({"role": role, "content": content[:2000]})
-    return normalized
-
-
-def _owned_chat_session_snapshot(
-    session_id: str,
-    principal: ChatSessionPrincipal,
-) -> dict[str, Any] | None:
-    """Resolve one exact session before background execution starts."""
-
-    from client_surfaces.operator_tui.config.user_config_manager import get_manager
-
-    with chat_session_mutation_lock:
-        manager = get_manager()
-        stored = manager.load()
-        raw_sessions = stored.get("chat_sessions")
-        sessions = raw_sessions if isinstance(raw_sessions, list) else []
-        if not sessions:
-            from client_surfaces.operator_tui.chat_state import default_conversations
-
-            sessions = default_conversations()
-        session = next(
-            (
-                item
-                for item in sessions
-                if isinstance(item, dict) and str(item.get("id") or "") == session_id
-            ),
-            None,
-        )
-        if session is None:
-            return None
-        try:
-            legacy_owner = ChatSessionPrincipal.from_values(
-                settings.initial_admin_user,
-                settings.initial_admin_user,
-            )
-        except ValueError:
-            legacy_owner = None
-        authorized, migrated = authorize_session(
-            session,
-            principal,
-            legacy_default_owner=legacy_owner,
-        )
-        if not authorized:
-            return None
-        if migrated and not manager.save({"chat_sessions": sessions}):
-            return None
-        return deepcopy(session)
-
-
-def _public_snake_message(message: dict[str, Any]) -> dict[str, Any]:
-    result = dict(message)
-    result.pop("owner_principal", None)
-    return result
-
-
 # ── Route endpoints ────────────────────────────────────────────────────────────
 
 
@@ -1572,83 +1512,3 @@ def snake_ask():
     except Exception as exc:
         logging.getLogger(__name__).warning("snake-ask failed: %s", exc)
         return jsonify({"error": f"LLM-Fehler: {str(exc)[:120]}"}), 503
-
-
-# ── Trace API ──────────────────────────────────────────────────────────────────
-
-
-def _trace_owned_snake(snake_id: str):
-    auth = _optional_user_auth()
-    if not auth:
-        return None, (jsonify({"error": "user_authentication_required"}), 401)
-    snake = _snakes.get(snake_id)
-    if snake is None or not _snake_bound_to_auth(snake, auth):
-        return None, (
-            jsonify({"error": "snake_not_found", "error_code": "snake_not_found"}),
-            404,
-        )
-    return snake, None
-
-
-@snakes_bp.route("/snakes/<snake_id>/chat/traces", methods=["GET"])
-def chat_traces_list(snake_id: str):
-    """GET /snakes/<id>/chat/traces -- Liste der Traces für diese Snake."""
-    _snake, error = _trace_owned_snake(snake_id)
-    if error is not None:
-        return error
-    try:
-        from agent.routes.ai_snake_trace_store import get_trace_store
-        store = get_trace_store()
-        limit = min(int(request.args.get("limit") or 20), 100)
-        traces = store.list_traces(snake_id=snake_id, limit=limit)
-        return jsonify({"traces": traces, "snake_id": snake_id}), 200
-    except Exception as exc:
-        logging.getLogger(__name__).warning("chat_traces_list failed: %s", exc)
-        return jsonify({"error": "Interner Fehler"}), 500
-
-
-@snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>", methods=["GET"])
-def chat_trace_detail(snake_id: str, trace_id: str):
-    """GET /snakes/<id>/chat/traces/<trace_id> -- Trace-Metadaten abrufen."""
-    _snake, error = _trace_owned_snake(snake_id)
-    if error is not None:
-        return error
-    try:
-        from agent.routes.ai_snake_trace_store import get_trace_store
-        store = get_trace_store()
-        trace = store.get_trace(trace_id)
-        if trace is None:
-            return jsonify({"error": "Trace nicht gefunden"}), 404
-        if trace.get("snake_id") and trace["snake_id"] != snake_id:
-            return jsonify({"error": "trace_not_found", "error_code": "trace_not_found"}), 404
-        return jsonify({"trace": trace}), 200
-    except Exception as exc:
-        logging.getLogger(__name__).warning("chat_trace_detail failed: %s", exc)
-        return jsonify({"error": "Interner Fehler"}), 500
-
-
-@snakes_bp.route("/snakes/<snake_id>/chat/traces/<trace_id>/events", methods=["GET"])
-def chat_trace_events(snake_id: str, trace_id: str):
-    """GET /snakes/<id>/chat/traces/<trace_id>/events?since_seq=0 -- Events inkrementell abrufen."""
-    _snake, error = _trace_owned_snake(snake_id)
-    if error is not None:
-        return error
-    try:
-        from agent.routes.ai_snake_trace_store import get_trace_store
-        store = get_trace_store()
-        trace = store.get_trace(trace_id)
-        if trace is None:
-            return jsonify({"error": "Trace nicht gefunden"}), 404
-        if trace.get("snake_id") and trace["snake_id"] != snake_id:
-            return jsonify({"error": "trace_not_found", "error_code": "trace_not_found"}), 404
-        since_seq = max(0, int(request.args.get("since_seq") or 0))
-        events = store.get_events(trace_id, since_seq=since_seq)
-        return jsonify({
-            "trace_id": trace_id,
-            "current_status": trace.get("status", "unknown"),
-            "latest_seq": trace.get("latest_seq", -1),
-            "events": events,
-        }), 200
-    except Exception as exc:
-        logging.getLogger(__name__).warning("chat_trace_events failed: %s", exc)
-        return jsonify({"error": "Interner Fehler"}), 500
