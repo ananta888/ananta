@@ -4,6 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-webcrawler-external-adapter-provider",
   "created": "2026-06-14",
+  "updated": "2026-09-01",
   "status": "todo",
   "priority": "P0",
   "purpose": "Das bestehende Repository ananta-dev-solutions/ananta-webcrawler soll in Ananta integriert werden, ohne seine Funktionalitaet in Ananta nachzuimplementieren. Ananta soll den Webcrawler als externen, verwalteten Service starten, pruefen, konfigurieren und ueber Adapter ansprechen koennen.",
@@ -120,10 +121,9 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
+      "depends_on": [],
       "target_files": [
-        "docs/integrations/ananta-webcrawler-external-adapter.md",
-        "agent/services/model_provider_registry.py",
-        "agent/services/tool_routing_service.py"
+        "docs/integrations/ananta-webcrawler.md"
       ],
       "acceptance_criteria": [
         "Dokumentation beschreibt explizit: ananta-webcrawler wird extern verwendet und nicht in Ananta nachimplementiert.",
@@ -144,10 +144,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
+      "depends_on": ["AWCAP-001"],
       "target_files": [
-        "agent/config.py",
-        "config/*.json",
-        "tests/agent/test_webcrawler_provider_config.py"
+        "agent/providers/webcrawler/config.py",
+        "config.example.yaml",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "Konfiguration unterstuetzt external_url, managed_process, managed_docker_compose und disabled.",
@@ -169,9 +170,10 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "depends_on": ["AWCAP-002"],
       "target_files": [
-        "agent/services/webcrawler_runtime_manager.py",
-        "tests/agent/services/test_webcrawler_runtime_manager.py"
+        "agent/providers/webcrawler/runtime_manager.py",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "RuntimeManager kann bereits laufenden Service per Healthcheck pruefen.",
@@ -193,11 +195,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "depends_on": ["AWCAP-001", "AWCAP-002"],
       "target_files": [
-        "agent/services/openai_compatible_provider.py",
-        "agent/services/webcrawler_backend_provider.py",
-        "agent/services/model_provider_registry.py",
-        "tests/agent/services/test_webcrawler_backend_provider.py"
+        "agent/providers/webcrawler/backend_provider.py",
+        "agent/providers/webcrawler/transport.py",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "Provider ruft /v1/models ab und mapped Profile als verfuegbare Backend-Modelle.",
@@ -220,11 +222,10 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
+      "depends_on": ["AWCAP-004", "AWCAP-007"],
       "target_files": [
-        "agent/services/webcrawler_tool_provider.py",
-        "worker/core/tool_registry.py",
-        "agent/services/tool_routing_service.py",
-        "tests/agent/services/test_webcrawler_tool_provider.py"
+        "agent/providers/webcrawler/tool_provider.py",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "webcrawler.list_profiles liefert Profile aus /v1/models plus Status/Success-Rate, sofern vorhanden.",
@@ -246,11 +247,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
+      "depends_on": ["AWCAP-002", "AWCAP-004"],
       "target_files": [
+        "agent/providers/webcrawler/routing.py",
         "agent/services/tool_routing_service.py",
-        "agent/services/model_routing_service.py",
-        "docs/integrations/ananta-webcrawler-routing.md",
-        "tests/agent/services/test_webcrawler_routing_policy.py"
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "WebcrawlerBackendProvider wird fuer web/browser/replay/website_ai/external_api_wrapper Tasks bevorzugt.",
@@ -272,10 +273,11 @@
       "status": "todo",
       "priority": "P0",
       "risk": "critical",
+      "depends_on": ["AWCAP-002"],
       "target_files": [
-        "agent/services/webcrawler_policy_service.py",
-        "agent/services/approval_policy_service.py",
-        "tests/security/test_webcrawler_adapter_policy.py"
+        "agent/providers/webcrawler/policy.py",
+        "agent/providers/webcrawler/tool_provider.py",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "Reine Lese-/Such-/Fetch-Aktionen sind von Login/Klick/Formularsubmit/Replay mit Nebenwirkung getrennt.",
@@ -297,11 +299,11 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
+      "depends_on": ["AWCAP-004", "AWCAP-005", "AWCAP-006"],
       "target_files": [
-        "agent/services/worker_contract_service.py",
-        "client_surfaces/operator_tui/chat_prompt_builder.py",
-        "client_surfaces/operator_tui/chat_mixin.py",
-        "tests/e2e/test_ai_snake_chat_webcrawler_backend.py"
+        "agent/local_llm_backends.py",
+        "agent/backend_provider_contracts.py",
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "ai-snake-chat kann per Provider-Auswahl ein Webcrawler-Profil als Backend nutzen.",
@@ -323,10 +325,10 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
+      "depends_on": ["AWCAP-002", "AWCAP-003", "AWCAP-004", "AWCAP-005", "AWCAP-007"],
       "target_files": [
-        "docs/integrations/ananta-webcrawler-external-adapter.md",
-        "docs/setup/ananta-webcrawler-provider.md",
-        ".env.example"
+        "docs/integrations/ananta-webcrawler.md",
+        "config.example.yaml"
       ],
       "acceptance_criteria": [
         "Dokumentation zeigt external_url Setup mit bereits laufendem Webcrawler.",
@@ -348,10 +350,9 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
+      "depends_on": ["AWCAP-003", "AWCAP-004", "AWCAP-005", "AWCAP-006", "AWCAP-007", "AWCAP-008"],
       "target_files": [
-        "tests/fixtures/mock_webcrawler_server.py",
-        "tests/e2e/test_webcrawler_external_adapter_provider.py",
-        "tests/agent/services/test_webcrawler_backend_provider.py"
+        "tests/test_ananta_webcrawler_provider.py"
       ],
       "acceptance_criteria": [
         "Tests brauchen keinen echten Browser und kein echtes Webcrawler-Repo.",
