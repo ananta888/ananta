@@ -4,7 +4,7 @@
   "title": "Ananta — verbleibende lokale RTX-3080-, Recovery-, Backup- und Bitcoin-Arbeiten",
   "version": 1,
   "created": "2026-07-26",
-  "updated": "2026-07-26",
+  "updated": "2026-08-31",
   "project": "ananta",
   "owner": "Krusty <stuiber@ananta.de>",
   "status": "active",
@@ -266,7 +266,7 @@
         {
           "id": "BTC-NODE-001",
           "title": "Bitcoin Core als isolierten Pruned Node in Compose ergänzen",
-          "status": "open",
+          "status": "blocked",
           "priority": "P0",
           "risk": "critical",
           "type": "implementation",
@@ -288,7 +288,7 @@
         {
           "id": "BTC-WALLET-002",
           "title": "Lokale verschlüsselte Bitcoin-Core-Wallet sicher verwalten und sichern",
-          "status": "open",
+          "status": "blocked",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -309,7 +309,7 @@
         {
           "id": "BTC-E2E-003",
           "title": "Pruned-Node- und Wallet-Ablauf vor echtem Kauf testen",
-          "status": "open",
+          "status": "blocked",
           "priority": "P1",
           "risk": "critical",
           "type": "acceptance",
@@ -366,7 +366,8 @@
     "by_status": {
       "completed": 3,
       "partial": 2,
-      "open": 6
+      "open": 3,
+      "blocked": 3
     },
     "notes": [
       "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
@@ -379,17 +380,18 @@
       "Das Routine-State-Backup umfasst Konfiguration, PostgreSQL, Hub-/Worker-Volumes, Workflow-Secrets und Workspaces. Ollama-Modelle sind ein optionales getrenntes Paket; Bitcoin-Core- und Wallet-Daten sind noch nicht Teil dieses Stacks.",
       "Bekannte Backup-P2-Grenzen: unsigned OpenPGP authentisiert die Herkunft nicht, das Task-Gate ist kein vollständiger Hub-Drain, allgemeine Unterprozesse besitzen noch keine harten Timeouts/Filesystem-Hard-Quota, reguläre TreePlan-Dateien sind noch nicht vollständig gegen Same-UID-Pfadtausch verankert, SIGKILL/Stromausfall kann private Klartext-Staging-Verzeichnisse hinterlassen, der Restore-Publish ersetzt im Rennen noch ein neu erzeugtes leeres Ziel und ComposeAdapter trägt weiterhin mehrere Infrastrukturverantwortlichkeiten (SRP/DIP).",
       "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
-      "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung."
+      "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung.",
+      "Bitcoin-Node, Wallet und Bitcoin-E2E sind auf ausdrückliche Nutzerpriorisierung blockiert; sie werden nicht automatisch eingeplant."
     ],
     "recommended_order": [
       "OPS-BACKUP-004",
       "QA-REL-001",
-      "BTC-NODE-001",
-      "BTC-WALLET-002",
-      "BTC-E2E-003",
       "ARF-CAS-001",
       "ARF-SOLID-002",
-      "OPS-SOLID-005"
+      "OPS-SOLID-005",
+      "BTC-NODE-001",
+      "BTC-WALLET-002",
+      "BTC-E2E-003"
     ]
   }
 }
