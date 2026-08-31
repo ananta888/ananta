@@ -18,6 +18,23 @@ from agent.services.local_runtime_response_adapters import (
     normalize_ollama_chat,
     normalize_ollama_generate,
 )
+from agent.services.model_invocation_errors import (
+    LLMUnavailableError,
+    ModelRoutingConfigurationError,
+)
+from agent.services.model_invocation_observation_helpers import (
+    observe_model_invocation_attempt,
+)
+from agent.services.model_invocation_payload_helpers import (
+    blocked_candidates_as_dict,
+    fallback_error_type,
+    finalize_trace_error,
+    max_output_tokens_for_request,
+    messages_for_tool_mode,
+    normalize_openai_tools,
+    response_message,
+    tool_calling_mode,
+)
 from agent.services.model_invocation_profile import (
     build_llm_call_profile_entry,
 )
@@ -38,46 +55,6 @@ _PROFILE_RESOLVER_CACHE: Any = None
 _PROFILE_RESOLVER_LOCK = threading.Lock()
 
 
-class ModelRoutingConfigurationError(RuntimeError):
-    """Explicit model-routing configuration cannot be loaded safely."""
-
-
-class LLMUnavailableError(Exception):
-    """A model attempt failed or returned an unusable contracted response."""
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        llm_call_profile: list[dict[str, Any]] | None = None,
-        fallback_decisions: list[dict[str, Any]] | None = None,
-        terminal_reason: str | None = None,
-        model_recovery_signal: dict[str, Any] | None = None,
-    ):
-        super().__init__(message)
-        self.llm_call_profile = list(llm_call_profile or [])
-        self.fallback_decisions = list(fallback_decisions or [])
-        self.terminal_reason = str(terminal_reason or "").strip() or self._last_error_type()
-        if isinstance(model_recovery_signal, dict):
-            self.model_recovery_signal = dict(model_recovery_signal)
-        else:
-            from ananta_contracts.model_recovery import build_model_recovery_signal
-
-            self.model_recovery_signal = build_model_recovery_signal(
-                terminal_reason=self.terminal_reason,
-                fallback_decisions=self.fallback_decisions,
-                llm_call_profile=self.llm_call_profile,
-            )
-
-    def _last_error_type(self) -> str:
-        for item in reversed(self.llm_call_profile):
-            if isinstance(item, dict):
-                value = str(item.get("error_type") or "").strip()
-                if value:
-                    return value
-        return "unknown"
-
-
 class ModelInvocationService:
     """LLM invocation via OpenAI-compatible chat/completions endpoint."""
 
@@ -93,48 +70,7 @@ class ModelInvocationService:
 
     _build_llm_call_profile_entry = staticmethod(build_llm_call_profile_entry)
 
-    @staticmethod
-    def _observe_model_invocation_attempt(
-        *,
-        attempt: Mapping[str, Any],
-        resolution_info: Mapping[str, Any],
-        success: bool,
-        reason_code: str,
-        call_profile: Mapping[str, Any] | None,
-    ) -> None:
-        """Best-effort, content-free observation; it never changes call results."""
-
-        profile = attempt.get("profile")
-        try:
-            from flask import current_app, g, has_app_context
-
-            from agent.services.model_invocation_observation import (
-                ModelInvocationAttemptObservation,
-            )
-
-            if not has_app_context():
-                return
-            port = current_app.extensions.get("model_invocation_observation_port")
-            observe = getattr(port, "observe_attempt", None)
-            if not callable(observe):
-                return
-            observe(
-                ModelInvocationAttemptObservation(
-                    profile_id=str(getattr(profile, "profile_id", "") or "").strip().lower() or None,
-                    provider_id=str(attempt.get("provider") or "unknown"),
-                    model_id=str(attempt.get("model") or "unknown"),
-                    success=success,
-                    reason_code=str(reason_code or "unknown"),
-                    call_profile=call_profile,
-                    fallback_index=max(0, int(resolution_info.get("fallback_index") or 0)),
-                    context_capacity=max(1, int(getattr(profile, "context_tokens", 1) or 1)),
-                    confidence_available=False,
-                    goal_id=str(getattr(g, "llm_goal_id", "") or "").strip() or None,
-                    task_id=str(getattr(g, "llm_task_id", "") or "").strip() or None,
-                )
-            )
-        except Exception:
-            logger.warning("model invocation observation failed", exc_info=True)
+    _observe_model_invocation_attempt = staticmethod(observe_model_invocation_attempt)
 
     @classmethod
     def _observe_successful_model_invocation_attempt(
@@ -885,149 +821,14 @@ class ModelInvocationService:
             base = base + "/chat/completions"
         return provider, base, None
 
-    @staticmethod
-    def _normalize_openai_tools(tools: list | None) -> list[dict[str, Any]]:
-        normalized: list[dict[str, Any]] = []
-        for item in list(tools or []):
-            if not isinstance(item, dict):
-                continue
-            item_type = str(item.get("type") or "").strip().lower()
-            if item_type == "function" and isinstance(item.get("function"), dict):
-                normalized.append(item)
-                continue
-            name = str(item.get("name") or "").strip()
-            if not name:
-                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
-                name = str(fn.get("name") or "").strip()
-            if not name:
-                continue
-            description = str(item.get("description") or "").strip()
-            if not description:
-                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
-                description = str(fn.get("description") or "").strip()
-            parameters = item.get("parameters")
-            if not isinstance(parameters, dict):
-                fn = item.get("function") if isinstance(item.get("function"), dict) else {}
-                parameters = fn.get("parameters")
-            if not isinstance(parameters, dict):
-                parameters = {"type": "object", "properties": {}}
-            normalized.append(
-                {
-                    "type": "function",
-                    "function": {
-                        "name": name,
-                        "description": description,
-                        "parameters": parameters,
-                    },
-                }
-            )
-        return normalized
-
-    @staticmethod
-    def _tool_calling_mode(profile: Any | None) -> str:
-        if profile is None:
-            return "native_tools"
-        mode = str(getattr(profile, "tool_calling_mode", "") or "").strip()
-        if mode:
-            return mode
-        return "native_tools" if bool(getattr(profile, "supports_tools", False)) else "none"
-
-    @staticmethod
-    def _max_output_tokens_for_request(
-        profile: Any,
-        provider_context: Any,
-    ) -> int:
-        configured = max(1, int(profile.max_output_tokens))
-        if isinstance(provider_context, Mapping):
-            raw_provider_limit = provider_context.get("max_completion_tokens_per_call")
-        else:
-            raw_provider_limit = getattr(
-                provider_context,
-                "max_completion_tokens_per_call",
-                None,
-            )
-        try:
-            provider_limit = int(raw_provider_limit or 0)
-        except (TypeError, ValueError):
-            provider_limit = 0
-        return min(configured, provider_limit) if provider_limit > 0 else configured
-
-    @classmethod
-    def _messages_for_tool_mode(
-        cls,
-        messages: list[dict],
-        *,
-        tools: list | None,
-        tool_calling_mode: str,
-    ) -> tuple[list[dict], bool]:
-        normalized_tools = cls._normalize_openai_tools(tools)
-        if not normalized_tools:
-            return messages, False
-        if tool_calling_mode in {"native_tools", "both"}:
-            return messages, True
-        if tool_calling_mode != "prompt_json":
-            return messages, False
-        tool_contract = {
-            "response_schema": {
-                "type": "object",
-                "required": ["tool", "args"],
-                "properties": {
-                    "tool": {"type": "string"},
-                    "args": {"type": "object"},
-                    "confidence": {"type": "number"},
-                    "reasoning_summary": {"type": "string"},
-                },
-            },
-            "allowed_tools": [
-                {
-                    "name": item["function"]["name"],
-                    "description": item["function"].get("description") or "",
-                    "parameters": item["function"].get("parameters") or {"type": "object", "properties": {}},
-                }
-                for item in normalized_tools
-            ],
-        }
-        system_msg = {
-            "role": "system",
-            "content": (
-                "Return exactly one JSON object selecting a tool. Do not call tools directly. "
-                f"Tool contract: {json.dumps(tool_contract, sort_keys=True)}"
-            ),
-        }
-        return [system_msg] + [m for m in messages if isinstance(m, dict)], False
-
-    @staticmethod
-    def _blocked_candidates_as_dict(blocked: list[tuple[str, str]] | None) -> list[dict[str, Any]]:
-        return [{"profile_id": pid, "reason": reason} for pid, reason in list(blocked or [])]
-
-    @classmethod
-    def _fallback_error_type(cls, exc: LLMUnavailableError) -> str:
-        profile = list(getattr(exc, "llm_call_profile", []) or [])
-        if profile and isinstance(profile[-1], dict):
-            return str(profile[-1].get("error_type") or "unknown")
-        return str(getattr(exc, "terminal_reason", "") or "unknown")
-
-    @staticmethod
-    def _finalize_trace_error(prompt_trace: Any, trace_svc: Any, error_type: str, error_message: str) -> None:
-        if prompt_trace is None or trace_svc is None:
-            return
-        try:
-            finalized = trace_svc.finalize_trace(
-                prompt_trace,
-                success=False,
-                error_type=error_type,
-                error_message=error_message,
-            )
-            trace_svc.store(finalized)
-        except Exception:
-            pass
-
-    @staticmethod
-    def _response_message(payload: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
-        choice = (payload.get("choices") or [{}])[0] if isinstance(payload, dict) else {}
-        choice = choice if isinstance(choice, dict) else {}
-        message = choice.get("message")
-        return choice, message if isinstance(message, dict) else {}
+    _normalize_openai_tools = staticmethod(normalize_openai_tools)
+    _tool_calling_mode = staticmethod(tool_calling_mode)
+    _max_output_tokens_for_request = staticmethod(max_output_tokens_for_request)
+    _messages_for_tool_mode = staticmethod(messages_for_tool_mode)
+    _blocked_candidates_as_dict = staticmethod(blocked_candidates_as_dict)
+    _fallback_error_type = staticmethod(fallback_error_type)
+    _finalize_trace_error = staticmethod(finalize_trace_error)
+    _response_message = staticmethod(response_message)
 
     @classmethod
     def _raise_response_contract_error(
