@@ -226,7 +226,7 @@
         {
           "id": "SAS-QA-008",
           "title": "Security- und Kompatibilitäts-Gates für Upstream-Updates einführen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "type": "quality-gate",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 7,
-      "open": 3
+      "done": 8,
+      "open": 2
     },
     "recommended_order": [
       "SAS-INV-001",
