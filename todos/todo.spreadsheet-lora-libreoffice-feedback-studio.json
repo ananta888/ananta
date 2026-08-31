@@ -2,23 +2,23 @@
   "$schema": "./todo.schema.json",
   "version": 3,
   "created": "2026-07-18",
-  "updated": "2026-08-30",
+  "updated": "2026-08-31",
   "project": "ananta",
   "owner": "Peter Stuiber / Ananta",
   "track": "spreadsheet_lora_libreoffice_feedback_studio_research",
-  "status": "open",
+  "status": "blocked",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "HEAD@e6edf1c841fcd76934029aa96dcc5ec91a948bda inspected on 2026-08-30",
+    "reviewed_commit_range": "HEAD@0e644b76a2d69b7a936687c85cc99e05db90179e inspected on 2026-08-31",
     "review_goal": "Die bisherige gemischte Spreadsheet-Ideen- und Implementierungsplanung in eine schema-konforme, passive und source-grounded vorbereitete Category-Research-Todo überführen. Vor einer Track-Promotion werden vorhandene Artifact-, Worker-, ml_intern-, Unsloth-, Consent-, API-, Angular- und Compose-Bausteine auf Wiederverwendung geprüft und die LibreOffice-, Dokument-, Action-, Validierungs-, Datenschutz-, Trainings- und Betriebsgrenzen verbindlich entschieden.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
     "promotion_status": "non_promotable_unverified_sources",
-    "grounding_note": "Auch beim erneuten Abgleich am 2026-08-21 wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs übergeben und kein Spreadsheet-/LibreOffice-gebundener Source Catalog gefunden. Repository-Pfade, Commit-Hashes, Testfixtures und externe URLs sind Navigations- und Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausführung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
+    "grounding_note": "Auch beim erneuten Abgleich am 2026-08-31 wurden keine Hub-bereitgestellten SRC_*- oder RUN_*-IDs übergeben und kein Spreadsheet-/LibreOffice-gebundener Source Catalog gefunden. Repository-Pfade, Commit-Hashes, Testfixtures und externe URLs sind Navigations- und Research-Kandidaten, aber keine verifizierte Evidenz. Die gebundene Research-Ausführung muss ein category_todo_quality_profile.v1 mit dem exakten Source Catalog und der Assignment-Allowlist erzeugen.",
     "blocked_audit": {
-      "date": "2026-08-30",
-      "reviewed_commit": "e6edf1c841fcd76934029aa96dcc5ec91a948bda",
+      "date": "2026-08-31",
+      "reviewed_commit": "0e644b76a2d69b7a936687c85cc99e05db90179e",
       "status": "blocked",
       "reason_codes": [
         "assignment_bound_source_catalog_missing",
@@ -1653,12 +1653,13 @@
     ]
   },
   "implementation_review": {
-    "reviewed_at": "2026-08-30",
-    "reviewed_commit": "e6edf1c841fcd76934029aa96dcc5ec91a948bda",
-    "state": "spreadsheet_specific_path_absent_reusable_foundations_unverified",
+    "reviewed_at": "2026-08-31",
+    "reviewed_commit": "0e644b76a2d69b7a936687c85cc99e05db90179e",
+    "state": "default_off_mock_slice_present_research_and_release_blocked",
     "repository_observations": [
       "Basic read-only XLSX value extraction exists through openpyxl in agent/tools_document.py",
-      "No ODS/CSV workbook editing, formula AST, recalc, immutable spreadsheet version or Action/Diff/Validator contract exists",
+      "A default-off mock-only Spreadsheet Studio slice now provides closed snapshot, formula AST, action, validator, proposal and immutable SQLite version contracts",
+      "No real XLSX/ODS/CSV workbook editing, LibreOffice recalculation fidelity or assignment-bound spreadsheet evidence exists",
       "No LibreOffice/UNO dependency, container profile or Worker execution adapter exists",
       "ML-Intern, Unsloth, artifact, consent, task lease and Angular foundations exist as potential extension seams",
       "No assignment-bound spreadsheet SRC_* or RUN_* identifiers were supplied"
