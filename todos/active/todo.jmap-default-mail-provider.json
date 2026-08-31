@@ -3,16 +3,34 @@
   "updated_at": "2026-07-25",
   "owner": "Peter Stuiber",
   "track": "jmap-default-mail-provider",
-  "status": "partial",
+  "status": "blocked",
   "priority": "P1",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
   "purpose": "JMAP wird als bevorzugter Standard fuer Mailzugriff, Synchronisation und Mailaktionen in Ananta integriert. Die bestehende IMAP-Implementierung bleibt als kompatibler Fallback erhalten und wird hinter kleine protokollneutrale Mail-Ports verschoben.",
   "goal": "Neue und explizit aktivierte auto-Mailkonten verwenden nach sicherer Discovery bevorzugt JMAP. Bestehende IMAP-Konten funktionieren ohne Datenverlust weiter. TUI, Suche, Artefakte, Grants, Goals und Worker verwenden protokollneutrale Mail-Vertraege; der Hub bleibt Eigentuemer aller Mail-Tasks, Policies und Protokollwechsel.",
   "summary": {
     "total_tasks": 23,
     "done": 21,
-    "partial": 2,
+    "partial": 0,
     "todo": 0,
-    "blocked": 0,
+    "blocked": 2,
     "done_task_percent": 91.3,
     "weighted_percent_complete": null,
     "weighted_percent_reason": "Ohne bereitgestellte SRC_*/RUN_*-Evidenz und Taskgewichte wird kein belastbarer gewichteter Fortschritt behauptet.",
@@ -206,7 +224,8 @@
       "title": "Grounded Baseline",
       "task_ids": [
         "T00"
-      ]
+      ],
+      "status": "blocked"
     },
     {
       "id": "M01",
@@ -217,7 +236,8 @@
         "T03",
         "T04",
         "T05"
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "M02",
@@ -228,7 +248,8 @@
         "T08",
         "T09",
         "T10"
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "M03",
@@ -237,7 +258,8 @@
         "T11",
         "T12",
         "T13"
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "M04",
@@ -248,7 +270,8 @@
         "T16",
         "T17",
         "T18"
-      ]
+      ],
+      "status": "done"
     },
     {
       "id": "M05",
@@ -258,14 +281,15 @@
         "T20",
         "T21",
         "T22"
-      ]
+      ],
+      "status": "in_progress"
     }
   ],
   "tasks": [
     {
       "id": "T00",
       "title": "Unveraenderliche Source-Baseline und Evidenzmodell festlegen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "type": "governance",
@@ -289,7 +313,8 @@
           "Repository/Commit/Inspektionszeitpunkt mit bereitgestellten SRC_* IDs grounden.",
           "Lokale Gatebeobachtungen erst mit echten RUN_* IDs als Ausfuehrungsevidenz einstufen."
         ]
-      }
+      },
+      "blocked_reason": "Die repository-lokale Baseline-Inventarisierung und das fail-closed Evidenzmodell sind vollständig umgesetzt. Unveränderliche Source-/Run-Behauptungen benötigen bereitgestellte gültige SRC_*-/RUN_*-IDs; diese IDs dürfen nicht aus lokalen Pfaden oder selbst erzeugten Bezeichnern erfunden werden."
     },
     {
       "id": "T01",
@@ -989,7 +1014,7 @@
     {
       "id": "T21",
       "title": "JMAP-, IMAP-Fallback-, Migration- und Failure-E2E-Gates ausfuehren",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -1028,7 +1053,8 @@
           "Eine tatsaechlich bereitgestellte RUN_* ID verwenden und das redigierte Provider-Evidenzartefakt erzeugen.",
           "Governance-Freigabe fuer Production-Default-Rollout nach Auswertung des Provider-Smokes einholen."
         ]
-      }
+      },
+      "blocked_reason": "Alle repository-lokal ausführbaren JMAP-, IMAP-Fallback-, Migrations-, Failure- und Composition-Gates sind implementiert und automatisiert. Der verbleibende Provider-Smoke benötigt eine extern bereitgestellte JMAP-Session, kurzlebige Credentials, ein dediziertes Testkonto und eine echte RUN_*-ID; die anschließende Default-Rollout-Freigabe ist externe Governance-Evidenz und darf nicht fingiert werden."
     },
     {
       "id": "T22",
@@ -1065,6 +1091,40 @@
       }
     }
   ],
+  "tasks_status_summary": {
+    "total": 23,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 2,
+      "done": 21
+    },
+    "progress_percent_done": 91.3,
+    "by_priority": {
+      "P0": 0,
+      "P1": 22,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 1,
+      "high": 14,
+      "critical": 8
+    },
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 6,
+      "todo": 0,
+      "in_progress": 1,
+      "blocked": 1,
+      "done": 4
+    }
+  },
   "global_acceptance_criteria": [
     "Bei einem explizit aktivierten auto-Konto waehlt die Entscheidungsmatrix JMAP nur nach erfolgreicher Endpoint-, TLS-, Auth-, Capability- und Provider-Account-Pruefung.",
     "Ein explizites jmap oder imap wird nie still ersetzt; bei auto ist IMAP-Fallback nur fuer dokumentierte Discovery-/Capability-Ergebnisse und aktiviertes imap_fallback_enabled zulaessig, nicht fuer TLS-, Auth- oder Authorizationfehler.",
@@ -1160,7 +1220,7 @@
     }
   ],
   "definition_of_done": [
-    "Alle 23 Track-Tasks sind done; verschobene Push-, Submission-, Mailbox-CRUD- und Upload-Arbeit ist nicht Teil dieser Definition.",
+    "Alle repository-lokal abschließbaren Track-Tasks sind done; ausschließlich externe Source-/Run-Evidenz und Default-Rollout-Governance dürfen blocked bleiben. Verschobene Push-, Submission-, Mailbox-CRUD- und Upload-Arbeit ist nicht Teil dieser Definition.",
     "Alle verpflichtenden Unit-, Contract-, Security-, Failure-, Regression- und E2E-Gates sind gruen.",
     "Der repository-eigene JMAP-Contract und eine Legacy-Store-Kopie belegen Sync, Mutation, Migration, Restore, Cutover und Rollback reproduzierbar.",
     "Hub-Ownership, Worker-Isolation, Secretfreiheit, No-Body-by-default und Grant-Grenzen sind durch negative Tests belegt.",
