@@ -3,7 +3,6 @@ from __future__ import annotations
 import hashlib
 import uuid
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
 from flask import current_app, has_app_context
@@ -33,6 +32,18 @@ from agent.services.organization_research_dispatch_capability_service import (
     OrganizationResearchDispatchCapabilityIssuer,
     get_organization_research_dispatch_capability_issuer,
 )
+from agent.services.task_delegation_contracts import (
+    DelegationRequest as DelegationRequest,
+)
+from agent.services.task_delegation_contracts import (
+    RoutingDecision as RoutingDecision,
+)
+from agent.services.task_delegation_contracts import (
+    TaskDelegationPlan as TaskDelegationPlan,
+)
+from agent.services.task_delegation_contracts import (
+    WorkerExecutionBundle as WorkerExecutionBundle,
+)
 from agent.services.task_execution_policy_service import normalize_allowed_tools
 from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 from agent.services.worker_result_capability_service import WorkerResultCapabilityService
@@ -45,50 +56,6 @@ from agent.services.worker_task_proposal_policy_service import (
 from agent.services.worker_todo_planner_service import get_worker_todo_planner_service
 from agent.services.workspace_scope_builder import build_worker_workspace, derive_workspace_scope
 from worker.core.runtime_target import WorkerCandidate, WorkerKind
-
-
-@dataclass(frozen=True)
-class DelegationRequest:
-    task_id: str
-    parent_task: dict[str, Any]
-    data: Any
-
-
-@dataclass(frozen=True)
-class RoutingDecision:
-    payload: dict[str, Any]
-
-    def as_dict(self) -> dict[str, Any]:
-        return dict(self.payload)
-
-
-@dataclass(frozen=True)
-class TaskDelegationPlan:
-    agent_url: str
-    selected_by_policy: bool
-    selection: Any
-    policy_decision: Any
-    routing_hint: dict[str, Any] | None
-    effective_task_kind: str | None
-    effective_required_capabilities: list[str]
-    preferred_backend: str | None
-    worker_runtime_decision: Any = None
-
-
-@dataclass(frozen=True)
-class WorkerExecutionBundle:
-    subtask_id: str
-    context_bundle: Any
-    context_policy: dict[str, Any]
-    retrieval_hints: dict[str, Any]
-    task_neighborhood: dict[str, Any]
-    expected_output_schema: dict[str, Any]
-    allowed_tools: list[str]
-    routing_decision: RoutingDecision
-    worker_job: Any
-    workspace_scope: dict[str, Any]
-    worker_execution_context: dict[str, Any]
-    delegation_payload: dict[str, Any]
 
 
 class TaskDelegationPlanner:
