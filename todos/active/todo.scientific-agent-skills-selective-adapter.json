@@ -118,7 +118,7 @@
         {
           "id": "SAS-ADP-004",
           "title": "Skill-Adapter-Port mit Ananta-nativen Verträgen implementieren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "type": "implementation",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 3,
-      "open": 7
+      "done": 4,
+      "open": 6
     },
     "recommended_order": [
       "SAS-INV-001",
