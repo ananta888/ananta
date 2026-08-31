@@ -46,6 +46,8 @@ services:
       - ./Caddyfile.dev-domain:/etc/caddy/Caddyfile:ro
       - dev-domain-caddy-data:/data
       - dev-domain-caddy-config:/config
+      - ${ANANTA_WEBRTC_TLS_CERT_FILE:?set ANANTA_WEBRTC_TLS_CERT_FILE}:/run/secrets/webrtc_tls_certificate:ro
+      - ${ANANTA_WEBRTC_TLS_KEY_FILE:?set ANANTA_WEBRTC_TLS_KEY_FILE}:/run/secrets/webrtc_tls_private_key:ro
     tmpfs:
       - /tmp
     depends_on:
@@ -57,6 +59,12 @@ services:
       default:
       # Keep the WebRTC application private while reusing this HTTPS edge.
       webrtc-edge:
+    healthcheck:
+      test: ["CMD", "caddy", "validate", "--config", "/etc/caddy/Caddyfile"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 volumes:
   dev-domain-caddy-data:

@@ -39,8 +39,14 @@ http://webrtc.ananta.de {
 }
 
 https://webrtc.ananta.de {
-	# The certificate is deployed out of band until DNS-01 automation is available.
-	tls /data/manual-certs/webrtc.ananta.de.crt /data/manual-certs/webrtc.ananta.de.key
+	# Compose mounts the operator-provided files read-only after an automated preflight.
+	tls /run/secrets/webrtc_tls_certificate /run/secrets/webrtc_tls_private_key
 	encode zstd gzip
-	reverse_proxy webrtc-room-server:8080
+	reverse_proxy webrtc-room-server:8080 {
+		lb_try_duration 5s
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 10s
+		}
+	}
 }

@@ -14,6 +14,12 @@ webrtc.ananta.de {
 	handle {
 		reverse_proxy https://minipc.ananta.de {
 			header_up Host webrtc.ananta.de
+			lb_try_duration 5s
+			transport http {
+				tls_server_name minipc.ananta.de
+				dial_timeout 5s
+				response_header_timeout 10s
+			}
 		}
 	}
 }
