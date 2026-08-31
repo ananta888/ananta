@@ -91,7 +91,7 @@
     {
       "id": "CTRL-RULE-003",
       "title": "Versioned deterministic controlling rule catalog implement",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [
         "CTRL-ING-002"
@@ -278,8 +278,8 @@
   "meta": {
     "total_items": 9,
     "by_status": {
-      "done": 2,
-      "open": 7
+      "done": 3,
+      "open": 6
     },
     "recommended_order": [
       "CTRL-FOUND-001",
