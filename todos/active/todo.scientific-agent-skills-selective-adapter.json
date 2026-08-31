@@ -254,7 +254,7 @@
         {
           "id": "SAS-ROL-009",
           "title": "Pilot mit fünf risikoarmen Research-Skills durchführen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "type": "rollout",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 8,
-      "open": 2
+      "done": 9,
+      "open": 1
     },
     "recommended_order": [
       "SAS-INV-001",

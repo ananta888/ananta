@@ -104,13 +104,19 @@ def _catalog(
     )
 
 
-def test_default_catalog_is_valid_empty_and_fail_closed() -> None:
+def test_default_catalog_contains_pilot_entries_but_remains_fail_closed() -> None:
     path = Path(__file__).parents[1] / "config" / "scientific-skills-catalog.json"
     catalog = ScientificSkillCatalog.from_mapping(json.loads(path.read_text(encoding="utf-8")))
-    assert catalog.entries == ()
+    assert tuple(entry.skill_name for entry in catalog.entries) == (
+        "astropy",
+        "networkx",
+        "scvi-tools",
+        "torch-geometric",
+        "umap-learn",
+    )
     assert catalog.feature_enabled is False
     with pytest.raises(ScientificSkillCatalogError, match="feature_disabled"):
-        ScientificSkillCatalogService.resolve(catalog, skill_name="literature")
+        ScientificSkillCatalogService.resolve(catalog, skill_name="astropy")
 
 
 def test_exact_manifest_and_profile_binding_is_required_before_publish_and_resolution(tmp_path: Path) -> None:
