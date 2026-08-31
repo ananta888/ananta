@@ -19,6 +19,13 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from scripts.codecompass_e2e_fixture import (  # noqa: E402, I001
+    canonical_bytes as _canonical_bytes,
+    repository_revision as _repository_revision,
+    stable_hash as _stable_hash,
+    write_fixture as _write_fixture,
+)
+
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/codecompass-e2e.json"
 SCHEMA = "ananta.codecompass-e2e-gate.v1"
 FIXTURE_VERSION = "codecompass-e2e-fixture.v1"
@@ -37,23 +44,6 @@ AUTHORIZED_SOURCE_ID_ENV = "ANANTA_TEST_AUTHORIZED_SOURCE_ID"
 AUTHORIZED_SOURCE_IDS_ENV = "ANANTA_TEST_AUTHORIZED_SOURCE_IDS"
 
 
-def _canonical_bytes(value: Any) -> bytes:
-    return (
-        json.dumps(
-            value,
-            ensure_ascii=False,
-            sort_keys=True,
-            separators=(",", ":"),
-            allow_nan=False,
-        )
-        + "\n"
-    ).encode("utf-8")
-
-
-def _stable_hash(value: Any) -> str:
-    return hashlib.sha256(_canonical_bytes(value).rstrip(b"\n")).hexdigest()
-
-
 def _configure_isolated_runtime(root: Path) -> None:
     data_dir = root / "data"
     data_dir.mkdir(parents=True, exist_ok=True)
@@ -69,52 +59,6 @@ def _configure_isolated_runtime(root: Path) -> None:
         }
     )
     os.environ.pop("AGENT_TOKEN_FILE", None)
-
-
-def _write_fixture(repository: Path) -> dict[str, str]:
-    files = {
-        "docs/architecture.md": (
-            "# Architecture Overview\n\nArchitectureOverview documents the Hub-owned RuntimeCoordinator.\n"
-        ),
-        "schemas/widget.schema.json": json.dumps(
-            {
-                "$schema": "https://json-schema.org/draft/2020-12/schema",
-                "$id": "urn:ananta:fixture:widget",
-                "title": "WidgetSchema",
-                "type": "object",
-                "properties": {"name": {"type": "string"}},
-            },
-            sort_keys=True,
-            indent=2,
-        )
-        + "\n",
-        "src/runtime.py": (
-            "class RuntimeCoordinator:\n"
-            '    """Coordinates one Hub-owned fixture run."""\n'
-            "\n"
-            "    def execute(self) -> str:\n"
-            "        return 'completed'\n"
-        ),
-        "tests/test_runtime.py": (
-            "def test_runtime_contract():\n    assert 'RuntimeCoordinator'.startswith('Runtime')\n"
-        ),
-    }
-    for relative_path, content in files.items():
-        path = repository / relative_path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(content, encoding="utf-8")
-    return files
-
-
-def _repository_revision(files: Mapping[str, str]) -> str:
-    projection = [
-        {
-            "path": path,
-            "content_sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
-        }
-        for path, content in sorted(files.items())
-    ]
-    return _stable_hash(projection)
 
 
 def _scan_fixture(
