@@ -1,11 +1,11 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.0",
-  "updated_at": "2026-08-28",
+  "updated_at": "2026-08-31",
   "owner": "Peter Stuiber / Ananta",
   "track": "codecompass_dmoe_parametric_knowledge_injection",
   "title": "CodeCompass DMoE – modulare parametrische Wissensinjektion mit RAG-Hybridfallback",
-  "status": "partial",
+  "status": "blocked",
   "priority": "P0",
   "purpose": "Den im Paper 'Decoupled Mixture-of-Experts for Parametric Knowledge Injection' beschriebenen DMoE-Ansatz kontrolliert fuer Ananta evaluieren und als optionalen, revisionssicheren Knowledge-Expert-Pfad auf CodeCompass aufbauen.",
   "goal": "Ananta kann stabiles, freigegebenes CodeCompass-Wissen in kleine, austauschbare und exakt an ein Basismodell gebundene LoRA-/PEFT-Experten kompilieren. Ein scope- und uncertainty-aware Router aktiviert nur benoetigte Experten. Klassisches RAG bleibt fuer aktuelle, zitierpflichtige, nicht trainierte oder widerrufene Inhalte erhalten und ist jederzeit der sichere Fallback.",
@@ -35,7 +35,7 @@
       "Die berichteten Ergebnisse stammen vor allem aus kleinen 1B- bis 1.5B-Basismodellen und duerfen nicht direkt auf grosse Coding-Modelle oder Ananta-Runtimes uebertragen werden.",
       "Die Produktstrategie ist deshalb Hybrid statt 'No RAG'."
     ],
-    "evidence_status": "paper_verified_code_and_checkpoints_not_located",
+    "evidence_status": "paper_verified_code_and_checkpoints_not_located_as_of_2026_08_31",
     "reproducibility_constraints": [
       "The arXiv record and paper contain no official code or checkpoint URL; exact author/title searches found no attributable release as of 2026-08-27.",
       "Reported base models are Llama-3.2-1B-Instruct and Qwen2.5-1.5B-Instruct; the corpus has 27,613 DPR Wikipedia passages and one expert per passage.",
@@ -196,7 +196,7 @@
     {
       "id": "M4",
       "title": "Evaluation, hardening and rollout",
-      "status": "in_progress",
+      "status": "blocked",
       "task_ids": [
         "DMOE-022",
         "DMOE-023",
@@ -209,7 +209,7 @@
       "id": "DMOE-001",
       "title": "Research-Spike und Reproduzierbarkeits-Gate fuer DMoE",
       "type": "research",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 35.0,
@@ -235,8 +235,10 @@
       "depends_on": [],
       "evidence": [
         "arXiv:2606.14243v1 and its CC BY 4.0 HTML were reviewed on 2026-08-27; no official source repository or checkpoint link was present or found in exact author/title searches.",
-        "docs/research/dmoe-parametric-knowledge-reproduction.md and experiments/dmoe/README.md record a NO-GO gate and the exact missing measurements. On 2026-08-27 the local RTX 3080 had about 7.9 GiB occupied by unrelated processes and the project venv lacked torch/transformers/peft; no local paper reproduction or measured improvement exists yet."
-      ]
+        "docs/research/dmoe-parametric-knowledge-reproduction.md and experiments/dmoe/README.md record a NO-GO gate and the exact missing measurements. On 2026-08-27 the local RTX 3080 had about 7.9 GiB occupied by unrelated processes and the project venv lacked torch/transformers/peft; no local paper reproduction or measured improvement exists yet.",
+        "The official arXiv record and exact title/identifier searches were checked again on 2026-08-31; no attributable official implementation or checkpoint was located."
+      ],
+      "blocked_reason": "The paper does not provide attributable code or checkpoints, and no source-/digest-bound reproduction, runtime capability proof or measured quality/resource artifact exists. Ananta's implemented scaffolding cannot substitute for that external research evidence."
     },
     {
       "id": "DMOE-002",
@@ -387,7 +389,7 @@
       "id": "DMOE-006",
       "title": "Austauschbare LoRA-/PEFT-Expert-Training-Ports einfuehren",
       "type": "training",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 90.0,
@@ -423,7 +425,8 @@
       ],
       "remaining_work": [
         "Run the bound adapter against an available real PEFT model/dataset and retain deterministic output-parity and resource evidence before marking the task done."
-      ]
+      ],
+      "blocked_reason": "The production PEFT lifecycle adapter and fail-closed cleanup are implemented and tested. Completion requires the DMOE-001 reproduction assets plus a real digest-bound model/dataset training run; no attributable upstream checkpoint or approved reproduction artifact is available."
     },
     {
       "id": "DMOE-007",
@@ -502,7 +505,7 @@
       "id": "DMOE-009",
       "title": "Uncertainty-aware Trigger und Router-Policy implementieren",
       "type": "routing",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 80.0,
@@ -531,7 +534,8 @@
       "evidence": [
         "worker/retrieval/sira/router.py demonstrates bounded default-off routing, fallback reasons and a circuit breaker reusable behind a DMoE policy port.",
         "worker/retrieval/knowledge_expert_router.py implements bounded entropy thresholding, candidate-only selection, revocation/scope filters and token hysteresis; the benchmark matrix now requires retrieval-only, always-on and uncertainty variants, but no measured routing ablation exists yet."
-      ]
+      ],
+      "blocked_reason": "The bounded authorization, entropy and hysteresis policy is implemented. The remaining acceptance criterion is a measured uncertainty-vs-retrieval-only-vs-always-on ablation, which depends on the unavailable reproduced DMoE runtime and benchmark evidence."
     },
     {
       "id": "DMOE-010",
@@ -573,7 +577,7 @@
       "id": "DMOE-011",
       "title": "Expert Hot-Swap, Residency und KV-Cache-Integritaet umsetzen",
       "type": "runtime",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 65.0,
@@ -609,7 +613,8 @@
       "remaining_work": [
         "Implement a concrete fail-closed local runtime adapter or keep activation blocked until an attested provider can load, atomically switch and unload final-FFN experts.",
         "Keep cold/warm/hot and mid-generation cache behavior unverified until a real runtime run supplies measurements."
-      ]
+      ],
+      "blocked_reason": "Atomic residency, artifact verification, budget checks and failure cleanup are implemented. No available production runtime has attested final-FFN dynamic composition, atomic switching and KV-cache behavior, so real cache-integrity and hot-swap completion cannot be claimed."
     },
     {
       "id": "DMOE-012",
@@ -834,7 +839,7 @@
       "id": "DMOE-018",
       "title": "Lokale Ressourcenplanung fuer RTX 3080 und CPU/RAM-Worker",
       "type": "performance",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "progress_percent": 70.0,
@@ -864,7 +869,8 @@
       "evidence": [
         "worker/training/vram_admission.py includes an rtx3080-safe profile and rejects estimated training OOM before execution.",
         "worker/inference/knowledge_expert_resource_planner.py jointly admits base weights, KV cache, active adapter VRAM, warm RAM and disk and selects rag_only before expected OOM; config/knowledge-experts/rtx3080-inference.v1.json remains unverified because cold/warm/hot measurements do not exist."
-      ]
+      ],
+      "blocked_reason": "Pre-inference OOM admission and automatic RAG fallback are implemented. Cold, warm and hot-swap latency measurements require a real compatible runtime and expert artifact, both blocked by DMOE-001/DMOE-011."
     },
     {
       "id": "DMOE-019",
@@ -979,7 +985,7 @@
       "id": "DMOE-022",
       "title": "Qualitaets-, Effizienz- und Ablationsbenchmark etablieren",
       "type": "benchmark",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 90.0,
@@ -1016,13 +1022,14 @@
       ],
       "remaining_work": [
         "Keep measured model and hardware results unverified until a real benchmark run exists."
-      ]
+      ],
+      "blocked_reason": "The fail-closed benchmark contract and all required variants, bindings and metrics are implemented. A valid result requires real model, dataset, runtime and hardware runs that are unavailable while reproduction and runtime capability remain blocked."
     },
     {
       "id": "DMOE-023",
       "title": "End-to-End-, Failure- und Adversarial-Testmatrix bauen",
       "type": "test",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "progress_percent": 92.0,
@@ -1055,13 +1062,14 @@
       "evidence": [
         "Existing training, knowledge-index, retrieval, capability and security suites cover many reusable failure primitives.",
         "The DMoE unit/integration suite now covers deterministic source compilation, contamination, tamper/signature, stale/cancelled/audience tasks, empty/cross-tenant scope, corrupt artifacts, expected OOM fallback, atomic-switch cleanup, unsafe cache capability, poisoning/backdoor gates and grounded evidence. Automatic rollout tests additionally cover all six immediate rollback signals, aggregate gates, persistence, deterministic assignment and headless admission failure. A live model Source-to-Answer run remains absent."
-      ]
+      ],
+      "blocked_reason": "All locally executable contract, failure, adversarial and headless rollback tests pass. The remaining live Source-to-Answer matrix requires a reproduced model expert and attested runtime, so it is externally blocked rather than an unimplemented test harness."
     },
     {
       "id": "DMOE-024",
       "title": "Feature Flags, Canary-Rollout und produktive Betriebsdokumentation",
       "type": "rollout",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
       "progress_percent": 90.0,
@@ -1098,7 +1106,8 @@
       ],
       "remaining_work": [
         "Keep deployed canary evidence unverified until a real observation window is supplied."
-      ]
+      ],
+      "blocked_reason": "Default-off operation, persistent automatic shadow/canary/GA progression and automatic CAS rollback are implemented without human-in-the-loop. A real canary cannot be admitted until research, runtime, benchmark and live-test gates produce valid external evidence."
     }
   ],
   "critical_path_tasks": [
@@ -1154,8 +1163,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 8,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 8,
       "done": 16
     },
     "progress_percent_done": 66.7,
@@ -1178,17 +1187,17 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 5,
-      "blocked": 0,
+      "in_progress": 4,
+      "blocked": 1,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 8,
-    "blocked": 0,
+    "partial": 0,
+    "blocked": 8,
     "done": 16,
     "count_based_percent": 66.7,
     "weighted_percent": 91.4
@@ -1197,7 +1206,8 @@
     "Audit on 2026-08-27 against main@9a03a1b26 and arXiv:2606.14243v1.",
     "The 2026-08-28 source refresh found repository gaps behind four prior progress claims: production expert training, concrete runtime switching, closed benchmark validation and automatic rollout/rollback.",
     "The implementation follow-up closes the repository-side training adapter, benchmark-validation and persistent automatic-rollout gaps. The concrete dynamic runtime and real-model measurements remain explicitly unverified and fail closed.",
-    "The research gate remains mandatory: no official upstream code/checkpoints were located, the local GPU was already substantially occupied, and no paper result or test-double result is treated as Ananta release evidence.",
+    "The 2026-08-31 source and upstream refresh found no remaining repository-side implementation gap among the eight open entries; each remaining criterion requires unavailable upstream/reproduction/runtime/hardware evidence and is therefore explicitly blocked.",
+    "The research gate remains mandatory: no official upstream code/checkpoints were located, and no paper result or test-double result is treated as Ananta release evidence.",
     "The Hub remains the control plane; Workers may train or infer one delegated task and may not activate experts or orchestrate follow-up work.",
     "No SRC_* or RUN_* identifiers were provided or invented."
   ],
@@ -1220,8 +1230,8 @@
     "critical"
   ],
   "review_basis": {
-    "reviewed_commit_range": "main@94a047f7e2f4e3e3b8266bc7fc3bea3ecde5a33c",
-    "audited_at": "2026-08-28",
+    "reviewed_commit_range": "main@0ebea4851",
+    "audited_at": "2026-08-31",
     "reviewed_paths": [
       "worker/training/contracts.py",
       "worker/training/backend_registry.py",
@@ -1260,13 +1270,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 35.0
       },
       "schema": {
@@ -1330,13 +1340,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       },
       "artifact": {
@@ -1372,13 +1382,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 80.0
       },
       "runtime": {
@@ -1386,13 +1396,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 1
         },
         "done": 1,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 82.5
       },
       "correctness": {
@@ -1484,13 +1494,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 70.0
       },
       "observability": {
@@ -1540,13 +1550,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       },
       "test": {
@@ -1554,13 +1564,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 92.0
       },
       "rollout": {
@@ -1568,13 +1578,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       }
     }
@@ -1584,7 +1594,7 @@
     "total_weight": 41.25,
     "done_weight": 37.685,
     "remaining_weight": 3.565,
-    "blocked_weight": 0.0,
+    "blocked_weight": 15.25,
     "weighted_percent": 91.4
   },
   "milestone_progress_summary": {
@@ -1592,7 +1602,7 @@
       "M0": {
         "total_tasks": 3,
         "done": 2,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 66.7,
         "weighted_percent": 74.0,
         "status": "in_progress"
@@ -1600,7 +1610,7 @@
       "M1": {
         "total_tasks": 4,
         "done": 3,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 75.0,
         "weighted_percent": 97.1,
         "status": "in_progress"
@@ -1608,7 +1618,7 @@
       "M2": {
         "total_tasks": 5,
         "done": 3,
-        "blocked": 0,
+        "blocked": 2,
         "count_based_percent": 60.0,
         "weighted_percent": 89.1,
         "status": "in_progress"
@@ -1616,7 +1626,7 @@
       "M3": {
         "total_tasks": 9,
         "done": 8,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 88.9,
         "weighted_percent": 96.0,
         "status": "in_progress"
@@ -1624,20 +1634,20 @@
       "M4": {
         "total_tasks": 3,
         "done": 0,
-        "blocked": 0,
+        "blocked": 3,
         "count_based_percent": 0.0,
         "weighted_percent": 90.6,
-        "status": "in_progress"
+        "status": "blocked"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T18:13:19.535249Z",
+    "generated_at": "2026-08-31T16:38:41.348668Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "612e2584ab6b2addbd643ed4f0622e6e34a0316f6247d11436f512189d96c76a",
+    "source_hash": "f1bea7ec6ecb7c963475024bc1baea7d1f7d80c908f404f9791c206b6d1233f7",
     "is_stale": false
   }
 }
