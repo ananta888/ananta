@@ -15,13 +15,18 @@ from flask import current_app, has_app_context
 
 from agent.cli_backends import simple_command_runners
 from agent.cli_backends.budget import check_prompt_budget
+from agent.cli_backends.claude_runtime import (
+    resolve_claude_runtime_config as _resolve_claude_runtime_config,
+)
+from agent.cli_backends.claude_runtime import (
+    run_claude_command as _run_claude_command,
+)
 from agent.cli_backends.coding_agent_contract import CodingAgentRunRequest, EventSink, ProcessRunnerPort
 from agent.cli_backends.coding_agent_process import BoundedCodingAgentProcess
 from agent.cli_backends.coding_agent_profiles import build_cli_coding_agent_provider
 from agent.cli_backends.coding_agent_targets import resolve_aider_inference_target
 from agent.cli_backends.context import default_context as _ctx
 from agent.cli_backends.helpers import (
-    _classify_runtime_target,
     _get_agent_config,
     _get_runtime_default_provider,
     _get_runtime_provider_urls,
@@ -30,6 +35,27 @@ from agent.cli_backends.helpers import (
     _normalize_openai_base_url,
     _resolve_openai_compatible_base_url,
     _resolve_profile_api_key,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    build_codex_runtime_diagnostics as _build_codex_runtime_diagnostics,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    build_opencode_runtime_diagnostics as _build_opencode_runtime_diagnostics,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    build_opencode_toolless_agent_config as _build_opencode_theless_agent_config,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    infer_local_opencode_target as _infer_local_opencode_target_impl,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    normalize_opencode_execution_mode as _normalize_opencode_execution_mode,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    normalize_opencode_tool_mode as _normalize_opencode_tool_mode,
+)
+from agent.cli_backends.opencode_runtime_helpers import (
+    split_cli_model_identifier as _split_cli_model_identifier,
 )
 from agent.cli_backends.provisioning import resolve_provisioned_backend_binary
 from agent.cli_backends.semaphore import _acquire_backend_permit
@@ -78,29 +104,6 @@ _OPENCODE_MAXIMUM_OUTPUT_CHARS = 1_000_000
 _OPENCODE_PROCESS_RUNNER: ProcessRunnerPort = BoundedCodingAgentProcess()
 
 
-def _build_codex_runtime_diagnostics(*, base_url: str | None, api_key: str | None, is_local: bool) -> list[str]:
-    diagnostics: list[str] = []
-    if not base_url:
-        diagnostics.append("codex_runtime_missing_base_url")
-    if not api_key and not is_local:
-        diagnostics.append("codex_runtime_missing_api_key_for_remote_target")
-    if base_url and _classify_runtime_target(base_url) == "unknown":
-        diagnostics.append("codex_runtime_target_host_kind_unknown")
-    return diagnostics
-
-
-def _split_cli_model_identifier(model: str | None) -> tuple[str | None, str | None]:
-    raw = str(model or "").strip()
-    if not raw:
-        return None, None
-    if "/" not in raw:
-        return None, raw
-    provider_name, model_name = raw.split("/", 1)
-    provider_name = provider_name.strip().lower() or None
-    model_name = model_name.strip() or None
-    return provider_name, model_name
-
-
 def _infer_local_opencode_target(
     model: str | None,
     *,
@@ -108,84 +111,17 @@ def _infer_local_opencode_target(
     preferred_provider: str | None,
     timeout: int,
 ) -> tuple[str | None, str | None]:
-    raw_model = str(model or "").strip()
-    if not raw_model:
-        return None, None
-    provider_hint = str(preferred_provider or "").strip().lower()
-    local_candidates = [provider_hint] if provider_hint in {"ollama", "lmstudio"} else []
-    for candidate in ("ollama", "lmstudio"):
-        if candidate not in local_candidates:
-            local_candidates.append(candidate)
-    for candidate in local_candidates:
-        if candidate == "ollama":
-            base_url = _normalize_ollama_openai_base_url(str(provider_urls.get("ollama") or "").strip())
-            if not base_url:
-                continue
-            try:
-                probe = probe_ollama_runtime(base_url, timeout=timeout)
-            except Exception:
-                continue
-            matched = _find_matching_ollama_candidate(raw_model, list(probe.get("models") or [])) if isinstance(probe, dict) else None
-            if matched:
-                resolved_model = resolve_ollama_model(raw_model, base_url, timeout=timeout) or raw_model
-                return "ollama", str(resolved_model).strip() or raw_model
-        elif candidate == "lmstudio":
-            base_url = str(provider_urls.get("lmstudio") or "").strip()
-            if not base_url:
-                continue
-            try:
-                probe = probe_lmstudio_runtime(base_url, timeout=timeout)
-            except Exception:
-                continue
-            matched = _find_matching_lmstudio_candidate(raw_model, list(probe.get("candidates") or [])) if isinstance(probe, dict) else None
-            if matched:
-                resolved_model = str((matched or {}).get("id") or "").strip() or raw_model
-                return "lmstudio", resolved_model
-    return None, None
-
-
-def _build_opencode_runtime_diagnostics(*, base_url: str | None) -> list[str]:
-    diagnostics: list[str] = []
-    if not base_url:
-        diagnostics.append("opencode_runtime_missing_base_url")
-    elif _classify_runtime_target(base_url) == "unknown":
-        diagnostics.append("opencode_runtime_target_host_kind_unknown")
-    return diagnostics
-
-
-def _build_opencode_theless_agent_config() -> dict[str, object]:
-    return {
-        "description": "Toolless worker for structured JSON replies",
-        "prompt": "Return concise structured answers. Never call tools.",
-        "temperature": 0.1,
-        "tools": {
-            "bash": False,
-            "read": False,
-            "glob": False,
-            "grep": False,
-            "edit": False,
-            "write": False,
-            "task": False,
-            "webfetch": False,
-            "todowrite": False,
-            "question": False,
-            "skill": False,
-        },
-    }
-
-
-def _normalize_opencode_tool_mode(value: str | None) -> str:
-    mode = str(value or "").strip().lower()
-    if mode in {"toolless", "readonly", "full"}:
-        return mode
-    return "full"
-
-
-def _normalize_opencode_execution_mode(value: str | None) -> str:
-    mode = str(value or "").strip().lower()
-    if mode in {"backend", "live_terminal", "interactive_terminal"}:
-        return mode
-    return "live_terminal"
+    return _infer_local_opencode_target_impl(
+        model,
+        provider_urls=provider_urls,
+        preferred_provider=preferred_provider,
+        timeout=timeout,
+        probe_ollama=probe_ollama_runtime,
+        probe_lmstudio=probe_lmstudio_runtime,
+        match_ollama=_find_matching_ollama_candidate,
+        match_lmstudio=_find_matching_lmstudio_candidate,
+        resolve_ollama=resolve_ollama_model,
+    )
 
 
 def resolve_opencode_runtime_config(
@@ -800,81 +736,13 @@ def run_codex_command(prompt: str, model: str | None = None, timeout: int = 60) 
 
 
 def resolve_claude_runtime_config() -> dict:
-    """CLA-001: Laufzeit-Konfiguration fuer das Claude Code CLI Backend.
+    """Resolve Claude Code settings without inspecting its local login files."""
 
-    Liest agent_cfg.claude_cli mit Fallback auf settings.claude_*.
-    Anders als codex braucht claude keine OpenAI-compatible base_url:
-    das CLI spricht direkt mit Anthropic (auth_mode=api_key) oder
-    nutzt die lokale Login-Session unter ~/.claude/ (claude_login).
-    Ananta liest keine Dateien aus ~/.claude/.
-    """
-    agent_cfg = _get_agent_config()
-    claude_cfg = agent_cfg.get("claude_cli") or {}
-    if not isinstance(claude_cfg, dict):
-        claude_cfg = {}
-
-    enabled = bool(claude_cfg.get("enabled", False))
-    command = str(claude_cfg.get("command") or getattr(settings, "claude_path", "claude") or "claude").strip() or "claude"
-
-    raw_auth_mode = claude_cfg.get("auth_mode") if isinstance(claude_cfg.get("auth_mode"), str) else None
-    if raw_auth_mode is not None:
-        auth_mode = raw_auth_mode.strip().lower() or "claude_login"
-    else:
-        auth_mode = str(getattr(settings, "claude_auth_mode", "claude_login") or "claude_login").strip().lower() or "claude_login"
-    if auth_mode not in ("claude_login", "api_key"):
-        auth_mode = "claude_login"
-    api_key_required = auth_mode == "api_key"
-
-    default_model = str(claude_cfg.get("default_model") or getattr(settings, "claude_default_model", "") or "").strip() or None
-
-    raw_permission_mode = str(claude_cfg.get("permission_mode") or getattr(settings, "claude_permission_mode", "plan") or "plan").strip()
-    if raw_permission_mode == "default":
-        raw_permission_mode = "manual"
-    if raw_permission_mode not in {
-        "plan",
-        "manual",
-        "acceptEdits",
-        "dontAsk",
-        "auto",
-    }:
-        raw_permission_mode = "plan"
-
-    def _bounded(value: object, *, default: int, minimum: int, maximum: int) -> int:
-        try:
-            parsed = int(value)  # type: ignore[arg-type]
-        except (TypeError, ValueError):
-            return default
-        return max(minimum, min(maximum, parsed))
-
-    timeout_seconds = _bounded(
-        claude_cfg.get("timeout_seconds", getattr(settings, "claude_timeout_seconds", 1800)),
-        default=1800, minimum=30, maximum=14400,
+    return _resolve_claude_runtime_config(
+        agent_config=_get_agent_config(),
+        settings=settings,
+        environ=os.environ,
     )
-    max_concurrent_runs = _bounded(
-        claude_cfg.get("max_concurrent_runs", getattr(settings, "claude_max_concurrent_runs", 1)),
-        default=1, minimum=1, maximum=8,
-    )
-    allowed_paths = [str(p) for p in (claude_cfg.get("allowed_paths") or []) if str(p or "").strip()]
-
-    diagnostics: list[str] = []
-    if not enabled:
-        diagnostics.append("claude_cli_disabled")
-    if auth_mode == "api_key" and not (os.environ.get("ANTHROPIC_API_KEY") or getattr(settings, "anthropic_api_key", None)):
-        diagnostics.append("claude_runtime_missing_api_key")
-
-    return {
-        "enabled": enabled,
-        "command": command,
-        "auth_mode": auth_mode,
-        "api_key_required": api_key_required,
-        "default_model": default_model,
-        "permission_mode": raw_permission_mode,
-        "timeout_seconds": timeout_seconds,
-        "max_concurrent_runs": max_concurrent_runs,
-        "allowed_paths": allowed_paths,
-        "write_armed_default": bool(claude_cfg.get("write_armed_default", False)),
-        "diagnostics": diagnostics,
-    }
 
 
 def run_claude_command(
@@ -883,76 +751,28 @@ def run_claude_command(
     timeout: int | None = None,
     workdir: str | None = None,
 ) -> tuple[int, str, str]:
-    """CLA-001: Fuehrt einen nicht-interaktiven Claude Code CLI Aufruf aus.
+    """Run one non-interactive Claude Code request through the bounded backend."""
 
-    Folgt demselben Muster wie run_codex_command/run_aider_command:
-    shutil.which, reine Argumentliste (kein Shell-String), Timeout,
-    Semaphore, env-Isolierung. In auth_mode=claude_login wird ANTHROPIC_API_KEY
-    aus der Prozess-Env entfernt, damit das CLI seine eigene lokale
-    Login-Session nutzt statt eines versehentlich geerbten Keys.
-    """
     budget_error = check_prompt_budget(
         prompt,
         max_tokens=getattr(settings, "max_prompt_tokens", 128000),
     )
     if budget_error is not None:
         return budget_error
-
-    runtime_cfg = resolve_claude_runtime_config()
-    if not runtime_cfg["enabled"]:
-        return -1, "", (
-            "Claude CLI backend ist deaktiviert (claude_cli.enabled=false). "
-            "Aktivieren via POST /config mit {'claude_cli': {'enabled': true}}."
-        )
-
-    claude_bin = runtime_cfg["command"]
-    claude_resolved = shutil.which(claude_bin) or resolve_provisioned_backend_binary("claude_code")
-    if claude_resolved is None:
-        return -1, "", (f"Claude binary '{claude_bin}' not found. Install with: npm i -g @anthropic-ai/claude-code")
-
-    if workdir and runtime_cfg["allowed_paths"]:
-        workdir_abs = os.path.realpath(workdir)
-        if not any(workdir_abs == os.path.realpath(p) or workdir_abs.startswith(os.path.realpath(p) + os.sep) for p in runtime_cfg["allowed_paths"]):
-            return -1, "", f"Workdir '{workdir}' liegt ausserhalb von claude_cli.allowed_paths"
-
-    effective_timeout = int(timeout or runtime_cfg["timeout_seconds"])
-    args = [claude_resolved, "-p", prompt, "--permission-mode", runtime_cfg["permission_mode"], "--output-format", "text"]
-    selected_model = str(model or runtime_cfg["default_model"] or "").strip()
-    # "claude-code-default" ist ein Sentinel fuer "CLI-eigenen Default
-    # nutzen" — dann kein --model uebergeben.
-    if selected_model and selected_model not in ("claude-code-default", "default"):
-        args.extend(["--model", selected_model])
-
-    with _acquire_backend_permit("claude_code", timeout=effective_timeout) as ticket:
-        if not ticket.acquired:
-            return -1, "", "Backend 'claude_code' ist ausgelastet (semaphore_exhausted)"
-        env = os.environ.copy()
-        if runtime_cfg["auth_mode"] == "claude_login":
-            env.pop("ANTHROPIC_API_KEY", None)
-        elif not env.get("ANTHROPIC_API_KEY") and getattr(settings, "anthropic_api_key", None):
-            env["ANTHROPIC_API_KEY"] = settings.anthropic_api_key
-        diagnostics = list(runtime_cfg.get("diagnostics") or [])
-        if diagnostics:
-            log.warning("Claude runtime diagnostics: %s", ",".join(diagnostics))
-        try:
-            log.info(f"Zentraler Claude-Code-Aufruf: {args[:1] + ['-p', '<prompt>'] + args[3:]}")
-            result = subprocess.run(  # noqa: S603 - executable resolved via shutil.which, args list-only
-                args,
-                capture_output=True,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                env=env,
-                timeout=effective_timeout,
-                cwd=workdir or None,
-            )
-            return result.returncode, result.stdout, result.stderr
-        except subprocess.TimeoutExpired:
-            log.error("Claude Code Timeout")
-            return -1, "", "Timeout"
-        except Exception as e:
-            log.exception(f"Claude Code Fehler: {e}")
-            return -1, "", str(e)
+    return _run_claude_command(
+        prompt,
+        model=model,
+        timeout=timeout,
+        workdir=workdir,
+        runtime_config=resolve_claude_runtime_config(),
+        settings=settings,
+        which=shutil.which,
+        provisioned_binary=resolve_provisioned_backend_binary,
+        acquire_permit=_acquire_backend_permit,
+        run_process=subprocess.run,
+        logger=log,
+        environ=os.environ,
+    )
 
 
 def _run_git(args: list[str], cwd: str, timeout: int = 60, input_text: str | None = None) -> tuple[int, str, str]:
