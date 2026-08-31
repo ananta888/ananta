@@ -5,7 +5,7 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "ananta-local-multi-model-runtime-and-automated-needle-training",
-  "status": "partial",
+  "status": "blocked",
   "created_at": "2026-08-23",
   "updated_at": "2026-08-30",
   "purpose": "Ananta wird additiv als lokales Multi-Modell-System betrieben: Der Hub routet leichte Arbeit zu LFM2.5-2.6B, schwere Coding-, Debugging-, Repository- und Planungsarbeit zu KAT-Coder v2.5 und verwendet Needle 2 ausschließlich als CPU-seitigen Kandidatenlieferanten für Intent, Tool-Auswahl und Argumentextraktion. Zusätzlich entstehen getrennte, versionierte SFT-LoRA-Lernpfade für Needle und den bereits agentisch nachtrainierten LFM-Stand, ohne produktive Gewichte ungeprüft zu überschreiben.",
@@ -347,10 +347,11 @@
       "evidence": ["agent/services/local_adapter_lifecycle.py", "agent/services/local_adapter_lifecycle_coordinator.py", "tests/services/test_local_adapter_lifecycle.py", "tests/services/test_local_adapter_lifecycle_coordinator.py"]
     },
     {
-      "id": "LMM-LIFE-002", "title": "Unabhängige Offline-Evaluation und Confidence-Kalibrierung implementieren", "status": "partial", "priority": "P0", "risk": "critical", "type": "evaluation", "milestone_id": "M06", "depends_on": ["LMM-DATA-004", "LMM-TRAIN-004", "LMM-LIFE-001"], "progress_percent": 80,
+      "id": "LMM-LIFE-002", "title": "Unabhängige Offline-Evaluation und Confidence-Kalibrierung implementieren", "status": "blocked", "priority": "P0", "risk": "critical", "type": "evaluation", "milestone_id": "M06", "depends_on": ["LMM-DATA-004", "LMM-TRAIN-004", "LMM-LIFE-001"], "progress_percent": 80,
       "description": "Deterministische Validatoren und reale Dry-runs bewerten Base gegen Candidate; weder Needle noch LFM dürfen ihre eigene Freigabe beurteilen.",
       "acceptance_criteria": ["Schema, Tools, Required Fields und Typen werden deterministisch geprüft.", "Needle-confidence=null wird nicht als hohe Sicherheit behandelt.", "Externe Kalibrierung verwendet ausschließlich Holdout-Daten.", "Golden-, OOD-, Abstain-, Injection- und malformed-schema-Slices bestehen.", "Seed-, Latenz- und Speichergrenzen sind reproduzierbar."],
       "remaining_work": ["Die implementierten Evaluatoren mit einem freigegebenen Holdout und real trainierten Candidates ausführen; gültige SRC_*-/RUN_*-IDs sind Voraussetzung."],
+      "blocked_reason": "Die Evaluationsimplementierung ist vollständig; ohne bereitgestelltes freigegebenes Holdout-Dataset, real trainierte Candidates und gültige SRC_*-/RUN_*-IDs darf keine Release-Evidenz erzeugt oder fingiert werden.",
       "evidence": ["agent/services/local_adapter_evaluation_service.py", "tests/services/test_local_adapter_evaluation_service.py", "Keine reale Evaluation ohne freigegebenes Dataset und registrierte RUN_* Evidenz."]
     },
     {
@@ -390,10 +391,11 @@
       "evidence": ["agent/services/local_multi_model_runtime.py", "agent/services/local_adapter_lifecycle_coordinator.py", "deploy/systemd/ananta-local-model-runtime.service", "tests/services/test_local_multi_model_runtime.py", "tests/services/test_local_adapter_lifecycle_coordinator.py", "Reale Needle-PID-Crash-Injection: exakt ein systemd-Restart, alle drei Runtimes danach ready, 1945 MiB VRAM frei; keine registrierte RUN_* ID."]
     },
     {
-      "id": "LMM-QA-004", "title": "Containerisierte Ende-zu-Ende-Topologie und Netzwerkgrenzen verifizieren", "status": "partial", "priority": "P0", "risk": "critical", "type": "e2e", "milestone_id": "M07", "depends_on": ["LMM-PROV-004", "LMM-ROUTE-004", "LMM-LIFE-005"], "progress_percent": 90,
+      "id": "LMM-QA-004", "title": "Containerisierte Ende-zu-Ende-Topologie und Netzwerkgrenzen verifizieren", "status": "blocked", "priority": "P0", "risk": "critical", "type": "e2e", "milestone_id": "M07", "depends_on": ["LMM-PROV-004", "LMM-ROUTE-004", "LMM-LIFE-005"], "progress_percent": 90,
       "description": "Hub und Worker greifen ausschließlich über explizite interne Provideradressen und delegierte Verträge auf lokale Runtimes zu.",
       "acceptance_criteria": ["Kein Container verlässt sich auf Host-127.0.0.1.", "Worker kann keine Routingpolicy, Taskqueue oder Promotion mutieren.", "Provider- und Trainingsnetze folgen Least Privilege.", "Bestehende Ollama-/LM-Studio-E2E-Pfade bleiben grün.", "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf ist reproduzierbar belegt."],
       "remaining_work": ["Vollständigen Goal-bis-Verification-Lauf mit registrierter RUN_* Evidenz ausführen."],
+      "blocked_reason": "Topologie-, Netzwerk- und Kompatibilitätscode ist verifiziert; der verbleibende produktive Goal-bis-Verification-Nachweis benötigt eine extern registrierte gültige RUN_* Evidenz, die nicht erfunden werden darf.",
       "evidence": ["Hub erreichte KAT, LFM, Needle und die authentifizierte Control-Bridge über host.docker.internal; Alpha und Beta erreichten ausschließlich die drei Provider und besaßen weder Control-URL noch Control-Token.", "75 Ollama-/LM-Studio-Kompatibilitätstests bestanden oder wurden umgebungsbedingt übersprungen (75 passed, 5 skipped).", "Keine registrierte RUN_* Evidenz."]
     },
     {
@@ -411,7 +413,7 @@
   ],
   "tasks_status_summary": {
     "total": 31,
-    "by_status": {"todo": 0, "in_progress": 0, "partial": 2, "blocked": 1, "done": 28},
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 3, "done": 28},
     "progress_percent_done": 90.3,
     "by_priority": {"P0": 28, "P1": 3, "P2": 0},
     "by_risk": {"low": 1, "medium": 4, "high": 12, "critical": 14},
@@ -434,19 +436,19 @@
       "model": {"total": 2, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 2}, "done": 2, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "training": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 0.0},
       "policy": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "evaluation": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0}, "done": 0, "partial": 1, "blocked": 0, "progress_percent": 80.0},
+      "evaluation": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 80.0},
       "performance": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
       "chaos": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0},
-      "e2e": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 1, "blocked": 0, "done": 0}, "done": 0, "partial": 1, "blocked": 0, "progress_percent": 90.0},
+      "e2e": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 1, "done": 0}, "done": 0, "partial": 0, "blocked": 1, "progress_percent": 90.0},
       "documentation": {"total": 1, "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 1}, "done": 1, "partial": 0, "blocked": 0, "progress_percent": 100.0}
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 2,
-    "blocked": 1,
+    "partial": 0,
+    "blocked": 3,
     "done": 28,
     "count_based_percent": 90.3,
     "weighted_percent": 95.8
@@ -456,7 +458,7 @@
     "total_weight": 47.5,
     "done_weight": 45.525,
     "remaining_weight": 1.975,
-    "blocked_weight": 1.5,
+    "blocked_weight": 4.75,
     "weighted_percent": 95.8
   },
   "milestone_progress_summary": {
@@ -466,17 +468,17 @@
       "M03": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M04": {"total_tasks": 4, "done": 4, "blocked": 0, "count_based_percent": 100.0, "weighted_percent": 100.0, "status": "done"},
       "M05": {"total_tasks": 4, "done": 3, "blocked": 1, "count_based_percent": 75.0, "weighted_percent": 76.9, "status": "in_progress"},
-      "M06": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 95.7, "status": "in_progress"},
-      "M07": {"total_tasks": 5, "done": 4, "blocked": 0, "count_based_percent": 80.0, "weighted_percent": 97.5, "status": "in_progress"}
+      "M06": {"total_tasks": 5, "done": 4, "blocked": 1, "count_based_percent": 80.0, "weighted_percent": 95.7, "status": "in_progress"},
+      "M07": {"total_tasks": 5, "done": 4, "blocked": 1, "count_based_percent": 80.0, "weighted_percent": 97.5, "status": "in_progress"}
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T20:21:33.794931Z",
+    "generated_at": "2026-08-31T15:23:51.500825Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "98a00eac31fa019a2d5265ac63dc7b641a373931d80da51bedd1417ce52c613c",
+    "source_hash": "c45378faaaa8fc3f304ce9366dbb21d7c0cba89744f1026876d300252b7e3a77",
     "is_stale": false
   },
   "execution_stage_summary": {
@@ -486,7 +488,7 @@
     "dataset_pipeline": "done_curated_fixture_real_provenance_training_fail_closed",
     "needle_training": "base_verified_offline_job_blocked_missing_grounded_dataset",
     "lfm_training": "agentic_base_verified_offline_adapter_attach_passed_job_blocked_missing_grounded_dataset",
-    "offline_evaluation": "partial_implementation_complete_real_holdout_missing",
+    "offline_evaluation": "blocked_implementation_complete_real_holdout_and_grounded_evidence_missing",
     "shadow": "done_implementation",
     "canary": "done_implementation",
     "automatic_promotion_and_rollback": "done_offline_materialization_atomic_projection_restart_and_compensation",
