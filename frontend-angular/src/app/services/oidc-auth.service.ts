@@ -32,6 +32,7 @@ import {
 } from './identity/jwt-access-token';
 import { IDENTITY_STORAGE_LAYOUT } from './identity/identity-storage-layout';
 import { OidcRefreshLock } from './oidc-refresh-lock.service';
+import { decodeOidcJwt } from './oidc-jwt';
 
 const SCOPES = 'openid profile email';
 const SS_PKCE_KEY = 'oidc.pkce';       // sessionStorage
@@ -342,7 +343,7 @@ export class OidcAuthService implements OnDestroy {
     if (!r.ok) return false;
     const tokens = await r.json();
 
-    const idPayload = this._decodeJwt(tokens.id_token);
+    const idPayload = decodeOidcJwt(tokens.id_token);
     if (idPayload?.nonce !== transaction.nonce) return false;
     if (!this.isCurrentPublicAccessToken(tokens.access_token)) return false;
 
@@ -586,7 +587,7 @@ export class OidcAuthService implements OnDestroy {
       );
     }
 
-    const idPayload = this._decodeJwt(idToken);
+    const idPayload = decodeOidcJwt(idToken);
     if (!idPayload || idPayload.nonce !== input.nonce) {
       throw new OidcPopupLoginError(
         'nonce_mismatch',
@@ -818,7 +819,7 @@ export class OidcAuthService implements OnDestroy {
     // never ambient credentials for a mutable Hub profile. Hub association is
     // performed only by linkCurrentHubIdentity(), which requires an explicit
     // user action and an existing Hub token.
-    const tokenIssuer = String(this._decodeJwt(oidcAccessToken)?.iss || '').replace(/\/$/, '');
+    const tokenIssuer = String(decodeOidcJwt(oidcAccessToken)?.iss || '').replace(/\/$/, '');
     if (
       publicTokenFlow
       || this.profiles.current.profile_id === 'public-ananta'
@@ -999,18 +1000,6 @@ export class OidcAuthService implements OnDestroy {
     return parsed.href.replace(/\/$/, '');
   }
 
-  private _decodeJwt(token: string): any {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) return null;
-      const payload = parts[1].replace(/-/g, '+').replace(/_/g, '/');
-      return JSON.parse(atob(payload + '='.repeat((4 - payload.length % 4) % 4)));
-    } catch { return null; }
-  }
-
-  private randomB64UrlSync(bytes: number): string {
-    return this.randomB64Url(bytes);
-  }
 }
 
 function validateDeviceAuthResponse(value: unknown): DeviceAuthResponse {

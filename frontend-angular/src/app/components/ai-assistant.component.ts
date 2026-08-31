@@ -17,6 +17,7 @@ import { filter, forkJoin } from 'rxjs';
 
 import { WindowBridgeService } from '../services/window-bridge.service';
 import { SnakeOverlayService } from '../services/snake-overlay.service';
+import { renderSnakeCanvas } from './snake-canvas-renderer';
 import { AiSnakeConfigPanelComponent } from './ai-snake-config-panel.component';
 import { AiSnakeSharePanelComponent } from './ai-snake-share-panel.component';
 import { AiSnakeChatPanelComponent } from './ai-snake-chat-panel.component';
@@ -1069,62 +1070,7 @@ export class AiAssistantComponent implements OnInit, OnDestroy {
   private drawSnakeFrame(): void {
     const canvas = this.snakeCanvasRef?.nativeElement;
     if (!canvas || !this.snakeVisible) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const p = (this.bridge.state$.value?.payload || {}) as Record<string, unknown>;
-    const bw = Math.max(1, Number(p['board_w']) || 24);
-    const bh = Math.max(1, Number(p['board_h']) || 8);
-    const W = canvas.width;
-    const H = canvas.height;
-    const cw = W / bw;
-    const ch = H / bh;
-
-    const COLORS: Record<string, string> = {
-      mint: '#7fffd4', cyan: '#22d3ee', violet: '#a78bfa', amber: '#fbbf24', rose: '#fb7185',
-    };
-    const col = COLORS[String(p['snake_color'] || 'mint')] ?? '#7fffd4';
-
-    ctx.fillStyle = '#0b1220';
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.strokeStyle = '#131e36';
-    ctx.lineWidth = 0.5;
-    for (let x = 0; x <= bw; x++) {
-      ctx.beginPath(); ctx.moveTo(x * cw, 0); ctx.lineTo(x * cw, H); ctx.stroke();
-    }
-    for (let y = 0; y <= bh; y++) {
-      ctx.beginPath(); ctx.moveTo(0, y * ch); ctx.lineTo(W, y * ch); ctx.stroke();
-    }
-
-    const trail = Array.isArray(p['trail_path']) ? (p['trail_path'] as number[][]) : [];
-    ctx.fillStyle = col + '22';
-    for (const [x, y] of trail) {
-      ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
-    }
-
-    const snake = Array.isArray(p['snake']) ? (p['snake'] as number[][]) : [];
-    ctx.fillStyle = col + 'aa';
-    for (let i = 1; i < snake.length; i++) {
-      const [x, y] = snake[i];
-      ctx.fillRect(x * cw + 1, y * ch + 1, cw - 2, ch - 2);
-    }
-    if (snake.length > 0) {
-      ctx.fillStyle = col;
-      const [hx, hy] = snake[0];
-      ctx.fillRect(hx * cw, hy * ch, cw, ch);
-    }
-
-    if (p['paused']) {
-      ctx.fillStyle = 'rgba(11,18,32,0.65)';
-      ctx.fillRect(0, 0, W, H);
-      ctx.fillStyle = col;
-      ctx.font = `bold ${Math.round(ch * 0.75)}px ui-monospace,monospace`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('PAUSED', W / 2, H / 2);
-    }
-
+    renderSnakeCanvas(canvas, (this.bridge.state$.value?.payload || {}) as Record<string, unknown>);
     this.snakeDrawHandle = requestAnimationFrame(() => this.drawSnakeFrame());
   }
 }

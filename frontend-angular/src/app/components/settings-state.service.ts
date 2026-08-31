@@ -1110,18 +1110,13 @@ export class SettingsState implements OnInit {
 
   saveQualityGates() {
     if (!this.hub) return;
-    const toList = (text: string) =>
-      (text || '')
-        .split(',')
-        .map(v => v.trim())
-        .filter(Boolean);
     const payload = {
       quality_gates: {
         enabled: !!this.qgEnabled,
         autopilot_enforce: !!this.qgAutopilotEnforce,
         min_output_chars: Math.max(1, Number(this.qgMinOutputChars || 8)),
-        coding_keywords: toList(this.qgCodingKeywordsText),
-        required_output_markers_for_coding: toList(this.qgMarkersText),
+        coding_keywords: this.parseCommaList(this.qgCodingKeywordsText),
+        required_output_markers_for_coding: this.parseCommaList(this.qgMarkersText),
       }
     };
     this.system.setConfig(this.hub.url, payload).subscribe({
