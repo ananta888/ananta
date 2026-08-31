@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from agent.db_models.business_controlling import BusinessControllingMappingDB, BusinessControllingProfileDB
-from agent.services.business_controlling_import_service import (
+from ananta_contracts.business_controlling_import import (
     ColumnProfile,
     MappingConfirmation,
     TabularProfile,
