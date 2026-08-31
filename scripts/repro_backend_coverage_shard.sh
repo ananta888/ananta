@@ -57,5 +57,10 @@ if [[ "${#shard_files[@]}" -eq 0 ]]; then
   exit 1
 fi
 
-export COVERAGE_FILE=".coverage.${shard_name}"
-pytest "${shard_files[@]}" --cov=agent --cov-report=
+coverage_file="${COVERAGE_FILE:-.coverage.${shard_name}}"
+python -m coverage run \
+  --data-file="$coverage_file" \
+  --source=agent \
+  -m pytest \
+  -p no:cov \
+  "${shard_files[@]}"

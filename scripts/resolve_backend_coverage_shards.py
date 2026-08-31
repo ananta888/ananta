@@ -9,6 +9,55 @@ import subprocess
 import sys
 from collections import defaultdict
 
+_NODE_ID = re.compile(r"^(?P<path>tests/.+?\.py)::")
+_TREE_NODE = re.compile(r"^(?P<indent>\s*)<(?P<kind>[^ ]+) (?P<name>[^>]+)>$")
+_TEST_ITEM_KINDS = frozenset({"Function", "TestCaseFunction", "DoctestItem"})
+
+
+def parse_collection_output(output: str, *, repo_root: str) -> dict[str, int]:
+    """Return per-file test counts for pytest node-id and verbose tree output."""
+    node_id_counts: dict[str, int] = defaultdict(int)
+    for raw_line in output.splitlines():
+        match = _NODE_ID.match(raw_line.strip())
+        if match:
+            node_id_counts[match.group("path")] += 1
+    if node_id_counts:
+        return dict(node_id_counts)
+
+    file_counts: dict[str, int] = defaultdict(int)
+    stack: list[tuple[int, str, str]] = []
+    for raw_line in output.splitlines():
+        match = _TREE_NODE.match(raw_line.rstrip())
+        if not match:
+            continue
+
+        indent = len(match.group("indent"))
+        kind = match.group("kind")
+        name = match.group("name")
+        while stack and stack[-1][0] >= indent:
+            stack.pop()
+
+        if kind in _TEST_ITEM_KINDS:
+            module_index = next(
+                (index for index in range(len(stack) - 1, -1, -1) if stack[index][1] == "Module"),
+                None,
+            )
+            if module_index is not None:
+                path_parts = [
+                    node_name
+                    for _, node_kind, node_name in stack[: module_index + 1]
+                    if node_kind in {"Dir", "Package", "Module"}
+                ]
+                if path_parts and path_parts[0] == repo_root:
+                    path_parts = path_parts[1:]
+                module_path = "/".join(path_parts)
+                if re.fullmatch(r"tests/.+\.py", module_path):
+                    file_counts[module_path] += 1
+
+        stack.append((indent, kind, name))
+
+    return dict(file_counts)
+
 
 def collect_files() -> dict[str, int]:
     collect = subprocess.run(
@@ -30,35 +79,10 @@ def collect_files() -> dict[str, int]:
         sys.stderr.write(collect.stderr)
         raise SystemExit(collect.returncode)
 
-    repo_root = pathlib.Path.cwd().name
-    tree_line = re.compile(r"^(?P<indent>\s*)<(?P<kind>Dir|Package|Module) (?P<name>[^>]+)>$")
-    stack: list[tuple[int, str]] = []
-    file_counts: dict[str, int] = defaultdict(int)
-
-    for raw_line in collect.stdout.splitlines():
-        match = tree_line.match(raw_line.rstrip())
-        if not match:
-            continue
-
-        indent = len(match.group("indent"))
-        kind = match.group("kind")
-        name = match.group("name")
-
-        while stack and stack[-1][0] >= indent:
-            stack.pop()
-
-        if kind in {"Dir", "Package"}:
-            stack.append((indent, name))
-            continue
-
-        parts = [part for _, part in stack]
-        if parts and parts[0] == repo_root:
-            parts = parts[1:]
-        module_path = "/".join(parts + [name])
-        if re.fullmatch(r"tests/.+\.py", module_path):
-            file_counts[module_path] += 1
-
-    return dict(file_counts)
+    file_counts = parse_collection_output(collect.stdout, repo_root=pathlib.Path.cwd().name)
+    if not file_counts:
+        raise SystemExit("Pytest collection returned no countable test items.")
+    return file_counts
 
 
 def classify_file(file_path: str) -> str:
@@ -106,7 +130,12 @@ def classify_file(file_path: str) -> str:
     return "core-contracts"
 
 
-def split_group(files: list[tuple[str, int]], shard_prefix: str, shard_count: int, start_index: int) -> list[dict[str, object]]:
+def split_group(
+    files: list[tuple[str, int]],
+    shard_prefix: str,
+    shard_count: int,
+    start_index: int,
+) -> list[dict[str, object]]:
     if shard_count < 1:
         return []
 
@@ -171,7 +200,10 @@ def main() -> None:
     total_tests = sum(file_counts.values())
     total_files = len(file_counts)
 
-    print(f"Resolved {total_files} files and {total_tests} collected tests into {args.shard_count} shards", file=sys.stderr)
+    print(
+        f"Resolved {total_files} files and {total_tests} collected tests into {args.shard_count} shards",
+        file=sys.stderr,
+    )
     payload = {"include": shards}
     print(json.dumps(payload, indent=2))
 
