@@ -1,6 +1,7 @@
-import { Component, Input, inject } from '@angular/core';
+import { JsonPipe } from '@angular/common';
+import { ChangeDetectorRef, Component, Input, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, forkJoin } from 'rxjs';
 
 import { ExplanationNoticeComponent } from '../../../shared/ui/display';
 import { FormFieldComponent } from '../../../shared/ui/forms';
@@ -10,6 +11,8 @@ import {
   DendriticDryRunResult,
   DendriticExperimentRequest,
   DendriticMemoryCapability,
+  DendriticPackSummary,
+  DendriticRunDetail,
 } from '../model-training.models';
 import { apiErrorMessage, idempotencyKey } from '../model-training-status';
 
@@ -18,7 +21,7 @@ const DIGEST = /^[a-f0-9]{64}$/;
 @Component({
   selector: 'app-dendritic-memory-workbench',
   standalone: true,
-  imports: [ExplanationNoticeComponent, FormFieldComponent, FormsModule, SectionCardComponent],
+  imports: [ExplanationNoticeComponent, FormFieldComponent, FormsModule, JsonPipe, SectionCardComponent],
   template: `
     <app-section-card
       title="Dendritic Memory Experiment"
@@ -76,6 +79,40 @@ const DIGEST = /^[a-f0-9]{64}$/;
           <div class="result">Experimentlauf {{ acceptedRunId }} wurde vom Hub angenommen.</div>
         }
         @if (error) { <div class="result error" role="alert">{{ error }}</div> }
+        <div class="actions">
+          <button type="button" class="secondary" [disabled]="busy" (click)="refresh()">Jobs und Packs aktualisieren</button>
+        </div>
+        <section aria-label="Dendritic Jobmonitor">
+          <h3>Experiment-Jobs <small>experimental</small></h3>
+          @for (run of runs; track run.run_id) {
+            <article class="record">
+              <strong>{{ run.run_id }}</strong>
+              <span>{{ run.state }} · {{ run.reason_code }}</span>
+              <span>Revision {{ run.revision }} · Events {{ run.result?.event_count ?? '—' }}</span>
+              @if (run.state === 'queued' || run.state === 'retry_queued' || run.state === 'running') {
+                <button type="button" class="secondary" [disabled]="busy" (click)="cancel(run)">Automatisch abbrechen</button>
+              }
+              @if (run.result?.output; as report) {
+                <details><summary>Vergleichsreport</summary><pre>{{ report | json }}</pre></details>
+              }
+            </article>
+          } @empty { <p>Noch keine Experiment-Jobs.</p> }
+        </section>
+        <section aria-label="Dendritic Memory Packs">
+          <h3>Memory Packs <small>nicht produktionsfähig</small></h3>
+          @for (pack of packs; track pack.pack_digest) {
+            <article class="record">
+              <strong>{{ pack.pack_digest }}</strong>
+              <span>{{ pack.state }} · {{ pack.manifest.base_model_id }}</span>
+              <span>Parents: {{ pack.manifest.parent_pack_digests.join(' → ') || 'keine' }}</span>
+              <span>Targets: {{ pack.manifest.target_layers.join(', ') }}</span>
+              @if (pack.state === 'approved_for_experiment') {
+                <button type="button" class="secondary" [disabled]="busy" (click)="revoke(pack)">Experiment-Pack widerrufen</button>
+              }
+            </article>
+          } @empty { <p>Noch keine Memory Packs.</p> }
+          <p class="warning">Produktiv aktivieren ist für experimentelle Memory Packs nicht verfügbar.</p>
+        </section>
       }
     </app-section-card>
   `,
@@ -83,13 +120,16 @@ const DIGEST = /^[a-f0-9]{64}$/;
     .safety-labels,.actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
     .safety-labels strong { border:1px solid var(--warning); border-radius:999px; padding:3px 8px; font-size:12px; }
     .grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-top:12px; }
-    .result { padding:10px; border:1px solid var(--success); border-radius:8px; }
+    .result,.record { padding:10px; border:1px solid var(--success); border-radius:8px; }
     .result.error { border-color:var(--danger); color:var(--danger); }
+    .record { display:grid; gap:5px; margin:8px 0; overflow-wrap:anywhere; }
+    pre { white-space:pre-wrap; max-height:240px; overflow:auto; }
     @media (max-width:700px) { .grid { grid-template-columns:1fr; } }
   `],
 })
 export class DendriticMemoryWorkbenchComponent {
   private readonly api = inject(ModelTrainingApiService);
+  private readonly changes = inject(ChangeDetectorRef);
   @Input({ required: true }) hubUrl = '';
   @Input({ required: true }) capability: DendriticMemoryCapability | null | undefined;
 
@@ -105,6 +145,8 @@ export class DendriticMemoryWorkbenchComponent {
   error = '';
   dryRunResult: DendriticDryRunResult | null = null;
   acceptedRunId = '';
+  runs: DendriticRunDetail[] = [];
+  packs: DendriticPackSummary[] = [];
 
   valid(): boolean {
     return Boolean(
@@ -127,7 +169,7 @@ export class DendriticMemoryWorkbenchComponent {
 
   dryRun(): void {
     if (!this.valid()) return;
-    this.execute(() => this.api.dryRunDendriticExperiment(this.hubUrl, this.request()), result => {
+    this.execute(() => this.api.dryRunDendriticExperiment(this.hubUrl, this.request('dry_run')), result => {
       this.dryRunResult = result;
     });
   }
@@ -135,18 +177,40 @@ export class DendriticMemoryWorkbenchComponent {
   start(): void {
     if (!this.valid()) return;
     this.execute(
-      () => this.api.createDendriticExperiment(this.hubUrl, this.request(), idempotencyKey('dendritic-experiment')),
-      result => { this.acceptedRunId = result.run_id; },
+      () => this.api.createDendriticExperiment(this.hubUrl, this.request('live'), idempotencyKey('dendritic-experiment')),
+      result => { this.acceptedRunId = result.run_id; queueMicrotask(() => this.refresh()); },
     );
   }
 
-  private request(): DendriticExperimentRequest {
+  refresh(): void {
+    if (!this.hubUrl || this.busy) return;
+    this.execute(
+      () => forkJoin({ runs: this.api.listDendriticRuns(this.hubUrl), packs: this.api.listDendriticPacks(this.hubUrl) }),
+      value => { this.runs = value.runs.items; this.packs = value.packs.items; },
+    );
+  }
+
+  cancel(run: DendriticRunDetail): void {
+    this.execute(
+      () => this.api.cancelDendriticRun(this.hubUrl, run.run_id, run.revision),
+      () => queueMicrotask(() => this.refresh()),
+    );
+  }
+
+  revoke(pack: DendriticPackSummary): void {
+    this.execute(
+      () => this.api.revokeDendriticPack(this.hubUrl, pack, idempotencyKey('dendritic-revoke')),
+      () => queueMicrotask(() => this.refresh()),
+    );
+  }
+
+  private request(mode: 'dry_run' | 'live'): DendriticExperimentRequest {
     return {
       spec: {
         schema: 'ananta.dendritic-memory-job.v1',
         spec_id: `experiment-${Date.now()}`,
         job_type: 'train_dendritic_memory',
-        mode: 'dry_run',
+        mode,
         dataset_manifest_digest: this.datasetDigest,
         base_model_id: this.baseModelId.trim(),
         base_model_snapshot_digest: this.baseModelSnapshotDigest,
@@ -173,9 +237,18 @@ export class DendriticMemoryWorkbenchComponent {
   private execute<T>(operation: () => import('rxjs').Observable<T>, success: (value: T) => void): void {
     this.busy = true;
     this.error = '';
-    operation().pipe(finalize(() => { this.busy = false; })).subscribe({
-      next: success,
-      error: error => { this.error = apiErrorMessage(error, 'Dendritischer Experimentlauf wurde abgelehnt.'); },
+    operation().pipe(finalize(() => {
+      this.busy = false;
+      this.changes.markForCheck();
+    })).subscribe({
+      next: value => {
+        success(value);
+        this.changes.markForCheck();
+      },
+      error: error => {
+        this.error = apiErrorMessage(error, 'Dendritischer Experimentlauf wurde abgelehnt.');
+        this.changes.markForCheck();
+      },
     });
   }
 }

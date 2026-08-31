@@ -5,7 +5,10 @@ import pytest
 from agent.services.dendritic_memory_evaluation_attestation import DendriticMemoryEvaluationAttestation
 from agent.services.dendritic_memory_evaluation_service import DendriticMemoryEvaluationService
 from agent.services.dendritic_memory_policy import DendriticMemoryPolicy
-from agent.services.dendritic_memory_registry_service import DendriticMemoryRegistryService
+from agent.services.dendritic_memory_registry_service import (
+    DendriticMemoryRegistryConflict,
+    DendriticMemoryRegistryService,
+)
 from agent.services.dendritic_memory_runtime_gate import DendriticMemoryRuntimeGate
 from tests.dendritic_memory.helpers import evaluation_input, leakage, pack
 
@@ -39,6 +42,37 @@ def test_evaluation_fails_closed_on_leakage() -> None:
     result = _evaluation(service, "f" * 64, canary=1)
     assert result["experiment_eligible"] is False
     assert "dendritic_leakage_gate_failed" in result["reason_codes"]
+
+
+def test_evaluation_exports_comparable_splits_resources_and_provenance() -> None:
+    service = DendriticMemoryEvaluationService(DendriticMemoryEvaluationAttestation(b"e" * 32))
+    result = _evaluation(service, "f" * 64)
+    assert result["metric_definitions"]["accuracy"]["direction"] == "higher_is_better"
+    assert result["benchmark_groups"] == ["trained", "transfer", "negative_control", "leakage"]
+    assert result["resources"]["dendritic"]["host_ram_bytes"] == 1024
+    assert result["provenance"]["dendritic"]["deterministic"] is True
+    assert result["seed_aggregation"] == "multiple_seeds"
+
+
+def test_continual_report_requires_disabled_single_multiple_and_unchanged_base() -> None:
+    service = DendriticMemoryEvaluationService(DendriticMemoryEvaluationAttestation(b"e" * 32))
+    common = {
+        "forward_transfer": 0.1,
+        "backward_transfer": 0.0,
+        "forgetting": 0.01,
+        "interference": 0.02,
+        "base_model_before_digest": "b" * 64,
+        "base_model_after_digest": "b" * 64,
+    }
+    report = service.continual_learning(
+        runs=[
+            {**common, "pack_order": [], "mode": "disabled", "seed": 1},
+            {**common, "pack_order": ["c" * 64], "mode": "single", "seed": 2},
+            {**common, "pack_order": ["c" * 64, "d" * 64], "mode": "multiple", "seed": 3},
+        ]
+    )
+    assert report["seed_count"] == 3
+    assert report["pack_orders"][-1] == ["c" * 64, "d" * 64]
 
 
 def test_registry_requires_attested_pack_bound_evaluation(tmp_path) -> None:
@@ -144,3 +178,31 @@ def test_all_green_runtime_path_activates_deactivates_and_revokes_automatically(
         idempotency_key="revoke-0001",
     )
     assert revoked["state"] == "revoked"
+    deleted = registry.delete(
+        tenant_id="tenant-1",
+        pack_digest=manifest.digest,
+        expected_revision=revoked["revision"],
+        idempotency_key="delete-0001",
+    )
+    assert deleted["state"] == "deleted"
+    assert deleted["artifact_ref"] is None
+    actions = {event["action"] for event in registry.audit(tenant_id="tenant-1")["items"]}
+    assert {"import", "approve", "activate", "rollback", "revoke", "delete"} <= actions
+    assert all(event["human_intervention_required"] is False for event in registry.audit(tenant_id="tenant-1")["items"])
+
+
+def test_delete_requires_terminal_state_and_never_discloses_cross_tenant_pack(tmp_path) -> None:
+    registry, _attestations, _runtime_gate = _registry(tmp_path)
+    manifest, _files = pack()
+    created = registry.quarantine(
+        manifest=manifest.to_dict(), artifact_ref="artifact:one", idempotency_key="quarantine-0001"
+    )
+    with pytest.raises(DendriticMemoryRegistryConflict, match="delete_state_conflict"):
+        registry.delete(
+            tenant_id="tenant-1",
+            pack_digest=manifest.digest,
+            expected_revision=created["revision"],
+            idempotency_key="delete-0001",
+        )
+    with pytest.raises(KeyError, match="not_found"):
+        registry.get(tenant_id="tenant-2", pack_digest=manifest.digest)

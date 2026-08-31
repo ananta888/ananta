@@ -246,7 +246,7 @@ export interface DendriticExperimentRequest {
   spec: {
     schema: 'ananta.dendritic-memory-job.v1';
     spec_id: string;
-    job_type: 'train_dendritic_memory';
+    job_type: 'train_dendritic_memory' | 'evaluate_dendritic_memory' | 'compose_dendritic_memory';
     mode: TrainingMode;
     dataset_manifest_digest: string;
     base_model_id: string;
@@ -274,6 +274,33 @@ export interface DendriticRunAcceptance {
   not_production_ready: true;
   claims_not_verified: true;
   human_intervention_required: false;
+}
+
+export interface DendriticRunDetail extends DendriticRunAcceptance {
+  attempt_id: string;
+  fencing_token: number;
+  reason_code: string;
+  updated_at: string;
+  result?: {
+    event_count: number;
+    output?: Record<string, unknown> | null;
+    manifest?: Record<string, unknown> | null;
+  } | null;
+}
+
+export interface DendriticPackSummary {
+  pack_digest: string;
+  state: 'quarantined' | 'evaluated' | 'approved_for_experiment' | 'rejected' | 'revoked' | 'deleted';
+  revision: number;
+  reason_code: string;
+  experimental: true;
+  production_eligible: false;
+  manifest: {
+    base_model_id: string;
+    base_model_snapshot_digest: string;
+    parent_pack_digests: string[];
+    target_layers: string[];
+  };
 }
 
 export interface ResearchTrainingCapability {

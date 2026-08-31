@@ -45,6 +45,7 @@ async function installTrainingMock(page: Page) {
   const evaluationScorers: string[] = [];
   let exportRequests = 0;
   const runtimeActions: Array<{ action: string; body: Record<string, unknown> }> = [];
+  const dendriticRequests: Array<{ path: string; body: Record<string, unknown> }> = [];
 
   await page.route('**/api/ml-intern-training/**', async route => {
     const request = route.request();
@@ -58,7 +59,41 @@ async function installTrainingMock(page: Page) {
       gpu_profiles: [{ id: 'none', label: 'CPU Mock', available: true }],
       base_models: [{ id: 'local-model', label: 'Local Mock Model', local: true, available: true, compatible_backends: ['mock'] }],
       limits: { max_dataset_bytes: 1_000_000, max_adapter_bytes: 1_000_000, max_lora_rank: 64, max_steps: 1000 },
+      dendritic_memory_experiment: {
+        schema: 'ananta.dendritic-memory-capability.v1', state: 'available', available: true,
+        experimental: true, not_production_ready: true, claims_not_verified: true,
+        limits: { max_pack_bytes: 1_048_576, max_branches: 64, max_hidden_dimension: 4096, max_steps: 1000 },
+        human_intervention_required: false,
+      },
     });
+    if (path === '/dendritic-memory/dry-run' && method === 'POST') return json(route, {
+      admissible: true, reason_codes: [], spec_digest: 'a'.repeat(64),
+      model_download_performed: false, worker_call_performed: false, human_intervention_required: false,
+    });
+    if (path === '/dendritic-memory/runs' && method === 'POST') {
+      dendriticRequests.push({ path, body: request.postDataJSON() as Record<string, unknown> });
+      return json(route, {
+        run_id: 'dendritic-run-e2e', state: 'queued', revision: 1, replayed: false,
+        experimental: true, not_production_ready: true, claims_not_verified: true,
+        human_intervention_required: false,
+      });
+    }
+    if (path === '/dendritic-memory/runs' && method === 'GET') return json(route, { items: [{
+      run_id: 'dendritic-run-e2e', attempt_id: 'attempt-e2e', fencing_token: 1,
+      state: 'running', revision: 2, reason_code: 'dendritic_worker_claimed', updated_at: '2026-08-31T00:00:00Z',
+      experimental: true, not_production_ready: true, claims_not_verified: true,
+      human_intervention_required: false, replayed: false, result: null,
+    }], limit: 100 });
+    if (path === '/dendritic-memory/packs' && method === 'GET') return json(route, { items: [{
+      pack_digest: 'f'.repeat(64), state: 'approved_for_experiment', revision: 2,
+      reason_code: 'dendritic_pack_approved_by_policy', experimental: true, production_eligible: false,
+      manifest: { base_model_id: 'mock-local-model', base_model_snapshot_digest: 'b'.repeat(64),
+        parent_pack_digests: [], target_layers: ['model.layers.0'] },
+    }], limit: 100 });
+    if (path === `/dendritic-memory/packs/${'f'.repeat(64)}/revoke` && method === 'POST') {
+      dendriticRequests.push({ path, body: request.postDataJSON() as Record<string, unknown> });
+      return json(route, { pack_digest: 'f'.repeat(64), state: 'revoked', revision: 3 });
+    }
     if (path === '/datasets' && method === 'GET') return json(route, {
       items: uploaded ? [dataset, validationDataset] : [validationDataset], count: uploaded ? 2 : 1,
     });
@@ -185,10 +220,30 @@ async function installTrainingMock(page: Page) {
     evaluationScorers: () => [...evaluationScorers],
     exportRequests: () => exportRequests,
     runtimeActions: () => [...runtimeActions],
+    dendriticRequests: () => [...dendriticRequests],
   };
 }
 
 test.describe('Model training control center', () => {
+  test('dendritic flow starts live and manages packs without human-in-the-loop', async ({ page, request }) => {
+    await loginFast(page, request);
+    const mock = await installTrainingMock(page);
+    await page.goto('/model-training');
+    await page.getByRole('tab', { name: 'Training starten' }).click();
+    await expect(page.getByRole('heading', { name: 'Dendritic Memory Experiment' })).toBeVisible();
+    await page.getByLabel('Dataset-Manifest SHA-256').fill('a'.repeat(64));
+    await page.getByLabel('Modell-Snapshot SHA-256').fill('b'.repeat(64));
+    await page.getByRole('button', { name: 'Automatisch starten' }).click();
+    await expect(page.getByText(/dendritic-run-e2e wurde vom Hub angenommen/)).toBeVisible();
+    await expect(page.getByText(/dendritic_worker_claimed/)).toBeVisible();
+    await expect(page.getByText('Produktiv aktivieren ist für experimentelle Memory Packs nicht verfügbar.')).toBeVisible();
+    await page.getByRole('button', { name: 'Experiment-Pack widerrufen' }).click();
+    await expect.poll(mock.dendriticRequests).toHaveLength(2);
+    const create = mock.dendriticRequests()[0].body as { spec: Record<string, unknown> };
+    expect(create.spec.mode).toBe('live');
+    expect(JSON.stringify(create)).not.toMatch(/confirm|approval|human/i);
+  });
+
   test('admin navigates through an accessible CPU dry-run from upload to approval and rollback', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);

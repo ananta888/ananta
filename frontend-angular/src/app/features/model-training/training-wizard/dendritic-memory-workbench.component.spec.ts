@@ -25,6 +25,10 @@ describe('DendriticMemoryWorkbenchComponent', () => {
       claims_not_verified: true,
       human_intervention_required: false,
     })),
+    listDendriticRuns: vi.fn(() => of({ items: [], limit: 100 })),
+    listDendriticPacks: vi.fn(() => of({ items: [], limit: 100 })),
+    cancelDendriticRun: vi.fn(),
+    revokeDendriticPack: vi.fn(),
   };
   const capability: DendriticMemoryCapability = {
     schema: 'ananta.dendritic-memory-capability.v1',
@@ -73,7 +77,7 @@ describe('DendriticMemoryWorkbenchComponent', () => {
     );
     expect(api.createDendriticExperiment).toHaveBeenCalledWith(
       'http://hub.test',
-      expect.objectContaining({ spec: expect.objectContaining({ mode: 'dry_run' }) }),
+      expect.objectContaining({ spec: expect.objectContaining({ mode: 'live' }) }),
       expect.stringMatching(/^dendritic-experiment-/),
     );
     const body = api.createDendriticExperiment.mock.calls[0][1];

@@ -16,6 +16,8 @@ import {
   CreateTrainingJobRequest,
   DendriticDryRunResult,
   DendriticExperimentRequest,
+  DendriticPackSummary,
+  DendriticRunDetail,
   DendriticRunAcceptance,
   DatasetDetail,
   DatasetDeletionResult,
@@ -105,6 +107,34 @@ export class ModelTrainingApiService extends ApiBaseService {
       headers: { 'Idempotency-Key': key },
       timeoutMs: 30_000,
     });
+  }
+
+  listDendriticRuns(hubUrl: string): Observable<{ items: DendriticRunDetail[]; limit: number }> {
+    return this.core.get<{ items: DendriticRunDetail[]; limit: number }>(
+      this.dendriticEndpoint(hubUrl, '/runs?limit=100'), hubUrl, undefined, false,
+    );
+  }
+
+  cancelDendriticRun(hubUrl: string, runId: string, revision: number): Observable<DendriticRunDetail> {
+    return this.core.post<DendriticRunDetail>(
+      this.dendriticEndpoint(hubUrl, `/runs/${encodeURIComponent(runId)}/cancel`),
+      { expected_revision: revision }, hubUrl,
+    );
+  }
+
+  listDendriticPacks(hubUrl: string): Observable<{ items: DendriticPackSummary[]; limit: number }> {
+    return this.core.get<{ items: DendriticPackSummary[]; limit: number }>(
+      this.dendriticEndpoint(hubUrl, '/packs?limit=100'), hubUrl, undefined, false,
+    );
+  }
+
+  revokeDendriticPack(
+    hubUrl: string, pack: DendriticPackSummary, key: string,
+  ): Observable<DendriticPackSummary> {
+    return this.core.request<DendriticPackSummary>(
+      'POST', this.dendriticEndpoint(hubUrl, `/packs/${pack.pack_digest}/revoke`), hubUrl,
+      { body: { expected_revision: pack.revision }, headers: { 'Idempotency-Key': key }, timeoutMs: 30_000 },
+    );
   }
 
   resolveResearchRecipe(hubUrl: string, payload: ResearchRecipeRequest): Observable<ResearchResolvedRecipe> {

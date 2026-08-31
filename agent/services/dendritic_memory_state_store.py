@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from agent.services.dendritic_memory_migration import upgrade_job_store
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
 from ananta_contracts.dendritic_memory import canonical_json, require_id
 
@@ -76,6 +77,20 @@ class DendriticMemoryStateStore:
             ).fetchall()
         return [json.loads(row[0]) for row in rows]
 
+    def list_reconcilable(self, *, limit: int = 1000) -> list[dict[str, Any]]:
+        """Return the latest revision of jobs for Hub-owned recovery scans."""
+        if not 1 <= limit <= 1000:
+            raise ValueError("dendritic_reconcile_limit_invalid")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM dendritic_job_revisions candidate "
+                "WHERE revision=(SELECT MAX(revision) FROM dendritic_job_revisions "
+                "WHERE tenant_id=candidate.tenant_id AND run_id=candidate.run_id) "
+                "ORDER BY tenant_id,run_id LIMIT ?",
+                (limit,),
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
     @staticmethod
     def _get(connection: sqlite3.Connection, tenant_id: str, run_id: str) -> dict[str, Any]:
         row = connection.execute(
@@ -91,14 +106,7 @@ class DendriticMemoryStateStore:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._connect() as connection:
             connection.execute("PRAGMA journal_mode=WAL")
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS dendritic_job_revisions(tenant_id TEXT NOT NULL,run_id TEXT NOT NULL,"
-                "revision INTEGER NOT NULL,payload_json TEXT NOT NULL,PRIMARY KEY(tenant_id,run_id,revision))"
-            )
-            connection.execute(
-                "CREATE TABLE IF NOT EXISTS dendritic_idempotency(tenant_id TEXT NOT NULL,key_digest TEXT NOT NULL,"
-                "run_id TEXT NOT NULL,PRIMARY KEY(tenant_id,key_digest))"
-            )
+            upgrade_job_store(connection)
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._path, timeout=5.0)

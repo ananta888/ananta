@@ -15,6 +15,7 @@ from agent.services.dendritic_memory_capability_service import DendriticMemoryCa
 from agent.services.dendritic_memory_evaluation_attestation import DendriticMemoryEvaluationAttestation
 from agent.services.dendritic_memory_evaluation_service import DendriticMemoryEvaluationService
 from agent.services.dendritic_memory_job_service import DendriticMemoryJobService
+from agent.services.dendritic_memory_lifecycle_service import DendriticMemoryLifecycleService
 from agent.services.dendritic_memory_policy import DendriticMemoryPolicy
 from agent.services.dendritic_memory_registry_service import DendriticMemoryRegistryService
 from agent.services.dendritic_memory_release_gate import DendriticMemoryReleaseGate
@@ -115,6 +116,9 @@ def initialize_dendritic_memory(app: Flask) -> DendriticMemoryWiringStatus:
             app.extensions["dendritic_memory_evaluation"] = DendriticMemoryEvaluationService(attestations)
             app.extensions["dendritic_memory_registry"] = registry
             app.extensions["dendritic_memory_artifacts"] = artifacts
+            app.extensions["dendritic_memory_lifecycle"] = DendriticMemoryLifecycleService(
+                registry=registry, artifacts=artifacts
+            )
             app.extensions["dendritic_memory_release_gate"] = DendriticMemoryReleaseGate()
             app.extensions["dendritic_memory_runtime_gate"] = runtime_gate
             status = DendriticMemoryWiringStatus(True, policy.mode, None)

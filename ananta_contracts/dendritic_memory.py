@@ -19,6 +19,7 @@ _TARGET = re.compile(r"^[A-Za-z][A-Za-z0-9_.]{0,191}$")
 
 class DendriticRunState(StrEnum):
     QUEUED = "queued"
+    RETRY_QUEUED = "retry_queued"
     RUNNING = "running"
     CANCEL_REQUESTED = "cancel_requested"
     CANCELLED = "cancelled"
@@ -28,11 +29,12 @@ class DendriticRunState(StrEnum):
     def assert_transition(self, target: "DendriticRunState") -> None:
         allowed = {
             self.QUEUED: {self.RUNNING, self.CANCEL_REQUESTED, self.CANCELLED, self.FAILED},
+            self.RETRY_QUEUED: {self.RUNNING, self.CANCEL_REQUESTED, self.CANCELLED, self.FAILED},
             self.RUNNING: {self.CANCEL_REQUESTED, self.CANCELLED, self.COMPLETED, self.FAILED},
             self.CANCEL_REQUESTED: {self.CANCELLED, self.FAILED},
-            self.CANCELLED: set(),
+            self.CANCELLED: {self.RETRY_QUEUED},
             self.COMPLETED: set(),
-            self.FAILED: set(),
+            self.FAILED: {self.RETRY_QUEUED},
         }[self]
         if target not in allowed:
             raise ValueError("dendritic_run_transition_invalid")

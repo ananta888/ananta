@@ -9,6 +9,7 @@ from ananta_contracts.dendritic_memory import (
     DendriticMemoryPackManifestV1,
     canonical_digest,
 )
+from ananta_contracts.dendritic_memory_worker import DendriticWorkerAssignmentV1
 
 
 def config() -> DendriticExperimentConfigV1:
@@ -40,6 +41,19 @@ def spec(*, tenant_id: str = "tenant-1", job_type: str = "train_dendritic_memory
         configuration=config(),
         parent_pack_digests=("c" * 64, "d" * 64) if job_type == "compose_dendritic_memory" else (),
     )
+
+
+def assignment(*, deadline_epoch_ms: int = 4_102_444_800_000) -> dict[str, Any]:
+    return DendriticWorkerAssignmentV1(
+        run_id="dendritic-run-1",
+        attempt_id="dendritic-attempt-1",
+        fencing_token=1,
+        tenant_scope_digest="9" * 64,
+        correlation_id="dendritic-correlation-1",
+        deadline_epoch_ms=deadline_epoch_ms,
+        worker_authorization="8" * 64,
+        spec=spec(),
+    ).to_dict()
 
 
 def pack(*, tenant_id: str = "tenant-1", suffix: str = "one", executable: bool = False):
@@ -79,12 +93,33 @@ def evaluation_input(*, accuracy: float, loss: float, pack_digest: str = "f" * 6
         "trainable_parameter_count": 128,
         "seeds": [1, 2, 3],
         "pack_digest": pack_digest,
+        "split_digests": {
+            "train": "1" * 64,
+            "validation": "2" * 64,
+            "transfer": "5" * 64,
+            "negative_control": "6" * 64,
+            "test": "3" * 64,
+        },
         "metrics": {
             "accuracy": accuracy,
             "loss": loss,
             "calibration_error": 0.1,
             "latency_ms": 10,
             "peak_memory_bytes": 1024,
+        },
+        "resources": {
+            "peak_vram_bytes": 0,
+            "host_ram_bytes": 1024,
+            "duration_ms": 10,
+            "artifact_bytes": 128,
+            "tokens_per_second": 100,
+        },
+        "provenance": {
+            "repository_revision": "0123456789abcdef",
+            "worker_image_digest": "7" * 64,
+            "dependency_lock_digest": "8" * 64,
+            "runtime_versions": {"python": "3.12", "torch": "not-loaded"},
+            "deterministic": True,
         },
     }
 

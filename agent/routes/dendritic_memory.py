@@ -62,7 +62,12 @@ def _tenant_spec(body: dict[str, Any]) -> dict[str, Any]:
 def _public_job(value: dict[str, Any]) -> dict[str, Any]:
     projected = dict(value)
     projected.pop("worker_authorization", None)
+    projected.pop("tenant_scope_digest", None)
     return projected
+
+
+def _idempotency_key(body: dict[str, Any]) -> str:
+    return str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or "")
 
 
 @dendritic_memory_bp.get("/capabilities")
@@ -100,6 +105,18 @@ def create_run():
         return _public_job(
             _extension("dendritic_memory_jobs").create(spec=_tenant_spec(body), idempotency_key=key)
         )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.post("/runs/claim")
+@check_registered_worker_auth(scope=_WORKER_SCOPE)
+def claim_run():
+    def operation():
+        body = _payload()
+        if set(body) - {"limit"}:
+            raise ValueError("dendritic_worker_claim_payload_invalid")
+        return _extension("dendritic_memory_jobs").claim_next(limit=int(body.get("limit") or 100))
 
     return _invoke(operation)
 
@@ -147,12 +164,61 @@ def cancel_run(run_id: str):
     )
 
 
+@dendritic_memory_bp.post("/runs/<run_id>/resume")
+@check_auth
+@admin_required
+def resume_run(run_id: str):
+    def operation():
+        body = _payload()
+        checkpoint = body.get("checkpoint")
+        if not isinstance(checkpoint, dict):
+            raise ValueError("dendritic_checkpoint_required")
+        return _public_job(
+            _extension("dendritic_memory_jobs").resume(
+                tenant_id=_principal().tenant_id,
+                run_id=run_id,
+                expected_revision=body.get("expected_revision"),
+                checkpoint=checkpoint,
+            )
+        )
+
+    return _invoke(operation)
+
+
 @dendritic_memory_bp.post("/runs/<run_id>/worker-transition")
 @check_registered_worker_auth(scope=_WORKER_SCOPE)
 def worker_transition(run_id: str):
     return _invoke(
         lambda: _public_job(_extension("dendritic_memory_jobs").transition(**_payload(), run_id=run_id))
     )
+
+
+@dendritic_memory_bp.post("/runs/<run_id>/worker-assignment")
+@check_registered_worker_auth(scope=_WORKER_SCOPE)
+def worker_assignment(run_id: str):
+    return _invoke(
+        lambda: _extension("dendritic_memory_jobs").worker_assignment(
+            tenant_id=str(_payload().get("tenant_id") or ""),
+            run_id=run_id,
+        )
+    )
+
+
+@dendritic_memory_bp.post("/runs/reconcile")
+@check_auth
+@admin_required
+def reconcile_runs():
+    def operation():
+        body = _payload()
+        allowed = {"stale_after_seconds", "limit"}
+        if set(body) - allowed:
+            raise ValueError("dendritic_reconcile_payload_invalid")
+        return _extension("dendritic_memory_jobs").reconcile(
+            stale_after_seconds=int(body.get("stale_after_seconds") or 300),
+            limit=int(body.get("limit") or 1000),
+        )
+
+    return _invoke(operation)
 
 
 @dendritic_memory_bp.post("/evaluations")
@@ -173,6 +239,49 @@ def list_packs():
     )
 
 
+@dendritic_memory_bp.post("/packs")
+@check_auth
+@admin_required
+def quarantine_pack():
+    def operation():
+        body = _payload()
+        manifest = body.get("manifest")
+        if not isinstance(manifest, dict):
+            raise ValueError("dendritic_pack_manifest_required")
+        tenant_id = _principal().tenant_id
+        if manifest.get("tenant_id") not in {None, tenant_id}:
+            raise PermissionError("dendritic_tenant_mismatch")
+        return _extension("dendritic_memory_registry").quarantine(
+            manifest={**manifest, "tenant_id": tenant_id},
+            artifact_ref=str(body.get("artifact_ref") or ""),
+            idempotency_key=_idempotency_key(body),
+        )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.post("/packs/compose")
+@check_auth
+@admin_required
+def compose_packs():
+    def operation():
+        body = _payload()
+        manifest = body.get("output_manifest")
+        parents = body.get("parent_pack_digests")
+        if not isinstance(manifest, dict) or not isinstance(parents, list):
+            raise ValueError("dendritic_composition_payload_invalid")
+        tenant_id = _principal().tenant_id
+        return _extension("dendritic_memory_registry").compose(
+            tenant_id=tenant_id,
+            parent_pack_digests=parents,
+            output_manifest={**manifest, "tenant_id": tenant_id},
+            artifact_ref=str(body.get("artifact_ref") or ""),
+            idempotency_key=_idempotency_key(body),
+        )
+
+    return _invoke(operation)
+
+
 @dendritic_memory_bp.get("/packs/<pack_digest>")
 @check_auth
 @admin_required
@@ -182,6 +291,26 @@ def get_pack(pack_digest: str):
             tenant_id=_principal().tenant_id, pack_digest=pack_digest
         )
     )
+
+
+@dendritic_memory_bp.post("/packs/<pack_digest>/approve")
+@check_auth
+@admin_required
+def approve_pack(pack_digest: str):
+    def operation():
+        body = _payload()
+        evaluation = body.get("evaluation")
+        if not isinstance(evaluation, dict):
+            raise ValueError("dendritic_evaluation_required")
+        return _extension("dendritic_memory_registry").approve_evaluated(
+            tenant_id=_principal().tenant_id,
+            pack_digest=pack_digest,
+            evaluation=evaluation,
+            expected_revision=body.get("expected_revision"),
+            idempotency_key=_idempotency_key(body),
+        )
+
+    return _invoke(operation)
 
 
 @dendritic_memory_bp.post("/packs/<pack_digest>/revoke")
@@ -194,8 +323,102 @@ def revoke_pack(pack_digest: str):
             tenant_id=_principal().tenant_id,
             pack_digest=pack_digest,
             expected_revision=body.get("expected_revision"),
-            idempotency_key=str(request.headers.get("Idempotency-Key") or body.get("idempotency_key") or ""),
+            idempotency_key=_idempotency_key(body),
             reason_code=str(body.get("reason_code") or "dendritic_pack_revoked_by_policy"),
+        )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.post("/packs/<pack_digest>/reject")
+@check_auth
+@admin_required
+def reject_pack(pack_digest: str):
+    def operation():
+        body = _payload()
+        return _extension("dendritic_memory_registry").reject(
+            tenant_id=_principal().tenant_id,
+            pack_digest=pack_digest,
+            expected_revision=body.get("expected_revision"),
+            idempotency_key=_idempotency_key(body),
+            reason_code=str(body.get("reason_code") or "dendritic_pack_rejected_by_policy"),
+        )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.delete("/packs/<pack_digest>")
+@check_auth
+@admin_required
+def delete_pack(pack_digest: str):
+    def operation():
+        body = _payload()
+        return _extension("dendritic_memory_lifecycle").delete(
+            tenant_id=_principal().tenant_id,
+            pack_digest=pack_digest,
+            expected_revision=body.get("expected_revision"),
+            idempotency_key=_idempotency_key(body),
+        )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.get("/audit")
+@check_auth
+@admin_required
+def list_audit():
+    return _invoke(
+        lambda: _extension("dendritic_memory_registry").audit(
+            tenant_id=_principal().tenant_id,
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
+
+
+@dendritic_memory_bp.get("/runtime/routes")
+@check_auth
+@admin_required
+def list_runtime_routes():
+    return _invoke(
+        lambda: _extension("dendritic_memory_registry").list_routes(
+            tenant_id=_principal().tenant_id,
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
+
+
+@dendritic_memory_bp.post("/runtime/routes/<scope_id>/activate")
+@check_auth
+@admin_required
+def activate_runtime_route(scope_id: str):
+    def operation():
+        body = _payload()
+        receipt = body.get("gate_receipt")
+        if not isinstance(receipt, dict):
+            raise ValueError("dendritic_runtime_gate_receipt_required")
+        return _extension("dendritic_memory_registry").activate(
+            tenant_id=_principal().tenant_id,
+            scope_id=scope_id,
+            pack_digest=str(body.get("pack_digest") or ""),
+            expected_route_revision=body.get("expected_route_revision"),
+            gate_receipt=receipt,
+            idempotency_key=_idempotency_key(body),
+        )
+
+    return _invoke(operation)
+
+
+@dendritic_memory_bp.post("/runtime/routes/<scope_id>/deactivate")
+@check_auth
+@admin_required
+def deactivate_runtime_route(scope_id: str):
+    def operation():
+        body = _payload()
+        return _extension("dendritic_memory_registry").deactivate(
+            tenant_id=_principal().tenant_id,
+            scope_id=scope_id,
+            expected_route_revision=body.get("expected_route_revision"),
+            idempotency_key=_idempotency_key(body),
         )
 
     return _invoke(operation)

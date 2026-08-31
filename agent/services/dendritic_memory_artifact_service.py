@@ -56,6 +56,31 @@ class DendriticMemoryArtifactService:
             "claims_verified": False,
         }
 
+    def delete(self, *, manifest: DendriticMemoryPackManifestV1) -> dict[str, Any]:
+        """Remove only the closed file set belonging to one content-addressed pack."""
+        target = (self._root / manifest.tenant_id / manifest.digest).resolve()
+        if self._root not in target.parents or target.is_symlink():
+            raise ValueError("dendritic_artifact_path_invalid")
+        removed = 0
+        for name in ("weights.safetensors", "report.json", "manifest.json"):
+            candidate = target / name
+            if candidate.is_symlink():
+                raise ValueError("dendritic_artifact_symlink_denied")
+            if candidate.exists():
+                candidate.unlink()
+                removed += 1
+        if target.exists():
+            try:
+                target.rmdir()
+                target.parent.rmdir()
+            except OSError:
+                pass
+        return {
+            "pack_digest": manifest.digest,
+            "removed_files": removed,
+            "human_intervention_required": False,
+        }
+
     @staticmethod
     def _atomic_write(target: Path, content: bytes) -> None:
         if target.exists():
