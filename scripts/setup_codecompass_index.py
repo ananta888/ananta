@@ -43,6 +43,9 @@ from ananta_contracts.file_type_support import (
     FileTypeSupportRegistry,
     load_file_type_support_registry,
 )
+from scripts.codecompass_content_redaction import (
+    redact_sensitive_values as _redact_sensitive_values,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -482,61 +485,6 @@ def _file_tags(rel: str) -> str:
         if fragment in rel:
             tags.append(tag)
     return " | ".join(tags)
-
-
-def _redact_sensitive_values(content: str) -> tuple[str, bool]:
-    import re
-
-    key_pattern = re.compile(
-        r"(?im)^(?P<indent>\s*)(?P<quote>[\"']?)(?P<key>[a-z_][a-z0-9_.-]*)"
-        r"(?P=quote)(?P<separator>\s*(?::(?!=)|(?<![=!<>])=(?!=))\s*)"
-        r"(?P<value>[^\n(){}\[\]]+)$"
-    )
-    redaction_count = 0
-
-    def redact_assignment(match: re.Match[str]) -> str:
-        # A quoted placeholder remains valid in scalar Python assignments,
-        # annotations, JSON, YAML and TOML. Container/call expressions are
-        # deliberately excluded by the pattern so multiline source structure
-        # cannot be orphaned. Preserve a mapping/list comma as well.
-        nonlocal redaction_count
-        key = match.group("key").lower()
-        key_segments = {part for part in re.split(r"[_.-]+", key) if part}
-        is_sensitive = (
-            any(
-                marker in key
-                for marker in (
-                    "password",
-                    "passwd",
-                    "api_key",
-                    "api-key",
-                    "private_key",
-                    "private-key",
-                    "secret",
-                )
-            )
-            or "token" in key_segments
-        )
-        if not is_sensitive:
-            return match.group(0)
-        redaction_count += 1
-        suffix = "," if match.group("value").rstrip().endswith(",") else ""
-        prefix = (
-            match.group("indent")
-            + match.group("quote")
-            + match.group("key")
-            + match.group("quote")
-            + match.group("separator")
-        )
-        return f'{prefix}"[REDACTED]"{suffix}'
-
-    redacted = key_pattern.sub(redact_assignment, content)
-    private_key_pattern = re.compile(
-        r"-----BEGIN [^-\n]*PRIVATE KEY-----.*?-----END [^-\n]*PRIVATE KEY-----",
-        re.DOTALL,
-    )
-    redacted, private_count = private_key_pattern.subn("[REDACTED PRIVATE KEY]", redacted)
-    return redacted, bool(redaction_count or private_count)
 
 
 def _build_records_from_plan(plan: IndexScanPlan) -> tuple[list[dict], FileTypeCoverageReport]:
