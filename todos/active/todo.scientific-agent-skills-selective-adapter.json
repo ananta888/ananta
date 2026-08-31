@@ -65,7 +65,7 @@
         {
           "id": "SAS-INV-002",
           "title": "Risikoprofil und Capability-Inventar aus dem Manifest ableiten",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "type": "security",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 1,
-      "open": 9
+      "done": 2,
+      "open": 8
     },
     "recommended_order": [
       "SAS-INV-001",

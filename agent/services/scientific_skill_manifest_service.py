@@ -56,6 +56,9 @@ class ScientificSkillManifest:
     sha256: str
     license: str
     declared_files: tuple[ScientificSkillFileMetadata, ...]
+    declared_capabilities: tuple[str, ...]
+    declared_dependencies: tuple[str, ...]
+    declared_data_classification: str
     source_references: tuple[str, ...]
     parser_warnings: tuple[str, ...]
 
@@ -237,6 +240,7 @@ class ScientificSkillManifestImporter:
         description = frontmatter.get("description")
         if not isinstance(description, str) or not description.strip() or len(description) > 2_000:
             raise ScientificSkillManifestError("scientific_skill_description_invalid")
+        capabilities, dependencies, data_classification = _ananta_declarations(frontmatter.get("metadata"))
         local_paths, external_references = _declared_links(body, base_path=skill_path)
         declared = {skill_path, *local_paths}
         skill_directory = PurePosixPath(skill_path).parent
@@ -272,6 +276,9 @@ class ScientificSkillManifestImporter:
             sha256=skill_digest,
             license=license_name,
             declared_files=tuple(metadata),
+            declared_capabilities=capabilities,
+            declared_dependencies=dependencies,
+            declared_data_classification=data_classification,
             source_references=tuple(sorted(external_references)),
             parser_warnings=tuple(warnings),
         )
@@ -367,6 +374,52 @@ def _required_name(value: object, reason: str) -> str:
     if not isinstance(value, str) or not _NAME.fullmatch(value):
         raise ScientificSkillManifestError(reason)
     return value
+
+
+def _ananta_declarations(metadata: object) -> tuple[tuple[str, ...], tuple[str, ...], str]:
+    if metadata is None:
+        return (), (), "internal"
+    if not isinstance(metadata, Mapping):
+        raise ScientificSkillManifestError("scientific_skill_metadata_invalid")
+    ananta = metadata.get("ananta")
+    if ananta is None:
+        return (), (), "internal"
+    if not isinstance(ananta, Mapping) or set(ananta) - {
+        "capabilities",
+        "dependencies",
+        "data_classification",
+    }:
+        raise ScientificSkillManifestError("scientific_skill_metadata_invalid")
+    capabilities = _identifier_list(ananta.get("capabilities", ()))
+    dependencies = _dependency_list(ananta.get("dependencies", ()))
+    classification = ananta.get("data_classification", "internal")
+    if classification not in {"public", "internal", "confidential", "restricted"}:
+        raise ScientificSkillManifestError("scientific_skill_metadata_invalid")
+    return capabilities, dependencies, classification
+
+
+def _identifier_list(value: object) -> tuple[str, ...]:
+    if (
+        not isinstance(value, list | tuple)
+        or any(not isinstance(item, str) or not _NAME.fullmatch(item) for item in value)
+        or len(set(value)) != len(value)
+    ):
+        raise ScientificSkillManifestError("scientific_skill_metadata_invalid")
+    return tuple(sorted(value))
+
+
+def _dependency_list(value: object) -> tuple[str, ...]:
+    if (
+        not isinstance(value, list | tuple)
+        or any(
+            not isinstance(item, str)
+            or not re.fullmatch(r"[A-Za-z0-9@][A-Za-z0-9@_./:-]{0,127}", item)
+            for item in value
+        )
+        or len(set(value)) != len(value)
+    ):
+        raise ScientificSkillManifestError("scientific_skill_metadata_invalid")
+    return tuple(sorted(value))
 
 
 def _text_file(content: bytes) -> str:
