@@ -29,6 +29,7 @@ from agent.services.organization_definition_catalog_service import (
     FileCatalogDefinitionRepositoryAdapter,
     OrganizationDefinitionCatalogService,
 )
+from agent.services.organization_limit_projection import organization_limit_profile_projection
 from agent.services.organization_unit_of_work import OrganizationUnitOfWork
 
 
@@ -571,20 +572,7 @@ class OrganizationCompileApplicationService:
                 project_id=plan.project_id,
                 policy_ref=plan.effective_limit_profile_ref,
             )
-        return {
-            "revision": str(limits.revision),
-            "policy_hash": limits.content_hash(),
-            "max_teams": limits.max_team_instances_per_organization,
-            "max_units": limits.max_units_per_organization,
-            "max_role_slots": limits.max_role_slots_per_organization,
-            "max_assignments": limits.max_assignments_per_organization,
-            "max_relations": limits.max_relations_per_organization,
-            "max_patch_operations": limits.max_patch_operations,
-            "max_page_size": limits.topology_max_page_size,
-            "max_depth": limits.topology_max_depth,
-            "max_render_nodes": limits.canvas_render_node_limit,
-            "max_render_edges": limits.canvas_render_edge_limit,
-        }
+        return organization_limit_profile_projection(limits)
 
     @staticmethod
     def _title(key: str, team_count: int) -> str:

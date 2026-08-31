@@ -8,6 +8,7 @@ from typing import Any
 
 from agent.models.organization_models import OrganizationLimitProfile
 from agent.ports.organization_definitions import OrganizationTopologyReadPort
+from agent.services.organization_limit_projection import organization_limit_profile_projection
 
 RUNTIME_EDGE_KINDS = {
     "runtime_task_dependency",
@@ -316,7 +317,7 @@ class OrganizationProjectionService:
             "edges": edges,
             "runtime_overlay": runtime_overlay,
             "diagnostics": diagnostics,
-            "limits": _projection_limits(limits),
+            "limits": organization_limit_profile_projection(limits),
             "next_cursor": snapshot.get("next_cursor"),
             "truncated": bool(snapshot.get("next_cursor")),
         }
@@ -353,23 +354,6 @@ def _normalize_diagnostic(value: Any) -> dict[str, Any]:
         "message": raw.get("message") or raw.get("human_message") or "Organization topology diagnostic.",
         **({"node_ids": list(raw["node_ids"])} if raw.get("node_ids") else {}),
         **({"policy_id": raw["policy_id"]} if raw.get("policy_id") else {}),
-    }
-
-
-def _projection_limits(limits: OrganizationLimitProfile) -> dict[str, Any]:
-    return {
-        "revision": str(limits.revision),
-        "policy_hash": limits.content_hash(),
-        "max_teams": limits.max_team_instances_per_organization,
-        "max_units": limits.max_units_per_organization,
-        "max_role_slots": limits.max_role_slots_per_organization,
-        "max_assignments": limits.max_assignments_per_organization,
-        "max_relations": limits.max_relations_per_organization,
-        "max_patch_operations": limits.max_patch_operations,
-        "max_page_size": limits.topology_max_page_size,
-        "max_depth": limits.topology_max_depth,
-        "max_render_nodes": limits.canvas_render_node_limit,
-        "max_render_edges": limits.canvas_render_edge_limit,
     }
 
 

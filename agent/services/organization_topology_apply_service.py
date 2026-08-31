@@ -64,6 +64,7 @@ from agent.services.organization_blueprint_validation_service import (
 from agent.services.organization_definition_catalog_service import (
     FileCatalogDefinitionRepositoryAdapter,
 )
+from agent.services.organization_limit_projection import organization_limit_profile_projection
 from agent.services.organization_slot_separation_service import (
     OrganizationSlotSeparationPolicy,
     evaluate_organization_slot_separation,
@@ -1717,7 +1718,7 @@ class OrganizationTopologyApplyService:
             "operations": [row.model_dump(mode="json", exclude_unset=True) for row in document.operations],
             "planned_writes": sorted(set(planned_writes)),
             "diagnostics": diagnostic_payload,
-            "limits": _angular_limits(limits),
+            "limits": organization_limit_profile_projection(limits),
             "applicable": not any(row.severity == "blocker" for row in diagnostics),
         }
         preview = OrganizationTopologyPatchPreview(
@@ -2151,23 +2152,6 @@ def _relation_cycle(relations: list[dict[str, Any]]) -> bool:
         return False
 
     return any(visit(node) for node in sorted(graph) if not state.get(node))
-
-
-def _angular_limits(limits: OrganizationLimitProfile) -> dict[str, Any]:
-    return {
-        "revision": str(limits.revision),
-        "policy_hash": limits.content_hash(),
-        "max_teams": limits.max_team_instances_per_organization,
-        "max_units": limits.max_units_per_organization,
-        "max_role_slots": limits.max_role_slots_per_organization,
-        "max_assignments": limits.max_assignments_per_organization,
-        "max_relations": limits.max_relations_per_organization,
-        "max_patch_operations": limits.max_patch_operations,
-        "max_page_size": limits.topology_max_page_size,
-        "max_depth": limits.topology_max_depth,
-        "max_render_nodes": limits.canvas_render_node_limit,
-        "max_render_edges": limits.canvas_render_edge_limit,
-    }
 
 
 __all__ = [
