@@ -24,6 +24,7 @@ from .blueprints import (
     TerminalEventDB,
     TerminalSessionDB,
 )
+from .business_controlling import BusinessControllingMappingDB, BusinessControllingProfileDB
 from .caseflow import (
     CaseActionDB,
     CaseAgentRunDB,
@@ -407,6 +408,8 @@ __all__ = [
     "BlueprintArtifactDB",
     "BlueprintRoleDB",
     "BlueprintWorkflowStepDB",
+    "BusinessControllingMappingDB",
+    "BusinessControllingProfileDB",
     "ConfigDB",
     "ContextAccessPolicyDB",
     "ContextBundleDB",
