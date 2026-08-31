@@ -300,6 +300,8 @@ class TestRunnerIntegration:
     Auggie may suggest test commands (as advisory), Ananta decides execution.
     """
 
+    __test__ = False
+
     def __init__(self, *, project_test_commands: list[str]) -> None:
         self._commands = list(project_test_commands)
 

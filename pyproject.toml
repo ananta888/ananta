@@ -254,6 +254,7 @@ pythonpath = ["."]
 testpaths = ["tests"]
 addopts = "-v"
 markers = [
+    "benchmark: marks deterministic benchmark-contract and performance tests",
     "integration: marks tests that validate cross-component integration behavior",
     "qdrant_integration: marks opt-in tests against the digest-pinned Qdrant service",
     "hardware: marks explicit local model or GPU evidence gates excluded from normal CI",
