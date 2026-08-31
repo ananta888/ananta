@@ -1,12 +1,12 @@
 {
   "gate_source_revisions": {
-    "functional": "worktree-sha256:f80575168fc25c05044ddca2acb6f10de9e55e43f680514f59b3531124680ce6",
+    "functional": "worktree-sha256:5e2de3f2777c37ea54231b389f33cefb8c679b1d9192b84aa30351ab1511cc34",
     "performance": "worktree-sha256:202e3deffce1ed61d17cd3fdafd1f8d6b8149b3570f2c8cc7f98543cbd1b7904"
   },
   "reason_codes": [],
   "release_allowed": true,
   "schema": "ananta.visual-process-assistant-acceptance-matrix.v1",
-  "source_revision": "worktree-sha256:3dffa20e200d5e3e583e0f381525528401d4703a712a7c257192a8dcc7563686",
+  "source_revision": "worktree-sha256:068bd06fb48974ec3da91b56348bebb951fca328a697fb3dc57a76468617af0e",
   "status": "passed",
   "tasks": [
     {
