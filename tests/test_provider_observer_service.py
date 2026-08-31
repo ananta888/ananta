@@ -273,17 +273,22 @@ def test_provider_observer_timeout_clamped_to_max():
     from agent.services.provider_observer_service import ProviderObserverService
 
     svc = ProviderObserverService()
-    # timeout_seconds max is 15
-    raw_timeout = svc._cfg_int({"provider_observer_timeout_seconds": 9999}, "provider_observer_timeout_seconds", 3, 1, 15)
-    assert raw_timeout == 15
+    snapshot = svc.snapshot(
+        agent_config={"provider_observer_timeout_seconds": 9999},
+        provider_urls={},
+    )
+    assert snapshot["timeout_seconds"] == 15.0
 
 
 def test_provider_observer_timeout_clamped_to_min():
     from agent.services.provider_observer_service import ProviderObserverService
 
     svc = ProviderObserverService()
-    raw_timeout = svc._cfg_int({"provider_observer_timeout_seconds": 0}, "provider_observer_timeout_seconds", 3, 1, 15)
-    assert raw_timeout == 1
+    snapshot = svc.snapshot(
+        agent_config={"provider_observer_timeout_seconds": 0},
+        provider_urls={},
+    )
+    assert snapshot["timeout_seconds"] == 0.25
 
 
 # CPR-002: profile availability validation
