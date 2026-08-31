@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import logging
 import hashlib
 import json
+import logging
 import re
 import time
 from dataclasses import dataclass, field
@@ -16,6 +16,7 @@ from agent.codecompass.file_type_telemetry import (
 from agent.codecompass.parser_limits import ParserGuardViolation, ParserLimits
 from agent.config import settings
 from agent.hybrid_repository_scan import tracked_code_files, tracked_registry_files
+from agent.repository_map_path_focus import path_is_in_focus, resolve_path_focus
 from agent.repository_map_tree_sitter import resolve_tree_sitter_parser
 
 _LEGACY_CODE_EXTENSIONS = {
@@ -309,97 +310,6 @@ class RepositoryMapEngine:
                 break
         return symbols
 
-    @staticmethod
-    def _normalize_path_label(value: str) -> str:
-        return re.sub(r"[^a-z0-9]+", "-", str(value or "").lower()).strip("-")
-
-    def _path_focus_for_query(self, query: str, paths: list[str]) -> dict[str, object] | None:
-        query_label = self._normalize_path_label(query)
-        if not query_label:
-            return None
-        candidate_roots: dict[str, int] = {}
-        for rel_path in paths:
-            parts = [part for part in str(rel_path or "").replace("\\", "/").split("/") if part]
-            for depth in (1, 2):
-                if len(parts) < depth:
-                    continue
-                root = "/".join(parts[:depth])
-                label = self._normalize_path_label(root)
-                basename_label = self._normalize_path_label(parts[depth - 1])
-                if not label or len(basename_label) < 4:
-                    continue
-                if label in query_label or basename_label in query_label:
-                    candidate_roots[root] = max(candidate_roots.get(root, 0), len(label))
-        # Apply configurable alias expansion: if a known alias keyword appears in the
-        # query label, treat the mapped path prefixes as if they were named in the query.
-        # Configured via settings.rag_path_focus_aliases (dict[str, list[str]]).
-        alias_roots_set: set[str] = set()
-        try:
-            aliases = dict(getattr(settings, "rag_path_focus_aliases", None) or {})
-        except Exception:
-            aliases = {}
-        for alias_keyword, alias_roots in aliases.items():
-            if alias_keyword in query_label:
-                for alias_root in list(alias_roots or []):
-                    alias_label = self._normalize_path_label(str(alias_root))
-                    if alias_root not in candidate_roots:
-                        candidate_roots[alias_root] = len(alias_label)
-                    alias_roots_set.add(str(alias_root))
-        if not candidate_roots:
-            return None
-        roots = sorted(candidate_roots, key=lambda item: (-candidate_roots[item], item))
-        preferred = [root for root in roots if "/" in root] or roots[:1]
-        all_anchor_paths = self._anchor_paths_for_focus(roots, paths)
-        alias_root_prefixes = tuple(f"{r.rstrip('/')}/" for r in alias_roots_set)
-        alias_anchor_paths = [
-            p for p in all_anchor_paths
-            if any(p.startswith(pfx) for pfx in alias_root_prefixes) or p in alias_roots_set
-        ]
-        return {
-            "id": "query-path-focus",
-            "paths": tuple(f"{root.rstrip('/')}/" for root in roots),
-            "preferred_paths": tuple(f"{root.rstrip('/')}/" for root in preferred),
-            "anchor_paths": tuple(all_anchor_paths),
-            "alias_anchor_paths": tuple(alias_anchor_paths),
-            "min_results": min(4, max(2, len(preferred) + 1)),
-        }
-
-    def _anchor_paths_for_focus(self, roots: list[str], paths: list[str]) -> list[str]:
-        path_set = set(paths)
-        anchors: list[str] = []
-        entrypoint_names = {
-            "__init__.py",
-            "cli.py",
-            "main.py",
-            "app.py",
-            "index.ts",
-            "index.js",
-            "README.md",
-            "readme.md",
-        }
-        for root in roots:
-            root_prefix = f"{root.rstrip('/')}/"
-            in_root = sorted(path for path in path_set if path.startswith(root_prefix))
-            direct = [path for path in in_root if "/" not in path[len(root_prefix):].strip("/")]
-            prioritized = [
-                path for path in direct
-                if Path(path).name in entrypoint_names or Path(path).stem == Path(root).name
-            ]
-            for path in [*prioritized, *direct, *in_root]:
-                if path not in anchors:
-                    anchors.append(path)
-                if len(anchors) >= 4:
-                    return anchors
-        return anchors
-
-    @staticmethod
-    def _path_in_focus(path: str, focus: dict[str, object] | None, *, preferred_only: bool = False) -> bool:
-        if not focus:
-            return False
-        prefixes = list(focus.get("preferred_paths") or []) if preferred_only else list(focus.get("paths") or [])
-        normalized = str(path or "").replace("\\", "/")
-        return any(normalized == str(prefix).rstrip("/") or normalized.startswith(str(prefix)) for prefix in prefixes)
-
     def build(self, force: bool = False) -> None:
         now = time.time()
         if not force and (now - self._last_scan_ts < 1.0):
@@ -527,7 +437,9 @@ class RepositoryMapEngine:
             candidates.append(normalized)
         expanded: list[str] = []
         for candidate in candidates:
-            expanded.extend((candidate, candidate + ".py", candidate + ".ts", candidate + ".tsx", candidate + "/__init__.py"))
+            expanded.extend(
+                (candidate, candidate + ".py", candidate + ".ts", candidate + ".tsx", candidate + "/__init__.py")
+            )
         return next((candidate for candidate in expanded if candidate in paths), None)
 
     def _observe_parser_result(
@@ -700,7 +612,10 @@ class RepositoryMapEngine:
         }
         query_nodes = {
             path for path, symbols in symbol_items
-            if any(token in path.lower() or any(token in symbol.lower() for symbol in symbols) for token in query_tokens)
+            if any(
+                token in path.lower() or any(token in symbol.lower() for symbol in symbols)
+                for token in query_tokens
+            )
         }
         graph_features = derive_graph_features(
             nodes=[{"id": path} for path in sorted(candidate_paths)],
@@ -800,9 +715,14 @@ class RepositoryMapEngine:
             t.lower() for t in re.findall(r"[A-Za-z0-9_]+", query)
             if len(t) >= 3 and t.lower() not in self._REPO_STOP_TOKENS
         }
-        path_focus = self._path_focus_for_query(
+        try:
+            path_focus_aliases = dict(getattr(settings, "rag_path_focus_aliases", None) or {})
+        except Exception:
+            path_focus_aliases = {}
+        path_focus = resolve_path_focus(
             query,
             [str(path) for path, _symbols in symbol_items],
+            aliases=path_focus_aliases,
         )
         # Source-First Selector: when a query contains a domain-like token
         # (a non-stopword token of length ≥ 4), source files whose filename
@@ -943,9 +863,9 @@ class RepositoryMapEngine:
                 # else: top_segment in {scripts, public-rendezvous, …} → Ananta
             if is_third_party:
                 score *= 0.2
-            if self._path_in_focus(rel_path, path_focus):
+            if path_is_in_focus(rel_path, path_focus):
                 score *= 2.4
-                if self._path_in_focus(rel_path, path_focus, preferred_only=True):
+                if path_is_in_focus(rel_path, path_focus, preferred_only=True):
                     score *= 1.35
             preview = ", ".join(symbols[:20])
             candidates.append(
@@ -1027,10 +947,10 @@ class RepositoryMapEngine:
         selected_sources = {chunk.source for chunk in selected}
         focused = [
             chunk for chunk in ranked
-            if chunk.source not in selected_sources and self._path_in_focus(chunk.source, path_focus)
+            if chunk.source not in selected_sources and path_is_in_focus(chunk.source, path_focus)
         ]
         min_results = max(1, int(path_focus.get("min_results") or 1))
-        current_focus_count = sum(1 for chunk in selected if self._path_in_focus(chunk.source, path_focus))
+        current_focus_count = sum(1 for chunk in selected if path_is_in_focus(chunk.source, path_focus))
         for chunk in focused:
             if current_focus_count >= min_results:
                 break

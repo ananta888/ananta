@@ -35,6 +35,36 @@ from agent.services.semantic_media_audit_service import (
     SemanticMediaAuditEvent,
     SemanticMediaAuditPort,
 )
+from agent.services.semantic_sfu_admission_validation import (
+    SfuAdmissionError,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    bounded_id as _id,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    exact_bool as _exact_bool,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    mutation_context as _mutation_context,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    nonnegative_int as _nonnegative_int,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    positive_int as _positive_int,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    publication_limits as _limits,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    request_digest as _digest,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    room_id as _room_id,
+)
+from agent.services.semantic_sfu_admission_validation import (
+    valid_id as _valid_id,
+)
 from agent.services.sfu_broadcast_capacity_profile_resolver import (
     SfuBroadcastCapacityProfileError,
     SfuBroadcastCapacityProfilePort,
@@ -49,17 +79,9 @@ from agent.services.sfu_vendor_identity_service import SfuVendorIdentityService
 from agent.services.share_session_service import get_share_session_service
 from agent.services.webrtc_epoch_service import get_webrtc_epoch_service
 
-_ID_MAX_BYTES = 128
 _TOKEN_TTL_MAX_SECONDS = 60
 _ALLOWED_SOURCES = frozenset({"microphone", "camera", "screen"})
 _SOURCE_TO_LIVEKIT = {"microphone": "microphone", "camera": "camera", "screen": "screen_share"}
-
-
-class SfuAdmissionError(ValueError):
-    def __init__(self, reason_code: str, status_code: int = 400) -> None:
-        self.reason_code = reason_code
-        self.status_code = status_code
-        super().__init__(reason_code)
 
 
 @dataclass(frozen=True)
@@ -861,74 +883,6 @@ class SemanticSfuAdmissionService:
         if found.request_digest != digest:
             raise SfuAdmissionError("sfu_idempotency_conflict", 409)
         return json.loads(json.dumps(found.result))
-
-
-def _mutation_context(request: Mapping[str, Any]) -> tuple[str, str, int, int]:
-    return (
-        _id(request.get("session_id"), "session_id"),
-        _id(request.get("idempotency_key"), "idempotency_key"),
-        _positive_int(request.get("membership_epoch"), "membership_epoch"),
-        _nonnegative_int(request.get("expected_revision"), "expected_revision"),
-    )
-
-
-def _limits(raw: Any, source: str) -> dict[str, int]:
-    if not isinstance(raw, Mapping):
-        raise SfuAdmissionError("sfu_publication_constraints_invalid")
-    defaults = {
-        "microphone": (128_000, 0, 0, 0),
-        "camera": (2_000_000, 1920, 1080, 30),
-        "screen": (4_000_000, 2560, 1440, 30),
-    }
-    maximum = defaults[source]
-    keys = ("max_bitrate_bps", "max_width", "max_height", "max_fps")
-    values: list[int] = []
-    for key, upper in zip(keys, maximum, strict=True):
-        value = raw.get(key)
-        if not isinstance(value, int) or isinstance(value, bool) or value < 0 or value > upper:
-            raise SfuAdmissionError("sfu_publication_constraints_invalid")
-        values.append(value)
-    if values[0] < 6000 or (source != "microphone" and (values[1] < 1 or values[2] < 1 or values[3] < 1)):
-        raise SfuAdmissionError("sfu_publication_constraints_invalid")
-    return dict(zip(keys, values, strict=True))
-
-
-def _room_id(tenant_id: str, session_id: str) -> str:
-    digest = hashlib.sha256(f"{tenant_id}\x1f{session_id}".encode()).hexdigest()[:32]
-    return f"sfu-{digest}"
-
-
-def _id(value: Any, field: str) -> str:
-    if not _valid_id(value):
-        raise SfuAdmissionError(f"sfu_{field}_invalid")
-    return str(value)
-
-
-def _valid_id(value: Any) -> bool:
-    return isinstance(value, str) and 1 <= len(value.encode("utf-8")) <= _ID_MAX_BYTES and not value.isspace()
-
-
-def _positive_int(value: Any, field: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 1:
-        raise SfuAdmissionError(f"sfu_{field}_invalid")
-    return value
-
-
-def _nonnegative_int(value: Any, field: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
-        raise SfuAdmissionError(f"sfu_{field}_invalid")
-    return value
-
-
-def _exact_bool(value: Any, field: str) -> bool:
-    if type(value) is not bool:
-        raise SfuAdmissionError(f"sfu_{field}_invalid")
-    return value
-
-
-def _digest(value: Mapping[str, Any]) -> str:
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
-    return hashlib.sha256(encoded).hexdigest()
 
 
 _SERVICE: SemanticSfuAdmissionService | None = None

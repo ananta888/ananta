@@ -2,9 +2,17 @@ import os
 
 from agent.config import settings
 from agent.config_defaults_env import (
-    apply_env_config_overrides,
-    merge_db_config_overrides,
-    sync_runtime_state,
+    apply_env_config_overrides as apply_env_config_overrides,
+)
+from agent.config_defaults_env import (
+    merge_db_config_overrides as merge_db_config_overrides,
+)
+from agent.config_defaults_env import (
+    sync_runtime_state as sync_runtime_state,
+)
+from agent.config_defaults_quality import (
+    approval_lifecycle_defaults,
+    generated_source_line_policy_defaults,
 )
 from agent.model_selection import normalize_legacy_model_name
 from agent.runtime_profiles import runtime_profile_catalog
@@ -668,93 +676,12 @@ def build_default_agent_config() -> dict:
             "test_timeout_seconds": 120,
             "test_output_max_chars": 4000,
         },
-        "generated_source_line_policy": {
-            "enabled": False,
-            "mode": "warn",
-            "create_followup_todo": False,
-            "max_report_files": 50,
-            "categories": {
-                "production_source": {
-                    "target_lines": 800,
-                    "warn_after_lines": 600,
-                    "hard_max_lines": 1000,
-                    "new_over_hard_action": "block",
-                    "cross_hard_action": "require_followup",
-                    "existing_over_hard_growth_action": "require_followup",
-                    "existing_over_hard_shrink_action": "warn",
-                    "warn_action": "warn",
-                },
-                "facade_or_routes": {
-                    "target_lines": 900,
-                    "warn_after_lines": 700,
-                    "hard_max_lines": 1000,
-                    "new_over_hard_action": "require_followup",
-                    "cross_hard_action": "require_followup",
-                    "existing_over_hard_growth_action": "require_followup",
-                    "existing_over_hard_shrink_action": "warn",
-                    "warn_action": "warn",
-                },
-                "tests": {
-                    "target_lines": 1000,
-                    "warn_after_lines": 1000,
-                    "hard_max_lines": 1500,
-                    "new_over_hard_action": "warn",
-                    "cross_hard_action": "warn",
-                    "existing_over_hard_growth_action": "require_followup",
-                    "existing_over_hard_shrink_action": "warn",
-                    "warn_action": "warn",
-                },
-                "data_schema_config": {
-                    "target_lines": 1200,
-                    "warn_after_lines": 1200,
-                    "hard_max_lines": 1500,
-                    "new_over_hard_action": "warn",
-                    "cross_hard_action": "warn",
-                    "existing_over_hard_growth_action": "warn",
-                    "existing_over_hard_shrink_action": "warn",
-                    "warn_action": "warn",
-                },
-                "generated": {
-                    "target_lines": 1200,
-                    "warn_after_lines": 1200,
-                    "hard_max_lines": 1500,
-                    "new_over_hard_action": "warn",
-                    "cross_hard_action": "warn",
-                    "existing_over_hard_growth_action": "warn",
-                    "existing_over_hard_shrink_action": "warn",
-                    "warn_action": "warn",
-                },
-            },
-        },
+        "generated_source_line_policy": generated_source_line_policy_defaults(),
         # ALWA-011/020: persistent approval lifecycle. Disabled by default —
         # legacy approval_confirmed keeps working as explicit
         # backward-compatibility policy until the lifecycle is rolled out.
         # Auto-approval never grants the human_required tools.
-        "approval_lifecycle": {
-            "enabled": False,
-            "legacy_approval_confirmed_enabled": True,
-            "default_ttl_seconds": 3600,
-            "grant_one_shot": True,
-            "auto_approval_policy": {
-                "safe": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
-                "balanced": {"read_only": True, "controlled_workspace_writes": True, "test_run": True},
-                "strict": {"read_only": True, "controlled_workspace_writes": False, "test_run": False},
-            },
-            "human_required_tools": [
-                "git.push",
-                "git.commit",
-                "secret.read",
-                "service.restart",
-                "network.fetch_arbitrary",
-                "shell.run_unrestricted",
-                "external_worker.execute_mutation",
-            ],
-            "goal_pre_approvals": {
-                "enabled": False,
-                "tools": ["test.run"],
-                "ttl_seconds": 7200,
-            },
-        },
+        "approval_lifecycle": approval_lifecycle_defaults(),
         "propose_policy": {
             "context_compaction_enabled": True,
             "context_compaction_required": False,
@@ -849,7 +776,9 @@ def build_default_agent_config() -> dict:
             "schema": "ananta_worker_parallelism_config_v1",
             "enabled": True,
             "resource_caps_are_authoritative": True,
-            "effective_concurrency_rule": "min(security_policy_cap, worker_capacity, runtime_capacity, ollama_model_capacity)",
+            "effective_concurrency_rule": (
+                "min(security_policy_cap, worker_capacity, runtime_capacity, ollama_model_capacity)"
+            ),
             "ollama": {
                 "enabled": True,
                 "default_endpoint": "http://ollama:11434",

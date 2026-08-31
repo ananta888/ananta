@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import time
 import uuid
@@ -21,6 +20,7 @@ from agent.services.hrm_experiments.admission import (
     HrmAdmissionScope,
     HrmManifestAdmissionService,
 )
+from agent.services.hrm_experiments.application_paging import HrmCursorError, decode_cursor, encode_cursor, page
 from agent.services.hrm_experiments.artifact_store import HrmArtifactStoreAdapter
 from agent.services.hrm_experiments.contracts import (
     HrmContractValidator,
@@ -319,7 +319,7 @@ class HrmExperimentApplicationService:
         rows = self._repository.list_datasets(
             principal.tenant_id, project_id, offset=offset, limit=limit + 1
         )
-        return self._page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
+        return page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
 
     def admit_checkpoint(
         self,
@@ -383,7 +383,7 @@ class HrmExperimentApplicationService:
         rows = self._repository.list_checkpoints(
             principal.tenant_id, project_id, offset=offset, limit=limit + 1
         )
-        return self._page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
+        return page([dict(row.manifest) for row in rows], offset=offset, limit=limit)
 
     def start_run(
         self,
@@ -474,7 +474,7 @@ class HrmExperimentApplicationService:
         rows = self._repository.list_runs(
             principal.tenant_id, project_id, offset=offset, limit=limit + 1
         )
-        return self._page([self.run_status(row) for row in rows], offset=offset, limit=limit)
+        return page([self.run_status(row) for row in rows], offset=offset, limit=limit)
 
     def get_run(self, principal: HrmPrincipal, *, project_id: str, run_id: str) -> dict[str, Any]:
         run = self._repository.get_run(principal.tenant_id, project_id, run_id)
@@ -779,7 +779,7 @@ class HrmExperimentApplicationService:
             "epoch": max(1, run.epoch),
             "events": [dict(row.event) for row in selected],
             "next_cursor": (
-                self._encode_cursor(selected[-1].sequence)
+                encode_cursor(selected[-1].sequence)
                 if len(rows) > limit and selected
                 else None
             ),
@@ -966,28 +966,10 @@ class HrmExperimentApplicationService:
 
     @staticmethod
     def _decode_cursor(cursor: str | None) -> int:
-        if not cursor:
-            return 0
         try:
-            raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode()
-            value = int(raw)
-        except (ValueError, UnicodeError) as exc:
+            return decode_cursor(cursor)
+        except HrmCursorError as exc:
             raise HrmApplicationError("hrm.cursor_invalid", status_code=400) from exc
-        if value < 0:
-            raise HrmApplicationError("hrm.cursor_invalid", status_code=400)
-        return value
-
-    @staticmethod
-    def _encode_cursor(value: int) -> str:
-        return base64.urlsafe_b64encode(str(value).encode()).decode().rstrip("=")
-
-    @classmethod
-    def _page(cls, items: list[Any], *, offset: int, limit: int) -> dict[str, Any]:
-        selected = items[:limit]
-        return {
-            "items": selected,
-            "next_cursor": cls._encode_cursor(offset + limit) if len(items) > limit else None,
-        }
 
     @staticmethod
     def _require_enabled() -> None:
