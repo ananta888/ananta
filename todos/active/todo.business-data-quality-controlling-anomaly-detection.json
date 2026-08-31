@@ -1,0 +1,295 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "business-data-quality-controlling-anomaly-detection",
+  "title": "Business Data Quality, Controlling und Auffälligkeitserkennung",
+  "version": "1.0.0",
+  "status": "active",
+  "priority": "P1",
+  "project": "ananta",
+  "owner": "ananta888",
+  "created": "2026-08-31",
+  "updated": "2026-08-31",
+  "source_basis": [
+    {
+      "source": "K-Dense-AI/scientific-agent-skills",
+      "relevance": "EDA, statistische Analyse, Zeitreihenprognosen und Tabellenanalyse liefern optionale Analysebausteine, aber keine Controlling-Fachlogik."
+    },
+    {
+      "source": "Ananta Scientific Skills Adapter Todo",
+      "path": "todos/active/todo.scientific-agent-skills-selective-adapter.json",
+      "relevance": "External skills remain pinned, selectively admitted and policy-gated behind an Ananta-native adapter."
+    }
+  ],
+  "repo_alignment": {
+    "architecture": "Ananta remains the server-side control plane. Deterministic accounting and data-quality rules execute before optional statistical or LLM-assisted analysis.",
+    "integration": "Use existing Sources, Context Policy, Approval, Audit, Artifact and CodeCompass boundaries. No external-skill type, secret or implicit capability reaches a public Ananta contract.",
+    "storage": "Raw input remains immutable and access-controlled; normalized datasets, findings, explanations and evidence get separate versioned artifact identities."
+  },
+  "acceptance_summary": [
+    "A user can import an authorized CSV/XLSX export, map its schema, run reproducible checks and receive findings with row/cell references and evidence.",
+    "Deterministic reconciliation and rule violations are strictly separated from statistical anomalies and LLM-generated explanations.",
+    "Each finding is traceable to dataset version, mapping, rule/model version, parameters, execution environment and approval state.",
+    "No data is sent externally, no business record is changed and no action is taken without explicit policy and approval."
+  ],
+  "non_goals": [
+    "No replacement for ERP, accounting software, tax advice, audit opinion or legally binding accounting decisions.",
+    "No automatic posting, payment, correction, deletion or booking reversal.",
+    "No full K-Dense skill import; approved skills can only enrich the analysis through the selective adapter."
+  ],
+  "tasks": [
+    {
+      "id": "CTRL-FOUND-001",
+      "title": "Canonical business-dataset and finding contracts define",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [],
+      "repo_evidence": [
+        "agent/services/",
+        "agent/repositories/",
+        "agent/routes/",
+        "tests/contracts/"
+      ],
+      "files_to_create": [
+        "A versioned schema module at the existing backend contract location, determined during implementation."
+      ],
+      "files_to_modify": [],
+      "implementation": "Define neutral contracts for dataset source/version, column mapping, period, currency, record locator, finding type, severity, evidence, confidence, disposition and immutable execution receipt. Do not model a particular ERP as the canonical format.",
+      "acceptance_criteria": [
+        "Contracts distinguish deterministic violation, reconciliation mismatch, statistical anomaly and advisory explanation.",
+        "A record locator can reference CSV row or XLSX sheet/cell range without copying sensitive raw values into logs.",
+        "Schema evolution and unknown fields are fail-closed.",
+        "Contract tests prove stable IDs and backward-compatible read behavior."
+      ]
+    },
+    {
+      "id": "CTRL-ING-002",
+      "title": "Authorized import, profiling and schema mapping build",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [
+        "CTRL-FOUND-001"
+      ],
+      "repo_evidence": [
+        "agent/routes/sources.py",
+        "agent/services/context_bundle_ingress_policy.py",
+        "tests/security/"
+      ],
+      "files_to_create": [
+        "A controlling import/profile service and fixtures at paths selected after repository inventory."
+      ],
+      "files_to_modify": [
+        "Existing source admission and artifact registration integration points, only after confirming their contracts."
+      ],
+      "implementation": "Accept only approved CSV/XLSX sources through existing Source-Admission. Create an immutable profile: headers, types, nulls, duplicates, date/amount/currency validity and a user-confirmable source-to-canonical mapping.",
+      "acceptance_criteria": [
+        "Macros, formulas as executable content, external links, path traversal and unsupported workbook objects are not executed.",
+        "Raw files remain access-controlled; profile reports aggregate values by default.",
+        "A mapping requires explicit confirmation before checks run.",
+        "Invalid date, decimal, currency and account fields produce bounded import findings instead of silent coercion."
+      ]
+    },
+    {
+      "id": "CTRL-RULE-003",
+      "title": "Versioned deterministic controlling rule catalog implement",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [
+        "CTRL-ING-002"
+      ],
+      "repo_evidence": [
+        "agent/services/",
+        "agent/repositories/",
+        "tests/contracts/",
+        "tests/security/"
+      ],
+      "files_to_create": [
+        "A declarative controlling-rule catalog and deterministic evaluator."
+      ],
+      "files_to_modify": [],
+      "implementation": "Provide auditable, declarative rules for required fields, duplicate invoice candidates, negative/zero amount policy, invalid period, missing/unknown cost center, currency mismatch, approval limit breach and configurable account/cost-center cross-checks. Rules may flag, never mutate.",
+      "acceptance_criteria": [
+        "Every finding identifies its rule ID/version, exact parameters and bounded record locator.",
+        "Rule evaluation is deterministic, offline-capable and unit-testable without an LLM.",
+        "Tenant/project-specific threshold changes are versioned and approval-gated.",
+        "Duplicate detection distinguishes exact duplicates from similarity candidates and never silently suppresses records."
+      ]
+    },
+    {
+      "id": "CTRL-REC-004",
+      "title": "Reconciliation and variance checks add",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [
+        "CTRL-RULE-003"
+      ],
+      "repo_evidence": [
+        "agent/services/",
+        "agent/repositories/",
+        "tests/"
+      ],
+      "files_to_create": [
+        "Reconciliation and variance-check services with synthetic business-data fixtures."
+      ],
+      "files_to_modify": [],
+      "implementation": "Implement explicit checks for debit/credit or source/target totals, line-to-header totals, subtotal/tax/total relationships, period-over-period and budget-versus-actual variances. Every comparison declares tolerances and aggregation grain.",
+      "acceptance_criteria": [
+        "Reconciliation reports expected, actual, difference, tolerance and included/excluded record counts.",
+        "Currency, time zone, fiscal period and rounding policy are explicit inputs.",
+        "Incomplete or mixed-grain data produces an inconclusive result, not a false pass.",
+        "Synthetic fixtures cover valid, tolerance-boundary, mismatch and incomplete-data cases."
+      ]
+    },
+    {
+      "id": "CTRL-STAT-005",
+      "title": "Optional statistical anomaly and forecast adapter add",
+      "status": "open",
+      "priority": "P1",
+      "dependencies": [
+        "CTRL-REC-004",
+        "SAS-ADP-004",
+        "SAS-QA-008"
+      ],
+      "repo_evidence": [
+        "todos/active/todo.scientific-agent-skills-selective-adapter.json",
+        "agent/services/",
+        "tests/"
+      ],
+      "files_to_create": [
+        "An Ananta-native statistical-analysis adapter and evaluation fixtures."
+      ],
+      "files_to_modify": [],
+      "implementation": "Behind the selective skills adapter, permit approved local/pinned EDA, statsmodels or forecasting capabilities for outlier scoring, residual diagnostics and prediction intervals. The adapter receives anonymized/minimized projections and returns findings, never raw upstream output as truth.",
+      "acceptance_criteria": [
+        "Statistical findings name method, feature/time window, training/reference range, parameters, threshold and confidence.",
+        "A statistical anomaly cannot override deterministic reconciliation or accounting-rule results.",
+        "No model/package download or external API call happens without explicit preflight and approval.",
+        "Baseline tests quantify false-positive behavior on known seasonal and one-off business events."
+      ]
+    },
+    {
+      "id": "CTRL-EXPL-006",
+      "title": "Evidence-bounded explanation and investigation workflow add",
+      "status": "open",
+      "priority": "P1",
+      "dependencies": [
+        "CTRL-RULE-003",
+        "CTRL-REC-004",
+        "CTRL-STAT-005"
+      ],
+      "repo_evidence": [
+        "agent/services/context_assembly_trace_service.py",
+        "agent/services/codecompass_context_trace_service.py",
+        "tests/"
+      ],
+      "files_to_create": [
+        "A finding-explanation and investigation-plan service."
+      ],
+      "files_to_modify": [],
+      "implementation": "Generate a concise explanation from only the recorded finding evidence, mapping and permitted related records. Clearly label calculation, anomaly hypothesis and requested human check separately.",
+      "acceptance_criteria": [
+        "An explanation cannot invent data fields, causal claims or accounting decisions.",
+        "Each statement links to a rule, calculation or statistical receipt.",
+        "Prompt-injection text inside business-data fields is treated as data and cannot change the investigation or tool policy.",
+        "The output supports a human disposition: confirmed, false positive, needs data, or accepted exception."
+      ]
+    },
+    {
+      "id": "CTRL-TRACE-007",
+      "title": "Audit, provenance and CodeCompass projection connect",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [
+        "CTRL-FOUND-001",
+        "CTRL-REC-004",
+        "CTRL-EXPL-006"
+      ],
+      "repo_evidence": [
+        "agent/services/codecompass_graph_projection_service.py",
+        "agent/services/codecompass_context_trace_service.py",
+        "agent/routes/codecompass_graph.py",
+        "tests/codecompass/"
+      ],
+      "files_to_create": [
+        "A controlling-finding provenance projection."
+      ],
+      "files_to_modify": [],
+      "implementation": "Project dataset receipt, schema mapping, rule/model version, execution result, human disposition and permitted source relationships into Ananta audit and CodeCompass without exposing raw sensitive values.",
+      "acceptance_criteria": [
+        "A finding can be reconstructed from immutable input receipt and configuration versions.",
+        "CodeCompass explains why a finding exists and which source/version was used.",
+        "Access controls redact source values and restrict row/cell-level detail.",
+        "Historical findings remain reproducible after a rule is superseded or disabled."
+      ]
+    },
+    {
+      "id": "CTRL-UI-008",
+      "title": "Controlling workbench as real API-backed UI expose",
+      "status": "open",
+      "priority": "P1",
+      "dependencies": [
+        "CTRL-TRACE-007"
+      ],
+      "repo_evidence": [
+        "frontend-angular/",
+        "agent/routes/",
+        "tests/client_surfaces/"
+      ],
+      "files_to_create": [
+        "Angular controlling workbench components after API contracts are accepted."
+      ],
+      "files_to_modify": [
+        "Existing API routing/bootstrap only after route inventory."
+      ],
+      "implementation": "Expose authorized imports, mapping review, run configuration, findings, evidence, disposition and export through actual versioned backend APIs. No browser-only calculation or mock state is accepted.",
+      "acceptance_criteria": [
+        "The UI distinguishes rule violations, mismatches, anomalies and advisory explanations visually and textually.",
+        "Users see data version, rule/model version, confidence, evidence and approval requirement before follow-up action.",
+        "Filtering and exports preserve access rules and redaction.",
+        "End-to-end tests run import-to-disposition against real backend contracts."
+      ]
+    },
+    {
+      "id": "CTRL-GATE-009",
+      "title": "Security, quality and staged rollout gate establish",
+      "status": "open",
+      "priority": "P0",
+      "dependencies": [
+        "CTRL-UI-008"
+      ],
+      "repo_evidence": [
+        "tests/security/",
+        "tests/contracts/",
+        "tests/e2e/",
+        "docs/"
+      ],
+      "files_to_create": [
+        "A secrets-free acceptance report template and operator rollout documentation."
+      ],
+      "files_to_modify": [],
+      "implementation": "Run a pilot with synthetic data and read-only analysis; test tenant isolation, malformed files, formula/macro payloads, policy bypass, provenance tampering, false positives and degraded external-skill availability before enabling production data.",
+      "acceptance_criteria": [
+        "Pilot starts with read-only, deterministic rules; statistical/LLM components remain opt-in.",
+        "A global and per-catalog disable switch stops new runs without deleting evidence.",
+        "No finding triggers a financial action automatically.",
+        "Release evidence records coverage, known limits, performance bounds and rollback verification."
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 9,
+    "by_status": {
+      "open": 9
+    },
+    "recommended_order": [
+      "CTRL-FOUND-001",
+      "CTRL-ING-002",
+      "CTRL-RULE-003",
+      "CTRL-REC-004",
+      "CTRL-STAT-005",
+      "CTRL-EXPL-006",
+      "CTRL-TRACE-007",
+      "CTRL-UI-008",
+      "CTRL-GATE-009"
+    ]
+  }
+}
