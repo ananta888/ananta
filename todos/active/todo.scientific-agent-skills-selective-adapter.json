@@ -89,7 +89,7 @@
         {
           "id": "SAS-ADM-003",
           "title": "Kuratierten Catalog statt Vollimport definieren",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "medium",
           "type": "configuration",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 2,
-      "open": 8
+      "done": 3,
+      "open": 7
     },
     "recommended_order": [
       "SAS-INV-001",

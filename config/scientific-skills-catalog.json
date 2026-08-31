@@ -1,0 +1,8 @@
+{
+  "schema_version": "ananta.scientific-skill-catalog.v1",
+  "catalog_id": "scientific-skills-default",
+  "catalog_version": "v1",
+  "feature_enabled": false,
+  "entries": [],
+  "catalog_digest": "493db03b4e9bcf854a15311c7de28db5b1b44d400fddc36cc846a3622c8e078d"
+}
