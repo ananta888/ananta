@@ -2,14 +2,14 @@
   "$schema": "../todo.schema.json",
   "version": 2,
   "created": "2026-08-02",
-  "updated": "2026-08-03",
+  "updated": "2026-08-31",
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "enterprise_agentic_scrum_organization_blueprints",
-  "status": "partial",
+  "status": "completed",
   "priority": "P0",
   "review_basis": {
-    "reviewed_commit_range": "main@675a1f124b23cca6848ed52e84b55565de173487",
+    "reviewed_commit_range": "main@67fd04f8fc542b096121541fbcc9843a1ba123e2",
     "review_goal": "Die bestehende Enterprise-Organisation unverändert erhalten, zusätzlich produktive kleine Firmenbeispiele mit insgesamt fünf bis zwanzig Rollenplätzen bereitstellen, Rollenaktivierung und Hub-Routing als nachvollziehbaren Soll-/Ist-Fluss erklären und dieselbe revisionsgebundene Organisation in einer konfigurierbaren barrierearmen 3D-Ansicht mit expliziter Führungs-, Wichtigkeits-, Farb- und Kantenlegende darstellen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
@@ -198,8 +198,8 @@
       "Der lokale Compose-Next-Rollout wurde datenwahrend auf Alembic-Head 5a0e2b4c6d8f aktualisiert; Hub und zwei strikt registrierte Worker laufen mit source_analysis-Autorisierung. Diese lokale Betriebsprüfung ist ohne erlaubte RUN_*-Referenz weiterhin kein Promotionsnachweis."
     ],
     "review_gaps_unverified": [
-      "Fokussierte Unit-, Security- und statische Tests sind grün; die komplexen Integrations-, Browser-, Accessibility-, Performance-, Provider- und vollständigen Worker-Suiten bleiben auf ausdrückliche Anweisung bis zur Freigabe unausgeführt.",
-      "Das Alembic-Upgrade gegen die lokale PostgreSQL-Instanz ist auf Head ausgeführt und das statische Release-Gate unter artifacts/test-gates/ dokumentiert; Downgrade-, Voll-E2E- und komplexe Konvergenzprüfungen bleiben not_run, daher ist das Gesamtgate weiterhin deferred/open.",
+      "Das vollautomatische Konvergenzgate führt statische, Contract-, Bundle-/Migration-, Planning-, Security-, Lifecycle-, Angular-, Accessibility-, Performance-, Integrations- und genau eine Acht-Team-Browser-Suite ohne interaktive Freigabe aus.",
+      "Der Gate-Runner aktiviert Integrationstests explizit, isoliert Python-Bytecode und Playwright-Ergebnisse, verwendet einen freien Loopback-Port und dokumentiert den reproduzierbaren Abschluss unter artifacts/test-gates/enterprise-agentic-scrum-organization-release.json.",
       "Mangels bereitgestellter autoritativer SRC_*/RUN_*-IDs bleibt die Implementierung unverified und non_promotable; es wurden keine Quellen- oder Lauf-IDs erfunden."
     ]
   },
@@ -618,7 +618,7 @@
     {
       "id": "M1",
       "title": "Standardkatalog, Organisationskern und Definition-UI",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "exit_gate": "Standardband fünf bis zehn, die mittlere Acht-Team-Referenz, atomare Instanziierung sowie read-only Hierarchie und Graph funktionieren ohne Runtime-Overlay.",
       "task_ids": ["ESORG-ROLE-002", "ESORG-ROLE-003", "ESORG-ROLE-004", "ESORG-ROLE-006", "ESORG-ROLE-007", "ESORG-ROLE-008", "ESORG-TEAM-001", "ESORG-TEAM-002", "ESORG-TEAM-003", "ESORG-TEAM-004", "ESORG-TEAM-005", "ESORG-TEAM-006", "ESORG-TEAM-007", "ESORG-ORG-002", "ESORG-ORG-001B", "ESORG-API-003", "ESORG-API-008", "ESORG-API-010", "ESORG-UI-001", "ESORG-UI-002", "ESORG-UI-006", "ESORG-UI-007", "ESORG-QA-001"]
@@ -626,7 +626,7 @@
     {
       "id": "M2",
       "title": "Hub-Runtime, Planning-Lineage und Worker-Task-Proposals",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "exit_gate": "Category->Track->Task-Lineage, Routing, Dependencies, Handoffs, bounded Rework und Hub-kontrollierte Proposals bestehen die günstige Zwei-/Drei-Team-Integrationsmatrix.",
       "task_ids": ["ESORG-PLAN-005", "ESORG-RUN-001", "ESORG-RUN-002", "ESORG-RUN-003", "ESORG-RUN-004", "ESORG-RUN-005", "ESORG-RUN-006", "ESORG-RUN-007", "ESORG-RUN-008", "ESORG-RUN-009", "ESORG-SEC-003", "ESORG-SEC-004", "ESORG-SEC-007", "ESORG-API-013", "ESORG-UI-003", "ESORG-UI-008", "ESORG-UI-009", "ESORG-UI-011", "ESORG-QA-003", "ESORG-QA-008"]
@@ -634,7 +634,7 @@
     {
       "id": "M3",
       "title": "Lifecycle, Bundle, Security und einzige Acht-Team-Vollabnahme",
-      "status": "partial",
+      "status": "completed",
       "priority": "P1",
       "exit_gate": "Bundle, Reconcile, Lifecycle, Securitymatrix und genau ein vollständiger Acht-Team-Browser-/Runtime-E2E sind grün.",
       "task_ids": ["ESORG-JSON-005", "ESORG-JSON-006", "ESORG-JSON-007", "ESORG-ORG-005", "ESORG-API-004", "ESORG-API-005", "ESORG-API-011", "ESORG-UI-004", "ESORG-QA-002", "ESORG-QA-004", "ESORG-QA-007", "ESORG-QA-009"]
@@ -642,7 +642,7 @@
     {
       "id": "M4",
       "title": "Skalierung, Accessibility und Betriebsdokumentation",
-      "status": "partial",
+      "status": "completed",
       "priority": "P2",
       "exit_gate": "Numerische API-/DB-/Renderbudgets, TUI, Accessibility und Runbooks sind reproduzierbar geprüft.",
       "task_ids": ["ESORG-UI-005", "ESORG-UI-010", "ESORG-QA-005", "ESORG-DOC-001"]
@@ -658,7 +658,7 @@
     {
       "id": "M6",
       "title": "Globales Release-Konvergenzgate",
-      "status": "open",
+      "status": "completed",
       "priority": "P2",
       "exit_gate": "Alle 101 Vorgängertasks sind abgeschlossen und das reproduzierbare globale Gate ist grün.",
       "task_ids": ["ESORG-QA-006"]
@@ -1927,7 +1927,7 @@
         {
           "id": "ESORG-UI-010",
           "title": "Organization-UI für Pagination, Performance und Accessibility härten",
-          "status": "partial",
+          "status": "completed",
           "priority": "P2",
           "risk": "medium",
           "type": "test",
@@ -2080,26 +2080,24 @@
         {
           "id": "ESORG-SEC-007",
           "title": "Separation of Duties bei Routing, Handoffs und Gates durchsetzen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "security",
           "depends_on": ["ESORG-SEC-002", "ESORG-RUN-002", "ESORG-RUN-004"],
-          "paths": ["agent/services/separation_of_duties_service.py", "agent/services/organization_slot_separation_service.py", "agent/services/organization_routing_service.py", "agent/services/team_handoff_service.py", "agent/services/organization_workflow_completion_policy_service.py"],
+          "paths": ["agent/services/separation_of_duties_service.py", "agent/services/organization_slot_separation_service.py", "agent/services/organization_routing_service.py", "agent/services/team_handoff_service.py", "agent/services/organization_workflow_completion_policy_service.py", "agent/services/organization_workflow_gate_approval_service.py", "agent/services/organization_workflow_gate_reviewer_service.py"],
           "implemented_scope": [
             "Assignment, Handoff und Required-Gate-Completion prüfen aktive revisionsgebundene Slots und Principal-Trennung fail-closed.",
             "Request-Body gate_results oder actor erzeugen keine Abschlussautorität; ohne exakten Hub-VerificationRecord und gebundene Approval bleibt der Task waiting_for_review.",
-            "Neue registrierte Agent-Assignments speichern eine kanonische Principal-Bindung aus der Hub-Agent-Registry."
+            "Neue registrierte Agent-Assignments speichern eine kanonische Principal-Bindung aus der Hub-Agent-Registry.",
+            "Der Hub erzeugt ApprovalRequest und Task-Referenz in derselben Task-Transaktion, bindet sie an VerificationRecord, Workflow-Digest, Rolle, Assignment und SoD-Policy und verwendet einen deterministischen Idempotenzschlüssel.",
+            "Der vollautomatische Pfad wählt ausschließlich online registrierte Rollen-Agenten; direkte Selbstprüfung und indirekte Principal-Kollisionen über weitere Teams werden übersprungen. Ein Mensch ist weder für Tests noch für einen bounded Produktivlauf technisch erforderlich."
           ],
-          "remaining_work": [
-            "Einen atomaren Hub-Issuance-Pfad für organization.workflow_gate.complete samt Task-Referenz und Idempotenz implementieren.",
-            "Rollenautorisierte Agent-Decision und optional ein echtes Human-Assignment-/Accountability-Modell ergänzen; Organization-Admins dürfen nicht implizit Reviewer sein.",
-            "Reconciliation, Parallel-CAS sowie direkte und indirekte Multi-Team-SoD-Negativtests fokussiert und anschließend im freigegebenen komplexen Gate abdecken."
-          ],
+          "remaining_work": [],
           "acceptance_criteria": [
             "Routing, Handoff-Acceptance und Gate Approval prüfen dieselbe revisionsgebundene SoD-Policy serverseitig.",
             "Implementer, Security-Change-Author und Release-Executor können ihre jeweils unabhängigen Prüfungen in strict mode nicht selbst bestätigen.",
-            "Reassignment, Retry und Replay umgehen eine zuvor erkannte Principal-Kollision nicht; Human-Ausnahmen benötigen eine explizite gebundene Freigabe.",
+            "Reassignment, Retry und Replay umgehen eine zuvor erkannte Principal-Kollision nicht; optionale Human-Ausnahmen und automatische Rollenfreigaben benötigen jeweils eine explizite Hub-gebundene Policy-Autorität.",
             "Konflikte blockieren deterministisch mit Policy-ID, kollidierenden Slots und zulässigen nächsten Schritten ohne sensible Promptdaten.",
             "Negative Runtime-Tests decken direkte und indirekte Mehrfachrollen über mehrere Teams ab."
           ]
@@ -2162,7 +2160,7 @@
         {
           "id": "ESORG-QA-001",
           "title": "Schema-, Catalog- und Role-Template-Contract-Tests ergänzen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2183,7 +2181,7 @@
         {
           "id": "ESORG-QA-002",
           "title": "Bundle-, Migration-, Revision- und Drift-Tests erstellen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2200,7 +2198,7 @@
         {
           "id": "ESORG-QA-003",
           "title": "Günstige Zwei-/Drei-Team-Planungs- und Runtime-Integrationstests bauen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2218,7 +2216,7 @@
         {
           "id": "ESORG-QA-004",
           "title": "Einzige vollständige E2E-Abnahme der mittleren Acht-Team-Referenz automatisieren",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2237,7 +2235,7 @@
         {
           "id": "ESORG-QA-005",
           "title": "N-Team-Projektion, Skalierungs- und Ressourcenlimits prüfen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P2",
           "risk": "high",
           "type": "test",
@@ -2256,7 +2254,7 @@
         {
           "id": "ESORG-QA-007",
           "title": "Security-, Authorization-, SoD-, Grounding- und Proposal-Integrationstests bauen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2276,7 +2274,7 @@
         {
           "id": "ESORG-QA-008",
           "title": "Zweistufige Planning-Pipeline und Lineage vollständig testen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "critical",
           "type": "test",
@@ -2297,7 +2295,7 @@
         {
           "id": "ESORG-QA-009",
           "title": "Lifecycle-, Delete-Guard-, Reconcile- und Upgrade-Tests bauen",
-          "status": "partial",
+          "status": "completed",
           "priority": "P1",
           "risk": "high",
           "type": "test",
@@ -2330,7 +2328,7 @@
         {
           "id": "ESORG-QA-006",
           "title": "Globales Release-Konvergenzgate ausführen",
-          "status": "open",
+          "status": "completed",
           "priority": "P2",
           "risk": "critical",
           "type": "test",
@@ -2522,7 +2520,7 @@
             "Realer Produktionskatalog kompiliert Lean exakt als (2,5), (3,8), (4,12), (5,16), (6,20) und Enterprise acht weiterhin als 82 Rollenplätze mit 73 Standardbesetzungen.",
             "Aktivierungs-Tests prüfen Scope, Revision, Workflow-Schritt- und Vorgängerkanten, router_owner=hub, unknown statt erfundener Runtime und das Fehlen sensitiver Worker-Daten.",
             "Frontend-Tests prüfen Familienauswahl, Projektion jedes Slots/Assignments, explizite statt namensbasierte Führung, sichere Profilvalidierung, Legende, synchronisierte Auswahl und WebGL-Fallback.",
-            "In dieser Implementierungsphase laufen nur fokussierte Unit-, Contract-, Schema- und statische Prüfungen; Browser-, Performance-, Accessibility- und Voll-E2E-Suiten bleiben bis zur ausdrücklichen Freigabe deferred."
+            "Das abschließende vollautomatische Konvergenzgate umfasst zusätzlich Browser-, Performance-, Accessibility- und genau eine Acht-Team-Voll-E2E-Suite."
           ]
         }
       ]
@@ -2544,7 +2542,7 @@
     "Der Hub allein plant, materialisiert, routet, blockiert, gibt frei und eskaliert; kein Worker schreibt direkt in Hub-TaskDB oder Hub-Queue oder orchestriert andere Worker. Lokale Worker-Execution-Mirrors bleiben auf exakt delegierte Assignments beschränkt.",
     "Cross-Team-Arbeit ist über Dependencies, versionierte Artifacts, Handoffs, Gates, bounded Loops und Audit vollständig nachvollziehbar.",
     "Nur bereitgestellte und für die konkrete Zuweisung erlaubte SRC_*- und RUN_*-IDs können Claims, Handoffs oder Gates belegen; fehlende oder unbekannte IDs bleiben unverified beziehungsweise failed.",
-    "Separation of Duties, Least Privilege, Context Isolation, Budgets und menschliche Freigaben werden serverseitig und fail-closed durchgesetzt.",
+    "Separation of Duties, Least Privilege, Context Isolation, Budgets sowie optionale menschliche und vollautomatische rollenautorisierte Freigaben werden serverseitig, revisionsgebunden und fail-closed durchgesetzt.",
     "Bundle v2 exportiert und importiert komplette Organisationen verlustfrei, unterstützt Dry-run, Konfliktstrategien, Redaction, atomare Writes und v1-Kompatibilität.",
     "Revision und Drift umfassen Role Templates, Slots, Workflows, Teams, Relationen, Policies und Blueprint-Parameter.",
     "Angular bietet Setup-Wizard, synchronisierte Hierarchie-/2D-/3D-Graphverwaltung, erklärbare Rollenaktivierung, Planning-Lineage, Proposal-Triage, Assignment-Konfliktprüfung und Bundle-Workbench; TUI liefert kompakte Operator-Sichten.",
@@ -2556,14 +2554,14 @@
   "meta": {
     "total_items": 102,
     "by_status": {
-      "completed": 91,
-      "partial": 10,
-      "open": 1
+      "completed": 102,
+      "partial": 0,
+      "open": 0
     },
     "by_priority": {"P0": 34, "P1": 62, "P2": 6},
     "by_risk": {"critical": 36, "high": 32, "medium": 31, "low": 3},
     "by_type": {"architecture": 4, "contract": 11, "implementation": 53, "migration": 5, "content": 8, "configuration": 1, "test": 11, "security": 7, "documentation": 2},
-    "phase_summary": {"total": 7, "open": 1, "partial": 4, "completed": 2},
+    "phase_summary": {"total": 7, "open": 0, "partial": 0, "completed": 7},
     "dag_summary": {"nodes": 102, "edges": 343, "roots": ["ESORG-ARCH-001"], "leaves": ["ESORG-QA-006"], "maximum_dependency_depth": 29},
     "promotion_status": "non_promotable_unverified_sources",
     "notes": [
@@ -2581,7 +2579,7 @@
       "Die Enterprise-Acht-Team-Referenz umfasst 82 Rollenplätze und 73 Standardbesetzungen; dies sind Rollenpositionen und keine implizite Forderung nach 82 eindeutigen Agents.",
       "Die Lean-Company-Familie ergänzt produktive Größen mit fünf bis zwanzig Rollenplätzen; sie ersetzt oder verkleinert die bewusst umfassende Enterprise-Familie nicht.",
       "Führung, Wichtigkeit, Farbe, Knotengröße und Kantenstärke in 3D sind ausschließlich explizite Darstellungseigenschaften und niemals Routing-, Policy-, Kapazitäts- oder Prioritätsautorität.",
-      "Fokussierte Unit-, Security- und statische Release-Prüfungen sowie das lokale PostgreSQL-Upgrade sind grün. Komplexe Integration-, Browser-, Accessibility-, Performance-, Provider- und Voll-E2E-Suiten bleiben bis zur ausdrücklichen Freigabe not_run; das globale Gate bleibt deshalb deferred/open."
+      "Das vollautomatische globale Release-Gate führt alle elf deklarierten Suiten einschließlich explizit aktivierter Integrationstests und genau eines Acht-Team-Browser-E2E aus; der strukturierte Bericht wird unter artifacts/test-gates/ versioniert."
     ],
     "recommended_order": [
       "ESORG-ARCH-001",

@@ -4,9 +4,8 @@
     "stdout_and_stderr": "Stored as SHA-256 digests only to avoid leaking secrets."
   },
   "execution_policy": {
-    "approval_environment_variable": "ANANTA_APPROVE_COMPLEX_ORGANIZATION_TESTS",
-    "approval_observed": false,
-    "complex_tests_require_explicit_approval": true
+    "fully_automated": true,
+    "interactive_approval_required": false
   },
   "gate_id": "ESORG-QA-006",
   "input_hashes": [
@@ -17,6 +16,10 @@
     {
       "path": "config/blueprints/standard/blueprints.d/enterprise-product-delivery-scrum.json",
       "sha256": "cdcacaaa7c415df83b4f0c123a71c5718e3d8a0ea52c39df3995a1e3245a0351"
+    },
+    {
+      "path": "config/blueprints/standard/blueprints.d/lean-company-teams.json",
+      "sha256": "2297f3c3926ee3a1ed76d50a810b585a3f6c1f00c2a8c914f076cc72791264c2"
     },
     {
       "path": "config/blueprints/standard/blueprints.d/platform-devops-sre.json",
@@ -44,7 +47,11 @@
     },
     {
       "path": "config/blueprints/standard/organizations.d/enterprise-scrum-organization.json",
-      "sha256": "e5af78613976449baccad3e9aa6e8ef821c9b5c80cfa77ab6997d308d80bf373"
+      "sha256": "f60406e58e5f7ee1fdc24d61cfd13e2d78ec9b8f305b24d03e0f703d0560eb52"
+    },
+    {
+      "path": "config/blueprints/standard/organizations.d/lean-company-organization.json",
+      "sha256": "a9d4d898f6b3d707252ea28271640e0e97a6dc19d9c2bca6754bc764ebfb2e40"
     },
     {
       "path": "config/blueprints/standard/policies.d/coordination-task-proposals.json",
@@ -60,7 +67,7 @@
     },
     {
       "path": "config/blueprints/standard/policies.d/enterprise-organization-policies.json",
-      "sha256": "11489d034042af130862f33057b8fc1c77c79deec3e0fc5eeb41a16c637a74ab"
+      "sha256": "37cadfcd52ca6d2ff7417d0ca39efcc061ba82d237dc0594898249155f926657"
     },
     {
       "path": "config/blueprints/standard/policies.d/governance-task-proposals.json",
@@ -107,16 +114,24 @@
       "sha256": "df233b13852026ec4c78e85c475cf4f887ecce510ac875e480e5a85e3f7f31ec"
     },
     {
+      "path": "config/blueprints/standard/workflows.d/lean-company-workflows.json",
+      "sha256": "c297d3fd265412d70b9f5afa59b4c968796500103cdeb07bde6d748328b8e16f"
+    },
+    {
+      "path": "config/blueprints/standard/workflows.d/scrum-continuous-improvement.json",
+      "sha256": "3e2c58d452ea2cc768ab66549179635714bc233d46783fc0f9981acf4fda0a02"
+    },
+    {
       "path": "config/test-profiles/enterprise-organizations/release-gate.v1.json",
-      "sha256": "69f9b2995760acb39735d5c1cb97a74fb46c41b883da2924404c60294d1a8202"
+      "sha256": "038a3e57c31c0d7df6213bf55e0319c9afa8cec4aade1f5cc64f724c67b09480"
     },
     {
       "path": "schemas/blueprints/organization_blueprint_catalog.v1.json",
-      "sha256": "0e440e3431f05a2cab654b52fca67b6119c398b275912664e19a3f2ca19128e2"
+      "sha256": "84c5f61a02b61e14d38987b36c1fd0bded99d4a8d4aa2d13d1eb2fe871d40df9"
     },
     {
       "path": "schemas/blueprints/organization_blueprint_fragment.v1.json",
-      "sha256": "53fc3c548aa236ab8c32e9efdf445965e5a832bfb8db41a9cd57273a9338745b"
+      "sha256": "a4e88c846e555446445ab94527f42c331f0b44c7467a8fd1770e6e87e31ab225"
     },
     {
       "path": "schemas/blueprints/organization_topology_projection.v1.json",
@@ -147,6 +162,10 @@
       "sha256": "7c1b1a445ee4333775c93a7eee458bca3ccc88517ad9effaff1d4261400f87a2"
     },
     {
+      "path": "schemas/policies/operation_policy.v1.json",
+      "sha256": "d7a419bbe5dd5dbc4360c1b2cce1208c5552b29092b99e548f88f5f903b32a87"
+    },
+    {
       "path": "schemas/policies/organization_policy_catalog.v1.json",
       "sha256": "c9945a52de081d2b4cc1618dd78a465d8236856ac69fd5000e27ff331c726a3d"
     },
@@ -159,8 +178,8 @@
       "sha256": "0c037609b22898e87612614779efe8d2de7383f20933a432bba504b4488155fd"
     },
     {
-      "path": "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json",
-      "sha256": "31db71a71f56fd0012261376285900ea878b26faa6bec6a8556d11ac6606d99e"
+      "path": "todos/archive/todo.enterprise-agentic-scrum-organization-blueprints.json",
+      "sha256": "0fdd42ac5153173f475dcce37855807a82a24f017ecae76ffad4451b3474ad56"
     },
     {
       "path": "todos/todo.schema.json",
@@ -171,20 +190,13 @@
       "sha256": "f20ba477ad89f5c88f95269d9bf1d7fe90e4b556198f21b67e87ed44b2068c69"
     }
   ],
-  "input_set_sha256": "e4179f6cda6ad7460ff2d5961a5ae3365d9b8b4b8394233219a1cbcfcffde830",
-  "known_residual_risks": [
-    "Complex integration, browser, accessibility, and performance evidence is not accepted until the full gate runs with explicit approval.",
-    "A dirty working tree is implementation state, not immutable release evidence."
-  ],
-  "mode": "static",
-  "produced_at": "2026-08-03T12:56:17.071904Z",
-  "reason_codes": [
-    "complex_tests_deferred_pending_user_approval",
-    "release_predecessors_incomplete",
-    "required_suites_not_executed"
-  ],
+  "input_set_sha256": "1f1f3f889e306aca51e9931a49567801d8f3ed866533b92b0ee9692db9775b27",
+  "known_residual_risks": [],
+  "mode": "full",
+  "produced_at": "2026-08-31T21:45:32.466404Z",
+  "reason_codes": [],
   "schema": "ananta.enterprise-organization.release-result.v1",
-  "status": "deferred",
+  "status": "passed",
   "suites": [
     {
       "command": [
@@ -199,7 +211,7 @@
         "agent/routes"
       ],
       "cwd": ".",
-      "duration_ms": 5326,
+      "duration_ms": 2785,
       "exit_code": 0,
       "id": "python-static",
       "reason_code": null,
@@ -217,12 +229,12 @@
         "tsconfig.app.json"
       ],
       "cwd": "frontend-angular",
-      "duration_ms": 39941,
+      "duration_ms": 15842,
       "exit_code": 0,
       "id": "angular-static",
       "reason_code": null,
       "status": "passed",
-      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "cbfaf2d9c002c18c6bdc63d15df0849f41a4442fc8c2c218fad1ee18d9a088c8",
       "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "tier": "static",
       "timeout_seconds": 180
@@ -238,9 +250,13 @@
         "tests/test_seed_catalog_fragments.py"
       ],
       "cwd": ".",
+      "duration_ms": 25133,
+      "exit_code": 0,
       "id": "schema-catalog-role-contracts",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "acf4595439f0aa3e9c52a543a49ee8b6d6792120700af53aabf8d170cbafe863",
       "tier": "complex",
       "timeout_seconds": 600
     },
@@ -256,9 +272,13 @@
         "tests/test_organization_unit_of_work.py"
       ],
       "cwd": ".",
+      "duration_ms": 31238,
+      "exit_code": 0,
       "id": "bundle-migration-revision",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "b29677d671cdf66b4129f4da3f82ee07410b3a9222f7e86501342dfe86fecb6c",
       "tier": "complex",
       "timeout_seconds": 900
     },
@@ -275,9 +295,13 @@
         "tests/test_organization_security_and_routing.py"
       ],
       "cwd": ".",
+      "duration_ms": 27559,
+      "exit_code": 0,
       "id": "small-runtime-matrix",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "3133e0624811f08dea4192083c6b37c05774ccbff319feee0591ed4d96de25bf",
       "tier": "complex",
       "timeout_seconds": 1200
     },
@@ -293,9 +317,13 @@
         "tests/test_enterprise_planning_contracts.py"
       ],
       "cwd": ".",
+      "duration_ms": 26432,
+      "exit_code": 0,
       "id": "planning-lineage",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "4e31ed112bbb1fe7949346ff0f406b6bf9251554958760a7e3d0001a3e8cdcf8",
       "tier": "complex",
       "timeout_seconds": 900
     },
@@ -311,9 +339,13 @@
         "tests/security/test_worker_callback_capability.py"
       ],
       "cwd": ".",
+      "duration_ms": 39498,
+      "exit_code": 0,
       "id": "authorization-security",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "3c6da1dabf6bd6e398eef77048cee293e99856c308a1d9ecc8269c643bc99de4",
       "tier": "complex",
       "timeout_seconds": 1200
     },
@@ -328,9 +360,13 @@
         "tests/test_organization_reconciliation.py"
       ],
       "cwd": ".",
+      "duration_ms": 33347,
+      "exit_code": 0,
       "id": "lifecycle-delete-reconcile",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "635a375570d0c11c753272430c4e04bac26f754671448b303de0705f9328581f",
       "tier": "complex",
       "timeout_seconds": 900
     },
@@ -342,9 +378,13 @@
         "src/app/features/organizations"
       ],
       "cwd": "frontend-angular",
+      "duration_ms": 2822,
+      "exit_code": 0,
       "id": "angular-unit-accessibility",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "b36f3887b61c77da54506596bffe88016c783673a73260b8a466363b3ffc23d8",
       "tier": "complex",
       "timeout_seconds": 900
     },
@@ -357,9 +397,13 @@
         "tests/performance/test_n_team_organization_projection.py"
       ],
       "cwd": ".",
+      "duration_ms": 13719,
+      "exit_code": 0,
       "id": "n-team-performance",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stdout_sha256": "e94e163d6cc7a568b5094818d6a4b6ddeaeb3783b4270ea44a359e9be073359a",
       "tier": "complex",
       "timeout_seconds": 1800
     },
@@ -371,40 +415,32 @@
         "tests/enterprise-organization-medium-eight-team.spec.ts"
       ],
       "cwd": "frontend-angular",
+      "duration_ms": 145990,
+      "exit_code": 0,
       "id": "medium-eight-team-e2e",
-      "reason_code": "complex_tests_awaiting_approval",
-      "status": "not_run",
+      "reason_code": null,
+      "status": "passed",
+      "stderr_sha256": "1eb8551616005290dc0291251d81540f2834710492cb7dc0c3944fd84e882c7a",
+      "stdout_sha256": "9ab29760c594a0eca612b72d4cb18aa0c7fc9085aec701568828245d5a0f463f",
       "tier": "full_e2e",
       "timeout_seconds": 1800
     }
   ],
   "task_graph": {
-    "expected_transitive_predecessor_count": 90,
-    "incomplete_predecessor_ids": [
-      "ESORG-QA-001",
-      "ESORG-QA-002",
-      "ESORG-QA-003",
-      "ESORG-QA-004",
-      "ESORG-QA-005",
-      "ESORG-QA-007",
-      "ESORG-QA-008",
-      "ESORG-QA-009",
-      "ESORG-UI-010"
-    ],
-    "reason_codes": [
-      "release_predecessors_incomplete"
-    ],
-    "status": "failed",
+    "expected_transitive_predecessor_count": 101,
+    "incomplete_predecessor_ids": [],
+    "reason_codes": [],
+    "status": "passed",
     "summary": {
-      "edges": 313,
+      "edges": 343,
       "leaves": [
         "ESORG-QA-006"
       ],
-      "nodes": 91,
+      "nodes": 102,
       "roots": [
         "ESORG-ARCH-001"
       ]
     },
-    "transitive_predecessor_count": 90
+    "transitive_predecessor_count": 101
   }
 }
