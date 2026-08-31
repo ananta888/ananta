@@ -3,7 +3,7 @@
   "id": "business-data-quality-controlling-anomaly-detection",
   "title": "Business Data Quality, Controlling und Auffälligkeitserkennung",
   "version": "1.0.0",
-  "status": "active",
+  "status": "done",
   "priority": "P1",
   "project": "ananta",
   "owner": "ananta888",
@@ -16,7 +16,7 @@
     },
     {
       "source": "Ananta Scientific Skills Adapter Todo",
-      "path": "todos/active/todo.scientific-agent-skills-selective-adapter.json",
+      "path": "todos/archive/todo.scientific-agent-skills-selective-adapter.json",
       "relevance": "External skills remain pinned, selectively admitted and policy-gated behind an Ananta-native adapter."
     }
   ],
@@ -142,7 +142,7 @@
     {
       "id": "CTRL-STAT-005",
       "title": "Optional statistical anomaly and forecast adapter add",
-      "status": "open",
+      "status": "done",
       "priority": "P1",
       "dependencies": [
         "CTRL-REC-004",
@@ -155,7 +155,10 @@
         "tests/"
       ],
       "files_to_create": [
-        "An Ananta-native statistical-analysis adapter and evaluation fixtures."
+        "agent/services/business_controlling_statistics.py",
+        "agent/services/business_controlling_scientific_gate.py",
+        "tests/test_business_controlling_statistics.py",
+        "tests/test_business_controlling_scientific_gate.py"
       ],
       "files_to_modify": [],
       "implementation": "Behind the selective skills adapter, permit approved local/pinned EDA, statsmodels or forecasting capabilities for outlier scoring, residual diagnostics and prediction intervals. The adapter receives anonymized/minimized projections and returns findings, never raw upstream output as truth.",
@@ -164,12 +167,17 @@
         "A statistical anomaly cannot override deterministic reconciliation or accounting-rule results.",
         "No model/package download or external API call happens without explicit preflight and approval.",
         "Baseline tests quantify false-positive behavior on known seasonal and one-off business events."
+      ],
+      "evidence": [
+        "A robust seasonal residual scorer produces separate advisory findings and preserves deterministic findings unchanged.",
+        "The adapter requires a scoped, immutable, controlled-execution Scientific-Skills card with network denied; documentation-only or disabled entries fail closed.",
+        "Synthetic seasonal and one-off fixtures quantify false-positive behavior without package downloads, external APIs or human interaction."
       ]
     },
     {
       "id": "CTRL-EXPL-006",
       "title": "Evidence-bounded explanation and investigation workflow add",
-      "status": "open",
+      "status": "done",
       "priority": "P1",
       "dependencies": [
         "CTRL-RULE-003",
@@ -182,7 +190,8 @@
         "tests/"
       ],
       "files_to_create": [
-        "A finding-explanation and investigation-plan service."
+        "agent/services/business_controlling_explanation.py",
+        "tests/test_business_controlling_explanation.py"
       ],
       "files_to_modify": [],
       "implementation": "Generate a concise explanation from only the recorded finding evidence, mapping and permitted related records. Clearly label calculation, anomaly hypothesis and requested human check separately.",
@@ -191,12 +200,17 @@
         "Each statement links to a rule, calculation or statistical receipt.",
         "Prompt-injection text inside business-data fields is treated as data and cannot change the investigation or tool policy.",
         "The output supports a human disposition: confirmed, false positive, needs data, or accepted exception."
+      ],
+      "evidence": [
+        "Explanations are deterministic projections of bound rule, calculation or statistical receipts; no unconstrained LLM is used.",
+        "Business-cell prompt injection remains prefixed literal data and cannot modify tools or workflow policy.",
+        "Disposition is optional downstream metadata; automated runs and tests never wait for human input."
       ]
     },
     {
       "id": "CTRL-TRACE-007",
       "title": "Audit, provenance and CodeCompass projection connect",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [
         "CTRL-FOUND-001",
@@ -210,21 +224,29 @@
         "tests/codecompass/"
       ],
       "files_to_create": [
-        "A controlling-finding provenance projection."
+        "agent/services/business_controlling_provenance.py",
+        "tests/test_business_controlling_provenance.py"
       ],
-      "files_to_modify": [],
+      "files_to_modify": [
+        "agent/services/codecompass_graph_projection_service.py"
+      ],
       "implementation": "Project dataset receipt, schema mapping, rule/model version, execution result, human disposition and permitted source relationships into Ananta audit and CodeCompass without exposing raw sensitive values.",
       "acceptance_criteria": [
         "A finding can be reconstructed from immutable input receipt and configuration versions.",
         "CodeCompass explains why a finding exists and which source/version was used.",
         "Access controls redact source values and restrict row/cell-level detail.",
         "Historical findings remain reproducible after a rule is superseded or disabled."
+      ],
+      "evidence": [
+        "Content-free dataset, execution, finding and explanation nodes are recognized by the existing CodeCompass projection service.",
+        "Audit projection binds dataset, mapping, execution, rule/model, evidence, explanation and disposition digests.",
+        "Row/cell locators are redacted unless the server-side access decision explicitly permits detail."
       ]
     },
     {
       "id": "CTRL-UI-008",
       "title": "Controlling workbench as real API-backed UI expose",
-      "status": "open",
+      "status": "done",
       "priority": "P1",
       "dependencies": [
         "CTRL-TRACE-007"
@@ -235,7 +257,11 @@
         "tests/client_surfaces/"
       ],
       "files_to_create": [
-        "Angular controlling workbench components after API contracts are accepted."
+        "agent/routes/business_controlling.py",
+        "agent/services/business_controlling_import_api_adapter.py",
+        "agent/services/business_controlling_workbench_service.py",
+        "frontend-angular/src/app/features/controlling/",
+        "tests/e2e/test_business_controlling_workbench_contract.py"
       ],
       "files_to_modify": [
         "Existing API routing/bootstrap only after route inventory."
@@ -246,12 +272,17 @@
         "Users see data version, rule/model version, confidence, evidence and approval requirement before follow-up action.",
         "Filtering and exports preserve access rules and redaction.",
         "End-to-end tests run import-to-disposition against real backend contracts."
+      ],
+      "evidence": [
+        "The authenticated versioned Flask API is registered in the normal Hub bootstrap and delegates only to a server-side workbench service.",
+        "The Angular route uses the real API for profile, mapping, run, findings, OCC disposition and redacted export; tenant authority is not selected by the browser.",
+        "The automated E2E contract exercises the durable Hub service from admitted import through an open deterministic finding without a human step."
       ]
     },
     {
       "id": "CTRL-GATE-009",
       "title": "Security, quality and staged rollout gate establish",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [
         "CTRL-UI-008"
@@ -263,7 +294,11 @@
         "docs/"
       ],
       "files_to_create": [
-        "A secrets-free acceptance report template and operator rollout documentation."
+        "agent/services/business_controlling_runtime_control.py",
+        "agent/services/business_controlling_release_gate.py",
+        "scripts/business_controlling_runtime_control.py",
+        "artifacts/test-gates/business-controlling-acceptance-definition.json",
+        "docs/business-controlling.md"
       ],
       "files_to_modify": [],
       "implementation": "Run a pilot with synthetic data and read-only analysis; test tenant isolation, malformed files, formula/macro payloads, policy bypass, provenance tampering, false positives and degraded external-skill availability before enabling production data.",
@@ -272,14 +307,19 @@
         "A global and per-catalog disable switch stops new runs without deleting evidence.",
         "No finding triggers a financial action automatically.",
         "Release evidence records coverage, known limits, performance bounds and rollback verification."
+      ],
+      "evidence": [
+        "Default-off persistent CAS controls independently gate all runs, statistics, explanations and each admitted catalog entry.",
+        "The non-interactive CLI supports fully automated rollout and rollback without prompts.",
+        "The release gate verifies security, false-positive and performance budgets plus zero financial actions, and cannot allow production without an injected verifier for actual provided SRC_* and RUN_* IDs."
       ]
     }
   ],
   "meta": {
     "total_items": 9,
     "by_status": {
-      "done": 4,
-      "open": 5
+      "done": 9,
+      "open": 0
     },
     "recommended_order": [
       "CTRL-FOUND-001",
