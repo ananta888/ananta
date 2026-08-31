@@ -64,7 +64,7 @@
     {
       "id": "CTRL-ING-002",
       "title": "Authorized import, profiling and schema mapping build",
-      "status": "open",
+      "status": "done",
       "priority": "P0",
       "dependencies": [
         "CTRL-FOUND-001"
@@ -278,7 +278,8 @@
   "meta": {
     "total_items": 9,
     "by_status": {
-      "open": 9
+      "done": 2,
+      "open": 7
     },
     "recommended_order": [
       "CTRL-FOUND-001",

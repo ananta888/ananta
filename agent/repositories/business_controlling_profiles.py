@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from collections.abc import Callable
-from dataclasses import asdict
 
 from sqlalchemy.engine import Engine
 from sqlalchemy.exc import IntegrityError
@@ -29,7 +28,19 @@ class SqlBusinessControllingProfileRepository:
             "revision_digest": profile.revision_digest,
             "row_count": profile.row_count,
             "duplicate_row_count": profile.duplicate_row_count,
-            "columns": [asdict(column) for column in profile.columns],
+            # Keep the JSON projection stable across SQL adapter round-trips.
+            # JSON backends deserialize tuples as lists, so persisting asdict()
+            # directly would make an idempotent retry look like a conflict.
+            "columns": [
+                {
+                    "header": column.header,
+                    "inferred_type": column.inferred_type,
+                    "null_count": column.null_count,
+                    "invalid_count": column.invalid_count,
+                    "invalid_locators": list(column.invalid_locators),
+                }
+                for column in profile.columns
+            ],
             "profile_digest": profile.profile_digest,
         }
         row = BusinessControllingProfileDB(

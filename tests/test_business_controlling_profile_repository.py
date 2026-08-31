@@ -22,7 +22,7 @@ def _profile() -> TabularProfile:
         revision_digest="b" * 64,
         row_count=2,
         duplicate_row_count=0,
-        columns=(ColumnProfile("amount", "decimal", 0, 0),),
+        columns=(ColumnProfile("amount", "decimal", 0, 0, ()),),
         profile_digest="c" * 64,
     )
 

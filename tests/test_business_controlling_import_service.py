@@ -50,6 +50,8 @@ def test_profile_requires_hub_admitted_source_and_returns_aggregates_only() -> N
         "currency": 1,
         "period": 1,
     }
+    amount = next(column for column in profile.columns if column.header == "amount")
+    assert amount.invalid_locators == ("row_4",)
     assert "invalid-secret-value" not in repr(profile)
 
 

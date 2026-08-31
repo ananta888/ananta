@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Protocol, Sequence
 
@@ -53,6 +55,7 @@ class ColumnProfile:
     inferred_type: str
     null_count: int
     invalid_count: int
+    invalid_locators: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -76,6 +79,7 @@ class MappingConfirmation:
 class BusinessControllingImportService:
     MAX_ROWS = 100_000
     MAX_COLUMNS = 256
+    MAX_INVALID_LOCATORS_PER_COLUMN = 100
 
     def __init__(self, admission: ControllingSourceAdmissionPort) -> None:
         self._admission = admission
@@ -163,16 +167,23 @@ class BusinessControllingImportService:
         if len(request.rows) > cls.MAX_ROWS or any(len(row) != len(request.headers) for row in request.rows):
             raise BusinessControllingImportError("controlling_rows_invalid")
 
-    @staticmethod
-    def _profile_column(header: str, values: Sequence[object]) -> ColumnProfile:
+    @classmethod
+    def _profile_column(cls, header: str, values: Sequence[object]) -> ColumnProfile:
         non_null = tuple(value for value in values if value is not None and value != "")
         inferred_type = _infer_type(header, non_null)
-        invalid_count = sum(not _valid_for_type(value, inferred_type) for value in non_null)
+        invalid_rows = tuple(
+            index
+            for index, value in enumerate(values, start=2)
+            if value is not None and value != "" and not _valid_for_type(value, inferred_type)
+        )
         return ColumnProfile(
             header=header,
             inferred_type=inferred_type,
             null_count=len(values) - len(non_null),
-            invalid_count=invalid_count,
+            invalid_count=len(invalid_rows),
+            invalid_locators=tuple(
+                f"row_{index}" for index in invalid_rows[: cls.MAX_INVALID_LOCATORS_PER_COLUMN]
+            ),
         )
 
 
@@ -184,6 +195,8 @@ def _infer_type(header: str, values: Sequence[object]) -> str:
         return "decimal"
     if "currency" in normalized:
         return "currency"
+    if "account" in normalized or "cost_center" in normalized:
+        return "account"
     if values and all(isinstance(value, bool) for value in values):
         return "boolean"
     return "text"
@@ -192,14 +205,19 @@ def _infer_type(header: str, values: Sequence[object]) -> str:
 def _valid_for_type(value: object, inferred_type: str) -> bool:
     if inferred_type == "decimal":
         try:
-            Decimal(str(value))
+            return Decimal(str(value)).is_finite()
         except (InvalidOperation, ValueError):
             return False
     elif inferred_type == "date":
-        text = str(value)
-        return len(text) == 10 and text[4] == "-" and text[7] == "-"
+        try:
+            date.fromisoformat(str(value))
+        except ValueError:
+            return False
+        return True
     elif inferred_type == "currency":
         return isinstance(value, str) and len(value) == 3 and value.isalpha() and value.isupper()
+    elif inferred_type == "account":
+        return isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.:-]{0,63}", value) is not None
     return True
 
 
