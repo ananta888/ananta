@@ -72,6 +72,7 @@ from agent.services.effective_source_access_service import (
 from agent.services.knowledge_index_retrieval_service import (
     KnowledgeIndexRetrievalService,
 )
+from agent.services.source_control_artifact_integrity import sha256_file
 from agent.services.source_control_projection_service import (
     SourceControlPrincipal,
 )
@@ -1605,7 +1606,7 @@ class ContainedArtifactDeletionService:
             manifest_path = self._contained_manifest(
                 index, output_dir
             )
-            manifest_digest = self._sha256(manifest_path)
+            manifest_digest = sha256_file(manifest_path)
             expected_digests = {
                 str(binding.artifact_manifest_digest or "")
             }
@@ -1900,15 +1901,6 @@ class ContainedArtifactDeletionService:
                 "artifact_manifest_path_invalid", status_code=409
             )
         return resolved
-
-    @staticmethod
-    def _sha256(path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
-
 
 __all__ = [
     "ContainedArtifactDeletionService",
