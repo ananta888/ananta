@@ -4,7 +4,7 @@
   "project": "ananta",
   "owner": "Ananta maintainers",
   "track": "codecompass_sira_corpus_discriminative_retrieval",
-  "status": "partial",
+  "status": "blocked",
   "priority": "P0",
   "review_basis": {
     "reviewed_commit_range": "main@6cedcfddb",
@@ -966,7 +966,7 @@
     {
       "id": "SIRA-020",
       "title": "Umfangreiche Qualitäts-, Kosten- und Robustheitsevaluation automatisieren",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "depends_on": [
         "SIRA-003",
@@ -1008,12 +1008,13 @@
       ],
       "remaining_work": [
         "Keep real multi-repository/model results unverified until corresponding evidence is actually supplied."
-      ]
+      ],
+      "blocked_reason": "Die repository-lokale Evaluation, Unsicherheitsanalyse und das fail-closed Release-Gate sind vollständig automatisiert implementiert. Reale Multi-Repository-/Modell-, Latenz-, Token-, Kosten- und Updatezeit-Nachweise benötigen bereitgestellte, gültig gebundene SRC_*-/RUN_*-Evidenz und dürfen nicht aus synthetischen Fixtures erfunden werden."
     },
     {
       "id": "SIRA-021",
       "title": "Shadow-Rollout, Feature Flags und sicheren Rollback liefern",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "depends_on": [
         "SIRA-017",
@@ -1050,7 +1051,8 @@
       ],
       "remaining_work": [
         "Keep deployed observation-window evidence unverified until a real run is supplied."
-      ]
+      ],
+      "blocked_reason": "Shadow-, Canary-, Promotion- und Rollbackpfade laufen vollständig automatisch und sind repository-lokal getestet. Ein reales Canary-Beobachtungsfenster und eine produktionsnah ausgeführte Rollback-Übung benötigen extern registrierte, gültig gebundene RUN_*-Evidenz und dürfen nicht fingiert werden."
     },
     {
       "id": "SIRA-022",
@@ -1106,15 +1108,15 @@
     "scope": "22 Aufgaben bleiben erhalten; Reihenfolge und Abhaengigkeiten wurden nicht erweitert.",
     "upstream": "SIRA ist eine kleine Forschungsreferenz mit MIT-Hauptlizenz und Apache-2.0-abgeleitetem bm25x-Unterbaum; direkte Runtime-Uebernahme ist wegen Python-/CUDA-/Dependency-Annahmen nicht vorgesehen. Der offizielle Upstream-HEAD wurde am 2026-08-30 erneut als b33f5b71a1870f09b378d8e79afb6ad9e704709b bestaetigt.",
     "solid": "Narrow Worker ports and the runtime-neutral ananta_contracts configuration preserve SRP, OCP and DIP; the Hub imports no Worker implementation, and SIRA remains the existing codecompass_fts channel.",
-    "implementation": "All repository implementation gaps for SIRA-020 and SIRA-021 are closed. Both remain partial only because real multi-repository/model and deployed canary evidence has not been supplied and cannot be inferred from fixtures. Rollout progression and rollback are fully automatic and require no human approval or interactive test step."
+    "implementation": "All repository implementation gaps for SIRA-020 and SIRA-021 are closed. Both are blocked only on real multi-repository/model and deployed canary evidence that has not been supplied and cannot be inferred from fixtures. Rollout progression and rollback are fully automatic and require no human approval or interactive test step."
   },
   "tasks_status_summary": {
     "total": 22,
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 2,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 2,
       "done": 20
     },
     "progress_percent_done": 90.9,
@@ -1178,13 +1180,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 1
         },
         "done": 1,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 95.0
       },
       "architecture": {
@@ -1276,13 +1278,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 95.0
       },
       "documentation": {
@@ -1306,7 +1308,7 @@
     "total_weight": 38.5,
     "done_weight": 38.275,
     "remaining_weight": 0.225,
-    "blocked_weight": 0.0,
+    "blocked_weight": 3.0,
     "weighted_percent": 99.4
   },
   "milestone_progress_summary": {
@@ -1362,7 +1364,7 @@
       "M6": {
         "total_tasks": 3,
         "done": 1,
-        "blocked": 0,
+        "blocked": 2,
         "count_based_percent": 33.3,
         "weighted_percent": 95.5,
         "status": "in_progress"
@@ -1370,11 +1372,11 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 2,
-    "blocked": 0,
+    "partial": 0,
+    "blocked": 2,
     "done": 20,
     "count_based_percent": 90.9,
     "weighted_percent": 99.4
@@ -1382,10 +1384,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-28T17:50:28.443795Z",
+    "generated_at": "2026-08-31T15:28:02.553498Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "a4752a485122e93828f372f0176f0a2b10be1788c1119e055791aa1060f6634b",
+    "source_hash": "b751d4ca82edf9e4a8d327fdae521f78cebeda25fb05938d53dd2094d73456a1",
     "is_stale": false
   }
 }
