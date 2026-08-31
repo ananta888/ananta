@@ -27,8 +27,8 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Mapping, Protocol
 
 from agent.visual_process.models import VisualProcessStep
+from agent.visual_process.query_rewrite_step_adapter import QueryRewriteAdapter as QueryRewriteAdapter
 from agent.visual_process.step_executor import StepAdapter, StepExecutionResult
-
 
 _BUILTIN_TOKEN_OVERLAP_RERANKER_DIGEST = "sha256:" + hashlib.sha256(
     b"ananta.visual-process.token-overlap-reranker.v1"
@@ -118,26 +118,6 @@ def _ml_intern_training_principal(context: Mapping[str, Any], principal_type: ty
         subject = str(getattr(identity, "subject", None) or context.get("subject") or "hub-admin").strip()
         tenant = str(getattr(identity, "tenant_id", None) or context.get("tenant_id") or subject).strip()
     return principal_type(tenant_id=tenant, subject=subject)
-
-
-# ── Query rewrite ─────────────────────────────────────────────────────────────
-
-class QueryRewriteAdapter(StepAdapter):
-    @property
-    def kind(self) -> str:
-        return "query_rewrite"
-
-    def execute(self, step: VisualProcessStep, artifacts: dict[str, Any], context: dict[str, Any]) -> StepExecutionResult:
-        from worker.retrieval.query_rewrite import rewrite_query
-        query = str(artifacts.get("query") or step.metadata.get("query") or "")
-        result = rewrite_query(query)
-        return StepExecutionResult(
-            status="success",
-            outputs=result,
-            backend_service="rewrite_query",
-            executable=True,
-            execution_reason="vp_adapter: synonym expansion (deterministic, no LLM, no network)",
-        )
 
 
 # ── ML-Intern LoRA dataset build + training ──────────────────────────────────
