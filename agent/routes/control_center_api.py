@@ -20,6 +20,18 @@ from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.config import settings
 from agent.db_models import AgentSessionDB, PolicySnapshotDB, TaskDB, ToolCallDB
+from agent.routes.control_center_projections import (
+    artifact_item as _artifact_item,
+)
+from agent.routes.control_center_projections import (
+    normalize_agent_session_status as _normalize_agent_session_status,
+)
+from agent.routes.control_center_projections import (
+    policy_snapshot_item as _policy_snapshot_item,
+)
+from agent.routes.control_center_projections import (
+    tool_call_item as _tool_call_item,
+)
 from agent.routes.control_center_task_mutations import (
     ControlCenterTaskMutationRoutes,
 )
@@ -104,29 +116,6 @@ def _task_item(task: Any) -> dict[str, Any]:
     return item
 
 
-_ALLOWED_AGENT_SESSION_STATUSES = {
-    "idle",
-    "proposed",
-    "running",
-    "waiting_for_approval",
-    "blocked",
-    "review",
-    "verified",
-    "done",
-    "failed",
-    "cancelled",
-}
-
-
-def _normalize_agent_session_status(raw: str | None) -> str:
-    status = str(raw or "").strip().lower()
-    if status in _ALLOWED_AGENT_SESSION_STATUSES:
-        return status
-    if status in {"canceled"}:
-        return "cancelled"
-    return "idle"
-
-
 def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
     snapshot = (
         _repos().policy_snapshot_repo.get_by_id(
@@ -154,69 +143,6 @@ def _agent_session_item(session: AgentSessionDB) -> dict[str, Any]:
         "updated_at": float(session.updated_at or 0.0),
         "cancelled_at": session.cancelled_at,
         "policy_snapshot": _policy_snapshot_item(snapshot) if snapshot else None,
-    }
-
-
-def _tool_call_item(row: ToolCallDB) -> dict[str, Any]:
-    return {
-        "id": str(row.id or ""),
-        "session_id": str(row.session_id or ""),
-        "task_id": str(row.task_id or "") or None,
-        "action_id": str(row.action_id or ""),
-        "tool_name": str(row.tool_name or ""),
-        "status": str(row.status or ""),
-        "risk_level": str(row.risk_level or "medium"),
-        "target_path": str(row.target_path or "") or None,
-        "created_at": float(row.created_at or 0.0),
-        "started_at": row.started_at,
-        "finished_at": row.finished_at,
-        "error_message": row.error_message,
-    }
-
-
-def _policy_snapshot_item(snapshot: PolicySnapshotDB) -> dict[str, Any]:
-    return {
-        "id": str(snapshot.id or ""),
-        "session_id": str(snapshot.session_id or ""),
-        "task_id": str(snapshot.task_id or "") or None,
-        "policy_version": str(snapshot.policy_version or "v1"),
-        "risk_level": str(snapshot.risk_level or "medium"),
-        "allowed_tools": list(snapshot.allowed_tools_json or []),
-        "denied_tools": list(snapshot.denied_tools_json or []),
-        "allowed_paths": list(snapshot.allowed_paths_json or []),
-        "denied_paths": list(snapshot.denied_paths_json or []),
-        "cloud_allowed": bool(snapshot.cloud_allowed),
-        "runtime_boundary": str(snapshot.runtime_boundary or "unknown"),
-        "requires_human_approval": bool(snapshot.requires_human_approval),
-        "approval_reason": snapshot.approval_reason,
-        "created_at": float(snapshot.created_at or 0.0),
-    }
-
-
-def _artifact_item(artifact: Any) -> dict[str, Any]:
-    metadata = dict(getattr(artifact, "artifact_metadata", None) or {})
-    safe_metadata_fields = (
-        "content_hash",
-        "project_id",
-        "session_id",
-        "task_id",
-        "type",
-    )
-    return {
-        "id": str(getattr(artifact, "id", "") or ""),
-        "latest_media_type": str(getattr(artifact, "latest_media_type", "") or "") or None,
-        "latest_filename": str(getattr(artifact, "latest_filename", "") or "") or None,
-        "artifact_metadata": {
-            key: value
-            for key in safe_metadata_fields
-            if key in metadata
-            and (
-                (value := metadata.get(key)) is None
-                or isinstance(value, (str, int, float, bool))
-            )
-        },
-        "created_at": float(getattr(artifact, "created_at", 0.0) or 0.0),
-        "updated_at": float(getattr(artifact, "updated_at", 0.0) or 0.0),
     }
 
 
