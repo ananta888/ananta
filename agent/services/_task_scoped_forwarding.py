@@ -36,6 +36,12 @@ from agent.services._vector_index_result_forwarding import (
 from agent.services._vector_index_result_forwarding import (
     persist_forwarded_execution_status as _persist_forwarded_execution_status,
 )
+from agent.services.forwarded_artifact_normalization import (
+    normalize_forwarded_artifacts as normalize_forwarded_artifacts,
+)
+from agent.services.forwarded_artifact_normalization import (
+    normalize_recovery_forwarded_artifacts as normalize_recovery_forwarded_artifacts,
+)
 from agent.services.repository_registry import get_repository_registry
 from agent.services.service_registry import get_core_services
 from agent.services.task_runtime_service import update_local_task_status
@@ -1886,55 +1892,3 @@ def persist_forwarded_execution(
     if hasattr(detached, "updated_at"):
         detached.updated_at = time.time()
     get_repository_registry().task_repo.save(detached)
-
-
-def normalize_forwarded_artifacts(*, task_id: str, artifacts: list[dict] | None) -> list[dict] | None:
-    if artifacts is None:
-        return None
-    normalized: list[dict] = []
-    for idx, item in enumerate(artifacts, start=1):
-        if not isinstance(item, dict):
-            continue
-        row = dict(item)
-        artifact_id = str(row.get("artifact_id") or row.get("id") or "").strip()
-        kind = str(row.get("kind") or "").strip()
-        path = str(row.get("path") or row.get("name") or row.get("filename") or row.get("title") or "").strip()
-        if not artifact_id:
-            artifact_id = f"{task_id}-artifact-{idx:03d}"
-        if not kind:
-            kind = "task_output"
-        row["artifact_id"] = artifact_id
-        row.setdefault("id", artifact_id)
-        row["kind"] = kind
-        if path:
-            row["path"] = path
-        row.setdefault("task_id", task_id)
-        normalized.append(row)
-    return normalized
-
-
-def normalize_recovery_forwarded_artifacts(
-    *,
-    task_id: str,
-    artifacts: object,
-) -> list[dict] | None:
-    """Reject unbounded or open Worker artifact claims before any Hub write."""
-
-    if artifacts is None:
-        return None
-    from ananta_contracts.recovery_artifact_ingress import (
-        RecoveryArtifactIngressContractError,
-        validate_recovery_artifact_receipt_list,
-    )
-
-    try:
-        receipts = validate_recovery_artifact_receipt_list(
-            artifacts,
-            task_id=task_id,
-        )
-    except RecoveryArtifactIngressContractError as exc:
-        raise ValueError(exc.reason_code) from exc
-    return normalize_forwarded_artifacts(
-        task_id=task_id,
-        artifacts=receipts,
-    )
