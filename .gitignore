@@ -76,6 +76,7 @@ __pycache__/
 *.gif
 *.pdf
 *.zip
+!docs/learning/courses/openmaic-ananta-codecompass/openmaic-ananta-codecompass.maic.zip
 *.tar
 *.gz
 !frontend-angular/android/app/src/main/assets/llm-server/llama-b8994-bin-ubuntu-arm64.tar.gz

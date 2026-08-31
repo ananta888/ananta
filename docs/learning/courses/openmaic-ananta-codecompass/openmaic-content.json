@@ -1,0 +1,114 @@
+{
+  "schema": "ananta.openmaic-course-content.v1",
+  "title": "Ananta und CodeCompass",
+  "subtitle": "Von der Entwicklungsfrage zur belegten Änderung",
+  "slides": [
+    {
+      "id": "context",
+      "title": "Das Kontextproblem",
+      "bullets": [
+        "Eine Modellantwort ist noch keine Evidenz.",
+        "Repository-Revision, Pfad und Quelle müssen sichtbar bleiben.",
+        "Fehlende SRC_* oder RUN_* IDs bleiben unverified."
+      ],
+      "speaker_notes": "8 Minuten. Keine Aussage als live-verifiziert bezeichnen. Offline-Snapshot sichtbar markieren."
+    },
+    {
+      "id": "control-plane",
+      "title": "Ananta-Control-Plane",
+      "bullets": [
+        "User/Trigger → Hub → Task Queue → Worker → Artefakt/Verifikation",
+        "Hub: Planung, Routing, Policy, Rechte, Budgets, Audit und Freigaben",
+        "Worker: ausschließlich delegierte Ausführung; keine Worker-zu-Worker-Orchestrierung"
+      ],
+      "speaker_notes": "12 Minuten inklusive erster Entscheidung. Falsche Alternative erklären: direkte Worker-Delegation umgeht Hub-Governance."
+    },
+    {
+      "id": "evidence-journey",
+      "title": "CodeCompass-Evidenzreise",
+      "bullets": [
+        "System → Subsystem → Komponente → Datei → Symbol",
+        "Graph, Symbol, Volltext und Vektor sind getrennte Hinweise.",
+        "Range-, Evidence- und Tokenbudgets begrenzen den freigegebenen Kontext."
+      ],
+      "speaker_notes": "15 Minuten. Drei vorbereitete Snapshot-Fragen zeigen; heuristische Kanten nicht als Wahrheit darstellen."
+    },
+    {
+      "id": "safe-change",
+      "title": "Planspiel: sichere Änderung",
+      "bullets": [
+        "Anforderung → Plan → Evidenz → Hub-Auftrag → Worker-Ausführung",
+        "Review → automatischer Test → Audit-fähiges Artefakt",
+        "Das Modell schlägt vor; Autorität entsteht nur aus expliziter Policy."
+      ],
+      "speaker_notes": "15 Minuten. Erlaubten read-only Zugriff, geblockten unbekannten Zugriff und policy-gesteuerte Mutation unterscheiden."
+    },
+    {
+      "id": "finish",
+      "title": "Abschlussartefakt",
+      "bullets": [
+        "Zeichne den Hub-Worker-Fluss in fünf Stationen.",
+        "Ordne jeder Behauptung Revision, Pfad und Evidenzstatus zu.",
+        "Nenne einen Grund, warum normales Chunk-RAG allein nicht genügt."
+      ],
+      "speaker_notes": "10 Minuten inklusive Quiz. Erwartet werden Hub-Eigentümerschaft, Evidenzkanäle und begrenzter Kontext."
+    }
+  ],
+  "interactions": [
+    {
+      "id": "hub-worker-decision",
+      "title": "Wer darf delegieren?",
+      "questions": [
+        {
+          "id": "delegation-owner",
+          "type": "single",
+          "question": "Ein Worker benötigt eine weitere Analyse. Was ist architekturkonform?",
+          "options": [
+            {"label": "Der Worker startet selbst einen zweiten Worker.", "value": "A"},
+            {"label": "Der Worker meldet sein Ergebnis; der Hub entscheidet über einen Folgetask.", "value": "B"},
+            {"label": "Das Modell erweitert seine Rechte automatisch.", "value": "C"}
+          ],
+          "answer": ["B"],
+          "analysis": "Nur der Hub besitzt Delegation und Task Queue. Worker orchestrieren keine Worker.",
+          "hasAnswer": true,
+          "points": 1
+        }
+      ]
+    },
+    {
+      "id": "retrieval-and-tool-policy-quiz",
+      "title": "Evidenz und Tool-Policy",
+      "questions": [
+        {
+          "id": "rag-difference",
+          "type": "single",
+          "question": "Was unterscheidet CodeCompass im Kurs von reinem Dateichunk-RAG?",
+          "options": [
+            {"label": "CodeCompass garantiert halluzinationsfreie Antworten.", "value": "A"},
+            {"label": "CodeCompass ergänzt Textnähe um revisionsgebundene Symbol- und Graphbeziehungen.", "value": "B"},
+            {"label": "CodeCompass lädt immer das gesamte Repository in den Prompt.", "value": "C"}
+          ],
+          "answer": ["B"],
+          "analysis": "Graph- und Symbolhinweise ergänzen Retrieval; sie beseitigen Halluzinationen nicht vollständig.",
+          "hasAnswer": true,
+          "points": 1
+        },
+        {
+          "id": "tool-authority",
+          "type": "multiple",
+          "question": "Welche Aussagen sind für Toolzugriff korrekt?",
+          "options": [
+            {"label": "Read-only Evidenzzugriff kann explizit erlaubt sein.", "value": "A"},
+            {"label": "Unbekannte oder nicht allowlistete Tools werden geblockt.", "value": "B"},
+            {"label": "Ein Modell besitzt aus eigener Entscheidung Schreibautorität.", "value": "C"},
+            {"label": "Mutationen benötigen eine passende Hub-Policy und Autorität.", "value": "D"}
+          ],
+          "answer": ["A", "B", "D"],
+          "analysis": "Toolrechte stammen aus Hub-Policy, nicht aus Modelltext.",
+          "hasAnswer": true,
+          "points": 2
+        }
+      ]
+    }
+  ]
+}

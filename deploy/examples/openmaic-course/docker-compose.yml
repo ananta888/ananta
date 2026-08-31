@@ -1,0 +1,19 @@
+services:
+  openmaic-course:
+    build:
+      context: https://github.com/THU-MAIC/OpenMAIC.git#aa2bfb3c1d406c47100c6744d90e788abdf1f6d5
+    env_file:
+      - path: .env.local
+        required: false
+    ports:
+      - "127.0.0.1:${OPENMAIC_PORT:-3000}:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - openmaic-course-data:/app/data
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+
+volumes:
+  openmaic-course-data:

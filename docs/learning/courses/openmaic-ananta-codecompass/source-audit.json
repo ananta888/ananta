@@ -1,0 +1,70 @@
+{
+  "schema": "ananta.openmaic-course-source-audit.v1",
+  "repository": "ananta888/ananta",
+  "repository_revision": "3722454f96f192b0d2d12ca99a2459b84f14dc38",
+  "created_at": "2026-08-31",
+  "grounding_status": "unverified_missing_SRC_ids",
+  "source_ids": [],
+  "run_ids": [],
+  "claims": [
+    {
+      "id": "hub-control-plane",
+      "statement": "Der Hub besitzt Orchestrierung, Task Queue, Policies und Workflow-Entscheidungen; Worker führen delegierte Arbeit aus.",
+      "classification": "implemented_architecture",
+      "paths": [
+        "AGENTS.md",
+        "agent/services/task_queue_service.py"
+      ]
+    },
+    {
+      "id": "workers-do-not-orchestrate",
+      "statement": "Worker orchestrieren keine anderen Worker und erzeugen keine unabhängigen Delegationsschleifen.",
+      "classification": "architecture_guardrail",
+      "paths": [
+        "AGENTS.md"
+      ]
+    },
+    {
+      "id": "codecompass-composition",
+      "statement": "CodeCompass kombiniert begrenzte Symbol-, Graph-, Repository- und semantische Retrieval-Verträge.",
+      "classification": "implemented_with_optional_channels",
+      "paths": [
+        "docs/codecompass.md",
+        "ananta_codecompass/graph_store.py",
+        "ananta_codecompass/vector_engine.py"
+      ]
+    },
+    {
+      "id": "graph-relations",
+      "statement": "CodeCompass kann unter anderem calls-, depends_on- und implements-Beziehungen darstellen; einzelne Kanten können heuristisch sein.",
+      "classification": "implemented_with_confidence_limits",
+      "paths": [
+        "ananta_codecompass/architecture_query.py",
+        "ananta_codecompass/repository_intelligence_query.py",
+        "agent/codecompass/semantic_translation/adapters.py"
+      ]
+    },
+    {
+      "id": "bounded-context",
+      "statement": "Hierarchischer CodeCompass-Kontext ist revisionsgebunden und durch Range-, Evidence- und Tokenbudgets begrenzt.",
+      "classification": "implemented_contract",
+      "paths": [
+        "schemas/codecompass.hierarchical-architecture-context.v1.json",
+        "agent/services/codecompass_context_planner_service.py"
+      ]
+    },
+    {
+      "id": "pair-dev-and-ai-snake",
+      "statement": "Pair-Dev und AI-Snake sind optionale Anschauungsbeispiele und keine Voraussetzung des Kernkurses.",
+      "classification": "course_choice_not_product_claim",
+      "paths": [
+        "docs/operator-tui/ai-snake-semantic-compute.md"
+      ]
+    }
+  ],
+  "future_or_external": [
+    "OpenMAIC bleibt eine getrennte Demonstrationsoberfläche und ist kein Ananta-Subsystem.",
+    "Produktive Live-Daten, Produktiv-Credentials und schreibende Ananta-Tools sind nicht Bestandteil des Kurses.",
+    "Ohne bereitgestellte SRC_* und RUN_* IDs werden Kursbeispiele nicht als grounded oder live-verifiziert bezeichnet."
+  ]
+}

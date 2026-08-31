@@ -1,0 +1,62 @@
+{
+  "schema": "ananta.openmaic-codecompass-demo-snapshot.v1",
+  "repository": "ananta888/ananta",
+  "repository_revision": "3722454f96f192b0d2d12ca99a2459b84f14dc38",
+  "snapshot_label": "OFFLINE SNAPSHOT — unverified_missing_SRC_ids",
+  "grounding_status": "unverified_missing_SRC_ids",
+  "source_ids": [],
+  "questions": [
+    {
+      "id": "who-owns-task-queue",
+      "question": "Welche Komponente besitzt Task Queue und Delegationslogik?",
+      "weak_retrieval_answer": "Vermutlich koordiniert jeder Agent seine nächsten Schritte selbst.",
+      "evidence_answer": "Die Architektur weist Task Queue und Delegation dem Hub zu; Worker führen nur delegierte Aufgaben aus.",
+      "journey": [
+        {"level": "system", "label": "Ananta", "channel": "graph"},
+        {"level": "subsystem", "label": "Hub task system", "channel": "full_text"},
+        {"level": "component", "label": "TaskQueueService", "channel": "symbol"},
+        {"level": "file", "label": "agent/services/task_queue_service.py", "channel": "full_text"},
+        {"level": "symbol", "label": "TaskQueueService", "channel": "symbol"}
+      ],
+      "evidence": [
+        {"path": "AGENTS.md", "channel": "full_text", "relationship": "defines"},
+        {"path": "agent/services/task_queue_service.py", "channel": "symbol", "relationship": "implements"}
+      ]
+    },
+    {
+      "id": "how-graph-context-is-bounded",
+      "question": "Wie verhindert CodeCompass unbegrenzten Repository-Kontext?",
+      "weak_retrieval_answer": "Mehr Kontext ist immer besser und sollte vollständig in das Modellfenster geladen werden.",
+      "evidence_answer": "Der hierarchische Kontextvertrag verwendet explizite Evidence-, Range- und Tokenbudgets und markiert fehlende Evidenz als unverified.",
+      "journey": [
+        {"level": "system", "label": "CodeCompass", "channel": "graph"},
+        {"level": "subsystem", "label": "Hierarchical Context", "channel": "vector"},
+        {"level": "component", "label": "CodeCompassContextPlannerService", "channel": "symbol"},
+        {"level": "file", "label": "agent/services/codecompass_context_planner_service.py", "channel": "full_text"},
+        {"level": "symbol", "label": "CodeCompassContextPlannerService", "channel": "symbol"}
+      ],
+      "evidence": [
+        {"path": "schemas/codecompass.hierarchical-architecture-context.v1.json", "channel": "graph", "relationship": "defines"},
+        {"path": "agent/services/codecompass_context_planner_service.py", "channel": "symbol", "relationship": "implements"}
+      ]
+    },
+    {
+      "id": "which-relations-exist",
+      "question": "Welche Beziehungen helfen bei einer sicheren Änderungsanalyse?",
+      "weak_retrieval_answer": "Ähnliche Textabschnitte reichen aus, Beziehungen sind nicht notwendig.",
+      "evidence_answer": "Graphhinweise wie calls, depends_on und implements ergänzen Volltext und Vektornähe; heuristische Kanten bleiben als solche begrenzt.",
+      "journey": [
+        {"level": "system", "label": "CodeCompass", "channel": "graph"},
+        {"level": "subsystem", "label": "Architecture Query", "channel": "graph"},
+        {"level": "component", "label": "relation policies", "channel": "symbol"},
+        {"level": "file", "label": "ananta_codecompass/architecture_query.py", "channel": "full_text"},
+        {"level": "symbol", "label": "implements / calls_probable_target", "channel": "symbol"}
+      ],
+      "evidence": [
+        {"path": "ananta_codecompass/architecture_query.py", "channel": "graph", "relationship": "calls"},
+        {"path": "ananta_codecompass/repository_intelligence_query.py", "channel": "graph", "relationship": "depends_on"},
+        {"path": "agent/codecompass/semantic_translation/adapters.py", "channel": "graph", "relationship": "implements"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "id": "openmaic-ananta-codecompass",
+  "title": "Ananta und CodeCompass: von der Frage zur belegten Änderung",
+  "version": "1.0.0",
+  "status": "ready",
+  "language": "de-DE",
+  "duration_minutes": 60,
+  "audience": [
+    "Softwareentwicklerinnen und Softwareentwickler",
+    "Technische Produktverantwortliche",
+    "Security- und Plattformverantwortliche"
+  ],
+  "prior_knowledge": [
+    "Grundverständnis von Git-Repositories",
+    "Grundverständnis von APIs und automatisierten Tests"
+  ],
+  "prerequisites": [],
+  "grants_required": [
+    "view_static_course_material"
+  ],
+  "learning_goals": [
+    "Ananta als Hub-gesteuerte Control Plane von Worker-Ausführung unterscheiden",
+    "Task Queue, Policy, Budget, Audit und Freigabe dem Hub zuordnen",
+    "Graph-, Symbol-, Volltext- und Vektorhinweise in CodeCompass unterscheiden",
+    "revisionsgebundene Evidenz von unbelegten Modellantworten unterscheiden",
+    "einen sicheren Weg von Anforderung über Delegation bis Test und Audit erklären"
+  ],
+  "security_boundaries": [
+    "no-production-data",
+    "no-real-secrets",
+    "no-ananta-control-plane-connection",
+    "no-write-tools",
+    "no-invented-source-or-run-identifiers"
+  ],
+  "lessons": [
+    {
+      "id": "openmaic-ananta-codecompass-context",
+      "title": "Warum Repository-Kontext begrenzt und belegbar sein muss",
+      "type": "lesson",
+      "minutes": 8
+    },
+    {
+      "id": "openmaic-ananta-codecompass-control-plane",
+      "title": "Hub, Task Queue und Worker",
+      "type": "interactive",
+      "minutes": 12
+    },
+    {
+      "id": "openmaic-ananta-codecompass-evidence-journey",
+      "title": "CodeCompass-Evidenzreise vom System zum Symbol",
+      "type": "interactive",
+      "minutes": 15
+    },
+    {
+      "id": "openmaic-ananta-codecompass-change-game",
+      "title": "Planspiel einer sicheren Agentenänderung",
+      "type": "scenario",
+      "minutes": 15
+    },
+    {
+      "id": "openmaic-ananta-codecompass-final-check",
+      "title": "Quiz und Abschlussartefakt",
+      "type": "assessment",
+      "minutes": 10
+    }
+  ],
+  "interaction_ids": [
+    "hub-worker-decision",
+    "retrieval-and-tool-policy-quiz"
+  ],
+  "offline_fallback": "offline/index.html",
+  "openmaic_archive": "openmaic-ananta-codecompass.maic.zip",
+  "source_audit": "source-audit.json",
+  "demo_snapshot": "demo/codecompass-snapshot.json",
+  "instructor_notes": "instructor-notes.md",
+  "unlock_rules": [
+    {
+      "condition": "assessment_score_at_least_80_percent",
+      "unlock": "course_complete"
+    }
+  ]
+}
