@@ -123,6 +123,52 @@ def test_loop_grep_then_final_answer(tmp_path):
     assert report["tool_call_count"] == 1
 
 
+@pytest.mark.parametrize("provider", ["ollama", "lmstudio"])
+def test_provider_neutral_loop_completes_two_tool_rounds(provider, tmp_path):
+    (tmp_path / "module.py").write_text("needle = 1\n", encoding="utf-8")
+    llm = ScriptedLLM(
+        [
+            json.dumps(
+                {
+                    "kind": "tool_request",
+                    "tool_name": "repo.list_files",
+                    "arguments": {},
+                }
+            ),
+            json.dumps(
+                {
+                    "kind": "tool_request",
+                    "tool_name": "repo.grep",
+                    "arguments": {"pattern": "needle", "limit": 10},
+                }
+            ),
+            json.dumps(
+                {
+                    "kind": "final_answer",
+                    "answer": f"{provider} completed",
+                    "evidence_refs": ["tool_result:1", "tool_result:2"],
+                }
+            ),
+        ]
+    )
+
+    rc, out, err = run_ananta_worker_tool_loop(
+        "Find the needle",
+        str(tmp_path),
+        options=[],
+        timeout=10,
+        model="local-model",
+        llm_runner=llm,
+        config=_loop_config(),
+        provider=provider,
+    )
+
+    assert (rc, out, err) == (0, f"{provider} completed", "")
+    assert "tool_result:1" in llm.prompts[1]
+    assert "tool_result:1" in llm.prompts[2]
+    assert "tool_result:2" in llm.prompts[2]
+
+
 def test_loop_unknown_tool_is_policy_blocked(tmp_path):
     llm = ScriptedLLM(
         [

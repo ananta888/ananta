@@ -3,6 +3,11 @@ from typing import Any, Optional
 
 from agent.config import settings
 from agent.llm_strategies.base import LLMStrategy
+from agent.services.local_runtime_request_policy import LocalRuntimeRequestPolicy
+from agent.services.local_runtime_response_adapters import (
+    LocalRuntimeResponseError,
+    normalize_openai_chat,
+)
 
 
 class LMStudioStrategy(LLMStrategy):
@@ -87,8 +92,7 @@ class LMStudioStrategy(LLMStrategy):
                     idempotency_key,
                     seed,
                 )
-                result_text, _ = self._extract_strategy_result(result)
-                if result_text.strip():
+                if self._strategy_result_has_output(result):
                     return result
                 attempted.add(mid)
                 remaining = [c for c in candidates if c.get("id") not in attempted]
@@ -123,6 +127,11 @@ class LMStudioStrategy(LLMStrategy):
         if isinstance(result, str):
             return result, {}
         return "", {}
+
+    def _strategy_result_has_output(self, result: Any) -> bool:
+        text, _usage = self._extract_strategy_result(result)
+        metadata = result.get("metadata") if isinstance(result, dict) else None
+        return bool(text.strip() or (isinstance(metadata, dict) and metadata.get("tool_calls")))
 
     @staticmethod
     def _resolve_thinking_param() -> dict | None:
@@ -166,8 +175,7 @@ class LMStudioStrategy(LLMStrategy):
     ):
         max_tokens = int(max_output_tokens or 1024)
         temp = 0.2 if temperature is None else float(temperature)
-        # Resolve effective context window: explicit param > model_info context_length
-        # > per-model lookup map (settings.lmstudio_model_contexts) > global default.
+        # The smallest verified runtime/configured limit wins.
         # This prevents silent context-overflow returns for models that omit context_length
         # from /v1/models (e.g. phi-3.5-mini-instruct: actual 4K, not the 32K default).
         try:
@@ -176,12 +184,11 @@ class LMStudioStrategy(LLMStrategy):
             _model_lookup_ctx = lookup_model_context_tokens(model_id)
         except Exception:
             _model_lookup_ctx = None
-        context_limit = (
-            int(max_context_tokens) if max_context_tokens
-            else int(model_context) if model_context
-            else _model_lookup_ctx
-            if _model_lookup_ctx
-            else int(settings.lmstudio_max_context_tokens)
+        context_limit = LocalRuntimeRequestPolicy.effective_context_window(
+            int(max_context_tokens) if max_context_tokens else None,
+            int(model_context) if model_context else None,
+            int(_model_lookup_ctx) if _model_lookup_ctx else None,
+            int(settings.lmstudio_max_context_tokens),
         )
         if not context_limit or context_limit < 256:
             context_limit = int(settings.lmstudio_max_context_tokens)
@@ -241,15 +248,21 @@ class LMStudioStrategy(LLMStrategy):
         result_text = ""
         usage = {}
         empty_reason: str | None = None
+        normalized: dict[str, Any] | None = None
         if isinstance(resp, dict):
-            result_text = self._extract_lmstudio_text(resp)
-            usage = self._extract_lmstudio_usage(resp)
+            if is_chat and isinstance(resp.get("choices"), list):
+                try:
+                    normalized = normalize_openai_chat(resp)
+                except LocalRuntimeResponseError:
+                    normalized = None
+            result_text = normalized["content"] if normalized is not None else self._extract_lmstudio_text(resp)
+            usage = normalized["usage"] if normalized is not None else self._extract_lmstudio_usage(resp)
             # Heuristic: LMStudio returns HTTP 200 with empty content + no usage when
             # the request exceeds the model's context window. The model silently bails.
             # We try to estimate whether the prompt would have overflowed the resolved
             # context_limit to surface a useful hint to the caller.
-            if not str(result_text).strip():
-                if not usage:
+            if not str(result_text).strip() and not (normalized and normalized["tool_calls"]):
+                if not self._extract_lmstudio_usage(resp):
                     try:
                         est_tokens = self._estimate_tokens(
                             self._build_history_prompt(prompt, history)
@@ -275,6 +288,13 @@ class LMStudioStrategy(LLMStrategy):
 
         self._update_lmstudio_history(model_id, bool(str(result_text).strip()))
         metadata: dict[str, Any] = {}
+        if normalized is not None:
+            if normalized["tool_calls"]:
+                metadata["tool_calls"] = normalized["tool_calls"]
+            if normalized["thinking"]:
+                metadata["thinking"] = normalized["thinking"]
+            if normalized["finish_reason"]:
+                metadata["finish_reason"] = normalized["finish_reason"]
         if empty_reason:
             metadata["empty_reason"] = empty_reason
             metadata["context_limit"] = int(context_limit) if context_limit else 0
@@ -283,7 +303,11 @@ class LMStudioStrategy(LLMStrategy):
 
     def _post_lmstudio(self, url, payload, timeout, idempotency_key=None):
         import requests as _requests
-        from agent.services.lmstudio_request_registry import create_and_register_session, release_session
+
+        from agent.services.lmstudio_request_registry import (
+            create_and_register_session,
+            release_session,
+        )
 
         session, reg_key = create_and_register_session()
         resp = None
@@ -346,15 +370,21 @@ class LMStudioStrategy(LLMStrategy):
                 )
                 return None
             if resp.status_code < 400:
+                maximum_bytes = 2 * 1024 * 1024
                 try:
-                    json_resp = resp.json()
-                    logging.debug(f"LMStudioStrategy: Raw LM Studio JSON response (from resp.json()): {json_resp!r}")
-                    return json_resp
+                    declared = int((getattr(resp, "headers", {}) or {}).get("Content-Length") or 0)
+                    actual = len(getattr(resp, "content", b"") or b"")
+                except (TypeError, ValueError):
+                    declared = actual = maximum_bytes + 1
+                if declared > maximum_bytes or actual > maximum_bytes:
+                    logging.warning("LMStudio response rejected code=response_too_large url=%s", url)
+                    return None
+                try:
+                    return resp.json()
                 except (ValueError, TypeError):
-                    logging.debug(f"LMStudioStrategy: Failed to parse JSON, raw text response: {resp.text!r}")
-                    return resp.text
-            logging.warning("LMStudio HTTP %s: %.200s", resp.status_code, resp.text)
-            logging.debug(f"LMStudioStrategy: Error response from LM Studio: {resp.text!r}")
+                    text = str(getattr(resp, "text", "") or "")
+                    return text if len(text.encode("utf-8")) <= maximum_bytes else None
+            logging.warning("LMStudio request failed code=http_error status=%s url=%s", resp.status_code, url)
             return None
         logging.warning(
             "LMStudio response empty code=%s url=%s reg_key=%s has_idempotency=%s",

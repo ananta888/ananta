@@ -20,6 +20,7 @@ from urllib.parse import urlparse
 ALLOWED_PROVIDERS = frozenset({
     "fake", "test", "local", "local_hash", "hash",
     "openai", "openai_compatible",
+    "ollama", "ollama_native",
 })
 
 VALID_SCOPES = frozenset({
@@ -263,6 +264,16 @@ class EmbeddingProviderConfigService:
                 return "blocked", "base_url_not_in_allowed_list"
         if is_external and not cfg.base_url:
             return "degraded", "missing_base_url"
+        if cfg.provider in {"ollama", "ollama_native"}:
+            if not cfg.base_url:
+                return "degraded", "missing_base_url"
+            if not cfg.allowed_base_urls:
+                return "blocked", "allowed_base_urls_required"
+            if not EmbeddingProviderConfigService._base_url_allowed(
+                cfg.base_url,
+                cfg.allowed_base_urls,
+            ):
+                return "blocked", "base_url_not_in_allowed_list"
         if cfg.provider in {"fake", "test"}:
             return "degraded", "fake_provider_not_for_production"
         return "ready", ""

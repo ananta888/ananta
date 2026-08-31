@@ -18,6 +18,9 @@ from agent.services.dashboard_feature_flag_service import (
 from agent.services.local_model_runtime_inventory_adapter import (
     LocalRuntimeModelInventoryAdapter,
 )
+from agent.services.local_runtime_capability_composition import (
+    local_runtime_capability_inventory_adapter,
+)
 from agent.services.model_catalog_service import (
     MODEL_CATALOG_REFRESH_CAPABILITY,
     MODEL_DEFAULT_SELECT_CAPABILITY,
@@ -168,6 +171,7 @@ def _model_inventory_service() -> ModelInventoryService:
                     *local_runtime_adapters,
                     *build_cli_model_inventory_adapters(),
                     *external_adapters,
+                    local_runtime_capability_inventory_adapter(),
                 )
             )
     return _MODEL_INVENTORY_SERVICE

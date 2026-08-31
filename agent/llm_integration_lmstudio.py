@@ -1,6 +1,4 @@
 import hashlib
-import json
-import logging
 import os
 import re
 import time
@@ -355,12 +353,8 @@ def _extract_lmstudio_text(payload: Any) -> str:
             return str(reasoning)
         if content is not None:
             return str(content)
-        tool_calls = message.get("tool_calls")
-        if tool_calls is not None:
-            try:
-                return json.dumps({"tool_calls": tool_calls})
-            except Exception:
-                return ""
+        # Structured tool calls are deliberately not flattened into text.
+        # Callers that support tools consume them from the strategy metadata.
     return ""
 
 

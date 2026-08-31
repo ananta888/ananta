@@ -212,6 +212,9 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         HrmExperimentWorkerConfigurationError,
         build_hrm_experiment_task_handler,
     )
+    from worker.local_runtime_capability_handler import (
+        LocalRuntimeCapabilityRefreshHandler,
+    )
     from worker.mail_task_execution import build_mail_task_handler
     from worker.planning import OrganizationCategoryResearchTaskHandler
     from worker.retrieval.sira.index_operation_handler import (
@@ -270,6 +273,16 @@ def _register_worker_domain_handlers(app: Flask) -> None:
         ],
     )
     _advertise_worker_capabilities(app, planning_research_capabilities)
+
+    register_task_handler(
+        "local_runtime_capability_refresh",
+        LocalRuntimeCapabilityRefreshHandler(),
+        app=app,
+        capabilities=["local_runtime_capability_discovery"],
+        safety_flags={"read_only": True, "mutates_runtime": False},
+        verification_hooks=["schema_validation", "hub_result_acceptance"],
+    )
+    _advertise_worker_capabilities(app, ["local_runtime_capability_discovery"])
 
     sira_snapshot_root = str(settings.codecompass_sira_snapshot_root or "").strip()
     sira_layer_root = str(settings.codecompass_sira_layer_root or "").strip()
@@ -497,6 +510,7 @@ def _register_worker_domain_handlers(app: Flask) -> None:
     )
     registered = [
         "planning_research",
+        "local_runtime_capability_refresh",
         *(["codecompass_sira_index_operation"] if sira_registered else []),
         *(["codecompass_index_build"] if knowledge_index_registered else []),
         *(["vector_index_operation"] if vector_registered else []),
@@ -782,6 +796,15 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
     run_startup_phase(
         "local_model_runtime_services",
         initialize_local_model_runtime_services,
+        app,
+    )
+    from agent.bootstrap.local_runtime_capabilities import (
+        initialize_local_runtime_capability_services,
+    )
+
+    run_startup_phase(
+        "local_runtime_capability_services",
+        initialize_local_runtime_capability_services,
         app,
     )
     from agent.bootstrap.semantic_media_services import (

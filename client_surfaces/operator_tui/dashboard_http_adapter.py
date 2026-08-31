@@ -24,9 +24,12 @@ _FEATURES_PATH = "/config/features/v1"
 _KANBAN_ROOT = "/api/v1/kanban"
 _MODEL_CATALOG_PATH = "/models/catalog/v1"
 _MODEL_REFRESH_PATH = "/models/catalog/v1/refresh"
+_MODEL_CATALOG_V2_PATH = "/models/catalog/v2"
+_MODEL_REFRESH_V2_PATH = "/models/catalog/v2/refresh"
 _MODEL_DEFAULT_PATH = "/models/default/v1"
 _FEATURE_SCHEMA = "ananta.dashboard-feature-flags.v1"
 _MODEL_CATALOG_SCHEMA = "ananta.model-catalog.v1"
+_MODEL_CATALOG_V2_SCHEMA = "ananta.model-catalog.v2"
 _MODEL_DEFAULT_COMMAND_SCHEMA = "ananta.model-default-selection-command.v1"
 _KANBAN_SCHEMA = "kanban.v1"
 _KANBAN_SNAPSHOT_SCHEMA = "kanban.snapshot.v1"
@@ -544,6 +547,8 @@ class DashboardHubAdapter:
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
     def _map_catalog(self, data: Mapping[str, Any]) -> Mapping[str, Any]:
+        if data.get("schema") == _MODEL_CATALOG_V2_SCHEMA:
+            return self._map_catalog_v2(data)
         if data.get("schema") != _MODEL_CATALOG_SCHEMA:
             raise DashboardHttpError("model_catalog_contract_invalid", status_code=502)
         raw_models = data.get("models")
@@ -599,20 +604,87 @@ class DashboardHubAdapter:
             "provider_errors": provider_errors,
         }
 
+    def _map_catalog_v2(self, data: Mapping[str, Any]) -> Mapping[str, Any]:
+        raw_models = data.get("models")
+        if not isinstance(raw_models, list):
+            raise DashboardHttpError("model_catalog_contract_invalid", status_code=502)
+        revision = str(data.get("catalog_revision") or self._catalog_revision(data))
+        providers: dict[str, list[str]] = {}
+        models: list[dict[str, Any]] = []
+        for model in raw_models:
+            if not isinstance(model, Mapping):
+                raise DashboardHttpError("model_inventory_contract_invalid", status_code=502)
+            provider_id = str(model.get("provider_id") or "")
+            model_id = str(model.get("model_id") or "")
+            claims = model.get("capabilities")
+            facts = model.get("metadata_facts")
+            if not provider_id or not model_id or not isinstance(claims, list):
+                raise DashboardHttpError("model_inventory_contract_invalid", status_code=502)
+            providers.setdefault(model_id, []).append(provider_id)
+            supported = [
+                str(item.get("capability_id") or "")
+                for item in claims
+                if isinstance(item, Mapping) and item.get("value") == "supported"
+            ]
+            capability_sources = [
+                f"{str(item.get('fact_id') or '')}:{str(item.get('value') or '')}"
+                for item in (facts or ())
+                if isinstance(item, Mapping)
+                and str(item.get("fact_id") or "").startswith("capability.")
+            ]
+            models.append(
+                {
+                    "id": model_id,
+                    "provider": provider_id,
+                    "runtime": str(model.get("runtime") or "unknown"),
+                    "available": model.get("availability") == "available",
+                    "healthy": model.get("health") == "healthy",
+                    "loaded": model.get("loaded"),
+                    "context_window": model.get("context_window"),
+                    "quantization": model.get("quantization"),
+                    "capabilities": supported,
+                    "capability_sources": capability_sources,
+                    "conflicts": [str(item) for item in list(model.get("conflicts") or ())[:50]],
+                    "default": False,
+                    "revision": revision,
+                }
+            )
+        sources = data.get("sources")
+        provider_errors = [
+            {
+                "provider": str(item.get("source_id") or ""),
+                "code": str(item.get("reason_code") or item.get("status") or "degraded"),
+            }
+            for item in (sources or ())
+            if isinstance(item, Mapping) and item.get("status") not in {"healthy", "unknown"}
+        ]
+        self._model_revision = revision
+        self._model_providers = {
+            model_id: tuple(sorted(set(provider_ids)))
+            for model_id, provider_ids in providers.items()
+        }
+        return {"revision": revision, "models": models, "provider_errors": provider_errors}
+
     async def fetch_catalog(self) -> Mapping[str, Any]:
         await self._require_feature("tui_model_menu")
-        data = self._require_mapping(
-            self._data(await self._request("GET", _MODEL_CATALOG_PATH)),
-            code="model_catalog_contract_invalid",
-        )
+        try:
+            response = await self._request("GET", _MODEL_CATALOG_V2_PATH)
+        except DashboardHttpError as exc:
+            if exc.status_code not in {403, 404}:
+                raise
+            response = await self._request("GET", _MODEL_CATALOG_PATH)
+        data = self._require_mapping(self._data(response), code="model_catalog_contract_invalid")
         return self._map_catalog(data)
 
     async def refresh_catalog(self) -> Mapping[str, Any]:
         await self._require_feature("tui_model_menu")
-        data = self._require_mapping(
-            self._data(await self._request("POST", _MODEL_REFRESH_PATH, payload={})),
-            code="model_catalog_contract_invalid",
-        )
+        try:
+            response = await self._request("POST", _MODEL_REFRESH_V2_PATH, payload={})
+        except DashboardHttpError as exc:
+            if exc.status_code not in {403, 404}:
+                raise
+            response = await self._request("POST", _MODEL_REFRESH_PATH, payload={})
+        data = self._require_mapping(self._data(response), code="model_catalog_contract_invalid")
         return self._map_catalog(data)
 
     async def set_default(

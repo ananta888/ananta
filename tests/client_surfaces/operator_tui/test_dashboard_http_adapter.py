@@ -435,6 +435,53 @@ def test_model_catalog_refresh_and_default_remain_hub_relative(local_hub) -> Non
     )
 
 
+def test_model_catalog_v2_preserves_capability_provenance_for_tui() -> None:
+    adapter = _adapter("http://127.0.0.1:1")
+    mapped = adapter._map_catalog(
+        {
+            "schema": "ananta.model-catalog.v2",
+            "catalog_revision": 7,
+            "models": [
+                {
+                    "provider_id": "ollama",
+                    "model_id": "local-model",
+                    "runtime": "local",
+                    "availability": "available",
+                    "health": "healthy",
+                    "loaded": True,
+                    "context_window": 8192,
+                    "quantization": "q4",
+                    "capabilities": [
+                        {
+                            "capability_id": "tools",
+                            "value": "supported",
+                            "evidence": "detected",
+                            "source_id": "local.runtime.capabilities",
+                        }
+                    ],
+                    "metadata_facts": [
+                        {
+                            "fact_id": "capability.tools.source",
+                            "value": "runtime_reported",
+                            "evidence": "detected",
+                            "source_id": "local.runtime.capabilities",
+                        }
+                    ],
+                    "conflicts": ["template_conflict"],
+                }
+            ],
+            "sources": [],
+            "partial": False,
+        }
+    )
+
+    assert mapped["models"][0]["capabilities"] == ["tools"]
+    assert mapped["models"][0]["capability_sources"] == [
+        "capability.tools.source:runtime_reported"
+    ]
+    assert mapped["models"][0]["conflicts"] == ["template_conflict"]
+
+
 def test_stale_model_revision_fails_before_default_write(local_hub) -> None:
     endpoint, state = local_hub
     adapter = _adapter(endpoint)

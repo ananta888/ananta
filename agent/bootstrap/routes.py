@@ -59,6 +59,7 @@ from agent.routes.knowledge import knowledge_bp
 from agent.routes.knowledge_experts import knowledge_experts_bp
 from agent.routes.knowledge_hygiene import knowledge_hygiene_bp
 from agent.routes.langgraph_checkpoint_internal import langgraph_checkpoint_internal_bp
+from agent.routes.local_runtime_capabilities import local_runtime_capabilities_bp
 from agent.routes.mail_control import mail_control_bp
 from agent.routes.mcp import mcp_bp
 from agent.routes.ml_intern_lora_runtime import ml_intern_lora_runtime_bp
@@ -166,6 +167,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(approvals_bp)
     app.register_blueprint(knowledge_bp)
     app.register_blueprint(knowledge_experts_bp)
+    app.register_blueprint(local_runtime_capabilities_bp)
     app.register_blueprint(knowledge_hygiene_bp)
     app.register_blueprint(ml_intern_training_bp)
     app.register_blueprint(model_intelligence_bp)

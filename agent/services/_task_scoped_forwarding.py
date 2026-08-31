@@ -1523,6 +1523,26 @@ def _publish_forwarded_bound_knowledge_index_result(
     )
 
 
+def _accept_local_runtime_capability_result(
+    *,
+    task: Mapping[str, Any],
+    response: Mapping[str, Any],
+) -> dict[str, Any]:
+    if str(task.get("task_kind") or "").strip() != "local_runtime_capability_refresh":
+        return {}
+    from agent.services.local_runtime_capability_composition import (
+        local_runtime_capability_cache,
+    )
+    from agent.services.local_runtime_capability_result_ingestor import (
+        LocalRuntimeCapabilityResultIngestor,
+    )
+
+    accepted = LocalRuntimeCapabilityResultIngestor(
+        local_runtime_capability_cache()
+    ).accept(task=task, response=response)
+    return {"local_runtime_capability_refresh": accepted} if accepted is not None else {}
+
+
 def persist_forwarded_execution(
     *,
     tid: str,
@@ -1583,6 +1603,9 @@ def persist_forwarded_execution(
         verification_status = dict(
             task.get("verification_status") or {}
         )
+    verification_status.update(
+        _accept_local_runtime_capability_result(task=task, response=response)
+    )
     raw_artifacts = response.get("artifacts")
     artifacts = (
         normalize_recovery_forwarded_artifacts(

@@ -5,7 +5,12 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Any, Protocol
 from urllib import error, request
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
+
+from agent.services.local_runtime_response_adapters import (
+    LocalRuntimeResponseError,
+    normalize_ollama_embedding,
+)
 
 
 class EmbeddingProvider(Protocol):
@@ -150,6 +155,65 @@ class OpenAICompatibleEmbeddingProvider:
         return vectors
 
 
+@dataclass(frozen=True)
+class OllamaEmbeddingProvider:
+    base_url: str
+    model: str
+    model_version: str
+    dimensions: int
+    allowed_base_urls: tuple[str, ...]
+    provider_id: str = "ollama"
+    timeout_seconds: int = 20
+    maximum_response_bytes: int = 2 * 1024 * 1024
+
+    def embed_texts(self, texts: list[str]) -> list[list[float]]:
+        inputs = [str(item or "") for item in list(texts or [])]
+        if not inputs:
+            return []
+        if not self.model or not _base_url_allowed(self.base_url, list(self.allowed_base_urls)):
+            raise EmbeddingProviderUnavailable("ollama_embedding_endpoint_not_allowed")
+        parsed = urlparse(str(self.base_url).rstrip("/"))
+        endpoint = urlunparse((parsed.scheme, parsed.netloc, "/api/embed", "", "", ""))
+        payload = {
+            "model": self.model,
+            "input": inputs,
+            "truncate": False,
+        }
+        req = request.Request(
+            endpoint,
+            method="POST",
+            data=json.dumps(payload, separators=(",", ":")).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Accept": "application/json"},
+        )
+        try:
+            opener = request.build_opener(_EmbeddingNoRedirectHandler()).open
+            with opener(req, timeout=max(1, int(self.timeout_seconds))) as response:
+                raw = response.read(self.maximum_response_bytes + 1)
+        except error.URLError as exc:
+            raise EmbeddingProviderRequestFailed("ollama_embedding_request_failed") from exc
+        if len(raw) > self.maximum_response_bytes:
+            raise EmbeddingProviderRequestFailed("ollama_embedding_response_too_large")
+        try:
+            parsed_response = json.loads(raw)
+            rows = parsed_response.get("embeddings")
+            if not isinstance(rows, list) or len(rows) != len(inputs):
+                raise LocalRuntimeResponseError("embedding_response_size_mismatch")
+            return [
+                list(
+                    normalize_ollama_embedding(
+                        {"embeddings": [row]},
+                        expected_dimension=self.dimensions,
+                    )
+                )
+                for row in rows
+            ]
+        except (TypeError, ValueError, json.JSONDecodeError, LocalRuntimeResponseError) as exc:
+            reason = str(exc)
+            if reason not in {"embedding_dimension_mismatch", "embedding_response_size_mismatch"}:
+                reason = "ollama_embedding_response_invalid"
+            raise EmbeddingProviderRequestFailed(reason) from exc
+
+
 def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingProvider:
     payload = dict(config or {})
     provider = str(payload.get("provider") or "fake").strip().lower() or "fake"
@@ -196,5 +260,21 @@ def build_embedding_provider(config: dict[str, Any] | None = None) -> EmbeddingP
             follow_redirects=bool(
                 payload.get("follow_redirects", True)
             ),
+        )
+    if provider in {"ollama", "ollama_native"}:
+        base_url = str(payload.get("base_url") or "").strip()
+        allowed = tuple(str(item).strip() for item in payload.get("allowed_base_urls") or () if str(item).strip())
+        if not base_url or not allowed or not _base_url_allowed(base_url, list(allowed)):
+            raise ValueError("ollama_embedding_endpoint_not_allowed")
+        model = str(payload.get("model") or "").strip()
+        if not model:
+            raise ValueError("ollama_embedding_model_required")
+        return OllamaEmbeddingProvider(
+            base_url=base_url,
+            model=model,
+            model_version=str(payload.get("model_version") or model),
+            dimensions=dimensions,
+            allowed_base_urls=allowed,
+            timeout_seconds=max(1, int(payload.get("timeout_seconds") or 20)),
         )
     raise ValueError(f"unknown_embedding_provider:{provider}")

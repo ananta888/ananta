@@ -132,7 +132,10 @@ class LLMStrategy(ABC):
                     details={"status_code": resp.status_code},
                 )
             if resp.status_code >= 400:
-                msg = f"LLM-Provider Fehler ({resp.status_code}): {resp.text[:200]}"
+                # Provider bodies can contain prompts, tool arguments, or
+                # credentials. Keep errors diagnostic without reflecting the
+                # untrusted response payload into logs or API errors.
+                msg = f"LLM-Provider Fehler ({resp.status_code})"
                 if _classify_status(resp.status_code) == "transient":
                     raise TransientError(msg, details={"status_code": resp.status_code})
                 else:

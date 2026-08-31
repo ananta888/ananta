@@ -12,6 +12,12 @@ from typing import Any
 
 import requests
 
+from agent.services.local_runtime_request_policy import LocalRuntimeRequestPolicy
+from agent.services.local_runtime_response_adapters import (
+    LocalRuntimeResponseError,
+    normalize_ollama_chat,
+    normalize_ollama_generate,
+)
 from agent.services.model_invocation_profile import (
     build_llm_call_profile_entry,
 )
@@ -234,6 +240,62 @@ class ModelInvocationService:
             return is_cancelled(*_get_current_context())
         except Exception:
             return False
+
+    @staticmethod
+    def _provider_response_too_large(response: Any, *, maximum_bytes: int = 2 * 1024 * 1024) -> bool:
+        headers = getattr(response, "headers", None)
+        if isinstance(headers, Mapping):
+            declared = headers.get("Content-Length")
+            if declared is not None:
+                try:
+                    if int(declared) > maximum_bytes:
+                        return True
+                except (TypeError, ValueError):
+                    return True
+        content = getattr(response, "content", None)
+        return isinstance(content, (bytes, bytearray)) and len(content) > maximum_bytes
+
+    @staticmethod
+    def _validate_local_runtime_payload(*, provider: str, payload: Mapping[str, Any]) -> None:
+        if provider in {"ollama", "lmstudio", "lm_studio"}:
+            LocalRuntimeRequestPolicy().validate_payload(payload)
+
+    @classmethod
+    def _enforce_provider_response_limit(
+        cls,
+        *,
+        response: Any,
+        middleware: Any,
+        prepared: Any,
+        provider: str,
+        model: str,
+        prompt_trace: Any,
+        trace_service: Any,
+        started_at: float,
+    ) -> None:
+        if not cls._provider_response_too_large(response):
+            return
+        middleware.fail(
+            prepared,
+            provider=provider,
+            model=model,
+            reason_code="provider_response_too_large",
+        )
+        cls._finalize_trace_error(
+            prompt_trace,
+            trace_service,
+            "provider_response_too_large",
+            "provider_response_too_large",
+        )
+        cls._raise_llm_error(
+            message="llm_provider_response_too_large",
+            name="chat_completions",
+            backend="llm_api",
+            provider=provider,
+            model=model,
+            started_at=started_at,
+            error_type="provider_response_too_large",
+        )
 
     @classmethod
     def _get_settings(cls):
@@ -1223,16 +1285,73 @@ class ModelInvocationService:
     ) -> dict[str, Any]:
         if not isinstance(payload, dict):
             return {}
-        prompt_tokens = int(payload.get("prompt_eval_count") or 0)
-        completion_tokens = int(payload.get("eval_count") or 0)
+        try:
+            normalized = normalize_ollama_generate(payload)
+        except LocalRuntimeResponseError:
+            return {}
+        prompt_tokens = int(normalized["usage"]["prompt_tokens"] or 0)
+        completion_tokens = int(normalized["usage"]["completion_tokens"] or 0)
         return {
             "choices": [
                 {
                     "message": {
-                        "content": str(payload.get("response") or ""),
+                        "content": normalized["content"],
                         "tool_calls": [],
+                        "reasoning_content": normalized["thinking"],
                     },
-                    "finish_reason": ("stop" if bool(payload.get("done", True)) else None),
+                    "finish_reason": normalized["finish_reason"] or (
+                        "stop" if normalized["done"] else None
+                    ),
+                }
+            ],
+            "usage": {
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+            },
+            "model": str(payload.get("model") or model),
+        }
+
+    @staticmethod
+    def _normalize_ollama_chat_response(
+        payload: Any,
+        *,
+        model: str,
+    ) -> dict[str, Any]:
+        if not isinstance(payload, dict):
+            return {}
+        try:
+            normalized = normalize_ollama_chat(payload)
+        except LocalRuntimeResponseError:
+            return {}
+        prompt_tokens = int(normalized["usage"]["prompt_tokens"] or 0)
+        completion_tokens = int(normalized["usage"]["completion_tokens"] or 0)
+        tool_calls = [
+            {
+                "id": item["id"],
+                "type": "function",
+                "function": {
+                    "name": item["name"],
+                    "arguments": json.dumps(
+                        item["arguments"],
+                        sort_keys=True,
+                        separators=(",", ":"),
+                    ),
+                },
+            }
+            for item in normalized["tool_calls"]
+        ]
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": normalized["content"],
+                        "tool_calls": tool_calls,
+                        "reasoning_content": normalized["thinking"],
+                    },
+                    "finish_reason": normalized["finish_reason"] or (
+                        "stop" if normalized["done"] else None
+                    ),
                 }
             ],
             "usage": {
@@ -1300,10 +1419,16 @@ class ModelInvocationService:
         payload: Any,
         *,
         ollama_generate: bool,
+        ollama_chat: bool,
         model: str,
     ) -> Any:
         if ollama_generate:
             return cls._normalize_ollama_generate_response(
+                payload,
+                model=model,
+            )
+        if ollama_chat:
+            return cls._normalize_ollama_chat_response(
                 payload,
                 model=model,
             )
@@ -1348,6 +1473,7 @@ class ModelInvocationService:
             send_native_tools=send_native_tools,
             response_format=response_format,
         )
+        cls._validate_local_runtime_payload(provider=provider, payload=body)
 
         if cls._current_invocation_cancelled():
             cls._raise_llm_error(
@@ -1454,16 +1580,16 @@ class ModelInvocationService:
                     timeout=timeout,
                     allow_redirects=False,
                 )
-            except requests.exceptions.ConnectionError as exc:
+            except requests.exceptions.ConnectionError:
                 middleware.fail(
                     prepared,
                     provider=provider,
                     model=effective_model,
                     reason_code="connection_error",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "connection_error", f"{exc}")
+                cls._finalize_trace_error(prompt_trace, trace_svc, "connection_error", "provider_connection_failed")
                 cls._raise_llm_error(
-                    message=f"llm_connection_failed: {exc}",
+                    message="llm_connection_failed",
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,
@@ -1471,16 +1597,16 @@ class ModelInvocationService:
                     started_at=started_at,
                     error_type="connection_error",
                 )
-            except requests.exceptions.Timeout as exc:
+            except requests.exceptions.Timeout:
                 middleware.fail(
                     prepared,
                     provider=provider,
                     model=effective_model,
                     reason_code="timeout",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "timeout", f"{exc}")
+                cls._finalize_trace_error(prompt_trace, trace_svc, "timeout", "provider_timeout")
                 cls._raise_llm_error(
-                    message=f"llm_timeout: {exc}",
+                    message="llm_timeout",
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,
@@ -1538,6 +1664,16 @@ class ModelInvocationService:
                     started_at=started_at,
                     error_type="provider_redirect_denied",
                 )
+            cls._enforce_provider_response_limit(
+                response=resp,
+                middleware=middleware,
+                prepared=prepared,
+                provider=provider,
+                model=effective_model,
+                prompt_trace=prompt_trace,
+                trace_service=trace_svc,
+                started_at=started_at,
+            )
             if resp.status_code >= 500:
                 middleware.fail(
                     prepared,
@@ -1579,10 +1715,10 @@ class ModelInvocationService:
                     reason_code=error_type,
                 )
                 cls._finalize_trace_error(
-                    prompt_trace, trace_svc, error_type, f"HTTP {resp.status_code} {response_excerpt}"
+                    prompt_trace, trace_svc, error_type, f"HTTP {resp.status_code}"
                 )
                 cls._raise_llm_error(
-                    message=f"llm_{error_type}: HTTP {resp.status_code} {response_excerpt}",
+                    message=f"llm_{error_type}: HTTP {resp.status_code}",
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,
@@ -1593,16 +1729,21 @@ class ModelInvocationService:
 
             try:
                 payload = resp.json()
-            except Exception as exc:
+            except Exception:
                 middleware.fail(
                     prepared,
                     provider=provider,
                     model=effective_model,
                     reason_code="invalid_json_response",
                 )
-                cls._finalize_trace_error(prompt_trace, trace_svc, "invalid_json_response", f"{exc}")
+                cls._finalize_trace_error(
+                    prompt_trace,
+                    trace_svc,
+                    "invalid_json_response",
+                    "invalid_json_response",
+                )
                 cls._raise_llm_error(
-                    message=f"llm_invalid_json_response: {exc}",
+                    message="llm_invalid_json_response",
                     name="chat_completions",
                     backend="llm_api",
                     provider=provider,
@@ -1613,6 +1754,10 @@ class ModelInvocationService:
             payload = cls._normalize_provider_response(
                 payload,
                 ollama_generate=ollama_generate,
+                ollama_chat=(
+                    provider == "ollama"
+                    and str(url).rstrip("/").endswith("/api/chat")
+                ),
                 model=effective_model,
             )
 

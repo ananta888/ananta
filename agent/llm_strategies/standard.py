@@ -3,6 +3,11 @@ from typing import Any, Optional
 from flask import current_app, has_app_context, has_request_context, request
 
 from agent.llm_strategies.base import LLMStrategy
+from agent.services.local_runtime_response_adapters import (
+    LocalRuntimeResponseError,
+    normalize_ollama_chat,
+    normalize_ollama_generate,
+)
 from agent.utils import _http_post
 
 
@@ -202,8 +207,13 @@ class OllamaStrategy(LLMStrategy):
         provider: Optional[str] = None,
         seed: Optional[int] = None,
     ) -> Any:
+        native_chat = str(url or "").rstrip("/").endswith("/api/chat")
         full_prompt = self._build_history_prompt(prompt, history)
-        payload = {"model": model, "prompt": full_prompt, "stream": False}
+        payload = (
+            {"model": model, "messages": self._build_chat_messages(prompt, history), "stream": False}
+            if native_chat
+            else {"model": model, "prompt": full_prompt, "stream": False}
+        )
         if max_context_tokens is not None:
             payload.setdefault("options", {})["num_ctx"] = int(max_context_tokens)
         if max_output_tokens is not None:
@@ -227,13 +237,13 @@ class OllamaStrategy(LLMStrategy):
                     else:
                         import logging
 
-                        logging.warning(f"OllamaStrategy: Tool-Funktion unvollständig: {f_data}")
+                        logging.warning("OllamaStrategy: Tool-Funktion unvollständig")
                 else:
                     import logging
 
-                    logging.warning(f"OllamaStrategy: Tool-Format unbekannt oder ungültig: {tool}")
+                    logging.warning("OllamaStrategy: Tool-Format unbekannt oder ungültig")
 
-            if valid_tools:
+            if valid_tools and native_chat:
                 payload["tools"] = valid_tools
 
         if "json" in full_prompt.lower() and not tools:
@@ -251,9 +261,21 @@ class OllamaStrategy(LLMStrategy):
 
         data = resp.json()
         if isinstance(data, dict):
+            try:
+                normalized = normalize_ollama_chat(data) if native_chat else normalize_ollama_generate(data)
+            except LocalRuntimeResponseError:
+                return ""
             usage = {
-                "prompt_eval_count": data.get("prompt_eval_count"),
-                "eval_count": data.get("eval_count"),
+                "prompt_eval_count": normalized["usage"]["prompt_tokens"],
+                "eval_count": normalized["usage"]["completion_tokens"],
             }
-            return {"text": data.get("response", ""), "usage": usage}
+            result: dict[str, Any] = {"text": normalized["content"], "usage": usage}
+            metadata = {
+                key: normalized[key]
+                for key in ("tool_calls", "thinking", "finish_reason")
+                if normalized[key]
+            }
+            if metadata:
+                result["metadata"] = metadata
+            return result
         return ""

@@ -96,6 +96,43 @@ export interface ModelCatalogV2 {
   readonly partial: boolean;
 }
 
+export interface LocalRuntimeCapabilityClaim {
+  readonly name: 'chat' | 'completion' | 'tools' | 'vision' | 'thinking' | 'embedding' | 'streaming';
+  readonly supported: boolean;
+  readonly source: 'runtime_reported' | 'profile_declared' | 'observed_success' | 'observed_failure' | 'heuristic';
+  readonly confidence: number;
+  readonly discovered_at: string;
+  readonly expires_at: string | null;
+}
+
+export interface LocalRuntimeModelSnapshot {
+  readonly schema: 'ananta.local-runtime-model-snapshot.v1';
+  readonly provider_id: 'ollama' | 'lmstudio';
+  readonly model_id: string;
+  readonly model_digest: string;
+  readonly runtime_version: string;
+  readonly model_kind: 'chat' | 'embedding' | 'unknown';
+  readonly context_window: number | null;
+  readonly template_family: string;
+  readonly template_sha256: string | null;
+  readonly capabilities: readonly LocalRuntimeCapabilityClaim[];
+  readonly conflicts: readonly string[];
+  readonly discovered_at: string;
+  readonly stale: boolean;
+  readonly snapshot_sha256: string;
+}
+
+export interface LocalRuntimeCapabilityCatalog {
+  readonly schema: 'ananta.local-runtime-capability-catalog.v1';
+  readonly partial: boolean;
+  readonly providers: readonly ('ollama' | 'lmstudio')[];
+  readonly snapshots: readonly LocalRuntimeModelSnapshot[];
+  readonly health: Readonly<Record<
+    'runtime' | 'discovery' | 'detail' | 'cache' | 'routing',
+    { readonly status: string; readonly reason_code: string | null }
+  >>;
+}
+
 export interface ModelConsumer {
   readonly schema: 'ananta.model-consumer.v1';
   readonly consumer_id: string;
@@ -355,6 +392,23 @@ export class ModelCatalogClient {
     return this.api.post<unknown>(
       `${baseUrl.replace(/\/$/, '')}/models/catalog/v2/refresh`, {}, baseUrl,
     ).pipe(map(unwrap<ModelCatalogV2>));
+  }
+
+  readRuntimeCapabilities(baseUrl: string): Observable<LocalRuntimeCapabilityCatalog> {
+    return this.api.get<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/runtime-capabilities/v1`, baseUrl, undefined, false,
+    ).pipe(map(unwrap<LocalRuntimeCapabilityCatalog>));
+  }
+
+  refreshRuntimeCapabilities(
+    baseUrl: string,
+    providerId?: 'ollama' | 'lmstudio',
+  ): Observable<{ schema: string; task_ref: string }> {
+    return this.api.post<unknown>(
+      `${baseUrl.replace(/\/$/, '')}/models/runtime-capabilities/v1/refresh`,
+      providerId ? { provider_id: providerId } : {},
+      baseUrl,
+    ).pipe(map(unwrap<{ schema: string; task_ref: string }>));
   }
 
   readConsumers(baseUrl: string): Observable<{ schema: string; consumers: readonly ModelConsumer[] }> {

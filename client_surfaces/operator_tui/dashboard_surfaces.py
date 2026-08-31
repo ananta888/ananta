@@ -189,7 +189,7 @@ def normalise_board(snapshot: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _normalise_model(raw: Mapping[str, Any], catalog_revision: object, index: int) -> dict[str, Any]:
-    return {
+    result = {
         "kind": "model",
         "id": _safe_text(raw.get("id") or raw.get("model_id"), limit=200),
         "provider": _safe_text(raw.get("provider"), limit=120),
@@ -204,6 +204,11 @@ def _normalise_model(raw: Mapping[str, Any], catalog_revision: object, index: in
         "revision": raw.get("revision", catalog_revision),
         "_flat_index": index,
     }
+    if "capability_sources" in raw:
+        result["capability_sources"] = _safe_sequence(raw.get("capability_sources"), limit=50)
+    if "conflicts" in raw:
+        result["conflicts"] = _safe_sequence(raw.get("conflicts"), limit=50)
+    return result
 
 
 def normalise_catalog(snapshot: Mapping[str, Any]) -> dict[str, Any]:
@@ -591,10 +596,14 @@ class ModelCatalogContentPlugin(ContentPlugin):
             health = "healthy" if model.get("healthy") else "unhealthy"
             available = "available" if model.get("available") else "unavailable"
             default = " DEFAULT" if model.get("default") else ""
+            sources = ",".join(model.get("capability_sources") or [])
+            conflicts = ",".join(model.get("conflicts") or [])
+            diagnostics = f" sources={sources}" if sources else ""
+            diagnostics += f" conflicts={conflicts}" if conflicts else ""
             lines.append(
                 _clip(
                     f"{marker} {model.get('provider')}/{model.get('id')} "
-                    f"{health} {available}{default}",
+                    f"{health} {available}{default}{diagnostics}",
                     w,
                 )
             )
