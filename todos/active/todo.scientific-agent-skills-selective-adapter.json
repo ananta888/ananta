@@ -143,7 +143,7 @@
         {
           "id": "SAS-ADP-005",
           "title": "Policy-, Approval- und Credential-Grenzen anbinden",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "critical",
           "type": "security",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 4,
-      "open": 6
+      "done": 5,
+      "open": 5
     },
     "recommended_order": [
       "SAS-INV-001",
