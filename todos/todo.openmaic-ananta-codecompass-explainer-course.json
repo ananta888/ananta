@@ -1,0 +1,537 @@
+{
+  "$schema": "todo.track.schema.json",
+  "id": "todo.openmaic-ananta-codecompass-explainer-course",
+  "title": "OpenMAIC-Kurs zur Erklärung von Ananta und CodeCompass",
+  "version": "1.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "openmaic-ananta-codecompass-explainer-course",
+  "status": "todo",
+  "created_at": "2026-08-31",
+  "updated_at": "2026-08-31",
+  "purpose": "OpenMAIC wird als eigenständige, interaktive Demonstrations- und Lernoberfläche eingesetzt, um Ananta und CodeCompass nachvollziehbar zu erklären und vorzuführen. Es wird nicht in die Ananta-Control-Plane eingebettet und ersetzt weder Hub noch Worker, Policies, Audit oder CodeCompass.",
+  "goal": "Ein deutschsprachiger, vorführbarer Kurs erklärt anhand eines kuratierten Ananta-Repository-Snapshots den Weg von einer Entwicklungsfrage über CodeCompass-Evidenz und Hub-gesteuerte Delegation bis zu einer überprüfbaren Änderung. Der Kurs enthält interaktive Aufgaben, Visualisierungen und eine sichere Live-Demo; alle technischen Behauptungen bleiben klar zwischen Konzept, vorhandener Implementierung und Zukunftsplanung getrennt.",
+  "non_goals": [
+    "Keine Kopplung von OpenMAIC an Anantas produktive Hub-Control-Plane.",
+    "Keine Veröffentlichung von Zugangsdaten, lokalen Pfaden, Kundendaten, nicht freigegebenem Code oder echten Audit-Ereignissen.",
+    "Keine Darstellung des Hubs als Scrum-Master, Product Owner oder autonom entscheidender Entwickler.",
+    "Keine unbelegten Produktivitäts-, Sicherheits- oder Funktionsclaims."
+  ],
+  "architecture_guardrails": [
+    "Ananta bleibt die Control Plane: Hub besitzt Task Queue, Delegation, Policies, Budgets, Audit und Freigaben.",
+    "Worker führen nur vom Hub delegierte Arbeit aus und orchestrieren keine weiteren Worker.",
+    "CodeCompass liefert revisionsgebundene, begrenzte Graph-, Symbol-, Volltext- und Vektor-Evidenz; die Kursoberfläche darf daraus keine Quellen erfinden.",
+    "OpenMAIC konsumiert ausschließlich freigegebene, statische Kursmaterialien und optional einen explizit eingerichteten Demo-Adapter."
+  ],
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "source_materials": [
+    "AGENTS.md",
+    "docs/codecompass.md",
+    "docs/architecture/**",
+    "docs/operator-tui/ai-snake-semantic-compute.md",
+    "docs/status/**",
+    "README.md",
+    "Kuratiertes, freigegebenes Demo-Repository oder revisionsfester Ananta-Snapshot"
+  ],
+  "milestones": [
+    {
+      "id": "OM-M1",
+      "title": "Didaktische Grundlage und sichere Materialien",
+      "task_ids": [
+        "OM-001",
+        "OM-002",
+        "OM-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "OM-M2",
+      "title": "OpenMAIC-Kurs erstellen",
+      "task_ids": [
+        "OM-004",
+        "OM-005",
+        "OM-006",
+        "OM-007",
+        "OM-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "OM-M3",
+      "title": "Demo, Qualität und Veröffentlichung",
+      "task_ids": [
+        "OM-009",
+        "OM-010",
+        "OM-011",
+        "OM-012",
+        "OM-013"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "OM-001",
+      "title": "Zielgruppe, Kursdauer und Erfolgskriterien festlegen",
+      "type": "didactic-design",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "medium",
+      "description": "Einen 45- bis 90-minütigen Einführungskurs mit klarer Zielgruppe, Vorwissen, Lernzielen und einem realistischen Vorführformat definieren.",
+      "acceptance_criteria": [
+        "Der Kurs nennt Zielgruppe, Dauer, benötigtes Vorwissen und drei bis fünf überprüfbare Lernziele.",
+        "Die Lernziele unterscheiden Ananta, Hub, Worker und CodeCompass korrekt.",
+        "Für Live-Demo-Ausfall existiert ein offline abspielbarer Fallback."
+      ]
+    },
+    {
+      "id": "OM-002",
+      "title": "Technische Aussagen am aktuellen Ananta-Quellstand prüfen",
+      "type": "repository-audit",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "OM-001"
+      ],
+      "acceptance_criteria": [
+        "Jede technische Kursbehauptung verweist auf einen konkreten, geprüften Repository-Pfad oder wird als Zielbild gekennzeichnet.",
+        "Hub-Worker-Grenze entspricht AGENTS.md; keine Scrum-Rollengleichsetzung.",
+        "Nicht implementierte oder experimentelle Funktionen sind eindeutig als solche markiert."
+      ]
+    },
+    {
+      "id": "OM-003",
+      "title": "Freigegebenes Demo-Material und Sicherheitsgrenzen erstellen",
+      "type": "security-content",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "critical",
+      "depends_on": [
+        "OM-002"
+      ],
+      "acceptance_criteria": [
+        "Der Kurs nutzt einen statischen, revisionsfesten und freigegebenen Quellstand oder ein dediziertes Demo-Repository.",
+        "Ein automatisierter oder manueller Preflight prüft Material auf Secrets, Tokens, private URLs, lokale Pfade und personenbezogene Daten.",
+        "Live-Systeme sind nicht erforderlich; eine Demo verwendet keine produktiven Credentials oder schreibenden Toolrechte."
+      ]
+    },
+    {
+      "id": "OM-004",
+      "title": "Kursnarrativ vom Problem zur belegten Änderung entwerfen",
+      "type": "course-outline",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "medium",
+      "depends_on": [
+        "OM-001",
+        "OM-002",
+        "OM-003"
+      ],
+      "acceptance_criteria": [
+        "Die Gliederung folgt: Kontextproblem → Ananta-Control-Plane → CodeCompass-Projektgedächtnis → belegte Anfrage → delegierte Änderung → Prüfung und Audit.",
+        "Der Lernpfad enthält mindestens eine Teilnehmerentscheidung und eine falsche, erklärbare Alternative.",
+        "Pair-Dev, AI-Snake und Quellgraph erscheinen als optionale anschauliche Beispiele, nicht als Voraussetzung für den Kern."
+      ]
+    },
+    {
+      "id": "OM-005",
+      "title": "Ananta-Control-Plane als interaktive Visualisierung umsetzen",
+      "type": "interactive-content",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "OM-004"
+      ],
+      "acceptance_criteria": [
+        "Eine interaktive Szene zeigt User/Trigger → Hub → Task Queue → Worker → Artefakt/Verifikation.",
+        "Die Szene erklärt Policies, Rechte, Budgets, Audit und Approval als Hub-Verantwortung.",
+        "Eine Fehlinteraktion zeigt verständlich, warum Worker nicht direkt andere Worker steuern dürfen."
+      ]
+    },
+    {
+      "id": "OM-006",
+      "title": "CodeCompass-Graph-RAG als Evidenzreise umsetzen",
+      "type": "interactive-content",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "OM-004",
+        "OM-003"
+      ],
+      "acceptance_criteria": [
+        "Eine Teilnehmerfrage führt über System → Subsystem → Komponente → Datei → Symbol.",
+        "Die Anzeige trennt Graph-, Symbol-, Volltext- und Vektorhinweise verständlich.",
+        "Jede angezeigte Evidenz enthält Repository-Revision und Pfad; fehlende Evidenz wird als unverified statt als Antwort dargestellt.",
+        "Kontext- und Tokenbudget werden als begrenzender Schutzmechanismus erklärt."
+      ]
+    },
+    {
+      "id": "OM-007",
+      "title": "Normales RAG und CodeCompass vergleichbar erklären",
+      "type": "interactive-content",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "OM-006"
+      ],
+      "acceptance_criteria": [
+        "Eine Quiz- oder Entscheidungsszene grenzt Dateichunk-RAG von revisionsgebundenem Repository-Graph-RAG ab.",
+        "Beziehungen wie calls, uses, depends_on und implements werden an einem kleinen realen Beispiel gezeigt.",
+        "Die Darstellung behauptet nicht, dass GraphRAG Halluzinationen vollständig verhindert."
+      ]
+    },
+    {
+      "id": "OM-008",
+      "title": "Sichere Agentenänderung als Planspiel umsetzen",
+      "type": "scenario",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "high",
+      "depends_on": [
+        "OM-005",
+        "OM-006"
+      ],
+      "acceptance_criteria": [
+        "Ein Szenario führt von Anforderung über Plan, Evidenz, delegierten Workerauftrag, Review und Test zu einem Audit-fähigen Ergebnis.",
+        "Der Teilnehmer wählt zwischen erlaubtem, geblocktem und freigabepflichtigem Toolzugriff.",
+        "Es wird deutlich, dass ein Modell keine Autorität für Änderungen besitzt."
+      ]
+    },
+    {
+      "id": "OM-009",
+      "title": "OpenMAIC-Instanz und Modellrouting für den Kurs bereitstellen",
+      "type": "operations",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "OM-003",
+        "OM-004"
+      ],
+      "acceptance_criteria": [
+        "OpenMAIC ist reproduzierbar lokal oder in einer getrennten Demo-Umgebung startbar.",
+        "Provider, API-Schlüssel und Modellrouten sind ausschließlich in nicht versionierten Konfigurationsdateien hinterlegt.",
+        "Der Kurs funktioniert mit einer vorab getesteten Modellroute und dokumentiert einen Provider- oder Offline-Fallback."
+      ]
+    },
+    {
+      "id": "OM-010",
+      "title": "Kursmaterial in OpenMAIC generieren und fachlich redigieren",
+      "type": "course-production",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P1",
+      "risk": "medium",
+      "depends_on": [
+        "OM-005",
+        "OM-006",
+        "OM-007",
+        "OM-008",
+        "OM-009"
+      ],
+      "acceptance_criteria": [
+        "Der Kurs ist vollständig deutschsprachig und umfasst Folien, mindestens zwei Interaktionen, ein Quiz und ein Abschlussartefakt.",
+        "Alle Aussagen wurden vor Veröffentlichung gegen OM-002 geprüft.",
+        "Dozentenhinweise enthalten Zeitbudget, erwartete Antworten, typische Missverständnisse und Fallback-Schritte."
+      ]
+    },
+    {
+      "id": "OM-011",
+      "title": "Live-Demo mit kuratiertem CodeCompass-Snapshot integrieren",
+      "type": "demo-integration",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "OM-003",
+        "OM-006",
+        "OM-009"
+      ],
+      "acceptance_criteria": [
+        "Die Demo beantwortet mindestens drei vorbereitete Architektur- oder Änderungsfragen mit konkreten, sichtbaren Pfaden.",
+        "Eine bewusst schwache Retrieval-Antwort wird gegen die evidenzbasierte CodeCompass-Ansicht kontrastiert.",
+        "Bei nicht verfügbaren Diensten schaltet die Präsentation deterministisch auf gespeicherte, eindeutig als Snapshot markierte Resultate um."
+      ]
+    },
+    {
+      "id": "OM-012",
+      "title": "Didaktik-, Sicherheits- und Ablaufprobe durchführen",
+      "type": "acceptance-test",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P0",
+      "risk": "high",
+      "depends_on": [
+        "OM-010",
+        "OM-011"
+      ],
+      "acceptance_criteria": [
+        "Ein vollständiger Durchlauf gelingt innerhalb des definierten Zeitbudgets ohne produktive Ananta-Schreibrechte.",
+        "Testpersonen können nach dem Kurs Ananta, CodeCompass und normales RAG korrekt unterscheiden.",
+        "Preflight, Offline-Fallback und alle Links/Medien werden vor dem Durchlauf geprüft."
+      ]
+    },
+    {
+      "id": "OM-013",
+      "title": "Kursartefakte versionieren und wartbar dokumentieren",
+      "type": "documentation",
+      "status": "todo",
+      "progress_percent": 0,
+      "priority": "P2",
+      "risk": "low",
+      "depends_on": [
+        "OM-012"
+      ],
+      "acceptance_criteria": [
+        "Prompt, Quellenliste, Konfiguration ohne Secrets, Export und Dozentennotizen liegen versioniert oder nachvollziehbar abgelegt vor.",
+        "Die Dokumentation nennt Quellrevision, Erstellungsdatum und Verfahren für Aktualisierungen bei Ananta-Architekturänderungen.",
+        "Der Kurs kann ohne Neuaufbau des Produktionssystems wiederholt werden."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "OM-001",
+    "OM-002",
+    "OM-003",
+    "OM-004",
+    "OM-006",
+    "OM-009",
+    "OM-010",
+    "OM-011",
+    "OM-012"
+  ],
+  "tasks_status_summary": {
+    "total": 13,
+    "by_status": {
+      "todo": 13,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 6,
+      "P1": 6,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 6,
+      "high": 5,
+      "critical": 1
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 13,
+    "by_type": {
+      "didactic-design": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "repository-audit": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "security-content": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "interactive-content": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "scenario": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "operations": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "course-production": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "demo-integration": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "acceptance-test": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "documentation": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 13,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "definition_of_done": [
+    "Ein fachlich geprüfter, deutschsprachiger OpenMAIC-Kurs erklärt Ananta und CodeCompass anhand eines freigegebenen, revisionsfesten Beispiels.",
+    "Der Kurs macht Hub-Worker-Grenze, Policy- und Auditverantwortung sowie CodeCompass-Evidenz sichtbar.",
+    "Interaktionen, Quiz, Live-Demo und Offline-Fallback wurden in einem vollständigen Durchlauf abgenommen.",
+    "Keine Secrets, Kundendaten, produktiven Schreibrechte oder unbelegten technischen Aussagen gelangen in Kurs, Export oder Demo."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "OPENMAIC-ANANTA-RESULT",
+      "title": "Ergebnis nach Abschluss",
+      "items": [
+        "OpenMAIC dient als wiederverwendbare, interaktive Erklär- und Vorführumgebung für Ananta und CodeCompass.",
+        "Ananta bleibt technisch unabhängig und behält seine Hub-Control-Plane, Sicherheits- und Auditgrenzen.",
+        "Teilnehmer können begründen, warum evidenzgebundener Repository-Kontext für Agentenänderungen wichtiger ist als bloß mehr Chat-Kontext."
+      ]
+    }
+  ]
+}
