@@ -5,11 +5,9 @@ never authority for a required Organization gate.  The authoritative evidence
 is a persisted, granted :class:`ApprovalRequestDB` whose exact workflow binding
 is reviewed by an active principal assignment for the configured approval role.
 
-The policy is deliberately read-only.  Approval request creation and the UI/API
-used to select an approving assignment remain separate responsibilities.  The
-existing generic ApprovalRequest lifecycle does not issue this domain request
-or attach its opaque reference to a Task; until a dedicated Hub issuance path
-does so, required Organization workflow gates intentionally remain fail-closed.
+The policy is deliberately read-only. Approval issuance is a separate Hub
+application service, keeping validation independent from persistence and
+reviewer selection.
 """
 
 from __future__ import annotations
@@ -36,6 +34,8 @@ ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD = "organization_workflow_gate_approval"
 ORGANIZATION_WORKFLOW_APPROVAL_REF_SCHEMA = "organization_workflow_gate_approval_ref.v1"
 ORGANIZATION_WORKFLOW_APPROVAL_TOOL = "organization.workflow_gate.complete"
 ORGANIZATION_WORKFLOW_WAITING_REASON = "organization_workflow_gate_approval_required"
+ORGANIZATION_WORKFLOW_AUTHORITY_SCHEMA = "organization_workflow_gate_decision_authority.v1"
+ORGANIZATION_WORKFLOW_AUTOMATED_DECISION_MODE = "automated_role_assignment"
 
 
 @dataclass(frozen=True)
@@ -53,6 +53,12 @@ class OrganizationWorkflowCompletionPolicyService:
     """Validate required workflow-gate authority against Hub persistence."""
 
     BINDING_SCHEMA = "organization_workflow_step_binding.v1"
+
+    @classmethod
+    def required_binding(cls, task: Any) -> dict[str, Any] | None:
+        """Return the immutable required-gate binding, if one exists."""
+
+        return cls._required_binding(task)
 
     def evaluate(
         self,
@@ -150,6 +156,7 @@ class OrganizationWorkflowCompletionPolicyService:
             task=task,
             binding=binding,
             binding_digest=binding_digest,
+            verification_record_id=str(verification.id),
             now=time.time() if now is None else float(now),
         )
         if request_error:
@@ -289,6 +296,7 @@ class OrganizationWorkflowCompletionPolicyService:
         task: Any,
         binding: Mapping[str, Any],
         binding_digest: str,
+        verification_record_id: str,
         now: float,
     ) -> str | None:
         if request is None:
@@ -331,6 +339,18 @@ class OrganizationWorkflowCompletionPolicyService:
             approval_assignment_id=assignment_id,
         ):
             return "organization_workflow_gate_approval_binding_mismatch"
+        authority = dict(request.scope or {}).get("decision_authority")
+        if (
+            not isinstance(authority, Mapping)
+            or authority.get("schema") != ORGANIZATION_WORKFLOW_AUTHORITY_SCHEMA
+            or authority.get("mode") != ORGANIZATION_WORKFLOW_AUTOMATED_DECISION_MODE
+            or authority.get("approval_assignment_id") != assignment_id
+            or authority.get("verification_record_id") != verification_record_id
+            or authority.get("policy_id") != "enterprise-organization-sod"
+            or authority.get("policy_revision") != "1"
+            or len(str(authority.get("policy_hash") or "")) != 64
+        ):
+            return "organization_workflow_gate_approval_authority_invalid"
         return None
 
     @staticmethod
@@ -530,6 +550,8 @@ __all__ = [
     "ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD",
     "ORGANIZATION_WORKFLOW_APPROVAL_REF_SCHEMA",
     "ORGANIZATION_WORKFLOW_APPROVAL_TOOL",
+    "ORGANIZATION_WORKFLOW_AUTHORITY_SCHEMA",
+    "ORGANIZATION_WORKFLOW_AUTOMATED_DECISION_MODE",
     "ORGANIZATION_WORKFLOW_WAITING_REASON",
     "OrganizationWorkflowCompletionDecision",
     "OrganizationWorkflowCompletionPolicyService",

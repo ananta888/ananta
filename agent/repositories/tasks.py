@@ -1613,6 +1613,15 @@ def _apply_organization_workflow_completion_policy(
     from agent.services.organization_workflow_completion_policy_service import (
         organization_workflow_completion_policy_service,
     )
+    from agent.services.organization_workflow_gate_approval_service import (
+        organization_workflow_gate_approval_service,
+    )
+
+    organization_workflow_gate_approval_service.issue_for_verified_completion(
+        authoritative_task=authoritative,
+        candidate_task=candidate,
+        session=session,
+    )
 
     organization_gate_decision = organization_workflow_completion_policy_service.evaluate(
         authoritative_task=authoritative,

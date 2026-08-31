@@ -5,13 +5,20 @@ import time
 from types import SimpleNamespace
 
 import pytest
+from sqlmodel import Session, select
 
+from agent.database import engine
 from agent.db_models import (
+    AgentInfoDB,
     ApprovalRequestDB,
     OrganizationInstanceDB,
     OrganizationRoleAssignmentDB,
     OrganizationRoleSlotDB,
+    OrganizationTeamLinkDB,
+    OrganizationUnitDB,
+    ProjectDB,
     TaskDB,
+    TeamDB,
     VerificationRecordDB,
 )
 from agent.repository import task_repo
@@ -19,6 +26,8 @@ from agent.services.organization_workflow_completion_policy_service import (
     ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD,
     ORGANIZATION_WORKFLOW_APPROVAL_REF_SCHEMA,
     ORGANIZATION_WORKFLOW_APPROVAL_TOOL,
+    ORGANIZATION_WORKFLOW_AUTHORITY_SCHEMA,
+    ORGANIZATION_WORKFLOW_AUTOMATED_DECISION_MODE,
     ORGANIZATION_WORKFLOW_WAITING_REASON,
     OrganizationWorkflowCompletionDecision,
     OrganizationWorkflowCompletionPolicyService,
@@ -189,6 +198,17 @@ def _policy_fixture():
             binding=_binding(),
             approval_assignment_id="assignment-reviewer",
         ),
+        scope={
+            "decision_authority": {
+                "schema": ORGANIZATION_WORKFLOW_AUTHORITY_SCHEMA,
+                "mode": ORGANIZATION_WORKFLOW_AUTOMATED_DECISION_MODE,
+                "approval_assignment_id": "assignment-reviewer",
+                "verification_record_id": "verification-gate",
+                "policy_id": "enterprise-organization-sod",
+                "policy_revision": "1",
+                "policy_hash": "p" * 64,
+            }
+        },
     )
     verification = SimpleNamespace(
         id="verification-gate",
@@ -224,6 +244,253 @@ def test_completion_policy_accepts_only_revision_bound_active_role_approval():
 
     assert decision.allowed is True
     assert decision.approval_request_id == "approval-gate"
+
+
+def test_verified_gate_is_atomically_approved_by_independent_registered_agent():
+    tenant_id = "tenant-automated-gate"
+    project_id = "project-automated-gate"
+    organization_id = "organization-automated-gate"
+    task_id = "task-automated-gate"
+    execution_agent = "http://worker-gate-executor:5000"
+    conflicted_agent = "http://worker-gate-conflicted:5000"
+    reviewer_agent = "http://worker-gate-reviewer:5000"
+    binding = {
+        **_binding(),
+        "organization_id": organization_id,
+        "team_unit_id": "unit-gate-delivery",
+        "team_id": "team-gate-delivery",
+        "role_slot_id": "slot-gate-implementer",
+    }
+    verification_spec = {
+        "acceptance_checks": binding["gate"]["acceptance_checks"],
+        "approval_role_ref": binding["gate"]["approval_role_ref"],
+        "independent_principal_required": True,
+        "failure_policy": binding["failure_policy"],
+    }
+    with Session(engine) as session:
+        session.add(
+            ProjectDB(
+                tenant_id=tenant_id,
+                project_id=project_id,
+                name="Automated gate project",
+                created_by_subject_id="pytest",
+            )
+        )
+        session.flush()
+        session.add(
+            OrganizationInstanceDB(
+                organization_id=organization_id,
+                tenant_id=tenant_id,
+                project_id=project_id,
+                name="Automated gate organization",
+                definition_key="automated_gate",
+                definition_version=1,
+                definition_revision="d" * 64,
+                lifecycle="active",
+                effective_limit_profile_ref="default@1",
+                effective_limit_profile_revision=1,
+                effective_limit_profile_hash="l" * 64,
+                composition_mode="custom",
+                plan_digest="p" * 64,
+                idempotency_key="automated-gate-fixture",
+            )
+        )
+        session.flush()
+        session.add_all(
+            [
+                OrganizationUnitDB(
+                    id="unit-gate-delivery",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_key="delivery",
+                    name="Delivery",
+                    unit_kind="team",
+                    lifecycle="active",
+                ),
+                OrganizationUnitDB(
+                    id="unit-gate-other",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_key="other",
+                    name="Other delivery",
+                    unit_kind="team",
+                    lifecycle="active",
+                ),
+                TeamDB(id="team-gate-delivery", name="Gate delivery", is_active=True),
+                TeamDB(id="team-gate-other", name="Gate other", is_active=True),
+            ]
+        )
+        session.flush()
+        session.add_all(
+            [
+                OrganizationTeamLinkDB(
+                    id="link-gate-delivery",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_id="unit-gate-delivery",
+                    team_id="team-gate-delivery",
+                    lifecycle="active",
+                ),
+                OrganizationTeamLinkDB(
+                    id="link-gate-other",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_id="unit-gate-other",
+                    team_id="team-gate-other",
+                    lifecycle="active",
+                ),
+                OrganizationRoleSlotDB(
+                    id="slot-gate-implementer",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_id="unit-gate-delivery",
+                    slot_key="implementer",
+                    role_template_key="developer",
+                    role_template_version=1,
+                ),
+                OrganizationRoleSlotDB(
+                    id="slot-gate-other-implementer",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_id="unit-gate-other",
+                    slot_key="other_implementer",
+                    role_template_key="developer",
+                    role_template_version=1,
+                ),
+                OrganizationRoleSlotDB(
+                    id="slot-gate-reviewer",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    unit_id="unit-gate-delivery",
+                    slot_key="independent_reviewer",
+                    role_template_key="reviewer",
+                    role_template_version=1,
+                ),
+            ]
+        )
+        session.add_all(
+            [
+                AgentInfoDB(url=execution_agent, name="executor", status="online"),
+                AgentInfoDB(url=conflicted_agent, name="conflicted", status="online"),
+                AgentInfoDB(url=reviewer_agent, name="reviewer", status="online"),
+            ]
+        )
+        session.flush()
+        session.add_all(
+            [
+                OrganizationRoleAssignmentDB(
+                    id="assignment-gate-executor",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    role_slot_id="slot-gate-implementer",
+                    agent_url=execution_agent,
+                    lifecycle="active",
+                    assignment_metadata={"principal_id": execution_agent, "duties": ["implementer"]},
+                ),
+                OrganizationRoleAssignmentDB(
+                    id="assignment-gate-reviewer-direct-conflict",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    role_slot_id="slot-gate-reviewer",
+                    agent_url=execution_agent,
+                    lifecycle="active",
+                    assignment_metadata={"principal_id": execution_agent},
+                ),
+                OrganizationRoleAssignmentDB(
+                    id="assignment-gate-other-implementer",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    role_slot_id="slot-gate-other-implementer",
+                    agent_url=conflicted_agent,
+                    lifecycle="active",
+                    assignment_metadata={"principal_id": conflicted_agent, "duties": ["implementer"]},
+                ),
+                OrganizationRoleAssignmentDB(
+                    id="assignment-gate-reviewer-indirect-conflict",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    role_slot_id="slot-gate-reviewer",
+                    agent_url=conflicted_agent,
+                    lifecycle="active",
+                    assignment_metadata={"principal_id": conflicted_agent},
+                ),
+                OrganizationRoleAssignmentDB(
+                    id="assignment-gate-reviewer-safe",
+                    tenant_id=tenant_id,
+                    project_id=project_id,
+                    organization_id=organization_id,
+                    role_slot_id="slot-gate-reviewer",
+                    agent_url=reviewer_agent,
+                    lifecycle="active",
+                    assignment_metadata={"principal_id": reviewer_agent},
+                ),
+            ]
+        )
+        session.commit()
+
+    task_repo.save(
+        TaskDB(
+            id=task_id,
+            title="Automated workflow gate",
+            status="assigned",
+            tenant_id=tenant_id,
+            project_id=project_id,
+            organization_id=organization_id,
+            unit_id="unit-gate-delivery",
+            team_id="team-gate-delivery",
+            role_slot_id="slot-gate-implementer",
+            task_kind="gate_review",
+            worker_execution_context={
+                "organization_workflow_step_binding": binding,
+                "organization_routing": {"selected_assignment_id": "assignment-gate-executor"},
+            },
+            verification_spec=verification_spec,
+        )
+    )
+    with Session(engine) as session:
+        session.add(
+            VerificationRecordDB(
+                id="verification-automated-gate",
+                task_id=task_id,
+                verification_type="quality_gate",
+                status="passed",
+                spec=verification_spec,
+                results={"quality_gates_passed": True, "final_passed": True},
+            )
+        )
+        session.commit()
+
+    completed = task_repo.get_by_id(task_id)
+    assert completed is not None
+    completed.status = "completed"
+    completed.verification_status = {"status": "passed"}
+    persisted = task_repo.save(completed)
+
+    approval_ref = persisted.verification_status[ORGANIZATION_WORKFLOW_APPROVAL_REF_FIELD]
+    assert persisted.status == "completed"
+    with Session(engine) as session:
+        requests = list(session.exec(select(ApprovalRequestDB).where(ApprovalRequestDB.task_id == task_id)).all())
+    assert len(requests) == 1
+    assert requests[0].id == approval_ref["approval_request_id"]
+    assert requests[0].decided_by == reviewer_agent
+    assert requests[0].canonical_arguments["approval_assignment_id"] == ("assignment-gate-reviewer-safe")
+    assert requests[0].scope["decision_authority"]["mode"] == ("automated_role_assignment")
+
+    replayed = task_repo.save(persisted)
+    assert replayed.status == "completed"
+    with Session(engine) as session:
+        assert len(list(session.exec(select(ApprovalRequestDB).where(ApprovalRequestDB.task_id == task_id)).all())) == 1
 
 
 def test_completion_policy_rejects_grant_without_hub_verification_record():
@@ -278,6 +545,12 @@ def test_completion_policy_rejects_grant_without_hub_verification_record():
                 "stale-workflow-fingerprint",
             ),
             "organization_workflow_gate_approval_workflow_drift",
+        ),
+        (
+            lambda _current, _candidate, session: session.request.scope[
+                "decision_authority"
+            ].update({"mode": "generic_approval"}),
+            "organization_workflow_gate_approval_authority_invalid",
         ),
         (
             lambda _current, _candidate, session: setattr(
