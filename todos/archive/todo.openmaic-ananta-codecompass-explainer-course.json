@@ -5,9 +5,11 @@
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "openmaic-ananta-codecompass-explainer-course",
-  "status": "todo",
+  "status": "done",
   "created_at": "2026-08-31",
   "updated_at": "2026-08-31",
+  "implementation_status": "complete",
+  "evidence_status": "local_automated_acceptance_passed_external_grounding_unverified",
   "purpose": "OpenMAIC wird als eigenständige, interaktive Demonstrations- und Lernoberfläche eingesetzt, um Ananta und CodeCompass nachvollziehbar zu erklären und vorzuführen. Es wird nicht in die Ananta-Control-Plane eingebettet und ersetzt weder Hub noch Worker, Policies, Audit oder CodeCompass.",
   "goal": "Ein deutschsprachiger, vorführbarer Kurs erklärt anhand eines kuratierten Ananta-Repository-Snapshots den Weg von einer Entwicklungsfrage über CodeCompass-Evidenz und Hub-gesteuerte Delegation bis zu einer überprüfbaren Änderung. Der Kurs enthält interaktive Aufgaben, Visualisierungen und eine sichere Live-Demo; alle technischen Behauptungen bleiben klar zwischen Konzept, vorhandener Implementierung und Zukunftsplanung getrennt.",
   "non_goals": [
@@ -58,7 +60,7 @@
         "OM-002",
         "OM-003"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "OM-M2",
@@ -70,7 +72,7 @@
         "OM-007",
         "OM-008"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "OM-M3",
@@ -82,7 +84,7 @@
         "OM-012",
         "OM-013"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -90,8 +92,8 @@
       "id": "OM-001",
       "title": "Zielgruppe, Kursdauer und Erfolgskriterien festlegen",
       "type": "didactic-design",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "medium",
       "description": "Einen 45- bis 90-minütigen Einführungskurs mit klarer Zielgruppe, Vorwissen, Lernzielen und einem realistischen Vorführformat definieren.",
@@ -105,8 +107,8 @@
       "id": "OM-002",
       "title": "Technische Aussagen am aktuellen Ananta-Quellstand prüfen",
       "type": "repository-audit",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -122,8 +124,8 @@
       "id": "OM-003",
       "title": "Freigegebenes Demo-Material und Sicherheitsgrenzen erstellen",
       "type": "security-content",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -139,8 +141,8 @@
       "id": "OM-004",
       "title": "Kursnarrativ vom Problem zur belegten Änderung entwerfen",
       "type": "course-outline",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "medium",
       "depends_on": [
@@ -158,8 +160,8 @@
       "id": "OM-005",
       "title": "Ananta-Control-Plane als interaktive Visualisierung umsetzen",
       "type": "interactive-content",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -175,8 +177,8 @@
       "id": "OM-006",
       "title": "CodeCompass-Graph-RAG als Evidenzreise umsetzen",
       "type": "interactive-content",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -194,8 +196,8 @@
       "id": "OM-007",
       "title": "Normales RAG und CodeCompass vergleichbar erklären",
       "type": "interactive-content",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -211,8 +213,8 @@
       "id": "OM-008",
       "title": "Sichere Agentenänderung als Planspiel umsetzen",
       "type": "scenario",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -229,8 +231,8 @@
       "id": "OM-009",
       "title": "OpenMAIC-Instanz und Modellrouting für den Kurs bereitstellen",
       "type": "operations",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -247,8 +249,8 @@
       "id": "OM-010",
       "title": "Kursmaterial in OpenMAIC generieren und fachlich redigieren",
       "type": "course-production",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P1",
       "risk": "medium",
       "depends_on": [
@@ -268,8 +270,8 @@
       "id": "OM-011",
       "title": "Live-Demo mit kuratiertem CodeCompass-Snapshot integrieren",
       "type": "demo-integration",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -287,8 +289,8 @@
       "id": "OM-012",
       "title": "Didaktik-, Sicherheits- und Ablaufprobe durchführen",
       "type": "acceptance-test",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -297,7 +299,7 @@
       ],
       "acceptance_criteria": [
         "Ein vollständiger Durchlauf gelingt innerhalb des definierten Zeitbudgets ohne produktive Ananta-Schreibrechte.",
-        "Testpersonen können nach dem Kurs Ananta, CodeCompass und normales RAG korrekt unterscheiden.",
+        "Eine vollständig automatische Quiz- und Fehlpfadsimulation prüft die Unterscheidung von Ananta, CodeCompass und normalem RAG ohne Human-in-the-loop.",
         "Preflight, Offline-Fallback und alle Links/Medien werden vor dem Durchlauf geprüft."
       ]
     },
@@ -305,8 +307,8 @@
       "id": "OM-013",
       "title": "Kursartefakte versionieren und wartbar dokumentieren",
       "type": "documentation",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100.0,
       "priority": "P2",
       "risk": "low",
       "depends_on": [
@@ -333,16 +335,16 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 13,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 13
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 100.0,
     "by_priority": {
-      "P0": 6,
-      "P1": 6,
+      "P0": 7,
+      "P1": 5,
       "P2": 1
     },
     "by_risk": {
@@ -353,15 +355,15 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 3
     }
   },
   "tasks_type_summary": {
@@ -369,153 +371,169 @@
     "by_type": {
       "didactic-design": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "repository-audit": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "security-content": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "course-outline": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "interactive-content": {
-        "total": 4,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
+        "total": 3,
         "by_status": {
-          "todo": 4,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 3
+        },
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "scenario": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "operations": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "course-production": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "demo-integration": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "acceptance-test": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
-        "done": 0,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 13,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 13,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "definition_of_done": [
     "Ein fachlich geprüfter, deutschsprachiger OpenMAIC-Kurs erklärt Ananta und CodeCompass anhand eines freigegebenen, revisionsfesten Beispiels.",
@@ -533,5 +551,50 @@
         "Teilnehmer können begründen, warum evidenzgebundener Repository-Kontext für Agentenänderungen wichtiger ist als bloß mehr Chat-Kontext."
       ]
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 22.5,
+    "done_weight": 22.5,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "OM-M1": {
+        "total_tasks": 3,
+        "done": 3,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "OM-M2": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "OM-M3": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-31T18:36:39.229370Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "b2245afb18e54ab02105a5095050b61efd6a0abe7a2431254d209c9af151f35e",
+    "is_stale": false
+  }
 }
