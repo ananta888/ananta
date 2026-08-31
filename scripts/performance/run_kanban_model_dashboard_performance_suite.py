@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import os
@@ -12,7 +11,6 @@ import platform
 import re
 import subprocess
 import sys
-import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,10 +20,90 @@ try:
         DEFAULT_POLICY,
         validate_policy_approval,
     )
+    from scripts.performance.kanban_performance_io import (
+        load_json,
+        write_json_atomic,
+    )
+    from scripts.performance.kanban_performance_io import (
+        repo_path as _repo_path,
+    )
+    from scripts.performance.kanban_performance_io import (
+        sha256_bytes as _sha256_bytes,
+    )
+    from scripts.performance.kanban_performance_io import (
+        sha256_path as _sha256_path,
+    )
+    from scripts.performance.kanban_performance_io import (
+        source_artifact as _source_artifact,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        SuiteValidationError,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        integer as _integer,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        list_value as _list,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        mapping as _mapping,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        number as _number,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        percentile as _percentile,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        require_false as _require_false,
+    )
+    from scripts.performance.kanban_performance_validation import (
+        text as _text,
+    )
 except ModuleNotFoundError:
     from kanban_baseline_approval_policy import (  # type: ignore
         DEFAULT_POLICY,
         validate_policy_approval,
+    )
+    from kanban_performance_io import (  # type: ignore
+        load_json,
+        write_json_atomic,
+    )
+    from kanban_performance_io import (
+        repo_path as _repo_path,
+    )
+    from kanban_performance_io import (
+        sha256_bytes as _sha256_bytes,
+    )
+    from kanban_performance_io import (
+        sha256_path as _sha256_path,
+    )
+    from kanban_performance_io import (
+        source_artifact as _source_artifact,
+    )
+    from kanban_performance_validation import (  # type: ignore
+        SuiteValidationError,
+    )
+    from kanban_performance_validation import (
+        integer as _integer,
+    )
+    from kanban_performance_validation import (
+        list_value as _list,
+    )
+    from kanban_performance_validation import (
+        mapping as _mapping,
+    )
+    from kanban_performance_validation import (
+        number as _number,
+    )
+    from kanban_performance_validation import (
+        percentile as _percentile,
+    )
+    from kanban_performance_validation import (
+        require_false as _require_false,
+    )
+    from kanban_performance_validation import (
+        text as _text,
     )
 
 
@@ -42,13 +120,9 @@ DEFAULT_PROFILE = (
     / "formal-performance.v1.json"
 )
 DEFAULT_BACKEND = ROOT / "artifacts" / "kanban-local-performance-diagnostic.json"
-DEFAULT_ANGULAR = (
-    ROOT / "artifacts" / "angular-kanban-local-performance-diagnostic.json"
-)
+DEFAULT_ANGULAR = ROOT / "artifacts" / "angular-kanban-local-performance-diagnostic.json"
 DEFAULT_TUI = ROOT / "artifacts" / "tui-kanban-local-performance-diagnostic.json"
-DEFAULT_PTY = (
-    ROOT / "artifacts" / "tui-kanban-pty-resize-local-diagnostic.json"
-)
+DEFAULT_PTY = ROOT / "artifacts" / "tui-kanban-pty-resize-local-diagnostic.json"
 DEFAULT_CANDIDATE = (
     ROOT
     / "artifacts"
@@ -84,78 +158,6 @@ REQUIRED_METRICS = (
     "events.lost",
     "events.deduplicated",
 )
-
-
-class SuiteValidationError(ValueError):
-    pass
-
-
-def _mapping(value: Any, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        raise SuiteValidationError(f"{label}_mapping_required")
-    return value
-
-
-def _list(value: Any, label: str) -> list[Any]:
-    if not isinstance(value, list):
-        raise SuiteValidationError(f"{label}_list_required")
-    return value
-
-
-def _text(value: Any, label: str) -> str:
-    result = str(value or "").strip()
-    if not result:
-        raise SuiteValidationError(f"{label}_text_required")
-    return result
-
-
-def _number(value: Any, label: str, *, minimum: float = 0.0) -> float:
-    if isinstance(value, bool):
-        raise SuiteValidationError(f"{label}_number_required")
-    try:
-        result = float(value)
-    except (TypeError, ValueError) as exc:
-        raise SuiteValidationError(f"{label}_number_required") from exc
-    if not math.isfinite(result) or result < minimum:
-        raise SuiteValidationError(f"{label}_number_invalid")
-    return result
-
-
-def _integer(value: Any, label: str, *, minimum: int = 0) -> int:
-    result = _number(value, label, minimum=float(minimum))
-    if not result.is_integer():
-        raise SuiteValidationError(f"{label}_integer_required")
-    return int(result)
-
-
-def _require_false(value: Any, label: str) -> None:
-    if value is not False:
-        raise SuiteValidationError(f"{label}_must_be_false")
-
-
-def _sha256_bytes(payload: bytes) -> str:
-    return hashlib.sha256(payload).hexdigest()
-
-
-def _sha256_path(path: Path) -> str:
-    return _sha256_bytes(path.read_bytes())
-
-
-def _repo_path(path: Path) -> str:
-    resolved = path.resolve()
-    try:
-        return str(resolved.relative_to(ROOT))
-    except ValueError:
-        return str(resolved)
-
-
-def load_json(path: Path) -> tuple[dict[str, Any], bytes]:
-    payload = path.read_bytes()
-    try:
-        decoded = json.loads(payload)
-    except json.JSONDecodeError as exc:
-        raise SuiteValidationError(f"json_invalid:{_repo_path(path)}") from exc
-    return _mapping(decoded, f"json:{_repo_path(path)}"), payload
 
 
 def validate_profile(profile: dict[str, Any]) -> None:
@@ -276,14 +278,6 @@ def _validate_local_flags(
     _require_false(report.get("release_evidence"), f"{source}_release_evidence")
     formal_field = "formal" if source == "angular" else "formal_gate_eligible"
     _require_false(report.get(formal_field), f"{source}_{formal_field}")
-
-
-def _percentile(values: list[float], quantile: float) -> float:
-    if not values:
-        raise SuiteValidationError("percentile_samples_required")
-    ordered = sorted(values)
-    index = max(0, min(len(ordered) - 1, math.ceil(len(ordered) * quantile) - 1))
-    return ordered[index]
 
 
 def normalise_measurements(
@@ -762,14 +756,6 @@ def collect_commit(root: Path = ROOT) -> dict[str, str]:
     }
 
 
-def _source_artifact(path: Path, payload: bytes, report: dict[str, Any]) -> dict[str, str]:
-    return {
-        "path": _repo_path(path),
-        "sha256": _sha256_bytes(payload),
-        "schema": _text(report.get("schema"), "source_schema"),
-    }
-
-
 def load_suite_inputs(
     *,
     profile_path: Path,
@@ -1012,26 +998,6 @@ def build_gate_report(
         "baseline_evaluation": baseline_evaluation,
         "blockers": blockers,
     }
-
-
-def write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    descriptor, temporary = tempfile.mkstemp(
-        prefix=f".{path.name}.",
-        suffix=".tmp",
-        dir=path.parent,
-    )
-    try:
-        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
-            json.dump(payload, handle, indent=2, sort_keys=True)
-            handle.write("\n")
-        os.replace(temporary, path)
-    except BaseException:
-        try:
-            os.unlink(temporary)
-        except FileNotFoundError:
-            pass
-        raise
 
 
 def _add_common_inputs(parser: argparse.ArgumentParser) -> None:
