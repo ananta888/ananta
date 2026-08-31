@@ -4,10 +4,10 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "lmstudio-ollama-capability-template-runtime-integration",
   "created_at": "2026-07-28",
-  "updated_at": "2026-07-28",
+  "updated_at": "2026-08-31",
   "status": "partial",
-  "implementation_status": "source_aligned_planning_complete",
-  "evidence_status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+  "implementation_status": "local_implementation_complete_external_evidence_blocked",
+  "evidence_status": "local_automated_tests_passed_unverified_missing_SRC_RUN_ids",
   "purpose": "LM Studio und Ollama erhalten eine gemeinsame, hub-kontrollierte Sicht auf installierte Modelle, sichere Runtime-Capabilities, Kontextgrenzen, Templates und Laufzeitzustand. Bestehende OpenAI-kompatible Pfade bleiben kompatibel; provider-native Ollama-Funktionen werden hinter kleinen Adaptern ergaenzt.",
   "goal": "Routing, Tool-Calling, Embeddings, Vision, Thinking, API, Angular und TUI verwenden denselben versionierten Capability-Snapshot. Unsichere oder veraltete Daten loesen keine stille Capability-Eskalation aus. Der Hub bleibt Eigentuemer von Refresh, Routing, Approval und Tool-Loop-Zustand; Worker fuehren nur delegierte Schritte aus.",
   "status_scale": [
@@ -46,7 +46,7 @@
     "Keine Live-Runtime- oder GPU-Pflicht fuer die lokale Code-Abnahme."
   ],
   "source_alignment": {
-    "status": "locally_inspected_unverified_missing_SRC_RUN_ids",
+    "status": "local_implementation_complete_unverified_missing_SRC_RUN_ids",
     "repository": "ananta888/ananta",
     "branch": null,
     "commit_sha": null,
@@ -54,27 +54,29 @@
     "run_ids": [],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* IDs sind fuer Source- oder Run-Claims zulaessig; fehlende IDs bleiben unverified.",
     "existing_foundations": [
-      "ananta_contracts/model_capability.py",
-      "ananta_contracts/model_catalog.py",
-      "agent/services/model_catalog_service.py",
-      "agent/services/ollama_model_discovery_service.py",
       "agent/llm_integration_lmstudio.py",
+      "agent/routes/config/providers.py",
+      "agent/services/local_runtime_capability_cache.py",
+      "agent/services/local_runtime_capability_contracts.py",
+      "agent/services/local_runtime_capability_discovery.py",
+      "agent/services/local_runtime_response_adapters.py",
+      "agent/services/model_catalog_service.py",
       "agent/services/model_invocation_service.py",
       "agent/services/model_profile_loader.py",
       "agent/services/model_profile_resolver.py",
-      "agent/services/tool_calling_mode_service.py",
+      "agent/services/ollama_model_discovery_service.py",
       "agent/services/provider_invocation_middleware.py",
-      "agent/routes/config/providers.py",
+      "agent/services/tool_calling_mode_service.py",
+      "ananta_contracts/model_capability.py",
+      "ananta_contracts/model_catalog.py",
+      "client_surfaces/operator_tui",
       "frontend-angular/src/app/features/system/model-dashboard",
-      "client_surfaces/operator_tui"
+      "worker/local_runtime_capability_handler.py",
+      "worker/retrieval/embedding_provider.py"
     ],
     "observed_gaps": [
-      "Ollama-Discovery verwendet /api/tags, aber keinen zentralen digestgebundenen /api/show-Inspector.",
-      "LM-Studio-Discovery verwendet /v1/models, aber keinen validierten /api/v1/models-Detailpfad.",
-      "Capability-Quelle, Confidence, Freshness, Template-Hash und Runtime-Widerspruch fehlen im gemeinsamen Vertrag.",
-      "Mehrere Tool-Loops und LM-Studio-Aufrufpfade normalisieren strukturierte Tool-Calls uneinheitlich.",
-      "API, Angular und TUI projizieren den bestehenden ModelCatalog-v1, aber keine Capability-Provenienz oder Template-Diagnose.",
-      "Es existiert kein persistenter digestgebundener Capability-Snapshot-Cache."
+      "Es wurden keine unveraenderlichen SRC_* oder RUN_* IDs bereitgestellt; Source- und Run-Claims bleiben deshalb unverified.",
+      "Externe Live-Runtime-, GPU-, Performance- und Produktionsfreigaben sind nicht Teil der lokal reproduzierbaren Abnahme."
     ]
   },
   "capability_contract_v1": {
@@ -143,7 +145,7 @@
         "LMR-007",
         "LMR-008"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "LMR-M3",
@@ -157,7 +159,7 @@
         "LMR-014",
         "LMR-015"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "LMR-M4",
@@ -168,7 +170,7 @@
         "LMR-018",
         "LMR-019"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "LMR-M5",
@@ -177,17 +179,17 @@
         "LMR-020",
         "LMR-021"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
     {
       "id": "LMR-000",
       "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 10,
+      "progress_percent": 10.0,
       "type": "governance",
       "milestone_id": "LMR-M1",
       "depends_on": [],
@@ -210,10 +212,10 @@
     {
       "id": "LMR-001",
       "title": "Versionierten Capability- und Runtime-Snapshot-Vertrag erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100.0,
       "type": "architecture",
       "milestone_id": "LMR-M1",
       "depends_on": [
@@ -241,10 +243,10 @@
     {
       "id": "LMR-002",
       "title": "Gemeinsame Runtime-Endpoint- und Metadata-Security vorziehen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 40,
+      "progress_percent": 100.0,
       "type": "security",
       "milestone_id": "LMR-M1",
       "depends_on": [
@@ -272,10 +274,10 @@
     {
       "id": "LMR-003",
       "title": "Kleine Discovery-Ports und hub-eigenen Refresh-Coordinator einfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100.0,
       "type": "architecture",
       "milestone_id": "LMR-M1",
       "depends_on": [
@@ -305,10 +307,10 @@
     {
       "id": "LMR-004",
       "title": "Ollama-Discovery digestgebunden um /api/show erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 25,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M2",
       "depends_on": [
@@ -337,10 +339,10 @@
     {
       "id": "LMR-005",
       "title": "LM-Studio-Discovery um validierte native v1-Modelldaten erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 30,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M2",
       "depends_on": [
@@ -369,10 +371,10 @@
     {
       "id": "LMR-006",
       "title": "Providerdaten in eine begrenzte Capability-Normalform ueberfuehren",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "type": "normalization",
       "milestone_id": "LMR-M2",
       "depends_on": [
@@ -400,10 +402,10 @@
     {
       "id": "LMR-007",
       "title": "Pluggable Template-Inspector und Konfliktdiagnose implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "type": "normalization",
       "milestone_id": "LMR-M2",
       "depends_on": [
@@ -431,10 +433,10 @@
     {
       "id": "LMR-008",
       "title": "Atomaren digestgebundenen Capability-Snapshot-Cache bereitstellen",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "type": "persistence",
       "milestone_id": "LMR-M2",
       "depends_on": [
@@ -462,10 +464,10 @@
     {
       "id": "LMR-009",
       "title": "Capability-Vertrauen mit Profilen und Routing zusammenfuehren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 30,
+      "progress_percent": 100.0,
       "type": "routing",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -497,10 +499,10 @@
     {
       "id": "LMR-010",
       "title": "Kontext-, Payload-, Streaming- und Cancellation-Grenzen vereinheitlichen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 30,
+      "progress_percent": 100.0,
       "type": "runtime",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -528,10 +530,10 @@
     {
       "id": "LMR-011",
       "title": "Ollama-native Chat- und Generate-Antworten normalisieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -561,10 +563,10 @@
     {
       "id": "LMR-012",
       "title": "Ollama-Vision ueber einen policygeschuetzten Image-Adapter integrieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -591,10 +593,10 @@
     {
       "id": "LMR-013",
       "title": "Ollama-native Embeddings erkennen und strikt getrennt routen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 20,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -623,10 +625,10 @@
     {
       "id": "LMR-014",
       "title": "LM-Studio-OpenAI-Aufrufpfade ohne Tool-Call-Textverlust vereinheitlichen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 45,
+      "progress_percent": 100.0,
       "type": "provider",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -657,10 +659,10 @@
     {
       "id": "LMR-015",
       "title": "Hub-eigenen providerneutralen Tool-Result-Loop konsolidieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 35,
+      "progress_percent": 100.0,
       "type": "orchestration",
       "milestone_id": "LMR-M3",
       "depends_on": [
@@ -692,10 +694,10 @@
     {
       "id": "LMR-016",
       "title": "Bestehende ModelCatalog-API um Runtime-Snapshots und sicheren Refresh erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 100.0,
       "type": "api",
       "milestone_id": "LMR-M4",
       "depends_on": [
@@ -726,10 +728,10 @@
     {
       "id": "LMR-017",
       "title": "Angular und TUI auf dieselbe Capability-Projektion umstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 35,
+      "progress_percent": 100.0,
       "type": "frontend",
       "milestone_id": "LMR-M4",
       "depends_on": [
@@ -758,10 +760,10 @@
     {
       "id": "LMR-018",
       "title": "Diagnostik, Health, Tracing und read-only Probe ergaenzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 30,
+      "progress_percent": 100.0,
       "type": "operations",
       "milestone_id": "LMR-M4",
       "depends_on": [
@@ -793,10 +795,10 @@
     {
       "id": "LMR-019",
       "title": "Rueckwaertskompatibilitaet und sensibles Logging haerten",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 30,
+      "progress_percent": 100.0,
       "type": "migration",
       "milestone_id": "LMR-M4",
       "depends_on": [
@@ -829,10 +831,10 @@
     {
       "id": "LMR-020",
       "title": "Provider-, Security- und Regression-Gatematrix liefern",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20,
+      "progress_percent": 100.0,
       "type": "testing",
       "milestone_id": "LMR-M5",
       "depends_on": [
@@ -877,10 +879,10 @@
     {
       "id": "LMR-021",
       "title": "Operator-Dokumentation, Rollout und Rollback abschliessen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 20,
+      "progress_percent": 100.0,
       "type": "documentation",
       "milestone_id": "LMR-M5",
       "depends_on": [
@@ -1013,13 +1015,13 @@
   "tasks_status_summary": {
     "total": 22,
     "by_status": {
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 17,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 1,
+      "done": 21
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 95.5,
     "by_priority": {
       "P0": 14,
       "P1": 8,
@@ -1034,61 +1036,261 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 0,
-      "remaining": 14
+      "done": 13,
+      "remaining": 1
     },
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 5,
+      "in_progress": 1,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
     "total": 22,
     "by_type": {
-      "governance": 1,
-      "architecture": 2,
-      "security": 1,
-      "provider": 6,
-      "normalization": 2,
-      "persistence": 1,
-      "routing": 1,
-      "runtime": 1,
-      "orchestration": 1,
-      "api": 1,
-      "frontend": 1,
-      "operations": 1,
-      "migration": 1,
-      "testing": 1,
-      "documentation": 1
+      "governance": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 1,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 10.0
+      },
+      "architecture": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "security": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "provider": {
+        "total": 6,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 6
+        },
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "normalization": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "persistence": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "routing": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "runtime": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "orchestration": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "api": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "frontend": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "operations": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "migration": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "testing": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "documentation": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 5,
+    "state": "blocked",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 17,
-    "blocked": 0,
-    "done": 0
+    "partial": 0,
+    "blocked": 1,
+    "done": 21,
+    "count_based_percent": 95.5,
+    "weighted_percent": 96.6
   },
   "weighted_progress_summary": {
-    "method": "arithmetic_mean_of_task_progress_percent",
-    "progress_percent": 23.64,
-    "unverified": true
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 39.5,
+    "done_weight": 38.15,
+    "remaining_weight": 1.35,
+    "blocked_weight": 1.5,
+    "weighted_percent": 96.6
   },
   "execution_stage_summary": {
-    "local_code_and_test": "planned_from_source_alignment",
-    "grounded_evidence": "pending_external",
-    "live_compatibility": "pending_external",
-    "production_default": "disabled"
+    "local_code_and_test": "complete_automated",
+    "grounded_evidence": "blocked_missing_provided_SRC_RUN_ids",
+    "live_compatibility": "external_optional_gate_not_claimed",
+    "production_default": "observe_only"
   },
   "summary_notes": [
     "Tasks sind die Single Source of Truth; Summary-Felder sind abgeleitete Caches.",
-    "Partial-Status basiert auf lokaler Source-Inspektion und ist ohne SRC_* IDs nicht grounded.",
-    "Optionales LM-Studio Responses, native Stateful Chat, MCP und Lifecycle sind bewusst aus dem Kerntrack entfernt.",
-    "Alle lokalen Protokoll-, Security- und Tool-Loop-Kriterien sind ohne GPU durch Fixtures testbar."
+    "21 lokal reproduzierbare Implementierungsaufgaben sind automatisiert umgesetzt und getestet.",
+    "LMR-000 bleibt wegen fehlender bereitgestellter SRC_* und RUN_* IDs explizit blocked; es werden keine IDs erfunden.",
+    "Optionale Live-Runtime-, GPU- und Produktionsfreigaben bleiben von der lokalen Implementierungsabnahme getrennt."
   ],
   "definition_of_done": [
     "Alle 22 Track-Tasks sind done und die abgeleiteten Summaries stimmen mit tasks[] ueberein.",
@@ -1098,5 +1300,58 @@
     "Observe-only Discovery, capability-aware Routing und Tool-Loop koennen getrennt aktiviert und zurueckgerollt werden.",
     "Grounded Source- und Run-Claims verwenden ausschliesslich bereitgestellte SRC_* und RUN_* IDs.",
     "Externe Live-Gates und Production-Freigabe bleiben getrennt von der lokal reproduzierbaren Implementierungsabnahme."
-  ]
+  ],
+  "milestone_progress_summary": {
+    "milestones": {
+      "LMR-M1": {
+        "total_tasks": 4,
+        "done": 3,
+        "blocked": 1,
+        "count_based_percent": 75.0,
+        "weighted_percent": 80.7,
+        "status": "in_progress"
+      },
+      "LMR-M2": {
+        "total_tasks": 5,
+        "done": 5,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LMR-M3": {
+        "total_tasks": 7,
+        "done": 7,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LMR-M4": {
+        "total_tasks": 4,
+        "done": 4,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      },
+      "LMR-M5": {
+        "total_tasks": 2,
+        "done": 2,
+        "blocked": 0,
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-08-31T18:10:37.403397Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "42d845cb4222d6c025c41945ba195795f8fb80fb6f2d48456e17f08411702dc5",
+    "is_stale": false
+  }
 }
