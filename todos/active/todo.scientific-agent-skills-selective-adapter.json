@@ -43,7 +43,7 @@
         {
           "id": "SAS-INV-001",
           "title": "Upstream-Skill-Manifest deterministisch erfassen",
-          "status": "open",
+          "status": "done",
           "priority": "P0",
           "risk": "high",
           "type": "analysis",
@@ -305,7 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "open": 10
+      "done": 1,
+      "open": 9
     },
     "recommended_order": [
       "SAS-INV-001",
