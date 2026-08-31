@@ -1,10 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-import threading
 import time
-from functools import wraps
-from typing import Callable, ParamSpec, TypeVar
+from typing import Callable
 
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, func, select, update
@@ -18,6 +16,15 @@ from agent.db_models import (
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
 )
+from agent.repositories.ml_intern_training_serialization import (
+    is_slot_or_idempotency_conflict as _is_slot_or_idempotency_conflict,
+)
+from agent.repositories.ml_intern_training_serialization import (
+    serialized_sqlite_read as _serialized_sqlite_read,
+)
+from agent.repositories.ml_intern_training_serialization import (
+    serialized_write as _serialized_write,
+)
 from agent.repositories.semantic_media_audit_outbox import SqlSemanticMediaAuditOutbox
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 from agent.services.semantic_media_audit_service import (
@@ -25,60 +32,7 @@ from agent.services.semantic_media_audit_service import (
     SemanticMediaAuditPort,
 )
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-_REPOSITORY_WRITE_LOCK = threading.RLock()
 _DEFAULT_AUDIT: SemanticMediaAuditPort | None = None
-
-
-def _serialized_write(callback: Callable[_P, _R]) -> Callable[_P, _R]:
-    """Prevent transaction overlap on one process-local SQLite connection.
-
-    Database constraints remain authoritative between Hub processes. This lock
-    also makes the in-memory SQLite ``StaticPool`` test adapter safe, because
-    that adapter intentionally shares one DBAPI connection across threads.
-    """
-
-    @wraps(callback)
-    def guarded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        with _REPOSITORY_WRITE_LOCK:
-            return callback(*args, **kwargs)
-
-    return guarded
-
-
-def _serialized_sqlite_read(callback: Callable[_P, _R]) -> Callable[_P, _R]:
-    """Fence a SQLite read against this repository's process-local writes.
-
-    Named shared-cache SQLite reports ``SQLITE_LOCKED`` immediately when an
-    asynchronous writer owns the same table. File-backed SQLite benefits from
-    the same deterministic boundary, while PostgreSQL reads remain concurrent.
-    """
-
-    @wraps(callback)
-    def guarded(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        repository = args[0]
-        dialect = getattr(getattr(repository, "_engine", None), "dialect", None)
-        if getattr(dialect, "name", None) != "sqlite":
-            return callback(*args, **kwargs)
-        with _REPOSITORY_WRITE_LOCK:
-            return callback(*args, **kwargs)
-
-    return guarded
-
-
-def _is_slot_or_idempotency_conflict(exc: IntegrityError) -> bool:
-    """Whether this integrity failure means the slot is simply taken.
-
-    Slot contention and a replayed idempotency key both surface as a unique
-    constraint; everything else — a foreign key above all — is a different
-    fault that the capacity loop must not swallow.
-    """
-
-    text = str(getattr(exc, "orig", exc)).lower()
-    if "foreign key" in text:
-        return False
-    return "unique" in text or "duplicate" in text
 
 
 class MlInternTrainingRepositoryConflict(RuntimeError):
