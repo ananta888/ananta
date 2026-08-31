@@ -5,7 +5,7 @@
   "version": "2.2",
   "owner": "Peter Stuiber / Ananta",
   "track": "webrtc-sfu-broadcast-fanout",
-  "status": "partial",
+  "status": "blocked",
   "created_at": "2026-07-18",
   "updated_at": "2026-07-23",
   "parents": [
@@ -405,7 +405,7 @@
     {
       "id": "SFB-M0",
       "title": "Abgrenzung, Readiness und messbare Betriebsziele",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-BASE-001",
         "SFB-BASE-002",
@@ -450,7 +450,7 @@
     {
       "id": "SFB-M2",
       "title": "Hub-eigene Receiver Groups und Route-Projektion",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-GRP-001",
         "SFB-GRP-002",
@@ -477,7 +477,7 @@
     {
       "id": "SFB-M3",
       "title": "Receiver-spezifische Layerwahl und Egress-Fairness",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-QOS-001",
         "SFB-QOS-002",
@@ -510,7 +510,7 @@
     {
       "id": "SFB-M5",
       "title": "Authentifizierte SFU-Fleet, Placement und Failover",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-OPS-001",
         "SFB-OPS-002",
@@ -537,7 +537,7 @@
     {
       "id": "SFB-M6",
       "title": "TURN-Sicherheit, Quoten und Worst-Case-Oekonomie",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-TURN-001",
         "SFB-TURN-002",
@@ -581,7 +581,7 @@
     {
       "id": "SFB-M8",
       "title": "Security-, Chaos-, Soak-, Scale- und Rollout-Gate",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "SFB-GATE-001",
         "SFB-GATE-002",
@@ -634,8 +634,8 @@
         "total": 5,
         "todo": 0,
         "in_progress": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "done": 4
       },
       "S1_contracts_config_flags": {
@@ -690,8 +690,8 @@
         "total": 16,
         "todo": 0,
         "in_progress": 0,
-        "partial": 4,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 4,
         "done": 12
       },
       "S3_runtime_vertical_slice": {
@@ -725,8 +725,8 @@
         "total": 23,
         "todo": 0,
         "in_progress": 0,
-        "partial": 10,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 10,
         "done": 13
       },
       "S4_fleet_turn": {
@@ -759,8 +759,8 @@
         "total": 22,
         "todo": 0,
         "in_progress": 0,
-        "partial": 6,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 6,
         "done": 16
       },
       "S5_observability_ui": {
@@ -794,8 +794,8 @@
         "total": 4,
         "todo": 0,
         "in_progress": 0,
-        "partial": 3,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 3,
         "done": 1
       },
       "S7_real_browser_security": {
@@ -809,8 +809,8 @@
         "total": 3,
         "todo": 0,
         "in_progress": 0,
-        "partial": 3,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 3,
         "done": 0
       },
       "S8_parallel_long_gates": {
@@ -825,8 +825,8 @@
         "total": 4,
         "todo": 0,
         "in_progress": 0,
-        "partial": 4,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 4,
         "done": 0
       },
       "S9_capacity_rollout_release": {
@@ -840,8 +840,8 @@
         "total": 3,
         "todo": 0,
         "in_progress": 0,
-        "partial": 3,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 3,
         "done": 0
       }
     }
@@ -1061,8 +1061,9 @@
       "description": "Ein frueher versionsgebundener Spike prueft den gepinnten LiveKit-Server und livekit-client gegen die benoetigten Control-, Subscription-, Layer-, Data-, E2EE-, Metrics-, TURN-, Drain- und Placement-Faehigkeiten, bevor Adapter oder SFU-interne Hooks geplant werden.",
       "type": "architecture",
       "milestone_id": "SFB-M0",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 60,
+      "blocked_reason": "Probe, ADR und fail-closed Runtime-Auswahl sind implementiert und automatisiert geprüft. Der verbleibende Akzeptanznachweis benötigt einen gepinnten realen LiveKit-Server sowie einen Publisher und drei echte Receiver mit gültiger externer Runtime-Evidenz; ohne diesen Nachweis bleibt effective_mode absichtlich unsupported.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1419,7 +1420,7 @@
         "tests/fixtures/webrtc/fanout_route_intent/"
       ],
       "acceptance_criteria": [
-        "Der Intent bindet Route-ID, Group- und Audience-Digest, runtime_control_mode, Cluster/Region und \u2013 nur wenn die gewaehlte Grenze dies belegt \u2013 eine konkrete Node-/Runtime-ID sowie Publication, erlaubte Layer, Traffic-Class-Budgets, Route-/Topology-/Key-Epoch, Fencing-Token, Gueltigkeitsfenster und Hub-Signatur.",
+        "Der Intent bindet Route-ID, Group- und Audience-Digest, runtime_control_mode, Cluster/Region und – nur wenn die gewaehlte Grenze dies belegt – eine konkrete Node-/Runtime-ID sowie Publication, erlaubte Layer, Traffic-Class-Budgets, Route-/Topology-/Key-Epoch, Fencing-Token, Gueltigkeitsfenster und Hub-Signatur.",
         "Die SFU kann aus dem Intent weder weitere Receiver noch hoehere Layer, laengere TTL oder neue Publications ableiten.",
         "Cross-Runtime-/Cluster-/Region-, Cross-Room-, Cross-Publication-, stale-Fencing-, stale-Key- und Replay-Fixtures werden mit stabilen Reason-Codes abgelehnt; im livekit_native-Placement darf ein noch nicht bekannter konkreter Node weder erfunden noch als Tokenprecondition verlangt werden.",
         "Intentgroesse, Receiver-Referenzen, Layerzahl, Traffic-Klassen und TTL sind durch benannte Schema- und Config-Limits begrenzt."
@@ -1640,7 +1641,7 @@
       ],
       "acceptance_criteria": [
         "Jede Mutation prueft Membership-, Key- und Policy-Epoch sowie expected Group-Version in einer atomaren Transaktion.",
-        "Gewinnende Projektion erhaelt monotones Fencing; stale Writer, versp\u00e4tete Events und kleinere Epoch/Fencing-Werte koennen keinen aktiven Zustand ueberschreiben.",
+        "Gewinnende Projektion erhaelt monotones Fencing; stale Writer, verspätete Events und kleinere Epoch/Fencing-Werte koennen keinen aktiven Zustand ueberschreiben.",
         "Retry mit identischem Idempotency-Key liefert dieselbe Group-Version und erzeugt weder Doppelroute noch zusaetzlichen Auditdatensatz.",
         "Concurrent-Tests mit mindestens zwei Repository-Instanzen beweisen genau einen Gewinner bei Join/Revoke-Race, Hubwechsel und DB-Retry."
       ]
@@ -1693,8 +1694,9 @@
       "description": "Der bisher teilweise prozesslokale issued/latest/receipt-Zustand wird in einen begrenzten, CAS- und epochgeschuetzten Repositorypfad migriert und gegen die gemessenen Gruppenprofile skaliert.",
       "type": "security",
       "milestone_id": "SFB-M2",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Persistente Authorization-, Delivery-, ACK-, Replay-, Rotation- und Restart-Pfade sind implementiert und durch Repository-, Security- und Chaos-Tests belegt. Der abschließende produktionsnahe Multi-Hub-/KMS-/Lastnachweis benötigt eine externe Laufumgebung und gültige RUN_*-Evidenz.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1821,8 +1823,9 @@
       "description": "Der Hub setzt den vendorneutralen Route-Port ueber die in SFB-BASE-006 ausgewaehlte oeffentliche LiveKit-Control-API oder den authentifizierten Runtime-Control-Endpunkt um; SFU-interne Paket- oder Queueausfuehrung wird hier nicht behauptet.",
       "type": "infrastructure",
       "milestone_id": "SFB-M2",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der Hub-seitige LiveKit-Control-Adapter, Capability-Grenzen und fail-closed Fallbacks sind implementiert und lokal automatisiert geprüft. Ein positiv attestierter Real-Container-Lauf ist durch SFB-BASE-006 blockiert; ohne ihn darf der Adapter keine Runtime-Fähigkeit als available behaupten.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -1942,8 +1945,9 @@
       "description": "Der private LiveKit-Room wird durch eine Factory als komponierte Session aus fokussierten Lifecycle-, Key-, Publication-, Data-, Subscription/Layer-, Stats- und Eventports bereitgestellt; der bestehende breite Port bleibt nur als zeitlich begrenzete Kompatibilitaetsfassade.",
       "type": "architecture",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 55,
+      "blocked_reason": "Die Room-Session-Verantwortungen sind in kleine Ports und eine Composition Factory zerlegt; Backend- und Angular-Vertragstests sind grün. Die verbleibende Substituierbarkeits-Evidenz gegen die reale gepinnte LiveKit-Runtime hängt von SFB-BASE-006 ab.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2111,8 +2115,9 @@
       "description": "Ein fokussierter Angular-Reporter aggregiert erlaubte LiveKit-/WebRTC-Healthwerte lokal, sendet nur begrenzte Buckets an SFB-QOS-004 und besitzt einen vollstaendigen Lifecycle; der bestehende MediaHealthService wird nicht um Netzwerk-, Retry- und Policyverantwortung ueberladen.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Browser-Sampler, Privacy-Bounds, Reporter, Ingestion und Rate-/Retention-Grenzen sind implementiert und automatisiert getestet. Reale getStats-Messungen über die freigegebene Browsermatrix erfordern externe Browserläufe und gültige RUN_*-Evidenz.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2210,8 +2215,9 @@
       "description": "Der Hub materialisiert Publisher- und Receiverprojektionen aus SFB-QOS-003/005/006, liefert sie authentifiziert und aktualisiert sie epochgebunden an die kleinen Publication-/Layer-Consumer im Browser.",
       "type": "integration",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Signierte Layer-Projektion, API-Client, Validator, CAS-/Epoch-Grenzen und sichere Fallbacks sind implementiert und lokal geprüft. Der verbleibende End-to-End-Nachweis auf realer SFU- und Browser-Runtime hängt von SFB-BASE-006 und SFB-GATE-004 ab.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2258,8 +2264,9 @@
       "description": "Der Angular-Client erzeugt die vom Hub erlaubten Kamera- und Screenshare-Encodings einmal pro Publication und erhaelt sie ueber Add-, Replace-, Reconnect- und Cleanup-Lifecycle.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Publication-Controller, eine Publication pro Quelle, Simulcast-/SVC-Konfiguration und Cleanup sind implementiert und durch Angular-Tests abgedeckt. Die tatsächlichen RID-/Encoding-Stats müssen in echten Browserprozessen gegen die gepinnte Runtime belegt werden.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2296,8 +2303,9 @@
       "description": "Der Browser- und optionale Hub-SendData-Pfad verwenden den kanonischen Parent-Secure-Envelope, opaque Destination-Handles sowie harte Chunk-, Queue-, Reassembly-, Replay- und Lifecyclegrenzen fuer shared und receiver-private Daten.",
       "type": "transport",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der verschlüsselte, klassifizierte und begrenzte Data-Fanout inklusive Queue-, Backpressure-, Coalescing- und Privacy-Regeln ist implementiert und getestet. Reale LiveKit-DataPacket- und Slow-Receiver-Evidenz benötigt den externen Runtime-/Browser-Lauf.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2350,8 +2358,9 @@
       "description": "Die reale BaseKeyProvider-/LiveKit-Worker-Strecke wird als einziger produktiver E2EE-Pfad gegen Multi-Layer, Group-Key-Rotation, Index-Wrap, Reconnect und Cleanup geprueft; unverdrahtete Hilfsservices gelten nicht als Production-Evidence.",
       "type": "security",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "E2EE-Lifecycle, Gruppen-Key-Epochen, Replay-/Revocation-Schutz und fail-closed Capability-Grenzen sind implementiert und automatisiert geprüft. Paketmitschnitt und tatsächliche Encoded-Transform-Konformität können nur in einer realen gepinnten Browser-/SFU-Umgebung nachgewiesen werden.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2474,8 +2483,9 @@
       "description": "Der serverseitige Adapter setzt autorisierte Subscription-Operationen, content-free Egressbeobachtungen und nur nachgewiesene optionale Runtime-Hooks um; schnelle receiverseitige Layerwahl bleibt getrennt in SFB-QOS-016.",
       "type": "infrastructure",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Subscription-, Observation-, Egress- und optionale Runtime-Hook-Adapter sind implementiert, capability-gated und content-free getestet. Der geforderte reale stalled-/bursty-/normal-Receiver-Containerlauf ist ohne externe gepinnte LiveKit-Runtime nicht ausführbar.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2505,8 +2515,9 @@
       "description": "Ein kleiner Angular-Controller setzt Hub-signierte receiver-spezifische Layerkorridore ueber oeffentliche LiveKit-Client-APIs und adaptiveStream um, ohne SFU-internes Queueing oder eine zweite Policy zu behaupten.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der receiverseitige Layer-Controller, hysteretische Übergänge, Keyframe-Bounds und sichere Fallbacks sind implementiert und durch Unit-/Propertytests geprüft. Reale unabhängige Layerwechsel mehrerer Browser benötigen die externe Cross-Browser-Evidenz aus SFB-GATE-004.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2544,8 +2555,9 @@
       "description": "Kamera- und Screenshare-Tracks werden ueber einen kleinen, im LiveKit-Adapter gekapselten Render-Port produktiv an Angular-Videoelemente gebunden; Sichtbarkeit und Viewport speisen genau eine ausgewaehlte Layersteuerung.",
       "type": "frontend",
       "milestone_id": "SFB-M3",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Remote-Video-/Screenshare-Rendering, Track-Austausch, Layout- und Cleanup-Pfade sind implementiert und lokal getestet. Sichtbare echte MediaStream-Wiedergabe über die Supportmatrix bleibt bis zu realen Browser-/Device-Läufen blockiert.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2604,7 +2616,7 @@
       "acceptance_criteria": [
         "Accounting dedupliziert signierte Fenster nach Node, Sequenz und Zeitraum, trennt tatsaechliche Bytes von geschaetzten oder fehlenden Werten und prueft accounting_tolerance_bytes sowie accounting_tolerance_percent.",
         "Capacity Feedback ist zeitfenstergebunden, geglaettet, hard-limit-gekappt und kann bei Schaetzung, Gap oder fehlendem Fenster nur Admission ablehnen oder Layer-Caps senken, niemals Rechte, Reservierung oder Kapazitaet erhoehen.",
-        "Counter-Gap, Node-Neustart, Regression, versp\u00e4tetes Fenster und Diskrepanz zwischen Route und Egress erzeugen Alert-/Reconciliation-Reason-Codes.",
+        "Counter-Gap, Node-Neustart, Regression, verspätetes Fenster und Diskrepanz zwischen Route und Egress erzeugen Alert-/Reconciliation-Reason-Codes.",
         "Tests belegen innerhalb accounting_tolerance_bytes und accounting_tolerance_percent die Proportionalitaet zu tatsaechlich zugestellten Receiverlayern und trennen Shared-Processing-Ersparnis von Netzwerk-Egress."
       ]
     },
@@ -2773,8 +2785,9 @@
       "description": "Der in SFB-BASE-006 gewaehlte Modus wird als kleiner Hub-Control-Adapter oder als separat deployter mTLS Runtime-Agent umgesetzt; kein Code im Hub wird als SFU-Paketloop ausgegeben.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 45,
+      "blocked_reason": "Die geschlossene Runtime-Control-Grenze für öffentliche LiveKit-APIs und optional attestierte Extensions ist implementiert und fail-closed getestet. Eine Runtime darf erst nach dem externen gepinnten Capability-Smoke aus SFB-BASE-006 als wirksam ausgewählt werden.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2805,8 +2818,9 @@
       "description": "Ein kleiner, zur in SFB-BASE-006 gewaehlten Runtime-Grenze passender Adapter liest ausschliesslich dokumentierte LiveKit-/Host-Health- und Capacityquellen und sendet begrenzte Observationen an SFB-OPS-002; er trifft keine Placement- oder Admissionentscheidung.",
       "type": "observability",
       "milestone_id": "SFB-M5",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Modegerechte Probes, signierte/gebundene Observations, Freshness, Replay-Schutz und unbekannte Zustände sind implementiert und automatisiert geprüft. Reale Runtime-Metriken und mTLS-Identitäten müssen von der externen Zielumgebung geliefert werden.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -2872,8 +2886,9 @@
       "description": "Der bestehende Semantic-SFU-Admission-Service wird ueber kleine Ports mit aktiver Flagversion, Cluster-/Regionsreservierung, opaque LiveKit-Identity, Routeadapter und beobachteter Runtimebindung integriert.",
       "type": "backend",
       "milestone_id": "SFB-M5",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Capacity-Reservation, Route-, Vendor- und Runtime-Identitätsgrenzen sind Hub-seitig persistent, atomar und fail-closed implementiert. Aktivierbare gemessene Capacityprofile und reale Runtimebindung fehlen bis SFB-GATE-008/009 echte Evidenz liefern.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -2911,8 +2926,9 @@
       "description": "Die in SFB-BASE-006 gewaehlte Placement-Grenze wird reproduzierbar mit mindestens zwei Runtimezielen verdrahtet: LiveKits Redis-basiertes natives Node-Routing oder zwei Hub-auswaehlbare Clusterziele ohne Hub-interne Nodewahl.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Verteilte Runtime-, Placement-, Fencing-, Failover- und Version-Skew-Pfade sind implementiert und durch deterministische Chaos-/Repositorytests geprüft. Der echte Multi-Node-/Multi-Hub-Nachweis benötigt eine externe verteilte Laufumgebung.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3073,8 +3089,9 @@
       "description": "Das reale SFU-Deployment setzt die im Kapazitaetsprofil modellierten Grenzen auf Container-, Prozess-, Netzwerk- und Betriebssystemebene um und meldet Pressure fail-closed an den Hub.",
       "type": "infrastructure",
       "milestone_id": "SFB-M5",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Fleet-spezifische Limits, Preflight, Healthchecks und fail-closed Unsupported-Zustände sind implementiert und statisch/automatisiert geprüft. Kernel-/cgroup-Enforcement und Ressourcenverhalten müssen an real gestarteten Zielcontainern attestiert werden.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3182,7 +3199,7 @@
       "acceptance_criteria": [
         "Ledger trennt Allocationcount, aktive Ports, Ingress-/Egressbytes, Paketcount, Dauer, Authfehler und Exhaustion nach festem Fenster und Unit.",
         "Events binden Credential-ID-Pseudonym, Tenant, Room, Receiverklasse, SFU-Node, Sequenz und Zeitfenster und werden idempotent dedupliziert.",
-        "Counterregression, Duplicate, Gap, versp\u00e4tetes Fenster, Node-/TURN-Restart und Differenz zu SFU-Egress erzeugen markierte Schaetzung oder Reconciliation statt stillem Unterzaehlen.",
+        "Counterregression, Duplicate, Gap, verspätetes Fenster, Node-/TURN-Restart und Differenz zu SFU-Egress erzeugen markierte Schaetzung oder Reconciliation statt stillem Unterzaehlen.",
         "Retention, Pagination und Labelcardinality sind konfiguriert; IP, Secret, Username, Token und komplette Original-Participant-ID werden nicht gespeichert."
       ]
     },
@@ -3247,8 +3264,9 @@
       "description": "Die bisherige Test-/Legacy-Konfiguration wird durch ein deaktivierbares, gepinntes und ressourcenbegrenztes TURN-Pool-Profil fuer SFU-Broadcast ergaenzt.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der optionale Coturn-Pool, isolierte Compose-Profile, Secret-/Port-Grenzen und Healthchecks sind implementiert. Produktionsnahes Deployment, öffentliche Relay-Adressen und Zertifikate erfordern extern bereitgestellte Infrastruktur.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3348,8 +3366,9 @@
       "description": "Ein eigener Infrastructure-Adapter liest ausschliesslich freigegebene Coturn-Status-/Accountingquellen, normalisiert sie auf SFB-TURN-009 und exportiert sie begrenzt; er besitzt keine Hub-Policy.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Health-, Accounting-, Kosten- und content-free Observation-Pfade sind implementiert und fail-closed getestet. Reale Coturn-Accountingdaten und Ausfallmessungen benötigen einen laufenden externen TURN-Pool.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3418,8 +3437,9 @@
       "description": "Der durch SFB-TURN-008 ausgewaehlte Pool wird ueber den von SFB-BASE-006 belegten LiveKit-ICE/TURN-Konfigurationspfad und den bestehenden Peer-Network-Profile-Pfad verdrahtet; Konfiguration allein gilt erst mit realer Relay-Evidence als aktiv.",
       "type": "infrastructure",
       "milestone_id": "SFB-M6",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "LiveKit-/Browser-Konfiguration, TURN-only-Policy und lokaler Relay-Harness sind implementiert und automatisiert geprüft. Der produktive externe Relay-Pfad mit echten Browsern, DNS/TLS und öffentlichem Netzwerk benötigt externe Infrastruktur und RUN_*-Evidenz.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3726,8 +3746,9 @@
       "description": "Die bestehenden Parent-Harnesses werden um reale Browser, den ausgewaehlten SFU-/TURN-Stack, Broadcast-Fixtures, Fault Injection und synthetische Empfaengerlast erweitert; kein paralleles zweites Harness-Framework entsteht.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der Semantic-Media-Harness enthält Broadcast-Fixtures, deterministische Szenarien und fail-closed Auswertung. Vollständige reale Harness-Evidenz ist durch die fehlende gepinnte LiveKit-/Browser-/TURN-Laufumgebung blockiert.",
       "priority": "P0",
       "risk": "high",
       "depends_on": [
@@ -3787,8 +3808,9 @@
       "description": "Der ausgewaehlte gepinnte SFU-Container und seine echten Ingress-/Egressadapter werden ueber den gemeinsamen Harness mit malformed und hochratigem Media-/Transportverkehr belastet.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Das Protokoll-/Ressourcen-Fuzzgate, Seeds, Bounds und negative Cross-Layer-Injection-Tests sind implementiert und lokal grün. Der geforderte reale Media-Plane-Fuzzlauf gegen gepinnte SFU-Container benötigt externe Runtime-Evidenz.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3819,8 +3841,9 @@
       "description": "Adversarial Tests pruefen Hubautoritaet, individuelle Grants, Route-Intents, Nodeidentitaet, E2EE-Opacity und Revocation unter Racebedingungen.",
       "type": "security",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Cross-Tenant-/Room-, Token-, Epoch-, Replay-, Identitäts- und kompromittierte-Node-Abwehr ist in automatisierten Security-/Chaos-Tests implementiert. Der vollständige reale Container-/Netzwerkangriffsnachweis bleibt ohne externe gepinnte Runtime blockiert.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -3854,8 +3877,9 @@
       "description": "Die freigegebene Browser-/Plattformmatrix prueft ausschliesslich Advanced-Broadcast-Erweiterungen wie reale Multi-Layer-Publication, Receiver Groups, Layerwechsel und deren sichtbaren Parent-Fallback; Basis-Join, -Rekey und normales SFU bleiben Parent-Gates.",
       "type": "e2e",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Browser-Komponenten und der vollautomatische Playwright-Harness sind implementiert; Unit- und Vertragsprüfungen sind grün. Echte Chrome-/Firefox-/Safari-/Mobile-Geräte-, Codec- und MediaStream-Evidenz kann nicht durch Emulation ersetzt werden und benötigt externe Runner.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3890,8 +3914,9 @@
       "description": "Ein langer Lauf kombiniert dynamische Membership, Consent, Rekey, Qualitywechsel, Queuepressure und private Recovery und prueft Ressourcen- und Privacygrenzen.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der vollautomatische zweistündige Churn-/Rekey-/Slow-Receiver-/Amplification-Soakrunner mit Budgets und Cleanup ist implementiert. Ein gültiger Abschluss benötigt zwei Stunden reale gepinnte Media-Runtime und externe RUN_*-Evidenz.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3922,8 +3947,9 @@
       "description": "Hub-, Datenbank- und SFU-Fehler werden unter parallelen Rooms und laufender Egresslast injiziert und gegen Placement-/Route-Fencing verifiziert.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Multi-Room-, Fleet-, Split-Brain-, Failover- und Version-Skew-Chaoslogik ist implementiert und deterministisch getestet. Der reale verteilte Multi-Hub-/Multi-Node-Lauf benötigt externe Infrastruktur.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3953,8 +3979,9 @@
       "description": "TURN-Worst-Case wird mit Churn, Fleetfailover, Layerpolicy und Admission kombiniert, damit lokale Einzelgates keine systemische Amplifikation uebersehen.",
       "type": "testing",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "TURN-only-, Poolausfall-, Recovery- und Kostenlimit-Chaosgate sind implementiert und lokal fail-closed geprüft. Reale öffentliche Relaypfade, Poolausfälle und Egresskostenmessungen benötigen externen TURN-Betrieb.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -3979,8 +4006,9 @@
       "description": "Stufenlaeufe messen gewoehnliche und optimierte Pfade; 250 Receiver sind ein Messpunkt und keine vorweggenommene Produktzusage.",
       "type": "benchmark",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der vollautomatische Fanout-Benchmarkrunner für 10/25/50/100/250 Receiver, Messverträge, SLO-/Ressourcenbudgets und Evidence-Verifikation sind implementiert. Reproduzierbare echte SFU-Direct- und All-TURN-Messungen benötigen einen freigegebenen Referenzhost und externe RUN_*-Evidenz.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4016,8 +4044,9 @@
       "description": "Benchmarkevidence wird in versionierte konservative Profile uebersetzt; Admission stoppt vor dem kleinsten relevanten sicheren Worst-Case-Limit.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Konservative monotone Ableitung, Digest-/Freshness-/Attestierungsprüfung und fail-closed Kandidatenkatalog sind implementiert und getestet. Ohne vollständige reale SFB-GATE-008-, Security-, Soak- und TURN-Evidenz existiert absichtlich kein aktivierbares Profil; Admission bleibt auf dem sicheren Legacy-Cap.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4053,8 +4082,9 @@
       "description": "Advanced Broadcast wird additiv und cohortweise eingefuehrt; Abschaltung und Rueckfall benoetigen keine destruktive Big-Bang-Migration.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Der vollautomatische Rollout-Game-Day-Harness, Kill-Switch, Fencing, Admissionstop, Drain, Parent-Fallback und Cleanup sind implementiert. Ein realer Canary-/Rollback-Nachweis ist durch Parent no_go/observe_only und fehlende externe Runtime-Evidenz blockiert; kein Mensch-in-der-Schleife ist für den Test erforderlich.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4086,8 +4116,9 @@
       "description": "Alle nach dem Parent-Supply-Chain-Gate hinzugekommenen SFU-/TURN-Images, Adapter, SDKs, Browserpakete, Composeprofile und Runtimekonfigurationen werden am finalen Child-Source-Hash erneut geprueft.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Child-Delta-SBOM-, Lizenz-, Vulnerability-, Image- und Provenance-Gates sind automatisiert implementiert und fail-closed. Ein abschließender Pass benötigt tatsächlich gebaute gepinnte Zielimages und externe Scanner-/Registry-Evidenz.",
       "priority": "P1",
       "risk": "critical",
       "depends_on": [
@@ -4117,8 +4148,9 @@
       "description": "Die produktive Broadcast-Steuerung und Diagnostik wird in realen Browsern auf Tastatur, assistive Name-/Role-/Value-/Live-Region-Semantik, kleine Viewports, Touch, Zustandswechsel und einen tatsaechlich gestarteten Media-/Reporter-/Data-Lifecycle geprueft.",
       "type": "e2e",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Accessibility-, Responsive-, Lifecycle- und Cleanup-Harness sind vollautomatisch implementiert; Emulation wird ausdrücklich nicht als reale Geräte-/Screenreader-Evidenz akzeptiert. Der abschließende Browser-/Device-Nachweis benötigt externe Runner.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4151,8 +4183,9 @@
       "description": "Ein zentraler Runner ordnet schnelle PR-Gates, reale Container-/Browser-Gates, Nightly-Soak/Scale/Chaos und manuelle Game-Days ihren Commands, Artefakten, Timeouts und Cleanupregeln zu.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Gate-Manifest, gestufte Matrix, Fast-/Nightly-/Release-Klassen und fail-closed Konsistenzprüfungen sind implementiert und lokal validiert. Die Release-Stufen bleiben blockiert, bis ihre realen externen Evidence-Artefakte vorliegen.",
       "priority": "P1",
       "risk": "high",
       "depends_on": [
@@ -4179,8 +4212,9 @@
       "description": "Ein einziges maschinenlesbares Gate aggregiert Parent-Readiness, Contracts, Security, Privacy, E2E, Chaos, Soak, Capacity, Operations und Rollback ohne Ergebnisse zu erfinden.",
       "type": "release_gate",
       "milestone_id": "SFB-M8",
-      "status": "partial",
+      "status": "blocked",
       "progress_percent": 0,
+      "blocked_reason": "Das source-gebundene Release-Gate aggregiert alle Pflichtartefakte vollautomatisch und fail-closed, ohne IDs oder Resultate zu erfinden. Parent no_go/observe_only sowie fehlende reale Container-, Browser-, TURN-, Scale-, Soak-, Chaos-, Supply-Chain- und Game-Day-Evidenz verhindern aktuell korrekt jede Freigabe.",
       "priority": "P0",
       "risk": "critical",
       "depends_on": [
@@ -4221,8 +4255,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 34,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 34,
       "done": 69
     },
     "progress_percent_done": 67.0,
@@ -4247,8 +4281,8 @@
       "total": 8,
       "todo": 0,
       "in_progress": 0,
-      "partial": 6,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 6,
       "done": 2
     }
   },
@@ -4273,32 +4307,32 @@
       "architecture": {
         "total": 4,
         "done": 2,
-        "partial": 2,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 2,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 78.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 2,
           "done": 2
         }
       },
       "release_gate": {
         "total": 7,
         "done": 2,
-        "partial": 5,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 5,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 28.6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 5,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 5,
           "done": 2
         }
       },
@@ -4321,16 +4355,16 @@
       "backend": {
         "total": 26,
         "done": 25,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 96.2,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 25
         }
       },
@@ -4353,112 +4387,112 @@
       "security": {
         "total": 11,
         "done": 8,
-        "partial": 3,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 3,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 72.7,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 3,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 3,
           "done": 8
         }
       },
       "testing": {
         "total": 7,
         "done": 2,
-        "partial": 5,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 5,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 28.6,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 5,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 5,
           "done": 2
         }
       },
       "frontend": {
         "total": 7,
         "done": 3,
-        "partial": 4,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 4,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 42.9,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 4,
           "done": 3
         }
       },
       "infrastructure": {
         "total": 11,
         "done": 3,
-        "partial": 8,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 8,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 31.4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 8,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 8,
           "done": 3
         }
       },
       "integration": {
         "total": 1,
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 0.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         }
       },
       "transport": {
         "total": 3,
         "done": 2,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 66.7,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 2
         }
       },
       "observability": {
         "total": 5,
         "done": 4,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 80.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 4
         }
       },
@@ -4481,43 +4515,43 @@
       "e2e": {
         "total": 2,
         "done": 0,
-        "partial": 2,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 2,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 0.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 2,
           "done": 0
         }
       },
       "benchmark": {
         "total": 1,
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
         "progress_percent": 0.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         }
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 34,
-    "blocked": 0,
+    "partial": 0,
+    "blocked": 34,
     "done": 69,
     "milestones_done": 2,
     "milestones_total": 8

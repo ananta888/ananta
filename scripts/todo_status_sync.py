@@ -6,9 +6,11 @@ Usage:
 Updates:
 - `tasks[].status` for tasks whose `progress_percent == 100` are flipped to `done`
 - `tasks[].status` for tasks whose `progress_percent > 0` and < 100 are flipped to `partial`
+- explicit `blocked` task states and their reasons are preserved
 - `tasks_status_summary` is rebuilt from scratch
 - `tasks_type_summary` is rebuilt from scratch
 - `progress_summary` is rebuilt from scratch
+- `execution_stage_summary.stages[*]` counters are rebuilt when present
 - `milestones[].status` is derived from contained task statuses (all done = done; any partial = partial; any in_progress = in_progress; else todo)
 """
 from __future__ import annotations
@@ -45,6 +47,31 @@ def _milestone_status(task_statuses: list[str]) -> str:
     if "blocked" in unique:
         return "blocked"
     return "todo"
+
+
+def _track_status(by_status: dict[str, int], total: int) -> str:
+    """Derive the aggregate state without hiding an all-blocked remainder."""
+
+    if by_status["done"] == total:
+        return "done"
+    if by_status["in_progress"]:
+        return "in_progress"
+    if by_status["partial"]:
+        return "partial"
+    if by_status["todo"]:
+        return "todo"
+    return "blocked"
+
+
+def _sync_execution_stage_counts(data: dict, tasks: list[dict]) -> None:
+    stages = (data.get("execution_stage_summary") or {}).get("stages") or {}
+    status_by_id = {str(task.get("id")): str(task.get("status", "todo")) for task in tasks}
+    for stage in stages.values():
+        task_ids = [str(task_id) for task_id in stage.get("scope_task_ids") or []]
+        counts = Counter(status_by_id.get(task_id, "todo") for task_id in task_ids)
+        stage["total"] = len(task_ids)
+        for status in STATUSES:
+            stage[status] = counts.get(status, 0)
 
 
 def _by_priority(tasks: list[dict]) -> dict[str, int]:
@@ -107,7 +134,7 @@ def sync(path: Path) -> int:
         by_status[s] = by_status.get(s, 0) + 1
     total = len(tasks)
     done = by_status["done"]
-    progress_percent_done = round(100 * done / total, 2) if total else 0
+    progress_percent_done = round(100 * done / total, 1) if total else 0.0
 
     data["tasks_status_summary"] = {
         "total": total,
@@ -144,9 +171,11 @@ def sync(path: Path) -> int:
         "by_type": _by_type(tasks),
     }
 
+    aggregate_status = _track_status(by_status, total)
+    data["status"] = aggregate_status
     data["progress_summary"] = {
-        "state": "done" if done == total else ("in_progress" if done else "todo"),
-        "todo_remaining": total - done,
+        "state": aggregate_status,
+        "todo_remaining": by_status["todo"],
         "in_progress": by_status["in_progress"],
         "partial": by_status["partial"],
         "blocked": by_status["blocked"],
@@ -154,6 +183,7 @@ def sync(path: Path) -> int:
         "milestones_done": milestone_statuses.count("done"),
         "milestones_total": len(milestone_statuses),
     }
+    _sync_execution_stage_counts(data, tasks)
 
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"  {path.name}: {done}/{total} done ({progress_percent_done}%), "
