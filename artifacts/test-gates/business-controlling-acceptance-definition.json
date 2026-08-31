@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.business-controlling-acceptance-definition.v1",
+  "automatic_only": true,
+  "default_release_allowed": false,
+  "financial_actions_allowed": false,
+  "required_checks": [
+    "deterministic_rules",
+    "executable_content_denied",
+    "false_positive_budget",
+    "global_switch",
+    "malformed_input",
+    "per_catalog_entry_switch",
+    "performance_budget",
+    "policy_bypass_denied",
+    "provenance_tampering_denied",
+    "rollback",
+    "synthetic_pilot",
+    "tenant_isolation",
+    "zero_automatic_financial_actions"
+  ],
+  "production_evidence": {
+    "missing_or_unknown_ids": "unverified",
+    "required_run_id_pattern": "^RUN_[A-Za-z0-9_.:-]+$",
+    "required_source_id_pattern": "^SRC_[A-Za-z0-9_.:-]+$"
+  },
+  "runtime_modes": [
+    "disabled",
+    "rules_only",
+    "rules_with_explanations",
+    "admitted_offline_statistics"
+  ]
+}
