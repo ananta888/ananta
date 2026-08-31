@@ -1,12 +1,14 @@
 import { expect, test } from '@playwright/test';
-import { gotoProjectScopedRoute, loginFast } from './utils';
+import { loginFast } from './utils';
 import { ensureAssistantExpanded, hasAssistantDock } from './helpers/assistant-dock';
 
 test.describe('AI Assistant OpenCode Backend', () => {
   test('sends hybrid execute request with backend opencode', async ({ page, request }) => {
     test.setTimeout(120_000);
     await loginFast(page, request);
-    await gotoProjectScopedRoute(page, '/dashboard');
+    // The assistant is global. Use a non-project-scoped shell route so this
+    // backend contract does not depend on provisioning an unrelated project.
+    await page.goto('/webhooks');
     if (!(await hasAssistantDock(page))) {
       test.skip(true, 'Assistant dock not available in this environment.');
     }
@@ -54,10 +56,11 @@ test.describe('AI Assistant OpenCode Backend', () => {
       });
     });
 
-    await page.getByLabel(/CLI Backend/i).selectOption('opencode');
-    await page.getByLabel(/Hybrid Context/i).check();
-    await page.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('run with opencode');
-    await page.getByRole('button', { name: /Send|Senden/i }).click();
+    const dock = page.getByTestId('assistant-dock');
+    await dock.getByLabel(/CLI Backend/i).selectOption('opencode');
+    await dock.getByLabel(/Hybrid Context/i).check();
+    await dock.getByPlaceholder(/Ask me anything|Frage mich etwas/i).fill('run with opencode');
+    await dock.getByRole('button', { name: /Send|Senden/i }).click();
 
     await expect.poll(() => executeSeen, { timeout: 15000 }).toBeTruthy();
     await expect.poll(() => executeBackend, { timeout: 15000 }).toBe('opencode');
