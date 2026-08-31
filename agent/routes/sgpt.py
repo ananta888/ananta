@@ -1,11 +1,11 @@
 import logging
 import time
 import uuid
-from pathlib import Path
 
 from flask import Blueprint, current_app, request
 
 from agent.auth import admin_required, check_auth, resolve_configured_agent_token
+from agent.cli_backends.coding_agent_profiles import coding_agent_descriptors
 from agent.cli_backends.sgpt import (
     SUPPORTED_CLI_BACKENDS,
     get_cli_backend_capabilities,
@@ -13,7 +13,6 @@ from agent.cli_backends.sgpt import (
     resolve_codex_runtime_config,
     run_llm_cli_command,
 )
-from agent.cli_backends.coding_agent_profiles import coding_agent_descriptors
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
 from agent.common.gateways.worker_gateway import get_worker_gateway
@@ -27,6 +26,7 @@ from agent.models import (
     SgptSourceRequest,
 )
 from agent.routes import sgpt_execute as _sgpt_execute
+from agent.routes.sgpt_source_preview import resolve_source_preview_path
 from agent.runtime_policy import (
     build_trace_record,
     normalize_task_kind,
@@ -70,24 +70,6 @@ def get_rate_limit_service():
 
 ALLOWED_BACKENDS = _sgpt_execute.ALLOWED_BACKENDS
 BACKEND_ALIASES = _sgpt_execute.BACKEND_ALIASES
-
-SOURCE_ALLOWED_EXTENSIONS = {
-    ".py",
-    ".md",
-    ".txt",
-    ".log",
-    ".json",
-    ".jsonl",
-    ".yaml",
-    ".yml",
-    ".toml",
-    ".ini",
-    ".ts",
-    ".tsx",
-    ".js",
-    ".jsx",
-}
-
 
 def _allowed_backends() -> set[str]:
     return _sgpt_execute.allowed_backends(ALLOWED_BACKENDS)
@@ -145,15 +127,6 @@ SGPT_CB_RECOVERY_TIME = 60
 
 _extract_user_id = _sgpt_execute.extract_user_id
 _parse_source_types = _sgpt_execute.parse_source_types
-
-
-def _resolve_source_path(source_path: str) -> Path:
-    repo_root = Path(settings.rag_repo_root).resolve()
-    requested = (repo_root / source_path).resolve()
-    requested.relative_to(repo_root)
-    if requested.suffix.lower() not in SOURCE_ALLOWED_EXTENSIONS:
-        raise ValueError("Source file type is not allowed")
-    return requested
 
 
 @sgpt_bp.route("/execute", methods=["POST"])
@@ -1039,7 +1012,10 @@ def get_source_preview():
     max_chars = max(200, min(max_chars, 8000))
 
     try:
-        file_path = _resolve_source_path(source_path)
+        file_path = resolve_source_preview_path(
+            source_path,
+            repo_root=settings.rag_repo_root,
+        )
     except Exception as e:
         _log().warning("Rejected source preview path '%s': %s", source_path, e)
         return api_response(status="error", message="Invalid source_path", code=400)
