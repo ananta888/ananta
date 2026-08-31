@@ -29,9 +29,11 @@ The committed catalog is disabled by default. A caller can see the pilot only
 when all of these conditions hold:
 
 1. the selected catalog revision has `feature_enabled: true`;
-2. the authenticated principal has the `scientific_skill_pilot` role (or is an
+2. when runtime control is configured, its global switch and the selected entry
+   are enabled;
+3. the authenticated principal has the `scientific_skill_pilot` role (or is an
    administrator);
-3. the principal passes the Hub's canonical tenant/project source-access policy.
+4. the principal passes the Hub's canonical tenant/project source-access policy.
 
 The Hub returns a bounded card before selection. It includes the exact pin,
 allowed mode, context budget, network profile, approval status, and pinned source

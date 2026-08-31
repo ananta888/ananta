@@ -16,6 +16,10 @@ from agent.services.scientific_skill_catalog_service import (
     ScientificSkillCatalogEntry,
     ScientificSkillCatalogEntryStatus,
 )
+from agent.services.scientific_skill_runtime_control_service import (
+    ScientificSkillRuntimeControl,
+    ScientificSkillRuntimeControlRepositoryPort,
+)
 from agent.services.source_control_access_policy import (
     HubSourcePrincipal,
     SourceControlAccessPolicy,
@@ -69,10 +73,12 @@ class ScientificSkillPilotService:
         adapter_service: ScientificSkillAdapterService,
         audit_port: ScientificSkillPilotAuditPort,
         access_policy: SourceControlAccessPolicy | None = None,
+        runtime_control: ScientificSkillRuntimeControlRepositoryPort | None = None,
     ) -> None:
         self._adapter_service = adapter_service
         self._audit_port = audit_port
         self._access_policy = access_policy or SourceControlAccessPolicy()
+        self._runtime_control = runtime_control
 
     def available(
         self,
@@ -81,12 +87,19 @@ class ScientificSkillPilotService:
         principal: HubSourcePrincipal,
         binding: SourceObjectBinding,
     ) -> tuple[ScientificSkillPilotCard, ...]:
-        if not self._authorized(catalog=catalog, principal=principal, binding=binding):
+        control_available, control = self._control_snapshot()
+        if not control_available or not self._authorized(
+            catalog=catalog,
+            principal=principal,
+            binding=binding,
+            control=control,
+        ):
             return ()
         return tuple(
             _card(entry)
             for entry in sorted(catalog.entries, key=lambda item: item.skill_name)
             if entry.status is ScientificSkillCatalogEntryStatus.APPROVED
+            and (control is None or control.entry_enabled(entry.entry_id))
         )
 
     def select(
@@ -107,6 +120,7 @@ class ScientificSkillPilotService:
                 catalog=catalog,
                 principal=principal,
                 binding=binding,
+                skill_name=request.skill_name,
             )
             self._emit(
                 catalog=catalog,
@@ -114,6 +128,22 @@ class ScientificSkillPilotService:
                 request=request,
                 task_id=task_id,
                 entry_id=None,
+                status="rejected",
+                reason_code=reason_code,
+            )
+            return ScientificSkillAdapterOutcome.degraded(reason_code)
+
+        control_available, control = self._control_snapshot()
+        if not control_available or (
+            control is not None and not control.entry_enabled(card.entry_id)
+        ):
+            reason_code = "scientific_skill_pilot_runtime_disabled"
+            self._emit(
+                catalog=catalog,
+                principal=principal,
+                request=request,
+                task_id=task_id,
+                entry_id=card.entry_id,
                 status="rejected",
                 reason_code=reason_code,
             )
@@ -143,10 +173,14 @@ class ScientificSkillPilotService:
         catalog: ScientificSkillCatalog,
         principal: HubSourcePrincipal,
         binding: SourceObjectBinding,
+        control: ScientificSkillRuntimeControl | None,
     ) -> bool:
         role_granted = principal.is_admin or SCIENTIFIC_SKILL_PILOT_ROLE in principal.roles
+        feature_enabled = catalog.feature_enabled and (
+            control is None or control.global_enabled
+        )
         return bool(
-            catalog.feature_enabled
+            feature_enabled
             and role_granted
             and self._access_policy.can_view(principal=principal, binding=binding)
         )
@@ -157,12 +191,38 @@ class ScientificSkillPilotService:
         catalog: ScientificSkillCatalog,
         principal: HubSourcePrincipal,
         binding: SourceObjectBinding,
+        skill_name: str,
     ) -> str:
-        if not catalog.feature_enabled:
+        control_available, control = self._control_snapshot()
+        if not control_available:
+            return "scientific_skill_pilot_runtime_control_unavailable"
+        feature_enabled = catalog.feature_enabled and (
+            control is None or control.global_enabled
+        )
+        if not feature_enabled:
             return "scientific_skill_pilot_feature_disabled"
-        if not self._authorized(catalog=catalog, principal=principal, binding=binding):
+        if not self._authorized(
+            catalog=catalog,
+            principal=principal,
+            binding=binding,
+            control=control,
+        ):
             return "scientific_skill_pilot_access_denied"
+        matching = next(
+            (entry for entry in catalog.entries if entry.skill_name == skill_name),
+            None,
+        )
+        if matching is not None and control is not None and not control.entry_enabled(matching.entry_id):
+            return "scientific_skill_pilot_runtime_disabled"
         return "scientific_skill_pilot_not_admitted"
+
+    def _control_snapshot(self) -> tuple[bool, ScientificSkillRuntimeControl | None]:
+        if self._runtime_control is None:
+            return True, None
+        try:
+            return True, self._runtime_control.snapshot()
+        except Exception:
+            return False, None
 
     def _emit(
         self,

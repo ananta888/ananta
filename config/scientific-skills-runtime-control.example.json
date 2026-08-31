@@ -1,0 +1,9 @@
+{
+  "schema_version": "ananta.scientific-skill-runtime-control.v1",
+  "revision": 0,
+  "global_enabled": false,
+  "disabled_entry_ids": [],
+  "actor_id": "system",
+  "reason": "runtime-control-uninitialized",
+  "state_digest": "ecf4b353ec1eef7d68a181f68dbbc4214575492479eb2111d906aed5850a6ae6"
+}

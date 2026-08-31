@@ -7,7 +7,7 @@
   "updated": "2026-08-31",
   "project": "ananta",
   "owner": "ananta888",
-  "status": "active",
+  "status": "done",
   "priority": "P1",
   "tags": [
     "skills",
@@ -279,7 +279,7 @@
         {
           "id": "SAS-OPS-010",
           "title": "Rollback, Deaktivierung und Betrieb dokumentieren",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "risk": "high",
           "type": "operations",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 9,
-      "open": 1
+      "done": 10,
+      "open": 0
     },
     "recommended_order": [
       "SAS-INV-001",

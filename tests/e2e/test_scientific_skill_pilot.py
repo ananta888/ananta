@@ -16,6 +16,10 @@ from agent.services.scientific_skill_pilot_service import (
     ScientificSkillPilotAuditEvent,
     ScientificSkillPilotService,
 )
+from agent.services.scientific_skill_runtime_control_service import (
+    JsonScientificSkillRuntimeControlRepository,
+    ScientificSkillRuntimeControlService,
+)
 from agent.services.source_control_access_policy import HubSourcePrincipal, SourceObjectBinding
 
 
@@ -55,12 +59,20 @@ def _binding() -> SourceObjectBinding:
     return SourceObjectBinding("scientific-skills-pilot", "tenant-1", "project-1")
 
 
-def _service(catalog: ScientificSkillCatalog, audit: _Audit) -> ScientificSkillPilotService:
+def _service(
+    catalog: ScientificSkillCatalog,
+    audit: _Audit,
+    runtime_control=None,
+) -> ScientificSkillPilotService:
     adapter = ScientificSkillAdapterService(
         _CatalogResolver(catalog),
         (DocumentationResearchSkillAdapter(),),
     )
-    return ScientificSkillPilotService(adapter_service=adapter, audit_port=audit)
+    return ScientificSkillPilotService(
+        adapter_service=adapter,
+        audit_port=audit,
+        runtime_control=runtime_control,
+    )
 
 
 def _request(catalog: ScientificSkillCatalog, skill_name: str) -> ScientificSkillAdapterRequest:
@@ -177,3 +189,48 @@ def test_review_receipts_reproduce_and_bind_every_catalog_entry() -> None:
         assert item["upstream_pin"] == entry.upstream_pin
         assert item["skill_sha256"] == entry.skill_sha256
         assert item["risk_profile_digest"] == entry.risk_profile_digest
+
+
+def test_runtime_global_and_entry_kill_switches_block_new_selections(tmp_path: Path) -> None:
+    base = _catalog()
+    enabled = ScientificSkillCatalog.create(
+        catalog_id=base.catalog_id,
+        catalog_version=base.catalog_version,
+        feature_enabled=True,
+        entries=base.entries,
+    )
+    repository = JsonScientificSkillRuntimeControlRepository(tmp_path / "runtime-control.json")
+    control = ScientificSkillRuntimeControlService(repository)
+    audit = _Audit()
+    service = _service(enabled, audit, repository)
+    principal = _principal("project_owner", SCIENTIFIC_SKILL_PILOT_ROLE)
+    assert service.available(catalog=enabled, principal=principal, binding=_binding()) == ()
+
+    control.set_global(
+        enabled=True,
+        expected_revision=0,
+        actor_id="operator-1",
+        reason="approved-pilot-window",
+    )
+    cards = service.available(catalog=enabled, principal=principal, binding=_binding())
+    astropy = next(card for card in cards if card.skill_name == "astropy")
+    control.set_entry(
+        entry_id=astropy.entry_id,
+        enabled=False,
+        expected_revision=1,
+        actor_id="operator-1",
+        reason="emergency-disable",
+    )
+    assert "astropy" not in {
+        card.skill_name
+        for card in service.available(catalog=enabled, principal=principal, binding=_binding())
+    }
+    rejected = service.select(
+        catalog=enabled,
+        principal=principal,
+        binding=_binding(),
+        request=_request(enabled, "astropy"),
+        task_id="task-after-disable",
+    )
+    assert rejected.degradation_code == "scientific_skill_pilot_runtime_disabled"
+    assert audit.events[-1].selection_status == "rejected"
