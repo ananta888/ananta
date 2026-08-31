@@ -22,6 +22,15 @@ from agent.services.recovery_plan_contract import (
     calculate_recovery_plan_digest,
     calculate_recovery_task_payload_digest,
 )
+from agent.services.task_recovery_planning_values import (
+    mapping as _mapping,
+)
+from agent.services.task_recovery_planning_values import (
+    sha256_json as _sha256_json,
+)
+from agent.services.task_recovery_planning_values import (
+    transitioned_recovery_strategy as _transitioned_recovery_strategy,
+)
 
 log = logging.getLogger(__name__)
 
@@ -53,50 +62,6 @@ _TERMINAL_TASK_STATUSES = {
     "timeout",
     "archived",
 }
-
-
-def _sha256_json(value: Any) -> str:
-    encoded = json.dumps(
-        value,
-        ensure_ascii=True,
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode("utf-8")
-    return hashlib.sha256(encoded).hexdigest()
-
-
-def _mapping(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return dict(value)
-    serializer = getattr(value, "model_dump", None)
-    if callable(serializer):
-        dumped = serializer()
-        return dict(dumped) if isinstance(dumped, dict) else {}
-    return {}
-
-
-def _transitioned_recovery_strategy(
-    task: Any,
-    *,
-    status: str,
-    reason_code: str,
-) -> dict[str, Any]:
-    current: dict[str, Any] = {}
-    for field in ("verification_status", "status_reason_details"):
-        current.update(
-            _mapping(
-                _mapping(getattr(task, field, None)).get(
-                    "model_recovery_strategy"
-                )
-            )
-        )
-    return {
-        "schema": "ananta.model_recovery_strategy.v1",
-        **current,
-        "status": status,
-        "reason_code": reason_code,
-        "updated_at": time.time(),
-    }
 
 
 class TaskRecoveryPlanningService:
