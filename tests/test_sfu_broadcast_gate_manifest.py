@@ -18,6 +18,12 @@ def test_gate_manifest_builds_a_deterministic_task_to_artifact_plan() -> None:
     assert first == second
     assert first["gates"]
     assert all(row["task_ids"] and row["artifact"] for row in first["gates"])
+    todo_gate = next(
+        row for row in manifest["execution"]["gates"] if row["gate_id"] == "SFB-CI-TODO"
+    )
+    todo_path = ROOT / todo_gate["command"][3]
+    assert todo_path == ROOT / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
+    assert todo_path.is_file()
 
 
 def test_gate_manifest_requires_cleanup_for_runtime_gate() -> None:

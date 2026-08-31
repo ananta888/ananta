@@ -291,7 +291,7 @@
         "stage": "pr",
         "command": [
           "python3", "scripts/validate_todo_consistency.py",
-          "--todo", "todos/todo.webrtc-sfu-broadcast-fanout.json"
+          "--todo", "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
         ],
         "artifact": "artifacts/test-gates/sfu-ci-todo.json",
         "artifact_schema": "ananta.sfu-broadcast-command-observation.v1",

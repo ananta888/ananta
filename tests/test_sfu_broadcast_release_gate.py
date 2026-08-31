@@ -1,7 +1,15 @@
 from datetime import UTC, datetime
 from pathlib import Path
 
-from scripts.run_sfu_broadcast_release_gate import evaluate_release
+from scripts.run_sfu_broadcast_release_gate import DEFAULT_TODO, evaluate_release
+
+
+def test_release_gate_default_todo_tracks_the_active_source() -> None:
+    assert DEFAULT_TODO == (
+        Path(__file__).resolve().parents[1]
+        / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
+    )
+    assert DEFAULT_TODO.is_file()
 
 
 def test_release_gate_never_activates_when_parent_is_no_go(tmp_path: Path) -> None:

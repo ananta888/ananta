@@ -25,7 +25,7 @@ The Parent program is complete but its referenced readiness decision remains
 `no_go` and `observe_only`. Therefore audit, contracts and flag-off feasibility
 work may continue; canary, receiver-cap activation and release remain blocked.
 The repository path for that claim is
-`todos/todo.webrtc-sfu-broadcast-fanout.json`; its referenced evidence path is
+`todos/active/todo.webrtc-sfu-broadcast-fanout.json`; its referenced evidence path is
 `artifacts/test-gates/semantic-media-program-evidence.json`.
 
 ## Inventory

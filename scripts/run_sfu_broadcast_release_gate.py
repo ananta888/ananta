@@ -28,7 +28,7 @@ from scripts.sfu_broadcast_release_common import (  # noqa: E402
 )
 
 DEFAULT_MANIFEST = ROOT / "config/release/sfu_broadcast_gate_manifest.json"
-DEFAULT_TODO = ROOT / "todos/todo.webrtc-sfu-broadcast-fanout.json"
+DEFAULT_TODO = ROOT / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/sfu-broadcast-release.json"
 REPORT_SCHEMA = "ananta.sfu-broadcast-release-gate.v1"
 GATE_ID = "SFB-GATE-011"

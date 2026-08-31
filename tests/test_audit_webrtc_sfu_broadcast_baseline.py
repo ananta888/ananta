@@ -7,7 +7,6 @@ from pathlib import Path
 
 import pytest
 
-
 AUDIT_SCRIPT = (
     Path(__file__).resolve().parents[1]
     / "scripts/audit_webrtc_sfu_broadcast_baseline.py"
@@ -71,7 +70,7 @@ FIXTURE_FILES = {
     ),
     "tests/chaos/test_semantic_sfu_failover.py": "# fixture\n",
     "tests/e2e/test_semantic_sfu_spike.py": '{"receivers": 2}\n',
-    "todos/todo.webrtc-sfu-broadcast-fanout.json": (
+    "todos/active/todo.webrtc-sfu-broadcast-fanout.json": (
         "{\n"
         '  "activation_readiness": {\n'
         '    "parent_decision": "no_go",\n'

@@ -127,7 +127,7 @@ PROBES = (
     ),
     Probe(
         "parent_no_go_observe_only", "governance", "decision", "partial",
-        "todos/todo.webrtc-sfu-broadcast-fanout.json", '"parent_decision": "no_go"',
+        "todos/active/todo.webrtc-sfu-broadcast-fanout.json", '"parent_decision": "no_go"',
         "The tracked parent decision is no_go with observe_only rollout; implementation may remain flag-off only.",
     ),
     Probe(
@@ -288,7 +288,7 @@ def _validate_missing_server_runtime(root: Path) -> None:
 
 
 def _parent_readiness(root: Path, expected_decision: str, expected_stage: str) -> dict:
-    todo_path = root / "todos/todo.webrtc-sfu-broadcast-fanout.json"
+    todo_path = root / "todos/active/todo.webrtc-sfu-broadcast-fanout.json"
     todo = json.loads(_read(todo_path))
     readiness = todo.get("activation_readiness") or {}
     observed_decision = readiness.get("parent_decision")
