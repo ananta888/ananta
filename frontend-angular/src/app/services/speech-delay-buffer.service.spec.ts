@@ -86,6 +86,29 @@ describe('SpeechDelayBufferService', () => {
     spy.mockRestore();
   });
 
+  it('does not discard a generated key while a concurrent put is still pending', async () => {
+    const first = new Uint8Array([1]);
+    const second = new Uint8Array([2]);
+    const originalEncrypt = crypto.subtle.encrypt.bind(crypto.subtle);
+    let releaseFirstEncryption: (() => void) | null = null;
+    const firstEncryptionBlocked = new Promise<void>(resolve => { releaseFirstEncryption = resolve; });
+    let encryptCalls = 0;
+    const spy = vi.spyOn(crypto.subtle, 'encrypt').mockImplementation(async (...args) => {
+      encryptCalls += 1;
+      if (encryptCalls === 1) await firstEncryptionBlocked;
+      return originalEncrypt(...args);
+    });
+
+    const firstPut = service.put(await context('segment-a', first), first, NOW);
+    await vi.waitFor(() => expect(encryptCalls).toBe(1));
+    const secondPut = service.put(await context('segment-b', second), second, NOW);
+    releaseFirstEncryption?.();
+
+    await expect(Promise.all([firstPut, secondPut])).resolves.toEqual([undefined, undefined]);
+    expect(service.snapshot()).toMatchObject({ segments: 2, keyReady: true });
+    spy.mockRestore();
+  });
+
   it('rejects a digest mismatch and always zeroes the scoped decrypted copy', async () => {
     const plaintext = new Uint8Array([4, 5, 6]);
     await expect(service.put({

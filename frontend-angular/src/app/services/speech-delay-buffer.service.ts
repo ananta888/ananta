@@ -39,53 +39,63 @@ export class SpeechDelayBufferService {
   private key: CryptoKey | null = null;
   private keyPromise: Promise<CryptoKey> | null = null;
   private mutationVersion = 0;
+  private pendingPuts = 0;
 
   async put(context: SpeechDelaySegmentContext, plaintext: Uint8Array, nowMs = Date.now()): Promise<void> {
     this.validateContext(context, nowMs);
     if (!(plaintext instanceof Uint8Array) || plaintext.byteLength === 0 || plaintext.byteLength > MAX_SEGMENT_BYTES) {
       throw new Error('speech_delay_segment_too_large');
     }
-    this.purgeExpired(nowMs);
-    const mutationVersion = this.mutationVersion;
-    const plaintextCopy = new Uint8Array(plaintext.byteLength);
-    plaintextCopy.set(plaintext);
-    const actualDigest = await crypto.subtle.digest('SHA-256', plaintextCopy);
-    if (this.hex(actualDigest) !== context.sourceDigest) {
-      plaintextCopy.fill(0);
-      throw new Error('speech_delay_source_digest_mismatch');
-    }
-    const key = await this.currentKey(mutationVersion);
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
-    let ciphertext: ArrayBuffer;
+    this.pendingPuts += 1;
     try {
-      ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: nonce, additionalData: this.aad(context) },
-        key,
-        plaintextCopy,
-      );
+      this.purgeExpired(nowMs);
+      const mutationVersion = this.mutationVersion;
+      const plaintextCopy = new Uint8Array(plaintext.byteLength);
+      plaintextCopy.set(plaintext);
+      const actualDigest = await crypto.subtle.digest('SHA-256', plaintextCopy);
+      if (this.hex(actualDigest) !== context.sourceDigest) {
+        plaintextCopy.fill(0);
+        throw new Error('speech_delay_source_digest_mismatch');
+      }
+      const key = await this.currentKey(mutationVersion);
+      const nonce = crypto.getRandomValues(new Uint8Array(12));
+      let ciphertext: ArrayBuffer;
+      try {
+        ciphertext = await crypto.subtle.encrypt(
+          { name: 'AES-GCM', iv: nonce, additionalData: this.aad(context) },
+          key,
+          plaintextCopy,
+        );
+      } finally {
+        plaintextCopy.fill(0);
+      }
+      if (mutationVersion !== this.mutationVersion || key !== this.key) {
+        throw new Error('speech_delay_operation_invalidated');
+      }
+      if (ciphertext.byteLength > MAX_SEGMENT_BYTES + 16) throw new Error('speech_delay_segment_too_large');
+      this.delete(context.segmentId);
+      while (
+        this.segments.size >= MAX_SEGMENTS
+        || this.encryptedBytes() + ciphertext.byteLength > MAX_ENCRYPTED_BYTES
+      ) {
+        const oldest = this.oldestSegmentId();
+        if (!oldest) throw new Error('speech_delay_quota_exceeded');
+        this.delete(oldest);
+      }
+      this.segments.set(context.segmentId, {
+        ...context,
+        nonce,
+        ciphertext,
+        createdAtMs: nowMs,
+        bytes: ciphertext.byteLength,
+      });
     } finally {
-      plaintextCopy.fill(0);
+      this.pendingPuts -= 1;
+      if (!this.pendingPuts && !this.segments.size) {
+        this.key = null;
+        this.keyPromise = null;
+      }
     }
-    if (mutationVersion !== this.mutationVersion || key !== this.key) {
-      throw new Error('speech_delay_operation_invalidated');
-    }
-    if (ciphertext.byteLength > MAX_SEGMENT_BYTES + 16) throw new Error('speech_delay_segment_too_large');
-    this.delete(context.segmentId);
-    while (
-      this.segments.size >= MAX_SEGMENTS
-      || this.encryptedBytes() + ciphertext.byteLength > MAX_ENCRYPTED_BYTES
-    ) {
-      const oldest = this.oldestSegmentId();
-      if (!oldest) throw new Error('speech_delay_quota_exceeded');
-      this.delete(oldest);
-    }
-    this.segments.set(context.segmentId, {
-      ...context,
-      nonce,
-      ciphertext,
-      createdAtMs: nowMs,
-      bytes: ciphertext.byteLength,
-    });
   }
 
   /**
@@ -123,7 +133,7 @@ export class SpeechDelayBufferService {
     for (const [segmentId, segment] of this.segments) {
       if (segment.sessionId === sessionId) this.delete(segmentId);
     }
-    if (!this.segments.size) this.key = null;
+    if (!this.segments.size && !this.pendingPuts) this.key = null;
   }
 
   purgeExpired(nowMs = Date.now()): number {
@@ -134,7 +144,7 @@ export class SpeechDelayBufferService {
         removed += 1;
       }
     }
-    if (!this.segments.size) this.key = null;
+    if (!this.segments.size && !this.pendingPuts) this.key = null;
     return removed;
   }
 
