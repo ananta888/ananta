@@ -169,7 +169,7 @@
         {
           "id": "SAS-ADP-006",
           "title": "CodeCompass-Projektion für Skills und ihre Lieferkette ergänzen",
-          "status": "open",
+          "status": "done",
           "priority": "P1",
           "risk": "medium",
           "type": "integration",
@@ -305,8 +305,8 @@
   "meta": {
     "total_items": 10,
     "by_status": {
-      "done": 5,
-      "open": 5
+      "done": 6,
+      "open": 4
     },
     "recommended_order": [
       "SAS-INV-001",
