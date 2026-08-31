@@ -407,8 +407,7 @@ class SpeechEvidenceLineageRepository:
                 node.consent_id is not None and binding[2] not in {None, node.consent_id}
             ):
                 raise SpeechLineageRepositoryError("speech_lineage_node_binding_conflict")
-        for batch in _chunks(pending, 5000):
-            session.execute(insert(SpeechLineageNodeDB.__table__), batch)
+        _insert_nodes_idempotently(session, pending, by_key)
         source_ids = sorted({by_key[(edge.source_kind, edge.source_digest)][0] for edge in edges})
         existing_edges: set[tuple[str, str, str]] = set()
         for batch in _chunks(source_ids, 500):
@@ -442,8 +441,86 @@ class SpeechEvidenceLineageRepository:
                     }
                 )
                 existing_edges.add(key)
-        for batch in _chunks(pending_edges, 5000):
-            session.execute(insert(SpeechLineageEdgeDB.__table__), batch)
+        _insert_edges_idempotently(session, tenant_id=tenant_id, rows=pending_edges)
+
+
+def _insert_nodes_idempotently(
+    session: Session,
+    rows: Sequence[dict[str, object]],
+    bindings: dict[tuple[str, str], tuple[str, str, str | None]],
+) -> None:
+    """Insert nodes while allowing another Hub process to win the same key.
+
+    The pre-insert lookup in :meth:`_write_graph` is an optimization, not a
+    lock across containers.  A savepoint keeps a duplicate-key race local to
+    one batch, after which the winner's immutable node binding is adopted.
+    """
+
+    for batch in _chunks(rows, 5000):
+        remaining = list(batch)
+        while remaining:
+            try:
+                with session.begin_nested():
+                    session.execute(insert(SpeechLineageNodeDB.__table__), remaining)
+                break
+            except IntegrityError:
+                missing: list[dict[str, object]] = []
+                for row in remaining:
+                    existing = session.exec(
+                        select(SpeechLineageNodeDB).where(
+                            SpeechLineageNodeDB.tenant_id == row["tenant_id"],
+                            SpeechLineageNodeDB.owner_subject == row["owner_subject"],
+                            SpeechLineageNodeDB.kind == row["kind"],
+                            SpeechLineageNodeDB.digest == row["digest"],
+                        )
+                    ).first()
+                    if existing is None:
+                        missing.append(row)
+                        continue
+                    consent_id = row["consent_id"]
+                    if consent_id is not None and existing.consent_id not in {None, consent_id}:
+                        raise SpeechLineageRepositoryError("speech_lineage_node_binding_conflict")
+                    bindings[(str(row["kind"]), str(row["digest"]))] = (
+                        existing.id,
+                        existing.owner_subject,
+                        existing.consent_id,
+                    )
+                if len(missing) == len(remaining):
+                    raise
+                remaining = missing
+
+
+def _insert_edges_idempotently(
+    session: Session, *, tenant_id: str, rows: Sequence[dict[str, object]]
+) -> None:
+    """Insert immutable edges while converging with a concurrent outbox worker."""
+
+    for batch in _chunks(rows, 5000):
+        remaining = list(batch)
+        while remaining:
+            try:
+                with session.begin_nested():
+                    session.execute(insert(SpeechLineageEdgeDB.__table__), remaining)
+                break
+            except IntegrityError:
+                source_ids = {str(row["source_id"]) for row in remaining}
+                existing = {
+                    (row.source_id, row.target_id, row.relation)
+                    for row in session.exec(
+                        select(SpeechLineageEdgeDB).where(
+                            SpeechLineageEdgeDB.tenant_id == tenant_id,
+                            SpeechLineageEdgeDB.source_id.in_(source_ids),
+                        )
+                    ).all()
+                }
+                missing = [
+                    row
+                    for row in remaining
+                    if (str(row["source_id"]), str(row["target_id"]), str(row["relation"])) not in existing
+                ]
+                if len(missing) == len(remaining):
+                    raise
+                remaining = missing
 
 
 def _validate_graph(
