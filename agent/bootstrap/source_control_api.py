@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import hashlib
 import logging
 import os
-import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -14,6 +12,12 @@ from sqlmodel import Session, select
 
 from agent.adapters.source_control_metrics_adapter import (
     PrometheusSourceControlMetrics,
+)
+from agent.bootstrap.source_control_audit_fields import (
+    bounded_id as _bounded_id,
+)
+from agent.bootstrap.source_control_audit_fields import (
+    bounded_reason as _bounded_reason,
 )
 from agent.config import settings
 from agent.database import engine
@@ -204,8 +208,6 @@ from agent.sources.source_refresh_service import SourceRefreshService
 from agent.sources.source_registry import SourceRegistry
 
 _LOG = logging.getLogger(__name__)
-_BOUNDED_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$")
-_BOUNDED_REASON = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,63}$")
 
 
 class _SQLContextPolicySources:
@@ -1076,27 +1078,6 @@ def _configured_bool(app, name: str, *, default: bool) -> bool:
     if normalized in {"0", "false", "no", "off"}:
         return False
     raise RuntimeError(f"{name.lower()}_invalid")
-
-
-def _bounded_id(value: object, *, fallback: str) -> str:
-    text = str(value or "")
-    if _BOUNDED_ID.fullmatch(text):
-        return text
-    if not text:
-        return fallback
-    return (
-        f"{fallback}-"
-        f"{hashlib.sha256(text.encode('utf-8')).hexdigest()[:24]}"
-    )
-
-
-def _bounded_reason(value: object, *, fallback: str) -> str:
-    normalized = str(value or "").strip().lower().replace("-", "_")
-    return (
-        normalized
-        if _BOUNDED_REASON.fullmatch(normalized)
-        else fallback
-    )
 
 
 __all__ = ["register_source_control_api"]
