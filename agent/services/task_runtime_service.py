@@ -14,6 +14,9 @@ from agent.services.hub_event_service import build_task_history_event
 from agent.services.recovery_source_callback_delivery import (
     RecoverySourceCallbackDelivery,
 )
+from agent.services.task_artifact_first_completion_service import (
+    apply_artifact_first_completion as apply_artifact_first_completion,
+)
 from agent.services.task_state_machine_service import can_transition_to
 from agent.services.task_status_service import normalize_task_status
 from agent.utils import _http_post
@@ -1131,67 +1134,6 @@ def forward_to_worker(
     return get_worker_gateway().forward_task(
         worker_url, endpoint, data, token=token, timeout=timeout
     )
-
-
-def apply_artifact_first_completion(
-    tid: str,
-    *,
-    collection_result: dict,
-    advisory_parse_result: dict | None = None,
-    exit_code: int | None = None,
-    retry_count: int = 0,
-    expected_paths: list[str] | None = None,
-    verification_required: bool = False,
-    allow_synthesized_manifest: bool = False,
-) -> str:
-    """Apply artifact-first completion policy to a task. Returns final status.
-
-    Malformed advisory JSON never causes an infinite retry loop when artifacts pass.
-    """
-    from agent.services.task_artifact_completion_gate_service import get_task_artifact_completion_gate_service
-    from agent.services.task_retry_policy_service import (
-        get_task_retry_policy_service,
-        REASON_ADVISORY_JSON_PARSE_FAILED,
-    )
-
-    completion_gate = get_task_artifact_completion_gate_service()
-    retry_svc = get_task_retry_policy_service()
-    final_status, decision = completion_gate.decide(
-        task_id=tid,
-        collection_result=collection_result,
-        advisory_parse_result=advisory_parse_result,
-        exit_code=exit_code,
-        retry_count=retry_count,
-        expected_paths=expected_paths,
-        verification_required=verification_required,
-        allow_synthesized_manifest=allow_synthesized_manifest,
-    )
-
-    # Advisory parse failure with valid artifacts → never requeue
-    if advisory_parse_result and advisory_parse_result.get("parse_error"):
-        has_valid = bool(collection_result.get("manifest_valid"))
-        retry_cls = retry_svc.classify(
-            reason=REASON_ADVISORY_JSON_PARSE_FAILED,
-            retry_count=retry_count,
-            has_valid_artifacts=has_valid,
-        )
-        if retry_cls.classification == "ignored":
-            logging.info(
-                "apply_artifact_first_completion: advisory parse failed but artifacts valid "
-                "for task %s — not requeueing (reason_code=advisory_parse_failed_ignored)", tid,
-            )
-
-    event_details = {
-        **completion_gate.event_details(decision=decision),
-    }
-    update_local_task_status(
-        tid,
-        final_status,
-        event_type="artifact_first_completion",
-        event_actor="system",
-        event_details=event_details,
-    )
-    return final_status
 
 
 task_runtime_service = TaskRuntimeService()
