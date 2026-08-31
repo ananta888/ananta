@@ -21,7 +21,7 @@ from typing import Any, Mapping, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_TODO = (
     ROOT
-    / "todos/active/todo.enterprise-agentic-scrum-organization-blueprints.json"
+    / "todos/archive/todo.enterprise-agentic-scrum-organization-blueprints.json"
 )
 DEFAULT_PROFILE = ROOT / "config/test-profiles/enterprise-organizations/release-gate.v1.json"
 DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/enterprise-agentic-scrum-organization-release.json"

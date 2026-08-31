@@ -76,7 +76,7 @@ def test_full_gate_runs_without_interactive_approval(
         mode="full",
     )
 
-    assert passed is False  # The tracked TODO still has incomplete predecessors.
+    assert passed is True  # The archived TODO and every automated suite are complete.
     assert report["execution_policy"] == {
         "fully_automated": True,
         "interactive_approval_required": False,
