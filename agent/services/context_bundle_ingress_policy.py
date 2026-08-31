@@ -8,6 +8,7 @@ from typing import Any
 RESERVED_CONTEXT_BUNDLE_INGRESS_REASON = "context_bundle_reserved_ingress_forbidden"
 _CONTEXT_BUNDLE_ID_KEY = "context_bundle_id"
 _CONTEXT_PAYLOAD_KEY = "context"
+_SCIENTIFIC_SKILL_KEY = "scientific_skill"
 
 
 def _is_supplied(value: Any) -> bool:
@@ -29,6 +30,11 @@ def find_reserved_context_bundle_marker(
         return f"worker_execution_context.{_CONTEXT_BUNDLE_ID_KEY}"
     if _CONTEXT_PAYLOAD_KEY in worker_context and _is_supplied(worker_context.get(_CONTEXT_PAYLOAD_KEY)):
         return f"worker_execution_context.{_CONTEXT_PAYLOAD_KEY}"
+    # Skill projections are built by the Hub from an admitted pinned catalog
+    # entry. External task payloads must not turn untrusted SKILL.md or paper
+    # text into tool, policy, or approval authority.
+    if _SCIENTIFIC_SKILL_KEY in worker_context and _is_supplied(worker_context.get(_SCIENTIFIC_SKILL_KEY)):
+        return f"worker_execution_context.{_SCIENTIFIC_SKILL_KEY}"
     return None
 
 
