@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import ipaddress
 import json
 import os
 import re
@@ -12,9 +11,9 @@ import signal
 import socket
 import subprocess
 import tempfile
-from time import monotonic
 from dataclasses import dataclass
 from pathlib import Path
+from time import monotonic
 from typing import Any, Mapping, Sequence
 
 from agent.services.semantic_media_program_evidence import (
@@ -23,8 +22,10 @@ from agent.services.semantic_media_program_evidence import (
     source_hash,
     unavailable_evidence,
 )
+from scripts.e2e.private_runtime_host import private_runtime_host
 
 ROOT = Path(__file__).resolve().parents[2]
+_private_runtime_host = private_runtime_host
 
 _KEY_MATERIAL_PATTERNS = (
     re.compile(rb"-----BEGIN (?:ENCRYPTED )?PRIVATE KEY-----", re.IGNORECASE),
@@ -1138,35 +1139,11 @@ def _configure_isolated_ports(environment: dict[str, str]) -> None:
     environment.setdefault("E2E_HUB_URL", f"http://127.0.0.1:{hub}")
     environment.setdefault("E2E_ALPHA_URL", f"http://127.0.0.1:{alpha}")
     environment.setdefault("E2E_BETA_URL", f"http://127.0.0.1:{beta}")
-    environment.setdefault("E2E_VOICE_RUNTIME_URL", f"http://{_private_runtime_host()}:{voice_runtime}")
+    environment.setdefault("E2E_VOICE_RUNTIME_URL", f"http://{private_runtime_host()}:{voice_runtime}")
     environment.setdefault("ANANTA_E2E_FORCE_ISOLATED", "1")
     environment.setdefault("E2E_DATA_ROOT", f"/tmp/ananta-semantic-e2e-{frontend}/data")
     environment.setdefault("E2E_PID_FILE", f"/tmp/ananta-semantic-e2e-{frontend}/services.json")
     environment.setdefault("E2E_RESULTS_DIR", f"/tmp/ananta-semantic-e2e-{frontend}/results")
-
-
-def _private_runtime_host() -> str:
-    """Return an address accepted by the Hub's container-only SSRF policy."""
-
-    networks = tuple(ipaddress.ip_network(value) for value in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"))
-    candidates = {str(item[4][0]) for item in socket.getaddrinfo(socket.gethostname(), 0, type=socket.SOCK_STREAM)}
-    # Minimal CI hosts frequently map their hostname to 127.0.1.1 only.  A UDP
-    # route probe does not send traffic, but lets the kernel select the real
-    # host-side address that containers can use for the isolated voice runtime.
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as route_probe:
-            route_probe.connect(("198.18.0.1", 9))
-            candidates.add(str(route_probe.getsockname()[0]))
-    except OSError:
-        pass
-    for candidate in sorted(candidates):
-        try:
-            address = ipaddress.ip_address(candidate)
-        except ValueError:
-            continue
-        if any(address in network for network in networks):
-            return candidate
-    raise RuntimeError("semantic_media_private_runtime_address_unavailable")
 
 
 __all__ = ["run_playwright_gate"]
