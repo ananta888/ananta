@@ -1,9 +1,10 @@
 {
   "$schema": "../todo.track.schema.json",
   "version": "1.1",
-  "updated_at": "2026-08-30",
+  "updated_at": "2026-08-31",
   "owner": "Peter Stuiber / Ananta",
   "track": "qdrant_vector_store_integration",
+  "status": "blocked",
   "purpose": "Qdrant als optionales, lokal betreibbares Vector-Store-Backend fuer CodeCompass und Wiki-RAG integrieren, ohne den bestehenden JSON-Store als deterministischen Offline-, Kompatibilitaets- und Test-Fallback zu verlieren.",
   "goal": "Ananta erhaelt capability-orientierte Ports fuer Dense-Vector-Persistenz und -Suche mit austauschbaren JSON- und Qdrant-Adaptern. JSON bleibt Default. Qdrant ergaenzt persistente ANN-Suche, serverseitige Scope-Filter, inkrementelle Upserts und Loeschungen. Hub-gesteuerte Index- und Migrationsauftraege bleiben von der reinen Suche getrennt.",
   "source_review": {
@@ -460,7 +461,7 @@
         "QVS-023",
         "QVS-022"
       ],
-      "status": "in_progress"
+      "status": "blocked"
     }
   ],
   "critical_path_tasks": [
@@ -1114,7 +1115,7 @@
     {
       "id": "QVS-019",
       "title": "Digestgebundene Qdrant-Integrationstests und CI-Evidence ausfuehren",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
@@ -1153,12 +1154,13 @@
         "CI-Logs nennen Image-Digest, qdrant-client Version, Testmarker, ausgefuehrte Testzahl und Cleanup-Status, enthalten aber keine Secrets oder Tenantwerte.",
         "Release-Evidence gilt nur, wenn der Opt-in-Lauf tatsaechlich ausgefuehrt wurde; ein vollstaendig geskipptes Testmodul kann den Gate-Status nicht passed setzen."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 90.0,
+      "blocked_reason": "Der digestgebundene TLS-Integrationsjob, alle sechs Szenarien, laufisolierte Ressourcen und automatisches Cleanup sind implementiert und lokal ausgeführt. Eine bereitgestellte GitHub-/RUN_*-Release-Evidence fehlt und darf nicht aus lokalen Testnamen oder Logs erfunden werden."
     },
     {
       "id": "QVS-020",
       "title": "Versioniertes Qualitaets- und Performanceprofil ausfuehren",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
       "type": "benchmark",
@@ -1186,12 +1188,13 @@
         "Fehlende Referenzhost-Freigabe, unzureichende Ressourcen oder abgebrochene Profile ergeben inconclusive und niemals passed.",
         "Die Dokumentation leitet eine JSON-/Qdrant-Empfehlung nur aus einem vollstaendigen, nicht inconclusive Artefakt ab."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 90.0,
+      "blocked_reason": "Profil, Runner, Recall-/Latenz-/RSS-Messung, Budgets und fail-closed Artifact-Gates sind vollständig implementiert. Ein vollständiges nicht-inconclusive BenchmarkRunArtifact benötigt einen freigegebenen Referenzhost mit ausreichenden Ressourcen und gültige externe Run-Evidenz."
     },
     {
       "id": "QVS-021",
       "title": "Wiki-Retrieval ueber einen separaten Payload-Adapter integrieren",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "type": "architecture",
@@ -1218,7 +1221,7 @@
         "tests/test_wiki_hybrid_retrieval.py"
       ],
       "description": "Wiki-Payloads ueber einen konkreten Adapter an dieselben schmalen Ports anbinden, aber Collections, Config und Schema von CodeCompass trennen.",
-      "status_note": "Der getrennte Wiki-Payload-Adapter, eigenes Schema und Prefix, unabhaengige JSON-/Qdrant-Konfiguration, produktive Hybrid-Retrieval-Komposition, Hub-delegierte Mutationen, Cross-Scope-Schutz und getrennter Rollback sind lokal implementiert und getestet. Der echte TLS-Qdrant-Lauf gegen 1.18.3 bestand lokal. Ohne bereitgestellte RUN_* Evidence bleibt der Befund unverified und die formale Abhaengigkeit QVS-019 weiterhin partial.",
+      "status_note": "Der getrennte Wiki-Payload-Adapter, eigenes Schema und Prefix, unabhaengige JSON-/Qdrant-Konfiguration, produktive Hybrid-Retrieval-Komposition, Hub-delegierte Mutationen, Cross-Scope-Schutz und getrennter Rollback sind lokal implementiert und getestet. Der echte TLS-Qdrant-Lauf gegen 1.18.3 bestand lokal. Ohne bereitgestellte RUN_* Evidence bleibt der Befund unverified und die formale Abhaengigkeit QVS-019 blockiert.",
       "acceptance_criteria": [
         "Ein konkreter Wiki-Payload-Adapter implementiert die benoetigten Search- und Index-Portsignaturen ohne optionale, abweichende Methodenaufrufe oder Signaturfehler.",
         "Wiki verwendet einen eigenen Collection-Prefix, eine separat aktivierbare BackendConfig und ein versioniertes Wiki-Payload-Schema.",
@@ -1227,12 +1230,13 @@
         "JSON bleibt fuer Wiki Default; Qdrant kann fuer Wiki unabhaengig von CodeCompass aktiviert und zurueckgerollt werden.",
         "Bestehende Wiki-Tests, Port-Contracttests und ein echter Qdrant-Integrationslauf fuer Index, Search und Delete bestehen."
       ],
-      "progress_percent": 95.0
+      "progress_percent": 95.0,
+      "blocked_reason": "Der separate Wiki-Payload-Adapter, eigene Collection/Config, Hub-gesteuerte Mutationen, Cross-Scope-Schutz und Rollback sind implementiert und lokal getestet. Der verbleibende echte Release-Nachweis hängt ausschließlich von bereitgestellter RUN_*-Evidence des Qdrant-Integrationslaufs ab."
     },
     {
       "id": "QVS-023",
       "title": "Hub-gesteuerte Workspace- und Profil-Overrides ausrollen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
       "type": "rollout",
@@ -1264,7 +1268,7 @@
         "tests/test_vector_admin_authorization.py"
       ],
       "description": "JSON als globalen Default behalten und Qdrant additiv, autorisiert und auditierbar pro Workspace und Profil aktivieren.",
-      "status_note": "Der Hub validiert und persistiert globale, Profil- und Workspace-Overrides in definierter Reihenfolge und kann Sicherheits- oder Capability-Policy nur verengen. Autorisierung, secretfreies Audit, zwei isolierte Workspaces, getrenntes Wiki-Rollback, produktive Factory-Komposition sowie kompatibler und fail-closed inkompatibler JSON-Rollback sind lokal implementiert und getestet. Formal bleibt der Task wegen der unvollstaendigen Evidence-Abhaengigkeiten QVS-019, QVS-020 und QVS-021 partial; ohne SRC_*/RUN_* IDs entsteht keine Release-Evidence.",
+      "status_note": "Der Hub validiert und persistiert globale, Profil- und Workspace-Overrides in definierter Reihenfolge und kann Sicherheits- oder Capability-Policy nur verengen. Autorisierung, secretfreies Audit, zwei isolierte Workspaces, getrenntes Wiki-Rollback, produktive Factory-Komposition sowie kompatibler und fail-closed inkompatibler JSON-Rollback sind lokal implementiert und getestet. Formal ist der Task wegen der externen Evidence-Abhaengigkeiten QVS-019, QVS-020 und QVS-021 blockiert; ohne SRC_*/RUN_* IDs entsteht keine Release-Evidence.",
       "acceptance_criteria": [
         "Aufloesungsreihenfolge ist globaler JSON-Default, autorisierter Profil-Override und autorisierter Workspace-Override; fehlende Overrides veraendern bestehendes Verhalten nicht.",
         "Nur der Hub validiert und speichert Overrides; Worker erhalten eine unveraenderliche aufgeloeste Config und koennen Endpoint-, Secret- oder Capability-Policy nicht erweitern.",
@@ -1273,12 +1277,13 @@
         "Ein inkompatibler JSON-Rollback-State liefert fallback_state_incompatible und keine scheinbar erfolgreichen Ergebnisse.",
         "Tests mit mindestens zwei Workspaces pruefen getrennte Providerwahl, Autorisierung, Audit, Policy-Verengung und Rollback ohne Cross-Scope-Leak."
       ],
-      "progress_percent": 95.0
+      "progress_percent": 95.0,
+      "blocked_reason": "Globale, Profil- und Workspace-Overrides, Policy-Verengung, Audit sowie kompatibler und inkompatibler Rollback sind lokal vollständig implementiert. Die formale Freigabe bleibt von externem Referenzhost-Benchmark sowie gültigen SRC_*-/RUN_*-Nachweisen abhängig."
     },
     {
       "id": "QVS-022",
       "title": "Parsebare Betriebsdokumentation und Rollback-Gate abschliessen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -1322,7 +1327,8 @@
         "Der Release-Abschnitt referenziert die tatsaechlich ausgefuehrte digestgebundene Integrationsevidence und das BenchmarkRunArtifact; skipped oder inconclusive Evidence wird nicht als passed bezeichnet.",
         "Die Dokumentation verlinkt das Open-Source-Projekt Qdrant und nennt die gepinnte, getestete Server-/Client-Kompatibilitaet."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 90.0,
+      "blocked_reason": "Alle Betriebs-, Wiki-, Migrations-, Backup-, Restore-, Reset- und Rollback-Anweisungen sind parsebar und automatisiert geprüft. Der Release-Abschnitt kann erst eine tatsächlich bereitgestellte Integrationsevidence und ein vollständiges Referenzhost-BenchmarkRunArtifact referenzieren."
     }
   ],
   "definition_of_done": [
@@ -1358,7 +1364,7 @@
     "Ohne bereitgestellte SRC_* oder RUN_* IDs bleiben Source- und Run-Claims unverified und sind keine Release-Evidence.",
     "QVS-018 wurde entfernt; seine Unit-Testkriterien sind tasknah in QVS-005, QVS-007, QVS-008, QVS-010, QVS-011, QVS-014 und QVS-015 enthalten.",
     "QVS-024 ist lokal abgeschlossen: Qdrant-Mutationen bleiben Hub-owned, signiert, online zugelassen, replaygeschuetzt und zentral autorisiert; Worker fuehren nur delegierte Auftraege aus.",
-    "QVS-021 und QVS-023 sind im Source-Umfang implementiert, bleiben wegen ihrer formalen QVS-019-/QVS-020-Evidence-Abhaengigkeiten jedoch partial."
+    "QVS-021 und QVS-023 sind im Source-Umfang implementiert, bleiben wegen ihrer formalen QVS-019-/QVS-020-Evidence-Abhaengigkeiten jedoch blockiert."
   ],
   "non_goals": [
     "Qdrant ersetzt nicht den EmbeddingProvider.",
@@ -1374,8 +1380,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 5,
-      "blocked": 0,
+      "partial": 0,
+      "blocked": 5,
       "done": 18
     },
     "progress_percent_done": 78.3,
@@ -1399,8 +1405,8 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 2,
-      "blocked": 0,
+      "in_progress": 1,
+      "blocked": 1,
       "done": 3
     }
   },
@@ -1412,13 +1418,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 1
         },
         "done": 1,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 97.5
       },
       "refactoring": {
@@ -1622,13 +1628,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       },
       "benchmark": {
@@ -1636,13 +1642,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       },
       "rollout": {
@@ -1650,13 +1656,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 95.0
       },
       "documentation": {
@@ -1664,13 +1670,13 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "progress_percent": 90.0
       }
     }
@@ -1680,7 +1686,7 @@
     "total_weight": 44.5,
     "done_weight": 43.6,
     "remaining_weight": 0.9,
-    "blocked_weight": 0.0,
+    "blocked_weight": 11.5,
     "weighted_percent": 98.0
   },
   "milestone_progress_summary": {
@@ -1712,7 +1718,7 @@
       "M4": {
         "total_tasks": 3,
         "done": 2,
-        "blocked": 0,
+        "blocked": 1,
         "count_based_percent": 66.7,
         "weighted_percent": 95.8,
         "status": "in_progress"
@@ -1720,19 +1726,19 @@
       "M5": {
         "total_tasks": 4,
         "done": 0,
-        "blocked": 0,
+        "blocked": 4,
         "count_based_percent": 0.0,
         "weighted_percent": 92.8,
-        "status": "in_progress"
+        "status": "blocked"
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "blocked",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 5,
-    "blocked": 0,
+    "partial": 0,
+    "blocked": 5,
     "done": 18,
     "count_based_percent": 78.3,
     "weighted_percent": 98.0
@@ -1740,10 +1746,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T19:33:04.155840Z",
+    "generated_at": "2026-08-31T16:33:49.082798Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "b0b9e46e76f01d06179b0d6f5d9fbcd24200af1f2bd98d746d6feeefc9206d4b",
+    "source_hash": "73ef86b967407d9a05117ac20d32978072a00272531d49e125b248a7d1d959bd",
     "is_stale": false
   }
 }
