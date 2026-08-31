@@ -7,8 +7,8 @@
   "updated": "2026-08-31",
   "project": "ananta",
   "owner": "Krusty <stuiber@ananta.de>",
-  "status": "active",
-  "priority": "P1",
+  "status": "blocked",
+  "priority": "P3",
   "tags": [
     "hub-worker",
     "model-recovery",
@@ -78,7 +78,7 @@
         {
           "id": "ARF-CAS-001",
           "title": "Nichtterminale Recovery-CAS-Operationen typisieren",
-          "status": "open",
+          "status": "blocked",
           "priority": "P1",
           "risk": "high",
           "type": "security-hardening",
@@ -102,7 +102,7 @@
         {
           "id": "ARF-SOLID-002",
           "title": "Große Recovery-Klassen schrittweise nach Verantwortlichkeiten teilen",
-          "status": "open",
+          "status": "blocked",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -132,7 +132,7 @@
         {
           "id": "OPS-SOLID-005",
           "title": "Workflow-Keyring-Bootstrap in fokussierte Komponenten teilen",
-          "status": "open",
+          "status": "blocked",
           "priority": "P2",
           "risk": "medium",
           "type": "refactor",
@@ -230,7 +230,7 @@
         {
           "id": "OPS-BACKUP-004",
           "title": "Zwei schnelle, überprüfbare Backup-Wege für WSL2 und Windows bereitstellen",
-          "status": "partial",
+          "status": "blocked",
           "priority": "P0",
           "risk": "critical",
           "type": "operations",
@@ -335,7 +335,7 @@
         {
           "id": "QA-REL-001",
           "title": "Vollständiges Repository- und Docker-E2E-Gate nach Daemon-Reparatur ausführen",
-          "status": "partial",
+          "status": "blocked",
           "priority": "P1",
           "risk": "high",
           "type": "quality-gate",
@@ -365,9 +365,9 @@
     "total_items": 11,
     "by_status": {
       "completed": 3,
-      "partial": 2,
-      "open": 3,
-      "blocked": 3
+      "partial": 0,
+      "open": 0,
+      "blocked": 8
     },
     "notes": [
       "Die Hub-owned Recovery-Implementierung selbst ist nicht Teil dieser offenen Liste; sie wurde in fokussierten und breiten Tests geprüft.",
@@ -381,17 +381,8 @@
       "Bekannte Backup-P2-Grenzen: unsigned OpenPGP authentisiert die Herkunft nicht, das Task-Gate ist kein vollständiger Hub-Drain, allgemeine Unterprozesse besitzen noch keine harten Timeouts/Filesystem-Hard-Quota, reguläre TreePlan-Dateien sind noch nicht vollständig gegen Same-UID-Pfadtausch verankert, SIGKILL/Stromausfall kann private Klartext-Staging-Verzeichnisse hinterlassen, der Restore-Publish ersetzt im Rennen noch ein neu erzeugtes leeres Ziel und ComposeAdapter trägt weiterhin mehrere Infrastrukturverantwortlichkeiten (SRP/DIP).",
       "Bitcoin Core, Wallet-Erstellung und Wallet-Backups sind noch nicht implementiert und dürfen erst nach expliziter Sicherheits- und Restore-Abnahme für Mainnet verwendet werden.",
       "Diese TODO autorisiert weder einen Bitcoin-Kauf noch die Verarbeitung einer Wallet-Passphrase durch Automatisierung.",
-      "Bitcoin-Node, Wallet und Bitcoin-E2E sind auf ausdrückliche Nutzerpriorisierung blockiert; sie werden nicht automatisch eingeplant."
+      "Das gesamte verbleibende TODO ist auf ausdrücklichen Nutzerwunsch zugunsten wichtigerer TODO-Dateien blockiert; Recovery-, SOLID-, Backup-, Quality- und Bitcoin-Folgearbeiten werden nicht automatisch eingeplant."
     ],
-    "recommended_order": [
-      "OPS-BACKUP-004",
-      "QA-REL-001",
-      "ARF-CAS-001",
-      "ARF-SOLID-002",
-      "OPS-SOLID-005",
-      "BTC-NODE-001",
-      "BTC-WALLET-002",
-      "BTC-E2E-003"
-    ]
+    "recommended_order": []
   }
 }
