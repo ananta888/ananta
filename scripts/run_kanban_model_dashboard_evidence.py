@@ -19,10 +19,32 @@ import subprocess
 import sys
 import tempfile
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable, Mapping, Protocol, Sequence
+from typing import Any, Callable, Mapping, Sequence
+
+from scripts.kanban_evidence_contracts import (
+    CandidateSourcePort as CandidateSourcePort,
+)
+from scripts.kanban_evidence_contracts import (
+    CommandExecutorPort as CommandExecutorPort,
+)
+from scripts.kanban_evidence_contracts import (
+    CommandSpec as CommandSpec,
+)
+from scripts.kanban_evidence_contracts import (
+    EvidenceBlocked as EvidenceBlocked,
+)
+from scripts.kanban_evidence_contracts import (
+    EvidenceProducerError as EvidenceProducerError,
+)
+from scripts.kanban_evidence_contracts import (
+    ExecutionResult as ExecutionResult,
+)
+from scripts.kanban_evidence_contracts import (
+    SuiteSpec as SuiteSpec,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 EVIDENCE_SCHEMA = "ananta.kanban-model-dashboard.evidence.v1"
@@ -53,36 +75,6 @@ MAX_TOKEN_LENGTH = 1_024
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 HEX_64_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 ANSI_PATTERN = re.compile(rb"\x1b\[[0-?]*[ -/]*[@-~]")
-
-
-class EvidenceProducerError(RuntimeError):
-    """Raised when evidence cannot be produced safely."""
-
-
-class EvidenceBlocked(EvidenceProducerError):
-    """A fail-closed precondition that prevents suite execution."""
-
-    def __init__(self, reason_code: str):
-        super().__init__(reason_code)
-        self.reason_code = reason_code
-
-
-@dataclass(frozen=True, slots=True)
-class CommandSpec:
-    argv: tuple[str, ...]
-    cwd: str = "."
-    env: tuple[tuple[str, str], ...] = ()
-    timeout_seconds: int = 600
-    validator: str = "pytest"
-    minimum_passed: int = 1
-    result_path: str | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class SuiteSpec:
-    suite: str
-    commands: tuple[CommandSpec, ...]
-    inputs: tuple[str, ...]
 
 
 COMMON_INPUTS = (
@@ -465,37 +457,6 @@ SUITE_SPECS: Mapping[str, SuiteSpec] = {
         ),
     ),
 }
-
-
-@dataclass(frozen=True, slots=True)
-class ExecutionResult:
-    exit_code: int | None
-    stdout: bytes = b""
-    stderr: bytes = b""
-    failure_code: str | None = None
-
-
-class CommandExecutorPort(Protocol):
-    def run(
-        self,
-        argv: Sequence[str],
-        *,
-        cwd: Path,
-        env_overrides: Mapping[str, str],
-        timeout_seconds: int,
-    ) -> ExecutionResult: ...
-
-
-class CandidateSourcePort(Protocol):
-    def current_commit(self) -> str: ...
-    def path_exists(self, commit_sha: str, relative_path: str) -> bool: ...
-    def read_path(
-        self,
-        commit_sha: str,
-        relative_path: str,
-        *,
-        max_bytes: int,
-    ) -> bytes | None: ...
 
 
 class SubprocessCommandExecutor:
