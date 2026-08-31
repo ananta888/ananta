@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare or execute the enterprise-organization convergence gate.
-
-The default mode is deliberately non-executing. Complex suites require both
-``--execute-full`` and an explicit environment approval so implementation work
-cannot accidentally start integration, browser, or performance tests.
-"""
+"""Prepare or execute the automated enterprise-organization convergence gate."""
 
 from __future__ import annotations
 
@@ -32,7 +27,6 @@ DEFAULT_OUTPUT = ROOT / "artifacts/test-gates/enterprise-agentic-scrum-organizat
 REPORT_SCHEMA = "ananta.enterprise-organization.release-result.v1"
 PROFILE_SCHEMA = "ananta.enterprise-organization.release-profile.v1"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
-SAFE_ENV_NAME = re.compile(r"^[A-Z][A-Z0-9_]{2,80}$")
 ALLOWED_TIERS = {"static", "complex", "full_e2e"}
 
 
@@ -188,11 +182,8 @@ def _validate_profile(profile: Mapping[str, Any]) -> tuple[dict[str, Any], ...]:
     if profile.get("schema") != PROFILE_SCHEMA or profile.get("profile_version") != 1:
         raise GateConfigurationError("profile_schema_invalid")
     release_task_id = profile.get("release_task_id")
-    approval_env = profile.get("complex_execution_approval_env")
     if not isinstance(release_task_id, str) or not release_task_id:
         raise GateConfigurationError("profile_release_task_invalid")
-    if not isinstance(approval_env, str) or SAFE_ENV_NAME.fullmatch(approval_env) is None:
-        raise GateConfigurationError("profile_approval_env_invalid")
     suites = profile.get("suites")
     if not isinstance(suites, list) or not suites:
         raise GateConfigurationError("profile_suites_invalid")
@@ -265,6 +256,9 @@ def _hash_inputs(todo_path: Path, profile_path: Path) -> list[dict[str, str]]:
 
 def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
     started = time.monotonic()
+    command = list(suite["command"])
+    if command[0] == "python":
+        command[0] = sys.executable
     try:
         with tempfile.TemporaryDirectory(
             prefix="ananta-enterprise-gate-pycache-"
@@ -272,7 +266,7 @@ def _run_suite(suite: Mapping[str, Any]) -> dict[str, Any]:
             process_env = os.environ.copy()
             process_env["PYTHONPYCACHEPREFIX"] = pycache_dir
             completed = subprocess.run(
-                list(suite["command"]),
+                command,
                 cwd=ROOT / str(suite["cwd"]),
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
@@ -314,18 +308,13 @@ def build_report(
     suites = _validate_profile(profile)
     release_task_id = str(profile["release_task_id"])
     graph = evaluate_task_graph(todo, release_task_id=release_task_id)
-    approval_env = str(profile["complex_execution_approval_env"])
-    approved = os.environ.get(approval_env) == "1"
-    if mode == "full" and not approved:
-        raise GateConfigurationError(f"complex_execution_not_approved:{approval_env}=1")
-
     results: list[dict[str, Any]] = []
     for suite in suites:
         should_run = mode == "full" or (mode == "static" and suite["tier"] == "static")
         if should_run:
             results.append(_run_suite(suite))
         else:
-            reason = "complex_tests_awaiting_approval" if suite["tier"] != "static" else "prepare_only"
+            reason = "full_execution_not_requested" if mode == "static" else "execution_not_requested"
             results.append(_not_run_suite(suite, reason))
 
     executed = [row for row in results if row["status"] != "not_run"]
@@ -334,7 +323,7 @@ def build_report(
     passed = mode == "full" and graph["status"] == "passed" and all_required_executed and all_executed_passed
     reason_codes: set[str] = set(graph["reason_codes"])
     if mode != "full":
-        reason_codes.add("complex_tests_deferred_pending_user_approval")
+        reason_codes.add("full_execution_not_requested")
     if any(row["status"] == "failed" for row in results):
         reason_codes.add("suite_failed")
     if not all_required_executed:
@@ -350,9 +339,8 @@ def build_report(
         "reason_codes": sorted(reason_codes),
         "task_graph": graph,
         "execution_policy": {
-            "complex_tests_require_explicit_approval": True,
-            "approval_environment_variable": approval_env,
-            "approval_observed": approved,
+            "fully_automated": True,
+            "interactive_approval_required": False,
         },
         "suites": results,
         "input_hashes": input_hashes,
@@ -362,7 +350,7 @@ def build_report(
         else [
             (
                 "Complex integration, browser, accessibility, and performance evidence "
-                "is not accepted until the full gate runs with explicit approval."
+                "is not accepted until the automated full gate runs."
             ),
             "A dirty working tree is implementation state, not immutable release evidence.",
         ],
@@ -391,7 +379,7 @@ def _parser() -> argparse.ArgumentParser:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--execute-static", action="store_true", help="run only cheap static suites")
     mode.add_argument(
-        "--execute-full", action="store_true", help="run every suite; explicit environment approval required"
+        "--execute-full", action="store_true", help="run every suite non-interactively"
     )
     parser.add_argument("--todo", type=Path, default=DEFAULT_TODO)
     parser.add_argument("--profile", type=Path, default=DEFAULT_PROFILE)

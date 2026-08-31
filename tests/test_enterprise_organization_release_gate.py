@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,7 @@ from scripts.run_enterprise_organization_release_gate import (
     GateConfigurationError,
     _run_suite,
     _validate_profile,
+    build_report,
     evaluate_task_graph,
 )
 
@@ -52,6 +54,38 @@ def test_profile_rejects_a_second_full_e2e() -> None:
         _validate_profile(profile)
 
 
+def test_full_gate_runs_without_interactive_approval(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    todo = json.loads(DEFAULT_TODO.read_text(encoding="utf-8"))
+    profile_path = ROOT / "config/test-profiles/enterprise-organizations/release-gate.v1.json"
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    monkeypatch.setattr(
+        "scripts.run_enterprise_organization_release_gate._run_suite",
+        lambda suite: {**suite, "status": "passed", "reason_code": None},
+    )
+    monkeypatch.setattr(
+        "scripts.run_enterprise_organization_release_gate._hash_inputs",
+        lambda *_args: [],
+    )
+
+    report, passed = build_report(
+        todo=todo,
+        profile=profile,
+        todo_path=tmp_path / "todo.json",
+        profile_path=profile_path,
+        mode="full",
+    )
+
+    assert passed is False  # The tracked TODO still has incomplete predecessors.
+    assert report["execution_policy"] == {
+        "fully_automated": True,
+        "interactive_approval_required": False,
+    }
+    assert {suite["status"] for suite in report["suites"]} == {"passed"}
+
+
 def test_suite_runner_uses_private_python_bytecode_directory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -60,6 +94,7 @@ def test_suite_runner_uses_private_python_bytecode_directory(
     def fake_run(*args: object, **kwargs: object):
         bytecode_dir = Path(str(kwargs["env"]["PYTHONPYCACHEPREFIX"]))
         observed["bytecode_dir"] = bytecode_dir
+        observed["command"] = args[0]
         assert bytecode_dir.is_dir()
         return subprocess.CompletedProcess(args[0], 0, b"", b"")
 
@@ -79,4 +114,9 @@ def test_suite_runner_uses_private_python_bytecode_directory(
     )
 
     assert result["status"] == "passed"
+    assert observed["command"][:3] == [
+        sys.executable,
+        "-m",
+        "compileall",
+    ]
     assert not Path(observed["bytecode_dir"]).exists()

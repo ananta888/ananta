@@ -2,7 +2,6 @@
   "schema": "ananta.enterprise-organization.release-profile.v1",
   "profile_version": 1,
   "release_task_id": "ESORG-QA-006",
-  "complex_execution_approval_env": "ANANTA_APPROVE_COMPLEX_ORGANIZATION_TESTS",
   "suites": [
     {
       "id": "python-static",
