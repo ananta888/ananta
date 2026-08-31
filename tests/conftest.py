@@ -20,11 +20,15 @@ os.environ["DATABASE_URL"] = (
     f"sqlite:///file:ananta-pytest-{os.getpid()}"
     "?mode=memory&cache=shared&uri=true"
 )
+# Each xdist worker is a separate process but used to share ``data/``.  The
+# cleanup fixture then let one worker remove another worker's artifact or RAG
+# output mid-test.  Bind all mutable test files to the process-local sandbox
+# before importing application settings.
+os.environ["DATA_DIR"] = f"/tmp/ananta-pytest-data-{os.getpid()}"
 os.environ["CONTROLLER_URL"] = "http://mock-controller"
 os.environ["AGENT_NAME"] = "test-agent"
-os.environ.setdefault(
-    "VOICE_DELETION_LEDGER_PATH",
-    f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl",
+os.environ["VOICE_DELETION_LEDGER_PATH"] = (
+    f"/tmp/ananta-voice-deletion-ledger-pytest-{os.getpid()}.jsonl"
 )
 os.environ.setdefault("INITIAL_ADMIN_USER", "admin")
 os.environ.setdefault("INITIAL_ADMIN_PASSWORD", "admin")

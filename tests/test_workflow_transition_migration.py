@@ -456,7 +456,7 @@ def test_transition_migration_fails_closed_without_c7_prerequisites(
 
 def test_transition_migration_remains_on_the_single_head_chain() -> None:
     scripts = ScriptDirectory.from_config(Config("alembic.ini"))
-    assert scripts.get_heads() == ["e5a7b9d1f3c6"]
+    assert scripts.get_heads() == ["f6b8c0d2e4a7"]
     migration = scripts.get_revision("d8f0a2c4e6b8")
     assert migration is not None
     assert migration.down_revision == "c7e9a1b3d5f7"

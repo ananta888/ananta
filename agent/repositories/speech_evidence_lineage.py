@@ -144,6 +144,7 @@ class SpeechEvidenceLineageRepository:
 
     def process_outbox(self, *, event_digest: str, tenant_id: str, owner_subject: str) -> bool:
         with Session(engine) as session:
+            _begin_atomic_outbox_delivery(session)
             event = session.exec(
                 select(SpeechLineageOutboxDB)
                 .where(
@@ -160,19 +161,27 @@ class SpeechEvidenceLineageRepository:
             payload = dict(event.payload or {})
             nodes = tuple(SpeechLineageNode(**dict(raw)) for raw in payload.get("nodes", []))
             edges = tuple(SpeechLineageEdge(**dict(raw)) for raw in payload.get("edges", []))
-            self._write_graph(
-                session,
-                tenant_id=tenant_id,
-                owner_subject=event.owner_subject,
-                nodes=nodes,
-                edges=edges,
-                now_ms=event.created_at_ms,
-            )
-            event.state = "published"
-            event.attempt_count += 1
-            event.updated_at_ms = time.time_ns() // 1_000_000
-            session.add(event)
-            session.commit()
+            try:
+                self._write_graph(
+                    session,
+                    tenant_id=tenant_id,
+                    owner_subject=event.owner_subject,
+                    nodes=nodes,
+                    edges=edges,
+                    now_ms=event.created_at_ms,
+                )
+                event.state = "published"
+                event.attempt_count += 1
+                event.updated_at_ms = time.time_ns() // 1_000_000
+                session.add(event)
+                session.commit()
+            except Exception:
+                # The graph projection and acknowledgement are one atomic
+                # outbox delivery.  Explicit rollback is required because
+                # bulk writes use nested savepoints and must never survive a
+                # failed delivery for later recovery to observe as published.
+                session.rollback()
+                raise
             return True
 
     def recover_pending(
@@ -442,6 +451,19 @@ class SpeechEvidenceLineageRepository:
                 )
                 existing_edges.add(key)
         _insert_edges_idempotently(session, tenant_id=tenant_id, rows=pending_edges)
+
+
+def _begin_atomic_outbox_delivery(session: Session) -> None:
+    """Start a physical SQLite transaction before nested idempotency writes.
+
+    SQLite otherwise starts its transaction at the first savepoint. Releasing
+    that savepoint can then commit the graph before the outbox acknowledgement
+    is durable, breaking crash recovery. Other databases start a transaction
+    for the first locked read, so no dialect-specific action is needed there.
+    """
+
+    if session.get_bind().dialect.name == "sqlite":
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
 
 
 def _insert_nodes_idempotently(
