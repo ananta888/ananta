@@ -1,0 +1,328 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "scientific-agent-skills-selective-adapter",
+  "title": "K-Dense Scientific Agent Skills selektiv und sicher in Ananta integrieren",
+  "version": "1.0.0",
+  "created": "2026-08-31",
+  "updated": "2026-08-31",
+  "project": "ananta",
+  "owner": "ananta888",
+  "status": "active",
+  "priority": "P1",
+  "tags": [
+    "skills",
+    "scientific-research",
+    "codecompass",
+    "adapter",
+    "provenance",
+    "security"
+  ],
+  "review_basis": {
+    "upstream_repository": "https://github.com/K-Dense-AI/scientific-agent-skills",
+    "upstream_license": "MIT",
+    "upstream_install_surface": "Agent Skills / Agent Plugins (`plugin.json` and `skills/`)",
+    "integration_decision": "Ananta bleibt Control Plane. Externe Skills werden ausschließlich über einen versionierten, selektiven Skill-Adapter als geprüfte Kandidaten eingebunden; weder ein globaler Blindimport noch ein Leaken fremder Datenmodelle in Core-Routen ist zulässig."
+  },
+  "goals": [
+    "Eine kuratierte wissenschaftliche Skill-Quelle für Ananta bereitstellen, ohne die 160+ Upstream-Skills als Dauer-Kontext oder implizite Runtime-Abhängigkeit zu übernehmen.",
+    "Jeden aktivierbaren Skill mit Quelle, Commit/Release-Pin, Lizenz, Hash, Abhängigkeiten, Netzbedarf, Berechtigungen, Datenklassifikation und Prüfstatus nachvollziehbar machen.",
+    "Skill-Auswahl, Ausführung und Kontextbeigabe durch Anantas bestehende Source-, Context-Policy-, Approval- und Audit-Grenzen kontrollieren.",
+    "CodeCompass für die Analyse lokaler Skill-Dateien, Skripte und Abhängigkeits-/Credential-Beziehungen nutzen, ohne externe Skripte beim Indexieren oder Anzeigen auszuführen."
+  ],
+  "non_goals": [
+    "Kein automatisches Klonen, Installieren oder Aktivieren des vollständigen K-Dense-Repositories.",
+    "Kein automatisches Ausführen von Upstream-Skripten, Paketinstallationen, Browser-Aktionen oder Netzaufrufen.",
+    "Keine medizinische Diagnose, Therapieentscheidung, regulatorische Freigabe oder Laborsteuerung durch Ananta.",
+    "Kein Ersatz der bestehenden Knowledge-, Sources-, Qdrant- oder CodeCompass-System-of-Record."
+  ],
+  "categories": [
+    {
+      "name": "discovery_and_admission",
+      "label": "Inventur, Risiko- und Zulassungsmodell",
+      "items": [
+        {
+          "id": "SAS-INV-001",
+          "title": "Upstream-Skill-Manifest deterministisch erfassen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "analysis",
+          "depends_on": [],
+          "paths": [
+            "agent/services/",
+            "agent/repositories/",
+            "agent/codecompass/",
+            "tests/"
+          ],
+          "description": "Einen read-only Importer für lokale Checkouts oder bewusst geladene Archive bauen. Er liest ausschließlich `plugin.json`, `SKILL.md`, deklarierte Referenzen und Skriptmetadaten; kein Python-, Shell- oder Installationscode darf dabei ausgeführt werden.",
+          "acceptance_criteria": [
+            "Ein Manifest enthält pro Skill Name, Beschreibung, Upstream-Pfad, Release-/Commit-Pin, SHA-256, Lizenzhinweis, deklarierte Dateien und Parser-Warnungen.",
+            "Symlink-Ausbrüche, absolute Pfade, Binärdateien, übergroße Dateien, nicht auflösbare Links und ungültiges Frontmatter werden fail-closed abgewiesen.",
+            "Der Importer schreibt noch keine Ananta-Konfiguration und aktiviert keinen Skill.",
+            "Unit-Tests enthalten harmlose, fehlerhafte und bösartige Fixtures."
+          ]
+        },
+        {
+          "id": "SAS-INV-002",
+          "title": "Risikoprofil und Capability-Inventar aus dem Manifest ableiten",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "security",
+          "depends_on": [
+            "SAS-INV-001"
+          ],
+          "paths": [
+            "agent/services/",
+            "agent/models/",
+            "agent/routes/",
+            "tests/"
+          ],
+          "description": "Aus den deklarativen Inhalten ein überprüfbares Profil ableiten: Netz/API, lokale Prozesse, Python/Node/CLI-Abhängigkeiten, Dateizugriff, Credentials, medizinisch-regulatorischer Bereich, Datenklassifikation und geschätztes Kontextbudget.",
+          "acceptance_criteria": [
+            "Nicht deklarierte oder nicht analysierbare Capabilities führen zu `blocked`, nie zu einer stillen Default-Freigabe.",
+            "Skills werden mindestens als documentation-only, read-only-research, controlled-execution oder blocked klassifiziert.",
+            "Die Klassifikation ist versioniert, erklärbar und unabhängig von einem LLM reproduzierbar.",
+            "Eine manuelle Bewertung kann ergänzt, aber nicht durch unprüfbare Freitextanweisung ersetzt werden."
+          ]
+        },
+        {
+          "id": "SAS-ADM-003",
+          "title": "Kuratierten Catalog statt Vollimport definieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "medium",
+          "type": "configuration",
+          "depends_on": [
+            "SAS-INV-002"
+          ],
+          "paths": [
+            "config/",
+            "agent/services/",
+            "tests/"
+          ],
+          "description": "Ein versioniertes Allowlist-Catalog-Format für zugelassene Skills entwerfen. Erster Kandidatenumfang: Literatur-/Evidenzrecherche, Datenbank-Lookup, wissenschaftliches Schreiben, Statistik und Visualisierung; Fach- oder Ausführungsskills bleiben zunächst deaktiviert.",
+          "acceptance_criteria": [
+            "Jeder Catalog-Eintrag referenziert exakt einen manifestierten Pin und Hash sowie eine erlaubte Betriebsart.",
+            "Ohne expliziten Catalog-Eintrag ist ein Skill nicht auswählbar.",
+            "Context-Budget, erlaubte Tools, Daten-/Netzprofil und erforderliche Approval-Stufe sind je Eintrag definiert.",
+            "Ein Upgrade erstellt einen neuen Kandidaten und überschreibt keinen bereits freigegebenen Pin."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "adapter_and_control_plane",
+      "label": "Ananta-native Adapter und kontrollierte Ausführung",
+      "items": [
+        {
+          "id": "SAS-ADP-004",
+          "title": "Skill-Adapter-Port mit Ananta-nativen Verträgen implementieren",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "implementation",
+          "depends_on": [
+            "SAS-ADM-003"
+          ],
+          "paths": [
+            "agent/services/",
+            "agent/repositories/",
+            "agent/routes/",
+            "agent/adapters/",
+            "tests/test_adapter_conformance.py"
+          ],
+          "description": "Einen schmalen Port für Skill-Catalog, Auflösung, Kontext-Projektion, Ausführungsanfrage und Ergebnis-Provenienz schaffen. Upstream-spezifische Strukturen bleiben im Adapter; Core-Routen erhalten nur Ananta-eigene DTOs.",
+          "acceptance_criteria": [
+            "Dokumentations- und Research-Skills können als kontextbegrenzte Anweisung mit Quellenreferenz projiziert werden.",
+            "Controlled-execution erzeugt ausschließlich eine genehmigungspflichtige Task-Anfrage; sie führt keine Upstream-Aktion direkt aus.",
+            "Fehlender Adapter, ungültiger Pin oder deaktivierter Feature-Flag führt zu einer klaren, nicht stillen Degradierung.",
+            "Adapter-Conformance-Tests beweisen, dass kein Upstream-Typ in öffentliche Ananta-API-Verträge gelangt."
+          ]
+        },
+        {
+          "id": "SAS-ADP-005",
+          "title": "Policy-, Approval- und Credential-Grenzen anbinden",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "security",
+          "depends_on": [
+            "SAS-ADP-004"
+          ],
+          "paths": [
+            "agent/services/context_access_policy_service.py",
+            "agent/services/context_bundle_ingress_policy.py",
+            "agent/routes/context_policy.py",
+            "agent/routes/sources.py",
+            "tests/security/",
+            "tests/contracts/"
+          ],
+          "description": "Die Skill-Auswahl an bestehende Context-Policy, Source-Admission, Rollenberechtigung und Approval-Gates anbinden. Credentials werden nur über vorhandene Secret-Resolver referenziert, nie im Skilltext oder Manifest gespeichert.",
+          "acceptance_criteria": [
+            "Nur autorisierte Personen sehen Skill-Inhalte, Abhängigkeitsdetails und Credential-Anforderungen.",
+            "Externe Netz- oder Schreibaktionen benötigen eine explizite, auf Task, Skill-Pin und Ziel gebundene Freigabe.",
+            "Prompt-Injection in `SKILL.md`, Referenzdateien oder abgerufenen Papern kann weder Policies noch Tool-Rechte ändern.",
+            "Abgelehnte, abgelaufene und Replay-Freigaben werden fail-closed behandelt und auditierbar protokolliert."
+          ]
+        },
+        {
+          "id": "SAS-ADP-006",
+          "title": "CodeCompass-Projektion für Skills und ihre Lieferkette ergänzen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "integration",
+          "depends_on": [
+            "SAS-INV-001",
+            "SAS-ADP-004"
+          ],
+          "paths": [
+            "agent/services/codecompass_artifact_manifest.py",
+            "agent/services/codecompass_context_trace_service.py",
+            "agent/services/codecompass_graph_projection_service.py",
+            "agent/routes/codecompass_graph.py",
+            "tests/codecompass/"
+          ],
+          "description": "Skill-Paket, Manifest, Skripte, deklarierte Dependencies, Catalog-Einträge und Execution-Receipts als passiv analysierbare Artefakte in CodeCompass projizieren.",
+          "acceptance_criteria": [
+            "Der Graph zeigt Herkunft, Pin, Hash, erlaubte Capability, Freigabestatus und Beziehung zu Ananta-Task/Source.",
+            "CodeCompass liest und indiziert keine Secrets und führt keine Skill-Skripte aus.",
+            "Retrieval kann erklären, warum ein Skill gewählt oder abgelehnt wurde und welche Version galt.",
+            "Löschen/Deaktivieren eines Catalog-Eintrags entfernt keine historischen Audit- und Provenienzbelege."
+          ]
+        }
+      ]
+    },
+    {
+      "name": "quality_provenance_and_rollout",
+      "label": "Provenienz, Tests und schrittweiser Rollout",
+      "items": [
+        {
+          "id": "SAS-TRACE-007",
+          "title": "Unveränderliche Skill-Provenienz und Ergebnisbelege erfassen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "high",
+          "type": "auditability",
+          "depends_on": [
+            "SAS-ADP-004",
+            "SAS-ADP-005"
+          ],
+          "paths": [
+            "agent/services/context_assembly_trace_service.py",
+            "agent/services/codecompass_context_trace_service.py",
+            "agent/repositories/",
+            "tests/"
+          ],
+          "description": "Für jede Skill-Projektion und kontrollierte Ausführung den Skill-Pin, Hash, Catalog-Version, Policy-Entscheidung, Approval, Modell, Tool-Aufrufe, Quellen und Artefakte verbindlich speichern.",
+          "acceptance_criteria": [
+            "Ein Ergebnis lässt sich eindeutig auf Skill-Version, Ananta-Konfiguration und Berechtigungsentscheidung zurückführen.",
+            "Nutzer- und Secret-Daten werden nach bestehenden Redaktionsregeln minimiert; Roh-Credentials und private Schlüssel landen nie im Trace.",
+            "Trace-Export und UI/API respektieren bestehende Sichtbarkeit und Source-Access-Regeln.",
+            "Manipulierte oder unvollständige Receipts werden erkannt und nicht als verifizierte Evidenz dargestellt."
+          ]
+        },
+        {
+          "id": "SAS-QA-008",
+          "title": "Security- und Kompatibilitäts-Gates für Upstream-Updates einführen",
+          "status": "open",
+          "priority": "P0",
+          "risk": "critical",
+          "type": "quality-gate",
+          "depends_on": [
+            "SAS-INV-001",
+            "SAS-ADM-003",
+            "SAS-ADP-005",
+            "SAS-TRACE-007"
+          ],
+          "paths": [
+            "tests/security/",
+            "tests/contracts/",
+            "tests/codecompass/",
+            "scripts/",
+            "docs/"
+          ],
+          "description": "Jeder neue Upstream-Pin durchläuft strukturelle Validierung, Lizenz-/Hash-Prüfung, Capability-Diff, negative Policy-Tests, Adapter-Conformance und eine kontrollierte Sandbox-Abnahme, bevor er im Catalog freigegeben werden kann.",
+          "acceptance_criteria": [
+            "Ein Update kann nur nach sichtbarem Diff zwischen altem und neuem Manifest zur Freigabe vorgeschlagen werden.",
+            "Neue Skripte, neue Netzwerkziele, neue Credential-Anforderungen oder Rechteausweitungen blockieren die automatische Übernahme.",
+            "Fehlgeschlagene Prüfung bewahrt den zuvor freigegebenen Pin unverändert.",
+            "Die Gates laufen ohne echte wissenschaftliche API-Credentials und ohne produktive Quellen zu verändern."
+          ]
+        },
+        {
+          "id": "SAS-ROL-009",
+          "title": "Pilot mit fünf risikoarmen Research-Skills durchführen",
+          "status": "open",
+          "priority": "P1",
+          "risk": "medium",
+          "type": "rollout",
+          "depends_on": [
+            "SAS-QA-008",
+            "SAS-ADP-006"
+          ],
+          "paths": [
+            "config/",
+            "tests/e2e/",
+            "docs/",
+            "frontend-angular/"
+          ],
+          "description": "Fünf zugelassene documentation-only/read-only Research-Skills in einem Feature-Flag-Pilot aktivieren. Die UI zeigt Herkunft, Version, benötigte Rechte, Kontextkosten, Freigabestatus und Quellen statt eines undurchsichtigen 'Skill aktiv'-Schalters.",
+          "acceptance_criteria": [
+            "Ohne Flag oder ohne passende Berechtigung bleiben alle externen Skills unsichtbar beziehungsweise deaktiviert.",
+            "Mindestens ein End-to-End-Fall belegt Auswahl, Kontextprojektion, Quellenbeleg, Audit und nachvollziehbare Ablehnung eines nicht zugelassenen Skills.",
+            "Der Pilot erzeugt keine Paketinstallation und keine unbeaufsichtigten Netz-/Schreibaktionen.",
+            "Nutzer können den konkreten Skill-Pin und seine Fähigkeit vor der Ausführung einsehen."
+          ]
+        },
+        {
+          "id": "SAS-OPS-010",
+          "title": "Rollback, Deaktivierung und Betrieb dokumentieren",
+          "status": "open",
+          "priority": "P1",
+          "risk": "high",
+          "type": "operations",
+          "depends_on": [
+            "SAS-ROL-009"
+          ],
+          "paths": [
+            "docs/",
+            "config/",
+            "tests/"
+          ],
+          "description": "Einen sicheren Betriebspfad für Pin-Wechsel, sofortige Deaktivierung, Sperrung kompromittierter Skills und die Aufbewahrung historischer Belege definieren.",
+          "acceptance_criteria": [
+            "Ein einzelner Catalog-Eintrag und ein globaler Feature-Flag können ohne Deployment und ohne Löschen von Evidenz deaktiviert werden.",
+            "Nach Deaktivierung werden neue Ausführungen verhindert; historische Ergebnisse zeigen sichtbar den früheren Pin und Status.",
+            "Dokumentation enthält Installationsgrenzen, Sicherheitsmodell, Upgrade-Checkliste, Rollback und Zuständigkeiten.",
+            "Kein Rollback überschreibt bestehende Source-, Knowledge-, Qdrant- oder CodeCompass-Daten."
+          ]
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "total_items": 10,
+    "by_status": {
+      "open": 10
+    },
+    "recommended_order": [
+      "SAS-INV-001",
+      "SAS-INV-002",
+      "SAS-ADM-003",
+      "SAS-ADP-004",
+      "SAS-ADP-005",
+      "SAS-ADP-006",
+      "SAS-TRACE-007",
+      "SAS-QA-008",
+      "SAS-ROL-009",
+      "SAS-OPS-010"
+    ],
+    "notes": [
+      "K-Dense Scientific Agent Skills wird als externe, MIT-lizenzierte Quelle betrachtet. Lizenzprüfung pro übernommenem Pin bleibt trotzdem Pflicht.",
+      "Die Skill-Anzahl und der Inhalt können sich upstream ändern; deshalb ist ein unveränderlicher Pin plus Manifest Pflicht.",
+      "Der Adapter ist absichtlich allgemein genug für weitere Agent-Skills-Quellen, aber diese Todo autorisiert zunächst nur K-Dense als Pilotquelle."
+    ]
+  }
+}
