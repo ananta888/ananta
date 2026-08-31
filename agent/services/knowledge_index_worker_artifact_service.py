@@ -13,7 +13,7 @@ import urllib.parse
 import urllib.request
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any
 
 from agent.config import settings
 from agent.db_models import KnowledgeIndexDB, KnowledgeIndexRunDB
@@ -32,6 +32,18 @@ from agent.services.knowledge_index_consumption_policy import (
     KNOWLEDGE_INDEX_MATERIALIZATION_BINDING_SCHEMA,
     KNOWLEDGE_INDEX_PROJECTED_STATE,
 )
+from agent.services.knowledge_index_worker_artifact_ports import (
+    KnowledgeIndexArtifactTransferDeadlinePort as KnowledgeIndexArtifactTransferDeadlinePort,
+)
+from agent.services.knowledge_index_worker_artifact_ports import (
+    KnowledgeIndexWorkerArtifactDownloaderPort as KnowledgeIndexWorkerArtifactDownloaderPort,
+)
+from agent.services.knowledge_index_worker_artifact_ports import (
+    KnowledgeIndexWorkerNoRedirectHandler as _KnowledgeIndexWorkerNoRedirectHandler,
+)
+from agent.services.knowledge_index_worker_artifact_ports import (
+    KnowledgeIndexWorkerStreamingArtifactDownloaderPort as KnowledgeIndexWorkerStreamingArtifactDownloaderPort,
+)
 from ananta_contracts.codecompass_domain_supplement import (
     DOMAIN_SUPPLEMENT_FILENAME,
     DOMAIN_SUPPLEMENT_MEDIA_TYPE,
@@ -41,6 +53,10 @@ from ananta_contracts.codecompass_domain_supplement import (
 from ananta_contracts.codecompass_graph_limits import (
     MAX_CODECOMPASS_DOMAIN_SUPPLEMENT_BYTES,
     MAX_CODECOMPASS_GRAPH_ARTIFACT_BYTES,
+)
+from ananta_contracts.knowledge_index_legacy_output_capability import (
+    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
+    encode_legacy_output_capability,
 )
 from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_CAPABILITY_HEADER,
@@ -52,10 +68,6 @@ from ananta_contracts.knowledge_index_worker_output_capability import (
     KNOWLEDGE_INDEX_OUTPUT_SHA256_HEADER,
     KNOWLEDGE_INDEX_OUTPUT_SIZE_HEADER,
     encode_knowledge_index_output_capability,
-)
-from ananta_contracts.knowledge_index_legacy_output_capability import (
-    KNOWLEDGE_INDEX_LEGACY_OUTPUT_CAPABILITY_HEADER,
-    encode_legacy_output_capability,
 )
 
 _MAX_ARTIFACT_BYTES = 128 * 1024 * 1024
@@ -96,59 +108,6 @@ _MATERIALIZATION_BINDING_SCHEMA = (
 )
 _PENDING_PROJECTION_STATE = "pending"
 _JOB_ID = re.compile(r"^knowledge-index-[0-9a-f]{32}$")
-
-
-class _KnowledgeIndexWorkerNoRedirectHandler(
-    urllib.request.HTTPRedirectHandler
-):
-    """Keep Worker capabilities on the single assigned-Worker request."""
-
-    def redirect_request(
-        self,
-        req: urllib.request.Request,
-        fp: Any,
-        code: int,
-        msg: str,
-        headers: Any,
-        newurl: str,
-    ) -> None:
-        del req, fp, code, msg, headers, newurl
-        return None
-
-
-class KnowledgeIndexWorkerArtifactDownloaderPort(Protocol):
-    def download(
-        self,
-        *,
-        worker_url: str,
-        worker_token: str,
-        reference: Mapping[str, Any],
-        source_access_manifest: Mapping[str, Any] | None = None,
-        job_id: str | None = None,
-        transfer_deadline: "KnowledgeIndexArtifactTransferDeadlinePort | None" = None,
-    ) -> bytes: ...
-
-
-class KnowledgeIndexWorkerStreamingArtifactDownloaderPort(Protocol):
-    """Optional capability for bounded direct-to-staging downloads."""
-
-    def download_to_path(
-        self,
-        *,
-        worker_url: str,
-        worker_token: str,
-        reference: Mapping[str, Any],
-        destination: Path,
-        source_access_manifest: Mapping[str, Any] | None = None,
-        job_id: str | None = None,
-        transfer_deadline: "KnowledgeIndexArtifactTransferDeadlinePort | None" = None,
-    ) -> None: ...
-
-
-class KnowledgeIndexArtifactTransferDeadlinePort(Protocol):
-    """Trusted Hub wall-clock deadline shared with the Worker POST."""
-
-    def require_remaining_seconds(self) -> float: ...
 
 
 class HttpKnowledgeIndexWorkerArtifactDownloader:
