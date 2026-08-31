@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { timeout } from 'rxjs';
@@ -151,6 +151,7 @@ import { SystemFacade } from '../features/system/system.facade';
 export class WebhooksComponent implements OnInit {
   private system = inject(SystemFacade);
   private ns = inject(NotificationService);
+  private cdr = inject(ChangeDetectorRef);
 
   hub = this.system.resolveHubAgent();
   status: any = null;
@@ -201,8 +202,12 @@ export class WebhooksComponent implements OnInit {
           }, {}) || {};
           this.config.auto_start_planner = s.auto_start_planner;
         }
+        this.cdr.markForCheck();
       },
-      error: (e) => this.ns.error(this.ns.fromApiError(e, 'Trigger Status konnte nicht geladen werden'))
+      error: (e) => {
+        this.ns.error(this.ns.fromApiError(e, 'Trigger Status konnte nicht geladen werden'));
+        this.cdr.markForCheck();
+      }
     });
   }
 
@@ -256,10 +261,12 @@ export class WebhooksComponent implements OnInit {
         this.saving = false;
         this.ns.success('Trigger-Konfiguration gespeichert');
         this.refresh();
+        this.cdr.markForCheck();
       },
       error: (e) => {
         this.saving = false;
         this.ns.error(this.ns.fromApiError(e, 'Konfiguration konnte nicht gespeichert werden'));
+        this.cdr.markForCheck();
       }
     });
   }
@@ -285,11 +292,13 @@ export class WebhooksComponent implements OnInit {
       next: (result) => {
         this.testing = false;
         this.testResult = result;
+        this.cdr.markForCheck();
       },
       error: (e) => {
         this.testing = false;
         this.testResult = { error: this.ns.fromApiError(e, 'Test fehlgeschlagen') };
         this.ns.error(this.ns.fromApiError(e, 'Test fehlgeschlagen'));
+        this.cdr.markForCheck();
       }
     });
   }
@@ -316,11 +325,13 @@ export class WebhooksComponent implements OnInit {
         this.testing = false;
         this.testResult = result;
         if (result?.would_create > 0) this.ns.success(`${result.would_create} Task(s) wuerden erstellt werden`);
+        this.cdr.markForCheck();
       },
       error: (e) => {
         this.testing = false;
         this.testResult = { error: this.ns.fromApiError(e, 'Webhook-Test fehlgeschlagen') };
         this.ns.error(this.ns.fromApiError(e, 'Webhook-Test fehlgeschlagen'));
+        this.cdr.markForCheck();
       }
     });
   }

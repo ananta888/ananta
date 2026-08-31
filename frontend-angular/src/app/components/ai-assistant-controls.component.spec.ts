@@ -64,7 +64,12 @@ describe('AiAssistantControlsComponent', () => {
     const toggle = fixture.nativeElement.querySelector(
       '[data-testid="assistant-hybrid-toggle"]'
     ) as HTMLInputElement | null;
+    const backend = fixture.nativeElement.querySelector(
+      '[data-testid="assistant-cli-backend"]'
+    ) as HTMLSelectElement | null;
     expect(toggle).not.toBeNull();
     expect(toggle?.getAttribute('aria-label')).toBe('Hybrid Context');
+    expect(backend).not.toBeNull();
+    expect(backend?.getAttribute('aria-label')).toBe('CLI Backend');
   });
 });

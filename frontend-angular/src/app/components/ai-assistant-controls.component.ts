@@ -14,6 +14,7 @@ import { AssistantRuntimeContext, CliBackend } from './ai-assistant.types';
         Coding-Client
         <select
           data-testid="assistant-cli-backend"
+          aria-label="CLI Backend"
           [ngModel]="cliBackend"
           (ngModelChange)="cliBackendChange.emit($event)">
           @for (backend of availableCliBackends; track backend) {
