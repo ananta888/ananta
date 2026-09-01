@@ -1,12 +1,13 @@
 {
   "id": "todo.monetative-money-auditor-extension",
   "title": "Monetative Money Auditor: Geldschöpfung, Bankgeldprivileg und Vollgeld demokratisch analysieren",
-  "status": "open",
+  "status": "done",
   "priority": "high",
+  "completed": "2026-09-01",
   "tasks_status_summary": {
     "total": 10,
-    "by_status": {"todo": 10, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
-    "progress_percent_done": 0.0,
+    "by_status": {"todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 10},
+    "progress_percent_done": 100.0,
     "critical_path": {"total": 0, "done": 0, "remaining": 0},
     "milestones": {"total": 0, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
   },
@@ -68,8 +69,8 @@
   "tasks": [
     {
       "id": "MM-001",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Monetative/Huber-Rahmen dokumentieren",
       "description": "Dokumentiere Monetative, Joseph Huber, Vollgeld/Sovereign Money und die Rolle dieses Rahmens im Ziegler Finance Auditor.",
       "files": [
@@ -85,8 +86,8 @@
     },
     {
       "id": "MM-002",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "MoneyCreationAuditInput und MoneyCreationAuditResult ergänzen",
       "description": "Erstelle Modelle zur Analyse von Aussagen über Geldschöpfung, Bankgeld, Zentralbankgeld und Vollgeld.",
       "files": [
@@ -103,8 +104,8 @@
     },
     {
       "id": "MM-003",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Geldschöpfungs-Mechanik erklärbar machen",
       "description": "Implementiere eine deterministische Erklärungsschicht für Giralgeld, Zentralbankgeld, Reserven, Kreditvergabe und Bilanzverlängerung.",
       "files": [
@@ -121,8 +122,8 @@
     },
     {
       "id": "MM-004",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Bankgeldprivileg- und Machtanalyse implementieren",
       "description": "Analysiere, welche Macht- und Verteilungswirkungen daraus entstehen, dass private Geschäftsbanken einen großen Teil des umlaufenden Geldes über Kredit erzeugen.",
       "files": [
@@ -139,8 +140,8 @@
     },
     {
       "id": "MM-005",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Vollgeld/Sovereign-Money-Reformoption modellieren",
       "description": "Ergänze eine sachliche Darstellung von Vollgeld/Sovereign Money als Reformoption inklusive Chancen, Risiken und Kritikpunkten.",
       "files": [
@@ -157,8 +158,8 @@
     },
     {
       "id": "MM-006",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Demokratische-Legitimitätsprüfung für Geldordnung ergänzen",
       "description": "Bewerte Geldsystemclaims danach, ob Geld als öffentliche Infrastruktur oder private Renditequelle behandelt wird.",
       "files": [
@@ -175,8 +176,8 @@
     },
     {
       "id": "MM-007",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Prompt für Monetative-orientierte Geldsystemanalyse erstellen",
       "description": "Erstelle einen Prompt, der Aussagen über Geldsystem, Banken, Zentralbanken und Vollgeld sauber, kritisch und nicht verschwörungsideologisch analysiert.",
       "files": [
@@ -193,8 +194,8 @@
     },
     {
       "id": "MM-008",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Fixtures für Geldsystemclaims anlegen",
       "description": "Erstelle Testclaims zu Geldschöpfung, Banken, Staatsschulden, Inflation, Zentralbankgeld, CBDC und Vollgeld.",
       "files": [
@@ -210,8 +211,8 @@
     },
     {
       "id": "MM-009",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Integration in ZieglerAuditorService ergänzen",
       "description": "Der bestehende ZieglerAuditorService soll Geldsystemclaims an das Monetative-Money-Submodul routen können.",
       "files": [
@@ -229,8 +230,8 @@
     },
     {
       "id": "MM-010",
-      "status": "todo",
-      "progress_percent": 0,
+      "status": "done",
+      "progress_percent": 100,
       "title": "Dokumentation mit Ziegler-plus-Monetative-Gesamtrahmen ergänzen",
       "description": "Erkläre, wie Ziegler und Monetative/Huber zusammen den Analysehorizont bilden: reale Opfer der Finanzordnung plus technische Geldschöpfungsmacht.",
       "files": [

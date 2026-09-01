@@ -139,6 +139,7 @@ class ZieglerAuditResult:
     guardrail_flags: tuple[str, ...]
     confidence: float
     llm_advisory: dict[str, Any] | None = None
+    monetary_system_analysis: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:

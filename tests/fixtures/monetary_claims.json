@@ -1,0 +1,324 @@
+[
+  {
+    "id": "MM001",
+    "claim": "Banks only lend savings placed by depositors",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "savings_intermediary_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM002",
+    "claim": "Banks only lend deposits they already hold",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "savings_intermediary_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM003",
+    "claim": "Banken verleihen nur Spareinlagen weiter",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "savings_intermediary_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM004",
+    "claim": "A bank loan creates money and a matching deposit",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "commercial_bank_money_creation"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM005",
+    "claim": "Giralgeld entsteht bei der Kreditgeldschöpfung",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "commercial_bank_money_creation"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM006",
+    "claim": "Banks can create unlimited money without limits",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "unlimited_creation_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM007",
+    "claim": "Banken können grenzenlos Geld schöpfen",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "unlimited_creation_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM008",
+    "claim": "The textbook money multiplier mechanically determines lending",
+    "monetary_topic": "central_bank_money",
+    "expected_flags": [
+      "reserve_multiplier_oversimplification"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM009",
+    "claim": "Banks lend reserves to households",
+    "monetary_topic": "central_bank_money",
+    "expected_flags": [
+      "reserves_lent_to_public_misconception"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM010",
+    "claim": "Cash equals a commercial bank deposit",
+    "monetary_topic": "central_bank_money",
+    "expected_flags": [
+      "cash_and_deposit_confusion"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM011",
+    "claim": "All money is central bank money",
+    "monetary_topic": "central_bank_money",
+    "expected_flags": [
+      "central_bank_and_commercial_money_confusion"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM012",
+    "claim": "Loan repayment destroys deposit money",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "loan_repayment_destroys_deposit_money"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM013",
+    "claim": "Funding cost and refinancing constrain banks",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "bank_funding_constraint"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM014",
+    "claim": "Capital requirements constrain credit expansion",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "capital_constraint"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM015",
+    "claim": "Credit demand constrains money creation",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "credit_demand_constraint"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM016",
+    "claim": "The policy rate affects bank credit and money creation",
+    "monetary_topic": "interest",
+    "expected_flags": [
+      "monetary_policy_constraint"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM017",
+    "claim": "Deposit insurance is a public backstop",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [
+      "deposit_insurance_backstop"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM018",
+    "claim": "A CBDC raises a public money question",
+    "monetary_topic": "cbdc",
+    "expected_flags": [
+      "cbdc_public_money_question"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM019",
+    "claim": "Who receives seigniorage is a distributional question",
+    "monetary_topic": "seigniorage",
+    "expected_flags": [
+      "seigniorage_distribution_question"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM020",
+    "claim": "Mortgage credit can amplify housing asset inflation",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM021",
+    "claim": "Productive business investment credit can expand capacity",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM022",
+    "claim": "Public debt is identical to household debt",
+    "monetary_topic": "public_debt",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM023",
+    "claim": "Interest always transfers income in only one direction",
+    "monetary_topic": "interest",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM024",
+    "claim": "Inflation is caused only by money creation",
+    "monetary_topic": "inflation",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM025",
+    "claim": "Sovereign money transfers transaction-money issuance to a public authority",
+    "monetary_topic": "sovereign_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM026",
+    "claim": "Full reserve banking automatically solves every crisis",
+    "monetary_topic": "sovereign_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM027",
+    "claim": "Narrow banking eliminates shadow credit risk",
+    "monetary_topic": "sovereign_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM028",
+    "claim": "MMT and sovereign money are identical reforms",
+    "monetary_topic": "sovereign_money",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM029",
+    "claim": "A digital euro automatically abolishes commercial banks",
+    "monetary_topic": "cbdc",
+    "expected_flags": [
+      "cbdc_public_money_question"
+    ],
+    "conspiracy": false
+  },
+  {
+    "id": "MM030",
+    "claim": "Transparent public reporting can improve monetary accountability",
+    "monetary_topic": "unknown",
+    "expected_flags": [],
+    "conspiracy": false
+  },
+  {
+    "id": "MM031",
+    "claim": "A secret cabal controls all money creation",
+    "monetary_topic": "unknown",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM032",
+    "claim": "A single hidden group secretly controls all central banks",
+    "monetary_topic": "central_bank_money",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM033",
+    "claim": "Eine geheime Elite kontrolliert alles Geld",
+    "monetary_topic": "unknown",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM034",
+    "claim": "The world conspiracy creates every recession",
+    "monetary_topic": "unknown",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM035",
+    "claim": "A secret cabal sets every interest rate for private gain",
+    "monetary_topic": "interest",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM036",
+    "claim": "One single hidden group directs all mortgage lending",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM037",
+    "claim": "Central banks secretly controls all governments through CBDC",
+    "monetary_topic": "cbdc",
+    "expected_flags": [
+      "cbdc_public_money_question"
+    ],
+    "conspiracy": true
+  },
+  {
+    "id": "MM038",
+    "claim": "Geheime Elite kontrolliert alles durch Staatsschulden",
+    "monetary_topic": "public_debt",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM039",
+    "claim": "Weltverschwörung uses inflation to steal every asset",
+    "monetary_topic": "inflation",
+    "expected_flags": [],
+    "conspiracy": true
+  },
+  {
+    "id": "MM040",
+    "claim": "Secret cabal owns all banks and controls all money creation",
+    "monetary_topic": "commercial_bank_money",
+    "expected_flags": [],
+    "conspiracy": true
+  }
+]

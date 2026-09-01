@@ -58,3 +58,7 @@ These compact examples show expected signals, not complete evidence-backed judgm
 ## Interpretation limits
 
 Keyword rules are intentionally transparent and reproducible, but cannot establish causation, quantify damages, determine legal liability or replace domain experts. Scores prioritize review; they are not probabilities. Source-type confidence measures the submitted evidence mix, not truth. Decisions affecting people require independent evidence and accountable governance, but no test or normal headless run waits for a human response.
+
+## Ziegler + Monetative
+
+The optional [Monetative Money Auditor](monetative_money_auditor.md) adds the monetary architecture behind the distributional analysis: Ziegler's lens exposes human consequences, while the Monetative/Huber lens examines who may create transaction money, how credit is allocated, who receives returns and who bears systemic losses. The extension remains plural about reform schools and rejects conspiracy framing.

@@ -6,16 +6,23 @@ from typing import Any
 
 from flask import Flask
 
-from agent.services.finance_auditor.config import ZieglerAuditorConfig
+from agent.services.finance_auditor.config import MonetativeAuditorConfig, ZieglerAuditorConfig
 from agent.services.finance_auditor.models import ZieglerAuditInput
 from agent.services.finance_auditor.service import ZieglerAuditorService
 from agent.services.task_handler_registry import register_task_handler
 
 
 class ZieglerAuditTaskHandler:
-    def __init__(self, config: ZieglerAuditorConfig) -> None:
+    def __init__(
+        self,
+        config: ZieglerAuditorConfig,
+        monetative_config: MonetativeAuditorConfig | None = None,
+    ) -> None:
         self._config = config
-        self._service = ZieglerAuditorService(config)
+        self._service = ZieglerAuditorService(
+            config,
+            monetative_config=monetative_config,
+        )
 
     def propose(self, **kwargs: Any) -> dict[str, Any]:
         return {
@@ -43,9 +50,10 @@ class ZieglerAuditTaskHandler:
 
 def register_ziegler_audit_handler(app: Flask) -> None:
     config = ZieglerAuditorConfig.from_agent_config(app.config.get("AGENT_CONFIG"))
+    monetative_config = MonetativeAuditorConfig.from_agent_config(app.config.get("AGENT_CONFIG"))
     register_task_handler(
         "ziegler_auditor",
-        ZieglerAuditTaskHandler(config),
+        ZieglerAuditTaskHandler(config, monetative_config),
         app=app,
         capabilities=["finance_analysis", "read_only"],
         safety_flags={"read_only": True, "mutates_filesystem": False, "broker_access": False},

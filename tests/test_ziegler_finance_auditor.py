@@ -50,6 +50,7 @@ def test_input_is_strict_and_result_contract_is_stable() -> None:
         "guardrail_flags",
         "confidence",
         "llm_advisory",
+        "monetary_system_analysis",
         "metadata",
     }
     json.dumps(result)

@@ -50,3 +50,5 @@ finance_auditor:
     use_llm: false
     tone: direct
     read_only: true
+  monetative:
+    enabled: false

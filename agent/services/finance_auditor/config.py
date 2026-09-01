@@ -42,3 +42,23 @@ class ZieglerAuditorConfig:
             tone=tone,
             read_only=True,
         )
+
+
+@dataclass(frozen=True)
+class MonetativeAuditorConfig:
+    enabled: bool = False
+
+    @classmethod
+    def from_agent_config(cls, config: Mapping[str, Any] | None) -> "MonetativeAuditorConfig":
+        root = dict(config or {})
+        finance = root.get("finance_auditor") or {}
+        if not isinstance(finance, Mapping):
+            raise ValueError("finance_auditor_config_invalid")
+        raw = finance.get("monetative") or {}
+        if not isinstance(raw, Mapping):
+            raise ValueError("monetative_auditor_config_invalid")
+        if set(raw) - {"enabled"}:
+            raise ValueError("monetative_auditor_config_unknown_field")
+        if "enabled" in raw and not isinstance(raw["enabled"], bool):
+            raise ValueError("monetative_auditor_enabled_invalid")
+        return cls(enabled=raw.get("enabled", False))

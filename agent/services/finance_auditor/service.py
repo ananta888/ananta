@@ -4,10 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.finance_auditor.config import ZieglerAuditorConfig
+from agent.services.finance_auditor.config import MonetativeAuditorConfig, ZieglerAuditorConfig
 from agent.services.finance_auditor.debt_auditor import audit_debt
 from agent.services.finance_auditor.externalization import analyze_externalization, moral_balance_summary
 from agent.services.finance_auditor.models import ClassificationDetail, ZieglerAuditInput, ZieglerAuditResult
+from agent.services.finance_auditor.monetative_money import MonetativeMoneyAuditor
+from agent.services.finance_auditor.money_models import MonetaryTopic, MoneyCreationAuditInput
 from agent.services.finance_auditor.prompts import FinanceAuditLlmPort, render_prompt
 from agent.services.finance_auditor.rules import CRIME_TERMS, classification_details, identify_actors
 from agent.services.finance_auditor.scoring import calculate_scores
@@ -28,14 +30,39 @@ _TRADING_TERMS = (
     "verkaufen",
 )
 _MANIPULATION_TERMS = ("pump", "dump", "coordinate_market_action", "market manipulation", "marktmanipulation")
+_MONETARY_TERMS = (
+    "money creation",
+    "commercial bank money",
+    "central bank money",
+    "sovereign money",
+    "seigniorage",
+    "public debt",
+    "interest",
+    "inflation",
+    "cbdc",
+    "digital euro",
+    "geldschöpf",
+    "giralgeld",
+    "bankgeld",
+    "zentralbankgeld",
+    "vollgeld",
+    "staatsschuld",
+    "zins",
+)
 
 
 class ZieglerAuditorService:
     """Runs policy-bound rules before optional advisory model analysis."""
 
-    def __init__(self, config: ZieglerAuditorConfig | None = None, llm: FinanceAuditLlmPort | None = None) -> None:
+    def __init__(
+        self,
+        config: ZieglerAuditorConfig | None = None,
+        llm: FinanceAuditLlmPort | None = None,
+        monetative_config: MonetativeAuditorConfig | None = None,
+    ) -> None:
         self._config = config or ZieglerAuditorConfig()
         self._llm = llm
+        self._monetative_config = monetative_config or MonetativeAuditorConfig()
 
     def audit(self, audit_input: ZieglerAuditInput) -> ZieglerAuditResult:
         if not isinstance(audit_input, ZieglerAuditInput):
@@ -109,6 +136,7 @@ class ZieglerAuditorService:
                     "advisory_only": True,
                     "deterministic_guardrails_preserved": True,
                 }
+        monetary_analysis = self._monetary_analysis(audit_input, lower)
         return ZieglerAuditResult(
             classification=classifications,
             classification_details=tuple(details),
@@ -130,6 +158,7 @@ class ZieglerAuditorService:
             guardrail_flags=guardrails,
             confidence=source_assessment.confidence,
             llm_advisory=llm_advisory,
+            monetary_system_analysis=monetary_analysis,
             metadata={
                 "read_only": True,
                 "investment_advice": False,
@@ -138,6 +167,38 @@ class ZieglerAuditorService:
                 "debt_flags": debt_flags,
                 "tone": audit_input.requested_tone.value,
             },
+        )
+
+    def _monetary_analysis(self, audit_input: ZieglerAuditInput, lower: str) -> dict[str, Any] | None:
+        if not self._monetative_config.enabled or not any(term in lower for term in _MONETARY_TERMS):
+            return None
+        money_input = MoneyCreationAuditInput(
+            claim=audit_input.claim,
+            monetary_topic=self._infer_monetary_topic(lower),
+            optional_sources=audit_input.optional_sources,
+            context=audit_input.context,
+            requested_tone=audit_input.requested_tone,
+        )
+        return MonetativeMoneyAuditor().audit(money_input).as_dict()
+
+    @staticmethod
+    def _infer_monetary_topic(lower: str) -> MonetaryTopic:
+        mapping = (
+            (MonetaryTopic.SOVEREIGN_MONEY, ("sovereign money", "vollgeld", "100% money")),
+            (MonetaryTopic.CBDC, ("cbdc", "digital euro", "digitaler euro")),
+            (MonetaryTopic.SEIGNIORAGE, ("seigniorage", "geldschöpfungsgewinn")),
+            (MonetaryTopic.PUBLIC_DEBT, ("public debt", "sovereign debt", "staatsschuld")),
+            (MonetaryTopic.INFLATION, ("inflation",)),
+            (MonetaryTopic.INTEREST, ("interest", "zins")),
+            (MonetaryTopic.CENTRAL_BANK_MONEY, ("central bank money", "zentralbankgeld", "reserve")),
+            (
+                MonetaryTopic.COMMERCIAL_BANK_MONEY,
+                ("commercial bank money", "giralgeld", "bankgeld", "money creation", "geldschöpf"),
+            ),
+        )
+        return next(
+            (topic for topic, terms in mapping if any(term in lower for term in terms)),
+            MonetaryTopic.UNKNOWN,
         )
 
     @staticmethod
