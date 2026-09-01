@@ -148,10 +148,113 @@ class SpreadsheetValidationReferenceDB(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class SpreadsheetFeedbackEventDB(SQLModel, table=True):
+    """Immutable, masked feedback event owned by the Hub."""
+
+    __tablename__ = "spreadsheet_feedback_events"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "document_id"],
+            ["spreadsheet_documents.tenant_id", "spreadsheet_documents.document_id"],
+            ondelete="CASCADE",
+        ),
+        sa.Index("ix_spreadsheet_feedback_owner", "tenant_id", "owner_id", "event_id"),
+        sa.Index("ix_spreadsheet_feedback_document", "tenant_id", "document_id", "event_id"),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    event_id: str = Field(primary_key=True, max_length=128)
+    owner_id: str = Field(max_length=128)
+    document_id: str = Field(max_length=128)
+    record_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class SpreadsheetTrainingConsentDB(SQLModel, table=True):
+    """Append-only consent revision bound to one exact masked record."""
+
+    __tablename__ = "spreadsheet_training_consents"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "feedback_id"],
+            ["spreadsheet_feedback_events.tenant_id", "spreadsheet_feedback_events.event_id"],
+            ondelete="RESTRICT",
+        ),
+        sa.CheckConstraint("version >= 1", name="ck_spreadsheet_training_consent_version"),
+        sa.CheckConstraint("state IN ('active','revoked')", name="ck_spreadsheet_training_consent_state"),
+        sa.Index("ix_spreadsheet_training_consent_feedback", "tenant_id", "feedback_id", "version"),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    consent_id: str = Field(primary_key=True, max_length=128)
+    version: int = Field(primary_key=True)
+    feedback_id: str = Field(max_length=128)
+    owner_id: str = Field(max_length=128)
+    state: str = Field(max_length=16)
+    consent_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class SpreadsheetDatasetDB(SQLModel, table=True):
+    """Immutable dataset manifest with a digest-bound split lock."""
+
+    __tablename__ = "spreadsheet_datasets"
+    __table_args__ = (sa.Index("ix_spreadsheet_dataset_owner", "tenant_id", "owner_id", "dataset_id"),)
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    dataset_id: str = Field(primary_key=True, max_length=128)
+    owner_id: str = Field(max_length=128)
+    dataset_digest: str = Field(max_length=64, repr=False)
+    split_lock_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class SpreadsheetTrainingLineageDB(SQLModel, table=True):
+    """Immutable link from a governed dataset to a training job and outputs."""
+
+    __tablename__ = "spreadsheet_training_lineage"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "dataset_id"],
+            ["spreadsheet_datasets.tenant_id", "spreadsheet_datasets.dataset_id"],
+            ondelete="CASCADE",
+        ),
+        sa.Index("ix_spreadsheet_training_lineage_dataset", "tenant_id", "dataset_id", "job_id"),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    job_id: str = Field(primary_key=True, max_length=128)
+    dataset_id: str = Field(max_length=128)
+    owner_id: str = Field(max_length=128)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class SpreadsheetConsentRevocationImpactDB(SQLModel, table=True):
+    """Durable automatic fencing intent created atomically with revocation."""
+
+    __tablename__ = "spreadsheet_consent_revocation_impacts"
+    __table_args__ = (sa.Index("ix_spreadsheet_revocation_consent", "tenant_id", "consent_id", "impact_id"),)
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    impact_id: str = Field(primary_key=True, max_length=128)
+    consent_id: str = Field(max_length=128)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 __all__ = [
+    "SpreadsheetConsentRevocationImpactDB",
+    "SpreadsheetDatasetDB",
     "SpreadsheetDocumentDB",
     "SpreadsheetDocumentVersionDB",
     "SpreadsheetExecutionJobDB",
+    "SpreadsheetFeedbackEventDB",
     "SpreadsheetProposalResultDB",
+    "SpreadsheetTrainingConsentDB",
+    "SpreadsheetTrainingLineageDB",
     "SpreadsheetValidationReferenceDB",
 ]

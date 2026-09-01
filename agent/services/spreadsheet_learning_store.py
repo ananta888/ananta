@@ -9,14 +9,14 @@ from pathlib import Path
 from typing import Any
 
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
+from agent.services.spreadsheet_learning_repository_port import SpreadsheetLearningConflict
 from ananta_contracts.spreadsheet_studio import canonical_json, require_id
 
 
-class SpreadsheetLearningConflict(RuntimeError):
-    pass
-
-
 class SpreadsheetLearningStore:
+    durable = True
+    production_component = False
+
     def __init__(self, path: str | Path) -> None:
         self._path = Path(path)
         self._transaction = InterProcessFileTransaction(self._path.with_suffix(".learning.lock"))
@@ -38,39 +38,66 @@ class SpreadsheetLearningStore:
         )
 
     def append_consent(self, tenant_id: str, consent: Mapping[str, Any]) -> dict[str, Any]:
+        with self._transaction, self._connect() as connection:
+            return self._append_consent(connection, tenant_id, consent)
+
+    def append_consent_with_impact(
+        self,
+        tenant_id: str,
+        consent: Mapping[str, Any],
+        impact: Mapping[str, Any],
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        with self._transaction, self._connect() as connection:
+            persisted_consent = self._append_consent(connection, tenant_id, consent)
+            persisted_impact = self._insert_immutable_connection(
+                connection,
+                table="spreadsheet_revocation_impacts",
+                tenant_id=tenant_id,
+                identity_field="impact_id",
+                identity=str(impact.get("impact_id") or ""),
+                payload=impact,
+                conflict_reason="spreadsheet_revocation_impact_replay_conflict",
+            )
+        return persisted_consent, persisted_impact
+
+    def _append_consent(
+        self,
+        connection: sqlite3.Connection,
+        tenant_id: str,
+        consent: Mapping[str, Any],
+    ) -> dict[str, Any]:
         tenant = require_id(tenant_id, "tenant_id")
         consent_id = require_id(consent.get("consent_id"), "consent_id")
         version = consent.get("version")
         if not isinstance(version, int) or isinstance(version, bool) or version < 1:
             raise ValueError("spreadsheet_consent_version_invalid")
         payload = dict(consent)
-        with self._transaction, self._connect() as connection:
-            current = connection.execute(
-                "SELECT version,payload_json FROM spreadsheet_consents WHERE tenant_id=? AND consent_id=? "
-                "ORDER BY version DESC LIMIT 1",
-                (tenant, consent_id),
-            ).fetchone()
-            if current:
-                if int(current[0]) >= version:
-                    previous = json.loads(current[1])
-                    if previous.get("consent_digest") == payload.get("consent_digest"):
-                        return {**previous, "replayed": True}
-                    raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
-                if int(current[0]) + 1 != version:
-                    raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
-            elif version != 1:
+        current = connection.execute(
+            "SELECT version,payload_json FROM spreadsheet_consents WHERE tenant_id=? AND consent_id=? "
+            "ORDER BY version DESC LIMIT 1",
+            (tenant, consent_id),
+        ).fetchone()
+        if current:
+            if int(current[0]) >= version:
+                previous = json.loads(current[1])
+                if previous.get("consent_digest") == payload.get("consent_digest"):
+                    return {**previous, "replayed": True}
                 raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
-            connection.execute(
-                "INSERT INTO spreadsheet_consents"
-                "(tenant_id,consent_id,feedback_id,version,payload_json) VALUES(?,?,?,?,?)",
-                (
-                    tenant,
-                    consent_id,
-                    require_id(consent.get("feedback_id"), "feedback_id"),
-                    version,
-                    canonical_json(payload),
-                ),
-            )
+            if int(current[0]) + 1 != version:
+                raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
+        elif version != 1:
+            raise SpreadsheetLearningConflict("spreadsheet_consent_version_conflict")
+        connection.execute(
+            "INSERT INTO spreadsheet_consents"
+            "(tenant_id,consent_id,feedback_id,version,payload_json) VALUES(?,?,?,?,?)",
+            (
+                tenant,
+                consent_id,
+                require_id(consent.get("feedback_id"), "feedback_id"),
+                version,
+                canonical_json(payload),
+            ),
+        )
         return {**payload, "replayed": False}
 
     def get_consent(self, tenant_id: str, consent_id: str) -> dict[str, Any]:
@@ -167,19 +194,43 @@ class SpreadsheetLearningStore:
         normalized_identity = require_id(identity, identity_field)
         value = dict(payload)
         with self._transaction, self._connect() as connection:
-            existing = connection.execute(
-                f"SELECT payload_json FROM {table} WHERE tenant_id=? AND {identity_field}=?",  # noqa: S608 - internal constants
-                (tenant, normalized_identity),
-            ).fetchone()
-            if existing:
-                previous = json.loads(existing[0])
-                if previous.get("digest") == value.get("digest"):
-                    return {**previous, "replayed": True}
-                raise SpreadsheetLearningConflict(conflict_reason)
-            connection.execute(
-                f"INSERT INTO {table}(tenant_id,{identity_field},payload_json) VALUES(?,?,?)",  # noqa: S608
-                (tenant, normalized_identity, canonical_json(value)),
+            return self._insert_immutable_connection(
+                connection,
+                table=table,
+                tenant_id=tenant,
+                identity_field=identity_field,
+                identity=normalized_identity,
+                payload=value,
+                conflict_reason=conflict_reason,
             )
+
+    @staticmethod
+    def _insert_immutable_connection(
+        connection: sqlite3.Connection,
+        *,
+        table: str,
+        tenant_id: str,
+        identity_field: str,
+        identity: str,
+        payload: Mapping[str, Any],
+        conflict_reason: str,
+    ) -> dict[str, Any]:
+        tenant = require_id(tenant_id, "tenant_id")
+        normalized_identity = require_id(identity, identity_field)
+        value = dict(payload)
+        existing = connection.execute(
+            f"SELECT payload_json FROM {table} WHERE tenant_id=? AND {identity_field}=?",  # noqa: S608
+            (tenant, normalized_identity),
+        ).fetchone()
+        if existing:
+            previous = json.loads(existing[0])
+            if previous.get("digest") == value.get("digest"):
+                return {**previous, "replayed": True}
+            raise SpreadsheetLearningConflict(conflict_reason)
+        connection.execute(
+            f"INSERT INTO {table}(tenant_id,{identity_field},payload_json) VALUES(?,?,?)",  # noqa: S608
+            (tenant, normalized_identity, canonical_json(value)),
+        )
         return {**value, "replayed": False}
 
     def _get(self, table: str, tenant_id: str, field: str, identity: str, missing: str) -> dict[str, Any]:

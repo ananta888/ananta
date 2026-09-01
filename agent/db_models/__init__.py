@@ -310,10 +310,15 @@ from .speech_reconciliation import (
     SpeechReconciliationMutationDB,
 )
 from .spreadsheet_studio import (
+    SpreadsheetConsentRevocationImpactDB,
+    SpreadsheetDatasetDB,
     SpreadsheetDocumentDB,
     SpreadsheetDocumentVersionDB,
     SpreadsheetExecutionJobDB,
+    SpreadsheetFeedbackEventDB,
     SpreadsheetProposalResultDB,
+    SpreadsheetTrainingConsentDB,
+    SpreadsheetTrainingLineageDB,
     SpreadsheetValidationReferenceDB,
 )
 from .tasks import (
@@ -419,10 +424,15 @@ __all__ = [
     "BusinessControllingMappingDB",
     "BusinessControllingProfileDB",
     "ScientificSkillProvenanceReceiptDB",
+    "SpreadsheetConsentRevocationImpactDB",
+    "SpreadsheetDatasetDB",
     "SpreadsheetDocumentDB",
     "SpreadsheetDocumentVersionDB",
     "SpreadsheetExecutionJobDB",
+    "SpreadsheetFeedbackEventDB",
     "SpreadsheetProposalResultDB",
+    "SpreadsheetTrainingConsentDB",
+    "SpreadsheetTrainingLineageDB",
     "SpreadsheetValidationReferenceDB",
     "CuratedWikiPageDB",
     "KnowledgeClaimDB",

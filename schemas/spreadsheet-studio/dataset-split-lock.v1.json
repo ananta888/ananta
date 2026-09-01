@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/dataset-split-lock.v1.json",
+  "title": "SpreadsheetDatasetSplitLockV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "algorithm_version",
+    "near_duplicate_version",
+    "split_seed",
+    "split_percent",
+    "cluster_digest",
+    "fingerprint_digest",
+    "cluster_assignments",
+    "record_assignments",
+    "excluded_feedback_ids",
+    "split_counts",
+    "distribution_warnings",
+    "reproducibility_digest",
+    "split_lock_digest"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-dataset-split-lock.v1"},
+    "algorithm_version": {"const": "spreadsheet-connected-leakage-clusters.v1"},
+    "near_duplicate_version": {"const": "spreadsheet-simhash-lsh.v1"},
+    "split_seed": {"$ref": "#/$defs/id"},
+    "split_percent": {"$ref": "#/$defs/counts"},
+    "cluster_digest": {"$ref": "#/$defs/digest"},
+    "fingerprint_digest": {"$ref": "#/$defs/digest"},
+    "cluster_assignments": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[0-9a-f]{64}$"},
+      "additionalProperties": {"$ref": "#/$defs/split"}
+    },
+    "record_assignments": {
+      "type": "object",
+      "propertyNames": {"pattern": "^[0-9a-f]{64}$"},
+      "additionalProperties": {"$ref": "#/$defs/split"}
+    },
+    "excluded_feedback_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+    "split_counts": {"$ref": "#/$defs/counts"},
+    "distribution_warnings": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^spreadsheet_dataset_(train|validation|eval|test)_split_empty$"}
+    },
+    "reproducibility_digest": {"$ref": "#/$defs/digest"},
+    "split_lock_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "split": {"enum": ["train", "validation", "eval", "test"]},
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["train", "validation", "eval", "test"],
+      "properties": {
+        "train": {"type": "integer", "minimum": 0},
+        "validation": {"type": "integer", "minimum": 0},
+        "eval": {"type": "integer", "minimum": 0},
+        "test": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

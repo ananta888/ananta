@@ -26,6 +26,13 @@ no external network. Its only network is the internal `spreadsheet-control` netw
 Exact callback retries are automatic and idempotent; changed replays, expired leases and reused source handles
 fail closed.
 
+Production feedback, consent, dataset manifests, split locks, training lineage and revocation impacts use the
+same central SQL database as the Hub document control plane. Dataset construction groups document lineage,
+instruction templates, formula families and near-duplicates before assigning an immutable split. Consent
+revocation atomically records the fencing intent; reconciliation cancels active training automatically and
+quarantines terminal lineage without claiming mathematical unlearning. See
+`docs/contracts/spreadsheet-learning-v1.md` and `schemas/spreadsheet-studio/dataset-split-lock.v1.json`.
+
 Run `python scripts/check_spreadsheet_studio_boundaries.py` and
 `pytest -q tests/spreadsheet_studio`. The suite uses no network, provider, GPU, office process or person.
 

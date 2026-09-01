@@ -11,8 +11,9 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
-from agent.services.spreadsheet_store import SpreadsheetStore
+from agent.services.spreadsheet_dataset_split_service import SpreadsheetDatasetSplitService
+from agent.services.spreadsheet_learning_repository_port import SpreadsheetLearningRepository
+from agent.services.spreadsheet_repository_port import SpreadsheetDocumentRepositoryPort
 from ananta_contracts.spreadsheet_studio import (
     SpreadsheetProposalV1,
     canonical_digest,
@@ -35,14 +36,16 @@ class SpreadsheetLearningService:
     def __init__(
         self,
         *,
-        documents: SpreadsheetStore,
-        store: SpreadsheetLearningStore,
+        documents: SpreadsheetDocumentRepositoryPort,
+        store: SpreadsheetLearningRepository,
         dataset_root: str | Path,
+        split_service: SpreadsheetDatasetSplitService | None = None,
         clock=time.time,
     ) -> None:
         self._documents = documents
         self._store = store
         self._dataset_root = Path(dataset_root)
+        self._split_service = split_service or SpreadsheetDatasetSplitService()
         self._clock = clock
 
     def record_feedback(
@@ -109,6 +112,14 @@ class SpreadsheetLearningService:
             "record_digest": canonical_digest(record),
             "created_at": float(self._clock()),
             "human_intervention_required": False,
+            "policy_decision": {
+                "purpose": "spreadsheet_action_training",
+                "privacy": "masked_before_consent",
+                "tenant_pooling": "forbidden",
+                "license_state": "source_owner_submission",
+                "minimization": "bounded_proposal_diff_and_actions",
+                "reason_codes": ["spreadsheet_training_record_masked"],
+            },
         }
         event["digest"] = canonical_digest(event)
         return self._store.append_feedback(tenant_id, event)
@@ -191,7 +202,6 @@ class SpreadsheetLearningService:
         }
         revoked.pop("consent_digest", None)
         revoked["consent_digest"] = canonical_digest(revoked)
-        persisted = self._store.append_consent(tenant_id, revoked)
         datasets = [
             dataset for dataset in self._store.list_datasets(tenant_id) if self._dataset_uses_consent(dataset, current)
         ]
@@ -224,13 +234,23 @@ class SpreadsheetLearningService:
                     if str(adapter_id)
                 }
             ),
+            "evaluation_ids": sorted(
+                {
+                    str(evaluation_id)
+                    for lineage in jobs
+                    for evaluation_id in list(lineage.get("evaluation_ids") or [])
+                    if str(evaluation_id)
+                }
+            ),
+            "adapter_action": "quarantine_deprecate_and_retrain",
+            "mathematical_unlearning_claimed": False,
             "state": "fence_required" if jobs else "quarantined",
             "reason_code": "spreadsheet_consent_revoked",
             "created_at": float(self._clock()),
             "human_intervention_required": False,
         }
         impact["digest"] = canonical_digest(impact)
-        persisted_impact = self._store.append_revocation_impact(tenant_id, impact)
+        persisted, persisted_impact = self._store.append_consent_with_impact(tenant_id, revoked, impact)
         return {**persisted, "impact": persisted_impact}
 
     def materialize_dataset(
@@ -255,11 +275,8 @@ class SpreadsheetLearningService:
         split = self._split_percent(payload.get("split_percent"))
         seed = require_id(payload.get("split_seed"), "split_seed")
         recipe_version = require_id(payload.get("recipe_version"), "recipe_version")
-        rows: list[dict[str, Any]] = []
-        seen_records: set[str] = set()
-        lineage_splits: dict[str, str] = {}
-        consent_digests: list[str] = []
-        consent_refs: list[dict[str, Any]] = []
+        candidate_rows: list[dict[str, Any]] = []
+        consent_by_feedback: dict[str, dict[str, Any]] = {}
         now = float(self._clock())
         for raw_id in feedback_ids:
             event = self._owned_feedback(tenant_id, principal_id, str(raw_id))
@@ -270,12 +287,8 @@ class SpreadsheetLearningService:
                 raise PermissionError("spreadsheet_consent_binding_invalid")
             if float(consent.get("expires_at") or 0) <= now:
                 raise PermissionError("spreadsheet_consent_expired")
-            if event["record_digest"] in seen_records:
-                continue
-            seen_records.add(event["record_digest"])
             lineage = str(event["document_id"])
-            assigned = lineage_splits.setdefault(lineage, self._assign_split(lineage, seed, split))
-            rows.append(
+            candidate_rows.append(
                 {
                     **event["record"],
                     "record_digest": event["record_digest"],
@@ -283,24 +296,40 @@ class SpreadsheetLearningService:
                     "consent_id": consent["consent_id"],
                     "consent_digest": consent["consent_digest"],
                     "lineage_root_id": lineage,
-                    "split": assigned,
                     "recipe_version": recipe_version,
                 }
             )
-            consent_digests.append(consent["consent_digest"])
-            consent_refs.append(
-                {
-                    "consent_id": consent["consent_id"],
-                    "consent_digest": consent["consent_digest"],
-                    "consent_version": consent["version"],
-                    "revocation_epoch": consent["revocation_epoch"],
-                }
-            )
-        rows.sort(key=lambda row: (row["split"], row["lineage_root_id"], row["record_digest"]))
+            consent_by_feedback[event["event_id"]] = {
+                "consent_id": consent["consent_id"],
+                "consent_digest": consent["consent_digest"],
+                "consent_version": consent["version"],
+                "revocation_epoch": consent["revocation_epoch"],
+            }
+        preparation = self._split_service.prepare(candidate_rows, seed=seed, split_percent=split)
+        rows = list(preparation.rows)
+        used_feedback_ids = {str(row["feedback_id"]) for row in rows}
+        consent_refs = [consent_by_feedback[feedback_id] for feedback_id in sorted(used_feedback_ids)]
+        consent_digests = [str(reference["consent_digest"]) for reference in consent_refs]
         content = "".join(canonical_json(row) + "\n" for row in rows).encode()
         dataset_digest = hashlib.sha256(content).hexdigest()
         self._write_dataset(tenant_id=tenant_id, digest=dataset_digest, content=content)
         counts = {name: sum(row["split"] == name for row in rows) for name in ("train", "validation", "eval", "test")}
+        recipe_manifest = {
+            "schema": "ananta.spreadsheet-dataset-recipe-manifest.v1",
+            "recipe_version": recipe_version,
+            "source_feedback_digests": sorted(str(row["record_digest"]) for row in rows),
+            "task_kinds": ["spreadsheet_actions"],
+            "action_schema": "ananta.spreadsheet-action-output.v1",
+            "projector_version": self.PROJECTOR_VERSION,
+            "masking_version": self.MASKING_VERSION,
+            "serializer_version": self.SERIALIZER_VERSION,
+            "policy_version": self.POLICY_VERSION,
+            "purpose": "spreadsheet_action_training",
+            "tenant_pooling": "forbidden",
+            "split_lock_digest": preparation.split_lock["split_lock_digest"],
+            "retention_binding": "consent_expiry",
+        }
+        recipe_manifest["recipe_digest"] = canonical_digest(recipe_manifest)
         dataset = {
             "schema": "ananta.spreadsheet-dataset.v1",
             "dataset_id": require_id(payload.get("dataset_id"), "dataset_id"),
@@ -311,17 +340,29 @@ class SpreadsheetLearningService:
             "split_counts": counts,
             "split_seed": seed,
             "split_percent": split,
+            "split_lock": preparation.split_lock,
             "recipe_version": recipe_version,
+            "recipe_manifest": recipe_manifest,
             "projector_version": self.PROJECTOR_VERSION,
             "masking_version": self.MASKING_VERSION,
             "serializer_version": self.SERIALIZER_VERSION,
             "policy_version": self.POLICY_VERSION,
             "consent_digests": sorted(consent_digests),
             "consent_refs": sorted(consent_refs, key=lambda item: (item["consent_id"], item["consent_digest"])),
+            "materialization": {
+                "mode": "offline_artifact",
+                "artifact_digest": dataset_digest,
+                "attempt_binding": f"materialization-{dataset_digest[:32]}",
+                "state": "materialized",
+                "excluded_feedback_ids": list(preparation.excluded_feedback_ids),
+            },
             "readiness": {
                 "dry_run_ready": bool(rows),
                 "training_ready": len(rows) >= 100 and counts["train"] > 0 and counts["validation"] > 0,
-                "reason_codes": [] if len(rows) >= 100 else ["spreadsheet_dataset_minimum_records_not_met"],
+                "reason_codes": sorted(
+                    ([] if len(rows) >= 100 else ["spreadsheet_dataset_minimum_records_not_met"])
+                    + list(preparation.split_lock["distribution_warnings"])
+                ),
             },
             "created_at": now,
             "human_intervention_required": False,
@@ -384,12 +425,21 @@ class SpreadsheetLearningService:
             "ml_intern_dataset_id": require_id(ml_intern_dataset_id, "ml_intern_dataset_id"),
             "owner_id": principal_id,
             "consent_refs": list(dataset.get("consent_refs") or []),
-            "adapter_ids": [],
+            "adapter_ids": self._lineage_ids(job, "adapter_ids", "adapter_id"),
+            "evaluation_ids": self._lineage_ids(job, "evaluation_ids", "evaluation_id"),
             "created_at": float(self._clock()),
             "human_intervention_required": False,
         }
         value["digest"] = canonical_digest(value)
         return self._store.append_training_lineage(tenant_id, value)
+
+    @staticmethod
+    def _lineage_ids(job: Mapping[str, Any], plural: str, singular: str) -> list[str]:
+        raw = job.get(plural)
+        values = list(raw) if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)) else []
+        if job.get(singular):
+            values.append(job[singular])
+        return sorted({str(value) for value in values if str(value)})
 
     @staticmethod
     def _dataset_uses_consent(dataset: Mapping[str, Any], consent: Mapping[str, Any]) -> bool:
@@ -513,16 +563,6 @@ class SpreadsheetLearningService:
         ):
             raise ValueError("spreadsheet_dataset_split_invalid")
         return split
-
-    @staticmethod
-    def _assign_split(lineage: str, seed: str, split: Mapping[str, int]) -> str:
-        point = int(hashlib.sha256(f"{seed}\0{lineage}".encode()).hexdigest()[:8], 16) % 100
-        boundary = 0
-        for name in ("train", "validation", "eval", "test"):
-            boundary += int(split[name])
-            if point < boundary:
-                return name
-        raise RuntimeError("spreadsheet_dataset_split_unreachable")
 
     def _write_dataset(self, *, tenant_id: str, digest: str, content: bytes) -> None:
         target = self._dataset_path(tenant_id, digest)

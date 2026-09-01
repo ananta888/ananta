@@ -66,14 +66,19 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         from agent.repositories.spreadsheet_document_repository import (
                             SqlSpreadsheetDocumentRepository,
                         )
+                        from agent.repositories.spreadsheet_learning_repository import (
+                            SqlSpreadsheetLearningRepository,
+                        )
                         from agent.repositories.spreadsheet_validation_reference_repository import (
                             SqlSpreadsheetValidationReferenceRepository,
                         )
 
                         document_store = SqlSpreadsheetDocumentRepository(db_engine=engine)
+                        learning_store = SqlSpreadsheetLearningRepository(db_engine=engine)
                         validation_references = SqlSpreadsheetValidationReferenceRepository(db_engine=engine)
                     else:
                         document_store = SpreadsheetStore(state)
+                        learning_store = SpreadsheetLearningStore(state)
                         validation_references = SpreadsheetValidationReferenceStore(
                             state.with_name(f"{state.stem}-validation-references.sqlite3")
                         )
@@ -127,7 +132,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         )
                     app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
                         documents=document_store,
-                        store=SpreadsheetLearningStore(state),
+                        store=learning_store,
                         dataset_root=state.parent / "spreadsheet-datasets",
                     )
                 except (RuntimeError, ValueError):

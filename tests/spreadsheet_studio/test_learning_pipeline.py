@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from agent.services.spreadsheet_learning_repository_port import SpreadsheetLearningConflict
 from agent.services.spreadsheet_learning_service import SpreadsheetLearningService
 from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
 from tests.spreadsheet_studio.helpers import proposal, service, snapshot
@@ -91,10 +92,24 @@ def test_feedback_consent_dataset_and_revocation_are_separate_automatic_states(t
     assert dataset["record_count"] == 1
     assert dataset["readiness"]["dry_run_ready"] is True
     assert dataset["readiness"]["training_ready"] is False
+    assert dataset["recipe_manifest"]["split_lock_digest"] == dataset["split_lock"]["split_lock_digest"]
     path = learning.dataset_path(tenant_id="tenant-a", principal_id="user-a", dataset_id="dataset-one")
     row = json.loads(path.read_text().strip())
     assert row["task_kind"] == "spreadsheet_actions"
     assert row["consent_digest"] == consent["consent_digest"]
+    assert dataset["split_lock"]["record_assignments"][event["record_digest"]] == row["split"]
+    assert learning.materialize_dataset(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        payload=_dataset(event),
+    )["replayed"] is True
+    changed_split = {**_dataset(event), "split_seed": "split-v2"}
+    with pytest.raises(SpreadsheetLearningConflict, match="dataset_replay_conflict"):
+        learning.materialize_dataset(
+            tenant_id="tenant-a",
+            principal_id="user-a",
+            payload=changed_split,
+        )
 
     revoked = learning.revoke_consent(
         tenant_id="tenant-a",

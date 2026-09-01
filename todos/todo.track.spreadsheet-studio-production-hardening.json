@@ -312,7 +312,7 @@
     {
       "id": "SSP2-006",
       "title": "Produktions-Datasetstore, Clustering und Split-Locks",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -327,12 +327,45 @@
         "SSFR-DATA-003",
         "SSFR-DATA-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_alignment": {
+          "decision_pack_item_ids": [
+            "SSFR-SEC-005",
+            "SSFR-DATA-001",
+            "SSFR-DATA-002",
+            "SSFR-DATA-003",
+            "SSFR-DATA-004"
+          ],
+          "source_refs": [
+            "SRC_0001",
+            "SRC_0003",
+            "SRC_0005",
+            "SRC_0007",
+            "SRC_0012",
+            "SRC_0013"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "repository_port": "agent/services/spreadsheet_learning_repository_port.py",
+        "sql_repository": "agent/repositories/spreadsheet_learning_repository.py",
+        "cluster_and_split_service": "agent/services/spreadsheet_dataset_split_service.py",
+        "migration": "migrations/versions/f3b5d7e9a1c4_add_spreadsheet_learning_store.py",
+        "schema": "schemas/spreadsheet-studio/dataset-split-lock.v1.json",
+        "tests": [
+          "tests/spreadsheet_studio/test_dataset_split_and_sql_learning.py",
+          "tests/spreadsheet_studio/test_learning_pipeline.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py"
+        ],
+        "result": "83 Spreadsheet Studio, learning, SQL, split-lock, API, lineage, migration-head and research-gate tests passed; 6 optional LibreOffice tests reported as skipped/not_run; Ruff and boundary detector passed"
+      }
     },
     {
       "id": "SSP2-007",
@@ -487,13 +520,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 7,
+      "todo": 6,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 5
+      "done": 6
     },
-    "progress_percent_done": 41.67,
+    "progress_percent_done": 50.0,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -507,8 +540,8 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 3,
-      "remaining": 6
+      "done": 4,
+      "remaining": 5
     },
     "milestones": {
       "total": 3,
@@ -520,15 +553,16 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 7,
+    "todo_remaining": 6,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 5
+    "done": 6
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
     "SSP2-002 removes the experimental synchronous Hub-to-Worker special channel.",
+    "SSP2-006 centralizes production learning state and locks leakage-safe splits before training admission.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

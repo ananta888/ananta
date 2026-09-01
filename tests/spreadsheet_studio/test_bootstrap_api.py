@@ -59,6 +59,7 @@ def test_worker_mode_uses_hub_queue_instead_of_synchronous_http(monkeypatch, tmp
 
     assert status.ready is True
     assert "spreadsheet_proposal_execution_service" in hub.extensions
+    assert hub.extensions["spreadsheet_learning_service"]._store.production_component is True
     capability = hub.extensions["spreadsheet_studio_service"].capabilities()
     assert capability["executor"]["execution_mode"] == "queue_and_lease"
 

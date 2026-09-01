@@ -18,7 +18,7 @@ from agent.services.spreadsheet_consent_revocation_coordinator import (
     SpreadsheetConsentRevocationCoordinator,
 )
 from agent.services.spreadsheet_inference_service import SpreadsheetInferenceService
-from agent.services.spreadsheet_learning_store import SpreadsheetLearningConflict
+from agent.services.spreadsheet_learning_repository_port import SpreadsheetLearningConflict
 from agent.services.spreadsheet_ml_intern_bridge_service import SpreadsheetMlInternBridgeService
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
 from ananta_contracts.spreadsheet_studio import SpreadsheetContractError
