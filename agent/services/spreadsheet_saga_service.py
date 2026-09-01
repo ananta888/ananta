@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import hashlib
 import time
 import uuid
 from collections.abc import Mapping
 from typing import Any
 
+from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_execution_ports import SpreadsheetExecutionPort
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_store import SpreadsheetStore, SpreadsheetStoreConflict
@@ -25,11 +27,13 @@ class SpreadsheetSagaService:
         *,
         policy: SpreadsheetPolicy,
         executor: SpreadsheetExecutionPort,
+        artifact_store: SpreadsheetArtifactStore | None = None,
     ) -> None:
         policy.validate()
         self._store = store
         self._policy = policy
         self._executor = executor
+        self._artifacts = artifact_store
 
     def capabilities(self) -> dict[str, Any]:
         try:
@@ -87,6 +91,76 @@ class SpreadsheetSagaService:
         }
         return self._store.create_document(tenant_id, value)
 
+    def import_document(
+        self,
+        *,
+        tenant_id: str,
+        owner_id: str,
+        title: str,
+        filename: str,
+        media_type: str,
+        content: bytes,
+        document_id: str | None = None,
+    ) -> dict[str, Any]:
+        if not self._policy.enabled:
+            raise PermissionError("spreadsheet_studio_disabled")
+        if self._artifacts is None or not hasattr(self._executor, "import_document"):
+            raise RuntimeError("spreadsheet_document_import_unavailable")
+        normalized_title = str(title or "").strip()
+        if not 1 <= len(normalized_title) <= 200:
+            raise ValueError("spreadsheet_document_title_invalid")
+        normalized_document_id = require_id(document_id or f"spreadsheet-{uuid.uuid4()}", "document_id")
+        version_id = f"version-{hashlib.sha256(normalized_document_id.encode()).hexdigest()[:24]}-1"
+        imported = dict(
+            self._executor.import_document(  # type: ignore[attr-defined]
+                content=content,
+                filename=filename,
+                media_type=media_type,
+                document_version_id=version_id,
+            )
+        )
+        if imported.get("schema") != "ananta.spreadsheet-import-result.v1":
+            raise ValueError("spreadsheet_import_result_invalid")
+        snapshot = WorkbookSnapshotV1.from_mapping(imported.get("snapshot") or {})
+        if snapshot.digest != imported.get("snapshot_digest"):
+            raise ValueError("spreadsheet_import_snapshot_digest_invalid")
+        source = imported.get("source")
+        if not isinstance(source, Mapping) or hashlib.sha256(content).hexdigest() != source.get("sha256"):
+            raise ValueError("spreadsheet_import_source_digest_invalid")
+        stored = self._artifacts.store(
+            tenant_id=tenant_id,
+            content=content,
+            format=str(source.get("format") or ""),
+            media_type=str(source.get("media_type") or ""),
+            expected_sha256=str(source.get("sha256") or ""),
+        )
+        value = {
+            "schema": "ananta.spreadsheet-document-version.v1",
+            "document_id": normalized_document_id,
+            "owner_id": require_id(owner_id, "owner_id"),
+            "title": normalized_title,
+            "snapshot": snapshot.to_dict(),
+            "snapshot_digest": snapshot.digest,
+            "state": "published",
+            "created_at": time.time(),
+            "source_artifact": {
+                "artifact_id": stored.artifact_id,
+                "sha256": stored.sha256,
+                "size_bytes": stored.size_bytes,
+                "format": stored.format,
+                "media_type": stored.media_type,
+            },
+            "unsupported_objects": list(imported.get("unsupported_objects") or []),
+            "engine": imported.get("engine"),
+            "engine_version": imported.get("engine_version"),
+            "production_fidelity": bool(imported.get("production_fidelity")),
+            "source_refs": [],
+            "run_refs": [],
+            "source_grounding_verified": False,
+            "human_intervention_required": False,
+        }
+        return self._store.create_document(tenant_id, value)
+
     def execute_proposal(self, *, tenant_id: str, principal_id: str, proposal: Mapping[str, Any]) -> dict[str, Any]:
         parsed = SpreadsheetProposalV1.from_mapping(proposal)
         existing = self._store.get_proposal(tenant_id, parsed.proposal_id)
@@ -101,6 +175,8 @@ class SpreadsheetSagaService:
             raise SpreadsheetStoreConflict("spreadsheet_document_version_conflict")
         if document["snapshot_digest"] != parsed.base_snapshot_digest:
             raise SpreadsheetStoreConflict("spreadsheet_snapshot_digest_conflict")
+        if document.get("unsupported_objects"):
+            raise PermissionError("spreadsheet_document_unsupported_semantics")
         snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
         self._policy.admit(snapshot, parsed)
         execution = dict(self._executor.dry_run(snapshot=snapshot.to_dict(), actions=parsed.actions))
@@ -162,6 +238,20 @@ class SpreadsheetSagaService:
     def list_documents(self, *, tenant_id: str, principal_id: str, limit: int = 100) -> dict[str, Any]:
         page = self._store.list_documents(tenant_id, limit=limit)
         return {**page, "items": [item for item in page["items"] if item["owner_id"] == principal_id]}
+
+    def download_original(self, *, tenant_id: str, document_id: str, principal_id: str) -> tuple[bytes, dict[str, Any]]:
+        if self._artifacts is None:
+            raise RuntimeError("spreadsheet_artifact_store_unavailable")
+        document = self.get_document(tenant_id=tenant_id, document_id=document_id, principal_id=principal_id)
+        source = document.get("source_artifact")
+        if not isinstance(source, Mapping):
+            raise KeyError("spreadsheet_original_artifact_not_found")
+        content = self._artifacts.read(
+            tenant_id=tenant_id,
+            sha256=str(source.get("sha256") or ""),
+            format=str(source.get("format") or ""),
+        )
+        return content, dict(source)
 
     @staticmethod
     def _validate(snapshot: WorkbookSnapshotV1, validators: tuple[Mapping[str, Any], ...]) -> dict[str, Any]:

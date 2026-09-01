@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import copy
+import datetime as dt
+import hashlib
 import resource
 import shutil
 import subprocess
@@ -12,6 +14,8 @@ from pathlib import Path
 from typing import Any
 
 from ananta_contracts.spreadsheet_studio import WorkbookSnapshotV1, canonical_digest
+from worker.spreadsheet.artifact_inspector import SpreadsheetArtifactInspector
+from worker.spreadsheet.formula_parser import SpreadsheetFormulaUnsupported, parse_formula
 
 
 class SpreadsheetExecutionError(RuntimeError):
@@ -40,6 +44,7 @@ class LibreOfficeSpreadsheetExecutor:
         self._memory_bytes = int(memory_bytes)
         self._file_bytes = int(file_bytes)
         self._network_isolated = bool(network_isolated)
+        self._inspector = SpreadsheetArtifactInspector(max_compressed_bytes=min(self._file_bytes, 16 * 1024**2))
         self._version = self._detect_version()
 
     @property
@@ -166,6 +171,56 @@ class LibreOfficeSpreadsheetExecutor:
             "candidate_snapshot_digest": normalized.digest,
             "diff": diffs,
             "recalculation_performed": True,
+            "engine": "libreoffice-calc",
+            "engine_version": self._version,
+            "production_fidelity": self._network_isolated,
+            "human_intervention_required": False,
+        }
+
+    def import_document(
+        self,
+        *,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        document_version_id: str,
+    ) -> Mapping[str, Any]:
+        inspection = self._inspector.inspect(filename=filename, media_type=media_type, content=content)
+        digest = hashlib.sha256(content).hexdigest()
+        with tempfile.TemporaryDirectory(prefix="ananta-spreadsheet-import-") as temporary:
+            root = Path(temporary)
+            source_dir = root / "source"
+            result_dir = root / "result"
+            profile = root / "profile"
+            source_dir.mkdir(mode=0o700)
+            result_dir.mkdir(mode=0o700)
+            profile.mkdir(mode=0o700)
+            source = source_dir / f"workbook.{inspection.format}"
+            source.write_bytes(content)
+            self._convert(source=source, destination=result_dir, profile=profile)
+            converted = result_dir / "workbook.xlsx"
+            if not converted.is_file() or converted.stat().st_size > self._file_bytes:
+                raise SpreadsheetExecutionError("spreadsheet_libreoffice_output_invalid")
+            snapshot, unsupported = _snapshot_from_imported_workbook(
+                converted,
+                source_digest=digest,
+                document_version_id=document_version_id,
+            )
+        parsed = WorkbookSnapshotV1.from_mapping(snapshot)
+        unsupported_objects = sorted({*inspection.unsupported_parts, *unsupported})
+        return {
+            "schema": "ananta.spreadsheet-import-result.v1",
+            "snapshot": parsed.to_dict(),
+            "snapshot_digest": parsed.digest,
+            "source": {
+                "sha256": digest,
+                "size_bytes": len(content),
+                "format": inspection.format,
+                "media_type": inspection.media_type,
+                "archive_entries": inspection.archive_entries,
+                "uncompressed_bytes": inspection.uncompressed_bytes,
+            },
+            "unsupported_objects": unsupported_objects,
             "engine": "libreoffice-calc",
             "engine_version": self._version,
             "production_fidelity": self._network_isolated,
@@ -306,6 +361,90 @@ def _cells(snapshot: Mapping[str, Any]) -> dict[tuple[str, str], Mapping[str, An
         for sheet in snapshot["sheets"]
         for cell in sheet["cells"]
     }
+
+
+def _snapshot_from_imported_workbook(
+    path: Path,
+    *,
+    source_digest: str,
+    document_version_id: str,
+) -> tuple[dict[str, Any], list[str]]:
+    try:
+        from openpyxl import load_workbook
+    except ImportError as exc:  # pragma: no cover - image/dependency gate
+        raise SpreadsheetExecutionError("spreadsheet_openpyxl_unavailable") from exc
+    formulas = load_workbook(path, data_only=False, read_only=False)
+    values = load_workbook(path, data_only=True, read_only=False)
+    try:
+        if not 1 <= len(formulas.worksheets) <= 64:
+            raise SpreadsheetExecutionError("spreadsheet_sheet_count_invalid")
+        sheet_ids = {
+            sheet.title.casefold(): f"sheet-{source_digest[:16]}-{index + 1}"
+            for index, sheet in enumerate(formulas.worksheets)
+        }
+        sheets = []
+        unsupported: list[str] = []
+        cell_count = 0
+        for formula_sheet, value_sheet in zip(formulas.worksheets, values.worksheets, strict=True):
+            sheet_id = sheet_ids[formula_sheet.title.casefold()]
+            if formula_sheet.max_row * formula_sheet.max_column > 100_000:
+                raise SpreadsheetExecutionError("spreadsheet_cell_limit_exceeded")
+            cells = []
+            for row in formula_sheet.iter_rows():
+                for formula_cell in row:
+                    computed = value_sheet[formula_cell.coordinate].value
+                    if formula_cell.value is None and computed is None:
+                        continue
+                    cell_count += 1
+                    if cell_count > 100_000:
+                        raise SpreadsheetExecutionError("spreadsheet_cell_limit_exceeded")
+                    formula_ast = None
+                    cell_value = _json_cell(computed if formula_cell.data_type == "f" else formula_cell.value)
+                    if formula_cell.data_type == "f":
+                        try:
+                            formula_ast = parse_formula(
+                                str(formula_cell.value),
+                                current_sheet_id=sheet_id,
+                                sheet_ids_by_name=sheet_ids,
+                            )
+                        except SpreadsheetFormulaUnsupported:
+                            unsupported.append(f"formula:{sheet_id}:{formula_cell.coordinate}")
+                    cells.append(
+                        {
+                            "address": formula_cell.coordinate,
+                            "value": cell_value,
+                            "formula": formula_ast,
+                            "style_ref": f"style-{formula_cell.style_id}" if formula_cell.style_id else None,
+                        }
+                    )
+            sheets.append(
+                {
+                    "sheet_id": sheet_id,
+                    "name": formula_sheet.title,
+                    "hidden": formula_sheet.sheet_state != "visible",
+                    "cells": cells,
+                }
+            )
+        return (
+            {
+                "schema": WorkbookSnapshotV1.SCHEMA,
+                "snapshot_id": f"import-{source_digest[:24]}",
+                "document_version_id": document_version_id,
+                "sheets": sheets,
+            },
+            unsupported,
+        )
+    finally:
+        formulas.close()
+        values.close()
+
+
+def _json_cell(value: Any) -> str | int | float | bool | None:
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    if isinstance(value, (dt.datetime, dt.date, dt.time)):
+        return value.isoformat()
+    return str(value)
 
 
 __all__ = ["LibreOfficeSpreadsheetExecutor", "SpreadsheetExecutionError"]

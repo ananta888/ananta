@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import urllib.error
@@ -93,6 +94,36 @@ class HttpSpreadsheetExecutionAdapter:
         }
         request_digest = canonical_digest(body)
         payload = self._request("POST", "/dry-runs", body={**body, "request_digest": request_digest})
+        if (
+            payload.get("contract") != _CONTRACT
+            or payload.get("request_digest") != request_digest
+            or payload.get("status") != "succeeded"
+            or not isinstance(payload.get("result"), Mapping)
+        ):
+            raise SpreadsheetWorkerTransportError(
+                "spreadsheet_worker_response_binding_mismatch",
+                retryable=False,
+            )
+        return dict(payload["result"])
+
+    def import_document(
+        self,
+        *,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        document_version_id: str,
+    ) -> Mapping[str, Any]:
+        body = {
+            "contract": _CONTRACT,
+            "operation": "import_document",
+            "filename": str(filename),
+            "media_type": str(media_type),
+            "document_version_id": str(document_version_id),
+            "content_base64": base64.b64encode(content).decode("ascii"),
+        }
+        request_digest = canonical_digest(body)
+        payload = self._request("POST", "/imports", body={**body, "request_digest": request_digest})
         if (
             payload.get("contract") != _CONTRACT
             or payload.get("request_digest") != request_digest

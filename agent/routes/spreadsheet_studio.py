@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import io
 from collections.abc import Callable
 from typing import Any
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, request, send_file
 
 from agent.auth import check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
@@ -98,6 +99,32 @@ def create_document():
     return _invoke(operation, created=True)
 
 
+@spreadsheet_studio_bp.post("/documents/import")
+@check_user_auth
+def import_document():
+    def operation():
+        uploaded = request.files.get("file")
+        if uploaded is None or not uploaded.filename:
+            raise ValueError("spreadsheet_upload_missing")
+        content = uploaded.stream.read(16 * 1024 * 1024 + 1)
+        if len(content) > 16 * 1024 * 1024:
+            raise ValueError("spreadsheet_upload_size_invalid")
+        filename = str(uploaded.filename)
+        default_title = filename.rsplit(".", 1)[0]
+        tenant_id, principal_id = _identity()
+        return _service().import_document(
+            tenant_id=tenant_id,
+            owner_id=principal_id,
+            title=request.form.get("title") or default_title,
+            filename=filename,
+            media_type=str(uploaded.mimetype or ""),
+            content=content,
+            document_id=request.form.get("document_id"),
+        )
+
+    return _invoke(operation, created=True)
+
+
 @spreadsheet_studio_bp.get("/documents")
 @check_user_auth
 def list_documents():
@@ -116,6 +143,31 @@ def get_document(document_id: str):
     return _invoke(
         lambda: _service().get_document(tenant_id=_identity()[0], document_id=document_id, principal_id=_identity()[1])
     )
+
+
+@spreadsheet_studio_bp.get("/documents/<document_id>/original")
+@check_user_auth
+def download_original(document_id: str):
+    try:
+        tenant_id, principal_id = _identity()
+        content, source = _service().download_original(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            principal_id=principal_id,
+        )
+        return send_file(
+            io.BytesIO(content),
+            mimetype=str(source["media_type"]),
+            as_attachment=True,
+            download_name=f"{document_id}.{source['format']}",
+            max_age=0,
+        )
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc.args[0]), code=404)
+    except (RuntimeError, TypeError, ValueError) as exc:
+        return api_response(status="error", message=str(exc), code=422)
 
 
 @spreadsheet_studio_bp.post("/proposals/execute")

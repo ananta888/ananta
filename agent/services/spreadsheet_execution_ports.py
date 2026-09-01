@@ -13,4 +13,15 @@ class SpreadsheetExecutionPort(Protocol):
     def dry_run(self, *, snapshot: Mapping[str, Any], actions: tuple[Mapping[str, Any], ...]) -> Mapping[str, Any]: ...
 
 
-__all__ = ["SpreadsheetExecutionPort"]
+class SpreadsheetImportPort(Protocol):
+    def import_document(
+        self,
+        *,
+        content: bytes,
+        filename: str,
+        media_type: str,
+        document_version_id: str,
+    ) -> Mapping[str, Any]: ...
+
+
+__all__ = ["SpreadsheetExecutionPort", "SpreadsheetImportPort"]

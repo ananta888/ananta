@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hmac
 import json
 import os
@@ -47,26 +48,41 @@ class SpreadsheetWorkerApplication:
             def do_POST(self) -> None:  # noqa: N802
                 if not self._authorized():
                     return
-                if self.path != f"{_BASE_PATH}/dry-runs":
+                if self.path not in {f"{_BASE_PATH}/dry-runs", f"{_BASE_PATH}/imports"}:
                     self._error(HTTPStatus.NOT_FOUND, "spreadsheet_worker_route_not_found", retryable=False)
                     return
                 try:
                     body = self._body()
                     self._validate_envelope(body)
-                    snapshot = WorkbookSnapshotV1.from_mapping(body["snapshot"])
-                    actions = SpreadsheetProposalV1.from_mapping(
-                        {
-                            "schema": SpreadsheetProposalV1.SCHEMA,
-                            "proposal_id": "worker-envelope",
-                            "document_id": "worker-document",
-                            "expected_version": 1,
-                            "base_snapshot_digest": snapshot.digest,
-                            "actions": body["actions"],
-                            "validators": [],
-                            "automatic_promotion": False,
-                        }
-                    ).actions
-                    result = application.executor.dry_run(snapshot=snapshot.to_dict(), actions=actions)
+                    expected_operation = "dry_run" if self.path.endswith("/dry-runs") else "import_document"
+                    if body["operation"] != expected_operation:
+                        raise ValueError("spreadsheet_worker_operation_route_mismatch")
+                    if body["operation"] == "dry_run":
+                        snapshot = WorkbookSnapshotV1.from_mapping(body["snapshot"])
+                        actions = SpreadsheetProposalV1.from_mapping(
+                            {
+                                "schema": SpreadsheetProposalV1.SCHEMA,
+                                "proposal_id": "worker-envelope",
+                                "document_id": "worker-document",
+                                "expected_version": 1,
+                                "base_snapshot_digest": snapshot.digest,
+                                "actions": body["actions"],
+                                "validators": [],
+                                "automatic_promotion": False,
+                            }
+                        ).actions
+                        result = application.executor.dry_run(snapshot=snapshot.to_dict(), actions=actions)
+                    else:
+                        try:
+                            content = base64.b64decode(body["content_base64"], validate=True)
+                        except (ValueError, TypeError) as exc:
+                            raise ValueError("spreadsheet_worker_content_base64_invalid") from exc
+                        result = application.executor.import_document(
+                            content=content,
+                            filename=body["filename"],
+                            media_type=body["media_type"],
+                            document_version_id=body["document_version_id"],
+                        )
                 except (KeyError, TypeError, ValueError) as exc:
                     self._error(HTTPStatus.UNPROCESSABLE_ENTITY, str(exc), retryable=False)
                     return
@@ -84,12 +100,24 @@ class SpreadsheetWorkerApplication:
                 )
 
             def _validate_envelope(self, body: dict[str, Any]) -> None:
-                if set(body) != {"contract", "operation", "snapshot", "actions", "request_digest"}:
+                fields_by_operation = {
+                    "dry_run": {"contract", "operation", "snapshot", "actions", "request_digest"},
+                    "import_document": {
+                        "contract",
+                        "operation",
+                        "filename",
+                        "media_type",
+                        "document_version_id",
+                        "content_base64",
+                        "request_digest",
+                    },
+                }
+                expected = fields_by_operation.get(str(body.get("operation")))
+                if expected is None or set(body) != expected:
                     raise ValueError("spreadsheet_worker_envelope_fields_invalid")
-                unsigned = {key: body[key] for key in ("contract", "operation", "snapshot", "actions")}
+                unsigned = {key: body[key] for key in expected if key != "request_digest"}
                 if (
                     body["contract"] != _CONTRACT
-                    or body["operation"] != "dry_run"
                     or body["request_digest"] != canonical_digest(unsigned)
                 ):
                     raise ValueError("spreadsheet_worker_envelope_binding_invalid")

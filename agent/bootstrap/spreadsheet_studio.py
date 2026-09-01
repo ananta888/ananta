@@ -11,6 +11,7 @@ from agent.adapters.spreadsheet_mock_execution_adapter import (
     DeterministicSpreadsheetMockExecutionAdapter,
 )
 from agent.config import settings
+from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
@@ -58,6 +59,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         SpreadsheetStore(state),
                         policy=policy,
                         executor=executor,
+                        artifact_store=SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts"),
                     )
                 except (RuntimeError, ValueError):
                     status = SpreadsheetStudioWiringStatus(False, "spreadsheet_worker_configuration_invalid")
