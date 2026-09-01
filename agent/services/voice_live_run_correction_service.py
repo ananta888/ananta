@@ -29,6 +29,8 @@ from agent.services.voice_transcription_postprocessing_service import (
     get_voice_transcription_postprocessing_service,
 )
 
+_DEFAULT_MAX_OUTSTANDING_CORRECTIONS = 64
+
 
 @dataclass(frozen=True)
 class VoiceLiveCorrectionPreparation:
@@ -63,6 +65,7 @@ class VoiceLiveRunCorrectionService:
         tombstones: VoiceDeletionTombstoneRepository | None = None,
         postprocessing: VoiceTranscriptionPostprocessingService | None = None,
         executor: ThreadPoolExecutor | None = None,
+        max_outstanding_corrections: int = _DEFAULT_MAX_OUTSTANDING_CORRECTIONS,
         clock: Callable[[], float] = time.time,
     ) -> None:
         self._repository = repository or VoiceLiveRunRepository()
@@ -77,7 +80,11 @@ class VoiceLiveRunCorrectionService:
         self._clock = clock
         self._futures: set[Future[None]] = set()
         self._scheduled_keys: set[tuple[str, str, str, int]] = set()
-        self._capacity = threading.BoundedSemaphore(2)
+        # ThreadPoolExecutor keeps execution concurrency at two. This separate
+        # bound admits a finite automatic backlog instead of silently leaving
+        # durable corrections queued whenever both workers are briefly busy.
+        outstanding_limit = max(1, min(int(max_outstanding_corrections), 1_024))
+        self._capacity = threading.BoundedSemaphore(outstanding_limit)
         self._futures_lock = threading.Lock()
         self._idle_condition = threading.Condition(self._futures_lock)
 
