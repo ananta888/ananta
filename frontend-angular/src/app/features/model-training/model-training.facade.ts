@@ -77,6 +77,7 @@ export class ModelTrainingFacade implements OnDestroy {
   readonly loadingAdapters = signal(false);
   readonly loadingUnslothStorage = signal(false);
   readonly error = signal('');
+  private requestedAdapterId = '';
 
   private recordCursors: string[] = [''];
   private recordCursorIndex = 0;
@@ -315,8 +316,16 @@ export class ModelTrainingFacade implements OnDestroy {
       next: value => {
         const page = normalizePage(value, ['adapters'], normalizeAdapter);
         this.adapters.set(page.items);
-        const selectedId = this.selectedAdapter()?.id;
-        if (selectedId) this.selectedAdapter.set(page.items.find(item => item.id === selectedId) || null);
+        const requestedAdapterId = this.requestedAdapterId;
+        const selectedId = requestedAdapterId || this.selectedAdapter()?.id;
+        if (selectedId) {
+          const selected = page.items.find(item => item.id === selectedId) || null;
+          this.selectedAdapter.set(selected);
+          if (selected) {
+            this.requestedAdapterId = '';
+            if (requestedAdapterId && selected.evaluation_id) this.loadEvaluation(selected.evaluation_id);
+          }
+        }
       },
       error: error => this.captureError(error, 'Adapter konnten nicht geladen werden'),
     });
@@ -326,6 +335,15 @@ export class ModelTrainingFacade implements OnDestroy {
     this.selectedAdapter.set(adapter);
     this.selectedEvaluation.set(null);
     if (adapter?.evaluation_id) this.loadEvaluation(adapter.evaluation_id);
+  }
+
+  selectAdapterById(adapterId: string): void {
+    this.requestedAdapterId = adapterId;
+    const selected = this.adapters().find(adapter => adapter.id === adapterId);
+    if (selected) {
+      this.requestedAdapterId = '';
+      this.selectAdapter(selected);
+    }
   }
 
   importAdapter(input: AdapterImportInput, key: string): Observable<AdapterSummary> {

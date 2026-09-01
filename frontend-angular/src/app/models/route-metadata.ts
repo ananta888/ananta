@@ -25,6 +25,7 @@ export interface AppNavGroup {
 export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   projects: { label: 'Projekte', area: 'Configure', navGroup: 'Arbeiten', navOrder: 8, simpleNav: true },
   workspace: { label: 'Arbeitsbereich', area: 'Operate', navGroup: 'Arbeiten', navOrder: 10, simpleNav: true, projectScoped: true },
+  'spreadsheet-studio': { label: 'Spreadsheet Studio', area: 'Operate', navGroup: 'Arbeiten', navOrder: 11, simpleNav: true, projectScoped: true },
   chats: { label: 'AI Chats', area: 'Operate', navGroup: 'Arbeiten', navOrder: 12, simpleNav: true },
   'caseflow/overview': {
     // First because it is the only entry that assumes nothing: it shows what

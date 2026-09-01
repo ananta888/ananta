@@ -274,6 +274,13 @@ export class ModelTrainingShellComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const adapterId = this.validEntityId(params.get('adapter_id'));
+    if (adapterId) {
+      this.activeTab.set('adapters');
+      this.facade.selectAdapterById(adapterId);
+      return;
+    }
+
     const datasetId = this.validEntityId(params.get('dataset_id'));
     if (datasetId) {
       this.activeTab.set('datasets');

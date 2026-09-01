@@ -454,6 +454,36 @@ class SpreadsheetSagaService:
             limit=limit,
         )
 
+    def get_version_viewport(
+        self,
+        *,
+        tenant_id: str,
+        document_id: str,
+        version: int,
+        principal_id: str,
+        sheet_id: str,
+        start: str,
+        end: str,
+        offset: int = 0,
+        limit: int = 1_000,
+    ) -> dict[str, Any]:
+        """Project an immutable historical version without exposing its full snapshot."""
+
+        document = self.get_version(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            version=version,
+            principal_id=principal_id,
+        )
+        return self._viewports.project(
+            snapshot=document["snapshot"],
+            sheet_id=sheet_id,
+            start=start,
+            end=end,
+            offset=offset,
+            limit=limit,
+        )
+
     def create_validation_reference(
         self,
         *,

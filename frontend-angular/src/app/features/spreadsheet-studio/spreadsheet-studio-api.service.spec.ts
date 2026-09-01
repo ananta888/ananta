@@ -91,4 +91,34 @@ describe('SpreadsheetStudioApiService', () => {
     );
     expect(command).not.toHaveProperty('automatic_apply');
   });
+
+  it('loads a bounded historical viewport without retrying a cancelled request', async () => {
+    core.get.mockReturnValue(of({ snapshot_digest: 'a'.repeat(64) }));
+    const api = TestBed.inject(SpreadsheetStudioApiService);
+
+    await firstValueFrom(api.viewport('http://hub.test', 'document/a', 7, {
+      sheetId: 'sheet/a', start: 'A1', end: 'Z100', offset: 250, limit: 250,
+    }));
+
+    expect(core.get).toHaveBeenCalledWith(
+      'http://hub.test/api/spreadsheet-studio/documents/document%2Fa/versions/7/viewport?sheet_id=sheet%2Fa&start=A1&end=Z100&offset=250&limit=250',
+      'http://hub.test',
+      undefined,
+      false,
+    );
+  });
+
+  it('polls proposal jobs only through the Hub-owned status endpoint', async () => {
+    core.get.mockReturnValue(of({ job_id: 'job/a', status: 'leased' }));
+    const api = TestBed.inject(SpreadsheetStudioApiService);
+
+    await firstValueFrom(api.proposalJob('http://hub.test', 'job/a'));
+
+    expect(core.get).toHaveBeenCalledWith(
+      'http://hub.test/api/spreadsheet-studio/proposal-jobs/job%2Fa',
+      'http://hub.test',
+      undefined,
+      false,
+    );
+  });
 });

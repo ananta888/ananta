@@ -62,6 +62,13 @@ def _proposal_execution_service():
     return current_app.extensions.get("spreadsheet_proposal_execution_service") or _service()
 
 
+def _proposal_job_service():
+    value = current_app.extensions.get("spreadsheet_proposal_execution_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_proposal_jobs_unavailable")
+    return value
+
+
 def _execution_ingress_service():
     value = current_app.extensions.get("spreadsheet_execution_ingress_service")
     if value is None:
@@ -297,6 +304,24 @@ def get_document_version(document_id: str, version: int):
     )
 
 
+@spreadsheet_studio_bp.get("/documents/<document_id>/versions/<int:version>/viewport")
+@check_user_auth
+def get_document_version_viewport(document_id: str, version: int):
+    return _invoke(
+        lambda: _service().get_version_viewport(
+            tenant_id=_identity()[0],
+            document_id=document_id,
+            version=version,
+            principal_id=_identity()[1],
+            sheet_id=str(request.args.get("sheet_id") or ""),
+            start=str(request.args.get("start") or "A1"),
+            end=str(request.args.get("end") or "Z100"),
+            offset=int(request.args.get("offset") or 0),
+            limit=int(request.args.get("limit") or 1_000),
+        )
+    )
+
+
 @spreadsheet_studio_bp.get("/documents/<document_id>/original")
 @check_user_auth
 def download_original(document_id: str):
@@ -377,6 +402,18 @@ def get_proposal_diff(proposal_id: str):
             principal_id=_identity()[1],
             offset=int(request.args.get("offset") or 0),
             limit=int(request.args.get("limit") or 1_000),
+        )
+    )
+
+
+@spreadsheet_studio_bp.get("/proposal-jobs/<job_id>")
+@check_user_auth
+def get_proposal_job(job_id: str):
+    return _invoke(
+        lambda: _proposal_job_service().get_job(
+            tenant_id=_identity()[0],
+            principal_id=_identity()[1],
+            job_id=job_id,
         )
     )
 

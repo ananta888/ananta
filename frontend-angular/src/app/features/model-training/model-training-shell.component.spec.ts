@@ -41,6 +41,7 @@ describe('ModelTrainingShellComponent', () => {
     jobs: signal([]),
     jobCount: signal(0),
     adapters: signal([]),
+    selectedAdapter: signal(null),
     unslothStorage: signal(null),
     loadingCapabilities: signal(false),
     loadingDatasets: signal(false),
@@ -56,6 +57,7 @@ describe('ModelTrainingShellComponent', () => {
     loadUnslothStorage: vi.fn(),
     selectDataset: vi.fn(),
     selectJob: vi.fn(),
+    selectAdapterById: vi.fn(),
   };
 
   beforeEach(() => {
@@ -124,6 +126,15 @@ describe('ModelTrainingShellComponent', () => {
 
     expect(fixture.componentInstance.activeTab()).toBe('datasets');
     expect(facade.selectDataset).toHaveBeenCalledWith('dataset:17');
+  });
+
+  it('opens the adapter lifecycle from a bounded adapter_id', () => {
+    queryParamMap.next(convertToParamMap({ adapter_id: 'adapter:17' }));
+    const fixture = TestBed.createComponent(ModelTrainingShellComponent);
+    fixture.detectChanges();
+
+    expect(fixture.componentInstance.activeTab()).toBe('adapters');
+    expect(facade.selectAdapterById).toHaveBeenCalledWith('adapter:17');
   });
 
   it('honors valid tabs and ignores malformed entity identifiers', () => {

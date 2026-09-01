@@ -93,7 +93,7 @@
         "SSP2-011",
         "SSP2-012"
       ],
-      "status": "todo"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -540,7 +540,7 @@
     {
       "id": "SSP2-010",
       "title": "Virtualisierte und barrierearme Spreadsheet-Studio-UX",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -555,12 +555,57 @@
         "SSFR-UX-003",
         "SSFR-UX-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_verification": {
+          "source_category_item_ids": [
+            "SSFR-GND-005",
+            "SSFR-UX-001",
+            "SSFR-UX-002",
+            "SSFR-UX-003",
+            "SSFR-UX-004"
+          ],
+          "source_refs": [
+            "SRC_0001",
+            "SRC_0002",
+            "SRC_0003",
+            "SRC_0004",
+            "SRC_0005",
+            "SRC_0006",
+            "SRC_0007",
+            "SRC_0008"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "workbook_viewer": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-workbook-viewer.component.ts",
+        "validator_builder": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-validator-builder.component.ts",
+        "proposal_review": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-proposal-review.component.ts",
+        "proposal_workflow": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-proposal-workflow.service.ts",
+        "hub_api": [
+          "agent/routes/spreadsheet_studio.py",
+          "agent/services/spreadsheet_execution_queue_service.py",
+          "agent/services/spreadsheet_saga_service.py"
+        ],
+        "contract": "docs/contracts/spreadsheet-studio-ux-v1.md",
+        "tests": [
+          "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-workbook-viewer.component.spec.ts",
+          "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-validator-builder.component.spec.ts",
+          "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-proposal-review.component.spec.ts",
+          "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-proposal-workflow.service.spec.ts",
+          "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.spec.ts",
+          "frontend-angular/src/app/features/model-training/model-training.facade.spec.ts",
+          "tests/spreadsheet_studio/test_execution_queue.py",
+          "tests/spreadsheet_studio/test_rich_workbook_semantics.py"
+        ],
+        "result": "83 Spreadsheet Studio backend tests and 39 focused Angular, model-training facade/navigation and route-metadata tests passed; 6 optional environment tests skipped/not_run; Angular lint introduced no warnings and the development build passed"
+      }
     },
     {
       "id": "SSP2-011",
@@ -624,13 +669,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 3,
+      "todo": 2,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 9
+      "done": 10
     },
-    "progress_percent_done": 75.0,
+    "progress_percent_done": 83.3,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -649,19 +694,19 @@
     },
     "milestones": {
       "total": 3,
-      "todo": 1,
-      "in_progress": 0,
+      "todo": 0,
+      "in_progress": 1,
       "blocked": 0,
       "done": 2
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 3,
+    "todo_remaining": 2,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 9
+    "done": 10
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
@@ -670,6 +715,7 @@
     "SSP2-007 requires a quantitative digest-bound Hub Go/No-Go before live spreadsheet training.",
     "SSP2-008 binds live LoRA/QLoRA configuration and opaque governance digests from the Hub profile through the isolated worker manifest.",
     "SSP2-009 makes execution-backed base-versus-adapter evaluation, digest-bound admission and consent-driven adapter quarantine automatic Hub policies.",
+    "SSP2-010 adds project-scoped accessible virtual viewports, closed validator construction, stale-safe candidate review and automatic queue-to-promotion UX.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

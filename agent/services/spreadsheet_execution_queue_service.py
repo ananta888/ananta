@@ -96,5 +96,16 @@ class SpreadsheetExecutionQueueService:
         )
         return {**bound, "replayed": False}
 
+    def get_job(self, *, tenant_id: str, principal_id: str, job_id: str) -> dict[str, Any]:
+        """Return an owner-authorized Hub projection of one delegated execution job."""
+
+        job = self._queue.get(tenant_id=tenant_id, job_id=job_id)
+        self._saga.get_document(
+            tenant_id=tenant_id,
+            document_id=str(job["document_id"]),
+            principal_id=principal_id,
+        )
+        return job
+
 
 __all__ = ["SpreadsheetExecutionQueueService"]

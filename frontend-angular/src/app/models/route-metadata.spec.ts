@@ -22,6 +22,7 @@ describe('route metadata', () => {
       '/codehug',
       '/projects',
       '/workspace',
+      '/spreadsheet-studio',
       '/chats',
       '/board',
       '/sources',

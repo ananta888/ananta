@@ -9,10 +9,12 @@ import {
   SpreadsheetFeedbackEvent,
   SpreadsheetInferenceProposal,
   SpreadsheetPrivacyPreview,
+  SpreadsheetProposalJob,
   SpreadsheetProposalResult,
   SpreadsheetStudioCapabilities,
   SpreadsheetTrainingAdmission,
   SpreadsheetTrainingConsent,
+  SpreadsheetViewport,
   WorkbookSnapshot,
 } from './spreadsheet-studio.models';
 
@@ -27,6 +29,49 @@ export class SpreadsheetStudioApiService {
   list(hubUrl: string): Observable<{ items: SpreadsheetDocument[]; limit: number }> {
     return this.core.get<{ items: SpreadsheetDocument[]; limit: number }>(
       `${this.endpoint(hubUrl)}/documents`, hubUrl,
+    );
+  }
+
+  listVersions(hubUrl: string, documentId: string): Observable<{ items: SpreadsheetDocument[]; limit: number }> {
+    return this.core.get<{ items: SpreadsheetDocument[]; limit: number }>(
+      `${this.endpoint(hubUrl)}/documents/${encodeURIComponent(documentId)}/versions?limit=100`, hubUrl,
+    );
+  }
+
+  getVersion(hubUrl: string, documentId: string, version: number): Observable<SpreadsheetDocument> {
+    return this.core.get<SpreadsheetDocument>(
+      `${this.endpoint(hubUrl)}/documents/${encodeURIComponent(documentId)}/versions/${version}`, hubUrl,
+    );
+  }
+
+  viewport(
+    hubUrl: string,
+    documentId: string,
+    version: number,
+    query: { sheetId: string; start: string; end: string; offset: number; limit: number },
+  ): Observable<SpreadsheetViewport> {
+    const params = new URLSearchParams({
+      sheet_id: query.sheetId,
+      start: query.start,
+      end: query.end,
+      offset: String(query.offset),
+      limit: String(query.limit),
+    });
+    return this.core.get<SpreadsheetViewport>(
+      `${this.endpoint(hubUrl)}/documents/${encodeURIComponent(documentId)}/versions/${version}/viewport?${params}`,
+      hubUrl,
+      undefined,
+      false,
+    );
+  }
+
+  proposalDiff(hubUrl: string, proposalId: string, offset: number, limit = 250): Observable<SpreadsheetProposalResult['actual_diff']> {
+    const params = new URLSearchParams({ offset: String(offset), limit: String(limit) });
+    return this.core.get<SpreadsheetProposalResult['actual_diff']>(
+      `${this.endpoint(hubUrl)}/proposals/${encodeURIComponent(proposalId)}/diff?${params}`,
+      hubUrl,
+      undefined,
+      false,
     );
   }
 
@@ -56,9 +101,15 @@ export class SpreadsheetStudioApiService {
     );
   }
 
-  execute(hubUrl: string, proposal: Record<string, unknown>): Observable<SpreadsheetProposalResult> {
-    return this.core.post<SpreadsheetProposalResult>(
+  execute(hubUrl: string, proposal: Record<string, unknown>): Observable<SpreadsheetProposalResult | SpreadsheetProposalJob> {
+    return this.core.post<SpreadsheetProposalResult | SpreadsheetProposalJob>(
       `${this.endpoint(hubUrl)}/proposals/execute`, proposal, hubUrl, undefined, false, 120_000,
+    );
+  }
+
+  proposalJob(hubUrl: string, jobId: string): Observable<SpreadsheetProposalJob> {
+    return this.core.get<SpreadsheetProposalJob>(
+      `${this.endpoint(hubUrl)}/proposal-jobs/${encodeURIComponent(jobId)}`, hubUrl, undefined, false,
     );
   }
 

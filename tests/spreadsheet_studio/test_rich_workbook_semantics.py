@@ -257,6 +257,60 @@ def test_rich_snapshot_exposes_loss_explicit_paginated_viewport(tmp_path) -> Non
         )
 
 
+def test_historical_viewport_is_bound_to_the_requested_immutable_version(tmp_path) -> None:
+    studio = service(tmp_path / "historical-viewport.sqlite3")
+    original = studio.create_document(
+        tenant_id="tenant-a",
+        owner_id="owner-a",
+        title="Versioned viewport",
+        snapshot=rich_snapshot(),
+        document_id="versioned-viewport",
+    )
+    promoted = studio.execute_proposal(
+        tenant_id="tenant-a",
+        principal_id="owner-a",
+        proposal=_proposal(
+            original,
+            proposal_id="viewport-promotion",
+            actions=[
+                {
+                    "action_id": "change-a1",
+                    "kind": "set_value",
+                    "sheet_id": "sheet-one",
+                    "cell": "A1",
+                    "value": 99,
+                    "formula": None,
+                }
+            ],
+            validators=[],
+        ),
+    )
+    assert promoted["state"] == "promoted"
+
+    historical = studio.get_version_viewport(
+        tenant_id="tenant-a",
+        document_id="versioned-viewport",
+        version=1,
+        principal_id="owner-a",
+        sheet_id="sheet-one",
+        start="A1",
+        end="A1",
+    )
+    current = studio.get_viewport(
+        tenant_id="tenant-a",
+        document_id="versioned-viewport",
+        principal_id="owner-a",
+        sheet_id="sheet-one",
+        start="A1",
+        end="A1",
+    )
+
+    assert historical["snapshot_digest"] == original["snapshot_digest"]
+    assert historical["cells"][0]["displayed_value"] == "1,00"
+    assert current["snapshot_digest"] != historical["snapshot_digest"]
+    assert current["cells"][0]["raw_value"] == 99
+
+
 def test_structural_actions_rebase_rich_ranges_tables_and_charts() -> None:
     base = WorkbookSnapshotV2.from_mapping(rich_snapshot())
     execution = base.execution_v1().to_dict()

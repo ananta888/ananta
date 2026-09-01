@@ -1,18 +1,26 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { Subscription } from 'rxjs';
 
 import { AgentDirectoryService } from '../../services/agent-directory.service';
 import { ExplanationNoticeComponent } from '../../shared/ui/display';
 import { PageIntroComponent, SectionCardComponent } from '../../shared/ui/layout';
 import { SpreadsheetStudioApiService } from './spreadsheet-studio-api.service';
+import { SpreadsheetProposalReviewComponent } from './spreadsheet-proposal-review.component';
+import { SpreadsheetProposalWorkflowService } from './spreadsheet-proposal-workflow.service';
+import { SpreadsheetValidatorBuilderComponent } from './spreadsheet-validator-builder.component';
+import { SpreadsheetWorkbookViewerComponent } from './spreadsheet-workbook-viewer.component';
 import {
   SpreadsheetDataset,
   SpreadsheetDocument,
   SpreadsheetFeedbackEvent,
   SpreadsheetInferenceProposal,
   SpreadsheetPrivacyPreview,
+  SpreadsheetProposalJob,
   SpreadsheetProposalResult,
+  SpreadsheetRangeSelection,
   SpreadsheetStudioCapabilities,
   SpreadsheetTrainingAdmission,
   SpreadsheetTrainingConsent,
@@ -22,7 +30,17 @@ import {
 @Component({
   selector: 'app-spreadsheet-studio-page',
   standalone: true,
-  imports: [CommonModule, ExplanationNoticeComponent, FormsModule, PageIntroComponent, SectionCardComponent],
+  imports: [
+    CommonModule,
+    ExplanationNoticeComponent,
+    FormsModule,
+    PageIntroComponent,
+    RouterLink,
+    SectionCardComponent,
+    SpreadsheetProposalReviewComponent,
+    SpreadsheetValidatorBuilderComponent,
+    SpreadsheetWorkbookViewerComponent,
+  ],
   template: `
     <app-page-intro
       title="Spreadsheet Studio"
@@ -53,7 +71,7 @@ import {
         } @empty { <p>Noch keine Arbeitsmappe vorhanden.</p> }
       </app-section-card>
 
-      <app-section-card title="Vorschau und Aktion" subtitle="Dry-run, Validatoren und Promotion laufen ohne menschlichen Freigabeschritt.">
+      <app-section-card title="Vorschau und Aktion" subtitle="Versionierte Viewports, Candidate-Prüfung und Promotion bleiben getrennte Hub-Zustände.">
         @if (selected) {
           <div class="document-meta">
             <strong>{{ selected.title }} · Version {{ selected.version }}</strong>
@@ -65,28 +83,50 @@ import {
               <button type="button" (click)="downloadPublished()" [disabled]="busy">Veröffentlichte Version herunterladen</button>
             }
           </div>
+          <app-spreadsheet-workbook-viewer
+            [hubUrl]="hubEndpoint"
+            [document]="selected"
+            (documentVersionChange)="useDocumentVersion($event)"
+            (selectionChange)="useRange($event)"
+            (synchronizationChange)="viewerSynchronized = $event" />
+          @if (rangeSelection) {
+            <p class="selection-binding">
+              Aktiver Bereich: {{ rangeSelection.sheet_id }}!{{ rangeSelection.start }}:{{ rangeSelection.end }} ·
+              v{{ rangeSelection.document_version }} · {{ rangeSelection.snapshot_digest }}
+            </p>
+          }
           <div class="row">
             <label>Zelle <input [(ngModel)]="cell" maxlength="10" aria-label="Zelladresse" /></label>
             <label>Wert <input [(ngModel)]="value" maxlength="16384" aria-label="Neuer Wert" /></label>
-            <button type="button" (click)="execute()" [disabled]="busy || !validCell()">Validieren und ausführen</button>
+            <label class="check"><input type="checkbox" [(ngModel)]="automaticApply" /> Nach erfolgreichem Candidate automatisch anwenden</label>
+            <button type="button" (click)="execute()" [disabled]="busy || !canPrepareProposal()">Candidate erzeugen</button>
           </div>
-          @for (sheet of selected.snapshot.sheets; track sheet.sheet_id) {
-            <details [open]="$index === 0">
-              <summary>{{ sheet.name }} · {{ sheet.cells.length }} belegte Zellen</summary>
-              <div class="cells">
-                @for (item of sheet.cells.slice(0, 200); track item.address) {
-                  <span>{{ item.address }}</span><strong>{{ item.formula ? formulaText(item.formula) : item.value }}</strong>
-                }
-              </div>
-            </details>
+          @if (rangeSelection) {
+            <app-spreadsheet-validator-builder
+              [sheetId]="rangeSelection.sheet_id"
+              [start]="rangeSelection.start"
+              [end]="rangeSelection.end"
+              [documentVersion]="rangeSelection.document_version"
+              [snapshotDigest]="rangeSelection.snapshot_digest"
+              (validatorChange)="selectedValidator = $event" />
+            @if (selectedValidator) { <p>Validator aktiv: {{ selectedValidator['kind'] }}</p> }
           }
         } @else { <p>Arbeitsmappe auswählen oder importieren.</p> }
-        @if (lastProposal) {
-          <div class="result" aria-live="polite">
-            <strong>{{ lastProposal.state }} · {{ lastProposal.diff.length }} Änderungen</strong>
-            <span>{{ lastProposal.reason_codes.join(', ') || 'Alle automatischen Prüfungen bestanden.' }}</span>
-          </div>
+        @if (proposalJob) {
+          <p class="notice" aria-live="polite">
+            Proposal-Job {{ proposalJob.job_id }} · {{ proposalJob.status }}
+            @if (proposalJob.queue_position !== null) { · Queue {{ proposalJob.queue_position }} }
+          </p>
         }
+        <app-spreadsheet-proposal-review
+          [proposal]="lastProposal"
+          [document]="selected"
+          [synchronized]="viewerSynchronized"
+          [unsupportedObjects]="selected?.unsupported_objects || []"
+          (apply)="applyCandidate()"
+          (edit)="editCandidate()"
+          (reject)="rejectCandidate()"
+          (loadMore)="loadMoreDiff()" />
       </app-section-card>
 
       <app-section-card title="Feedback und Datenschutz" subtitle="Nur maskierte, explizit eingewilligte Beispiele gelangen in Datensätze.">
@@ -99,6 +139,7 @@ import {
         @if (privacyPreview) {
           <details open><summary>Maskierte Trainingsvorschau · {{ privacyPreview.masking_version }}</summary>
             <pre>{{ privacyPreview.record | json }}</pre>
+            <p>Record-Digest: <code>{{ privacyPreview.record_digest }}</code>. Ein Widerruf sperrt abgeleitete Datensätze, Jobs und Adapter automatisch.</p>
           </details>
           <label>Aufbewahrung in Tagen <input type="number" min="1" max="3650" [(ngModel)]="retentionDays" /></label>
           <button type="button" (click)="grantConsent()" [disabled]="busy || !!consent">Einwilligen</button>
@@ -107,6 +148,13 @@ import {
           <p>Einwilligung {{ consent.state }} · Version {{ consent.version }}</p>
           @if (consent.state === 'active') {
             <button type="button" class="secondary" (click)="revokeConsent()" [disabled]="busy">Einwilligung widerrufen</button>
+          }
+          @if (consent.impact) {
+            <p aria-live="polite">Widerrufsfolge {{ consent.impact.state }} ·
+              {{ consent.impact.dataset_ids.length }} Datensätze ·
+              {{ consent.impact.training_jobs.length }} Jobs ·
+              {{ consent.impact.adapters.length }} Adapter · automatische Reconciliation aktiv
+            </p>
           }
         }
       </app-section-card>
@@ -118,11 +166,22 @@ import {
         </div>
         @if (dataset) {
           <p>{{ dataset.record_count }} Beispiele · {{ dataset.dataset_digest }}</p>
+          <div class="split-grid" aria-label="Gesperrte Dataset-Splits">
+            @for (split of splitRows(); track split.name) { <span>{{ split.name }}</span><strong>{{ split.count }}</strong> }
+          </div>
+          @if (dataset.split_lock) {
+            <p>Split-Lock {{ dataset.split_lock.state }} · <code>{{ dataset.split_lock.split_lock_digest }}</code></p>
+            <label>Warnungen filtern <input [(ngModel)]="datasetWarningFilter" maxlength="80" /></label>
+            @for (warning of filteredDatasetWarnings(); track warning) { <p class="warning">{{ warning }}</p> }
+          }
           @if (!dataset.readiness.training_ready) { <p>{{ dataset.readiness.reason_codes.join(', ') }}</p> }
         }
         @if (training) {
           <p>ML-Intern-Job {{ training.job['id'] || training.job['job_id'] }} · {{ training.job['state'] }}</p>
         }
+        <a [routerLink]="['/model-training']" [queryParams]="trainingQuery()">
+          Dataset, Split-Locks, Job, Evaluation und Adapter-Lifecycle im Hub-Control-Center öffnen
+        </a>
         <hr />
         <div class="fields">
           <label>Adapter-ID <input [(ngModel)]="adapterId" /></label>
@@ -132,7 +191,7 @@ import {
         <button type="button" (click)="infer()" [disabled]="busy || !selected || !inferenceReady()">LoRA-Vorschlag erzeugen</button>
         @if (inferenceProposal) {
           <pre>{{ inferenceProposal.result.actions | json }}</pre>
-          <button type="button" (click)="applyInferenceProposal()" [disabled]="busy">Vorschlag automatisch prüfen und ausführen</button>
+          <button type="button" (click)="applyInferenceProposal()" [disabled]="busy || !canPrepareProposal()">LoRA-Aktionen als Candidate prüfen</button>
         }
       </app-section-card>
     </div>
@@ -143,6 +202,8 @@ import {
     .grid { display:grid; grid-template-columns:minmax(280px, 1fr) minmax(420px, 2fr); gap:16px; margin-top:16px; }
     .row,.fields { display:flex; align-items:end; gap:8px; flex-wrap:wrap; margin:10px 0; }
     .fields label,.row label { flex:1; min-width:130px; }
+    .row label.check { display:flex; align-items:center; min-width:260px; }
+    .check input { width:auto; }
     input,textarea { box-sizing:border-box; width:100%; }
     textarea { resize:vertical; }
     .file-input { position:absolute; inline-size:1px; block-size:1px; opacity:0; }
@@ -150,31 +211,44 @@ import {
     .entry { display:flex; justify-content:space-between; width:100%; margin:6px 0; text-align:left; gap:8px; }
     .entry.selected { outline:2px solid var(--primary, #5877e8); }
     .document-meta,.result { display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+    .selection-binding { overflow-wrap:anywhere; font-size:.9rem; }
     code,pre { overflow:auto; overflow-wrap:anywhere; white-space:pre-wrap; }
     details { margin-top:12px; }
-    .cells { display:grid; grid-template-columns:auto 1fr; gap:6px 14px; margin-top:10px; max-height:360px; overflow:auto; }
     .secondary { opacity:.85; }
     .notice { padding:10px; border-left:3px solid var(--primary, #5877e8); }
+    .warning { padding:6px; border-left:3px solid var(--warning, #b7791f); }
+    .split-grid { display:grid; grid-template-columns:auto auto; max-width:260px; gap:4px 12px; }
     .error { color:var(--danger, #c33); overflow-wrap:anywhere; }
     hr { margin:16px 0; opacity:.35; }
     @media(max-width:860px){.grid{grid-template-columns:1fr;}}
   `],
 })
-export class SpreadsheetStudioPageComponent implements OnInit {
+export class SpreadsheetStudioPageComponent implements OnInit, OnDestroy {
   private readonly api = inject(SpreadsheetStudioApiService);
   private readonly agents = inject(AgentDirectoryService);
+  private readonly proposals = inject(SpreadsheetProposalWorkflowService);
 
   capabilities: SpreadsheetStudioCapabilities | null = null;
   documents: SpreadsheetDocument[] = [];
   selected: SpreadsheetDocument | null = null;
   upload: File | null = null;
   lastProposal: SpreadsheetProposalResult | null = null;
+  proposalJob: SpreadsheetProposalJob | null = null;
   feedback: SpreadsheetFeedbackEvent | null = null;
   privacyPreview: SpreadsheetPrivacyPreview | null = null;
   consent: SpreadsheetTrainingConsent | null = null;
   dataset: SpreadsheetDataset | null = null;
   inferenceProposal: SpreadsheetInferenceProposal | null = null;
   training: SpreadsheetTrainingAdmission | null = null;
+  rangeSelection: SpreadsheetRangeSelection | null = null;
+  selectedValidator: Record<string, unknown> | null = null;
+  private pendingActions: Array<Record<string, unknown>> = [];
+  private pendingValidators: Array<Record<string, unknown>> = [];
+  hubEndpoint = '';
+  viewerSynchronized = false;
+  automaticApply = true;
+  datasetWarningFilter = '';
+  private proposalExecution: Subscription | null = null;
   title = 'Automatic Workbook';
   cell = 'A1';
   value = '42';
@@ -190,9 +264,12 @@ export class SpreadsheetStudioPageComponent implements OnInit {
   ngOnInit(): void {
     const hub = this.hubUrl();
     if (!hub) { this.error = 'Kein Hub konfiguriert.'; return; }
+    this.hubEndpoint = hub;
     this.api.capabilities(hub).subscribe({ next: value => this.capabilities = value, error: error => this.fail(error) });
     this.load();
   }
+
+  ngOnDestroy(): void { this.proposalExecution?.unsubscribe(); }
 
   capabilityMessage(): string {
     if (!this.capabilities) return '';
@@ -254,25 +331,49 @@ export class SpreadsheetStudioPageComponent implements OnInit {
 
   validCell(): boolean { return /^[A-Z]{1,3}[1-9][0-9]{0,6}$/.test(this.cell.trim().toUpperCase()); }
 
+  canPrepareProposal(): boolean {
+    return Boolean(this.selected
+      && this.validCell()
+      && this.viewerSynchronized
+      && this.isCurrentVersion()
+      && !(this.selected.unsupported_objects || []).length);
+  }
+
+  useDocumentVersion(document: SpreadsheetDocument): void {
+    this.selected = document;
+    this.viewerSynchronized = false;
+    this.lastProposal = null;
+    this.rangeSelection = null;
+    this.selectedValidator = null;
+    this.clearStatus();
+  }
+
+  useRange(selection: SpreadsheetRangeSelection): void {
+    this.rangeSelection = selection;
+    this.cell = selection.start;
+    this.selectedValidator = null;
+  }
+
   execute(): void {
     if (!this.selected || !this.validCell()) return;
     const actionValue = Number.isFinite(Number(this.value)) && this.value.trim() !== '' ? Number(this.value) : this.value;
-    this.executeActions([{
-      action_id: `ui-action-${crypto.randomUUID()}`,
-      kind: 'set_value',
-      sheet_id: this.selected.snapshot.sheets[0]?.sheet_id,
-      cell: this.cell.trim().toUpperCase(),
-      value: actionValue,
-      formula: null,
-    }], [{
+    const validators = this.selectedValidator ? [this.selectedValidator] : [{
       validator_id: `ui-validator-${crypto.randomUUID()}`,
       kind: 'equals',
-      sheet_id: this.selected.snapshot.sheets[0]?.sheet_id,
+      sheet_id: this.rangeSelection?.sheet_id || this.selected.snapshot.sheets[0]?.sheet_id,
       cell: this.cell.trim().toUpperCase(),
       expected: actionValue,
       minimum: null,
       maximum: null,
-    }]);
+    }];
+    this.prepareActions([{
+      action_id: `ui-action-${crypto.randomUUID()}`,
+      kind: 'set_value',
+      sheet_id: this.rangeSelection?.sheet_id || this.selected.snapshot.sheets[0]?.sheet_id,
+      cell: this.cell.trim().toUpperCase(),
+      value: actionValue,
+      formula: null,
+    }], validators);
   }
 
   recordFeedback(kind: 'accepted' | 'rejected'): void {
@@ -392,7 +493,68 @@ export class SpreadsheetStudioPageComponent implements OnInit {
 
   applyInferenceProposal(): void {
     if (!this.inferenceProposal) return;
-    this.executeActions(this.inferenceProposal.result.actions, []);
+    this.prepareActions(this.inferenceProposal.result.actions, this.selectedValidator ? [this.selectedValidator] : []);
+  }
+
+  applyCandidate(): void {
+    if (!this.lastProposal || !this.pendingActions.length || !this.viewerSynchronized || !this.isCurrentVersion()) return;
+    if (this.lastProposal.base_version !== this.selected?.version
+      || this.lastProposal.base_snapshot_digest !== this.selected.snapshot_digest) return;
+    this.executeActions(this.pendingActions, this.pendingValidators, true);
+  }
+
+  editCandidate(): void {
+    this.lastProposal = null;
+    this.message = 'Candidate verworfen; Eingaben können geändert und erneut geprüft werden.';
+  }
+
+  rejectCandidate(): void {
+    this.lastProposal = null;
+    this.pendingActions = [];
+    this.pendingValidators = [];
+    this.message = 'Candidate lokal verworfen; keine Dokumentversion wurde verändert.';
+  }
+
+  loadMoreDiff(): void {
+    const hub = this.hubUrl();
+    const proposal = this.lastProposal;
+    if (!hub || !proposal?.actual_diff.has_more || this.busy) return;
+    this.begin();
+    this.api.proposalDiff(hub, proposal.proposal_id, proposal.actual_diff.items.length).subscribe({
+      next: page => {
+        if (this.lastProposal?.proposal_id !== proposal.proposal_id) return;
+        this.lastProposal = {
+          ...proposal,
+          actual_diff: {
+            ...page,
+            items: [...proposal.actual_diff.items, ...page.items],
+          },
+        };
+        this.done('Weitere Diff-Seite geladen.');
+      },
+      error: error => this.fail(error),
+    });
+  }
+
+  trainingQuery(): Record<string, string> {
+    if (this.adapterId.trim()) return { tab: 'adapters', adapter_id: this.adapterId.trim() };
+    const jobId = String(this.training?.job['id'] || this.training?.job['job_id'] || '');
+    if (jobId) return { tab: 'jobs', job_id: jobId };
+    if (this.dataset?.dataset_id) return { tab: 'datasets', dataset_id: this.dataset.dataset_id };
+    return { tab: 'adapters' };
+  }
+
+  splitRows(): Array<{ name: string; count: number }> {
+    return Object.entries(this.dataset?.split_counts || {}).map(([name, count]) => ({ name, count }));
+  }
+
+  filteredDatasetWarnings(): string[] {
+    const filter = this.datasetWarningFilter.trim().toLowerCase();
+    const warnings = [
+      ...(this.dataset?.split_lock?.distribution_warnings || []),
+      ...(this.dataset?.readiness.reason_codes || []),
+    ];
+    return [...new Set(warnings)].filter(warning => !filter || warning.toLowerCase().includes(filter));
   }
 
   downloadOriginal(): void {
@@ -438,15 +600,23 @@ export class SpreadsheetStudioPageComponent implements OnInit {
     });
   }
 
-  formulaText(formula: Record<string, unknown>): string {
-    return String(formula['expression'] || formula['formula'] || JSON.stringify(formula));
+  private prepareActions(actions: Array<Record<string, unknown>>, validators: Array<Record<string, unknown>>): void {
+    this.pendingActions = actions.map(action => ({ ...action }));
+    this.pendingValidators = validators.map(validator => ({ ...validator }));
+    this.executeActions(this.pendingActions, this.pendingValidators, false);
   }
 
-  private executeActions(actions: Array<Record<string, unknown>>, validators: Array<Record<string, unknown>>): void {
+  private executeActions(
+    actions: Array<Record<string, unknown>>,
+    validators: Array<Record<string, unknown>>,
+    automaticPromotion: boolean,
+  ): void {
     const hub = this.hubUrl();
     if (!hub || !this.selected) return;
+    this.proposalExecution?.unsubscribe();
+    this.proposalJob = null;
     this.begin();
-    this.api.execute(hub, {
+    this.proposalExecution = this.proposals.execute(hub, {
       schema: 'ananta.spreadsheet-proposal.v1',
       proposal_id: `proposal-${crypto.randomUUID()}`,
       document_id: this.selected.document_id,
@@ -454,22 +624,41 @@ export class SpreadsheetStudioPageComponent implements OnInit {
       base_snapshot_digest: this.selected.snapshot_digest,
       actions,
       validators,
-      automatic_promotion: true,
+      automatic_promotion: automaticPromotion,
     }).subscribe({
-      next: result => {
-        this.lastProposal = result;
-        this.inferenceProposal = null;
-        this.feedback = null;
-        this.privacyPreview = null;
-        this.consent = null;
-        this.dataset = null;
-        this.done(result.state === 'promoted'
-          ? `Automatisch als Version ${result.promoted_version} promoviert.`
-          : result.reason_codes.join(', ') || result.state);
-        this.load(this.selected?.document_id);
+      next: event => {
+        if (event.kind === 'job') {
+          this.proposalJob = event.job;
+          this.message = `Proposal-Job ${event.job.status}; automatische Hub-Ausführung läuft.`;
+        } else {
+          this.acceptProposalResult(event.result, automaticPromotion);
+        }
       },
       error: error => this.fail(error),
     });
+  }
+
+  private acceptProposalResult(result: SpreadsheetProposalResult, automaticPromotion: boolean): void {
+    this.lastProposal = result;
+    this.proposalJob = null;
+    this.inferenceProposal = null;
+    this.feedback = null;
+    this.privacyPreview = null;
+    this.consent = null;
+    this.dataset = null;
+    if (!automaticPromotion && result.state === 'candidate_ready' && this.automaticApply) {
+      this.message = 'Candidate validiert; digestgebundene automatische Promotion läuft.';
+      this.applyCandidate();
+      return;
+    }
+    this.done(result.state === 'promoted'
+      ? `Automatisch als Version ${result.promoted_version} promoviert.`
+      : result.reason_codes.join(', ') || result.state);
+    if (result.state === 'promoted') {
+      this.pendingActions = [];
+      this.pendingValidators = [];
+      this.load(this.selected?.document_id);
+    }
   }
 
   private loadPrivacyPreview(eventId: string): void {
@@ -490,12 +679,27 @@ export class SpreadsheetStudioPageComponent implements OnInit {
 
   private resetLearningState(): void {
     this.lastProposal = null;
+    this.proposalJob = null;
+    this.proposalExecution?.unsubscribe();
     this.feedback = null;
     this.privacyPreview = null;
     this.consent = null;
     this.dataset = null;
     this.inferenceProposal = null;
     this.training = null;
+    this.rangeSelection = null;
+    this.selectedValidator = null;
+    this.pendingActions = [];
+    this.pendingValidators = [];
+    this.viewerSynchronized = false;
+  }
+
+  private isCurrentVersion(): boolean {
+    if (!this.selected) return false;
+    const current = this.documents.find(item => item.document_id === this.selected?.document_id);
+    return Boolean(current
+      && current.version === this.selected.version
+      && current.snapshot_digest === this.selected.snapshot_digest);
   }
 
   private hubUrl(): string { return this.agents.list().find(agent => agent.role === 'hub')?.url || ''; }

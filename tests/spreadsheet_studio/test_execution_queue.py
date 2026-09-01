@@ -105,6 +105,36 @@ def test_queue_service_projects_exact_assignment_to_worker_job_and_lease(tmp_pat
     assert len(worker_jobs.created) == 1
 
 
+def test_public_job_projection_is_tenant_and_document_owner_bound(tmp_path) -> None:
+    _, _, service, _, _, document = _services(tmp_path)
+    queued = service.execute_proposal(
+        tenant_id="tenant-a",
+        principal_id="owner-a",
+        proposal=proposal(document),
+    )
+
+    visible = service.get_job(
+        tenant_id="tenant-a",
+        principal_id="owner-a",
+        job_id=queued["job_id"],
+    )
+
+    assert visible["status"] == "leased"
+    assert visible["document_id"] == "document-a"
+    with pytest.raises(PermissionError, match="owner_required"):
+        service.get_job(
+            tenant_id="tenant-a",
+            principal_id="owner-b",
+            job_id=queued["job_id"],
+        )
+    with pytest.raises(KeyError, match="execution_job_not_found"):
+        service.get_job(
+            tenant_id="tenant-b",
+            principal_id="owner-a",
+            job_id=queued["job_id"],
+        )
+
+
 def test_queue_rejects_mutated_replay_and_persisted_assignment_tampering(tmp_path) -> None:
     engine, queue, service, _, _, document = _services(tmp_path)
     payload = proposal(document)

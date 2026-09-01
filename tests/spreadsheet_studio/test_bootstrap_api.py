@@ -121,6 +121,33 @@ def test_adapter_admission_route_is_hub_owned_and_idempotency_bound(app, client,
     assert captured["idempotency_key"] == "adapter-admission-one"
 
 
+def test_proposal_job_route_is_hub_owned_and_principal_bound(app, client, admin_auth_header) -> None:
+    captured = {}
+
+    class Jobs:
+        def get_job(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "schema": "ananta.spreadsheet-execution-job.v1",
+                "job_id": "spreadsheet-job-one",
+                "document_id": "document-one",
+                "status": "leased",
+                "human_intervention_required": False,
+            }
+
+    app.extensions["spreadsheet_proposal_execution_service"] = Jobs()
+    response = client.get(
+        "/api/spreadsheet-studio/proposal-jobs/spreadsheet-job-one",
+        headers=admin_auth_header,
+    )
+
+    assert response.status_code == 200
+    assert response.get_json()["data"]["status"] == "leased"
+    assert captured["job_id"] == "spreadsheet-job-one"
+    assert captured["tenant_id"].startswith("tenant-")
+    assert captured["principal_id"].startswith("principal-")
+
+
 def test_disabled_capability_is_observable_without_service(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path, enabled=False, automatic=False)
     response = client.get("/api/spreadsheet-studio/capabilities", headers=admin_auth_header)
@@ -195,6 +222,12 @@ def test_api_runs_document_to_automatic_promotion_without_human(app, client, adm
     )
     assert original.status_code == 200
     assert original.get_json()["data"]["snapshot"]["sheets"][0]["cells"][0]["value"] == 1
+    historical_viewport = client.get(
+        "/api/spreadsheet-studio/documents/api-document/versions/1/viewport?sheet_id=sheet-one&start=A1&end=A2&limit=1",
+        headers=admin_auth_header,
+    )
+    assert historical_viewport.status_code == 200
+    assert historical_viewport.get_json()["data"]["snapshot_digest"] == document["snapshot_digest"]
 
 
 def test_api_malformed_and_cross_principal_access_fail_closed(app, client, admin_auth_header, tmp_path) -> None:
