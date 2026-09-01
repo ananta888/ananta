@@ -91,6 +91,7 @@ export const APP_ROUTE_META: Record<string, AppRouteMeta> = {
   teams: { label: 'Teams', area: 'Configure', navGroup: 'Konfiguration', navOrder: 20, expertOnly: true },
   organizations: { label: 'Organisationen', area: 'Configure', navGroup: 'Konfiguration', navOrder: 21, expertOnly: true, projectScoped: true },
   'audit-log': { label: 'Audit-Logs', area: 'System', navGroup: 'Konfiguration', navOrder: 30, adminOnly: true, expertOnly: true },
+  'composite-risk-review': { label: 'Composite Risk Review', area: 'System', navGroup: 'Konfiguration', navOrder: 30.5, adminOnly: true, expertOnly: true },
   'user-management': { label: 'Benutzerverwaltung', area: 'System', navGroup: 'Konfiguration', navOrder: 31, adminOnly: true, expertOnly: true },
   'admin-diagnostics': { label: 'Admin-Diagnose', area: 'System', navGroup: 'Konfiguration', navOrder: 32, adminOnly: true, expertOnly: true },
   'role-audit': { label: 'Rollenänderungen', area: 'System', navGroup: 'Konfiguration', navOrder: 33, adminOnly: true, expertOnly: true },

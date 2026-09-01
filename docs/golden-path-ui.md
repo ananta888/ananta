@@ -44,3 +44,12 @@ Messpfad (manuell pruefbar):
 4. Zeit stoppen, sobald "`Tasks erstellt`" erscheint und ein Goal verlinkt ist.
 
 Der Zielwert gilt als erreicht, wenn der Lite-Stack bereits laeuft und der Nutzer ohne Expertenoptionen vom Dashboard bis zum ersten sichtbaren Goal-/Task-Ergebnis kommt.
+
+## Optionales Composite-Risk-Review-Panel
+
+Das Admin-Panel `/composite-risk-review` ist bewusst kein Teil des normalen
+Goal-Golden-Paths. Es wird explizit geoeffnet, nimmt einen Review-Payload als
+JSON entgegen und zeigt Warnhinweis, Indicator-Evidence und automatische
+Empfehlung ohne Gruen-/Rot-Sicherheitsampel. Es blockiert keinen Task und
+erteilt keine Freigabe. Derselbe Review ist vollstaendig headless ueber API
+oder CLI moeglich; die UI ist keine technische Voraussetzung.

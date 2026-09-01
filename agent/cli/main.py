@@ -39,6 +39,7 @@ DOMAIN_COMMANDS = (
     "project",
     "rag",
     "repair",
+    "security",
     "dev",
     "share",
     "text-quality",
@@ -60,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
             "  hub <action>     — status\n"
             "  worker <action>  — list, status\n"
             "  runtime <action> — profiles plus authenticated operations/run views\n"
+            "  security <action> — explicit, headless security reviews\n"
             "\n"
             "Developer/CI commands (not for end-users):\n"
             "  dev <action>     — acceptance, check, audit, validate, smoke, benchmark, e2e\n"

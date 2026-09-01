@@ -18,6 +18,7 @@ from pydantic_settings import (
     SettingsConfigDict,
 )
 
+from agent.composite_risk_review_contract import COMPOSITE_RISK_REVIEW_WARNING
 from agent.config_bootstrap import (
     SecretKeyConfigurationError as SecretKeyConfigurationError,
 )
@@ -204,6 +205,18 @@ class Settings(BaseSettings):
     feature_history_enabled: bool = Field(default=True, validation_alias="FEATURE_HISTORY_ENABLED")
     feature_load_balancing_enabled: bool = Field(default=True, validation_alias="FEATURE_LOAD_BALANCING_ENABLED")
     feature_robust_http_enabled: bool = Field(default=True, validation_alias="FEATURE_ROBUST_HTTP_ENABLED")
+    composite_risk_review_enabled: bool = Field(
+        default=False,
+        validation_alias="COMPOSITE_RISK_REVIEW_ENABLED",
+    )
+    composite_risk_review_explicit_only: bool = Field(
+        default=True,
+        validation_alias="COMPOSITE_RISK_REVIEW_EXPLICIT_ONLY",
+    )
+    composite_risk_review_warning_text: str = Field(
+        default=COMPOSITE_RISK_REVIEW_WARNING,
+        validation_alias="COMPOSITE_RISK_REVIEW_WARNING_TEXT",
+    )
     feature_angular_kanban_enabled: bool = Field(
         default=False,
         validation_alias="FEATURE_ANGULAR_KANBAN_ENABLED",
@@ -1010,6 +1023,13 @@ class Settings(BaseSettings):
         default="/project-workspaces",
         validation_alias="ANANTA_WORKSPACE_ROOT",
     )
+
+    @field_validator("composite_risk_review_warning_text")
+    @classmethod
+    def validate_composite_risk_review_warning_text(cls, value: str) -> str:
+        if str(value or "").strip() != COMPOSITE_RISK_REVIEW_WARNING:
+            raise ValueError("composite_risk_review_warning_text_must_preserve_mandatory_warning")
+        return COMPOSITE_RISK_REVIEW_WARNING
 
     @field_validator("lmstudio_api_mode")
     @classmethod

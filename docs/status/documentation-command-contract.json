@@ -43,6 +43,7 @@
         "repair",
         "dev",
         "share",
+        "security",
         "ssh"
       ],
       "compatibility_commands": ["goal", "goals"]

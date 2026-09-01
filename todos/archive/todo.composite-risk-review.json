@@ -5,7 +5,7 @@
   "track": "composite-risk-review",
   "created": "2026-06-10",
   "updated": "2026-09-01",
-  "status": "todo",
+  "status": "done",
   "purpose": "Kleines, separates und explizit aktivierbares Feature fuer Composite Risk Review: Ananta soll Task-Ketten optional auf erklaerbare Risiko-Indikatoren pruefen, ohne vollstaendige Absichtserkennung zu behaupten.",
   "goal": "Ein optionaler Review-Layer, der nur bei expliziter Verwendung laeuft, Warnhinweise erzeugt und auditierbare automatische Folgeaktionen empfehlen kann. Menschliche Einsicht bleibt optional und ist weder fuer Tests noch fuer einen produktiven Headless-Lauf erforderlich. Das Feature darf keine Sicherheitsgarantie geben und darf nicht als automatische Composite Intent Detection vermarktet werden.",
   "non_goals": [
@@ -56,25 +56,25 @@
     {
       "id": "CRR-M1",
       "title": "Doku und Grenzen festlegen",
-      "status": "todo",
+      "status": "done",
       "task_ids": ["CRR-001", "CRR-002"]
     },
     {
       "id": "CRR-M2",
       "title": "Optionalen Review-Service bauen",
-      "status": "todo",
+      "status": "done",
       "task_ids": ["CRR-003", "CRR-004", "CRR-005"]
     },
     {
       "id": "CRR-M3",
       "title": "Explizite Nutzung ueber API/CLI/UI vorbereiten",
-      "status": "todo",
+      "status": "done",
       "task_ids": ["CRR-006", "CRR-007", "CRR-008"]
     },
     {
       "id": "CRR-M4",
       "title": "Tests und Acceptance absichern",
-      "status": "todo",
+      "status": "done",
       "task_ids": ["CRR-009", "CRR-010"]
     }
   ],
@@ -83,7 +83,8 @@
       "id": "CRR-001",
       "title": "Composite Risk Review dokumentieren",
       "type": "documentation",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "low",
       "target_files": ["docs/security/composite-risk-review.md", "README.md"],
@@ -98,7 +99,8 @@
       "id": "CRR-002",
       "title": "Nicht-Ziele als harte Produktgrenze festhalten",
       "type": "security-design",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "target_files": ["docs/security/composite-risk-review.md"],
@@ -114,7 +116,8 @@
       "id": "CRR-003",
       "title": "Konfiguration fuer explizite Aktivierung einfuehren",
       "type": "configuration",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "low",
       "target_files": ["agent/config.py"],
@@ -129,7 +132,8 @@
       "id": "CRR-004",
       "title": "Minimalen CompositeRiskReviewService implementieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
       "target_files": ["agent/services/composite_risk_review_service.py"],
@@ -144,7 +148,8 @@
       "id": "CRR-005",
       "title": "Kleine erklaerbare Risiko-Indikatoren definieren",
       "type": "implementation",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
       "target_files": ["agent/services/composite_risk_review_service.py", "docs/security/composite-risk-review.md"],
@@ -159,7 +164,8 @@
       "id": "CRR-006",
       "title": "Expliziten API-Endpunkt bereitstellen",
       "type": "api",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
       "target_files": ["agent/routes/security/composite_risk_review.py", "agent/bootstrap/routes.py"],
@@ -175,7 +181,8 @@
       "id": "CRR-007",
       "title": "CLI-Kommando als explizite Nutzung vorbereiten",
       "type": "cli",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
       "target_files": ["agent/cli/commands/security.py", "agent/cli/commands/__init__.py", "agent/cli/main.py", "docs/cli/commands.md"],
@@ -191,7 +198,8 @@
       "id": "CRR-008",
       "title": "UI nur als separates Review-Panel anbieten",
       "type": "ui",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P1",
       "risk": "low",
       "target_files": ["frontend-angular/src/app/features/system/composite-risk-review.component.ts", "frontend-angular/src/app/services/composite-risk-review-api.service.ts", "frontend-angular/src/app/features/system/system.routes.ts", "frontend-angular/src/app/models/route-metadata.ts", "docs/golden-path-ui.md"],
@@ -207,7 +215,8 @@
       "id": "CRR-009",
       "title": "Unit-Tests fuer Service und Warnhinweis schreiben",
       "type": "test",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "low",
       "target_files": ["tests/test_composite_risk_review.py"],
@@ -222,7 +231,8 @@
       "id": "CRR-010",
       "title": "Regression sicherstellen: Feature bleibt optional",
       "type": "test",
-      "status": "todo",
+      "status": "done",
+      "progress_percent": 100,
       "priority": "P0",
       "risk": "high",
       "target_files": ["tests/", "agent/config.py"],
@@ -238,12 +248,13 @@
   "tasks_status_summary": {
     "total": 10,
     "by_status": {
-      "todo": 10,
+      "todo": 0,
       "in_progress": 0,
+      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 10
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 4,
       "P1": 6
@@ -253,16 +264,16 @@
       "high": 2
     },
     "critical_path": {
-      "total": 4,
+      "total": 0,
       "done": 0,
-      "remaining": 4
+      "remaining": 0
     },
     "milestones": {
       "total": 4,
-      "todo": 4,
+      "todo": 0,
       "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   }
 }

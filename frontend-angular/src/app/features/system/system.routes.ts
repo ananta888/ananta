@@ -13,6 +13,7 @@ export const systemRoutes: Routes = [
   { path: 'instruction-layers', data: routeDataFor('instruction-layers'), loadComponent: () => import('../../components/instruction-layers-workbench.component').then(m => m.InstructionLayersWorkbenchComponent) },
   { path: 'settings', data: routeDataFor('settings'), loadComponent: () => import('../../components/settings.component').then(m => m.SettingsComponent) },
   { path: 'audit-log', canActivate: [adminGuard], data: routeDataFor('audit-log'), loadComponent: () => import('../../components/audit-log.component').then(m => m.AuditLogComponent) },
+  { path: 'composite-risk-review', canActivate: [adminGuard], data: routeDataFor('composite-risk-review'), loadComponent: () => import('./composite-risk-review.component').then(m => m.CompositeRiskReviewComponent) },
   { path: 'agents', data: routeDataFor('agents'), loadComponent: () => import('../../components/agents-list.component').then(m => m.AgentsListComponent) },
   { path: 'worker-pool', data: routeDataFor('worker-pool'), loadComponent: () => import('../../components/worker-pool-dashboard.component').then(m => m.WorkerPoolDashboardComponent) },
   { path: 'worker-loop-diagnostics', data: routeDataFor('worker-loop-diagnostics'), loadComponent: () => import('../../components/worker-loop-diagnostics.component').then(m => m.WorkerLoopDiagnosticsComponent) },

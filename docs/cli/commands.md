@@ -269,6 +269,25 @@ Hinweise:
 
 ---
 
+## `ananta security` — explizite Headless-Reviews
+
+```bash
+COMPOSITE_RISK_REVIEW_ENABLED=true \
+  ananta security composite-risk-review --input review-payload.json
+
+# Nur maschinenlesbare Ausgabe fuer CI/Automation
+ananta security composite-risk-review --input review-payload.json --json
+```
+
+Der Input ist ein JSON-Objekt mit optionalen Feldern `goal`, `tasks`,
+`artifacts_metadata` und `audit_events`. Das Kommando setzt den expliziten
+Request-Marker automatisch, fragt niemals interaktiv nach und liefert bei
+ungueltigem Input Exit-Code 2. Ergebnisse verwenden `low`, `medium`, `high`
+oder `insufficient_context`; `recommended_action` ist eine Audit- oder
+automatische Folgepruefung und niemals eine Sicherheitsfreigabe. Der
+verpflichtende Warnhinweis wird bei der menschenlesbaren Ausgabe immer vor
+dem Ergebnis angezeigt.
+
 ## Entwickler/CI-Befehle (`ananta dev`)
 
 Nicht fuer Endnutzer. Ersetzen `python scripts/*.py` Aufrufe:
