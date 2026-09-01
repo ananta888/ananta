@@ -84,7 +84,7 @@ interface ViewportRequest {
             <span>{{ cells.length }} / {{ viewport.total }} belegte Zellen geladen</span>
             <span>{{ viewport.backend_cell_count }} Zellen im vollständigen Backend-Artefakt</span>
           </div>
-          <div class="virtual-grid" role="grid" tabindex="0"
+          <div class="virtual-grid" role="grid" aria-label="Workbook-Zellen" tabindex="0"
             [attr.aria-rowcount]="viewport.total"
             [attr.aria-busy]="loading"
             [style.--viewer-zoom]="zoom / 100"

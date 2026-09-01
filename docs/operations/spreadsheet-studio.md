@@ -96,3 +96,24 @@ All steps below are automatable; no test or normal production run requires a per
 
 Production rollout additionally requires broader workbook fidelity, privacy/consent, dataset/training gates and
 exact Hub-provided `SRC_*`/`RUN_*` evidence. A mock pass cannot satisfy those gates.
+
+## Closed release gates
+
+`config/release-gates/spreadsheet-studio.v1.json` is the closed, versioned release profile. Run every available
+gate and write the digest-bound report with:
+
+```text
+python scripts/run_spreadsheet_studio_release_gate.py
+```
+
+The required CPU contract/property, security-negative, real LibreOffice file, Docker recovery and real Chromium
+accessibility groups fail the release when unavailable, skipped, flaky or failed. Each group can be selected with
+`--group <gate-id>`. Commands execute without a shell, use bounded timeouts and redact JWT/Bearer material from
+captured log tails. The browser group reserves an isolated local port and runs without retries.
+
+The NVIDIA LoRA smoke is optional and remains `not_run` unless all of
+`ANANTA_RUN_SPREADSHEET_GPU_GATE=1`, `ANANTA_LORA_TRAINING_SMOKE_MODEL_DIR`,
+`ANANTA_LORA_WORKER_IMAGE_SHA256`, `ANANTA_UNSLOTH_COMPATIBILITY_ENTRY`, `ANANTA_UNSLOTH_SRC_IDS` and
+`ANANTA_UNSLOTH_RUN_IDS` are supplied. Only externally supplied `SRC_*` and `RUN_*` IDs are accepted; absence is
+never converted into a pass. Once configured, the same command runs three NVIDIA-backed repetitions with no
+mock fallback. Neither required nor optional gates require a person during execution.

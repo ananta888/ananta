@@ -1,0 +1,107 @@
+{
+  "schema": "ananta.spreadsheet-studio-release-profile.v1",
+  "profile_id": "spreadsheet-studio-production-v1",
+  "test_matrix": "docs/research/spreadsheet-studio/test-matrix.v1.json",
+  "input_paths": [
+    "docs/research/spreadsheet-studio/decision-pack.v1.json",
+    "docs/research/spreadsheet-studio/source-manifest.v1.json",
+    "docs/research/spreadsheet-studio/test-matrix.v1.json",
+    "schemas/spreadsheet-studio/release-profile.v1.json",
+    "schemas/spreadsheet-studio/release-result.v1.json",
+    "todos/archiv/todo.track.spreadsheet-studio-production-hardening.json"
+  ],
+  "gates": [
+    {
+      "id": "unit_contract_property",
+      "environment": "cpu",
+      "required": true,
+      "timeout_seconds": 900,
+      "commands": [
+        {
+          "cwd": ".",
+          "argv": ["{python}", "-m", "pytest", "-q", "-n", "auto", "-m", "not integration", "tests/spreadsheet_studio", "--junitxml={junit}"],
+          "evidence_kind": "junit"
+        },
+        {"cwd": ".", "argv": ["{python}", "scripts/check_spreadsheet_studio_boundaries.py"], "evidence_kind": "exit_code"},
+        {"cwd": ".", "argv": ["{python}", "scripts/check_spreadsheet_studio_research_pack.py"], "evidence_kind": "exit_code"}
+      ]
+    },
+    {
+      "id": "security_negative",
+      "environment": "cpu",
+      "required": true,
+      "timeout_seconds": 600,
+      "commands": [
+        {
+          "cwd": ".",
+          "argv": ["{python}", "-m", "pytest", "-q", "-n", "auto", "tests/spreadsheet_studio/test_artifact_import.py::test_artifact_inspector_rejects_spoofing_traversal_active_content_and_csv_injection", "tests/spreadsheet_studio/test_worker_runtime_security.py", "tests/spreadsheet_studio/test_worker_ingress.py", "tests/spreadsheet_studio/test_observability_operations.py", "--junitxml={junit}"],
+          "evidence_kind": "junit"
+        }
+      ]
+    },
+    {
+      "id": "libreoffice_real_file",
+      "environment": "libreoffice",
+      "required": true,
+      "timeout_seconds": 600,
+      "commands": [
+        {
+          "cwd": ".",
+          "argv": ["{python}", "-m", "pytest", "-q", "-m", "integration", "tests/spreadsheet_studio/test_artifact_import.py", "tests/spreadsheet_studio/test_libreoffice_worker.py", "--junitxml={junit}"],
+          "environment": {"RUN_INTEGRATION_TESTS": "1"},
+          "evidence_kind": "junit"
+        }
+      ]
+    },
+    {
+      "id": "container_recovery",
+      "environment": "docker",
+      "required": true,
+      "timeout_seconds": 600,
+      "commands": [
+        {
+          "cwd": ".",
+          "argv": ["docker", "compose", "-f", "docker/compose-next/compose.spreadsheet-studio.yml", "config", "--quiet"],
+          "environment": {
+            "ANANTA_SPREADSHEET_WORKER_INTERNAL_TOKEN": "release-gate-only-token-00000000",
+            "INITIAL_ADMIN_PASSWORD": "release-gate-only-password-00000000"
+          },
+          "evidence_kind": "exit_code"
+        },
+        {
+          "cwd": ".",
+          "argv": ["{python}", "-m", "pytest", "-q", "tests/spreadsheet_studio/test_execution_queue.py", "tests/spreadsheet_studio/test_worker_ingress.py", "tests/spreadsheet_studio/test_worker_runtime_security.py", "tests/spreadsheet_studio/test_observability_operations.py", "--junitxml={junit}"],
+          "evidence_kind": "junit"
+        }
+      ]
+    },
+    {
+      "id": "angular_accessibility_e2e",
+      "environment": "browser",
+      "required": true,
+      "timeout_seconds": 900,
+      "commands": [
+        {
+          "cwd": "frontend-angular",
+          "argv": ["npx", "playwright", "test", "tests/spreadsheet-studio-accessibility.spec.ts", "--project=chromium", "--retries=0", "--reporter=json"],
+          "environment": {"RUN_SPREADSHEET_STUDIO_A11Y_E2E": "1", "E2E_BROWSERS": "chromium", "E2E_WORKERS": "1", "E2E_RESULTS_DIR": "{gate_tmp}/browser-results", "PLAYWRIGHT_JSON_OUTPUT_NAME": "{playwright_json}"},
+          "evidence_kind": "playwright_json"
+        }
+      ]
+    },
+    {
+      "id": "gpu_lora_smoke",
+      "environment": "optional_nvidia",
+      "required": false,
+      "timeout_seconds": 7200,
+      "required_environment": ["ANANTA_RUN_SPREADSHEET_GPU_GATE", "ANANTA_LORA_TRAINING_SMOKE_MODEL_DIR", "ANANTA_LORA_WORKER_IMAGE_SHA256", "ANANTA_UNSLOTH_COMPATIBILITY_ENTRY", "ANANTA_UNSLOTH_SRC_IDS", "ANANTA_UNSLOTH_RUN_IDS"],
+      "commands": [
+        {
+          "cwd": ".",
+          "argv": ["{python}", "scripts/run_lora_training_smoke.py", "--skip-mock", "--require-nvidia", "--profile", "unsloth", "--repeat", "3", "--out", "{json_result}"],
+          "evidence_kind": "json_status"
+        }
+      ]
+    }
+  ]
+}

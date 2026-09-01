@@ -93,7 +93,7 @@
         "SSP2-011",
         "SSP2-012"
       ],
-      "status": "in_progress"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -655,7 +655,7 @@
     {
       "id": "SSP2-012",
       "title": "Automatische Security-, LibreOffice-, Browser- und optionale GPU-Release-Gates",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -670,12 +670,41 @@
         "SSFR-PLAN-003",
         "SSFR-PLAN-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_audit": {
+          "source_refs": [
+            "SRC_0001",
+            "SRC_0002",
+            "SRC_0003",
+            "SRC_0004",
+            "SRC_0005",
+            "SRC_0006",
+            "SRC_0007",
+            "SRC_0008"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "profile": "config/release-gates/spreadsheet-studio.v1.json",
+        "runner": "scripts/run_spreadsheet_studio_release_gate.py",
+        "contracts": [
+          "schemas/spreadsheet-studio/release-profile.v1.json",
+          "schemas/spreadsheet-studio/release-result.v1.json"
+        ],
+        "ci": ".github/workflows/spreadsheet-studio-release-gate.yml",
+        "tests": [
+          "tests/test_spreadsheet_studio_release_gate.py",
+          "frontend-angular/tests/spreadsheet-studio-accessibility.spec.ts"
+        ],
+        "result": "CPU 88/88, security 14/14, LibreOffice 6/6, container recovery 18/18 and real Chromium 1/1 passed; optional NVIDIA gate reported not_run because external model/image/evidence inputs were absent"
+      }
     }
   ],
   "critical_path_tasks": [
@@ -692,13 +721,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 1,
+      "todo": 0,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 11
+      "done": 12
     },
-    "progress_percent_done": 91.7,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -712,24 +741,24 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 8,
-      "remaining": 1
+      "done": 9,
+      "remaining": 0
     },
     "milestones": {
       "total": 3,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 1,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 11
+    "done": 12
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
@@ -740,6 +769,7 @@
     "SSP2-009 makes execution-backed base-versus-adapter evaluation, digest-bound admission and consent-driven adapter quarantine automatic Hub policies.",
     "SSP2-010 adds project-scoped accessible virtual viewports, closed validator construction, stale-safe candidate review and automatic queue-to-promotion UX.",
     "SSP2-011 adds content-safe end-to-end correlation, bounded SLO metrics, automatic stale-job recovery, reference-aware artifact retention and executable recovery runbooks.",
-    "All gates are automatic; human approval is never a test prerequisite."
+    "All gates are automatic; human approval is never a test prerequisite.",
+    "SSP2-012 closes the versioned release profile with required CPU, security, LibreOffice, container and real-browser gates plus an honest optional NVIDIA not_run path."
   ]
 }

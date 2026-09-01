@@ -67,7 +67,7 @@ DECISION_PACK = RESEARCH_DIR / "decision-pack.v1.json"
 SOURCE_MANIFEST = RESEARCH_DIR / "source-manifest.v1.json"
 THREAT_MODEL = RESEARCH_DIR / "threat-model.v1.json"
 TEST_MATRIX = RESEARCH_DIR / "test-matrix.v1.json"
-PHASE2_TRACK = ROOT / "todos" / "todo.track.spreadsheet-studio-production-hardening.json"
+PHASE2_TRACK = ROOT / "todos" / "archiv" / "todo.track.spreadsheet-studio-production-hardening.json"
 
 
 SOURCE_REFS_BY_PREFIX = {
@@ -385,7 +385,7 @@ def _prepare_category(seed: dict[str, Any], catalog: dict[str, Any]) -> dict[str
             "gap": sum(1 for value in IMPLEMENTATION.values() if value[1] == "gap"),
             "research_complete": sum(1 for value in IMPLEMENTATION.values() if value[1] == "research_complete"),
         },
-        "phase2_track": "todos/todo.track.spreadsheet-studio-production-hardening.json",
+        "phase2_track": "todos/archiv/todo.track.spreadsheet-studio-production-hardening.json",
     }
     category["meta"]["promotion_status"] = "automatic_policy_promoted"
     category["meta"]["notes"] = [
@@ -717,7 +717,7 @@ def build() -> dict[str, Any]:
         "source_manifest": "docs/research/spreadsheet-studio/source-manifest.v1.json",
         "threat_model": "docs/research/spreadsheet-studio/threat-model.v1.json",
         "test_matrix": "docs/research/spreadsheet-studio/test-matrix.v1.json",
-        "phase2_track": "todos/todo.track.spreadsheet-studio-production-hardening.json",
+        "phase2_track": "todos/archiv/todo.track.spreadsheet-studio-production-hardening.json",
         "items": decisions,
         "promotion": promotion,
     }

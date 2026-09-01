@@ -56,7 +56,7 @@ PACK_PATH = ROOT / "docs" / "research" / "spreadsheet-studio" / "decision-pack.v
 SOURCE_PATH = ROOT / "docs" / "research" / "spreadsheet-studio" / "source-manifest.v1.json"
 THREAT_PATH = ROOT / "docs" / "research" / "spreadsheet-studio" / "threat-model.v1.json"
 TEST_MATRIX_PATH = ROOT / "docs" / "research" / "spreadsheet-studio" / "test-matrix.v1.json"
-TRACK_PATH = ROOT / "todos" / "todo.track.spreadsheet-studio-production-hardening.json"
+TRACK_PATH = ROOT / "todos" / "archiv" / "todo.track.spreadsheet-studio-production-hardening.json"
 TODO_SCHEMA_PATH = ROOT / "todos" / "todo.schema.json"
 TRACK_SCHEMA_PATH = ROOT / "todos" / "todo.track.schema.json"
 

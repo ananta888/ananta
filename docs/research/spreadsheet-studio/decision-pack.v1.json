@@ -5,7 +5,7 @@
   "source_manifest": "docs/research/spreadsheet-studio/source-manifest.v1.json",
   "threat_model": "docs/research/spreadsheet-studio/threat-model.v1.json",
   "test_matrix": "docs/research/spreadsheet-studio/test-matrix.v1.json",
-  "phase2_track": "todos/todo.track.spreadsheet-studio-production-hardening.json",
+  "phase2_track": "todos/archiv/todo.track.spreadsheet-studio-production-hardening.json",
   "items": [
     {
       "id": "SSFR-GND-001",
