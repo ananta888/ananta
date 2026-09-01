@@ -83,7 +83,7 @@
         "SSP2-008",
         "SSP2-009"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "SSP2-M3",
@@ -199,7 +199,7 @@
     {
       "id": "SSP2-004",
       "title": "Erweiterte Workbook-, Formel- und Actual-Diff-Semantik",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -212,12 +212,49 @@
         "SSFR-DOC-002",
         "SSFR-DOC-003"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_check": {
+          "category_item_ids": [
+            "SSFR-GND-002",
+            "SSFR-DOC-002",
+            "SSFR-DOC-003"
+          ],
+          "source_refs": [
+            "SRC_0003",
+            "SRC_0004",
+            "SRC_0006",
+            "SRC_0009",
+            "SRC_0010",
+            "SRC_0011"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "workbook_contract": "ananta_contracts/spreadsheet_studio_v2.py",
+        "formula_contract": "ananta_contracts/spreadsheet_studio.py",
+        "actual_diff": "agent/services/spreadsheet_actual_diff_service.py",
+        "viewport_projection": "agent/services/spreadsheet_viewport_service.py",
+        "schemas": [
+          "schemas/spreadsheet-studio/workbook-snapshot.v2.json",
+          "schemas/spreadsheet-studio/actual-diff.v1.json",
+          "schemas/spreadsheet-studio/workbook-viewport.v1.json"
+        ],
+        "tests": [
+          "tests/spreadsheet_studio/test_rich_workbook_semantics.py",
+          "tests/spreadsheet_studio/test_contracts_and_saga.py",
+          "tests/spreadsheet_studio/test_action_applier.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py",
+          "tests/spreadsheet_studio/test_worker_ingress.py"
+        ],
+        "result": "54 Spreadsheet Studio tests passed, 6 optional LibreOffice tests reported as skipped/not_run; boundary detector passed"
+      }
     },
     {
       "id": "SSP2-005",
@@ -417,13 +454,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 9,
+      "todo": 8,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 3
+      "done": 4
     },
-    "progress_percent_done": 25.0,
+    "progress_percent_done": 33.33,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -442,19 +479,19 @@
     },
     "milestones": {
       "total": 3,
-      "todo": 2,
-      "in_progress": 0,
+      "todo": 1,
+      "in_progress": 1,
       "blocked": 0,
       "done": 1
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 9,
+    "todo_remaining": 8,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 3
+    "done": 4
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",

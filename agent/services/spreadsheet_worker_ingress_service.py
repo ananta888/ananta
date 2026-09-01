@@ -14,6 +14,7 @@ from agent.services.spreadsheet_execution_queue_ports import (
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_worker_capability_service import SpreadsheetWorkerCapabilityService
 from ananta_contracts.spreadsheet_studio import canonical_digest
+from ananta_contracts.spreadsheet_studio_v2 import execution_snapshot
 
 
 class SpreadsheetWorkerIngressService:
@@ -66,7 +67,7 @@ class SpreadsheetWorkerIngressService:
             "worker_job_id": job["worker_job_id"],
             "slot_lease_id": job["slot_lease_id"],
             "assignment_digest": job["assignment_digest"],
-            "snapshot": document["snapshot"],
+            "snapshot": execution_snapshot(document["snapshot"]).to_dict(),
             "actions": proposal["actions"],
             "callback_token": callback_token,
             "human_intervention_required": False,

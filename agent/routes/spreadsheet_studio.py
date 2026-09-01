@@ -115,6 +115,8 @@ def capabilities():
             "automatic_promotion_enabled": False,
             "executor": {"state": "unavailable"},
             "supported_formats": [],
+            "supported_snapshot_schemas": [],
+            "actual_diff_schema": "ananta.spreadsheet-actual-diff.v1",
             "libreoffice_fidelity_verified": False,
             "training_available": False,
             "source_grounding_verified": False,
@@ -184,6 +186,23 @@ def list_documents():
 def get_document(document_id: str):
     return _invoke(
         lambda: _service().get_document(tenant_id=_identity()[0], document_id=document_id, principal_id=_identity()[1])
+    )
+
+
+@spreadsheet_studio_bp.get("/documents/<document_id>/viewport")
+@check_user_auth
+def get_document_viewport(document_id: str):
+    return _invoke(
+        lambda: _service().get_viewport(
+            tenant_id=_identity()[0],
+            document_id=document_id,
+            principal_id=_identity()[1],
+            sheet_id=str(request.args.get("sheet_id") or ""),
+            start=str(request.args.get("start") or "A1"),
+            end=str(request.args.get("end") or "Z100"),
+            offset=int(request.args.get("offset") or 0),
+            limit=int(request.args.get("limit") or 1_000),
+        )
     )
 
 
@@ -280,6 +299,20 @@ def execute_proposal():
         ),
         created=not queued,
         accepted=queued,
+    )
+
+
+@spreadsheet_studio_bp.get("/proposals/<proposal_id>/diff")
+@check_user_auth
+def get_proposal_diff(proposal_id: str):
+    return _invoke(
+        lambda: _service().get_proposal_diff(
+            tenant_id=_identity()[0],
+            proposal_id=proposal_id,
+            principal_id=_identity()[1],
+            offset=int(request.args.get("offset") or 0),
+            limit=int(request.args.get("limit") or 1_000),
+        )
     )
 
 

@@ -156,18 +156,54 @@ def _structural_cells(cells: dict[str, dict[str, Any]], action: Mapping[str, Any
     start = int(action["start_row"] if rows else action["start_column"])
     count = int(action["count"])
     result = {}
-    for address, cell in cells.items():
+
+    def shifted_address(address: str) -> str | None:
         row, column = cell_coordinates(address)
         coordinate = row if rows else column
         if not inserting and start <= coordinate < start + count:
-            continue
+            return None
         if coordinate >= start + (0 if inserting else count):
             coordinate += count if inserting else -count
-        target_address = _cell_address(coordinate if rows else row, column if rows else coordinate)
+        return _cell_address(coordinate if rows else row, column if rows else coordinate)
+
+    for address, cell in cells.items():
+        target_address = shifted_address(address)
+        if target_address is None:
+            continue
         target = copy.deepcopy(cell)
         target["address"] = target_address
+        if target.get("formula") is not None:
+            _shift_formula_references(
+                target["formula"],
+                sheet_id=str(action["sheet_id"]),
+                shifted_address=shifted_address,
+            )
         result[target_address] = target
     return result
+
+
+def _shift_formula_references(value: Any, *, sheet_id: str, shifted_address) -> None:
+    if not isinstance(value, dict):
+        return
+    op = value.get("op")
+    if op == "cell" and value.get("sheet_id") == sheet_id:
+        destination = shifted_address(str(value["cell"]))
+        if destination is None:
+            raise ValueError("spreadsheet_formula_reference_deleted")
+        value["cell"] = destination
+    elif op in {"sum_range", "average_range", "min_range", "max_range"} and value.get("sheet_id") == sheet_id:
+        start, end = shifted_address(str(value["start"])), shifted_address(str(value["end"]))
+        if start is None or end is None:
+            raise ValueError("spreadsheet_formula_reference_deleted")
+        value["start"], value["end"] = start, end
+    elif op == "negate":
+        _shift_formula_references(value.get("expression"), sheet_id=sheet_id, shifted_address=shifted_address)
+    elif op == "if":
+        for field in ("condition", "then", "else"):
+            _shift_formula_references(value.get(field), sheet_id=sheet_id, shifted_address=shifted_address)
+    else:
+        for field in ("left", "right"):
+            _shift_formula_references(value.get(field), sheet_id=sheet_id, shifted_address=shifted_address)
 
 
 __all__ = ["DeterministicSpreadsheetMockExecutionAdapter"]

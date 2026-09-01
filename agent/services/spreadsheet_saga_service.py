@@ -9,16 +9,23 @@ import uuid
 from collections.abc import Mapping
 from typing import Any
 
+from agent.services.spreadsheet_actual_diff_service import SpreadsheetActualDiffService
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_execution_ports import SpreadsheetExecutionPort
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_repository_port import SpreadsheetDocumentRepositoryPort
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
 from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
+from agent.services.spreadsheet_viewport_service import SpreadsheetViewportService
 from ananta_contracts.spreadsheet_studio import (
     SpreadsheetProposalV1,
     WorkbookSnapshotV1,
     require_id,
+)
+from ananta_contracts.spreadsheet_studio_v2 import (
+    execution_snapshot,
+    merge_execution_candidate,
+    parse_workbook_snapshot,
 )
 
 
@@ -31,6 +38,8 @@ class SpreadsheetSagaService:
         executor: SpreadsheetExecutionPort,
         artifact_store: SpreadsheetArtifactStore | None = None,
         validator_engine: SpreadsheetValidatorEngine | None = None,
+        actual_diff_service: SpreadsheetActualDiffService | None = None,
+        viewport_service: SpreadsheetViewportService | None = None,
         training_available: bool = False,
     ) -> None:
         policy.validate()
@@ -39,6 +48,8 @@ class SpreadsheetSagaService:
         self._executor = executor
         self._artifacts = artifact_store
         self._validators = validator_engine or SpreadsheetValidatorEngine()
+        self._actual_diff = actual_diff_service or SpreadsheetActualDiffService()
+        self._viewports = viewport_service or SpreadsheetViewportService()
         self._training_available = bool(training_available)
 
     def capabilities(self) -> dict[str, Any]:
@@ -58,6 +69,11 @@ class SpreadsheetSagaService:
             "automatic_promotion_enabled": self._policy.automatic_promotion_enabled,
             "executor": capability,
             "supported_formats": list(capability.get("supported_formats") or ["canonical_snapshot"]),
+            "supported_snapshot_schemas": [
+                "ananta.spreadsheet-workbook-snapshot.v1",
+                "ananta.spreadsheet-workbook-snapshot.v2",
+            ],
+            "actual_diff_schema": "ananta.spreadsheet-actual-diff.v1",
             "libreoffice_fidelity_verified": bool(
                 capability.get("engine") == "libreoffice-calc" and capability.get("production_fidelity") is True
             ),
@@ -77,7 +93,7 @@ class SpreadsheetSagaService:
     ) -> dict[str, Any]:
         if not self._policy.enabled:
             raise PermissionError("spreadsheet_studio_disabled")
-        parsed = WorkbookSnapshotV1.from_mapping(snapshot)
+        parsed = parse_workbook_snapshot(snapshot)
         normalized_title = str(title or "").strip()
         if not 1 <= len(normalized_title) <= 200:
             raise ValueError("spreadsheet_document_title_invalid")
@@ -177,7 +193,7 @@ class SpreadsheetSagaService:
             return dict(prepared["completed_result"])
         parsed = SpreadsheetProposalV1.from_mapping(prepared["proposal"])
         document = dict(prepared["document"])
-        snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
+        snapshot = execution_snapshot(document["snapshot"])
         source_input = self._source_execution_input(
             tenant_id=tenant_id,
             document=document,
@@ -225,7 +241,10 @@ class SpreadsheetSagaService:
             raise SpreadsheetStoreConflict("spreadsheet_snapshot_digest_conflict")
         if document.get("unsupported_objects"):
             raise PermissionError("spreadsheet_document_unsupported_semantics")
-        snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
+        rich_snapshot = parse_workbook_snapshot(document["snapshot"])
+        snapshot = execution_snapshot(rich_snapshot)
+        if getattr(rich_snapshot, "value", {}).get("unsupported_objects"):
+            raise PermissionError("spreadsheet_document_unsupported_semantics")
         self._policy.admit(snapshot, parsed)
         assignment = {
             "schema": "ananta.spreadsheet-execution-assignment.v1",
@@ -234,7 +253,7 @@ class SpreadsheetSagaService:
             "proposal": parsed.to_dict(),
             "proposal_digest": parsed.digest,
             "document": document,
-            "base_snapshot_digest": snapshot.digest,
+            "base_snapshot_digest": rich_snapshot.digest,
             "source_grounding_verified": False,
             "human_intervention_required": False,
         }
@@ -268,10 +287,17 @@ class SpreadsheetSagaService:
             raise ValueError("spreadsheet_assignment_document_binding_invalid")
         execution = dict(execution)
         candidate_artifact = self._store_result_artifact(tenant_id=tenant_id, execution=execution)
-        candidate = WorkbookSnapshotV1.from_mapping(execution["candidate_snapshot"])
-        if candidate.digest != execution.get("candidate_snapshot_digest"):
+        execution_candidate = WorkbookSnapshotV1.from_mapping(execution["candidate_snapshot"])
+        if execution_candidate.digest != execution.get("candidate_snapshot_digest"):
             raise ValueError("spreadsheet_execution_digest_invalid")
-        validation = self._validators.validate(candidate, parsed.validators)
+        candidate = merge_execution_candidate(
+            base=document["snapshot"],
+            candidate=execution_candidate.to_dict(),
+            actions=parsed.actions,
+            engine_name=str(execution.get("engine") or "unknown-engine"),
+            engine_version=str(execution.get("engine_version") or "unknown-version"),
+        )
+        validation = self._validators.validate(execution_snapshot(candidate), parsed.validators)
         reasons = list(validation["reason_codes"])
         promote = bool(parsed.automatic_promotion and self._policy.automatic_promotion_enabled and validation["passed"])
         state = "promoted" if promote else ("candidate_ready" if validation["passed"] else "rejected")
@@ -287,6 +313,12 @@ class SpreadsheetSagaService:
             "candidate_snapshot": candidate.to_dict(),
             "candidate_snapshot_digest": candidate.digest,
             "diff": execution["diff"],
+            "actual_diff": self._actual_diff.build(
+                before=document["snapshot"],
+                after=candidate.to_dict(),
+                execution_diff=execution["diff"],
+                actions=parsed.actions,
+            ),
             "validation": validation,
             "state": state,
             "reason_codes": reasons,
@@ -355,6 +387,32 @@ class SpreadsheetSagaService:
             raise PermissionError("spreadsheet_document_owner_required")
         return value
 
+    def get_viewport(
+        self,
+        *,
+        tenant_id: str,
+        document_id: str,
+        principal_id: str,
+        sheet_id: str,
+        start: str,
+        end: str,
+        offset: int = 0,
+        limit: int = 1_000,
+    ) -> dict[str, Any]:
+        document = self.get_document(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            principal_id=principal_id,
+        )
+        return self._viewports.project(
+            snapshot=document["snapshot"],
+            sheet_id=sheet_id,
+            start=start,
+            end=end,
+            offset=offset,
+            limit=limit,
+        )
+
     def get_version(
         self,
         *,
@@ -389,6 +447,39 @@ class SpreadsheetSagaService:
     def list_documents(self, *, tenant_id: str, principal_id: str, limit: int = 100) -> dict[str, Any]:
         page = self._store.list_documents(tenant_id, limit=limit)
         return {**page, "items": [item for item in page["items"] if item["owner_id"] == principal_id]}
+
+    def get_proposal_diff(
+        self,
+        *,
+        tenant_id: str,
+        proposal_id: str,
+        principal_id: str,
+        offset: int = 0,
+        limit: int = 1_000,
+    ) -> dict[str, Any]:
+        result = self._store.get_proposal(tenant_id, require_id(proposal_id, "proposal_id"))
+        if result is None:
+            raise KeyError("spreadsheet_proposal_not_found")
+        current = self.get_document(
+            tenant_id=tenant_id,
+            document_id=str(result["document_id"]),
+            principal_id=principal_id,
+        )
+        base = self._store.get_version(
+            tenant_id,
+            str(result["document_id"]),
+            int(result["base_version"]),
+        )
+        if base["owner_id"] != current["owner_id"]:
+            raise RuntimeError("spreadsheet_proposal_owner_integrity_failed")
+        return self._actual_diff.build(
+            before=base["snapshot"],
+            after=result["candidate_snapshot"],
+            execution_diff=list(result.get("diff") or []),
+            actions=list(result.get("actions") or []),
+            offset=offset,
+            limit=limit,
+        )
 
     def download_original(self, *, tenant_id: str, document_id: str, principal_id: str) -> tuple[bytes, dict[str, Any]]:
         if self._artifacts is None:

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/actual-diff.v1.json",
+  "title": "SpreadsheetActualDiffV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "offset", "limit", "total", "has_more", "items", "diff_digest", "source_grounding_verified", "human_intervention_required"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-actual-diff.v1"},
+    "offset": {"type": "integer", "minimum": 0},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "total": {"type": "integer", "minimum": 0},
+    "has_more": {"type": "boolean"},
+    "items": {
+      "type": "array", "maxItems": 1000,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["kind", "object_id", "sheet_id", "cell", "change_kinds", "before", "after", "direct", "action_ids"],
+        "properties": {
+          "kind": {"type": "string"}, "object_id": {"type": "string"},
+          "sheet_id": {"type": ["string", "null"]}, "cell": {"type": ["string", "null"]},
+          "change_kinds": {"type": "array", "items": {"type": "string"}},
+          "before": {}, "after": {}, "direct": {"type": "boolean"},
+          "action_ids": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "diff_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "source_grounding_verified": {"const": false},
+    "human_intervention_required": {"const": false}
+  }
+}

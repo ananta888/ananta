@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/workbook-snapshot.v2.json",
+  "title": "WorkbookSnapshotV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "snapshot_id", "document_version_id", "locale", "timezone", "date_system", "recalc_profile", "engine", "styles", "named_ranges", "tables", "charts", "dependencies", "unsupported_objects", "sheets"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-workbook-snapshot.v2"},
+    "snapshot_id": {"$ref": "#/$defs/id"},
+    "document_version_id": {"$ref": "#/$defs/id"},
+    "locale": {"type": "string"},
+    "timezone": {"type": "string"},
+    "date_system": {"enum": ["1900", "1904"]},
+    "recalc_profile": {"enum": ["automatic", "automatic_except_data_tables", "manual"]},
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version"],
+      "properties": {"name": {"$ref": "#/$defs/id"}, "version": {"$ref": "#/$defs/id"}}
+    },
+    "styles": {"type": "array", "maxItems": 10000, "items": {"$ref": "#/$defs/style"}},
+    "named_ranges": {"type": "array", "maxItems": 5000, "items": {"$ref": "#/$defs/namedRange"}},
+    "tables": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/table"}},
+    "charts": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/chart"}},
+    "dependencies": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/dependency"}},
+    "unsupported_objects": {"type": "array", "maxItems": 1000, "items": {"$ref": "#/$defs/unsupported"}},
+    "sheets": {"type": "array", "minItems": 1, "maxItems": 64, "items": {"$ref": "#/$defs/sheet"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "cellAddress": {"type": "string", "pattern": "^[A-Z]{1,3}[1-9][0-9]{0,6}$"},
+    "style": {
+      "type": "object", "additionalProperties": false,
+      "required": ["style_id", "number_format", "bold", "italic", "fill_color"],
+      "properties": {
+        "style_id": {"$ref": "#/$defs/id"}, "number_format": {"type": ["string", "null"]},
+        "bold": {"type": ["boolean", "null"]}, "italic": {"type": ["boolean", "null"]},
+        "fill_color": {"type": ["string", "null"], "pattern": "^[0-9A-F]{6,8}$"}
+      }
+    },
+    "cell": {
+      "type": "object", "additionalProperties": false,
+      "required": ["row", "column", "address", "raw_value", "displayed_value", "formula_text", "formula_ast", "style_id"],
+      "properties": {
+        "row": {"type": "integer", "minimum": 1, "maximum": 1048576},
+        "column": {"type": "integer", "minimum": 1, "maximum": 16384},
+        "address": {"$ref": "#/$defs/cellAddress"}, "raw_value": {},
+        "displayed_value": {"type": ["string", "null"]}, "formula_text": {"type": ["string", "null"]},
+        "formula_ast": {"type": ["object", "null"]}, "style_id": {"type": ["string", "null"]}
+      }
+    },
+    "sheet": {
+      "type": "object", "additionalProperties": false,
+      "required": ["sheet_id", "name", "visibility", "cells"],
+      "properties": {
+        "sheet_id": {"$ref": "#/$defs/id"}, "name": {"type": "string", "minLength": 1, "maxLength": 128},
+        "visibility": {"enum": ["visible", "hidden", "very_hidden"]},
+        "cells": {"type": "array", "maxItems": 100000, "items": {"$ref": "#/$defs/cell"}}
+      }
+    },
+    "namedRange": {
+      "type": "object", "additionalProperties": false,
+      "required": ["named_range_id", "name", "sheet_id", "start", "end"],
+      "properties": {"named_range_id": {"$ref": "#/$defs/id"}, "name": {"type": "string"}, "sheet_id": {"$ref": "#/$defs/id"}, "start": {"$ref": "#/$defs/cellAddress"}, "end": {"$ref": "#/$defs/cellAddress"}}
+    },
+    "table": {
+      "type": "object", "additionalProperties": false,
+      "required": ["table_id", "name", "sheet_id", "start", "end", "header_row"],
+      "properties": {"table_id": {"$ref": "#/$defs/id"}, "name": {"type": "string"}, "sheet_id": {"$ref": "#/$defs/id"}, "start": {"$ref": "#/$defs/cellAddress"}, "end": {"$ref": "#/$defs/cellAddress"}, "header_row": {"type": "boolean"}}
+    },
+    "chart": {
+      "type": "object", "additionalProperties": false,
+      "required": ["chart_id", "kind", "sheet_id", "anchor", "source_start", "source_end"],
+      "properties": {"chart_id": {"$ref": "#/$defs/id"}, "kind": {"enum": ["bar", "line", "pie", "scatter"]}, "sheet_id": {"$ref": "#/$defs/id"}, "anchor": {"$ref": "#/$defs/cellAddress"}, "source_start": {"$ref": "#/$defs/cellAddress"}, "source_end": {"$ref": "#/$defs/cellAddress"}}
+    },
+    "dependency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from_sheet_id", "from_cell", "to_sheet_id", "to_cell", "kind"],
+      "properties": {"from_sheet_id": {"$ref": "#/$defs/id"}, "from_cell": {"$ref": "#/$defs/cellAddress"}, "to_sheet_id": {"$ref": "#/$defs/id"}, "to_cell": {"$ref": "#/$defs/cellAddress"}, "kind": {"enum": ["cell", "range"]}}
+    },
+    "unsupported": {
+      "type": "object", "additionalProperties": false,
+      "required": ["object_id", "kind", "reason_code"],
+      "properties": {"object_id": {"$ref": "#/$defs/id"}, "kind": {"$ref": "#/$defs/id"}, "reason_code": {"$ref": "#/$defs/id"}}
+    }
+  }
+}

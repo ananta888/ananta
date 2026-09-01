@@ -27,7 +27,28 @@ ACTION_KINDS = frozenset(
         "delete_columns",
     }
 )
-FORMULA_OPS = frozenset({"literal", "cell", "add", "subtract", "multiply", "divide", "sum_range"})
+FORMULA_OPS = frozenset(
+    {
+        "literal",
+        "cell",
+        "add",
+        "subtract",
+        "multiply",
+        "divide",
+        "equal",
+        "not_equal",
+        "less_than",
+        "less_equal",
+        "greater_than",
+        "greater_equal",
+        "negate",
+        "if",
+        "sum_range",
+        "average_range",
+        "min_range",
+        "max_range",
+    }
+)
 VALIDATOR_KINDS = frozenset({"equals", "number_range", "formula_present", "cell_empty"})
 
 
@@ -108,6 +129,12 @@ def _json_scalar(value: object, field: str) -> str | int | float | bool | None:
     raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
 
 
+def validate_json_scalar(value: object, field: str) -> str | int | float | bool | None:
+    """Public bounded JSON-scalar primitive shared by additive contracts."""
+
+    return _json_scalar(value, field)
+
+
 def validate_formula(value: object, *, depth: int = 0, nodes: list[int] | None = None) -> dict[str, Any]:
     if not isinstance(value, Mapping) or depth > 8:
         raise SpreadsheetContractError("spreadsheet_formula_invalid")
@@ -128,13 +155,37 @@ def validate_formula(value: object, *, depth: int = 0, nodes: list[int] | None =
             "sheet_id": require_id(value.get("sheet_id"), "formula_sheet_id"),
             "cell": require_cell(value.get("cell"), "formula_cell"),
         }
-    if op == "sum_range":
+    if op in {"sum_range", "average_range", "min_range", "max_range"}:
         _exact(value, {"op", "sheet_id", "start", "end"}, "formula_range")
+        start = require_cell(value.get("start"), "formula_start")
+        end = require_cell(value.get("end"), "formula_end")
+        start_row, start_column = cell_coordinates(start)
+        end_row, end_column = cell_coordinates(end)
+        if (
+            start_row > end_row
+            or start_column > end_column
+            or (end_row - start_row + 1) * (end_column - start_column + 1) > 10_000
+        ):
+            raise SpreadsheetContractError("spreadsheet_formula_range_order_invalid")
         return {
             "op": op,
             "sheet_id": require_id(value.get("sheet_id"), "formula_sheet_id"),
-            "start": require_cell(value.get("start"), "formula_start"),
-            "end": require_cell(value.get("end"), "formula_end"),
+            "start": start,
+            "end": end,
+        }
+    if op == "negate":
+        _exact(value, {"op", "expression"}, "formula_unary")
+        return {
+            "op": op,
+            "expression": validate_formula(value.get("expression"), depth=depth + 1, nodes=counter),
+        }
+    if op == "if":
+        _exact(value, {"op", "condition", "then", "else"}, "formula_if")
+        return {
+            "op": op,
+            "condition": validate_formula(value.get("condition"), depth=depth + 1, nodes=counter),
+            "then": validate_formula(value.get("then"), depth=depth + 1, nodes=counter),
+            "else": validate_formula(value.get("else"), depth=depth + 1, nodes=counter),
         }
     _exact(value, {"op", "left", "right"}, "formula_binary")
     return {
@@ -453,4 +504,5 @@ __all__ = [
     "require_id",
     "validate_formula",
     "validate_action",
+    "validate_json_scalar",
 ]

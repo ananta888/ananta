@@ -110,6 +110,14 @@ def test_api_runs_document_to_automatic_promotion_without_human(app, client, adm
     )
     assert created.status_code == 201
     document = created.get_json()["data"]
+    viewport = client.get(
+        "/api/spreadsheet-studio/documents/api-document/viewport"
+        "?sheet_id=sheet-one&start=A1&end=A2&limit=1",
+        headers=admin_auth_header,
+    )
+    assert viewport.status_code == 200
+    assert viewport.get_json()["data"]["snapshot_digest"] == document["snapshot_digest"]
+    assert viewport.get_json()["data"]["backend_cell_count"] == 2
     executed = client.post(
         "/api/spreadsheet-studio/proposals/execute",
         headers=admin_auth_header,
@@ -119,6 +127,13 @@ def test_api_runs_document_to_automatic_promotion_without_human(app, client, adm
     result = executed.get_json()["data"]
     assert result["state"] == "promoted"
     assert result["human_intervention_required"] is False
+    diff = client.get(
+        "/api/spreadsheet-studio/proposals/api-proposal/diff?offset=0&limit=1",
+        headers=admin_auth_header,
+    )
+    assert diff.status_code == 200
+    assert diff.get_json()["data"]["total"] >= 1
+    assert len(diff.get_json()["data"]["items"]) == 1
     listed = client.get("/api/spreadsheet-studio/documents", headers=admin_auth_header)
     assert listed.status_code == 200
     assert listed.get_json()["data"]["items"][0]["version"] == 2

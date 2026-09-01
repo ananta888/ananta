@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/workbook-viewport.v1.json",
+  "title": "WorkbookViewportV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "snapshot_digest", "sheet_id", "range", "tile", "offset", "limit", "total", "has_more", "cells", "projection_digest", "backend_cell_count", "source_grounding_verified", "human_intervention_required"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-workbook-viewport.v1"},
+    "snapshot_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "sheet_id": {"type": "string"},
+    "range": {"type": "object", "additionalProperties": false, "required": ["start", "end"], "properties": {"start": {"type": "string"}, "end": {"type": "string"}}},
+    "tile": {"type": "object", "additionalProperties": false, "required": ["row", "column", "rows", "columns"], "properties": {"row": {"type": "integer", "minimum": 1}, "column": {"type": "integer", "minimum": 1}, "rows": {"type": "integer", "minimum": 1}, "columns": {"type": "integer", "minimum": 1}}},
+    "offset": {"type": "integer", "minimum": 0},
+    "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+    "total": {"type": "integer", "minimum": 0},
+    "has_more": {"type": "boolean"},
+    "cells": {"type": "array", "maxItems": 1000},
+    "projection_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "backend_cell_count": {"type": "integer", "minimum": 0},
+    "source_grounding_verified": {"const": false},
+    "human_intervention_required": {"const": false}
+  }
+}

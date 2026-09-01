@@ -268,9 +268,53 @@ def _rebase_metadata(
         for (current_sheet, address), value in mapping.items():
             destination = shifted(address) if current_sheet == sheet_id else address
             if destination is not None:
-                rebased[(current_sheet, destination)] = value
+                rebased[(current_sheet, destination)] = (
+                    _rebase_formula_references(
+                        value,
+                        sheet_id=sheet_id,
+                        shifted=shifted,
+                    )
+                    if mapping is values
+                    else value
+                )
         mapping.clear()
         mapping.update(rebased)
+
+
+def _rebase_formula_references(
+    value: Mapping[str, Any],
+    *,
+    sheet_id: str,
+    shifted,
+) -> Mapping[str, Any]:
+    result = copy.deepcopy(value)
+
+    def visit(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        op = node.get("op")
+        if op == "cell" and node.get("sheet_id") == sheet_id:
+            destination = shifted(str(node["cell"]))
+            if destination is None:
+                raise ValueError("spreadsheet_formula_reference_deleted")
+            node["cell"] = destination
+        elif op in {"sum_range", "average_range", "min_range", "max_range"} and node.get("sheet_id") == sheet_id:
+            start, end = shifted(str(node["start"])), shifted(str(node["end"]))
+            if start is None or end is None:
+                raise ValueError("spreadsheet_formula_reference_deleted")
+            node["start"], node["end"] = start, end
+        elif op == "negate":
+            visit(node.get("expression"))
+        elif op == "if":
+            visit(node.get("condition"))
+            visit(node.get("then"))
+            visit(node.get("else"))
+        else:
+            visit(node.get("left"))
+            visit(node.get("right"))
+
+    visit(result)
+    return result
 
 
 __all__ = ["SpreadsheetActionApplier"]
