@@ -8,13 +8,12 @@ with a deterministic FakeEmbeddingProvider.
 """
 from __future__ import annotations
 
+import hashlib
 import math
-import random
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-
-import pytest
 
 from worker.retrieval.codecompass_vector_engine import CodeCompassVectorEngine
 from worker.retrieval.codecompass_vector_store import CodeCompassVectorStore
@@ -22,7 +21,6 @@ from worker.retrieval.vector_encoding import (
     VectorEncoder,
     VectorEncodingProfile,
 )
-
 
 # ---------------------------------------------------------------------------
 # Deterministic fake embedding provider
@@ -35,14 +33,17 @@ class FakeEmbeddingProvider:
     dimensions: int = 16
 
     def config_hash(self) -> str:
-        return "fakehash-16"
+        return "fake-token-sha256-v2-16"
 
     def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Return L2-normalized hash-based deterministic vectors."""
+        """Return stable L2-normalized token-hash vectors."""
         result = []
-        for i, text in enumerate(texts):
-            rng = random.Random(hash(text) & 0xFFFFFFFF)
-            raw = [rng.gauss(0.0, 1.0) for _ in range(self.dimensions)]
+        for text in texts:
+            raw = [0.0] * self.dimensions
+            for token in re.findall(r"[a-z0-9_]+", text.casefold()):
+                digest = hashlib.sha256(token.encode("utf-8")).digest()
+                bucket = int.from_bytes(digest[:4], byteorder="big") % self.dimensions
+                raw[bucket] += 1.0
             norm = math.sqrt(sum(x * x for x in raw))
             if norm < 1e-12:
                 result.append([0.0] * self.dimensions)
