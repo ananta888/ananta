@@ -12,46 +12,52 @@ hybrid (deterministic execution, but may need LLM for planning):
 llm_required (no deterministic handler exists):
   llm_generate, code_review, llm_unknown
 """
+
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 from typing import Any
 
-
 # ── Intent literals ───────────────────────────────────────────────────────────
 
-INTENT_LIST_FILES      = "list_files"
-INTENT_READ_FILE       = "read_file"
-INTENT_GREP_SEARCH     = "grep_search"
-INTENT_GIT_STATUS      = "git_status"
-INTENT_GIT_DIFF        = "git_diff"
-INTENT_JSON_VALIDATE   = "json_validate"
+INTENT_LIST_FILES = "list_files"
+INTENT_READ_FILE = "read_file"
+INTENT_GREP_SEARCH = "grep_search"
+INTENT_GIT_STATUS = "git_status"
+INTENT_GIT_DIFF = "git_diff"
+INTENT_JSON_VALIDATE = "json_validate"
 INTENT_SCHEMA_VALIDATE = "schema_validate"
-INTENT_RUN_TESTS       = "run_tests"
+INTENT_RUN_TESTS = "run_tests"
 INTENT_AUDIO_TRANSCRIBE = "audio_transcribe"
 INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS = "audio_transcribe_with_postprocess"
-INTENT_AUDIO_COMMAND   = "audio_command"
-INTENT_LLM_GENERATE    = "llm_generate"
-INTENT_LLM_UNKNOWN     = "llm_unknown"
+INTENT_AUDIO_COMMAND = "audio_command"
+INTENT_ZIEGLER_AUDIT = "ziegler_auditor"
+INTENT_LLM_GENERATE = "llm_generate"
+INTENT_LLM_UNKNOWN = "llm_unknown"
 
 # All intents that are safe to bypass the LLM for
-DETERMINISTIC_INTENTS: frozenset[str] = frozenset({
-    INTENT_LIST_FILES,
-    INTENT_READ_FILE,
-    INTENT_GREP_SEARCH,
-    INTENT_GIT_STATUS,
-    INTENT_GIT_DIFF,
-    INTENT_JSON_VALIDATE,
-    INTENT_SCHEMA_VALIDATE,
-})
+DETERMINISTIC_INTENTS: frozenset[str] = frozenset(
+    {
+        INTENT_LIST_FILES,
+        INTENT_READ_FILE,
+        INTENT_GREP_SEARCH,
+        INTENT_GIT_STATUS,
+        INTENT_GIT_DIFF,
+        INTENT_JSON_VALIDATE,
+        INTENT_SCHEMA_VALIDATE,
+        INTENT_ZIEGLER_AUDIT,
+    }
+)
 
-HYBRID_INTENTS: frozenset[str] = frozenset({
-    INTENT_RUN_TESTS,
-    INTENT_AUDIO_TRANSCRIBE,
-    INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
-    INTENT_AUDIO_COMMAND,
-})
+HYBRID_INTENTS: frozenset[str] = frozenset(
+    {
+        INTENT_RUN_TESTS,
+        INTENT_AUDIO_TRANSCRIBE,
+        INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
+        INTENT_AUDIO_COMMAND,
+    }
+)
 
 LLM_INTENTS: frozenset[str] = frozenset({INTENT_LLM_GENERATE, INTENT_LLM_UNKNOWN})
 
@@ -60,56 +66,59 @@ LLM_INTENTS: frozenset[str] = frozenset({INTENT_LLM_GENERATE, INTENT_LLM_UNKNOWN
 
 _TOOL_INTENT: dict[str, str] = {
     # File system
-    "list_files":         INTENT_LIST_FILES,
-    "list_directory":     INTENT_LIST_FILES,
-    "ls":                 INTENT_LIST_FILES,
-    "read_file":          INTENT_READ_FILE,
-    "cat_file":           INTENT_READ_FILE,
-    "view_file":          INTENT_READ_FILE,
-    "file_read":          INTENT_READ_FILE,
-    "grep_search":        INTENT_GREP_SEARCH,
-    "search_files":       INTENT_GREP_SEARCH,
-    "grep":               INTENT_GREP_SEARCH,
-    "ripgrep":            INTENT_GREP_SEARCH,
+    "list_files": INTENT_LIST_FILES,
+    "list_directory": INTENT_LIST_FILES,
+    "ls": INTENT_LIST_FILES,
+    "read_file": INTENT_READ_FILE,
+    "cat_file": INTENT_READ_FILE,
+    "view_file": INTENT_READ_FILE,
+    "file_read": INTENT_READ_FILE,
+    "grep_search": INTENT_GREP_SEARCH,
+    "search_files": INTENT_GREP_SEARCH,
+    "grep": INTENT_GREP_SEARCH,
+    "ripgrep": INTENT_GREP_SEARCH,
     # Git
-    "git_status":         INTENT_GIT_STATUS,
-    "git_diff":           INTENT_GIT_DIFF,
+    "git_status": INTENT_GIT_STATUS,
+    "git_diff": INTENT_GIT_DIFF,
     # Validation
-    "json_validate":      INTENT_JSON_VALIDATE,
-    "validate_json":      INTENT_JSON_VALIDATE,
-    "schema_validate":    INTENT_SCHEMA_VALIDATE,
-    "validate_schema":    INTENT_SCHEMA_VALIDATE,
+    "json_validate": INTENT_JSON_VALIDATE,
+    "validate_json": INTENT_JSON_VALIDATE,
+    "schema_validate": INTENT_SCHEMA_VALIDATE,
+    "validate_schema": INTENT_SCHEMA_VALIDATE,
     # Tests
-    "run_tests":          INTENT_RUN_TESTS,
-    "pytest":             INTENT_RUN_TESTS,
-    "run_pytest":         INTENT_RUN_TESTS,
+    "run_tests": INTENT_RUN_TESTS,
+    "pytest": INTENT_RUN_TESTS,
+    "run_pytest": INTENT_RUN_TESTS,
     # Voice runtime
-    "voice_transcribe":   INTENT_AUDIO_TRANSCRIBE,
-    "audio_transcribe":   INTENT_AUDIO_TRANSCRIBE,
+    "voice_transcribe": INTENT_AUDIO_TRANSCRIBE,
+    "audio_transcribe": INTENT_AUDIO_TRANSCRIBE,
     "audio_transcribe_with_postprocess": INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
-    "voice_command":      INTENT_AUDIO_COMMAND,
-    "audio_command":      INTENT_AUDIO_COMMAND,
+    "voice_command": INTENT_AUDIO_COMMAND,
+    "audio_command": INTENT_AUDIO_COMMAND,
+    # Read-only finance analysis
+    "ziegler_auditor": INTENT_ZIEGLER_AUDIT,
+    "finance_audit": INTENT_ZIEGLER_AUDIT,
 }
 
 # Command prefix patterns → intent
 _CMD_PATTERNS: list[tuple[re.Pattern[str], str]] = [
-    (re.compile(r"^\s*(ls|find\s|dir\s)", re.I),                INTENT_LIST_FILES),
-    (re.compile(r"^\s*(cat|less|head|tail|bat)\s", re.I),       INTENT_READ_FILE),
-    (re.compile(r"^\s*(grep|rg|ripgrep|ag)\s", re.I),           INTENT_GREP_SEARCH),
-    (re.compile(r"^\s*git\s+status\b", re.I),                   INTENT_GIT_STATUS),
-    (re.compile(r"^\s*git\s+diff\b", re.I),                     INTENT_GIT_DIFF),
-    (re.compile(r"^\s*(python\s+.*\s+-m\s+json|jq)\b", re.I),  INTENT_JSON_VALIDATE),
-    (re.compile(r"^\s*(pytest|python\s+-m\s+pytest)\b", re.I),  INTENT_RUN_TESTS),
+    (re.compile(r"^\s*(ls|find\s|dir\s)", re.I), INTENT_LIST_FILES),
+    (re.compile(r"^\s*(cat|less|head|tail|bat)\s", re.I), INTENT_READ_FILE),
+    (re.compile(r"^\s*(grep|rg|ripgrep|ag)\s", re.I), INTENT_GREP_SEARCH),
+    (re.compile(r"^\s*git\s+status\b", re.I), INTENT_GIT_STATUS),
+    (re.compile(r"^\s*git\s+diff\b", re.I), INTENT_GIT_DIFF),
+    (re.compile(r"^\s*(python\s+.*\s+-m\s+json|jq)\b", re.I), INTENT_JSON_VALIDATE),
+    (re.compile(r"^\s*(pytest|python\s+-m\s+pytest)\b", re.I), INTENT_RUN_TESTS),
 ]
 
 
 @dataclass(frozen=True)
 class IntentResult:
     intent: str
-    task_class: str         # "deterministic" | "hybrid" | "llm_required"
+    task_class: str  # "deterministic" | "hybrid" | "llm_required"
     llm_required: bool
     deterministic_handler_id: str | None
-    source: str             # "tool_name" | "command_pattern" | "task_kind" | "default"
+    source: str  # "tool_name" | "command_pattern" | "task_kind" | "default"
 
 
 class TaskIntentRouter:
@@ -159,20 +168,27 @@ class TaskIntentRouter:
     def _kind_intent(self, kind: str) -> str | None:
         kind = kind.strip().lower()
         mapping = {
-            "list_files":      INTENT_LIST_FILES,
-            "read_file":       INTENT_READ_FILE,
-            "grep":            INTENT_GREP_SEARCH,
-            "grep_search":     INTENT_GREP_SEARCH,
-            "git_status":      INTENT_GIT_STATUS,
-            "git_diff":        INTENT_GIT_DIFF,
-            "json_validate":   INTENT_JSON_VALIDATE,
+            "list_files": INTENT_LIST_FILES,
+            "read_file": INTENT_READ_FILE,
+            "grep": INTENT_GREP_SEARCH,
+            "grep_search": INTENT_GREP_SEARCH,
+            "git_status": INTENT_GIT_STATUS,
+            "git_diff": INTENT_GIT_DIFF,
+            "json_validate": INTENT_JSON_VALIDATE,
             "schema_validate": INTENT_SCHEMA_VALIDATE,
-            "run_tests":       INTENT_RUN_TESTS,
+            "run_tests": INTENT_RUN_TESTS,
             "audio_transcribe": INTENT_AUDIO_TRANSCRIBE,
             "voice_transcribe": INTENT_AUDIO_TRANSCRIBE,
             "audio_transcribe_with_postprocess": INTENT_AUDIO_TRANSCRIBE_WITH_POSTPROCESS,
-            "audio_command":    INTENT_AUDIO_COMMAND,
-            "voice_command":    INTENT_AUDIO_COMMAND,
+            "audio_command": INTENT_AUDIO_COMMAND,
+            "voice_command": INTENT_AUDIO_COMMAND,
+            "ziegler_auditor": INTENT_ZIEGLER_AUDIT,
+            "finance_audit": INTENT_ZIEGLER_AUDIT,
+            "investment_analysis": INTENT_ZIEGLER_AUDIT,
+            "crypto_analysis": INTENT_ZIEGLER_AUDIT,
+            "debt_analysis": INTENT_ZIEGLER_AUDIT,
+            "monetary_system_analysis": INTENT_ZIEGLER_AUDIT,
+            "speculation_analysis": INTENT_ZIEGLER_AUDIT,
         }
         return mapping.get(kind)
 

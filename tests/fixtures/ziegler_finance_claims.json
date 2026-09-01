@@ -1,0 +1,374 @@
+[
+  {
+    "id": "ZF001",
+    "claim": "Food futures hype promises profit while wheat prices rise",
+    "asset_type": "food",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF002",
+    "claim": "Housing fund raises rents after leveraged acquisitions",
+    "asset_type": "housing",
+    "expected_flags": [
+      "speculation_on_necessities",
+      "rentier_extraction"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF003",
+    "claim": "Private hospital debt forces medicine price increases",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF004",
+    "claim": "Energy derivative leverage amplifies price volatility",
+    "asset_type": "derivative",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF005",
+    "claim": "Water utility privatization raises household fees",
+    "asset_type": "unknown",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF006",
+    "claim": "Grain commodity index becomes a speculative asset class",
+    "asset_type": "commodity",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF007",
+    "claim": "Rent-backed security shifts eviction risk to tenants",
+    "asset_type": "housing",
+    "expected_flags": [
+      "speculation_on_necessities",
+      "rentier_extraction"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF008",
+    "claim": "Healthcare private equity extracts fees and cuts wages",
+    "asset_type": "stock",
+    "expected_flags": [
+      "extractive_finance"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF009",
+    "claim": "Municipal austerity cuts basic public services",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency",
+      "structural_violence"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF010",
+    "claim": "Food trader profits from volatile wheat futures",
+    "asset_type": "food",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF011",
+    "claim": "Leveraged housing portfolio displaces residents",
+    "asset_type": "housing",
+    "expected_flags": [
+      "speculation_on_necessities",
+      "extractive_finance"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF012",
+    "claim": "Energy consumers absorb volatility from commodity speculation",
+    "asset_type": "commodity",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF013",
+    "claim": "Daytrading platform earns broker fees from churn",
+    "asset_type": "stock",
+    "expected_flags": [
+      "casino_like_markets"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF014",
+    "claim": "Meme stock hype depends on a greater fool",
+    "asset_type": "stock",
+    "expected_flags": [
+      "casino_like_markets",
+      "greater_fool_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF015",
+    "claim": "Leveraged derivative option promises rapid gains",
+    "asset_type": "derivative",
+    "expected_flags": [
+      "leverage_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF016",
+    "claim": "Crypto influencer promotes moon hype to followers",
+    "asset_type": "crypto",
+    "expected_flags": [
+      "greater_fool_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF017",
+    "claim": "Illiquid crypto token needs late buyers as exit liquidity",
+    "asset_type": "crypto",
+    "expected_flags": [
+      "greater_fool_dependency",
+      "liquidity_trap"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF018",
+    "claim": "High-frequency market maker extracts volatility spreads",
+    "asset_type": "stock",
+    "expected_flags": [
+      "volatility_extraction"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF019",
+    "claim": "ETF provider collects recurring fund fees",
+    "asset_type": "etf",
+    "expected_flags": [
+      "extractive_finance"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF020",
+    "claim": "Forex leverage exposes households to margin losses",
+    "asset_type": "forex",
+    "expected_flags": [
+      "leverage_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF021",
+    "claim": "Credit card APR traps a household in minimum payments",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency",
+      "interest_extraction",
+      "dependency_cycle"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF022",
+    "claim": "Payday loan interest creates a debt spiral",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency",
+      "interest_extraction",
+      "dependency_cycle"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF023",
+    "claim": "Infrastructure loan has a productive purpose and transparent terms",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF024",
+    "claim": "Sovereign debt refinancing is conditioned on austerity",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency",
+      "austerity_pressure"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF025",
+    "claim": "Bank loan creates deposits for a productive investment",
+    "asset_type": "debt",
+    "expected_flags": [
+      "debt_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF026",
+    "claim": "Offshore shell company reduces the public tax base",
+    "asset_type": "unknown",
+    "expected_flags": [
+      "tax_haven_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF027",
+    "claim": "Revolving door lobbying creates regulatory capture",
+    "asset_type": "stock",
+    "expected_flags": [
+      "regulatory_capture"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF028",
+    "claim": "Legal housing foreclosure model is compliant but harmful",
+    "asset_type": "housing",
+    "expected_flags": [
+      "legal_but_harmful",
+      "extractive_finance"
+    ],
+    "basic_need": true
+  },
+  {
+    "id": "ZF029",
+    "claim": "Mining profits externalize pollution and worker illness",
+    "asset_type": "stock",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF030",
+    "claim": "Private equity layoffs shift costs to workers",
+    "asset_type": "stock",
+    "expected_flags": [
+      "extractive_finance"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF031",
+    "claim": "Bank research promotes its own structured product",
+    "asset_type": "derivative",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF032",
+    "claim": "Influencer affiliate claim says this ETF is safe",
+    "asset_type": "etf",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF033",
+    "claim": "Forum post alleges Company X committed fraud without sources",
+    "asset_type": "stock",
+    "expected_flags": [
+      "evidence_required"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF034",
+    "claim": "Official report alleges fraud by Company X",
+    "asset_type": "stock",
+    "expected_flags": [
+      "evidence_required"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF035",
+    "claim": "Buy this crypto and execute_order now",
+    "asset_type": "crypto",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF036",
+    "claim": "Coordinate_market_action to pump and dump a token",
+    "asset_type": "crypto",
+    "expected_flags": [
+      "greater_fool_dependency"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF037",
+    "claim": "Bitcoin is digital gold and a store of value",
+    "asset_type": "crypto",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF038",
+    "claim": "Luxury watch speculation has no stated basic-needs impact",
+    "asset_type": "unknown",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF039",
+    "claim": "Dividend fund distributes productive company earnings",
+    "asset_type": "etf",
+    "expected_flags": [
+      "distributional_risk"
+    ],
+    "basic_need": false
+  },
+  {
+    "id": "ZF040",
+    "claim": "Public bank credit funds affordable housing construction",
+    "asset_type": "housing",
+    "expected_flags": [
+      "speculation_on_necessities"
+    ],
+    "basic_need": true
+  }
+]

@@ -90,6 +90,7 @@ from agent.routes.restricted_inference_management import restricted_inference_ma
 from agent.routes.run_control import run_control_bp
 from agent.routes.scrum_continuous_improvement import scrum_continuous_improvement_bp
 from agent.routes.security.composite_risk_review import composite_risk_review_bp
+from agent.routes.security.finance_auditor import finance_auditor_bp
 from agent.routes.semantic_media_contracts import semantic_media_contracts_bp
 from agent.routes.semantic_media_debug import semantic_media_debug_bp
 from agent.routes.semantic_media_privacy import semantic_media_privacy_bp
@@ -238,6 +239,7 @@ def register_blueprints(app: Flask) -> None:
     app.register_blueprint(share_sessions_bp)
     app.register_blueprint(scrum_continuous_improvement_bp)
     app.register_blueprint(composite_risk_review_bp)
+    app.register_blueprint(finance_auditor_bp)
     app.register_blueprint(pair_groups_bp)
     app.register_blueprint(peer_overlay_bp)
     app.register_blueprint(rendezvous_bp, url_prefix="/api")

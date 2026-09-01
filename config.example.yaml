@@ -41,3 +41,12 @@ providers:
     profile_mutation_enabled: false
     # Trusted Hub policy context is supplied per invocation, not configured by
     # a model/tool argument. Goal pre-approvals can grant it automatically.
+
+# Read-only structural finance analysis. It is fully deterministic by default;
+# an injected LLM adapter can add advisory text but cannot override guardrails.
+finance_auditor:
+  ziegler:
+    enabled: false
+    use_llm: false
+    tone: direct
+    read_only: true

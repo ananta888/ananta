@@ -1,9 +1,34 @@
 {
   "id": "todo.ziegler-finance-auditor",
   "title": "Ziegler Finance Auditor: Finanzmärkte als Casino-, Macht- und Ausbeutungssystem offenlegen",
-  "status": "open",
+  "status": "done",
   "priority": "high",
   "updated": "2026-09-01",
+  "completed": "2026-09-01",
+  "tasks_status_summary": {
+    "total": 20,
+    "by_status": {
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 20
+    },
+    "progress_percent_done": 100.0,
+    "critical_path": {
+      "total": 0,
+      "done": 0,
+      "remaining": 0
+    },
+    "milestones": {
+      "total": 0,
+      "todo": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
   "dedication": {
     "name": "Jean Ziegler",
     "note": "In memory of Jean Ziegler and his criticism of hunger, financial power, speculation, tax havens and the violence of global capitalism."
@@ -63,6 +88,8 @@
   "tasks": [
     {
       "id": "ZF-001",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Dedication und ethischen Rahmen dokumentieren",
       "description": "Lege eine kurze Dokumentation an, die erklärt, warum das Modul Jean Ziegler gewidmet ist und welche analytische Haltung es einnimmt.",
       "files": [
@@ -78,6 +105,8 @@
     },
     {
       "id": "ZF-002",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Klassifikationsmodell für Finanzsystemkritik erstellen",
       "description": "Erweitere die Analyseausgabe um Kategorien für strukturelle Finanzgewalt.",
       "files": [
@@ -93,6 +122,8 @@
     },
     {
       "id": "ZF-003",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Input-/Output-Modelle definieren",
       "description": "Erstelle strukturierte Modelle für Claims, Finanzmechanismen und Analyseausgaben.",
       "files": [
@@ -108,6 +139,8 @@
     },
     {
       "id": "ZF-004",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Strukturelle-Gewalt-Analyse implementieren",
       "description": "Analysiere Finanzmechanismen nach realen Folgen für Menschen statt nur nach Rendite.",
       "files": [
@@ -124,6 +157,8 @@
     },
     {
       "id": "ZF-005",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Casino-Kapitalismus-Detector ergänzen",
       "description": "Erkenne Finanzprodukte und Narrative, bei denen realwirtschaftlicher Nutzen schwach, aber spekulative Abschöpfung hoch ist.",
       "files": [
@@ -140,6 +175,8 @@
     },
     {
       "id": "ZF-006",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Spekulation auf Grundbedürfnisse besonders markieren",
       "description": "Finanzwetten auf Nahrung, Wasser, Wohnen, Energie und Gesundheit besonders hart bewerten.",
       "files": [
@@ -156,6 +193,8 @@
     },
     {
       "id": "ZF-007",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Schulden- und Abhängigkeitsanalyse bauen",
       "description": "Analysiere Kredit-, Zins-, Staatsverschuldungs- und Abhängigkeitsmechanismen.",
       "files": [
@@ -172,6 +211,8 @@
     },
     {
       "id": "ZF-008",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Externalisierungsanalyse implementieren",
       "description": "Zeige, welche Kosten eines Finanz- oder Geschäftsmodells auf andere abgewälzt werden.",
       "files": [
@@ -188,6 +229,8 @@
     },
     {
       "id": "ZF-009",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Legalität-vs-Legitimität-Prüfung ergänzen",
       "description": "Zeige explizit, dass legale Finanzpraktiken trotzdem gesellschaftlich zerstörerisch sein können.",
       "files": [
@@ -204,6 +247,8 @@
     },
     {
       "id": "ZF-010",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Who-profits-Analyse implementieren",
       "description": "Ermittle, welche Akteure bei einem Finanznarrativ, Marktmechanismus oder Produkt wahrscheinlich profitieren.",
       "files": [
@@ -220,6 +265,8 @@
     },
     {
       "id": "ZF-011",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Source-Quality-Checker ergänzen",
       "description": "Bewerte Quellen zu Finanzclaims nach Qualität, Aktualität und Interessenkonflikt.",
       "files": [
@@ -236,6 +283,8 @@
     },
     {
       "id": "ZF-012",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Prompt für Ziegler-orientierte Analyse erstellen",
       "description": "Erstelle einen Prompt, der Finanzabstraktion zurück auf Menschenrechte und reale Lebensfolgen zwingt.",
       "files": [
@@ -252,6 +301,8 @@
     },
     {
       "id": "ZF-013",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Zentralen ZieglerAuditorService bauen",
       "description": "Kombiniere Regeln, Scoring, Quellenprüfung und optionale LLM-Analyse in einem Service.",
       "files": [
@@ -269,6 +320,8 @@
     },
     {
       "id": "ZF-014",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Guardrails gegen Trading und Manipulation einbauen",
       "description": "Sicherstellen, dass das Modul nicht zu Trading-Ausführung, Marktmanipulation oder illegalem Verhalten benutzt wird.",
       "files": [
@@ -285,6 +338,8 @@
     },
     {
       "id": "ZF-015",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Konfiguration ergänzen",
       "description": "Ziegler-Auditor-Modul in zentrale Ananta-Konfiguration aufnehmen.",
       "files": [
@@ -301,6 +356,8 @@
     },
     {
       "id": "ZF-016",
+      "status": "done",
+      "progress_percent": 100,
       "title": "CLI- oder API-Einstieg hinzufügen",
       "description": "Ein einfacher Einstieg zum Prüfen von Finanzclaims soll verfügbar sein.",
       "files": [
@@ -318,6 +375,8 @@
     },
     {
       "id": "ZF-017",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Beispielclaims und Fixtures anlegen",
       "description": "Testdaten für typische Börsen-, Geldsystem-, Krypto-, Schulden- und Spekulationsnarrative erstellen.",
       "files": [
@@ -333,6 +392,8 @@
     },
     {
       "id": "ZF-018",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Snapshot-Tests für Analyseausgabe ergänzen",
       "description": "Stabile Tests für Ausgabeformate und kritische Flags erstellen.",
       "files": [
@@ -348,6 +409,8 @@
     },
     {
       "id": "ZF-019",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Ananta-Integration mit Task-Routing vorbereiten",
       "description": "Ziegler-Auditor als eigene Task-Kategorie in Ananta einhängen.",
       "files": [
@@ -366,6 +429,8 @@
     },
     {
       "id": "ZF-020",
+      "status": "done",
+      "progress_percent": 100,
       "title": "Dokumentation mit Beispielen schreiben",
       "description": "Erkläre Zweck, Grenzen, Dedication und Beispielausgaben.",
       "files": [

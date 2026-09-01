@@ -20,6 +20,7 @@ from agent.database import init_db
 from agent.metrics import APP_STARTUP_DURATION
 from agent.services.app_runtime_service import build_base_app_config, initialize_runtime_state
 from agent.services.deterministic_repair_handler import DeterministicRepairHandler
+from agent.services.finance_auditor.task_handler import register_ziegler_audit_handler
 from agent.services.repository_registry import initialize_repository_registry
 from agent.services.run_tests_handler import register_run_tests_handler
 from agent.services.service_registry import initialize_core_services
@@ -827,6 +828,7 @@ def create_app(agent: str = "default", *, testing: bool = False) -> Flask:
 
     run_startup_phase("deterministic_repair_handler", _register_deterministic_repair_handler, app)
     run_startup_phase("run_tests_handler", register_run_tests_handler, app)
+    run_startup_phase("ziegler_audit_handler", register_ziegler_audit_handler, app)
     run_startup_phase("template_propose_handler", _register_template_propose_handler, app)
 
     if not testing:
