@@ -312,6 +312,7 @@ from .speech_reconciliation import (
 from .spreadsheet_studio import (
     SpreadsheetDocumentDB,
     SpreadsheetDocumentVersionDB,
+    SpreadsheetExecutionJobDB,
     SpreadsheetProposalResultDB,
 )
 from .tasks import (
@@ -419,6 +420,7 @@ __all__ = [
     "ScientificSkillProvenanceReceiptDB",
     "SpreadsheetDocumentDB",
     "SpreadsheetDocumentVersionDB",
+    "SpreadsheetExecutionJobDB",
     "SpreadsheetProposalResultDB",
     "CuratedWikiPageDB",
     "KnowledgeClaimDB",

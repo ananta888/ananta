@@ -77,8 +77,46 @@ class SpreadsheetProposalResultDB(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class SpreadsheetExecutionJobDB(SQLModel, table=True):
+    """Hub-owned queue projection for one immutable spreadsheet assignment."""
+
+    __tablename__ = "spreadsheet_execution_jobs"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "document_id"],
+            ["spreadsheet_documents.tenant_id", "spreadsheet_documents.document_id"],
+            ondelete="CASCADE",
+        ),
+        sa.UniqueConstraint("tenant_id", "proposal_id", name="uq_spreadsheet_execution_proposal"),
+        sa.CheckConstraint(
+            "status IN ('dispatch_pending','queued','leased','completed','failed','cancelled')",
+            name="ck_spreadsheet_execution_status",
+        ),
+        sa.Index("ix_spreadsheet_execution_queue", "status", "created_at", "job_id"),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    job_id: str = Field(primary_key=True, max_length=128)
+    proposal_id: str = Field(max_length=128)
+    document_id: str = Field(max_length=128)
+    principal_id: str = Field(max_length=128)
+    proposal_digest: str = Field(max_length=64, repr=False)
+    assignment_digest: str = Field(max_length=64, repr=False)
+    assignment_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    status: str = Field(default="dispatch_pending", max_length=24)
+    worker_job_id: str | None = Field(default=None, max_length=128, index=True)
+    slot_lease_id: str | None = Field(default=None, max_length=128, index=True)
+    worker_id: str | None = Field(default=None, max_length=512)
+    queue_position: int | None = None
+    result_digest: str | None = Field(default=None, max_length=64, repr=False)
+    result_json: str | None = Field(default=None, sa_column=sa.Column(sa.Text(), nullable=True))
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
+
+
 __all__ = [
     "SpreadsheetDocumentDB",
     "SpreadsheetDocumentVersionDB",
+    "SpreadsheetExecutionJobDB",
     "SpreadsheetProposalResultDB",
 ]

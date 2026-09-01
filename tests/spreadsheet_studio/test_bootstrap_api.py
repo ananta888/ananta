@@ -4,7 +4,9 @@ import hashlib
 import io
 
 from flask import Flask
+from sqlmodel import SQLModel, create_engine
 
+import agent.db_models  # noqa: F401 - registers SQLModel metadata
 from agent.adapters.spreadsheet_mock_execution_adapter import DeterministicSpreadsheetMockExecutionAdapter
 from agent.bootstrap.spreadsheet_studio import initialize_spreadsheet_studio
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
@@ -38,6 +40,27 @@ def test_composition_is_default_off_and_hub_only(tmp_path) -> None:
     status = initialize_spreadsheet_studio(worker)
     assert status.ready is False
     assert status.reason_code == "spreadsheet_hub_role_required"
+
+
+def test_worker_mode_uses_hub_queue_instead_of_synchronous_http(monkeypatch, tmp_path) -> None:
+    engine = create_engine(f"sqlite:///{tmp_path / 'worker-mode.sqlite3'}")
+    SQLModel.metadata.create_all(engine)
+    monkeypatch.setattr("agent.database.engine", engine)
+    hub = Flask("queue-hub")
+    hub.config.update(
+        ROLE="hub",
+        ANANTA_SPREADSHEET_STUDIO_ENABLED=True,
+        ANANTA_SPREADSHEET_STUDIO_MODE="worker",
+        ANANTA_SPREADSHEET_STUDIO_STATE=str(tmp_path / "queue-state.sqlite3"),
+        ANANTA_SPREADSHEET_WORKER_ID="spreadsheet-worker",
+    )
+
+    status = initialize_spreadsheet_studio(hub)
+
+    assert status.ready is True
+    assert "spreadsheet_proposal_execution_service" in hub.extensions
+    capability = hub.extensions["spreadsheet_studio_service"].capabilities()
+    assert capability["executor"]["execution_mode"] == "queue_and_lease"
 
 
 def test_disabled_capability_is_observable_without_service(app, client, admin_auth_header, tmp_path) -> None:

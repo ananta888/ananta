@@ -168,12 +168,54 @@ class SpreadsheetSagaService:
         return self._store.create_document(tenant_id, value)
 
     def execute_proposal(self, *, tenant_id: str, principal_id: str, proposal: Mapping[str, Any]) -> dict[str, Any]:
+        prepared = self.prepare_proposal_execution(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            proposal=proposal,
+        )
+        if prepared.get("completed_result") is not None:
+            return dict(prepared["completed_result"])
+        parsed = SpreadsheetProposalV1.from_mapping(prepared["proposal"])
+        document = dict(prepared["document"])
+        snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
+        source_input = self._source_execution_input(
+            tenant_id=tenant_id,
+            document=document,
+            document_id=parsed.document_id,
+        )
+        execution = dict(
+            self._executor.dry_run(
+                snapshot=snapshot.to_dict(),
+                actions=parsed.actions,
+                **({"source_artifact": source_input} if source_input is not None else {}),
+            )
+        )
+        return self.finalize_proposal_execution(
+            tenant_id=tenant_id,
+            prepared=prepared,
+            execution=execution,
+        )
+
+    def prepare_proposal_execution(
+        self,
+        *,
+        tenant_id: str,
+        principal_id: str,
+        proposal: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Validate a proposal and freeze the exact Hub-owned Worker assignment."""
+
         parsed = SpreadsheetProposalV1.from_mapping(proposal)
         existing = self._store.get_proposal(tenant_id, parsed.proposal_id)
         if existing is not None:
             if existing.get("proposal_digest") != parsed.digest:
                 raise SpreadsheetStoreConflict("spreadsheet_proposal_replay_conflict")
-            return {**existing, "replayed": True}
+            return {
+                "schema": "ananta.spreadsheet-execution-assignment.v1",
+                "proposal": parsed.to_dict(),
+                "proposal_digest": parsed.digest,
+                "completed_result": {**existing, "replayed": True},
+            }
         document = self._store.get_document(tenant_id, parsed.document_id)
         if document["owner_id"] != principal_id:
             raise PermissionError("spreadsheet_document_owner_required")
@@ -185,28 +227,46 @@ class SpreadsheetSagaService:
             raise PermissionError("spreadsheet_document_unsupported_semantics")
         snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
         self._policy.admit(snapshot, parsed)
-        source_input = None
-        source = document.get("source_artifact")
-        if isinstance(source, Mapping):
-            if self._artifacts is None:
-                raise RuntimeError("spreadsheet_artifact_store_unavailable")
-            source_input = {
-                "content": self._artifacts.read(
-                    tenant_id=tenant_id,
-                    sha256=str(source.get("sha256") or ""),
-                    format=str(source.get("format") or ""),
-                ),
-                "filename": f"{parsed.document_id}.{source.get('format')}",
-                "media_type": str(source.get("media_type") or ""),
-                "sha256": str(source.get("sha256") or ""),
-            }
-        execution = dict(
-            self._executor.dry_run(
-                snapshot=snapshot.to_dict(),
-                actions=parsed.actions,
-                **({"source_artifact": source_input} if source_input is not None else {}),
-            )
-        )
+        assignment = {
+            "schema": "ananta.spreadsheet-execution-assignment.v1",
+            "tenant_id": tenant_id,
+            "principal_id": principal_id,
+            "proposal": parsed.to_dict(),
+            "proposal_digest": parsed.digest,
+            "document": document,
+            "base_snapshot_digest": snapshot.digest,
+            "source_grounding_verified": False,
+            "human_intervention_required": False,
+        }
+        assignment["assignment_digest"] = self._assignment_digest(assignment)
+        return assignment
+
+    def finalize_proposal_execution(
+        self,
+        *,
+        tenant_id: str,
+        prepared: Mapping[str, Any],
+        execution: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Validate and atomically promote one digest-bound Worker result."""
+
+        assignment = dict(prepared)
+        supplied_assignment_digest = str(assignment.pop("assignment_digest", ""))
+        if not supplied_assignment_digest or supplied_assignment_digest != self._assignment_digest(assignment):
+            raise ValueError("spreadsheet_assignment_digest_invalid")
+        if assignment.get("tenant_id") != tenant_id:
+            raise PermissionError("spreadsheet_assignment_tenant_mismatch")
+        parsed = SpreadsheetProposalV1.from_mapping(assignment.get("proposal") or {})
+        if parsed.digest != assignment.get("proposal_digest"):
+            raise ValueError("spreadsheet_assignment_proposal_digest_invalid")
+        document = dict(assignment.get("document") or {})
+        if (
+            document.get("document_id") != parsed.document_id
+            or document.get("version") != parsed.expected_version
+            or document.get("snapshot_digest") != parsed.base_snapshot_digest
+        ):
+            raise ValueError("spreadsheet_assignment_document_binding_invalid")
+        execution = dict(execution)
         candidate_artifact = self._store_result_artifact(tenant_id=tenant_id, execution=execution)
         candidate = WorkbookSnapshotV1.from_mapping(execution["candidate_snapshot"])
         if candidate.digest != execution.get("candidate_snapshot_digest"):
@@ -259,6 +319,35 @@ class SpreadsheetSagaService:
             expected_version=parsed.expected_version,
             promoted_document=promoted_document,
         )
+
+    def _source_execution_input(
+        self,
+        *,
+        tenant_id: str,
+        document: Mapping[str, Any],
+        document_id: str,
+    ) -> dict[str, Any] | None:
+        source = document.get("source_artifact")
+        if not isinstance(source, Mapping):
+            return None
+        if self._artifacts is None:
+            raise RuntimeError("spreadsheet_artifact_store_unavailable")
+        return {
+            "content": self._artifacts.read(
+                tenant_id=tenant_id,
+                sha256=str(source.get("sha256") or ""),
+                format=str(source.get("format") or ""),
+            ),
+            "filename": f"{document_id}.{source.get('format')}",
+            "media_type": str(source.get("media_type") or ""),
+            "sha256": str(source.get("sha256") or ""),
+        }
+
+    @staticmethod
+    def _assignment_digest(value: Mapping[str, Any]) -> str:
+        from ananta_contracts.spreadsheet_studio import canonical_digest
+
+        return canonical_digest(value)
 
     def get_document(self, *, tenant_id: str, document_id: str, principal_id: str) -> dict[str, Any]:
         value = self._store.get_document(tenant_id, document_id)

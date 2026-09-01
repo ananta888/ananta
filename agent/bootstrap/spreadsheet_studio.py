@@ -10,6 +10,9 @@ from flask import Flask
 from agent.adapters.spreadsheet_mock_execution_adapter import (
     DeterministicSpreadsheetMockExecutionAdapter,
 )
+from agent.adapters.spreadsheet_queue_execution_adapter import (
+    QueueBoundSpreadsheetExecutionAdapter,
+)
 from agent.config import settings
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_learning_service import SpreadsheetLearningService
@@ -17,7 +20,6 @@ from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
-from agent.services.spreadsheet_worker_port import spreadsheet_worker_port_from_environment
 
 
 @dataclass(frozen=True, slots=True)
@@ -55,7 +57,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                     executor = (
                         DeterministicSpreadsheetMockExecutionAdapter()
                         if mode == "mock"
-                        else spreadsheet_worker_port_from_environment()
+                        else QueueBoundSpreadsheetExecutionAdapter()
                     )
                     if mode == "worker":
                         from agent.database import engine
@@ -66,13 +68,33 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         document_store = SqlSpreadsheetDocumentRepository(db_engine=engine)
                     else:
                         document_store = SpreadsheetStore(state)
-                    app.extensions["spreadsheet_studio_service"] = SpreadsheetSagaService(
+                    saga = SpreadsheetSagaService(
                         document_store,
                         policy=policy,
                         executor=executor,
                         artifact_store=SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts"),
                         training_available=True,
                     )
+                    app.extensions["spreadsheet_studio_service"] = saga
+                    if mode == "worker":
+                        from agent.repositories.spreadsheet_execution_queue_repository import (
+                            SqlSpreadsheetExecutionQueueRepository,
+                        )
+                        from agent.services.spreadsheet_execution_queue_service import (
+                            SpreadsheetExecutionQueueService,
+                        )
+                        from agent.services.spreadsheet_worker_control_adapter import (
+                            HubSpreadsheetWorkerJobLedger,
+                            HubSpreadsheetWorkerLeaseScheduler,
+                        )
+
+                        app.extensions["spreadsheet_proposal_execution_service"] = SpreadsheetExecutionQueueService(
+                            saga=saga,
+                            queue=SqlSpreadsheetExecutionQueueRepository(db_engine=engine),
+                            worker_jobs=HubSpreadsheetWorkerJobLedger(),
+                            leases=HubSpreadsheetWorkerLeaseScheduler(),
+                            worker_id=str(app.config.get("ANANTA_SPREADSHEET_WORKER_ID") or "spreadsheet-worker"),
+                        )
                     app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
                         documents=document_store,
                         store=SpreadsheetLearningStore(state),

@@ -38,6 +38,10 @@ def _learning_service():
     return value
 
 
+def _proposal_execution_service():
+    return current_app.extensions.get("spreadsheet_proposal_execution_service") or _service()
+
+
 def _identity() -> tuple[str, str]:
     identity = dict(get_request_auth_context() or {})
     principal = str(identity.get("sub") or identity.get("username") or "").strip()
@@ -56,9 +60,9 @@ def _body() -> dict[str, Any]:
     return value
 
 
-def _invoke(operation: Callable[[], Any], *, created: bool = False):
+def _invoke(operation: Callable[[], Any], *, created: bool = False, accepted: bool = False):
     try:
-        return api_response(data=operation(), code=201 if created else 200)
+        return api_response(data=operation(), code=202 if accepted else (201 if created else 200))
     except SpreadsheetStoreConflict as exc:
         return api_response(status="error", message=str(exc), code=409)
     except SpreadsheetLearningConflict as exc:
@@ -245,9 +249,15 @@ def download_published(document_id: str):
 @spreadsheet_studio_bp.post("/proposals/execute")
 @check_user_auth
 def execute_proposal():
+    queued = current_app.extensions.get("spreadsheet_proposal_execution_service") is not None
     return _invoke(
-        lambda: _service().execute_proposal(tenant_id=_identity()[0], principal_id=_identity()[1], proposal=_body()),
-        created=True,
+        lambda: _proposal_execution_service().execute_proposal(
+            tenant_id=_identity()[0],
+            principal_id=_identity()[1],
+            proposal=_body(),
+        ),
+        created=not queued,
+        accepted=queued,
     )
 
 

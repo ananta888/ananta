@@ -130,7 +130,7 @@
     {
       "id": "SSP2-002",
       "title": "Queue- und Lease-gebundener Spreadsheet-Worker-Port",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -142,12 +142,23 @@
         "SSFR-DOC-005",
         "SSFR-DOC-006"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "queue_port": "agent/services/spreadsheet_execution_queue_ports.py",
+        "sql_queue": "agent/repositories/spreadsheet_execution_queue_repository.py",
+        "worker_control_adapter": "agent/services/spreadsheet_worker_control_adapter.py",
+        "migration": "migrations/versions/c0e2f4a6d8b1_add_spreadsheet_execution_queue.py",
+        "tests": [
+          "tests/spreadsheet_studio/test_execution_queue.py",
+          "tests/spreadsheet_studio/test_contracts_and_saga.py"
+        ],
+        "result": "23 targeted queue, lease, replay, persistence, API and migration tests passed"
+      }
     },
     {
       "id": "SSP2-003",
@@ -393,13 +404,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 11,
+      "todo": 10,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 1
+      "done": 2
     },
-    "progress_percent_done": 8.33,
+    "progress_percent_done": 16.67,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -413,8 +424,8 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 1,
-      "remaining": 8
+      "done": 2,
+      "remaining": 7
     },
     "milestones": {
       "total": 3,
@@ -426,11 +437,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 11,
+    "todo_remaining": 10,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 1
+    "done": 2
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
