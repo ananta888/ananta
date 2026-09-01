@@ -134,6 +134,19 @@ class OrganizationSourceCatalogPublisherService:
         self._clock = clock
         self._fault_injector = fault_injector or (lambda _step: None)
 
+    @staticmethod
+    def allocated_source_id(ordinal: int) -> str:
+        """Allocate a non-authorizing identity for one publisher-ordered record.
+
+        Authorization still requires persistence and resolution through the
+        SourceCatalogAuthorityService; this helper only centralizes the Hub's
+        deterministic identity vocabulary for reproducible publisher gates.
+        """
+
+        if not isinstance(ordinal, int) or isinstance(ordinal, bool) or not 1 <= ordinal <= 9_999:
+            raise ValueError("organization_source_catalog_ordinal_invalid")
+        return f"SRC_{ordinal:04d}"
+
     def publish(
         self,
         *,
@@ -544,7 +557,7 @@ class OrganizationSourceCatalogPublisherService:
         selected: list[dict[str, Any]] = []
         record_bindings: list[dict[str, Any]] = []
         for ordinal, record in enumerate(records, start=1):
-            source_id = f"SRC_{ordinal:04d}"
+            source_id = self.allocated_source_id(ordinal)
             record_binding = {
                 "source_id": source_id,
                 "record_file": record.record_file,

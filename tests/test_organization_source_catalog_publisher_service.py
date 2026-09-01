@@ -295,6 +295,23 @@ def _authority() -> SourceCatalogPublishingAuthority:
     )
 
 
+@pytest.mark.parametrize(
+    ("ordinal", "expected"),
+    [(1, "SRC_0001"), (42, "SRC_0042"), (9_999, "SRC_9999")],
+)
+def test_allocated_source_id_uses_hub_owned_identity_vocabulary(
+    ordinal: int,
+    expected: str,
+) -> None:
+    assert OrganizationSourceCatalogPublisherService.allocated_source_id(ordinal) == expected
+
+
+@pytest.mark.parametrize("ordinal", [True, 0, -1, 10_000])
+def test_allocated_source_id_rejects_invalid_ordinals(ordinal: object) -> None:
+    with pytest.raises(ValueError, match="organization_source_catalog_ordinal_invalid"):
+        OrganizationSourceCatalogPublisherService.allocated_source_id(ordinal)  # type: ignore[arg-type]
+
+
 def _state() -> _State:
     common = {
         "tenant_id": "tenant-1",
