@@ -6,7 +6,7 @@ from typing import Any
 import portalocker
 from sqlalchemy import event, inspect, text
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.pool import NullPool, StaticPool
+from sqlalchemy.pool import NullPool, QueuePool, StaticPool
 from sqlmodel import Session, SQLModel, create_engine, select
 
 from agent.config import settings
@@ -38,9 +38,14 @@ if DATABASE_URL.startswith("sqlite"):
         engine_kwargs["poolclass"] = StaticPool
     elif _is_in_memory_sqlite(DATABASE_URL):
         # A named shared-cache URI lets concurrent test threads use separate
-        # DBAPI connections.  The default QueuePool retains at least one
-        # connection, so the process-local in-memory schema stays alive.
-        pass
+        # DBAPI connections. SQLite otherwise selects SingletonThreadPool,
+        # whose size-based cleanup may close a connection still used by a
+        # different thread. QueuePool returns only checked-in connections to
+        # cleanup and retains the process-local in-memory schema.
+        engine_kwargs["poolclass"] = QueuePool
+        engine_kwargs["pool_size"] = 8
+        engine_kwargs["max_overflow"] = 24
+        engine_kwargs["pool_timeout"] = 30
     else:
         # SQLite file DBs under high parallel E2E load can exhaust QueuePool and return 500s.
         # NullPool avoids connection checkout starvation by opening short-lived connections.

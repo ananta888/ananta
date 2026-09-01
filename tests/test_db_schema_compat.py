@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import QueuePool, StaticPool
 
 
 def test_named_memory_database_supports_distinct_concurrent_connections():
@@ -11,6 +11,7 @@ def test_named_memory_database_supports_distinct_concurrent_connections():
 
     assert db._is_in_memory_sqlite(db.DATABASE_URL)
     assert not isinstance(db.engine.pool, StaticPool)
+    assert isinstance(db.engine.pool, QueuePool)
 
     rendezvous = threading.Barrier(2)
 
