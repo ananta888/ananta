@@ -3,6 +3,13 @@
   "title": "Predatory Derivatives Auditor: Wetten ohne legitimes Underlying, Schadensanreize und Finanzbrandstiftung erkennen",
   "status": "open",
   "priority": "high",
+  "tasks_status_summary": {
+    "total": 14,
+    "by_status": {"todo": 14, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "critical_path": {"total": 0, "done": 0, "remaining": 0},
+    "milestones": {"total": 0, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
   "extends": [
     "todo.ziegler-finance-auditor",
     "todo.monetative-money-auditor-extension"
@@ -29,21 +36,41 @@
     "Je stärker das Produkt vom Schaden anderer profitiert, desto höher ist der structural_harm_score.",
     "Je stärker der Akteur Einfluss auf den Eintritt des Schadens hat, desto höher ist der conflict_of_interest_score."
   ],
+  "architecture_principles": [
+    "Real hedging interest must be distinguished from unrelated damage bets",
+    "Unknown underlying relations remain unclear rather than inferred",
+    "Deterministic and explainable scoring precedes optional advisory analysis",
+    "Structural conflicts may be named without asserting intent or crime",
+    "Regulatory recommendations are policy analysis, not legal judgments",
+    "Read-only analysis must never expose execution or manipulation capabilities"
+  ],
   "suggested_paths": [
-    "agent/modules/ziegler_auditor/derivatives_auditor.py",
-    "agent/modules/ziegler_auditor/naked_exposure.py",
-    "agent/modules/ziegler_auditor/insurable_interest.py",
-    "agent/modules/ziegler_auditor/conflict_of_interest.py",
-    "agent/modules/ziegler_auditor/tests/test_derivatives_auditor.py",
-    "agent/modules/ziegler_auditor/tests/test_naked_exposure.py",
-    "agent/modules/ziegler_auditor/tests/test_insurable_interest.py",
+    "agent/services/finance_auditor/derivative_models.py",
+    "agent/services/finance_auditor/derivatives_auditor.py",
+    "agent/services/finance_auditor/naked_exposure.py",
+    "agent/services/finance_auditor/insurable_interest.py",
+    "agent/services/finance_auditor/conflict_of_interest.py",
+    "agent/services/finance_auditor/config.py",
+    "agent/services/finance_auditor/service.py",
+    "agent/services/finance_auditor/prompts.py",
+    "agent/services/task_intent_router.py",
+    "tests/test_predatory_derivatives_auditor.py",
     "prompts/predatory_derivatives_auditor.j2",
     "docs/predatory_derivatives_auditor.md",
     "tests/fixtures/predatory_derivatives_claims.json"
   ],
+  "implementation_alignment": [
+    "Quellcode-Audit 2026-09-01: Ziegler- und Monetative-Services existieren unter agent.services.finance_auditor; die Derivateanalyse wird als weiteres optionales Submodul integriert.",
+    "Fokussierte Regelkomponenten trennen Underlying-Interesse, Naked Exposure, Schadensanreiz, Systemrisiko und regulatorische Bewertung.",
+    "Der bestehende Ziegler-API-/CLI-Einstieg wird wiederverwendet. Bei deaktiviertem Submodul bleibt die normale read-only Analyse erhalten.",
+    "Der zentrale Hub-Router klassifiziert Derivate-Task-Arten; Worker orchestrieren nicht und erhalten keine Broker-, Zahlungs- oder Projektdatei-Mutation.",
+    "Alle Tests laufen deterministisch und offline ohne menschliche Freigabe, Marktverbindung, LLM oder Netzwerk."
+  ],
   "tasks": [
     {
       "id": "PD-001",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Derivate-Rahmen dokumentieren",
       "description": "Dokumentiere die Unterscheidung zwischen legitimer Absicherung und destruktiver Wette auf fremden Schaden.",
       "files": [
@@ -59,11 +86,13 @@
     },
     {
       "id": "PD-002",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Insurable-Interest-Check modellieren",
       "description": "Übertrage das Prinzip des versicherbaren Interesses auf Finanzprodukte: Hat der Akteur ein legitimes eigenes Risiko oder wettet er nur auf fremden Schaden?",
       "files": [
-        "agent/modules/ziegler_auditor/insurable_interest.py",
-        "agent/modules/ziegler_auditor/models.py"
+        "agent/services/finance_auditor/insurable_interest.py",
+        "agent/services/finance_auditor/derivative_models.py"
       ],
       "acceptance_criteria": [
         "Es gibt ein Feld legitimate_underlying_interest mit yes, no, unclear.",
@@ -75,11 +104,13 @@
     },
     {
       "id": "PD-003",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Naked-Exposure-Detector implementieren",
       "description": "Erkenne Finanzprodukte, bei denen eine Partei ohne Eigentum, Schuldposition oder realen Absicherungsbedarf auf Ausfall, Preisverfall oder Krise wettet.",
       "files": [
-        "agent/modules/ziegler_auditor/naked_exposure.py",
-        "agent/modules/ziegler_auditor/tests/test_naked_exposure.py"
+        "agent/services/finance_auditor/naked_exposure.py",
+        "tests/test_predatory_derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Detector erkennt naked_cds_like_exposure, naked_short_like_exposure, synthetic_short_exposure, pure_price_bet und unrelated_damage_bet.",
@@ -91,11 +122,13 @@
     },
     {
       "id": "PD-004",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Schadensanreiz-Analyse bauen",
       "description": "Bewerte, ob ein Finanzprodukt Akteuren ein Interesse am Eintritt eines Schadens gibt.",
       "files": [
-        "agent/modules/ziegler_auditor/conflict_of_interest.py",
-        "agent/modules/ziegler_auditor/scoring.py"
+        "agent/services/finance_auditor/conflict_of_interest.py",
+        "agent/services/finance_auditor/scoring.py"
       ],
       "acceptance_criteria": [
         "Output enthält damage_incentive_score von 0 bis 100.",
@@ -107,11 +140,13 @@
     },
     {
       "id": "PD-005",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Einfluss-auf-Schaden-Check ergänzen",
       "description": "Bewerte, ob ein Akteur nicht nur vom Schaden profitiert, sondern diesen auch auslösen, beschleunigen, verstärken oder medial/politisch herbeireden könnte.",
       "files": [
-        "agent/modules/ziegler_auditor/conflict_of_interest.py",
-        "agent/modules/ziegler_auditor/tests/test_conflict_of_interest.py"
+        "agent/services/finance_auditor/conflict_of_interest.py",
+        "tests/test_predatory_derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält ability_to_influence_damage: none, weak, medium, strong, unknown.",
@@ -123,11 +158,13 @@
     },
     {
       "id": "PD-006",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Hedging-vs-Casino-Klassifikation implementieren",
       "description": "Klassifiziere Derivate nach legitimer Absicherung, Liquiditätsfunktion, spekulativer Wette oder destruktiver Schadenswette.",
       "files": [
-        "agent/modules/ziegler_auditor/derivatives_auditor.py",
-        "agent/modules/ziegler_auditor/tests/test_derivatives_auditor.py"
+        "agent/services/finance_auditor/derivatives_auditor.py",
+        "tests/test_predatory_derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Kategorien enthalten legitimate_hedge, market_making_inventory_hedge, liquidity_service, speculative_bet, naked_damage_bet, predatory_derivative, unknown.",
@@ -139,10 +176,12 @@
     },
     {
       "id": "PD-007",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Underlying-Reality-Check ergänzen",
       "description": "Prüfe, ob ein Produkt reales Underlying, synthetisches Underlying, mehrfach gehebeltes Underlying oder gar kein nachvollziehbares Underlying hat.",
       "files": [
-        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+        "agent/services/finance_auditor/derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält underlying_type: real_asset, debt_claim, commodity, index, synthetic_basket, derivative_on_derivative, no_clear_underlying, unknown.",
@@ -154,11 +193,13 @@
     },
     {
       "id": "PD-008",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Verbotswürdigkeits-Heuristik definieren",
       "description": "Erzeuge eine klare normative Bewertung, welche Finanzprodukte besonders regulierungs- oder verbotswürdig erscheinen.",
       "files": [
-        "agent/modules/ziegler_auditor/scoring.py",
-        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+        "agent/services/finance_auditor/scoring.py",
+        "agent/services/finance_auditor/derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält ban_worthiness_score von 0 bis 100.",
@@ -170,11 +211,13 @@
     },
     {
       "id": "PD-009",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Grundbedürfnis-Schutz für Derivate verschärfen",
       "description": "Derivate auf Nahrung, Wasser, Wohnen, Energie und Gesundheit besonders streng bewerten.",
       "files": [
-        "agent/modules/ziegler_auditor/speculation_auditor.py",
-        "agent/modules/ziegler_auditor/derivatives_auditor.py"
+        "agent/services/finance_auditor/speculation_auditor.py",
+        "agent/services/finance_auditor/derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "basic_needs_derivative_flag wird gesetzt, wenn das Underlying Grundbedürfnisse betrifft.",
@@ -186,11 +229,13 @@
     },
     {
       "id": "PD-010",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Systemrisiko- und Kettenreaktionsanalyse ergänzen",
       "description": "Bewerte, ob ein Derivat durch Vernetzung, Hebel, Intransparenz oder Kontrahentenrisiko systemische Krisen verstärken kann.",
       "files": [
-        "agent/modules/ziegler_auditor/derivatives_auditor.py",
-        "agent/modules/ziegler_auditor/tests/test_systemic_derivative_risk.py"
+        "agent/services/finance_auditor/derivatives_auditor.py",
+        "tests/test_predatory_derivatives_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält systemic_risk_score von 0 bis 100.",
@@ -202,11 +247,13 @@
     },
     {
       "id": "PD-011",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Prompt für Predatory-Derivatives-Analyse erstellen",
       "description": "Erstelle einen Prompt, der die Hausbrand-Analogie erkennt und Derivate nach Underlying, Absicherungsinteresse, Schadensanreiz und Verbotwürdigkeit analysiert.",
       "files": [
         "prompts/predatory_derivatives_auditor.j2",
-        "agent/modules/ziegler_auditor/prompts.py"
+        "agent/services/finance_auditor/prompts.py"
       ],
       "acceptance_criteria": [
         "Prompt verlangt Trennung von Hedging, Spekulation, Naked Exposure und Schadenswette.",
@@ -218,6 +265,8 @@
     },
     {
       "id": "PD-012",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Fixtures für Derivate- und Naked-Exposure-Claims anlegen",
       "description": "Erstelle Testclaims zu CDS, Naked CDS, Shorts, Optionen, synthetischen Produkten, Rohstoffderivaten und Absicherungsgeschäften.",
       "files": [
@@ -233,12 +282,14 @@
     },
     {
       "id": "PD-013",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Integration in ZieglerAuditorService ergänzen",
       "description": "Der bestehende ZieglerAuditorService soll Derivate-, CDS-, Short-, Options- und Naked-Exposure-Claims an das Predatory-Derivatives-Submodul routen können.",
       "files": [
-        "agent/modules/ziegler_auditor/service.py",
-        "agent/task_classification.py",
-        "agent/task_config.json"
+        "agent/services/finance_auditor/service.py",
+        "agent/services/finance_auditor/config.py",
+        "agent/services/task_intent_router.py"
       ],
       "acceptance_criteria": [
         "Claims zu Derivaten, Optionen, Futures, Swaps, CDS, Shorts, synthetischer Exposure oder Hebel werden zur Kategorie predatory_derivatives geroutet.",
@@ -250,6 +301,8 @@
     },
     {
       "id": "PD-014",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Dokumentation um Verbotsargumente erweitern",
       "description": "Erkläre sauber, warum Produkte ohne legitimes Underlying und mit Schadensanreiz politisch/regulatorisch verbotswürdig sein können.",
       "files": [
