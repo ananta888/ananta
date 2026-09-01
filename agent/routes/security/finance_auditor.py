@@ -7,7 +7,11 @@ from flask import Blueprint, current_app, request
 from agent.auth import admin_required
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.services.finance_auditor.config import MonetativeAuditorConfig, ZieglerAuditorConfig
+from agent.services.finance_auditor.config import (
+    MonetativeAuditorConfig,
+    PredatoryDerivativesConfig,
+    ZieglerAuditorConfig,
+)
 from agent.services.finance_auditor.models import ZieglerAuditInput
 from agent.services.finance_auditor.service import ZieglerAuditorService
 
@@ -24,6 +28,7 @@ def audit_ziegler_claim():
     try:
         config = ZieglerAuditorConfig.from_agent_config(current_app.config.get("AGENT_CONFIG"))
         monetative_config = MonetativeAuditorConfig.from_agent_config(current_app.config.get("AGENT_CONFIG"))
+        predatory_config = PredatoryDerivativesConfig.from_agent_config(current_app.config.get("AGENT_CONFIG"))
     except ValueError as exc:
         return api_response(status="error", message=str(exc), data={"read_only": True}, code=409)
     if not config.enabled:
@@ -38,6 +43,7 @@ def audit_ziegler_claim():
         result = ZieglerAuditorService(
             config,
             monetative_config=monetative_config,
+            predatory_derivatives_config=predatory_config,
         ).audit(audit_input)
     except (TypeError, ValueError) as exc:
         return api_response(status="error", message=str(exc), data={"read_only": True}, code=422)

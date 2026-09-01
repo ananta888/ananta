@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from agent.services.finance_auditor.config import MonetativeAuditorConfig, ZieglerAuditorConfig
+from agent.services.finance_auditor.config import (
+    MonetativeAuditorConfig,
+    PredatoryDerivativesConfig,
+    ZieglerAuditorConfig,
+)
 from agent.services.finance_auditor.debt_auditor import audit_debt
+from agent.services.finance_auditor.derivatives_auditor import PredatoryDerivativesAuditor
 from agent.services.finance_auditor.externalization import analyze_externalization, moral_balance_summary
 from agent.services.finance_auditor.models import ClassificationDetail, ZieglerAuditInput, ZieglerAuditResult
 from agent.services.finance_auditor.monetative_money import MonetativeMoneyAuditor
@@ -49,6 +54,20 @@ _MONETARY_TERMS = (
     "staatsschuld",
     "zins",
 )
+_DERIVATIVE_TERMS = (
+    "derivative",
+    "option",
+    "future",
+    "swap",
+    "cds",
+    "short",
+    "synthetic",
+    "leverage",
+    "margin call",
+    "derivat",
+    "termingeschäft",
+    "hebel",
+)
 
 
 class ZieglerAuditorService:
@@ -59,10 +78,12 @@ class ZieglerAuditorService:
         config: ZieglerAuditorConfig | None = None,
         llm: FinanceAuditLlmPort | None = None,
         monetative_config: MonetativeAuditorConfig | None = None,
+        predatory_derivatives_config: PredatoryDerivativesConfig | None = None,
     ) -> None:
         self._config = config or ZieglerAuditorConfig()
         self._llm = llm
         self._monetative_config = monetative_config or MonetativeAuditorConfig()
+        self._predatory_derivatives_config = predatory_derivatives_config or PredatoryDerivativesConfig()
 
     def audit(self, audit_input: ZieglerAuditInput) -> ZieglerAuditResult:
         if not isinstance(audit_input, ZieglerAuditInput):
@@ -137,6 +158,7 @@ class ZieglerAuditorService:
                     "deterministic_guardrails_preserved": True,
                 }
         monetary_analysis = self._monetary_analysis(audit_input, lower)
+        derivatives_analysis = self._derivatives_analysis(audit_input, lower)
         return ZieglerAuditResult(
             classification=classifications,
             classification_details=tuple(details),
@@ -159,6 +181,7 @@ class ZieglerAuditorService:
             confidence=source_assessment.confidence,
             llm_advisory=llm_advisory,
             monetary_system_analysis=monetary_analysis,
+            predatory_derivatives_analysis=derivatives_analysis,
             metadata={
                 "read_only": True,
                 "investment_advice": False,
@@ -168,6 +191,18 @@ class ZieglerAuditorService:
                 "tone": audit_input.requested_tone.value,
             },
         )
+
+    def _derivatives_analysis(
+        self,
+        audit_input: ZieglerAuditInput,
+        lower: str,
+    ) -> dict[str, Any] | None:
+        if not self._predatory_derivatives_config.enabled:
+            return None
+        if not any(term in lower for term in _DERIVATIVE_TERMS):
+            return None
+        text = " ".join(part for part in (audit_input.claim, audit_input.context) if part)
+        return PredatoryDerivativesAuditor().audit(text).as_dict()
 
     def _monetary_analysis(self, audit_input: ZieglerAuditInput, lower: str) -> dict[str, Any] | None:
         if not self._monetative_config.enabled or not any(term in lower for term in _MONETARY_TERMS):

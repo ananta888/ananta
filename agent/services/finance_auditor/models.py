@@ -140,6 +140,7 @@ class ZieglerAuditResult:
     confidence: float
     llm_advisory: dict[str, Any] | None = None
     monetary_system_analysis: dict[str, Any] | None = None
+    predatory_derivatives_analysis: dict[str, Any] | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def as_dict(self) -> dict[str, Any]:

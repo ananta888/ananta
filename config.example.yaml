@@ -52,3 +52,5 @@ finance_auditor:
     read_only: true
   monetative:
     enabled: false
+  predatory_derivatives:
+    enabled: false

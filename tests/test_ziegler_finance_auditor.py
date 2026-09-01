@@ -51,6 +51,7 @@ def test_input_is_strict_and_result_contract_is_stable() -> None:
         "confidence",
         "llm_advisory",
         "monetary_system_analysis",
+        "predatory_derivatives_analysis",
         "metadata",
     }
     json.dumps(result)

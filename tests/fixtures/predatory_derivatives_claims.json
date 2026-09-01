@@ -1,0 +1,402 @@
+[
+  {
+    "id": "PD001",
+    "claim": "Farmer uses wheat futures for anticipated production price risk",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD002",
+    "claim": "Food producer owns the asset and hedges grain inventory",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD003",
+    "claim": "Airline fuel needs hedge against energy price risk",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD004",
+    "claim": "Importer has currency exposure and uses an FX future",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD005",
+    "claim": "Exporter needs hedge for currency exposure",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD006",
+    "claim": "Company owns bonds and uses CDS against default risk",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD007",
+    "claim": "Borrower hedges interest on debt it owes debt",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD008",
+    "claim": "Water utility supplies goods and hedges energy costs",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD009",
+    "claim": "Hospital needs hedge for medicine input prices",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD010",
+    "claim": "Housing lender owns the asset and hedges mortgage rate risk",
+    "expected_category": "legitimate_hedge",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD011",
+    "claim": "Dealer uses swap to hedge market maker inventory",
+    "expected_category": "market_making_inventory_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD012",
+    "claim": "Market maker inventory hedge in index options",
+    "expected_category": "market_making_inventory_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD013",
+    "claim": "Dealer inventory is offset with equity option",
+    "expected_category": "market_making_inventory_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD014",
+    "claim": "Market maker inventory hedge provides liquidity",
+    "expected_category": "market_making_inventory_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD015",
+    "claim": "Dealer inventory hedge for commodity positions",
+    "expected_category": "market_making_inventory_hedge",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD016",
+    "claim": "Speculative directional option position",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD017",
+    "claim": "Speculative index future without stated hedge",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD018",
+    "claim": "Directional currency swap speculation",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD019",
+    "claim": "Speculative leveraged ETF claim",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD020",
+    "claim": "Directional commodity option speculation",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD021",
+    "claim": "Speculative volatility future",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD022",
+    "claim": "Directional interest swap speculation",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD023",
+    "claim": "Speculative housing index derivative",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD024",
+    "claim": "Directional healthcare index option speculation",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD025",
+    "claim": "Speculative energy future without stated operational need",
+    "expected_category": "speculative_bet",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": false
+  },
+  {
+    "id": "PD026",
+    "claim": "Naked CDS on food producer default",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_cds_like_exposure",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD027",
+    "claim": "Naked CDS sovereign default bet during food crisis",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_cds_like_exposure",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD028",
+    "claim": "Naked short profits from housing price fall",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_short_like_exposure",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD029",
+    "claim": "Unrelated bet profits from water utility default",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "unrelated_damage_bet",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD030",
+    "claim": "Synthetic only food future profits during hunger",
+    "expected_category": "predatory_derivative",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD031",
+    "claim": "No underlying interest energy swap profits in energy crisis",
+    "expected_category": "predatory_derivative",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD032",
+    "claim": "Unrelated bet on hospital default and health crisis",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "unrelated_damage_bet",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD033",
+    "claim": "Naked short on housing collapse",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_short_like_exposure",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD034",
+    "claim": "Synthetic only grain option profits from food crisis",
+    "expected_category": "predatory_derivative",
+    "expected_flag": null,
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD035",
+    "claim": "Unrelated bet on mortgage fire sale and eviction",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "unrelated_damage_bet",
+    "basic_need": true,
+    "no_interest": true
+  },
+  {
+    "id": "PD036",
+    "claim": "Naked CDS on corporate default",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_cds_like_exposure",
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD037",
+    "claim": "Naked short expects price fall",
+    "expected_category": "predatory_derivative",
+    "expected_flag": "naked_short_like_exposure",
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD038",
+    "claim": "Synthetic only inverse basket",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD039",
+    "claim": "Unrelated bet with no stated damage mechanism",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": "unrelated_damage_bet",
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD040",
+    "claim": "No underlying interest pure price bet",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": "pure_price_bet",
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD041",
+    "claim": "Synthetic short exposure via swap",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": "synthetic_short_exposure",
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD042",
+    "claim": "Option on swap derivative on derivative with leverage",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD043",
+    "claim": "Synthetic CDO OTC counterparty chain concentration bailout",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD044",
+    "claim": "Leveraged ETF margin call and fire sale scenario",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD045",
+    "claim": "Opaque OTC swap with no clear underlying",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD046",
+    "claim": "Index future with margin call and counterparty chain",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD047",
+    "claim": "Synthetic basket OTC exposure with concentration",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  },
+  {
+    "id": "PD048",
+    "claim": "Re-securitized derivative on derivative and public rescue",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD049",
+    "claim": "How to build and execute a naked short without borrow",
+    "expected_category": "naked_damage_bet",
+    "expected_flag": "naked_short_like_exposure",
+    "basic_need": false,
+    "no_interest": true
+  },
+  {
+    "id": "PD050",
+    "claim": "Fund manipulated a CDS market and caused intentionally a default",
+    "expected_category": "unknown",
+    "expected_flag": null,
+    "basic_need": false,
+    "no_interest": false
+  }
+]

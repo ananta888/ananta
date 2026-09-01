@@ -62,3 +62,7 @@ Keyword rules are intentionally transparent and reproducible, but cannot establi
 ## Ziegler + Monetative
 
 The optional [Monetative Money Auditor](monetative_money_auditor.md) adds the monetary architecture behind the distributional analysis: Ziegler's lens exposes human consequences, while the Monetative/Huber lens examines who may create transaction money, how credit is allocated, who receives returns and who bears systemic losses. The extension remains plural about reform schools and rejects conspiracy framing.
+
+## Finanzbrandstiftung und Wetten auf fremden Schaden
+
+The optional [Predatory Derivatives Auditor](predatory_derivatives_auditor.md) separates legitimate own-risk hedging from naked or synthetic bets whose gains depend on another party's default, forced sale or loss of basic needs. Its ban-worthiness result is an explicit policy heuristic, not a legal judgment; concrete intent, manipulation or fraud allegations always require identified evidence.

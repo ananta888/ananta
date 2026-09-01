@@ -189,6 +189,9 @@ class TaskIntentRouter:
             "debt_analysis": INTENT_ZIEGLER_AUDIT,
             "monetary_system_analysis": INTENT_ZIEGLER_AUDIT,
             "speculation_analysis": INTENT_ZIEGLER_AUDIT,
+            "predatory_derivatives": INTENT_ZIEGLER_AUDIT,
+            "derivatives_analysis": INTENT_ZIEGLER_AUDIT,
+            "options_analysis": INTENT_ZIEGLER_AUDIT,
         }
         return mapping.get(kind)
 

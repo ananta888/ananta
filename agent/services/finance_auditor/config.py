@@ -62,3 +62,23 @@ class MonetativeAuditorConfig:
         if "enabled" in raw and not isinstance(raw["enabled"], bool):
             raise ValueError("monetative_auditor_enabled_invalid")
         return cls(enabled=raw.get("enabled", False))
+
+
+@dataclass(frozen=True)
+class PredatoryDerivativesConfig:
+    enabled: bool = False
+
+    @classmethod
+    def from_agent_config(cls, config: Mapping[str, Any] | None) -> "PredatoryDerivativesConfig":
+        root = dict(config or {})
+        finance = root.get("finance_auditor") or {}
+        if not isinstance(finance, Mapping):
+            raise ValueError("finance_auditor_config_invalid")
+        raw = finance.get("predatory_derivatives") or {}
+        if not isinstance(raw, Mapping):
+            raise ValueError("predatory_derivatives_config_invalid")
+        if set(raw) - {"enabled"}:
+            raise ValueError("predatory_derivatives_config_unknown_field")
+        if "enabled" in raw and not isinstance(raw["enabled"], bool):
+            raise ValueError("predatory_derivatives_enabled_invalid")
+        return cls(enabled=raw.get("enabled", False))

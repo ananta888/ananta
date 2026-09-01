@@ -14,6 +14,7 @@ class FinanceAuditLlmPort(Protocol):
 
 _PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "ziegler_finance_auditor.j2"
 _MONETATIVE_PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "monetative_money_auditor.j2"
+_DERIVATIVES_PROMPT_PATH = Path(__file__).parents[3] / "prompts" / "predatory_derivatives_auditor.j2"
 
 
 def render_prompt(audit_input: ZieglerAuditInput, deterministic_result: dict[str, Any]) -> str:
@@ -25,4 +26,9 @@ def render_prompt(audit_input: ZieglerAuditInput, deterministic_result: dict[str
 
 def render_monetative_prompt(claim: str, deterministic_result: dict[str, Any]) -> str:
     template = _MONETATIVE_PROMPT_PATH.read_text(encoding="utf-8")
+    return template.replace("{{ claim }}", claim).replace("{{ deterministic_result }}", str(deterministic_result))
+
+
+def render_derivatives_prompt(claim: str, deterministic_result: dict[str, Any]) -> str:
+    template = _DERIVATIVES_PROMPT_PATH.read_text(encoding="utf-8")
     return template.replace("{{ claim }}", claim).replace("{{ deterministic_result }}", str(deterministic_result))
