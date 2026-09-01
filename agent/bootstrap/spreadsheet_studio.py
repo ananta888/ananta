@@ -14,6 +14,7 @@ from agent.adapters.spreadsheet_queue_execution_adapter import (
     QueueBoundSpreadsheetExecutionAdapter,
 )
 from agent.config import settings
+from agent.services.spreadsheet_adapter_admission_service import SpreadsheetAdapterAdmissionService
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_learning_service import SpreadsheetLearningService
 from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
@@ -140,6 +141,13 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                     app.extensions["spreadsheet_training_admission_service"] = SpreadsheetTrainingAdmissionService(
                         learning=learning_service,
                         repository=learning_store,
+                    )
+                    from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
+                    from agent.services.ml_intern_lora_inference_service import resolve_lora_storage_config
+
+                    lora_storage = resolve_lora_storage_config(dict(app.config.get("AGENT_CONFIG", {}) or {}))
+                    app.extensions["spreadsheet_adapter_admission_service"] = SpreadsheetAdapterAdmissionService(
+                        registry=MlInternAdapterRegistryService(lora_storage["registry_path"])
                     )
                 except (RuntimeError, ValueError):
                     status = SpreadsheetStudioWiringStatus(False, "spreadsheet_worker_configuration_invalid")

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
 import hashlib
+from collections.abc import Mapping
 from typing import Any
 
 from agent.services.ml_intern_adapter_registry_service import (
@@ -196,6 +196,77 @@ class MlInternLoraRuntimeManagementService:
                 "unapproved_fallback_allowed": False,
             },
         }
+
+    def quarantine_dataset_adapters(
+        self,
+        *,
+        dataset_hashes: list[str],
+        reason: str,
+        tenant_id: str,
+        owner_subject: str,
+    ) -> list[dict[str, Any]]:
+        """Deprecate or terminally fence every adapter derived from revoked datasets."""
+
+        normalized_hashes = {str(value or "").strip().lower() for value in dataset_hashes}
+        if not normalized_hashes or any(
+            len(value) != 64 or any(character not in "0123456789abcdef" for character in value)
+            for value in normalized_hashes
+        ):
+            raise LoraRuntimeManagementError(
+                "adapter_quarantine_dataset_hash_invalid",
+                "Dataset quarantine requires lowercase SHA-256 digests.",
+            )
+        outcomes = []
+        records = self._registry.list_adapters(tenant_id=tenant_id, owner_subject=owner_subject)
+        for record in records:
+            if record.dataset_hash not in normalized_hashes:
+                continue
+            if record.status == "approved":
+                result = self.rollback(
+                    adapter_id=record.adapter_id,
+                    reason=reason,
+                    tenant_id=tenant_id,
+                    owner_subject=owner_subject,
+                    expected_version=record.registry_version,
+                )
+                outcomes.append(dict(result))
+            elif record.status == "evaluated":
+                rejected = self._registry.reject(
+                    record.adapter_id,
+                    reason=reason,
+                    tenant_id=tenant_id,
+                    owner_subject=owner_subject,
+                    expected_version=record.registry_version,
+                )
+                outcomes.append(
+                    {
+                        "adapter_id": rejected.adapter_id,
+                        "version": rejected.version,
+                        "registry_version": rejected.registry_version,
+                        "status": rejected.status,
+                        "rollback_target": {"type": "base_model_only", "base_model": rejected.base_model},
+                        "cache_unload": {"status": "not_loaded", "reason_code": "adapter_not_approved"},
+                    }
+                )
+            elif record.status in {"created", "training", "trained"}:
+                failed = self._registry.transition(
+                    record.adapter_id,
+                    "failed",
+                    tenant_id=tenant_id,
+                    owner_subject=owner_subject,
+                    expected_version=record.registry_version,
+                )
+                outcomes.append(
+                    {
+                        "adapter_id": failed.adapter_id,
+                        "version": failed.version,
+                        "registry_version": failed.registry_version,
+                        "status": failed.status,
+                        "rollback_target": {"type": "base_model_only", "base_model": failed.base_model},
+                        "cache_unload": {"status": "not_loaded", "reason_code": "adapter_not_approved"},
+                    }
+                )
+        return outcomes
 
 
 def _reason(value: str) -> str:

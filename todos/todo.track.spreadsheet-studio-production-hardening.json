@@ -83,7 +83,7 @@
         "SSP2-008",
         "SSP2-009"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "SSP2-M3",
@@ -483,7 +483,7 @@
     {
       "id": "SSP2-009",
       "title": "Ausführungsgestützte Evaluation und Adapter-Admission",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -494,12 +494,48 @@
         "SSFR-ML-004",
         "SSFR-ML-005"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_verification": {
+          "source_category_item_ids": [
+            "SSFR-ML-004",
+            "SSFR-ML-005"
+          ],
+          "source_refs": [
+            "SRC_0003",
+            "SRC_0005",
+            "SRC_0014"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "evaluation_service": "agent/services/spreadsheet_evaluation_service.py",
+        "admission_service": "agent/services/spreadsheet_adapter_admission_service.py",
+        "repair_strategy": "agent/services/spreadsheet_output_repair_strategy.py",
+        "runtime_revocation": [
+          "agent/services/spreadsheet_consent_revocation_coordinator.py",
+          "agent/services/ml_intern_lora_runtime_management_service.py"
+        ],
+        "schemas": [
+          "schemas/spreadsheet-studio/evaluation-report.v2.json",
+          "schemas/spreadsheet-studio/adapter-admission-command.v1.json",
+          "schemas/spreadsheet-studio/adapter-admission.v1.json"
+        ],
+        "tests": [
+          "tests/spreadsheet_studio/test_adapter_admission.py",
+          "tests/spreadsheet_studio/test_consent_revocation_coordinator.py",
+          "tests/spreadsheet_studio/test_training_task_family.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py",
+          "tests/test_ml_intern_lora_runtime_routing.py"
+        ],
+        "result": "136 admission, evaluation, revocation, runtime, registry and API tests passed; 6 optional environment tests skipped/not_run; Ruff and the Spreadsheet Studio research gate passed"
+      }
     },
     {
       "id": "SSP2-010",
@@ -588,13 +624,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 4,
+      "todo": 3,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 8
+      "done": 9
     },
-    "progress_percent_done": 66.7,
+    "progress_percent_done": 75.0,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -608,24 +644,24 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 6,
-      "remaining": 3
+      "done": 7,
+      "remaining": 2
     },
     "milestones": {
       "total": 3,
       "todo": 1,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 1
+      "done": 2
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 4,
+    "todo_remaining": 3,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 8
+    "done": 9
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
@@ -633,6 +669,7 @@
     "SSP2-006 centralizes production learning state and locks leakage-safe splits before training admission.",
     "SSP2-007 requires a quantitative digest-bound Hub Go/No-Go before live spreadsheet training.",
     "SSP2-008 binds live LoRA/QLoRA configuration and opaque governance digests from the Hub profile through the isolated worker manifest.",
+    "SSP2-009 makes execution-backed base-versus-adapter evaluation, digest-bound admission and consent-driven adapter quarantine automatic Hub policies.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

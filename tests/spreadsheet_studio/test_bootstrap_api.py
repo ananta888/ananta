@@ -95,6 +95,32 @@ def test_internal_claim_route_requires_worker_token(app, client) -> None:
     assert wrong_worker.status_code == 403
 
 
+def test_adapter_admission_route_is_hub_owned_and_idempotency_bound(app, client, admin_auth_header) -> None:
+    captured = {}
+
+    class Admission:
+        def admit(self, **kwargs):
+            captured.update(kwargs)
+            return {
+                "schema": "ananta.spreadsheet-adapter-admission.v1",
+                "adapter_id": "adapter-one",
+                "status": "approved",
+                "human_intervention_required": False,
+            }
+
+    app.extensions["spreadsheet_adapter_admission_service"] = Admission()
+    response = client.post(
+        "/api/spreadsheet-studio/adapters/adapter-one/admissions",
+        headers={**admin_auth_header, "Idempotency-Key": "adapter-admission-one"},
+        json={"adapter_id": "adapter-one", "schema": "ananta.spreadsheet-adapter-admission-command.v1"},
+    )
+
+    assert response.status_code == 201
+    assert response.get_json()["data"]["status"] == "approved"
+    assert captured["payload"]["adapter_id"] == "adapter-one"
+    assert captured["idempotency_key"] == "adapter-admission-one"
+
+
 def test_disabled_capability_is_observable_without_service(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path, enabled=False, automatic=False)
     response = client.get("/api/spreadsheet-studio/capabilities", headers=admin_auth_header)

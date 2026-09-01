@@ -13,6 +13,10 @@ from flask import Blueprint, Response, current_app, request, send_file
 
 from agent.auth import admin_required, check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
+from agent.services.ml_intern_adapter_registry_contract import (
+    RegistryIdempotencyConflict,
+    RegistryVersionConflict,
+)
 from agent.services.ml_intern_lora_inference_service import get_lora_inference_service
 from agent.services.spreadsheet_consent_revocation_coordinator import (
     SpreadsheetConsentRevocationCoordinator,
@@ -44,6 +48,13 @@ def _training_admission_service():
     value = current_app.extensions.get("spreadsheet_training_admission_service")
     if value is None:
         raise RuntimeError("spreadsheet_training_admission_unavailable")
+    return value
+
+
+def _adapter_admission_service():
+    value = current_app.extensions.get("spreadsheet_adapter_admission_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_adapter_admission_unavailable")
     return value
 
 
@@ -95,6 +106,8 @@ def _invoke(operation: Callable[[], Any], *, created: bool = False, accepted: bo
     except SpreadsheetStoreConflict as exc:
         return api_response(status="error", message=str(exc), code=409)
     except SpreadsheetLearningConflict as exc:
+        return api_response(status="error", message=str(exc), code=409)
+    except (RegistryIdempotencyConflict, RegistryVersionConflict) as exc:
         return api_response(status="error", message=str(exc), code=409)
     except PermissionError as exc:
         return api_response(status="error", message=str(exc), code=403)
@@ -494,11 +507,21 @@ def revoke_consent(consent_id: str):
             expected_version=body["expected_version"],
         )
         impact = dict(revoked.get("impact") or {})
-        if impact.get("training_jobs"):
+        if impact.get("training_jobs") or impact.get("adapters") or impact.get("dataset_digests"):
             from agent.routes.ml_intern_training_unsloth_support import get_ml_intern_training_services
+            from agent.services.ml_intern_lora_runtime_composition import (
+                lora_runtime_management_service_from_config,
+            )
 
+            try:
+                runtime = lora_runtime_management_service_from_config(
+                    dict(current_app.config.get("AGENT_CONFIG", {}) or {})
+                )
+            except (RuntimeError, ValueError):
+                runtime = None
             impact = SpreadsheetConsentRevocationCoordinator(
                 control=get_ml_intern_training_services().control,
+                runtime=runtime,
             ).reconcile(tenant_id=tenant_id, impact=impact)
         return {**revoked, "impact": impact}
 
@@ -588,6 +611,28 @@ def get_training_admission(admission_id: str):
             principal_id=principal_id,
             admission_id=admission_id,
         )
+    )
+
+
+@spreadsheet_studio_bp.post("/adapters/<adapter_id>/admissions")
+@check_user_auth
+@admin_required
+def admit_spreadsheet_adapter(adapter_id: str):
+    body = _body()
+    if body.get("adapter_id") != adapter_id:
+        return api_response(status="error", message="spreadsheet_adapter_binding_invalid", code=422)
+    idempotency_key = str(request.headers.get("Idempotency-Key") or "").strip()
+    if not 8 <= len(idempotency_key) <= 191 or any(character.isspace() for character in idempotency_key):
+        return api_response(status="error", message="spreadsheet_adapter_idempotency_key_invalid", code=400)
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _adapter_admission_service().admit(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=body,
+            idempotency_key=idempotency_key,
+        ),
+        created=True,
     )
 
 

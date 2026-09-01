@@ -3,27 +3,17 @@
 from __future__ import annotations
 
 import hashlib
+
 from flask import Blueprint, current_app, g, request
 
 from agent.auth import admin_required, check_auth
 from agent.common.audit import log_audit
 from agent.common.errors import api_response
-from agent.services.ml_intern_adapter_registry_service import MlInternAdapterRegistryService
-from agent.services.ml_intern_lora_inference_service import (
-    get_lora_inference_service,
-    resolve_lora_storage_config,
-)
+from agent.services.ml_intern_lora_runtime_composition import lora_runtime_management_service_from_config
 from agent.services.ml_intern_lora_runtime_management_service import (
     LoraRuntimeManagementError,
     MlInternLoraRuntimeManagementService,
 )
-from agent.services.ml_intern_training_config_service import (
-    normalize_ml_intern_training_config,
-)
-from agent.services.unsloth_runtime_handoff_composition import (
-    runtime_endpoint_registry_from_config,
-)
-from agent.services.unsloth_storage_governance_service import storage_catalog_from_config
 
 ml_intern_lora_runtime_bp = Blueprint(
     "ml_intern_lora_runtime",
@@ -120,20 +110,7 @@ def rollback_endpoint(endpoint_id: str):
 
 def _service() -> MlInternLoraRuntimeManagementService:
     agent_config = dict(current_app.config.get("AGENT_CONFIG", {}) or {})
-    storage = resolve_lora_storage_config(agent_config)
-    training_config = normalize_ml_intern_training_config(
-        dict(agent_config.get("ml_intern_training") or {})
-    )
-    return MlInternLoraRuntimeManagementService(
-        registry=MlInternAdapterRegistryService(storage["registry_path"]),
-        inference=get_lora_inference_service(),
-        endpoint_registry=runtime_endpoint_registry_from_config(
-            agent_config,
-            storage_references=storage_catalog_from_config(
-                training_config
-            ),
-        ),
-    )
+    return lora_runtime_management_service_from_config(agent_config)
 
 
 def _management_request() -> tuple[str, int | None]:

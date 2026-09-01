@@ -219,6 +219,8 @@ class SpreadsheetLearningService:
             "consent_digest": current["consent_digest"],
             "revocation_epoch": revoked["revocation_epoch"],
             "dataset_ids": dataset_ids,
+            "dataset_digests": sorted(str(dataset["dataset_digest"]) for dataset in datasets),
+            "owner_id": principal_id,
             "training_jobs": [
                 {
                     "job_id": str(lineage["job_id"]),
@@ -234,6 +236,21 @@ class SpreadsheetLearningService:
                     for adapter_id in list(lineage.get("adapter_ids") or [])
                     if str(adapter_id)
                 }
+            ),
+            "adapters": sorted(
+                [
+                    {
+                        "adapter_id": adapter_id,
+                        "owner_id": owner_id,
+                    }
+                    for owner_id, adapter_id in {
+                        (str(lineage["owner_id"]), str(adapter_id))
+                        for lineage in jobs
+                        for adapter_id in list(lineage.get("adapter_ids") or [])
+                        if str(adapter_id)
+                    }
+                ],
+                key=lambda item: (item["owner_id"], item["adapter_id"]),
             ),
             "evaluation_ids": sorted(
                 {

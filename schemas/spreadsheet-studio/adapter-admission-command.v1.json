@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/adapter-admission-command.v1.json",
+  "title": "SpreadsheetAdapterAdmissionCommandV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "adapter_id", "expected_registry_version", "evaluation_report", "training_governance", "execution_evidence", "reason"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-adapter-admission-command.v1"},
+    "adapter_id": {"$ref": "#/$defs/id"},
+    "expected_registry_version": {"type": "integer", "minimum": 1, "maximum": 2147483647},
+    "evaluation_report": {"$ref": "evaluation-report.v2.json"},
+    "training_governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["training_profile_digest", "base_model_digest", "dataset_manifest_digest", "dataset_artifact_digest", "dataset_recipe_digest", "split_lock_digest", "action_schema_digest", "serializer_digest", "policy_digest", "resource_profile_digest", "training_admission_digest", "governance_digest"],
+      "properties": {
+        "training_profile_digest": {"$ref": "#/$defs/digest"},
+        "base_model_digest": {"$ref": "#/$defs/digest"},
+        "dataset_manifest_digest": {"$ref": "#/$defs/digest"},
+        "dataset_artifact_digest": {"$ref": "#/$defs/digest"},
+        "dataset_recipe_digest": {"$ref": "#/$defs/digest"},
+        "split_lock_digest": {"$ref": "#/$defs/digest"},
+        "action_schema_digest": {"$ref": "#/$defs/digest"},
+        "serializer_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "resource_profile_digest": {"$ref": "#/$defs/digest"},
+        "training_admission_digest": {"$ref": "#/$defs/digest"},
+        "governance_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "execution_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["job_id", "attempt_id", "fencing_token_digest", "source_ids", "run_ids", "export_sha256"],
+      "properties": {
+        "job_id": {"$ref": "#/$defs/id"},
+        "attempt_id": {"$ref": "#/$defs/id"},
+        "fencing_token_digest": {"$ref": "#/$defs/digest"},
+        "source_ids": {"type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "pattern": "^SRC_[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}},
+        "run_ids": {"type": "array", "minItems": 1, "maxItems": 64, "uniqueItems": true, "items": {"type": "string", "pattern": "^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$"}},
+        "export_sha256": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "reason": {"type": "string", "minLength": 10, "maxLength": 500}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

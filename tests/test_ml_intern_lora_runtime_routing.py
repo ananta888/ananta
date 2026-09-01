@@ -142,6 +142,7 @@ def _approved_registry(
     adapter_id: str = "adapter-v1",
     version: str = "1.0",
     scope: Mapping[str, str] | None = None,
+    dataset_hash: str | None = None,
 ):
     artifact_root = root / "artifacts"
     adapter_dir = artifact_root / "jobs" / adapter_id
@@ -170,6 +171,10 @@ def _approved_registry(
         artifact_paths={"adapter_dir": str(adapter_dir)},
         artifact_sha256=canonical_sha256(files),
         task_kinds=["analysis"],
+        dataset_hash=dataset_hash,
+        source_ids=["SRC_0003"] if dataset_hash else None,
+        run_ids=["RUN_0001"] if dataset_hash else None,
+        provenance_verified=dataset_hash is not None,
         **ownership,
     )
     registry.transition(adapter_id, "training", **ownership)
@@ -450,6 +455,37 @@ def test_rollback_deprecates_selected_unloads_cache_and_never_promotes_unapprove
     assert result["rollback_target"] == {"type": "base_model_only", "base_model": "base-local"}
     assert result["policy_decision"]["unapproved_fallback_allowed"] is False
     assert worker.unloaded == [("adapter-v1", "1.0", "operator rollback after regression")]
+
+
+def test_dataset_quarantine_deprecates_every_matching_approved_adapter(tmp_path: Path) -> None:
+    dataset_hash = "d" * 64
+    owner_scope = {"tenant_id": "tenant-a", "owner_subject": "alice"}
+    registry, artifact_root, _path = _approved_registry(
+        tmp_path,
+        scope=owner_scope,
+        dataset_hash=dataset_hash,
+    )
+    worker = _WorkerPort()
+    inference = MlInternLoraInferenceService(
+        registry=registry,
+        artifact_root=artifact_root,
+        workspace_root=tmp_path / "workspace",
+        model_catalog={"base-local": {"relative_path": "base-local", "snapshot_hash": "a" * 64}},
+        worker_port=worker,
+    )
+    management = MlInternLoraRuntimeManagementService(registry=registry, inference=inference)
+
+    results = management.quarantine_dataset_adapters(
+        dataset_hashes=[dataset_hash],
+        reason="spreadsheet consent revoked; quarantine derived adapters",
+        **owner_scope,
+    )
+
+    assert [result["adapter_id"] for result in results] == ["adapter-v1"]
+    assert registry.get("adapter-v1", **owner_scope).status == "deprecated"
+    assert worker.unloaded == [
+        ("adapter-v1", "1.0", "spreadsheet consent revoked; quarantine derived adapters")
+    ]
 
 
 def test_admin_runtime_commands_require_auth_confirmation_and_reason(

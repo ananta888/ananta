@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/evaluation-report.v2.json",
+  "title": "SpreadsheetEvaluationReportV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "mode", "summary", "groups", "coverage", "gates", "samples", "adapter_admitted", "reason_codes", "bindings", "duration_ms", "published_candidates", "feedback_events", "consent_events", "human_intervention_required", "report_digest"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-evaluation-report.v2"},
+    "mode": {"const": "non_publishing"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sample_count", "base", "adapter"],
+      "properties": {
+        "sample_count": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "base": {"$ref": "#/$defs/aggregate"},
+        "adapter": {"$ref": "#/$defs/aggregate"}
+      }
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 7,
+      "maxItems": 70000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dimension", "value", "failure_class", "sample_count", "adapter_gate_passed"],
+        "properties": {
+          "dimension": {"enum": ["task_kind", "file_format", "size_bucket", "locale", "template_cluster", "security_class", "failure_class"]},
+          "value": {"type": "string", "minLength": 1, "maxLength": 128},
+          "failure_class": {"type": "string", "minLength": 1, "maxLength": 128},
+          "sample_count": {"type": "integer", "minimum": 1, "maximum": 10000},
+          "adapter_gate_passed": {"type": "boolean"}
+        }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["group_dimensions_complete", "expected_diff_complete", "resource_usage_complete"],
+      "properties": {
+        "group_dimensions_complete": {"type": "boolean"},
+        "expected_diff_complete": {"type": "boolean"},
+        "resource_usage_complete": {"type": "boolean"}
+      }
+    },
+    "gates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_valid", "action_valid", "safe_rejection", "safe_policy", "execution_success", "validator_pass", "cell_diff_precision", "unintended_changes", "base_regression", "group_regression", "coverage_complete"],
+      "properties": {
+        "schema_valid": {"type": "boolean"},
+        "action_valid": {"type": "boolean"},
+        "safe_rejection": {"type": "boolean"},
+        "safe_policy": {"type": "boolean"},
+        "execution_success": {"type": "boolean"},
+        "validator_pass": {"type": "boolean"},
+        "cell_diff_precision": {"type": "boolean"},
+        "unintended_changes": {"type": "boolean"},
+        "base_regression": {"type": "boolean"},
+        "group_regression": {"type": "boolean"},
+        "coverage_complete": {"type": "boolean"}
+      }
+    },
+    "samples": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 10000,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sample_id", "dimensions", "base", "adapter"],
+        "properties": {
+          "sample_id": {"$ref": "#/$defs/id"},
+          "dimensions": {"$ref": "#/$defs/dimensions"},
+          "base": {"$ref": "#/$defs/sampleResult"},
+          "adapter": {"$ref": "#/$defs/sampleResult"}
+        }
+      }
+    },
+    "adapter_admitted": {"type": "boolean"},
+    "reason_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^spreadsheet_"}},
+    "bindings": {"$ref": "#/$defs/bindings"},
+    "duration_ms": {"type": "integer", "minimum": 0},
+    "published_candidates": {"const": 0},
+    "feedback_events": {"const": 0},
+    "consent_events": {"const": 0},
+    "human_intervention_required": {"const": false},
+    "report_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cpu_time_ms", "peak_memory_bytes", "tokens"],
+      "properties": {
+        "cpu_time_ms": {"type": "number", "minimum": 0},
+        "peak_memory_bytes": {"type": "number", "minimum": 0},
+        "tokens": {"type": "number", "minimum": 0}
+      }
+    },
+    "aggregate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_valid_rate", "action_valid_rate", "safe_rejection_rate", "safe_rejection_case_count", "safe_policy_rate", "execution_success_rate", "validator_pass_rate", "cell_diff_precision", "unintended_change_rate", "latency_ms", "resource_usage", "score"],
+      "properties": {
+        "schema_valid_rate": {"$ref": "#/$defs/rate"},
+        "action_valid_rate": {"$ref": "#/$defs/rate"},
+        "safe_rejection_rate": {"$ref": "#/$defs/rate"},
+        "safe_rejection_case_count": {"type": "integer", "minimum": 0},
+        "safe_policy_rate": {"$ref": "#/$defs/rate"},
+        "execution_success_rate": {"$ref": "#/$defs/rate"},
+        "validator_pass_rate": {"$ref": "#/$defs/rate"},
+        "cell_diff_precision": {"$ref": "#/$defs/rate"},
+        "unintended_change_rate": {"$ref": "#/$defs/rate"},
+        "latency_ms": {"type": "number", "minimum": 0},
+        "resource_usage": {"$ref": "#/$defs/usage"},
+        "score": {"$ref": "#/$defs/rate"}
+      }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_kind", "file_format", "size_bucket", "locale", "template_cluster", "security_class"],
+      "properties": {
+        "task_kind": {"type": "string", "minLength": 1, "maxLength": 128},
+        "file_format": {"type": "string", "minLength": 1, "maxLength": 128},
+        "size_bucket": {"type": "string", "minLength": 1, "maxLength": 128},
+        "locale": {"type": "string", "minLength": 1, "maxLength": 128},
+        "template_cluster": {"type": "string", "minLength": 1, "maxLength": 128},
+        "security_class": {"type": "string", "minLength": 1, "maxLength": 128}
+      }
+    },
+    "sampleResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_valid", "action_valid", "safe_rejection", "total", "reason_code", "safe_policy", "execution_success", "validator_pass", "diff_count", "cell_diff_precision", "unintended_change_rate", "safe_refusal_expected", "expected_changed_cells", "latency_ms", "resource_usage", "model_kind"],
+      "properties": {
+        "schema_valid": {"type": "boolean"},
+        "action_valid": {"type": "boolean"},
+        "safe_rejection": {"type": "boolean"},
+        "total": {"$ref": "#/$defs/rate"},
+        "reason_code": {"type": ["string", "null"], "maxLength": 256},
+        "safe_policy": {"type": "boolean"},
+        "execution_success": {"type": "boolean"},
+        "validator_pass": {"type": "boolean"},
+        "diff_count": {"type": "integer", "minimum": 0},
+        "cell_diff_precision": {"$ref": "#/$defs/rate"},
+        "unintended_change_rate": {"$ref": "#/$defs/rate"},
+        "safe_refusal_expected": {"type": "boolean"},
+        "expected_changed_cells": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 3, "maxLength": 256}},
+        "latency_ms": {"type": "integer", "minimum": 0},
+        "resource_usage": {"$ref": "#/$defs/usage"},
+        "model_kind": {"enum": ["base", "adapter"]}
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evaluation_id", "adapter_id", "base_model_id", "base_model_digest", "adapter_digest", "dataset_manifest_digest", "dataset_artifact_digest", "dataset_recipe_digest", "split_lock_digest", "training_profile_digest", "training_admission_digest", "training_governance_digest", "training_policy_digest", "resource_profile_digest", "runtime_digest", "engine_version", "engine_digest", "sample_digest", "policy_digest", "output_schema_digest", "serializer_digest", "bindings_digest"],
+      "properties": {
+        "evaluation_id": {"$ref": "#/$defs/id"},
+        "adapter_id": {"$ref": "#/$defs/id"},
+        "base_model_id": {"type": "string", "minLength": 1, "maxLength": 512},
+        "engine_version": {"const": "spreadsheet-execution-evaluation.v3"},
+        "base_model_digest": {"$ref": "#/$defs/digest"},
+        "adapter_digest": {"$ref": "#/$defs/digest"},
+        "dataset_manifest_digest": {"$ref": "#/$defs/digest"},
+        "dataset_artifact_digest": {"$ref": "#/$defs/digest"},
+        "dataset_recipe_digest": {"$ref": "#/$defs/digest"},
+        "split_lock_digest": {"$ref": "#/$defs/digest"},
+        "training_profile_digest": {"$ref": "#/$defs/digest"},
+        "training_admission_digest": {"$ref": "#/$defs/digest"},
+        "training_governance_digest": {"$ref": "#/$defs/digest"},
+        "training_policy_digest": {"$ref": "#/$defs/digest"},
+        "resource_profile_digest": {"$ref": "#/$defs/digest"},
+        "runtime_digest": {"$ref": "#/$defs/digest"},
+        "engine_digest": {"$ref": "#/$defs/digest"},
+        "sample_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "output_schema_digest": {"$ref": "#/$defs/digest"},
+        "serializer_digest": {"$ref": "#/$defs/digest"},
+        "bindings_digest": {"$ref": "#/$defs/digest"}
+      }
+    }
+  }
+}

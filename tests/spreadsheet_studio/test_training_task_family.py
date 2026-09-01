@@ -251,7 +251,56 @@ def test_execution_backed_evaluation_never_publishes_candidates() -> None:
     assert report["summary"]["adapter"]["action_valid_rate"] == 1.0
     assert report["summary"]["adapter"]["safe_rejection_rate"] == 1.0
     assert report["summary"]["adapter"]["safe_rejection_case_count"] == 1
-    assert report["bindings"]["engine_version"] == "spreadsheet-execution-evaluation.v2"
+    assert report["bindings"]["engine_version"] == "spreadsheet-execution-evaluation.v3"
     assert report["published_candidates"] == 0
     assert report["feedback_events"] == 0
     assert report["consent_events"] == 0
+
+
+def test_inference_repairs_only_one_json_fence_and_audits_digests(tmp_path) -> None:
+    studio = service(tmp_path / "repair.sqlite3")
+    studio.create_document(
+        tenant_id="tenant-a",
+        owner_id="user-a",
+        title="Budget",
+        snapshot=snapshot(),
+        document_id="document-repair",
+    )
+    events = []
+
+    class Inference:
+        def generate(self, _request, **_kwargs):
+            return LoraInferenceResult(
+                text=f"```json\n{json.dumps(_action_output())}\n```",
+                worker_id="worker-one",
+                capability="ml_intern_lora_text_generation",
+                adapter_id="adapter-one",
+                adapter_version="version-one",
+                reason_code="approved_adapter_inference_succeeded",
+            )
+
+    result = SpreadsheetInferenceService(
+        documents=studio,
+        inference=Inference(),
+        audit=lambda event, details: events.append((event, details)),
+    ).propose_actions(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        payload={
+            "schema": "ananta.spreadsheet-inference-command.v1",
+            "document_id": "document-repair",
+            "instruction": "Set A1 to 42",
+            "adapter_id": "adapter-one",
+            "adapter_version": "version-one",
+            "base_model": "model-one",
+            "task_id": "task-repair",
+            "max_new_tokens": 256,
+            "temperature": 0.0,
+        },
+    )
+
+    assert result["repair_applied"] is True
+    assert result["repair_reason_code"] == "spreadsheet_output_json_fence_removed"
+    assert events[0][0] == "spreadsheet_inference_output_repaired"
+    assert events[0][1]["scope_expanded"] is False
+    assert "Set A1" not in json.dumps(events)

@@ -294,16 +294,24 @@ class SpreadsheetTrainingAdmissionService:
         report["report_digest"] = supplied
         bindings = report.get("bindings")
         summary = report.get("summary")
+        legacy_binding_fields = {
+            "engine_version",
+            "sample_digest",
+            "policy_digest",
+            "output_schema_digest",
+            "serializer_digest",
+        }
         if (
-            report.get("schema") != "ananta.spreadsheet-evaluation-report.v1"
+            report.get("schema")
+            not in {"ananta.spreadsheet-evaluation-report.v1", "ananta.spreadsheet-evaluation-report.v2"}
             or report.get("mode") != "non_publishing"
             or report.get("published_candidates") != 0
             or report.get("feedback_events") != 0
             or report.get("consent_events") != 0
             or not isinstance(bindings, Mapping)
-            or set(bindings)
-            != {"engine_version", "sample_digest", "policy_digest", "output_schema_digest", "serializer_digest"}
-            or bindings.get("engine_version") != "spreadsheet-execution-evaluation.v2"
+            or not legacy_binding_fields.issubset(bindings)
+            or bindings.get("engine_version")
+            not in {"spreadsheet-execution-evaluation.v2", "spreadsheet-execution-evaluation.v3"}
             or not isinstance(summary, Mapping)
             or isinstance(summary.get("sample_count"), bool)
             or not isinstance(summary.get("sample_count"), int)
@@ -312,6 +320,8 @@ class SpreadsheetTrainingAdmissionService:
             raise ValueError("spreadsheet_baseline_report_invalid")
         for field in ("sample_digest", "policy_digest", "output_schema_digest", "serializer_digest"):
             require_digest(bindings.get(field), field)
+        if "engine_digest" in bindings:
+            require_digest(bindings.get("engine_digest"), "engine_digest")
         return report
 
     @staticmethod

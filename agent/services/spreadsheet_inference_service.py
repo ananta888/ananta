@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from agent.services.ml_intern_lora_inference_contract import LoraInferenceRequest
+from agent.services.spreadsheet_output_repair_strategy import SpreadsheetOutputRepairStrategy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_training_task_family import SpreadsheetTrainingTaskFamilyStrategy
 from ananta_contracts.spreadsheet_studio import canonical_json, require_id
@@ -22,10 +23,14 @@ class SpreadsheetInferenceService:
         documents: SpreadsheetSagaService,
         inference: SpreadsheetLoraInferencePort,
         strategy: SpreadsheetTrainingTaskFamilyStrategy | None = None,
+        repair: SpreadsheetOutputRepairStrategy | None = None,
+        audit: Callable[[str, Mapping[str, Any]], None] | None = None,
     ) -> None:
         self._documents = documents
         self._inference = inference
         self._strategy = strategy or SpreadsheetTrainingTaskFamilyStrategy()
+        self._repair = repair or SpreadsheetOutputRepairStrategy()
+        self._audit = audit or (lambda _event, _details: None)
 
     def propose_actions(
         self,
@@ -90,7 +95,33 @@ class SpreadsheetInferenceService:
             tenant_id=tenant_id,
             owner_subject=principal_id,
         )
-        parsed = self._strategy.parse_inference(str(result.text))
+        raw_output = str(result.text)
+        repair = self._repair.repair(raw_output)
+        try:
+            parsed = self._strategy.parse_inference(raw_output)
+            repair_applied = False
+            repair_reason_code = None
+        except ValueError:
+            if not repair.applied:
+                raise
+            parsed = self._strategy.parse_inference(repair.text)
+            repair_applied = True
+            repair_reason_code = repair.reason_code
+            self._audit(
+                "spreadsheet_inference_output_repaired",
+                {
+                    "tenant_id": tenant_id,
+                    "principal_id": principal_id,
+                    "document_id": document_id,
+                    "adapter_id": result.adapter_id,
+                    "original_output_digest": repair.original_digest,
+                    "repaired_output_digest": repair.repaired_digest,
+                    "reason_code": repair.reason_code,
+                    "scope_expanded": False,
+                    "capability_expanded": False,
+                    "policy_expanded": False,
+                },
+            )
         return {
             "schema": "ananta.spreadsheet-inference-proposal.v1",
             "document_id": document_id,
@@ -101,6 +132,8 @@ class SpreadsheetInferenceService:
             "adapter_version": result.adapter_version,
             "worker_id": result.worker_id,
             "reason_code": result.reason_code,
+            "repair_applied": repair_applied,
+            "repair_reason_code": repair_reason_code,
             "automatic_apply": False,
             "human_intervention_required": False,
         }
