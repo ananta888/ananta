@@ -12,7 +12,8 @@ from typing import Any
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_execution_ports import SpreadsheetExecutionPort
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
-from agent.services.spreadsheet_store import SpreadsheetStore, SpreadsheetStoreConflict
+from agent.services.spreadsheet_repository_port import SpreadsheetDocumentRepositoryPort
+from agent.services.spreadsheet_store import SpreadsheetStoreConflict
 from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
 from ananta_contracts.spreadsheet_studio import (
     SpreadsheetProposalV1,
@@ -24,7 +25,7 @@ from ananta_contracts.spreadsheet_studio import (
 class SpreadsheetSagaService:
     def __init__(
         self,
-        store: SpreadsheetStore,
+        store: SpreadsheetDocumentRepositoryPort,
         *,
         policy: SpreadsheetPolicy,
         executor: SpreadsheetExecutionPort,
@@ -264,6 +265,37 @@ class SpreadsheetSagaService:
         if value["owner_id"] != principal_id:
             raise PermissionError("spreadsheet_document_owner_required")
         return value
+
+    def get_version(
+        self,
+        *,
+        tenant_id: str,
+        document_id: str,
+        version: int,
+        principal_id: str,
+    ) -> dict[str, Any]:
+        value = self._store.get_version(tenant_id, document_id, version)
+        if value["owner_id"] != principal_id:
+            raise PermissionError("spreadsheet_document_owner_required")
+        return value
+
+    def list_versions(
+        self,
+        *,
+        tenant_id: str,
+        document_id: str,
+        principal_id: str,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        current = self.get_document(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            principal_id=principal_id,
+        )
+        page = self._store.list_versions(tenant_id, document_id, limit=limit)
+        if any(item.get("owner_id") != current["owner_id"] for item in page["items"]):
+            raise RuntimeError("spreadsheet_document_version_owner_integrity_failed")
+        return page
 
     def list_documents(self, *, tenant_id: str, principal_id: str, limit: int = 100) -> dict[str, Any]:
         page = self._store.list_documents(tenant_id, limit=limit)

@@ -69,6 +69,18 @@ def test_api_runs_document_to_automatic_promotion_without_human(app, client, adm
     listed = client.get("/api/spreadsheet-studio/documents", headers=admin_auth_header)
     assert listed.status_code == 200
     assert listed.get_json()["data"]["items"][0]["version"] == 2
+    versions = client.get(
+        "/api/spreadsheet-studio/documents/api-document/versions",
+        headers=admin_auth_header,
+    )
+    assert versions.status_code == 200
+    assert [row["version"] for row in versions.get_json()["data"]["items"]] == [2, 1]
+    original = client.get(
+        "/api/spreadsheet-studio/documents/api-document/versions/1",
+        headers=admin_auth_header,
+    )
+    assert original.status_code == 200
+    assert original.get_json()["data"]["snapshot"]["sheets"][0]["cells"][0]["value"] == 1
 
 
 def test_api_malformed_and_cross_principal_access_fail_closed(app, client, admin_auth_header, tmp_path) -> None:

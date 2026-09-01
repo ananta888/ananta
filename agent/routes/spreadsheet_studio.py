@@ -161,6 +161,32 @@ def get_document(document_id: str):
     )
 
 
+@spreadsheet_studio_bp.get("/documents/<document_id>/versions")
+@check_user_auth
+def list_document_versions(document_id: str):
+    return _invoke(
+        lambda: _service().list_versions(
+            tenant_id=_identity()[0],
+            document_id=document_id,
+            principal_id=_identity()[1],
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
+
+
+@spreadsheet_studio_bp.get("/documents/<document_id>/versions/<int:version>")
+@check_user_auth
+def get_document_version(document_id: str, version: int):
+    return _invoke(
+        lambda: _service().get_version(
+            tenant_id=_identity()[0],
+            document_id=document_id,
+            version=version,
+            principal_id=_identity()[1],
+        )
+    )
+
+
 @spreadsheet_studio_bp.get("/documents/<document_id>/original")
 @check_user_auth
 def download_original(document_id: str):

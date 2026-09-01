@@ -57,7 +57,15 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         if mode == "mock"
                         else spreadsheet_worker_port_from_environment()
                     )
-                    document_store = SpreadsheetStore(state)
+                    if mode == "worker":
+                        from agent.database import engine
+                        from agent.repositories.spreadsheet_document_repository import (
+                            SqlSpreadsheetDocumentRepository,
+                        )
+
+                        document_store = SqlSpreadsheetDocumentRepository(db_engine=engine)
+                    else:
+                        document_store = SpreadsheetStore(state)
                     app.extensions["spreadsheet_studio_service"] = SpreadsheetSagaService(
                         document_store,
                         policy=policy,

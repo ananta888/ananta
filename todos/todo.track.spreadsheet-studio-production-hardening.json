@@ -70,7 +70,7 @@
         "SSP2-002",
         "SSP2-003"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "SSP2-M2",
@@ -100,7 +100,7 @@
     {
       "id": "SSP2-001",
       "title": "Persistente Dokument- und Versionsrepositories",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -110,12 +110,22 @@
         "SSFR-SEC-004",
         "SSFR-DOC-001"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "repository_port": "agent/services/spreadsheet_repository_port.py",
+        "sql_repository": "agent/repositories/spreadsheet_document_repository.py",
+        "migration": "migrations/versions/b9d1f3a5c7e0_add_spreadsheet_document_persistence.py",
+        "tests": [
+          "tests/spreadsheet_studio/test_document_repository.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py"
+        ],
+        "result": "19 targeted persistence, API and migration tests passed"
+      }
     },
     {
       "id": "SSP2-002",
@@ -383,13 +393,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 12,
+      "todo": 11,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 8.33,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -403,24 +413,24 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 0,
-      "remaining": 9
+      "done": 1,
+      "remaining": 8
     },
     "milestones": {
       "total": 3,
-      "todo": 3,
-      "in_progress": 0,
+      "todo": 2,
+      "in_progress": 1,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 12,
+    "state": "in_progress",
+    "todo_remaining": 11,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 0
+    "done": 1
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",

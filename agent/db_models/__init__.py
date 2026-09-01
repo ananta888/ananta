@@ -25,7 +25,6 @@ from .blueprints import (
     TerminalSessionDB,
 )
 from .business_controlling import BusinessControllingMappingDB, BusinessControllingProfileDB
-from .scientific_skill_provenance import ScientificSkillProvenanceReceiptDB
 from .caseflow import (
     CaseActionDB,
     CaseAgentRunDB,
@@ -62,6 +61,15 @@ from .governance import (
     WebrtcEpochDB,
     WebrtcKeyConfirmationDB,
     WebrtcReplayStateDB,
+)
+from .hrm_experiment_idempotency import HrmIdempotencyReceiptDB
+from .hrm_experiments import (
+    HrmCheckpointDB,
+    HrmDatasetDB,
+    HrmEvaluationReportDB,
+    HrmRunDB,
+    HrmRunEventDB,
+    HrmWorkerCapabilityDB,
 )
 from .hub_git_authorization import (
     HubGitRemoteRegistrationAuditDB,
@@ -105,15 +113,6 @@ from .ml_intern_training import (
     MlInternTrainingExecutionLeaseDB,
     MlInternTrainingJobDB,
 )
-from .hrm_experiments import (
-    HrmCheckpointDB,
-    HrmDatasetDB,
-    HrmEvaluationReportDB,
-    HrmRunDB,
-    HrmRunEventDB,
-    HrmWorkerCapabilityDB,
-)
-from .hrm_experiment_idempotency import HrmIdempotencyReceiptDB
 from .organization_runtime import (
     OrganizationBudgetReservationDB,
     OrganizationBudgetUsageDB,
@@ -170,6 +169,7 @@ from .planning_artifacts import (
     WorkerTaskProposalDB,
 )
 from .projects import ProjectDB, ProjectMembershipDB
+from .scientific_skill_provenance import ScientificSkillProvenanceReceiptDB
 from .semantic_media import (
     SemanticCapabilityAdvertisementDB,
     SemanticComputeCandidateKeyDB,
@@ -309,6 +309,11 @@ from .speech_reconciliation import (
     SpeechReconciliationJobDB,
     SpeechReconciliationMutationDB,
 )
+from .spreadsheet_studio import (
+    SpreadsheetDocumentDB,
+    SpreadsheetDocumentVersionDB,
+    SpreadsheetProposalResultDB,
+)
 from .tasks import (
     ArchivedTaskDB,
     ConfigDB,
@@ -384,10 +389,10 @@ from .workflow_runtime import (
     WorkflowRuntimeRolloutAuditDB,
     WorkflowRuntimeRolloutPolicyDB,
     WorkflowSideEffectLedgerDB,
+    WorkflowTransitionCheckpointBindingDB,
     WorkflowTransitionEffectDB,
     WorkflowTransitionOutboxDB,
     WorkflowTransitionOwnershipReservationDB,
-    WorkflowTransitionCheckpointBindingDB,
     WorkflowTransitionQueueReservationDB,
     WorkflowTransitionSideEffectAuthorizationDB,
     WorkflowWorkerAssignmentDB,
@@ -412,6 +417,17 @@ __all__ = [
     "BusinessControllingMappingDB",
     "BusinessControllingProfileDB",
     "ScientificSkillProvenanceReceiptDB",
+    "SpreadsheetDocumentDB",
+    "SpreadsheetDocumentVersionDB",
+    "SpreadsheetProposalResultDB",
+    "CuratedWikiPageDB",
+    "KnowledgeClaimDB",
+    "KnowledgeConflictDB",
+    "KnowledgeConflictDecisionDB",
+    "KnowledgeCorrectionDB",
+    "KnowledgeHealthSnapshotDB",
+    "KnowledgeHygieneAuditEventDB",
+    "KnowledgeHygieneRunDB",
     "ConfigDB",
     "ContextAccessPolicyDB",
     "ContextBundleDB",

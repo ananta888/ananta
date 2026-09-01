@@ -57,6 +57,25 @@ class SpreadsheetStore:
             raise KeyError("spreadsheet_document_not_found")
         return json.loads(row[0])
 
+    def get_version(self, tenant_id: str, document_id: str, version: int) -> dict[str, Any]:
+        tenant = require_id(tenant_id, "tenant_id")
+        document = require_id(document_id, "document_id")
+        number = self._version_number(version)
+        with self._connect() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM spreadsheet_documents WHERE tenant_id=? AND document_id=?",
+                (tenant, document),
+            ).fetchone()
+            row = connection.execute(
+                "SELECT payload_json FROM spreadsheet_versions WHERE tenant_id=? AND document_id=? AND version=?",
+                (tenant, document, number),
+            ).fetchone()
+        if not exists:
+            raise KeyError("spreadsheet_document_not_found")
+        if not row:
+            raise KeyError("spreadsheet_document_version_not_found")
+        return json.loads(row[0])
+
     def list_documents(self, tenant_id: str, *, limit: int = 100) -> dict[str, Any]:
         if not 1 <= limit <= 100:
             raise ValueError("spreadsheet_document_list_limit_invalid")
@@ -68,6 +87,25 @@ class SpreadsheetStore:
                 "WHERE d.tenant_id=? ORDER BY d.document_id LIMIT ?",
                 (tenant, limit),
             ).fetchall()
+        return {"items": [json.loads(row[0]) for row in rows], "limit": limit}
+
+    def list_versions(self, tenant_id: str, document_id: str, *, limit: int = 100) -> dict[str, Any]:
+        if not 1 <= limit <= 100:
+            raise ValueError("spreadsheet_document_list_limit_invalid")
+        tenant = require_id(tenant_id, "tenant_id")
+        document = require_id(document_id, "document_id")
+        with self._connect() as connection:
+            exists = connection.execute(
+                "SELECT 1 FROM spreadsheet_documents WHERE tenant_id=? AND document_id=?",
+                (tenant, document),
+            ).fetchone()
+            rows = connection.execute(
+                "SELECT payload_json FROM spreadsheet_versions WHERE tenant_id=? AND document_id=? "
+                "ORDER BY version DESC LIMIT ?",
+                (tenant, document, limit),
+            ).fetchall()
+        if not exists:
+            raise KeyError("spreadsheet_document_not_found")
         return {"items": [json.loads(row[0]) for row in rows], "limit": limit}
 
     def get_proposal(self, tenant_id: str, proposal_id: str) -> dict[str, Any] | None:
@@ -147,6 +185,12 @@ class SpreadsheetStore:
 
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._path, timeout=5.0)
+
+    @staticmethod
+    def _version_number(version: int) -> int:
+        if isinstance(version, bool) or not isinstance(version, int) or version < 1:
+            raise ValueError("spreadsheet_document_version_invalid")
+        return version
 
 
 __all__ = ["SpreadsheetStore", "SpreadsheetStoreConflict"]
