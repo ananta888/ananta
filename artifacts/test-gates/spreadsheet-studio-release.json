@@ -1,0 +1,230 @@
+{
+  "gates": [
+    {
+      "commands": [
+        {
+          "argv": [
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-n",
+            "auto",
+            "-m",
+            "not integration",
+            "tests/spreadsheet_studio",
+            "--junitxml={junit}"
+          ],
+          "counts": {
+            "errors": 0,
+            "failures": 0,
+            "skipped": 0,
+            "tests": 88
+          },
+          "evidence_kind": "junit",
+          "evidence_valid": true,
+          "returncode": 0
+        },
+        {
+          "argv": [
+            "{python}",
+            "scripts/check_spreadsheet_studio_boundaries.py"
+          ],
+          "evidence_kind": "exit_code",
+          "evidence_valid": true,
+          "returncode": 0
+        },
+        {
+          "argv": [
+            "{python}",
+            "scripts/check_spreadsheet_studio_research_pack.py"
+          ],
+          "evidence_kind": "exit_code",
+          "evidence_valid": true,
+          "returncode": 0
+        }
+      ],
+      "environment": "cpu",
+      "id": "unit_contract_property",
+      "reason_code": "spreadsheet_release_gate_passed",
+      "required": true,
+      "status": "passed"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-n",
+            "auto",
+            "tests/spreadsheet_studio/test_artifact_import.py::test_artifact_inspector_rejects_spoofing_traversal_active_content_and_csv_injection",
+            "tests/spreadsheet_studio/test_worker_runtime_security.py",
+            "tests/spreadsheet_studio/test_worker_ingress.py",
+            "tests/spreadsheet_studio/test_observability_operations.py",
+            "--junitxml={junit}"
+          ],
+          "counts": {
+            "errors": 0,
+            "failures": 0,
+            "skipped": 0,
+            "tests": 14
+          },
+          "evidence_kind": "junit",
+          "evidence_valid": true,
+          "returncode": 0
+        }
+      ],
+      "environment": "cpu",
+      "id": "security_negative",
+      "reason_code": "spreadsheet_release_gate_passed",
+      "required": true,
+      "status": "passed"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "-m",
+            "integration",
+            "tests/spreadsheet_studio/test_artifact_import.py",
+            "tests/spreadsheet_studio/test_libreoffice_worker.py",
+            "--junitxml={junit}"
+          ],
+          "counts": {
+            "errors": 0,
+            "failures": 0,
+            "skipped": 0,
+            "tests": 6
+          },
+          "evidence_kind": "junit",
+          "evidence_valid": true,
+          "returncode": 0
+        }
+      ],
+      "environment": "libreoffice",
+      "id": "libreoffice_real_file",
+      "reason_code": "spreadsheet_release_gate_passed",
+      "required": true,
+      "status": "passed"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "docker",
+            "compose",
+            "-f",
+            "docker/compose-next/compose.spreadsheet-studio.yml",
+            "config",
+            "--quiet"
+          ],
+          "evidence_kind": "exit_code",
+          "evidence_valid": true,
+          "returncode": 0
+        },
+        {
+          "argv": [
+            "{python}",
+            "-m",
+            "pytest",
+            "-q",
+            "tests/spreadsheet_studio/test_execution_queue.py",
+            "tests/spreadsheet_studio/test_worker_ingress.py",
+            "tests/spreadsheet_studio/test_worker_runtime_security.py",
+            "tests/spreadsheet_studio/test_observability_operations.py",
+            "--junitxml={junit}"
+          ],
+          "counts": {
+            "errors": 0,
+            "failures": 0,
+            "skipped": 0,
+            "tests": 18
+          },
+          "evidence_kind": "junit",
+          "evidence_valid": true,
+          "returncode": 0
+        }
+      ],
+      "environment": "docker",
+      "id": "container_recovery",
+      "reason_code": "spreadsheet_release_gate_passed",
+      "required": true,
+      "status": "passed"
+    },
+    {
+      "commands": [
+        {
+          "argv": [
+            "npx",
+            "playwright",
+            "test",
+            "tests/spreadsheet-studio-accessibility.spec.ts",
+            "--project=chromium",
+            "--retries=0",
+            "--reporter=json"
+          ],
+          "counts": {
+            "expected": 1,
+            "flaky": 0,
+            "skipped": 0,
+            "unexpected": 0
+          },
+          "evidence_kind": "playwright_json",
+          "evidence_valid": true,
+          "returncode": 0
+        }
+      ],
+      "environment": "browser",
+      "id": "angular_accessibility_e2e",
+      "reason_code": "spreadsheet_release_gate_passed",
+      "required": true,
+      "status": "passed"
+    },
+    {
+      "commands": [],
+      "environment": "optional_nvidia",
+      "id": "gpu_lora_smoke",
+      "reason_code": "spreadsheet_required_environment_missing",
+      "required": false,
+      "status": "not_run"
+    }
+  ],
+  "git_sha": "c6b821c14f307433810d58bf2a1597c8b10f53f1",
+  "human_intervention_required": false,
+  "input_digests": [
+    {
+      "path": "docs/research/spreadsheet-studio/decision-pack.v1.json",
+      "sha256": "c58a26b68eef6292991fb362acdeeda531f697e0a5ad25067cefa72d5a992a8b"
+    },
+    {
+      "path": "docs/research/spreadsheet-studio/source-manifest.v1.json",
+      "sha256": "145aad5637b8bd29ade4a97cc20b138536d1505ca0eb345687012025162b0748"
+    },
+    {
+      "path": "docs/research/spreadsheet-studio/test-matrix.v1.json",
+      "sha256": "6b1b66fb7bd2fedcf6d12ad75903b7b35171fffdfda3ba0d47b1956cc5ec356b"
+    },
+    {
+      "path": "schemas/spreadsheet-studio/release-profile.v1.json",
+      "sha256": "1a1a688f417f2ff3e04a93e42e87e1c96aaa522e28f8ed18b22abc593fb8be2e"
+    },
+    {
+      "path": "schemas/spreadsheet-studio/release-result.v1.json",
+      "sha256": "05b1f38d5c7b600b6400f03fb089b79bbc1429c4e97d4f42cbbce049b1c7fd4d"
+    },
+    {
+      "path": "todos/archiv/todo.track.spreadsheet-studio-production-hardening.json",
+      "sha256": "76cb69dc848c9113b3919a0e61d0a1a59c8abeb69eca463ac8d2f17a5e41320c"
+    }
+  ],
+  "profile_id": "spreadsheet-studio-production-v1",
+  "schema": "ananta.spreadsheet-studio-release-result.v1",
+  "status": "passed"
+}
