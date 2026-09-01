@@ -5,9 +5,9 @@
   "track": "lmstudio-ollama-capability-template-runtime-integration",
   "created_at": "2026-07-28",
   "updated_at": "2026-09-01",
-  "status": "partial",
+  "status": "blocked",
   "implementation_status": "local_implementation_complete_external_evidence_blocked",
-  "evidence_status": "local_automated_tests_passed_unverified_missing_SRC_RUN_ids",
+  "evidence_status": "local_verification_gates_passed_unverified_missing_SRC_RUN_ids",
   "purpose": "LM Studio und Ollama erhalten eine gemeinsame, hub-kontrollierte Sicht auf installierte Modelle, sichere Runtime-Capabilities, Kontextgrenzen, Templates und Laufzeitzustand. Bestehende OpenAI-kompatible Pfade bleiben kompatibel; provider-native Ollama-Funktionen werden hinter kleinen Adaptern ergaenzt.",
   "goal": "Routing, Tool-Calling, Embeddings, Vision, Thinking, API, Angular und TUI verwenden denselben versionierten Capability-Snapshot. Unsichere oder veraltete Daten loesen keine stille Capability-Eskalation aus. Der Hub bleibt Eigentuemer von Refresh, Routing, Approval und Tool-Loop-Zustand; Worker fuehren nur delegierte Schritte aus.",
   "status_scale": [
@@ -952,26 +952,34 @@
     {
       "id": "LMR-VG-01",
       "name": "Capability contract, normalization and cache",
-      "status": "not_run",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py"
+      "status": "passed",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py",
+      "result": "47 passed in 32.02s",
+      "validated_at": "2026-09-01"
     },
     {
       "id": "LMR-VG-02",
       "name": "Provider fixture matrix",
-      "status": "not_run",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/services/test_ollama_model_discovery_service.py tests/test_local_llm_backends.py tests/test_goal_live_lmstudio.py"
+      "status": "passed",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/services/test_ollama_model_discovery_service.py tests/test_local_llm_backends.py tests/test_goal_live_lmstudio.py",
+      "result": "34 passed, 3 external live-runtime tests skipped in 26.47s",
+      "validated_at": "2026-09-01"
     },
     {
       "id": "LMR-VG-03",
       "name": "Routing, tool loop and compatibility",
-      "status": "not_run",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/test_tool_calling_pipeline.py"
+      "status": "passed",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/test_tool_calling_pipeline.py",
+      "result": "148 passed in 86.09s",
+      "validated_at": "2026-09-01"
     },
     {
       "id": "LMR-VG-04",
       "name": "API, catalog, Angular, TUI and security regressions",
-      "status": "not_run",
-      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
+      "status": "passed",
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py",
+      "result": "36 passed in 54.40s",
+      "validated_at": "2026-09-01"
     }
   ],
   "external_release_gates": [
@@ -1311,6 +1319,7 @@
   "summary_notes": [
     "Tasks sind die Single Source of Truth; Summary-Felder sind abgeleitete Caches.",
     "21 lokal reproduzierbare Implementierungsaufgaben sind automatisiert umgesetzt und getestet.",
+    "Alle vier korrigierten lokalen Verification Gates sind am 2026-09-01 warnings-strikt und ohne Pytest-Cache-Abhaengigkeit gruen: 47 passed; 34 passed und 3 externe Live-Tests skipped; 148 passed; 36 passed.",
     "LMR-000 bleibt wegen fehlender bereitgestellter SRC_* und RUN_* IDs explizit blocked; es werden keine IDs erfunden.",
     "Optionale Live-Runtime-, GPU- und Produktionsfreigaben bleiben von der lokalen Implementierungsabnahme getrennt."
   ],
