@@ -14,6 +14,7 @@ from agent.config import settings
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
+from agent.services.spreadsheet_worker_port import spreadsheet_worker_port_from_environment
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,15 +45,24 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
             status = SpreadsheetStudioWiringStatus(False, "spreadsheet_configuration_invalid")
         else:
             if enabled:
-                state = Path(
-                    str(app.config.get("ANANTA_SPREADSHEET_STUDIO_STATE") or settings.spreadsheet_studio_state)
-                )
-                app.extensions["spreadsheet_studio_service"] = SpreadsheetSagaService(
-                    SpreadsheetStore(state),
-                    policy=policy,
-                    executor=DeterministicSpreadsheetMockExecutionAdapter(),
-                )
-                status = SpreadsheetStudioWiringStatus(True, None)
+                try:
+                    state = Path(
+                        str(app.config.get("ANANTA_SPREADSHEET_STUDIO_STATE") or settings.spreadsheet_studio_state)
+                    )
+                    executor = (
+                        DeterministicSpreadsheetMockExecutionAdapter()
+                        if mode == "mock"
+                        else spreadsheet_worker_port_from_environment()
+                    )
+                    app.extensions["spreadsheet_studio_service"] = SpreadsheetSagaService(
+                        SpreadsheetStore(state),
+                        policy=policy,
+                        executor=executor,
+                    )
+                except (RuntimeError, ValueError):
+                    status = SpreadsheetStudioWiringStatus(False, "spreadsheet_worker_configuration_invalid")
+                else:
+                    status = SpreadsheetStudioWiringStatus(True, None)
             else:
                 status = SpreadsheetStudioWiringStatus(False, "spreadsheet_studio_disabled")
     app.extensions["spreadsheet_studio_wiring_status"] = status

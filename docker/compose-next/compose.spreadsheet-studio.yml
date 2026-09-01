@@ -1,0 +1,68 @@
+# Isolated LibreOffice execution overlay. The internal network has no external
+# egress; only the Hub may submit closed, digest-bound dry-run envelopes.
+
+services:
+  ai-agent-hub:
+    extends:
+      file: compose.base.yml
+      service: ai-agent-hub-base
+    environment:
+      ANANTA_SPREADSHEET_STUDIO_ENABLED: "true"
+      ANANTA_SPREADSHEET_STUDIO_MODE: worker
+      ANANTA_SPREADSHEET_STUDIO_AUTOMATIC_PROMOTION_ENABLED: ${ANANTA_SPREADSHEET_STUDIO_AUTOMATIC_PROMOTION_ENABLED:-true}
+      ANANTA_SPREADSHEET_WORKER_URL: http://spreadsheet-worker:8097/internal/v1/spreadsheet
+      ANANTA_SPREADSHEET_ALLOWED_ENDPOINTS: http://spreadsheet-worker:8097/internal/v1/spreadsheet
+      ANANTA_SPREADSHEET_WORKER_TOKEN: "${ANANTA_SPREADSHEET_WORKER_INTERNAL_TOKEN:?ANANTA_SPREADSHEET_WORKER_INTERNAL_TOKEN must contain at least 24 characters}"
+    depends_on:
+      spreadsheet-worker:
+        condition: service_healthy
+    networks:
+      default: {}
+      spreadsheet-control: {}
+
+  spreadsheet-worker:
+    image: ${ANANTA_SPREADSHEET_WORKER_IMAGE:-ananta-spreadsheet-worker}:${ANANTA_SPREADSHEET_WORKER_IMAGE_TAG:-local}
+    build:
+      context: ../..
+      dockerfile: docker/compose-next/Dockerfile.spreadsheet-worker
+    init: true
+    restart: unless-stopped
+    read_only: true
+    user: "10007:10007"
+    working_dir: /app
+    expose:
+      - "8097"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    cpus: ${ANANTA_SPREADSHEET_WORKER_CPUS:-2.0}
+    mem_limit: ${ANANTA_SPREADSHEET_WORKER_MEMORY:-2g}
+    stop_grace_period: 15s
+    environment:
+      ANANTA_SPREADSHEET_NETWORK_ISOLATED: "true"
+      ANANTA_SPREADSHEET_WORKER_FILE_BYTES: ${ANANTA_SPREADSHEET_WORKER_FILE_BYTES:-268435456}
+      ANANTA_SPREADSHEET_WORKER_JOB_TIMEOUT_SECONDS: ${ANANTA_SPREADSHEET_WORKER_JOB_TIMEOUT_SECONDS:-90}
+      ANANTA_SPREADSHEET_WORKER_MEMORY_BYTES: ${ANANTA_SPREADSHEET_WORKER_MEMORY_BYTES:-2147483648}
+      ANANTA_SPREADSHEET_WORKER_TOKEN: "${ANANTA_SPREADSHEET_WORKER_INTERNAL_TOKEN:?ANANTA_SPREADSHEET_WORKER_INTERNAL_TOKEN must contain at least 24 characters}"
+    tmpfs:
+      - /tmp:size=536870912,mode=1770,uid=10007,gid=10007,noexec,nosuid,nodev
+      - /run:size=16777216,mode=0750,uid=10007,gid=10007,noexec,nosuid,nodev
+    networks:
+      spreadsheet-control:
+        aliases:
+          - spreadsheet-worker
+    logging:
+      driver: json-file
+      options:
+        max-file: "3"
+        max-size: 10m
+
+networks:
+  default: {}
+  spreadsheet-control:
+    internal: true
+
+volumes:
+  hub-data: {}

@@ -15,7 +15,7 @@ class SpreadsheetPolicy:
     max_actions: int = 1_000
 
     def validate(self) -> None:
-        if self.mode not in {"disabled", "mock"}:
+        if self.mode not in {"disabled", "mock", "worker"}:
             raise ValueError("spreadsheet_policy_mode_invalid")
         if self.enabled != (self.mode != "disabled"):
             raise ValueError("spreadsheet_policy_enabled_mode_mismatch")

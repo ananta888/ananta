@@ -1,0 +1,38 @@
+FROM python:3.11.15-slim-bookworm@sha256:b18992999dbe963a45a8a4da40ac2b1975be1a776d939d098c647482bcad5cba
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    ANANTA_SPREADSHEET_WORKER_HOST=0.0.0.0 \
+    ANANTA_SPREADSHEET_WORKER_PORT=8097 \
+    ANANTA_SPREADSHEET_NETWORK_ISOLATED=true
+
+RUN apt-get update \
+    && apt-get install --yes --no-install-recommends \
+        ca-certificates \
+        fonts-dejavu-core \
+        fonts-liberation \
+        libreoffice-calc \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --gid 10007 ananta-spreadsheet \
+    && useradd --uid 10007 --gid 10007 --no-create-home --home-dir /nonexistent --shell /usr/sbin/nologin ananta-spreadsheet
+
+WORKDIR /app
+
+COPY docker/compose-next/requirements.spreadsheet-worker.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --requirement /tmp/requirements.txt \
+    && rm /tmp/requirements.txt
+
+COPY --chown=10007:10007 ananta_contracts /app/ananta_contracts
+COPY --chown=10007:10007 worker/__init__.py /app/worker/__init__.py
+COPY --chown=10007:10007 worker/spreadsheet /app/worker/spreadsheet
+COPY --chown=10007:10007 worker/runtime/__init__.py /app/worker/runtime/__init__.py
+COPY --chown=10007:10007 worker/runtime/spreadsheet_worker_app.py /app/worker/runtime/spreadsheet_worker_app.py
+
+USER 10007:10007
+EXPOSE 8097
+
+HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
+    CMD ["python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8097/health',headers={'Authorization':'Bearer '+os.environ['ANANTA_SPREADSHEET_WORKER_TOKEN']}); p=json.load(urllib.request.urlopen(r,timeout=3)); raise SystemExit(0 if p.get('status')=='ready' else 1)"]
+
+CMD ["python", "-m", "worker.runtime.spreadsheet_worker_app"]

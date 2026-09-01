@@ -32,7 +32,13 @@ class SpreadsheetSagaService:
         self._executor = executor
 
     def capabilities(self) -> dict[str, Any]:
-        capability = dict(self._executor.capability)
+        try:
+            capability = dict(self._executor.capability)
+        except RuntimeError as exc:
+            capability = {
+                "state": "unavailable",
+                "reason_code": str(getattr(exc, "reason_code", str(exc))),
+            }
         available = self._policy.enabled and capability.get("state") == "available"
         return {
             "schema": "ananta.spreadsheet-studio-capability.v1",
@@ -41,8 +47,10 @@ class SpreadsheetSagaService:
             "mode": self._policy.mode,
             "automatic_promotion_enabled": self._policy.automatic_promotion_enabled,
             "executor": capability,
-            "supported_formats": ["canonical_snapshot"],
-            "libreoffice_fidelity_verified": False,
+            "supported_formats": list(capability.get("supported_formats") or ["canonical_snapshot"]),
+            "libreoffice_fidelity_verified": bool(
+                capability.get("engine") == "libreoffice-calc" and capability.get("production_fidelity") is True
+            ),
             "training_available": False,
             "source_grounding_verified": False,
             "human_intervention_required": False,
@@ -118,7 +126,7 @@ class SpreadsheetSagaService:
             "state": state,
             "reason_codes": reasons,
             "automatic_decision": True,
-            "production_fidelity": False,
+            "production_fidelity": bool(execution.get("production_fidelity")),
             "source_grounding_verified": False,
             "human_intervention_required": False,
         }
