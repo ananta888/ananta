@@ -429,22 +429,35 @@
         },
         {
           "dependencies": [],
-          "commit_changes": [],
+          "commit_changes": [
+            "artifacts/e2e/visual-process-assistant-acceptance-matrix.json",
+            ".github/workflows/coverage.yml",
+            "tests/test_test_diagnostics_contract.py",
+            "agent/services/voice_live_run_correction_service.py",
+            "agent/routes/voice_live_runs.py",
+            "tests/services/test_voice_live_run_correction_scheduler.py",
+            "agent/services/ml_intern_training_control_service.py",
+            "agent/routes/ml_intern_training.py",
+            "tests/test_ml_intern_training_control_service.py"
+          ],
           "id": "CI-013",
-          "status": "partial",
+          "status": "completed",
           "workflow": "Coverage Report",
           "workflow_job": "backend-coverage (operator-tui-01)",
           "step": "Run backend coverage",
           "severity": "medium",
           "risk_assessment": "Mittel: Coverage-Nachweis fehlt; zusaetzlich melden Shards fehlende Testdateien.",
           "observed_error": "Run 31939081442: FAILED tests/test_snake_oidc_binding.py::test_register_snake_accepts_strict_service_bearer sowie tests/test_tui_planning_track_commands.py::test_plan_track_adopt_and_reject_flow und ::test_plan_track_execute_next_starts_internal_task. Zusaetzlich Meldungen 'Shard <n> has no test files.' und 'Coverage file <data_file> was not written'.",
-          "root_cause": "Noch zu bestaetigen.",
+          "root_cause": "Der historische Lauf enthielt mehrere unabhaengige Drifts. Die zuletzt reproduzierbaren Ursachen waren eine nicht nachgezogene Visual-Process-Akzeptanzmatrix, ein shallow Checkout ohne den von OpenMAIC revisiongebunden benoetigten Git-Commit, ein fuer den realen 66-Minuten-Shard zu kurzes 60-Minuten-Limit sowie zwei SQLite-Races: Voice-Korrektur und ML-Intern-Training starteten asynchrone Worker, bevor alle request-eigenen Audit-Writes beendet waren.",
           "affected_files_or_subsystems": [
-            "tests/test_snake_oidc_binding.py",
-            "tests/test_tui_planning_track_commands.py",
-            ".github/workflows/coverage.yml"
+            ".github/workflows/coverage.yml",
+            "artifacts/e2e/visual-process-assistant-acceptance-matrix.json",
+            "agent/routes/voice_live_runs.py",
+            "agent/services/voice_live_run_correction_service.py",
+            "agent/routes/ml_intern_training.py",
+            "agent/services/ml_intern_training_control_service.py"
           ],
-          "proposed_solution": "Die drei Testfehler einzeln aufklaeren; getrennt davon die Shard-Aufteilung pruefen, die leere Shards erzeugt.",
+          "proposed_solution": "Umgesetzt: deterministische Evidenz regenerieren, vollstaendige Git-Historie im Coverage-Checkout laden, das Shard-Limit auf 90 Minuten anheben und asynchrone Worker erst nach den request-eigenen Audit-Writes automatisch dispatchen.",
           "expected_result": "Coverage-Lauf gruen, keine leeren Shards.",
           "relevant_validations": [
             "Planning-Track-Suiten: 65 passed (vorher 4 failed).",
@@ -456,9 +469,22 @@
             "Muster ueber mehrere dieser Fehlschlaege: nicht das Produkt war kaputt, sondern Tests, die einer spaeter eingezogenen Pflicht nie nachgezogen wurden - Autorisierung der sources-Blueprint, Projekt-Autoritaet fuer codehug_mutation, gewachsener Seed-Katalog.",
             "OFFEN, diagnostiziert: tests/benchmarks/visual_process_assistant/test_operational_budgets.py (4 errors). Die hinterlegte Browser-Messung ist an Quell-Hashes gebunden und visual-process-api.service.ts wurde in bea8a36d5 geaendert (optionale command_id-Parameter). Neu aufgenommen werden kann sie nur mit laufendem Stack: der Spec mockt zwar alle APIs, braucht aber die ausgelieferte App plus Hub - ein Versuch gegen den blossen dist-Build endete auf /login. Die Zahlen werden nicht von Hand gesetzt; das wuerde genau das Gate entwerten.",
             "OFFEN, diagnostiziert: tests/test_codecompass_e2e_acceptance_gate.py (2 failed). Der Generator scripts/generate_codecompass_e2e_gate.py bricht mit knowledge_index_worker_materialization_binding_conflict ab. Ursache belegt: submit_source_records_job legt die KnowledgeIndexDB-Zeile ohne Materialisierungs-Binding an (Metadaten-Keys: profile, last_requested_by, codecompass_snapshot_manifest ...), waehrend _require_existing_binding seit 6900af1f8 'harden delegated source indexing' (4. Aug) von jeder vorhandenen Zeile ein Binding verlangt. Derselbe Drift wie beim Temporal-Beispiel: die Haertung zog den Konsumenten nicht nach. BEWUSST NICHT EIGENMAECHTIG GELOEST - die Pruefung aufzuweichen wuerde eine Sicherheitshaertung ruecknehmen; das ist eine Produktentscheidung.",
-            "BEHOBEN 2026-08-17: tests/test_codecompass_e2e_acceptance_gate.py 4 passed, 1 skipped. Ursache war Worker-Persistenz derselben KnowledgeIndexDB-Zeile ohne Materialisierungs-Binding. Die Pruefung bleibt streng. RagHelperKnowledgeIndexExecution setzt persist_control_plane_records=False fuer alle source_records-Jobs; der Hub materialisiert und bindet. Das Default-Gate ist fail-closed und byte-reproduzierbar."
+            "BEHOBEN 2026-08-17: tests/test_codecompass_e2e_acceptance_gate.py 4 passed, 1 skipped. Ursache war Worker-Persistenz derselben KnowledgeIndexDB-Zeile ohne Materialisierungs-Binding. Die Pruefung bleibt streng. RagHelperKnowledgeIndexExecution setzt persist_control_plane_records=False fuer alle source_records-Jobs; der Hub materialisiert und bindet. Das Default-Gate ist fail-closed und byte-reproduzierbar.",
+            "Run 33460896943 isolierte drei aktuelle Ursachen: veraltete Visual-Process-Akzeptanzmatrix, fehlende historische OpenMAIC-Revision im shallow Checkout und Abbruch von core-contracts-05 am exakten 60-Minuten-Limit.",
+            "Run 33464885928 bestaetigte Matrix-, Checkout- und Timeout-Fix; 19 Jobs waren gruen, nur e2e-01 zeigte die Voice-Korrektur-Race.",
+            "Run 33469640503 endete mit 19 gruenen Jobs und ausschliesslich dem bereits lokal behobenen Voice-Shard; core-contracts-05 lief nach 66 Minuten erfolgreich durch.",
+            "Run 33473907129 bestaetigte e2e-01 und 18 weitere Jobs gruen; ausschliesslich core-contracts-01 reproduzierte die ML-Intern-Race zwischen Worker-Claim und Flask-after_request-Audit.",
+            "Lokale Schlusspruefung der ML-Intern-Aufnahme/Dispatch-Trennung: 32 passed; Ruff und git diff --check gruen. Der Testvertrag fordert Audit-Markierung vor dem Teardown-Dispatch.",
+            "Finaler Coverage-Lauf 33478142971 am exakten Commit d4da32c56: 21 von 21 Jobs erfolgreich, keine Fehler oder manuellen Schritte."
           ],
-          "implemented_solution": "Zwei unabhaengige Ursachen behoben. (1) Die tui-planning-track-Fehler kamen daher, dass beim Materialisieren eines Planungs-Tracks die Output-Artefakt-ID in tasks.plan_id geschrieben wurde - eine Spalte mit Fremdschluessel auf plans.id, in der ein Track-Artefakt nie eine Zeile hat. Die Zuweisung entfaellt; das Artefakt steht ohnehin zwei Zeilen weiter unter worker_execution_context.planning_track.output_artifact_id, wo es nichts aufloesen muss. (2) test_snake_oidc_binding: das Besitzer-Prinzipal wurde als 'service:agent_token' gefuehrt - das ist der Marker fuer die statische Token-Auth, keine Identitaet, und er schlug den Agentennamen in der Fallback-Kette. Der Marker wird jetzt uebersprungen. Die 1558 Errors sind ebenfalls behoben und hatten eine einzige Ursache: die Aufraeum-Fixture loescht pro Test Blueprint-Artefakte, -Rollen und die Blueprints selbst - mit abgeschalteten Fremdschluesseln -, aber nie die Workflow-Schritte. Der erste Test, der seedete, liess deren Schritte als Waisen zurueck, und der Hub scannt beim Start genau darauf; jeder folgende Test starb im Setup. Durch Ausschluss belegt: Seeden, Anlegen und Instanziieren eines Blueprints ausserhalb von pytest hinterlaesst null Waisen. Zusaetzlich verwiesen drei Testdateien auf nie registrierte Agenten (team_members.agent_url -> agents.url), und die Erwartungsliste des Seed-Katalog-Tests stand bei zehn Blueprints, waehrend der Katalog auf einundzwanzig gewachsen war."
+          "implemented_solution": "Die historischen Test-/Fixture-Drifts bleiben wie dokumentiert behoben. Fuer den aktuellen Quellstand wurden zusaetzlich die deterministische Visual-Process-Matrix regeneriert, der Backend-Coverage-Checkout auf vollstaendige Git-Historie gestellt und das reale Shard-Limit ohne Testumfangsreduktion von 60 auf 90 Minuten erhoeht. Voice-Korrekturen besitzen nun einen getrennt begrenzten automatischen Backlog und starten erst nach dem Publikationsaudit. Beim ML-Intern-Training trennt admit_job die persistente Hub-Aufnahme vom Dispatch; der kompatible create_job-Pfad bleibt automatisch. Die Flask-Route markiert den Dispatch erst nach ihrem Fach-Audit und startet ihn im teardown_request-Hook nach dem globalen after_request-Audit. Dadurch gibt es keinen SQLite-Zugriff mehr parallel zu request-eigenen Audit-Writes; bei einem Dispatch-Fehler bleibt die Hub-Queue persistent und wird automatisch reconciled. Keine Sicherheitspruefung, Shard-Zuordnung oder Coverage-Schwelle wurde aufgeweicht.",
+          "run_ids": [
+            "33460896943",
+            "33464885928",
+            "33469640503",
+            "33473907129",
+            "33478142971"
+          ]
         },
         {
           "dependencies": [],
@@ -764,8 +790,8 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 20,
-      "partial": 1,
+      "completed": 21,
+      "partial": 0,
       "open": 0,
       "in_progress": 0,
       "blocked": 1,
@@ -784,10 +810,9 @@
       "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand.",
       "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht.",
       "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden.",
-      "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab."
+      "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab.",
+      "ABSCHLUSS 2026-09-01: CI-013 ist durch Coverage-Lauf 33478142971 am Commit d4da32c56 mit 21 von 21 erfolgreichen Jobs abgeschlossen. Damit verbleibt in dieser Datei ausschliesslich CI-018 als extern evidenzgebundener Blocker; es gibt keine nicht blockierte Arbeit mehr."
     ],
-    "recommended_order": [
-      "CI-013"
-    ]
+    "recommended_order": []
   }
 }
