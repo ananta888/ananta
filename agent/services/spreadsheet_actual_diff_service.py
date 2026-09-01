@@ -20,10 +20,49 @@ class SpreadsheetActualDiffService:
         offset: int = 0,
         limit: int = 1_000,
     ) -> dict[str, Any]:
+        items = self.complete_items(
+            before=before,
+            after=after,
+            execution_diff=execution_diff,
+            actions=actions,
+        )
+        return self.paginate(items, offset=offset, limit=limit)
+
+    def paginate(
+        self,
+        items: Sequence[Mapping[str, Any]],
+        *,
+        offset: int = 0,
+        limit: int = 1_000,
+    ) -> dict[str, Any]:
         if isinstance(offset, bool) or not isinstance(offset, int) or offset < 0:
             raise ValueError("spreadsheet_diff_offset_invalid")
         if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 1_000:
             raise ValueError("spreadsheet_diff_limit_invalid")
+        complete = [dict(item) for item in items]
+        page = complete[offset : offset + limit]
+        return {
+            "schema": "ananta.spreadsheet-actual-diff.v1",
+            "offset": offset,
+            "limit": limit,
+            "total": len(complete),
+            "has_more": offset + len(page) < len(complete),
+            "items": page,
+            "diff_digest": canonical_digest(complete),
+            "source_grounding_verified": False,
+            "human_intervention_required": False,
+        }
+
+    def complete_items(
+        self,
+        *,
+        before: Mapping[str, Any],
+        after: Mapping[str, Any],
+        execution_diff: Sequence[Mapping[str, Any]] = (),
+        actions: Sequence[Mapping[str, Any]] = (),
+    ) -> list[dict[str, Any]]:
+        """Return the bounded complete set for internal Hub validation."""
+
         direct = {
             (str(item.get("sheet_id") or ""), str(item.get("cell") or "")): {
                 "direct": bool(item.get("direct")),
@@ -35,18 +74,7 @@ class SpreadsheetActualDiffService:
         items.extend(self._structure_items(actions))
         items.extend(self._rich_items(before, after))
         items.sort(key=self._sort_key)
-        page = items[offset : offset + limit]
-        return {
-            "schema": "ananta.spreadsheet-actual-diff.v1",
-            "offset": offset,
-            "limit": limit,
-            "total": len(items),
-            "has_more": offset + len(page) < len(items),
-            "items": page,
-            "diff_digest": canonical_digest(items),
-            "source_grounding_verified": False,
-            "human_intervention_required": False,
-        }
+        return items
 
     @staticmethod
     def _structure_items(actions: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:

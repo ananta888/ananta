@@ -20,6 +20,8 @@ from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
+from agent.services.spreadsheet_validation_reference_store import SpreadsheetValidationReferenceStore
+from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,16 +66,25 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         from agent.repositories.spreadsheet_document_repository import (
                             SqlSpreadsheetDocumentRepository,
                         )
+                        from agent.repositories.spreadsheet_validation_reference_repository import (
+                            SqlSpreadsheetValidationReferenceRepository,
+                        )
 
                         document_store = SqlSpreadsheetDocumentRepository(db_engine=engine)
+                        validation_references = SqlSpreadsheetValidationReferenceRepository(db_engine=engine)
                     else:
                         document_store = SpreadsheetStore(state)
+                        validation_references = SpreadsheetValidationReferenceStore(
+                            state.with_name(f"{state.stem}-validation-references.sqlite3")
+                        )
                     artifact_store = SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts")
                     saga = SpreadsheetSagaService(
                         document_store,
                         policy=policy,
                         executor=executor,
                         artifact_store=artifact_store,
+                        validator_engine=SpreadsheetValidatorEngine(validation_references),
+                        validation_references=validation_references,
                         training_available=True,
                     )
                     app.extensions["spreadsheet_studio_service"] = saga

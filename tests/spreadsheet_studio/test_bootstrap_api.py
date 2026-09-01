@@ -111,13 +111,31 @@ def test_api_runs_document_to_automatic_promotion_without_human(app, client, adm
     assert created.status_code == 201
     document = created.get_json()["data"]
     viewport = client.get(
-        "/api/spreadsheet-studio/documents/api-document/viewport"
-        "?sheet_id=sheet-one&start=A1&end=A2&limit=1",
+        "/api/spreadsheet-studio/documents/api-document/viewport?sheet_id=sheet-one&start=A1&end=A2&limit=1",
         headers=admin_auth_header,
     )
     assert viewport.status_code == 200
     assert viewport.get_json()["data"]["snapshot_digest"] == document["snapshot_digest"]
     assert viewport.get_json()["data"]["backend_cell_count"] == 2
+    reference = client.post(
+        "/api/spreadsheet-studio/validation-references",
+        headers=admin_auth_header,
+        json={"reference_id": "api-reference", "document_id": "api-document", "version": 1},
+    )
+    assert reference.status_code == 201
+    assert reference.get_json()["data"]["snapshot_digest"] == document["snapshot_digest"]
+    listed_references = client.get(
+        "/api/spreadsheet-studio/validation-references",
+        headers=admin_auth_header,
+    )
+    assert listed_references.status_code == 200
+    assert [item["reference_id"] for item in listed_references.get_json()["data"]["items"]] == ["api-reference"]
+    fetched_reference = client.get(
+        "/api/spreadsheet-studio/validation-references/api-reference",
+        headers=admin_auth_header,
+    )
+    assert fetched_reference.status_code == 200
+    assert fetched_reference.get_json()["data"]["human_intervention_required"] is False
     executed = client.post(
         "/api/spreadsheet-studio/proposals/execute",
         headers=admin_auth_header,

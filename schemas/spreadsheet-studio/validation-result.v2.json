@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/validation-result.v2.json",
+  "title": "SpreadsheetValidationResultV2",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "passed", "technically_valid", "correctness", "change_classification", "safety", "outcome", "bindings", "results", "reason_codes", "source_grounding_verified", "human_intervention_required", "validation_digest"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-validation-result.v2"},
+    "passed": {"type": "boolean"},
+    "technically_valid": {"const": true},
+    "correctness": {"enum": ["correct", "partially_correct", "incorrect", "not_verifiable"]},
+    "change_classification": {"enum": ["unchanged", "expected", "unexpected"]},
+    "safety": {"enum": ["safe", "unsafe"]},
+    "outcome": {"enum": ["correct", "partially_correct", "incorrect", "unchanged", "unexpectedly_changed", "unsafe", "not_verifiable"]},
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document_digest", "candidate_digest", "task_digest", "engine_digest", "recalc_digest", "policy_digest", "validator_spec_digest"],
+      "properties": {
+        "document_digest": {"$ref": "#/$defs/digest"},
+        "candidate_digest": {"$ref": "#/$defs/digest"},
+        "task_digest": {"$ref": "#/$defs/digest"},
+        "engine_digest": {"$ref": "#/$defs/digest"},
+        "recalc_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "validator_spec_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "results": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["validator_id", "kind", "passed", "state", "reason_code", "observed_digest", "reference_digest"],
+        "properties": {
+          "validator_id": {"type": "string"},
+          "kind": {"type": "string"},
+          "passed": {"type": "boolean"},
+          "state": {"enum": ["correct", "incorrect", "not_verifiable"]},
+          "reason_code": {"type": ["string", "null"]},
+          "observed_digest": {"$ref": "#/$defs/digest"},
+          "reference_digest": {"anyOf": [{"$ref": "#/$defs/digest"}, {"type": "null"}]}
+        }
+      }
+    },
+    "reason_codes": {"type": "array", "maxItems": 100, "items": {"type": "string"}},
+    "source_grounding_verified": {"const": false},
+    "human_intervention_required": {"const": false},
+    "validation_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {"digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+}

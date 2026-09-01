@@ -15,11 +15,15 @@ from agent.services.spreadsheet_execution_ports import SpreadsheetExecutionPort
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_repository_port import SpreadsheetDocumentRepositoryPort
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
+from agent.services.spreadsheet_validation_reference_port import (
+    SpreadsheetValidationReferenceRepositoryPort,
+)
 from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
 from agent.services.spreadsheet_viewport_service import SpreadsheetViewportService
 from ananta_contracts.spreadsheet_studio import (
     SpreadsheetProposalV1,
     WorkbookSnapshotV1,
+    canonical_digest,
     require_id,
 )
 from ananta_contracts.spreadsheet_studio_v2 import (
@@ -40,6 +44,7 @@ class SpreadsheetSagaService:
         validator_engine: SpreadsheetValidatorEngine | None = None,
         actual_diff_service: SpreadsheetActualDiffService | None = None,
         viewport_service: SpreadsheetViewportService | None = None,
+        validation_references: SpreadsheetValidationReferenceRepositoryPort | None = None,
         training_available: bool = False,
     ) -> None:
         policy.validate()
@@ -47,9 +52,10 @@ class SpreadsheetSagaService:
         self._policy = policy
         self._executor = executor
         self._artifacts = artifact_store
-        self._validators = validator_engine or SpreadsheetValidatorEngine()
+        self._validators = validator_engine or SpreadsheetValidatorEngine(validation_references)
         self._actual_diff = actual_diff_service or SpreadsheetActualDiffService()
         self._viewports = viewport_service or SpreadsheetViewportService()
+        self._validation_references = validation_references
         self._training_available = bool(training_available)
 
     def capabilities(self) -> dict[str, Any]:
@@ -74,6 +80,8 @@ class SpreadsheetSagaService:
                 "ananta.spreadsheet-workbook-snapshot.v2",
             ],
             "actual_diff_schema": "ananta.spreadsheet-actual-diff.v1",
+            "validation_result_schema": "ananta.spreadsheet-validation-result.v2",
+            "validation_reference_schema": "ananta.spreadsheet-validation-reference.v1",
             "libreoffice_fidelity_verified": bool(
                 capability.get("engine") == "libreoffice-calc" and capability.get("production_fidelity") is True
             ),
@@ -297,7 +305,47 @@ class SpreadsheetSagaService:
             engine_name=str(execution.get("engine") or "unknown-engine"),
             engine_version=str(execution.get("engine_version") or "unknown-version"),
         )
-        validation = self._validators.validate(execution_snapshot(candidate), parsed.validators)
+        complete_diff = self._actual_diff.complete_items(
+            before=document["snapshot"],
+            after=candidate.to_dict(),
+            execution_diff=execution["diff"],
+            actions=parsed.actions,
+        )
+        actual_diff = self._actual_diff.paginate(complete_diff)
+        validation_diff = {**actual_diff, "items": complete_diff}
+        validation = self._validators.validate(
+            candidate.to_dict(),
+            parsed.validators,
+            tenant_id=tenant_id,
+            actual_diff=validation_diff,
+            bindings={
+                "document_digest": canonical_digest(
+                    {
+                        "tenant_id": tenant_id,
+                        "document_id": parsed.document_id,
+                        "version": parsed.expected_version,
+                        "snapshot_digest": parsed.base_snapshot_digest,
+                    }
+                ),
+                "task_digest": parsed.digest,
+                "engine_digest": canonical_digest(
+                    {
+                        "engine": str(execution.get("engine") or "unknown-engine"),
+                        "engine_version": str(execution.get("engine_version") or "unknown-version"),
+                    }
+                ),
+                "recalc_digest": canonical_digest(_candidate_recalc_profile(candidate.to_dict())),
+                "policy_digest": canonical_digest(
+                    {
+                        "enabled": self._policy.enabled,
+                        "mode": self._policy.mode,
+                        "automatic_promotion_enabled": self._policy.automatic_promotion_enabled,
+                        "max_actions": self._policy.max_actions,
+                        "max_affected_cells": self._policy.max_affected_cells,
+                    }
+                ),
+            },
+        )
         reasons = list(validation["reason_codes"])
         promote = bool(parsed.automatic_promotion and self._policy.automatic_promotion_enabled and validation["passed"])
         state = "promoted" if promote else ("candidate_ready" if validation["passed"] else "rejected")
@@ -313,12 +361,7 @@ class SpreadsheetSagaService:
             "candidate_snapshot": candidate.to_dict(),
             "candidate_snapshot_digest": candidate.digest,
             "diff": execution["diff"],
-            "actual_diff": self._actual_diff.build(
-                before=document["snapshot"],
-                after=candidate.to_dict(),
-                execution_diff=execution["diff"],
-                actions=parsed.actions,
-            ),
+            "actual_diff": actual_diff,
             "validation": validation,
             "state": state,
             "reason_codes": reasons,
@@ -377,8 +420,6 @@ class SpreadsheetSagaService:
 
     @staticmethod
     def _assignment_digest(value: Mapping[str, Any]) -> str:
-        from ananta_contracts.spreadsheet_studio import canonical_digest
-
         return canonical_digest(value)
 
     def get_document(self, *, tenant_id: str, document_id: str, principal_id: str) -> dict[str, Any]:
@@ -412,6 +453,66 @@ class SpreadsheetSagaService:
             offset=offset,
             limit=limit,
         )
+
+    def create_validation_reference(
+        self,
+        *,
+        tenant_id: str,
+        principal_id: str,
+        reference_id: str,
+        document_id: str,
+        version: int,
+    ) -> dict[str, Any]:
+        if self._validation_references is None:
+            raise RuntimeError("spreadsheet_validation_reference_store_unavailable")
+        document = self.get_version(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            version=version,
+            principal_id=principal_id,
+        )
+        snapshot = parse_workbook_snapshot(document["snapshot"])
+        value = {
+            "schema": "ananta.spreadsheet-validation-reference.v1",
+            "reference_id": require_id(reference_id, "reference_id"),
+            "document_id": require_id(document_id, "document_id"),
+            "document_version": int(version),
+            "owner_id": require_id(principal_id, "principal_id"),
+            "tenant_digest": canonical_digest({"tenant_id": tenant_id}),
+            "snapshot_schema": snapshot.to_dict()["schema"],
+            "snapshot_digest": snapshot.digest,
+            "snapshot": snapshot.to_dict(),
+            "source_grounding_verified": False,
+            "human_intervention_required": False,
+        }
+        value["reference_digest"] = canonical_digest(value)
+        return self._validation_references.create_reference(tenant_id, value)
+
+    def get_validation_reference(
+        self,
+        *,
+        tenant_id: str,
+        principal_id: str,
+        reference_id: str,
+    ) -> dict[str, Any]:
+        if self._validation_references is None:
+            raise RuntimeError("spreadsheet_validation_reference_store_unavailable")
+        value = self._validation_references.get_reference(tenant_id, reference_id)
+        if value["owner_id"] != principal_id:
+            raise PermissionError("spreadsheet_validation_reference_owner_required")
+        return value
+
+    def list_validation_references(
+        self,
+        *,
+        tenant_id: str,
+        principal_id: str,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        if self._validation_references is None:
+            raise RuntimeError("spreadsheet_validation_reference_store_unavailable")
+        page = self._validation_references.list_references(tenant_id, limit=limit)
+        return {**page, "items": [item for item in page["items"] if item["owner_id"] == principal_id]}
 
     def get_version(
         self,
@@ -539,6 +640,15 @@ class SpreadsheetSagaService:
             "format": stored.format,
             "media_type": stored.media_type,
         }
+
+
+def _candidate_recalc_profile(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "locale": snapshot.get("locale", "und"),
+        "timezone": snapshot.get("timezone", "UTC"),
+        "date_system": snapshot.get("date_system", "1900"),
+        "recalc_profile": snapshot.get("recalc_profile", "automatic"),
+    }
 
 
 __all__ = ["SpreadsheetSagaService"]

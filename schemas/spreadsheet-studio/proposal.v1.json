@@ -35,7 +35,7 @@
         ]
       }
     },
-    "validators": { "type": "array", "maxItems": 100 },
+    "validators": { "type": "array", "maxItems": 100, "items": { "$ref": "validator.v2.json" } },
     "automatic_promotion": { "type": "boolean" }
   },
   "$defs": {

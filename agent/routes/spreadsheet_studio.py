@@ -117,6 +117,8 @@ def capabilities():
             "supported_formats": [],
             "supported_snapshot_schemas": [],
             "actual_diff_schema": "ananta.spreadsheet-actual-diff.v1",
+            "validation_result_schema": "ananta.spreadsheet-validation-result.v2",
+            "validation_reference_schema": "ananta.spreadsheet-validation-reference.v1",
             "libreoffice_fidelity_verified": False,
             "training_available": False,
             "source_grounding_verified": False,
@@ -202,6 +204,49 @@ def get_document_viewport(document_id: str):
             end=str(request.args.get("end") or "Z100"),
             offset=int(request.args.get("offset") or 0),
             limit=int(request.args.get("limit") or 1_000),
+        )
+    )
+
+
+@spreadsheet_studio_bp.post("/validation-references")
+@check_user_auth
+def create_validation_reference():
+    def operation():
+        body = _body()
+        if set(body) != {"reference_id", "document_id", "version"}:
+            raise ValueError("spreadsheet_validation_reference_fields_invalid")
+        tenant_id, principal_id = _identity()
+        return _service().create_validation_reference(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            reference_id=body["reference_id"],
+            document_id=body["document_id"],
+            version=body["version"],
+        )
+
+    return _invoke(operation, created=True)
+
+
+@spreadsheet_studio_bp.get("/validation-references")
+@check_user_auth
+def list_validation_references():
+    return _invoke(
+        lambda: _service().list_validation_references(
+            tenant_id=_identity()[0],
+            principal_id=_identity()[1],
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
+
+
+@spreadsheet_studio_bp.get("/validation-references/<reference_id>")
+@check_user_auth
+def get_validation_reference(reference_id: str):
+    return _invoke(
+        lambda: _service().get_validation_reference(
+            tenant_id=_identity()[0],
+            principal_id=_identity()[1],
+            reference_id=reference_id,
         )
     )
 

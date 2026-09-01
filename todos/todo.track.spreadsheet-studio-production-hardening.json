@@ -259,7 +259,7 @@
     {
       "id": "SSP2-005",
       "title": "Validator-Engine und tenantgebundene Referenzartefakte",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -269,12 +269,45 @@
       "source_category_item_ids": [
         "SSFR-DOC-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_check": {
+          "category_item_ids": [
+            "SSFR-DOC-004"
+          ],
+          "source_refs": [
+            "SRC_0003",
+            "SRC_0004",
+            "SRC_0006",
+            "SRC_0009",
+            "SRC_0010",
+            "SRC_0011"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "validator_contract": "ananta_contracts/spreadsheet_studio.py",
+        "validator_engine": "agent/services/spreadsheet_validator_engine.py",
+        "rule_evaluator": "agent/services/spreadsheet_validation_rule_evaluator.py",
+        "reference_repository": "agent/repositories/spreadsheet_validation_reference_repository.py",
+        "migration": "migrations/versions/e2a4c6d8f0b3_add_spreadsheet_validation_references.py",
+        "schemas": [
+          "schemas/spreadsheet-studio/validator.v2.json",
+          "schemas/spreadsheet-studio/validation-reference.v1.json",
+          "schemas/spreadsheet-studio/validation-result.v2.json"
+        ],
+        "tests": [
+          "tests/spreadsheet_studio/test_advanced_validation.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py"
+        ],
+        "result": "64 Spreadsheet Studio, migration-head and research-gate tests passed; 6 optional LibreOffice tests reported as skipped/not_run; boundary detector passed"
+      }
     },
     {
       "id": "SSP2-006",
@@ -454,13 +487,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 8,
+      "todo": 7,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     },
-    "progress_percent_done": 33.33,
+    "progress_percent_done": 41.67,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -487,11 +520,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 8,
+    "todo_remaining": 7,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 4
+    "done": 5
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",

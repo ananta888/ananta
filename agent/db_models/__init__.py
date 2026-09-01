@@ -314,6 +314,7 @@ from .spreadsheet_studio import (
     SpreadsheetDocumentVersionDB,
     SpreadsheetExecutionJobDB,
     SpreadsheetProposalResultDB,
+    SpreadsheetValidationReferenceDB,
 )
 from .tasks import (
     ArchivedTaskDB,
@@ -422,6 +423,7 @@ __all__ = [
     "SpreadsheetDocumentVersionDB",
     "SpreadsheetExecutionJobDB",
     "SpreadsheetProposalResultDB",
+    "SpreadsheetValidationReferenceDB",
     "CuratedWikiPageDB",
     "KnowledgeClaimDB",
     "KnowledgeConflictDB",

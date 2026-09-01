@@ -49,7 +49,21 @@ FORMULA_OPS = frozenset(
         "max_range",
     }
 )
-VALIDATOR_KINDS = frozenset({"equals", "number_range", "formula_present", "cell_empty"})
+VALIDATOR_KINDS = frozenset(
+    {
+        "equals",
+        "number_range",
+        "formula_present",
+        "cell_empty",
+        "number_tolerance",
+        "formula_pattern",
+        "invariant",
+        "sum_range",
+        "range_rule",
+        "reference_range",
+        "change_scope",
+    }
+)
 
 
 class SpreadsheetContractError(ValueError):
@@ -462,24 +476,81 @@ def validate_action(value: object) -> dict[str, Any]:
 def _validator(value: object) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise SpreadsheetContractError("spreadsheet_validator_invalid")
-    _exact(value, {"validator_id", "kind", "sheet_id", "cell", "expected", "minimum", "maximum"}, "validator")
     kind = str(value.get("kind") or "")
     if kind not in VALIDATOR_KINDS:
         raise SpreadsheetContractError("spreadsheet_validator_kind_invalid")
+    validator_id = require_id(value.get("validator_id"), "validator_id")
+    if kind in {"equals", "number_range", "formula_present", "cell_empty"}:
+        return _legacy_validator(value, validator_id=validator_id, kind=kind)
+    if kind == "number_tolerance":
+        _exact(
+            value,
+            {
+                "validator_id",
+                "kind",
+                "sheet_id",
+                "cell",
+                "expected",
+                "absolute_tolerance",
+                "relative_tolerance",
+                "rounding_digits",
+            },
+            "validator_number_tolerance",
+        )
+        return {
+            "validator_id": validator_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "cell": require_cell(value.get("cell")),
+            "expected": _required_number(value.get("expected"), "validator_expected"),
+            **_tolerance(value),
+        }
+    if kind == "formula_pattern":
+        _exact(
+            value,
+            {
+                "validator_id",
+                "kind",
+                "sheet_id",
+                "cell",
+                "expected_formula",
+                "expected_origin",
+                "allow_relative_references",
+            },
+            "validator_formula_pattern",
+        )
+        if not isinstance(value.get("allow_relative_references"), bool):
+            raise SpreadsheetContractError("spreadsheet_validator_formula_relative_invalid")
+        return {
+            "validator_id": validator_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "cell": require_cell(value.get("cell")),
+            "expected_formula": validate_formula(value.get("expected_formula")),
+            "expected_origin": require_cell(value.get("expected_origin"), "expected_origin"),
+            "allow_relative_references": value["allow_relative_references"],
+        }
+    if kind in {"invariant", "sum_range", "range_rule", "change_scope"}:
+        return _range_validator(value, validator_id=validator_id, kind=kind)
+    return _reference_validator(value, validator_id=validator_id)
+
+
+def validate_validator(value: object) -> dict[str, Any]:
+    """Validate one member of the closed additive validator union."""
+
+    return _validator(value)
+
+
+def _legacy_validator(value: Mapping[str, Any], *, validator_id: str, kind: str) -> dict[str, Any]:
+    _exact(value, {"validator_id", "kind", "sheet_id", "cell", "expected", "minimum", "maximum"}, "validator")
     minimum = value.get("minimum")
     maximum = value.get("maximum")
     if kind == "number_range" and (
-        not isinstance(minimum, (int, float))
-        or isinstance(minimum, bool)
-        or not isinstance(maximum, (int, float))
-        or isinstance(maximum, bool)
-        or not math.isfinite(float(minimum))
-        or not math.isfinite(float(maximum))
-        or float(minimum) > float(maximum)
+        not _is_finite_number(minimum) or not _is_finite_number(maximum) or float(minimum) > float(maximum)
     ):
         raise SpreadsheetContractError("spreadsheet_validator_range_invalid")
     return {
-        "validator_id": require_id(value.get("validator_id"), "validator_id"),
+        "validator_id": validator_id,
         "kind": kind,
         "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
         "cell": require_cell(value.get("cell")),
@@ -487,6 +558,164 @@ def _validator(value: object) -> dict[str, Any]:
         "minimum": float(minimum) if kind == "number_range" else None,
         "maximum": float(maximum) if kind == "number_range" else None,
     }
+
+
+def _range_validator(value: Mapping[str, Any], *, validator_id: str, kind: str) -> dict[str, Any]:
+    start, end = _range(value.get("start"), value.get("end"), prefix="validator_range")
+    common = {
+        "validator_id": validator_id,
+        "kind": kind,
+        "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+        "start": start,
+        "end": end,
+    }
+    if kind == "invariant":
+        _exact(value, {"validator_id", "kind", "sheet_id", "start", "end", "rule"}, "validator_invariant")
+        if value.get("rule") not in {"non_empty", "non_negative", "unique", "no_errors"}:
+            raise SpreadsheetContractError("spreadsheet_validator_invariant_rule_invalid")
+        return {**common, "rule": value["rule"]}
+    if kind == "sum_range":
+        _exact(
+            value,
+            {
+                "validator_id",
+                "kind",
+                "sheet_id",
+                "start",
+                "end",
+                "expected",
+                "absolute_tolerance",
+                "relative_tolerance",
+                "rounding_digits",
+            },
+            "validator_sum_range",
+        )
+        return {
+            **common,
+            "expected": _required_number(value.get("expected"), "validator_expected"),
+            **_tolerance(value),
+        }
+    if kind == "range_rule":
+        _exact(
+            value,
+            {
+                "validator_id",
+                "kind",
+                "sheet_id",
+                "start",
+                "end",
+                "value_type",
+                "allow_empty",
+                "minimum",
+                "maximum",
+            },
+            "validator_range_rule",
+        )
+        minimum = value.get("minimum")
+        maximum = value.get("maximum")
+        if (
+            value.get("value_type") not in {"any", "number", "string", "boolean"}
+            or not isinstance(value.get("allow_empty"), bool)
+            or (minimum is not None and not _is_finite_number(minimum))
+            or (maximum is not None and not _is_finite_number(maximum))
+            or (minimum is not None and maximum is not None and float(minimum) > float(maximum))
+        ):
+            raise SpreadsheetContractError("spreadsheet_validator_range_rule_invalid")
+        return {
+            **common,
+            "value_type": value["value_type"],
+            "allow_empty": value["allow_empty"],
+            "minimum": float(minimum) if minimum is not None else None,
+            "maximum": float(maximum) if maximum is not None else None,
+        }
+    _exact(
+        value,
+        {"validator_id", "kind", "sheet_id", "start", "end", "expectation"},
+        "validator_change_scope",
+    )
+    if value.get("expectation") not in {"unchanged", "changed"}:
+        raise SpreadsheetContractError("spreadsheet_validator_change_expectation_invalid")
+    return {**common, "expectation": value["expectation"]}
+
+
+def _reference_validator(value: Mapping[str, Any], *, validator_id: str) -> dict[str, Any]:
+    _exact(
+        value,
+        {
+            "validator_id",
+            "kind",
+            "reference_id",
+            "reference_sheet_id",
+            "reference_start",
+            "reference_end",
+            "sheet_id",
+            "start",
+            "end",
+            "absolute_tolerance",
+            "relative_tolerance",
+            "compare_formulas",
+        },
+        "validator_reference_range",
+    )
+    reference_start, reference_end = _range(
+        value.get("reference_start"), value.get("reference_end"), prefix="validator_reference_range"
+    )
+    start, end = _range(value.get("start"), value.get("end"), prefix="validator_range")
+    if _range_shape(reference_start, reference_end) != _range_shape(start, end) or not isinstance(
+        value.get("compare_formulas"), bool
+    ):
+        raise SpreadsheetContractError("spreadsheet_validator_reference_range_invalid")
+    return {
+        "validator_id": validator_id,
+        "kind": "reference_range",
+        "reference_id": require_id(value.get("reference_id"), "reference_id"),
+        "reference_sheet_id": require_id(value.get("reference_sheet_id"), "reference_sheet_id"),
+        "reference_start": reference_start,
+        "reference_end": reference_end,
+        "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+        "start": start,
+        "end": end,
+        **_tolerance(value, rounding=False),
+        "compare_formulas": value["compare_formulas"],
+    }
+
+
+def _is_finite_number(value: object) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(float(value))
+
+
+def _required_number(value: object, field: str) -> float:
+    if not _is_finite_number(value):
+        raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+    return float(value)
+
+
+def _tolerance(value: Mapping[str, Any], *, rounding: bool = True) -> dict[str, Any]:
+    absolute = value.get("absolute_tolerance")
+    relative = value.get("relative_tolerance")
+    if (
+        not _is_finite_number(absolute)
+        or not _is_finite_number(relative)
+        or float(absolute) < 0
+        or not 0 <= float(relative) <= 1
+    ):
+        raise SpreadsheetContractError("spreadsheet_validator_tolerance_invalid")
+    result: dict[str, Any] = {
+        "absolute_tolerance": float(absolute),
+        "relative_tolerance": float(relative),
+    }
+    if rounding:
+        digits = value.get("rounding_digits")
+        if not isinstance(digits, int) or isinstance(digits, bool) or not 0 <= digits <= 15:
+            raise SpreadsheetContractError("spreadsheet_validator_rounding_invalid")
+        result["rounding_digits"] = digits
+    return result
+
+
+def _range_shape(start: str, end: str) -> tuple[int, int]:
+    start_row, start_column = cell_coordinates(start)
+    end_row, end_column = cell_coordinates(end)
+    return end_row - start_row + 1, end_column - start_column + 1
 
 
 __all__ = [
@@ -505,4 +734,5 @@ __all__ = [
     "validate_formula",
     "validate_action",
     "validate_json_scalar",
+    "validate_validator",
 ]

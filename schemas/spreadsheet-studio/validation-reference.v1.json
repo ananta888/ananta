@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/validation-reference.v1.json",
+  "title": "SpreadsheetValidationReferenceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "reference_id", "document_id", "document_version", "owner_id", "tenant_digest", "snapshot_schema", "snapshot_digest", "snapshot", "source_grounding_verified", "human_intervention_required", "reference_digest"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-validation-reference.v1"},
+    "reference_id": {"$ref": "#/$defs/id"},
+    "document_id": {"$ref": "#/$defs/id"},
+    "document_version": {"type": "integer", "minimum": 1},
+    "owner_id": {"$ref": "#/$defs/id"},
+    "tenant_digest": {"$ref": "#/$defs/digest"},
+    "snapshot_schema": {"enum": ["ananta.spreadsheet-workbook-snapshot.v1", "ananta.spreadsheet-workbook-snapshot.v2"]},
+    "snapshot_digest": {"$ref": "#/$defs/digest"},
+    "snapshot": {"oneOf": [{"$ref": "workbook-snapshot.v1.json"}, {"$ref": "workbook-snapshot.v2.json"}]},
+    "source_grounding_verified": {"const": false},
+    "human_intervention_required": {"const": false},
+    "reference_digest": {"$ref": "#/$defs/digest"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

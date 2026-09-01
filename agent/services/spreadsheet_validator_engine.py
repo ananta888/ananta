@@ -1,56 +1,115 @@
-"""Deterministic spreadsheet validator engine shared by saga and evaluation."""
+"""Digest-bound deterministic spreadsheet validation orchestration."""
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
-from ananta_contracts.spreadsheet_studio import WorkbookSnapshotV1, canonical_digest
+from agent.services.spreadsheet_validation_reference_port import SpreadsheetValidationReferenceRepositoryPort
+from agent.services.spreadsheet_validation_rule_evaluator import SpreadsheetValidationRuleEvaluator
+from ananta_contracts.spreadsheet_studio import WorkbookSnapshotV1, canonical_digest, require_digest
+from ananta_contracts.spreadsheet_studio_v2 import parse_workbook_snapshot
 
 
 class SpreadsheetValidatorEngine:
+    def __init__(
+        self,
+        reference_repository: SpreadsheetValidationReferenceRepositoryPort | None = None,
+        *,
+        evaluator: SpreadsheetValidationRuleEvaluator | None = None,
+    ) -> None:
+        self._evaluator = evaluator or SpreadsheetValidationRuleEvaluator(reference_repository)
+
     def validate(
         self,
-        snapshot: WorkbookSnapshotV1,
-        validators: tuple[Mapping[str, Any], ...],
+        snapshot: Mapping[str, Any] | WorkbookSnapshotV1,
+        validators: Sequence[Mapping[str, Any]],
+        *,
+        tenant_id: str | None = None,
+        actual_diff: Mapping[str, Any] | None = None,
+        bindings: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
-        sheets = {
-            str(sheet["sheet_id"]): {cell["address"]: cell for cell in sheet["cells"]} for sheet in snapshot.sheets
+        candidate = snapshot.to_dict() if isinstance(snapshot, WorkbookSnapshotV1) else dict(snapshot)
+        parsed = parse_workbook_snapshot(candidate)
+        normalized_validators = [dict(validator) for validator in validators]
+        results = self._evaluator.evaluate(
+            snapshot=parsed.to_dict(),
+            validators=normalized_validators,
+            tenant_id=tenant_id,
+            actual_diff=actual_diff,
+        )
+        supplied_bindings = dict(bindings or {})
+        result_bindings = {
+            "document_digest": _binding_digest(supplied_bindings, "document_digest", candidate),
+            "candidate_digest": parsed.digest,
+            "task_digest": _binding_digest(supplied_bindings, "task_digest", normalized_validators),
+            "engine_digest": _binding_digest(supplied_bindings, "engine_digest", {"engine": "unspecified"}),
+            "recalc_digest": _binding_digest(supplied_bindings, "recalc_digest", _recalc_profile(candidate)),
+            "policy_digest": _binding_digest(supplied_bindings, "policy_digest", {"policy": "unspecified"}),
+            "validator_spec_digest": canonical_digest(normalized_validators),
         }
-        results: list[dict[str, Any]] = []
-        for validator in validators:
-            cell = sheets.get(str(validator["sheet_id"]), {}).get(str(validator["cell"]))
-            kind = validator["kind"]
-            passed = False
-            if kind == "equals":
-                passed = cell is not None and cell["value"] == validator["expected"]
-            elif kind == "number_range":
-                value = cell.get("value") if cell else None
-                passed = (
-                    isinstance(value, (int, float))
-                    and not isinstance(value, bool)
-                    and validator["minimum"] <= float(value) <= validator["maximum"]
-                )
-            elif kind == "formula_present":
-                passed = cell is not None and cell["formula"] is not None
-            elif kind == "cell_empty":
-                passed = cell is None or (cell["value"] is None and cell["formula"] is None)
-            results.append(
-                {
-                    "validator_id": validator["validator_id"],
-                    "passed": passed,
-                    "reason_code": None if passed else "spreadsheet_validator_failed",
-                }
-            )
-        reasons = [item["reason_code"] for item in results if item["reason_code"]]
-        return {
-            "schema": "ananta.spreadsheet-validation-result.v1",
-            "passed": not reasons,
+        unsafe = bool(candidate.get("unsupported_objects"))
+        not_verifiable = any(item["state"] == "not_verifiable" for item in results)
+        failures = [item for item in results if not item["passed"]]
+        unexpected = any(item["reason_code"] == "spreadsheet_validator_unexpected_change" for item in failures)
+        changed = bool(actual_diff and actual_diff.get("total"))
+        passed = not failures and not unsafe
+        correctness = (
+            "not_verifiable"
+            if not_verifiable
+            else "correct"
+            if not failures
+            else "partially_correct"
+            if len(failures) < len(results)
+            else "incorrect"
+        )
+        outcome = (
+            "unsafe"
+            if unsafe
+            else "not_verifiable"
+            if not_verifiable
+            else "unexpectedly_changed"
+            if unexpected
+            else "unchanged"
+            if not changed
+            else correctness
+        )
+        reasons = sorted(
+            {
+                *[str(item["reason_code"]) for item in failures if item["reason_code"]],
+                *(["spreadsheet_candidate_unsafe"] if unsafe else []),
+            }
+        )
+        value = {
+            "schema": "ananta.spreadsheet-validation-result.v2",
+            "passed": passed,
+            "technically_valid": True,
+            "correctness": correctness,
+            "change_classification": "unchanged" if not changed else "unexpected" if unexpected else "expected",
+            "safety": "unsafe" if unsafe else "safe",
+            "outcome": outcome,
+            "bindings": result_bindings,
             "results": results,
-            "reason_codes": sorted(set(reasons)),
-            "validation_digest": canonical_digest(results),
+            "reason_codes": reasons,
+            "source_grounding_verified": False,
             "human_intervention_required": False,
         }
+        value["validation_digest"] = canonical_digest(value)
+        return value
+
+
+def _binding_digest(bindings: Mapping[str, Any], field: str, fallback: Any) -> str:
+    supplied = bindings.get(field)
+    return require_digest(supplied, field) if supplied is not None else canonical_digest(fallback)
+
+
+def _recalc_profile(snapshot: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "locale": snapshot.get("locale", "und"),
+        "timezone": snapshot.get("timezone", "UTC"),
+        "date_system": snapshot.get("date_system", "1900"),
+        "recalc_profile": snapshot.get("recalc_profile", "automatic"),
+    }
 
 
 __all__ = ["SpreadsheetValidatorEngine"]

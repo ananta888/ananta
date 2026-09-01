@@ -119,9 +119,39 @@ class SpreadsheetExecutionJobDB(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=_utcnow)
 
 
+class SpreadsheetValidationReferenceDB(SQLModel, table=True):
+    """Immutable Hub-owned snapshot used by tenant-bound validation rules."""
+
+    __tablename__ = "spreadsheet_validation_references"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "document_id"],
+            ["spreadsheet_documents.tenant_id", "spreadsheet_documents.document_id"],
+            ondelete="CASCADE",
+        ),
+        sa.CheckConstraint("document_version >= 1", name="ck_spreadsheet_validation_reference_version"),
+        sa.Index(
+            "ix_spreadsheet_validation_reference_document",
+            "tenant_id",
+            "document_id",
+            "document_version",
+        ),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    reference_id: str = Field(primary_key=True, max_length=128)
+    document_id: str = Field(max_length=128)
+    document_version: int
+    snapshot_digest: str = Field(max_length=64, repr=False)
+    reference_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 __all__ = [
     "SpreadsheetDocumentDB",
     "SpreadsheetDocumentVersionDB",
     "SpreadsheetExecutionJobDB",
     "SpreadsheetProposalResultDB",
+    "SpreadsheetValidationReferenceDB",
 ]
