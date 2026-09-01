@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 BACKEND_PROVIDER_CONTRACT_VERSION = "v1"
 
 BACKEND_PROVIDER_CONTRACT_SCHEMA: dict[str, Any] = {
@@ -72,16 +71,24 @@ BACKEND_PROVIDER_CONTRACTS: list[dict[str, Any]] = [
         "provider_type": "cli_backend",
         "location": "local",
         "transport": {"protocol": "process", "api_shape": "task_scoped_cli"},
-        "capabilities": {"chat": True, "tools": True, "dynamic_models": False,
-                         "file_access": "workspace_scoped", "permission_mode": True},
-        "routing": {"eligible_for_inference": False,
-                    "eligible_for_execution": True, "remote_hops": 0},
-        "governance": {"trust_level": "local_subscription",
-                       "requires_remote_hub_policy": False,
-                       "audit_required": True,
-                       "no_token_persistence": True},
-        "health": {"preflight": "cli_backend_preflight",
-                   "failure_mode": "execution_backend_unavailable_or_not_logged_in"},
+        "capabilities": {
+            "chat": True,
+            "tools": True,
+            "dynamic_models": False,
+            "file_access": "workspace_scoped",
+            "permission_mode": True,
+        },
+        "routing": {"eligible_for_inference": False, "eligible_for_execution": True, "remote_hops": 0},
+        "governance": {
+            "trust_level": "local_subscription",
+            "requires_remote_hub_policy": False,
+            "audit_required": True,
+            "no_token_persistence": True,
+        },
+        "health": {
+            "preflight": "cli_backend_preflight",
+            "failure_mode": "execution_backend_unavailable_or_not_logged_in",
+        },
     },
     {
         "provider": "hosted_openai",
@@ -92,6 +99,36 @@ BACKEND_PROVIDER_CONTRACTS: list[dict[str, Any]] = [
         "routing": {"eligible_for_inference": True, "eligible_for_execution": False, "remote_hops": 0},
         "governance": {"trust_level": "external_api", "requires_remote_hub_policy": False, "audit_required": True},
         "health": {"preflight": "api_key_and_provider_preflight", "failure_mode": "provider_unavailable"},
+    },
+    {
+        "provider": "ananta_webcrawler_openai",
+        "provider_type": "hosted_api",
+        "location": "remote",
+        "transport": {"protocol": "https_or_configured_http", "api_shape": "openai_compatible"},
+        "capabilities": {
+            "chat": True,
+            "tools": True,
+            "streaming": True,
+            "dynamic_models": True,
+            "model_semantics": "profile_name",
+            "browser_automation": "external_service_only",
+        },
+        "routing": {
+            "eligible_for_inference": True,
+            "eligible_for_execution": True,
+            "semantic_match_only": True,
+            "routing_tags": ["web", "browser", "replay", "website_ai", "external_api_wrapper"],
+        },
+        "governance": {
+            "trust_level": "configured_external_service",
+            "requires_remote_hub_policy": True,
+            "audit_required": True,
+            "credentials_owned_by_external_service": True,
+        },
+        "health": {
+            "preflight": "webcrawler_models_probe",
+            "failure_mode": "webcrawler_unavailable",
+        },
     },
     {
         "provider": "voice_runtime",
@@ -117,5 +154,8 @@ def build_backend_provider_contract_catalog() -> dict[str, Any]:
         "version": BACKEND_PROVIDER_CONTRACT_VERSION,
         "schema": dict(BACKEND_PROVIDER_CONTRACT_SCHEMA),
         "contracts": [dict(item) for item in BACKEND_PROVIDER_CONTRACTS],
-        "routing_rule": "Local, hosted and remote providers use the same eligibility, governance and health fields before routing decisions.",
+        "routing_rule": (
+            "Local, hosted and remote providers use the same eligibility, governance "
+            "and health fields before routing decisions."
+        ),
     }

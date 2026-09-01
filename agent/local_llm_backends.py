@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.llm_integration import _list_lmstudio_candidates, _normalize_lmstudio_base_url, probe_lmstudio_runtime
+from agent.providers.webcrawler.config import AnantaWebcrawlerProviderConfig
 from agent.services.remote_federation_policy_service import get_remote_federation_policy_service
 
 
@@ -77,6 +78,33 @@ def get_local_openai_backends(
         )
         if normalized:
             entries.append(normalized)
+
+    provider_configs = agent_cfg.get("providers")
+    if isinstance(provider_configs, dict):
+        webcrawler_raw = provider_configs.get("ananta_webcrawler")
+        if isinstance(webcrawler_raw, dict):
+            webcrawler = AnantaWebcrawlerProviderConfig.from_mapping(webcrawler_raw)
+            if webcrawler.enabled and "backend_provider" in webcrawler.roles and webcrawler.base_url:
+                entries.append(
+                    {
+                        "provider": "ananta_webcrawler_openai",
+                        "transport_provider": "openai",
+                        "name": "Ananta Webcrawler (external profiles)",
+                        "base_url": webcrawler.base_url,
+                        "api_key": None,
+                        "api_key_profile": None,
+                        "api_key_env": webcrawler.api_key_env,
+                        "supports_tool_calls": True,
+                        "configured_models": sorted(webcrawler.allowed_profiles),
+                        "source": "agent_config.providers.ananta_webcrawler",
+                        "selected": default_provider == "ananta_webcrawler_openai",
+                        "selected_model": (default_model if default_provider == "ananta_webcrawler_openai" else None),
+                        "provider_type": "hosted_api",
+                        "model_semantics": "profile_name",
+                        "semantic_fallback_only": True,
+                        "routing_tags": sorted(webcrawler.routing_tags),
+                    }
+                )
 
     for raw_item in agent_cfg.get("remote_ananta_backends") or []:
         normalized = _normalize_local_backend_entry(

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import time
 
 from flask import current_app, request
@@ -16,9 +17,11 @@ from agent.llm_benchmarks import (
 from agent.llm_integration import _list_lmstudio_candidates
 from agent.local_llm_backends import resolve_local_openai_backend
 from agent.services.context_bundle_service import normalize_context_bundle_policy_config, resolve_context_bundle_policy
-from agent.services.ml_intern_spike_config_service import normalize_ml_intern_spike_config as _normalize_ml_intern_spike_config
-from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
+from agent.services.ml_intern_spike_config_service import (
+    normalize_ml_intern_spike_config as _normalize_ml_intern_spike_config,
+)
 from agent.services.planning_proposal_service import normalize_planning_policy_config
+from agent.services.worker_execution_profile_service import normalize_worker_execution_profile
 
 _LMSTUDIO_CATALOG_CACHE: dict[str, dict] = {}
 _LMSTUDIO_CATALOG_CACHE_MAX_ENTRIES = 64
@@ -489,6 +492,9 @@ def resolve_provider_api_key(
         local_api_key = str(local_backend.get("api_key") or "").strip()
         if local_api_key:
             return local_api_key
+        local_api_key_env = str(local_backend.get("api_key_env") or "").strip()
+        if local_api_key_env:
+            return str(os.environ.get(local_api_key_env) or "").strip() or None
         local_profile = str(local_backend.get("api_key_profile") or "").strip()
         if local_profile and isinstance(agent_cfg.get("llm_api_key_profiles"), dict):
             selected_profile = (agent_cfg.get("llm_api_key_profiles") or {}).get(local_profile)

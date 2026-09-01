@@ -75,6 +75,50 @@ class ToolRouterDecision:
 class ToolRoutingService:
     """Reusable hub-side tool/backend routing and capability normalization."""
 
+    def route_webcrawler_backend(
+        self,
+        *,
+        task_kind: str | None,
+        requested_provider: str | None = None,
+        requested_profile: str | None = None,
+        agent_cfg: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Apply the Webcrawler's semantic-only routing policy at the Hub.
+
+        Keeping this decision behind the existing Hub routing service prevents
+        workers and chat clients from selecting the external browser runtime
+        independently.
+        """
+
+        from agent.providers.webcrawler import (
+            AnantaWebcrawlerProviderConfig,
+            WebcrawlerConfigError,
+            route_webcrawler_task,
+        )
+
+        cfg = dict(agent_cfg or {})
+        providers = cfg.get("providers")
+        raw = providers.get("ananta_webcrawler") if isinstance(providers, dict) else None
+        try:
+            provider_config = AnantaWebcrawlerProviderConfig.from_mapping(
+                raw if isinstance(raw, dict) else None
+            )
+        except WebcrawlerConfigError as exc:
+            return {
+                "selected": False,
+                "reason_code": str(exc),
+                "provider_id": None,
+                "profile": None,
+                "explicit": False,
+                "routing_policy": "semantic_match_only",
+            }
+        return route_webcrawler_task(
+            provider_config,
+            task_kind=str(task_kind or ""),
+            requested_provider=requested_provider,
+            requested_profile=requested_profile,
+        ).public()
+
     def build_capability_catalog(self, *, agent_cfg: dict[str, Any] | None = None) -> dict[str, Any]:
         cfg = dict(agent_cfg or {})
         preflight_scope = str(

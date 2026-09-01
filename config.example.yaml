@@ -10,3 +10,34 @@ worker_runtime:
     budgets:
       predict_window_seconds: 3
       max_predict_in_window: 1
+
+# Optional external ananta-webcrawler adapter. Disabled by default; `model`
+# identifiers exposed by this provider are Webcrawler profile names.
+providers:
+  ananta_webcrawler:
+    enabled: false
+    mode: disabled
+    base_url: http://127.0.0.1:8787/v1
+    api_key_env: ANANTA_WEBCRAWLER_API_KEY
+    roles:
+      - backend_provider
+      - tool_provider
+    policy_mode: strict
+    fallback_policy: semantic_match_only
+    healthcheck_path: /models
+    supports_streaming: true
+    supports_models_endpoint: true
+    model_semantics: profile_name
+    allowed_profiles: []
+    blocked_profiles: []
+    routing_tags:
+      - web
+      - browser
+      - replay
+      - website_ai
+      - external_api_wrapper
+    managed_lifecycle_enabled: false
+    recording_enabled: false
+    profile_mutation_enabled: false
+    # Trusted Hub policy context is supplied per invocation, not configured by
+    # a model/tool argument. Goal pre-approvals can grant it automatically.

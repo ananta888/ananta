@@ -160,6 +160,15 @@ def execute_ananta_tool(
                 tool_call_id=tool_call_id,
                 config=cfg,
             )
+        if name.startswith("webcrawler."):
+            from agent.services.tools.webcrawler_tools import run_webcrawler_tool
+
+            return run_webcrawler_tool(
+                tool_name=name,
+                arguments=args,
+                tool_call_id=tool_call_id,
+                config=cfg,
+            )
     except Exception as exc:  # tool bugs must not crash the worker loop
         return build_tool_result(
             tool_name=name, tool_call_id=tool_call_id, status="error", error=f"tool_execution_failed:{exc}"
