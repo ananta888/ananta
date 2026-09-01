@@ -199,6 +199,12 @@ def _services() -> _TrainingServices:
     )
 
 
+def get_ml_intern_training_services() -> _TrainingServices:
+    """Public composition seam for Hub-owned bounded-context adapters."""
+
+    return _services()
+
+
 def _unsloth_promotion_facade(
     services: _TrainingServices,
 ) -> MlInternEvaluationPromotionFacade:

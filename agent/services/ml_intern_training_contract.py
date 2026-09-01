@@ -71,6 +71,8 @@ UNSLOTH_EXPORT_FORMATS = frozenset({"adapter", "merged_16bit", "gguf"})
 UNSLOTH_GGUF_QUANTIZATION_METHODS = frozenset({"q4_k_m", "q5_k_m", "q8_0"})
 _ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
 _CAPABILITY_ID_RE = re.compile(r"^[a-z][a-z0-9_.-]{0,95}$")
+_DIGEST_RE = re.compile(r"^[0-9a-f]{64}$")
+TASK_FAMILIES = frozenset({"spreadsheet_actions"})
 
 _ALLOWED_TRANSITIONS: dict[str, frozenset[str]] = {
     "queued": frozenset({"claimed", "running", "cancel_requested", "failed"}),
@@ -238,6 +240,43 @@ def idempotency_digest(*, tenant_id: str, subject: str, key: str) -> str:
     return hashlib.sha256(f"lora-job-v2\0{tenant_id}\0{subject}\0{normalized}".encode()).hexdigest()
 
 
+def _normalize_task_family_fields(value: Mapping[str, Any], request_spec: dict[str, Any]) -> None:
+    task_family = str(value.get("task_family") or "").strip()
+    family_fields = {"task_family", "task_kinds", "output_schema_digest", "serializer_digest"}
+    if set(value) & family_fields and not task_family:
+        raise MlInternTrainingContractError(
+            "training_task_family_invalid",
+            "task-family fields require task_family",
+        )
+    if not task_family:
+        return
+    if task_family not in TASK_FAMILIES:
+        raise MlInternTrainingContractError(
+            "training_task_family_invalid",
+            "task_family is not supported",
+        )
+    task_kinds = value.get("task_kinds")
+    if (
+        not isinstance(task_kinds, list)
+        or task_kinds != ["spreadsheet_actions"]
+        or task_family != "spreadsheet_actions"
+    ):
+        raise MlInternTrainingContractError(
+            "training_task_kinds_invalid",
+            "spreadsheet task family requires the exact spreadsheet_actions task kind",
+        )
+    for field in ("output_schema_digest", "serializer_digest"):
+        if _DIGEST_RE.fullmatch(str(value.get(field) or "")) is None:
+            raise MlInternTrainingContractError(
+                f"{field}_invalid",
+                f"{field} must be a SHA-256 digest",
+            )
+    request_spec["task_family"] = task_family
+    request_spec["task_kinds"] = list(task_kinds)
+    request_spec["output_schema_digest"] = str(value["output_schema_digest"])
+    request_spec["serializer_digest"] = str(value["serializer_digest"])
+
+
 def assert_job_transition(current: str, target: str) -> None:
     if current not in JOB_STATUSES or target not in JOB_STATUSES:
         raise MlInternTrainingContractError("job_status_invalid", "job status is invalid")
@@ -325,6 +364,10 @@ class CreateTrainingJobCommand:
             "run_ids",
             "exports",
             "release_target",
+            "task_family",
+            "task_kinds",
+            "output_schema_digest",
+            "serializer_digest",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -430,6 +473,7 @@ class CreateTrainingJobCommand:
                 raise MlInternTrainingContractError("quantization_invalid", "quantization must be none or 4bit")
             canonical_hyperparameters["load_in_4bit"] = quantization == "4bit"
         request_spec["hyperparameters"] = canonical_hyperparameters
+        _normalize_task_family_fields(value, request_spec)
         for field_name, identifiers in (
             ("source_ids", normalize_source_ids(value.get("source_ids"))),
             ("run_ids", normalize_run_ids(value.get("run_ids"))),

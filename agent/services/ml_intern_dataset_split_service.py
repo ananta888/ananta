@@ -460,6 +460,11 @@ def _normalized_record_hash(raw_line: str, *, line_number: int) -> str:
         raise DatasetSplitError("invalid_json", f"dataset line {line_number} is not valid JSON") from exc
     if not isinstance(record, dict):
         raise DatasetSplitError("invalid_record", f"dataset line {line_number} is not a JSON object")
+    lineage_root_id = str(record.get("lineage_root_id") or "").strip()
+    if lineage_root_id:
+        if len(lineage_root_id) > 191:
+            raise DatasetSplitError("invalid_lineage_root", f"dataset line {line_number} has invalid lineage")
+        return hashlib.sha256(f"lineage-root\0{lineage_root_id}".encode()).hexdigest()
     if isinstance(record.get("messages"), list):
         normalized: dict[str, Any] = {
             "messages": [

@@ -12,10 +12,10 @@ from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
 from agent.services.spreadsheet_execution_ports import SpreadsheetExecutionPort
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_store import SpreadsheetStore, SpreadsheetStoreConflict
+from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
 from ananta_contracts.spreadsheet_studio import (
     SpreadsheetProposalV1,
     WorkbookSnapshotV1,
-    canonical_digest,
     require_id,
 )
 
@@ -28,12 +28,14 @@ class SpreadsheetSagaService:
         policy: SpreadsheetPolicy,
         executor: SpreadsheetExecutionPort,
         artifact_store: SpreadsheetArtifactStore | None = None,
+        validator_engine: SpreadsheetValidatorEngine | None = None,
     ) -> None:
         policy.validate()
         self._store = store
         self._policy = policy
         self._executor = executor
         self._artifacts = artifact_store
+        self._validators = validator_engine or SpreadsheetValidatorEngine()
 
     def capabilities(self) -> dict[str, Any]:
         try:
@@ -183,7 +185,7 @@ class SpreadsheetSagaService:
         candidate = WorkbookSnapshotV1.from_mapping(execution["candidate_snapshot"])
         if candidate.digest != execution.get("candidate_snapshot_digest"):
             raise ValueError("spreadsheet_execution_digest_invalid")
-        validation = self._validate(candidate, parsed.validators)
+        validation = self._validators.validate(candidate, parsed.validators)
         reasons = list(validation["reason_codes"])
         promote = bool(parsed.automatic_promotion and self._policy.automatic_promotion_enabled and validation["passed"])
         state = "promoted" if promote else ("candidate_ready" if validation["passed"] else "rejected")
@@ -253,46 +255,5 @@ class SpreadsheetSagaService:
             format=str(source.get("format") or ""),
         )
         return content, dict(source)
-
-    @staticmethod
-    def _validate(snapshot: WorkbookSnapshotV1, validators: tuple[Mapping[str, Any], ...]) -> dict[str, Any]:
-        sheets = {
-            str(sheet["sheet_id"]): {cell["address"]: cell for cell in sheet["cells"]} for sheet in snapshot.sheets
-        }
-        results: list[dict[str, Any]] = []
-        for validator in validators:
-            cell = sheets.get(str(validator["sheet_id"]), {}).get(str(validator["cell"]))
-            kind = validator["kind"]
-            passed = False
-            if kind == "equals":
-                passed = cell is not None and cell["value"] == validator["expected"]
-            elif kind == "number_range":
-                value = cell.get("value") if cell else None
-                passed = (
-                    isinstance(value, (int, float))
-                    and not isinstance(value, bool)
-                    and validator["minimum"] <= float(value) <= validator["maximum"]
-                )
-            elif kind == "formula_present":
-                passed = cell is not None and cell["formula"] is not None
-            elif kind == "cell_empty":
-                passed = cell is None or (cell["value"] is None and cell["formula"] is None)
-            results.append(
-                {
-                    "validator_id": validator["validator_id"],
-                    "passed": passed,
-                    "reason_code": None if passed else "spreadsheet_validator_failed",
-                }
-            )
-        reasons = [item["reason_code"] for item in results if item["reason_code"]]
-        return {
-            "schema": "ananta.spreadsheet-validation-result.v1",
-            "passed": not reasons,
-            "results": results,
-            "reason_codes": sorted(set(reasons)),
-            "validation_digest": canonical_digest(results),
-            "human_intervention_required": False,
-        }
-
 
 __all__ = ["SpreadsheetSagaService"]

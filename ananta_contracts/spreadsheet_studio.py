@@ -272,6 +272,12 @@ def _action(value: object) -> dict[str, Any]:
     }
 
 
+def validate_action(value: object) -> dict[str, Any]:
+    """Public closed-union validator for training and inference adapters."""
+
+    return _action(value)
+
+
 def _validator(value: object) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise SpreadsheetContractError("spreadsheet_validator_invalid")
@@ -315,4 +321,5 @@ __all__ = [
     "require_digest",
     "require_id",
     "validate_formula",
+    "validate_action",
 ]

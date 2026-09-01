@@ -247,7 +247,20 @@ class MlInternLoraDatasetBuildService:
 
     @staticmethod
     def _with_metadata(record: dict[str, Any], item: dict[str, Any]) -> dict[str, Any]:
-        for key in ("source_path", "source_ref", "task_kind", "privacy_class", "quality_label"):
+        for key in (
+            "source_path",
+            "source_ref",
+            "task_kind",
+            "privacy_class",
+            "quality_label",
+            "record_digest",
+            "feedback_id",
+            "consent_id",
+            "consent_digest",
+            "lineage_root_id",
+            "split",
+            "recipe_version",
+        ):
             if key in item and item[key] not in (None, ""):
                 record[key] = item[key]
         return record

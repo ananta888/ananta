@@ -9,9 +9,12 @@ from typing import Any
 
 from flask import Blueprint, current_app, request, send_file
 
-from agent.auth import check_user_auth, get_request_auth_context
+from agent.auth import admin_required, check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
+from agent.services.ml_intern_lora_inference_service import get_lora_inference_service
+from agent.services.spreadsheet_inference_service import SpreadsheetInferenceService
 from agent.services.spreadsheet_learning_store import SpreadsheetLearningConflict
+from agent.services.spreadsheet_ml_intern_bridge_service import SpreadsheetMlInternBridgeService
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
 from ananta_contracts.spreadsheet_studio import SpreadsheetContractError
 
@@ -272,6 +275,55 @@ def get_dataset(dataset_id: str):
             dataset_id=dataset_id,
         )
     )
+
+
+@spreadsheet_studio_bp.post("/inference/proposals")
+@check_user_auth
+def infer_proposal():
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: SpreadsheetInferenceService(
+            documents=_service(),
+            inference=get_lora_inference_service(),
+        ).propose_actions(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=_body(),
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.post("/datasets/<dataset_id>/training")
+@check_user_auth
+@admin_required
+def start_training(dataset_id: str):
+    from agent.routes.ml_intern_training_unsloth_support import get_ml_intern_training_services
+
+    body = _body()
+    if body.get("dataset_id") != dataset_id:
+        return api_response(status="error", message="spreadsheet_training_dataset_binding_invalid", code=422)
+    idempotency_key = str(request.headers.get("Idempotency-Key") or "").strip()
+    if not 8 <= len(idempotency_key) <= 191 or any(character.isspace() for character in idempotency_key):
+        return api_response(status="error", message="spreadsheet_training_idempotency_key_invalid", code=400)
+    tenant_id, principal_id = _identity()
+
+    def operation():
+        services = get_ml_intern_training_services()
+        return SpreadsheetMlInternBridgeService(
+            learning=_learning_service(),
+            catalog=services.catalog,
+            split=services.split,
+            repository_bridge=services.bridge,
+            control=services.control,
+        ).start_training(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=body,
+            idempotency_key=idempotency_key,
+        )
+
+    return _invoke(operation, created=True)
 
 
 __all__ = ["spreadsheet_studio_bp"]

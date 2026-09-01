@@ -110,6 +110,48 @@ def test_normalized_duplicate_groups_stay_together(tmp_path: Path) -> None:
     assert result["manifest"]["duplicate_record_count"] >= 3
 
 
+def test_explicit_lineage_roots_stay_in_one_partition(tmp_path: Path) -> None:
+    catalog = _catalog(tmp_path)
+    records = _records(8)
+    records.extend(
+        [
+            {
+                "instruction": f"Workbook revision {index}",
+                "output": f"Action revision {index}",
+                "lineage_root_id": "workbook-one",
+            }
+            for index in range(4)
+        ]
+    )
+    created = catalog.create_from_records(
+        tenant_id="t",
+        principal_id="p",
+        records=records,
+        name="Lineage grouped",
+    )
+    MlInternDatasetSplitService(catalog).split(
+        tenant_id="t",
+        principal_id="p",
+        dataset_id=created["dataset_id"],
+        seed=17,
+    )
+    locations = []
+    for partition in ("train", "validation"):
+        with catalog.open_partition(
+            tenant_id="t",
+            principal_id="p",
+            dataset_id=created["dataset_id"],
+            partition=partition,
+        ) as handle:
+            locations.extend(
+                partition
+                for line in handle
+                if json.loads(line).get("lineage_root_id") == "workbook-one"
+            )
+    assert len(locations) == 4
+    assert len(set(locations)) == 1
+
+
 def test_small_or_single_group_dataset_has_clear_failure(tmp_path: Path) -> None:
     catalog = _catalog(tmp_path)
     small = catalog.create_from_records(

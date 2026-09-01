@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from agent.services.spreadsheet_training_task_family import SpreadsheetTrainingTaskFamilyStrategy
 from ananta_contracts.lora_evaluation import score_todo_track_output
 
 
@@ -37,9 +38,14 @@ def _score_generic(output_text: str) -> dict[str, Any]:
     }
 
 
+def _score_spreadsheet_actions(output_text: str) -> dict[str, Any]:
+    return SpreadsheetTrainingTaskFamilyStrategy().score_output(output_text)
+
+
 _SCORERS = {
     "todo_json": _score_todo_json,
     "ananta_todo_json": _score_todo_json,
+    "spreadsheet_actions": _score_spreadsheet_actions,
 }
 
 
