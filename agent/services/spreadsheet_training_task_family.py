@@ -7,7 +7,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from ananta_contracts.spreadsheet_studio import SpreadsheetContractError, canonical_digest, validate_action
+from ananta_contracts.spreadsheet_studio import (
+    ACTION_KINDS,
+    SpreadsheetContractError,
+    canonical_digest,
+    validate_action,
+)
 
 
 class TrainingTaskFamilyStrategy(Protocol):
@@ -114,7 +119,7 @@ class SpreadsheetTrainingTaskFamilyStrategy:
             {
                 "family": self.family,
                 "output_schema": self.output_schema,
-                "action_kinds": ["clear_cell", "set_formula", "set_value"],
+                "action_kinds": sorted(ACTION_KINDS),
             }
         )
 

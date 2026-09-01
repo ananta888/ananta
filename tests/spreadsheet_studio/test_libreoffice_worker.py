@@ -12,6 +12,7 @@ from agent.services.spreadsheet_worker_port import (
     SpreadsheetWorkerTransportError,
     normalize_spreadsheet_worker_endpoint,
 )
+from ananta_contracts.spreadsheet_studio import validate_action
 from tests.spreadsheet_studio.helpers import snapshot
 from worker.spreadsheet.libreoffice_executor import LibreOfficeSpreadsheetExecutor
 
@@ -139,3 +140,48 @@ def test_real_libreoffice_recalculates_and_returns_a_digest_bound_diff() -> None
     assert result["production_fidelity"] is True
     assert {item["cell"] for item in result["diff"]} == {"A1", "C1"}
     assert next(item for item in result["diff"] if item["cell"] == "C1")["direct"] is False
+
+
+@pytest.mark.integration
+def test_real_libreoffice_applies_bounded_range_copy_format_and_clear() -> None:
+    if not (shutil.which("libreoffice") or shutil.which("soffice")):
+        pytest.skip("LibreOffice is not installed")
+    executor = LibreOfficeSpreadsheetExecutor(network_isolated=True)
+    actions = tuple(
+        validate_action(action)
+        for action in (
+            {
+                "action_id": "copy",
+                "kind": "copy_range",
+                "source_sheet_id": "sheet-one",
+                "source_start": "A1",
+                "source_end": "B1",
+                "target_sheet_id": "sheet-one",
+                "target_start": "A2",
+            },
+            {
+                "action_id": "format",
+                "kind": "format_range",
+                "sheet_id": "sheet-one",
+                "start": "A2",
+                "end": "B2",
+                "style": {"number_format": "0.00", "bold": True, "italic": None, "fill_color": "FFCC00"},
+            },
+            {
+                "action_id": "clear",
+                "kind": "clear_range",
+                "sheet_id": "sheet-one",
+                "start": "B1",
+                "end": "B1",
+            },
+        )
+    )
+
+    result = executor.dry_run(snapshot=snapshot(), actions=actions)
+
+    cells = {cell["address"]: cell for cell in result["candidate_snapshot"]["sheets"][0]["cells"]}
+    assert cells["A2"]["value"] == 1
+    assert cells["B2"]["value"] == "safe"
+    assert cells["A2"]["style_ref"].startswith("style-")
+    assert "B1" not in cells
+    assert {action_id for item in result["diff"] for action_id in item["action_ids"]} == {"copy", "format", "clear"}

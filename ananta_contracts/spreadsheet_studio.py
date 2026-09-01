@@ -13,7 +13,20 @@ from typing import Any, ClassVar
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _CELL = re.compile(r"^[A-Z]{1,3}[1-9][0-9]{0,6}$")
-ACTION_KINDS = frozenset({"set_value", "clear_cell", "set_formula"})
+ACTION_KINDS = frozenset(
+    {
+        "set_value",
+        "set_formula",
+        "clear_cell",
+        "clear_range",
+        "copy_range",
+        "format_range",
+        "insert_rows",
+        "delete_rows",
+        "insert_columns",
+        "delete_columns",
+    }
+)
 FORMULA_OPS = frozenset({"literal", "cell", "add", "subtract", "multiply", "divide", "sum_range"})
 VALIDATOR_KINDS = frozenset({"equals", "number_range", "formula_present", "cell_empty"})
 
@@ -49,6 +62,35 @@ def require_cell(value: object, field: str = "cell") -> str:
     if not _CELL.fullmatch(text):
         raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
     return text
+
+
+def cell_coordinates(value: object, field: str = "cell") -> tuple[int, int]:
+    """Return one-based row/column coordinates for a validated A1 address."""
+
+    cell = require_cell(value, field)
+    letters, digits = re.fullmatch(r"([A-Z]+)([0-9]+)", cell).groups()  # type: ignore[union-attr]
+    column = 0
+    for character in letters:
+        column = column * 26 + ord(character) - ord("A") + 1
+    return int(digits), column
+
+
+def _positive_int(value: object, field: str, *, maximum: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+        raise SpreadsheetContractError(f"spreadsheet_{field}_invalid")
+    return value
+
+
+def _range(start: object, end: object, *, prefix: str) -> tuple[str, str]:
+    normalized_start = require_cell(start, f"{prefix}_start")
+    normalized_end = require_cell(end, f"{prefix}_end")
+    start_row, start_column = cell_coordinates(normalized_start)
+    end_row, end_column = cell_coordinates(normalized_end)
+    if start_row > end_row or start_column > end_column:
+        raise SpreadsheetContractError(f"spreadsheet_{prefix}_order_invalid")
+    if (end_row - start_row + 1) * (end_column - start_column + 1) > 10_000:
+        raise SpreadsheetContractError(f"spreadsheet_{prefix}_too_large")
+    return normalized_start, normalized_end
 
 
 def _exact(value: Mapping[str, Any], fields: set[str], name: str) -> None:
@@ -253,22 +295,110 @@ class SpreadsheetProposalV1:
 def _action(value: object) -> dict[str, Any]:
     if not isinstance(value, Mapping):
         raise SpreadsheetContractError("spreadsheet_action_invalid")
-    _exact(value, {"action_id", "kind", "sheet_id", "cell", "value", "formula"}, "action")
     kind = str(value.get("kind") or "")
     if kind not in ACTION_KINDS:
         raise SpreadsheetContractError("spreadsheet_action_kind_invalid")
-    raw_formula = value.get("formula")
-    if (kind == "set_formula") != (raw_formula is not None):
-        raise SpreadsheetContractError("spreadsheet_action_formula_invalid")
-    if kind != "set_value" and value.get("value") is not None:
-        raise SpreadsheetContractError("spreadsheet_action_value_invalid")
+    action_id = require_id(value.get("action_id"), "action_id")
+    if kind in {"set_value", "set_formula", "clear_cell"}:
+        _exact(value, {"action_id", "kind", "sheet_id", "cell", "value", "formula"}, "action")
+        raw_formula = value.get("formula")
+        if (kind == "set_formula") != (raw_formula is not None):
+            raise SpreadsheetContractError("spreadsheet_action_formula_invalid")
+        if kind != "set_value" and value.get("value") is not None:
+            raise SpreadsheetContractError("spreadsheet_action_value_invalid")
+        return {
+            "action_id": action_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "cell": require_cell(value.get("cell")),
+            "value": _json_scalar(value.get("value"), "action_value"),
+            "formula": validate_formula(raw_formula) if raw_formula is not None else None,
+        }
+    if kind == "clear_range":
+        _exact(value, {"action_id", "kind", "sheet_id", "start", "end"}, "action_clear_range")
+        start, end = _range(value.get("start"), value.get("end"), prefix="action_range")
+        return {
+            "action_id": action_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "start": start,
+            "end": end,
+        }
+    if kind == "copy_range":
+        _exact(
+            value,
+            {
+                "action_id",
+                "kind",
+                "source_sheet_id",
+                "source_start",
+                "source_end",
+                "target_sheet_id",
+                "target_start",
+            },
+            "action_copy_range",
+        )
+        source_start, source_end = _range(
+            value.get("source_start"), value.get("source_end"), prefix="action_source_range"
+        )
+        return {
+            "action_id": action_id,
+            "kind": kind,
+            "source_sheet_id": require_id(value.get("source_sheet_id"), "source_sheet_id"),
+            "source_start": source_start,
+            "source_end": source_end,
+            "target_sheet_id": require_id(value.get("target_sheet_id"), "target_sheet_id"),
+            "target_start": require_cell(value.get("target_start"), "target_start"),
+        }
+    if kind == "format_range":
+        _exact(value, {"action_id", "kind", "sheet_id", "start", "end", "style"}, "action_format_range")
+        start, end = _range(value.get("start"), value.get("end"), prefix="action_range")
+        style = value.get("style")
+        if not isinstance(style, Mapping):
+            raise SpreadsheetContractError("spreadsheet_action_style_invalid")
+        _exact(style, {"number_format", "bold", "italic", "fill_color"}, "action_style")
+        number_format = style.get("number_format")
+        fill_color = style.get("fill_color")
+        if number_format is not None and (not isinstance(number_format, str) or not 1 <= len(number_format) <= 128):
+            raise SpreadsheetContractError("spreadsheet_action_number_format_invalid")
+        if fill_color is not None and (
+            not isinstance(fill_color, str) or not re.fullmatch(r"[0-9A-Fa-f]{6,8}", fill_color)
+        ):
+            raise SpreadsheetContractError("spreadsheet_action_fill_color_invalid")
+        for field in ("bold", "italic"):
+            if style.get(field) is not None and not isinstance(style.get(field), bool):
+                raise SpreadsheetContractError(f"spreadsheet_action_{field}_invalid")
+        if all(style.get(field) is None for field in style):
+            raise SpreadsheetContractError("spreadsheet_action_style_empty")
+        return {
+            "action_id": action_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "start": start,
+            "end": end,
+            "style": {
+                "number_format": number_format,
+                "bold": style.get("bold"),
+                "italic": style.get("italic"),
+                "fill_color": fill_color.upper() if isinstance(fill_color, str) else None,
+            },
+        }
+    if kind in {"insert_rows", "delete_rows"}:
+        _exact(value, {"action_id", "kind", "sheet_id", "start_row", "count"}, "action_rows")
+        return {
+            "action_id": action_id,
+            "kind": kind,
+            "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
+            "start_row": _positive_int(value.get("start_row"), "action_start_row", maximum=1_048_576),
+            "count": _positive_int(value.get("count"), "action_row_count", maximum=1_000),
+        }
+    _exact(value, {"action_id", "kind", "sheet_id", "start_column", "count"}, "action_columns")
     return {
-        "action_id": require_id(value.get("action_id"), "action_id"),
+        "action_id": action_id,
         "kind": kind,
         "sheet_id": require_id(value.get("sheet_id"), "sheet_id"),
-        "cell": require_cell(value.get("cell")),
-        "value": _json_scalar(value.get("value"), "action_value"),
-        "formula": validate_formula(raw_formula) if raw_formula is not None else None,
+        "start_column": _positive_int(value.get("start_column"), "action_start_column", maximum=16_384),
+        "count": _positive_int(value.get("count"), "action_column_count", maximum=1_000),
     }
 
 
@@ -317,6 +447,7 @@ __all__ = [
     "WorkbookSnapshotV1",
     "canonical_digest",
     "canonical_json",
+    "cell_coordinates",
     "require_cell",
     "require_digest",
     "require_id",

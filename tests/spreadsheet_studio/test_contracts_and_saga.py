@@ -5,9 +5,15 @@ import json
 from pathlib import Path
 
 import pytest
+from jsonschema import Draft202012Validator
 
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
-from ananta_contracts.spreadsheet_studio import SpreadsheetContractError, WorkbookSnapshotV1
+from ananta_contracts.spreadsheet_studio import (
+    ACTION_KINDS,
+    SpreadsheetContractError,
+    WorkbookSnapshotV1,
+    validate_action,
+)
 from tests.spreadsheet_studio.helpers import proposal, service, snapshot
 
 
@@ -15,6 +21,7 @@ def test_schemas_are_closed() -> None:
     for path in Path("schemas/spreadsheet-studio").glob("*.json"):
         schema = json.loads(path.read_text())
         assert schema["additionalProperties"] is False
+        Draft202012Validator.check_schema(schema)
 
 
 def test_snapshot_and_formula_contracts_fail_closed() -> None:
@@ -27,6 +34,69 @@ def test_snapshot_and_formula_contracts_fail_closed() -> None:
     value["sheets"][0]["cells"][0]["formula"] = {"op": "external", "url": "https://example.test"}
     with pytest.raises(SpreadsheetContractError, match="formula_op_invalid"):
         WorkbookSnapshotV1.from_mapping(value)
+
+
+def test_action_contract_exposes_the_closed_bounded_v1_union() -> None:
+    actions = [
+        {"action_id": "set", "kind": "set_value", "sheet_id": "sheet-one", "cell": "A1", "value": 1, "formula": None},
+        {
+            "action_id": "formula",
+            "kind": "set_formula",
+            "sheet_id": "sheet-one",
+            "cell": "A1",
+            "value": None,
+            "formula": {"op": "literal", "value": 1},
+        },
+        {
+            "action_id": "clear-cell",
+            "kind": "clear_cell",
+            "sheet_id": "sheet-one",
+            "cell": "A1",
+            "value": None,
+            "formula": None,
+        },
+        {"action_id": "clear", "kind": "clear_range", "sheet_id": "sheet-one", "start": "A1", "end": "B2"},
+        {
+            "action_id": "copy",
+            "kind": "copy_range",
+            "source_sheet_id": "sheet-one",
+            "source_start": "A1",
+            "source_end": "B2",
+            "target_sheet_id": "sheet-one",
+            "target_start": "C1",
+        },
+        {
+            "action_id": "format",
+            "kind": "format_range",
+            "sheet_id": "sheet-one",
+            "start": "A1",
+            "end": "B2",
+            "style": {"number_format": "0.00", "bold": True, "italic": None, "fill_color": "FFCC00"},
+        },
+        {"action_id": "insert-row", "kind": "insert_rows", "sheet_id": "sheet-one", "start_row": 2, "count": 1},
+        {"action_id": "delete-row", "kind": "delete_rows", "sheet_id": "sheet-one", "start_row": 2, "count": 1},
+        {
+            "action_id": "insert-column",
+            "kind": "insert_columns",
+            "sheet_id": "sheet-one",
+            "start_column": 2,
+            "count": 1,
+        },
+        {
+            "action_id": "delete-column",
+            "kind": "delete_columns",
+            "sheet_id": "sheet-one",
+            "start_column": 2,
+            "count": 1,
+        },
+    ]
+    normalized = [validate_action(action) for action in actions]
+    assert {action["kind"] for action in normalized} == ACTION_KINDS
+
+    with pytest.raises(SpreadsheetContractError, match="action_range_order_invalid"):
+        validate_action(
+            {"action_id": "bad", "kind": "clear_range", "sheet_id": "sheet-one", "start": "B2", "end": "A1"}
+        )
 
 
 def test_fully_automatic_mock_saga_promotes_exact_validated_candidate(tmp_path: Path) -> None:

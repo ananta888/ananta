@@ -25,6 +25,31 @@ def parse_formula(value: str, *, current_sheet_id: str, sheet_ids_by_name: Mappi
     return _parse(expression.strip(), current_sheet_id=current_sheet_id, sheet_ids_by_name=sheet_ids_by_name, depth=0)
 
 
+def render_formula(value: Mapping[str, Any], sheet_names: Mapping[str, str]) -> str:
+    """Render a validated closed AST without accepting arbitrary formula text."""
+
+    op = value["op"]
+    if op == "literal":
+        literal = value["value"]
+        if isinstance(literal, str):
+            return '"' + literal.replace('"', '""') + '"'
+        if literal is True:
+            return "TRUE()"
+        if literal is False:
+            return "FALSE()"
+        if literal is None:
+            return '""'
+        return str(literal)
+    if op == "cell":
+        name = sheet_names[str(value["sheet_id"])].replace("'", "''")
+        return f"'{name}'!{value['cell']}"
+    if op == "sum_range":
+        name = sheet_names[str(value["sheet_id"])].replace("'", "''")
+        return f"SUM('{name}'!{value['start']}:{value['end']})"
+    operator = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}[str(op)]
+    return f"({render_formula(value['left'], sheet_names)}{operator}{render_formula(value['right'], sheet_names)})"
+
+
 def _parse(
     expression: str,
     *,
@@ -134,4 +159,4 @@ def _sheet_id(name: str | None, current: str, mapping: Mapping[str, str]) -> str
         raise SpreadsheetFormulaUnsupported("spreadsheet_formula_sheet_unknown") from exc
 
 
-__all__ = ["SpreadsheetFormulaUnsupported", "parse_formula"]
+__all__ = ["SpreadsheetFormulaUnsupported", "parse_formula", "render_formula"]

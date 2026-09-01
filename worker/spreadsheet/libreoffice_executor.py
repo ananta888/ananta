@@ -14,8 +14,9 @@ from pathlib import Path
 from typing import Any
 
 from ananta_contracts.spreadsheet_studio import WorkbookSnapshotV1, canonical_digest
+from worker.spreadsheet.action_applier import SpreadsheetActionApplier
 from worker.spreadsheet.artifact_inspector import SpreadsheetArtifactInspector
-from worker.spreadsheet.formula_parser import SpreadsheetFormulaUnsupported, parse_formula
+from worker.spreadsheet.formula_parser import SpreadsheetFormulaUnsupported, parse_formula, render_formula
 
 
 class SpreadsheetExecutionError(RuntimeError):
@@ -45,6 +46,7 @@ class LibreOfficeSpreadsheetExecutor:
         self._file_bytes = int(file_bytes)
         self._network_isolated = bool(network_isolated)
         self._inspector = SpreadsheetArtifactInspector(max_compressed_bytes=min(self._file_bytes, 16 * 1024**2))
+        self._actions = SpreadsheetActionApplier()
         self._version = self._detect_version()
 
     @property
@@ -87,6 +89,7 @@ class LibreOfficeSpreadsheetExecutor:
             workbook.remove(workbook.active)
             sheet_names: dict[str, str] = {}
             formula_asts: dict[tuple[str, str], Mapping[str, Any]] = {}
+            style_refs: dict[tuple[str, str], str | None] = {}
             for sheet in parsed.sheets:
                 target = workbook.create_sheet(str(sheet["name"]))
                 target.sheet_state = "hidden" if sheet["hidden"] else "visible"
@@ -99,24 +102,17 @@ class LibreOfficeSpreadsheetExecutor:
                     address = str(cell["address"])
                     if cell["formula"] is not None:
                         formula_asts[(sheet_id, address)] = copy.deepcopy(cell["formula"])
-                        target[address] = "=" + _formula_text(cell["formula"], sheet_names)
+                        target[address] = "=" + render_formula(cell["formula"], sheet_names)
                     else:
                         target[address] = cell["value"]
-            direct_targets: set[tuple[str, str]] = set()
-            for action in actions:
-                sheet_id = str(action["sheet_id"])
-                address = str(action["cell"])
-                direct_targets.add((sheet_id, address))
-                target = workbook[sheet_names[sheet_id]][address]
-                if action["kind"] == "clear_cell":
-                    target.value = None
-                    formula_asts.pop((sheet_id, address), None)
-                elif action["kind"] == "set_formula":
-                    formula_asts[(sheet_id, address)] = copy.deepcopy(action["formula"])
-                    target.value = "=" + _formula_text(action["formula"], sheet_names)
-                else:
-                    target.value = action["value"]
-                    formula_asts.pop((sheet_id, address), None)
+                    style_refs[(sheet_id, address)] = cell["style_ref"]
+            direct_targets = self._actions.apply(
+                workbook=workbook,
+                sheet_names=sheet_names,
+                actions=actions,
+                formula_asts=formula_asts,
+                style_refs=style_refs,
+            )
             workbook.calculation.fullCalcOnLoad = True
             workbook.calculation.forceFullCalc = True
             workbook.calculation.calcMode = "auto"
@@ -135,6 +131,7 @@ class LibreOfficeSpreadsheetExecutor:
                     values=values,
                     sheet_names=sheet_names,
                     formula_asts=formula_asts,
+                    style_refs=style_refs,
                     actions=actions,
                 )
             finally:
@@ -150,14 +147,8 @@ class LibreOfficeSpreadsheetExecutor:
                 continue
             diffs.append(
                 {
-                    "action_id": next(
-                        (
-                            str(action["action_id"])
-                            for action in actions
-                            if (str(action["sheet_id"]), str(action["cell"])) == key
-                        ),
-                        None,
-                    ),
+                    "action_id": direct_targets[key][-1] if key in direct_targets else None,
+                    "action_ids": list(direct_targets.get(key) or []),
                     "sheet_id": key[0],
                     "cell": key[1],
                     "before": before.get(key),
@@ -287,28 +278,6 @@ class LibreOfficeSpreadsheetExecutor:
         return value
 
 
-def _formula_text(value: Mapping[str, Any], sheet_names: Mapping[str, str]) -> str:
-    op = value["op"]
-    if op == "literal":
-        literal = value["value"]
-        if isinstance(literal, str):
-            return '"' + literal.replace('"', '""') + '"'
-        if literal is True:
-            return "TRUE()"
-        if literal is False:
-            return "FALSE()"
-        if literal is None:
-            return '""'
-        return str(literal)
-    if op == "cell":
-        return f"'{sheet_names[str(value['sheet_id'])].replace(chr(39), chr(39) * 2)}'!{value['cell']}"
-    if op == "sum_range":
-        name = sheet_names[str(value["sheet_id"])].replace("'", "''")
-        return f"SUM('{name}'!{value['start']}:{value['end']})"
-    operator = {"add": "+", "subtract": "-", "multiply": "*", "divide": "/"}[str(op)]
-    return f"({_formula_text(value['left'], sheet_names)}{operator}{_formula_text(value['right'], sheet_names)})"
-
-
 def _snapshot_from_workbooks(
     *,
     parsed: WorkbookSnapshotV1,
@@ -316,17 +285,20 @@ def _snapshot_from_workbooks(
     values: Any,
     sheet_names: Mapping[str, str],
     formula_asts: Mapping[tuple[str, str], Mapping[str, Any]],
+    style_refs: Mapping[tuple[str, str], str | None],
     actions: tuple[Mapping[str, Any], ...],
 ) -> dict[str, Any]:
+    from openpyxl.utils import get_column_letter
+
     sheets = []
     for original in parsed.sheets:
         sheet_id = str(original["sheet_id"])
         formula_sheet = formulas[sheet_names[sheet_id]]
         value_sheet = values[sheet_names[sheet_id]]
         cells = []
-        for row in formula_sheet.iter_rows():
-            for raw_cell in row:
-                address = raw_cell.coordinate
+        for row_index, row in enumerate(formula_sheet.iter_rows(), start=1):
+            for column_index, raw_cell in enumerate(row, start=1):
+                address = getattr(raw_cell, "coordinate", f"{get_column_letter(column_index)}{row_index}")
                 computed = value_sheet[address].value
                 formula_ast = formula_asts.get((sheet_id, address))
                 if raw_cell.value is None and computed is None:
@@ -336,7 +308,7 @@ def _snapshot_from_workbooks(
                         "address": address,
                         "value": computed if formula_ast is not None else raw_cell.value,
                         "formula": copy.deepcopy(formula_ast),
-                        "style_ref": None,
+                        "style_ref": style_refs.get((sheet_id, address)),
                     }
                 )
         sheets.append(
@@ -357,9 +329,7 @@ def _snapshot_from_workbooks(
 
 def _cells(snapshot: Mapping[str, Any]) -> dict[tuple[str, str], Mapping[str, Any]]:
     return {
-        (str(sheet["sheet_id"]), str(cell["address"])): cell
-        for sheet in snapshot["sheets"]
-        for cell in sheet["cells"]
+        (str(sheet["sheet_id"]), str(cell["address"])): cell for sheet in snapshot["sheets"] for cell in sheet["cells"]
     }
 
 
