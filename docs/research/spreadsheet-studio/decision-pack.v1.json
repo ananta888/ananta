@@ -1,0 +1,647 @@
+{
+  "schema": "ananta.spreadsheet-studio-decision-pack.v1",
+  "created": "2026-09-01",
+  "ananta_baseline_commit": "5765779d7c291439b13356e2dfa9aebb0ced421a",
+  "source_manifest": "docs/research/spreadsheet-studio/source-manifest.v1.json",
+  "threat_model": "docs/research/spreadsheet-studio/threat-model.v1.json",
+  "test_matrix": "docs/research/spreadsheet-studio/test-matrix.v1.json",
+  "phase2_track": "todos/todo.track.spreadsheet-studio-production-hardening.json",
+  "items": [
+    {
+      "id": "SSFR-GND-001",
+      "title": "Assignment-bound Source Catalog und Reviewbasis herstellen",
+      "classification": [
+        "REUSE"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Hub-owned catalog, allowlist and automatic run evidence are reproducibly bound by this pack.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-gnd-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0001",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-GND-002",
+      "title": "Artifact-, Upload-, Extraction- und Spreadsheet-Bestand inventarisieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Artifact import and immutable candidates exist; durable production persistence remains Phase 2.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-gnd-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0002",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-GND-003",
+      "title": "ml_intern-, Unsloth-, Dataset-, Evaluation- und Inferenz-Fit prüfen",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Spreadsheet task-family contracts, consent lineage and dataset projection exist; full training admission remains Phase 2.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-gnd-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0003",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-GND-004",
+      "title": "Hub-Task-, WorkerJob-, Lease-, Fencing- und Result-Ingress-Fit prüfen",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "gap",
+      "decision": "The current synchronous HTTP adapter is experimental and must be replaced by the Hub task queue before production admission.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-gnd-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0004",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-GND-005",
+      "title": "Angular-, Navigation-, Shared-UI- und Modelltraining-Fit prüfen",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "The Angular feature and Hub API facade exist; virtualization and accessibility hardening remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-gnd-005_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0005",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-SEC-001",
+      "title": "Threat Model und Trust Boundaries für Dokumente, Worker, Modelle und Nutzer festlegen",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "research_complete",
+      "decision": "The threat model fixes Browser, Hub, stores and isolated Worker trust boundaries with fail-closed gates.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-sec-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0006",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-SEC-002",
+      "title": "Dokument-, Archiv-, Formel- und Export-Policy fail-closed entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Closed actions and no-macro execution exist; archive, formula and export policy need broader negative coverage.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-sec-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0007",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-SEC-003",
+      "title": "LibreOffice-Sandbox-, Netzwerk- und Runtime-Profil verifizieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Non-root, read-only and no-network workload controls exist; seccomp/AppArmor and authenticated callback hardening remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-sec-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0008",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-SEC-004",
+      "title": "RBAC, Tenantgrenzen, Audit, Handles, Quoten und Retention entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Tenant/project checks and opaque IDs exist; durable quotas, retention and download handles remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-sec-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0009",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-SEC-005",
+      "title": "Datenschutz, Lizenz, Consent und Adapter-Widerrufsfolgen entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Consent digest binding, revocation fencing, quarantine and retraining lineage are implemented without false unlearning claims.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-sec-005_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0010",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-001",
+      "title": "Immutable Artifact- und Dokumentversions-State-Machine definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Immutable in-process original/candidate/published artifacts exist; database repository and migration remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0011",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-002",
+      "title": "Kanonisches Workbook- und Snapshot-Modell festlegen",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Canonical snapshots cover stable sheets, cells, formulas and styles; richer Calc objects remain capability-gated.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0012",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-003",
+      "title": "Geschlossene Action-, Formula- und Actual-Diff-Verträge definieren",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "The V1 discriminated action union, range operations, formula policy and actual diff are implemented.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0013",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-004",
+      "title": "Deterministische Validator- und Ergebnisverträge definieren",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Deterministic validator results exist; formula AST, reference artifacts and deeper invariants remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0014",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-005",
+      "title": "Hub-owned Proposal-, Dry-run-, Validation- und Promotion-Saga definieren",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "The Hub owns the proposal/dry-run/validate/apply saga, but queue-backed Worker execution is still required.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-005_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0015",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DOC-006",
+      "title": "Optimistic Concurrency, Idempotenz und Konfliktsemantik entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Digest-bound Worker results, immutable exports and bounded payloads exist; standard lease/callback integration remains.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-doc-006_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0016",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DATA-001",
+      "title": "Feedback-Event und versioniertes Consent-Ledger definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Feedback, validation, apply approval and training consent are distinct immutable decisions.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-data-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0017",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DATA-002",
+      "title": "Trainingsrecord-Projektion, Maskierung und Privacy-Preview entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Masked privacy preview and digest-bound training records are implemented.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-data-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0018",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DATA-003",
+      "title": "Lineage-, Deduplizierungs- und leakagesichere Split-Policy definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Lineage and deterministic split metadata exist; near-duplicate clustering needs production-scale implementation.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-data-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0019",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-DATA-004",
+      "title": "Dataset-Recipe-, Materialisierungs- und Promotionsvertrag definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Immutable recipes and dataset versions exist; durable promotion and large-scale materialization remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-data-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0020",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-ML-001",
+      "title": "Additive Spreadsheet-Task-Family- und Kompatibilitätsstrategie entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "A closed additive spreadsheet task family preserves legacy defaults and strategy boundaries.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ml-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0021",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-ML-002",
+      "title": "Base-Modell-Baseline und Dataset-Readiness-Go/No-Go definieren",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "gap",
+      "decision": "Quantitative base-model baseline and dataset-readiness admission must be implemented before real training.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ml-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0022",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-ML-003",
+      "title": "Worker-seitiges Spreadsheet-LoRA/QLoRA-Training und Artefaktprofil definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Worker contracts and Unsloth-compatible records exist; real profile-driven LoRA/QLoRA execution remains.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ml-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0023",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-ML-004",
+      "title": "Ausführungsgestützte Spreadsheet-Evaluation und Admission-Gates definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Execution-backed validation primitives exist; complete base-versus-adapter evaluation admission remains.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ml-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0024",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-ML-005",
+      "title": "Adapter-Approval, Revocation und strikt strukturierte Inferenz entscheiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Structured task-family output and revocation lineage exist; registry admission and runtime unload remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ml-005_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0025",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-UX-001",
+      "title": "Hub-API-, DTO-, Route- und Authorization-Verträge schneiden",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Spreadsheet APIs, DTOs, routing and tenant-bound Angular facade are implemented additively.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ux-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0026",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-UX-002",
+      "title": "Virtualisierten Workbook-Viewer und Rendering-Semantik entscheiden",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Workbook preview and version selection exist; tile virtualization and richer rendering remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ux-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0027",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-UX-003",
+      "title": "Proposal-, Diff-, Validator-, Feedback- und Consent-UX trennen",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Proposal, diff, validation, apply, feedback, consent and revocation are distinct UI states.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ux-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0028",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-UX-004",
+      "title": "Dataset-, Split-, Training-, Evaluation- und Adapter-UX integrieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "partial",
+      "decision": "Dataset and training views exist; production evaluation, split-lock and adapter lifecycle UX remain.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-ux-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0029",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-PLAN-001",
+      "title": "Quantitative Limits, Fixtures und Testmatrix festlegen",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "research_complete",
+      "decision": "The test matrix defines numerical budgets, automatic gates and explicit not_run semantics.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-plan-001_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0030",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-PLAN-002",
+      "title": "Observability, Recovery, SLOs und Betriebsgrenzen definieren",
+      "classification": [
+        "EXTEND"
+      ],
+      "research_status": "decided",
+      "implementation_status": "gap",
+      "decision": "Operational identifiers are available, but SLO dashboards and recovery runbooks remain Phase 2.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-plan-002_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0031",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-PLAN-003",
+      "title": "Phase-2-Tracks in kleine SOLID-konforme Slices und einen geschlossenen DAG schneiden",
+      "classification": [
+        "NEW"
+      ],
+      "research_status": "decided",
+      "implementation_status": "research_complete",
+      "decision": "The generated Phase-2 track is a closed, SRP-oriented DAG bound to these source item IDs.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-plan-003_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0032",
+        "CLM_0034"
+      ]
+    },
+    {
+      "id": "SSFR-PLAN-004",
+      "title": "Research-Coverage, Grounding und Promotion Readiness abschließen",
+      "classification": [
+        "REUSE"
+      ],
+      "research_status": "decided",
+      "implementation_status": "implemented",
+      "decision": "Schema, DAG, meta, catalog, claims and automatic promotion are validated by the Hub contract gate.",
+      "owner": "Hub control plane",
+      "required_gates": [
+        "ssfr-plan-004_automatic_gate"
+      ],
+      "evidence_claim_refs": [
+        "CLM_0033",
+        "CLM_0034"
+      ]
+    }
+  ],
+  "promotion": {
+    "status": "automatic_policy_promoted",
+    "policy": "automatic_no_human_v1",
+    "artifact_revision_id": "pcat-3cad811a5cbaf189178d391b",
+    "content_digest": "3cad811a5cbaf189178d391b96911b4312e36ddef2309c526b470bcfe699d441",
+    "promotion_receipt_id": "promotion-6b80fc9f099cdb7fa05f2a23",
+    "source_catalog_id": "catalog-3c2fb97b4f787aa6",
+    "source_catalog_hash": "3c2fb97b4f787aa6b04b9d3f8f47c2db99a43c0f380c8eb5ab645e86c2adcb61",
+    "allowed_source_refs": [
+      "SRC_0001",
+      "SRC_0002",
+      "SRC_0003",
+      "SRC_0004",
+      "SRC_0005",
+      "SRC_0006",
+      "SRC_0007",
+      "SRC_0008",
+      "SRC_0009",
+      "SRC_0010",
+      "SRC_0011",
+      "SRC_0012",
+      "SRC_0013",
+      "SRC_0014"
+    ],
+    "allowed_run_refs": [
+      "RUN_0001"
+    ],
+    "completed_item_decisions": 33,
+    "pending_item_decisions": 0,
+    "validation": {
+      "valid": true,
+      "promotable": true,
+      "grounding": {
+        "status": "verified",
+        "verified_claim_count": 34,
+        "unverified_claim_count": 0,
+        "failed_claims": [],
+        "allowed_reference_count": 15
+      },
+      "schema_hash": "5fe6b61fc33ffd79546ef16b40a2311ba206e8ecbc806a735f42d6ce54af8d54"
+    }
+  }
+}

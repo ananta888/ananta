@@ -1,0 +1,70 @@
+{
+  "schema": "ananta.spreadsheet-studio-test-matrix.v1",
+  "limits": {
+    "compressed_bytes": 50000000,
+    "expanded_bytes": 250000000,
+    "sheets": 128,
+    "rows_per_sheet": 1048576,
+    "columns_per_sheet": 16384,
+    "materialized_cells": 1000000,
+    "formulas": 250000,
+    "actions": 1000,
+    "cells_per_action_batch": 100000,
+    "diff_entries_per_page": 2000,
+    "worker_cpu_seconds": 120,
+    "worker_ram_mib": 2048,
+    "worker_pids": 128,
+    "worker_wall_seconds": 180,
+    "ui_viewport_cells": 20000
+  },
+  "fixtures": [
+    "xlsx-formula-style-hidden-sheet",
+    "ods-formula-style-hidden-sheet",
+    "csv-safe-values-and-formula-prefixes",
+    "locale-date-1900-and-1904",
+    "corrupt-truncated-workbook",
+    "zip-bomb-and-path-traversal",
+    "external-link-macro-and-embedded-object"
+  ],
+  "gates": [
+    {
+      "name": "unit_contract_property",
+      "automatic": true,
+      "environment": "cpu",
+      "required": true
+    },
+    {
+      "name": "security_negative",
+      "automatic": true,
+      "environment": "cpu",
+      "required": true
+    },
+    {
+      "name": "libreoffice_real_file",
+      "automatic": true,
+      "environment": "libreoffice",
+      "required": true
+    },
+    {
+      "name": "container_recovery",
+      "automatic": true,
+      "environment": "docker",
+      "required": true
+    },
+    {
+      "name": "angular_accessibility_e2e",
+      "automatic": true,
+      "environment": "browser",
+      "required": true
+    },
+    {
+      "name": "gpu_lora_smoke",
+      "automatic": true,
+      "environment": "optional_nvidia",
+      "required": false,
+      "unavailable_status": "not_run"
+    }
+  ],
+  "human_in_loop_test_requirement": "forbidden",
+  "productive_automation_requirement": "A digest-bound automatic Hub policy decision must exist for every headless workflow."
+}

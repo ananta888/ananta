@@ -1,0 +1,877 @@
+{
+  "schema": "ananta.spreadsheet-studio-source-manifest.v1",
+  "captured_on": "2026-09-01",
+  "ananta_commit": "5765779d7c291439b13356e2dfa9aebb0ced421a",
+  "ananta_tree": "fbc8d7b896f78c7f2e4987c923ece3a2cab8f0e3",
+  "repository_revision": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+  "policy": {
+    "identities_allocated_by": "OrganizationSourceCatalogPublisherService",
+    "assignment_allowlist_required": true,
+    "runtime_claims_require_run_evidence": true,
+    "external_payloads_redistributed": false
+  },
+  "sources": [
+    {
+      "source_id": "SRC_0001",
+      "locator": "AGENTS.md",
+      "content_hash": "deeeecc8493de4c460e9f78f85c2353c6fc0491726c79339cbf3d0d95940deb2",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0002",
+      "locator": "docs/planning-pipeline.md",
+      "content_hash": "b743eaf2d68d2244288b1222960a19f428a035d258a09929b978023c0a2e909b",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0003",
+      "locator": "ananta_contracts/spreadsheet_studio.py",
+      "content_hash": "90873e2b2ca4dad32ea43f0d15e7c3f975c8a27e46f19b78ad8c365c0e087e48",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0004",
+      "locator": "agent/services/spreadsheet_saga_service.py",
+      "content_hash": "064bb306cedfac8e59e04748d7093863c16026722519262986ec3f05f94c6be5",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0005",
+      "locator": "agent/services/spreadsheet_learning_service.py",
+      "content_hash": "e54b67939e28f9972b69f802f3e87e7c6773fc5fe2fb261d7d1a42178a102094",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0006",
+      "locator": "worker/spreadsheet/libreoffice_executor.py",
+      "content_hash": "c77dad90967c0645f87b6fa38281476ee74552936aa466279bf21065ee0139dc",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0007",
+      "locator": "docker/compose-next/compose.spreadsheet-studio.yml",
+      "content_hash": "913d21fb4628e8a034540d0b0d48726b916a36c5ef62c94c0883794f3e80d294",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0008",
+      "locator": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.ts",
+      "content_hash": "262e5e46836a8f18e18864965c246218e7d83895008b0996df777e75ddd1ec31",
+      "source_kind": "repo_file",
+      "license": "repository-license",
+      "captured_revision": "5765779d7c291439b13356e2dfa9aebb0ced421a"
+    },
+    {
+      "source_id": "SRC_0009",
+      "locator": "https://ecma-international.org/publications-and-standards/standards/ecma-376/",
+      "content_hash": "fc4f55531098bd209ab77b2fd39e0f640a131dac58f1f02c3e497bb6cde4b282",
+      "source_kind": "specification",
+      "license": "ECMA publication terms",
+      "captured_revision": "captured-2026-09-01"
+    },
+    {
+      "source_id": "SRC_0010",
+      "locator": "https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html",
+      "content_hash": "5cb47df4985c6215565b3ad5f69ead309ea7c7ed4e270c62a87c99a0f727d3c7",
+      "source_kind": "specification",
+      "license": "OASIS document terms",
+      "captured_revision": "ODF-1.3"
+    },
+    {
+      "source_id": "SRC_0011",
+      "locator": "https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html",
+      "content_hash": "11fc737038d80432d01e8fe60938ba800d787955b58431010526d2c25d95978f",
+      "source_kind": "documentation",
+      "license": "MPL-2.0 documentation project",
+      "captured_revision": "captured-2026-09-01"
+    },
+    {
+      "source_id": "SRC_0012",
+      "locator": "https://docs.docker.com/engine/security/seccomp/",
+      "content_hash": "68de2e1a7ab4b533d124d6d04b22d0ec67ec871780df2853dda77c6f41d954b2",
+      "source_kind": "security_guidance",
+      "license": "Apache-2.0 documentation",
+      "captured_revision": "captured-2026-09-01"
+    },
+    {
+      "source_id": "SRC_0013",
+      "locator": "https://owasp.org/www-community/attacks/CSV_Injection",
+      "content_hash": "319ab6b422ae6faf62410266e642394eac16b5e104a50244007eab270228914c",
+      "source_kind": "security_guidance",
+      "license": "CC-BY-SA-4.0",
+      "captured_revision": "captured-2026-09-01"
+    },
+    {
+      "source_id": "SRC_0014",
+      "locator": "https://raw.githubusercontent.com/unslothai/unsloth/74661077e5a1796953f8d350b82d2c249aa8d04d/README.md",
+      "content_hash": "23865f2f6028701660d5f5cddcd3a8e74d07581e0c75ebfaebf0e40c825ecc10",
+      "source_kind": "upstream_repository",
+      "license": "Apache-2.0",
+      "captured_revision": "74661077e5a1796953f8d350b82d2c249aa8d04d"
+    }
+  ],
+  "hub_source_binding": {
+    "status": "verified_automatic_policy_promoted",
+    "catalog": {
+      "schema": "source_catalog.v2",
+      "source_catalog_id": "catalog-3c2fb97b4f787aa6",
+      "source_catalog_hash": "3c2fb97b4f787aa6b04b9d3f8f47c2db99a43c0f380c8eb5ab645e86c2adcb61",
+      "catalog_state": "current",
+      "retrieval_trace_id": "catalog-trace-75fac2f96fba9111cb246085",
+      "retrieval_context_hash": "75fac2f96fba9111cb246085589a9765c533015740587cb7d88ada6468fcd7bb",
+      "retrieval_manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+      "source_count": 14,
+      "rejected_count": 0,
+      "sources": [
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0001",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "75043549000ca1b1874c89fe0920eb6cddeba2d51d7d31ce717f803d5d43abf6"
+          },
+          "source_id": "SRC_0001",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "75043549000ca1b1874c89fe0920eb6cddeba2d51d7d31ce717f803d5d43abf6",
+          "source_type": "repo_file",
+          "path": "AGENTS.md",
+          "record_id": "AGENTS.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "deeeecc8493de4c460e9f78f85c2353c6fc0491726c79339cbf3d0d95940deb2",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0002",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "af661dad106f00003cacb57de67825310124cb173787e5e1cb36b00a9fdbe6e6"
+          },
+          "source_id": "SRC_0002",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "af661dad106f00003cacb57de67825310124cb173787e5e1cb36b00a9fdbe6e6",
+          "source_type": "repo_file",
+          "path": "docs/planning-pipeline.md",
+          "record_id": "docs/planning-pipeline.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "b743eaf2d68d2244288b1222960a19f428a035d258a09929b978023c0a2e909b",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0003",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "8e1f9720bced9997d1da3ca5e4ed48d06ad97764b5ce0be673d9247a901aba23"
+          },
+          "source_id": "SRC_0003",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "8e1f9720bced9997d1da3ca5e4ed48d06ad97764b5ce0be673d9247a901aba23",
+          "source_type": "repo_file",
+          "path": "ananta_contracts/spreadsheet_studio.py",
+          "record_id": "ananta_contracts/spreadsheet_studio.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "90873e2b2ca4dad32ea43f0d15e7c3f975c8a27e46f19b78ad8c365c0e087e48",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0004",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "dbfd2a79283d7d2fc8e48b52a125f5408592eca35ba33551d72dd4b0e8b9c474"
+          },
+          "source_id": "SRC_0004",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "dbfd2a79283d7d2fc8e48b52a125f5408592eca35ba33551d72dd4b0e8b9c474",
+          "source_type": "repo_file",
+          "path": "agent/services/spreadsheet_saga_service.py",
+          "record_id": "agent/services/spreadsheet_saga_service.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "064bb306cedfac8e59e04748d7093863c16026722519262986ec3f05f94c6be5",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0005",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "df12c252f7b04137326e80fafad146b598483e21827917ee60cdf8ab74ff8c17"
+          },
+          "source_id": "SRC_0005",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "df12c252f7b04137326e80fafad146b598483e21827917ee60cdf8ab74ff8c17",
+          "source_type": "repo_file",
+          "path": "agent/services/spreadsheet_learning_service.py",
+          "record_id": "agent/services/spreadsheet_learning_service.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "e54b67939e28f9972b69f802f3e87e7c6773fc5fe2fb261d7d1a42178a102094",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0006",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "25694c5d78a72f7e380930d2ad6a76bc7a24c5f6f71fbcf06bbdc999e0c7e917"
+          },
+          "source_id": "SRC_0006",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "25694c5d78a72f7e380930d2ad6a76bc7a24c5f6f71fbcf06bbdc999e0c7e917",
+          "source_type": "repo_file",
+          "path": "worker/spreadsheet/libreoffice_executor.py",
+          "record_id": "worker/spreadsheet/libreoffice_executor.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "c77dad90967c0645f87b6fa38281476ee74552936aa466279bf21065ee0139dc",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0007",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "65cae637f87d5577372e66841a138548bd5516d9c9b3b123bf62149442ba907a"
+          },
+          "source_id": "SRC_0007",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "65cae637f87d5577372e66841a138548bd5516d9c9b3b123bf62149442ba907a",
+          "source_type": "repo_file",
+          "path": "docker/compose-next/compose.spreadsheet-studio.yml",
+          "record_id": "docker/compose-next/compose.spreadsheet-studio.yml",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "913d21fb4628e8a034540d0b0d48726b916a36c5ef62c94c0883794f3e80d294",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0008",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "e672e0500a3efb6cbe36195e3ba114f620dc41c771bde72c6c5bb39f052c537e"
+          },
+          "source_id": "SRC_0008",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "e672e0500a3efb6cbe36195e3ba114f620dc41c771bde72c6c5bb39f052c537e",
+          "source_type": "repo_file",
+          "path": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.ts",
+          "record_id": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.ts",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "262e5e46836a8f18e18864965c246218e7d83895008b0996df777e75ddd1ec31",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "internal",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0009",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "77fb322475fb105e08c311f03c09a8bedaedb078948f823e5a24f2abb2112de3"
+          },
+          "source_id": "SRC_0009",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "77fb322475fb105e08c311f03c09a8bedaedb078948f823e5a24f2abb2112de3",
+          "source_type": "rag_chunk",
+          "path": "https://ecma-international.org/publications-and-standards/standards/ecma-376/",
+          "record_id": "https://ecma-international.org/publications-and-standards/standards/ecma-376/",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "fc4f55531098bd209ab77b2fd39e0f640a131dac58f1f02c3e497bb6cde4b282",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0010",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "86075169449f47348b3636fb90ffe990649283884cb8f2d43852c7759b43736b"
+          },
+          "source_id": "SRC_0010",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "86075169449f47348b3636fb90ffe990649283884cb8f2d43852c7759b43736b",
+          "source_type": "rag_chunk",
+          "path": "https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html",
+          "record_id": "https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "5cb47df4985c6215565b3ad5f69ead309ea7c7ed4e270c62a87c99a0f727d3c7",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0011",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "2525f56f73909fed120b75e0229d952834b8de60b4c3e0119decb95a4b1beff5"
+          },
+          "source_id": "SRC_0011",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "2525f56f73909fed120b75e0229d952834b8de60b4c3e0119decb95a4b1beff5",
+          "source_type": "rag_chunk",
+          "path": "https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html",
+          "record_id": "https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "11fc737038d80432d01e8fe60938ba800d787955b58431010526d2c25d95978f",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0012",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "af02930875560219a8dba7a73df2a06d2c304db808f149de34d360cea19052b7"
+          },
+          "source_id": "SRC_0012",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "af02930875560219a8dba7a73df2a06d2c304db808f149de34d360cea19052b7",
+          "source_type": "rag_chunk",
+          "path": "https://docs.docker.com/engine/security/seccomp/",
+          "record_id": "https://docs.docker.com/engine/security/seccomp/",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "68de2e1a7ab4b533d124d6d04b22d0ec67ec871780df2853dda77c6f41d954b2",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0013",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "10503fe992dc2f83ba10b4cfdf87b3a3e4258b211863c98dcaca19aa538b0c42"
+          },
+          "source_id": "SRC_0013",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "10503fe992dc2f83ba10b4cfdf87b3a3e4258b211863c98dcaca19aa538b0c42",
+          "source_type": "rag_chunk",
+          "path": "https://owasp.org/www-community/attacks/CSV_Injection",
+          "record_id": "https://owasp.org/www-community/attacks/CSV_Injection",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "319ab6b422ae6faf62410266e642394eac16b5e104a50244007eab270228914c",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        },
+        {
+          "source_ref": {
+            "schema": "ananta.source_ref.v2",
+            "source_id": "SRC_0014",
+            "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+            "tenant_id": "tenant-research",
+            "scope": "organization:spreadsheet-studio",
+            "provenance_digest": "fd6cef12c912e3b4e49c392adbdfec588c1d6fb4338b12ec2d660b87978ee59f"
+          },
+          "source_id": "SRC_0014",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "fd6cef12c912e3b4e49c392adbdfec588c1d6fb4338b12ec2d660b87978ee59f",
+          "source_type": "rag_chunk",
+          "path": "https://raw.githubusercontent.com/unslothai/unsloth/74661077e5a1796953f8d350b82d2c249aa8d04d/README.md",
+          "record_id": "https://raw.githubusercontent.com/unslothai/unsloth/74661077e5a1796953f8d350b82d2c249aa8d04d/README.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "23865f2f6028701660d5f5cddcd3a8e74d07581e0c75ebfaebf0e40c825ecc10",
+          "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+          "sensitivity": "public",
+          "allowed_for_llm_scope": true,
+          "task_id": "source-catalog-task-spreadsheet-studio-v1"
+        }
+      ]
+    },
+    "publication": {
+      "schema": "organization_source_catalog_publication.v1",
+      "organization_id": "spreadsheet-studio",
+      "connection_id": "spreadsheet-research-sources",
+      "source_revision_id": "srev-146ad4420bb0ce27cd2465f2",
+      "revision_digest": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+      "source_manifest_digest": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+      "admission_receipt_id": "admission-spreadsheet-research-v1",
+      "admission_digest": "ccd5a8fb09e3b99ee3b28e577810550695a7b211fb5e20e8a7d4b8ef8c5c65e1",
+      "knowledge_index_id": "index-spreadsheet-research-v1",
+      "index_run_id": "index-run-spreadsheet-research-v1",
+      "index_source_scope": "organization:spreadsheet-studio",
+      "index_manifest_digest": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+      "policy_snapshot_digest": "1b235eccc81939112d673d3b44ead2991066bed6f6f2ea62251ea082253d55bc",
+      "active_generation": 1,
+      "query_count": 1,
+      "query_digests": [
+        "924773c2fed20820a2b80a149e530277aafec1af3b9720038dc5bada3c8c0c0e"
+      ],
+      "query_limit": 14,
+      "source_count": 14,
+      "record_bindings": [
+        {
+          "source_id": "SRC_0001",
+          "record_file": "index.jsonl",
+          "record_id": "AGENTS.md",
+          "path": "AGENTS.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "deeeecc8493de4c460e9f78f85c2353c6fc0491726c79339cbf3d0d95940deb2",
+          "record_binding_digest": "ee4edaa81c16f3329c1ff5886ee627dc309aa3acfdb1cb7c0d2067f1482985a3"
+        },
+        {
+          "source_id": "SRC_0002",
+          "record_file": "index.jsonl",
+          "record_id": "docs/planning-pipeline.md",
+          "path": "docs/planning-pipeline.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "b743eaf2d68d2244288b1222960a19f428a035d258a09929b978023c0a2e909b",
+          "record_binding_digest": "de4dbe4c4b748bc3c75b8a5c5ffa1e144c32938e292782144786bc0b1870cfdc"
+        },
+        {
+          "source_id": "SRC_0003",
+          "record_file": "index.jsonl",
+          "record_id": "ananta_contracts/spreadsheet_studio.py",
+          "path": "ananta_contracts/spreadsheet_studio.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "90873e2b2ca4dad32ea43f0d15e7c3f975c8a27e46f19b78ad8c365c0e087e48",
+          "record_binding_digest": "e38d3a52d9f1f66c76e4a0e62a0af0014725f9a5077783ce2f5f31e473bf041f"
+        },
+        {
+          "source_id": "SRC_0004",
+          "record_file": "index.jsonl",
+          "record_id": "agent/services/spreadsheet_saga_service.py",
+          "path": "agent/services/spreadsheet_saga_service.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "064bb306cedfac8e59e04748d7093863c16026722519262986ec3f05f94c6be5",
+          "record_binding_digest": "d4f02fea2d07cc4a0893e142278c1493b3adac8af8c7a650da9fc0d79baeb6dd"
+        },
+        {
+          "source_id": "SRC_0005",
+          "record_file": "index.jsonl",
+          "record_id": "agent/services/spreadsheet_learning_service.py",
+          "path": "agent/services/spreadsheet_learning_service.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "e54b67939e28f9972b69f802f3e87e7c6773fc5fe2fb261d7d1a42178a102094",
+          "record_binding_digest": "5b34da29bb3e0f97bc37712a103b63f9eea22b50c40a284f852eadfe442b81fc"
+        },
+        {
+          "source_id": "SRC_0006",
+          "record_file": "index.jsonl",
+          "record_id": "worker/spreadsheet/libreoffice_executor.py",
+          "path": "worker/spreadsheet/libreoffice_executor.py",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "c77dad90967c0645f87b6fa38281476ee74552936aa466279bf21065ee0139dc",
+          "record_binding_digest": "e6ef1c2e963802d3c2de8c012e33584c0f997dd4f942e1503007199fdd06c78b"
+        },
+        {
+          "source_id": "SRC_0007",
+          "record_file": "index.jsonl",
+          "record_id": "docker/compose-next/compose.spreadsheet-studio.yml",
+          "path": "docker/compose-next/compose.spreadsheet-studio.yml",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "913d21fb4628e8a034540d0b0d48726b916a36c5ef62c94c0883794f3e80d294",
+          "record_binding_digest": "9ac9a7e948df3b94576858183e176eeb5f2608e3f7bc59172354b3f276ca2cb4"
+        },
+        {
+          "source_id": "SRC_0008",
+          "record_file": "index.jsonl",
+          "record_id": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.ts",
+          "path": "frontend-angular/src/app/features/spreadsheet-studio/spreadsheet-studio-page.component.ts",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "262e5e46836a8f18e18864965c246218e7d83895008b0996df777e75ddd1ec31",
+          "record_binding_digest": "c972e2999d35dd3a3adebc3e65700c53d6317de874870a77c74e339bab6283b3"
+        },
+        {
+          "source_id": "SRC_0009",
+          "record_file": "index.jsonl",
+          "record_id": "https://ecma-international.org/publications-and-standards/standards/ecma-376/",
+          "path": "https://ecma-international.org/publications-and-standards/standards/ecma-376/",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "fc4f55531098bd209ab77b2fd39e0f640a131dac58f1f02c3e497bb6cde4b282",
+          "record_binding_digest": "422e650723ed5bb1e8cbcc5ecc8c6cfd851ec877d9250ef8b036bd446d3a2916"
+        },
+        {
+          "source_id": "SRC_0010",
+          "record_file": "index.jsonl",
+          "record_id": "https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html",
+          "path": "https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part4-formula/OpenDocument-v1.3-os-part4-formula.html",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "5cb47df4985c6215565b3ad5f69ead309ea7c7ed4e270c62a87c99a0f727d3c7",
+          "record_binding_digest": "b93efd9b11c68bf787fdc3c7c814ca5511bd54c4accdf46849a5a41d87b93d3a"
+        },
+        {
+          "source_id": "SRC_0011",
+          "record_file": "index.jsonl",
+          "record_id": "https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html",
+          "path": "https://help.libreoffice.org/latest/en-US/text/shared/guide/start_parameters.html",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "11fc737038d80432d01e8fe60938ba800d787955b58431010526d2c25d95978f",
+          "record_binding_digest": "8e430362f3e96d8cfdf1d04ba1c78a4fe3f121d9dfd0cfc4c7f26e582a1b20fb"
+        },
+        {
+          "source_id": "SRC_0012",
+          "record_file": "index.jsonl",
+          "record_id": "https://docs.docker.com/engine/security/seccomp/",
+          "path": "https://docs.docker.com/engine/security/seccomp/",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "68de2e1a7ab4b533d124d6d04b22d0ec67ec871780df2853dda77c6f41d954b2",
+          "record_binding_digest": "514e8de741ab32cf194ecf3d77525e821401aeeca8344217bf1890bae7e060d6"
+        },
+        {
+          "source_id": "SRC_0013",
+          "record_file": "index.jsonl",
+          "record_id": "https://owasp.org/www-community/attacks/CSV_Injection",
+          "path": "https://owasp.org/www-community/attacks/CSV_Injection",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "319ab6b422ae6faf62410266e642394eac16b5e104a50244007eab270228914c",
+          "record_binding_digest": "fd9888f8376ec0bb8d93e63a8632c4a765321b97b8a8d796bdfde18c951282f5"
+        },
+        {
+          "source_id": "SRC_0014",
+          "record_file": "index.jsonl",
+          "record_id": "https://raw.githubusercontent.com/unslothai/unsloth/74661077e5a1796953f8d350b82d2c249aa8d04d/README.md",
+          "path": "https://raw.githubusercontent.com/unslothai/unsloth/74661077e5a1796953f8d350b82d2c249aa8d04d/README.md",
+          "line_start": null,
+          "line_end": null,
+          "content_hash": "23865f2f6028701660d5f5cddcd3a8e74d07581e0c75ebfaebf0e40c825ecc10",
+          "record_binding_digest": "a3558c29e1262b548125a07936ddbb4236ab0476ab3cdaedc4523f7d0ce3541a"
+        }
+      ],
+      "binding_digest": "8e0d3f87bebb9fbe07a9365d5caf962e56a570388bfc8f74732b0b83ec333700"
+    },
+    "resolved_catalog": {
+      "catalog_task_id": "source-catalog-task-spreadsheet-studio-v1",
+      "catalog_id": "catalog-3c2fb97b4f787aa6",
+      "catalog_hash": "3c2fb97b4f787aa6b04b9d3f8f47c2db99a43c0f380c8eb5ab645e86c2adcb61",
+      "repository_revision": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+      "manifest_hash": "b6c631c21febd423672a4cc6e690c01a4627cf2bf30fc34b67c2c8bda3f92d46",
+      "source_allowlist_version": "3c2fb97b4f787aa6b04b9d3f8f47c2db99a43c0f380c8eb5ab645e86c2adcb61",
+      "source_refs": [
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0001",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "75043549000ca1b1874c89fe0920eb6cddeba2d51d7d31ce717f803d5d43abf6"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0002",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "af661dad106f00003cacb57de67825310124cb173787e5e1cb36b00a9fdbe6e6"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0003",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "8e1f9720bced9997d1da3ca5e4ed48d06ad97764b5ce0be673d9247a901aba23"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0004",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "dbfd2a79283d7d2fc8e48b52a125f5408592eca35ba33551d72dd4b0e8b9c474"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0005",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "df12c252f7b04137326e80fafad146b598483e21827917ee60cdf8ab74ff8c17"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0006",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "25694c5d78a72f7e380930d2ad6a76bc7a24c5f6f71fbcf06bbdc999e0c7e917"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0007",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "65cae637f87d5577372e66841a138548bd5516d9c9b3b123bf62149442ba907a"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0008",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "e672e0500a3efb6cbe36195e3ba114f620dc41c771bde72c6c5bb39f052c537e"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0009",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "77fb322475fb105e08c311f03c09a8bedaedb078948f823e5a24f2abb2112de3"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0010",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "86075169449f47348b3636fb90ffe990649283884cb8f2d43852c7759b43736b"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0011",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "2525f56f73909fed120b75e0229d952834b8de60b4c3e0119decb95a4b1beff5"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0012",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "af02930875560219a8dba7a73df2a06d2c304db808f149de34d360cea19052b7"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0013",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "10503fe992dc2f83ba10b4cfdf87b3a3e4258b211863c98dcaca19aa538b0c42"
+        },
+        {
+          "schema": "ananta.source_ref.v2",
+          "source_id": "SRC_0014",
+          "source_version": "146ad4420bb0ce27cd2465f2437eb59cc278579c22d2462abe1119d66e1ad502",
+          "tenant_id": "tenant-research",
+          "scope": "organization:spreadsheet-studio",
+          "provenance_digest": "fd6cef12c912e3b4e49c392adbdfec588c1d6fb4338b12ec2d660b87978ee59f"
+        }
+      ]
+    },
+    "assignment": {
+      "task_id": "category-research-task-spreadsheet-studio-v1",
+      "assignment_id": "assignment-spreadsheet-studio-v1",
+      "dispatch_lease_id": "lease-spreadsheet-studio-v1",
+      "worker_id": "spreadsheet-research-worker",
+      "allowed_source_refs": [
+        "SRC_0001",
+        "SRC_0002",
+        "SRC_0003",
+        "SRC_0004",
+        "SRC_0005",
+        "SRC_0006",
+        "SRC_0007",
+        "SRC_0008",
+        "SRC_0009",
+        "SRC_0010",
+        "SRC_0011",
+        "SRC_0012",
+        "SRC_0013",
+        "SRC_0014"
+      ],
+      "allowed_run_refs": [
+        "RUN_0001"
+      ]
+    },
+    "run_evidence": {
+      "source_id": "RUN_0001",
+      "source_type": "tool_run",
+      "task_id": "category-research-task-spreadsheet-studio-v1",
+      "run_id": "category-run-fd2dd64fd7aacd8c990625685a62c64d",
+      "tool_name": "delegated_category_research",
+      "command": "execute_assignment_bound_category_research",
+      "exit_code": 0,
+      "stdout_hash": "99f4e742122e25f3d98b0ce5db29ef15",
+      "stdout_sha256": "99f4e742122e25f3d98b0ce5db29ef15517c64531c5f13f3f46e4f3a6a1b16a3",
+      "stderr_hash": "e3b0c44298fc1c149afbf4c8996fb924",
+      "artifact_paths": [
+        "source_manifest"
+      ],
+      "allowed_for_llm_scope": true,
+      "evidence_binding": {
+        "schema": "organization_category_run_evidence_binding.v1",
+        "task_id": "category-research-task-spreadsheet-studio-v1",
+        "assignment_id": "assignment-spreadsheet-studio-v1",
+        "dispatch_lease_id": "lease-spreadsheet-studio-v1",
+        "worker_id": "spreadsheet-research-worker",
+        "source_id": "RUN_0001",
+        "result_payload_digest": "sha256:99f4e742122e25f3d98b0ce5db29ef15517c64531c5f13f3f46e4f3a6a1b16a3",
+        "runtime_artifact_hashes": {
+          "source_manifest": "c69eac08807719b0c52337865088eb2826a15c9c23cef10ea1341295d0bc0c3b"
+        },
+        "binding_digest": "7fd59cd90c503abbe2bbe6e0bd7b0dfcc6d80b7fe4cb8304888e58d98a317335"
+      },
+      "evidence_digest": "9e4083bf5f528b0d20d6b4fedf6fdf8aa4d9d0202bf465a4d0774000b2632d2a"
+    },
+    "promotion": {
+      "status": "automatic_policy_promoted",
+      "policy": "automatic_no_human_v1",
+      "artifact_revision_id": "pcat-3cad811a5cbaf189178d391b",
+      "content_digest": "3cad811a5cbaf189178d391b96911b4312e36ddef2309c526b470bcfe699d441",
+      "promotion_receipt_id": "promotion-6b80fc9f099cdb7fa05f2a23",
+      "source_catalog_id": "catalog-3c2fb97b4f787aa6",
+      "source_catalog_hash": "3c2fb97b4f787aa6b04b9d3f8f47c2db99a43c0f380c8eb5ab645e86c2adcb61",
+      "allowed_source_refs": [
+        "SRC_0001",
+        "SRC_0002",
+        "SRC_0003",
+        "SRC_0004",
+        "SRC_0005",
+        "SRC_0006",
+        "SRC_0007",
+        "SRC_0008",
+        "SRC_0009",
+        "SRC_0010",
+        "SRC_0011",
+        "SRC_0012",
+        "SRC_0013",
+        "SRC_0014"
+      ],
+      "allowed_run_refs": [
+        "RUN_0001"
+      ],
+      "completed_item_decisions": 33,
+      "pending_item_decisions": 0,
+      "validation": {
+        "valid": true,
+        "promotable": true,
+        "grounding": {
+          "status": "verified",
+          "verified_claim_count": 34,
+          "unverified_claim_count": 0,
+          "failed_claims": [],
+          "allowed_reference_count": 15
+        },
+        "schema_hash": "5fe6b61fc33ffd79546ef16b40a2311ba206e8ecbc806a735f42d6ce54af8d54"
+      }
+    }
+  }
+}

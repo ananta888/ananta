@@ -1,0 +1,430 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": 1,
+  "owner": "Peter Stuiber / Ananta",
+  "track": "spreadsheet_studio_production_hardening",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "critical",
+    "high",
+    "medium",
+    "low"
+  ],
+  "purpose": "Close only the production gaps identified by the promoted Spreadsheet Studio research revision.",
+  "goal": "Replace experimental adapters and in-memory seams with queue-backed, durable, hardened and automatically gated production components.",
+  "source_category_revision": {
+    "path": "todos/archiv/todo.spreadsheet-lora-libreoffice-feedback-studio.json",
+    "source_item_ids": [
+      "SSFR-DATA-001",
+      "SSFR-DATA-002",
+      "SSFR-DATA-003",
+      "SSFR-DATA-004",
+      "SSFR-DOC-001",
+      "SSFR-DOC-002",
+      "SSFR-DOC-003",
+      "SSFR-DOC-004",
+      "SSFR-DOC-005",
+      "SSFR-DOC-006",
+      "SSFR-GND-001",
+      "SSFR-GND-002",
+      "SSFR-GND-003",
+      "SSFR-GND-004",
+      "SSFR-GND-005",
+      "SSFR-ML-001",
+      "SSFR-ML-002",
+      "SSFR-ML-003",
+      "SSFR-ML-004",
+      "SSFR-ML-005",
+      "SSFR-PLAN-001",
+      "SSFR-PLAN-002",
+      "SSFR-PLAN-003",
+      "SSFR-PLAN-004",
+      "SSFR-SEC-001",
+      "SSFR-SEC-002",
+      "SSFR-SEC-003",
+      "SSFR-SEC-004",
+      "SSFR-SEC-005",
+      "SSFR-UX-001",
+      "SSFR-UX-002",
+      "SSFR-UX-003",
+      "SSFR-UX-004"
+    ]
+  },
+  "milestones": [
+    {
+      "id": "SSP2-M1",
+      "title": "Durable execution plane",
+      "task_ids": [
+        "SSP2-001",
+        "SSP2-002",
+        "SSP2-003"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SSP2-M2",
+      "title": "Semantics and learning",
+      "task_ids": [
+        "SSP2-004",
+        "SSP2-005",
+        "SSP2-006",
+        "SSP2-007",
+        "SSP2-008",
+        "SSP2-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "SSP2-M3",
+      "title": "UX and release",
+      "task_ids": [
+        "SSP2-010",
+        "SSP2-011",
+        "SSP2-012"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "SSP2-001",
+      "title": "Persistente Dokument- und Versionsrepositories",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [],
+      "source_category_item_ids": [
+        "SSFR-GND-002",
+        "SSFR-SEC-004",
+        "SSFR-DOC-001"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-002",
+      "title": "Queue- und Lease-gebundener Spreadsheet-Worker-Port",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-001"
+      ],
+      "source_category_item_ids": [
+        "SSFR-GND-004",
+        "SSFR-DOC-005",
+        "SSFR-DOC-006"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-003",
+      "title": "Produktions-Sandbox, Handles und authentisierte Callbacks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-002"
+      ],
+      "source_category_item_ids": [
+        "SSFR-SEC-001",
+        "SSFR-SEC-002",
+        "SSFR-SEC-003",
+        "SSFR-SEC-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-004",
+      "title": "Erweiterte Workbook-, Formel- und Actual-Diff-Semantik",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-001",
+        "SSP2-003"
+      ],
+      "source_category_item_ids": [
+        "SSFR-GND-002",
+        "SSFR-DOC-002",
+        "SSFR-DOC-003"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-005",
+      "title": "Validator-Engine und tenantgebundene Referenzartefakte",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-004"
+      ],
+      "source_category_item_ids": [
+        "SSFR-DOC-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-006",
+      "title": "Produktions-Datasetstore, Clustering und Split-Locks",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-001",
+        "SSP2-005"
+      ],
+      "source_category_item_ids": [
+        "SSFR-SEC-005",
+        "SSFR-DATA-001",
+        "SSFR-DATA-002",
+        "SSFR-DATA-003",
+        "SSFR-DATA-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-007",
+      "title": "Base-Modell-Baseline und Dataset-Readiness-Admission",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-005",
+        "SSP2-006"
+      ],
+      "source_category_item_ids": [
+        "SSFR-ML-002",
+        "SSFR-ML-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-008",
+      "title": "Profilgebundenes LoRA/QLoRA-Training im ML-Intern-Worker",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-003",
+        "SSP2-007"
+      ],
+      "source_category_item_ids": [
+        "SSFR-GND-003",
+        "SSFR-ML-001",
+        "SSFR-ML-003"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-009",
+      "title": "Ausführungsgestützte Evaluation und Adapter-Admission",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-008"
+      ],
+      "source_category_item_ids": [
+        "SSFR-ML-004",
+        "SSFR-ML-005"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-010",
+      "title": "Virtualisierte und barrierearme Spreadsheet-Studio-UX",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-004",
+        "SSP2-005"
+      ],
+      "source_category_item_ids": [
+        "SSFR-GND-005",
+        "SSFR-UX-001",
+        "SSFR-UX-002",
+        "SSFR-UX-003",
+        "SSFR-UX-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-011",
+      "title": "Observability, SLOs, Recovery und Retention",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-003",
+        "SSP2-006",
+        "SSP2-009"
+      ],
+      "source_category_item_ids": [
+        "SSFR-PLAN-002"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    },
+    {
+      "id": "SSP2-012",
+      "title": "Automatische Security-, LibreOffice-, Browser- und optionale GPU-Release-Gates",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "type": "implementation",
+      "depends_on": [
+        "SSP2-009",
+        "SSP2-010",
+        "SSP2-011"
+      ],
+      "source_category_item_ids": [
+        "SSFR-GND-001",
+        "SSFR-PLAN-001",
+        "SSFR-PLAN-003",
+        "SSFR-PLAN-004"
+      ],
+      "progress_percent": 0,
+      "acceptance_criteria": [
+        "The slice preserves Hub ownership and Worker execution-only boundaries.",
+        "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
+        "No test requires a person; unavailable optional hardware is reported as not_run."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "SSP2-001",
+    "SSP2-002",
+    "SSP2-003",
+    "SSP2-006",
+    "SSP2-007",
+    "SSP2-008",
+    "SSP2-009",
+    "SSP2-011",
+    "SSP2-012"
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 7,
+      "P1": 5,
+      "P2": 0
+    },
+    "by_risk": {
+      "critical": 7,
+      "high": 5,
+      "medium": 0,
+      "low": 0
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "This track contains implementation gaps only; completed research is archived separately.",
+    "SSP2-002 removes the experimental synchronous Hub-to-Worker special channel.",
+    "All gates are automatic; human approval is never a test prerequisite."
+  ]
+}

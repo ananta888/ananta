@@ -1,0 +1,145 @@
+{
+  "schema": "ananta.spreadsheet-studio-threat-model.v1",
+  "trust_boundaries": [
+    "Browser_to_Hub_API",
+    "Hub_to_task_queue",
+    "task_queue_to_isolated_Worker",
+    "Worker_to_bounded_result_ingress",
+    "Hub_to_immutable_artifact_store",
+    "consented_projection_to_ML_Intern"
+  ],
+  "risks": [
+    {
+      "id": "SS-TM-001",
+      "scenario": "document_parser_or_archive_bomb",
+      "severity": "critical",
+      "control_owner": "Hub security",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "malicious_document_gate"
+    },
+    {
+      "id": "SS-TM-002",
+      "scenario": "macro_extension_or_embedded_execution",
+      "severity": "critical",
+      "control_owner": "Worker runtime",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "macro_default_deny_gate"
+    },
+    {
+      "id": "SS-TM-003",
+      "scenario": "external_formula_or_data_egress",
+      "severity": "critical",
+      "control_owner": "Worker runtime",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "network_isolation_gate"
+    },
+    {
+      "id": "SS-TM-004",
+      "scenario": "csv_formula_injection",
+      "severity": "high",
+      "control_owner": "Artifact export",
+      "disposition": "mitigate",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "csv_export_security_gate"
+    },
+    {
+      "id": "SS-TM-005",
+      "scenario": "tenant_or_artifact_idor",
+      "severity": "critical",
+      "control_owner": "Hub API",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "cross_tenant_negative_gate"
+    },
+    {
+      "id": "SS-TM-006",
+      "scenario": "stale_lease_or_result_replay",
+      "severity": "critical",
+      "control_owner": "Hub task control",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "lease_fencing_gate"
+    },
+    {
+      "id": "SS-TM-007",
+      "scenario": "candidate_digest_swap",
+      "severity": "critical",
+      "control_owner": "Hub saga",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "candidate_binding_gate"
+    },
+    {
+      "id": "SS-TM-008",
+      "scenario": "consent_projection_mismatch",
+      "severity": "critical",
+      "control_owner": "Learning service",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "consent_digest_gate"
+    },
+    {
+      "id": "SS-TM-009",
+      "scenario": "revoked_data_in_training_or_adapter",
+      "severity": "critical",
+      "control_owner": "ML Intern",
+      "disposition": "quarantine",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "revocation_lineage_gate"
+    },
+    {
+      "id": "SS-TM-010",
+      "scenario": "training_memorization_or_secret_leak",
+      "severity": "high",
+      "control_owner": "ML Intern",
+      "disposition": "mitigate",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "privacy_leakage_gate"
+    },
+    {
+      "id": "SS-TM-011",
+      "scenario": "worker_resource_exhaustion",
+      "severity": "high",
+      "control_owner": "Worker runtime",
+      "disposition": "mitigate",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "resource_limit_gate"
+    },
+    {
+      "id": "SS-TM-012",
+      "scenario": "supply_chain_or_unpinned_runtime",
+      "severity": "high",
+      "control_owner": "Platform",
+      "disposition": "deny",
+      "prevent": "Fail closed at the owning boundary with bounded, digest-bound inputs.",
+      "detect": "Emit a stable reason code and content-free audit event.",
+      "recover": "Fence the attempt, quarantine derived artifacts and retry only from an immutable input.",
+      "verification_gate": "image_attestation_gate"
+    }
+  ]
+}
