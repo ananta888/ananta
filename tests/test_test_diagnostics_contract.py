@@ -53,3 +53,4 @@ def test_backend_coverage_uses_a_single_shard_resolver_and_pip_cache():
     assert "matrix.shard_name" in workflow
     assert "ananta-backend-coverage-${{ matrix.shard_name }}" in workflow
     assert "fetch-depth: 0" in backend_job
+    assert "timeout-minutes: 90" in backend_job
