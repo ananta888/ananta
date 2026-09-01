@@ -180,6 +180,46 @@ class SpreadsheetLearningStore:
             conflict_reason="spreadsheet_revocation_impact_replay_conflict",
         )
 
+    def append_baseline(self, tenant_id: str, baseline: Mapping[str, Any]) -> dict[str, Any]:
+        return self._insert_immutable(
+            table="spreadsheet_training_baselines",
+            tenant_id=tenant_id,
+            identity_field="baseline_id",
+            identity=str(baseline.get("baseline_id") or ""),
+            payload=baseline,
+            conflict_reason="spreadsheet_training_baseline_replay_conflict",
+            digest_field="baseline_digest",
+        )
+
+    def get_baseline(self, tenant_id: str, baseline_id: str) -> dict[str, Any]:
+        return self._get(
+            "spreadsheet_training_baselines",
+            tenant_id,
+            "baseline_id",
+            baseline_id,
+            "spreadsheet_training_baseline_not_found",
+        )
+
+    def append_training_admission(self, tenant_id: str, admission: Mapping[str, Any]) -> dict[str, Any]:
+        return self._insert_immutable(
+            table="spreadsheet_training_admissions",
+            tenant_id=tenant_id,
+            identity_field="admission_id",
+            identity=str(admission.get("admission_id") or ""),
+            payload=admission,
+            conflict_reason="spreadsheet_training_admission_replay_conflict",
+            digest_field="admission_digest",
+        )
+
+    def get_training_admission(self, tenant_id: str, admission_id: str) -> dict[str, Any]:
+        return self._get(
+            "spreadsheet_training_admissions",
+            tenant_id,
+            "admission_id",
+            admission_id,
+            "spreadsheet_training_admission_not_found",
+        )
+
     def _insert_immutable(
         self,
         *,
@@ -189,6 +229,7 @@ class SpreadsheetLearningStore:
         identity: str,
         payload: Mapping[str, Any],
         conflict_reason: str,
+        digest_field: str = "digest",
     ) -> dict[str, Any]:
         tenant = require_id(tenant_id, "tenant_id")
         normalized_identity = require_id(identity, identity_field)
@@ -202,6 +243,7 @@ class SpreadsheetLearningStore:
                 identity=normalized_identity,
                 payload=value,
                 conflict_reason=conflict_reason,
+                digest_field=digest_field,
             )
 
     @staticmethod
@@ -214,6 +256,7 @@ class SpreadsheetLearningStore:
         identity: str,
         payload: Mapping[str, Any],
         conflict_reason: str,
+        digest_field: str = "digest",
     ) -> dict[str, Any]:
         tenant = require_id(tenant_id, "tenant_id")
         normalized_identity = require_id(identity, identity_field)
@@ -224,7 +267,7 @@ class SpreadsheetLearningStore:
         ).fetchone()
         if existing:
             previous = json.loads(existing[0])
-            if previous.get("digest") == value.get("digest"):
+            if previous.get(digest_field) == value.get(digest_field):
                 return {**previous, "replayed": True}
             raise SpreadsheetLearningConflict(conflict_reason)
         connection.execute(
@@ -269,6 +312,12 @@ class SpreadsheetLearningStore:
                 CREATE TABLE IF NOT EXISTS spreadsheet_revocation_impacts(
                     tenant_id TEXT NOT NULL,impact_id TEXT NOT NULL,payload_json TEXT NOT NULL,
                     PRIMARY KEY(tenant_id,impact_id));
+                CREATE TABLE IF NOT EXISTS spreadsheet_training_baselines(
+                    tenant_id TEXT NOT NULL,baseline_id TEXT NOT NULL,payload_json TEXT NOT NULL,
+                    PRIMARY KEY(tenant_id,baseline_id));
+                CREATE TABLE IF NOT EXISTS spreadsheet_training_admissions(
+                    tenant_id TEXT NOT NULL,admission_id TEXT NOT NULL,payload_json TEXT NOT NULL,
+                    PRIMARY KEY(tenant_id,admission_id));
                 """
             )
 

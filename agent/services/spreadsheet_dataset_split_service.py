@@ -167,6 +167,12 @@ class SpreadsheetDatasetSplitService:
         cluster_manifest = {
             cluster_id: sorted(str(value) for value in members) for cluster_id, members in sorted(clusters.items())
         }
+        diversity = {
+            "lineage_root_count": len({str(value["lineage"]) for value in fingerprints}),
+            "instruction_template_count": len({str(value["template"]) for value in fingerprints if value["template"]}),
+            "formula_family_count": len({str(value["formula"]) for value in fingerprints if value["formula"]}),
+            "leakage_cluster_count": len(cluster_manifest),
+        }
         value = {
             "schema": "ananta.spreadsheet-dataset-split-lock.v1",
             "algorithm_version": self.ALGORITHM_VERSION,
@@ -179,6 +185,7 @@ class SpreadsheetDatasetSplitService:
             "record_assignments": record_assignments,
             "excluded_feedback_ids": list(exclusions),
             "split_counts": counts,
+            "diversity": diversity,
             "distribution_warnings": warnings,
         }
         value["reproducibility_digest"] = canonical_digest(value)

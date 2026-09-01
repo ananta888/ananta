@@ -22,6 +22,7 @@ class SpreadsheetMlInternBridgeService:
         split: Any,
         repository_bridge: Any,
         control: Any,
+        admissions: Any | None = None,
         strategy: SpreadsheetTrainingTaskFamilyStrategy | None = None,
     ) -> None:
         self._learning = learning
@@ -29,6 +30,7 @@ class SpreadsheetMlInternBridgeService:
         self._split = split
         self._bridge = repository_bridge
         self._control = control
+        self._admissions = admissions
         self._strategy = strategy or SpreadsheetTrainingTaskFamilyStrategy()
 
     def start_training(
@@ -50,7 +52,13 @@ class SpreadsheetMlInternBridgeService:
             "live_confirmed",
             "risk_reason",
         }
-        if set(payload) != required or payload.get("schema") != "ananta.spreadsheet-training-command.v1":
+        schema = payload.get("schema")
+        if schema == "ananta.spreadsheet-training-command.v2":
+            required.add("admission_id")
+        if set(payload) != required or schema not in {
+            "ananta.spreadsheet-training-command.v1",
+            "ananta.spreadsheet-training-command.v2",
+        }:
             raise ValueError("spreadsheet_training_fields_invalid")
         mode = str(payload.get("mode") or "")
         if mode not in {"dry_run", "live"}:
@@ -63,6 +71,17 @@ class SpreadsheetMlInternBridgeService:
         readiness = dict(dataset.get("readiness") or {})
         if not readiness.get("dry_run_ready") or (mode == "live" and not readiness.get("training_ready")):
             raise PermissionError("spreadsheet_dataset_not_ready")
+        admission = None
+        if mode == "live":
+            if schema != "ananta.spreadsheet-training-command.v2" or self._admissions is None:
+                raise PermissionError("spreadsheet_training_admission_required")
+            admission = self._admissions.require_go(
+                tenant_id=tenant_id,
+                principal_id=principal_id,
+                admission_id=str(payload.get("admission_id") or ""),
+                dataset_id=str(dataset["dataset_id"]),
+                base_model=str(payload.get("base_model") or ""),
+            )
         path = self._learning.dataset_path(
             tenant_id=tenant_id,
             principal_id=principal_id,
@@ -130,6 +149,7 @@ class SpreadsheetMlInternBridgeService:
                 {
                     "live_confirmed": payload.get("live_confirmed"),
                     "risk_reason": payload.get("risk_reason"),
+                    "training_admission_digest": admission["admission_digest"],
                 }
             )
         job, replayed = self._control.create_job(
@@ -155,6 +175,7 @@ class SpreadsheetMlInternBridgeService:
             "task_family": "spreadsheet_actions",
             "output_schema_digest": self._strategy.schema_digest,
             "serializer_digest": self._strategy.serializer_digest,
+            "training_admission_digest": admission["admission_digest"] if admission is not None else None,
             "human_intervention_required": False,
         }
 

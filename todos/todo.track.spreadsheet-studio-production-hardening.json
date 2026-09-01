@@ -370,7 +370,7 @@
     {
       "id": "SSP2-007",
       "title": "Base-Modell-Baseline und Dataset-Readiness-Admission",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -382,12 +382,41 @@
         "SSFR-ML-002",
         "SSFR-ML-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_alignment": {
+          "decision_pack_item_ids": [
+            "SSFR-ML-002",
+            "SSFR-ML-004"
+          ],
+          "source_refs": [
+            "SRC_0003",
+            "SRC_0005",
+            "SRC_0014"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "admission_service": "agent/services/spreadsheet_training_admission_service.py",
+        "evaluation_service": "agent/services/spreadsheet_evaluation_service.py",
+        "migration": "migrations/versions/a4c6e8f0b2d5_add_spreadsheet_training_admission.py",
+        "schemas": [
+          "schemas/spreadsheet-studio/base-model-baseline.v1.json",
+          "schemas/spreadsheet-studio/training-admission.v1.json"
+        ],
+        "tests": [
+          "tests/spreadsheet_studio/test_training_admission.py",
+          "tests/spreadsheet_studio/test_training_task_family.py",
+          "tests/spreadsheet_studio/test_ml_intern_bridge.py"
+        ],
+        "result": "119 Spreadsheet Studio, admission, evaluation, persistence, ML contract, migration-head and research-gate tests passed; 6 optional LibreOffice tests reported as skipped/not_run; Ruff and boundary detector passed"
+      }
     },
     {
       "id": "SSP2-008",
@@ -520,13 +549,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 6,
+      "todo": 5,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 6
+      "done": 7
     },
-    "progress_percent_done": 50.0,
+    "progress_percent_done": 58.33,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -540,8 +569,8 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 4,
-      "remaining": 5
+      "done": 5,
+      "remaining": 4
     },
     "milestones": {
       "total": 3,
@@ -553,16 +582,17 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 6,
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 6
+    "done": 7
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
     "SSP2-002 removes the experimental synchronous Hub-to-Worker special channel.",
     "SSP2-006 centralizes production learning state and locks leakage-safe splits before training admission.",
+    "SSP2-007 requires a quantitative digest-bound Hub Go/No-Go before live spreadsheet training.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

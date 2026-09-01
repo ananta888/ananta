@@ -16,6 +16,7 @@
     "record_assignments",
     "excluded_feedback_ids",
     "split_counts",
+    "diversity",
     "distribution_warnings",
     "reproducibility_digest",
     "split_lock_digest"
@@ -40,6 +41,17 @@
     },
     "excluded_feedback_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
     "split_counts": {"$ref": "#/$defs/counts"},
+    "diversity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lineage_root_count", "instruction_template_count", "formula_family_count", "leakage_cluster_count"],
+      "properties": {
+        "lineage_root_count": {"type": "integer", "minimum": 0},
+        "instruction_template_count": {"type": "integer", "minimum": 0},
+        "formula_family_count": {"type": "integer", "minimum": 0},
+        "leakage_cluster_count": {"type": "integer", "minimum": 0}
+      }
+    },
     "distribution_warnings": {
       "type": "array",
       "uniqueItems": true,

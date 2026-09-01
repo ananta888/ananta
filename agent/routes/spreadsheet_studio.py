@@ -40,6 +40,13 @@ def _learning_service():
     return value
 
 
+def _training_admission_service():
+    value = current_app.extensions.get("spreadsheet_training_admission_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_training_admission_unavailable")
+    return value
+
+
 def _proposal_execution_service():
     return current_app.extensions.get("spreadsheet_proposal_execution_service") or _service()
 
@@ -525,6 +532,65 @@ def get_dataset(dataset_id: str):
     )
 
 
+@spreadsheet_studio_bp.post("/baselines")
+@check_user_auth
+def create_training_baseline():
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _training_admission_service().create_baseline(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=_body(),
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.get("/baselines/<baseline_id>")
+@check_user_auth
+def get_training_baseline(baseline_id: str):
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _training_admission_service().get_baseline(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            baseline_id=baseline_id,
+        )
+    )
+
+
+@spreadsheet_studio_bp.post("/datasets/<dataset_id>/training-admissions")
+@check_user_auth
+@admin_required
+def create_training_admission(dataset_id: str):
+    body = _body()
+    if body.get("dataset_id") != dataset_id:
+        return api_response(status="error", message="spreadsheet_training_dataset_binding_invalid", code=422)
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _training_admission_service().admit(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=body,
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.get("/training-admissions/<admission_id>")
+@check_user_auth
+@admin_required
+def get_training_admission(admission_id: str):
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _training_admission_service().get_admission(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            admission_id=admission_id,
+        )
+    )
+
+
 @spreadsheet_studio_bp.post("/inference/proposals")
 @check_user_auth
 def infer_proposal():
@@ -564,6 +630,7 @@ def start_training(dataset_id: str):
             split=services.split,
             repository_bridge=services.bridge,
             control=services.control,
+            admissions=_training_admission_service(),
         ).start_training(
             tenant_id=tenant_id,
             principal_id=principal_id,

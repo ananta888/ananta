@@ -84,6 +84,40 @@ def test_ml_intern_training_contract_additively_binds_spreadsheet_family() -> No
             }
         )
     assert captured.value.reason_code == "training_task_kinds_invalid"
+    live = CreateTrainingJobCommand.from_mapping(
+        {
+            "dataset_id": "dataset-one",
+            "job_type": "train_lora",
+            "mode": "live",
+            "backend": "unsloth",
+            "base_model": "model-one",
+            "task_family": "spreadsheet_actions",
+            "task_kinds": ["spreadsheet_actions"],
+            "output_schema_digest": strategy.schema_digest,
+            "serializer_digest": strategy.serializer_digest,
+            "training_admission_digest": "a" * 64,
+            "live_confirmed": True,
+            "risk_reason": "automatic governed spreadsheet training",
+        }
+    )
+    assert live.request_spec["training_admission_digest"] == "a" * 64
+    with pytest.raises(MlInternTrainingContractError) as missing_admission:
+        CreateTrainingJobCommand.from_mapping(
+            {
+                "dataset_id": "dataset-one",
+                "job_type": "train_lora",
+                "mode": "live",
+                "backend": "unsloth",
+                "base_model": "model-one",
+                "task_family": "spreadsheet_actions",
+                "task_kinds": ["spreadsheet_actions"],
+                "output_schema_digest": strategy.schema_digest,
+                "serializer_digest": strategy.serializer_digest,
+                "live_confirmed": True,
+                "risk_reason": "automatic governed spreadsheet training",
+            }
+        )
+    assert missing_admission.value.reason_code == "training_admission_required"
 
 
 def test_inference_facade_returns_actions_without_applying_them(tmp_path) -> None:
@@ -173,6 +207,10 @@ def test_execution_backed_evaluation_never_publishes_candidates() -> None:
         adapter_output=lambda sample: refusal if sample["safe_refusal_expected"] else json.dumps(_action_output()),
     )
     assert report["adapter_admitted"] is True
+    assert report["summary"]["adapter"]["action_valid_rate"] == 1.0
+    assert report["summary"]["adapter"]["safe_rejection_rate"] == 1.0
+    assert report["summary"]["adapter"]["safe_rejection_case_count"] == 1
+    assert report["bindings"]["engine_version"] == "spreadsheet-execution-evaluation.v2"
     assert report["published_candidates"] == 0
     assert report["feedback_events"] == 0
     assert report["consent_events"] == 0

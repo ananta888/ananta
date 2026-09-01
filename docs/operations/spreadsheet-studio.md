@@ -33,6 +33,13 @@ revocation atomically records the fencing intent; reconciliation cancels active 
 quarantines terminal lineage without claiming mathematical unlearning. See
 `docs/contracts/spreadsheet-learning-v1.md` and `schemas/spreadsheet-studio/dataset-split-lock.v1.json`.
 
+Before live training, persist the execution-backed base report with `POST /api/spreadsheet-studio/baselines`,
+then request the Hub decision with
+`POST /api/spreadsheet-studio/datasets/<dataset_id>/training-admissions`. A live training request uses
+`ananta.spreadsheet-training-command.v2` and supplies the admitted `admission_id`. `no_go` is terminal for that
+immutable input combination but keeps automatic base-model-only operation available. See
+`docs/contracts/spreadsheet-training-admission-v1.md`.
+
 Run `python scripts/check_spreadsheet_studio_boundaries.py` and
 `pytest -q tests/spreadsheet_studio`. The suite uses no network, provider, GPU, office process or person.
 

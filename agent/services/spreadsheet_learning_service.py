@@ -314,6 +314,10 @@ class SpreadsheetLearningService:
         dataset_digest = hashlib.sha256(content).hexdigest()
         self._write_dataset(tenant_id=tenant_id, digest=dataset_digest, content=content)
         counts = {name: sum(row["split"] == name for row in rows) for name in ("train", "validation", "eval", "test")}
+        class_counts: dict[str, int] = {}
+        for row in rows:
+            label = str(row["quality_label"])
+            class_counts[label] = class_counts.get(label, 0) + 1
         recipe_manifest = {
             "schema": "ananta.spreadsheet-dataset-recipe-manifest.v1",
             "recipe_version": recipe_version,
@@ -325,6 +329,7 @@ class SpreadsheetLearningService:
             "serializer_version": self.SERIALIZER_VERSION,
             "policy_version": self.POLICY_VERSION,
             "purpose": "spreadsheet_action_training",
+            "license_policy": "owner-submitted-consent.v1",
             "tenant_pooling": "forbidden",
             "split_lock_digest": preparation.split_lock["split_lock_digest"],
             "retention_binding": "consent_expiry",
@@ -338,6 +343,7 @@ class SpreadsheetLearningService:
             "artifact_id": f"spreadsheet-dataset-{dataset_digest[:32]}",
             "record_count": len(rows),
             "split_counts": counts,
+            "class_counts": dict(sorted(class_counts.items())),
             "split_seed": seed,
             "split_percent": split,
             "split_lock": preparation.split_lock,

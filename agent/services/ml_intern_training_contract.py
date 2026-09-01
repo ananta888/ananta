@@ -277,6 +277,27 @@ def _normalize_task_family_fields(value: Mapping[str, Any], request_spec: dict[s
     request_spec["serializer_digest"] = str(value["serializer_digest"])
 
 
+def _normalize_training_admission(
+    value: Mapping[str, Any],
+    request_spec: dict[str, Any],
+    *,
+    mode: str,
+) -> None:
+    training_admission_digest = value.get("training_admission_digest")
+    if value.get("task_family") == "spreadsheet_actions" and mode == "live":
+        if not isinstance(training_admission_digest, str) or not _DIGEST_RE.fullmatch(training_admission_digest):
+            raise MlInternTrainingContractError(
+                "training_admission_required",
+                "live spreadsheet training requires a digest-bound Hub admission",
+                status_code=403,
+            )
+    elif training_admission_digest is not None:
+        raise MlInternTrainingContractError(
+            "training_admission_invalid",
+            "training_admission_digest is only valid for live spreadsheet training",
+        )
+
+
 def assert_job_transition(current: str, target: str) -> None:
     if current not in JOB_STATUSES or target not in JOB_STATUSES:
         raise MlInternTrainingContractError("job_status_invalid", "job status is invalid")
@@ -368,6 +389,7 @@ class CreateTrainingJobCommand:
             "task_kinds",
             "output_schema_digest",
             "serializer_digest",
+            "training_admission_digest",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -474,6 +496,7 @@ class CreateTrainingJobCommand:
             canonical_hyperparameters["load_in_4bit"] = quantization == "4bit"
         request_spec["hyperparameters"] = canonical_hyperparameters
         _normalize_task_family_fields(value, request_spec)
+        _normalize_training_admission(value, request_spec, mode=mode)
         for field_name, identifiers in (
             ("source_ids", normalize_source_ids(value.get("source_ids"))),
             ("run_ids", normalize_run_ids(value.get("run_ids"))),

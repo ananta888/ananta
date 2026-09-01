@@ -120,6 +120,29 @@ def test_sql_learning_repository_is_tenant_scoped_and_revocation_intent_is_atomi
         repository.append_consent_with_impact("tenant-a", consent_v2, conflicting_impact)
 
     assert repository.get_consent("tenant-a", "consent-one")["version"] == 1
+    split_lock = {"state": "locked"}
+    split_lock["split_lock_digest"] = canonical_digest(split_lock)
+    dataset = {
+        "dataset_id": "dataset-one",
+        "owner_id": "owner-one",
+        "dataset_digest": "6" * 64,
+        "split_lock": split_lock,
+    }
+    dataset["digest"] = canonical_digest(dataset)
+    repository.append_dataset("tenant-a", dataset)
+    baseline = {"baseline_id": "baseline-one", "owner_id": "owner-one", "base_model": "model-one"}
+    baseline["baseline_digest"] = canonical_digest(baseline)
+    repository.append_baseline("tenant-a", baseline)
+    admission = {
+        "admission_id": "admission-one",
+        "dataset_id": "dataset-one",
+        "owner_id": "owner-one",
+        "decision": "go",
+    }
+    admission["admission_digest"] = canonical_digest(admission)
+    repository.append_training_admission("tenant-a", admission)
+    assert repository.get_baseline("tenant-a", "baseline-one")["baseline_digest"] == baseline["baseline_digest"]
+    assert repository.get_training_admission("tenant-a", "admission-one")["decision"] == "go"
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -135,20 +158,26 @@ def test_sql_learning_repository_is_tenant_scoped_and_revocation_intent_is_atomi
 def test_learning_store_migration_is_reversible(tmp_path, monkeypatch) -> None:
     documents = importlib.import_module("migrations.versions.b9d1f3a5c7e0_add_spreadsheet_document_persistence")
     learning = importlib.import_module("migrations.versions.f3b5d7e9a1c4_add_spreadsheet_learning_store")
+    admission = importlib.import_module("migrations.versions.a4c6e8f0b2d5_add_spreadsheet_training_admission")
     engine = create_engine(f"sqlite:///{tmp_path / 'migration.sqlite3'}")
     with engine.begin() as connection:
         operations = Operations(MigrationContext.configure(connection))
         monkeypatch.setattr(documents, "op", operations)
         monkeypatch.setattr(learning, "op", operations)
+        monkeypatch.setattr(admission, "op", operations)
         documents.upgrade()
         learning.upgrade()
+        admission.upgrade()
         assert {
             "spreadsheet_feedback_events",
             "spreadsheet_training_consents",
             "spreadsheet_datasets",
             "spreadsheet_training_lineage",
             "spreadsheet_consent_revocation_impacts",
+            "spreadsheet_training_baselines",
+            "spreadsheet_training_admissions",
         }.issubset(inspect(connection).get_table_names())
+        admission.downgrade()
         learning.downgrade()
         assert "spreadsheet_datasets" not in inspect(connection).get_table_names()
         documents.downgrade()

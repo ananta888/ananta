@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/training-admission.v1.json",
+  "title": "SpreadsheetTrainingAdmissionV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "admission_id", "owner_id", "dataset_id", "dataset_digest", "dataset_manifest_digest", "split_lock_digest", "baseline_id", "baseline_digest", "base_model", "model_digest", "resource_profile_id", "resource_profile_digest", "policy_version", "thresholds", "decision", "reason_codes", "alternative_path", "created_at", "human_intervention_required", "admission_digest"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-training-admission.v1"},
+    "admission_id": {"$ref": "#/$defs/id"},
+    "owner_id": {"$ref": "#/$defs/id"},
+    "dataset_id": {"$ref": "#/$defs/id"},
+    "dataset_digest": {"$ref": "#/$defs/digest"},
+    "dataset_manifest_digest": {"$ref": "#/$defs/digest"},
+    "split_lock_digest": {"$ref": "#/$defs/digest"},
+    "baseline_id": {"$ref": "#/$defs/id"},
+    "baseline_digest": {"$ref": "#/$defs/digest"},
+    "base_model": {"type": "string", "minLength": 1, "maxLength": 512},
+    "model_digest": {"$ref": "#/$defs/digest"},
+    "resource_profile_id": {"$ref": "#/$defs/id"},
+    "resource_profile_digest": {"$ref": "#/$defs/digest"},
+    "policy_version": {"const": "spreadsheet-training-admission.v1"},
+    "thresholds": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "number", "minimum": 0}},
+    "decision": {"enum": ["go", "no_go"]},
+    "reason_codes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^spreadsheet_"}},
+    "alternative_path": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["available", "mode", "reason_code"],
+      "properties": {
+        "available": {"const": true},
+        "mode": {"const": "base_model_only"},
+        "reason_code": {"type": ["string", "null"], "pattern": "^spreadsheet_"}
+      }
+    },
+    "created_at": {"type": "number", "minimum": 0},
+    "human_intervention_required": {"const": false},
+    "admission_digest": {"$ref": "#/$defs/digest"},
+    "replayed": {"type": "boolean"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

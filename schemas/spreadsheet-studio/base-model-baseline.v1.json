@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/base-model-baseline.v1.json",
+  "title": "SpreadsheetBaseModelBaselineV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "baseline_id", "owner_id", "base_model", "model_digest", "evaluation_report_digest", "evaluation_bindings", "sample_count", "metrics", "policy_version", "created_at", "human_intervention_required", "baseline_digest"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-base-model-baseline.v1"},
+    "baseline_id": {"$ref": "#/$defs/id"},
+    "owner_id": {"$ref": "#/$defs/id"},
+    "base_model": {"type": "string", "minLength": 1, "maxLength": 512},
+    "model_digest": {"$ref": "#/$defs/digest"},
+    "evaluation_report_digest": {"$ref": "#/$defs/digest"},
+    "evaluation_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["engine_version", "sample_digest", "policy_digest", "output_schema_digest", "serializer_digest"],
+      "properties": {
+        "engine_version": {"const": "spreadsheet-execution-evaluation.v2"},
+        "sample_digest": {"$ref": "#/$defs/digest"},
+        "policy_digest": {"$ref": "#/$defs/digest"},
+        "output_schema_digest": {"$ref": "#/$defs/digest"},
+        "serializer_digest": {"$ref": "#/$defs/digest"}
+      }
+    },
+    "sample_count": {"type": "integer", "minimum": 1, "maximum": 10000},
+    "metrics": {"$ref": "#/$defs/metrics"},
+    "policy_version": {"const": "spreadsheet-training-admission.v1"},
+    "created_at": {"type": "number", "minimum": 0},
+    "human_intervention_required": {"const": false},
+    "baseline_digest": {"$ref": "#/$defs/digest"},
+    "replayed": {"type": "boolean"}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rate": {"type": "number", "minimum": 0, "maximum": 1},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_valid_rate", "action_valid_rate", "safe_rejection_rate", "safe_rejection_case_count", "safe_policy_rate", "execution_success_rate", "validator_pass_rate", "unintended_change_rate", "score"],
+      "properties": {
+        "schema_valid_rate": {"$ref": "#/$defs/rate"},
+        "action_valid_rate": {"$ref": "#/$defs/rate"},
+        "safe_rejection_rate": {"$ref": "#/$defs/rate"},
+        "safe_rejection_case_count": {"type": "integer", "minimum": 0},
+        "safe_policy_rate": {"$ref": "#/$defs/rate"},
+        "execution_success_rate": {"$ref": "#/$defs/rate"},
+        "validator_pass_rate": {"$ref": "#/$defs/rate"},
+        "unintended_change_rate": {"$ref": "#/$defs/rate"},
+        "score": {"$ref": "#/$defs/rate"}
+      }
+    }
+  }
+}

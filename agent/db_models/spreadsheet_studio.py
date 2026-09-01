@@ -246,6 +246,45 @@ class SpreadsheetConsentRevocationImpactDB(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_utcnow)
 
 
+class SpreadsheetTrainingBaselineDB(SQLModel, table=True):
+    """Immutable quantitative base-model evaluation baseline."""
+
+    __tablename__ = "spreadsheet_training_baselines"
+    __table_args__ = (sa.Index("ix_spreadsheet_baseline_owner", "tenant_id", "owner_id", "baseline_id"),)
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    baseline_id: str = Field(primary_key=True, max_length=128)
+    owner_id: str = Field(max_length=128)
+    base_model: str = Field(max_length=512)
+    baseline_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
+class SpreadsheetTrainingAdmissionDB(SQLModel, table=True):
+    """Immutable Hub Go/No-Go bound to baseline, dataset and resources."""
+
+    __tablename__ = "spreadsheet_training_admissions"
+    __table_args__ = (
+        sa.ForeignKeyConstraint(
+            ["tenant_id", "dataset_id"],
+            ["spreadsheet_datasets.tenant_id", "spreadsheet_datasets.dataset_id"],
+            ondelete="CASCADE",
+        ),
+        sa.CheckConstraint("decision IN ('go','no_go')", name="ck_spreadsheet_training_admission_decision"),
+        sa.Index("ix_spreadsheet_admission_dataset", "tenant_id", "dataset_id", "admission_id"),
+    )
+
+    tenant_id: str = Field(primary_key=True, max_length=128)
+    admission_id: str = Field(primary_key=True, max_length=128)
+    dataset_id: str = Field(max_length=128)
+    owner_id: str = Field(max_length=128)
+    decision: str = Field(max_length=16)
+    admission_digest: str = Field(max_length=64, repr=False)
+    payload_json: str = Field(sa_column=sa.Column(sa.Text(), nullable=False))
+    created_at: datetime = Field(default_factory=_utcnow)
+
+
 __all__ = [
     "SpreadsheetConsentRevocationImpactDB",
     "SpreadsheetDatasetDB",
@@ -255,6 +294,8 @@ __all__ = [
     "SpreadsheetFeedbackEventDB",
     "SpreadsheetProposalResultDB",
     "SpreadsheetTrainingConsentDB",
+    "SpreadsheetTrainingAdmissionDB",
+    "SpreadsheetTrainingBaselineDB",
     "SpreadsheetTrainingLineageDB",
     "SpreadsheetValidationReferenceDB",
 ]

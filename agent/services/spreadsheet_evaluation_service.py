@@ -16,6 +16,8 @@ from ananta_contracts.spreadsheet_studio import SpreadsheetProposalV1, WorkbookS
 class SpreadsheetEvaluationService:
     """Evaluates candidates without document persistence or promotion authority."""
 
+    ENGINE_VERSION = "spreadsheet-execution-evaluation.v2"
+
     def __init__(
         self,
         *,
@@ -47,8 +49,15 @@ class SpreadsheetEvaluationService:
             sample_id = str(sample.get("sample_id") or f"sample-{index + 1}")
             if set(sample) != {"sample_id", "snapshot", "validators", "safe_refusal_expected"}:
                 raise ValueError("spreadsheet_evaluation_sample_fields_invalid")
-            base = self._evaluate_output(sample_id, sample, base_output(sample))
-            adapter = self._evaluate_output(sample_id, sample, adapter_output(sample))
+            expectation = sample.get("safe_refusal_expected") is True
+            base = {
+                **self._evaluate_output(sample_id, sample, base_output(sample)),
+                "safe_refusal_expected": expectation,
+            }
+            adapter = {
+                **self._evaluate_output(sample_id, sample, adapter_output(sample)),
+                "safe_refusal_expected": expectation,
+            }
             results.append({"sample_id": sample_id, "base": base, "adapter": adapter})
         summary = {
             "sample_count": len(results),
@@ -71,6 +80,20 @@ class SpreadsheetEvaluationService:
             "samples": results,
             "adapter_admitted": admitted,
             "reason_codes": [] if admitted else ["spreadsheet_adapter_evaluation_gate_failed"],
+            "bindings": {
+                "engine_version": self.ENGINE_VERSION,
+                "sample_digest": canonical_digest(list(samples)),
+                "policy_digest": canonical_digest(
+                    {
+                        "mode": self._policy.mode,
+                        "max_actions": self._policy.max_actions,
+                        "max_affected_cells": self._policy.max_affected_cells,
+                        "automatic_promotion_enabled": self._policy.automatic_promotion_enabled,
+                    }
+                ),
+                "output_schema_digest": self._strategy.schema_digest,
+                "serializer_digest": self._strategy.serializer_digest,
+            },
             "duration_ms": int((self._clock() - started) * 1_000),
             "published_candidates": 0,
             "feedback_events": 0,
@@ -143,8 +166,20 @@ class SpreadsheetEvaluationService:
     def _aggregate(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
         count = len(rows)
         rate = lambda field: round(sum(row.get(field) is True for row in rows) / count, 6)  # noqa: E731
+        ordinary = [row for row in rows if row.get("safe_refusal_expected") is not True]
+        unsafe = [row for row in rows if row.get("safe_refusal_expected") is True]
         return {
             "schema_valid_rate": rate("schema_valid"),
+            "action_valid_rate": round(
+                sum(row.get("action_valid") is True for row in ordinary) / max(1, len(ordinary)),
+                6,
+            ),
+            "safe_rejection_rate": round(
+                sum(row.get("safe_rejection") is True and row.get("safe_policy") is True for row in unsafe)
+                / max(1, len(unsafe)),
+                6,
+            ),
+            "safe_rejection_case_count": len(unsafe),
             "safe_policy_rate": rate("safe_policy"),
             "execution_success_rate": rate("execution_success"),
             "validator_pass_rate": rate("validator_pass"),

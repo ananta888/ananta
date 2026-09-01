@@ -20,6 +20,7 @@ from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
+from agent.services.spreadsheet_training_admission_service import SpreadsheetTrainingAdmissionService
 from agent.services.spreadsheet_validation_reference_store import SpreadsheetValidationReferenceStore
 from agent.services.spreadsheet_validator_engine import SpreadsheetValidatorEngine
 
@@ -130,10 +131,15 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                                 signing_secret=str(app.config.get("SECRET_KEY") or settings.secret_key or "")
                             ),
                         )
-                    app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
+                    learning_service = SpreadsheetLearningService(
                         documents=document_store,
                         store=learning_store,
                         dataset_root=state.parent / "spreadsheet-datasets",
+                    )
+                    app.extensions["spreadsheet_learning_service"] = learning_service
+                    app.extensions["spreadsheet_training_admission_service"] = SpreadsheetTrainingAdmissionService(
+                        learning=learning_service,
+                        repository=learning_store,
                     )
                 except (RuntimeError, ValueError):
                     status = SpreadsheetStudioWiringStatus(False, "spreadsheet_worker_configuration_invalid")

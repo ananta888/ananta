@@ -14,6 +14,8 @@ from agent.db_models.spreadsheet_studio import (
     SpreadsheetConsentRevocationImpactDB,
     SpreadsheetDatasetDB,
     SpreadsheetFeedbackEventDB,
+    SpreadsheetTrainingAdmissionDB,
+    SpreadsheetTrainingBaselineDB,
     SpreadsheetTrainingConsentDB,
     SpreadsheetTrainingLineageDB,
 )
@@ -233,6 +235,59 @@ class SqlSpreadsheetLearningRepository:
         with Session(bind=self._engine) as session, session.begin():
             return self._append_impact(session, tenant, impact)
 
+    def append_baseline(self, tenant_id: str, baseline: Mapping[str, Any]) -> dict[str, Any]:
+        value = dict(baseline)
+        record = SpreadsheetTrainingBaselineDB(
+            tenant_id=require_id(tenant_id, "tenant_id"),
+            baseline_id=require_id(value.get("baseline_id"), "baseline_id"),
+            owner_id=require_id(value.get("owner_id"), "owner_id"),
+            base_model=str(value.get("base_model") or ""),
+            baseline_digest=require_digest(value.get("baseline_digest"), "baseline_digest"),
+            payload_json=canonical_json(value),
+        )
+        return self._insert_immutable(
+            record,
+            model=SpreadsheetTrainingBaselineDB,
+            key=(record.tenant_id, record.baseline_id),
+            value=value,
+            digest_field="baseline_digest",
+            conflict_reason="spreadsheet_training_baseline_replay_conflict",
+        )
+
+    def get_baseline(self, tenant_id: str, baseline_id: str) -> dict[str, Any]:
+        return self._get(
+            SpreadsheetTrainingBaselineDB,
+            (require_id(tenant_id, "tenant_id"), require_id(baseline_id, "baseline_id")),
+            "spreadsheet_training_baseline_not_found",
+        )
+
+    def append_training_admission(self, tenant_id: str, admission: Mapping[str, Any]) -> dict[str, Any]:
+        value = dict(admission)
+        record = SpreadsheetTrainingAdmissionDB(
+            tenant_id=require_id(tenant_id, "tenant_id"),
+            admission_id=require_id(value.get("admission_id"), "admission_id"),
+            dataset_id=require_id(value.get("dataset_id"), "dataset_id"),
+            owner_id=require_id(value.get("owner_id"), "owner_id"),
+            decision=str(value.get("decision") or ""),
+            admission_digest=require_digest(value.get("admission_digest"), "admission_digest"),
+            payload_json=canonical_json(value),
+        )
+        return self._insert_immutable(
+            record,
+            model=SpreadsheetTrainingAdmissionDB,
+            key=(record.tenant_id, record.admission_id),
+            value=value,
+            digest_field="admission_digest",
+            conflict_reason="spreadsheet_training_admission_replay_conflict",
+        )
+
+    def get_training_admission(self, tenant_id: str, admission_id: str) -> dict[str, Any]:
+        return self._get(
+            SpreadsheetTrainingAdmissionDB,
+            (require_id(tenant_id, "tenant_id"), require_id(admission_id, "admission_id")),
+            "spreadsheet_training_admission_not_found",
+        )
+
     def _append_impact(self, session: Session, tenant_id: str, impact: Mapping[str, Any]) -> dict[str, Any]:
         value = dict(impact)
         self._validate_digest(value, "digest", "spreadsheet_revocation_impact_integrity_failed")
@@ -313,7 +368,12 @@ class SqlSpreadsheetLearningRepository:
     @staticmethod
     def _payload(record: Any) -> dict[str, Any]:
         value = dict(json.loads(record.payload_json))
-        digest_field = "consent_digest" if isinstance(record, SpreadsheetTrainingConsentDB) else "digest"
+        digest_fields = {
+            SpreadsheetTrainingConsentDB: "consent_digest",
+            SpreadsheetTrainingBaselineDB: "baseline_digest",
+            SpreadsheetTrainingAdmissionDB: "admission_digest",
+        }
+        digest_field = digest_fields.get(type(record), "digest")
         SqlSpreadsheetLearningRepository._validate_digest(
             value,
             digest_field,

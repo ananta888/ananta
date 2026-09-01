@@ -140,3 +140,41 @@ def test_live_training_fails_before_ml_intern_when_dataset_is_not_ready(tmp_path
             },
             idempotency_key="training-key-one",
         )
+
+
+def test_live_training_requires_digest_bound_hub_admission_before_catalog_access() -> None:
+    class Learning:
+        def get_dataset(self, **_kwargs):
+            return {
+                "dataset_id": "dataset-one",
+                "dataset_digest": "3" * 64,
+                "readiness": {"dry_run_ready": True, "training_ready": True},
+            }
+
+        def dataset_path(self, **_kwargs):
+            raise AssertionError("catalog path must not be read before admission")
+
+    service = SpreadsheetMlInternBridgeService(
+        learning=Learning(),
+        catalog=object(),
+        split=object(),
+        repository_bridge=object(),
+        control=object(),
+    )
+    with pytest.raises(PermissionError, match="training_admission_required"):
+        service.start_training(
+            tenant_id="tenant-a",
+            principal_id="user-a",
+            payload={
+                "schema": "ananta.spreadsheet-training-command.v1",
+                "dataset_id": "dataset-one",
+                "mode": "live",
+                "backend": "unsloth",
+                "base_model": "model-one",
+                "method": "qlora",
+                "hyperparameters": {},
+                "live_confirmed": True,
+                "risk_reason": "automatic governed production training",
+            },
+            idempotency_key="training-key-live",
+        )
