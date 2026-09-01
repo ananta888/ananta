@@ -3,6 +3,13 @@
   "title": "Monetative Money Auditor: Geldschöpfung, Bankgeldprivileg und Vollgeld demokratisch analysieren",
   "status": "open",
   "priority": "high",
+  "tasks_status_summary": {
+    "total": 10,
+    "by_status": {"todo": 10, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0},
+    "progress_percent_done": 0.0,
+    "critical_path": {"total": 0, "done": 0, "remaining": 0},
+    "milestones": {"total": 0, "todo": 0, "in_progress": 0, "partial": 0, "blocked": 0, "done": 0}
+  },
   "extends": "todo.ziegler-finance-auditor",
   "inspirations": [
     {
@@ -38,18 +45,31 @@
     "The module must avoid conspiracy framing and focus on institutional incentives, legal privileges and power asymmetries"
   ],
   "suggested_paths": [
-    "agent/modules/ziegler_auditor/monetative_money.py",
-    "agent/modules/ziegler_auditor/money_creation.py",
-    "agent/modules/ziegler_auditor/sovereign_money.py",
-    "agent/modules/ziegler_auditor/tests/test_money_creation.py",
-    "agent/modules/ziegler_auditor/tests/test_monetative_money.py",
+    "agent/services/finance_auditor/money_models.py",
+    "agent/services/finance_auditor/monetative_money.py",
+    "agent/services/finance_auditor/money_creation.py",
+    "agent/services/finance_auditor/sovereign_money.py",
+    "agent/services/finance_auditor/config.py",
+    "agent/services/finance_auditor/service.py",
+    "agent/services/finance_auditor/prompts.py",
+    "agent/services/task_intent_router.py",
+    "tests/test_monetative_money_auditor.py",
     "prompts/monetative_money_auditor.j2",
     "docs/monetative_money_auditor.md",
     "tests/fixtures/monetary_claims.json"
   ],
+  "implementation_alignment": [
+    "Quellcode-Audit 2026-09-01: Der ZieglerAuditorService ist jetzt unter agent.services.finance_auditor vorhanden und bildet die stabile Basis fuer diese Erweiterung.",
+    "Monetative-Komponenten bleiben fokussierte Domain-Services im bestehenden finance_auditor-Namespace; API und CLI verwenden den vorhandenen Ziegler-Einstieg.",
+    "Das Submodul wird separat und standardmaessig deaktiviert konfiguriert. Ist es deaktiviert, liefert der bestehende Auditor weiterhin seine normale read-only Analyse.",
+    "Geldsystem-Routing erweitert den zentralen Hub-Router und erfindet weder einen Backendnamen noch Worker-zu-Worker-Orchestrierung.",
+    "Alle Tests sind deterministisch, offline und ohne menschliche Freigabe, LLM, Broker, Zahlungsdienst oder Netzwerk ausfuehrbar."
+  ],
   "tasks": [
     {
       "id": "MM-001",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Monetative/Huber-Rahmen dokumentieren",
       "description": "Dokumentiere Monetative, Joseph Huber, Vollgeld/Sovereign Money und die Rolle dieses Rahmens im Ziegler Finance Auditor.",
       "files": [
@@ -65,11 +85,13 @@
     },
     {
       "id": "MM-002",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "MoneyCreationAuditInput und MoneyCreationAuditResult ergänzen",
       "description": "Erstelle Modelle zur Analyse von Aussagen über Geldschöpfung, Bankgeld, Zentralbankgeld und Vollgeld.",
       "files": [
-        "agent/modules/ziegler_auditor/models.py",
-        "agent/modules/ziegler_auditor/money_creation.py"
+        "agent/services/finance_auditor/money_models.py",
+        "agent/services/finance_auditor/money_creation.py"
       ],
       "acceptance_criteria": [
         "Es gibt MoneyCreationAuditInput mit claim, monetary_topic, optional_sources, context und requested_tone.",
@@ -81,11 +103,13 @@
     },
     {
       "id": "MM-003",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Geldschöpfungs-Mechanik erklärbar machen",
       "description": "Implementiere eine deterministische Erklärungsschicht für Giralgeld, Zentralbankgeld, Reserven, Kreditvergabe und Bilanzverlängerung.",
       "files": [
-        "agent/modules/ziegler_auditor/money_creation.py",
-        "agent/modules/ziegler_auditor/tests/test_money_creation.py"
+        "agent/services/finance_auditor/money_creation.py",
+        "tests/test_monetative_money_auditor.py"
       ],
       "acceptance_criteria": [
         "Das Modul kann Aussagen wie 'Banken verleihen nur Spareinlagen weiter' als irreführend markieren.",
@@ -97,11 +121,13 @@
     },
     {
       "id": "MM-004",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Bankgeldprivileg- und Machtanalyse implementieren",
       "description": "Analysiere, welche Macht- und Verteilungswirkungen daraus entstehen, dass private Geschäftsbanken einen großen Teil des umlaufenden Geldes über Kredit erzeugen.",
       "files": [
-        "agent/modules/ziegler_auditor/monetative_money.py",
-        "agent/modules/ziegler_auditor/tests/test_monetative_money.py"
+        "agent/services/finance_auditor/monetative_money.py",
+        "tests/test_monetative_money_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält bank_money_privilege_note.",
@@ -113,11 +139,13 @@
     },
     {
       "id": "MM-005",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Vollgeld/Sovereign-Money-Reformoption modellieren",
       "description": "Ergänze eine sachliche Darstellung von Vollgeld/Sovereign Money als Reformoption inklusive Chancen, Risiken und Kritikpunkten.",
       "files": [
-        "agent/modules/ziegler_auditor/sovereign_money.py",
-        "agent/modules/ziegler_auditor/tests/test_sovereign_money.py"
+        "agent/services/finance_auditor/sovereign_money.py",
+        "tests/test_monetative_money_auditor.py"
       ],
       "acceptance_criteria": [
         "Modul erklärt die Kernidee: Geldschöpfung wird von Geschäftsbanken zur öffentlichen/zentralbanknahen Geldordnung verschoben.",
@@ -129,11 +157,13 @@
     },
     {
       "id": "MM-006",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Demokratische-Legitimitätsprüfung für Geldordnung ergänzen",
       "description": "Bewerte Geldsystemclaims danach, ob Geld als öffentliche Infrastruktur oder private Renditequelle behandelt wird.",
       "files": [
-        "agent/modules/ziegler_auditor/monetative_money.py",
-        "agent/modules/ziegler_auditor/scoring.py"
+        "agent/services/finance_auditor/monetative_money.py",
+        "agent/services/finance_auditor/scoring.py"
       ],
       "acceptance_criteria": [
         "Output enthält monetary_democracy_score von 0 bis 100.",
@@ -145,11 +175,13 @@
     },
     {
       "id": "MM-007",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Prompt für Monetative-orientierte Geldsystemanalyse erstellen",
       "description": "Erstelle einen Prompt, der Aussagen über Geldsystem, Banken, Zentralbanken und Vollgeld sauber, kritisch und nicht verschwörungsideologisch analysiert.",
       "files": [
         "prompts/monetative_money_auditor.j2",
-        "agent/modules/ziegler_auditor/prompts.py"
+        "agent/services/finance_auditor/prompts.py"
       ],
       "acceptance_criteria": [
         "Prompt verlangt Trennung von Ist-Mechanik, Machtwirkung, normativer Kritik und Reformoptionen.",
@@ -161,6 +193,8 @@
     },
     {
       "id": "MM-008",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Fixtures für Geldsystemclaims anlegen",
       "description": "Erstelle Testclaims zu Geldschöpfung, Banken, Staatsschulden, Inflation, Zentralbankgeld, CBDC und Vollgeld.",
       "files": [
@@ -176,12 +210,14 @@
     },
     {
       "id": "MM-009",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Integration in ZieglerAuditorService ergänzen",
       "description": "Der bestehende ZieglerAuditorService soll Geldsystemclaims an das Monetative-Money-Submodul routen können.",
       "files": [
-        "agent/modules/ziegler_auditor/service.py",
-        "agent/task_classification.py",
-        "agent/task_config.json"
+        "agent/services/finance_auditor/service.py",
+        "agent/services/finance_auditor/config.py",
+        "agent/services/task_intent_router.py"
       ],
       "acceptance_criteria": [
         "Claims zu Geldschöpfung, Vollgeld, Zentralbankgeld, Bankgeld, Staatsschulden oder Zins werden zur Kategorie monetary_system geroutet.",
@@ -193,6 +229,8 @@
     },
     {
       "id": "MM-010",
+      "status": "todo",
+      "progress_percent": 0,
       "title": "Dokumentation mit Ziegler-plus-Monetative-Gesamtrahmen ergänzen",
       "description": "Erkläre, wie Ziegler und Monetative/Huber zusammen den Analysehorizont bilden: reale Opfer der Finanzordnung plus technische Geldschöpfungsmacht.",
       "files": [
