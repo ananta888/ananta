@@ -1,6 +1,5 @@
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -44,6 +43,7 @@ def test_ci_uploads_e2e_diagnostics_even_when_compose_test_fails():
 
 def test_backend_coverage_uses_a_single_shard_resolver_and_pip_cache():
     workflow = (ROOT / ".github" / "workflows" / "coverage.yml").read_text(encoding="utf-8")
+    backend_job = workflow.split("  backend-coverage:\n", 1)[1].split("  frontend-coverage:\n", 1)[0]
 
     assert "resolve_backend_coverage" in workflow
     assert "resolve_backend_coverage_shards.py" in workflow
@@ -52,3 +52,4 @@ def test_backend_coverage_uses_a_single_shard_resolver_and_pip_cache():
     assert "fromJson(needs.resolve_backend_coverage.outputs.matrix)" in workflow
     assert "matrix.shard_name" in workflow
     assert "ananta-backend-coverage-${{ matrix.shard_name }}" in workflow
+    assert "fetch-depth: 0" in backend_job
