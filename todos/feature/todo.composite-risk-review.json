@@ -1,18 +1,20 @@
 {
-  "$schema": "../../todo.track.schema.json",
+  "$schema": "../todo.track.schema.json",
   "version": "1.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "composite-risk-review",
   "created": "2026-06-10",
+  "updated": "2026-09-01",
   "status": "todo",
   "purpose": "Kleines, separates und explizit aktivierbares Feature fuer Composite Risk Review: Ananta soll Task-Ketten optional auf erklaerbare Risiko-Indikatoren pruefen, ohne vollstaendige Absichtserkennung zu behaupten.",
-  "goal": "Ein optionaler Review-Layer, der nur bei expliziter Verwendung laeuft, Warnhinweise erzeugt und Audit-/Human-Review-Hinweise liefert. Das Feature darf keine Sicherheitsgarantie geben und darf nicht als automatische Composite Intent Detection vermarktet werden.",
+  "goal": "Ein optionaler Review-Layer, der nur bei expliziter Verwendung laeuft, Warnhinweise erzeugt und auditierbare automatische Folgeaktionen empfehlen kann. Menschliche Einsicht bleibt optional und ist weder fuer Tests noch fuer einen produktiven Headless-Lauf erforderlich. Das Feature darf keine Sicherheitsgarantie geben und darf nicht als automatische Composite Intent Detection vermarktet werden.",
   "non_goals": [
     "Keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben hinweg.",
     "Keine Garantie, dass einzeln harmlose Teilaufgaben zusammen niemals einem gefaehrlichen Gesamtzweck dienen.",
     "Kein automatisches Gruenlicht fuer Sicherheit, wenn keine Warnung gefunden wurde.",
     "Kein Default-Blocker im normalen Task-Flow.",
-    "Kein Ersatz fuer menschliche Verantwortung bei Ziel, Kontext und Zusammenbau von Ergebnissen."
+    "Kein Ersatz fuer die Verantwortung des Betreibers bei Ziel, Kontext und Zusammenbau von Ergebnissen.",
+    "Kein interaktiver Review-, Klick- oder Freigabezwang in Tests oder produktiven Headless-Laeufen."
   ],
   "mandatory_warning_text": "Composite Risk Review ist nur ein optionaler Risiko-Hinweis. Ananta kann keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben garantieren. Keine Warnung bedeutet nicht, dass ein Goal, eine Task-Kette oder ein Artefakt sicher ist.",
   "design_decisions": [
@@ -28,8 +30,8 @@
     },
     {
       "id": "CRR-DD-003",
-      "decision": "Review darf nur warnen, markieren und Human Review empfehlen.",
-      "rationale": "Das Feature soll keine harte Sicherheitsgarantie behaupten und keine automatische Freigabeentscheidung treffen."
+      "decision": "Review darf nur warnen, markieren und policy-gesteuerte automatische Folgepruefungen empfehlen; optionale menschliche Einsicht ist nie technische Voraussetzung.",
+      "rationale": "Das Feature soll keine harte Sicherheitsgarantie behaupten, keine automatische Freigabeentscheidung treffen und zugleich vollstaendig headless ausfuehrbar bleiben."
     },
     {
       "id": "CRR-DD-004",
@@ -40,7 +42,12 @@
   "target_files": [
     "agent/config.py",
     "agent/services/composite_risk_review_service.py",
-    "agent/routes/composite_risk_review.py",
+    "agent/routes/security/composite_risk_review.py",
+    "agent/bootstrap/routes.py",
+    "agent/cli/commands/security.py",
+    "agent/cli/main.py",
+    "frontend-angular/src/app/features/system/composite-risk-review.component.ts",
+    "frontend-angular/src/app/services/composite-risk-review-api.service.ts",
     "docs/security/composite-risk-review.md",
     "README.md",
     "tests/test_composite_risk_review.py"
@@ -98,7 +105,8 @@
       "acceptance_criteria": [
         "Doku sagt explizit: keine vollstaendige Absichtserkennung ueber beliebig zerlegte Aufgaben.",
         "Doku sagt explizit: keine Warnung bedeutet nicht sicher.",
-        "Doku sagt explizit: Feature ist nur ein Review-/Audit-Hinweis und ersetzt keine menschliche Verantwortung.",
+        "Doku sagt explizit: Feature ist nur ein Review-/Audit-Hinweis und ersetzt keine Betreiberverantwortung.",
+        "Doku beschreibt einen vollautomatischen Headless-Pfad ohne interaktive Freigabe.",
         "Doku enthaelt eine kurze Tabelle: kann warnen / kann nicht garantieren."
       ]
     },
@@ -154,12 +162,13 @@
       "status": "todo",
       "priority": "P1",
       "risk": "low",
-      "target_files": ["agent/routes/composite_risk_review.py", "agent/ai_agent.py"],
+      "target_files": ["agent/routes/security/composite_risk_review.py", "agent/bootstrap/routes.py"],
       "acceptance_criteria": [
         "Endpoint POST /api/security/composite-risk-review existiert nur fuer explizite Review-Anfragen.",
-        "Endpoint fuehrt Review nur aus, wenn composite_risk_review_enabled true ist oder ein lokaler Dev/Test-Kontext das explizit erlaubt.",
+        "Endpoint fuehrt Review nur aus, wenn composite_risk_review_enabled true ist; Tests aktivieren dies ueber eine deterministische Settings-Fixture.",
         "Antwort enthaelt immer warning_text.",
-        "Endpoint trifft keine automatische allow/deny-Entscheidung fuer den normalen Task-Flow."
+        "Endpoint trifft keine automatische allow/deny-Entscheidung fuer den normalen Task-Flow.",
+        "Endpoint ist headless nutzbar und wartet niemals auf menschliche Eingabe."
       ]
     },
     {
@@ -169,12 +178,13 @@
       "status": "todo",
       "priority": "P1",
       "risk": "low",
-      "target_files": ["cli/", "docs/cli/commands.md"],
+      "target_files": ["agent/cli/commands/security.py", "agent/cli/commands/__init__.py", "agent/cli/main.py", "docs/cli/commands.md"],
       "acceptance_criteria": [
-        "CLI bietet ein explizites Kommando wie ananta security composite-risk-review <goal-or-run-id>.",
+        "CLI bietet `ananta security composite-risk-review --input <json-datei>` fuer einen vollstaendigen Review-Payload.",
         "CLI zeigt den warning_text vor oder zusammen mit dem Ergebnis sichtbar an.",
         "CLI markiert Ergebnis als Hinweis, nicht als Sicherheitsfreigabe.",
-        "CLI-Doku enthaelt ein Beispiel mit low/medium/high und recommended_action."
+        "CLI-Doku enthaelt ein Beispiel mit low/medium/high und recommended_action.",
+        "CLI ist nicht-interaktiv und liefert bei Fehlern einen begrenzten Exit-Code statt auf Eingabe zu warten."
       ]
     },
     {
@@ -184,12 +194,13 @@
       "status": "todo",
       "priority": "P1",
       "risk": "low",
-      "target_files": ["frontend-angular/", "docs/golden-path-ui.md"],
+      "target_files": ["frontend-angular/src/app/features/system/composite-risk-review.component.ts", "frontend-angular/src/app/services/composite-risk-review-api.service.ts", "frontend-angular/src/app/features/system/system.routes.ts", "frontend-angular/src/app/models/route-metadata.ts", "docs/golden-path-ui.md"],
       "acceptance_criteria": [
         "UI zeigt Composite Risk Review nicht als automatischen Safety-Status im normalen Flow an.",
         "UI bietet nur eine explizite Review-Aktion oder ein separates Security/Audit-Panel.",
         "UI zeigt den warning_text sichtbar an.",
-        "UI vermeidet Gruen/Rot-Sicherheitsampel, die eine Garantie suggerieren koennte."
+        "UI vermeidet Gruen/Rot-Sicherheitsampel, die eine Garantie suggerieren koennte.",
+        "Die UI ist nur ein optionaler Client; derselbe Lauf ist vollstaendig ueber die headless API moeglich."
       ]
     },
     {
@@ -219,6 +230,7 @@
         "Tests pruefen Default false fuer composite_risk_review_enabled.",
         "Tests pruefen, dass bestehende Task-Engine-, Planning- und Worker-Flows ohne expliziten Review unveraendert bleiben.",
         "Tests pruefen, dass kein normaler Task automatisch durch Composite Risk Review blockiert wird.",
+        "API-, CLI- und UI-Tests laufen ohne Klick, Eingabe oder menschliche Freigabe.",
         "CI bleibt ohne externe LLM- oder Netzwerkabhaengigkeit lauffaehig."
       ]
     }
