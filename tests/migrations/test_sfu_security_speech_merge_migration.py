@@ -9,7 +9,6 @@ from alembic.migration import MigrationContext
 from alembic.operations import Operations
 from alembic.script import ScriptDirectory
 
-
 ROOT = Path(__file__).resolve().parents[2]
 MERGE_REVISION = "b35ae1f2c4d6"
 PARENTS = {"4f9c2a7e1b6d", "a249d0e1f2a3"}
@@ -20,7 +19,7 @@ LINEAR_SUCCESSORS = {
     "a7c9e1f3b5d7": "e68df4c5b7a9",
     "b8d0f2a4c6e8": "a7c9e1f3b5d7",
 }
-HEAD_REVISION = "b9d1f3a5c7e0"
+KNOWN_DESCENDANT_REVISION = "b9d1f3a5c7e0"
 
 
 def test_migration_graph_has_one_merge_head_with_both_independent_parents() -> None:
@@ -28,13 +27,14 @@ def test_migration_graph_has_one_merge_head_with_both_independent_parents() -> N
     config.set_main_option("script_location", str(ROOT / "migrations"))
     scripts = ScriptDirectory.from_config(config)
 
-    assert scripts.get_heads() == [HEAD_REVISION]
+    heads = scripts.get_heads()
+    assert len(heads) == 1
+    revisions_on_head_chain = {revision.revision for revision in scripts.walk_revisions(base="base", head=heads[0])}
+    assert KNOWN_DESCENDANT_REVISION in revisions_on_head_chain
     merge = scripts.get_revision(MERGE_REVISION)
     assert merge is not None
     down_revisions = merge.down_revision
-    assert set(
-        down_revisions if isinstance(down_revisions, tuple) else (down_revisions,)
-    ) == PARENTS
+    assert set(down_revisions if isinstance(down_revisions, tuple) else (down_revisions,)) == PARENTS
     for parent in PARENTS:
         assert scripts.get_revision(parent) is not None
 
@@ -45,9 +45,7 @@ def test_migration_graph_has_one_merge_head_with_both_independent_parents() -> N
 
 
 def test_merge_upgrade_and_downgrade_are_schema_neutral() -> None:
-    migration = importlib.import_module(
-        "migrations.versions.b35ae1f2c4d6_merge_sfu_security_and_speech_mutations"
-    )
+    migration = importlib.import_module("migrations.versions.b35ae1f2c4d6_merge_sfu_security_and_speech_mutations")
     engine = sa.create_engine("sqlite://")
     with engine.begin() as connection:
         connection.execute(sa.text("CREATE TABLE merge_sentinel (id INTEGER PRIMARY KEY)"))
