@@ -2,10 +2,21 @@ from __future__ import annotations
 
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest.mock import Mock
 
 from agent.services.voice_governance_domain import VoicePrincipal
 from agent.services.voice_live_run_correction_service import VoiceLiveRunCorrectionService
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+def test_publication_audit_precedes_asynchronous_correction_schedule() -> None:
+    source = (ROOT / "agent/routes/voice_live_runs.py").read_text(encoding="utf-8")
+    publication = source.index('"voice_live_run_segment_provisional_published"')
+    schedule = source.index("correction_service.schedule(principal, run_id, sequence)", publication)
+
+    assert publication < schedule
 
 
 def test_bounded_backlog_runs_automatically_after_worker_capacity_returns() -> None:

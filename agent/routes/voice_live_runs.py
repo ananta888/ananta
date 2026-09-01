@@ -432,8 +432,6 @@ def _put_audio_segment(run_id: str, sequence: int):
             limit=1,
             include_text=True,
         )
-        if preparation.requested:
-            correction_service.schedule(principal, run_id, sequence)
         log_audit(
             "voice_live_run_segment_provisional_published",
             {
@@ -447,6 +445,12 @@ def _put_audio_segment(run_id: str, sequence: int):
                 "raw_audio_stored": False,
             },
         )
+        # Finish every request-owned database write before the asynchronous
+        # correction worker opens its own transaction. This is required for
+        # SQLite test deployments and also keeps the publication audit ordered
+        # before any correction-side effects in production.
+        if preparation.requested:
+            correction_service.schedule(principal, run_id, sequence)
         return api_response(
             data={
                 **snapshot,
