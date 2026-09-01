@@ -1,0 +1,273 @@
+{
+  "id": "ananta-geomap-catalog",
+  "title": "Konfigurierbarer GeoMap-Katalog für Datenanalyse und Dashboards",
+  "status": "todo",
+  "priority": "high",
+  "source_basis": {
+    "goal": "Tabellarische Daten aus Pandas/CSV/SQL sollen ohne individuelle Kartenprogrammierung auf Welt-, Kontinent-, Länder-, Bundesland- und später NUTS-/Landkreis-Ebene visualisiert werden können.",
+    "decisions": [
+      "Eine Karten-Registry beschreibt Datenquelle, Gebietsebene, Join-Schlüssel, Lizenz/Attribution und unterstützte Renderer.",
+      "Plotly dient für schnelle Python-Reports und Notebook-/Analyseausgaben; Apache ECharts dient für die interaktive Ananta-Weboberfläche.",
+      "GeoJSON ist das kanonische Austauschformat; TopoJSON darf für kompakte Welt- und Länderkarten beim Laden in GeoJSON umgewandelt werden; SVG ist für gestaltete Spezialkarten zulässig.",
+      "Kartenartefakte und Renderer müssen lokal/offline funktionieren; CDNs dürfen höchstens eine optionale Demo-Variante sein."
+    ],
+    "references": [
+      "https://plotly.com/python/outline-map-locations/",
+      "https://echarts.apache.org/handbook/en/how-to/component-types/geo/svg-base-map/",
+      "https://github.com/topojson/world-atlas",
+      "https://github.com/isellsoap/deutschlandGeoJSON"
+    ]
+  },
+  "repo_alignment": {
+    "required_discovery": "Vor Umsetzung vorhandene Dashboard-, Chart-, Python-Export-, Artefakt- und Konfigurationsmodule ermitteln. Keine parallele Visualisierungsarchitektur einführen.",
+    "target_todo_path": "todos/active/todo.ananta.geomap-catalog.json",
+    "files_to_create": [
+      "Karten-Registry und Schema am nach dem Repository-Audit passenden Konfigurationsort",
+      "lokal paketierte Grenzdaten und Attribution-Dateien",
+      "GeoMap-Renderer/Adapter für Web und Python-Export",
+      "Komponenten- und End-to-End-Tests"
+    ]
+  },
+  "acceptance_summary": [
+    "Nutzende können eine Kennzahlspalte und eine vorinstallierte Karte auswählen; Regionen werden ohne manuelles SVG-Coding korrekt eingefärbt.",
+    "Die vordefinierten Karten Welt, Kontinente, Europa-Länder und Deutschland-Bundesländer funktionieren offline nach der Installation.",
+    "Fehlende, doppelte oder nicht zuordenbare Regionenschlüssel werden verständlich angezeigt und nicht stillschweigend verfälscht.",
+    "Exportierte Karten enthalten Datenquellen- und Kartenattribution."
+  ],
+  "tasks": [
+    {
+      "id": "GM-01",
+      "title": "Vorhandene Visualisierungs- und Datenflussarchitektur prüfen",
+      "type": "research",
+      "priority": "blocker",
+      "status": "todo",
+      "repo_evidence": "Offen: Dashboard/Chart-Komponenten, Datenmodell, Python-Worker, Artefakt-Speicher und bestehende Konfigurationsvalidierung im Repository identifizieren.",
+      "implementation": [
+        "Bestehende Chart-Renderer, Tabellenimporte, Python-Ausführungen und Exportpfade dokumentieren.",
+        "Entscheiden, ob ECharts/Plotly bereits vorhanden sind; vorhandene Bibliotheken bevorzugen.",
+        "Kanonische Regionenschlüssel und die Art der Ergebnisdaten (DataFrame, JSON, SQL-Resultat) festlegen."
+      ],
+      "acceptance_criteria": [
+        "Ein Architekturvermerk benennt die wiederverwendbaren Code-Anker und den Integrationspunkt.",
+        "Der Umsetzungspfad enthält keine erfundenen Dateipfade oder doppelte Renderer."
+      ],
+      "test_plan": [
+        "Architekturreview mit mindestens einem bestehenden Tabellen- und einem bestehenden Diagrammfluss."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "GM-02",
+      "title": "Versioniertes GeoMap-Registry-Schema definieren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "todo",
+      "repo_evidence": "Benötigt Ergebnis aus GM-01 zur Einordnung in das vorhandene Konfigurationssystem.",
+      "implementation": [
+        "Schema mit id, label, level, format, source, featureIdPath, dataJoinKey, supportedRenderers, bounds, license und attribution definieren.",
+        "Eindeutige IDs wie world-countries, world-continents, europe-countries und de-states festlegen.",
+        "Schema validieren und migrationsfähig versionieren."
+      ],
+      "acceptance_criteria": [
+        "Ungültige Formate, fehlende Join-Schlüssel und externe Quellen ohne Lizenzinformation werden abgewiesen.",
+        "Eine Registry-Definition reicht aus, damit UI und Renderer dieselben Metadaten verwenden."
+      ],
+      "test_plan": [
+        "Schema-Tests für gültige Karten, fehlende Felder, Duplikate und nicht unterstützte Renderer."
+      ],
+      "dependencies": [
+        "GM-01"
+      ]
+    },
+    {
+      "id": "GM-03",
+      "title": "Offline-Grenzdaten und Attribution paketieren",
+      "type": "data",
+      "priority": "high",
+      "status": "todo",
+      "repo_evidence": "Grenzdaten dürfen nicht zur Laufzeit von CDN oder GitHub abhängen.",
+      "implementation": [
+        "Welt-Länder aus einem gepflegten, lizenzkonformen Datensatz in angemessener Auflösung aufnehmen.",
+        "Kontinente aus denselben Ländergrenzen reproduzierbar aggregieren oder eine klar lizenzierte Kontinentdatei verwenden.",
+        "Deutschland-Bundesländer mit stabilen IDs DE-BW bis DE-TH aufnehmen.",
+        "Dateigröße, Vereinfachungsgrad, Versionsdatum, Herkunft und Attribution je Dataset dokumentieren."
+      ],
+      "acceptance_criteria": [
+        "Welt, Kontinente, Europa und Deutschland werden ohne Netzwerkzugriff gerendert.",
+        "Deutschland enthält alle 16 Bundesländer und die Join-IDs sind eindeutig.",
+        "Jede Kartenquelle besitzt maschinenlesbare Lizenz- und Attribution-Metadaten."
+      ],
+      "test_plan": [
+        "Offline-Integrationstest; Feature-Anzahl- und eindeutige-ID-Tests; Größenbudget im CI."
+      ],
+      "dependencies": [
+        "GM-02"
+      ]
+    },
+    {
+      "id": "GM-04",
+      "title": "Sicheren Tabellen-zu-Regionen-Join implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "todo",
+      "repo_evidence": "Join-Logik muss unabhängig vom gewählten Renderer sein.",
+      "implementation": [
+        "Join-Adapter für DataFrame/CSV/SQL-Resultat nach JSON implementieren.",
+        "Normalisierung nur für explizit konfigurierte Schlüsseltypen anbieten: ISO-3166-1 alpha-3, ISO-3166-2, NUTS und benutzerdefinierte IDs.",
+        "Join-Bericht mit matched, unmatched, duplicate und missing geometry erzeugen.",
+        "Aggregationsregel für mehrere Zeilen pro Region verpflichtend machen: sum, mean, min, max, count oder voraggregiert."
+      ],
+      "acceptance_criteria": [
+        "Keine Kennzahl wird bei nicht eindeutigen Daten ohne gewählte Aggregation angezeigt.",
+        "Nicht zuordenbare Regionen erscheinen im Bericht und optional in einer filterbaren Tabelle.",
+        "Die gleichen Eingabedaten liefern in Web- und Python-Export identische Regionswerte."
+      ],
+      "test_plan": [
+        "Unit-Tests für ISO- und Bundeslandcodes, Umlautnamen, Nullwerte, Duplikate und unbekannte IDs."
+      ],
+      "dependencies": [
+        "GM-02",
+        "GM-03"
+      ]
+    },
+    {
+      "id": "GM-05",
+      "title": "Interaktive GeoMap-Komponente für Ananta implementieren",
+      "type": "implementation",
+      "priority": "high",
+      "status": "todo",
+      "repo_evidence": "Rendererwahl aus GM-01 übernehmen; Ziel ist ECharts oder bereits vorhandene gleichwertige Karte.",
+      "implementation": [
+        "GeoJSON und SVG über einen einheitlichen Renderer-Adapter registrieren.",
+        "Choropleth-Farbskala, Legende, Tooltip, Auswahl, Reset, Zoom und Tastaturbedienung implementieren.",
+        "Fehlende Daten neutral darstellen; Farbpalette und Klassifizierung konfigurierbar machen.",
+        "Kartenattribution im UI und in Exporten sichtbar machen."
+      ],
+      "acceptance_criteria": [
+        "Die UI kann Welt, Kontinente, Europa-Länder und deutsche Bundesländer über die Registry auswählen.",
+        "Tooltip zeigt Regionsname, formatierte Kennzahl und Datenstatus.",
+        "Karte ist ohne Maus nutzbar und bleibt bei kleinen Bildschirmen bedienbar."
+      ],
+      "test_plan": [
+        "Komponententests für Kartenwechsel und Tooltip; Browser-E2E-Test für Auswahl, Zoom und fehlende Daten."
+      ],
+      "dependencies": [
+        "GM-03",
+        "GM-04"
+      ]
+    },
+    {
+      "id": "GM-06",
+      "title": "Pandas- und Report-Export anbinden",
+      "type": "implementation",
+      "priority": "medium",
+      "status": "todo",
+      "repo_evidence": "Python-Ausführungs- und Artefaktpfad aus GM-01 verwenden.",
+      "implementation": [
+        "Plotly-Adapter für Länderniveau mit ISO-3 sowie Custom-GeoJSON-Adapter für Bundesländer implementieren.",
+        "Statisches SVG/PNG/PDF und optional interaktives HTML als Artefakte exportieren.",
+        "Registry-ID, Zeitstempel, Datenaggregation und Attribution als Metadaten in das Artefakt aufnehmen."
+      ],
+      "acceptance_criteria": [
+        "Ein DataFrame mit ISO-3-Werten erzeugt eine Europa- und Weltkarte.",
+        "Ein DataFrame mit DE-XX-Werten erzeugt eine Bundesländerkarte.",
+        "Webkarte und Export verwenden dieselben Join- und Aggregationsregeln."
+      ],
+      "test_plan": [
+        "Golden-File-Tests für SVG/PNG sowie Datenvergleich zwischen Web- und Python-Adapter."
+      ],
+      "dependencies": [
+        "GM-04",
+        "GM-05"
+      ]
+    },
+    {
+      "id": "GM-07",
+      "title": "Karten-Auswahl und Datenzuordnung als geführten Workflow ergänzen",
+      "type": "ux",
+      "priority": "medium",
+      "status": "todo",
+      "repo_evidence": "In die vorhandene Visualisierungs- bzw. Dashboard-Erstellstrecke integrieren.",
+      "implementation": [
+        "Schritte anbieten: Karte wählen, Gebietsschlüssel-Spalte wählen, Kennzahl wählen, Aggregation prüfen, Vorschau prüfen.",
+        "Automatische Vorschläge nur bei eindeutiger Übereinstimmung; andernfalls Auswahl verlangen.",
+        "Join-Qualität vor dem Speichern mit Match-Quote und Fehlerliste zeigen."
+      ],
+      "acceptance_criteria": [
+        "Eine Person kann ohne GeoJSON-Kenntnisse eine korrekte Bundesländerkarte aus einer Tabelle erstellen.",
+        "Eine Warnung blockiert Veröffentlichung, wenn die konfigurierbare Mindest-Match-Quote unterschritten ist."
+      ],
+      "test_plan": [
+        "E2E-Test: CSV mit DE-XX → Karte konfigurieren → speichern → erneut laden."
+      ],
+      "dependencies": [
+        "GM-04",
+        "GM-05",
+        "GM-06"
+      ]
+    },
+    {
+      "id": "GM-08",
+      "title": "Erweiterbarkeit, Governance und Release absichern",
+      "type": "quality",
+      "priority": "medium",
+      "status": "todo",
+      "repo_evidence": "Vor Erweiterung um NUTS, Kreise, PLZ, Vertriebsgebiete oder Kundengebiete notwendig.",
+      "implementation": [
+        "Schema für zusätzliche Ebenen und kundeneigene GeoJSON/SVG-Dateien dokumentieren.",
+        "Upload-Validierung gegen schädliche oder übergroße SVG/GeoJSON implementieren; SVG niemals mit ausführbarem Inhalt rendern.",
+        "Caching, maximale Datensatzgröße und Lizenzprüfung definieren.",
+        "Beispieldaten und Entwicklerdokumentation ergänzen."
+      ],
+      "acceptance_criteria": [
+        "Eine neue Karte kann ausschließlich über Registry-Eintrag plus validierte Geodatei ergänzt werden.",
+        "Nicht vertrauenswürdige SVG-Dateien können kein Script, fremde Ressourcen oder Event-Handler ausführen.",
+        "CI validiert Registry, Datenintegrität, Offline-Betrieb und Attribution."
+      ],
+      "test_plan": [
+        "Security-Tests für SVG-Sanitizing, Schema-Contract-Tests und Offline-Release-Test."
+      ],
+      "dependencies": [
+        "GM-02",
+        "GM-03",
+        "GM-05",
+        "GM-06",
+        "GM-07"
+      ]
+    }
+  ],
+  "milestones": [
+    {
+      "id": "M1",
+      "title": "Registry, Daten und Join",
+      "tasks": [
+        "GM-01",
+        "GM-02",
+        "GM-03",
+        "GM-04"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Webkarte und Exporte",
+      "tasks": [
+        "GM-05",
+        "GM-06",
+        "GM-07"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Erweiterbar und releasefähig",
+      "tasks": [
+        "GM-08"
+      ]
+    }
+  ],
+  "release_gates": [
+    "Offline-Tests für alle vorinstallierten Karten erfolgreich.",
+    "Daten-Join-Bericht wird vor der Veröffentlichung angezeigt.",
+    "Lizenz, Datenstand und Attribution aller Basiskarten geprüft.",
+    "SVG- und GeoJSON-Import gegen aktive Inhalte und Ressourcenabrufe abgesichert."
+  ]
+}
