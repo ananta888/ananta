@@ -72,7 +72,7 @@
   },
   "schema": "ananta.visual-process-assistant-functional-evidence.v1",
   "source_hashes": {
-    "agent/config.py": "de3df3116f1fbd398605a4781f2fd8780fdb4fbd7731cded1bcb0731aa232465",
+    "agent/config.py": "58e3e16892c323061781e84ab903aa1b113b3b116a150047e3c549f8d826cbc6",
     "agent/db_models/visual_process.py": "8b789b6c74439a6d9c150ab1fa2330b9be18f03b2358c0122da1d0874c28c4f6",
     "agent/db_models/visual_process_assistant.py": "db553b6dd36a2fc90ebada0d082146bff46e1356096f49a78c427eec4c0bd893",
     "agent/routes/visual_process.py": "fa1c4c626c8a0c3908bc1a0d9495bbcf7e10b5068c2cd3090ed6ae6b021702b0",
@@ -80,7 +80,7 @@
     "agent/services/codecompass_editor_context_contract.py": "9de1049e8a1db86b836d77b64ee0d423e7646705f8f8af208677b0fb73a3117e",
     "agent/services/retrieval_source_contract.py": "3838028231616dd9c529f6e90c7ad6618b01f43d306940aaef86ef01a4abb02d",
     "agent/services/source_catalog_authority_service.py": "c5a8addbb74c8fcc82510eb885650c953adca9d362537865dfcf670d75501345",
-    "agent/services/visual_process_assistant_service.py": "687bc6168ec6c057f3bc3eff5a71d4677deef67ee47b387c8f4c81d95b88790b",
+    "agent/services/visual_process_assistant_service.py": "ded4d0612876077495142e659c19b5e4d2111a2947408685d31f9217df395e8b",
     "agent/services/visual_process_context_service.py": "82abbdd9c2f0608e82db3cffb6f491adf613c12eae6caa0363157091aaecc6c4",
     "agent/services/visual_process_definition_service.py": "4010e7a49570733ed9a8aca5db8e5a8af794b1eefca9353fd83bef9b499af43f",
     "agent/services/visual_process_location_service.py": "afd6dc504c5f2f8bb2a2106dea1d929732dfc87ca1e6c53ed6fef2a0d84c4b08",
@@ -88,12 +88,13 @@
     "agent/services/visual_process_patch_service.py": "7e1a753bcbda2e83ddeff87ab604f62513f154b2bd6e6f93bd8cfcec157ef233",
     "agent/visual_process/models.py": "18f2b74c57c8dea47b5bd2a86f2d554d484e35b0f2db862b486bf2ff93534a67",
     "agent/visual_process/node_definitions.py": "f13477fb278f79b1802bf2aa77cfc7278f763481c31e8123e210092ce3ea2aa9",
-    "agent/visual_process/step_adapters.py": "240b66cb1274dd4a4c5f6c046b86bdb6d13e4962ce72c247833a05309b59f619",
+    "agent/visual_process/query_rewrite_step_adapter.py": "7a5c114ff1261d3e715cb65458cfda4522f1134c69493261ec92f00bb455843f",
+    "agent/visual_process/step_adapters.py": "2759b7f68132d4d7c8f86c1f454fb551c7cfb1e62c1a603467fa324ad55f2385",
     "agent/visual_process/task_kind_registry.py": "391f567d6955287b18d3ac95bdc9f07416839d0ac509a37abedb3589d76369d0",
     "agent/visual_process/validator.py": "c04b0cc62520f8e84e237382802910c9f7ed7dc539248065c7cb8c0c1319a3c1",
     "ananta_contracts/retrieval.py": "198975d64758ed72c74bee7296d1c67c4fbf94a685c8c000eab3d8d4dcf97645",
     "ananta_contracts/visual_process_assistant.py": "2a8c6550b253fc13c64cf21a9a7cabaf275176983d402b53ee05b9f1f94450d5",
-    "artifacts/domain/visual-process-assistant-baseline.json": "e92cf9ab2ad8332f839ed5e5a94addd160efa5be32e4f234ac521c42c4e21428",
+    "artifacts/domain/visual-process-assistant-baseline.json": "f835bc423cca26538f1a752bb011ec7473ac377658ff81e885bdb54fec69e453",
     "artifacts/test-gates/codecompass-e2e.json": "53a055d2804a8324a6c42ed4895bc818fa90056f06578f07239fbfa7c9686d43",
     "docs/architecture/visual-process-assistant.md": "d4859bf92979ff1fde9e0dec2d8ccf9442260bad56c85565e1ab6bf4e59e6aa0",
     "frontend-angular/playwright.vpa-functional.config.ts": "e98e2e08b502338195138b86066b834b0ec821198095489ff256df80fad89955",
@@ -133,9 +134,9 @@
     "schemas/visual_process/node_definition.v1.json": "4aaa01b4733d115edf5984f9fbbaf859999f40a222fa31d0b2c73eb50f56eacf",
     "schemas/visual_process/workflow_patch.v1.json": "852fbe1d7c898a653f9907f85f4c5736d1d15c60b153d2e9a0422926067d8595",
     "schemas/worker/codecompass_snapshot_manifest.v1.json": "0730ed26187be8a12b199813c637b5c92bbd94dbe2c5d3a8812606de6d54c37e",
-    "scripts/generate_codecompass_e2e_gate.py": "382b88447c2a8432790b4b2349638e8498b72f7e12255f8ebca7fe4b6b6d7381",
-    "scripts/generate_visual_process_assistant_baseline.py": "ff0be383754974b4fc2873ef0b302d1356aea96e4650c689102f4045ff748f1a",
-    "scripts/generate_visual_process_assistant_gates.py": "47335aef0bc65ae412c97758523c0ae3b9781c2e5e0a298954f704eeae19e06c",
+    "scripts/generate_codecompass_e2e_gate.py": "4a903e0951bb5345fc5228944f4f03b0690cb77e15eee927f12ca2f15c97070f",
+    "scripts/generate_visual_process_assistant_baseline.py": "118e4556309cfd8baac8f469569c7bfbd375ce3897c8426b9835bd55962b83fa",
+    "scripts/generate_visual_process_assistant_gates.py": "8621f6fc699d4878717cae4ea7e3b61ec914710d92eda04f17b308a8d5c3c983",
     "scripts/run_visual_process_assistant_functional_gate.py": "2bb6fe6374ba091be170c913b72a4f224a9e799d22672df4b9a015046e801fc1",
     "scripts/visual_process_test_authority.py": "dfb064eb8cd6f66d5a4243b43307335e211a7642f0ada6b002dc3cb79d4b14ef",
     "tests/integration/visual_process_assistant/test_hub_worker_matrix.py": "72dfa668b6d7eed9b879d62eb7da821e7feb2c144a893cdcfd2cbbd510da8e72",
@@ -153,5 +154,5 @@
     "worker/visual_process_assistant/evidence_gate.py": "242394c084b2440b852d63cfca3d0ed97b111d2f33ec04f9acad577e37f02be4",
     "worker/visual_process_assistant/handlers.py": "eb2d39f432548753eef3e1e28db91b07a40b53098d30fa44a7445d6794f94476"
   },
-  "source_revision": "worktree-sha256:5e2de3f2777c37ea54231b389f33cefb8c679b1d9192b84aa30351ab1511cc34"
+  "source_revision": "worktree-sha256:a4a22774f3576a31b300739548156cc87e572f82ae44a09dbadb8a5acb5bcced"
 }

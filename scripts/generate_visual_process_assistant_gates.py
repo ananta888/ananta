@@ -77,6 +77,7 @@ FUNCTIONAL_SOURCE_PROJECTION = (
     "agent/services/visual_process_patch_service.py",
     "agent/visual_process/node_definitions.py",
     "agent/visual_process/models.py",
+    "agent/visual_process/query_rewrite_step_adapter.py",
     "agent/visual_process/step_adapters.py",
     "agent/visual_process/task_kind_registry.py",
     "agent/visual_process/validator.py",

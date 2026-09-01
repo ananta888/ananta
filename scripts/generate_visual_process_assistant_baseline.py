@@ -36,6 +36,10 @@ DEFAULT_OUTPUT = ROOT / "artifacts/domain/visual-process-assistant-baseline.json
 
 REGISTRY_PATH = "agent/visual_process/task_kind_registry.py"
 ADAPTER_PATH = "agent/visual_process/step_adapters.py"
+ADAPTER_SOURCE_PATHS = (
+    ADAPTER_PATH,
+    "agent/visual_process/query_rewrite_step_adapter.py",
+)
 EXECUTOR_PATH = "agent/visual_process/step_executor.py"
 NODE_DEFINITION_PATH = "agent/visual_process/node_definitions.py"
 INSPECTOR_HTML_PATH = "frontend-angular/src/app/features/visual-process/vp-step-inspector.component.html"
@@ -124,34 +128,35 @@ def _consumed_paths(node: ast.ClassDef) -> tuple[str, ...]:
 
 
 def _adapter_facts() -> dict[str, AdapterFact]:
-    source = _text(ADAPTER_PATH)
-    tree = ast.parse(source, filename=ADAPTER_PATH)
     result: dict[str, AdapterFact] = {}
-    for node in tree.body:
-        if not isinstance(node, ast.ClassDef):
-            continue
-        bases = {_attribute_chain(base)[-1] for base in node.bases if _attribute_chain(base)}
-        if "StepAdapter" not in bases:
-            continue
-        kind: str | None = None
-        for item in node.body:
-            if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) or item.name != "kind":
+    for source_path in ADAPTER_SOURCE_PATHS:
+        source = _text(source_path)
+        tree = ast.parse(source, filename=source_path)
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef):
                 continue
-            for child in ast.walk(item):
-                if isinstance(child, ast.Return):
-                    kind = _literal_key(child.value)
-                    if kind:
-                        break
-        if not kind:
-            continue
-        if kind in result:
-            raise ValueError(f"duplicate_visual_process_adapter:{kind}")
-        result[kind] = AdapterFact(
-            kind=kind,
-            class_name=node.name,
-            line=node.lineno,
-            consumed_paths=_consumed_paths(node),
-        )
+            bases = {_attribute_chain(base)[-1] for base in node.bases if _attribute_chain(base)}
+            if "StepAdapter" not in bases:
+                continue
+            kind: str | None = None
+            for item in node.body:
+                if not isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)) or item.name != "kind":
+                    continue
+                for child in ast.walk(item):
+                    if isinstance(child, ast.Return):
+                        kind = _literal_key(child.value)
+                        if kind:
+                            break
+            if not kind:
+                continue
+            if kind in result:
+                raise ValueError(f"duplicate_visual_process_adapter:{kind}")
+            result[kind] = AdapterFact(
+                kind=kind,
+                class_name=node.name,
+                line=node.lineno,
+                consumed_paths=_consumed_paths(node),
+            )
     return result
 
 

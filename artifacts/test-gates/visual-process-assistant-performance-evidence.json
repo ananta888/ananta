@@ -15,9 +15,9 @@
       "measurements": {
         "fixture_record_count": 512,
         "hard_timeout_ms": 5000,
-        "max_ms": 3.171761,
-        "p50_ms": 2.51649,
-        "p95_ms": 2.564425,
+        "max_ms": 9.239303,
+        "p50_ms": 2.465069,
+        "p95_ms": 2.512859,
         "rejected_count": 8,
         "released_source_count": 0,
         "repetitions": 100,
@@ -100,16 +100,16 @@
         "delay_ms": 350,
         "edges": 1000,
         "llm_requests": 0,
-        "max_ms": 13.59151,
-        "p50_ms": 2.559844,
-        "p95_ms": 2.722072,
-        "reference_p95_ms": 1.256718,
+        "max_ms": 16.579355,
+        "p50_ms": 2.59931,
+        "p95_ms": 2.924184,
+        "reference_p95_ms": 1.235104,
         "reference_result_step_count": 500,
         "repetitions": 100,
         "retrieval_requests": 0,
         "steps": 500,
         "stress_edges": 2000,
-        "stress_p95_ms": 2.722072,
+        "stress_p95_ms": 2.924184,
         "stress_result_step_count": 1000,
         "stress_steps": 1000,
         "warmup_iterations": 10
@@ -117,5 +117,5 @@
     }
   },
   "schema": "ananta.visual-process-assistant-performance-evidence.v1",
-  "source_revision": "worktree-sha256:202e3deffce1ed61d17cd3fdafd1f8d6b8149b3570f2c8cc7f98543cbd1b7904"
+  "source_revision": "worktree-sha256:5c846d9ac859b5f0cdd1129e2f27464c0563d20a633433fd9f6cd6e5829bce75"
 }
