@@ -7,6 +7,7 @@ import copy
 import hashlib
 import json
 import secrets
+from concurrent.futures import Future
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -319,7 +320,10 @@ class MlInternTrainingControlExecutionMixin:
         for job in selected:
             principal = MlInternTrainingPrincipal(job.tenant_id, job.owner_subject)
             try:
-                self._executor.submit(self._execute_job, principal, job.id)
+                future = self._executor.submit(self._execute_job, principal, job.id)
+                if isinstance(future, Future):
+                    self._futures.add(future)
+                    future.add_done_callback(self._forget_future)
             except Exception:
                 self._scheduled_job_ids.discard(job.id)
                 current = self._repository.get_job(principal, job.id)

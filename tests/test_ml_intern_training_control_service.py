@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import threading
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -162,6 +163,44 @@ def test_async_create_materializes_job_task_events_and_result(app, tmp_path, mon
         "running",
         "completed",
     ]
+
+
+def test_wait_for_idle_tracks_submitted_hub_execution(app, tmp_path, monkeypatch) -> None:
+    del app
+    repository = MlInternTrainingRepository()
+    principal = _principal()
+    dataset = _create_dataset(repository, principal, tmp_path / "wait-for-idle.jsonl")
+    monkeypatch.setattr(
+        "agent.services.ml_intern_training_control_service.get_task_queue_service",
+        lambda: FakeTaskQueue(),
+    )
+    started = threading.Event()
+    release = threading.Event()
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        service = MlInternTrainingControlService(
+            {"enabled": True, "max_concurrent_jobs": 1},
+            repository=repository,
+            executor=executor,
+        )
+        execute = service._execute_job
+
+        def blocked_execute(bound_principal, job_id):
+            started.set()
+            assert release.wait(timeout=5)
+            execute(bound_principal, job_id)
+
+        monkeypatch.setattr(service, "_execute_job", blocked_execute)
+        accepted, _ = service.create_job(
+            principal,
+            _payload(dataset.id),
+            idempotency_key="wait-for-idle-job",
+        )
+
+        assert started.wait(timeout=5)
+        assert service.wait_for_idle(timeout=0.01) is False
+        release.set()
+        assert service.wait_for_idle(timeout=5) is True
+        assert service.get_job(principal, accepted["id"])["status"] == "completed"
 
 
 def test_admit_job_defers_execution_until_explicit_hub_dispatch(app, tmp_path, monkeypatch) -> None:

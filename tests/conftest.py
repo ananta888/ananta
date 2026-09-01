@@ -662,6 +662,13 @@ def cleanup_db_and_runtime():
         if not get_voice_live_run_correction_service().wait_for_idle(timeout=10.0):
             raise RuntimeError("voice live correction executor did not become idle")
 
+        from agent.services.ml_intern_training_control_service import (
+            wait_for_ml_intern_training_control_idle,
+        )
+
+        if not wait_for_ml_intern_training_control_idle(timeout=10.0):
+            raise RuntimeError("ML-Intern training control executor did not become idle")
+
         reset_auth_state()
         try:
             from agent.routes.control_center_api import stop_control_center_event_poller

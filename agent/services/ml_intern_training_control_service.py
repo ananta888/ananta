@@ -5,7 +5,7 @@ import hashlib
 import json
 import threading
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol
 
@@ -108,6 +108,8 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         self._executor = executor or ThreadPoolExecutor(max_workers=2, thread_name_prefix="lora-control")
         self._clock = clock
         self._lock = threading.RLock()
+        self._idle_condition = threading.Condition(self._lock)
+        self._futures: set[Future[Any]] = set()
         self._accepting_claims = True
         self._scheduled_job_ids: set[str] = set()
         self._last_dispatched_tenant: str | None = None
@@ -691,10 +693,28 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         except TypeError:  # compatibility with executor implementations without cancel_futures
             shutdown(wait=False)
 
+    def wait_for_idle(self, timeout: float = 5.0) -> bool:
+        """Wait for this composition's submitted Hub executions to finish."""
+
+        deadline = time.monotonic() + max(0.0, timeout)
+        with self._idle_condition:
+            while self._futures:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return False
+                self._idle_condition.wait(timeout=remaining)
+            return True
+
+    def _forget_future(self, future: Future[Any]) -> None:
+        with self._idle_condition:
+            self._futures.discard(future)
+            self._idle_condition.notify_all()
+
 
 _control_service: MlInternTrainingControlService | None = None
 _control_service_signature: str | None = None
 _control_service_lock = threading.RLock()
+_retired_control_services: set[MlInternTrainingControlService] = set()
 
 
 def get_ml_intern_training_control_service(
@@ -729,6 +749,7 @@ def get_ml_intern_training_control_service(
             _control_service_signature = signature
             if previous is not None:
                 previous.begin_shutdown()
+                _retired_control_services.add(previous)
         return _control_service
 
 
@@ -739,6 +760,20 @@ def begin_ml_intern_training_control_shutdown() -> None:
         current = _control_service
     if current is not None:
         current.begin_shutdown()
+
+
+def wait_for_ml_intern_training_control_idle(timeout: float = 5.0) -> bool:
+    """Drain current and replaced Hub control compositions within one deadline."""
+
+    deadline = time.monotonic() + max(0.0, timeout)
+    with _control_service_lock:
+        services = tuple(_retired_control_services | ({_control_service} if _control_service is not None else set()))
+    for service in services:
+        if not service.wait_for_idle(timeout=max(0.0, deadline - time.monotonic())):
+            return False
+    with _control_service_lock:
+        _retired_control_services.difference_update(services)
+    return True
 
 
 def json_dumps_canonical(value: Mapping[str, Any]) -> str:
