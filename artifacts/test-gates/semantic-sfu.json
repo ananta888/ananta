@@ -1,12 +1,12 @@
 {
   "schema": "ananta.semantic-sfu-release-gate.v1",
   "gate": "semantic-sfu",
-  "source_sha256": "a8a2dfa437ce5f5d54c3f0f6698405ad5c845ea366531c1634600f5775ca096d",
+  "source_sha256": "7d264e2dbe27d53e07498a7fbe0707330acfdb2e4de117411c0962a2e427bb09",
   "config_sha256": "c804bf373f658ec78a8de040e68ee5b193002fc09b9ba264a238f4e1b7d03256",
   "evidence_recomputed": true,
   "tests": [
     {
-      "command": "ruff check agent/services/semantic_sfu_admission_service.py agent/routes/semantic_sfu_admission.py agent/services/media_topology_policy.py agent/services/semantic_fanout_coordination_service.py scripts/e2e/semantic_sfu_group_e2e.py scripts/e2e/semantic_media_group_e2e.py scripts/e2e/semantic_media_packet_capture.py scripts/e2e/semantic_sfu_failover_e2e.py scripts/e2e/semantic_sfu_hub_e2e.py tests/test_semantic_sfu_admission.py tests/test_semantic_sfu_admission_repository.py tests/test_semantic_sfu_admission_migration.py tests/test_semantic_sfu_group_keys.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py tests/test_sfu_broadcast_gate_foundation.py tests/fuzz/test_sfu_broadcast_contract_fuzz.py tests/fuzz/test_sfu_broadcast_state_machine_fuzz.py tests/security/test_sfu_broadcast_gate_security.py",
+      "command": "python -m ruff check agent/services/semantic_sfu_admission_service.py agent/routes/semantic_sfu_admission.py agent/services/media_topology_policy.py agent/services/semantic_fanout_coordination_service.py scripts/e2e/semantic_sfu_group_e2e.py scripts/e2e/semantic_media_group_e2e.py scripts/e2e/semantic_media_packet_capture.py scripts/e2e/semantic_sfu_failover_e2e.py scripts/e2e/semantic_sfu_hub_e2e.py tests/test_semantic_sfu_admission.py tests/test_semantic_sfu_admission_repository.py tests/test_semantic_sfu_admission_migration.py tests/test_semantic_sfu_group_keys.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py tests/test_sfu_broadcast_gate_foundation.py tests/fuzz/test_sfu_broadcast_contract_fuzz.py tests/fuzz/test_sfu_broadcast_state_machine_fuzz.py tests/security/test_sfu_broadcast_gate_security.py",
       "exit_code": 0
     },
     {
@@ -18,7 +18,7 @@
       "exit_code": 0
     },
     {
-      "command": "pytest -q tests/test_semantic_sfu_admission.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/e2e/test_semantic_sfu_spike.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py",
+      "command": "python -m pytest -q tests/test_semantic_sfu_admission.py tests/test_media_topology_policy.py tests/test_semantic_sfu_live_runner.py tests/e2e/test_semantic_sfu_spike.py tests/chaos/test_semantic_sfu_failover.py tests/integration/test_semantic_sfu_mixed_mode.py",
       "exit_code": 0
     },
     {

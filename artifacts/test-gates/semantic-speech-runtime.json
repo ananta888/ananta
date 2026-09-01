@@ -74,7 +74,7 @@
     "frontend-angular/src/app/services/semantic-speech-runtime-coordinator.service.ts": "5f3df3f9f3f5f2d5595f3ba51b21d48a3b62a209911fd93fe6243ca7bbed12cd",
     "frontend-angular/src/app/services/semantic-speech-source-correction-api.service.ts": "68e113ae58d6a80940b5daadc5af88b1a20344299b5ba55ee5a50952d5c55794",
     "frontend-angular/src/app/services/semantic-speech-transport.service.ts": "ba73c23aa12bb5a18a044eec8e45de5e62bfb1e7ae61ad929dec52ca707e36e4",
-    "frontend-angular/src/app/services/speech-delay-buffer.service.ts": "b3372e37bae8df9c82cf3d513281e13f104e9e44e671b9e6a90cad7bc3ad2565",
+    "frontend-angular/src/app/services/speech-delay-buffer.service.ts": "14c95e4916f61af52e733a5470cdb93c2057e2a8258de90a9c7865acd8e43393",
     "frontend-angular/src/app/services/speech-transcript-revision.store.ts": "7a72a22e38f11a023123d41f5a14775d9b06fe36be1de6be912db33c54326655",
     "frontend-angular/src/app/services/webrtc-media-health.service.ts": "b154f383aab2bc888fd5e428ea54123709c06c74cfde5b0ef50852a1dac30f99",
     "schemas/webrtc/speech_correction.v1.json": "0bf813e39e3110595c263723019e17c392e5950fcb0b4d7e9b968504cf88f81e",

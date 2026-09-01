@@ -7,8 +7,13 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from agent.services.semantic_media_program_evidence import canonical_sha256, source_hash
 
@@ -19,7 +24,6 @@ except ModuleNotFoundError:  # Direct execution sets scripts/ as sys.path[0].
     from e2e.semantic_media_group_e2e import expected_group_evidence_binding
     from e2e.semantic_sfu_failover_e2e import recompute_live_failover_evidence
 
-ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SPIKE = ROOT / "artifacts/domain/semantic-sfu-three-peer.json"
 DEFAULT_LOAD = ROOT / "artifacts/domain/semantic-sfu-load.json"
 DEFAULT_FAILOVER = ROOT / "artifacts/domain/semantic-sfu-live-failover.json"
@@ -277,6 +281,8 @@ def static_reasons(root: Path = ROOT) -> list[str]:
 def run_tests() -> list[dict[str, Any]]:
     commands = [
         [
+            sys.executable,
+            "-m",
             "ruff",
             "check",
             "agent/services/semantic_sfu_admission_service.py",
@@ -304,6 +310,8 @@ def run_tests() -> list[dict[str, Any]]:
         ["node", "--check", "scripts/spikes/semantic_sfu_failover.mjs"],
         ["node", "--check", "scripts/spikes/semantic_sfu_three_peer.mjs"],
         [
+            sys.executable,
+            "-m",
             "pytest",
             "-q",
             "tests/test_semantic_sfu_admission.py",
@@ -332,10 +340,11 @@ def run_tests() -> list[dict[str, Any]]:
     for command in commands:
         cwd = ROOT / "frontend-angular" if command[0] == "npx" else ROOT
         env = dict(os.environ)
-        if command[0] == "pytest":
+        if command[:3] == [sys.executable, "-m", "pytest"]:
             env["RUN_INTEGRATION_TESTS"] = "1"
         result = subprocess.run(command, cwd=cwd, env=env, capture_output=True, text=True, timeout=180)
-        results.append({"command": " ".join(command), "exit_code": result.returncode})
+        recorded_command = ["python", *command[1:]] if command[0] == sys.executable else command
+        results.append({"command": " ".join(recorded_command), "exit_code": result.returncode})
     return results
 
 
