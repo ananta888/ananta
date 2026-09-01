@@ -115,6 +115,63 @@ def _assert_track_dag(track: dict[str, Any]) -> None:
         raise ValueError("phase2_dependency_cycle")
 
 
+def _assert_track_progress(track: dict[str, Any]) -> None:
+    tasks = track["tasks"]
+    allowed_statuses = set(track["status_scale"])
+    status_counts = {status: 0 for status in track["status_scale"]}
+    for task in tasks:
+        status = task["status"]
+        if status not in allowed_statuses:
+            raise ValueError(f"phase2_task_status_invalid:{task['id']}")
+        status_counts[status] += 1
+        progress = task.get("progress_percent")
+        if status == "done" and (progress != 100 or not isinstance(task.get("completion_evidence"), dict)):
+            raise ValueError(f"phase2_task_completion_invalid:{task['id']}")
+        if status == "todo" and progress != 0:
+            raise ValueError(f"phase2_task_todo_progress_invalid:{task['id']}")
+
+    summary = track["tasks_status_summary"]
+    if summary["total"] != len(tasks) or summary["by_status"] != status_counts:
+        raise ValueError("phase2_task_status_summary_invalid")
+    expected_percent = round(status_counts["done"] * 100 / len(tasks), 2)
+    if summary["progress_percent_done"] != expected_percent:
+        raise ValueError("phase2_task_progress_percent_invalid")
+
+    progress_summary = track["progress_summary"]
+    expected_progress = {
+        "todo_remaining": status_counts["todo"],
+        "in_progress": status_counts["in_progress"],
+        "partial": status_counts["partial"],
+        "blocked": status_counts["blocked"],
+        "done": status_counts["done"],
+    }
+    if any(progress_summary[key] != value for key, value in expected_progress.items()):
+        raise ValueError("phase2_progress_summary_invalid")
+
+    critical_ids = set(track["critical_path_tasks"])
+    task_by_id = {task["id"]: task for task in tasks}
+    if not critical_ids <= set(task_by_id):
+        raise ValueError("phase2_critical_path_scope_invalid")
+    critical_done = sum(task_by_id[task_id]["status"] == "done" for task_id in critical_ids)
+    expected_critical = {
+        "total": len(critical_ids),
+        "done": critical_done,
+        "remaining": len(critical_ids) - critical_done,
+    }
+    if summary["critical_path"] != expected_critical:
+        raise ValueError("phase2_critical_path_summary_invalid")
+
+    milestone_counts = {status: 0 for status in ("todo", "in_progress", "blocked", "done")}
+    for milestone in track["milestones"]:
+        status = milestone["status"]
+        if status not in milestone_counts:
+            raise ValueError(f"phase2_milestone_status_invalid:{milestone['id']}")
+        milestone_counts[status] += 1
+    expected_milestones = {"total": len(track["milestones"]), **milestone_counts}
+    if summary["milestones"] != expected_milestones:
+        raise ValueError("phase2_milestone_summary_invalid")
+
+
 def validate_pack() -> dict[str, Any]:  # noqa: C901
     todo = _load(TODO_PATH)
     pack = _load(PACK_PATH)
@@ -263,8 +320,9 @@ def validate_pack() -> dict[str, Any]:  # noqa: C901
         raise ValueError("quantitative_limit_invalid")
 
     _assert_track_dag(track)
-    if len(track["tasks"]) != 12 or any(task["status"] != "todo" for task in track["tasks"]):
+    if len(track["tasks"]) != 12:
         raise ValueError("phase2_track_status_invalid")
+    _assert_track_progress(track)
     covered_source_items: set[str] = set()
     for task in track["tasks"]:
         task_source_items = set(task["source_category_item_ids"])
