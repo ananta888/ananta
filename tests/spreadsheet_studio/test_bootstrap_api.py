@@ -148,6 +148,42 @@ def test_proposal_job_route_is_hub_owned_and_principal_bound(app, client, admin_
     assert captured["principal_id"].startswith("principal-")
 
 
+def test_operations_routes_are_admin_only_and_closed(app, client, admin_auth_header) -> None:
+    class Operations:
+        def snapshot(self, *, artifact_retention_days):
+            return {"schema": "ananta.spreadsheet-operations-snapshot.v1", "days": artifact_retention_days}
+
+        def reconcile(self, **values):
+            return {"schema": "ananta.spreadsheet-operations-reconciliation.v1", **values}
+
+    app.extensions["spreadsheet_operations_service"] = Operations()
+    unauthorized = client.get("/api/spreadsheet-studio/operations")
+    assert unauthorized.status_code in {401, 403}
+    report = client.get(
+        "/api/spreadsheet-studio/operations?artifact_retention_days=45",
+        headers=admin_auth_header,
+    )
+    assert report.status_code == 200
+    assert report.get_json()["data"]["days"] == 45
+    invalid = client.post(
+        "/api/spreadsheet-studio/operations/reconcile",
+        headers=admin_auth_header,
+        json={"max_jobs": 5, "artifact_retention_days": 30},
+    )
+    assert invalid.status_code == 422
+    accepted = client.post(
+        "/api/spreadsheet-studio/operations/reconcile",
+        headers=admin_auth_header,
+        json={
+            "max_jobs": 5,
+            "artifact_retention_days": 30,
+            "delete_unreferenced_artifacts": False,
+        },
+    )
+    assert accepted.status_code == 200
+    assert accepted.get_json()["data"]["delete_unreferenced_artifacts"] is False
+
+
 def test_disabled_capability_is_observable_without_service(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path, enabled=False, automatic=False)
     response = client.get("/api/spreadsheet-studio/capabilities", headers=admin_auth_header)

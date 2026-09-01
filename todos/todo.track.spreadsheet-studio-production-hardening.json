@@ -610,7 +610,7 @@
     {
       "id": "SSP2-011",
       "title": "Observability, SLOs, Recovery und Retention",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -622,12 +622,35 @@
       "source_category_item_ids": [
         "SSFR-PLAN-002"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_audit": {
+          "source_refs": [
+            "SRC_0001",
+            "SRC_0002",
+            "SRC_0007"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "observability": "agent/services/spreadsheet_observability_service.py",
+        "recovery_and_retention": "agent/services/spreadsheet_operations_service.py",
+        "operations_runbook": "docs/operations/spreadsheet-studio.md",
+        "contract": "schemas/spreadsheet-studio/operations-snapshot.v1.json",
+        "tests": [
+          "tests/spreadsheet_studio/test_observability_operations.py",
+          "tests/spreadsheet_studio/test_worker_ingress.py",
+          "tests/spreadsheet_studio/test_worker_runtime_security.py",
+          "tests/spreadsheet_studio/test_bootstrap_api.py"
+        ],
+        "result": "88 Spreadsheet Studio tests passed; 6 optional environment tests were skipped/not_run; boundary and Ruff gates passed"
+      }
     },
     {
       "id": "SSP2-012",
@@ -669,13 +692,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 2,
+      "todo": 1,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 10
+      "done": 11
     },
-    "progress_percent_done": 83.3,
+    "progress_percent_done": 91.7,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -689,8 +712,8 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 7,
-      "remaining": 2
+      "done": 8,
+      "remaining": 1
     },
     "milestones": {
       "total": 3,
@@ -702,11 +725,11 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 2,
+    "todo_remaining": 1,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 10
+    "done": 11
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
@@ -716,6 +739,7 @@
     "SSP2-008 binds live LoRA/QLoRA configuration and opaque governance digests from the Hub profile through the isolated worker manifest.",
     "SSP2-009 makes execution-backed base-versus-adapter evaluation, digest-bound admission and consent-driven adapter quarantine automatic Hub policies.",
     "SSP2-010 adds project-scoped accessible virtual viewports, closed validator construction, stale-safe candidate review and automatic queue-to-promotion UX.",
+    "SSP2-011 adds content-safe end-to-end correlation, bounded SLO metrics, automatic stale-job recovery, reference-aware artifact retention and executable recovery runbooks.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

@@ -48,6 +48,26 @@ TASK_FAILURE_REASON_COUNT = Counter("task_failure_reason_total", "Task failures 
 WORKSPACE_WRITE_CONFLICT_COUNT = Counter("workspace_write_conflict_total", "Workspace write conflicts")
 HTTP_REQUEST_DURATION = Histogram("http_request_duration_seconds", "HTTP request duration", ["method", "target"])
 RETRIES_TOTAL = Counter("retries_total", "Total number of retries")
+SPREADSHEET_OPERATIONS_TOTAL = Counter(
+    "spreadsheet_operations_total",
+    "Spreadsheet Studio operations grouped by bounded operation, outcome and reason code",
+    ["operation", "outcome", "reason_code"],
+)
+SPREADSHEET_OPERATION_DURATION_SECONDS = Histogram(
+    "spreadsheet_operation_duration_seconds",
+    "Spreadsheet Studio operation duration grouped by bounded operation and outcome",
+    ["operation", "outcome"],
+)
+SPREADSHEET_QUEUE_DEPTH = Gauge(
+    "spreadsheet_queue_depth",
+    "Hub-owned Spreadsheet Studio execution jobs grouped by bounded state",
+    ["status"],
+)
+SPREADSHEET_ALERT_STATE = Gauge(
+    "spreadsheet_alert_state",
+    "Spreadsheet Studio alert state grouped by bounded reason code",
+    ["reason_code"],
+)
 MODEL_INVENTORY_SOURCE_OUTCOMES_TOTAL = Counter(
     "model_inventory_source_outcomes_total",
     "Model inventory source collection outcomes with bounded source kind and status",

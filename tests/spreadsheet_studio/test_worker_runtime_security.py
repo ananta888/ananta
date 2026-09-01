@@ -89,6 +89,7 @@ def test_queue_worker_polls_fixed_hub_routes_and_reports_automatic_result(fail: 
     assert "untrusted-detail" not in json.dumps(callback)
     if not fail:
         assert callback["result_digest"] == canonical_digest(callback["result"])
+        assert 0 <= callback["result"]["operation_durations_ms"]["render_recalc"] <= 300_000
 
 
 def test_queue_worker_rejects_ambiguous_hub_endpoint() -> None:

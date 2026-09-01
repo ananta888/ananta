@@ -116,6 +116,19 @@ class SpreadsheetStore:
             ).fetchone()
         return json.loads(row[0]) if row else None
 
+    def referenced_artifact_digests(self) -> set[str]:
+        with self._connect() as connection:
+            rows = connection.execute("SELECT payload_json FROM spreadsheet_versions").fetchall()
+        digests: set[str] = set()
+        for row in rows:
+            payload = json.loads(row[0])
+            for field in ("source_artifact", "published_artifact", "candidate_artifact"):
+                artifact = payload.get(field)
+                digest = artifact.get("sha256") if isinstance(artifact, dict) else None
+                if isinstance(digest, str) and len(digest) == 64:
+                    digests.add(digest)
+        return digests
+
     def finalize_proposal(
         self,
         tenant_id: str,

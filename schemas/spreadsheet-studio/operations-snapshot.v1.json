@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/spreadsheet-studio/operations-snapshot.v1.json",
+  "title": "Spreadsheet Studio operations snapshot v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "observed_at", "status", "degraded_mode", "backpressure_active", "safe_shutdown", "queue_depth", "slos", "alerts", "counts", "recent_correlations", "human_intervention_required", "recovery", "artifact_retention"],
+  "properties": {
+    "schema": {"const": "ananta.spreadsheet-operations-snapshot.v1"},
+    "observed_at": {"type": "number", "minimum": 0},
+    "status": {"enum": ["healthy", "degraded"]},
+    "degraded_mode": {"enum": ["none", "base_model_only_and_bounded_queue"]},
+    "backpressure_active": {"type": "boolean"},
+    "safe_shutdown": {
+      "type": "object", "additionalProperties": false,
+      "required": ["admissions", "queue", "result_ingress", "worker_outbox"],
+      "properties": {
+        "admissions": {"const": "stop_before_process_exit"},
+        "queue": {"const": "durable_hub_owned"},
+        "result_ingress": {"const": "drain_until_deadline"},
+        "worker_outbox": {"const": "retry_idempotently"}
+      }
+    },
+    "queue_depth": {
+      "type": "object", "additionalProperties": false,
+      "required": ["dispatch_pending", "queued", "leased", "failed"],
+      "properties": {
+        "dispatch_pending": {"type": "integer", "minimum": 0},
+        "queued": {"type": "integer", "minimum": 0},
+        "leased": {"type": "integer", "minimum": 0},
+        "failed": {"type": "integer", "minimum": 0}
+      }
+    },
+    "slos": {
+      "type": "object", "additionalProperties": false,
+      "required": ["queue_wait", "render_recalc", "proposal", "validation", "training", "result_ingress", "cleanup", "artifact_retention"],
+      "properties": {
+        "queue_wait": {"$ref": "#/$defs/slo"}, "render_recalc": {"$ref": "#/$defs/slo"},
+        "proposal": {"$ref": "#/$defs/slo"}, "validation": {"$ref": "#/$defs/slo"},
+        "training": {"$ref": "#/$defs/slo"}, "result_ingress": {"$ref": "#/$defs/slo"},
+        "cleanup": {"$ref": "#/$defs/slo"}, "artifact_retention": {"$ref": "#/$defs/slo"}
+      }
+    },
+    "alerts": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/label"}},
+    "counts": {"type": "array", "items": {"$ref": "#/$defs/count"}},
+    "recent_correlations": {"type": "array", "maxItems": 200, "items": {"$ref": "#/$defs/event"}},
+    "human_intervention_required": {"const": false},
+    "recovery": {
+      "type": "object", "additionalProperties": false,
+      "required": ["stale_after_seconds", "recoverable_count", "recoverable_jobs"],
+      "properties": {
+        "stale_after_seconds": {"type": "integer", "minimum": 60, "maximum": 86400},
+        "recoverable_count": {"type": "integer", "minimum": 0, "maximum": 100},
+        "recoverable_jobs": {"type": "array", "maxItems": 100, "items": {"$ref": "#/$defs/recoverableJob"}}
+      }
+    },
+    "artifact_retention": {"$ref": "#/$defs/retention"}
+  },
+  "$defs": {
+    "label": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.:-]{0,63}$"},
+    "identifier": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$"},
+    "slo": {
+      "type": "object", "additionalProperties": false,
+      "required": ["objective_seconds", "sample_count", "p95_seconds", "status"],
+      "properties": {
+        "objective_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "p95_seconds": {"type": ["number", "null"], "minimum": 0},
+        "status": {"enum": ["met", "breached", "not_run"]}
+      }
+    },
+    "count": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation", "outcome", "reason_code", "count"],
+      "properties": {
+        "operation": {"$ref": "#/$defs/label"}, "outcome": {"$ref": "#/$defs/label"},
+        "reason_code": {"$ref": "#/$defs/label"}, "count": {"type": "integer", "minimum": 1}
+      }
+    },
+    "correlation": {
+      "type": "object", "additionalProperties": false, "minProperties": 1,
+      "properties": {
+        "trace_id": {"$ref": "#/$defs/identifier"}, "task_id": {"$ref": "#/$defs/identifier"},
+        "worker_job_id": {"$ref": "#/$defs/identifier"}, "attempt_id": {"$ref": "#/$defs/identifier"},
+        "document_id": {"$ref": "#/$defs/identifier"}, "candidate_id": {"$ref": "#/$defs/identifier"},
+        "dataset_id": {"$ref": "#/$defs/identifier"}, "training_job_id": {"$ref": "#/$defs/identifier"},
+        "adapter_id": {"$ref": "#/$defs/identifier"}
+      }
+    },
+    "event": {
+      "type": "object", "additionalProperties": false,
+      "required": ["operation", "outcome", "reason_code", "correlation", "observed_at"],
+      "properties": {
+        "operation": {"$ref": "#/$defs/label"}, "outcome": {"$ref": "#/$defs/label"},
+        "reason_code": {"$ref": "#/$defs/label"}, "correlation": {"$ref": "#/$defs/correlation"},
+        "observed_at": {"type": "number", "minimum": 0},
+        "duration_seconds": {"type": "number", "minimum": 0, "maximum": 86400}
+      }
+    },
+    "recoverableJob": {
+      "type": "object", "additionalProperties": false,
+      "required": ["job_id", "worker_job_id", "document_id", "status"],
+      "properties": {
+        "job_id": {"$ref": "#/$defs/identifier"},
+        "worker_job_id": {"type": ["string", "null"], "pattern": "^[A-Za-z0-9][A-Za-z0-9._:@/-]{0,254}$"},
+        "document_id": {"$ref": "#/$defs/identifier"},
+        "status": {"enum": ["dispatch_pending", "queued", "leased"]}
+      }
+    },
+    "retention": {
+      "type": "object", "additionalProperties": false,
+      "required": ["schema", "mode", "retention_seconds", "referenced_count", "retained_count", "candidate_count", "deleted_count", "human_intervention_required"],
+      "properties": {
+        "schema": {"const": "ananta.spreadsheet-artifact-retention.v1"}, "mode": {"enum": ["dry_run", "delete"]},
+        "retention_seconds": {"type": "integer", "minimum": 86400, "maximum": 315360000},
+        "referenced_count": {"type": "integer", "minimum": 0}, "retained_count": {"type": "integer", "minimum": 0},
+        "candidate_count": {"type": "integer", "minimum": 0}, "deleted_count": {"type": "integer", "minimum": 0},
+        "human_intervention_required": {"const": false}
+      }
+    }
+  }
+}

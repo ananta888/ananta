@@ -8,7 +8,7 @@ from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -328,6 +328,70 @@ class SqlSpreadsheetExecutionQueueRepository:
             session.add(record)
         return {**self._projection(record), "replayed": False}
 
+    def operations_summary(self, *, stale_before: datetime) -> dict[str, Any]:
+        if stale_before.tzinfo is None:
+            raise ValueError("spreadsheet_stale_before_invalid")
+        active = ("dispatch_pending", "queued", "leased")
+        with Session(bind=self._engine) as session:
+            counts = dict(
+                session.execute(
+                    select(SpreadsheetExecutionJobDB.status, func.count()).group_by(
+                        SpreadsheetExecutionJobDB.status
+                    )
+                ).all()
+            )
+            stale = list(
+                session.execute(
+                    select(SpreadsheetExecutionJobDB)
+                    .where(
+                        SpreadsheetExecutionJobDB.status.in_(active),
+                        SpreadsheetExecutionJobDB.updated_at < stale_before,
+                    )
+                    .order_by(SpreadsheetExecutionJobDB.updated_at, SpreadsheetExecutionJobDB.job_id)
+                    .limit(100)
+                ).scalars()
+            )
+        return {
+            "counts": {
+                status: int(counts.get(status, 0))
+                for status in (*active, "completed", "failed", "cancelled")
+            },
+            "stale_jobs": [self._projection(record) for record in stale],
+        }
+
+    def terminalize_stale(self, *, stale_before: datetime, limit: int) -> list[dict[str, Any]]:
+        if stale_before.tzinfo is None or not 1 <= int(limit) <= 100:
+            raise ValueError("spreadsheet_stale_recovery_input_invalid")
+        active = ("dispatch_pending", "queued", "leased")
+        recovered: list[dict[str, Any]] = []
+        with Session(bind=self._engine, expire_on_commit=False) as session, session.begin():
+            statement = (
+                select(SpreadsheetExecutionJobDB)
+                .where(
+                    SpreadsheetExecutionJobDB.status.in_(active),
+                    SpreadsheetExecutionJobDB.updated_at < stale_before,
+                )
+                .order_by(SpreadsheetExecutionJobDB.updated_at, SpreadsheetExecutionJobDB.job_id)
+                .limit(int(limit))
+            )
+            if str(self._engine.dialect.name).lower() == "postgresql":
+                statement = statement.with_for_update(skip_locked=True)
+            records = list(session.execute(statement).scalars())
+            for record in records:
+                failure = {
+                    "schema": "ananta.spreadsheet-execution-recovery.v1",
+                    "reason_code": "spreadsheet_execution_stale_terminalized",
+                    "automatic_decision": True,
+                    "human_intervention_required": False,
+                }
+                record.status = "failed"
+                record.result_json = canonical_json(failure)
+                record.result_digest = canonical_digest(failure)
+                record.updated_at = datetime.now(timezone.utc)
+                session.add(record)
+                recovered.append(self._projection(record))
+        return recovered
+
     @staticmethod
     def _projection(record: SpreadsheetExecutionJobDB) -> dict[str, Any]:
         SqlSpreadsheetExecutionQueueRepository._assignment(record)
@@ -345,13 +409,22 @@ class SqlSpreadsheetExecutionQueueRepository:
             "queue_position": record.queue_position,
             "automatic_decision": True,
             "human_intervention_required": False,
+            "created_at": SqlSpreadsheetExecutionQueueRepository._timestamp(record.created_at),
+            "updated_at": SqlSpreadsheetExecutionQueueRepository._timestamp(record.updated_at),
         }
+        if record.claimed_at is not None:
+            projection["claimed_at"] = SqlSpreadsheetExecutionQueueRepository._timestamp(record.claimed_at)
         if record.status == "completed" and record.result_json is not None:
             result = json.loads(record.result_json)
             if canonical_digest(result) != record.result_digest:
                 raise RuntimeError("spreadsheet_execution_result_integrity_failed")
             projection["result"] = result
         return projection
+
+    @staticmethod
+    def _timestamp(value: datetime) -> float:
+        normalized = value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+        return normalized.timestamp()
 
     @staticmethod
     def _assignment(record: SpreadsheetExecutionJobDB) -> dict[str, Any]:

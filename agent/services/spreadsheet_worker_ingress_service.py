@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import secrets
+import time
 from collections.abc import Mapping
 from typing import Any
 
@@ -11,6 +12,7 @@ from agent.services.spreadsheet_execution_queue_ports import (
     SpreadsheetExecutionQueuePort,
     SpreadsheetWorkerLeaseControlPort,
 )
+from agent.services.spreadsheet_observability_service import SpreadsheetCorrelation, SpreadsheetObservabilityService
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_worker_capability_service import SpreadsheetWorkerCapabilityService
 from ananta_contracts.spreadsheet_studio import canonical_digest
@@ -26,12 +28,14 @@ class SpreadsheetWorkerIngressService:
         artifacts: SpreadsheetArtifactStore,
         leases: SpreadsheetWorkerLeaseControlPort,
         capabilities: SpreadsheetWorkerCapabilityService,
+        observability: SpreadsheetObservabilityService | None = None,
     ) -> None:
         self._queue = queue
         self._saga = saga
         self._artifacts = artifacts
         self._leases = leases
         self._capabilities = capabilities
+        self._observability = observability
 
     def claim(self, *, worker_id: str) -> dict[str, Any] | None:
         callback_jti = f"cap-{secrets.token_urlsafe(24)}"
@@ -53,6 +57,14 @@ class SpreadsheetWorkerIngressService:
                 reason_code=str(exc),
             )
             raise
+        if self._observability is not None:
+            self._observe(
+                operation="queue_wait",
+                outcome="completed",
+                reason_code="spreadsheet_assignment_claimed",
+                correlation=self._correlation(job, assignment, attempt_id=callback_jti),
+                duration_seconds=max(0.0, time.time() - float(job["created_at"])),
+            )
         callback_token = self._capabilities.issue(
             scope="spreadsheet.result.submit",
             tenant_id=str(assignment["tenant_id"]),
@@ -109,6 +121,7 @@ class SpreadsheetWorkerIngressService:
         return content, source
 
     def accept_result(self, *, job_id: str, token: str, payload: Mapping[str, Any]) -> dict[str, Any]:
+        ingress_started = time.monotonic()
         body = dict(payload)
         if set(body) != {"status", "assignment_digest", "result", "result_digest", "reason_code"}:
             raise ValueError("spreadsheet_callback_fields_invalid")
@@ -135,6 +148,7 @@ class SpreadsheetWorkerIngressService:
             raise ValueError("spreadsheet_callback_assignment_digest_invalid")
         callback_payload_digest = canonical_digest(body)
         if status == "failed":
+            assignment = self._queue.get_assignment(tenant_id=str(claims["tenant_id"]), job_id=job_id)
             if job["status"] != "failed":
                 self._leases.require_live(job)
             failed = self._queue.fail_execution(
@@ -146,6 +160,14 @@ class SpreadsheetWorkerIngressService:
             )
             if not failed.get("replayed"):
                 self._leases.finish(job, status="failed")
+            if self._observability is not None:
+                self._observe(
+                    operation="result_ingress",
+                    outcome="replayed" if failed.get("replayed") else "failed",
+                    reason_code=str(body["reason_code"]),
+                    correlation=self._correlation(job, assignment, attempt_id=str(claims["jti"])),
+                    duration_seconds=time.monotonic() - ingress_started,
+                )
             return failed
         if job["status"] == "completed":
             return self._queue.complete(
@@ -157,6 +179,24 @@ class SpreadsheetWorkerIngressService:
             )
         self._leases.require_live(job)
         assignment = self._queue.get_assignment(tenant_id=str(claims["tenant_id"]), job_id=job_id)
+        timings = execution_result.pop("operation_durations_ms", None) if execution_result is not None else None
+        if timings is not None:
+            if (
+                not isinstance(timings, Mapping)
+                or set(timings) != {"render_recalc"}
+                or isinstance(timings.get("render_recalc"), bool)
+                or not isinstance(timings.get("render_recalc"), (int, float))
+                or not 0 <= float(timings["render_recalc"]) <= 300_000
+            ):
+                raise ValueError("spreadsheet_worker_observability_invalid")
+            if self._observability is not None:
+                self._observe(
+                    operation="render_recalc",
+                    outcome="completed",
+                    reason_code="spreadsheet_worker_execution_completed",
+                    correlation=self._correlation(job, assignment, attempt_id=str(claims["jti"])),
+                    duration_seconds=float(timings["render_recalc"]) / 1_000,
+                )
         final_result = self._saga.finalize_proposal_execution(
             tenant_id=str(claims["tenant_id"]),
             prepared=assignment,
@@ -170,6 +210,14 @@ class SpreadsheetWorkerIngressService:
             callback_payload_digest=callback_payload_digest,
         )
         self._leases.finish(job, status="completed")
+        if self._observability is not None:
+            self._observe(
+                operation="result_ingress",
+                outcome="completed",
+                reason_code="spreadsheet_result_admitted",
+                correlation=self._correlation(job, assignment, attempt_id=str(claims["jti"])),
+                duration_seconds=time.monotonic() - ingress_started,
+            )
         return completed
 
     @staticmethod
@@ -185,6 +233,31 @@ class SpreadsheetWorkerIngressService:
             )
         ):
             raise ValueError("spreadsheet_capability_job_binding_invalid")
+
+    @staticmethod
+    def _correlation(
+        job: Mapping[str, Any],
+        assignment: Mapping[str, Any],
+        *,
+        attempt_id: str,
+    ) -> SpreadsheetCorrelation:
+        proposal = dict(assignment.get("proposal") or {})
+        return SpreadsheetCorrelation(
+            task_id=str(job["job_id"]),
+            worker_job_id=str(job["worker_job_id"]),
+            attempt_id=attempt_id,
+            document_id=str(job["document_id"]),
+            candidate_id=str(proposal.get("proposal_id") or job["proposal_id"]),
+        )
+
+    def _observe(self, **values: Any) -> None:
+        if self._observability is None:
+            return
+        try:
+            self._observability.record(**values)
+        except (RuntimeError, ValueError):
+            # Result admission is authoritative; diagnostics can never reject it.
+            return
 
 
 __all__ = ["SpreadsheetWorkerIngressService"]

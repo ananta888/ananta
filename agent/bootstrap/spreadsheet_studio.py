@@ -102,6 +102,8 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         from agent.services.spreadsheet_execution_queue_service import (
                             SpreadsheetExecutionQueueService,
                         )
+                        from agent.services.spreadsheet_observability_service import SpreadsheetObservabilityService
+                        from agent.services.spreadsheet_operations_service import SpreadsheetOperationsService
                         from agent.services.spreadsheet_worker_capability_service import (
                             SpreadsheetWorkerCapabilityService,
                         )
@@ -115,6 +117,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         )
 
                         queue = SqlSpreadsheetExecutionQueueRepository(db_engine=engine)
+                        observability = SpreadsheetObservabilityService()
                         worker_id = str(app.config.get("ANANTA_SPREADSHEET_WORKER_ID") or "spreadsheet-worker")
                         app.extensions["spreadsheet_proposal_execution_service"] = SpreadsheetExecutionQueueService(
                             saga=saga,
@@ -122,6 +125,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                             worker_jobs=HubSpreadsheetWorkerJobLedger(),
                             leases=HubSpreadsheetWorkerLeaseScheduler(),
                             worker_id=worker_id,
+                            observability=observability,
                         )
                         app.extensions["spreadsheet_execution_ingress_service"] = SpreadsheetWorkerIngressService(
                             queue=queue,
@@ -131,6 +135,14 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                             capabilities=SpreadsheetWorkerCapabilityService(
                                 signing_secret=str(app.config.get("SECRET_KEY") or settings.secret_key or "")
                             ),
+                            observability=observability,
+                        )
+                        app.extensions["spreadsheet_operations_service"] = SpreadsheetOperationsService(
+                            queue=queue,
+                            artifacts=artifact_store,
+                            artifact_references=document_store.referenced_artifact_digests,
+                            observability=observability,
+                            stale_seconds=int(app.config.get("ANANTA_SPREADSHEET_STALE_JOB_SECONDS") or 900),
                         )
                     learning_service = SpreadsheetLearningService(
                         documents=document_store,

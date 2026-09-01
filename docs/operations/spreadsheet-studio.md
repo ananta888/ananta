@@ -43,5 +43,56 @@ immutable input combination but keeps automatic base-model-only operation availa
 Run `python scripts/check_spreadsheet_studio_boundaries.py` and
 `pytest -q tests/spreadsheet_studio`. The suite uses no network, provider, GPU, office process or person.
 
-Production rollout additionally requires recovery/retention, broader workbook fidelity, privacy/consent,
-dataset/training gates and exact Hub-provided `SRC_*`/`RUN_*` evidence. A mock pass cannot satisfy those gates.
+## Operations contract and SLOs
+
+The authenticated Hub-admin endpoint `GET /api/spreadsheet-studio/operations` returns the closed
+`ananta.spreadsheet-operations-snapshot.v1` projection. Correlation events may contain only bounded opaque
+Trace, Task, WorkerJob, Attempt, Document, Candidate, Dataset, TrainingJob and Adapter IDs. They never become
+Prometheus labels and raw cell values, formulas, prompts, workbook titles, tenant IDs and artifact bytes are
+forbidden. The `/metrics` endpoint exports bounded operation/outcome/reason counters, operation durations,
+queue depth and active alerts.
+
+| Operation | p95 objective | Automatic degraded response |
+| --- | ---: | --- |
+| Queue wait | 30 s | bounded queue/backpressure; Hub APIs remain available |
+| Render/recalculation | 90 s | timeout Worker attempt; retain immutable assignment |
+| Proposal | 120 s | reject new work when capacity is exhausted |
+| Validation | 30 s | reject promotion; preserve candidate and evidence |
+| Training | 4 h | base-model-only inference; no blocked online request |
+| Result ingress | 10 s | Worker outbox retries the same digest-bound callback |
+| Cleanup / retention | 5 min | dry-run/report remains available; defer deletion |
+
+No samples are reported as `not_run`, never as passed. A queue depth of 25 or more activates backpressure;
+five or more failed jobs activate the failure alert. During safe shutdown the Hub stops new admissions first,
+drains result ingress until its deadline and exits only after durable commits. Jobs remain in the Hub database;
+the Worker retains a pending callback in its outbox and retries it idempotently after transport failures.
+
+`POST /api/spreadsheet-studio/operations/reconcile` accepts exactly `max_jobs`,
+`artifact_retention_days` and `delete_unreferenced_artifacts`. It automatically terminalizes stale queue rows
+with a stable reason while preserving their immutable assignments. Artifact cleanup defaults to dry-run and
+deletes only blobs older than the configured retention whose digest is absent from every immutable document
+version. Active or referenced artifacts are never deletion candidates.
+
+## Recovery runbooks
+
+All steps below are automatable; no test or normal production run requires a person.
+
+- Corrupt document: stop promotion for the digest, retrieve an earlier immutable version, rerun validation and
+  record the corrupt digest. Never repair the stored version in place.
+- Worker outage or crashloop: activate bounded backpressure, keep Hub reads available and let stale recovery
+  terminalize abandoned attempts. Restarted Workers poll the Hub; workers never create tasks or contact peers.
+- Stale lease: reject the expired capability, terminalize the stale queue row automatically and preserve the
+  assignment and WorkerJob correlation for a new explicitly scheduled proposal attempt.
+- Hub restart: reopen the central SQL queue before admissions, publish queue depth, then allow Worker polling.
+  Durable completed results remain replayable with the identical callback digest.
+- Outbox replay: retry the exact job ID, capability and payload digest. A changed replay is rejected; a matching
+  replay returns the existing terminal projection.
+- Storage pressure: enable backpressure, run retention in dry-run mode, then run digest-reference-aware deletion.
+  Do not delete database rows or referenced artifacts to free space.
+- Adapter quarantine: unload the digest-bound adapter, keep base-model-only inference available and retain its
+  evaluation/admission lineage for audit.
+- Consent revocation: the Hub records the fencing intent atomically, cancels active training and quarantines
+  terminal adapter lineage. It makes no mathematical-unlearning claim.
+
+Production rollout additionally requires broader workbook fidelity, privacy/consent, dataset/training gates and
+exact Hub-provided `SRC_*`/`RUN_*` evidence. A mock pass cannot satisfy those gates.

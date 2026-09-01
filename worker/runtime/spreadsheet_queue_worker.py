@@ -96,6 +96,7 @@ class SpreadsheetQueueWorker:
         if set(assignment) != allowed or assignment.get("schema") != "ananta.spreadsheet-worker-assignment.v1":
             raise SpreadsheetQueueWorkerError("spreadsheet_worker_assignment_invalid")
         try:
+            execution_started = time.monotonic()
             source_input = self._source_artifact(assignment)
             result = dict(
                 self._executor.dry_run(
@@ -104,6 +105,9 @@ class SpreadsheetQueueWorker:
                     **({"source_artifact": source_input} if source_input is not None else {}),
                 )
             )
+            result["operation_durations_ms"] = {
+                "render_recalc": round((time.monotonic() - execution_started) * 1_000, 3)
+            }
         except Exception:
             callback = {
                 "status": "failed",

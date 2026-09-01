@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 
@@ -71,6 +72,10 @@ class SpreadsheetExecutionQueuePort(Protocol):
         reason_code: str,
         callback_payload_digest: str,
     ) -> dict[str, Any]: ...
+
+    def operations_summary(self, *, stale_before: datetime) -> dict[str, Any]: ...
+
+    def terminalize_stale(self, *, stale_before: datetime, limit: int) -> list[dict[str, Any]]: ...
 
 
 @dataclass(frozen=True, slots=True)

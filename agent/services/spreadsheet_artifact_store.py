@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import tempfile
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -90,6 +91,53 @@ class SpreadsheetArtifactStore:
         if len(content) > self._max_bytes or hashlib.sha256(content).hexdigest() != digest:
             raise RuntimeError("spreadsheet_artifact_integrity_failed")
         return content
+
+    def enforce_retention(
+        self,
+        *,
+        referenced_digests: set[str],
+        retention_seconds: int,
+        delete: bool = False,
+        now: float | None = None,
+    ) -> dict[str, object]:
+        """Find or remove old unreferenced blobs without following links."""
+
+        if not 86_400 <= int(retention_seconds) <= 10 * 365 * 86_400:
+            raise ValueError("spreadsheet_artifact_retention_invalid")
+        for value in referenced_digests:
+            if require_digest(value, "artifact_digest") != value:
+                raise ValueError("spreadsheet_artifact_reference_invalid")
+        cutoff = float(time.time() if now is None else now) - int(retention_seconds)
+        candidates: list[Path] = []
+        retained = 0
+        if self._root.exists() and not self._root.is_symlink():
+            for path in sorted(self._root.glob("*/*/original.*")):
+                if path.is_symlink() or not path.is_file():
+                    continue
+                if path.parent.name in referenced_digests or path.stat().st_mtime >= cutoff:
+                    retained += 1
+                else:
+                    candidates.append(path)
+        deleted = 0
+        if delete:
+            for path in candidates:
+                path.unlink()
+                deleted += 1
+                path.parent.rmdir()
+                try:
+                    path.parent.parent.rmdir()
+                except OSError:
+                    pass
+        return {
+            "schema": "ananta.spreadsheet-artifact-retention.v1",
+            "mode": "delete" if delete else "dry_run",
+            "retention_seconds": int(retention_seconds),
+            "referenced_count": len(referenced_digests),
+            "retained_count": retained,
+            "candidate_count": len(candidates),
+            "deleted_count": deleted,
+            "human_intervention_required": False,
+        }
 
 
 __all__ = ["SpreadsheetArtifactStore", "StoredSpreadsheetArtifact"]

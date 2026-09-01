@@ -126,6 +126,21 @@ class SqlSpreadsheetDocumentRepository:
             record = session.get(SpreadsheetProposalResultDB, key)
         return self._proposal_payload(record) if record is not None else None
 
+    def referenced_artifact_digests(self) -> set[str]:
+        """Return only content digests referenced by immutable document versions."""
+
+        with Session(bind=self._engine) as session:
+            payloads = list(session.execute(select(SpreadsheetDocumentVersionDB.payload_json)).scalars())
+        digests: set[str] = set()
+        for encoded in payloads:
+            payload = json.loads(encoded)
+            for field in ("source_artifact", "published_artifact", "candidate_artifact"):
+                artifact = payload.get(field)
+                digest = artifact.get("sha256") if isinstance(artifact, dict) else None
+                if isinstance(digest, str) and len(digest) == 64:
+                    digests.add(digest)
+        return digests
+
     def finalize_proposal(
         self,
         tenant_id: str,

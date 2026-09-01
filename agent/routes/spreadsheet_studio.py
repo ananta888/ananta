@@ -76,6 +76,13 @@ def _execution_ingress_service():
     return value
 
 
+def _operations_service():
+    value = current_app.extensions.get("spreadsheet_operations_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_operations_unavailable")
+    return value
+
+
 def _bearer_token() -> str:
     authorization = str(request.headers.get("Authorization") or "")
     return authorization[7:] if authorization.startswith("Bearer ") else ""
@@ -485,6 +492,36 @@ def accept_execution_result(job_id: str):
         return api_response(status="error", message=str(exc), code=403)
     except RuntimeError as exc:
         return api_response(status="error", message=str(exc), code=409)
+
+
+@spreadsheet_studio_bp.get("/operations")
+@check_user_auth
+@admin_required
+def spreadsheet_operations():
+    return _invoke(
+        lambda: _operations_service().snapshot(
+            artifact_retention_days=int(request.args.get("artifact_retention_days") or 30)
+        )
+    )
+
+
+@spreadsheet_studio_bp.post("/operations/reconcile")
+@check_user_auth
+@admin_required
+def reconcile_spreadsheet_operations():
+    def operation():
+        body = _body()
+        if set(body) != {"max_jobs", "artifact_retention_days", "delete_unreferenced_artifacts"}:
+            raise ValueError("spreadsheet_operations_reconcile_fields_invalid")
+        if not isinstance(body["delete_unreferenced_artifacts"], bool):
+            raise ValueError("spreadsheet_operations_retention_mode_invalid")
+        return _operations_service().reconcile(
+            max_jobs=body["max_jobs"],
+            artifact_retention_days=body["artifact_retention_days"],
+            delete_unreferenced_artifacts=body["delete_unreferenced_artifacts"],
+        )
+
+    return _invoke(operation)
 
 
 @spreadsheet_studio_bp.post("/feedback")
