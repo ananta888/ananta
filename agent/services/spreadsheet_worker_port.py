@@ -85,6 +85,7 @@ class HttpSpreadsheetExecutionAdapter:
         *,
         snapshot: Mapping[str, Any],
         actions: tuple[Mapping[str, Any], ...],
+        source_artifact: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
         body = {
             "contract": _CONTRACT,
@@ -92,6 +93,16 @@ class HttpSpreadsheetExecutionAdapter:
             "snapshot": dict(snapshot),
             "actions": [dict(action) for action in actions],
         }
+        if source_artifact is not None:
+            content = source_artifact.get("content")
+            if not isinstance(content, bytes):
+                raise ValueError("spreadsheet_worker_source_content_invalid")
+            body["source_artifact"] = {
+                "filename": str(source_artifact.get("filename") or ""),
+                "media_type": str(source_artifact.get("media_type") or ""),
+                "sha256": str(source_artifact.get("sha256") or ""),
+                "content_base64": base64.b64encode(content).decode("ascii"),
+            }
         request_digest = canonical_digest(body)
         payload = self._request("POST", "/dry-runs", body={**body, "request_digest": request_digest})
         if (
@@ -223,9 +234,7 @@ def normalize_spreadsheet_worker_endpoint(value: str) -> str:
 def spreadsheet_worker_port_from_environment() -> HttpSpreadsheetExecutionAdapter:
     endpoint = str(os.getenv("ANANTA_SPREADSHEET_WORKER_URL") or "").strip()
     allowed = tuple(
-        item.strip()
-        for item in str(os.getenv("ANANTA_SPREADSHEET_ALLOWED_ENDPOINTS") or "").split(",")
-        if item.strip()
+        item.strip() for item in str(os.getenv("ANANTA_SPREADSHEET_ALLOWED_ENDPOINTS") or "").split(",") if item.strip()
     )
     if not endpoint or not allowed:
         raise RuntimeError("spreadsheet_worker_endpoint_unconfigured")

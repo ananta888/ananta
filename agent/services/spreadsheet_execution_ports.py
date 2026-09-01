@@ -10,7 +10,13 @@ class SpreadsheetExecutionPort(Protocol):
     @property
     def capability(self) -> Mapping[str, Any]: ...
 
-    def dry_run(self, *, snapshot: Mapping[str, Any], actions: tuple[Mapping[str, Any], ...]) -> Mapping[str, Any]: ...
+    def dry_run(
+        self,
+        *,
+        snapshot: Mapping[str, Any],
+        actions: tuple[Mapping[str, Any], ...],
+        source_artifact: Mapping[str, Any] | None = None,
+    ) -> Mapping[str, Any]: ...
 
 
 class SpreadsheetImportPort(Protocol):

@@ -50,6 +50,12 @@ export class SpreadsheetStudioApiService {
     return this.core.requestBlob(`${this.endpoint(hubUrl)}/documents/${encodeURIComponent(documentId)}/original`, hubUrl);
   }
 
+  downloadPublished(hubUrl: string, documentId: string): Observable<HttpResponse<Blob>> {
+    return this.core.requestBlob(
+      `${this.endpoint(hubUrl)}/documents/${encodeURIComponent(documentId)}/published`, hubUrl,
+    );
+  }
+
   execute(hubUrl: string, proposal: Record<string, unknown>): Observable<SpreadsheetProposalResult> {
     return this.core.post<SpreadsheetProposalResult>(
       `${this.endpoint(hubUrl)}/proposals/execute`, proposal, hubUrl, undefined, false, 120_000,

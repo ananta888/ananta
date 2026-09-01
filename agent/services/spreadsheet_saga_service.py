@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import time
 import uuid
@@ -183,7 +184,29 @@ class SpreadsheetSagaService:
             raise PermissionError("spreadsheet_document_unsupported_semantics")
         snapshot = WorkbookSnapshotV1.from_mapping(document["snapshot"])
         self._policy.admit(snapshot, parsed)
-        execution = dict(self._executor.dry_run(snapshot=snapshot.to_dict(), actions=parsed.actions))
+        source_input = None
+        source = document.get("source_artifact")
+        if isinstance(source, Mapping):
+            if self._artifacts is None:
+                raise RuntimeError("spreadsheet_artifact_store_unavailable")
+            source_input = {
+                "content": self._artifacts.read(
+                    tenant_id=tenant_id,
+                    sha256=str(source.get("sha256") or ""),
+                    format=str(source.get("format") or ""),
+                ),
+                "filename": f"{parsed.document_id}.{source.get('format')}",
+                "media_type": str(source.get("media_type") or ""),
+                "sha256": str(source.get("sha256") or ""),
+            }
+        execution = dict(
+            self._executor.dry_run(
+                snapshot=snapshot.to_dict(),
+                actions=parsed.actions,
+                **({"source_artifact": source_input} if source_input is not None else {}),
+            )
+        )
+        candidate_artifact = self._store_result_artifact(tenant_id=tenant_id, execution=execution)
         candidate = WorkbookSnapshotV1.from_mapping(execution["candidate_snapshot"])
         if candidate.digest != execution.get("candidate_snapshot_digest"):
             raise ValueError("spreadsheet_execution_digest_invalid")
@@ -208,6 +231,7 @@ class SpreadsheetSagaService:
             "reason_codes": reasons,
             "automatic_decision": True,
             "production_fidelity": bool(execution.get("production_fidelity")),
+            "candidate_artifact": candidate_artifact,
             "source_grounding_verified": False,
             "human_intervention_required": False,
         }
@@ -221,6 +245,7 @@ class SpreadsheetSagaService:
                 "snapshot_digest": candidate.digest,
                 "state": "published",
                 "created_at": time.time(),
+                **({"published_artifact": candidate_artifact} if candidate_artifact is not None else {}),
             }
             if promote
             else None
@@ -257,5 +282,51 @@ class SpreadsheetSagaService:
             format=str(source.get("format") or ""),
         )
         return content, dict(source)
+
+    def download_published(
+        self, *, tenant_id: str, document_id: str, principal_id: str
+    ) -> tuple[bytes, dict[str, Any]]:
+        if self._artifacts is None:
+            raise RuntimeError("spreadsheet_artifact_store_unavailable")
+        document = self.get_document(tenant_id=tenant_id, document_id=document_id, principal_id=principal_id)
+        artifact = document.get("published_artifact") or document.get("source_artifact")
+        if not isinstance(artifact, Mapping):
+            raise KeyError("spreadsheet_published_artifact_not_found")
+        content = self._artifacts.read(
+            tenant_id=tenant_id,
+            sha256=str(artifact.get("sha256") or ""),
+            format=str(artifact.get("format") or ""),
+        )
+        return content, dict(artifact)
+
+    def _store_result_artifact(self, *, tenant_id: str, execution: dict[str, Any]) -> dict[str, Any] | None:
+        raw = execution.pop("result_artifact", None)
+        if raw is None:
+            return None
+        if self._artifacts is None or not isinstance(raw, Mapping):
+            raise ValueError("spreadsheet_result_artifact_invalid")
+        if set(raw) != {"content_base64", "sha256", "size_bytes", "format", "media_type"}:
+            raise ValueError("spreadsheet_result_artifact_fields_invalid")
+        try:
+            content = base64.b64decode(str(raw["content_base64"]), validate=True)
+        except (ValueError, TypeError) as exc:
+            raise ValueError("spreadsheet_result_artifact_content_invalid") from exc
+        if len(content) != raw["size_bytes"] or hashlib.sha256(content).hexdigest() != raw["sha256"]:
+            raise ValueError("spreadsheet_result_artifact_digest_invalid")
+        stored = self._artifacts.store(
+            tenant_id=tenant_id,
+            content=content,
+            format=str(raw["format"]),
+            media_type=str(raw["media_type"]),
+            expected_sha256=str(raw["sha256"]),
+        )
+        return {
+            "artifact_id": stored.artifact_id,
+            "sha256": stored.sha256,
+            "size_bytes": stored.size_bytes,
+            "format": stored.format,
+            "media_type": stored.media_type,
+        }
+
 
 __all__ = ["SpreadsheetSagaService"]

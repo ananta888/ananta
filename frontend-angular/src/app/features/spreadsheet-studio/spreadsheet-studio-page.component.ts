@@ -61,6 +61,9 @@ import {
             @if (selected.source_artifact) {
               <button type="button" class="secondary" (click)="downloadOriginal()" [disabled]="busy">Original herunterladen</button>
             }
+            @if (selected.source_artifact || selected.published_artifact) {
+              <button type="button" (click)="downloadPublished()" [disabled]="busy">Veröffentlichte Version herunterladen</button>
+            }
           </div>
           <div class="row">
             <label>Zelle <input [(ngModel)]="cell" maxlength="10" aria-label="Zelladresse" /></label>
@@ -408,6 +411,28 @@ export class SpreadsheetStudioPageComponent implements OnInit {
         anchor.click();
         URL.revokeObjectURL(url);
         this.done('Originaldatei heruntergeladen.');
+      },
+      error: error => this.fail(error),
+    });
+  }
+
+  downloadPublished(): void {
+    const hub = this.hubUrl();
+    if (!hub || !this.selected) return;
+    this.begin();
+    const selected = this.selected;
+    this.api.downloadPublished(hub, selected.document_id).subscribe({
+      next: response => {
+        const blob = response.body;
+        if (!blob) { this.fail(new Error('spreadsheet_download_empty')); return; }
+        const artifact = selected.published_artifact || selected.source_artifact;
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = `${selected.title}-v${selected.version}.${artifact?.format || 'xlsx'}`;
+        anchor.click();
+        URL.revokeObjectURL(url);
+        this.done('Veröffentlichte Arbeitsmappe heruntergeladen.');
       },
       error: error => this.fail(error),
     });

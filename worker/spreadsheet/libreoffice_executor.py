@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import copy
 import datetime as dt
 import hashlib
@@ -68,6 +69,7 @@ class LibreOfficeSpreadsheetExecutor:
         *,
         snapshot: Mapping[str, Any],
         actions: tuple[Mapping[str, Any], ...],
+        source_artifact: Mapping[str, Any] | None = None,
     ) -> Mapping[str, Any]:
         parsed = WorkbookSnapshotV1.from_mapping(snapshot)
         try:
@@ -79,22 +81,53 @@ class LibreOfficeSpreadsheetExecutor:
             root = Path(temporary)
             source_dir = root / "source"
             result_dir = root / "result"
-            profile = root / "profile"
+            import_dir = root / "imported"
+            import_profile = root / "import-profile"
+            profile = root / "recalc-profile"
             source_dir.mkdir(mode=0o700)
             result_dir.mkdir(mode=0o700)
+            import_dir.mkdir(mode=0o700)
+            import_profile.mkdir(mode=0o700)
             profile.mkdir(mode=0o700)
             source = source_dir / "workbook.xlsx"
 
-            workbook = Workbook()
-            workbook.remove(workbook.active)
             sheet_names: dict[str, str] = {}
             formula_asts: dict[tuple[str, str], Mapping[str, Any]] = {}
             style_refs: dict[tuple[str, str], str | None] = {}
+            if source_artifact is None:
+                workbook = Workbook()
+                workbook.remove(workbook.active)
+            else:
+                if set(source_artifact) != {"content", "filename", "media_type", "sha256"}:
+                    raise SpreadsheetExecutionError("spreadsheet_source_artifact_fields_invalid")
+                content = source_artifact.get("content")
+                if not isinstance(content, bytes):
+                    raise SpreadsheetExecutionError("spreadsheet_source_artifact_content_invalid")
+                inspection = self._inspector.inspect(
+                    filename=str(source_artifact.get("filename") or ""),
+                    media_type=str(source_artifact.get("media_type") or ""),
+                    content=content,
+                )
+                if hashlib.sha256(content).hexdigest() != source_artifact.get("sha256"):
+                    raise SpreadsheetExecutionError("spreadsheet_source_artifact_digest_invalid")
+                imported_source = source_dir / f"input.{inspection.format}"
+                imported_source.write_bytes(content)
+                self._convert(source=imported_source, destination=import_dir, profile=import_profile)
+                imported_workbook = import_dir / "input.xlsx"
+                if not imported_workbook.is_file():
+                    raise SpreadsheetExecutionError("spreadsheet_source_artifact_conversion_invalid")
+                workbook = load_workbook(imported_workbook, data_only=False, read_only=False)
             for sheet in parsed.sheets:
-                target = workbook.create_sheet(str(sheet["name"]))
-                target.sheet_state = "hidden" if sheet["hidden"] else "visible"
                 sheet_id = str(sheet["sheet_id"])
-                sheet_names[sheet_id] = target.title
+                name = str(sheet["name"])
+                if source_artifact is None:
+                    target = workbook.create_sheet(name)
+                    target.sheet_state = "hidden" if sheet["hidden"] else "visible"
+                elif name not in workbook.sheetnames:
+                    raise SpreadsheetExecutionError("spreadsheet_source_snapshot_binding_invalid")
+                sheet_names[sheet_id] = name
+            if source_artifact is not None and set(workbook.sheetnames) != set(sheet_names.values()):
+                raise SpreadsheetExecutionError("spreadsheet_source_snapshot_binding_invalid")
             for sheet in parsed.sheets:
                 sheet_id = str(sheet["sheet_id"])
                 target = workbook[sheet_names[sheet_id]]
@@ -102,8 +135,9 @@ class LibreOfficeSpreadsheetExecutor:
                     address = str(cell["address"])
                     if cell["formula"] is not None:
                         formula_asts[(sheet_id, address)] = copy.deepcopy(cell["formula"])
-                        target[address] = "=" + render_formula(cell["formula"], sheet_names)
-                    else:
+                        if source_artifact is None:
+                            target[address] = "=" + render_formula(cell["formula"], sheet_names)
+                    elif source_artifact is None:
                         target[address] = cell["value"]
                     style_refs[(sheet_id, address)] = cell["style_ref"]
             direct_targets = self._actions.apply(
@@ -117,6 +151,7 @@ class LibreOfficeSpreadsheetExecutor:
             workbook.calculation.forceFullCalc = True
             workbook.calculation.calcMode = "auto"
             workbook.save(source)
+            workbook.close()
 
             self._convert(source=source, destination=result_dir, profile=profile)
             converted = result_dir / source.name
@@ -137,6 +172,9 @@ class LibreOfficeSpreadsheetExecutor:
             finally:
                 formulas.close()
                 values.close()
+            result_content = converted.read_bytes()
+            if len(result_content) > 16 * 1024 * 1024:
+                raise SpreadsheetExecutionError("spreadsheet_result_artifact_too_large")
 
         normalized = WorkbookSnapshotV1.from_mapping(candidate)
         before = _cells(parsed.to_dict())
@@ -165,6 +203,13 @@ class LibreOfficeSpreadsheetExecutor:
             "engine": "libreoffice-calc",
             "engine_version": self._version,
             "production_fidelity": self._network_isolated,
+            "result_artifact": {
+                "content_base64": base64.b64encode(result_content).decode("ascii"),
+                "sha256": hashlib.sha256(result_content).hexdigest(),
+                "size_bytes": len(result_content),
+                "format": "xlsx",
+                "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            },
             "human_intervention_required": False,
         }
 

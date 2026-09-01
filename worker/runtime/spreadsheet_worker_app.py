@@ -71,7 +71,26 @@ class SpreadsheetWorkerApplication:
                                 "automatic_promotion": False,
                             }
                         ).actions
-                        result = application.executor.dry_run(snapshot=snapshot.to_dict(), actions=actions)
+                        source_artifact = body.get("source_artifact")
+                        if source_artifact is not None:
+                            if not isinstance(source_artifact, dict):
+                                raise ValueError("spreadsheet_worker_source_artifact_invalid")
+                            try:
+                                source_content = base64.b64decode(source_artifact["content_base64"], validate=True)
+                            except (KeyError, ValueError, TypeError) as exc:
+                                raise ValueError("spreadsheet_worker_source_content_base64_invalid") from exc
+                            result = application.executor.dry_run(
+                                snapshot=snapshot.to_dict(),
+                                actions=actions,
+                                source_artifact={
+                                    "content": source_content,
+                                    "filename": source_artifact.get("filename"),
+                                    "media_type": source_artifact.get("media_type"),
+                                    "sha256": source_artifact.get("sha256"),
+                                },
+                            )
+                        else:
+                            result = application.executor.dry_run(snapshot=snapshot.to_dict(), actions=actions)
                     else:
                         try:
                             content = base64.b64decode(body["content_base64"], validate=True)
@@ -101,7 +120,10 @@ class SpreadsheetWorkerApplication:
 
             def _validate_envelope(self, body: dict[str, Any]) -> None:
                 fields_by_operation = {
-                    "dry_run": {"contract", "operation", "snapshot", "actions", "request_digest"},
+                    "dry_run": [
+                        {"contract", "operation", "snapshot", "actions", "request_digest"},
+                        {"contract", "operation", "snapshot", "actions", "source_artifact", "request_digest"},
+                    ],
                     "import_document": {
                         "contract",
                         "operation",
@@ -112,14 +134,15 @@ class SpreadsheetWorkerApplication:
                         "request_digest",
                     },
                 }
-                expected = fields_by_operation.get(str(body.get("operation")))
-                if expected is None or set(body) != expected:
+                alternatives = fields_by_operation.get(str(body.get("operation")))
+                if alternatives is None:
+                    raise ValueError("spreadsheet_worker_envelope_fields_invalid")
+                allowed = alternatives if isinstance(alternatives, list) else [alternatives]
+                expected = next((fields for fields in allowed if set(body) == fields), None)
+                if expected is None:
                     raise ValueError("spreadsheet_worker_envelope_fields_invalid")
                 unsigned = {key: body[key] for key in expected if key != "request_digest"}
-                if (
-                    body["contract"] != _CONTRACT
-                    or body["request_digest"] != canonical_digest(unsigned)
-                ):
+                if body["contract"] != _CONTRACT or body["request_digest"] != canonical_digest(unsigned):
                     raise ValueError("spreadsheet_worker_envelope_binding_invalid")
 
             def _authorized(self) -> bool:

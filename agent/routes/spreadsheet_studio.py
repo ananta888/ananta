@@ -186,6 +186,36 @@ def download_original(document_id: str):
         return api_response(status="error", message=str(exc), code=422)
 
 
+@spreadsheet_studio_bp.get("/documents/<document_id>/published")
+@check_user_auth
+def download_published(document_id: str):
+    try:
+        tenant_id, principal_id = _identity()
+        content, artifact = _service().download_published(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            principal_id=principal_id,
+        )
+        document = _service().get_document(
+            tenant_id=tenant_id,
+            document_id=document_id,
+            principal_id=principal_id,
+        )
+        return send_file(
+            io.BytesIO(content),
+            mimetype=str(artifact["media_type"]),
+            as_attachment=True,
+            download_name=f"{document_id}-v{document['version']}.{artifact['format']}",
+            max_age=0,
+        )
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc.args[0]), code=404)
+    except (RuntimeError, TypeError, ValueError) as exc:
+        return api_response(status="error", message=str(exc), code=422)
+
+
 @spreadsheet_studio_bp.post("/proposals/execute")
 @check_user_auth
 def execute_proposal():

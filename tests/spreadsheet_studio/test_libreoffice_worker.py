@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 import io
 import json
 import shutil
@@ -12,7 +14,7 @@ from agent.services.spreadsheet_worker_port import (
     SpreadsheetWorkerTransportError,
     normalize_spreadsheet_worker_endpoint,
 )
-from ananta_contracts.spreadsheet_studio import validate_action
+from ananta_contracts.spreadsheet_studio import canonical_digest, validate_action
 from tests.spreadsheet_studio.helpers import snapshot
 from worker.spreadsheet.libreoffice_executor import LibreOfficeSpreadsheetExecutor
 
@@ -85,6 +87,37 @@ def test_worker_port_binds_endpoint_request_and_result() -> None:
     assert opener.requests[-1].get_header("Authorization") == "Bearer spreadsheet-test-token-00000000"
     assert opener.requests[-1].host == "172.28.0.7:8097"
     assert opener.requests[-1].get_header("Host") == "spreadsheet-worker:8097"
+
+
+def test_worker_port_digest_binds_the_immutable_source_copy() -> None:
+    opener = _Opener()
+    adapter = _adapter(opener)
+    content = b"source-workbook"
+
+    adapter.dry_run(
+        snapshot=snapshot(),
+        actions=(
+            {
+                "action_id": "action-one",
+                "kind": "set_value",
+                "sheet_id": "sheet-one",
+                "cell": "A1",
+                "value": 42,
+                "formula": None,
+            },
+        ),
+        source_artifact={
+            "content": content,
+            "filename": "source.xlsx",
+            "media_type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "sha256": hashlib.sha256(content).hexdigest(),
+        },
+    )
+
+    body = json.loads(opener.requests[-1].data)
+    assert base64.b64decode(body["source_artifact"]["content_base64"]) == content
+    unsigned = {key: value for key, value in body.items() if key != "request_digest"}
+    assert body["request_digest"] == canonical_digest(unsigned)
 
 
 def test_worker_port_rejects_non_private_resolution_and_url_ambiguity() -> None:

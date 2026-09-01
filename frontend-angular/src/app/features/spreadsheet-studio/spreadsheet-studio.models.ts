@@ -29,6 +29,7 @@ export interface SpreadsheetDocument {
   snapshot_digest: string;
   state: 'published';
   source_artifact?: SpreadsheetSourceArtifact;
+  published_artifact?: SpreadsheetSourceArtifact;
   unsupported_objects?: string[];
   engine?: string;
   engine_version?: string;
@@ -60,6 +61,7 @@ export interface SpreadsheetProposalResult {
   diff: Array<{ sheet_id: string; cell: string; before: SpreadsheetCell | null; after: SpreadsheetCell | null }>;
   reason_codes: string[];
   production_fidelity: boolean;
+  candidate_artifact?: SpreadsheetSourceArtifact;
   human_intervention_required: false;
 }
 
