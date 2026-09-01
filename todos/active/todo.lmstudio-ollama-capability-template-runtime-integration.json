@@ -953,25 +953,25 @@
       "id": "LMR-VG-01",
       "name": "Capability contract, normalization and cache",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py"
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py"
     },
     {
       "id": "LMR-VG-02",
       "name": "Provider fixture matrix",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/services/test_ollama_model_discovery_service.py tests/test_local_llm_backends.py tests/test_goal_live_lmstudio.py"
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/services/test_ollama_model_discovery_service.py tests/test_local_llm_backends.py tests/test_goal_live_lmstudio.py"
     },
     {
       "id": "LMR-VG-03",
       "name": "Routing, tool loop and compatibility",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/test_tool_calling_pipeline.py"
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/test_tool_calling_pipeline.py"
     },
     {
       "id": "LMR-VG-04",
       "name": "API, catalog, Angular, TUI and security regressions",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
+      "command": "python -m pytest -q -W error -p no:cacheprovider tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
     }
   ],
   "external_release_gates": [
