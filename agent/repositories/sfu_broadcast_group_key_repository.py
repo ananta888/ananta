@@ -18,6 +18,18 @@ from agent.db_models.sfu_broadcast_group_keys import (
     SfuBroadcastGroupKeyPackageDB,
     SfuBroadcastGroupKeyReceiptDB,
 )
+from agent.models.sfu_group_keys import (
+    GroupKeyEpochAuthorization,
+    SfuGroupKeyDeliveryPage,
+    SfuGroupKeyEpochState,
+    SfuGroupKeyMutationResult,
+    SfuGroupKeyPackageDelivery,
+    SfuGroupKeyPackageWrite,
+    SfuGroupKeyReceipt,
+    SfuHubSealedSecret,
+    SfuHubSecretEnvelopeError,
+)
+from agent.ports.sfu_group_keys import SfuHubSecretEnvelopePort
 from agent.repositories.sfu_broadcast_group_key_validation import (
     MAX_GROUP_KEY_PACKAGE_BYTES,
     MAX_GROUP_KEY_PACKAGES,
@@ -39,20 +51,6 @@ from agent.repositories.sfu_broadcast_group_key_validation import (
 from agent.repositories.sfu_broadcast_group_key_validation import (
     validate_state as _validate_state,
 )
-from agent.services.sfu_broadcast_group_key_repository_port import (
-    SfuGroupKeyDeliveryPage,
-    SfuGroupKeyEpochState,
-    SfuGroupKeyMutationResult,
-    SfuGroupKeyPackageDelivery,
-    SfuGroupKeyPackageWrite,
-    SfuGroupKeyReceipt,
-)
-from agent.services.sfu_hub_secret_envelope import (
-    SfuHubSealedSecret,
-    SfuHubSecretEnvelopeError,
-    SfuHubSecretEnvelopePort,
-)
-from agent.services.webrtc_group_key_authorization_service import GroupKeyEpochAuthorization
 
 
 @dataclass(frozen=True, slots=True)

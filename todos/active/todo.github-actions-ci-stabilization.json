@@ -710,7 +710,7 @@
         },
         {
           "id": "CI-022",
-          "status": "open",
+          "status": "completed",
           "workflow": "Quality And Docs",
           "workflow_job": "backend-checks",
           "step": "Run unified check pipeline (standard backend gate)",
@@ -731,13 +731,32 @@
           "expected_result": "scripts/check_imports.py meldet null neue und null stale Architekturverletzungen; die SFU-Repository- und Organization-Workflow-Tests bleiben vollautomatisch gruen.",
           "relevant_validations": [
             "Quality-And-Docs-Run 33456939447: alle Jobs ausser backend-checks gruen; backend-checks meldet exakt vier neue und null stale Architekturverletzungen.",
-            "Der lokale Gesamtlauf vor der Architekturkorrektur hatte 24291 passed, 280 skipped und sieben inzwischen behobene Gate-Artefaktfehler."
+            "Der lokale Gesamtlauf vor der Architekturkorrektur hatte 24291 passed, 280 skipped und sieben inzwischen behobene Gate-Artefaktfehler.",
+            "scripts/check_imports.py: null neue und null stale Architekturverletzungen; 99 explizit baselinete Altfaelle verbleiben.",
+            "SFU-Group-Key-, Vendor-Identity- und Organization-Workflow-Fokussuiten: 32 passed.",
+            "Standard-Backend-Gate lokal: Architektur, Zyklen, Duplikate und 37 Fast-Tests gruen; 1 Test planmaessig skipped."
           ],
           "dependencies": [],
-          "commit_changes": [],
+          "commit_changes": [
+            "agent/models/sfu_group_keys.py",
+            "agent/ports/sfu_group_keys.py",
+            "agent/ports/task_completion_policy.py",
+            "agent/repositories/sfu_broadcast_group_key_repository.py",
+            "agent/repositories/sfu_broadcast_group_key_validation.py",
+            "agent/repositories/sfu_vendor_identity_repository.py",
+            "agent/repositories/tasks.py",
+            "agent/repository.py",
+            "agent/services/sfu_broadcast_group_key_repository_port.py",
+            "agent/services/sfu_hub_secret_envelope.py",
+            "agent/services/webrtc_group_key_authorization_service.py",
+            "reports/architecture-import-baseline.txt",
+            "scripts/run_semantic_sfu_gate.py",
+            "artifacts/test-gates/semantic-sfu.json"
+          ],
           "run_ids": [
             "33456939447"
-          ]
+          ],
+          "implemented_solution": "SFU-Datenvertraege und Secret-/Repository-Ports liegen nun unter agent.models beziehungsweise agent.ports; die bisherigen Service-Module bleiben kompatible Fassaden. Repository-Implementierungen importieren nur noch diese abwaertsgerichteten Abstraktionen. TaskRepository erhaelt die Organization-Completion-Policy ueber einen schmalen Port von agent.repository als Composition Root; ohne Policy wird ein gebundener Abschluss explizit abgelehnt. Fuenf obsolete Architektur-Baseline-Ausnahmen wurden entfernt, ohne den Gate abzuschwaechen."
         }
       ]
     }
@@ -745,9 +764,9 @@
   "meta": {
     "total_items": 22,
     "by_status": {
-      "completed": 19,
+      "completed": 20,
       "partial": 1,
-      "open": 1,
+      "open": 0,
       "in_progress": 0,
       "blocked": 1,
       "blocked_decision": 0,
@@ -768,7 +787,6 @@
       "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab."
     ],
     "recommended_order": [
-      "CI-022",
       "CI-013"
     ]
   }

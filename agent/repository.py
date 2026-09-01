@@ -4,24 +4,26 @@ Historically the project imported all repositories from this module.
 The concrete classes now live in `agent.repositories.*` split by domain.
 """
 
+import copy
+
 from agent.repositories import (
     ActionPackRepository,
     AgentRepository,
     AgentSessionRepository,
+    ArchivedTaskRepository,
     ArtifactRepository,
     ArtifactVersionRepository,
-    ArchivedTaskRepository,
     AuditLogRepository,
     BannedIPRepository,
     BlueprintArtifactRepository,
     BlueprintRoleRepository,
     BlueprintWorkflowStepRepository,
     ConfigRepository,
+    ContextAccessPolicyRepository,
     ContextBundleRepository,
-    ExtractedDocumentRepository,
     EvolutionProposalRepository,
     EvolutionRunRepository,
-    ContextAccessPolicyRepository,
+    ExtractedDocumentRepository,
     GoalRepository,
     InstructionOverlayRepository,
     KnowledgeCollectionRepository,
@@ -29,45 +31,89 @@ from agent.repositories import (
     KnowledgeIndexRunRepository,
     KnowledgeLinkRepository,
     LoginAttemptRepository,
-    OidcIdentityLinkRepository,
     MemoryEntryRepository,
+    OidcIdentityLinkRepository,
     PasswordHistoryRepository,
+    PlanningEvaluationRepository,
+    PlanningModelProfileRepository,
+    PlanningPatternClusterRepository,
+    PlanningPromptVersionRepository,
+    PlanningReviewItemRepository,
+    PlanningRunRepository,
+    PlanningTemplateCandidateRepository,
     PlanNodeRepository,
     PlanRepository,
     PlaybookRepository,
     PolicyDecisionRepository,
     PolicySnapshotRepository,
     RefreshTokenRepository,
+    RetrievalRunRepository,
     RoleRepository,
     ScheduledTaskRepository,
     StatsRepository,
     TaskRepository,
-    ToolCallRepository,
     TeamBlueprintRepository,
     TeamMemberRepository,
     TeamRepository,
     TeamTypeRepository,
     TeamTypeRoleLinkRepository,
     TemplateRepository,
+    TerminalEventRepository,
+    TerminalSessionRepository,
+    TextQualityCriteriaSetRepository,
+    TextQualityEvaluationRepository,
+    ToolCallRepository,
     UserInstructionProfileRepository,
     UserRepository,
     VerificationRecordRepository,
-    RetrievalRunRepository,
     WorkerJobRepository,
     WorkerResultRepository,
     WorkerSlotLeaseRepository,
-    PlanningRunRepository,
-    PlanningPromptVersionRepository,
-    PlanningModelProfileRepository,
-    PlanningEvaluationRepository,
-    PlanningTemplateCandidateRepository,
-    PlanningPatternClusterRepository,
-    PlanningReviewItemRepository,
-    TerminalSessionRepository,
-    TerminalEventRepository,
-    TextQualityCriteriaSetRepository,
-    TextQualityEvaluationRepository,
 )
+
+
+class _OrganizationWorkflowTaskCompletionPolicy:
+    """Composition adapter for the Hub-owned completion policy services."""
+
+    def apply(self, *, authoritative_task, candidate_task, session):
+        from agent.services.organization_workflow_completion_policy_service import (
+            organization_workflow_completion_policy_service,
+        )
+        from agent.services.organization_workflow_gate_approval_service import (
+            organization_workflow_gate_approval_service,
+        )
+
+        organization_workflow_gate_approval_service.issue_for_verified_completion(
+            authoritative_task=authoritative_task,
+            candidate_task=candidate_task,
+            session=session,
+        )
+        decision = organization_workflow_completion_policy_service.evaluate(
+            authoritative_task=authoritative_task,
+            candidate_task=candidate_task,
+            session=session,
+        )
+        if (
+            authoritative_task is not None
+            and decision.reason_code == "organization_workflow_step_binding_immutable"
+        ):
+            authoritative_context = dict(authoritative_task.worker_execution_context or {})
+            candidate_context = dict(candidate_task.worker_execution_context or {})
+            candidate_context["organization_workflow_step_binding"] = copy.deepcopy(
+                authoritative_context["organization_workflow_step_binding"]
+            )
+            candidate_task.worker_execution_context = candidate_context
+            decision = organization_workflow_completion_policy_service.evaluate(
+                authoritative_task=authoritative_task,
+                candidate_task=candidate_task,
+                session=session,
+            )
+        if decision.applicable and not decision.allowed:
+            organization_workflow_completion_policy_service.pending_status(
+                candidate_task=candidate_task,
+                decision=decision,
+            )
+        return candidate_task
 
 # Singletons für Repositories
 playbook_repo = PlaybookRepository()
@@ -97,7 +143,7 @@ memory_entry_repo = MemoryEntryRepository()
 team_repo = TeamRepository()
 template_repo = TemplateRepository()
 scheduled_task_repo = ScheduledTaskRepository()
-task_repo = TaskRepository()
+task_repo = TaskRepository(completion_policy=_OrganizationWorkflowTaskCompletionPolicy())
 archived_task_repo = ArchivedTaskRepository()
 config_repo = ConfigRepository()
 goal_repo = GoalRepository()

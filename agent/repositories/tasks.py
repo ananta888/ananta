@@ -16,6 +16,7 @@ from agent.db_models import (
     TaskDB,
     ToolCallDB,
 )
+from agent.ports.task_completion_policy import TaskCompletionPolicyPort
 from agent.repositories.task_auxiliary_repositories import (
     AgentSessionRepositoryMixin,
     ArchivedTaskRepositoryMixin,
@@ -1602,52 +1603,27 @@ def _recovery_status_cas_sensitive_mismatches(
     return tuple(mismatches)
 
 
-def _apply_organization_workflow_completion_policy(
+def _apply_task_completion_policy(
     authoritative: TaskDB | None,
     candidate: TaskDB,
     *,
     session: Session,
+    completion_policy: TaskCompletionPolicyPort | None,
 ) -> TaskDB:
-    """Apply the Hub-owned Organization completion backstop in-transaction."""
+    """Apply the injected Hub policy or reject bound completion fail-closed."""
 
-    from agent.services.organization_workflow_completion_policy_service import (
-        organization_workflow_completion_policy_service,
-    )
-    from agent.services.organization_workflow_gate_approval_service import (
-        organization_workflow_gate_approval_service,
-    )
-
-    organization_workflow_gate_approval_service.issue_for_verified_completion(
-        authoritative_task=authoritative,
-        candidate_task=candidate,
-        session=session,
-    )
-
-    organization_gate_decision = organization_workflow_completion_policy_service.evaluate(
-        authoritative_task=authoritative,
-        candidate_task=candidate,
-        session=session,
-    )
-    if (
-        authoritative is not None
-        and organization_gate_decision.reason_code == "organization_workflow_step_binding_immutable"
-    ):
-        authoritative_context = dict(authoritative.worker_execution_context or {})
-        candidate_context = dict(candidate.worker_execution_context or {})
-        candidate_context["organization_workflow_step_binding"] = copy.deepcopy(
-            authoritative_context["organization_workflow_step_binding"]
-        )
-        candidate.worker_execution_context = candidate_context
-        organization_gate_decision = organization_workflow_completion_policy_service.evaluate(
+    if completion_policy is not None:
+        return completion_policy.apply(
             authoritative_task=authoritative,
             candidate_task=candidate,
             session=session,
         )
-    if organization_gate_decision.applicable and not organization_gate_decision.allowed:
-        organization_workflow_completion_policy_service.pending_status(
-            candidate_task=candidate,
-            decision=organization_gate_decision,
-        )
+    context = dict(getattr(candidate, "worker_execution_context", None) or {})
+    if (
+        str(getattr(candidate, "status", "") or "").strip().lower() == "completed"
+        and isinstance(context.get("organization_workflow_step_binding"), dict)
+    ):
+        raise RuntimeError("organization_workflow_completion_policy_unavailable")
     return candidate
 
 
@@ -1658,6 +1634,7 @@ def _prepare_existing_task_write(
     session: Session,
     lock_ids: set[str],
     write_operation: str,
+    completion_policy: TaskCompletionPolicyPort | None,
 ) -> TaskDB | None:
     """Apply the single authoritative Recovery write policy in-transaction."""
 
@@ -1667,10 +1644,11 @@ def _prepare_existing_task_write(
         candidate,
         write_operation=write_operation,
     )
-    candidate = _apply_organization_workflow_completion_policy(
+    candidate = _apply_task_completion_policy(
         authoritative,
         candidate,
         session=session,
+        completion_policy=completion_policy,
     )
     if write_operation == "status_cas":
         cas_mismatches = _recovery_status_cas_sensitive_mismatches(
@@ -1964,6 +1942,9 @@ def _engine():
 
 
 class TaskRepository:
+    def __init__(self, *, completion_policy: TaskCompletionPolicyPort | None = None) -> None:
+        self._completion_policy = completion_policy
+
     def get_all(self):
         with Session(_engine()) as session:
             return session.exec(select(TaskDB)).all()
@@ -2036,10 +2017,11 @@ class TaskRepository:
                     statement = statement.with_for_update()
                 authoritative = session.exec(statement).one_or_none()
                 if authoritative is None:
-                    task = _apply_organization_workflow_completion_policy(
+                    task = _apply_task_completion_policy(
                         None,
                         task,
                         session=session,
+                        completion_policy=self._completion_policy,
                     )
                     persisted = session.merge(task)
                     session.commit()
@@ -2051,6 +2033,7 @@ class TaskRepository:
                     session=session,
                     lock_ids=lock_ids,
                     write_operation="save",
+                    completion_policy=self._completion_policy,
                 )
                 if prepared is None:
                     return authoritative
@@ -2375,6 +2358,7 @@ class TaskRepository:
                     session=session,
                     lock_ids=lock_ids,
                     write_operation="status_cas",
+                    completion_policy=self._completion_policy,
                 )
                 if prepared is None:
                     return TaskStatusCompareAndSetResult(

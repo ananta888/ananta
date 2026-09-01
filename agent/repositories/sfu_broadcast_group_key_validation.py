@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any, Sequence
 
-from agent.services.sfu_broadcast_group_key_repository_port import (
+from agent.models.sfu_group_keys import (
+    GroupKeyEpochAuthorization,
     SfuGroupKeyEpochState,
     SfuGroupKeyMutationResult,
     SfuGroupKeyPackageWrite,
 )
-from agent.services.sfu_hub_secret_envelope import SfuHubSecretEnvelopePort
-from agent.services.webrtc_group_key_authorization_service import GroupKeyEpochAuthorization
+from agent.ports.sfu_group_keys import SfuHubSecretEnvelopePort
 
 MAX_GROUP_KEY_PACKAGES = 250
 MAX_GROUP_KEY_PACKAGE_BYTES = 8 * 1024

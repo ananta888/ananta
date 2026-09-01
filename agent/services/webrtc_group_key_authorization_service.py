@@ -7,43 +7,15 @@ import hashlib
 import json
 import time
 import uuid
-from dataclasses import asdict, dataclass, replace
+from dataclasses import replace
 from typing import Mapping, Sequence
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
+from agent.models.sfu_group_keys import GroupKeyEpochAuthorization
 from agent.repositories.webrtc_epoch_repository import WebrtcEpochRepository
 from agent.services.sfu_broadcast_participant_limits import SFU_BROADCAST_MAX_GROUP_MEMBERS
-
-
-@dataclass(frozen=True)
-class GroupKeyEpochAuthorization:
-    version: int
-    authorization_id: str
-    tenant_id: str
-    room_id: str
-    publication_id: str
-    epoch: int
-    previous_epoch: int
-    member_set_digest: str
-    member_ids: tuple[str, ...]
-    key_package_refs: dict[str, str]
-    valid_from_ms: int
-    expires_at_ms: int
-    rekey_deadline_ms: int
-    reason: str
-    hub_key_id: str
-    membership_epoch: int | None = None
-    signature_b64: str = ""
-
-    def unsigned_dict(self) -> dict[str, object]:
-        raw = asdict(self)
-        raw["member_ids"] = list(self.member_ids)
-        raw.pop("signature_b64")
-        if raw["membership_epoch"] is None:
-            raw.pop("membership_epoch")
-        return raw
 
 
 class GroupKeyAuthorizationError(ValueError):

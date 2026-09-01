@@ -12,89 +12,21 @@ import hashlib
 import hmac
 import os
 import re
-from dataclasses import dataclass, field
-from typing import Mapping, Protocol, runtime_checkable
+from typing import Mapping
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
+from agent.models.sfu_group_keys import (
+    SfuHubBlindIndex,
+    SfuHubSealedSecret,
+    SfuHubSecretEnvelopeError,
+)
+from agent.ports.sfu_group_keys import SfuHubSecretEnvelopePort
 
 _KEY_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$")
-
-
-class SfuHubSecretEnvelopeError(RuntimeError):
-    def __init__(self, reason_code: str) -> None:
-        self.reason_code = reason_code
-        super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class SfuHubSealedSecret:
-    key_id: str
-    nonce: bytes = field(repr=False)
-    ciphertext: bytes = field(repr=False)
-
-    def __init__(self, key_id: str, nonce: bytes, ciphertext: bytes) -> None:
-        object.__setattr__(self, "key_id", key_id)
-        object.__setattr__(self, "nonce", bytes(nonce))
-        object.__setattr__(self, "ciphertext", bytes(ciphertext))
-        if _KEY_ID.fullmatch(key_id) is None or len(nonce) != 12 or len(ciphertext) < 17:
-            raise SfuHubSecretEnvelopeError("sfu_secret_envelope_invalid")
-
-    def __repr__(self) -> str:
-        return f"SfuHubSealedSecret(key_id={self.key_id!r}, redacted=True)"
-
-
-@dataclass(frozen=True, slots=True)
-class SfuHubBlindIndex:
-    key_id: str
-    digest: str
-
-
-@runtime_checkable
-class SfuHubSecretEnvelopePort(Protocol):
-    @property
-    def active_key_id(self) -> str: ...
-
-    @property
-    def active_blind_key_id(self) -> str: ...
-
-    def blind(self, *, purpose: str, scope: str, value: str) -> str: ...
-
-    def blind_index(self, *, purpose: str, scope: str, value: str) -> SfuHubBlindIndex: ...
-
-    def blind_candidates(
-        self, *, purpose: str, scope: str, value: str
-    ) -> tuple[SfuHubBlindIndex, ...]: ...
-
-    def seal(
-        self,
-        plaintext: bytes,
-        *,
-        purpose: str,
-        scope: str,
-        aad: bytes,
-    ) -> SfuHubSealedSecret: ...
-
-    def open(
-        self,
-        envelope: SfuHubSealedSecret,
-        *,
-        purpose: str,
-        scope: str,
-        aad: bytes,
-    ) -> bytes: ...
-
-    def rewrap(
-        self,
-        envelope: SfuHubSealedSecret,
-        *,
-        purpose: str,
-        scope: str,
-        aad: bytes,
-    ) -> SfuHubSealedSecret: ...
 
 
 class AesGcmSfuHubSecretEnvelope:

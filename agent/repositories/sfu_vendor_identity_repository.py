@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import time
-
 import threading
+import time
 from dataclasses import replace
 
 import sqlalchemy as sa
@@ -16,7 +15,7 @@ from agent.db_models.sfu_broadcast_vendor_identities import (
     SfuBroadcastDestinationHandleDB,
     SfuBroadcastVendorIdentityDB,
 )
-from agent.services.sfu_hub_secret_envelope import SfuHubSealedSecret
+from agent.models.sfu_group_keys import SfuHubSealedSecret
 from agent.services.sfu_vendor_identity_service import (
     SfuVendorDestinationBinding,
     SfuVendorIdentityBinding,
@@ -145,7 +144,11 @@ class InMemorySfuVendorIdentityRepository:
         count = 0
         with self._store.lock:
             rows = sorted(
-                (value for value in self._store.identities.values() if value.expires_at <= now and value.status != "tombstoned"),
+                (
+                    value
+                    for value in self._store.identities.values()
+                    if value.expires_at <= now and value.status != "tombstoned"
+                ),
                 key=lambda value: (value.expires_at, value.identity_handle),
             )[:limit]
             for value in rows:

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from agent.services.semantic_media_program_evidence import canonical_sha256, source_hash
+from agent.services.semantic_media_program_evidence import canonical_sha256, source_hash  # noqa: E402
 
 try:
     from scripts.e2e.semantic_media_group_e2e import expected_group_evidence_binding
@@ -37,6 +37,8 @@ TURN_REFERENCE = (
 SFU_SOURCE_PATHS = (
     ".env.example",
     "agent/db_models/semantic_media.py",
+    "agent/models/sfu_group_keys.py",
+    "agent/ports/sfu_group_keys.py",
     "agent/repositories/semantic_sfu_admission_repository.py",
     "agent/routes/semantic_sfu_admission.py",
     "agent/services/media_topology_policy.py",
@@ -247,6 +249,8 @@ def static_reasons(root: Path = ROOT) -> list[str]:
         reasons.append("productive_hub_failover_evidence_not_documented")
     required = [
         "agent/services/semantic_sfu_admission_service.py",
+        "agent/models/sfu_group_keys.py",
+        "agent/ports/sfu_group_keys.py",
         "agent/repositories/semantic_sfu_admission_repository.py",
         "agent/services/semantic_sfu_group_key_service.py",
         "frontend-angular/src/app/services/livekit-sfu-transport.service.ts",
