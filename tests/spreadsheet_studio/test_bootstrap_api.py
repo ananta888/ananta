@@ -63,6 +63,36 @@ def test_worker_mode_uses_hub_queue_instead_of_synchronous_http(monkeypatch, tmp
     assert capability["executor"]["execution_mode"] == "queue_and_lease"
 
 
+def test_internal_claim_route_requires_worker_token(app, client) -> None:
+    class Ingress:
+        def claim(self, *, worker_id):
+            return {"schema": "assignment", "worker_id": worker_id}
+
+    app.config.update(
+        ANANTA_SPREADSHEET_WORKER_TOKEN="spreadsheet-static-token-000000",
+        ANANTA_SPREADSHEET_WORKER_ID="spreadsheet-worker",
+    )
+    app.extensions["spreadsheet_execution_ingress_service"] = Ingress()
+    denied = client.post(
+        "/api/spreadsheet-studio/internal/jobs/claim",
+        json={"worker_id": "spreadsheet-worker"},
+    )
+    assert denied.status_code == 401
+    accepted = client.post(
+        "/api/spreadsheet-studio/internal/jobs/claim",
+        headers={"Authorization": "Bearer spreadsheet-static-token-000000"},
+        json={"worker_id": "spreadsheet-worker"},
+    )
+    assert accepted.status_code == 200
+    assert accepted.get_json()["data"]["worker_id"] == "spreadsheet-worker"
+    wrong_worker = client.post(
+        "/api/spreadsheet-studio/internal/jobs/claim",
+        headers={"Authorization": "Bearer spreadsheet-static-token-000000"},
+        json={"worker_id": "another-worker"},
+    )
+    assert wrong_worker.status_code == 403
+
+
 def test_disabled_capability_is_observable_without_service(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path, enabled=False, automatic=False)
     response = client.get("/api/spreadsheet-studio/capabilities", headers=admin_auth_header)

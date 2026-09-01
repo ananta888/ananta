@@ -28,11 +28,10 @@ COPY --chown=10007:10007 worker/__init__.py /app/worker/__init__.py
 COPY --chown=10007:10007 worker/spreadsheet /app/worker/spreadsheet
 COPY --chown=10007:10007 worker/runtime/__init__.py /app/worker/runtime/__init__.py
 COPY --chown=10007:10007 worker/runtime/spreadsheet_worker_app.py /app/worker/runtime/spreadsheet_worker_app.py
+COPY --chown=10007:10007 worker/runtime/spreadsheet_queue_worker.py /app/worker/runtime/spreadsheet_queue_worker.py
 
 USER 10007:10007
-EXPOSE 8097
-
 HEALTHCHECK --interval=15s --timeout=4s --start-period=20s --retries=5 \
-    CMD ["python", "-c", "import json,os,urllib.request; r=urllib.request.Request('http://127.0.0.1:8097/health',headers={'Authorization':'Bearer '+os.environ['ANANTA_SPREADSHEET_WORKER_TOKEN']}); p=json.load(urllib.request.urlopen(r,timeout=3)); raise SystemExit(0 if p.get('status')=='ready' else 1)"]
+    CMD ["python", "-c", "from pathlib import Path; raise SystemExit(0 if Path('/tmp/ananta-spreadsheet-ready').is_file() else 1)"]
 
-CMD ["python", "-m", "worker.runtime.spreadsheet_worker_app"]
+CMD ["python", "-m", "worker.runtime.spreadsheet_queue_worker"]

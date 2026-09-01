@@ -108,6 +108,11 @@ class SpreadsheetExecutionJobDB(SQLModel, table=True):
     slot_lease_id: str | None = Field(default=None, max_length=128, index=True)
     worker_id: str | None = Field(default=None, max_length=512)
     queue_position: int | None = None
+    callback_jti: str | None = Field(default=None, max_length=128, repr=False)
+    artifact_handle_jti: str | None = Field(default=None, max_length=128, repr=False)
+    claimed_at: datetime | None = None
+    artifact_consumed_at: datetime | None = None
+    callback_payload_digest: str | None = Field(default=None, max_length=64, repr=False)
     result_digest: str | None = Field(default=None, max_length=64, repr=False)
     result_json: str | None = Field(default=None, sa_column=sa.Column(sa.Text(), nullable=True))
     created_at: datetime = Field(default_factory=_utcnow)

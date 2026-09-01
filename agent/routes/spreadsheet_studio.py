@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import hashlib
+import hmac
 import io
+import os
 from collections.abc import Callable
 from typing import Any
 
-from flask import Blueprint, current_app, request, send_file
+from flask import Blueprint, Response, current_app, request, send_file
 
 from agent.auth import admin_required, check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
@@ -40,6 +42,26 @@ def _learning_service():
 
 def _proposal_execution_service():
     return current_app.extensions.get("spreadsheet_proposal_execution_service") or _service()
+
+
+def _execution_ingress_service():
+    value = current_app.extensions.get("spreadsheet_execution_ingress_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_execution_ingress_unavailable")
+    return value
+
+
+def _bearer_token() -> str:
+    authorization = str(request.headers.get("Authorization") or "")
+    return authorization[7:] if authorization.startswith("Bearer ") else ""
+
+
+def _worker_authenticated() -> bool:
+    expected = str(
+        current_app.config.get("ANANTA_SPREADSHEET_WORKER_TOKEN") or os.getenv("ANANTA_SPREADSHEET_WORKER_TOKEN") or ""
+    ).strip()
+    supplied = _bearer_token()
+    return len(expected) >= 24 and hmac.compare_digest(supplied, expected)
 
 
 def _identity() -> tuple[str, str]:
@@ -259,6 +281,75 @@ def execute_proposal():
         created=not queued,
         accepted=queued,
     )
+
+
+@spreadsheet_studio_bp.post("/internal/jobs/claim")
+def claim_execution_job():
+    if not _worker_authenticated():
+        return api_response(status="error", message="spreadsheet_worker_unauthorized", code=401)
+    try:
+        body = _body()
+        if set(body) != {"worker_id"}:
+            raise ValueError("spreadsheet_worker_claim_fields_invalid")
+        worker_id = str(body.get("worker_id") or "").strip()
+        configured_worker = str(current_app.config.get("ANANTA_SPREADSHEET_WORKER_ID") or "spreadsheet-worker").strip()
+        if worker_id != configured_worker:
+            raise PermissionError("spreadsheet_worker_identity_mismatch")
+        assignment = _execution_ingress_service().claim(worker_id=worker_id)
+        if assignment is None:
+            return Response(status=204)
+        return api_response(data=assignment)
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except (TypeError, ValueError) as exc:
+        return api_response(status="error", message=str(exc), code=422)
+    except RuntimeError as exc:
+        return api_response(status="error", message=str(exc), code=409)
+
+
+@spreadsheet_studio_bp.get("/internal/jobs/<job_id>/artifact")
+def read_execution_artifact(job_id: str):
+    try:
+        content, source = _execution_ingress_service().read_source_artifact(
+            job_id=job_id,
+            token=_bearer_token(),
+        )
+        return Response(
+            content,
+            status=200,
+            content_type=str(source.get("media_type") or "application/octet-stream"),
+            headers={
+                "Cache-Control": "no-store",
+                "X-Content-SHA256": str(source.get("sha256") or ""),
+            },
+        )
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc.args[0]), code=404)
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except (TypeError, ValueError) as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except RuntimeError as exc:
+        return api_response(status="error", message=str(exc), code=409)
+
+
+@spreadsheet_studio_bp.post("/internal/jobs/<job_id>/result")
+def accept_execution_result(job_id: str):
+    try:
+        result = _execution_ingress_service().accept_result(
+            job_id=job_id,
+            token=_bearer_token(),
+            payload=_body(),
+        )
+        return api_response(data=result)
+    except KeyError as exc:
+        return api_response(status="error", message=str(exc.args[0]), code=404)
+    except PermissionError as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except (TypeError, ValueError) as exc:
+        return api_response(status="error", message=str(exc), code=403)
+    except RuntimeError as exc:
+        return api_response(status="error", message=str(exc), code=409)
 
 
 @spreadsheet_studio_bp.post("/feedback")

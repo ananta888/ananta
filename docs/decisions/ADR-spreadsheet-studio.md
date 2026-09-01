@@ -1,6 +1,6 @@
 # ADR: Governed spreadsheet transformations
 
-Status: experimental default-off mock slice; research promotion and production release remain blocked.
+Status: default-off; durable queue-backed production execution plane implemented, release gates remain open.
 
 ## Decision
 
@@ -9,10 +9,12 @@ Formula AST, Action, Validator, Diff and Proposal contracts. The Hub owns docume
 optimistic concurrency, idempotency, validation and promotion. Execution sits behind the small
 `SpreadsheetExecutionPort`; it cannot orchestrate tasks or publish a document version.
 
-The first executor is a deterministic mock adapter for automatic contract and UI flows. It does not import
+The deterministic mock adapter remains available for automatic contract and UI flows. It does not import
 LibreOffice, UNO, openpyxl or ML runtimes, does not recalculate formulas and explicitly reports
-`production_fidelity: false`. Real LibreOffice work belongs in a separately containerized Worker adapter after
-source-grounded sandbox and compatibility research.
+`production_fidelity: false`. Production proposals are persisted in a Hub-owned queue, projected into the
+central WorkerJob/slot-lease control plane and claimed by a separately containerized LibreOffice Worker. The
+Worker executes only the exact assignment and cannot route, queue, promote or orchestrate work. The Hub alone
+validates the callback and atomically promotes a new document version.
 
 ## Automation
 
@@ -22,7 +24,8 @@ promotion is default off and exact-version/digest bound when enabled.
 
 ## SOLID boundaries
 
-Contracts, policy, persistence, execution adapter, saga, API and Angular presentation each have one focused
-responsibility (SRP). The saga depends on the execution port rather than LibreOffice or the mock (DIP); future
-executors extend the port without changing document policy (OCP). Existing artifact and ML-Intern paths are
-not modified by this slice.
+Contracts, policy, persistence, queue, lease control, capability issuance, execution, result ingress and
+presentation each have one focused responsibility (SRP). Hub services depend on narrow repository, WorkerJob,
+lease and execution ports rather than LibreOffice or transport details (DIP). The mock and queue-backed modes
+remain substitutable at the proposal API boundary while their synchronous/asynchronous HTTP status is explicit
+(LSP), and additional executors can extend the control plane without changing document policy (OCP).

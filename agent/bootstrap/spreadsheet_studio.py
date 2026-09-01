@@ -68,11 +68,12 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         document_store = SqlSpreadsheetDocumentRepository(db_engine=engine)
                     else:
                         document_store = SpreadsheetStore(state)
+                    artifact_store = SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts")
                     saga = SpreadsheetSagaService(
                         document_store,
                         policy=policy,
                         executor=executor,
-                        artifact_store=SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts"),
+                        artifact_store=artifact_store,
                         training_available=True,
                     )
                     app.extensions["spreadsheet_studio_service"] = saga
@@ -83,17 +84,35 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         from agent.services.spreadsheet_execution_queue_service import (
                             SpreadsheetExecutionQueueService,
                         )
+                        from agent.services.spreadsheet_worker_capability_service import (
+                            SpreadsheetWorkerCapabilityService,
+                        )
                         from agent.services.spreadsheet_worker_control_adapter import (
                             HubSpreadsheetWorkerJobLedger,
+                            HubSpreadsheetWorkerLeaseControl,
                             HubSpreadsheetWorkerLeaseScheduler,
                         )
+                        from agent.services.spreadsheet_worker_ingress_service import (
+                            SpreadsheetWorkerIngressService,
+                        )
 
+                        queue = SqlSpreadsheetExecutionQueueRepository(db_engine=engine)
+                        worker_id = str(app.config.get("ANANTA_SPREADSHEET_WORKER_ID") or "spreadsheet-worker")
                         app.extensions["spreadsheet_proposal_execution_service"] = SpreadsheetExecutionQueueService(
                             saga=saga,
-                            queue=SqlSpreadsheetExecutionQueueRepository(db_engine=engine),
+                            queue=queue,
                             worker_jobs=HubSpreadsheetWorkerJobLedger(),
                             leases=HubSpreadsheetWorkerLeaseScheduler(),
-                            worker_id=str(app.config.get("ANANTA_SPREADSHEET_WORKER_ID") or "spreadsheet-worker"),
+                            worker_id=worker_id,
+                        )
+                        app.extensions["spreadsheet_execution_ingress_service"] = SpreadsheetWorkerIngressService(
+                            queue=queue,
+                            saga=saga,
+                            artifacts=artifact_store,
+                            leases=HubSpreadsheetWorkerLeaseControl(),
+                            capabilities=SpreadsheetWorkerCapabilityService(
+                                signing_secret=str(app.config.get("SECRET_KEY") or settings.secret_key or "")
+                            ),
                         )
                     app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
                         documents=document_store,

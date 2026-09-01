@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from agent.repository import worker_job_repo
+import time
+from collections.abc import Mapping
+from typing import Any
+
+from agent.repository import worker_job_repo, worker_slot_lease_repo
 from agent.services.spreadsheet_execution_queue_ports import (
     SpreadsheetLeaseDecision,
     SpreadsheetWorkerJobBinding,
@@ -104,4 +108,57 @@ class HubSpreadsheetWorkerLeaseScheduler:
         )
 
 
-__all__ = ["HubSpreadsheetWorkerJobLedger", "HubSpreadsheetWorkerLeaseScheduler"]
+class SpreadsheetWorkerLeaseInactive(RuntimeError):
+    pass
+
+
+class HubSpreadsheetWorkerLeaseControl:
+    """Fence claims and callbacks against the central WorkerJob slot lease."""
+
+    def claim(self, job: Mapping[str, Any]) -> None:
+        self.require_live(job)
+        get_worker_job_service().record_worker_result(
+            worker_job_id=str(job["worker_job_id"]),
+            task_id=str(job["job_id"]),
+            worker_url=str(job["worker_id"]),
+            status="running",
+            output=None,
+            metadata={"reason_code": "spreadsheet_assignment_claimed"},
+        )
+
+    def require_live(self, job: Mapping[str, Any]) -> None:
+        worker_job = worker_job_repo.get_by_id(str(job.get("worker_job_id") or ""))
+        lease = worker_slot_lease_repo.get_by_id(str(job.get("slot_lease_id") or ""))
+        if (
+            worker_job is None
+            or lease is None
+            or str(worker_job.parent_task_id or "") != str(job.get("job_id") or "")
+            or str(worker_job.worker_url or "") != str(job.get("worker_id") or "")
+            or str(worker_job.slot_lease_id or "") != str(lease.id or "")
+            or str(worker_job.status or "") not in {"delegated", "running"}
+            or worker_job.finished_at is not None
+            or str(lease.status or "") != "active"
+            or str(lease.worker_job_id or "") not in {"", str(worker_job.id)}
+            or str(lease.worker_id or "") != str(job.get("worker_id") or "")
+            or float(lease.deadline_at) <= time.time()
+            or lease.released_at is not None
+        ):
+            raise SpreadsheetWorkerLeaseInactive("spreadsheet_worker_lease_inactive")
+
+    def finish(self, job: Mapping[str, Any], *, status: str) -> None:
+        get_worker_job_service().record_worker_result(
+            worker_job_id=str(job["worker_job_id"]),
+            task_id=str(job["job_id"]),
+            worker_url=str(job["worker_id"]),
+            status=str(status),
+            output=None,
+            metadata={"reason_code": "spreadsheet_result_admitted"},
+        )
+
+
+__all__ = [
+    "HubSpreadsheetWorkerJobLedger",
+    "HubSpreadsheetWorkerLeaseControl",
+    "HubSpreadsheetWorkerLeaseScheduler",
+    "SpreadsheetWorkerLeaseInactive",
+]

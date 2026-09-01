@@ -70,7 +70,7 @@
         "SSP2-002",
         "SSP2-003"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "SSP2-M2",
@@ -163,7 +163,7 @@
     {
       "id": "SSP2-003",
       "title": "Produktions-Sandbox, Handles und authentisierte Callbacks",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -176,12 +176,25 @@
         "SSFR-SEC-003",
         "SSFR-SEC-004"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "worker_ingress": "agent/services/spreadsheet_worker_ingress_service.py",
+        "capabilities": "agent/services/spreadsheet_worker_capability_service.py",
+        "worker_runtime": "worker/runtime/spreadsheet_queue_worker.py",
+        "sandbox_overlay": "docker/compose-next/compose.spreadsheet-studio.yml",
+        "migration": "migrations/versions/d1f3a5b7c9e2_harden_spreadsheet_worker_ingress.py",
+        "tests": [
+          "tests/spreadsheet_studio/test_worker_ingress.py",
+          "tests/spreadsheet_studio/test_worker_runtime_security.py",
+          "tests/spreadsheet_studio/test_artifact_import.py"
+        ],
+        "result": "47 Spreadsheet Studio tests passed, 6 optional LibreOffice tests reported as skipped/not_run; boundary detector and Compose validation passed"
+      }
     },
     {
       "id": "SSP2-004",
@@ -404,13 +417,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 10,
+      "todo": 9,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 2
+      "done": 3
     },
-    "progress_percent_done": 16.67,
+    "progress_percent_done": 25.0,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -424,24 +437,24 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 2,
-      "remaining": 7
+      "done": 3,
+      "remaining": 6
     },
     "milestones": {
       "total": 3,
       "todo": 2,
-      "in_progress": 1,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 1
     }
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 10,
+    "todo_remaining": 9,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 2
+    "done": 3
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
