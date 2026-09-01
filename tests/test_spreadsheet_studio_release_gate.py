@@ -120,3 +120,24 @@ def test_release_report_tail_redacts_bearer_and_query_jwts() -> None:
     assert jwt not in output
     assert "token=[REDACTED_JWT]" in output
     assert "Authorization: Bearer [REDACTED]" in output
+
+
+def test_successful_command_evidence_does_not_retain_volatile_logs(monkeypatch, tmp_path) -> None:
+    monkeypatch.setattr(
+        gate.subprocess,
+        "run",
+        lambda *_args, **_kwargs: gate.subprocess.CompletedProcess([], 0, "timestamp and cid", "warning"),
+    )
+    definition = {
+        "id": "unit_contract_property",
+        "environment": "cpu",
+        "required": True,
+        "timeout_seconds": 30,
+        "commands": [{"cwd": ".", "argv": ["true"], "evidence_kind": "exit_code"}],
+    }
+
+    result = gate._run_gate(definition, temporary_path=tmp_path, environ={})
+
+    assert result["status"] == "passed"
+    assert "stdout_tail" not in result["commands"][0]
+    assert "stderr_tail" not in result["commands"][0]

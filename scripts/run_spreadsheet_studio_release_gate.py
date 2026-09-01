@@ -231,10 +231,11 @@ def _run_gate(gate: Mapping[str, Any], *, temporary_path: Path, environ: Mapping
                 "argv": definition["argv"],
                 "evidence_kind": definition["evidence_kind"],
                 "returncode": completed.returncode,
-                "stdout_tail": _safe_tail(completed.stdout),
-                "stderr_tail": _safe_tail(completed.stderr),
             }
             result.update(_evidence(definition["evidence_kind"], junit, playwright_json, json_result))
+            if completed.returncode != 0 or not result.get("evidence_valid", True):
+                result["stdout_tail"] = _safe_tail(completed.stdout)
+                result["stderr_tail"] = _safe_tail(completed.stderr)
         except subprocess.TimeoutExpired:
             result = {
                 "argv": definition["argv"],
