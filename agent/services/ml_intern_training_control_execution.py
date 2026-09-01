@@ -129,7 +129,11 @@ class MlInternTrainingControlExecutionMixin:
             execution_spec["_tenant_scope_digest"] = _tenant_scope_digest(principal)
             execution_spec["_tenant_storage_key"] = _tenant_storage_key(principal)
             resume_checkpoint = self._decode_checkpoint_ref(job.checkpoint_ref)
-            if resume_checkpoint is not None and job.job_type == "train_lora":
+            if (
+                resume_checkpoint is not None
+                and job.job_type == "train_lora"
+                and job.request_spec.get("resume_allowed", True) is True
+            ):
                 execution_spec["resume_checkpoint"] = resume_checkpoint
             if self._execution_port is not None and (
                 job.job_type == "evaluate_lora" or job.mode == "live" or job.backend != "mock"

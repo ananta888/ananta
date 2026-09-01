@@ -16,6 +16,7 @@ leakage-cluster diversity, all four locked splits, exact consent coverage, maski
 tenant isolation, supported base model and context capacity.
 
 A `no_go` is a normal automatic outcome. It leaves the base-model-only product path available and cannot be
-converted to `go` by a caller. Live Spreadsheet Studio jobs require command V2 plus the exact admission ID;
-the ML-Intern job contract receives the admission digest. Dry-runs remain available without a training
-admission. No test or production transition requires a person.
+converted to `go` by a caller. Live Spreadsheet Studio jobs require command V3, the exact admission ID and a
+closed training profile; the ML-Intern job contract receives the admission and profile governance digests.
+Dry-runs remain available through the legacy command without a training admission. No test or production
+transition requires a person.

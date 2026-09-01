@@ -8,6 +8,7 @@ from typing import Any
 
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
 from agent.services.spreadsheet_learning_service import SpreadsheetLearningService
+from agent.services.spreadsheet_training_profile_service import SpreadsheetTrainingProfileService
 from agent.services.spreadsheet_training_task_family import SpreadsheetTrainingTaskFamilyStrategy
 
 
@@ -23,6 +24,7 @@ class SpreadsheetMlInternBridgeService:
         repository_bridge: Any,
         control: Any,
         admissions: Any | None = None,
+        profiles: SpreadsheetTrainingProfileService | None = None,
         strategy: SpreadsheetTrainingTaskFamilyStrategy | None = None,
     ) -> None:
         self._learning = learning
@@ -32,6 +34,7 @@ class SpreadsheetMlInternBridgeService:
         self._control = control
         self._admissions = admissions
         self._strategy = strategy or SpreadsheetTrainingTaskFamilyStrategy()
+        self._profiles = profiles or SpreadsheetTrainingProfileService(strategy=self._strategy)
 
     def start_training(
         self,
@@ -41,7 +44,7 @@ class SpreadsheetMlInternBridgeService:
         payload: Mapping[str, Any],
         idempotency_key: str,
     ) -> dict[str, Any]:
-        required = {
+        legacy_required = {
             "schema",
             "dataset_id",
             "mode",
@@ -53,16 +56,30 @@ class SpreadsheetMlInternBridgeService:
             "risk_reason",
         }
         schema = payload.get("schema")
+        required = set(legacy_required)
         if schema == "ananta.spreadsheet-training-command.v2":
             required.add("admission_id")
+        elif schema == "ananta.spreadsheet-training-command.v3":
+            required = {
+                "schema",
+                "dataset_id",
+                "mode",
+                "admission_id",
+                "training_profile",
+                "live_confirmed",
+                "risk_reason",
+            }
         if set(payload) != required or schema not in {
             "ananta.spreadsheet-training-command.v1",
             "ananta.spreadsheet-training-command.v2",
+            "ananta.spreadsheet-training-command.v3",
         }:
             raise ValueError("spreadsheet_training_fields_invalid")
         mode = str(payload.get("mode") or "")
         if mode not in {"dry_run", "live"}:
             raise ValueError("spreadsheet_training_mode_invalid")
+        if schema == "ananta.spreadsheet-training-command.v3" and mode != "live":
+            raise ValueError("spreadsheet_training_profile_live_mode_required")
         dataset = self._learning.get_dataset(
             tenant_id=tenant_id,
             principal_id=principal_id,
@@ -72,16 +89,21 @@ class SpreadsheetMlInternBridgeService:
         if not readiness.get("dry_run_ready") or (mode == "live" and not readiness.get("training_ready")):
             raise PermissionError("spreadsheet_dataset_not_ready")
         admission = None
+        profile_projection = None
         if mode == "live":
-            if schema != "ananta.spreadsheet-training-command.v2" or self._admissions is None:
+            if schema != "ananta.spreadsheet-training-command.v3" or self._admissions is None:
                 raise PermissionError("spreadsheet_training_admission_required")
+            profile_value = payload.get("training_profile")
+            if not isinstance(profile_value, Mapping):
+                raise ValueError("spreadsheet_training_profile_fields_invalid")
             admission = self._admissions.require_go(
                 tenant_id=tenant_id,
                 principal_id=principal_id,
                 admission_id=str(payload.get("admission_id") or ""),
                 dataset_id=str(dataset["dataset_id"]),
-                base_model=str(payload.get("base_model") or ""),
+                base_model=str(profile_value.get("base_model") or ""),
             )
+            profile_projection = self._profiles.project(profile_value, dataset=dataset, admission=admission)
         path = self._learning.dataset_path(
             tenant_id=tenant_id,
             principal_id=principal_id,
@@ -133,10 +155,10 @@ class SpreadsheetMlInternBridgeService:
             "dataset_id": projected["id"],
             "job_type": "train_lora",
             "mode": mode,
-            "backend": str(payload.get("backend") or ""),
-            "base_model": str(payload.get("base_model") or ""),
-            "method": str(payload.get("method") or ""),
-            "hyperparameters": dict(payload.get("hyperparameters") or {}),
+            "backend": str((profile_projection or payload).get("backend") or ""),
+            "base_model": str((profile_projection or payload).get("base_model") or ""),
+            "method": str((profile_projection or payload).get("method") or ""),
+            "hyperparameters": dict((profile_projection or payload).get("hyperparameters") or {}),
             "task_family": "spreadsheet_actions",
             "task_kinds": ["spreadsheet_actions"],
             "output_schema_digest": self._strategy.schema_digest,
@@ -150,6 +172,9 @@ class SpreadsheetMlInternBridgeService:
                     "live_confirmed": payload.get("live_confirmed"),
                     "risk_reason": payload.get("risk_reason"),
                     "training_admission_digest": admission["admission_digest"],
+                    "gpu_profile": profile_projection["gpu_profile"],
+                    "resume_allowed": profile_projection["profile"]["resume_allowed"],
+                    "spreadsheet_governance": profile_projection["spreadsheet_governance"],
                 }
             )
         job, replayed = self._control.create_job(
@@ -167,7 +192,11 @@ class SpreadsheetMlInternBridgeService:
                 job=job,
             )
         return {
-            "schema": "ananta.spreadsheet-training-admission.v1",
+            "schema": (
+                "ananta.spreadsheet-training-job-admission.v2"
+                if schema == "ananta.spreadsheet-training-command.v3"
+                else "ananta.spreadsheet-training-admission.v1"
+            ),
             "spreadsheet_dataset_id": dataset["dataset_id"],
             "ml_intern_dataset_id": projected["id"],
             "job": job,
@@ -176,6 +205,9 @@ class SpreadsheetMlInternBridgeService:
             "output_schema_digest": self._strategy.schema_digest,
             "serializer_digest": self._strategy.serializer_digest,
             "training_admission_digest": admission["admission_digest"] if admission is not None else None,
+            "training_profile_digest": (
+                profile_projection["profile"]["profile_digest"] if profile_projection is not None else None
+            ),
             "human_intervention_required": False,
         }
 

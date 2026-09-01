@@ -133,7 +133,7 @@ def _assert_track_progress(track: dict[str, Any]) -> None:
     summary = track["tasks_status_summary"]
     if summary["total"] != len(tasks) or summary["by_status"] != status_counts:
         raise ValueError("phase2_task_status_summary_invalid")
-    expected_percent = round(status_counts["done"] * 100 / len(tasks), 2)
+    expected_percent = round(status_counts["done"] * 100 / len(tasks), 1)
     if summary["progress_percent_done"] != expected_percent:
         raise ValueError("phase2_task_progress_percent_invalid")
 

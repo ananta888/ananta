@@ -26,6 +26,24 @@ ENDPOINT = "http://lora-training-worker:8095/internal/v1/lora-training"
 TOKEN = "internal-lora-worker-token-at-least-24-characters"
 
 
+def _governance() -> dict[str, str]:
+    bindings = {
+        "training_profile_digest": "1" * 64,
+        "base_model_digest": "b" * 64,
+        "dataset_manifest_digest": "2" * 64,
+        "dataset_artifact_digest": "3" * 64,
+        "dataset_recipe_digest": "4" * 64,
+        "split_lock_digest": "5" * 64,
+        "action_schema_digest": "6" * 64,
+        "serializer_digest": "7" * 64,
+        "policy_digest": "8" * 64,
+        "resource_profile_digest": "9" * 64,
+        "training_admission_digest": "a" * 64,
+    }
+    encoded = json.dumps(bindings, sort_keys=True, separators=(",", ":")).encode()
+    return {**bindings, "governance_digest": hashlib.sha256(encoded).hexdigest()}
+
+
 def test_hub_artifact_tree_hash_rejects_symlinks_special_entries_and_empty_trees(
     tmp_path: Path,
 ) -> None:
@@ -467,6 +485,7 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
             "_tenant_scope_digest": "a" * 64,
             "hyperparameters": {"max_steps": 1},
             "resume_checkpoint": checkpoint,
+            "spreadsheet_governance": _governance(),
         },
         dataset_path=train,
         validation_path=validation,
@@ -477,6 +496,7 @@ def test_training_resume_checkpoint_is_forwarded_and_reported_to_hub(tmp_path: P
     )
 
     assert captured_envelope["resume_checkpoint"] == checkpoint
+    assert captured_envelope["governance"] == _governance()
     assert result["resume_checkpoint"] == checkpoint
     assert [event["resume_checkpoint"] for event in events if event.get("type") == "checkpoint"] == [checkpoint]
 

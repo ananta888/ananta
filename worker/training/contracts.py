@@ -236,6 +236,56 @@ class BaseModelSpec:
 
 
 @dataclass(frozen=True)
+class TrainingGovernanceBindings:
+    """Opaque Hub-approved spreadsheet provenance carried into Worker artifacts."""
+
+    training_profile_digest: str
+    base_model_digest: str
+    dataset_manifest_digest: str
+    dataset_artifact_digest: str
+    dataset_recipe_digest: str
+    split_lock_digest: str
+    action_schema_digest: str
+    serializer_digest: str
+    policy_digest: str
+    resource_profile_digest: str
+    training_admission_digest: str
+    governance_digest: str
+
+    @classmethod
+    def from_mapping(cls, value: Any) -> "TrainingGovernanceBindings":
+        fields = frozenset(
+            {
+                "training_profile_digest",
+                "base_model_digest",
+                "dataset_manifest_digest",
+                "dataset_artifact_digest",
+                "dataset_recipe_digest",
+                "split_lock_digest",
+                "action_schema_digest",
+                "serializer_digest",
+                "policy_digest",
+                "resource_profile_digest",
+                "training_admission_digest",
+                "governance_digest",
+            }
+        )
+        data = _closed_mapping(value, "governance", fields)
+        bindings = {
+            field: _sha256(data.get(field), f"governance.{field}")
+            for field in fields
+            if field != "governance_digest"
+        }
+        supplied = _sha256(data.get("governance_digest"), "governance.governance_digest")
+        if canonical_sha256(bindings) != supplied:
+            raise TrainingContractError(
+                "governance_binding_mismatch",
+                "governance_digest does not match the supplied bindings",
+            )
+        return cls(**bindings, governance_digest=supplied)
+
+
+@dataclass(frozen=True)
 class AdapterSpec:
     adapter_id: str
     relative_path: str
@@ -565,9 +615,17 @@ class TrainingJobRequest:
     base_model: BaseModelSpec
     dataset: DatasetManifest
     configuration: TrainingConfiguration
+    governance: TrainingGovernanceBindings | None = None
     exports: tuple[TrainingExportSpec, ...] = ()
     resume_checkpoint: ResumeCheckpoint | None = None
     tenant_storage_key: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.governance is not None and self.governance.base_model_digest != self.base_model.snapshot_hash:
+            raise TrainingContractError(
+                "governance_model_mismatch",
+                "governance base_model_digest does not match base_model.snapshot_hash",
+            )
 
     @classmethod
     def from_mapping(cls, value: Any) -> "TrainingJobRequest":
@@ -587,6 +645,7 @@ class TrainingJobRequest:
             "base_model",
             "dataset",
             "configuration",
+            "governance",
             "exports",
             "resume_checkpoint",
             "tenant_storage_key",
@@ -619,6 +678,11 @@ class TrainingJobRequest:
             base_model=BaseModelSpec.from_mapping(data.get("base_model")),
             dataset=DatasetManifest.from_mapping(data.get("dataset")),
             configuration=TrainingConfiguration.from_mapping(data.get("configuration")),
+            governance=(
+                TrainingGovernanceBindings.from_mapping(data["governance"])
+                if data.get("governance") is not None
+                else None
+            ),
             exports=_training_exports(data.get("exports")),
             resume_checkpoint=ResumeCheckpoint.from_mapping(resume_value) if resume_value is not None else None,
             tenant_storage_key=_sha256(
@@ -636,6 +700,8 @@ class TrainingJobRequest:
         payload = asdict(self)
         if not self.exports:
             payload.pop("exports")
+        if self.governance is None:
+            payload.pop("governance")
         return payload
 
     def validate_resume_binding(self) -> None:

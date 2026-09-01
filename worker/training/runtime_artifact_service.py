@@ -103,6 +103,7 @@ class TrainingRuntimeArtifactMixin:
                 **asdict(job.request.configuration),
                 "identity_hash": job.request.configuration.identity_hash,
             },
+            "governance": asdict(job.request.governance) if job.request.governance is not None else None,
             "metrics": dict(outcome.metrics),
             "artifacts": artifacts,
             "software": {"python": platform.python_version(), "packages": package_versions},

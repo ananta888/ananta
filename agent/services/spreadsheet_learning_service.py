@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import tempfile
@@ -315,9 +316,17 @@ class SpreadsheetLearningService:
         self._write_dataset(tenant_id=tenant_id, digest=dataset_digest, content=content)
         counts = {name: sum(row["split"] == name for row in rows) for name in ("train", "validation", "eval", "test")}
         class_counts: dict[str, int] = {}
+        maximum_cells_per_record = 0
         for row in rows:
             label = str(row["quality_label"])
             class_counts[label] = class_counts.get(label, 0) + 1
+            try:
+                context = json.loads(str(row["input"]))
+            except ValueError:
+                context = {}
+            if not isinstance(context, Mapping):
+                context = {}
+            maximum_cells_per_record = max(maximum_cells_per_record, len(list(context.get("cells") or [])))
         recipe_manifest = {
             "schema": "ananta.spreadsheet-dataset-recipe-manifest.v1",
             "recipe_version": recipe_version,
@@ -361,6 +370,7 @@ class SpreadsheetLearningService:
                 "attempt_binding": f"materialization-{dataset_digest[:32]}",
                 "state": "materialized",
                 "excluded_feedback_ids": list(preparation.excluded_feedback_ids),
+                "maximum_cells_per_record": maximum_cells_per_record,
             },
             "readiness": {
                 "dry_run_ready": bool(rows),

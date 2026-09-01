@@ -73,6 +73,23 @@ def _training_request() -> dict[str, object]:
     }
 
 
+def _governance() -> dict[str, str]:
+    bindings = {
+        "training_profile_digest": "1" * 64,
+        "base_model_digest": "c" * 64,
+        "dataset_manifest_digest": "2" * 64,
+        "dataset_artifact_digest": "3" * 64,
+        "dataset_recipe_digest": "4" * 64,
+        "split_lock_digest": "5" * 64,
+        "action_schema_digest": "6" * 64,
+        "serializer_digest": "7" * 64,
+        "policy_digest": "8" * 64,
+        "resource_profile_digest": "9" * 64,
+        "training_admission_digest": "a" * 64,
+    }
+    return {**bindings, "governance_digest": canonical_sha256(bindings)}
+
+
 def _evaluation_request() -> dict[str, object]:
     request = _training_request()
     request["job_type"] = "evaluate_existing_adapter"
@@ -192,3 +209,37 @@ def test_canonical_hash_rejects_non_json_keys_and_values() -> None:
         canonical_sha256({1: "ambiguous"})
     with pytest.raises(TrainingContractError, match="non-JSON value"):
         canonical_sha256({"modules": {"q_proj"}})
+
+
+def test_training_governance_is_closed_and_digest_bound() -> None:
+    request = _training_request()
+    request["governance"] = _governance()
+
+    parsed = parse_job_request(request)
+    assert parsed.to_dict()["governance"]["training_admission_digest"] == "a" * 64
+
+    tampered = copy.deepcopy(request)
+    governance = tampered["governance"]
+    assert isinstance(governance, dict)
+    governance["dataset_artifact_digest"] = "f" * 64
+    with pytest.raises(TrainingContractError) as mismatch:
+        parse_job_request(tampered)
+    assert mismatch.value.code == "governance_binding_mismatch"
+
+    injected = copy.deepcopy(request)
+    governance = injected["governance"]
+    assert isinstance(governance, dict)
+    governance["dataset_content"] = "private cells"
+    with pytest.raises(TrainingContractError) as shape:
+        parse_job_request(injected)
+    assert shape.value.code == "invalid_contract_shape"
+
+    wrong_model = copy.deepcopy(request)
+    governance = wrong_model["governance"]
+    assert isinstance(governance, dict)
+    governance["base_model_digest"] = "d" * 64
+    bindings = {key: value for key, value in governance.items() if key != "governance_digest"}
+    governance["governance_digest"] = canonical_sha256(bindings)
+    with pytest.raises(TrainingContractError) as model_mismatch:
+        parse_job_request(wrong_model)
+    assert model_mismatch.value.code == "governance_model_mismatch"

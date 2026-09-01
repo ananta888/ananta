@@ -298,6 +298,54 @@ def _normalize_training_admission(
         )
 
 
+def _normalize_spreadsheet_governance(value: Mapping[str, Any], request_spec: dict[str, Any], *, mode: str) -> None:
+    raw = value.get("spreadsheet_governance")
+    if value.get("task_family") != "spreadsheet_actions" or mode != "live":
+        if raw is not None:
+            raise MlInternTrainingContractError(
+                "spreadsheet_governance_invalid",
+                "spreadsheet_governance is only valid for live spreadsheet training",
+            )
+        return
+    fields = {
+        "training_profile_digest",
+        "base_model_digest",
+        "dataset_manifest_digest",
+        "dataset_artifact_digest",
+        "dataset_recipe_digest",
+        "split_lock_digest",
+        "action_schema_digest",
+        "serializer_digest",
+        "policy_digest",
+        "resource_profile_digest",
+        "training_admission_digest",
+        "governance_digest",
+    }
+    if not isinstance(raw, Mapping) or set(raw) != fields:
+        raise MlInternTrainingContractError(
+            "spreadsheet_governance_required",
+            "live spreadsheet training requires closed governance bindings",
+            status_code=403,
+        )
+    normalized = dict(raw)
+    supplied = normalized.pop("governance_digest", None)
+    if (
+        any(not isinstance(child, str) or not _DIGEST_RE.fullmatch(child) for child in normalized.values())
+        or not isinstance(supplied, str)
+        or not _DIGEST_RE.fullmatch(supplied)
+        or request_digest(normalized) != supplied
+        or normalized["training_admission_digest"] != value.get("training_admission_digest")
+        or normalized["action_schema_digest"] != value.get("output_schema_digest")
+        or normalized["serializer_digest"] != value.get("serializer_digest")
+    ):
+        raise MlInternTrainingContractError(
+            "spreadsheet_governance_binding_invalid",
+            "spreadsheet governance digests do not match the admitted job",
+            status_code=403,
+        )
+    request_spec["spreadsheet_governance"] = {**normalized, "governance_digest": supplied}
+
+
 def assert_job_transition(current: str, target: str) -> None:
     if current not in JOB_STATUSES or target not in JOB_STATUSES:
         raise MlInternTrainingContractError("job_status_invalid", "job status is invalid")
@@ -390,6 +438,8 @@ class CreateTrainingJobCommand:
             "output_schema_digest",
             "serializer_digest",
             "training_admission_digest",
+            "spreadsheet_governance",
+            "resume_allowed",
         }
         unknown = sorted(set(value) - allowed)
         if unknown:
@@ -464,12 +514,22 @@ class CreateTrainingJobCommand:
         if gpu_profile:
             request_spec["gpu_profile"] = gpu_profile
         request_spec["method"] = method
-        for policy_flag in ("require_dataset_validation", "require_secret_scan", "live_confirmed"):
+        for policy_flag in (
+            "require_dataset_validation",
+            "require_secret_scan",
+            "live_confirmed",
+            "resume_allowed",
+        ):
             if policy_flag in value and not isinstance(value[policy_flag], bool):
                 raise MlInternTrainingContractError(
                     f"{policy_flag}_invalid",
                     f"{policy_flag} must be a JSON boolean",
                 )
+        if "resume_allowed" in value and job_type != "train_lora":
+            raise MlInternTrainingContractError(
+                "resume_policy_invalid",
+                "resume_allowed is only valid for train_lora jobs",
+            )
         if mode == "live":
             if value.get("live_confirmed") is not True:
                 raise MlInternTrainingContractError(
@@ -497,6 +557,7 @@ class CreateTrainingJobCommand:
         request_spec["hyperparameters"] = canonical_hyperparameters
         _normalize_task_family_fields(value, request_spec)
         _normalize_training_admission(value, request_spec, mode=mode)
+        _normalize_spreadsheet_governance(value, request_spec, mode=mode)
         for field_name, identifiers in (
             ("source_ids", normalize_source_ids(value.get("source_ids"))),
             ("run_ids", normalize_run_ids(value.get("run_ids"))),

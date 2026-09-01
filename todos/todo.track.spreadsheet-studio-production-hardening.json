@@ -421,7 +421,7 @@
     {
       "id": "SSP2-008",
       "title": "Profilgebundenes LoRA/QLoRA-Training im ML-Intern-Worker",
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -434,12 +434,51 @@
         "SSFR-ML-001",
         "SSFR-ML-003"
       ],
-      "progress_percent": 0,
+      "progress_percent": 100,
       "acceptance_criteria": [
         "The slice preserves Hub ownership and Worker execution-only boundaries.",
         "Contracts are closed, additive, digest-bound and covered by automatic negative tests.",
         "No test requires a person; unavailable optional hardware is reported as not_run."
-      ]
+      ],
+      "completion_evidence": {
+        "source_verification": {
+          "source_category_item_ids": [
+            "SSFR-GND-003",
+            "SSFR-ML-001",
+            "SSFR-ML-003"
+          ],
+          "source_refs": [
+            "SRC_0001",
+            "SRC_0002",
+            "SRC_0003",
+            "SRC_0004",
+            "SRC_0005",
+            "SRC_0006",
+            "SRC_0007",
+            "SRC_0008",
+            "SRC_0014"
+          ],
+          "governance_run_refs": [
+            "RUN_0001"
+          ]
+        },
+        "profile_service": "agent/services/spreadsheet_training_profile_service.py",
+        "hub_bridge": "agent/services/spreadsheet_ml_intern_bridge_service.py",
+        "worker_contract": "worker/training/contracts.py",
+        "worker_manifest": "worker/training/runtime_artifact_service.py",
+        "schemas": [
+          "schemas/spreadsheet-studio/training-profile.v1.json",
+          "docs/contracts/mlintern-lora-training-request.v1.schema.json"
+        ],
+        "tests": [
+          "tests/spreadsheet_studio/test_training_profile.py",
+          "tests/spreadsheet_studio/test_training_task_family.py",
+          "tests/test_ml_intern_training_worker_port.py",
+          "tests/worker/test_lora_training_contracts.py",
+          "tests/worker/test_lora_training_runtime.py"
+        ],
+        "result": "561 Spreadsheet Studio, worker, capability and ML-Intern contract tests passed; 14 optional environment or hardware tests reported as skipped/not_run; Ruff passed"
+      }
     },
     {
       "id": "SSP2-009",
@@ -549,13 +588,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 5,
+      "todo": 4,
       "in_progress": 0,
       "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     },
-    "progress_percent_done": 58.33,
+    "progress_percent_done": 66.7,
     "by_priority": {
       "P0": 7,
       "P1": 5,
@@ -569,8 +608,8 @@
     },
     "critical_path": {
       "total": 9,
-      "done": 5,
-      "remaining": 4
+      "done": 6,
+      "remaining": 3
     },
     "milestones": {
       "total": 3,
@@ -582,17 +621,18 @@
   },
   "progress_summary": {
     "state": "in_progress",
-    "todo_remaining": 5,
+    "todo_remaining": 4,
     "in_progress": 0,
     "partial": 0,
     "blocked": 0,
-    "done": 7
+    "done": 8
   },
   "summary_notes": [
     "This track contains implementation gaps only; completed research is archived separately.",
     "SSP2-002 removes the experimental synchronous Hub-to-Worker special channel.",
     "SSP2-006 centralizes production learning state and locks leakage-safe splits before training admission.",
     "SSP2-007 requires a quantitative digest-bound Hub Go/No-Go before live spreadsheet training.",
+    "SSP2-008 binds live LoRA/QLoRA configuration and opaque governance digests from the Hub profile through the isolated worker manifest.",
     "All gates are automatic; human approval is never a test prerequisite."
   ]
 }

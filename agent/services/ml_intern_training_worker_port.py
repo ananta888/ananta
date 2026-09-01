@@ -47,6 +47,7 @@ from agent.services.ml_intern_training_worker_support import (
     _path_sha256,
     _project_worker_event,
     _reject_non_finite_json_constant,
+    _spreadsheet_governance,
     _validate_artifact_metadata,
     _validate_bounded_json,
     _validate_worker_correlation,
@@ -317,6 +318,15 @@ class HttpMlInternTrainingWorkerPort:
                 "snapshot_hash": model["snapshot_hash"],
             },
         }
+        governance = _spreadsheet_governance(spec)
+        if governance is not None:
+            if governance["base_model_digest"] != model["snapshot_hash"]:
+                raise MlInternTrainingWorkerTransportError(
+                    "spreadsheet_governance_model_mismatch",
+                    "spreadsheet governance is not bound to the admitted local base model",
+                    retryable=False,
+                )
+            common["governance"] = governance
         job_type = requested_job_type
         if job_type == "evaluate_lora":
             envelope, submit_suffix = self._evaluation_envelope(

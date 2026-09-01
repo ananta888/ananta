@@ -18,6 +18,7 @@
     "base_model": {"type": "string", "minLength": 1, "maxLength": 512},
     "model_digest": {"$ref": "#/$defs/digest"},
     "resource_profile_id": {"$ref": "#/$defs/id"},
+    "resource_backend": {"$ref": "#/$defs/id"},
     "resource_profile_digest": {"$ref": "#/$defs/digest"},
     "policy_version": {"const": "spreadsheet-training-admission.v1"},
     "thresholds": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "number", "minimum": 0}},

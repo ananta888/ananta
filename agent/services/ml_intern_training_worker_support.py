@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import os
 from pathlib import Path
@@ -91,6 +92,44 @@ def _worker_configuration(spec: Mapping[str, Any]) -> dict[str, Any]:
         "gradient_checkpointing": True,
         "target_modules": list(values.get("target_modules") or ["q_proj", "k_proj", "v_proj", "o_proj"]),
     }
+
+
+def _spreadsheet_governance(spec: Mapping[str, Any]) -> dict[str, str] | None:
+    raw = spec.get("spreadsheet_governance")
+    if raw is None:
+        return None
+    fields = {
+        "training_profile_digest",
+        "base_model_digest",
+        "dataset_manifest_digest",
+        "dataset_artifact_digest",
+        "dataset_recipe_digest",
+        "split_lock_digest",
+        "action_schema_digest",
+        "serializer_digest",
+        "policy_digest",
+        "resource_profile_digest",
+        "training_admission_digest",
+        "governance_digest",
+    }
+    if not isinstance(raw, Mapping) or set(raw) != fields:
+        raise MlInternTrainingWorkerTransportError(
+            "spreadsheet_governance_invalid",
+            "spreadsheet governance bindings are not closed",
+            retryable=False,
+        )
+    value = {str(key): str(child or "").strip().lower() for key, child in raw.items()}
+    supplied = value.pop("governance_digest")
+    digest = hashlib.sha256(
+        json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
+    ).hexdigest()
+    if any(not _SHA256.fullmatch(child) for child in value.values()) or supplied != digest:
+        raise MlInternTrainingWorkerTransportError(
+            "spreadsheet_governance_invalid",
+            "spreadsheet governance digest does not match its bindings",
+            retryable=False,
+        )
+    return {**value, "governance_digest": supplied}
 
 
 def _worker_exports(spec: Mapping[str, Any], *, backend: str) -> list[dict[str, str]]:

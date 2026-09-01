@@ -120,6 +120,7 @@ class SpreadsheetTrainingAdmissionService:
             "base_model": base_model,
             "model_digest": baseline["model_digest"],
             "resource_profile_id": resource["profile_id"],
+            "resource_backend": resource["backend"],
             "resource_profile_digest": resource["profile_digest"],
             "policy_version": self.POLICY_VERSION,
             "thresholds": dict(self.THRESHOLDS),

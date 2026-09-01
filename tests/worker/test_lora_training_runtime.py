@@ -36,6 +36,24 @@ def _path_digest(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _governance(base_model_digest: str) -> dict[str, str]:
+    bindings = {
+        "training_profile_digest": "1" * 64,
+        "base_model_digest": base_model_digest,
+        "dataset_manifest_digest": "2" * 64,
+        "dataset_artifact_digest": "3" * 64,
+        "dataset_recipe_digest": "4" * 64,
+        "split_lock_digest": "5" * 64,
+        "action_schema_digest": "6" * 64,
+        "serializer_digest": "7" * 64,
+        "policy_digest": "8" * 64,
+        "resource_profile_digest": "9" * 64,
+        "training_admission_digest": "a" * 64,
+    }
+    encoded = json.dumps(bindings, sort_keys=True, separators=(",", ":")).encode()
+    return {**bindings, "governance_digest": hashlib.sha256(encoded).hexdigest()}
+
+
 def _setup(
     tmp_path: Path,
     backend: Any | None = None,
@@ -198,6 +216,8 @@ def _evaluation_request(training_request: dict[str, Any], workspace_root: Path) 
 
 def test_mock_job_is_async_persistent_and_produces_verified_artifacts(tmp_path: Path) -> None:
     runtime, request, state = _setup(tmp_path)
+    governance = _governance(str(request["base_model"]["snapshot_hash"]))
+    request["governance"] = governance
     try:
         accepted = runtime.submit(request)
         result = _terminal(runtime, request["job_id"])
@@ -218,6 +238,8 @@ def test_mock_job_is_async_persistent_and_produces_verified_artifacts(tmp_path: 
         assert manifest["configuration"]["seed"] == 7
         assert manifest["dataset"]["verified_validation_records"] == 1
         assert manifest["base_model"]["snapshot_hash"] == _path_digest(tmp_path / "models" / "base-model")
+        assert manifest["governance"] == governance
+        assert "instruction" not in json.dumps(manifest["governance"])
         assert (_attempt_root(state, request) / "status.json").is_file()
 
         event_page = runtime.events("job-1", after_sequence=0, limit=100)

@@ -41,6 +41,7 @@
       "maximum": 9223372036854775807
     },
     "base_model": {"$ref": "#/$defs/baseModel"},
+    "governance": {"$ref": "#/$defs/governanceBindings"},
     "dataset": {"$ref": "#/$defs/dataset"},
     "adapter": {"$ref": "#/$defs/adapter"},
     "validation_dataset": {"$ref": "#/$defs/validationDataset"},
@@ -94,7 +95,8 @@
         "anyOf": [
           {"required": ["dataset"]},
           {"required": ["resume_checkpoint"]},
-          {"required": ["exports"]}
+          {"required": ["exports"]},
+          {"required": ["governance"]}
         ]
       }
     }
@@ -161,6 +163,38 @@
         "model_id": {"type": "string", "minLength": 1, "maxLength": 256},
         "relative_path": {"$ref": "#/$defs/relativeRef"},
         "snapshot_hash": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "governanceBindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "training_profile_digest",
+        "base_model_digest",
+        "dataset_manifest_digest",
+        "dataset_artifact_digest",
+        "dataset_recipe_digest",
+        "split_lock_digest",
+        "action_schema_digest",
+        "serializer_digest",
+        "policy_digest",
+        "resource_profile_digest",
+        "training_admission_digest",
+        "governance_digest"
+      ],
+      "properties": {
+        "training_profile_digest": {"$ref": "#/$defs/sha256"},
+        "base_model_digest": {"$ref": "#/$defs/sha256"},
+        "dataset_manifest_digest": {"$ref": "#/$defs/sha256"},
+        "dataset_artifact_digest": {"$ref": "#/$defs/sha256"},
+        "dataset_recipe_digest": {"$ref": "#/$defs/sha256"},
+        "split_lock_digest": {"$ref": "#/$defs/sha256"},
+        "action_schema_digest": {"$ref": "#/$defs/sha256"},
+        "serializer_digest": {"$ref": "#/$defs/sha256"},
+        "policy_digest": {"$ref": "#/$defs/sha256"},
+        "resource_profile_digest": {"$ref": "#/$defs/sha256"},
+        "training_admission_digest": {"$ref": "#/$defs/sha256"},
+        "governance_digest": {"$ref": "#/$defs/sha256"}
       }
     },
     "adapter": {

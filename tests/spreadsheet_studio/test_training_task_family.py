@@ -12,6 +12,7 @@ from agent.services.spreadsheet_evaluation_service import SpreadsheetEvaluationS
 from agent.services.spreadsheet_inference_service import SpreadsheetInferenceService
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_training_task_family import SpreadsheetTrainingTaskFamilyStrategy
+from ananta_contracts.spreadsheet_studio import canonical_digest
 from tests.spreadsheet_studio.helpers import service, snapshot
 
 
@@ -29,6 +30,23 @@ def _action_output() -> dict:
             }
         ],
     }
+
+
+def _governance(strategy: SpreadsheetTrainingTaskFamilyStrategy) -> dict[str, str]:
+    value = {
+        "training_profile_digest": "1" * 64,
+        "base_model_digest": "b" * 64,
+        "dataset_manifest_digest": "2" * 64,
+        "dataset_artifact_digest": "3" * 64,
+        "dataset_recipe_digest": "4" * 64,
+        "split_lock_digest": "5" * 64,
+        "action_schema_digest": strategy.schema_digest,
+        "serializer_digest": strategy.serializer_digest,
+        "policy_digest": "6" * 64,
+        "resource_profile_digest": "7" * 64,
+        "training_admission_digest": "a" * 64,
+    }
+    return {**value, "governance_digest": canonical_digest(value)}
 
 
 def test_strategy_accepts_only_closed_actions_or_bounded_refusal() -> None:
@@ -96,11 +114,34 @@ def test_ml_intern_training_contract_additively_binds_spreadsheet_family() -> No
             "output_schema_digest": strategy.schema_digest,
             "serializer_digest": strategy.serializer_digest,
             "training_admission_digest": "a" * 64,
+            "spreadsheet_governance": _governance(strategy),
             "live_confirmed": True,
             "risk_reason": "automatic governed spreadsheet training",
         }
     )
     assert live.request_spec["training_admission_digest"] == "a" * 64
+    assert live.request_spec["spreadsheet_governance"]["action_schema_digest"] == strategy.schema_digest
+    tampered = _governance(strategy)
+    tampered["dataset_artifact_digest"] = "9" * 64
+    with pytest.raises(MlInternTrainingContractError) as bad_governance:
+        CreateTrainingJobCommand.from_mapping(
+            {
+                "dataset_id": "dataset-one",
+                "job_type": "train_lora",
+                "mode": "live",
+                "backend": "unsloth",
+                "base_model": "model-one",
+                "task_family": "spreadsheet_actions",
+                "task_kinds": ["spreadsheet_actions"],
+                "output_schema_digest": strategy.schema_digest,
+                "serializer_digest": strategy.serializer_digest,
+                "training_admission_digest": "a" * 64,
+                "spreadsheet_governance": tampered,
+                "live_confirmed": True,
+                "risk_reason": "automatic governed spreadsheet training",
+            }
+        )
+    assert bad_governance.value.reason_code == "spreadsheet_governance_binding_invalid"
     with pytest.raises(MlInternTrainingContractError) as missing_admission:
         CreateTrainingJobCommand.from_mapping(
             {
