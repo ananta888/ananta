@@ -11,6 +11,7 @@ from flask import Blueprint, current_app, request, send_file
 
 from agent.auth import check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
+from agent.services.spreadsheet_learning_store import SpreadsheetLearningConflict
 from agent.services.spreadsheet_store import SpreadsheetStoreConflict
 from ananta_contracts.spreadsheet_studio import SpreadsheetContractError
 
@@ -21,6 +22,13 @@ def _service():
     value = current_app.extensions.get("spreadsheet_studio_service")
     if value is None:
         raise RuntimeError("spreadsheet_studio_unavailable")
+    return value
+
+
+def _learning_service():
+    value = current_app.extensions.get("spreadsheet_learning_service")
+    if value is None:
+        raise RuntimeError("spreadsheet_learning_unavailable")
     return value
 
 
@@ -46,6 +54,8 @@ def _invoke(operation: Callable[[], Any], *, created: bool = False):
     try:
         return api_response(data=operation(), code=201 if created else 200)
     except SpreadsheetStoreConflict as exc:
+        return api_response(status="error", message=str(exc), code=409)
+    except SpreadsheetLearningConflict as exc:
         return api_response(status="error", message=str(exc), code=409)
     except PermissionError as exc:
         return api_response(status="error", message=str(exc), code=403)
@@ -176,6 +186,91 @@ def execute_proposal():
     return _invoke(
         lambda: _service().execute_proposal(tenant_id=_identity()[0], principal_id=_identity()[1], proposal=_body()),
         created=True,
+    )
+
+
+@spreadsheet_studio_bp.post("/feedback")
+@check_user_auth
+def record_feedback():
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().record_feedback(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=_body(),
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.get("/feedback/<event_id>/privacy-preview")
+@check_user_auth
+def privacy_preview(event_id: str):
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().privacy_preview(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            event_id=event_id,
+        )
+    )
+
+
+@spreadsheet_studio_bp.post("/consents")
+@check_user_auth
+def grant_consent():
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().grant_consent(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=_body(),
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.post("/consents/<consent_id>/revoke")
+@check_user_auth
+def revoke_consent(consent_id: str):
+    body = _body()
+    if set(body) != {"expected_version"}:
+        return api_response(status="error", message="spreadsheet_consent_revoke_fields_invalid", code=422)
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().revoke_consent(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            consent_id=consent_id,
+            expected_version=body["expected_version"],
+        )
+    )
+
+
+@spreadsheet_studio_bp.post("/datasets/materialize")
+@check_user_auth
+def materialize_dataset():
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().materialize_dataset(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            payload=_body(),
+        ),
+        created=True,
+    )
+
+
+@spreadsheet_studio_bp.get("/datasets/<dataset_id>")
+@check_user_auth
+def get_dataset(dataset_id: str):
+    tenant_id, principal_id = _identity()
+    return _invoke(
+        lambda: _learning_service().get_dataset(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            dataset_id=dataset_id,
+        )
     )
 
 

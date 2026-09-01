@@ -195,6 +195,7 @@ class SpreadsheetSagaService:
             "document_id": parsed.document_id,
             "base_version": parsed.expected_version,
             "base_snapshot_digest": parsed.base_snapshot_digest,
+            "actions": [dict(action) for action in parsed.actions],
             "candidate_snapshot": candidate.to_dict(),
             "candidate_snapshot_digest": candidate.digest,
             "diff": execution["diff"],

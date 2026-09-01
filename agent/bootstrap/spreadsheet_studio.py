@@ -12,6 +12,8 @@ from agent.adapters.spreadsheet_mock_execution_adapter import (
 )
 from agent.config import settings
 from agent.services.spreadsheet_artifact_store import SpreadsheetArtifactStore
+from agent.services.spreadsheet_learning_service import SpreadsheetLearningService
+from agent.services.spreadsheet_learning_store import SpreadsheetLearningStore
 from agent.services.spreadsheet_policy import SpreadsheetPolicy
 from agent.services.spreadsheet_saga_service import SpreadsheetSagaService
 from agent.services.spreadsheet_store import SpreadsheetStore
@@ -55,11 +57,17 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         if mode == "mock"
                         else spreadsheet_worker_port_from_environment()
                     )
+                    document_store = SpreadsheetStore(state)
                     app.extensions["spreadsheet_studio_service"] = SpreadsheetSagaService(
-                        SpreadsheetStore(state),
+                        document_store,
                         policy=policy,
                         executor=executor,
                         artifact_store=SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts"),
+                    )
+                    app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
+                        documents=document_store,
+                        store=SpreadsheetLearningStore(state),
+                        dataset_root=state.parent / "spreadsheet-datasets",
                     )
                 except (RuntimeError, ValueError):
                     status = SpreadsheetStudioWiringStatus(False, "spreadsheet_worker_configuration_invalid")

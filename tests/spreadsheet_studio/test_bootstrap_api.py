@@ -138,3 +138,71 @@ def test_api_import_persists_opaque_original_and_downloads_it(app, client, admin
     )
     assert downloaded.status_code == 200
     assert downloaded.data == content
+
+
+def test_api_feedback_consent_and_dataset_flow_is_fully_automatic(app, client, admin_auth_header, tmp_path) -> None:
+    _wire(app, tmp_path)
+    created = client.post(
+        "/api/spreadsheet-studio/documents",
+        headers=admin_auth_header,
+        json={"document_id": "learning-document", "title": "Budget", "snapshot": snapshot()},
+    ).get_json()["data"]
+    proposal_payload = proposal(created, proposal_id="learning-proposal")
+    assert (
+        client.post(
+            "/api/spreadsheet-studio/proposals/execute",
+            headers=admin_auth_header,
+            json=proposal_payload,
+        ).status_code
+        == 201
+    )
+    feedback = client.post(
+        "/api/spreadsheet-studio/feedback",
+        headers=admin_auth_header,
+        json={
+            "schema": "ananta.spreadsheet-feedback-command.v1",
+            "event_id": "learning-feedback",
+            "document_id": "learning-document",
+            "proposal_id": "learning-proposal",
+            "kind": "accepted",
+            "instruction": "Set the governed value",
+            "correction_actions": [],
+            "excluded_cells": [],
+        },
+    )
+    assert feedback.status_code == 201
+    event = feedback.get_json()["data"]
+    preview = client.get(
+        "/api/spreadsheet-studio/feedback/learning-feedback/privacy-preview",
+        headers=admin_auth_header,
+    ).get_json()["data"]
+    consent = client.post(
+        "/api/spreadsheet-studio/consents",
+        headers=admin_auth_header,
+        json={
+            "schema": "ananta.spreadsheet-training-consent-command.v1",
+            "consent_id": "learning-consent",
+            "feedback_id": "learning-feedback",
+            "record_digest": preview["record_digest"],
+            "purpose": "spreadsheet_action_training",
+            "retention_days": 30,
+            "granted": True,
+        },
+    )
+    assert consent.status_code == 201
+    dataset = client.post(
+        "/api/spreadsheet-studio/datasets/materialize",
+        headers=admin_auth_header,
+        json={
+            "schema": "ananta.spreadsheet-dataset-command.v1",
+            "dataset_id": "learning-dataset",
+            "feedback_ids": [event["event_id"]],
+            "recipe_version": "recipe-v1",
+            "split_seed": "split-v1",
+            "split_percent": {"train": 70, "validation": 10, "eval": 10, "test": 10},
+        },
+    )
+    assert dataset.status_code == 201
+    result = dataset.get_json()["data"]
+    assert result["record_count"] == 1
+    assert result["human_intervention_required"] is False
