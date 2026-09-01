@@ -4,7 +4,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "lmstudio-ollama-capability-template-runtime-integration",
   "created_at": "2026-07-28",
-  "updated_at": "2026-08-31",
+  "updated_at": "2026-09-01",
   "status": "partial",
   "implementation_status": "local_implementation_complete_external_evidence_blocked",
   "evidence_status": "local_automated_tests_passed_unverified_missing_SRC_RUN_ids",
@@ -133,7 +133,7 @@
         "LMR-002",
         "LMR-003"
       ],
-      "status": "in_progress"
+      "status": "blocked"
     },
     {
       "id": "LMR-M2",
@@ -187,6 +187,7 @@
       "id": "LMR-000",
       "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
       "status": "blocked",
+      "blocked_reason": "Es wurden keine zulaessigen SRC_* oder RUN_* IDs bereitgestellt; grounded Source- und Run-Claims duerfen deshalb nicht abgeschlossen werden.",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 10.0,
@@ -194,7 +195,7 @@
       "milestone_id": "LMR-M1",
       "depends_on": [],
       "affected_files": [
-        "todos/todo.lmstudio-ollama-capability-template-runtime-integration.json",
+        "todos/active/todo.lmstudio-ollama-capability-template-runtime-integration.json",
         "artifacts/domain/local-model-runtime-source-baseline.json"
       ],
       "details": [
@@ -224,8 +225,9 @@
       "affected_files": [
         "ananta_contracts/model_capability.py",
         "ananta_contracts/model_catalog.py",
-        "config/schemas/local_model_snapshot.schema.json",
-        "tests/contracts/test_local_model_capabilities.py"
+        "agent/services/local_runtime_capability_contracts.py",
+        "tests/test_local_runtime_capability_integration.py",
+        "tests/test_model_capability_contract.py"
       ],
       "details": [
         "Bestehende ModelCapability- und ModelCatalog-Vertraege additiv erweitern.",
@@ -255,8 +257,9 @@
       ],
       "affected_files": [
         "agent/services/provider_invocation_middleware.py",
-        "agent/services/local_runtime_endpoint_policy.py",
-        "tests/security/test_local_runtime_security.py"
+        "agent/services/local_runtime_http_client.py",
+        "tests/test_local_runtime_capability_integration.py",
+        "tests/test_provider_invocation_middleware.py"
       ],
       "details": [
         "Bestehende Egress-, Allowlist- und Redaction-Grenzen fuer alle Runtime-Discovery- und Invocation-Pfade vereinheitlichen.",
@@ -285,10 +288,11 @@
         "LMR-002"
       ],
       "affected_files": [
-        "agent/services/model_catalog_service.py",
-        "agent/services/runtime_discovery_ports.py",
-        "agent/services/local_model_refresh_coordinator.py",
-        "tests/services/test_local_model_refresh_coordinator.py"
+        "agent/services/local_runtime_capability_discovery.py",
+        "agent/services/local_runtime_capability_composition.py",
+        "agent/services/local_runtime_capability_task_dispatcher.py",
+        "worker/local_runtime_capability_handler.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "RuntimeDiscoveryPort, ModelInspectorPort und CapabilitySnapshotRepository trennen.",
@@ -318,9 +322,9 @@
       ],
       "affected_files": [
         "agent/services/ollama_model_discovery_service.py",
-        "agent/services/ollama_model_inspector.py",
+        "agent/services/local_runtime_capability_discovery.py",
         "tests/services/test_ollama_model_discovery_service.py",
-        "tests/fixtures/ollama"
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Modelle aus /api/tags mit POST /api/show-Details anreichern.",
@@ -350,9 +354,9 @@
       ],
       "affected_files": [
         "agent/llm_integration_lmstudio.py",
-        "agent/services/lmstudio_model_inspector.py",
-        "tests/test_llm_integration_lmstudio.py",
-        "tests/fixtures/lmstudio"
+        "agent/services/local_runtime_capability_discovery.py",
+        "tests/test_goal_live_lmstudio.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Bestehendes /v1/models-Verhalten erhalten.",
@@ -382,8 +386,8 @@
         "LMR-005"
       ],
       "affected_files": [
-        "agent/services/model_capability_normalizer_service.py",
-        "tests/services/test_model_capability_normalizer_service.py"
+        "agent/services/local_runtime_capability_normalizer.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Ollama- und LM-Studio-Felder auf CapabilityContract-v1 abbilden.",
@@ -413,8 +417,8 @@
         "LMR-005"
       ],
       "affected_files": [
-        "agent/services/chat_template_inspector_service.py",
-        "tests/services/test_chat_template_inspector_service.py"
+        "agent/services/local_runtime_template_inspector.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Template-Recognizer als kleine Strategien fuer ChatML, Llama-3, Mistral, Gemma, Hermes und Phi implementieren.",
@@ -444,8 +448,8 @@
         "LMR-003"
       ],
       "affected_files": [
-        "agent/services/local_model_capability_cache_service.py",
-        "tests/services/test_local_model_capability_cache_service.py"
+        "agent/services/local_runtime_capability_cache.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Cache-Key aus Provider, Runtime-ID, Modell-ID, Digest und Schemasicht bilden.",
@@ -479,8 +483,10 @@
         "agent/services/model_profile_loader.py",
         "agent/services/model_profile_resolver.py",
         "agent/services/tool_calling_mode_service.py",
+        "agent/services/local_runtime_routing_policy.py",
         "tests/test_model_profile_resolver.py",
-        "tests/services/test_tool_calling_mode_service.py"
+        "tests/services/test_tool_calling_mode_service.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Explizite Policy, sichere Runtimequelle, beobachtete Ergebnisse und Heuristik nach einer Truth-Table aufloesen.",
@@ -510,9 +516,10 @@
         "LMR-006"
       ],
       "affected_files": [
-        "agent/services/local_model_runtime_limits.py",
+        "agent/services/local_runtime_request_policy.py",
         "agent/services/model_invocation_service.py",
-        "tests/services/test_local_model_runtime_limits.py"
+        "tests/test_local_runtime_capability_integration.py",
+        "tests/test_model_invocation_service.py"
       ],
       "details": [
         "Runtime- und lokale Grenzen fuer Kontext, Requests, Responses, Bilder, Tool-Calls, Streaming und Deadlines kombinieren.",
@@ -541,10 +548,10 @@
         "LMR-010"
       ],
       "affected_files": [
-        "agent/services/ollama_request_adapter.py",
-        "agent/services/ollama_response_adapter.py",
+        "agent/services/local_runtime_response_adapters.py",
         "agent/services/model_invocation_service.py",
-        "tests/providers/test_ollama_response_adapter.py"
+        "agent/llm_strategies/standard.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "/api/chat und /api/generate hinter getrennten Request-/Response-Adaptern kapseln.",
@@ -575,8 +582,8 @@
         "LMR-011"
       ],
       "affected_files": [
-        "agent/services/ollama_vision_adapter.py",
-        "tests/providers/test_ollama_vision_adapter.py"
+        "agent/services/local_runtime_image_adapter.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Freigegebene Artefaktreferenzen in das Ollama-Imageformat ueberfuehren.",
@@ -606,8 +613,9 @@
       "affected_files": [
         "worker/retrieval/embedding_provider.py",
         "agent/services/embedding_provider_config_service.py",
-        "agent/services/ollama_embedding_adapter.py",
-        "tests/services/test_embedding_provider_service.py"
+        "agent/services/local_runtime_response_adapters.py",
+        "tests/test_local_runtime_capability_integration.py",
+        "tests/test_embedding_provider_config_service.py"
       ],
       "details": [
         "Bestehende OpenAI-kompatible Embedding-Konfiguration erhalten.",
@@ -640,7 +648,7 @@
         "agent/llm_integration_lmstudio.py",
         "agent/llm_strategies/lmstudio.py",
         "agent/services/model_invocation_service.py",
-        "tests/test_lmstudio_strategy.py"
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Bestehende Aufrufsignaturen ueber Kompatibilitaetswrapper erhalten.",
@@ -671,10 +679,12 @@
         "LMR-014"
       ],
       "affected_files": [
-        "agent/services/provider_tool_loop_service.py",
         "agent/services/unified_tool_execution_service.py",
+        "worker/core/agent_loop_tool_calling_strategy.py",
         "worker/core/tool_calling_llm_strategy.py",
-        "tests/services/test_provider_tool_loop_service.py"
+        "worker/core/tool_calling_pipeline.py",
+        "tests/test_agent_loop_tool_calling_strategy.py",
+        "tests/test_tool_calling_pipeline.py"
       ],
       "details": [
         "Bestehende duplizierte Loops auf eine hub-eigene begrenzte State Machine abbilden.",
@@ -707,9 +717,11 @@
       ],
       "affected_files": [
         "agent/routes/config/providers.py",
-        "agent/routes/local_model_runtime.py",
+        "agent/routes/local_runtime_capabilities.py",
+        "agent/services/local_runtime_capability_projection.py",
+        "agent/services/local_runtime_capability_task_dispatcher.py",
         "tests/test_model_catalog_api.py",
-        "tests/routes/test_local_model_runtime.py"
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Bestehende /models/catalog/v1-Projektion additiv erweitern.",
@@ -739,8 +751,10 @@
       ],
       "affected_files": [
         "frontend-angular/src/app/features/system/model-dashboard",
-        "frontend-angular/src/app/core/services/local-model-runtime-api.service.ts",
+        "frontend-angular/src/app/features/system/model-dashboard/model-catalog.client.ts",
+        "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.ts",
         "client_surfaces/operator_tui",
+        "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.store.spec.ts",
         "tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
       ],
       "details": [
@@ -775,8 +789,9 @@
       "affected_files": [
         "agent/services/system_health_service.py",
         "agent/services/prompt_trace_service.py",
-        "scripts/probe_local_model_runtimes.py",
-        "tests/scripts/test_probe_local_model_runtimes.py"
+        "agent/services/local_runtime_capability_projection.py",
+        "agent/routes/local_runtime_capabilities.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "Health um Runtimeerreichbarkeit, Discovery, Detailvollstaendigkeit, Cachealter und Teilfehler erweitern.",
@@ -812,7 +827,8 @@
         ".env.template",
         "agent/llm_integration_lmstudio.py",
         "docs/setup/runtime_profiles.md",
-        "tests/test_local_model_runtime_compatibility.py"
+        "tests/test_local_llm_backends.py",
+        "tests/test_local_runtime_capability_integration.py"
       ],
       "details": [
         "LMSTUDIO_API_MODE, OLLAMA_BASE_URL und bestehende Profilkonfiguration weiter unterstuetzen.",
@@ -856,10 +872,12 @@
         "LMR-019"
       ],
       "affected_files": [
-        "tests/providers",
-        "tests/fixtures/lmstudio",
-        "tests/fixtures/ollama",
-        "docs/testing-local-model-runtimes.md"
+        "tests/test_local_runtime_capability_integration.py",
+        "tests/services/test_ollama_model_discovery_service.py",
+        "tests/test_provider_invocation_middleware.py",
+        "tests/test_agent_loop_tool_calling_strategy.py",
+        "tests/test_tool_calling_pipeline.py",
+        "docs/local-runtime-capabilities.md"
       ],
       "details": [
         "Deterministische Fixture-Matrix fuer alte und aktuelle API-Antwortformen erstellen.",
@@ -892,10 +910,10 @@
         "LMR-020"
       ],
       "affected_files": [
-        "docs/operator/lmstudio-integration.md",
-        "docs/operator/ollama-integration.md",
-        "docs/operator/local-model-capabilities.md",
-        "docs/operator/tool-calling.md",
+        "docs/local-runtime-capabilities.md",
+        "docs/ollama-model-routing.md",
+        "docs/setup/runtime_profiles.md",
+        "docs/operations/ananta-worker-tool-calling.md",
         "docs/release-checklist.md"
       ],
       "details": [
@@ -909,7 +927,7 @@
         "Phase 1 sammelt read-only Snapshots ohne Routingaenderung.",
         "Phase 2 aktiviert capability-aware Routing nur fuer sichere Quellen.",
         "Phase 3 aktiviert den vereinheitlichten Tool-Loop hinter separatem Featureflag.",
-        "Jede Phase besitzt Trigger, Metriken, Rollbackschritte und verantwortlichen Operator.",
+        "Jede Phase besitzt Trigger, Metriken, vollautomatische Rollbackschritte und einen maschinenlesbaren Verantwortungs- und Eskalationspfad; Human-in-the-loop ist fuer den Lauf nicht erforderlich.",
         "Probe-Kommando, bekannte Grenzen und externe Live-Gates sind verlinkt."
       ]
     }
@@ -935,55 +953,59 @@
       "id": "LMR-VG-01",
       "name": "Capability contract, normalization and cache",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/contracts/test_local_model_capabilities.py tests/services/test_model_capability_normalizer_service.py tests/services/test_chat_template_inspector_service.py tests/services/test_local_model_capability_cache_service.py"
+      "command": "python -m pytest -q -W error tests/test_local_runtime_capability_integration.py tests/test_model_capability_contract.py tests/services/test_model_inference_capability_inventory.py"
     },
     {
       "id": "LMR-VG-02",
       "name": "Provider fixture matrix",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/providers tests/services/test_ollama_model_discovery_service.py tests/test_llm_integration_lmstudio.py"
+      "command": "python -m pytest -q -W error tests/services/test_ollama_model_discovery_service.py tests/test_local_llm_backends.py tests/test_goal_live_lmstudio.py"
     },
     {
       "id": "LMR-VG-03",
       "name": "Routing, tool loop and compatibility",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/services/test_provider_tool_loop_service.py tests/test_local_model_runtime_compatibility.py"
+      "command": "python -m pytest -q -W error tests/test_model_profile_resolver.py tests/services/test_tool_calling_mode_service.py tests/test_provider_invocation_middleware.py tests/test_model_invocation_service.py tests/test_model_routing_security_policy.py tests/test_agent_loop_tool_calling_strategy.py tests/test_tool_calling_pipeline.py"
     },
     {
       "id": "LMR-VG-04",
-      "name": "API, Angular, TUI and security regressions",
+      "name": "API, catalog, Angular, TUI and security regressions",
       "status": "not_run",
-      "command": "python -m pytest -q -W error tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/security/test_local_runtime_security.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
+      "command": "python -m pytest -q -W error tests/test_model_catalog_service.py tests/test_model_catalog_api.py tests/test_local_model_runtime_api.py tests/test_local_model_runtime_contract.py tests/client_surfaces/operator_tui/test_dashboard_http_adapter.py"
     }
   ],
   "external_release_gates": [
     {
       "id": "LMR-ERG-01",
       "title": "Grounded Source- und Run-Evidence",
-      "status": "pending_external",
+      "status": "blocked",
       "required_for": "grounded_track_completion",
-      "rule": "Commit-SHA sowie bereitgestellte SRC_* und RUN_* IDs muessen vor grounded Claims erfasst werden."
+      "rule": "Commit-SHA sowie bereitgestellte SRC_* und RUN_* IDs muessen vor grounded Claims erfasst werden.",
+      "blocked_reason": "Keine zulaessigen SRC_* oder RUN_* IDs wurden bereitgestellt."
     },
     {
       "id": "LMR-ERG-02",
       "title": "LM-Studio-Live-Kompatibilitaet",
-      "status": "pending_external",
+      "status": "blocked",
       "required_for": "production_rollout",
-      "rule": "Ein Operator prueft mindestens den unterstuetzten OpenAI-kompatiblen Pfad und eine aktuelle native v1-Modellliste mit temporaeren Credentials und redigierter RUN_* Evidenz."
+      "rule": "Ein vollautomatischer externer Runner prueft mindestens den unterstuetzten OpenAI-kompatiblen Pfad und eine aktuelle native v1-Modellliste mit temporaeren Credentials und redigierter RUN_* Evidenz; kein Human-in-the-loop ist erforderlich.",
+      "blocked_reason": "In der aktuellen Umgebung ist keine autorisierte LM-Studio-Live-Runtime samt zulaessiger RUN_* Evidenz bereitgestellt."
     },
     {
       "id": "LMR-ERG-03",
       "title": "Ollama-Live-Kompatibilitaet",
-      "status": "pending_external",
+      "status": "blocked",
       "required_for": "production_rollout",
-      "rule": "Ein Operator prueft reale, bereitgestellte Modelle fuer Tools, Thinking, Vision und Embeddings; Modellnamen und Digests werden nicht erfunden."
+      "rule": "Ein vollautomatischer externer Runner prueft reale, bereitgestellte Modelle fuer Tools, Thinking, Vision und Embeddings; Modellnamen und Digests werden nicht erfunden und kein Human-in-the-loop ist erforderlich.",
+      "blocked_reason": "In der aktuellen Umgebung sind keine autorisierten Ollama-Live-Modelle samt zulaessiger RUN_* Evidenz bereitgestellt."
     },
     {
       "id": "LMR-ERG-04",
       "title": "Capability-aware Production-Rollout",
-      "status": "pending_external",
+      "status": "blocked",
       "required_for": "enable_capability_routing_by_default",
-      "rule": "Operator und Governance bestaetigen Metriken, Fehlroutinggrenzen, Incident-Rollback und Supportdokumentation."
+      "rule": "Eine vollautomatische Rollout-Policy wertet Metriken, Fehlroutinggrenzen, Incident-Rollback und Supportdokumentation aus und kann ohne Human-in-the-loop freigeben oder automatisch zurueckrollen.",
+      "blocked_reason": "Externe Live-Metriken und zulaessige RUN_* Evidenz fuer die Production-Default-Policy fehlen."
     }
   ],
   "evidence_policy": {
@@ -1042,8 +1064,8 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 1,
-      "blocked": 0,
+        "in_progress": 0,
+        "blocked": 1,
       "done": 4
     }
   },
@@ -1309,7 +1331,7 @@
         "blocked": 1,
         "count_based_percent": 75.0,
         "weighted_percent": 80.7,
-        "status": "in_progress"
+        "status": "blocked"
       },
       "LMR-M2": {
         "total_tasks": 5,
