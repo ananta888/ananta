@@ -2,27 +2,31 @@
   "$schema": "../todo.schema.json",
   "version": "1.0",
   "created": "2026-08-15",
-  "updated": "2026-08-30",
+  "updated": "2026-09-01",
   "project": "ananta",
   "review_basis": {
-    "reviewed_commit_range": "69308b399",
+    "reviewed_commit_range": "910ba3253",
     "review_goal": "Alle aktuell fehlgeschlagenen GitHub-Actions-Checks lokal reproduzierbar analysieren, echte Ursachen beheben und komplexe Punkte strukturiert nachhalten.",
     "reviewed_paths": [
       "frontend-angular/tests",
       "frontend-angular/src/app/components/ai-assistant-controls.component.ts",
       "frontend-angular/src/app/features/control-center/components/control-center-policy-approval.component.ts",
       "reports/architecture-import-baseline.txt",
+      "agent/repositories/sfu_broadcast_group_key_validation.py",
+      "agent/repositories/tasks.py",
+      "scripts/generate_visual_process_assistant_baseline.py",
+      "scripts/run_semantic_sfu_gate.py",
       ".github/workflows/e2e-compose.yml",
       ".github/workflows/quality-and-docs.yml"
     ],
     "latest_failed_run_ids": [
-      "33307559841",
-      "33307559864"
+      "33451954201",
+      "33456939447"
     ],
     "latest_success_run_ids": [
-      "33307559845",
-      "33307559850",
-      "33307559861"
+      "33456939454",
+      "33456939500",
+      "33456939614"
     ]
   },
   "categories": [
@@ -495,7 +499,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-015",
-          "status": "partial",
+          "status": "completed",
           "workflow": "E2E Compose",
           "workflow_job": "e2e-compose (mehrere Shards)",
           "step": "Run E2E shard",
@@ -520,7 +524,10 @@
             "Lauf 31969392203: 4 von 8 Shards gruen (compose-foundation-auth, compose-foundation-ui, compose-admin-core, compose-admin-entities), vorher 0 von 8. Die Auth-Shard - an der die Ursache aufgerollt wurde - besteht vollstaendig.",
             "Verbleibende Shards haben eine ANDERE Ursache, nicht den Projektkontext. compose-goal-core: main-goal-planning.spec.ts scheitert an getByTestId('goal-list') .ap-recent-item. Der Seiten-Snapshot zeigt 'Goal angelegt' UND 'Goal-Detail geladen', also existiert das Ziel; die Liste bleibt trotzdem leer. auto-planner.component.ts legt das Goal mit project_id des gewaehlten Projekts an (Zeile 481) und fragt die Liste mit demselben project_id ab (Zeile 426), ruft nach dem Anlegen auch loadGoals(false) auf. Warum die projektgefilterte Liste das gerade erzeugte Goal nicht zurueckgibt, ist offen - der Hub-Log des Jobs ist auf die letzten 80 Zeilen gekuerzt und enthaelt den POST nicht mehr. NICHT GERATEN: naechster Schritt ist, die Log-Kuerzung fuer diesen Job zu weiten oder die Antwort von GET /goals?project_id=... mitzuschneiden."
           ],
-          "implemented_solution": "Die verbliebenen aktuellen Goal- und Smoke-Fehler sind behoben: Goal-Mocks akzeptieren projektgefilterte Query-Requests, projektgebundene E2E-Routen verwenden die gemeinsame Kontext-Hilfe, und diese setzt projectId nun korrekt vor einem URL-Fragment. Der GitHub-CI-Compose-Overlay setzt seinen Browser-Origin explizit, sodass lokale .env-Allowlisten den reproduzierbaren Lauf nicht beeinflussen. Die sechs zuvor roten Bereiche wurden am 2026-08-30 gegen den echten Compose-Stack sequenziell gruen verifiziert; die Bestaetigung der kompletten Acht-Shard-Matrix am gepushten Commit steht noch aus."
+          "implemented_solution": "Die verbliebenen aktuellen Goal- und Smoke-Fehler sind behoben: Goal-Mocks akzeptieren projektgefilterte Query-Requests, projektgebundene E2E-Routen verwenden die gemeinsame Kontext-Hilfe, und diese setzt projectId nun korrekt vor einem URL-Fragment. Der GitHub-CI-Compose-Overlay setzt seinen Browser-Origin explizit, sodass lokale .env-Allowlisten den reproduzierbaren Lauf nicht beeinflussen. Die vollstaendige Acht-Shard-Matrix ist in Run 33456939614 am Commit c1083950b gruen; der Punkt ist damit abgeschlossen.",
+          "run_ids": [
+            "33456939614"
+          ]
         },
         {
           "dependencies": [],
@@ -580,7 +587,7 @@
           "dependencies": [],
           "commit_changes": [],
           "id": "CI-018",
-          "status": "open",
+          "status": "blocked",
           "workflow": "Container Release Build / Dogfood Evidence E2E",
           "workflow_job": "-",
           "step": "-",
@@ -594,7 +601,11 @@
           ],
           "proposed_solution": "Container Release Build beim naechsten echten Release bewerten, nicht kuenstlich ausloesen. Dogfood Evidence E2E anhand des neuen Laufs beurteilen.",
           "expected_result": "Belastbarer aktueller Status statt veralteter bzw. abgebrochener Laeufe.",
-          "relevant_validations": []
+          "relevant_validations": [
+            "Container Release Build ist weiterhin releasegebunden; der letzte Lauf 28298970270 ist kein belastbarer Nachweis fuer den aktuellen Quellstand.",
+            "Dogfood Evidence E2E wurde zuletzt durch nachfolgende Pushes abgebrochen; ohne stabilen, nicht supersedierten Lauf liegt kein implementierbarer Produktfehler vor."
+          ],
+          "blocked_reason": "Ein belastbarer Container-Nachweis erfordert einen echten Release-Tag; Dogfood benoetigt einen nicht durch neuere Pushes supersedierten Lauf. Beides ist externe Laufzustands-Evidenz, kein lokal implementierbarer Defekt."
         },
         {
           "id": "CI-019",
@@ -629,7 +640,7 @@
         },
         {
           "id": "CI-020",
-          "status": "open",
+          "status": "completed",
           "workflow": "Quality And Docs",
           "workflow_job": "workflow-transition-track",
           "step": "Run workflow transition track tests",
@@ -644,14 +655,19 @@
           "expected_result": "Der Test gibt dasselbe Ergebnis unabhaengig von der Last.",
           "relevant_validations": [
             "Lokal 3 von 3 Laeufen gruen; im CI einmalig rot.",
-            "Nicht durch die Aenderungen dieser Sitzung verursacht - der Job war davor gruen und die Aenderungen beruehren diesen Bereich nicht."
+            "Nicht durch die Aenderungen dieser Sitzung verursacht - der Job war davor gruen und die Aenderungen beruehren diesen Bereich nicht.",
+            "Der Job workflow-transition-track ist in Quality-And-Docs-Run 33456939447 am Commit c1083950b erneut ohne Retry gruen."
           ],
           "dependencies": [],
-          "commit_changes": []
+          "commit_changes": [],
+          "run_ids": [
+            "33456939447"
+          ],
+          "implemented_solution": "Der einmalige CAS-Konflikt ist weder lokal in drei Wiederholungen noch im aktuellen vollstaendigen CI-Job reproduzierbar. Es wurde keine Retry-Kaschierung und keine Produktionsaenderung eingefuehrt; der Punkt ist als nicht mehr reproduzierbare historische Flake abgeschlossen."
         },
         {
           "id": "CI-021",
-          "status": "partial",
+          "status": "completed",
           "workflow": "E2E Compose / Quality And Docs",
           "workflow_job": "six E2E shards / backend-checks",
           "step": "Current main regression matrix at 69308b399",
@@ -683,25 +699,57 @@
             "AI/Auto-Planner: 17 passed und 2 zunaechst uebersprungene Dock-Faelle; nach Beseitigung des Route-Transition-Rennens ai-assistant-global-dock 3/3 ohne Retry oder Skip gruen. Hybrid- und Webhook-Faelle im gemeinsamen Lauf gruen.",
             "Frontend-Gates: npm run lint -- --quiet, npx tsc --noEmit sowie 7 gezielte Vitest-Tests gruen; Architekturcheck meldet null neue Verletzungen und 104 explizit baselinete Altfaelle."
           ],
-          "implemented_solution": "Alle acht belegten Drifts wurden eng am jeweiligen Vertrag korrigiert. Query-faehige Goal-Mocks und die gemeinsame projektgebundene Navigation verhindern falsche Redirects; mobile Anmeldung wird ueber einen responsiven Shell-Marker erkannt. Der weiterhin produktiv unterstuetzte Hybrid-Pfad hat wieder einen gebundenen Schalter. Webhook-Tests antworten ohne blockierende Browser-Reentranz vollautomatisch. Settings-Locators sind regional eindeutig. Policy-Entscheidungen werden als reaktives Signal statt als imperative Spiegelkopie projiziert und durch einen spaeten Emissionstest abgesichert. Der Architecture-Baseline wurden ausschliesslich die zwei geloesten Eintraege entnommen. Zusaetzlich wartet der Assistant-E2E-Helper auf sichtbare, stabile Dock-Instanzen und der CI-Compose-Overlay besitzt eine eigene deterministische CORS-Allowlist. Der lokale Nachweis ist gruen; CI-021 bleibt bis zum vollstaendigen GitHub-Lauf bewusst partial.",
+          "implemented_solution": "Alle acht belegten Drifts wurden eng am jeweiligen Vertrag korrigiert. Query-faehige Goal-Mocks und die gemeinsame projektgebundene Navigation verhindern falsche Redirects; mobile Anmeldung wird ueber einen responsiven Shell-Marker erkannt. Der weiterhin produktiv unterstuetzte Hybrid-Pfad hat wieder einen gebundenen Schalter. Webhook-Tests antworten ohne blockierende Browser-Reentranz vollautomatisch. Settings-Locators sind regional eindeutig. Policy-Entscheidungen werden als reaktives Signal statt als imperative Spiegelkopie projiziert und durch einen spaeten Emissionstest abgesichert. Der Architecture-Baseline wurden ausschliesslich die zwei geloesten Eintraege entnommen. Zusaetzlich wartet der Assistant-E2E-Helper auf sichtbare, stabile Dock-Instanzen und der CI-Compose-Overlay besitzt eine eigene deterministische CORS-Allowlist. E2E Compose ist in Run 33456939614 vollstaendig gruen. Die vier spaeter entstandenen Architekturverletzungen des Backend-Gates sind als separater CI-022 erfasst.",
           "dependencies": [],
           "commit_changes": [],
           "run_ids": [
             "33307559841",
-            "33307559864"
+            "33307559864",
+            "33456939614"
+          ]
+        },
+        {
+          "id": "CI-022",
+          "status": "open",
+          "workflow": "Quality And Docs",
+          "workflow_job": "backend-checks",
+          "step": "Run unified check pipeline (standard backend gate)",
+          "severity": "high",
+          "risk_assessment": "Hoch: vier neue Repository-zu-Service-Importe umgehen die festgelegte Abhaengigkeitsrichtung und halten den verpflichtenden Standard-Gate rot.",
+          "observed_error": "Quality-And-Docs-Run 33456939447 am Commit c1083950b meldet vier neue Architekturverletzungen: drei in agent.repositories.sfu_broadcast_group_key_validation und eine in agent.repositories.tasks.",
+          "root_cause": "SFU-Persistenzmodelle, der Envelope-Port und das Autorisierungsmodell liegen im Service-Namespace, obwohl Repository-Validierung sie als untergeordnete Vertrage benoetigt. Zusaetzlich ruft TaskRepository die Organization-Completion-Services direkt auf, statt die Hub-Policy als injizierte Abhaengigkeit von der Composition Root zu erhalten.",
+          "affected_files_or_subsystems": [
+            "agent/repositories/sfu_broadcast_group_key_validation.py",
+            "agent/repositories/tasks.py",
+            "agent/repository.py",
+            "agent/services/sfu_broadcast_group_key_repository_port.py",
+            "agent/services/sfu_hub_secret_envelope.py",
+            "agent/services/webrtc_group_key_authorization_service.py",
+            "agent/services/organization_workflow_gate_approval_service.py"
+          ],
+          "proposed_solution": "Die schmalen SFU-Daten- und Portvertraege in neutrale models/ports-Module verschieben und aus den bisherigen Service-Modulen kompatibel re-exportieren. Die Organization-Completion-Policy als kleines Callable-Protokoll in TaskRepository injizieren; die bestehende Facade agent.repository bleibt Composition Root und loest die Service-Implementierung lazy auf, um Importzyklen zu vermeiden.",
+          "expected_result": "scripts/check_imports.py meldet null neue und null stale Architekturverletzungen; die SFU-Repository- und Organization-Workflow-Tests bleiben vollautomatisch gruen.",
+          "relevant_validations": [
+            "Quality-And-Docs-Run 33456939447: alle Jobs ausser backend-checks gruen; backend-checks meldet exakt vier neue und null stale Architekturverletzungen.",
+            "Der lokale Gesamtlauf vor der Architekturkorrektur hatte 24291 passed, 280 skipped und sieben inzwischen behobene Gate-Artefaktfehler."
+          ],
+          "dependencies": [],
+          "commit_changes": [],
+          "run_ids": [
+            "33456939447"
           ]
         }
       ]
     }
   ],
   "meta": {
-    "total_items": 21,
+    "total_items": 22,
     "by_status": {
-      "completed": 16,
-      "partial": 3,
-      "open": 2,
+      "completed": 19,
+      "partial": 1,
+      "open": 1,
       "in_progress": 0,
-      "blocked": 0,
+      "blocked": 1,
       "blocked_decision": 0,
       "planned": 0,
       "done": 0
@@ -716,21 +764,12 @@
       "Offen und ausserhalb CI-009 (nicht mitbehoben, damit der Scope eng bleibt): der Workflow 'Ananta Native Full E2E Evidence' (Run 31939074467) scheitert bereits vor dem Diff-Schritt mit '403 FORBIDDEN' auf /tasks/orchestration/ingest. Die dort vorgenommene Diff-Fenster-Korrektur ist deshalb lokal gegen die echte Fixture verifiziert, aber noch nicht durch einen gruenen CI-Run bestaetigt - das setzt voraus, dass zuvor der 403 auf dem Ingest-Pfad geklaert wird. Eigener Folgepunkt.",
       "BESTANDSAUFNAHME 2026-08-16 ueber alle 26 registrierten Workflows (jeweils letzter Lauf): 13 gruen, 10 rot, 2 zum Erhebungszeitpunkt noch laufend (E2E Compose 31943267699, Quality And Docs 31943267724 - beide zuletzt rot), 1 cancelled. Neu aufgenommen als CI-010 bis CI-018. Wichtig: CI-001 und CI-002 waren als 'completed' gefuehrt, sind aber durchgehend rot und wurden auf 'open' korrigiert - in beiden Faellen ist das Fehlerbild vor und nach den heutigen Commits identisch, es handelt sich also nicht um eine neue Regression, sondern um einen nie erreichten Gruenzustand.",
       "STAND NACH DER ZWEITEN RUNDE: von 26 Workflows sind 20 gruen. Rot bleiben Coverage Report (CI-013, eigene breitere Ursache), Unsloth Release Gate (CI-016, lokal gruen, CI-Verifikation braucht externe Evidenz-Inputs), Container Release Build (CI-018, nur mit echtem Release beurteilbar) und - innerhalb von Quality And Docs - der Temporal-Job (CI-014b) sowie das zurueckgestellte Zeilenlimit-Gate (CI-017). E2E Compose (CI-015) ist unangetastet: acht Shards, deren Diagnose den vollen Compose-Stack braucht.",
-      "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden."
+      "AKTUELLER AUDIT 2026-08-30: CI-021 ersetzt keine historische Ursache, sondern bindet den exakt gepushten Commit 69308b399 an die beiden roten Laeufe 33307559841 und 33307559864. Die aktuelle Matrix ist aus Artefakten und Traces erhoben; unbekannte SRC_*- oder RUN_*-Belege wurden nicht erfunden.",
+      "AKTUELLER AUDIT 2026-09-01: CI-015, CI-020 und CI-021 sind durch die erfolgreichen aktuellen E2E-/Workflow-Jobs abgeschlossen. CI-018 ist mangels echtem Release-Tag beziehungsweise stabilem Dogfood-Lauf blockiert. CI-013 verbleibt nur bis zum erneuten Coverage-Nachweis partial; seine zuletzt gemeldeten Gate-Drifts sind lokal behoben. CI-022 bildet die vier neuen, lokal reproduzierbaren Architekturverletzungen des Standard-Backend-Gates ab."
     ],
     "recommended_order": [
-      "CI-021",
-      "CI-011",
-      "CI-010",
-      "CI-001",
-      "CI-012",
-      "CI-002",
-      "CI-013",
-      "CI-014",
-      "CI-015",
-      "CI-016",
-      "CI-018",
-      "CI-017"
+      "CI-022",
+      "CI-013"
     ]
   }
 }
