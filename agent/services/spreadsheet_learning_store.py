@@ -115,6 +115,44 @@ class SpreadsheetLearningStore:
     def get_dataset(self, tenant_id: str, dataset_id: str) -> dict[str, Any]:
         return self._get("spreadsheet_datasets", tenant_id, "dataset_id", dataset_id, "spreadsheet_dataset_not_found")
 
+    def list_datasets(self, tenant_id: str) -> list[dict[str, Any]]:
+        tenant = require_id(tenant_id, "tenant_id")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM spreadsheet_datasets WHERE tenant_id=? ORDER BY dataset_id",
+                (tenant,),
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def append_training_lineage(self, tenant_id: str, lineage: Mapping[str, Any]) -> dict[str, Any]:
+        return self._insert_immutable(
+            table="spreadsheet_training_lineage",
+            tenant_id=tenant_id,
+            identity_field="job_id",
+            identity=str(lineage.get("job_id") or ""),
+            payload=lineage,
+            conflict_reason="spreadsheet_training_lineage_replay_conflict",
+        )
+
+    def list_training_lineage(self, tenant_id: str) -> list[dict[str, Any]]:
+        tenant = require_id(tenant_id, "tenant_id")
+        with self._connect() as connection:
+            rows = connection.execute(
+                "SELECT payload_json FROM spreadsheet_training_lineage WHERE tenant_id=? ORDER BY job_id",
+                (tenant,),
+            ).fetchall()
+        return [json.loads(row[0]) for row in rows]
+
+    def append_revocation_impact(self, tenant_id: str, impact: Mapping[str, Any]) -> dict[str, Any]:
+        return self._insert_immutable(
+            table="spreadsheet_revocation_impacts",
+            tenant_id=tenant_id,
+            identity_field="impact_id",
+            identity=str(impact.get("impact_id") or ""),
+            payload=impact,
+            conflict_reason="spreadsheet_revocation_impact_replay_conflict",
+        )
+
     def _insert_immutable(
         self,
         *,
@@ -174,6 +212,12 @@ class SpreadsheetLearningStore:
                 CREATE TABLE IF NOT EXISTS spreadsheet_datasets(
                     tenant_id TEXT NOT NULL,dataset_id TEXT NOT NULL,payload_json TEXT NOT NULL,
                     PRIMARY KEY(tenant_id,dataset_id));
+                CREATE TABLE IF NOT EXISTS spreadsheet_training_lineage(
+                    tenant_id TEXT NOT NULL,job_id TEXT NOT NULL,payload_json TEXT NOT NULL,
+                    PRIMARY KEY(tenant_id,job_id));
+                CREATE TABLE IF NOT EXISTS spreadsheet_revocation_impacts(
+                    tenant_id TEXT NOT NULL,impact_id TEXT NOT NULL,payload_json TEXT NOT NULL,
+                    PRIMARY KEY(tenant_id,impact_id));
                 """
             )
 

@@ -29,6 +29,7 @@ class SpreadsheetSagaService:
         executor: SpreadsheetExecutionPort,
         artifact_store: SpreadsheetArtifactStore | None = None,
         validator_engine: SpreadsheetValidatorEngine | None = None,
+        training_available: bool = False,
     ) -> None:
         policy.validate()
         self._store = store
@@ -36,6 +37,7 @@ class SpreadsheetSagaService:
         self._executor = executor
         self._artifacts = artifact_store
         self._validators = validator_engine or SpreadsheetValidatorEngine()
+        self._training_available = bool(training_available)
 
     def capabilities(self) -> dict[str, Any]:
         try:
@@ -57,7 +59,7 @@ class SpreadsheetSagaService:
             "libreoffice_fidelity_verified": bool(
                 capability.get("engine") == "libreoffice-calc" and capability.get("production_fidelity") is True
             ),
-            "training_available": False,
+            "training_available": self._training_available,
             "source_grounding_verified": False,
             "human_intervention_required": False,
         }

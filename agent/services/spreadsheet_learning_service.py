@@ -191,7 +191,47 @@ class SpreadsheetLearningService:
         }
         revoked.pop("consent_digest", None)
         revoked["consent_digest"] = canonical_digest(revoked)
-        return self._store.append_consent(tenant_id, revoked)
+        persisted = self._store.append_consent(tenant_id, revoked)
+        datasets = [
+            dataset for dataset in self._store.list_datasets(tenant_id) if self._dataset_uses_consent(dataset, current)
+        ]
+        dataset_ids = sorted(str(dataset["dataset_id"]) for dataset in datasets)
+        jobs = [
+            lineage
+            for lineage in self._store.list_training_lineage(tenant_id)
+            if str(lineage.get("dataset_id") or "") in dataset_ids
+        ]
+        impact = {
+            "schema": "ananta.spreadsheet-consent-revocation-impact.v1",
+            "impact_id": f"revocation-{current['consent_id']}-{revoked['revocation_epoch']}",
+            "consent_id": current["consent_id"],
+            "consent_digest": current["consent_digest"],
+            "revocation_epoch": revoked["revocation_epoch"],
+            "dataset_ids": dataset_ids,
+            "training_jobs": [
+                {
+                    "job_id": str(lineage["job_id"]),
+                    "owner_id": str(lineage["owner_id"]),
+                    "state": "fence_required",
+                }
+                for lineage in jobs
+            ],
+            "adapter_ids": sorted(
+                {
+                    str(adapter_id)
+                    for lineage in jobs
+                    for adapter_id in list(lineage.get("adapter_ids") or [])
+                    if str(adapter_id)
+                }
+            ),
+            "state": "fence_required" if jobs else "quarantined",
+            "reason_code": "spreadsheet_consent_revoked",
+            "created_at": float(self._clock()),
+            "human_intervention_required": False,
+        }
+        impact["digest"] = canonical_digest(impact)
+        persisted_impact = self._store.append_revocation_impact(tenant_id, impact)
+        return {**persisted, "impact": persisted_impact}
 
     def materialize_dataset(
         self,
@@ -219,6 +259,7 @@ class SpreadsheetLearningService:
         seen_records: set[str] = set()
         lineage_splits: dict[str, str] = {}
         consent_digests: list[str] = []
+        consent_refs: list[dict[str, Any]] = []
         now = float(self._clock())
         for raw_id in feedback_ids:
             event = self._owned_feedback(tenant_id, principal_id, str(raw_id))
@@ -247,6 +288,14 @@ class SpreadsheetLearningService:
                 }
             )
             consent_digests.append(consent["consent_digest"])
+            consent_refs.append(
+                {
+                    "consent_id": consent["consent_id"],
+                    "consent_digest": consent["consent_digest"],
+                    "consent_version": consent["version"],
+                    "revocation_epoch": consent["revocation_epoch"],
+                }
+            )
         rows.sort(key=lambda row: (row["split"], row["lineage_root_id"], row["record_digest"]))
         content = "".join(canonical_json(row) + "\n" for row in rows).encode()
         dataset_digest = hashlib.sha256(content).hexdigest()
@@ -268,6 +317,7 @@ class SpreadsheetLearningService:
             "serializer_version": self.SERIALIZER_VERSION,
             "policy_version": self.POLICY_VERSION,
             "consent_digests": sorted(consent_digests),
+            "consent_refs": sorted(consent_refs, key=lambda item: (item["consent_id"], item["consent_digest"])),
             "readiness": {
                 "dry_run_ready": bool(rows),
                 "training_ready": len(rows) >= 100 and counts["train"] > 0 and counts["validation"] > 0,
@@ -283,7 +333,74 @@ class SpreadsheetLearningService:
         value = self._store.get_dataset(tenant_id, dataset_id)
         if value.get("owner_id") != principal_id:
             raise PermissionError("spreadsheet_dataset_owner_required")
-        return value
+        stale = []
+        for reference in list(value.get("consent_refs") or []):
+            try:
+                current = self._store.get_consent(tenant_id, str(reference.get("consent_id") or ""))
+            except KeyError:
+                stale.append(str(reference.get("consent_id") or ""))
+                continue
+            if (
+                current.get("state") != "active"
+                or current.get("consent_digest") != reference.get("consent_digest")
+                or current.get("version") != reference.get("consent_version")
+                or current.get("revocation_epoch") != reference.get("revocation_epoch")
+                or float(current.get("expires_at") or 0) <= float(self._clock())
+            ):
+                stale.append(str(reference.get("consent_id") or ""))
+        if not stale:
+            return value
+        return {
+            **value,
+            "state": "quarantined",
+            "readiness": {
+                "dry_run_ready": False,
+                "training_ready": False,
+                "reason_codes": ["spreadsheet_dataset_consent_stale"],
+            },
+            "revocation_impact": {
+                "consent_ids": sorted(stale),
+                "adapter_action": "quarantine_or_retrain",
+                "mathematical_unlearning_claimed": False,
+            },
+        }
+
+    def record_training_lineage(
+        self,
+        *,
+        tenant_id: str,
+        principal_id: str,
+        dataset_id: str,
+        ml_intern_dataset_id: str,
+        job: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        dataset = self.get_dataset(tenant_id=tenant_id, principal_id=principal_id, dataset_id=dataset_id)
+        job_id = require_id(job.get("id") or job.get("job_id"), "training_job_id")
+        value = {
+            "schema": "ananta.spreadsheet-training-lineage.v1",
+            "job_id": job_id,
+            "dataset_id": dataset["dataset_id"],
+            "dataset_digest": dataset["dataset_digest"],
+            "ml_intern_dataset_id": require_id(ml_intern_dataset_id, "ml_intern_dataset_id"),
+            "owner_id": principal_id,
+            "consent_refs": list(dataset.get("consent_refs") or []),
+            "adapter_ids": [],
+            "created_at": float(self._clock()),
+            "human_intervention_required": False,
+        }
+        value["digest"] = canonical_digest(value)
+        return self._store.append_training_lineage(tenant_id, value)
+
+    @staticmethod
+    def _dataset_uses_consent(dataset: Mapping[str, Any], consent: Mapping[str, Any]) -> bool:
+        refs = list(dataset.get("consent_refs") or [])
+        if refs:
+            return any(
+                reference.get("consent_id") == consent.get("consent_id")
+                and reference.get("consent_digest") == consent.get("consent_digest")
+                for reference in refs
+            )
+        return consent.get("consent_digest") in set(dataset.get("consent_digests") or [])
 
     def dataset_path(self, *, tenant_id: str, principal_id: str, dataset_id: str) -> Path:
         dataset = self.get_dataset(tenant_id=tenant_id, principal_id=principal_id, dataset_id=dataset_id)

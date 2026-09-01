@@ -103,12 +103,60 @@ def test_feedback_consent_dataset_and_revocation_are_separate_automatic_states(t
         expected_version=1,
     )
     assert revoked["state"] == "revoked"
+    assert revoked["impact"]["dataset_ids"] == ["dataset-one"]
+    quarantined = learning.get_dataset(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        dataset_id="dataset-one",
+    )
+    assert quarantined["state"] == "quarantined"
+    assert quarantined["readiness"]["dry_run_ready"] is False
+    assert quarantined["revocation_impact"]["mathematical_unlearning_claimed"] is False
     with pytest.raises(PermissionError, match="consent_inactive"):
         learning.materialize_dataset(
             tenant_id="tenant-a",
             principal_id="user-a",
             payload=_dataset(event, dataset_id="dataset-after-revoke"),
         )
+
+
+def test_training_lineage_is_included_in_automatic_revocation_fencing(tmp_path: Path) -> None:
+    studio = service(tmp_path / "documents.sqlite3")
+    document = studio.create_document(
+        tenant_id="tenant-a",
+        owner_id="user-a",
+        title="Budget",
+        snapshot=snapshot(),
+        document_id="document-one",
+    )
+    studio.execute_proposal(tenant_id="tenant-a", principal_id="user-a", proposal=proposal(document))
+    learning = _learning(tmp_path, studio)
+    event = learning.record_feedback(tenant_id="tenant-a", principal_id="user-a", payload=_feedback(document))
+    learning.grant_consent(tenant_id="tenant-a", principal_id="user-a", payload=_consent(event))
+    dataset = learning.materialize_dataset(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        payload=_dataset(event),
+    )
+    learning.record_training_lineage(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        dataset_id=dataset["dataset_id"],
+        ml_intern_dataset_id="ml-dataset-one",
+        job={"id": "job-one"},
+    )
+
+    revoked = learning.revoke_consent(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        consent_id="consent-one",
+        expected_version=1,
+    )
+
+    assert revoked["impact"]["state"] == "fence_required"
+    assert revoked["impact"]["training_jobs"] == [
+        {"job_id": "job-one", "owner_id": "user-a", "state": "fence_required"}
+    ]
 
 
 def test_apply_or_feedback_never_implies_training_consent(tmp_path: Path) -> None:

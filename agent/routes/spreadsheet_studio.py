@@ -12,6 +12,9 @@ from flask import Blueprint, current_app, request, send_file
 from agent.auth import admin_required, check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
 from agent.services.ml_intern_lora_inference_service import get_lora_inference_service
+from agent.services.spreadsheet_consent_revocation_coordinator import (
+    SpreadsheetConsentRevocationCoordinator,
+)
 from agent.services.spreadsheet_inference_service import SpreadsheetInferenceService
 from agent.services.spreadsheet_learning_store import SpreadsheetLearningConflict
 from agent.services.spreadsheet_ml_intern_bridge_service import SpreadsheetMlInternBridgeService
@@ -240,14 +243,24 @@ def revoke_consent(consent_id: str):
     if set(body) != {"expected_version"}:
         return api_response(status="error", message="spreadsheet_consent_revoke_fields_invalid", code=422)
     tenant_id, principal_id = _identity()
-    return _invoke(
-        lambda: _learning_service().revoke_consent(
+
+    def operation():
+        revoked = _learning_service().revoke_consent(
             tenant_id=tenant_id,
             principal_id=principal_id,
             consent_id=consent_id,
             expected_version=body["expected_version"],
         )
-    )
+        impact = dict(revoked.get("impact") or {})
+        if impact.get("training_jobs"):
+            from agent.routes.ml_intern_training_unsloth_support import get_ml_intern_training_services
+
+            impact = SpreadsheetConsentRevocationCoordinator(
+                control=get_ml_intern_training_services().control,
+            ).reconcile(tenant_id=tenant_id, impact=impact)
+        return {**revoked, "impact": impact}
+
+    return _invoke(operation)
 
 
 @spreadsheet_studio_bp.post("/datasets/materialize")

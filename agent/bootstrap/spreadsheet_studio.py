@@ -63,6 +63,7 @@ def initialize_spreadsheet_studio(app: Flask) -> SpreadsheetStudioWiringStatus:
                         policy=policy,
                         executor=executor,
                         artifact_store=SpreadsheetArtifactStore(state.parent / "spreadsheet-artifacts"),
+                        training_available=True,
                     )
                     app.extensions["spreadsheet_learning_service"] = SpreadsheetLearningService(
                         documents=document_store,

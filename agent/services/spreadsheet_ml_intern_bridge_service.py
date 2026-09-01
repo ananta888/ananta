@@ -137,6 +137,15 @@ class SpreadsheetMlInternBridgeService:
             command,
             idempotency_key=idempotency_key,
         )
+        record_lineage = getattr(self._learning, "record_training_lineage", None)
+        if callable(record_lineage):
+            record_lineage(
+                tenant_id=tenant_id,
+                principal_id=principal_id,
+                dataset_id=str(dataset["dataset_id"]),
+                ml_intern_dataset_id=str(projected["id"]),
+                job=job,
+            )
         return {
             "schema": "ananta.spreadsheet-training-admission.v1",
             "spreadsheet_dataset_id": dataset["dataset_id"],
