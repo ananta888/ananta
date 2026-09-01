@@ -3,6 +3,7 @@
   "title": "Ziegler Finance Auditor: Finanzmärkte als Casino-, Macht- und Ausbeutungssystem offenlegen",
   "status": "open",
   "priority": "high",
+  "updated": "2026-09-01",
   "dedication": {
     "name": "Jean Ziegler",
     "note": "In memory of Jean Ziegler and his criticism of hunger, financial power, speculation, tax havens and the violence of global capitalism."
@@ -32,20 +33,29 @@
     "Read-only by default",
     "Evidence-first output with explicit uncertainty"
   ],
+  "implementation_alignment": [
+    "Quellcode-Audit 2026-09-01: Es existiert noch kein Ziegler-/Finance-Auditor-Basismodul; der Track baut daher die gemeinsame Basis fuer die beiden Erweiterungs-TODOs.",
+    "Die Implementierung liegt im bestehenden Domain-Namespace agent.services.finance_auditor; Flask-API, CLI und Task-Handler bleiben getrennte Adapter.",
+    "Deterministische Regeln sind der voll funktionsfaehige Standard. Ein optionaler LLM-Port ist injizierbar, aber weder fuer Tests noch fuer produktive Headless-Laeufe erforderlich.",
+    "Der Hub besitzt Routing, Config und Policy. Der read-only Handler erzeugt nur Analyseartefakte und bietet keine Broker-, Zahlungs-, Datei- oder Shell-Mutation.",
+    "Alle Tests laufen ohne menschliche Freigabe, externes LLM, Broker oder Netzwerk."
+  ],
   "suggested_paths": [
-    "agent/modules/ziegler_auditor/",
-    "agent/modules/ziegler_auditor/__init__.py",
-    "agent/modules/ziegler_auditor/models.py",
-    "agent/modules/ziegler_auditor/service.py",
-    "agent/modules/ziegler_auditor/rules.py",
-    "agent/modules/ziegler_auditor/scoring.py",
-    "agent/modules/ziegler_auditor/structural_violence.py",
-    "agent/modules/ziegler_auditor/speculation_auditor.py",
-    "agent/modules/ziegler_auditor/debt_auditor.py",
-    "agent/modules/ziegler_auditor/externalization.py",
-    "agent/modules/ziegler_auditor/source_quality.py",
-    "agent/modules/ziegler_auditor/prompts.py",
-    "agent/modules/ziegler_auditor/tests/",
+    "agent/services/finance_auditor/__init__.py",
+    "agent/services/finance_auditor/config.py",
+    "agent/services/finance_auditor/models.py",
+    "agent/services/finance_auditor/service.py",
+    "agent/services/finance_auditor/rules.py",
+    "agent/services/finance_auditor/scoring.py",
+    "agent/services/finance_auditor/structural_violence.py",
+    "agent/services/finance_auditor/speculation_auditor.py",
+    "agent/services/finance_auditor/debt_auditor.py",
+    "agent/services/finance_auditor/externalization.py",
+    "agent/services/finance_auditor/source_quality.py",
+    "agent/services/finance_auditor/prompts.py",
+    "agent/routes/security/finance_auditor.py",
+    "agent/cli/commands/security.py",
+    "tests/test_ziegler_finance_auditor.py",
     "prompts/ziegler_finance_auditor.j2",
     "docs/ziegler_auditor.md",
     "tests/fixtures/ziegler_finance_claims.json"
@@ -71,7 +81,7 @@
       "title": "Klassifikationsmodell für Finanzsystemkritik erstellen",
       "description": "Erweitere die Analyseausgabe um Kategorien für strukturelle Finanzgewalt.",
       "files": [
-        "agent/modules/ziegler_auditor/models.py"
+        "agent/services/finance_auditor/models.py"
       ],
       "acceptance_criteria": [
         "Es gibt Kategorien wie legal_but_harmful, structural_violence, extractive_finance, speculation_on_necessities, debt_dependency, rentier_extraction, regulatory_capture und tax_haven_risk.",
@@ -86,7 +96,7 @@
       "title": "Input-/Output-Modelle definieren",
       "description": "Erstelle strukturierte Modelle für Claims, Finanzmechanismen und Analyseausgaben.",
       "files": [
-        "agent/modules/ziegler_auditor/models.py"
+        "agent/services/finance_auditor/models.py"
       ],
       "acceptance_criteria": [
         "Es gibt ZieglerAuditInput mit claim, context, asset_type, optional_sources und requested_tone.",
@@ -101,8 +111,8 @@
       "title": "Strukturelle-Gewalt-Analyse implementieren",
       "description": "Analysiere Finanzmechanismen nach realen Folgen für Menschen statt nur nach Rendite.",
       "files": [
-        "agent/modules/ziegler_auditor/structural_violence.py",
-        "agent/modules/ziegler_auditor/tests/test_structural_violence.py"
+        "agent/services/finance_auditor/structural_violence.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Analyse berücksichtigt Hunger, Wohnraum, Gesundheit, Löhne, Schulden, öffentliche Haushalte und Grundversorgung.",
@@ -117,8 +127,8 @@
       "title": "Casino-Kapitalismus-Detector ergänzen",
       "description": "Erkenne Finanzprodukte und Narrative, bei denen realwirtschaftlicher Nutzen schwach, aber spekulative Abschöpfung hoch ist.",
       "files": [
-        "agent/modules/ziegler_auditor/speculation_auditor.py",
-        "agent/modules/ziegler_auditor/tests/test_speculation_auditor.py"
+        "agent/services/finance_auditor/speculation_auditor.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Detector erkennt casino_like_markets, leverage_dependency, volatility_extraction, greater_fool_dependency und liquidity_trap.",
@@ -133,8 +143,8 @@
       "title": "Spekulation auf Grundbedürfnisse besonders markieren",
       "description": "Finanzwetten auf Nahrung, Wasser, Wohnen, Energie und Gesundheit besonders hart bewerten.",
       "files": [
-        "agent/modules/ziegler_auditor/speculation_auditor.py",
-        "agent/modules/ziegler_auditor/scoring.py"
+        "agent/services/finance_auditor/speculation_auditor.py",
+        "agent/services/finance_auditor/scoring.py"
       ],
       "acceptance_criteria": [
         "basic_needs_affected wird als eigenes Feld ausgegeben.",
@@ -149,8 +159,8 @@
       "title": "Schulden- und Abhängigkeitsanalyse bauen",
       "description": "Analysiere Kredit-, Zins-, Staatsverschuldungs- und Abhängigkeitsmechanismen.",
       "files": [
-        "agent/modules/ziegler_auditor/debt_auditor.py",
-        "agent/modules/ziegler_auditor/tests/test_debt_auditor.py"
+        "agent/services/finance_auditor/debt_auditor.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Analyse erkennt debt_dependency, interest_extraction, austerity_pressure und dependency_cycle.",
@@ -165,8 +175,8 @@
       "title": "Externalisierungsanalyse implementieren",
       "description": "Zeige, welche Kosten eines Finanz- oder Geschäftsmodells auf andere abgewälzt werden.",
       "files": [
-        "agent/modules/ziegler_auditor/externalization.py",
-        "agent/modules/ziegler_auditor/tests/test_externalization.py"
+        "agent/services/finance_auditor/externalization.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Output enthält externalized_costs.",
@@ -181,8 +191,8 @@
       "title": "Legalität-vs-Legitimität-Prüfung ergänzen",
       "description": "Zeige explizit, dass legale Finanzpraktiken trotzdem gesellschaftlich zerstörerisch sein können.",
       "files": [
-        "agent/modules/ziegler_auditor/service.py",
-        "agent/modules/ziegler_auditor/scoring.py"
+        "agent/services/finance_auditor/service.py",
+        "agent/services/finance_auditor/scoring.py"
       ],
       "acceptance_criteria": [
         "Output enthält legality_vs_legitimacy_note.",
@@ -197,8 +207,8 @@
       "title": "Who-profits-Analyse implementieren",
       "description": "Ermittle, welche Akteure bei einem Finanznarrativ, Marktmechanismus oder Produkt wahrscheinlich profitieren.",
       "files": [
-        "agent/modules/ziegler_auditor/rules.py",
-        "agent/modules/ziegler_auditor/service.py"
+        "agent/services/finance_auditor/rules.py",
+        "agent/services/finance_auditor/service.py"
       ],
       "acceptance_criteria": [
         "Output enthält profiteers und affected_groups.",
@@ -213,8 +223,8 @@
       "title": "Source-Quality-Checker ergänzen",
       "description": "Bewerte Quellen zu Finanzclaims nach Qualität, Aktualität und Interessenkonflikt.",
       "files": [
-        "agent/modules/ziegler_auditor/source_quality.py",
-        "agent/modules/ziegler_auditor/tests/test_source_quality.py"
+        "agent/services/finance_auditor/source_quality.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Quellen können klassifiziert werden als regulator, official_report, academic, established_media, company_pr, bank_research, influencer, forum, unknown.",
@@ -230,7 +240,7 @@
       "description": "Erstelle einen Prompt, der Finanzabstraktion zurück auf Menschenrechte und reale Lebensfolgen zwingt.",
       "files": [
         "prompts/ziegler_finance_auditor.j2",
-        "agent/modules/ziegler_auditor/prompts.py"
+        "agent/services/finance_auditor/prompts.py"
       ],
       "acceptance_criteria": [
         "Prompt verlangt Analyse von Profiteuren, Betroffenen, Machtasymmetrie und externalisierten Kosten.",
@@ -245,8 +255,8 @@
       "title": "Zentralen ZieglerAuditorService bauen",
       "description": "Kombiniere Regeln, Scoring, Quellenprüfung und optionale LLM-Analyse in einem Service.",
       "files": [
-        "agent/modules/ziegler_auditor/service.py",
-        "agent/modules/ziegler_auditor/tests/test_service.py"
+        "agent/services/finance_auditor/service.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Service bietet audit(input: ZieglerAuditInput) -> ZieglerAuditResult.",
@@ -262,9 +272,8 @@
       "title": "Guardrails gegen Trading und Manipulation einbauen",
       "description": "Sicherstellen, dass das Modul nicht zu Trading-Ausführung, Marktmanipulation oder illegalem Verhalten benutzt wird.",
       "files": [
-        "agent/modules/ziegler_auditor/service.py",
-        "agent/policies/tool_policy.py",
-        "agent/modules/ziegler_auditor/tests/test_guardrails.py"
+        "agent/services/finance_auditor/service.py",
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "Requests mit buy, sell, short, leverage, execute_order, pump, dump oder coordinate_market_action werden abgelehnt oder in Risikoanalyse umgewandelt.",
@@ -279,12 +288,12 @@
       "title": "Konfiguration ergänzen",
       "description": "Ziegler-Auditor-Modul in zentrale Ananta-Konfiguration aufnehmen.",
       "files": [
-        "config.json",
-        "agent/config.py"
+        "agent/services/finance_auditor/config.py",
+        "config.example.yaml"
       ],
       "acceptance_criteria": [
-        "Feature ist per enable_ziegler_auditor aktivierbar.",
-        "LLM-Nutzung ist separat per ziegler_auditor_use_llm steuerbar.",
+        "Feature ist unter finance_auditor.ziegler.enabled aktivierbar.",
+        "LLM-Nutzung ist separat per finance_auditor.ziegler.use_llm steuerbar.",
         "Ton ist konfigurierbar: neutral, direct, accusatory_grounded.",
         "Default ist sicher: read-only, keine Trading-Ausführung, keine Broker-Integration, LLM optional.",
         "Konfiguration ist dokumentiert."
@@ -295,8 +304,9 @@
       "title": "CLI- oder API-Einstieg hinzufügen",
       "description": "Ein einfacher Einstieg zum Prüfen von Finanzclaims soll verfügbar sein.",
       "files": [
-        "agent/cli.py",
-        "agent/api/routes_ziegler_auditor.py"
+        "agent/cli/commands/security.py",
+        "agent/routes/security/finance_auditor.py",
+        "agent/bootstrap/routes.py"
       ],
       "acceptance_criteria": [
         "CLI kann einen Claim entgegennehmen und JSON ausgeben.",
@@ -326,7 +336,7 @@
       "title": "Snapshot-Tests für Analyseausgabe ergänzen",
       "description": "Stabile Tests für Ausgabeformate und kritische Flags erstellen.",
       "files": [
-        "agent/modules/ziegler_auditor/tests/test_snapshots.py"
+        "tests/test_ziegler_finance_auditor.py"
       ],
       "acceptance_criteria": [
         "JSON-Struktur bleibt stabil.",
@@ -341,16 +351,17 @@
       "title": "Ananta-Integration mit Task-Routing vorbereiten",
       "description": "Ziegler-Auditor als eigene Task-Kategorie in Ananta einhängen.",
       "files": [
-        "agent/task_classification.py",
-        "agent/task_config.json",
-        "agent/modules/ziegler_auditor/service.py"
+        "agent/services/task_intent_router.py",
+        "agent/services/task_class_resolver.py",
+        "agent/services/task_handler_registry.py",
+        "agent/services/finance_auditor/service.py"
       ],
       "acceptance_criteria": [
         "Investment-, Krypto-, Börsen-, Geldsystem-, Schulden- und Spekulationsclaims können zur Kategorie ziegler_auditor geroutet werden.",
         "Routing startet keine Worker mit Schreibzugriff auf Projektdateien.",
         "Analyse kann als read-only Task laufen.",
         "Task-Kategorie ist dokumentiert.",
-        "Fallback auf market_skeptic ist möglich, falls Ziegler-Auditor deaktiviert ist."
+        "Bei deaktiviertem Auditor bleibt die normale read-only Analyseklasse erhalten; es wird kein nicht existierender Spezial-Backendname erfunden."
       ]
     },
     {
