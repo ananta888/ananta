@@ -74,9 +74,26 @@ from agent.services.unsloth_storage_governance_service import (
 ml_intern_training_bp = Blueprint("ml_intern_training", __name__, url_prefix="/api/ml-intern-training")
 _MULTIPART_OVERHEAD_BYTES = 512 * 1024
 _ROUTE_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
+_DEFERRED_TRAINING_DISPATCH = "_ml_intern_training_dispatch"
 
 register_unsloth_routes(ml_intern_training_bp)
 register_adapter_routes(ml_intern_training_bp)
+
+
+@ml_intern_training_bp.teardown_request
+def _dispatch_admitted_training_job(_error: BaseException | None) -> None:
+    """Start an admitted job only after all request audit writes have ended."""
+
+    pending = g.pop(_DEFERRED_TRAINING_DISPATCH, None)
+    if pending is None:
+        return
+    control, principal, job_id = pending
+    try:
+        control.schedule_reconciled_job(principal, job_id)
+    except Exception:
+        # Admission is already durable. The Hub reconciler will automatically
+        # offer this queued job again; teardown must never mask the response.
+        return
 
 
 @ml_intern_training_bp.before_request
@@ -618,7 +635,7 @@ def submit_training_job():
     try:
         services = _services()
         principal = _principal()
-        accepted, replayed = services.control.create_job(
+        accepted, replayed = services.control.admit_job(
             principal,
             payload,
             idempotency_key=_idempotency_key(),
@@ -646,6 +663,14 @@ def submit_training_job():
                     "live_confirmed": payload.get("live_confirmed") is True,
                     "risk_reason_sha256": hashlib.sha256(risk_reason.encode()).hexdigest() if risk_reason else None,
                 },
+            )
+            # Defer dispatch beyond Flask's global after_request audit. The
+            # blueprint teardown hook runs after those request-owned database
+            # writes, while the persisted queue provides automatic recovery.
+            setattr(
+                g,
+                _DEFERRED_TRAINING_DISPATCH,
+                (services.control, principal, str(accepted["id"])),
             )
         return api_response(data=accepted, code=200 if replayed else 202)
     except MlInternTrainingContractError as exc:

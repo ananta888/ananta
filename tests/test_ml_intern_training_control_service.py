@@ -7,13 +7,15 @@ from pathlib import Path
 
 import pytest
 
-from ananta_contracts.unsloth_capability import compose_worker_capability_probe
 from agent.db_models import MlInternDatasetDB
 from agent.repositories.ml_intern_training import MlInternTrainingRepository
 from agent.repository import worker_job_repo
 from agent.services.ml_intern_training_contract import MlInternTrainingContractError
 from agent.services.ml_intern_training_control_service import MlInternTrainingControlService
 from agent.services.ml_intern_training_repository_port import MlInternTrainingPrincipal
+from ananta_contracts.unsloth_capability import compose_worker_capability_probe
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 class InlineExecutor:
@@ -160,6 +162,48 @@ def test_async_create_materializes_job_task_events_and_result(app, tmp_path, mon
         "running",
         "completed",
     ]
+
+
+def test_admit_job_defers_execution_until_explicit_hub_dispatch(app, tmp_path, monkeypatch) -> None:
+    del app
+    repository = MlInternTrainingRepository()
+    principal = _principal()
+    dataset = _create_dataset(repository, principal, tmp_path / "deferred-dispatch.jsonl")
+    monkeypatch.setattr(
+        "agent.services.ml_intern_training_control_service.get_task_queue_service",
+        lambda: FakeTaskQueue(),
+    )
+    holding = HoldingExecutor()
+    service = MlInternTrainingControlService(
+        {"enabled": True, "max_concurrent_jobs": 1},
+        repository=repository,
+        executor=holding,
+    )
+
+    accepted, replayed = service.admit_job(
+        principal,
+        _payload(dataset.id),
+        idempotency_key="deferred-dispatch",
+    )
+
+    assert replayed is False
+    assert service.get_job(principal, accepted["id"])["status"] == "queued"
+    assert holding.calls == []
+
+    assert service.schedule_reconciled_job(principal, accepted["id"]) is True
+    assert len(holding.calls) == 1
+
+
+def test_training_route_audit_precedes_automatic_hub_dispatch() -> None:
+    source = (ROOT / "agent/routes/ml_intern_training.py").read_text(encoding="utf-8")
+    admission = source.index("services.control.admit_job(")
+    audit = source.index('"ml_intern_training_job_admitted"', admission)
+    deferred = source.index("_DEFERRED_TRAINING_DISPATCH,", audit)
+    teardown = source.index("def _dispatch_admitted_training_job(")
+    dispatch = source.index("control.schedule_reconciled_job(", teardown)
+
+    assert admission < audit < deferred
+    assert teardown < dispatch
 
 
 def test_idempotent_replay_does_not_enqueue_twice(app, tmp_path, monkeypatch) -> None:

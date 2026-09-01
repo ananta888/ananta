@@ -328,6 +328,44 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
         *,
         idempotency_key: str,
     ) -> tuple[dict[str, Any], bool]:
+        """Admit and automatically offer a job to the Hub scheduler.
+
+        This compatibility entry point preserves the original service contract.
+        Request handlers that still have request-owned persistence or audit work
+        must use :meth:`admit_job` and dispatch only after those writes finish.
+        """
+
+        return self._create_job(
+            principal,
+            payload,
+            idempotency_key=idempotency_key,
+            auto_dispatch=True,
+        )
+
+    def admit_job(
+        self,
+        principal: MlInternTrainingPrincipal,
+        payload: Mapping[str, Any],
+        *,
+        idempotency_key: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist and materialize a queued job without starting execution."""
+
+        return self._create_job(
+            principal,
+            payload,
+            idempotency_key=idempotency_key,
+            auto_dispatch=False,
+        )
+
+    def _create_job(
+        self,
+        principal: MlInternTrainingPrincipal,
+        payload: Mapping[str, Any],
+        *,
+        idempotency_key: str,
+        auto_dispatch: bool,
+    ) -> tuple[dict[str, Any], bool]:
         if not bool(self._config.get("enabled", False)):
             raise MlInternTrainingContractError("training_disabled", "ml_intern_training is disabled", status_code=403)
         command = CreateTrainingJobCommand.from_mapping(payload)
@@ -508,7 +546,8 @@ class MlInternTrainingControlService(MlInternTrainingControlExecutionMixin, MlIn
             dedupe_key="job-created",
             payload={"status": "queued", "phase": "queued", "progress_percent": 0},
         )
-        self.schedule_reconciled_job(principal, saved.id)
+        if auto_dispatch:
+            self.schedule_reconciled_job(principal, saved.id)
         current = self._repository.get_job(principal, saved.id) or saved
         return self._accepted_read_model(current, replayed=False), False
 
