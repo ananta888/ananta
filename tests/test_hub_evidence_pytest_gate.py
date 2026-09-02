@@ -126,3 +126,12 @@ def test_skipped_tests_fail_closed_and_terminalize_run(tmp_path: Path, monkeypat
     assert report["passed"] is False
     assert report["verified"] is False
     assert report["reason_code"] == "evidence_run_not_successful"
+
+
+def test_sqlite_registry_parent_is_created_for_fresh_checkout(tmp_path: Path) -> None:
+    database_path = tmp_path / "missing" / "runtime" / "evidence.sqlite3"
+
+    value = runner._prepare_database(f"sqlite:///{database_path}")
+
+    assert value == f"sqlite:///{database_path}"
+    assert database_path.parent.is_dir()

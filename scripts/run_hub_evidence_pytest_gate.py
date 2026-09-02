@@ -17,6 +17,7 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.engine import make_url
 from sqlmodel import SQLModel, create_engine
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -152,7 +153,7 @@ def run_profile(
         }
     )
     nonce = uuid.uuid4().hex
-    database = create_engine(database_url)
+    database = create_engine(_prepare_database(database_url))
     SQLModel.metadata.create_all(
         database,
         tables=[HubSourceEvidenceIdentityDB.__table__, HubRunEvidenceIdentityDB.__table__],
@@ -333,6 +334,13 @@ def _timeout_digest(value: str | bytes | None) -> str:
     else:
         payload = str(value or "").encode()
     return hashlib.sha256(payload).hexdigest()
+
+
+def _prepare_database(database_url: str) -> str:
+    parsed = make_url(database_url)
+    if parsed.drivername.startswith("sqlite") and parsed.database not in {None, "", ":memory:"}:
+        Path(parsed.database).expanduser().resolve().parent.mkdir(parents=True, exist_ok=True)
+    return database_url
 
 
 def _arguments() -> argparse.Namespace:
