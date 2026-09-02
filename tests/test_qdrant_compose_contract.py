@@ -607,6 +607,7 @@ def test_qdrant_ci_renders_grpc_example_and_logs_completed_cleanup_last() -> Non
     workflow = yaml.safe_load(QUALITY_WORKFLOW.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["qdrant-integration"]["steps"]
     render = next(step["run"] for step in steps if step.get("name") == "Render the standalone digest-pinned profile")
+    release = next(step["run"] for step in steps if step.get("name") == "Run the real Qdrant release contract")
     cleanup = next(step["run"] for step in steps if step.get("name") == "Remove run-scoped Qdrant state")
 
     assert "compose.qdrant-grpc-host.yml" in render
@@ -631,6 +632,10 @@ def test_qdrant_ci_renders_grpc_example_and_logs_completed_cleanup_last() -> Non
         '"${QDRANT_COMPOSE_MISSING_ADMIN_LOG}"'
         in render
     )
+    assert "run_hub_evidence_pytest_gate.py" in release
+    assert "qdrant-integration.v1.json" in release
+    assert "hub-evidence.json" in release
+    assert "--junit ci-artifacts/qdrant-integration/junit.xml" in release
     assert cleanup.index('rm -f "${ANANTA_QDRANT_API_KEY_FILE}"') < (cleanup.index("cleanup=completed"))
     assert "cat ci-artifacts/qdrant-integration/versions.txt" in cleanup
     assert "cat ci-artifacts/qdrant-integration/gate.txt" in cleanup

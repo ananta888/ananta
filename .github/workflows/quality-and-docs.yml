@@ -210,9 +210,10 @@ jobs:
           } | tee ci-artifacts/qdrant-integration/versions.txt
       - name: Run the real Qdrant release contract
         run: |
-          pytest -q -m qdrant_integration \
-            --junitxml=ci-artifacts/qdrant-integration/junit.xml \
-            tests/test_qdrant_vector_store_integration.py \
+          python scripts/run_hub_evidence_pytest_gate.py \
+            --profile config/release-gates/hub-evidence/qdrant-integration.v1.json \
+            --output ci-artifacts/qdrant-integration/hub-evidence.json \
+            --junit ci-artifacts/qdrant-integration/junit.xml \
             | tee ci-artifacts/qdrant-integration/pytest.log
           python - <<'PY'
           from pathlib import Path
