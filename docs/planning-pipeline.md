@@ -150,8 +150,10 @@ first produces a Category-Todo conforming to `todos/todo.schema.json`; it is a
 versioned portfolio/research plan and never creates Worker Tasks. The Hub
 validates schema and item dependencies, recomputes Category summaries, checks
 claim/evidence references against the exact assignment allowlists and requests
-a revision/digest-bound promotion decision. No source identifier is inferred:
-missing or unknown `SRC_*`/`RUN_*` values remain unverified.
+a revision/digest-bound promotion decision. Callers and Workers never infer or
+mint source identifiers. The Hub automatically issues them from admitted,
+immutable source and run bindings; missing or unknown `SRC_*`/`RUN_*` values
+remain unverified.
 
 Organization Goal intake is an explicit passive Hub transition before that
 research phase. `POST /api/organizations/<organization_id>/goals` creates only
@@ -244,6 +246,36 @@ Operational invariants:
 - Fixed reference workflows produce ordinary Track candidates and therefore
   use the same derivation, adoption, materialization, routing, and dispatch
   services; they do not create a parallel workflow executor.
+
+### Hub evidence identity issuance
+
+Evidence identity is a Hub control-plane responsibility and never a planning
+model or Worker responsibility. The general registry persists two immutable
+records:
+
+- `SRC_*` admission binds tenant/project, origin digest, content digest,
+  admission-policy digest, evidence scope, synthetic classification and
+  issuer. Hub-issued identities are content/binding-addressed; externally
+  issued compatibility IDs require a named issuer and the same immutable
+  registration.
+- `RUN_*` reservation occurs before execution and binds the Task, assignment,
+  dispatch lease, repository revision, complete `SRC_*` input set, input,
+  execution-profile and environment digests. The Worker receives only a
+  closed, digest-protected assignment projection.
+
+Result ingress may move a reservation to a terminal state only under the exact
+assignment and dispatch lease. Release verification additionally requires a
+successful result, exact source/task/revision bindings and a compatible
+evidence scope. Test or synthetic identities can drive fully automatic policy
+tests but can never satisfy production release gates. A local command that was
+not reserved before execution is deliberately not upgraded to `RUN_*`
+authority after the fact.
+
+The Organization Source Catalog publisher and Category research run service
+remain compatible specialized adapters. They already issue deterministic
+catalog-local references through the Hub and must converge on the general
+registry incrementally; no Worker-facing compatibility path may become an
+independent issuer.
 
 Workers cannot promote, adopt or materialize. An assigned Worker may submit a
 closed follow-up proposal through its assignment/lease-bound callback. The Hub

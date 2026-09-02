@@ -192,6 +192,32 @@ When extending the system:
 - Interactive approval remains an optional operating mode, never a technical
   prerequisite for running tests or completing a bounded automation run.
 
+## Hub Evidence Identity
+
+- Agents and workers must never invent or self-assign evidence identifiers.
+  The Hub Evidence Registry is the authoritative issuer of `SRC_*` and
+  `RUN_*` identities.
+- The Hub may issue identities fully automatically and without human
+  interaction. It issues `SRC_*` only after immutable source admission with
+  origin, content, policy, tenant/project and evidence-scope bindings. It
+  reserves `RUN_*` before execution and binds each run to its task,
+  assignment, dispatch lease, repository revision, source inputs, execution
+  profile and environment.
+- Externally issued identifiers remain an additive compatibility path. The Hub
+  must validate and persist their named issuer and immutable bindings before
+  they can be used. A caller-provided string is not evidence by itself.
+- Workers receive only the closed assignment projection of a Hub-reserved run.
+  They cannot mint, replace, broaden or promote an identity, and their result
+  is accepted only under the exact assignment and dispatch lease.
+- Unknown, unregistered, post-hoc, mismatched, mutated or stale identifiers
+  are `unverified` or `failed`. A successful local command without a
+  pre-reserved Hub run remains a technical observation, not grounded release
+  evidence.
+- Test and synthetic evidence must be explicitly classified. It may exercise
+  every policy and release path automatically, but it must never satisfy a
+  production release gate. Identity issuance, verification, promotion and
+  rollback must not require a human-in-the-loop.
+
 ---
 
 # Engineering Principles
@@ -381,4 +407,10 @@ The following rule overrides all others:
 **The hub remains the central control plane and owner of the task system.
 Workers execute delegated work only.
 
-Source-grounded answer rule: Agents and workers must never invent source identifiers. Only provided `SRC_*` and `RUN_*` IDs are valid for grounded claims; missing or unknown IDs must be treated as unverified/failed.**
+Source-grounded answer rule: Agents and workers must never invent or
+self-assign evidence identifiers. Only immutable `SRC_*` and `RUN_*`
+identities registered by the Hub Evidence Registry—including validated,
+named external issuers—are valid for grounded claims. The Hub may issue them
+fully automatically. Missing, unknown, post-hoc, mismatched, mutated, stale,
+test-only or synthetic identities must be treated as unverified/failed for
+production claims.**

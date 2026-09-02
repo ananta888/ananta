@@ -4,16 +4,28 @@ Ananta enforces source-grounding in the hub control plane. The LLM can formulate
 
 ## Rules
 
-- The model may cite only provided source IDs (`SRC_*`, `RUN_*`).
+- The model may cite only Hub-registered source IDs (`SRC_*`, `RUN_*`).
+- The Hub may issue IDs automatically; no human input is required.
+- Workers and models never mint or self-assign IDs.
 - Missing citations for factual claims are treated as unverified/failed.
 - Tool-result claims require tool evidence (`RUN_*`, `test_result`, or `generated_artifact`).
 - Cloud scope restrictions apply to citations (`allowed_for_llm_scope=false` sources are rejected).
-- No heuristic source invention by default.
+- No post-hoc or heuristic source invention.
 
 ## Source Identity
 
-- `SRC_*`: retrieval/source catalog entries (repo files, rag chunks, artifacts, wiki chunks).
-- `RUN_*`: deterministic tool-run evidence entries with hashes (stdout/stderr/result payload).
+- `SRC_*`: immutable, admitted retrieval/source identities (repo files, RAG
+  chunks, artifacts, wiki chunks or approved datasets).
+- `RUN_*`: Hub-reserved execution identities, issued before execution and
+  bound to task, assignment, lease, revision, sources and environment.
+
+The generic Hub registry stores only bounded identity and digest metadata. An
+automatically admitted source is binding-addressed. An externally supplied ID
+must name its external issuer and pass the same immutable registration; the
+string alone provides no authority.
+
+Test and synthetic records carry an explicit evidence scope. They can exercise
+the complete automatic flow but cannot satisfy a production release gate.
 
 The catalog is anchored by:
 - `retrieval_trace_id`
@@ -65,8 +77,12 @@ The catalog is anchored by:
 }
 ```
 
-This is rejected (`failed_unknown_source`) because `SRC_9999` is not in the catalog.
+This is rejected (`failed_unknown_source`) because `SRC_9999` is not registered
+and bound to the assignment.
 
 ## Minimal Deterministic Example
 
-See `tests/fixtures/bitcoin_mining_demo/` and `scripts/run_bitcoin_mining_citation_evidence.py` for a deterministic toy flow.
+See `tests/fixtures/bitcoin_mining_demo/` and
+`scripts/run_bitcoin_mining_citation_evidence.py` for a deterministic toy flow.
+Its generated run reference is explicitly test-scoped and is not production
+release evidence.
