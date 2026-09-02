@@ -4,7 +4,7 @@
   "updated_at": "2026-08-31",
   "owner": "Peter Stuiber / Ananta",
   "track": "qdrant_vector_store_integration",
-  "status": "blocked",
+  "status": "partial",
   "purpose": "Qdrant als optionales, lokal betreibbares Vector-Store-Backend fuer CodeCompass und Wiki-RAG integrieren, ohne den bestehenden JSON-Store als deterministischen Offline-, Kompatibilitaets- und Test-Fallback zu verlieren.",
   "goal": "Ananta erhaelt capability-orientierte Ports fuer Dense-Vector-Persistenz und -Suche mit austauschbaren JSON- und Qdrant-Adaptern. JSON bleibt Default. Qdrant ergaenzt persistente ANN-Suche, serverseitige Scope-Filter, inkrementelle Upserts und Loeschungen. Hub-gesteuerte Index- und Migrationsauftraege bleiben von der reinen Suche getrennt.",
   "source_review": {
@@ -450,7 +450,7 @@
         "QVS-017",
         "QVS-019"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M5",
@@ -1115,7 +1115,7 @@
     {
       "id": "QVS-019",
       "title": "Digestgebundene Qdrant-Integrationstests und CI-Evidence ausfuehren",
-      "status": "blocked",
+      "status": "partial",
       "priority": "P1",
       "risk": "high",
       "type": "testing",
@@ -1144,7 +1144,7 @@
         "docker/compose-next/requirements.qdrant-worker.lock"
       ],
       "description": "Das echte Verhalten gegen den digestgebundenen Qdrant-Service lokal und in einem expliziten CI-Job belegen.",
-      "status_note": "Marker, RUN_INTEGRATION_TESTS-Opt-in, digestidentischer TLS-Service, laufisolierte Prefixe, finally-Cleanup und alle sechs geforderten CRUD-, Scope-, Alias-, Failure-, Migration-, Fallback-, Worker- und Wiki-Szenarien sind implementiert. Der Lauf des aktuellen Working Trees gegen Qdrant 1.18.3 und qdrant-client 1.18.0 bestand lokal 6/6 ohne Skip und entfernte alle laufbezogenen Ressourcen. Eine bereitgestellte GitHub-/RUN_* Release-Evidence fehlt weiterhin.",
+      "status_note": "Marker, RUN_INTEGRATION_TESTS-Opt-in, digestidentischer TLS-Service, laufisolierte Prefixe, finally-Cleanup und alle sechs geforderten CRUD-, Scope-, Alias-, Failure-, Migration-, Fallback-, Worker- und Wiki-Szenarien sind implementiert. Der frühere externe ID-Blocker entfällt durch die allgemeine Hub Evidence Registry. Offen ist, den Qdrant-Gate-Runner an automatische Source-Admission und eine vor Ausführung reservierte RUN_*-Identität anzubinden und die sechs Szenarien erneut auszuführen.",
       "acceptance_criteria": [
         "Tests tragen den Marker qdrant_integration und laufen nur mit RUN_INTEGRATION_TESTS=1; ohne Opt-in werden sie sichtbar als skipped gemeldet.",
         "Der Testservice verwendet exakt den in docker/compose-next/compose.qdrant.yml gepinnten Image-Digest.",
@@ -1155,7 +1155,7 @@
         "Release-Evidence gilt nur, wenn der Opt-in-Lauf tatsaechlich ausgefuehrt wurde; ein vollstaendig geskipptes Testmodul kann den Gate-Status nicht passed setzen."
       ],
       "progress_percent": 90.0,
-      "blocked_reason": "Der digestgebundene TLS-Integrationsjob, alle sechs Szenarien, laufisolierte Ressourcen und automatisches Cleanup sind implementiert und lokal ausgeführt. Eine bereitgestellte GitHub-/RUN_*-Release-Evidence fehlt und darf nicht aus lokalen Testnamen oder Logs erfunden werden."
+      "remaining_work": "Den digestgebundenen TLS-Integrationsjob als Hub-gebundenen Run vorab reservieren, die automatisch registrierten Source-/Image-Bindungen transportieren und das redigierte Ergebnis über dieselbe Assignment-/Lease-Bindung abschließen; lokale Testnamen oder Logs werden weiterhin nicht nachträglich zu Evidence-IDs umetikettiert."
     },
     {
       "id": "QVS-020",
@@ -1380,8 +1380,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 5,
+      "partial": 1,
+      "blocked": 4,
       "done": 18
     },
     "progress_percent_done": 78.3,
@@ -1405,7 +1405,8 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
+      "partial": 1,
       "blocked": 1,
       "done": 3
     }
@@ -1415,269 +1416,307 @@
     "by_type": {
       "architecture": {
         "total": 2,
+        "done": 1,
+        "partial": 0,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 97.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 97.5
+        }
       },
       "refactoring": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "configuration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "security": {
         "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        },
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "integration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "dependency": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "schema": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "validation": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "retrieval": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "indexing": {
         "total": 3,
+        "done": 3,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 3
-        },
-        "done": 3,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "resilience": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "orchestration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "migration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "operations": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "observability": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "testing": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 1,
+          "partial": 1,
+          "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 90.0
+        }
       },
       "benchmark": {
         "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 90.0
+        }
       },
       "rollout": {
         "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 95.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 95.0
+        }
       },
       "documentation": {
         "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 90.0
+        }
       }
     }
   },
@@ -1734,14 +1773,14 @@
     }
   },
   "progress_summary": {
-    "state": "blocked",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 5,
+    "partial": 1,
+    "blocked": 4,
     "done": 18,
-    "count_based_percent": 78.3,
-    "weighted_percent": 98.0
+    "milestones_done": 3,
+    "milestones_total": 5
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",

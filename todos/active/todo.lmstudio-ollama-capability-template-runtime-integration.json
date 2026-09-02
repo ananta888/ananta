@@ -5,7 +5,7 @@
   "track": "lmstudio-ollama-capability-template-runtime-integration",
   "created_at": "2026-07-28",
   "updated_at": "2026-09-01",
-  "status": "blocked",
+  "status": "partial",
   "implementation_status": "local_implementation_complete_external_evidence_blocked",
   "evidence_status": "local_verification_gates_passed_unverified_missing_SRC_RUN_ids",
   "purpose": "LM Studio und Ollama erhalten eine gemeinsame, hub-kontrollierte Sicht auf installierte Modelle, sichere Runtime-Capabilities, Kontextgrenzen, Templates und Laufzeitzustand. Bestehende OpenAI-kompatible Pfade bleiben kompatibel; provider-native Ollama-Funktionen werden hinter kleinen Adaptern ergaenzt.",
@@ -133,7 +133,7 @@
         "LMR-002",
         "LMR-003"
       ],
-      "status": "blocked"
+      "status": "partial"
     },
     {
       "id": "LMR-M2",
@@ -186,8 +186,8 @@
     {
       "id": "LMR-000",
       "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
-      "status": "blocked",
-      "blocked_reason": "Es wurden keine zulaessigen SRC_* oder RUN_* IDs bereitgestellt; grounded Source- und Run-Claims duerfen deshalb nicht abgeschlossen werden.",
+      "status": "partial",
+      "status_note": "Die allgemeine Hub Evidence Registry kann zulässige SRC_* und RUN_* Identitäten nun automatisch und ohne Human-in-the-loop ausstellen. Offen sind die runtime-spezifische Source-Admission, Vorabreservierung der Live-/Testläufe und der gebundene Wiederholungslauf; bis dahin bleiben die Claims unverified.",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 10.0,
@@ -201,7 +201,7 @@
       "details": [
         "Commit-SHA, bereitgestellte SRC_* IDs und zulaessige RUN_* IDs getrennt erfassen.",
         "Lokale Inspektion, lokale Testbeobachtung und grounded Evidence sichtbar unterscheiden.",
-        "Keine Source- oder Run-ID selbst erzeugen oder aus Pfaden ableiten."
+        "Source- und Run-Identitäten ausschließlich über die Hub Evidence Registry aus unveränderlichen Bindungen ausstellen; Worker und Runner leiten keine IDs aus Pfaden ab."
       ],
       "acceptance_criteria": [
         "Baseline enthaelt einen unveraenderlichen Commit-SHA oder bleibt explizit unverified.",
@@ -1047,8 +1047,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 1,
+      "partial": 1,
+      "blocked": 0,
       "done": 21
     },
     "progress_percent_done": 95.5,
@@ -1072,8 +1072,9 @@
     "milestones": {
       "total": 5,
       "todo": 0,
-        "in_progress": 0,
-        "blocked": 1,
+      "in_progress": 0,
+      "partial": 1,
+      "blocked": 0,
       "done": 4
     }
   },
@@ -1082,225 +1083,255 @@
     "by_type": {
       "governance": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 10.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 1,
+          "partial": 1,
+          "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 10.0
+        }
       },
       "architecture": {
         "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        },
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "security": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "provider": {
         "total": 6,
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 6
-        },
-        "done": 6,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "normalization": {
         "total": 2,
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 2
-        },
-        "done": 2,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "persistence": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "routing": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "runtime": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "orchestration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "api": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "frontend": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "operations": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "migration": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "testing": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "documentation": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       }
     }
   },
   "progress_summary": {
-    "state": "blocked",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 1,
+    "partial": 1,
+    "blocked": 0,
     "done": 21,
-    "count_based_percent": 95.5,
-    "weighted_percent": 96.6
+    "milestones_done": 4,
+    "milestones_total": 5
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",

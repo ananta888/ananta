@@ -6,7 +6,7 @@
   "updated_at": "2026-08-30",
   "owner": "Peter Stuiber / Ananta",
   "track": "agent_defense_in_depth_adversarial_escape_safety",
-  "status": "blocked",
+  "status": "partial",
   "review_basis": {
     "reviewed_commit_range": "main@de817fa25, inspected on 2026-08-30",
     "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
@@ -291,7 +291,7 @@
         "ADS-047",
         "ADS-048"
       ],
-      "status": "in_progress"
+      "status": "partial"
     }
   ],
   "tasks": [
@@ -1439,7 +1439,7 @@
     {
       "id": "ADS-047",
       "title": "End-to-End Chaos-/Safety-Test über komplette Agentenpipeline implementieren",
-      "status": "blocked",
+      "status": "partial",
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
@@ -1467,7 +1467,7 @@
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "blocked_reason": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Die Release-Attestierung über eine konkret gebundene produktionsnahe Pipeline bleibt ohne bereitgestellte und Hub-verifizierte SRC_*/RUN_* Evidence fail-closed."
+      "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Nach Einführung der allgemeinen Hub Evidence Registry ist die ID-Ausstellung kein externer Blocker mehr. Offen ist die Verdrahtung dieses Flows mit automatisch zugelassenen SRC_*-Quellen, einer vor Ausführung reservierten RUN_*-Identität und der produktionsnahen automatischen Release-Verifikation."
     },
     {
       "id": "ADS-048",
@@ -1525,8 +1525,8 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 0,
-      "blocked": 1,
+      "partial": 1,
+      "blocked": 0,
       "done": 47
     },
     "progress_percent_done": 97.9,
@@ -1550,20 +1550,21 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 7
     }
   },
   "progress_summary": {
-    "state": "todo",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 0,
-    "blocked": 1,
+    "partial": 1,
+    "blocked": 0,
     "done": 47,
-    "count_based_percent": 97.9,
-    "weighted_percent": 99.9
+    "milestones_done": 7,
+    "milestones_total": 8
   },
   "summary_notes": [
     "Die Kernidee aus der Diskussion wird nicht als einzelne perfekte Lösung behandelt, sondern als zusätzlicher Fail-Safe innerhalb einer Defense-in-Depth Architektur.",
@@ -1571,7 +1572,7 @@
     "Zusätzliche offen erklärte Trigger erlauben A/B-Vergleiche zwischen semantischem Verständnis, Selbstmeldung und antrainierter Trigger-Priorität.",
     "Bei parallelen Agenten kann ein einzelner kritischer Treffer je nach Global Stop Policy ausreichen, um die gesamte Gruppe einzufrieren und die Schwachstelle vor weiteren Läufen zu analysieren.",
     "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression.",
-    "Der lokale Implementierungsstand bleibt bewusst von der Release-Freigabe getrennt: fehlende SRC_*/RUN_* Evidence wird fail-closed als blocked geführt.",
+    "Der lokale Implementierungsstand bleibt bewusst von der Release-Freigabe getrennt: Bis der Chaos-Flow über die Hub Evidence Registry vorab gebundene SRC_*/RUN_*-Identitäten erhält, bleibt die Release-Verifikation fail-closed; die dafür notwendige Verdrahtung ist nun lokal umsetzbare Arbeit.",
     "Alle neuen Test- und Laufpfade sind vollständig headless; keine Transition wartet auf menschliche Interaktion."
   ],
   "tasks_type_summary": {
@@ -1579,87 +1580,99 @@
     "by_type": {
       "analysis": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "design": {
         "total": 17,
+        "done": 17,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 17
-        },
-        "done": 17,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "implementation": {
         "total": 19,
+        "done": 19,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 19
-        },
-        "done": 19,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "testing": {
         "total": 4,
+        "done": 3,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 98.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 0,
-          "blocked": 1,
+          "partial": 1,
+          "blocked": 0,
           "done": 3
-        },
-        "done": 3,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 98.8
+        }
       },
       "evaluation": {
         "total": 6,
+        "done": 6,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 6
-        },
-        "done": 6,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       },
       "documentation": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "progress_percent": 100.0
+        }
       }
     }
   },

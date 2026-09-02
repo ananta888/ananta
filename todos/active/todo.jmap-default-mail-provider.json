@@ -1,6 +1,6 @@
 {
-  "version": "1.6",
-  "updated_at": "2026-07-25",
+  "version": "1.7",
+  "updated_at": "2026-09-02",
   "owner": "Peter Stuiber",
   "track": "jmap-default-mail-provider",
   "status": "blocked",
@@ -28,20 +28,21 @@
   "summary": {
     "total_tasks": 23,
     "done": 21,
+    "in_progress": 1,
     "partial": 0,
     "todo": 0,
-    "blocked": 2,
+    "blocked": 1,
     "done_task_percent": 91.3,
     "weighted_percent_complete": null,
-    "weighted_percent_reason": "Ohne bereitgestellte SRC_*/RUN_*-Evidenz und Taskgewichte wird kein belastbarer gewichteter Fortschritt behauptet.",
+    "weighted_percent_reason": "Bis Source-Baseline und lokale Gates über die Hub Evidence Registry automatisch gebunden erneut ausgeführt wurden und Taskgewichte vorliegen, wird kein belastbarer gewichteter Fortschritt behauptet.",
     "local_code_acceptance_complete": null,
     "warnings_strict_tests_passed": null,
     "ananta_production_composition_contract_complete": null,
     "production_default_rollout_approved": false,
-    "current_gate_execution": "passed_locally_unverified_missing_RUN_ids",
+    "current_gate_execution": "passed_locally_pending_hub_evidence_binding",
     "repository_owned_jmap_contract_complete": null,
     "external_provider_jmap_e2e_complete": false,
-    "repository_implementation_status": "complete_locally_unverified_missing_SRC_RUN_ids"
+    "repository_implementation_status": "complete_locally_pending_hub_evidence_adapter"
   },
   "non_goals": [
     "Kein Entfernen der bestehenden IMAP-Unterstuetzung.",
@@ -61,7 +62,7 @@
     "commit_sha": null,
     "source_ids": [],
     "run_ids": [],
-    "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* duerfen spaeter als Evidenz referenziert werden; fehlende IDs bleiben unverified.",
+    "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur unveränderlich in der Hub Evidence Registry registrierte SRC_* und vor der Ausführung reservierte RUN_* dürfen als Evidenz referenziert werden; fehlende oder nachträgliche IDs bleiben unverified.",
     "inspected_paths": [
       "agent/lifecycle.py",
       "agent/routes/mail_control.py",
@@ -225,7 +226,7 @@
       "task_ids": [
         "T00"
       ],
-      "status": "blocked"
+      "status": "in_progress"
     },
     {
       "id": "M01",
@@ -289,12 +290,12 @@
     {
       "id": "T00",
       "title": "Unveraenderliche Source-Baseline und Evidenzmodell festlegen",
-      "status": "blocked",
+      "status": "in_progress",
       "priority": "P1",
       "risk": "high",
       "type": "governance",
       "depends_on": [],
-      "progress_note": "Lokaler Endstand und alle reproduzierbaren Gates wurden inspiziert; unveraenderlicher Baseline-Commit sowie bereitgestellte SRC_*-/RUN_*-IDs fehlen weiterhin.",
+      "progress_note": "Lokaler Endstand und alle reproduzierbaren Gates wurden inspiziert. Die allgemeine Hub Evidence Registry kann Source- und Run-Identitäten nun ohne Human-in-the-loop ausstellen; offen sind die JMAP-spezifische Admission-/Run-Verdrahtung und der gebundene Wiederholungslauf.",
       "affected_files": [
         "todos/todo.jmap-default-mail-provider.json",
         "artifacts/domain/jmap-source-baseline.json"
@@ -310,11 +311,11 @@
         "reviewed_against_local_code": true,
         "evidence_status": "unverified_missing_SRC_RUN_ids",
         "remaining": [
-          "Repository/Commit/Inspektionszeitpunkt mit bereitgestellten SRC_* IDs grounden.",
-          "Lokale Gatebeobachtungen erst mit echten RUN_* IDs als Ausfuehrungsevidenz einstufen."
+          "Repository/Commit/Inspektionszeitpunkt über automatisch registrierte SRC_* Identitäten grounden.",
+          "Lokale Gates über einen vor Ausführung reservierten Hub-RUN erneut ausführen und erst danach als Ausführungsevidenz einstufen."
         ]
       },
-      "blocked_reason": "Die repository-lokale Baseline-Inventarisierung und das fail-closed Evidenzmodell sind vollständig umgesetzt. Unveränderliche Source-/Run-Behauptungen benötigen bereitgestellte gültige SRC_*-/RUN_*-IDs; diese IDs dürfen nicht aus lokalen Pfaden oder selbst erzeugten Bezeichnern erfunden werden."
+      "status_note": "Die repository-lokale Baseline-Inventarisierung und das fail-closed Evidenzmodell sind vollständig umgesetzt. Die Hub Evidence Registry beseitigt den früher externen ID-Blocker; als lokale Restarbeit müssen Baseline und Gate-Runner an die automatische Admission, Vorabreservierung und Bindungsprüfung angeschlossen werden."
     },
     {
       "id": "T01",
@@ -1095,9 +1096,9 @@
     "total": 23,
     "by_status": {
       "todo": 0,
-      "in_progress": 0,
+      "in_progress": 1,
       "partial": 0,
-      "blocked": 2,
+      "blocked": 1,
       "done": 21
     },
     "progress_percent_done": 91.3,
@@ -1120,8 +1121,8 @@
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 1,
-      "blocked": 1,
+      "in_progress": 2,
+      "blocked": 0,
       "done": 4
     }
   },
