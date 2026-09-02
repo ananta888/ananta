@@ -386,9 +386,10 @@ def _internal_base_url(value: str) -> str:
 
 def _available_ram_bytes() -> int:
     try:
-        for line in open("/proc/meminfo", encoding="ascii"):
-            if line.startswith("MemAvailable:"):
-                return int(line.split()[1]) * 1024
+        with open("/proc/meminfo", encoding="ascii") as meminfo:
+            for line in meminfo:
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) * 1024
     except (OSError, IndexError, ValueError):
         pass
     raise RuntimeError("local_runtime_ram_snapshot_unavailable")
