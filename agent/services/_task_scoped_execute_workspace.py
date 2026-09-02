@@ -237,22 +237,9 @@ def run_execute_workspace_path(
                 recovery_tool_run_context_from_task,
             )
 
-            recovery_child = bool(
-                str(task.get("derivation_reason") or "")
-                == "goal_task_recovery"
-                or dict(
-                    task.get("status_reason_details") or {}
-                ).get("model_recovery_release")
-            )
-            run_context = recovery_tool_run_context_from_task(
-                task
-            )
-            if not recovery_child or run_context is not None:
-                run_record = (
-                    dict(run_context["records"][0])
-                    if run_context is not None
-                    else {}
-                )
+            run_context = recovery_tool_run_context_from_task(task)
+            if run_context is not None:
+                run_record = dict(run_context["records"][0])
                 run_entry = get_tool_run_catalog_service().build_run_entry(
                     task_id=str(tid),
                     index=1,

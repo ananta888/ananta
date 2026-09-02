@@ -27,7 +27,11 @@ class ToolRunCatalogService:
         ended_at: float | None = None,
         source_id: str | None = None,
         run_id: str | None = None,
+        evidence_scope: str = "production",
     ) -> dict[str, Any]:
+        normalized_scope = str(evidence_scope or "").strip().lower()
+        if normalized_scope not in {"test", "local", "external", "production"}:
+            raise ValueError("tool_run_evidence_scope_invalid")
         normalized_source_id = str(source_id or "").strip()
         normalized_run_id = str(run_id or "").strip()
         if bool(normalized_source_id) != bool(normalized_run_id):
@@ -45,6 +49,10 @@ class ToolRunCatalogService:
                 or len(normalized_run_id) > 200
             ):
                 raise ValueError("tool_run_authority_binding_invalid")
+        elif normalized_scope != "test":
+            # Production/local tool output is not evidence unless the Hub
+            # reserved and transported both identifiers before execution.
+            raise ValueError("tool_run_hub_authority_binding_required")
         started = float(started_at if started_at is not None else time.time())
         ended = float(ended_at if ended_at is not None else started)
         return {
@@ -67,6 +75,7 @@ class ToolRunCatalogService:
             "started_at": started,
             "ended_at": ended,
             "allowed_for_llm_scope": True,
+            "evidence_scope": normalized_scope,
         }
 
 

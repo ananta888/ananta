@@ -35,6 +35,7 @@ class GovernanceServices:
     worker_contract_service: Any
     system_contract_service: Any
     evolution_service: Any
+    evidence_identity_registry_service: Any = None
 
 
 @dataclass(frozen=True)
@@ -220,6 +221,9 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
     from agent.services.evolution_service import get_evolution_service
     from agent.services.goal_service import get_goal_service
     from agent.services.hint_routing_service import get_hint_routing_service
+    from agent.services.hub_evidence_registry_service import (
+        get_hub_evidence_registry_service,
+    )
     from agent.services.ingestion_service import get_ingestion_service
     from agent.services.integration_registry_service import get_integration_registry_service
     from agent.services.knowledge_index_job_service import get_knowledge_index_job_service
@@ -281,6 +285,7 @@ def build_core_service_registry(app: Flask | None = None) -> CoreServiceRegistry
         worker_contract_service=get_worker_contract_service(),
         system_contract_service=get_system_contract_service(),
         evolution_service=get_evolution_service(),
+        evidence_identity_registry_service=get_hub_evidence_registry_service(),
     )
     knowledge = KnowledgeServices(
         rag_service=get_rag_service(),

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from agent.services.citation_verification_service import CitationVerificationService
 from agent.services.tool_run_catalog_service import ToolRunCatalogService
 
@@ -17,11 +19,26 @@ def test_tool_run_catalog_builds_deterministic_entry() -> None:
         artifact_paths=["out/result.json"],
         started_at=10.0,
         ended_at=11.0,
+        evidence_scope="test",
     )
     assert entry["source_id"] == "RUN_0001"
     assert entry["source_type"] == "tool_run"
     assert entry["task_id"] == "t-1"
     assert entry["stdout_hash"]
+    assert entry["evidence_scope"] == "test"
+
+
+def test_tool_run_catalog_rejects_post_hoc_production_identifier() -> None:
+    with pytest.raises(ValueError, match="tool_run_hub_authority_binding_required"):
+        ToolRunCatalogService().build_run_entry(
+            task_id="t-1",
+            index=1,
+            tool_name="python",
+            command="python demo.py",
+            exit_code=0,
+            stdout="ok",
+            stderr="",
+        )
 
 
 def test_citation_verifier_accepts_run_for_tool_result_claim() -> None:
@@ -33,6 +50,7 @@ def test_citation_verifier_accepts_run_for_tool_result_claim() -> None:
         exit_code=0,
         stdout="nonce=123",
         stderr="",
+        evidence_scope="test",
     )
     answer = {
         "schema": "grounded_answer.v1",

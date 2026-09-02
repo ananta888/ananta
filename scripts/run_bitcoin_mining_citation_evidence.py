@@ -11,9 +11,9 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from agent.services.citation_verification_service import CitationVerificationService
-from agent.services.source_catalog_service import SourceCatalogService
-from agent.services.tool_run_catalog_service import ToolRunCatalogService
+from agent.services.citation_verification_service import CitationVerificationService  # noqa: E402
+from agent.services.source_catalog_service import SourceCatalogService  # noqa: E402
+from agent.services.tool_run_catalog_service import ToolRunCatalogService  # noqa: E402
 
 FIXTURE_DIR = REPO_ROOT / "tests" / "fixtures" / "bitcoin_mining_demo"
 OUT_DIR = REPO_ROOT / "ci-artifacts" / "bitcoin-mining-citation-evidence"
@@ -90,6 +90,7 @@ def run() -> dict:
         artifact_paths=[str(FIXTURE_DIR / "expected_result.json")],
         started_at=1.0,
         ended_at=1.1,
+        evidence_scope="test",
     )
     run_entry["result_payload"] = run_result
 

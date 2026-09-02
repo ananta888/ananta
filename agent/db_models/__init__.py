@@ -41,6 +41,10 @@ from .context_policy_lifecycle import (
     ContextPolicyMutationDB,
     ContextPolicyVersionDB,
 )
+from .evidence_identity import (
+    HubRunEvidenceIdentityDB,
+    HubSourceEvidenceIdentityDB,
+)
 from .governance import (
     ActionPackDB,
     AgentSessionDB,
@@ -482,6 +486,8 @@ __all__ = [
     "HrmRunDB",
     "HrmRunEventDB",
     "HrmWorkerCapabilityDB",
+    "HubRunEvidenceIdentityDB",
+    "HubSourceEvidenceIdentityDB",
     "MlInternDatasetDB",
     "MlInternSpeechAdapterDB",
     "MlInternSpeechAdapterLegacyImportDB",

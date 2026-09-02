@@ -54,6 +54,7 @@ def _run_entry(task_id: str) -> dict:
         artifact_paths=["tests/fixtures/bitcoin_mining_demo/expected_result.json"],
         started_at=1.0,
         ended_at=1.5,
+        evidence_scope="test",
     )
     run["result_payload"] = result_payload
     return run
