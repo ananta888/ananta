@@ -22,19 +22,14 @@ from agent.services.wiki_vector_runtime_service import (
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = ROOT / "docker/compose-next/compose.qdrant.yml"
 WORKER_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-workers.yml"
-DEV_AUTH_OVERLAY = (
-    ROOT
-    / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"
-)
+DEV_AUTH_OVERLAY = ROOT / "docker/compose-next/compose.workflow-runtime.dev-auth.yml"
 CODECOMPASS_HUB_READ_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-hub-read.yml"
 WIKI_HUB_READ_OVERLAY = ROOT / "docker/compose-next/compose.qdrant-wiki-hub-read.yml"
 QUICKSTART_COMPOSE = ROOT / "docker/compose-next/compose.stack.quickstart.yml"
 QUALITY_WORKFLOW = ROOT / ".github/workflows/quality-and-docs.yml"
 EXPECTED_IMAGE = "qdrant/qdrant:v1.18.3@sha256:0bd98fa7977f1e75694779359ca4e212822e5a71334e28421182f72f209d5286"
 DOCKERIGNORE = ROOT / ".dockerignore"
-QUICKSTART_DOCKERFILE = (
-    ROOT / "docker/compose-next/Dockerfile.quickstart-no-ollama"
-)
+QUICKSTART_DOCKERFILE = ROOT / "docker/compose-next/Dockerfile.quickstart-no-ollama"
 
 
 class _TaskSubmissionPort:
@@ -156,12 +151,10 @@ def test_qdrant_compose_ports_default_to_loopback_and_secret_is_not_environment(
 
 def test_qdrant_workers_build_the_optional_client_runtime_only_in_profile() -> None:
     payload = yaml.safe_load(WORKER_OVERLAY.read_text(encoding="utf-8"))
-    assert payload["secrets"]["vector-index-task-signing-keyring"][
-        "file"
-    ].startswith("${ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_SECRET_FILE")
-    assert payload["secrets"]["vector-index-task-verification-keyring"][
-        "file"
-    ].startswith(
+    assert payload["secrets"]["vector-index-task-signing-keyring"]["file"].startswith(
+        "${ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_SECRET_FILE"
+    )
+    assert payload["secrets"]["vector-index-task-verification-keyring"]["file"].startswith(
         "${ANANTA_VECTOR_INDEX_TASK_VERIFICATION_KEYRING_SECRET_FILE"
     )
 
@@ -177,9 +170,7 @@ def test_qdrant_workers_build_the_optional_client_runtime_only_in_profile() -> N
             "vector-index-task-verification-keyring",
         }
         assert worker["environment"]["ANANTA_VECTOR_INDEX_INPUT_ROOTS"] == "/var/lib/ananta/vector-index-inputs"
-        assert worker["environment"][
-            "ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS"
-        ].endswith(":-86400}")
+        assert worker["environment"]["ANANTA_VECTOR_INDEX_TASK_REPLAY_RECEIPT_RETENTION_SECONDS"].endswith(":-86400}")
         assert "qdrant-vector-index-inputs:/var/lib/ananta/vector-index-inputs:ro" in worker["volumes"]
         healthcheck = worker["healthcheck"]
         assert healthcheck["test"][:3] == [
@@ -188,14 +179,8 @@ def test_qdrant_workers_build_the_optional_client_runtime_only_in_profile() -> N
             "-c",
         ]
         readiness_probe = healthcheck["test"][3]
-        assert (
-            "/internal/worker/vector-index-readiness"
-            in readiness_probe
-        )
-        assert (
-            "vector_index_worker_registration"
-            in readiness_probe
-        )
+        assert "/internal/worker/vector-index-readiness" in readiness_probe
+        assert "vector_index_worker_registration" in readiness_probe
         assert "hub_registration" in readiness_probe
         for capability in (
             "retrieval",
@@ -206,12 +191,10 @@ def test_qdrant_workers_build_the_optional_client_runtime_only_in_profile() -> N
 
     hub = payload["services"]["ai-agent-hub"]
     assert hub["environment"]["ANANTA_VECTOR_INDEX_INPUT_PUBLISH_ROOT"] == "/var/lib/ananta/vector-index-inputs"
-    assert hub["environment"][
-        "ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE"
-    ].endswith("vector-index-task-signing-keyring.json")
-    assert {item["source"] for item in hub["secrets"]} == {
-        "vector-index-task-signing-keyring"
-    }
+    assert hub["environment"]["ANANTA_VECTOR_INDEX_TASK_SIGNING_KEYRING_FILE"].endswith(
+        "vector-index-task-signing-keyring.json"
+    )
+    assert {item["source"] for item in hub["secrets"]} == {"vector-index-task-signing-keyring"}
     assert "qdrant-vector-index-inputs:/var/lib/ananta/vector-index-inputs:rw" in hub["volumes"]
     assert "qdrant-vector-index-inputs" in payload["volumes"]
 
@@ -297,66 +280,39 @@ def test_qdrant_full_stack_fails_before_start_without_admin_password(
 
 
 def test_qdrant_quickstart_identity_overlay_is_strict_and_worker_private() -> None:
-    payload = yaml.safe_load(
-        DEV_AUTH_OVERLAY.read_text(encoding="utf-8")
-    )
+    payload = yaml.safe_load(DEV_AUTH_OVERLAY.read_text(encoding="utf-8"))
     services = payload["services"]
     bootstrap = services["workflow-keyring-bootstrap"]
 
     assert bootstrap["network_mode"] == "none"
     assert bootstrap["read_only"] is True
     assert bootstrap["cap_drop"] == ["ALL"]
-    assert bootstrap["security_opt"] == [
-        "no-new-privileges:true"
-    ]
+    assert bootstrap["security_opt"] == ["no-new-privileges:true"]
     assert bootstrap["entrypoint"] == [
         "python",
         "/app/scripts/bootstrap-dev-workflow-keyrings.py",
     ]
-    assert bootstrap["volumes"][-1]["bind"][
-        "create_host_path"
-    ] is False
+    assert bootstrap["volumes"][-1]["bind"]["create_host_path"] is False
 
     hub = services["ai-agent-hub"]
     assert hub["environment"]["SECRET_KEY"] == ""
-    assert hub["environment"][
-        "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-    ] == "0"
+    assert hub["environment"]["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
     assert hub["environment"]["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
         "/run/ananta-source-access/source-access-hmac-keyring.json"
     )
-    assert (
-        hub["environment"][
-            "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
-        ]
-        == "1"
+    assert hub["environment"]["ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"] == "1"
+    assert hub["environment"]["ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"].endswith(
+        "/worker-registration-keyring.json"
     )
-    assert hub["environment"][
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
-    ].endswith("/worker-registration-keyring.json")
-    assert hub["environment"]["AGENT_TOKEN_FILE"].endswith(
-        "/hub-service-token"
-    )
-    assert hub["environment"]["SECRET_KEY_FILE"].endswith(
-        "/hub-session-signing-key"
-    )
+    assert hub["environment"]["AGENT_TOKEN_FILE"].endswith("/hub-service-token")
+    assert hub["environment"]["SECRET_KEY_FILE"].endswith("/hub-session-signing-key")
     assert hub["environment"]["AGENT_TOKEN_PERSISTENCE"] == "0"
-    assert hub["depends_on"]["workflow-keyring-bootstrap"][
-        "condition"
-    ] == "service_completed_successfully"
-    hub_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if mount["target"] == "/run/ananta-dev-workflow"
-    )
+    assert hub["depends_on"]["workflow-keyring-bootstrap"]["condition"] == "service_completed_successfully"
+    hub_mount = next(mount for mount in hub["volumes"] if mount["target"] == "/run/ananta-dev-workflow")
     assert hub_mount["source"].endswith("/hub")
     assert hub_mount["read_only"] is True
     assert hub_mount["bind"]["create_host_path"] is False
-    source_access_mount = next(
-        mount
-        for mount in hub["volumes"]
-        if mount["target"] == "/run/ananta-source-access"
-    )
+    source_access_mount = next(mount for mount in hub["volumes"] if mount["target"] == "/run/ananta-source-access")
     assert source_access_mount["source"].endswith("/worker")
     assert source_access_mount["read_only"] is True
     assert source_access_mount["bind"]["create_host_path"] is False
@@ -369,38 +325,21 @@ def test_qdrant_quickstart_identity_overlay_is_strict_and_worker_private() -> No
         worker = services[worker_name]
         environment = worker["environment"]
         assert environment["SECRET_KEY"] == ""
-        assert environment[
-            "ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"
-        ] == "0"
+        assert environment["ANANTA_SOURCE_ACCESS_ALLOW_COMPOSE_SECRET_DERIVATION"] == "0"
         assert environment["ANANTA_SOURCE_ACCESS_KEYRING_FILE"] == (
-            "/run/ananta-dev-workflow/public/"
-            "source-access-hmac-keyring.json"
+            "/run/ananta-dev-workflow/public/source-access-hmac-keyring.json"
         )
         assert environment["DISABLE_INITIAL_ADMIN"] == "1"
         assert environment["INITIAL_ADMIN_USER"] == ""
         assert environment["INITIAL_ADMIN_PASSWORD"] == ""
         assert environment["AGENT_TOKEN_PERSISTENCE"] == "0"
-        assert environment["AGENT_TOKEN_FILE"] == (
-            "/run/ananta-dev-workflow/private/"
-            "worker-service-token"
-        )
-        assert environment["REGISTRATION_TOKEN_FILE"] == (
-            "/run/ananta-dev-workflow/private/"
-            "worker-registration-token"
-        )
-        assert environment["SECRET_KEY_FILE"] == (
-            "/run/ananta-dev-workflow/private/"
-            "worker-session-signing-key"
-        )
+        assert environment["AGENT_TOKEN_FILE"] == ("/run/ananta-dev-workflow/private/worker-service-token")
+        assert environment["REGISTRATION_TOKEN_FILE"] == ("/run/ananta-dev-workflow/private/worker-registration-token")
+        assert environment["SECRET_KEY_FILE"] == ("/run/ananta-dev-workflow/private/worker-session-signing-key")
         private_mount = next(
-            mount
-            for mount in worker["volumes"]
-            if mount["target"]
-            == "/run/ananta-dev-workflow/private"
+            mount for mount in worker["volumes"] if mount["target"] == "/run/ananta-dev-workflow/private"
         )
-        assert private_mount["source"].endswith(
-            f"/{private_dir}"
-        )
+        assert private_mount["source"].endswith(f"/{private_dir}")
         assert private_mount["read_only"] is True
         assert private_mount["bind"]["create_host_path"] is False
         private_sources.add(private_mount["source"])
@@ -464,9 +403,7 @@ def test_qdrant_hub_owns_exact_internal_endpoint_policy_without_network_access()
     assert environment["ANANTA_QDRANT_TLS_CA_CERT_REF"].endswith("qdrant-tls-ca.pem")
     assert environment["ANANTA_QDRANT_EXTERNAL_CALLS_ALLOWED"] == "false"
     assert "qdrant-worker" not in hub.get("networks", [])
-    assert {item["source"] for item in hub["secrets"]} == {
-        "vector-index-task-signing-keyring"
-    }
+    assert {item["source"] for item in hub["secrets"]} == {"vector-index-task-signing-keyring"}
 
 
 def test_qdrant_hub_read_capability_is_isolated_in_explicit_overlay() -> None:
@@ -528,15 +465,8 @@ def test_rendered_wiki_hub_environment_matches_runtime_contract() -> None:
     assert environment["ANANTA_QDRANT_REST_URL"] == "https://qdrant:6333"
     assert environment["ANANTA_QDRANT_API_KEY_REF"].startswith("secretfile://")
     assert environment["ANANTA_QDRANT_TLS_CA_CERT_REF"].startswith("secretfile://")
-    assert (
-        environment[
-            "ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"
-        ]
-        == "1"
-    )
-    assert environment[
-        "ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"
-    ].endswith("/worker-registration-keyring.json")
+    assert environment["ANANTA_WORKFLOW_REQUIRE_REGISTERED_WORKER_AUTH"] == "1"
+    assert environment["ANANTA_WORKFLOW_WORKER_REGISTRATION_KEYRING_FILE"].endswith("/worker-registration-keyring.json")
     assert "qdrant-worker" in hub["networks"]
     assert {secret["source"] for secret in hub["secrets"]} == {
         "qdrant-api-key",
@@ -547,22 +477,11 @@ def test_rendered_wiki_hub_environment_matches_runtime_contract() -> None:
     assert not any(name.startswith("ANANTA_CODECOMPASS_VECTOR_") for name in environment)
     for worker_name in ("ai-agent-alpha", "ai-agent-beta"):
         worker = payload["services"][worker_name]
-        worker_environment = worker[
-            "environment"
-        ]
-        assert worker_environment["AGENT_TOKEN_FILE"].endswith(
-            "/worker-service-token"
-        )
-        assert worker_environment[
-            "REGISTRATION_TOKEN_FILE"
-        ].endswith("/worker-registration-token")
-        assert worker_environment[
-            "ANANTA_WORKFLOW_HUB_TOKEN_FILE"
-        ] == worker_environment["AGENT_TOKEN_FILE"]
-        assert (
-            "/internal/worker/vector-index-readiness"
-            in worker["healthcheck"]["test"][3]
-        )
+        worker_environment = worker["environment"]
+        assert worker_environment["AGENT_TOKEN_FILE"].endswith("/worker-service-token")
+        assert worker_environment["REGISTRATION_TOKEN_FILE"].endswith("/worker-registration-token")
+        assert worker_environment["ANANTA_WORKFLOW_HUB_TOKEN_FILE"] == worker_environment["AGENT_TOKEN_FILE"]
+        assert "/internal/worker/vector-index-readiness" in worker["healthcheck"]["test"][3]
 
     rollout = VectorStoreRolloutService(
         store=InMemoryVectorStoreRolloutStore(),
@@ -615,23 +534,11 @@ def test_qdrant_ci_renders_grpc_example_and_logs_completed_cleanup_last() -> Non
     assert "compose.qdrant-hub-read.yml" in render
     assert "compose.qdrant-wiki-hub-read.yml" in render
     assert render.count("--profile qdrant config --quiet") >= 5
-    assert (
-        '--env-file "${QDRANT_COMPOSE_ENV_FILE}"'
-        in render
-    )
-    assert (
-        render.count(
-            "env -u INITIAL_ADMIN_PASSWORD docker compose"
-        )
-        == 4
-    )
+    assert '--env-file "${QDRANT_COMPOSE_ENV_FILE}"' in render
+    assert render.count("env -u INITIAL_ADMIN_PASSWORD docker compose") == 4
     assert "ananta-qdrant-missing-admin.env" in render
     assert "accepted an empty INITIAL_ADMIN_PASSWORD" in render
-    assert (
-        'grep -q INITIAL_ADMIN_PASSWORD '
-        '"${QDRANT_COMPOSE_MISSING_ADMIN_LOG}"'
-        in render
-    )
+    assert 'grep -q INITIAL_ADMIN_PASSWORD "${QDRANT_COMPOSE_MISSING_ADMIN_LOG}"' in render
     assert "run_hub_evidence_pytest_gate.py" in release
     assert "qdrant-integration.v1.json" in release
     assert "hub-evidence.json" in release

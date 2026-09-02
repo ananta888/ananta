@@ -87,30 +87,18 @@ class HubEvidenceRegistryService:
     ) -> SourceEvidenceIdentity:
         scope = self._scope(evidence_scope)
         if synthetic and scope in {"external", "production"}:
-            raise HubEvidenceRegistryError(
-                "evidence_source_synthetic_scope_forbidden"
-            )
+            raise HubEvidenceRegistryError("evidence_source_synthetic_scope_forbidden")
         binding = {
             "schema": "ananta.hub-source-evidence-binding.v1",
             "tenant_id": self._text(tenant_id, "evidence_tenant_required"),
             "project_id": self._text(project_id, "evidence_project_required"),
-            "origin_type": self._text(
-                origin_type, "evidence_source_origin_type_required", maximum=64
-            ),
-            "origin_digest": self._digest(
-                origin_digest, "evidence_source_origin_digest_invalid"
-            ),
-            "content_digest": self._digest(
-                content_digest, "evidence_source_content_digest_invalid"
-            ),
-            "policy_digest": self._digest(
-                policy_digest, "evidence_source_policy_digest_invalid"
-            ),
+            "origin_type": self._text(origin_type, "evidence_source_origin_type_required", maximum=64),
+            "origin_digest": self._digest(origin_digest, "evidence_source_origin_digest_invalid"),
+            "content_digest": self._digest(content_digest, "evidence_source_content_digest_invalid"),
+            "policy_digest": self._digest(policy_digest, "evidence_source_policy_digest_invalid"),
             "evidence_scope": scope,
             "synthetic": bool(synthetic),
-            "issuer": self._issuer(
-                issuer, supplied=bool(str(supplied_source_id or "").strip())
-            ),
+            "issuer": self._issuer(issuer, supplied=bool(str(supplied_source_id or "").strip())),
         }
         binding_digest = _canonical_digest(binding)
         source_id = self._identifier(
@@ -157,9 +145,7 @@ class HubEvidenceRegistryService:
     ) -> RunEvidenceIdentity:
         scope = self._scope(evidence_scope)
         if synthetic and scope in {"external", "production"}:
-            raise HubEvidenceRegistryError(
-                "evidence_run_synthetic_scope_forbidden"
-            )
+            raise HubEvidenceRegistryError("evidence_run_synthetic_scope_forbidden")
         tenant = self._text(tenant_id, "evidence_tenant_required")
         project = self._text(project_id, "evidence_project_required")
         sources = self._source_ids(source_ids)
@@ -170,17 +156,11 @@ class HubEvidenceRegistryService:
                 source_id=source_id,
             )
             if source is None or source.state != "admitted":
-                raise HubEvidenceRegistryError(
-                    "evidence_run_source_identity_unavailable"
-                )
+                raise HubEvidenceRegistryError("evidence_run_source_identity_unavailable")
             if source.evidence_scope not in _SOURCE_SCOPES_BY_RUN[scope]:
-                raise HubEvidenceRegistryError(
-                    "evidence_run_source_scope_forbidden"
-                )
+                raise HubEvidenceRegistryError("evidence_run_source_scope_forbidden")
             if source.synthetic and scope != "test":
-                raise HubEvidenceRegistryError(
-                    "evidence_run_synthetic_source_forbidden"
-                )
+                raise HubEvidenceRegistryError("evidence_run_synthetic_source_forbidden")
         key = self._text(
             idempotency_key,
             "evidence_run_idempotency_key_invalid",
@@ -188,17 +168,11 @@ class HubEvidenceRegistryService:
             maximum=191,
         )
         if any(character.isspace() for character in key):
-            raise HubEvidenceRegistryError(
-                "evidence_run_idempotency_key_invalid"
-            )
+            raise HubEvidenceRegistryError("evidence_run_idempotency_key_invalid")
         revision = str(repository_revision or "").strip().lower()
         if _REVISION.fullmatch(revision) is None:
-            raise HubEvidenceRegistryError(
-                "evidence_run_repository_revision_invalid"
-            )
-        issuer_value = self._issuer(
-            issuer, supplied=bool(str(supplied_run_id or "").strip())
-        )
+            raise HubEvidenceRegistryError("evidence_run_repository_revision_invalid")
+        issuer_value = self._issuer(issuer, supplied=bool(str(supplied_run_id or "").strip()))
         reservation_key_digest = _canonical_digest(
             {
                 "schema": "ananta.hub-run-evidence-reservation.v1",
@@ -212,23 +186,15 @@ class HubEvidenceRegistryService:
             "tenant_id": tenant,
             "project_id": project,
             "task_id": self._text(task_id, "evidence_run_task_required"),
-            "assignment_id": self._text(
-                assignment_id, "evidence_run_assignment_required"
-            ),
-            "dispatch_lease_id": self._text(
-                dispatch_lease_id, "evidence_run_dispatch_lease_required"
-            ),
+            "assignment_id": self._text(assignment_id, "evidence_run_assignment_required"),
+            "dispatch_lease_id": self._text(dispatch_lease_id, "evidence_run_dispatch_lease_required"),
             "repository_revision": revision,
-            "input_digest": self._digest(
-                input_digest, "evidence_run_input_digest_invalid"
-            ),
+            "input_digest": self._digest(input_digest, "evidence_run_input_digest_invalid"),
             "execution_profile_digest": self._digest(
                 execution_profile_digest,
                 "evidence_run_execution_profile_digest_invalid",
             ),
-            "environment_digest": self._digest(
-                environment_digest, "evidence_run_environment_digest_invalid"
-            ),
+            "environment_digest": self._digest(environment_digest, "evidence_run_environment_digest_invalid"),
             "source_ids": list(sources),
             "evidence_scope": scope,
             "synthetic": bool(synthetic),
@@ -289,16 +255,10 @@ class HubEvidenceRegistryService:
                 generated="",
                 reason="evidence_run_identifier_invalid",
             ),
-            assignment_id=self._text(
-                assignment_id, "evidence_run_assignment_required"
-            ),
-            dispatch_lease_id=self._text(
-                dispatch_lease_id, "evidence_run_dispatch_lease_required"
-            ),
+            assignment_id=self._text(assignment_id, "evidence_run_assignment_required"),
+            dispatch_lease_id=self._text(dispatch_lease_id, "evidence_run_dispatch_lease_required"),
             terminal_state=terminal_state,
-            result_digest=self._digest(
-                result_digest, "evidence_run_result_digest_invalid"
-            ),
+            result_digest=self._digest(result_digest, "evidence_run_result_digest_invalid"),
             updated_at_epoch=float(self._clock()),
         )
 
@@ -328,9 +288,7 @@ class HubEvidenceRegistryService:
             or run.assignment_id != str(assignment_id or "").strip()
             or run.dispatch_lease_id != str(dispatch_lease_id or "").strip()
         ):
-            raise HubEvidenceRegistryError(
-                "evidence_run_assignment_binding_mismatch"
-            )
+            raise HubEvidenceRegistryError("evidence_run_assignment_binding_mismatch")
         return build_hub_evidence_assignment(
             run_id=run.run_id,
             task_id=run.task_id,
@@ -356,14 +314,10 @@ class HubEvidenceRegistryService:
         try:
             requested_sources = self._source_ids(source_ids)
         except HubEvidenceRegistryError:
-            return self._failed(
-                "evidence_source_ids_invalid", raw_sources, run_id
-            )
+            return self._failed("evidence_source_ids_invalid", raw_sources, run_id)
         normalized_required_scope = str(required_scope or "").strip().lower()
         if normalized_required_scope not in {"local", "external", "production"}:
-            return self._failed(
-                "evidence_release_scope_invalid", requested_sources, run_id
-            )
+            return self._failed("evidence_release_scope_invalid", requested_sources, run_id)
         run = self._repository.get_run(
             tenant_id=str(tenant_id or "").strip(),
             project_id=str(project_id or "").strip(),
@@ -393,8 +347,7 @@ class HubEvidenceRegistryService:
                 source is None
                 or source.state != "admitted"
                 or source.synthetic
-                or source.evidence_scope
-                not in _SOURCE_SCOPES_BY_RUN[normalized_required_scope]
+                or source.evidence_scope not in _SOURCE_SCOPES_BY_RUN[normalized_required_scope]
             ):
                 return self._failed(
                     "evidence_source_release_binding_invalid",
@@ -458,13 +411,9 @@ class HubEvidenceRegistryService:
         if not normalized or len(normalized) > 128:
             raise HubEvidenceRegistryError("evidence_issuer_invalid")
         if supplied and normalized == _HUB_ISSUER:
-            raise HubEvidenceRegistryError(
-                "evidence_external_identifier_issuer_required"
-            )
+            raise HubEvidenceRegistryError("evidence_external_identifier_issuer_required")
         if not supplied and normalized != _HUB_ISSUER:
-            raise HubEvidenceRegistryError(
-                "evidence_automatic_identifier_issuer_invalid"
-            )
+            raise HubEvidenceRegistryError("evidence_automatic_identifier_issuer_invalid")
         return normalized
 
     @staticmethod
@@ -485,10 +434,7 @@ class HubEvidenceRegistryService:
         if not isinstance(values, (list, tuple)) or not 1 <= len(values) <= 128:
             raise HubEvidenceRegistryError("evidence_source_ids_invalid")
         normalized = tuple(sorted(str(value or "").strip() for value in values))
-        if (
-            len(set(normalized)) != len(normalized)
-            or any(_SOURCE_ID.fullmatch(value) is None for value in normalized)
-        ):
+        if len(set(normalized)) != len(normalized) or any(_SOURCE_ID.fullmatch(value) is None for value in normalized):
             raise HubEvidenceRegistryError("evidence_source_ids_invalid")
         return normalized
 

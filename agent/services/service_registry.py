@@ -118,9 +118,7 @@ class CoreServiceRegistry:
             sub_fields = getattr(type(sub), "__dataclass_fields__", {})
             if name in sub_fields:
                 return getattr(sub, name)
-        raise AttributeError(
-            f"CoreServiceRegistry has no attribute {name!r}"
-        )
+        raise AttributeError(f"CoreServiceRegistry has no attribute {name!r}")
 
 
 def _build_core_service_field_owners() -> dict[str, str]:
@@ -193,15 +191,11 @@ def register_core_service_override(
     normalized_field_name = str(service_field_name or "").strip()
     if normalized_field_name not in _CORE_SERVICE_FIELD_OWNERS:
         raise ValueError("core_service_override_field_unknown")
-    overrides = dict(
-        app.extensions.get(_CORE_SERVICE_OVERRIDES_EXTENSION) or {}
-    )
+    overrides = dict(app.extensions.get(_CORE_SERVICE_OVERRIDES_EXTENSION) or {})
     overrides[normalized_field_name] = service
     existing_registry = app.extensions.get("core_services")
     projected_registry = (
-        _apply_core_service_overrides(existing_registry, overrides)
-        if existing_registry is not None
-        else None
+        _apply_core_service_overrides(existing_registry, overrides) if existing_registry is not None else None
     )
     app.extensions[_CORE_SERVICE_OVERRIDES_EXTENSION] = overrides
     if projected_registry is not None:

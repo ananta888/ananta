@@ -153,6 +153,7 @@ class EvidenceIdentityRegistryPort(Protocol):
         source_ids: Sequence[str],
     ) -> EvidenceBindingVerification: ...
 
+
 __all__ = [
     "EvidenceBindingVerification",
     "EvidenceIdentityRegistryPort",

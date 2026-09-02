@@ -77,8 +77,7 @@ def test_gate_coordinates_closed_assignment_and_verified_result(gate_runtime) ->
 
     outcome = gate.execute(
         _request(),
-        lambda projection: received.append(dict(projection))
-        or {"passed": True, "tests": 7, "failures": 0},
+        lambda projection: received.append(dict(projection)) or {"passed": True, "tests": 7, "failures": 0},
     )
 
     assert outcome.passed is True
