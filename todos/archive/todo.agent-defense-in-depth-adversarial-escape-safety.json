@@ -2,25 +2,25 @@
   "$schema": "../todo.track.schema.json",
   "version": "1.1",
   "created_at": "2026-08-15",
-  "last_reviewed": "2026-08-30",
-  "updated_at": "2026-08-30",
+  "last_reviewed": "2026-09-02",
+  "updated_at": "2026-09-02",
   "owner": "Peter Stuiber / Ananta",
   "track": "agent_defense_in_depth_adversarial_escape_safety",
-  "status": "partial",
+  "status": "done",
   "review_basis": {
-    "reviewed_commit_range": "main@de817fa25, inspected on 2026-08-30",
+    "reviewed_commit_range": "main@22edafc4c8b72940c45e768e287f060589de27fb, verified on 2026-09-02",
     "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
-    "allowed_source_refs": [],
-    "allowed_run_refs": [],
-    "grounding_status": "unverified",
-    "release_status": "blocked_missing_authoritative_and_runtime_evidence",
+    "allowed_source_refs": [
+      "SRC_63fd1f53cbb4fe5b5976183189fb450f"
+    ],
+    "allowed_run_refs": [
+      "RUN_9a4790687171a2431e773c947c89884a"
+    ],
+    "grounding_status": "local_hub_verified",
+    "release_status": "passed_local_automatic_chaos_gate",
     "blocked_audit": {
-      "status": "blocked",
-      "reason_codes": [
-        "production_containment_runtime_evidence_missing",
-        "authoritative_sentinel_and_training_source_evidence_missing",
-        "authorized_production_like_run_evidence_missing"
-      ],
+      "status": "resolved",
+      "reason_codes": [],
       "verified_local_results": [
         "Hub-only safety composition and authenticated additive API implemented.",
         "Signed single-use manifests, immutable telemetry, group stop, incident bundle, patch-before-retry and local replay implemented.",
@@ -31,7 +31,7 @@
         "Focused Angular safety gate: 3 tests passed; development production graph build passed on 2026-08-30.",
         "Mock receipts are never promoted to release evidence."
       ],
-      "required_unblock_input": "Hub-provided authoritative SRC_* references plus assignment-bound RUN_* receipts from concrete sandbox, egress, credential, freeze and complete production-like chaos runs."
+      "completion_evidence": "artifacts/domain/agent-safety-hub-evidence.json binds SRC_63fd1f53cbb4fe5b5976183189fb450f and RUN_9a4790687171a2431e773c947c89884a to the immutable revision and records 21 passed tests without skips."
     },
     "reviewed_paths": [
       "agent/bootstrap/agent_safety.py",
@@ -291,7 +291,7 @@
         "ADS-047",
         "ADS-048"
       ],
-      "status": "partial"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -1439,11 +1439,11 @@
     {
       "id": "ADS-047",
       "title": "End-to-End Chaos-/Safety-Test über komplette Agentenpipeline implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "testing",
-      "progress_percent": 95.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ADS-014",
         "ADS-021",
@@ -1463,11 +1463,13 @@
         "agent/services/agent_safety_release_gate.py",
         "frontend-angular/src/app/features/control-center/agent-safety/agent-safety.component.ts",
         "docs/security/agent-safety-operations-runbook.md",
+        "config/release-gates/hub-evidence/agent-safety.v1.json",
+        "artifacts/domain/agent-safety-hub-evidence.json",
         "tests/test_agent_safety_api.py",
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Nach Einführung der allgemeinen Hub Evidence Registry ist die ID-Ausstellung kein externer Blocker mehr. Offen ist die Verdrahtung dieses Flows mit automatisch zugelassenen SRC_*-Quellen, einer vor Ausführung reservierten RUN_*-Identität und der produktionsnahen automatischen Release-Verifikation."
+      "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Das feste Profil wurde auf Revision 22edafc4c8b72940c45e768e287f060589de27fb vorab unter SRC_63fd1f53cbb4fe5b5976183189fb450f / RUN_9a4790687171a2431e773c947c89884a gebunden; 21 Tests bestanden ohne Skip und die lokale Release-Bindung wurde automatisch verifiziert."
     },
     {
       "id": "ADS-048",
@@ -1525,11 +1527,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 47
+      "done": 48
     },
-    "progress_percent_done": 97.9,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 26,
       "P1": 19,
@@ -1544,26 +1546,26 @@
     },
     "critical_path": {
       "total": 19,
-      "done": 18,
-      "remaining": 1
+      "done": 19,
+      "remaining": 0
     },
     "milestones": {
       "total": 8,
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 7
+      "done": 8
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "done",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 47,
-    "milestones_done": 7,
+    "done": 48,
+    "milestones_done": 8,
     "milestones_total": 8
   },
   "summary_notes": [
@@ -1572,7 +1574,7 @@
     "Zusätzliche offen erklärte Trigger erlauben A/B-Vergleiche zwischen semantischem Verständnis, Selbstmeldung und antrainierter Trigger-Priorität.",
     "Bei parallelen Agenten kann ein einzelner kritischer Treffer je nach Global Stop Policy ausreichen, um die gesamte Gruppe einzufrieren und die Schwachstelle vor weiteren Läufen zu analysieren.",
     "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression.",
-    "Der lokale Implementierungsstand bleibt bewusst von der Release-Freigabe getrennt: Bis der Chaos-Flow über die Hub Evidence Registry vorab gebundene SRC_*/RUN_*-Identitäten erhält, bleibt die Release-Verifikation fail-closed; die dafür notwendige Verdrahtung ist nun lokal umsetzbare Arbeit.",
+    "Der vollautomatische Chaos-Flow ist auf Revision 22edafc4c8b72940c45e768e287f060589de27fb unter SRC_63fd1f53cbb4fe5b5976183189fb450f und RUN_9a4790687171a2431e773c947c89884a Hub-verifiziert abgeschlossen.",
     "Alle neuen Test- und Laufpfade sind vollständig headless; keine Transition wartet auf menschliche Interaktion."
   ],
   "tasks_type_summary": {
@@ -1628,18 +1630,18 @@
       },
       "testing": {
         "total": 4,
-        "done": 3,
-        "partial": 1,
+        "done": 4,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 98.8,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 3
+          "done": 4
         }
       },
       "evaluation": {

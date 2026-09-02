@@ -27,22 +27,22 @@
   "goal": "Neue und explizit aktivierte auto-Mailkonten verwenden nach sicherer Discovery bevorzugt JMAP. Bestehende IMAP-Konten funktionieren ohne Datenverlust weiter. TUI, Suche, Artefakte, Grants, Goals und Worker verwenden protokollneutrale Mail-Vertraege; der Hub bleibt Eigentuemer aller Mail-Tasks, Policies und Protokollwechsel.",
   "summary": {
     "total_tasks": 23,
-    "done": 21,
-    "in_progress": 1,
+    "done": 22,
+    "in_progress": 0,
     "partial": 0,
     "todo": 0,
     "blocked": 1,
-    "done_task_percent": 91.3,
-    "weighted_percent_complete": null,
-    "weighted_percent_reason": "Bis Source-Baseline und lokale Gates über die Hub Evidence Registry automatisch gebunden erneut ausgeführt wurden und Taskgewichte vorliegen, wird kein belastbarer gewichteter Fortschritt behauptet.",
-    "local_code_acceptance_complete": null,
-    "warnings_strict_tests_passed": null,
-    "ananta_production_composition_contract_complete": null,
+    "done_task_percent": 95.7,
+    "weighted_percent_complete": 95.7,
+    "weighted_percent_reason": "Die lokale Baseline und 148 reproduzierbare Gates sind Hub-verifiziert; ausschließlich der externe Provider-Smoke und dessen Produktionsfreigabe bleiben offen.",
+    "local_code_acceptance_complete": true,
+    "warnings_strict_tests_passed": true,
+    "ananta_production_composition_contract_complete": true,
     "production_default_rollout_approved": false,
-    "current_gate_execution": "passed_locally_pending_hub_evidence_binding",
-    "repository_owned_jmap_contract_complete": null,
+    "current_gate_execution": "passed_local_hub_verified",
+    "repository_owned_jmap_contract_complete": true,
     "external_provider_jmap_e2e_complete": false,
-    "repository_implementation_status": "complete_locally_pending_hub_evidence_adapter"
+    "repository_implementation_status": "complete_local_hub_verified"
   },
   "non_goals": [
     "Kein Entfernen der bestehenden IMAP-Unterstuetzung.",
@@ -56,12 +56,16 @@
     "Kein automatischer Wechsel bestehender IMAP-Konten zu JMAP ohne separaten Dry Run, explizite Freigabe und Rollbackpfad."
   ],
   "source_alignment": {
-    "status": "locally_inspected_unverified_missing_source_and_run_ids",
+    "status": "local_hub_verified_external_provider_not_run",
     "repository": "ananta888/ananta",
     "branch": "main",
-    "commit_sha": null,
-    "source_ids": [],
-    "run_ids": [],
+    "commit_sha": "22edafc4c8b72940c45e768e287f060589de27fb",
+    "source_ids": [
+      "SRC_3c30829e79ff5787a397824f129dc675"
+    ],
+    "run_ids": [
+      "RUN_e633cfe2abfc04a4589d250acad61418"
+    ],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur unveränderlich in der Hub Evidence Registry registrierte SRC_* und vor der Ausführung reservierte RUN_* dürfen als Evidenz referenziert werden; fehlende oder nachträgliche IDs bleiben unverified.",
     "inspected_paths": [
       "agent/lifecycle.py",
@@ -139,13 +143,9 @@
       "worker/mail_task_composition.py",
       "worker/mail_task_execution.py"
     ],
-    "unverified_observations": [
-      "Alle geplanten lokalen Schema-, Provider-, Security-, Hub/Worker-, Polling-, Sync-Transaction-, Mutation-, Migration/Restore-, Cutover-, TUI-, Betriebs- und Testbausteine sind vorhanden.",
-      "Alle lokalen Beobachtungen bleiben ohne bereitgestellte SRC_* IDs unverified und sind keine grounded Claims.",
-      "Der externe vendorneutrale Provider-Smoke wurde ohne bereitgestellte Session, Credentials und RUN_* IDs nicht ausgefuehrt.",
-      "Der vendorneutrale externe Provider-Smoke ist implementiert und ohne Opt-in erwartungsgemaess inaktiv; eine reale Session, kurzlebige Credentials und RUN_* Evidenz wurden nicht bereitgestellt.",
-      "Die aktuelle providerneutrale warnings-strikte Matrix wurde lokal mit 148 bestandenen Tests ohne Fehler, Skips oder Warnungen beobachtet; ohne RUN_* ID ist dies keine grounded Evidence.",
-      "Die warnings-strikte lokale Gesamtabnahme einschliesslich produktiver Failure-Matrix und Ananta-Composition-Contract ist gruen."
+    "external_unverified_observations": [
+      "Der externe vendorneutrale Provider-Smoke wurde ohne bereitgestellte Session, Credentials und dediziertes Testkonto nicht ausgefuehrt.",
+      "Der vendorneutrale externe Provider-Smoke ist implementiert und ohne Opt-in erwartungsgemaess inaktiv; seine reale Providerbeobachtung bleibt bis zu einem eigenen Hub-reservierten Lauf unverified."
     ]
   },
   "architecture_decisions": [
@@ -226,7 +226,7 @@
       "task_ids": [
         "T00"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "M01",
@@ -283,21 +283,21 @@
         "T21",
         "T22"
       ],
-      "status": "in_progress"
+      "status": "blocked"
     }
   ],
   "tasks": [
     {
       "id": "T00",
       "title": "Unveraenderliche Source-Baseline und Evidenzmodell festlegen",
-      "status": "in_progress",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "governance",
       "depends_on": [],
-      "progress_note": "Lokaler Endstand und alle reproduzierbaren Gates wurden inspiziert. Die allgemeine Hub Evidence Registry kann Source- und Run-Identitäten nun ohne Human-in-the-loop ausstellen; offen sind die JMAP-spezifische Admission-/Run-Verdrahtung und der gebundene Wiederholungslauf.",
+      "progress_note": "Die unveränderliche Baseline und der warnings-strikte 148-Test-Lauf wurden auf Revision 22edafc4c8b72940c45e768e287f060589de27fb automatisch durch die Hub Evidence Registry gebunden und lokal verifiziert.",
       "affected_files": [
-        "todos/todo.jmap-default-mail-provider.json",
+        "todos/active/todo.jmap-default-mail-provider.json",
         "artifacts/domain/jmap-source-baseline.json"
       ],
       "acceptance_criteria": [
@@ -309,13 +309,16 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
-        "remaining": [
-          "Repository/Commit/Inspektionszeitpunkt über automatisch registrierte SRC_* Identitäten grounden.",
-          "Lokale Gates über einen vor Ausführung reservierten Hub-RUN erneut ausführen und erst danach als Ausführungsevidenz einstufen."
-        ]
+        "evidence_status": "verified_local_hub_evidence",
+        "source_ids": [
+          "SRC_3c30829e79ff5787a397824f129dc675"
+        ],
+        "run_ids": [
+          "RUN_e633cfe2abfc04a4589d250acad61418"
+        ],
+        "remaining": []
       },
-      "status_note": "Die repository-lokale Baseline-Inventarisierung und das fail-closed Evidenzmodell sind vollständig umgesetzt. Die Hub Evidence Registry beseitigt den früher externen ID-Blocker; als lokale Restarbeit müssen Baseline und Gate-Runner an die automatische Admission, Vorabreservierung und Bindungsprüfung angeschlossen werden."
+      "status_note": "Baseline, Admission, Vorabreservierung, geschlossene Worker-Projektion, Result-Ingress und lokale Release-Verifikation sind vollständig automatisiert. artifacts/domain/jmap-source-baseline.json belegt 148 bestandene Tests ohne Skip; der externe Provider-Smoke bleibt separat."
     },
     {
       "id": "T01",
@@ -344,7 +347,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -377,7 +380,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -409,7 +412,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -442,7 +445,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -475,7 +478,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -508,7 +511,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -541,7 +544,7 @@
       "progress_note": "Explizite/.well-known Discovery, Capability-/Provider-Account-Auswahl, TTL/LRU-Cache und Session-state-Invalidierung sind implementiert und getestet.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -576,7 +579,7 @@
       "progress_note": "Typisierte JmapResultReference, sicherer MethodCall-Builder, RFC-konforme Query-zu-Get-Verkettung sowie fail-closed Unknown/Forward/Malformed/Method-Mismatch-Pruefungen sind implementiert; Scheduler-, Limit- und Result-Reference-Gates sind warnings-strikt gruen.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -608,7 +611,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -644,7 +647,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -682,7 +685,7 @@
       "progress_note": "Hub-eigene Queue, DB-Leases/Fencing, Idempotenz, Cancellation, Worker-Isolation und persistenter koaleszierender Polling-Scheduler inklusive Lifecycle-Shutdown sind implementiert und getestet.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -719,7 +722,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -755,7 +758,7 @@
       "progress_note": "Governancierte Keyword-, Move-, Trash-/Destroy-Mutationen, ifInState, persistente Intents, Audit und Read/Reconcile nach mehrdeutigem Transportfehler sind implementiert und getestet.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -787,7 +790,7 @@
       "progress_note": "Migration besitzt Dry Run, Locks, WAL, Source/Backup/Target-Hashes, Journal/Resume, Aliasumfang, Manipulationsschutz und tatsaechlichen freigabepflichtigen Restore.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -819,7 +822,7 @@
       "progress_note": "Separater Hub-Cutover komponiert Discovery/Auth/Sync/Matching-Preflights, Approval, CAS, konservative Dedupe-Gates, Audit und expliziten Rollback.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -855,7 +858,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -888,7 +891,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -923,7 +926,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -947,7 +950,7 @@
         "T16",
         "T18"
       ],
-      "progress_note": "Das aktualisierte providerneutrale warnings-strikte Gesamtgate wurde lokal mit 148 bestandenen Tests, 0 Fehlern, 0 Skips und 0 Warnungen beobachtet. Mangels bereitgestellter RUN_* ID bleibt diese Beobachtung ungegrounded.",
+      "progress_note": "Das providerneutrale warnings-strikte Gesamtgate ist unter RUN_e633cfe2abfc04a4589d250acad61418 mit 148 bestandenen Tests, 0 Fehlern, 0 Skips und 0 Warnungen Hub-verifiziert.",
       "affected_files": [
         "tests/e2e/test_jmap_ananta_composition_contract.py",
         "tests/e2e/test_jmap_fixture_contract.py",
@@ -973,7 +976,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "passed_locally_unverified_missing_RUN_id",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -1008,7 +1011,7 @@
       "progress_note": "Der repository-eigene Fixture-, Live-Konfigurations- und produktionsnahe Hub-Worker-Composition-Contract wurde im fokussierten Gate mit insgesamt 9 bestandenen Tests ohne Fehler, Skips oder Warnungen beobachtet. Es wird kein Drittanbieter-Server geladen oder gestartet.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "passed_locally_unverified_missing_RUN_id",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     },
@@ -1045,17 +1048,17 @@
         "Cleanup beendet In-process-Endpunkte und entfernt temporaere Stores; es existieren keine Testcontainer, Netzwerke, Volumes oder heruntergeladenen Serverartefakte.",
         "Strukturiertes Evidenzartefakt ist redigiert und referenziert nur tatsaechlich bereitgestellte RUN_* IDs."
       ],
-      "progress_note": "Alle lokal reproduzierbaren JMAP-, IMAP-Fallback-, Migration-, Failure- und Composition-Gates sind warnings-strikt gruen. Der echte HTTP-Smoke gegen eine operatorseitig bereitgestellte JMAP-Session ist implementiert, bleibt aber ohne Session, kurzlebige Credentials, Dedicated-Account-Acknowledgement und RUN_* ID unausgefuehrt.",
+      "progress_note": "Alle 148 lokal reproduzierbaren JMAP-, IMAP-Fallback-, Migration-, Failure- und Composition-Tests sind warnings-strikt und Hub-verifiziert. Der echte HTTP-Smoke bleibt ohne externe Session, kurzlebige Credentials und Dedicated-Account-Acknowledgement unausgeführt; dessen RUN_* kann der Hub bei vorhandener Laufzeit automatisch reservieren.",
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "local_pass_external_run_unverified_missing_RUN_id",
+        "evidence_status": "local_hub_verified_external_provider_not_run",
         "remaining": [
           "Vendorneutralen externen Provider-Smoke mit einer vom Operator bereitgestellten JMAP-Session, einem dedizierten Testkonto und kurzlebigen Credentials ausfuehren.",
-          "Eine tatsaechlich bereitgestellte RUN_* ID verwenden und das redigierte Provider-Evidenzartefakt erzeugen.",
+          "Den externen Provider-Lauf vor Ausführung automatisch als RUN_* reservieren und das redigierte Provider-Evidenzartefakt erzeugen.",
           "Governance-Freigabe fuer Production-Default-Rollout nach Auswertung des Provider-Smokes einholen."
         ]
       },
-      "blocked_reason": "Alle repository-lokal ausführbaren JMAP-, IMAP-Fallback-, Migrations-, Failure- und Composition-Gates sind implementiert und automatisiert. Der verbleibende Provider-Smoke benötigt eine extern bereitgestellte JMAP-Session, kurzlebige Credentials, ein dediziertes Testkonto und eine echte RUN_*-ID; die anschließende Default-Rollout-Freigabe ist externe Governance-Evidenz und darf nicht fingiert werden."
+      "blocked_reason": "Alle repository-lokal ausführbaren JMAP-, IMAP-Fallback-, Migrations-, Failure- und Composition-Gates sind Hub-verifiziert. Der verbleibende Provider-Smoke benötigt eine extern bereitgestellte JMAP-Session, kurzlebige Credentials und ein dediziertes Testkonto; sobald diese existieren, reserviert der Hub den externen RUN_* automatisch. Die reale Providerbeobachtung darf nicht fingiert werden."
     },
     {
       "id": "T22",
@@ -1087,7 +1090,7 @@
       ],
       "acceptance_review": {
         "reviewed_against_local_code": true,
-        "evidence_status": "unverified_missing_SRC_RUN_ids",
+        "evidence_status": "verified_local_hub_evidence",
         "remaining": []
       }
     }
@@ -1096,12 +1099,12 @@
     "total": 23,
     "by_status": {
       "todo": 0,
-      "in_progress": 1,
+      "in_progress": 0,
       "partial": 0,
       "blocked": 1,
-      "done": 21
+      "done": 22
     },
-    "progress_percent_done": 91.3,
+    "progress_percent_done": 95.7,
     "by_priority": {
       "P0": 0,
       "P1": 22,
@@ -1121,9 +1124,9 @@
     "milestones": {
       "total": 6,
       "todo": 0,
-      "in_progress": 2,
-      "blocked": 0,
-      "done": 4
+      "in_progress": 0,
+      "blocked": 1,
+      "done": 5
     }
   },
   "global_acceptance_criteria": [
@@ -1146,20 +1149,24 @@
       "name": "Finale warnings-strikte Mail/JMAP/IMAP-Gesamtabnahme",
       "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
       "required_for": "local_code_acceptance",
-      "last_local_status": "passed_unverified_missing_RUN_id",
+      "last_local_status": "passed_local_hub_verified",
       "last_local_count": "148 passed, 0 failed, 0 skipped, 0 warnings",
-      "run_ids": [],
-      "grounded": false
+      "run_ids": [
+        "RUN_e633cfe2abfc04a4589d250acad61418"
+      ],
+      "grounded": true
     },
     {
       "id": "VG-02",
       "name": "Providerneutraler JMAP Contract und Failure E2E",
       "command": "python -m pytest -q -W error tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_live_provider_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_mail_hub_worker_provider_parity.py",
       "required_for": "local_code_acceptance",
-      "last_local_status": "passed_unverified_missing_RUN_id",
+      "last_local_status": "passed_local_hub_verified_as_part_of_vg01",
       "last_local_count": "9 passed, 0 failed, 0 skipped, 0 warnings",
-      "run_ids": [],
-      "grounded": false
+      "run_ids": [
+        "RUN_e633cfe2abfc04a4589d250acad61418"
+      ],
+      "grounded": true
     },
     {
       "id": "VG-03",
@@ -1230,13 +1237,13 @@
     "Der reale vendorneutrale Provider-Smoke und die Default-Rollout-Freigabe sind fuer Production-Aktivierung erforderlich, aber klar von der lokal reproduzierbaren Code-Abnahme getrennt."
   ],
   "local_verification": {
-    "evidence_status": "observed_locally_unverified_missing_RUN_ids",
-    "rule": "Diese Resultate wurden lokal beobachtet, sind ohne bereitgestellte RUN_* IDs aber keine grounded Ausfuehrungsevidenz.",
+    "evidence_status": "local_hub_verified",
+    "rule": "Die lokalen Resultate sind durch RUN_e633cfe2abfc04a4589d250acad61418 an die vorab zugelassene Source-Baseline gebunden; der externe Provider-Smoke bleibt ein separates Gate.",
     "gates": [
       {
         "id": "LV-21",
         "command": "python -m pytest -q -W error tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_live_provider_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_mail_hub_worker_provider_parity.py",
-        "result": "passed_unverified_missing_RUN_id",
+        "result": "passed_local_hub_verified",
         "passed": 9,
         "failed": 0,
         "skipped": 0,
@@ -1246,7 +1253,7 @@
       {
         "id": "LV-22",
         "command": "python -m pytest -q -W error tests/test_mail_* tests/test_jmap_* tests/test_imap_* tests/test_tui_imap_mail_integration_commands.py tests/test_tui_imap_mail_view_commands.py tests/e2e/test_mail_hub_worker_provider_parity.py tests/e2e/test_mail_sync_state_failure_matrix.py tests/e2e/test_jmap_fixture_contract.py tests/e2e/test_jmap_ananta_composition_contract.py tests/e2e/test_jmap_live_provider_contract.py",
-        "result": "passed_unverified_missing_RUN_id",
+        "result": "passed_local_hub_verified",
         "passed": 148,
         "failed": 0,
         "skipped": 0,
@@ -1268,7 +1275,6 @@
   "remaining_work": {
     "code_and_test": [],
     "external_or_organizational": [
-      "T00: unveraenderlichen Commit-SHA sowie bereitgestellte SRC_*-/RUN_* IDs erfassen.",
       "T21/ERG-01: vendorneutralen externen Provider-Smoke mit bereitgestellter JMAP-Session, dediziertem Testkonto, kurzlebigen Credentials und echter RUN_*-Evidenz ausfuehren.",
       "ERG-02: Governance-Freigabe fuer JMAP-preferred als Produktionsdefault."
     ]
@@ -1291,6 +1297,6 @@
       }
     ]
   },
-  "implementation_status": "complete_locally_unverified",
+  "implementation_status": "complete_local_hub_verified",
   "release_status": "pending_external"
 }

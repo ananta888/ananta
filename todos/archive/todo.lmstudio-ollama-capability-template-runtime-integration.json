@@ -4,10 +4,10 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "lmstudio-ollama-capability-template-runtime-integration",
   "created_at": "2026-07-28",
-  "updated_at": "2026-09-01",
-  "status": "partial",
-  "implementation_status": "local_implementation_complete_external_evidence_blocked",
-  "evidence_status": "local_verification_gates_passed_unverified_missing_SRC_RUN_ids",
+  "updated_at": "2026-09-02",
+  "status": "done",
+  "implementation_status": "local_implementation_complete",
+  "evidence_status": "local_hub_verified",
   "purpose": "LM Studio und Ollama erhalten eine gemeinsame, hub-kontrollierte Sicht auf installierte Modelle, sichere Runtime-Capabilities, Kontextgrenzen, Templates und Laufzeitzustand. Bestehende OpenAI-kompatible Pfade bleiben kompatibel; provider-native Ollama-Funktionen werden hinter kleinen Adaptern ergaenzt.",
   "goal": "Routing, Tool-Calling, Embeddings, Vision, Thinking, API, Angular und TUI verwenden denselben versionierten Capability-Snapshot. Unsichere oder veraltete Daten loesen keine stille Capability-Eskalation aus. Der Hub bleibt Eigentuemer von Refresh, Routing, Approval und Tool-Loop-Zustand; Worker fuehren nur delegierte Schritte aus.",
   "status_scale": [
@@ -46,12 +46,16 @@
     "Keine Live-Runtime- oder GPU-Pflicht fuer die lokale Code-Abnahme."
   ],
   "source_alignment": {
-    "status": "local_implementation_complete_unverified_missing_SRC_RUN_ids",
+    "status": "local_hub_verified",
     "repository": "ananta888/ananta",
-    "branch": null,
-    "commit_sha": null,
-    "source_ids": [],
-    "run_ids": [],
+    "branch": "main",
+    "commit_sha": "22edafc4c8b72940c45e768e287f060589de27fb",
+    "source_ids": [
+      "SRC_f867ea689690f212a598e9439b600b6c"
+    ],
+    "run_ids": [
+      "RUN_8b0252f14062a0282e58815963c30c16"
+    ],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* IDs sind fuer Source- oder Run-Claims zulaessig; fehlende IDs bleiben unverified.",
     "existing_foundations": [
       "agent/llm_integration_lmstudio.py",
@@ -75,8 +79,7 @@
       "worker/retrieval/embedding_provider.py"
     ],
     "observed_gaps": [
-      "Es wurden keine unveraenderlichen SRC_* oder RUN_* IDs bereitgestellt; Source- und Run-Claims bleiben deshalb unverified.",
-      "Externe Live-Runtime-, GPU-, Performance- und Produktionsfreigaben sind nicht Teil der lokal reproduzierbaren Abnahme."
+      "Externe Live-Runtime-, GPU-, Performance- und Produktionsfreigaben sind nicht Teil der lokal reproduzierbaren Abnahme und werden durch die lokale Hub-Evidence nicht behauptet."
     ]
   },
   "capability_contract_v1": {
@@ -133,7 +136,7 @@
         "LMR-002",
         "LMR-003"
       ],
-      "status": "partial"
+      "status": "done"
     },
     {
       "id": "LMR-M2",
@@ -186,16 +189,16 @@
     {
       "id": "LMR-000",
       "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
-      "status": "partial",
-      "status_note": "Die allgemeine Hub Evidence Registry kann zulässige SRC_* und RUN_* Identitäten nun automatisch und ohne Human-in-the-loop ausstellen. Offen sind die runtime-spezifische Source-Admission, Vorabreservierung der Live-/Testläufe und der gebundene Wiederholungslauf; bis dahin bleiben die Claims unverified.",
+      "status": "done",
+      "status_note": "Das feste Runtime-Profil wurde auf Revision 22edafc4c8b72940c45e768e287f060589de27fb automatisch als SRC_f867ea689690f212a598e9439b600b6c zugelassen und vor Ausführung als RUN_8b0252f14062a0282e58815963c30c16 reserviert. Alle 99 lokalen Tests bestanden warnings-strikt ohne Skip; die lokale Bindung ist Hub-verifiziert. Live-Runtime- und GPU-Claims bleiben davon getrennt und werden nicht behauptet.",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 10.0,
+      "progress_percent": 100.0,
       "type": "governance",
       "milestone_id": "LMR-M1",
       "depends_on": [],
       "affected_files": [
-        "todos/active/todo.lmstudio-ollama-capability-template-runtime-integration.json",
+        "todos/archive/todo.lmstudio-ollama-capability-template-runtime-integration.json",
         "artifacts/domain/local-model-runtime-source-baseline.json"
       ],
       "details": [
@@ -986,10 +989,10 @@
     {
       "id": "LMR-ERG-01",
       "title": "Grounded Source- und Run-Evidence",
-      "status": "blocked",
+      "status": "passed",
       "required_for": "grounded_track_completion",
       "rule": "Commit-SHA sowie bereitgestellte SRC_* und RUN_* IDs muessen vor grounded Claims erfasst werden.",
-      "blocked_reason": "Keine zulaessigen SRC_* oder RUN_* IDs wurden bereitgestellt."
+      "completion_evidence": "SRC_f867ea689690f212a598e9439b600b6c und RUN_8b0252f14062a0282e58815963c30c16 sind auf Revision 22edafc4c8b72940c45e768e287f060589de27fb Hub-verifiziert."
     },
     {
       "id": "LMR-ERG-02",
@@ -1047,11 +1050,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 21
+      "done": 22
     },
-    "progress_percent_done": 95.5,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 14,
       "P1": 8,
@@ -1066,16 +1069,16 @@
     },
     "critical_path": {
       "total": 14,
-      "done": 13,
-      "remaining": 1
+      "done": 14,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
       "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 4
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -1083,18 +1086,18 @@
     "by_type": {
       "governance": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 10.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "architecture": {
@@ -1324,26 +1327,26 @@
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "done",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 21,
-    "milestones_done": 4,
+    "done": 22,
+    "milestones_done": 5,
     "milestones_total": 5
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 39.5,
-    "done_weight": 38.15,
-    "remaining_weight": 1.35,
-    "blocked_weight": 1.5,
-    "weighted_percent": 96.6
+    "done_weight": 39.5,
+    "remaining_weight": 0.0,
+    "blocked_weight": 0.0,
+    "weighted_percent": 100.0
   },
   "execution_stage_summary": {
     "local_code_and_test": "complete_automated",
-    "grounded_evidence": "blocked_missing_provided_SRC_RUN_ids",
+    "grounded_evidence": "local_hub_verified",
     "live_compatibility": "external_optional_gate_not_claimed",
     "production_default": "observe_only"
   },
@@ -1351,7 +1354,7 @@
     "Tasks sind die Single Source of Truth; Summary-Felder sind abgeleitete Caches.",
     "21 lokal reproduzierbare Implementierungsaufgaben sind automatisiert umgesetzt und getestet.",
     "Alle vier korrigierten lokalen Verification Gates sind am 2026-09-01 warnings-strikt und ohne Pytest-Cache-Abhaengigkeit gruen: 47 passed; 34 passed und 3 externe Live-Tests skipped; 148 passed; 36 passed.",
-    "LMR-000 bleibt wegen fehlender bereitgestellter SRC_* und RUN_* IDs explizit blocked; es werden keine IDs erfunden.",
+    "LMR-000 ist durch SRC_f867ea689690f212a598e9439b600b6c und RUN_8b0252f14062a0282e58815963c30c16 auf Revision 22edafc4c8b72940c45e768e287f060589de27fb lokal Hub-verifiziert; 99 Tests bestanden warnings-strikt ohne Skip.",
     "Optionale Live-Runtime-, GPU- und Produktionsfreigaben bleiben von der lokalen Implementierungsabnahme getrennt."
   ],
   "definition_of_done": [

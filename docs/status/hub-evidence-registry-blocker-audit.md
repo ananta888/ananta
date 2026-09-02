@@ -10,19 +10,20 @@ without human interaction. This audit separates locally actionable registry
 integration from prerequisites that still require real accounts, datasets,
 hardware/runtime support, legal facts or external infrastructure.
 
-## Locally actionable after the registry change
+## Completed local registry integrations
 
-| Track | Reclassified work | Remaining automatic work |
+| Track | Result | Stable evidence |
 |---|---|---|
-| Agent defense in depth | `ADS-047` changed from blocked to partial | Admit the concrete chaos inputs, reserve the run before dispatch and verify the production-like result under the same assignment/lease. |
-| JMAP default provider | `T00` changed from blocked to in progress | Register the repository baseline and rerun local gates under a pre-reserved Hub run. The real provider smoke remains external. |
-| LM Studio/Ollama runtime | `LMR-000` changed from blocked to partial | Connect baseline and runtime gate adapters to automatic source admission and run reservation. Live runtimes/models remain separate prerequisites. |
-| Qdrant vector store | `QVS-019` changed from blocked to partial | Reserve the real TLS integration job through the Hub and rerun all six scenarios. The reference-host benchmark remains separate. |
+| Agent defense in depth | `ADS-047` complete; 21 automatic chaos/safety tests passed without skips. The completed track is archived. | `artifacts/domain/agent-safety-hub-evidence.json` |
+| JMAP default provider | `T00` and every repository-local gate complete; 148 warnings-strict tests passed without skips. Only the real provider smoke remains external. | `artifacts/domain/jmap-source-baseline.json` |
+| LM Studio/Ollama runtime | `LMR-000` complete; 99 warnings-strict local-runtime tests passed without skips. The locally scoped track is archived; live runtime claims remain separate. | `artifacts/domain/local-model-runtime-source-baseline.json` |
+| Qdrant vector store | `QVS-019` and dependent Wiki gate `QVS-021` complete; all six real TLS scenarios passed without skips and cleanup completed. | `artifacts/domain/qdrant-hub-evidence.json` |
 
-These tasks are not complete merely because the registry exists. Their
-subsystem runner must transport the closed assignment projection and close the
-same reservation with its result. Post-hoc conversion of old logs remains
-forbidden.
+All four gates now use the common Hub-owned coordinator and fixed-profile
+pytest runner. Each source is admitted and each run reserved before execution;
+the Worker receives only a closed assignment projection and the Hub verifies
+the terminal result under the same binding. No old log was relabeled as new
+evidence.
 
 ## Still blocked by facts other than identity issuance
 
@@ -50,6 +51,8 @@ forbidden.
   and pre-execution run reservations.
 - `ananta_contracts.hub_evidence` is the closed Worker-facing assignment
   projection.
+- `agent.services.hub_evidence_gate_service` coordinates fixed-profile gate
+  execution without moving orchestration into a Worker.
 - Organization Source Catalog and Recovery run evidence remain specialized
   Hub adapters during additive migration; neither makes Workers an issuer.
 - Test/synthetic evidence may exercise every branch automatically but cannot
