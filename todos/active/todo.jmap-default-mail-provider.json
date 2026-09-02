@@ -59,12 +59,12 @@
     "status": "local_hub_verified_external_provider_not_run",
     "repository": "ananta888/ananta",
     "branch": "main",
-    "commit_sha": "22edafc4c8b72940c45e768e287f060589de27fb",
+    "commit_sha": "f7813642a43bc12f1dc99d1807dfb8a726461590",
     "source_ids": [
-      "SRC_3c30829e79ff5787a397824f129dc675"
+      "SRC_55f094a05d425fb6e0b7a900311da919"
     ],
     "run_ids": [
-      "RUN_e633cfe2abfc04a4589d250acad61418"
+      "RUN_b435f8a7c8e4382ca4c02f3431e6f3bf"
     ],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur unveränderlich in der Hub Evidence Registry registrierte SRC_* und vor der Ausführung reservierte RUN_* dürfen als Evidenz referenziert werden; fehlende oder nachträgliche IDs bleiben unverified.",
     "inspected_paths": [
@@ -295,7 +295,7 @@
       "risk": "high",
       "type": "governance",
       "depends_on": [],
-      "progress_note": "Die unveränderliche Baseline und der warnings-strikte 148-Test-Lauf wurden auf Revision 22edafc4c8b72940c45e768e287f060589de27fb automatisch durch die Hub Evidence Registry gebunden und lokal verifiziert.",
+      "progress_note": "Die unveränderliche Baseline und der warnings-strikte 148-Test-Lauf wurden auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 automatisch durch die Hub Evidence Registry gebunden und lokal verifiziert.",
       "affected_files": [
         "todos/active/todo.jmap-default-mail-provider.json",
         "artifacts/domain/jmap-source-baseline.json"
@@ -311,10 +311,10 @@
         "reviewed_against_local_code": true,
         "evidence_status": "verified_local_hub_evidence",
         "source_ids": [
-          "SRC_3c30829e79ff5787a397824f129dc675"
+          "SRC_55f094a05d425fb6e0b7a900311da919"
         ],
         "run_ids": [
-          "RUN_e633cfe2abfc04a4589d250acad61418"
+          "RUN_b435f8a7c8e4382ca4c02f3431e6f3bf"
         ],
         "remaining": []
       },
@@ -950,7 +950,7 @@
         "T16",
         "T18"
       ],
-      "progress_note": "Das providerneutrale warnings-strikte Gesamtgate ist unter RUN_e633cfe2abfc04a4589d250acad61418 mit 148 bestandenen Tests, 0 Fehlern, 0 Skips und 0 Warnungen Hub-verifiziert.",
+      "progress_note": "Das providerneutrale warnings-strikte Gesamtgate ist unter RUN_b435f8a7c8e4382ca4c02f3431e6f3bf mit 148 bestandenen Tests, 0 Fehlern, 0 Skips und 0 Warnungen Hub-verifiziert.",
       "affected_files": [
         "tests/e2e/test_jmap_ananta_composition_contract.py",
         "tests/e2e/test_jmap_fixture_contract.py",
@@ -1152,7 +1152,7 @@
       "last_local_status": "passed_local_hub_verified",
       "last_local_count": "148 passed, 0 failed, 0 skipped, 0 warnings",
       "run_ids": [
-        "RUN_e633cfe2abfc04a4589d250acad61418"
+        "RUN_b435f8a7c8e4382ca4c02f3431e6f3bf"
       ],
       "grounded": true
     },
@@ -1164,7 +1164,7 @@
       "last_local_status": "passed_local_hub_verified_as_part_of_vg01",
       "last_local_count": "9 passed, 0 failed, 0 skipped, 0 warnings",
       "run_ids": [
-        "RUN_e633cfe2abfc04a4589d250acad61418"
+        "RUN_b435f8a7c8e4382ca4c02f3431e6f3bf"
       ],
       "grounded": true
     },
@@ -1238,7 +1238,7 @@
   ],
   "local_verification": {
     "evidence_status": "local_hub_verified",
-    "rule": "Die lokalen Resultate sind durch RUN_e633cfe2abfc04a4589d250acad61418 an die vorab zugelassene Source-Baseline gebunden; der externe Provider-Smoke bleibt ein separates Gate.",
+    "rule": "Die lokalen Resultate sind durch RUN_b435f8a7c8e4382ca4c02f3431e6f3bf an die vorab zugelassene Source-Baseline gebunden; der externe Provider-Smoke bleibt ein separates Gate.",
     "gates": [
       {
         "id": "LV-21",

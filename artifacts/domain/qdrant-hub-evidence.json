@@ -7,26 +7,26 @@
       "skipped": 0,
       "tests": 6
     },
-    "junit_digest": "34b5f4607a84ac32191e9c0fdc5c2eb993bc765a3ea7a2231e5301a304fb1739",
+    "junit_digest": "f4f2fb7a23277985d38d90030c0b7a0039dcdcf566d742a8cbc2857361278ff4",
     "passed": true,
     "reason_code": "hub_evidence_pytest_gate_passed",
     "returncode": 0,
     "stderr_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "stdout_digest": "8bff47a846a100135b4da1f2b69267139d69b6dfefc03b84553d4779bec3fb28"
+    "stdout_digest": "64b843ed09c303ea19d58199a478bccd1b38b32295143700a40f135b4d14a50b"
   },
   "human_intervention_required": false,
   "passed": true,
   "profile_digest": "0c9128ca6a918bf39bf38494a4f8f8b5c81d71ae7300e432ed6f353f83ee98a0",
   "profile_id": "qdrant-integration",
   "reason_code": "verified",
-  "repository_revision": "22edafc4c8b72940c45e768e287f060589de27fb",
-  "result_digest": "2c1956eb9f0da953239167392984fe37436b17bb9760180b52bad542ebc7a6cd",
-  "run_id": "RUN_512f881cda28e8929249eb7633459ec5",
+  "repository_revision": "f7813642a43bc12f1dc99d1807dfb8a726461590",
+  "result_digest": "9d64740bc1e205b377e0a33e8efc9786eb43df5c57ba5b7cc0b55efdfaa58e8f",
+  "run_id": "RUN_2a9f0114383b46b11e9360a4a280284f",
   "schema": "ananta.hub-evidence-pytest-gate-result.v1",
   "source_ids": [
-    "SRC_fde31b9c96cd79d32b82166faca10a13"
+    "SRC_7f21ca8a6386edff6e11881141585659"
   ],
-  "source_manifest_digest": "41745d1a2efed96987a32bfd4a15710578350c743431a1d0060c531a0aa64162",
+  "source_manifest_digest": "9e691a30241daab64a6ebd1f5064642264abf43be79e5f973136dd5b1897064b",
   "task_id": "qvs-019",
   "verified": true
 }

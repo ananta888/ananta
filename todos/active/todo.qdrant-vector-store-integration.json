@@ -11,12 +11,12 @@
     "reviewed_at": "2026-09-02",
     "grounding_status": "local_hub_verified",
     "source_ids": [
-      "SRC_fde31b9c96cd79d32b82166faca10a13"
+      "SRC_7f21ca8a6386edff6e11881141585659"
     ],
     "run_ids": [
-      "RUN_512f881cda28e8929249eb7633459ec5"
+      "RUN_2a9f0114383b46b11e9360a4a280284f"
     ],
-    "commit_sha": "22edafc4c8b72940c45e768e287f060589de27fb",
+    "commit_sha": "f7813642a43bc12f1dc99d1807dfb8a726461590",
     "note": "Die lokale Source-Baseline und der echte TLS-Qdrant-Lauf wurden vor Ausfuehrung durch die Hub Evidence Registry unveraenderlich gebunden und nach Result-Ingress erfolgreich verifiziert.",
     "status_note": "Der Hub-verifizierte Lauf gegen den digestgebundenen Qdrant-Server 1.18.3 mit qdrant-client 1.18.0 bestand alle sechs marker-selektierten Integrations- und Transporttests ohne Skip und mit vollstaendigem Cleanup. Das redigierte Ergebnis liegt unter artifacts/domain/qdrant-hub-evidence.json. Ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts fehlt weiterhin und wird nicht als bestanden behauptet."
   },
@@ -53,7 +53,7 @@
       "Rebuilds verwenden immer eine frische inaktive Staging-Collection, pruefen Compatibility und Point-Count vor dem atomaren Alias-Swap und koennen die bisher aktive Collection bei Fehlern nicht verwerfen.",
       "Endpoint-, TLS-, Secret- und Rollout-Policies sind fail-closed. trusted_private_origins hebt fuer exakt allowlistete Origins ausschliesslich das external_calls_allowed-Opt-in auf; jeder Nicht-Loopback-REST-/gRPC-Endpunkt benoetigt weiterhin HTTPS beziehungsweise GRPCS mit aktiver Zertifikatspruefung. Das Compose-Profil verwendet natives Qdrant-TLS und eine scoped CA-Secret-Referenz.",
       "Read-only JSON-Fallback, bounded Observer-/Prometheus-Metriken, Migration, Benchmark-Runner, Compose-Profile und Betriebsdokumentation sind produktiv komponiert und durch fokussierte Positiv- und Negativtests abgedeckt.",
-      "Der Hub-verifizierte TLS-Lauf gegen Qdrant 1.18.3 und qdrant-client 1.18.0 hat unter RUN_512f881cda28e8929249eb7633459ec5 alle sechs marker-selektierten Integrations- und Transporttests ohne Skips bestanden und danach Aliase, Collections, Container, Volumes, Netzwerke, Zertifikate und API-Key entfernt.",
+      "Der Hub-verifizierte TLS-Lauf gegen Qdrant 1.18.3 und qdrant-client 1.18.0 hat unter RUN_2a9f0114383b46b11e9360a4a280284f alle sechs marker-selektierten Integrations- und Transporttests ohne Skips bestanden und danach Aliase, Collections, Container, Volumes, Netzwerke, Zertifikate und API-Key entfernt.",
       "Das versionierte Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert. Der vollstaendige small/medium/large-Lauf auf einem freigegebenen Referenzhost wurde nicht ausgefuehrt.",
       "Qdrant ersetzt ausschliesslich Dense-Vector-Persistenz und -Suche. Lexical-, Symbol-, Graph-, Domain- und Ranking-Logik bleiben unveraendert.",
       "Die Struktur wahrt SRP, ISP und DIP durch getrennte Ports, Adapter, Composition Roots, Input-Loader, Observer, Command-/Query-/Dispatch-Services und Memory-Sampler; Worker-zu-Worker-Orchestrierung wurde nicht eingefuehrt.",
@@ -1151,7 +1151,7 @@
         "docker/compose-next/requirements.qdrant-worker.lock"
       ],
       "description": "Das echte Verhalten gegen den digestgebundenen Qdrant-Service lokal und in einem expliziten CI-Job belegen.",
-      "status_note": "Marker, RUN_INTEGRATION_TESTS-Opt-in, digestidentischer TLS-Service, laufisolierte Prefixe und finally-Cleanup sind implementiert. Der gemeinsame Hub-Gate-Runner hat die Source-Baseline vorab als SRC_fde31b9c96cd79d32b82166faca10a13 zugelassen, RUN_512f881cda28e8929249eb7633459ec5 vor Ausfuehrung reserviert und alle sechs TLS-Szenarien auf Revision 22edafc4c8b72940c45e768e287f060589de27fb ohne Skip verifiziert.",
+      "status_note": "Marker, RUN_INTEGRATION_TESTS-Opt-in, digestidentischer TLS-Service, laufisolierte Prefixe und finally-Cleanup sind implementiert. Der gemeinsame Hub-Gate-Runner hat die Source-Baseline vorab als SRC_7f21ca8a6386edff6e11881141585659 zugelassen, RUN_2a9f0114383b46b11e9360a4a280284f vor Ausfuehrung reserviert und alle sechs TLS-Szenarien auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 ohne Skip verifiziert.",
       "acceptance_criteria": [
         "Tests tragen den Marker qdrant_integration und laufen nur mit RUN_INTEGRATION_TESTS=1; ohne Opt-in werden sie sichtbar als skipped gemeldet.",
         "Der Testservice verwendet exakt den in docker/compose-next/compose.qdrant.yml gepinnten Image-Digest.",
@@ -1164,9 +1164,9 @@
       "progress_percent": 100.0,
       "completion_evidence": {
         "artifact": "artifacts/domain/qdrant-hub-evidence.json",
-        "source_id": "SRC_fde31b9c96cd79d32b82166faca10a13",
-        "run_id": "RUN_512f881cda28e8929249eb7633459ec5",
-        "revision": "22edafc4c8b72940c45e768e287f060589de27fb",
+        "source_id": "SRC_7f21ca8a6386edff6e11881141585659",
+        "run_id": "RUN_2a9f0114383b46b11e9360a4a280284f",
+        "revision": "f7813642a43bc12f1dc99d1807dfb8a726461590",
         "tests_passed": 6,
         "tests_skipped": 0
       }
@@ -1235,7 +1235,7 @@
         "tests/test_wiki_hybrid_retrieval.py"
       ],
       "description": "Wiki-Payloads ueber einen konkreten Adapter an dieselben schmalen Ports anbinden, aber Collections, Config und Schema von CodeCompass trennen.",
-      "status_note": "Der getrennte Wiki-Payload-Adapter, eigenes Schema und Prefix, unabhaengige JSON-/Qdrant-Konfiguration, produktive Hybrid-Retrieval-Komposition, Hub-delegierte Mutationen, Cross-Scope-Schutz und getrennter Rollback sind implementiert. Der echte Wiki-Index-, Search- und Delete-Pfad gegen Qdrant 1.18.3 ist Bestandteil des Hub-verifizierten Integrationslaufs RUN_512f881cda28e8929249eb7633459ec5.",
+      "status_note": "Der getrennte Wiki-Payload-Adapter, eigenes Schema und Prefix, unabhaengige JSON-/Qdrant-Konfiguration, produktive Hybrid-Retrieval-Komposition, Hub-delegierte Mutationen, Cross-Scope-Schutz und getrennter Rollback sind implementiert. Der echte Wiki-Index-, Search- und Delete-Pfad gegen Qdrant 1.18.3 ist Bestandteil des Hub-verifizierten Integrationslaufs RUN_2a9f0114383b46b11e9360a4a280284f.",
       "acceptance_criteria": [
         "Ein konkreter Wiki-Payload-Adapter implementiert die benoetigten Search- und Index-Portsignaturen ohne optionale, abweichende Methodenaufrufe oder Signaturfehler.",
         "Wiki verwendet einen eigenen Collection-Prefix, eine separat aktivierbare BackendConfig und ein versioniertes Wiki-Payload-Schema.",
@@ -1247,7 +1247,7 @@
       "progress_percent": 100.0,
       "completion_evidence": {
         "artifact": "artifacts/domain/qdrant-hub-evidence.json",
-        "run_id": "RUN_512f881cda28e8929249eb7633459ec5"
+        "run_id": "RUN_2a9f0114383b46b11e9360a4a280284f"
       }
     },
     {
@@ -1373,12 +1373,12 @@
   "summary_notes": [
     "Source-realistischer Stand 2026-08-30: Alle lokal implementierbaren Qdrant-, JSON-, Taskflow-, Wiki-, Rollout-, Compose-, Security-, Migrations-, Observer- und Dokumentationskriterien sind umgesetzt; die Qdrant-bezogenen Hub-Taskverantwortungen wurden in source-line-konforme SRP-Module getrennt.",
     "Der digestgebundene Integrationsjob und das Wiki-Gate sind Hub-verifiziert abgeschlossen. Formal offen bleiben ein vollstaendiges BenchmarkRunArtifact eines freigegebenen Referenzhosts und die davon abhaengigen Release-Gates fuer Rollout und Dokumentation.",
-    "Der Hub-verifizierte TLS-Lauf auf Revision 22edafc4c8b72940c45e768e287f060589de27fb gegen Qdrant 1.18.3 mit qdrant-client 1.18.0 bestand unter RUN_512f881cda28e8929249eb7633459ec5 sechs von sechs marker-selektierte Szenarien ohne Skip und mit vollstaendigem Cleanup.",
+    "Der Hub-verifizierte TLS-Lauf auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 gegen Qdrant 1.18.3 mit qdrant-client 1.18.0 bestand unter RUN_2a9f0114383b46b11e9360a4a280284f sechs von sechs marker-selektierte Szenarien ohne Skip und mit vollstaendigem Cleanup.",
     "Der offizielle Upstream-Abgleich vom 2026-08-30 zeigt Qdrant 1.19.0 als aktuelle Minor-Version. Der konservative Patch-Bump innerhalb der verwendeten 1.18-Linie auf 1.18.3 ist umgesetzt und lokal getestet; der Minor-Bump auf 1.19.0 bleibt ausserhalb dieses Wartungsschritts.",
     "Die breite Qdrant-/Vector-/Wiki-Regression bestand lokal mit 883 Tests und 3 erwarteten Skips; Standard-Pipeline, Workflow-Gates und fokussierte Security-/Auth-Matrizen bestanden ebenfalls.",
     "Der globale Source-Line-Audit meldet weiterhin 13 nicht-Qdrant-bezogene Legacy-/Concurrent-Dateien. Der Qdrant-spezifische Gate-Umfang ist sauber, aber daraus folgt kein Claim, dass bereits alle Repository- oder GitHub-Workflows gruen sind.",
     "Das Benchmarkprofil und seine fail-closed inconclusive-Gates sind implementiert; ein unvollstaendiger oder nicht freigegebener Lauf gilt weiterhin niemals als passed.",
-    "Die lokale Source- und Run-Bindung ist unter SRC_fde31b9c96cd79d32b82166faca10a13 und RUN_512f881cda28e8929249eb7633459ec5 verifiziert; weitergehende externe Benchmark-Claims bleiben ohne eigenen Lauf unverified.",
+    "Die lokale Source- und Run-Bindung ist unter SRC_7f21ca8a6386edff6e11881141585659 und RUN_2a9f0114383b46b11e9360a4a280284f verifiziert; weitergehende externe Benchmark-Claims bleiben ohne eigenen Lauf unverified.",
     "QVS-018 wurde entfernt; seine Unit-Testkriterien sind tasknah in QVS-005, QVS-007, QVS-008, QVS-010, QVS-011, QVS-014 und QVS-015 enthalten.",
     "QVS-024 ist lokal abgeschlossen: Qdrant-Mutationen bleiben Hub-owned, signiert, online zugelassen, replaygeschuetzt und zentral autorisiert; Worker fuehren nur delegierte Auftraege aus.",
     "QVS-019 und QVS-021 sind abgeschlossen. QVS-020 bleibt wegen des fehlenden Referenzhosts blockiert; QVS-023 und QVS-022 warten ausschliesslich auf dieses Benchmark- und Rollout-Gate."

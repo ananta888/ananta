@@ -7,26 +7,26 @@
       "skipped": 0,
       "tests": 21
     },
-    "junit_digest": "3142d40a11fdae7320ad888a2c2c72c6a3105516edc98978ee7ea876ca225cb6",
+    "junit_digest": "a9bb0fa3543853aec0ee986e5e65041b6c266e693b29367ccbe5f8ceb501b683",
     "passed": true,
     "reason_code": "hub_evidence_pytest_gate_passed",
     "returncode": 0,
-    "stderr_digest": "a74df1e4de329e3bd9b2895fddb9880e646ebee02c47afcc5f65776b7f402eb9",
-    "stdout_digest": "4136f18db0bd39a4193762b9e9ca3a32ee582b71490b735a8bf8a20ed28fa417"
+    "stderr_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stdout_digest": "111627147f3d7e2e54745163401120a4cc8bf7332616655abe33403f4b739e7a"
   },
   "human_intervention_required": false,
   "passed": true,
   "profile_digest": "ab6e3188e0697c126b8b3d0a51b0eb9d74ce7f642725b30eb1710de93591edd1",
   "profile_id": "agent-safety-chaos",
   "reason_code": "verified",
-  "repository_revision": "22edafc4c8b72940c45e768e287f060589de27fb",
-  "result_digest": "c77145106a679e99af993d362f62ffc4a2bda2aa0f79492f57d346227736d151",
-  "run_id": "RUN_9a4790687171a2431e773c947c89884a",
+  "repository_revision": "f7813642a43bc12f1dc99d1807dfb8a726461590",
+  "result_digest": "1db67875c109e016b3cacb1a2df5db4ac99b2b77317577ccec863ff4068f69be",
+  "run_id": "RUN_f43b7f20c362546b51b3dd332dae6fd6",
   "schema": "ananta.hub-evidence-pytest-gate-result.v1",
   "source_ids": [
-    "SRC_63fd1f53cbb4fe5b5976183189fb450f"
+    "SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f"
   ],
-  "source_manifest_digest": "a9d27a8ac62029b8e4425e725f159424b413f2ceeb1dd5170faffe6d55948c4c",
+  "source_manifest_digest": "0e531686b3b568202ddf49aeb3c122c92075f53b24cf17fb226807a56ecf511a",
   "task_id": "ads-047",
   "verified": true
 }

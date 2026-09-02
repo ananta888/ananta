@@ -49,12 +49,12 @@
     "status": "local_hub_verified",
     "repository": "ananta888/ananta",
     "branch": "main",
-    "commit_sha": "22edafc4c8b72940c45e768e287f060589de27fb",
+    "commit_sha": "f7813642a43bc12f1dc99d1807dfb8a726461590",
     "source_ids": [
-      "SRC_f867ea689690f212a598e9439b600b6c"
+      "SRC_3c02eba3664c0fe51440feea6072ece3"
     ],
     "run_ids": [
-      "RUN_8b0252f14062a0282e58815963c30c16"
+      "RUN_8e2c8fe53e248ca5aa62653e4412d340"
     ],
     "rule": "Inspektierte Pfade sind keine grounded Evidence. Nur bereitgestellte SRC_* und RUN_* IDs sind fuer Source- oder Run-Claims zulaessig; fehlende IDs bleiben unverified.",
     "existing_foundations": [
@@ -190,7 +190,7 @@
       "id": "LMR-000",
       "title": "Unveraenderliche Source-Baseline und Evidence-Modell festlegen",
       "status": "done",
-      "status_note": "Das feste Runtime-Profil wurde auf Revision 22edafc4c8b72940c45e768e287f060589de27fb automatisch als SRC_f867ea689690f212a598e9439b600b6c zugelassen und vor Ausführung als RUN_8b0252f14062a0282e58815963c30c16 reserviert. Alle 99 lokalen Tests bestanden warnings-strikt ohne Skip; die lokale Bindung ist Hub-verifiziert. Live-Runtime- und GPU-Claims bleiben davon getrennt und werden nicht behauptet.",
+      "status_note": "Das feste Runtime-Profil wurde auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 automatisch als SRC_3c02eba3664c0fe51440feea6072ece3 zugelassen und vor Ausführung als RUN_8e2c8fe53e248ca5aa62653e4412d340 reserviert. Alle 99 lokalen Tests bestanden warnings-strikt ohne Skip; die lokale Bindung ist Hub-verifiziert. Live-Runtime- und GPU-Claims bleiben davon getrennt und werden nicht behauptet.",
       "priority": "P0",
       "risk": "medium",
       "progress_percent": 100.0,
@@ -992,7 +992,7 @@
       "status": "passed",
       "required_for": "grounded_track_completion",
       "rule": "Commit-SHA sowie bereitgestellte SRC_* und RUN_* IDs muessen vor grounded Claims erfasst werden.",
-      "completion_evidence": "SRC_f867ea689690f212a598e9439b600b6c und RUN_8b0252f14062a0282e58815963c30c16 sind auf Revision 22edafc4c8b72940c45e768e287f060589de27fb Hub-verifiziert."
+      "completion_evidence": "SRC_3c02eba3664c0fe51440feea6072ece3 und RUN_8e2c8fe53e248ca5aa62653e4412d340 sind auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 Hub-verifiziert."
     },
     {
       "id": "LMR-ERG-02",
@@ -1354,7 +1354,7 @@
     "Tasks sind die Single Source of Truth; Summary-Felder sind abgeleitete Caches.",
     "21 lokal reproduzierbare Implementierungsaufgaben sind automatisiert umgesetzt und getestet.",
     "Alle vier korrigierten lokalen Verification Gates sind am 2026-09-01 warnings-strikt und ohne Pytest-Cache-Abhaengigkeit gruen: 47 passed; 34 passed und 3 externe Live-Tests skipped; 148 passed; 36 passed.",
-    "LMR-000 ist durch SRC_f867ea689690f212a598e9439b600b6c und RUN_8b0252f14062a0282e58815963c30c16 auf Revision 22edafc4c8b72940c45e768e287f060589de27fb lokal Hub-verifiziert; 99 Tests bestanden warnings-strikt ohne Skip.",
+    "LMR-000 ist durch SRC_3c02eba3664c0fe51440feea6072ece3 und RUN_8e2c8fe53e248ca5aa62653e4412d340 auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 lokal Hub-verifiziert; 99 Tests bestanden warnings-strikt ohne Skip.",
     "Optionale Live-Runtime-, GPU- und Produktionsfreigaben bleiben von der lokalen Implementierungsabnahme getrennt."
   ],
   "definition_of_done": [

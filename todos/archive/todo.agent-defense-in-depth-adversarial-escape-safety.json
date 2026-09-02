@@ -8,13 +8,13 @@
   "track": "agent_defense_in_depth_adversarial_escape_safety",
   "status": "done",
   "review_basis": {
-    "reviewed_commit_range": "main@22edafc4c8b72940c45e768e287f060589de27fb, verified on 2026-09-02",
+    "reviewed_commit_range": "main@f7813642a43bc12f1dc99d1807dfb8a726461590, verified on 2026-09-02",
     "review_goal": "Defense-in-Depth contracts, Hub control plane, deterministic containment, telemetry, replay, evaluation, UI and fully automatic test paths against current source.",
     "allowed_source_refs": [
-      "SRC_63fd1f53cbb4fe5b5976183189fb450f"
+      "SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f"
     ],
     "allowed_run_refs": [
-      "RUN_9a4790687171a2431e773c947c89884a"
+      "RUN_f43b7f20c362546b51b3dd332dae6fd6"
     ],
     "grounding_status": "local_hub_verified",
     "release_status": "passed_local_automatic_chaos_gate",
@@ -31,7 +31,7 @@
         "Focused Angular safety gate: 3 tests passed; development production graph build passed on 2026-08-30.",
         "Mock receipts are never promoted to release evidence."
       ],
-      "completion_evidence": "artifacts/domain/agent-safety-hub-evidence.json binds SRC_63fd1f53cbb4fe5b5976183189fb450f and RUN_9a4790687171a2431e773c947c89884a to the immutable revision and records 21 passed tests without skips."
+      "completion_evidence": "artifacts/domain/agent-safety-hub-evidence.json binds SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f and RUN_f43b7f20c362546b51b3dd332dae6fd6 to the immutable revision and records 21 passed tests without skips."
     },
     "reviewed_paths": [
       "agent/bootstrap/agent_safety.py",
@@ -1469,7 +1469,7 @@
         "tests/test_agent_safety_release_gate.py",
         "tests/e2e/test_agent_safety_automatic_chaos.py"
       ],
-      "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Das feste Profil wurde auf Revision 22edafc4c8b72940c45e768e287f060589de27fb vorab unter SRC_63fd1f53cbb4fe5b5976183189fb450f / RUN_9a4790687171a2431e773c947c89884a gebunden; 21 Tests bestanden ohne Skip und die lokale Release-Bindung wurde automatisch verifiziert."
+      "status_note": "Der vollständig headless Chaos-Flow verifiziert signierten Agent-Trigger, run-lokalen Stop, externe Boundary-Erkennung, gruppenweiten Stop, Incident, Patch sowie Exact-/Mutated-Replay. Das feste Profil wurde auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 vorab unter SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f / RUN_f43b7f20c362546b51b3dd332dae6fd6 gebunden; 21 Tests bestanden ohne Skip und die lokale Release-Bindung wurde automatisch verifiziert."
     },
     {
       "id": "ADS-048",
@@ -1574,7 +1574,7 @@
     "Zusätzliche offen erklärte Trigger erlauben A/B-Vergleiche zwischen semantischem Verständnis, Selbstmeldung und antrainierter Trigger-Priorität.",
     "Bei parallelen Agenten kann ein einzelner kritischer Treffer je nach Global Stop Policy ausreichen, um die gesamte Gruppe einzufrieren und die Schwachstelle vor weiteren Läufen zu analysieren.",
     "Nach einem Stop wird nicht blind erneut gestartet: erst Incident Bundle, Root Cause, Fix oder explizit isolierter Red-Team-Retry, anschließend Replay und Regression.",
-    "Der vollautomatische Chaos-Flow ist auf Revision 22edafc4c8b72940c45e768e287f060589de27fb unter SRC_63fd1f53cbb4fe5b5976183189fb450f und RUN_9a4790687171a2431e773c947c89884a Hub-verifiziert abgeschlossen.",
+    "Der vollautomatische Chaos-Flow ist auf Revision f7813642a43bc12f1dc99d1807dfb8a726461590 unter SRC_22cb3cfa7bce28e84e1219ba0b7f8c8f und RUN_f43b7f20c362546b51b3dd332dae6fd6 Hub-verifiziert abgeschlossen.",
     "Alle neuen Test- und Laufpfade sind vollständig headless; keine Transition wartet auf menschliche Interaktion."
   ],
   "tasks_type_summary": {

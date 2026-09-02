@@ -7,26 +7,26 @@
       "skipped": 0,
       "tests": 99
     },
-    "junit_digest": "f6aca72e1e5e9c6eba62ee2aefbad3bd3ebbf7a4a3238b9543626c577c2ca7d4",
+    "junit_digest": "d5a8c965374fc13d2ec19723d42eaddec6fc9d519785dda5280afbb6143c1095",
     "passed": true,
     "reason_code": "hub_evidence_pytest_gate_passed",
     "returncode": 0,
     "stderr_digest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-    "stdout_digest": "2b250bb05c604963a624c134c9d01292a16ffdaf5da3ee67b36c62ae701f3cee"
+    "stdout_digest": "8f09209b24c4095f5e32aee22a49cccc28a6f019790a7302c0ad8eb430094e8f"
   },
   "human_intervention_required": false,
   "passed": true,
   "profile_digest": "c8a4311f035bae731a0d011932d2566f24e3f4a24dd21e8c35739ee50fffc439",
   "profile_id": "local-model-runtime",
   "reason_code": "verified",
-  "repository_revision": "22edafc4c8b72940c45e768e287f060589de27fb",
-  "result_digest": "d3e283fd5af08d197b0a91e9f62626f3e7f63b572b4858a9e965a997c7d475fd",
-  "run_id": "RUN_8b0252f14062a0282e58815963c30c16",
+  "repository_revision": "f7813642a43bc12f1dc99d1807dfb8a726461590",
+  "result_digest": "8a837d21c042614d82034d05cf59750af8da689b126b45bee751dbd2dd632147",
+  "run_id": "RUN_8e2c8fe53e248ca5aa62653e4412d340",
   "schema": "ananta.hub-evidence-pytest-gate-result.v1",
   "source_ids": [
-    "SRC_f867ea689690f212a598e9439b600b6c"
+    "SRC_3c02eba3664c0fe51440feea6072ece3"
   ],
-  "source_manifest_digest": "be3cc015f3b39ceba297a6c339a8616d9a7133052a909dc8feef70318c99f5b5",
+  "source_manifest_digest": "928feb931a0010386288bb803fe931d33c37130fbabd4bf345cc10b84d9cb07d",
   "task_id": "lmr-000",
   "verified": true
 }
