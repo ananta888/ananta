@@ -11,12 +11,9 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
+from agent.ports.spreadsheet import SpreadsheetStoreConflict
 from agent.services.interprocess_file_transaction import InterProcessFileTransaction
 from ananta_contracts.spreadsheet_studio import canonical_json, require_id
-
-
-class SpreadsheetStoreConflict(RuntimeError):
-    pass
 
 
 class SpreadsheetStore:

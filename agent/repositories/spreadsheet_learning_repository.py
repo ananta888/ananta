@@ -19,7 +19,7 @@ from agent.db_models.spreadsheet_studio import (
     SpreadsheetTrainingConsentDB,
     SpreadsheetTrainingLineageDB,
 )
-from agent.services.spreadsheet_learning_repository_port import SpreadsheetLearningConflict
+from agent.ports.spreadsheet import SpreadsheetLearningConflict
 from ananta_contracts.spreadsheet_studio import canonical_digest, canonical_json, require_digest, require_id
 
 

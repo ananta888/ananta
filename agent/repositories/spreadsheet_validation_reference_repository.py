@@ -11,7 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from agent.db_models.spreadsheet_studio import SpreadsheetValidationReferenceDB
-from agent.services.spreadsheet_store import SpreadsheetStoreConflict
+from agent.ports.spreadsheet import SpreadsheetStoreConflict
 from ananta_contracts.spreadsheet_studio import canonical_digest, canonical_json, require_id
 
 
