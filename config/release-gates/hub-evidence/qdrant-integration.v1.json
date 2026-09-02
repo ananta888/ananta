@@ -1,0 +1,32 @@
+{
+  "schema": "ananta.hub-evidence-pytest-gate.v1",
+  "profile_id": "qdrant-integration",
+  "task_id": "qvs-019",
+  "tenant_id": "ananta-system",
+  "project_id": "ananta",
+  "evidence_scope": "local",
+  "required_scope": "local",
+  "timeout_seconds": 1800,
+  "source_paths": [
+    "docker/compose-next/compose.qdrant.yml",
+    "docker/compose-next/requirements.qdrant-worker.lock",
+    "tests/qdrant_test_support.py",
+    "tests/test_qdrant_compose_contract.py",
+    "tests/test_qdrant_vector_store_integration.py",
+    "worker/retrieval/qdrant_vector_store.py",
+    "worker/retrieval/qdrant_collection_manager.py"
+  ],
+  "pytest_args": [
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "-m",
+    "qdrant_integration",
+    "tests/test_qdrant_vector_store_integration.py"
+  ],
+  "environment": {
+    "RUN_INTEGRATION_TESTS": "1"
+  },
+  "minimum_tests": 6,
+  "forbid_skips": true
+}

@@ -7,10 +7,10 @@ import json
 import re
 import time
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 from typing import Any, Literal
 
 from agent.ports.evidence_identity import (
+    EvidenceBindingVerification,
     EvidenceIdentityRepositoryPort,
     RunEvidenceIdentity,
     SourceEvidenceIdentity,
@@ -36,15 +36,6 @@ class HubEvidenceRegistryError(ValueError):
     def __init__(self, reason_code: str) -> None:
         self.reason_code = reason_code
         super().__init__(reason_code)
-
-
-@dataclass(frozen=True, slots=True)
-class EvidenceBindingVerification:
-    verified: bool
-    reason_code: str
-    source_ids: tuple[str, ...]
-    run_id: str
-    evidence_scope: str | None
 
 
 def _canonical_digest(value: Any) -> str:

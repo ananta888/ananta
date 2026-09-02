@@ -1,0 +1,36 @@
+{
+  "schema": "ananta.hub-evidence-pytest-gate.v1",
+  "profile_id": "agent-safety-chaos",
+  "task_id": "ads-047",
+  "tenant_id": "ananta-system",
+  "project_id": "ananta",
+  "evidence_scope": "local",
+  "required_scope": "local",
+  "timeout_seconds": 900,
+  "source_paths": [
+    "agent/services/agent_safety_release_gate.py",
+    "agent/services/agent_safety_service.py",
+    "agent/services/agent_safety_recovery_service.py",
+    "agent/services/agent_safety_evaluation_service.py",
+    "tests/test_agent_safety_contracts.py",
+    "tests/test_agent_safety_service.py",
+    "tests/test_agent_safety_release_gate.py",
+    "tests/e2e/test_agent_safety_automatic_chaos.py"
+  ],
+  "pytest_args": [
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "-W",
+    "error",
+    "-n",
+    "auto",
+    "tests/test_agent_safety_contracts.py",
+    "tests/test_agent_safety_service.py",
+    "tests/test_agent_safety_release_gate.py",
+    "tests/e2e/test_agent_safety_automatic_chaos.py"
+  ],
+  "environment": {},
+  "minimum_tests": 20,
+  "forbid_skips": true
+}
