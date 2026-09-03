@@ -2,45 +2,40 @@
   "$schema": "todo.track.schema.json",
   "version": "1.0",
   "created_at": "2026-08-02",
-  "updated_at": "2026-08-29",
-  "last_reviewed": "2026-08-29",
+  "updated_at": "2026-09-03",
+  "last_reviewed": "2026-09-03",
   "owner": "Peter Stuiber / Ananta",
   "track": "dspy-optimization-evaluation-engine-integration",
-  "status": "blocked",
+  "status": "partial",
   "purpose": "DSPy als optionale, isolierte Optimierungs- und Evaluations-Engine in Ananta integrieren. DSPy soll versionierte Prompt-Programme anhand freigegebener Datensaetze und Metriken optimieren, ohne Anantas Hub-Worker-Orchestrierung, Provider-Routing, CodeCompass-Retrieval, Policies, Budgets, Audit oder Artifact-Promotion zu umgehen.",
   "goal": "Ananta kann fuer klar begrenzte Planungs-, strukturierte Ausgabe- und RAG-Aufgaben reproduzierbare DSPy-Experimente ausfuehren, Baseline und Kandidat vergleichen, sichere JSON-Programm-Artefakte erzeugen und erfolgreiche Kandidaten nach expliziter Freigabe ausrollen oder zurueckrollen. DSPy bleibt optional, standardmaessig deaktiviert und aus dem Ananta-Kern sowie dem normalen Inferenz-Hot-Path entkoppelt.",
   "source_review": {
-    "reviewed_at": "2026-08-29",
-    "grounding_status": "repository_inspected_without_provided_source_or_run_ids",
+    "reviewed_at": "2026-09-03",
+    "grounding_status": "hub_registry_verified_local_baseline",
     "ananta_repository": "https://github.com/ananta888/ananta",
-    "ananta_reviewed_commit": "8d34030f8f9d082e4d85933c2d653494e8d6abc7",
+    "ananta_reviewed_commit": "93f52f88d4606c9c333ceccfe7f972ed9e28836c",
     "dspy_repository": "https://github.com/stanfordnlp/dspy",
-    "dspy_reviewed_commit": "3f06959ebbb80fb0bda001e1f802d70c2d5be7f7",
+    "dspy_reviewed_commit": "29448ae12756abdd14bd8796c819247ebb83673c",
     "observed_latest_stable_tag": "3.2.1",
     "observed_latest_stable_tag_object": "27a8e2a134b0b8dbd2d7433ea67ffe9be627d376",
     "observed_latest_stable_tag_commit": "29448ae12756abdd14bd8796c819247ebb83673c",
-    "observed_prerelease_tag": "3.3.0b1",
-    "observed_prerelease_tag_object": "ee3687c36e832010a38c4091fcb8cf1d4c9fb841",
-    "observed_prerelease_tag_commit": "b2829b7ae3b6e276ac6a8bef66a7ec519dbc923f",
-    "observed_main_project_version": "3.3.0b1",
     "observed_dspy_license": "MIT",
-    "note": "Die aktuellen Upstream-Navigationsergebnisse bleiben unverified: Git-Refs und offizielle DSPy-Seiten wurden am 2026-08-29 gelesen, aber keine assignment-bound SRC_* oder RUN_* IDs bereitgestellt. Im aktuellen Ananta-Stand existieren weiterhin weder DSPy-Produktionscode noch Dependency-Pin, isoliertes Worker-Profil oder gebundener Source Catalog. ProviderExecutionBinding, Artifact-/Prompt-Provenance, Planning-Optimizer und Evaluation-/Promotion-Services sind wiederverwendbare Ananta-Grundlagen, aber keine DSPy-Implementierung oder Release-Evidence.",
+    "note": "Der Hub hat die lokale DSPy-Quell-, Lizenz-, Lock- und Security-Baseline auf der unveraenderlichen Ananta-Revision 93f52f88d4606c9c333ceccfe7f972ed9e28836c registriert und mit 33 headless Tests verifiziert. Diese lokale Evidenz ist keine Produktionsfreigabe.",
     "blocked_audit": {
-      "status": "blocked",
+      "status": "production_blocked_local_baseline_verified",
       "reason_codes": [
-        "immutable_upstream_source_evidence_missing",
-        "assignment_bound_source_catalog_missing",
-        "allowed_source_refs_empty",
-        "allowed_run_refs_empty"
+        "production_dataset_not_admitted",
+        "production_provider_not_bound",
+        "production_image_digest_missing",
+        "production_quality_cost_recovery_run_missing"
       ],
-      "unverified_navigation_observations": [
-        "No DSPy production namespace, optional dependency pin, adapter, contract, schema, or test was found in the current Ananta source tree.",
-        "The official DSPy release page identifies 3.2.1 as the latest stable release and 3.3.0b1 as a prerelease; main currently declares 3.3.0b1 and remains unsuitable as an unbounded production dependency.",
-        "Ananta already has Hub-owned ProviderExecutionBinding, artifact/provenance, planning-evaluation and promotion seams that can be composed instead of duplicated.",
-        "The Hub-owned Organization Source Catalog and Category Research pipeline is the available authority path for a future grounded research revision.",
-        "DSPY-001 is a root dependency and DSPY-040 explicitly keeps release completion partial or blocked without provided evidence IDs."
+      "verified_local_observations": [
+        "DSPy 3.2.1 is bound to immutable upstream tag, commit, source and distribution hashes.",
+        "The 67-package Python 3.11 dependency set is exact and hash-locked.",
+        "The DiskCache pickle vulnerability is recorded and its persistent cache path is technically disabled.",
+        "The Hub gate completed 33 tests without skips or human interaction and verified the exact task/revision/scope binding."
       ],
-      "required_unblock_input": "A Hub-published source catalog binding the immutable DSPy upstream revision, license and dependency baseline plus assignment-bound SRC_* refs; release completion additionally requires assignment-bound RUN_* refs for the declared gates."
+      "required_unblock_input": "A policy-approved production dataset and provider binding, a built immutable worker image/SBOM, and a production-scoped automatic run proving quality, cost, recovery and rollback gates."
     },
     "reviewed_paths": [
       "pyproject.toml",
@@ -80,8 +75,12 @@
     "critical"
   ],
   "evidence_policy": {
-    "source_ids": [],
-    "run_ids": [],
+    "source_ids": [
+      "SRC_50228ac624c7bd0679978d3359681e14"
+    ],
+    "run_ids": [
+      "RUN_53c483d69b3b045fa56460ef6ead1579"
+    ],
     "rules": [
       "Keine implementierte, getestete oder produktionsreife Eigenschaft darf allein aus diesem Plan abgeleitet werden.",
       "Upstream-, Lizenz-, Modell-, Dataset-, Kosten-, Performance- und Release-Claims benoetigen unveraenderliche Artefakt-Digests sowie bereitgestellte SRC_* beziehungsweise RUN_* IDs.",
@@ -90,25 +89,28 @@
     ]
   },
   "implementation_review": {
-    "reviewed_at": "2026-08-29",
+    "reviewed_at": "2026-09-03",
     "state": "implemented_locally_release_blocked",
     "implemented_boundaries": [
       "Hub-owned default-off job lifecycle, HMAC attempt fencing, tenant revisions and automatic cancellation",
       "Dependency-free contracts, exact ProviderExecutionBinding roles, bounded LM usage and scoped retrieval ports",
       "Closed module and optimizer registries, JSON-only program export and content-addressed tenant artifact storage",
       "Deterministic evaluation, HMAC-attested program-bound automatic promotion, stable canary assignment and rollback",
-      "Optional isolated worker packaging, import-boundary detector, API and Angular operator read model"
+      "Optional isolated worker packaging, import-boundary detector, API and Angular operator read model",
+      "Immutable DSPy 3.2.1 baseline, 67-package hash lock and forced memory-only cache mitigation",
+      "Hub-issued local evidence binding with 33 fully automatic tests and no skips"
     ],
     "remaining_local_gaps": [
       "Real DSPy 3.2.1 Legacy-/Typed-BaseLM and optimizer compatibility execution",
-      "Full dependency lock, SBOM, vulnerability scan and CI compatibility matrix",
+      "Built-image SBOM and CI compatibility matrix",
       "Production CodeCompass adapter, native prompt-program runtime integration and task-specific use-case E2E",
       "Complete telemetry, retention/legal-hold and browser/load/failure-recovery suites"
     ],
     "release_blockers": [
-      "allowed_source_refs_empty",
-      "allowed_run_refs_empty",
-      "assignment_bound_upstream_and_runtime_evidence_missing"
+      "production_dataset_not_admitted",
+      "production_provider_not_bound",
+      "production_image_digest_missing",
+      "production_quality_cost_recovery_run_missing"
     ],
     "human_intervention_required": false
   },
@@ -282,7 +284,7 @@
         "DSPY-003",
         "DSPY-004"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M2",
@@ -295,7 +297,7 @@
         "DSPY-009",
         "DSPY-010"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M3",
@@ -310,7 +312,7 @@
         "DSPY-017",
         "DSPY-018"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M4",
@@ -324,7 +326,7 @@
         "DSPY-024",
         "DSPY-025"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M5",
@@ -338,7 +340,7 @@
         "DSPY-031",
         "DSPY-032"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M6",
@@ -350,7 +352,7 @@
         "DSPY-036",
         "DSPY-037"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M7",
@@ -360,14 +362,14 @@
         "DSPY-039",
         "DSPY-040"
       ],
-      "status": "in_progress"
+      "status": "partial"
     }
   ],
   "tasks": [
     {
       "id": "DSPY-001",
       "title": "Unveraenderliche DSPy-Upstream-, Lizenz- und Support-Baseline festlegen",
-      "status": "blocked",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "analysis",
@@ -386,8 +388,15 @@
         "Der BaseLM-Vertragswechsel zwischen Legacy- und Typed-LM-Pfad ist als Compatibility-Risiko festgehalten.",
         "Ohne bereitgestellte SRC_* Evidenz bleibt die Release-Baseline explizit unverified."
       ],
-      "progress_percent": 70.0,
-      "blocked_reason": "Offizielle Upstream-Navigation ist dokumentierbar, aber eine assignment-bound unveraenderliche SRC_*-Baseline fuer Version, Lizenz und transitive Abhaengigkeiten fehlt."
+      "progress_percent": 100.0,
+      "implementation_evidence": [
+        "config/licenses/dspy-optimization.v1.json",
+        "docker/compose-next/requirements.dspy-optimization.lock",
+        "worker/optimization/dspy/runtime_security.py",
+        "artifacts/domain/dspy-local-evidence.json",
+        "SRC_50228ac624c7bd0679978d3359681e14",
+        "RUN_53c483d69b3b045fa56460ef6ead1579"
+      ]
     },
     {
       "id": "DSPY-002",
@@ -1749,7 +1758,7 @@
         "Release-Claims werden nur mit bereitgestellten SRC_* und RUN_* IDs als verified markiert; andernfalls bleibt der Track partial oder blocked."
       ],
       "progress_percent": 35.0,
-      "blocked_reason": "Keine assignment-bound SRC_*- und RUN_*-Evidence fuer Upstream, Runtime, Qualitaet, Security, Kosten und Rollback vorhanden."
+      "blocked_reason": "Die lokale Baseline ist Hub-verifiziert; fuer die Produktionsabnahme fehlen weiterhin ein freigegebener realer Dataset-/Provider-Binding, ein gebauter Worker-Image-Digest mit SBOM und ein production-scoped automatischer Qualitaets-, Kosten-, Recovery- und Rollback-Lauf."
     }
   ],
   "critical_path_tasks": [
@@ -1794,14 +1803,15 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 35,
-      "blocked": 2,
-      "done": 3
+      "blocked": 1,
+      "done": 4
     },
-    "progress_percent_done": 7.5,
+    "progress_percent_done": 10.0,
     "by_priority": {
       "P0": 27,
       "P1": 13,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -1811,13 +1821,14 @@
     },
     "critical_path": {
       "total": 25,
-      "done": 3,
-      "remaining": 22
+      "done": 4,
+      "remaining": 21
     },
     "milestones": {
       "total": 7,
       "todo": 0,
-      "in_progress": 7,
+      "in_progress": 0,
+      "partial": 7,
       "blocked": 0,
       "done": 0
     }
@@ -1827,245 +1838,277 @@
     "by_type": {
       "analysis": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 1,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 70.0
+          "blocked": 0,
+          "done": 1
+        }
       },
       "architecture": {
         "total": 5,
+        "done": 1,
+        "partial": 4,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 88.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 4,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 4,
-        "blocked": 0,
-        "progress_percent": 88.0
+        }
       },
       "security": {
         "total": 5,
+        "done": 1,
+        "partial": 4,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 85.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 4,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 4,
-        "blocked": 0,
-        "progress_percent": 85.0
+        }
       },
       "contract": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 85.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 85.0
+        }
       },
       "dependency": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 65.0
+        }
       },
       "configuration": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 90.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 90.0
+        }
       },
       "integration": {
         "total": 13,
+        "done": 1,
+        "partial": 12,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 71.9,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 12,
           "blocked": 0,
           "done": 1
-        },
-        "done": 1,
-        "partial": 12,
-        "blocked": 0,
-        "progress_percent": 71.9
+        }
       },
       "runtime": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 70.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 70.0
+        }
       },
       "governance": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 77.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 77.5
+        }
       },
       "api": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 70.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 70.0
+        }
       },
       "frontend": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 65.0
+        }
       },
       "observability": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 45.0
+        }
       },
       "testing": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 72.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 72.5
+        }
       },
       "release": {
         "total": 2,
+        "done": 0,
+        "partial": 1,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 1,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 1,
-        "progress_percent": 45.0
+        }
       },
       "documentation": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 85.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 85.0
+        }
       },
       "compatibility": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 50.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 50.0
+        }
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 35,
-    "blocked": 2,
-    "done": 3,
-    "count_based_percent": 7.5,
-    "weighted_percent": 73.7
+    "blocked": 1,
+    "done": 4,
+    "milestones_done": 0,
+    "milestones_total": 7
   },
   "execution_stage_summary": {
     "current_stage": "local_implementation_validation",
-    "next_gate": "assignment_bound_evidence_and_runtime_compatibility",
+    "next_gate": "production_runtime_compatibility_and_release_evidence",
     "release_eligibility": "not_eligible",
-    "reason": "A default-off local implementation exists, but no allowed assignment-bound source or runtime evidence proves upstream compatibility or release readiness."
+    "reason": "The immutable local baseline has Hub-issued evidence; release still needs approved production inputs, image/SBOM and a production-scoped quality, cost, recovery and rollback run."
   },
   "summary_notes": [
     "DSPy ist fuer Ananta besonders als Offline-/Pre-Inference-Optimierungs- und Evaluationsschicht sinnvoll, nicht als Ersatz fuer die Hub-Worker-Runtime.",
