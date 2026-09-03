@@ -1,0 +1,69 @@
+{
+  "schema": "ananta.third-party-baseline.v1",
+  "component": "dspy",
+  "version": "3.2.1",
+  "observed_at": "2026-09-03",
+  "upstream": {
+    "repository": "https://github.com/stanfordnlp/dspy",
+    "tag": "3.2.1",
+    "tag_url": "https://github.com/stanfordnlp/dspy/releases/tag/3.2.1",
+    "tag_object": "27a8e2a134b0b8dbd2d7433ea67ffe9be627d376",
+    "commit": "29448ae12756abdd14bd8796c819247ebb83673c",
+    "pyproject_url": "https://raw.githubusercontent.com/stanfordnlp/dspy/29448ae12756abdd14bd8796c819247ebb83673c/pyproject.toml",
+    "pyproject_sha256": "66d015bca221dd25e083b791d4c318714a66b4a2c574424c235c4442c213bbff",
+    "license_url": "https://raw.githubusercontent.com/stanfordnlp/dspy/29448ae12756abdd14bd8796c819247ebb83673c/LICENSE",
+    "license_sha256": "fc84421fcf968a696680dacf66ad53db769f699f557690127c5ccb3f6358cfdb",
+    "wheel_sha256": "4f36c3c0f9d54cd66eeb2a7892df950119e4193deb1fbbc9d46c3438ee1f4df3",
+    "sdist_sha256": "245d6531753cd3e844e7cc47835cfb283c8f57a36a977beabe5034457d9c7241"
+  },
+  "license": {
+    "expression": "MIT",
+    "copyright": "Copyright (c) 2023 Stanford Future Data Systems",
+    "notice_requirement": "Include the pinned MIT license and copyright notice in distributions."
+  },
+  "support_matrix": {
+    "upstream_python": ">=3.10,<3.15",
+    "ananta_version": "0.7.0",
+    "worker_python": "3.11.15",
+    "supported": true
+  },
+  "dependency_lock": {
+    "path": "docker/compose-next/requirements.dspy-optimization.lock",
+    "sha256": "f9cc4da819d7c7714382301ea6c67965c433cd9fa44247c1a2ca9b68a6b9bd87",
+    "resolved_packages": 67,
+    "resolver": "uv 0.12.5",
+    "python_version": "3.11",
+    "platform": "x86_64-manylinux_2_28"
+  },
+  "direct_dependencies": [
+    {"name": "anyio", "version": "4.15.0", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "asyncer", "version": "0.0.8", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "cachetools", "version": "7.1.8", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "cloudpickle", "version": "3.1.2", "license": "BSD-3-Clause", "security_status": "no_known_vulnerability"},
+    {"name": "diskcache", "version": "5.6.3", "license": "Apache-2.0", "security_status": "known_vulnerability_mitigated", "advisory": "CVE-2025-69872 / PYSEC-2026-2447", "control": "Persistent DSPy disk cache is unconditionally disabled; only bounded process-local memory cache is allowed."},
+    {"name": "gepa", "version": "0.0.27", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "json-repair", "version": "0.63.4", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "litellm", "version": "1.99.0", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "numpy", "version": "2.4.6", "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0", "security_status": "no_known_vulnerability"},
+    {"name": "openai", "version": "2.54.0", "license": "Apache-2.0", "security_status": "no_known_vulnerability"},
+    {"name": "orjson", "version": "3.12.0", "license": "MPL-2.0 AND (Apache-2.0 OR MIT)", "security_status": "no_known_vulnerability"},
+    {"name": "pydantic", "version": "2.13.5", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "regex", "version": "2026.9.3", "license": "Apache-2.0 AND CNRI-Python", "security_status": "no_known_vulnerability"},
+    {"name": "requests", "version": "2.34.2", "license": "Apache-2.0", "security_status": "no_known_vulnerability"},
+    {"name": "tenacity", "version": "9.1.4", "license": "Apache-2.0", "security_status": "no_known_vulnerability"},
+    {"name": "tqdm", "version": "4.70.0", "license": "MPL-2.0 AND MIT", "security_status": "no_known_vulnerability"},
+    {"name": "typeguard", "version": "4.4.3", "license": "MIT", "security_status": "no_known_vulnerability"},
+    {"name": "xxhash", "version": "4.0.1", "license": "BSD-2-Clause", "security_status": "no_known_vulnerability"}
+  ],
+  "security_scan": {
+    "tool": "pip-audit 2.10.1",
+    "database": "PyPI advisory service",
+    "result": "one_known_vulnerability_mitigated",
+    "finding_count": 1
+  },
+  "compatibility_risks": [
+    "DSPy 3.3 changes BaseLM behavior and is outside this compatibility profile.",
+    "Provider objects remain behind Ananta's authorized LM bridge.",
+    "Executable DSPy and Cloudpickle program deserialization remains forbidden."
+  ]
+}

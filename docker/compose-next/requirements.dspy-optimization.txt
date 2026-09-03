@@ -1,3 +1,4 @@
-# Optional isolated worker dependency; release lock/SBOM remains blocked until
-# assignment-bound upstream evidence is registered.
+# Input for the hash-locked optional worker dependency set. Regenerate the
+# adjacent lock with the command embedded in its header; images install only
+# the lock file, never this unconstrained transitive input.
 dspy==3.2.1

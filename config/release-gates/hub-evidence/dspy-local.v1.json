@@ -1,0 +1,39 @@
+{
+  "schema": "ananta.hub-evidence-pytest-gate.v1",
+  "profile_id": "dspy-local-baseline",
+  "task_id": "dspy-001",
+  "tenant_id": "ananta-system",
+  "project_id": "ananta",
+  "evidence_scope": "local",
+  "required_scope": "local",
+  "timeout_seconds": 900,
+  "source_paths": [
+    "agent/services/dspy_release_gate.py",
+    "worker/optimization/dspy/runtime_security.py",
+    "worker/optimization/dspy/compatibility.py",
+    "worker/optimization/dspy/engine_adapter.py",
+    "config/dspy/optimization_defaults.v1.json",
+    "config/licenses/dspy-optimization.v1.json",
+    "docker/compose-next/Dockerfile.dspy-optimization-worker",
+    "docker/compose-next/requirements.dspy-optimization.txt",
+    "docker/compose-next/requirements.dspy-optimization.lock",
+    "docs/integrations/dspy-optimization-engine.md",
+    "docs/security/dspy-optimization-threat-model.md",
+    "docs/security/third-party-components.md",
+    "tests/dspy_optimization/test_dependency_baseline.py",
+    "tests/dspy_optimization/test_artifacts_runner_and_release.py"
+  ],
+  "pytest_args": [
+    "-q",
+    "-p",
+    "no:cacheprovider",
+    "-W",
+    "error",
+    "-n",
+    "auto",
+    "tests/dspy_optimization"
+  ],
+  "environment": {},
+  "minimum_tests": 33,
+  "forbid_skips": true
+}

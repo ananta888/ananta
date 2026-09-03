@@ -5,6 +5,7 @@
 | Prompt or dataset poisoning | manifests, disjoint holdout, deterministic gates, closed schemas | score/policy regression blocks candidate | a permitted label can still be low quality |
 | Secret exfiltration | redaction before worker, no raw logs, no free tools/endpoints | security tests and digest-only traces | external model receives policy-approved content |
 | Cross-tenant cache/artifact leak | tenant in cache/artifact identity, server-derived paths | scope mismatch rejection | Hub compromise is outside worker containment |
+| Pickle execution through DSPy/DiskCache (CVE-2025-69872) | persistent DSPy disk cache is unconditionally disabled; bounded process-local memory cache only | adapter security-policy regression test and Hub local gate | compromised worker process remains inside container boundary |
 | SSRF/endpoint rebinding | exact Hub `ProviderExecutionBinding`; no program endpoint fields | binding and endpoint-policy rejection | authorized endpoint remains trusted infrastructure |
 | Metric gaming | deterministic gates first, holdout, minimum sample | non-comparable or red metrics block | semantic metrics retain model uncertainty |
 | Pickle/code execution | JSON-only serializer, forbidden-import detector, no tools/eval/exec | static and malicious-payload tests | optional upstream dependency still needs scanning |

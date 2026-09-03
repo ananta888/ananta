@@ -2,8 +2,19 @@ from __future__ import annotations
 
 from dataclasses import replace
 
+from sqlalchemy.pool import StaticPool
+from sqlmodel import SQLModel, create_engine
+
+from agent.db_models.evidence_identity import HubRunEvidenceIdentityDB, HubSourceEvidenceIdentityDB
+from agent.repositories.evidence_identity import SqlEvidenceIdentityRepository
 from agent.services.dspy_program_artifact_store import DspyProgramArtifactStore
-from agent.services.dspy_release_gate import DspyReleaseGate
+from agent.services.dspy_release_gate import DspyEvidenceBinding, DspyReleaseGate
+from agent.services.hub_evidence_gate_service import (
+    EvidenceGateRequest,
+    EvidenceGateSourceAdmission,
+    HubEvidenceGateService,
+)
+from agent.services.hub_evidence_registry_service import HubEvidenceRegistryService
 from tests.dspy_optimization.helpers import program, spec
 from worker.optimization.dspy.job_runner import DspyOptimizationJobRunner
 
@@ -48,3 +59,51 @@ def test_release_gate_never_invents_or_promotes_missing_evidence() -> None:
     assert result["release_allowed"] is False
     assert result["source_refs"] == []
     assert result["run_refs"] == []
+
+
+def test_release_gate_accepts_exact_successful_hub_registry_binding() -> None:
+    database = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    SQLModel.metadata.create_all(
+        database,
+        tables=[HubSourceEvidenceIdentityDB.__table__, HubRunEvidenceIdentityDB.__table__],
+    )
+    registry = HubEvidenceRegistryService(SqlEvidenceIdentityRepository(database))
+    revision = "1" * 40
+    outcome = HubEvidenceGateService(registry).execute(
+        EvidenceGateRequest(
+            tenant_id="tenant-1",
+            project_id="project-1",
+            task_id="dspy-001",
+            assignment_id="assignment-1",
+            dispatch_lease_id="lease-1",
+            repository_revision=revision,
+            input_digest="a" * 64,
+            execution_profile_digest="b" * 64,
+            environment_digest="c" * 64,
+            evidence_scope="local",
+            required_scope="local",
+            idempotency_key="dspy-baseline-1",
+            sources=(EvidenceGateSourceAdmission("repository_bundle", "a" * 64, "b" * 64, "c" * 64),),
+        ),
+        lambda _assignment: {"passed": True},
+    )
+    binding = DspyEvidenceBinding("tenant-1", "project-1", "dspy-001", revision, "local")
+
+    result = DspyReleaseGate(evidence_registry=registry).evaluate(
+        local_gates={gate: True for gate in DspyReleaseGate.REQUIRED},
+        source_refs=list(outcome.source_ids),
+        run_refs=[outcome.run_id],
+        evidence_binding=binding,
+    )
+
+    assert result["release_allowed"] is True
+    assert result["evidence_reason_code"] == "verified"
+
+    stale = DspyReleaseGate(evidence_registry=registry).evaluate(
+        local_gates={gate: True for gate in DspyReleaseGate.REQUIRED},
+        source_refs=list(outcome.source_ids),
+        run_refs=[outcome.run_id],
+        evidence_binding=DspyEvidenceBinding("tenant-1", "project-1", "dspy-001", "2" * 40, "local"),
+    )
+    assert stale["release_allowed"] is False
+    assert stale["evidence_reason_code"].endswith("evidence_run_binding_mismatch")

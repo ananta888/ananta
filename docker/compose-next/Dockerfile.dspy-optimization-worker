@@ -17,7 +17,8 @@ RUN groupadd --gid "${ANANTA_RUNTIME_GID}" ananta-dspy \
 WORKDIR /app
 COPY . /app
 RUN pip install --no-cache-dir . \
-    && pip install --no-cache-dir --requirement docker/compose-next/requirements.dspy-optimization.txt \
+    && pip install --no-cache-dir --require-hashes \
+       --requirement docker/compose-next/requirements.dspy-optimization.lock \
     && pip check \
     && chown -R "${ANANTA_RUNTIME_UID}:${ANANTA_RUNTIME_GID}" /app
 

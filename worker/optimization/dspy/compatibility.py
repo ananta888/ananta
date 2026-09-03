@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib
 from typing import Any
 
+from worker.optimization.dspy.runtime_security import DspyRuntimeSecurityPolicy
+
 
 class DspyCompatibilityAdapter:
     SUPPORTED_VERSION = "3.2.1"
@@ -14,6 +16,10 @@ class DspyCompatibilityAdapter:
             module = importlib.import_module("dspy")
         except ImportError:
             return self._projection("unavailable", None, "dspy_dependency_unavailable")
+        try:
+            DspyRuntimeSecurityPolicy.apply(module)
+        except RuntimeError:
+            return self._projection("degraded", None, "dspy_secure_cache_configuration_unavailable")
         version = str(getattr(module, "__version__", ""))
         if version != self.SUPPORTED_VERSION:
             return self._projection("degraded", version or None, "dspy_version_incompatible")

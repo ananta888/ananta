@@ -119,19 +119,27 @@ cannot become production-ready merely by passing contract tests.
 
 ## Optional DSPy optimization worker
 
-Baseline observation date: 2026-08-29. The optional worker pins `dspy==3.2.1`;
-the official release tag resolves to commit `29448ae12756abdd14bd8796c819247ebb83673c`.
+Baseline observation date: 2026-09-03. The optional worker pins `dspy==3.2.1`;
+the annotated tag object `27a8e2a134b0b8dbd2d7433ea67ffe9be627d376`
+resolves to commit `29448ae12756abdd14bd8796c819247ebb83673c`.
 DSPy declares the MIT license with copyright held by Stanford Future Data
 Systems. Its package metadata includes OpenAI, LiteLLM, Pydantic, Diskcache,
 Cloudpickle and GEPA among the direct dependency set.
 
-This is an unverified navigation baseline, not release evidence: no allowed
-`SRC_*` reference has been supplied. A release still requires an immutable
-source-catalog binding, complete transitive license/security inventory,
-dependency lock, SBOM, vulnerability scan, built image digest and allowed
-`RUN_*` evidence. Until then the optional image and production release remain
-blocked even when local contract tests pass.
+The machine-readable baseline at `config/licenses/dspy-optimization.v1.json`
+binds upstream artifacts, license metadata, the Python/Ananta support matrix,
+all direct dependency versions and the hash-locked 67-package transitive set.
+The fixed local gate lets the Hub automatically issue and verify assignment-
+bound `SRC_*` and `RUN_*` identities. Local evidence is never upgraded to a
+production claim. Production release still requires a built image digest,
+SBOM and a production-scoped execution over the approved dataset/provider.
 
 Cloudpickle may be present transitively but Ananta forbids executable program
 deserialization. DSPy imports stay in `worker/optimization/dspy/`; the Hub,
 contracts and standard worker remain dependency-free.
+
+`pip-audit 2.10.1` found CVE-2025-69872/PYSEC-2026-2447 in
+`diskcache==5.6.3`; no fixed release is available. Ananta mitigates the
+pickle-deserialization path by unconditionally disabling DSPy's disk cache and
+allowing only a bounded, process-local memory cache. A regression test and the
+local Hub gate enforce this control.
