@@ -57,6 +57,10 @@
       {
         "url": "https://github.com/huihui-ai/remove-refusals-with-transformers",
         "role": "Vom Community-Modell verlinkte Beschreibung des Abliterationsverfahrens"
+      },
+      {
+        "url": "https://github.com/JustVugg/colibri",
+        "role": "Primärquelle zur Colibri-Architektur, aktuell unterstützten Modellfamilien und Speicher-Tiering"
       }
     ],
     "verified_upstream_facts": [
@@ -64,7 +68,8 @@
       "Die Community-Modellkarte beschreibt die Ableitung als Abliteration zur Reduzierung von Ablehnungen und selbst als groben Proof of Concept.",
       "Die Modellkarte nennt mehrere unterschiedlich stark veränderte Linien; unter anderem UD-DW mit Abliteration der Schichten 23 bis 51 und UD mit Abliteration der Schichten 18 bis 51.",
       "Nach Angabe der Community-Modellkarte wurden MTP- und Vision-Komponenten nicht verändert; diese Aussage muss praktisch geprüft werden.",
-      "Die Modellkarte warnt ausdrücklich vor sensiblen oder kontroversen Ausgaben und empfiehlt kontrollierte Forschungs- und Testumgebungen statt unbeaufsichtigter Produktion."
+      "Die Modellkarte warnt ausdrücklich vor sensiblen oder kontroversen Ausgaben und empfiehlt kontrollierte Forschungs- und Testumgebungen statt unbeaufsichtigter Produktion.",
+      "Colibri listet derzeit Qwen3.8-Flash-Next und Qwen3.6 als unterstützte Qwen-Familien, nicht jedoch Qwen3.8-27B Dense oder dessen GGUF-Abliteration."
     ],
     "candidate_artifacts_snapshot": [
       {
@@ -93,7 +98,8 @@
       "Weniger Ablehnungen bedeuten nicht mehr Wissen, höhere Faktentreue, bessere Tool-Nutzung oder bessere Aufgabenleistung.",
       "Die Bezeichnung uncensored ist keine standardisierte Capability und kein Sicherheitsversprechen.",
       "GGUF-Dateigröße ist nicht gleich vollständiger Laufzeitspeicher. KV-Cache, Kontext, Vision-Projektor, Backend-Puffer und Treiberreserve werden separat gemessen.",
-      "Suchergebnisse zu qwen abliterated enthalten unterschiedliche Basismodelle, Verfahren, Revisionen und Quantisierer und dürfen nicht automatisch in den Modellkatalog übernommen werden."
+      "Suchergebnisse zu qwen abliterated enthalten unterschiedliche Basismodelle, Verfahren, Revisionen und Quantisierer und dürfen nicht automatisch in den Modellkatalog übernommen werden.",
+      "Colibris Expert-Streaming adressiert vor allem MoE-Modelle mit gerouteten Experten. Beim dichten Qwen3.8-27B existiert kein vergleichbarer Expertensatz, der bedarfsgesteuert von SSD nachgeladen werden könnte."
     ]
   },
   "architecture_decisions": [
@@ -154,7 +160,8 @@
       "runtime_candidates": [
         "llama.cpp",
         "Ollama",
-        "LM Studio"
+        "LM Studio",
+        "Colibri (experimenteller Capability-Probe, nicht als unterstützt voraussetzen)"
       ],
       "minimum_context_tests": [
         4096,
@@ -336,7 +343,7 @@
     },
     {
       "id": "QABL-005",
-      "title": "Runtime-Kompatibilität für llama.cpp, Ollama und LM Studio prüfen",
+      "title": "Runtime-Kompatibilität für llama.cpp, Ollama, LM Studio und Colibri prüfen",
       "type": "integration",
       "milestone_id": "M1",
       "status": "todo",
@@ -356,12 +363,17 @@
         "Chat-Template, Thinking-Modus, reasoning_effort, Streaming, Stop-Tokens, strukturierte Ausgabe und Abbruchverhalten vergleichen.",
         "Vision erst nach separatem mmproj- und Bildpfadtest als verfügbar markieren.",
         "MTP-Unterstützung nur als aktiv kennzeichnen, wenn die Runtime sie tatsächlich nutzt und ein messbarer Effekt reproduzierbar ist.",
-        "OpenAI-kompatible API-Antworten in Anantas einheitliches Antwortschema normalisieren."
+        "OpenAI-kompatible API-Antworten in Anantas einheitliches Antwortschema normalisieren.",
+        "Colibri revisionsgebunden nur als Capability-Probe aufnehmen: prüfen, ob ein passender Qwen3.8-27B-Dense-Enginepfad und das konkrete Abliterated-Artefaktformat existieren; fehlende Unterstützung sauber als unsupported dokumentieren.",
+        "Colibris Qwen3.8-Flash-Next-Engine nicht aufgrund des ähnlichen Familiennamens für Qwen3.8-27B verwenden. Architektur-, Tensor- und Token-exakte Kompatibilität muss vor jedem Lauf bestätigt sein.",
+        "Falls künftig native Dense-27B-Unterstützung erscheint, Safetensors-/Konvertierungspfad, Tokenkorrektheit, API-Kompatibilität und Geschwindigkeit separat gegen llama.cpp messen; GGUF-Unterstützung nicht unterstellen.",
+        "Den fehlenden MoE-Expert-Streaming-Vorteil bei einem Dense-Modell in der Runtime-Empfehlung ausdrücklich berücksichtigen."
       ],
       "acceptance_criteria": [
         "Jede Runtime besitzt eine gemessene Capability-Matrix mit Versions- und Parameterbindung.",
         "Nicht unterstützte Funktionen bleiben unknown oder false statt simuliert zu werden.",
-        "Mindestens eine lokale Runtime kann stabile Textantworten, Streaming und kontrollierten Abbruch liefern."
+        "Mindestens eine lokale Runtime kann stabile Textantworten, Streaming und kontrollierten Abbruch liefern.",
+        "Colibri erscheint nur dann als ausführbare Runtime, wenn die konkrete Revision Qwen3.8-27B Dense nachweislich unterstützt; andernfalls wird ein eindeutiger unsupported-Reason-Code angezeigt."
       ]
     },
     {
@@ -655,6 +667,10 @@
     {
       "risk": "Unveränderte Vision- oder MTP-Komponenten werden fälschlich als unveränderte End-to-End-Leistung interpretiert.",
       "mitigation": "Separate multimodale und Laufzeit-spezifische Tests."
+    },
+    {
+      "risk": "Colibris Qwen3.8-Flash-Next-Unterstützung wird wegen des ähnlichen Namens fälschlich als Unterstützung für Qwen3.8-27B Dense interpretiert.",
+      "mitigation": "Exakte Architektur- und Modell-ID-Prüfung, Capability-Probe und default-deny; kein Start mit einem fremden Enginepfad."
     }
   ],
   "tasks_status_summary": {
@@ -717,7 +733,8 @@
     "Bevorzugter Ausgangspunkt für Peters RTX 3080 mit 10 GB VRAM und 64 GB RAM ist ein gemessener Vergleich von UD-IQ3_XXS und UD-IQ4_XS; Q2_K ist nur die nominell kleinste, nicht automatisch die sinnvollste Variante.",
     "Das originale Qwen3.8-27B muss in allen relevanten Tests als Kontrollgruppe mitlaufen.",
     "Ein Abliterated-Modell wird in Ananta niemals als Sicherheitskontrolle, automatischer Fallback oder öffentliches Standardmodell behandelt.",
-    "Die Hugging-Face-Suche dient nur zur Kandidatensichtung; jede konkrete Datei braucht eine eigene Provenance- und Sicherheitsprüfung."
+    "Die Hugging-Face-Suche dient nur zur Kandidatensichtung; jede konkrete Datei braucht eine eigene Provenance- und Sicherheitsprüfung.",
+    "Colibri wird geprüft, ist aber aktuell kein erwarteter Ausführungsweg für Qwen3.8-27B Dense: das Projekt nennt Qwen3.8-Flash-Next als unterstützte MoE-Familie, und sein Expert-Streaming bietet für ein 27B-Dense-Modell keinen entsprechenden Hauptvorteil."
   ],
   "end_summaries": [
     {
