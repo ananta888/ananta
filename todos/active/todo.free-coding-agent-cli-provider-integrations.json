@@ -423,7 +423,8 @@
         "Das Qwen-Profil startet den offiziellen Headless-Pfad mit stream-json, safe-mode, auto-edit, Tool-/Walltime-Bounds, Modell und Session Resume.",
         "Deterministische Adaptertests decken einen isolierten Repository-Task, Start, Streaming, Timeout, Cancellation, Output-Bounds und Secret-Redaktion ab.",
         "Der vollautomatische Live-Gate ist produktionsbereit und fail-closed; am 2026-08-30 waren weder qwen-Binary noch eine unterstuetzte Auth-Umgebung vorhanden, daher bleibt nur der echte externe Inferenznachweis blockiert."
-      ]
+      ],
+      "blocked_reason": "Adapter, Headless-Live-Gate, Cancellation, Timeout und Secret-Redaktion sind implementiert. Auf dem aktuellen Host fehlen das offizielle qwen-Binary und eine unterstützte authentifizierte Providerumgebung; deshalb kann der geforderte reale Repository-Inferenzlauf nicht automatisch gestartet oder als bestanden behauptet werden."
     },
     {
       "id": "FCA-006",

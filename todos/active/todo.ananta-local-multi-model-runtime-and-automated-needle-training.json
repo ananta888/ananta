@@ -395,7 +395,7 @@
       "description": "Hub und Worker greifen ausschließlich über explizite interne Provideradressen und delegierte Verträge auf lokale Runtimes zu.",
       "acceptance_criteria": ["Kein Container verlässt sich auf Host-127.0.0.1.", "Worker kann keine Routingpolicy, Taskqueue oder Promotion mutieren.", "Provider- und Trainingsnetze folgen Least Privilege.", "Bestehende Ollama-/LM-Studio-E2E-Pfade bleiben grün.", "Ein vollständiger Goal-zu-Plan-zu-Task-zu-Execution-zu-Verification-Lauf ist reproduzierbar belegt."],
       "remaining_work": ["Vollständigen Goal-bis-Verification-Lauf mit registrierter RUN_* Evidenz ausführen."],
-      "blocked_reason": "Topologie-, Netzwerk- und Kompatibilitätscode ist verifiziert; der verbleibende produktive Goal-bis-Verification-Nachweis benötigt eine extern registrierte gültige RUN_* Evidenz, die nicht erfunden werden darf.",
+      "blocked_reason": "Topologie-, Netzwerk- und Kompatibilitätscode ist lokal verifiziert. Auf dem aktuellen Host sind weder LM Studio noch Ollama als ausführbare Runtime verfügbar; daher kann der produktive Goal-bis-Verification-Lauf gegen beide realen Providerpfade nicht ausgeführt werden. Sobald ein zugelassener Endpoint samt Modell existiert, registriert der Hub die Quelle und reserviert den RUN_* automatisch.",
       "evidence": ["Hub erreichte KAT, LFM, Needle und die authentifizierte Control-Bridge über host.docker.internal; Alpha und Beta erreichten ausschließlich die drei Provider und besaßen weder Control-URL noch Control-Token.", "75 Ollama-/LM-Studio-Kompatibilitätstests bestanden oder wurden umgebungsbedingt übersprungen (75 passed, 5 skipped).", "Keine registrierte RUN_* Evidenz."]
     },
     {

@@ -5,9 +5,9 @@
   "version": "2.0",
   "owner": "Peter Stuiber / Ananta",
   "track": "pair-dev-collaboration-workspace-buzz-interop",
-  "status": "blocked",
+  "status": "partial",
   "created_at": "2026-08-06",
-  "updated_at": "2026-08-30",
+  "updated_at": "2026-09-03",
   "architecture_document": "docs/architecture/pair-dev-collaboration-workspace.md",
   "parents": [
     "todos/archiv/todo.angular-pair-dev-cheap-view-sync.json",
@@ -77,7 +77,7 @@
     ],
     "evidence_policy": "Die Pfade sind Quell-Audit-Referenzen, aber keine erfundenen SRC_*-/RUN_*-Nachweise. Produktions- und Release-Claims bleiben bis zu reproduzierbaren Gates unverified beziehungsweise fail-closed.",
     "blocked_audit": {
-      "status": "blocked",
+      "status": "partial",
       "reason_codes": [
         "native_workspace_core_implementation_absent",
         "native_browser_and_load_run_evidence_missing",
@@ -87,7 +87,7 @@
       "lane_status": {
         "native_core": "blocked_missing_implementation_and_run_evidence",
         "multi_participant_live": "blocked_missing_real_browser_run_evidence",
-        "buzz_bridge": "blocked_missing_source_and_runtime_evidence"
+        "buzz_bridge": "todo_after_generic_bridge_contract"
       },
       "unverified_navigation_observations": [
         "No production CollaborationWorkspace, CollaborationRoom, WorkspaceEventV1, WorkspaceActorBinding, native append-only Workspace Event Store, permission-aware Workspace Search, or CollaborationBridge implementation was found at the reviewed commit.",
@@ -226,7 +226,7 @@
     {
       "id": "M01",
       "title": "Architektur, Quellaudit und Entscheidungsgrenzen",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-ARCH-001",
         "PDCW-ARCH-002",
@@ -239,7 +239,7 @@
     {
       "id": "M02",
       "title": "Kanonische Workspace-, Room- und Event-Verträge",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-EVT-001",
         "PDCW-EVT-002",
@@ -252,7 +252,7 @@
     {
       "id": "M03",
       "title": "Akteure, Membership, Presence und Berechtigungen",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-ID-001",
         "PDCW-ID-002",
@@ -265,7 +265,7 @@
     {
       "id": "M04",
       "title": "Multi-Participant Live-Transport und Resilienz",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-LIVE-001",
         "PDCW-LIVE-002",
@@ -278,7 +278,7 @@
     {
       "id": "M05",
       "title": "Native Workspace-, Room- und Thread-Oberflächen",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-UI-001",
         "PDCW-UI-002",
@@ -291,7 +291,7 @@
     {
       "id": "M06",
       "title": "Agenten und Ressourcen als First-Class-Mitglieder",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-AGT-001",
         "PDCW-AGT-002",
@@ -304,7 +304,7 @@
     {
       "id": "M07",
       "title": "Projekt-, Git-, Task- und Workflow-Projektionen",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-FLOW-001",
         "PDCW-FLOW-002",
@@ -317,7 +317,7 @@
     {
       "id": "M08",
       "title": "Suche, CodeCompass, Evidenz und Memory",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-SRCH-001",
         "PDCW-SRCH-002",
@@ -330,7 +330,7 @@
     {
       "id": "M09",
       "title": "Optionaler Buzz/Nostr-Adapter",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-BUZZ-001",
         "PDCW-BUZZ-002",
@@ -343,7 +343,7 @@
     {
       "id": "M10",
       "title": "Security, Privacy und Missbrauchsschutz",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-SEC-001",
         "PDCW-SEC-002",
@@ -356,7 +356,7 @@
     {
       "id": "M11",
       "title": "Migration, Betrieb, Observability und Recovery",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-OPS-001",
         "PDCW-OPS-002",
@@ -369,7 +369,7 @@
     {
       "id": "M12",
       "title": "Verifikation und gestufte Produktionsfreigabe",
-      "status": "in_progress",
+      "status": "partial",
       "task_ids": [
         "PDCW-QA-001",
         "PDCW-QA-002",
@@ -1362,7 +1362,7 @@
     {
       "id": "PDCW-BUZZ-002",
       "title": "Buzz-Connector-Konfiguration und Lifecycle-Adapter bauen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -1382,7 +1382,7 @@
     {
       "id": "PDCW-BUZZ-003",
       "title": "Buzz/Nostr-Identity-Mapping und Key-Custody implementieren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -1403,7 +1403,7 @@
     {
       "id": "PDCW-BUZZ-004",
       "title": "Ananta-zu-Buzz Event-Mapping und Outbound Delivery implementieren",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -1425,7 +1425,7 @@
     {
       "id": "PDCW-BUZZ-005",
       "title": "Buzz-zu-Ananta Event-Proposal und Command-Intent-Ingress bauen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1449,7 +1449,7 @@
     {
       "id": "PDCW-BUZZ-006",
       "title": "Eigenständiges Buzz-Bridge-Conformance- und Release-Gate abschließen",
-      "status": "blocked",
+      "status": "todo",
       "priority": "P2",
       "risk": "critical",
       "type": "test",
@@ -1917,17 +1917,18 @@
   "tasks_status_summary": {
     "total": 72,
     "by_status": {
-      "todo": 0,
+      "todo": 5,
       "in_progress": 0,
       "partial": 67,
-      "blocked": 5,
+      "blocked": 0,
       "done": 0
     },
     "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 34,
       "P1": 33,
-      "P2": 5
+      "P2": 5,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -1943,7 +1944,8 @@
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 12,
+      "in_progress": 0,
+      "partial": 12,
       "blocked": 0,
       "done": 0
     }
@@ -1953,127 +1955,143 @@
     "by_type": {
       "architecture": {
         "total": 4,
+        "done": 0,
+        "partial": 4,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 73.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 4,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 4,
-        "blocked": 0,
-        "progress_percent": 73.8
+        }
       },
       "contract": {
         "total": 8,
+        "done": 0,
+        "partial": 8,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 68.1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 8,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 8,
-        "blocked": 0,
-        "progress_percent": 68.1
+        }
       },
       "configuration": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 42.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 42.5
+        }
       },
       "documentation": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 50.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 50.0
+        }
       },
       "implementation": {
         "total": 36,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 33,
-          "blocked": 3,
-          "done": 0
-        },
         "done": 0,
         "partial": 33,
-        "blocked": 3,
-        "progress_percent": 40.2
+        "blocked": 0,
+        "todo": 3,
+        "in_progress": 0,
+        "progress_percent": 40.2,
+        "by_status": {
+          "todo": 3,
+          "in_progress": 0,
+          "partial": 33,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "security": {
         "total": 11,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 10,
-          "blocked": 1,
-          "done": 0
-        },
         "done": 0,
         "partial": 10,
-        "blocked": 1,
-        "progress_percent": 45.0
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 45.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 10,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "test": {
         "total": 8,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 7,
-          "blocked": 1,
-          "done": 0
-        },
         "done": 0,
         "partial": 7,
-        "blocked": 1,
-        "progress_percent": 31.9
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 31.9,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 7,
+          "blocked": 0,
+          "done": 0
+        }
       },
       "migration": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 35.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 35.0
+        }
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 0,
+    "state": "partial",
+    "todo_remaining": 5,
     "in_progress": 0,
     "partial": 67,
-    "blocked": 5,
+    "blocked": 0,
     "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 45.6
+    "milestones_done": 0,
+    "milestones_total": 12
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
