@@ -2,13 +2,31 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
+from agent.ports.evidence_identity import EvidenceIdentityRegistryPort
 from ananta_contracts.dendritic_memory import canonical_digest
+
+_SOURCE = re.compile(r"^SRC_[A-Za-z0-9][A-Za-z0-9_.:-]{2,255}$")
+_RUN = re.compile(r"^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{2,255}$")
+
+
+@dataclass(frozen=True, slots=True)
+class DendriticEvidenceBinding:
+    tenant_id: str
+    project_id: str
+    task_id: str
+    repository_revision: str
+    required_scope: str = "production"
 
 
 class DendriticMemoryReleaseGate:
+    def __init__(self, *, evidence_registry: EvidenceIdentityRegistryPort | None = None) -> None:
+        self._evidence_registry = evidence_registry
+
     def evaluate(
         self,
         *,
@@ -24,19 +42,45 @@ class DendriticMemoryReleaseGate:
         allowed_run_refs: Sequence[str],
         requested_source_refs: Sequence[str],
         requested_run_refs: Sequence[str],
+        evidence_binding: DendriticEvidenceBinding | None = None,
     ) -> dict[str, Any]:
         allowed_sources = set(allowed_source_refs)
         allowed_runs = set(allowed_run_refs)
         sources_valid = (
             bool(requested_source_refs)
-            and all(str(value).startswith("SRC_") for value in requested_source_refs)
-            and set(requested_source_refs) <= allowed_sources
+            and all(_SOURCE.fullmatch(str(value)) for value in requested_source_refs)
+            and (self._evidence_registry is not None or set(requested_source_refs) <= allowed_sources)
         )
         runs_valid = (
-            bool(requested_run_refs)
-            and all(str(value).startswith("RUN_") for value in requested_run_refs)
-            and set(requested_run_refs) <= allowed_runs
+            len(requested_run_refs) == 1
+            and all(_RUN.fullmatch(str(value)) for value in requested_run_refs)
+            and (self._evidence_registry is not None or set(requested_run_refs) <= allowed_runs)
         )
+        evidence_reason = "verified"
+        if sources_valid and runs_valid and self._evidence_registry is not None:
+            if evidence_binding is None or evidence_binding.required_scope not in {
+                "local",
+                "external",
+                "production",
+            }:
+                sources_valid = runs_valid = False
+                evidence_reason = "dendritic_hub_evidence_binding_required"
+            else:
+                verification = self._evidence_registry.verify_release_binding(
+                    tenant_id=evidence_binding.tenant_id,
+                    project_id=evidence_binding.project_id,
+                    run_id=str(requested_run_refs[0]),
+                    required_scope=evidence_binding.required_scope,
+                    task_id=evidence_binding.task_id,
+                    repository_revision=evidence_binding.repository_revision,
+                    source_ids=requested_source_refs,
+                )
+                sources_valid = runs_valid = verification.verified
+                evidence_reason = (
+                    "verified"
+                    if verification.verified
+                    else f"dendritic_hub_evidence_unverified:{verification.reason_code}"
+                )
         reasons: list[str] = []
         checks: Mapping[str, bool] = {
             "p0_complete": p0_complete,
@@ -60,10 +104,11 @@ class DendriticMemoryReleaseGate:
             "experimental": True,
             "production_eligible": False,
             "claims_verified": sources_valid and runs_valid,
+            "evidence_reason_code": evidence_reason,
             "human_intervention_required": False,
         }
         result["receipt_digest"] = canonical_digest(result)
         return result
 
 
-__all__ = ["DendriticMemoryReleaseGate"]
+__all__ = ["DendriticEvidenceBinding", "DendriticMemoryReleaseGate"]

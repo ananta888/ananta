@@ -43,3 +43,11 @@ Release remains blocked until all P0 checks, CI, three seeds, two task
 families, security clearance, rollback/revoke/deletion runs and exact
 assignment-bound `SRC_*`/`RUN_*` evidence pass. The gate is fully automatic and
 does not require Human-in-the-Loop.
+
+The release gate accepts a Hub Evidence Registry binding and verifies exact
+task, repository revision and scope. Legacy explicit allowlists remain
+available for compatibility. Registry issuance itself is no longer a blocker;
+the missing facts are a real admitted model/dataset experiment over three
+seeds and two task families plus a practical staging lifecycle run. The
+optional local-model test intentionally skips when no immutable safetensors
+snapshot is supplied and can never be counted as a passed release gate.

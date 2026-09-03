@@ -4,31 +4,31 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ml-intern-dendritic-memory-experiment-workbench",
   "created": "2026-07-18",
-  "updated": "2026-08-31",
+  "updated": "2026-09-03",
   "status": "blocked",
   "review_basis": {
-    "reviewed_commit_range": "760935fa38bf5796f8216ffbf0110d93efaf614e",
+    "reviewed_commit_range": "6f86a51f307c270c65dfb0e7f2022fb1ca5f1afb",
     "review_goal": "Dendritic-Memory-Experimenttrack gegen den aktuellen ml_intern-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
-    "grounding_status": "unverified",
-    "release_status": "blocked_missing_assignment_evidence_and_dendritic_implementation",
-    "grounding_note": "Im aktuellen Quellbaum wurden weiterhin keine Dendritic-Memory-Produktionskomponenten oder Evidenzbindungen gefunden. Wiederverwendbare ml_intern-Control-Plane-, Worker-, Registry-, Evaluations- und Angular-Seams existieren, erfuellen aber die dendritischen Contracts und Gates noch nicht. Externe Inspiration und praktische Release-, GPU-, Staging-, Security- und Benchmarkaussagen bleiben ohne bereitgestellte SRC_* beziehungsweise RUN_* IDs unverified.",
+    "grounding_status": "repository_implementation_verified_external_experiment_missing",
+    "release_status": "blocked_missing_real_model_dataset_and_staging_runs",
+    "grounding_note": "Die Dendritic-Memory-Contracts, Hub-/Worker-Grenzen, Evaluation, Registry, Runtime-Gate, Lifecycle und UI sind repository-lokal implementiert. Der Release-Gate kann Hub-Registry-Evidenz automatisch und exakt binden. Externe Leistungs- und Freigabeaussagen bleiben ohne realen zugelassenen Modell-/Dataset- sowie Staging-Lauf unverified.",
     "blocked_audit": {
-      "date": "2026-08-29",
+      "date": "2026-09-03",
       "status": "blocked",
       "reason_codes": [
-        "dendritic_specific_implementation_absent",
-        "allowed_source_refs_empty",
-        "allowed_run_refs_empty",
-        "required_complex_release_runs_not_grounded"
+        "real_model_dataset_multiseed_run_missing",
+        "second_task_family_run_missing",
+        "local_safetensors_snapshot_missing",
+        "practical_staging_lifecycle_run_missing"
       ],
-      "unverified_navigation_observations": [
-        "No dendritic_memory production namespace, contract, schema, Worker backend, Memory Pack registry, frontend integration, or test exists at reviewed commit 760935fa38bf5796f8216ffbf0110d93efaf614e.",
-        "Reusable ml_intern infrastructure now includes strict Hub-owned job, Worker transport, artifact, evaluation, registry, migration and Angular seams.",
-        "The existing ml_intern LoRA path must remain backward-compatible and must not be semantically overloaded by the experiment."
+      "verified_repository_observations": [
+        "The Dendritic Memory namespace, contracts, schemas, Worker backend, Memory Pack registry, frontend integration and automatic tests exist.",
+        "The release gate now accepts exact Hub Evidence Registry bindings while preserving the legacy allowlist interface.",
+        "The existing ml_intern LoRA path remains backward-compatible and is not semantically overloaded by the experiment."
       ],
-      "required_unblock_input": "Hub-provided SRC_* refs for any external architecture, dependency and license claims, plus assignment-bound RUN_* refs for the required security, benchmark, GPU/staging, rollback, revoke and deletion gates."
+      "required_unblock_input": "Ein unveränderlicher zugelassener Safetensors-Modellsnapshot, ein freigegebenes Dataset für mindestens zwei Aufgabenfamilien und ein automatisch ausführbarer Staging-Target; der Hub registriert Quellen und reserviert die zugehörigen Runs anschließend selbst."
     },
     "reviewed_paths": [
       "agent/",
@@ -42,7 +42,7 @@
     ]
   },
   "implementation_review": {
-    "reviewed_at": "2026-08-31",
+    "reviewed_at": "2026-09-03",
     "state": "implemented_locally_release_blocked",
     "implemented_boundaries": [
       "Separate dependency-free v1 job, configuration and Memory Pack contracts plus strict JSON Schemas",
@@ -59,9 +59,10 @@
     ],
     "remaining_local_gaps": [],
     "release_blockers": [
-      "allowed_source_refs_empty",
-      "allowed_run_refs_empty",
-      "required_security_benchmark_gpu_staging_rollback_revoke_delete_runs_missing"
+      "real_model_dataset_multiseed_run_missing",
+      "second_task_family_run_missing",
+      "local_safetensors_snapshot_missing",
+      "practical_staging_lifecycle_run_missing"
     ],
     "human_intervention_required": false
   },
@@ -275,7 +276,7 @@
       "exit_criteria": [
         "Runbook, Grenzen und Release-Gate sind vollstaendig"
       ],
-      "status": "in_progress"
+      "status": "blocked"
     }
   ],
   "tasks": [
@@ -1124,7 +1125,7 @@
       "id": "DEND-071",
       "title": "Release-Gate fuer experimentelle Freigabe",
       "status": "blocked",
-      "progress_percent": 30.0,
+      "progress_percent": 70.0,
       "priority": "P0",
       "risk": "critical",
       "milestone_id": "M7",
@@ -1145,7 +1146,12 @@
         "Release Notes nennen Experimentalstatus und bekannte Grenzen.",
         "Ein negativer oder uneindeutiger Benchmark verhindert nicht die Veroeffentlichung als Baukasten, verhindert aber jede Leistungsbehauptung."
       ],
-      "test_gates": []
+      "test_gates": [
+        "Der Release-Gate verifiziert task-, revisions- und scopegebundene Hub-Evidenz und bleibt bei fehlender oder veralteter Bindung fail-closed.",
+        "41 repository-lokale Dendritic-Tests bestehen; der reale lokale Modelltest bleibt ohne bereitgestellten unveränderlichen Safetensors-Snapshot korrekt übersprungen und zählt nicht als Release-Nachweis.",
+        "Automatische Lifecycle-Tests decken Aktivierung, Rollback, Revoke und Delete ohne Human-in-the-Loop ab."
+      ],
+      "blocked_reason": "Die Hub-Registry-Integration und lokalen Release-/Lifecycle-Gates sind implementiert. Für die experimentelle Freigabe fehlen weiterhin ein real zugelassener Modell-/Dataset-Lauf über mindestens drei Seeds und zwei Aufgabenfamilien, der lokale unveränderliche Safetensors-Snapshot sowie ein praktischer Staging-Lauf für Rollback, Revoke und Artefaktlöschung."
     }
   ],
   "global_acceptance_criteria": [
@@ -1187,7 +1193,8 @@
     "by_priority": {
       "P0": 22,
       "P1": 11,
-      "P2": 0
+      "P2": 0,
+      "P3": 0
     },
     "by_risk": {
       "low": 0,
@@ -1203,27 +1210,30 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 1,
-      "blocked": 0,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 1,
       "done": 7
     }
   },
   "tasks_type_summary": {
     "total": 33,
     "by_type": {
-      "unspecified": {
+      "unknown": {
         "total": 33,
+        "done": 32,
+        "partial": 0,
+        "blocked": 1,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 99.1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 1,
           "done": 32
-        },
-        "done": 32,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 97.9
+        }
       }
     }
   },
@@ -1310,8 +1320,8 @@
     "partial": 0,
     "blocked": 1,
     "done": 32,
-    "count_based_percent": 97.0,
-    "weighted_percent": 98.5
+    "milestones_done": 7,
+    "milestones_total": 8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
