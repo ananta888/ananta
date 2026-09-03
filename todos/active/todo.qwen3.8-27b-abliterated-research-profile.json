@@ -1,0 +1,734 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-09-03",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "qwen3_8_27b_abliterated_controlled_research_profile",
+  "title": "Qwen3.8-27B Abliterated kontrolliert evaluieren und als gesperrtes Research-Profil integrieren",
+  "status": "todo",
+  "priority": "P1",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "critical_path_tasks": [
+    "QABL-001",
+    "QABL-002",
+    "QABL-003",
+    "QABL-004",
+    "QABL-005",
+    "QABL-007",
+    "QABL-008",
+    "QABL-009",
+    "QABL-011",
+    "QABL-012"
+  ],
+  "purpose": "Die Community-Variante huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF nicht blind als unzensiertes Standardmodell aufnehmen, sondern Herkunft, konkrete Abliterationsvariante, Qualitätsverlust, lokale Ausführbarkeit und zusätzliche Agentenrisiken reproduzierbar gegen das unveränderte Qwen/Qwen3.8-27B prüfen.",
+  "goal": "Ananta kann eine explizit als unsafe_research gekennzeichnete, standardmäßig deaktivierte Abliterated-Variante über vorhandene lokale Provider testen. Das Originalmodell bleibt die Referenz. Freischaltung, Routing, Tool-Zugriff, Geheimnisse, Netz, Dateisystem und öffentliche Nutzung werden durch Ananta kontrolliert; die reduzierte Ablehnungsneigung des Modells wird niemals als Sicherheitsmerkmal oder Qualitätsnachweis behandelt.",
+  "research_basis": {
+    "reviewed_at": "2026-09-03",
+    "sources": [
+      {
+        "url": "https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF",
+        "role": "Community-Modellkarte, Varianten, Quantisierungen und Warnhinweise"
+      },
+      {
+        "url": "https://huggingface.co/Qwen/Qwen3.8-27B",
+        "role": "Offizielle Referenz für Architektur, Fähigkeiten, Lizenz und Kontext"
+      },
+      {
+        "url": "https://huggingface.co/models?search=qwen%20abliterated",
+        "role": "Nicht kuratierte Suche; nur zur Kandidatensichtung, niemals als Vertrauens- oder Importquelle"
+      },
+      {
+        "url": "https://github.com/huihui-ai/remove-refusals-with-transformers",
+        "role": "Vom Community-Modell verlinkte Beschreibung des Abliterationsverfahrens"
+      }
+    ],
+    "verified_upstream_facts": [
+      "Das Basismodell Qwen3.8-27B ist ein dichtes 27B-Vision-Language-Modell mit 64 Sprachmodellschichten, Apache-2.0-Kennzeichnung und nativ angegebenen 262144 Kontexttoken.",
+      "Die Community-Modellkarte beschreibt die Ableitung als Abliteration zur Reduzierung von Ablehnungen und selbst als groben Proof of Concept.",
+      "Die Modellkarte nennt mehrere unterschiedlich stark veränderte Linien; unter anderem UD-DW mit Abliteration der Schichten 23 bis 51 und UD mit Abliteration der Schichten 18 bis 51.",
+      "Nach Angabe der Community-Modellkarte wurden MTP- und Vision-Komponenten nicht verändert; diese Aussage muss praktisch geprüft werden.",
+      "Die Modellkarte warnt ausdrücklich vor sensiblen oder kontroversen Ausgaben und empfiehlt kontrollierte Forschungs- und Testumgebungen statt unbeaufsichtigter Produktion."
+    ],
+    "candidate_artifacts_snapshot": [
+      {
+        "name": "Q2_K",
+        "reported_size_gb": 8.42,
+        "initial_assessment": "Passt nominell knapp in 10 GB VRAM, lässt jedoch wenig Laufzeit- und KV-Cache-Reserve und ist als Qualitätsuntergrenze zu behandeln."
+      },
+      {
+        "name": "UD-IQ3_XXS",
+        "reported_size_gb": 11,
+        "initial_assessment": "Teilweises CPU-Offloading erforderlich; als Geschwindigkeits-/Qualitätskompromiss messen."
+      },
+      {
+        "name": "UD-IQ4_XS",
+        "reported_size_gb": 14.4,
+        "initial_assessment": "Primärer Qualitätskandidat für RTX 3080 plus 64 GB RAM mit GPU-/CPU-Offloading."
+      },
+      {
+        "name": "UD-Q4_K_XL",
+        "reported_size_gb": 17.4,
+        "initial_assessment": "Qualitätskandidat mit höherem RAM- und Transferbedarf; nur nach realer Messung empfehlen."
+      }
+    ],
+    "interpretation": [
+      "Abliteration ist eine gezielte Gewichtsmodifikation zur Abschwächung erlernter Refusal-Richtungen; sie ist weder ein Prompt-Jailbreak noch ein neues Basistraining.",
+      "Weniger Ablehnungen bedeuten nicht mehr Wissen, höhere Faktentreue, bessere Tool-Nutzung oder bessere Aufgabenleistung.",
+      "Die Bezeichnung uncensored ist keine standardisierte Capability und kein Sicherheitsversprechen.",
+      "GGUF-Dateigröße ist nicht gleich vollständiger Laufzeitspeicher. KV-Cache, Kontext, Vision-Projektor, Backend-Puffer und Treiberreserve werden separat gemessen.",
+      "Suchergebnisse zu qwen abliterated enthalten unterschiedliche Basismodelle, Verfahren, Revisionen und Quantisierer und dürfen nicht automatisch in den Modellkatalog übernommen werden."
+    ]
+  },
+  "architecture_decisions": [
+    "Das unveränderte Qwen/Qwen3.8-27B bleibt Referenz und zulässiger Kandidat für normale Modellprofile.",
+    "Abliterated-Varianten erhalten die Trust-Klasse unsafe_research und sind global default-off.",
+    "Ein abliteriertes Modell darf niemals automatischer Fallback eines normalen, produktiven, öffentlichen oder personenbezogenen Workflows sein.",
+    "Modellgewichte, GGUF-Konvertierung, Quantisierung, Chat-Template, Vision-Projektor und Runtime werden als getrennte, digestgebundene Supply-Chain-Komponenten erfasst.",
+    "Anantas Policy Engine entscheidet über Werkzeuge, Dateien, Netz, Secrets, Freigaben und Ausgabeprüfung; Modellablehnungen sind keine Schutzschicht.",
+    "Tool-Calling startet ohne Schreib-, Shell-, Netzwerk-, Credential- oder personenbezogene Datenrechte und wird nur pro isoliertem Test explizit freigegeben.",
+    "Ergebnisse des Originalmodells und jeder Abliterationslinie werden getrennt gespeichert. Marketingnamen werden nicht zu gemeinsamen Benchmarkwerten vermischt.",
+    "Lange Kontextfenster werden nicht vorab reserviert. Freigegebene Kontextgrenzen ergeben sich aus reproduzierbaren Messungen pro Quantisierung und Hardwareprofil.",
+    "Die zentrale Modelloberfläche zeigt Trust-Klasse, Herkunft, Revision, Quantisierung, gemessene Fähigkeiten, bekannte Regressionen und aktive Einschränkungen."
+  ],
+  "non_goals": [
+    "Sicherheitsrichtlinien des Ananta-Hubs entfernen oder durch das Modell ersetzen.",
+    "Das Modell allein aufgrund geringerer Ablehnungsquote als besser bewerten.",
+    "Alle Hugging-Face-Suchergebnisse automatisch importieren oder ausführen.",
+    "Abliterated-Modelle für Teilnehmer, Minderjährige, öffentliche Chatbots, Kundenkontakt oder regulierte Entscheidungen freigeben.",
+    "Unbegrenzten Shell-, Netzwerk-, Repository-, Datenbank- oder Secret-Zugriff aktivieren.",
+    "262K Kontext auf einer RTX 3080 mit 10 GB VRAM als praktisch nutzbar versprechen.",
+    "Vision- oder Tool-Fähigkeiten allein aufgrund von Modell-Tags als bestanden markieren.",
+    "Q2-Quantisierung wegen nomineller VRAM-Passung automatisch bevorzugen."
+  ],
+  "target_profiles": {
+    "reference": {
+      "model": "Qwen/Qwen3.8-27B",
+      "trust_class": "standard_candidate",
+      "purpose": "Unveränderte Qualitäts- und Sicherheitsreferenz"
+    },
+    "research": {
+      "model": "huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF",
+      "trust_class": "unsafe_research",
+      "enabled_by_default": false,
+      "allowed_environments": [
+        "local_isolated_test"
+      ],
+      "forbidden_routes": [
+        "automatic_fallback",
+        "public_chat",
+        "course_participant_default",
+        "customer_communication",
+        "production_agent",
+        "regulated_decision",
+        "personal_data_processing"
+      ]
+    },
+    "hardware_reference": {
+      "gpu": "NVIDIA RTX 3080 10 GB",
+      "host_ram_gb": 64,
+      "primary_candidates": [
+        "UD-IQ3_XXS",
+        "UD-IQ4_XS"
+      ],
+      "boundary_candidates": [
+        "Q2_K",
+        "UD-Q4_K_XL"
+      ],
+      "runtime_candidates": [
+        "llama.cpp",
+        "Ollama",
+        "LM Studio"
+      ],
+      "minimum_context_tests": [
+        4096,
+        8192,
+        16384,
+        32768
+      ]
+    }
+  },
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Provenance, Varianten und Sicherheitsvertrag",
+      "status": "todo",
+      "task_ids": [
+        "QABL-001",
+        "QABL-002",
+        "QABL-003",
+        "QABL-004"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Lokale Laufzeit und Hardwareprofil",
+      "status": "todo",
+      "task_ids": [
+        "QABL-005",
+        "QABL-006"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Qualitäts-, Capability- und Sicherheitsvergleich",
+      "status": "todo",
+      "task_ids": [
+        "QABL-007",
+        "QABL-008",
+        "QABL-009"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Ananta-Integration, Oberfläche und Entscheidung",
+      "status": "todo",
+      "task_ids": [
+        "QABL-010",
+        "QABL-011",
+        "QABL-012"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "QABL-001",
+      "title": "Upstream-, Lizenz- und Artefakt-Provenance revisionsgebunden erfassen",
+      "type": "research",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [],
+      "target_files": [
+        "docs/research/qwen3.8-27b-abliterated-provenance.md",
+        "config/models/qwen3.8-27b-abliterated-sources.v1.json",
+        "docs/security/third-party-components.md"
+      ],
+      "implementation": [
+        "Basismodell, abliterierte Gewichte, GGUF-Konvertierung, Quantisierer, Chat-Template, mmproj/Visual-Komponenten und Runtime mit Repository, Revision, Dateiname, Größe, SHA-256 und deklarierter Lizenz erfassen.",
+        "Apache-2.0-Kennzeichnung nicht pauschal vom Basismodell auf jede Community-Datei übertragen, sondern für die konkrete Revision prüfen.",
+        "Floating Tags, Ollama-Namen und Hugging-Face-Suchergebnisse auf unveränderliche Digests beziehungsweise Commitstände auflösen.",
+        "README-Aussagen als Upstream-Behauptungen markieren und von eigenen Testergebnissen trennen.",
+        "Abweichende oder nachträglich ersetzte Dateien trotz gleichem Anzeigenamen als neue Artefaktrevision behandeln."
+      ],
+      "acceptance_criteria": [
+        "Jedes testbare Artefakt besitzt nachvollziehbare Herkunft, Revision, Digest, Größe, Format und Lizenzstatus.",
+        "Nicht eindeutig zuordenbare oder veränderte Dateien sind default-deny.",
+        "Originalmodell und Community-Ableitung bleiben in der gesamten Provenance-Kette unterscheidbar."
+      ],
+      "test_expectations": [
+        "CI lehnt fehlende Digests, unbekannte Quellen, unerwartete Dateigrößen und nicht freigegebene Formate ab.",
+        "Ein Austausch einer Datei unter gleichem Namen löst einen Integritätsfehler statt stiller Aktualisierung aus."
+      ]
+    },
+    {
+      "id": "QABL-002",
+      "title": "Abliterationslinien und Quantisierungen als getrennte Modellidentitäten modellieren",
+      "type": "architecture",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-001"
+      ],
+      "target_files": [
+        "config/models/qwen3.8-27b-abliterated.v1.json",
+        "ananta_contracts/model_identity.py",
+        "tests/contracts/test_abliterated_model_identity.py"
+      ],
+      "implementation": [
+        "Basismodell, Abliterationsmethode, betroffene Schichten, Variante wie UD oder UD-DW, Quantisierung und Runtime in stabilen Feldern speichern.",
+        "Keine Leistungswerte zwischen vollständiger, partieller, UD-, UD-DW- oder anders erzeugter Abliteration vererben.",
+        "Trust-Klasse, Provenance-Status und safety_modified=true als routingrelevante Eigenschaften führen.",
+        "Dateigröße, nominelle Bits und tatsächlich gemischte Tensor-Typen getrennt erfassen, weil die Modellkarte spezielle K_L-Quantisierung beschreibt.",
+        "Unbekannte Abliterationsparameter als unknown darstellen und nicht aus dem Dateinamen erraten."
+      ],
+      "acceptance_criteria": [
+        "Zwei unterschiedlich abliterierte oder quantisierte Dateien können nicht unter derselben internen Modell-ID kollidieren.",
+        "Jeder Benchmark verweist auf exakt eine Modellrevision, Quantisierung, Runtime und Hardwarekonfiguration.",
+        "Routing kann safety_modified und unsafe_research zwingend berücksichtigen."
+      ]
+    },
+    {
+      "id": "QABL-003",
+      "title": "Fail-closed Research-Policy und verbotene Einsatzwege definieren",
+      "type": "security",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-002"
+      ],
+      "target_files": [
+        "config/security/model-trust-policy.v1.json",
+        "agent/services/model_policy_service.py",
+        "tests/security/test_unsafe_research_model_policy.py"
+      ],
+      "implementation": [
+        "unsafe_research als eigene Trust-Klasse mit default-off und expliziter lokaler Freischaltung einführen.",
+        "Automatische Fallbacks, unbeaufsichtigte Agenten, öffentliche Endpunkte, Teilnehmerprofile, Kundenkommunikation, personenbezogene Daten und regulierte Entscheidungen blockieren.",
+        "Initial ausschließlich textbasierte Tests ohne Werkzeuge, Netz, Schreibrechte, Credentials oder produktive Repositories erlauben.",
+        "Freigaben mit Akteur, Zweck, Modellrevision, Laufzeit, Umfang und Ablaufzeit auditieren.",
+        "Ein fehlendes oder unbekanntes Trust-Feld als gesperrt behandeln."
+      ],
+      "acceptance_criteria": [
+        "Das Modell kann nicht durch Alias, Fallback, Auto-Discovery oder Capability-Routing in einen normalen Workflow gelangen.",
+        "Jeder Start zeigt und protokolliert die unsafe_research-Klassifizierung.",
+        "Nach Ablauf oder Entfernen der Freigabe schlägt der Start geschlossen fehl."
+      ],
+      "test_expectations": [
+        "Negative Tests decken Alias-Manipulation, Fallback-Ketten, fehlende Metadaten und direkte Provider-IDs ab.",
+        "Policy-Tests laufen ohne Modellgewichte und verhindern Regressionen in CI."
+      ]
+    },
+    {
+      "id": "QABL-004",
+      "title": "Sicheren GGUF-Import und Supply-Chain-Gates implementieren",
+      "type": "security",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-001",
+        "QABL-003"
+      ],
+      "target_files": [
+        "agent/services/model_artifact_import_service.py",
+        "config/security/model-import-policy.v1.json",
+        "tests/security/test_qwen_abliterated_import.py"
+      ],
+      "implementation": [
+        "Download nur als expliziten, auditierbaren Importjob mit Allowlist, Größenlimit, festem Digest und ausreichendem freien Speicher zulassen.",
+        "GGUF-Struktur, Metadaten, erwartete Architektur qwen35, Tensoren und Chat-Template vor Aktivierung prüfen.",
+        "Symlinks, Pfadtraversal, ausführbare Dateien, Pickle-Artefakte und ungeprüften Remote-Code blockieren.",
+        "Vision-Projektor und zusätzliche Dateien separat prüfen und nicht automatisch anhand eines Namens nachladen.",
+        "Artefakte read-only und revisionsgebunden ablegen; Quarantäne bei unerwarteten Änderungen."
+      ],
+      "acceptance_criteria": [
+        "Nur ausdrücklich freigegebene Digests werden gestartet.",
+        "Importfehler hinterlassen kein halb aktiviertes Modellprofil.",
+        "Der Import führt weder fremden Code aus noch lädt er implizit weitere Dateien nach."
+      ]
+    },
+    {
+      "id": "QABL-005",
+      "title": "Runtime-Kompatibilität für llama.cpp, Ollama und LM Studio prüfen",
+      "type": "integration",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-004"
+      ],
+      "target_files": [
+        "config/providers/local-qwen3.8-abliterated.v1.json",
+        "agent/services/local_runtime_capability_normalizer.py",
+        "tests/integration/test_qwen38_abliterated_runtimes.py"
+      ],
+      "implementation": [
+        "Jeweils gepinnte Runtime-Versionen mit identischer Modellrevision und reproduzierbaren Startparametern testen.",
+        "Chat-Template, Thinking-Modus, reasoning_effort, Streaming, Stop-Tokens, strukturierte Ausgabe und Abbruchverhalten vergleichen.",
+        "Vision erst nach separatem mmproj- und Bildpfadtest als verfügbar markieren.",
+        "MTP-Unterstützung nur als aktiv kennzeichnen, wenn die Runtime sie tatsächlich nutzt und ein messbarer Effekt reproduzierbar ist.",
+        "OpenAI-kompatible API-Antworten in Anantas einheitliches Antwortschema normalisieren."
+      ],
+      "acceptance_criteria": [
+        "Jede Runtime besitzt eine gemessene Capability-Matrix mit Versions- und Parameterbindung.",
+        "Nicht unterstützte Funktionen bleiben unknown oder false statt simuliert zu werden.",
+        "Mindestens eine lokale Runtime kann stabile Textantworten, Streaming und kontrollierten Abbruch liefern."
+      ]
+    },
+    {
+      "id": "QABL-006",
+      "title": "RTX-3080-/64-GB-Hardwareprofil und Quantisierungsempfehlung messen",
+      "type": "benchmark",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-005"
+      ],
+      "target_files": [
+        "benchmarks/local/qwen38_abliterated_rtx3080.yaml",
+        "docs/models/qwen3.8-27b-abliterated-hardware.md",
+        "artifacts/benchmarks/qwen38-abliterated/"
+      ],
+      "implementation": [
+        "Q2_K, UD-IQ3_XXS, UD-IQ4_XS und UD-Q4_K_XL soweit verfügbar mit identischer Runtime messen.",
+        "Downloadgröße, residenten RAM, VRAM-Spitze, GPU-Layer, Prompt-Verarbeitung, Token pro Sekunde, Zeit bis erstes Token, Energie und Stabilität protokollieren.",
+        "Kontextstufen 4K, 8K, 16K und 32K testen; höhere Werte nur bei ausreichender Reserve ergänzen.",
+        "CPU-Offloading und USB4-/eGPU-Transferkosten gesondert ausweisen, falls auf der vorhandenen eGPU-Konfiguration getestet wird.",
+        "Out-of-memory, starkes Swapping und instabile Einstellungen als nicht freigabefähig markieren."
+      ],
+      "acceptance_criteria": [
+        "Die Empfehlung basiert auf realen Messwerten statt nur auf GGUF-Dateigrößen.",
+        "Mindestens IQ3- und IQ4-Kandidat werden mit identischem Promptset verglichen.",
+        "Für jede empfohlene Konfiguration sind sichere Kontextgrenze und RAM-/VRAM-Reserve dokumentiert."
+      ]
+    },
+    {
+      "id": "QABL-007",
+      "title": "Original gegen Abliterated auf Qualität und Fähigkeiten vergleichen",
+      "type": "evaluation",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-002",
+        "QABL-005",
+        "QABL-006"
+      ],
+      "target_files": [
+        "benchmarks/evals/qwen38_base_vs_abliterated.yaml",
+        "agent/evals/model_comparison_runner.py",
+        "docs/research/qwen38-abliteration-quality-report.md"
+      ],
+      "implementation": [
+        "Original und jede Kandidatenvariante blind mit identischen Seeds, Samplingparametern, Kontexten und Aufgaben ausführen.",
+        "Deutsch und Englisch, Coding, Debugging, strukturierte JSON-Ausgabe, Tool-Schema-Treue, Dokumentanalyse, Faktentreue und CodeCompass-Aufgaben abdecken.",
+        "Refusal-Rate getrennt von Korrektheit, Halluzination, Unsicherheit, Formatfehlern und Aufgabenabschluss messen.",
+        "Vision separat mit unverändertem und abliteriertem Profil testen, ohne aus der unmodifizierten Vision-Komponente gleiche End-to-End-Qualität abzuleiten.",
+        "Ergebnisse mit Konfidenzintervallen, Rohfällen und reproduzierbarer Konfiguration speichern."
+      ],
+      "acceptance_criteria": [
+        "Es existiert kein zusammengefasster besser/schlechter-Wert ohne getrennte Qualitäts- und Sicherheitsdimensionen.",
+        "Regressionsschwellen sind vor der Auswertung festgelegt.",
+        "Ein Kandidat mit erheblichem Qualitätsverlust wird unabhängig von niedriger Refusal-Rate abgelehnt."
+      ]
+    },
+    {
+      "id": "QABL-008",
+      "title": "Sicherheits- und Prompt-Injection-Red-Team durchführen",
+      "type": "security",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-003",
+        "QABL-005",
+        "QABL-007"
+      ],
+      "target_files": [
+        "benchmarks/security/abliterated-redteam.yaml",
+        "docs/security/qwen38-abliterated-threat-model.md",
+        "tests/security/test_research_model_containment.py"
+      ],
+      "implementation": [
+        "Direkte und indirekte Prompt-Injection, versteckte Dokumentanweisungen, Datenexfiltration, Secret-Anfragen, Tool-Argument-Manipulation, Rollenwechsel und persistente Instruktionen testen.",
+        "Vergleich zum Originalmodell durchführen, ohne Modellrefusals als alleinige Verteidigung zu bewerten.",
+        "Gefährliche Testfälle ausschließlich in isolierter Umgebung mit synthetischen Secrets, Testdaten und Attrappenwerkzeugen ausführen.",
+        "Messen, ob das Modell unzulässige Aktionen anfordert, Schemas umgeht, Bestätigungen vortäuscht oder Tool-Ergebnisse falsch darstellt.",
+        "Gefundene Schwächen in zentrale, modellunabhängige Ananta-Kontrollen übersetzen."
+      ],
+      "acceptance_criteria": [
+        "Keine Red-Team-Ausführung berührt reale Zugangsdaten, produktive Systeme oder fremde Daten.",
+        "Kritische Umgehungen führen zu gesperrtem Tool-Profil und dokumentierter Gegenmaßnahme.",
+        "Die Sicherheit hängt auch nach dem Test nicht von freiwilliger Modellablehnung ab."
+      ]
+    },
+    {
+      "id": "QABL-009",
+      "title": "Isolierte Tool-Sandbox mit minimalen Rechten erzwingen",
+      "type": "security",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-003",
+        "QABL-008"
+      ],
+      "target_files": [
+        "config/security/unsafe-research-sandbox.v1.json",
+        "agent/services/tool_authorization_service.py",
+        "tests/e2e/test_abliterated_tool_sandbox.py"
+      ],
+      "implementation": [
+        "Standardprofil ohne Werkzeuge bereitstellen; spätere Tests nur mit explizit einzelnen Attrappen- oder Read-only-Werkzeugen.",
+        "Dateisystem auf temporären Testbereich beschränken, Netzwerk standardmäßig sperren und Umgebungsvariablen vollständig bereinigen.",
+        "Shell, Git-Schreibzugriff, Browseraktionen, Nachrichtenversand, Datenbankmutationen und Credential-Zugriff nicht allein durch Promptregeln freigeben.",
+        "Toolargumente schemavalidieren, Pfade kanonisieren, Ziele erlaubnisprüfen und mutierende Aktionen zusätzlich bestätigen.",
+        "Ausgaben begrenzen und Logs auf synthetische Testdaten beschränken."
+      ],
+      "acceptance_criteria": [
+        "Ein erfolgreicher Prompt-Injection-Versuch kann die technische Sandbox nicht überschreiten.",
+        "Das Modell kann keine Rechte selbst anfordern, erteilen oder durch Aliaswahl erweitern.",
+        "E2E-Tests belegen Netzwerk-, Secret-, Pfad- und Schreibsperren."
+      ]
+    },
+    {
+      "id": "QABL-010",
+      "title": "Transparente Research-Profil-Oberfläche und Freigabefluss bauen",
+      "type": "ui",
+      "milestone_id": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-002",
+        "QABL-003",
+        "QABL-006",
+        "QABL-007"
+      ],
+      "target_files": [
+        "frontend/src/app/features/models/",
+        "frontend/src/app/features/settings/",
+        "docs/ui/model-trust-indicators.md"
+      ],
+      "implementation": [
+        "Deutliche Kennzeichnung Abliterated, Community-Ableitung, unsafe_research und standardmäßig deaktiviert anzeigen.",
+        "Originalmodell, konkrete Variante, Revision, Quantisierung, Runtime, Speicherbedarf und gemessene Fähigkeiten sichtbar machen.",
+        "Vor Aktivierung Zweck, Risiken, verbotene Einsatzwege und Gültigkeitsdauer der Freigabe bestätigen lassen.",
+        "Keine suggestive Bezeichnung wie besser, frei oder sicher verwenden; gemessene Unterschiede dimensioniert darstellen.",
+        "Aktive Sandbox, fehlende Tools und blockierte Routen während jeder Sitzung sichtbar halten."
+      ],
+      "acceptance_criteria": [
+        "Eine Verwechslung mit dem offiziellen Basismodell ist in Auswahl, Sitzung und Export ausgeschlossen.",
+        "Aktivierung ist bewusst, widerrufbar, zeitlich begrenzt und auditierbar.",
+        "Die UI kann gesperrte Aktionen erklären, ohne eine Umgehung anzubieten."
+      ]
+    },
+    {
+      "id": "QABL-011",
+      "title": "Routing-, Audit- und Regressionstests in Ananta integrieren",
+      "type": "testing",
+      "milestone_id": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-007",
+        "QABL-008",
+        "QABL-009",
+        "QABL-010"
+      ],
+      "target_files": [
+        "tests/routing/test_unsafe_research_model_routing.py",
+        "tests/audit/test_research_model_events.py",
+        "tests/e2e/test_qwen38_abliterated_profile.py"
+      ],
+      "implementation": [
+        "Direkte Auswahl, Alias, Fallback, Retry, Providerwechsel und Wiederaufnahme mit unsafe_research prüfen.",
+        "Audit-Events für Import, Aktivierung, Start, Policy-Block, Tool-Versuch, Freigabe, Ablauf und Ende implementieren.",
+        "Keine Prompts, Reasoning-Spuren, Secrets oder personenbezogenen Inhalte in Standardtelemetrie übernehmen.",
+        "GPU-unabhängige Policy- und Contract-Tests in CI ausführen; Hardwaretests separat kennzeichnen.",
+        "Modell- oder Runtime-Updates erst nach erneutem Provenance-, Capability-, Qualitäts- und Sicherheitstest freigeben."
+      ],
+      "acceptance_criteria": [
+        "Kein normaler Workflow kann das Research-Modell implizit auswählen.",
+        "Alle sicherheitsrelevanten Entscheidungen sind ohne Inhaltsleck nachvollziehbar.",
+        "Änderungen an Digest, Runtime oder Policy invalidieren alte Freigaben."
+      ]
+    },
+    {
+      "id": "QABL-012",
+      "title": "Go/No-Go-Entscheidung, Dokumentation und begrenzten Rollout abschließen",
+      "type": "governance",
+      "milestone_id": "M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "QABL-001",
+        "QABL-006",
+        "QABL-007",
+        "QABL-008",
+        "QABL-009",
+        "QABL-011"
+      ],
+      "target_files": [
+        "docs/adr/adr-qwen38-abliterated-research-profile.md",
+        "docs/models/qwen3.8-27b-abliterated.md",
+        "docs/security/unsafe-research-models.md"
+      ],
+      "implementation": [
+        "ADR mit gemessenen Vorteilen, Qualitätsregressionen, Hardwarekosten, Sicherheitsrisiken und Alternativen erstellen.",
+        "Mögliche Entscheidungen auf reject, isolated_research_only oder limited_internal_test begrenzen; production_default ausschließen.",
+        "Installations-, Deinstallations-, Cache-Lösch-, Update- und Incident-Anleitung dokumentieren.",
+        "Begründung festhalten, wann das Originalmodell statt der abliterierten Variante zu verwenden ist.",
+        "Erneute Prüfung bei neuer Abliterationslinie, geändertem Digest, neuer Runtime-Hauptversion oder geänderter Policy verlangen."
+      ],
+      "acceptance_criteria": [
+        "Eine nachvollziehbare Entscheidung basiert auf Ananta-Messungen und nicht auf Downloadzahlen oder Modellnamen.",
+        "Dokumentation nennt klare Grenzen und eine vollständige Deaktivierungs- und Entfernungsprozedur.",
+        "Ohne positive Entscheidung bleibt das Profil installiert oder nicht installiert, aber in jedem Fall deaktiviert und unroutbar."
+      ]
+    }
+  ],
+  "evaluation_dimensions": [
+    "Aufgabenkorrektheit",
+    "Deutschqualität",
+    "Coding- und Debugging-Leistung",
+    "JSON- und Schema-Treue",
+    "Tool-Call-Argumentqualität",
+    "Faktentreue und Unsicherheitskalibrierung",
+    "Refusal-Rate nach zulässigen und unzulässigen Kategorien",
+    "Prompt-Injection-Resistenz",
+    "Vision- und Dokumentverständnis",
+    "Kontextstabilität",
+    "Token pro Sekunde und Zeit bis erstes Token",
+    "RAM, VRAM, Energie und Stabilität"
+  ],
+  "release_gates": [
+    {
+      "gate": "G0 Provenance",
+      "condition": "Alle Artefakte revisions- und digestgebunden; Lizenz und Herkunft geklärt."
+    },
+    {
+      "gate": "G1 Isolation",
+      "condition": "unsafe_research-Policy, Sandbox und negative Routingtests bestehen."
+    },
+    {
+      "gate": "G2 Runtime",
+      "condition": "Mindestens eine gepinnte lokale Runtime läuft stabil und reproduzierbar."
+    },
+    {
+      "gate": "G3 Evidence",
+      "condition": "Original-vs-Abliterated-Vergleich und Red-Team-Bericht liegen vollständig vor."
+    },
+    {
+      "gate": "G4 Decision",
+      "condition": "ADR genehmigt höchstens isolated_research_only oder limited_internal_test."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Reduzierte Ablehnungsmechanismen erhöhen die Wahrscheinlichkeit riskanter oder unangemessener Antworten.",
+      "mitigation": "Default-off, unsafe_research, technische Sandbox, keine öffentlichen oder produktiven Routen."
+    },
+    {
+      "risk": "Abliteration beschädigt nützliche Repräsentationen und senkt Reasoning-, Coding- oder Tool-Qualität.",
+      "mitigation": "Blindvergleich mit dem unveränderten Basismodell und vorab definierte Regressionsgrenzen."
+    },
+    {
+      "risk": "Community-Dateien oder Quantisierungen ändern sich ohne stabile Versionsidentität.",
+      "mitigation": "Commit-, Dateidigest- und Größenbindung; Änderungen als neue Revision behandeln."
+    },
+    {
+      "risk": "Nominell passende GGUF-Datei verursacht durch KV-Cache und Runtime-Puffer OOM oder starkes Swapping.",
+      "mitigation": "Reale Kontext- und Speicherbenchmarks mit Sicherheitsreserve."
+    },
+    {
+      "risk": "Der Begriff uncensored wird als bessere Faktentreue oder umfassendere Capability missverstanden.",
+      "mitigation": "UI-Terminologie, getrennte Metriken und dokumentierte Interpretation."
+    },
+    {
+      "risk": "Prompt-Injection nutzt die geringe Ablehnungsneigung für gefährliche Tool-Aufrufe.",
+      "mitigation": "Modellunabhängige Autorisierung, schema-validierte Tools, Netzwerk-/Secret-Sperren und Bestätigung."
+    },
+    {
+      "risk": "Unveränderte Vision- oder MTP-Komponenten werden fälschlich als unveränderte End-to-End-Leistung interpretiert.",
+      "mitigation": "Separate multimodale und Laufzeit-spezifische Tests."
+    }
+  ],
+  "tasks_status_summary": {
+    "total": 12,
+    "by_status": {
+      "todo": 12,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 9,
+      "P1": 3,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 1,
+      "high": 6,
+      "critical": 5
+    },
+    "critical_path": {
+      "total": 10,
+      "done": 0,
+      "remaining": 10
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 12,
+    "by_type": {
+      "research": 1,
+      "architecture": 1,
+      "security": 4,
+      "integration": 1,
+      "benchmark": 1,
+      "evaluation": 1,
+      "ui": 1,
+      "testing": 1,
+      "governance": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 12,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "summary_notes": [
+    "Bevorzugter Ausgangspunkt für Peters RTX 3080 mit 10 GB VRAM und 64 GB RAM ist ein gemessener Vergleich von UD-IQ3_XXS und UD-IQ4_XS; Q2_K ist nur die nominell kleinste, nicht automatisch die sinnvollste Variante.",
+    "Das originale Qwen3.8-27B muss in allen relevanten Tests als Kontrollgruppe mitlaufen.",
+    "Ein Abliterated-Modell wird in Ananta niemals als Sicherheitskontrolle, automatischer Fallback oder öffentliches Standardmodell behandelt.",
+    "Die Hugging-Face-Suche dient nur zur Kandidatensichtung; jede konkrete Datei braucht eine eigene Provenance- und Sicherheitsprüfung."
+  ],
+  "end_summaries": [
+    {
+      "summary_id": "ES-1",
+      "title": "Erwartetes Ergebnis",
+      "items": [
+        "Reproduzierbare Aussage, ob eine konkrete Abliterationsvariante bei zulässigen Forschungsaufgaben einen messbaren Nutzen gegenüber dem Original bietet.",
+        "Belastbare Quantisierungsempfehlung für RTX 3080 10 GB plus 64 GB RAM einschließlich Kontextgrenzen.",
+        "Technisch erzwungenes, klar sichtbares und vollständig deaktivierbares unsafe_research-Profil.",
+        "Dokumentierte Ablehnung, falls Qualitätsverlust oder Restrisiko den Nutzen überwiegen."
+      ]
+    }
+  ]
+}
