@@ -18,6 +18,10 @@ from agent.services.research_training_lineage_service import ResearchTrainingLin
 from agent.services.research_training_policy import ResearchTrainingPolicy
 from agent.services.research_training_recipe_service import ResearchTrainingRecipeService
 from agent.services.research_training_release_gate import ResearchTrainingReleaseGate
+from agent.services.research_training_rollout_service import (
+    ResearchTrainingRolloutPolicy,
+    ResearchTrainingRolloutService,
+)
 from agent.services.research_training_run_service import ResearchTrainingRunService
 from agent.services.research_training_state_store import ResearchTrainingStateStore
 from ananta_contracts.research_training import STAGE_CAPABILITIES
@@ -38,8 +42,7 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
             raw = json.loads(
                 Path(
                     str(
-                        app.config.get("ANANTA_RESEARCH_TRAINING_POLICY_PATH")
-                        or settings.research_training_policy_path
+                        app.config.get("ANANTA_RESEARCH_TRAINING_POLICY_PATH") or settings.research_training_policy_path
                     )
                 ).read_text()
             )
@@ -60,6 +63,16 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
                 }
             )
             policy = ResearchTrainingPolicy.from_mapping(raw)
+            rollout_policy = ResearchTrainingRolloutPolicy.from_mapping(
+                json.loads(
+                    Path(
+                        str(
+                            app.config.get("ANANTA_RESEARCH_TRAINING_ROLLOUT_PATH")
+                            or settings.research_training_rollout_path
+                        )
+                    ).read_text()
+                )
+            )
             capabilities = ResearchTrainingCapabilityService(policy)
             if policy.mode == "mock":
                 capabilities.report_worker(
@@ -74,9 +87,7 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
                 )
             if not app.secret_key:
                 raise ValueError("research_hub_secret_key_required")
-            state_path = Path(
-                str(app.config.get("ANANTA_RESEARCH_TRAINING_STATE") or settings.research_training_state)
-            )
+            state_path = Path(str(app.config.get("ANANTA_RESEARCH_TRAINING_STATE") or settings.research_training_state))
             recipes = ResearchTrainingRecipeService(policy)
             evaluation_attestations = ResearchTrainingEvaluationAttestation(
                 hashlib.sha256(f"research-evaluation-v1:{app.secret_key}".encode()).digest()
@@ -91,14 +102,11 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
             )
             artifacts = ResearchTrainingArtifactService(
                 str(
-                    app.config.get("ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT")
-                    or settings.research_training_artifact_root
+                    app.config.get("ANANTA_RESEARCH_TRAINING_ARTIFACT_ROOT") or settings.research_training_artifact_root
                 ),
                 max_artifact_bytes=policy.max_artifact_bytes,
             )
-            lineage = ResearchTrainingLineageService(
-                state_path.with_name(f"{state_path.stem}-lineage.sqlite3")
-            )
+            lineage = ResearchTrainingLineageService(state_path.with_name(f"{state_path.stem}-lineage.sqlite3"))
         except (OSError, TypeError, ValueError, json.JSONDecodeError):
             status = ResearchTrainingWiringStatus(False, "disabled", "research_configuration_invalid")
         else:
@@ -110,6 +118,7 @@ def initialize_research_training(app: Flask) -> ResearchTrainingWiringStatus:
             app.extensions["research_training_lineage"] = lineage
             app.extensions["research_training_evaluation"] = evaluations
             app.extensions["research_training_release_gate"] = ResearchTrainingReleaseGate(evaluations)
+            app.extensions["research_training_rollout"] = ResearchTrainingRolloutService(rollout_policy)
             status = ResearchTrainingWiringStatus(True, policy.mode, None)
     app.extensions["research_training_wiring_status"] = status
     return status

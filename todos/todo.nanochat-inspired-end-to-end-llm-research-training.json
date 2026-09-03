@@ -4,9 +4,9 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "nanochat-inspired-end-to-end-llm-research-training",
   "created": "2026-08-16",
-  "updated": "2026-08-30",
-  "last_updated": "2026-08-30",
-  "status": "blocked",
+  "updated": "2026-09-03",
+  "last_updated": "2026-09-03",
+  "status": "partial",
   "review_basis": {
     "reviewed_commit_range": "4ae68b8bd3f0bf1ffb33df2cf99872cc413d9f5c",
     "review_goal": "Nanochat-inspirierten Research-Training-Track gegen den aktuellen LoRA-Control-Plane-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
@@ -63,7 +63,8 @@
       "Atomic non-executable artifact storage and tenant-scoped immutable lineage",
       "Deterministic evaluation attestations, strict SRC_/RUN_ grounding and automatic fail-closed release gate",
       "Dependency-free Worker backend port, deterministic mock backend, checkpoint helper and evaluation task runner",
-      "Authenticated additive Research API, Angular workbench, boundary detector and automatic lifecycle tests"
+      "Authenticated additive Research API, Angular workbench, boundary detector and automatic lifecycle tests",
+      "Five-phase Hub-owned rollout policy with automatic gate progression, default kill switch, review-only upstream watch and isolated rollback"
     ],
     "remaining_gaps": [
       "Real tokenizer, Torch/DDP pretraining, full-model SFT and RL Worker adapters",
@@ -379,7 +380,7 @@
         "NCH-003",
         "NCH-004"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M2",
@@ -390,7 +391,7 @@
         "NCH-007",
         "NCH-008"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M3",
@@ -401,7 +402,7 @@
         "NCH-011",
         "NCH-012"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M4",
@@ -411,7 +412,7 @@
         "NCH-014",
         "NCH-015"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M5",
@@ -421,7 +422,7 @@
         "NCH-017",
         "NCH-018"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M6",
@@ -432,7 +433,7 @@
         "NCH-021",
         "NCH-022"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M7",
@@ -443,7 +444,7 @@
         "NCH-025",
         "NCH-026"
       ],
-      "status": "in_progress"
+      "status": "partial"
     },
     {
       "id": "M8",
@@ -454,7 +455,7 @@
         "NCH-029",
         "NCH-030"
       ],
-      "status": "in_progress"
+      "status": "partial"
     }
   ],
   "tasks": [
@@ -1206,10 +1207,10 @@
       "id": "NCH-030",
       "title": "Gestuften Rollout und Upstream nanochat Watch definieren",
       "type": "rollout",
-      "status": "blocked",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 25.0,
+      "progress_percent": 100.0,
       "implementation": {
         "notes": [
           "Phase 0 schemas/dry-run, Phase 1 tiny local models, Phase 2 single-GPU research, Phase 3 multi-GPU, Phase 4 optional RL.",
@@ -1224,6 +1225,13 @@
       ],
       "dependencies": [
         "NCH-029"
+      ],
+      "evidence": [
+        "config/research-training/rollout.v1.json definiert fuer alle fünf Phasen maschinenlesbare Exit-Gates und bleibt default-off sowie kill-switched.",
+        "agent/services/research_training_rollout_service.py erlaubt automatische Progression nur bei vollständig grünen Hub-Gates und verändert niemals Produktionsrouten.",
+        "Rollback deaktiviert Research-Admission und -Runtime, während bestehendes Adapter-Training unverändert bleibt.",
+        "Der nanochat-Watch ist review-only; automatische Code-Synchronisation ist technisch durch die strikte Policy ausgeschlossen.",
+        "tests/research_training/test_rollout.py läuft vollständig headless und prüft Default-Off, Gate-Progression, Kill-Switch, Rollback und Upstream-Sync-Verbot."
       ]
     }
   ],
@@ -1314,10 +1322,10 @@
       "todo": 0,
       "in_progress": 0,
       "partial": 29,
-      "blocked": 1,
-      "done": 0
+      "blocked": 0,
+      "done": 1
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 3.3,
     "by_priority": {
       "P0": 18,
       "P1": 11,
@@ -1338,7 +1346,8 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 8,
+      "in_progress": 0,
+      "partial": 8,
       "blocked": 0,
       "done": 0
     }
@@ -1348,199 +1357,227 @@
     "by_type": {
       "schema": {
         "total": 3,
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 63.3,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 3,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 3,
-        "blocked": 0,
-        "progress_percent": 63.3
+        }
       },
       "architecture": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 72.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 72.5
+        }
       },
       "security": {
         "total": 3,
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 55.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 3,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 3,
-        "blocked": 0,
-        "progress_percent": 55.0
+        }
       },
       "backend": {
         "total": 7,
+        "done": 0,
+        "partial": 7,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 41.4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 7,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 7,
-        "blocked": 0,
-        "progress_percent": 41.4
+        }
       },
       "evaluation": {
         "total": 5,
+        "done": 0,
+        "partial": 5,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 41.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 5,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 5,
-        "blocked": 0,
-        "progress_percent": 41.0
+        }
       },
       "performance": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 45.0
+        }
       },
       "research": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 35.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 35.0
+        }
       },
       "api": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 75.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 75.0
+        }
       },
       "frontend": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 70.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 70.0
+        }
       },
       "storage": {
         "total": 2,
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 47.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 47.5
+        }
       },
       "reliability": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 50.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 50.0
+        }
       },
       "observability": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 45.0
+        }
       },
       "testing": {
         "total": 1,
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        },
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 65.0
+        }
       },
       "rollout": {
         "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 1,
-          "done": 0
-        },
-        "done": 0,
-        "partial": 0,
-        "blocked": 1,
-        "progress_percent": 25.0
+          "blocked": 0,
+          "done": 1
+        }
       }
     }
   },
@@ -1621,14 +1658,14 @@
     }
   },
   "progress_summary": {
-    "state": "in_progress",
+    "state": "partial",
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 29,
-    "blocked": 1,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 50.1
+    "blocked": 0,
+    "done": 1,
+    "milestones_done": 0,
+    "milestones_total": 8
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",

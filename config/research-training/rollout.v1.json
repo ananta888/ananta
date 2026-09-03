@@ -1,0 +1,52 @@
+{
+  "schema": "ananta.research-training-rollout.v1",
+  "enabled": false,
+  "automatic_progression_enabled": false,
+  "kill_switch": true,
+  "current_phase": "phase_0",
+  "production_routes_enabled": false,
+  "phases": [
+    {
+      "phase_id": "phase_0",
+      "order": 0,
+      "runtime_mode": "dry_run",
+      "required_gates": ["schema_contracts", "dry_run", "boundary_security"],
+      "max_world_size": 1
+    },
+    {
+      "phase_id": "phase_1",
+      "order": 1,
+      "runtime_mode": "tiny_local",
+      "required_gates": ["tiny_cpu_e2e", "complete_lineage", "failure_cleanup"],
+      "max_world_size": 1
+    },
+    {
+      "phase_id": "phase_2",
+      "order": 2,
+      "runtime_mode": "single_gpu",
+      "required_gates": ["single_gpu_attestation", "single_gpu_recovery", "quality_budget", "cost_budget"],
+      "max_world_size": 1
+    },
+    {
+      "phase_id": "phase_3",
+      "order": 3,
+      "runtime_mode": "multi_gpu",
+      "required_gates": ["multi_gpu_ddp", "distributed_recovery", "scale_budget"],
+      "max_world_size": 8
+    },
+    {
+      "phase_id": "phase_4",
+      "order": 4,
+      "runtime_mode": "optional_rl",
+      "required_gates": ["rl_sandbox", "reward_robustness", "automatic_rollback"],
+      "max_world_size": 8
+    }
+  ],
+  "upstream_watch": {
+    "repository": "https://github.com/karpathy/nanochat",
+    "mode": "review_only",
+    "automatic_code_sync": false,
+    "immutable_source_binding_required": true
+  },
+  "human_intervention_required": false
+}

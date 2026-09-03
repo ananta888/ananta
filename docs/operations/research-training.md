@@ -21,3 +21,25 @@ Release is always a machine decision. It remains denied unless the run completed
 enabled by Hub policy, evaluation is attested and bound to the run/dataset, metrics pass, and configured
 `SRC_*` plus `RUN_*` evidence is present. A denial is terminal data with reason codes, never a request for
 manual approval.
+
+## Phased rollout and rollback
+
+`config/research-training/rollout.v1.json` is a separate Hub policy. It is
+disabled and kill-switched by default, never enables production routes, and
+permits automatic phase progression only after every gate for the current
+phase is true. Missing or false gates yield a terminal, machine-readable
+decision; no phase waits for a person.
+
+| Phase | Runtime | Exit criteria |
+| --- | --- | --- |
+| 0 | Schema and dry-run | Closed schema contracts, dry-run and boundary-security gates |
+| 1 | Tiny local/CPU | Tiny E2E, complete lineage and failure cleanup |
+| 2 | Single GPU | Hardware attestation, recovery, quality and cost budgets |
+| 3 | Multi GPU | DDP, distributed recovery and scale budget |
+| 4 | Optional RL | RL sandbox, reward robustness and automatic rollback |
+
+The kill switch fences progression even when all reported gates are green.
+Rollback disables only research admission/runtime and explicitly leaves the
+existing adapter-training path and production routes unchanged. Upstream
+nanochat is `review_only`: automatic code synchronization is forbidden and any
+adopted claim must first receive an immutable Hub source binding.

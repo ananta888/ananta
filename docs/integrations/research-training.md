@@ -14,3 +14,9 @@ manifest. The Hub fences transitions with tenant, run, stage, attempt, spec dige
 
 Current backend support is the deterministic `mock` adapter for tests and contract integration. `local` is a
 reserved policy value and must not be enabled until a production adapter reports matching capabilities.
+
+The rollout policy is deliberately separate from run admission. This protects
+SRP: the existing policy decides whether one run is admissible, while
+`ResearchTrainingRolloutService` only evaluates phase progression and emits a
+side-effect-free rollback projection. The Hub remains responsible for applying
+either decision; Workers cannot advance phases or modify feature flags.

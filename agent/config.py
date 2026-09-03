@@ -714,6 +714,10 @@ class Settings(BaseSettings):
         default="config/research-training/policy.v1.json",
         validation_alias="ANANTA_RESEARCH_TRAINING_POLICY_PATH",
     )
+    research_training_rollout_path: str = Field(
+        default="config/research-training/rollout.v1.json",
+        validation_alias="ANANTA_RESEARCH_TRAINING_ROLLOUT_PATH",
+    )
     research_training_state: str = Field(
         default="data/research-training.sqlite3", validation_alias="ANANTA_RESEARCH_TRAINING_STATE"
     )

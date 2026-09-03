@@ -25,6 +25,9 @@ def test_composition_is_hub_only_default_off_and_never_requires_human(tmp_path) 
     capability = hub.extensions["research_training_capabilities"].projection()
     assert capability["state"] == "disabled"
     assert capability["human_intervention_required"] is False
+    rollout = hub.extensions["research_training_rollout"].evaluate({})
+    assert rollout["reason_code"] == "research_rollout_disabled"
+    assert rollout["human_intervention_required"] is False
 
     worker = Flask("worker")
     worker.secret_key = "test-secret"
@@ -34,9 +37,7 @@ def test_composition_is_hub_only_default_off_and_never_requires_human(tmp_path) 
     assert status.reason_code == "research_hub_role_required"
 
 
-def test_api_dry_run_create_list_cancel_is_fully_automatic(
-    app, client, admin_auth_header, tmp_path
-) -> None:
+def test_api_dry_run_create_list_cancel_is_fully_automatic(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path)
     _, recipes = services(tmp_path / "helper.sqlite3")
     payload = spec(recipes)
@@ -69,9 +70,7 @@ def test_api_dry_run_create_list_cancel_is_fully_automatic(
     assert cancelled.get_json()["data"]["state"] == "cancelled"
 
 
-def test_api_rejects_cross_tenant_and_malformed_payload(
-    app, client, admin_auth_header, tmp_path
-) -> None:
+def test_api_rejects_cross_tenant_and_malformed_payload(app, client, admin_auth_header, tmp_path) -> None:
     _wire(app, tmp_path)
     _, recipes = services(tmp_path / "helper.sqlite3")
     foreign = spec(recipes)
