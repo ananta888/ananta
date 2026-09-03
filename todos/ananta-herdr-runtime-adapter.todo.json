@@ -1,0 +1,359 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "id": "ananta-herdr-runtime-adapter",
+  "title": "Optionale Herdr-Runtime über einen Ananta-Adapter integrieren",
+  "type": "feature",
+  "status": "todo",
+  "priority": "medium",
+  "created_at": "2026-09-03",
+  "labels": [
+    "agents",
+    "runtime",
+    "orchestration",
+    "cli",
+    "worktrees",
+    "optional-integration"
+  ],
+  "summary": "Herdr als optionales Backend für langlebige Terminal- und Coding-Agent-Sitzungen evaluieren und über eine austauschbare Runtime-Adapter-Schnittstelle in Ananta integrieren. Ananta bleibt für Aufgaben, Rollen, Scrum-Zyklen, Richtlinien, Freigaben und Ergebnisbewertung verantwortlich; Herdr übernimmt ausschließlich Prozess-, Terminal-, Sitzungs- und Worktree-Funktionen.",
+  "motivation": [
+    "Codex, Claude Code, OpenCode und weitere CLI-Agenten unabhängig vom geöffneten Ananta-Frontend weiterlaufen lassen.",
+    "Agentzustände wie working, blocked, idle und done ereignisbasiert statt durch permanentes Polling erfassen.",
+    "Parallele Agenten übersichtlich auf getrennten Git-Worktrees ausführen.",
+    "Bestehende Herdr-Funktionen über CLI und lokale Socket-API verwenden, ohne vergleichbare Terminal-Multiplexing-Funktionen vollständig in Ananta nachzubauen.",
+    "Herdr nur als eine mögliche Runtime behandeln, damit bestehende lokale, Docker-, tmux- und direkte CLI-Ausführungswege erhalten bleiben."
+  ],
+  "architectural_principles": [
+    "Ananta ist das führende System für Workflow, Rollen, Zuständigkeiten, Freigaben, Auditierung und fachlichen Zustand.",
+    "Herdr ist ein austauschbarer Infrastrukturadapter und keine fachliche Abhängigkeit des Ananta-Kerns.",
+    "Keine Herdr-spezifischen Sitzungs- oder Pane-IDs dürfen als primäre fachliche Identitäten in Ananta verwendet werden.",
+    "Alle externen IDs werden auf stabile interne UUIDs abgebildet.",
+    "Herdr-Ausfall oder fehlende Installation darf Ananta nicht unbenutzbar machen.",
+    "Sicherheitsentscheidungen und Benutzerfreigaben werden nicht an Herdr delegiert."
+  ],
+  "scope": {
+    "included": [
+      "Erkennung einer lokalen Herdr-Installation und kompatiblen Version",
+      "Runtime-Adapter für CLI und bevorzugt strukturierte Socket-API",
+      "Anlegen, Auflisten und Zuordnen von Workspaces, Tabs, Panes und Agenten",
+      "Starten unterstützter Coding-Agenten mit kontrollierter Arbeitsumgebung",
+      "Senden von Aufgaben und kontrollierten Benutzereingaben an Agenten",
+      "Lesen begrenzter Terminalausgaben",
+      "Ereignisbasierte Statusübernahme für working, blocked, idle, done und failed",
+      "Warten auf definierte Agentzustände mit Timeouts und Abbruchmöglichkeit",
+      "Optionale Git-Worktree-Erstellung und -Zuordnung pro Aufgabe oder Agent",
+      "Detach, Reattach und Wiederaufnahme unterstützter nativer Agent-Sitzungen",
+      "Lokale und über SSH erreichbare Herdr-Hosts als getrennte Konfigurationen",
+      "Darstellung der laufenden Herdr-Agenten in der Ananta-Oberfläche",
+      "Audit-Events für Start, Prompt, Statuswechsel, Freigabe, Abbruch und Ende"
+    ],
+    "excluded": [
+      "Herdr als verpflichtende Standard-Runtime fest verdrahten",
+      "Anantas Scrum-, Rollen- oder Entscheidungslogik durch Herdr ersetzen",
+      "Ungeprüfte automatische Installation von Herdr oder Plugins",
+      "Automatisches Aktivieren eines Permission-Bypass bei Coding-Agenten",
+      "Freigaben für gefährliche Befehle automatisch bestätigen",
+      "Terminalhistorien mit Geheimnissen standardmäßig dauerhaft speichern",
+      "Herdr-Marketingaussagen wie echte Prozessfortsetzung nach Host-Neustart übernehmen"
+    ]
+  },
+  "proposed_architecture": {
+    "interface": "AgentRuntimeAdapter",
+    "implementations": [
+      "DirectCliRuntimeAdapter",
+      "HerdrRuntimeAdapter",
+      "MockRuntimeAdapter"
+    ],
+    "required_operations": [
+      "probeCapabilities",
+      "listSessions",
+      "createWorkspace",
+      "createWorktree",
+      "startAgent",
+      "sendPrompt",
+      "readOutput",
+      "waitForState",
+      "subscribeToEvents",
+      "cancelAgent",
+      "attachSession",
+      "closeSession"
+    ],
+    "state_mapping": {
+      "herdr_working": "running",
+      "herdr_blocked": "waiting_for_input",
+      "herdr_idle": "idle",
+      "herdr_done": "completed",
+      "process_exited_nonzero": "failed",
+      "timeout": "timed_out",
+      "connection_lost": "unknown"
+    },
+    "identity_mapping": {
+      "internal": [
+        "runtime_host_uuid",
+        "execution_uuid",
+        "task_uuid",
+        "agent_instance_uuid"
+      ],
+      "external_metadata": [
+        "herdr_workspace_id",
+        "herdr_tab_id",
+        "herdr_pane_id",
+        "herdr_agent_session_reference"
+      ]
+    }
+  },
+  "implementation_phases": [
+    {
+      "id": "phase-1-spike",
+      "title": "Technische Evaluation und Proof of Concept",
+      "tasks": [
+        "Unterstützte Betriebssysteme, Herdr-Versionen und Agent-Integrationen dokumentieren.",
+        "Apache-2.0-Lizenz und Verteilung mit Anantas Lizenzmodell prüfen.",
+        "Mit Codex, Claude Code und OpenCode jeweils Start, Prompt, Statuswechsel, Warten, Abbruch und Wiederaufnahme testen.",
+        "CLI-Wrapper gegen Socket-API hinsichtlich Stabilität, Fehlermeldungen und Eventmodell vergleichen.",
+        "Verhalten bei geschlossenem Client, SSH-Abbruch, Herdr-Neustart, Host-Neustart und veralteter Sitzungsreferenz messen.",
+        "Sicherheitsgrenzen der lokalen Socket-Datei und Dateiberechtigungen prüfen.",
+        "Go/No-Go-Entscheidung als Architecture Decision Record festhalten."
+      ],
+      "deliverables": [
+        "PoC-Adapter ohne Produktivaktivierung",
+        "Kompatibilitätsmatrix",
+        "ADR mit begründeter Integrationsentscheidung",
+        "Liste offener Sicherheits- und Stabilitätsrisiken"
+      ]
+    },
+    {
+      "id": "phase-2-adapter",
+      "title": "Austauschbare Runtime-Schnittstelle",
+      "tasks": [
+        "AgentRuntimeAdapter als herstellerneutrale Schnittstelle definieren.",
+        "Bestehende direkte CLI-Ausführung hinter einen DirectCliRuntimeAdapter verschieben.",
+        "HerdrRuntimeAdapter mit Capability Detection implementieren.",
+        "Herdr-Protokollschema zur Laufzeit abfragen und unterstützte Operationen versioniert prüfen.",
+        "Interne UUIDs und externe Herdr-IDs sauber getrennt persistieren.",
+        "Idempotente Start-, Prompt- und Abbruchoperationen mit Correlation IDs vorsehen.",
+        "Reconnect, Timeout, Retry mit Backoff und Zustandsabgleich implementieren."
+      ],
+      "acceptance_criteria": [
+        "Ananta startet unverändert ohne installierte Herdr-Binary.",
+        "Die aktive Runtime ist pro Host oder Ausführungsprofil konfigurierbar.",
+        "Ein Herdr-Protokollfehler führt zu einer verständlichen Fehlermeldung und keinem stillen Fallback mit Doppelstart.",
+        "Runtime-spezifische Typen gelangen nicht in fachliche Kernmodule."
+      ]
+    },
+    {
+      "id": "phase-3-orchestration",
+      "title": "Agentensteuerung und Statusereignisse",
+      "tasks": [
+        "Agenten mit explizitem Arbeitsverzeichnis, Rolle, Modellprofil und erlaubten Umgebungsvariablen starten.",
+        "Prompts strukturiert mit task_uuid und execution_uuid korrelieren.",
+        "Statusereignisse abonnieren und in Anantas Ausführungszustände übersetzen.",
+        "Blocked-Zustände als Benutzer- oder Supervisor-Anfrage anzeigen.",
+        "Timeouts, manuelle Abbrüche und Prozessfehler eindeutig unterscheiden.",
+        "Nach Verbindungsverlust zunächst unknown setzen und anschließend den Ist-Zustand synchronisieren.",
+        "Doppelte und verspätete Events idempotent verarbeiten."
+      ],
+      "acceptance_criteria": [
+        "Mindestens drei parallele Agenten können unabhängig gestartet und beobachtet werden.",
+        "Ein wartender Agent wird ohne paneweises Polling als waiting_for_input angezeigt.",
+        "Nach Neustart des Ananta-Dienstes wird der aktuelle Herdr-Zustand rekonstruiert.",
+        "Kein Agent erhält automatisch eine Freigabe für einen gefährlichen Befehl."
+      ]
+    },
+    {
+      "id": "phase-4-worktrees",
+      "title": "Git-Worktrees und Ergebnisübergabe",
+      "tasks": [
+        "Optional pro Aufgabe oder Agent einen dedizierten Worktree anlegen.",
+        "Branch-Namen kollisionsfrei und nachvollziehbar aus internen UUIDs erzeugen.",
+        "Ausgangsbranch, Commit, Worktree-Pfad und Agentenzuordnung auditierbar speichern.",
+        "Diff, Tests und Arbeitsbaumstatus nach Agentenende erfassen.",
+        "Uncommitted Changes als Ergebnis behandeln und niemals still löschen.",
+        "Worktree-Entfernung nur nach expliziter Prüfung und ohne automatisches Löschen des Branches durchführen."
+      ],
+      "acceptance_criteria": [
+        "Parallele Agenten verändern nicht denselben Arbeitsbaum.",
+        "Ananta kann Resultate eindeutig Aufgabe, Agent, Branch und Commit zuordnen.",
+        "Fehlgeschlagene Aufräumvorgänge gefährden keine Nutzerdaten."
+      ]
+    },
+    {
+      "id": "phase-5-ui",
+      "title": "Konfiguration und Benutzeroberfläche",
+      "tasks": [
+        "Runtime-Auswahl unter Einstellungen hinzufügen.",
+        "Lokale und SSH-basierte Herdr-Hosts mit getrenntem Verbindungstest konfigurieren.",
+        "Version, Fähigkeiten und erkannte Agent-CLIs anzeigen.",
+        "Laufende Agenten mit Aufgabe, Rolle, Status, Dauer, Host, Workspace und Worktree darstellen.",
+        "Aktionen für Öffnen, Prompt senden, Abbrechen und Wiederverbinden rollenbasiert anbieten.",
+        "Klar kennzeichnen, ob ein Prozess weiterläuft, nur ein Layout wiederhergestellt wurde oder eine native Agent-Sitzung fortgesetzt wurde."
+      ],
+      "acceptance_criteria": [
+        "Nutzer können Herdr vollständig deaktivieren.",
+        "Die Oberfläche behauptet nach einem Host-Neustart nicht, dass der ursprüngliche Prozess weiterläuft.",
+        "Remote- und lokale Ausführungen sind eindeutig unterscheidbar."
+      ]
+    },
+    {
+      "id": "phase-6-hardening",
+      "title": "Tests, Sicherheit und kontrollierter Rollout",
+      "tasks": [
+        "Unit-Tests für Mapping, Protokollfehler, Timeouts, Retry und Idempotenz erstellen.",
+        "Integrationstests mit echter Herdr-Binary für unterstützte Versionen ausführen.",
+        "End-to-End-Tests für lokale und SSH-basierte Sitzungen erstellen.",
+        "Bedrohungsmodell für Socket-Zugriff, Terminaleingaben, Secrets, Plugins und Remote-Hosts dokumentieren.",
+        "Experimentelles Feature-Flag und Diagnoseansicht bereitstellen.",
+        "Pilotbetrieb zunächst nur mit nicht produktiven Repositories durchführen.",
+        "Nutzungs-, Fehler- und Wiederherstellungsmetriken ohne Prompt- oder Secret-Inhalte erfassen.",
+        "Nach Pilotphase Entscheidung über Beta-Status und unterstützte Versionsspanne treffen."
+      ]
+    }
+  ],
+  "security_requirements": [
+    "Herdr-Sockets dürfen nur für den vorgesehenen lokalen Benutzer zugänglich sein.",
+    "Remotezugriff ausschließlich über bestehende SSH-Authentifizierung; keine eigenen Klartext-Credentials speichern.",
+    "Host-Schlüsselprüfung darf nicht automatisch deaktiviert werden.",
+    "Umgebungsvariablen werden über eine Allowlist übergeben; Secrets erscheinen weder im Auditlog noch in Telemetrie.",
+    "Terminalausgaben gelten als vertraulich und können Tokens, Prompts, Quellcode und personenbezogene Daten enthalten.",
+    "Persistente Pane-History bleibt standardmäßig deaktiviert oder wird durch Ananta mit eigener Verschlüsselungs- und Aufbewahrungsrichtlinie kontrolliert.",
+    "Plugin-Installation erfordert explizite Freigabe und eine nachvollziehbare Herkunfts- und Versionsprüfung.",
+    "Befehle zum Schließen von Panes, Entfernen von Worktrees oder Stoppen von Servern benötigen Zielprüfung und angemessene Bestätigung.",
+    "Permission-Bypass-Modi externer Agenten dürfen durch den Adapter nicht still aktiviert werden.",
+    "Alle privilegierten Benutzeraktionen werden mit Akteur, Zeitpunkt, Ziel, Grund und Ergebnis journalisiert."
+  ],
+  "compatibility_requirements": [
+    "Linux als primäre Referenzplattform testen.",
+    "Windows und macOS nur als unterstützt markieren, wenn automatisierte Tests bestehen.",
+    "Windows nicht als Remote-Host anbieten, solange Herdr dies nicht unterstützt.",
+    "Herdr-Versionen über einen expliziten Mindest- und getesteten Höchstbereich verwalten.",
+    "Agent-Wiederaufnahme nur aktivieren, wenn die passende offizielle Herdr-Integration und native Agent-Resume-Funktion erkannt wurde.",
+    "Unbekannte Agenten dürfen als normale Terminalprozesse laufen, erhalten aber keinen erfundenen semantischen Status."
+  ],
+  "observability": {
+    "audit_events": [
+      "runtime.connected",
+      "runtime.disconnected",
+      "workspace.created",
+      "worktree.created",
+      "agent.started",
+      "agent.prompted",
+      "agent.state_changed",
+      "agent.permission_requested",
+      "agent.cancelled",
+      "agent.completed",
+      "agent.failed",
+      "session.restored"
+    ],
+    "metrics": [
+      "active_agents",
+      "blocked_agent_count",
+      "agent_runtime_seconds",
+      "prompt_to_first_activity_seconds",
+      "reconnect_count",
+      "restore_success_rate",
+      "runtime_errors_by_code"
+    ],
+    "privacy": "Keine vollständigen Prompts, Terminalinhalte, Quellcodes, Zugangsdaten oder personenbezogenen Daten in Standardmetriken aufnehmen."
+  },
+  "test_matrix": [
+    "Herdr vorhanden, kompatibel und erreichbar",
+    "Herdr nicht installiert",
+    "Herdr-Version zu alt oder unbekannt",
+    "Lokaler Socket nicht zugänglich",
+    "SSH-Verbindung unterbrochen und wiederhergestellt",
+    "Agent wechselt von working zu blocked und anschließend zu done",
+    "Agentprozess beendet sich mit Exitcode ungleich null",
+    "Ananta startet neu, während Herdr-Agenten weiterlaufen",
+    "Herdr-Server startet neu und stellt nur Layout beziehungsweise native Agent-Sitzung wieder her",
+    "Doppelte Events und verspätete Antworten",
+    "Zwei Startanfragen mit derselben Idempotency-ID",
+    "Worktree enthält nicht committete Änderungen",
+    "Benutzer verweigert eine Agentenfreigabe",
+    "Terminalausgabe enthält ein Secret und darf nicht in Logs erscheinen"
+  ],
+  "global_acceptance_criteria": [
+    "Herdr ist optional, zur Laufzeit erkennbar und ohne Auswirkungen auf bestehende Ausführungswege deaktivierbar.",
+    "Codex, Claude Code und OpenCode können über denselben herstellerneutralen Adapterablauf gestartet und überwacht werden.",
+    "Mindestens drei parallele Agenten laufen in getrennten Worktrees und werden korrekt Aufgaben zugeordnet.",
+    "Statusänderungen werden ereignisbasiert innerhalb von zwei Sekunden sichtbar, sofern Herdr entsprechende Events liefert.",
+    "Verbindungsabbrüche erzeugen keine Doppelstarts und keine falschen completed-Zustände.",
+    "Gefährliche oder privilegierte Aktionen bleiben unter Anantas Freigabe- und Auditregeln.",
+    "Nach einem vollständigen Herdr- oder Host-Neustart unterscheidet Ananta korrekt zwischen Prozessfortsetzung, Layout-Restore und nativer Agent-Resume-Funktion.",
+    "Alle neuen Adapter- und Mapping-Komponenten sind durch Unit- und Integrationstests abgedeckt.",
+    "Dokumentation enthält Installation, Konfiguration, Fehlerbehebung, Sicherheitsgrenzen und vollständige Deinstallation."
+  ],
+  "risks": [
+    {
+      "risk": "Abhängigkeit von einer jungen und sich ändernden Socket-API",
+      "mitigation": "Versionsprüfung, Capability Detection, Adaptergrenze, Vertragstests und festgelegte unterstützte Versionsspanne"
+    },
+    {
+      "risk": "Semantische Agentzustände werden teilweise aus Terminalinhalten heuristisch erkannt",
+      "mitigation": "Statusquelle sichtbar machen, unknown zulassen und Lifecycle-Integrationen bevorzugen"
+    },
+    {
+      "risk": "Terminalhistorie oder Pane-Ausgabe enthält Secrets",
+      "mitigation": "Keine Standardpersistenz, Redaction, minimale Auszüge, restriktive Dateirechte und kurze Aufbewahrung"
+    },
+    {
+      "risk": "Marketingversprechen werden mit tatsächlicher Prozesspersistenz verwechselt",
+      "mitigation": "UI und Dokumentation unterscheiden Detach, Serverneustart, Hostneustart, Layout-Restore und native Agent-Resume-Funktion"
+    },
+    {
+      "risk": "Herdr-Plugins oder Terminalsteuerung erweitern die Angriffsfläche",
+      "mitigation": "Plugins standardmäßig deaktiviert, explizite Freigabe, Allowlist, Herkunftsprüfung und Auditierung"
+    },
+    {
+      "risk": "Remote-Agenten arbeiten mit zu weitreichenden Rechten",
+      "mitigation": "Dedizierte Benutzer, minimale Dateisystemrechte, SSH-Härtung, isolierte Worktrees und optional Container-Sandboxing"
+    }
+  ],
+  "dependencies": [
+    "Vorhandene oder neu zu definierende Ananta-Runtime-Abstraktion",
+    "Agentenregistrierung und Modellprofile",
+    "Git- und Worktree-Service",
+    "Audit-/Journaling-Infrastruktur",
+    "Rollen- und Freigabesystem",
+    "Secret-Management",
+    "Eventbus oder vergleichbare interne Ereignisverarbeitung"
+  ],
+  "decision_gates": [
+    {
+      "gate": "PoC bestanden",
+      "condition": "Codex, Claude Code und OpenCode bestehen die Kernabläufe ohne Datenverlust oder Doppelstarts."
+    },
+    {
+      "gate": "Security Review bestanden",
+      "condition": "Socket-, SSH-, Secret-, Plugin- und Terminalhistorien-Risiken sind dokumentiert und angemessen begrenzt."
+    },
+    {
+      "gate": "Beta-Freigabe",
+      "condition": "Integrationstests, Dokumentation, Feature-Flag, Diagnose und sauberer Fallback sind vorhanden."
+    }
+  ],
+  "references": [
+    {
+      "title": "Herdr",
+      "url": "https://herdr.dev/"
+    },
+    {
+      "title": "Herdr GitHub Repository",
+      "url": "https://github.com/herdrdev/herdr"
+    },
+    {
+      "title": "Herdr Socket API",
+      "url": "https://herdr.dev/docs/socket-api/"
+    },
+    {
+      "title": "Herdr Agent Automation",
+      "url": "https://herdr.dev/docs/agent-automation/"
+    },
+    {
+      "title": "Herdr Session State and Restore",
+      "url": "https://herdr.dev/docs/session-state/"
+    },
+    {
+      "title": "Herdr Persistence and Remote Access",
+      "url": "https://herdr.dev/docs/persistence-remote/"
+    }
+  ]
+}
