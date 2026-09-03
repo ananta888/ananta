@@ -1,0 +1,675 @@
+{
+  "$schema": "../todo.track.schema.json",
+  "version": "1.0",
+  "updated_at": "2026-09-03",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ornith_1_5_local_model_integration_evaluation",
+  "title": "Ornith 1.5 als lokales Coding-, Reasoning- und Agentenmodell für Ananta evaluieren",
+  "status": "todo",
+  "priority": "P1",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "critical_path_tasks": [
+    "ORN-001",
+    "ORN-002",
+    "ORN-003",
+    "ORN-004",
+    "ORN-005",
+    "ORN-006",
+    "ORN-007",
+    "ORN-009",
+    "ORN-011",
+    "ORN-012",
+    "ORN-013"
+  ],
+  "purpose": "Ornith 1.5 nicht lediglich wegen Hersteller-Benchmarks aufzunehmen, sondern die Modellfamilie revisionsgebunden, sicher und reproduzierbar gegen Anantas bestehende lokale Modelle zu prüfen. Schwerpunkt sind Ornith-1.5-9B auf Peters RTX 3080 mit 10 GB VRAM sowie Ornith-1.5-35B-A3B mit 64 GB Host-RAM und GPU-/CPU-Offloading.",
+  "goal": "Ananta kann geeignete Ornith-1.5-Varianten über die bestehende zentrale Modellverwaltung und lokale OpenAI-kompatible Provider nutzen. Tool-Calling, Reasoning, strukturierte Ausgaben, Vision, CodeCompass-Qualität, Kontextgrenzen, Speicherbedarf und Geschwindigkeit werden pro Runtime und Quantisierung real gemessen. Keine Variante wird ohne bestandene Lizenz-, Supply-Chain-, Sicherheits- und Qualitätsgates zum Default.",
+  "research_basis": {
+    "reviewed_at": "2026-09-03",
+    "official_sources": [
+      "https://ornith.ai/ornith_1_5.html",
+      "https://huggingface.co/ornith-ai/Ornith-1.5-9B",
+      "https://ollama.com/library/ornith-1.5"
+    ],
+    "unverified_upstream_claims": [
+      "Die Familie umfasst 9B Dense, 35B-A3B MoE und 397B MoE.",
+      "Der Hersteller meldet starke Coding-, Reasoning- und Agenten-Benchmarks; diese Ergebnisse gelten bis zu unabhängigen Ananta-Läufen nur als Upstream-Behauptungen.",
+      "Das nominelle Kontextfenster beträgt 262144 Token; YaRN-Erweiterungen bis ungefähr 1M Token sind kein lokales Hardwareversprechen.",
+      "Die Hugging-Face-Modellkarte weist MIT aus und beschreibt Tool-Calling, Reasoning-Parser und multimodale Eingaben.",
+      "Ollama listet quantisierte Downloads von ungefähr 6.6 GB für 9B, 23 GB für 35B und 242 GB für 397B."
+    ],
+    "interpretation": [
+      "Selbstverbesserung bezeichnet den Trainingsprozess mit selbst erzeugten Aufgaben, Scaffolds und Rollouts; das lokal gestartete Inferenzmodell lernt nicht selbstständig weiter.",
+      "A3B reduziert die pro Token aktive Rechenmenge, nicht den Speicherbedarf für sämtliche MoE-Gewichte.",
+      "Deklarierte Vision- oder Tool-Capabilities werden je Runtime und Quantisierung praktisch verifiziert und nicht aus Tags abgeleitet."
+    ]
+  },
+  "architecture_decisions": [
+    "Der Ananta-Hub bleibt alleinige Control Plane für Modellkatalog, Routing, Budgets, Policies, Audit, Freigabe und Fallbacks.",
+    "Ornith wird als Modellprofil vorhandener Provider integriert; es entsteht keine zweite Modellverwaltung.",
+    "Ollama und LM Studio/llama.cpp dienen zuerst der lokalen quantisierten Ausführung; vLLM und SGLang bleiben optionale OpenAI-kompatible Serverprofile.",
+    "9B und 35B-A3B erhalten getrennte Capability-, Hardware-, Quantisierungs- und Benchmarkprofile.",
+    "Reasoning-Inhalt und finale Antwort werden getrennt normalisiert; interne Reasoning-Spuren dürfen nicht ungeprüft in Logs, UI, Artefakte oder Toolargumente gelangen.",
+    "Native Tool-Calls werden nur nach Schema-Validierung an Anantas bestehende Tool-Calling-Pipeline übergeben.",
+    "Das nominelle Kontextfenster wird nicht als Standard reserviert. Effektive Grenzen werden anhand KV-Cache, VRAM-Reserve, Latenz und Stabilität gesetzt.",
+    "397B bleibt außerhalb des lokalen Zielprofils und darf nur später über einen getrennt geprüften Remote- oder Serverprovider evaluiert werden.",
+    "Hersteller-Benchmarks werden als Quelle angezeigt, aber niemals mit eigener verifizierter Evidenz vermischt."
+  ],
+  "non_goals": [
+    "Ornith 1.5 ungeprüft zum globalen Standardmodell machen.",
+    "Das Modell während normaler Inferenz selbstständig trainieren oder produktiven Code automatisch als Trainingsmaterial verwenden.",
+    "Die 397B-Variante auf dem vorhandenen 64-GB-Rechner erzwingen.",
+    "Beliebige Hugging-Face-Dateien, Remote-Code, Pickle-Artefakte oder ungeprüfte Quantisierungen laden.",
+    "Reasoning-Ausgaben als vertrauenswürdige Begründung, Auditnachweis oder Freigabeentscheidung behandeln.",
+    "256K oder 1M Kontext auf 10 GB VRAM als praktische Garantie darstellen.",
+    "Ornith ausschließlich anhand der veröffentlichten SWE-bench- oder Terminal-Bench-Werte gegenüber Qwen, Phi, Gemma oder KAT-Coder bevorzugen."
+  ],
+  "milestones": [
+    {
+      "id": "M0",
+      "title": "Upstream, Lizenz und Modellverträge",
+      "status": "todo",
+      "task_ids": [
+        "ORN-001",
+        "ORN-002",
+        "ORN-003"
+      ]
+    },
+    {
+      "id": "M1",
+      "title": "Lokale Laufzeiten und Capabilities",
+      "status": "todo",
+      "task_ids": [
+        "ORN-004",
+        "ORN-005",
+        "ORN-006",
+        "ORN-007",
+        "ORN-008"
+      ]
+    },
+    {
+      "id": "M2",
+      "title": "Benchmarks, Hardware und zentrale Auswahl",
+      "status": "todo",
+      "task_ids": [
+        "ORN-009",
+        "ORN-010",
+        "ORN-011"
+      ]
+    },
+    {
+      "id": "M3",
+      "title": "Sicherheit, Rollout und Dokumentation",
+      "status": "todo",
+      "task_ids": [
+        "ORN-012",
+        "ORN-013"
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "id": "ORN-001",
+      "title": "Upstream-, Lizenz- und Provenance-Matrix revisionsgebunden erstellen",
+      "type": "research",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [],
+      "target_files": [
+        "docs/research/ornith-1.5-model-matrix.md",
+        "config/models/ornith-1.5-sources.v1.json",
+        "docs/security/third-party-components.md"
+      ],
+      "implementation": [
+        "Für 9B, 35B-A3B und 397B offizielle Repository-, Modellkarten-, Config-, Chat-Template-, Lizenz- und Release-Stände mit Commit- und Dateidigest erfassen.",
+        "Originalgewichte, GGUF-Quantisierungen und Ollama-Manifeste getrennt behandeln; Urheber, Konverter, Quantisierer und Runtime-Version dokumentieren.",
+        "MIT-Angabe für jede tatsächlich genutzte Variante bestätigen und Modell-, Runtime-, Dataset- sowie Benchmarklizenzen getrennt prüfen.",
+        "Architektur, Parameterzahl, aktive Parameter, Modalitäten, Kontextgrenze, Parser und Mindestversionen aus den gepinnten Dateien ableiten.",
+        "Herstellerwerte klar als self-reported markieren und eine spätere unabhängige Revalidierung vorsehen."
+      ],
+      "acceptance_criteria": [
+        "Jedes zulässige Artefakt besitzt Quelle, Revision, SHA-256, Größe, Format, Quantisierung und Lizenzstatus.",
+        "Floating Tags wie latest oder ungebundene Community-Quantisierungen werden nicht produktiv zugelassen.",
+        "Unklare Lizenz-, Provenance- oder Formatangaben führen zu default-off und einem eindeutigen Reason-Code."
+      ],
+      "test_expectations": [
+        "CI validiert Quellen, Digests, erlaubte Formate und SPDX-IDs.",
+        "Manipulierte Digests, fehlende Lizenzdaten und unbekannte Quantisierer werden fail-closed abgewiesen."
+      ]
+    },
+    {
+      "id": "ORN-002",
+      "title": "Getrennte Modellprofile und Capability-Verträge definieren",
+      "type": "architecture",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-001"
+      ],
+      "target_files": [
+        "config/models/ornith-1.5.v1.json",
+        "agent/services/local_runtime_capability_normalizer.py",
+        "ananta_contracts/model_capability.py",
+        "tests/services/test_ornith_model_profiles.py"
+      ],
+      "implementation": [
+        "Stabile Profile für ornith-1.5-9b und ornith-1.5-35b-a3b mit Provider-Alias, Modell-ID, Quantisierung, Runtime und Hardwareklasse definieren.",
+        "Text, Vision, Reasoning, JSON, Tool-Calling, Kontext, Embedding und Streaming als getrennte tri-state Capabilities führen.",
+        "Capability-Herkunft declared, runtime_observed, benchmark_verified oder unknown speichern.",
+        "Nominalen und praktisch freigegebenen Kontext getrennt modellieren.",
+        "397B als known_but_unavailable für lokale Profile ausweisen."
+      ],
+      "acceptance_criteria": [
+        "Routing kann 9B und 35B-A3B eindeutig unterscheiden und fordert keine nicht bestätigte Capability an.",
+        "Unbekannt bleibt unknown und wird nicht stillschweigend zu false oder true.",
+        "Capability-Konflikte zwischen Hugging Face, Ollama, LM Studio und beobachtetem Lauf sind sichtbar."
+      ],
+      "test_expectations": [
+        "GPU-freie Contract-Tests prüfen Aliasauflösung, unknown-Zustände, Konflikte und Kontextgrenzen.",
+        "Ein 397B-Profil kann nicht versehentlich als lokal verfügbar geroutet werden."
+      ]
+    },
+    {
+      "id": "ORN-003",
+      "title": "Sicheren Modellimport und digestgebundene Artefakte umsetzen",
+      "type": "security",
+      "milestone_id": "M0",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-001",
+        "ORN-002"
+      ],
+      "target_files": [
+        "worker/training/model_imports.py",
+        "agent/services/model_artifact_import_service.py",
+        "config/security/model-import-policy.v1.json",
+        "tests/security/test_ornith_model_import.py"
+      ],
+      "implementation": [
+        "Downloads ausschließlich als explizite netzwerkberechtigte Import-Jobs mit Allowlist, Größenlimit, Digest und Auditspur ausführen.",
+        "Safetensors und geprüfte GGUF-Artefakte erlauben; Pickle, ausführbare Inhalte, Symlink-Escapes und ungeprüften remote code blockieren.",
+        "Chat-Templates und Processor-Dateien wie ausführbaren Konfigurationsinput behandeln und revisionsgebunden prüfen.",
+        "Importierte Dateien read-only in einen modellbezogenen Artefaktraum überführen.",
+        "Ollama-Manifeste auf unveränderliche Layer-Digests auflösen."
+      ],
+      "acceptance_criteria": [
+        "Kein Modellstart lädt implizit neue Dateien aus dem Internet.",
+        "Digestabweichung, Path Traversal, unerlaubter Dateityp oder zu großes Artefakt blockieren Import und Aktivierung.",
+        "Logs und UI enthalten keine Tokens, Credentials oder unredigierten Hostpfade."
+      ],
+      "test_expectations": [
+        "Negative Fixtures prüfen manipuliertes GGUF, Pickle, Symlink, falschen Digest, Egress und Secret-Leak.",
+        "Ein wiederholter identischer Import ist idempotent und erzeugt keine unkontrollierte Kopie."
+      ]
+    },
+    {
+      "id": "ORN-004",
+      "title": "Ornith-1.5-9B als RTX-3080-Standardtestprofil integrieren",
+      "type": "implementation",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-003"
+      ],
+      "target_files": [
+        "config/runtime/ornith-1.5-9b-rtx3080.v1.json",
+        "deploy/examples/ornith-ollama/.env.example",
+        "tests/integration/test_ornith_9b_local_runtime.py"
+      ],
+      "implementation": [
+        "Gepinnte GGUF-/Ollama-Quantisierung wählen, deren Gewichte zusammen mit sinnvoller KV-Cache-Reserve in 10 GB VRAM passen.",
+        "Profile für 8K, 16K und 32K praktischen Kontext definieren; 256K bleibt ein getrenntes Belastungsexperiment.",
+        "Warmstart, Kaltstart, Laden, Entladen, Cancellation, Timeout, OOM und Runtime-Neustart abdecken.",
+        "Ollama NUM_PARALLEL und MAX_LOADED_MODELS an die vorhandene 10-GB-Policy anbinden.",
+        "Das Profil zunächst opt-in und niemals automatisch global default setzen."
+      ],
+      "acceptance_criteria": [
+        "Ein attestierter RTX-3080-Lauf lädt das Modell vollständig oder dokumentiert reproduzierbar den notwendigen Offload.",
+        "Mindestens 30 Minuten gemischter Coding- und Tool-Calling-Smoke laufen ohne OOM oder beschädigten Runtimezustand.",
+        "VRAM, RAM, Startzeit, Prompt- und Generationstempo sowie Kontextlänge werden als Rohdaten gespeichert."
+      ],
+      "test_expectations": [
+        "CPU-Contract-Tests laufen ohne Modell und GPU.",
+        "Reale Freigabe verlangt Hardwareattestation für exakt 10 GiB VRAM und den gepinnten Modelldigest."
+      ]
+    },
+    {
+      "id": "ORN-005",
+      "title": "Ornith-1.5-35B-A3B mit RAM- und GPU-Offloading evaluieren",
+      "type": "implementation",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-003"
+      ],
+      "target_files": [
+        "config/runtime/ornith-1.5-35b-a3b-64gb-offload.v1.json",
+        "scripts/benchmark/ornith_moe_offload.py",
+        "tests/integration/test_ornith_35b_offload_contract.py"
+      ],
+      "implementation": [
+        "35B-A3B-Gewichte, KV-Cache und Runtime-Overhead gemeinsam gegen 64 GB Host-RAM und 10 GB VRAM budgetieren.",
+        "GPU-Layer-/Tensor-Offload für llama.cpp, LM Studio oder Ollama reproduzierbar konfigurieren.",
+        "A3B nur als aktive Parameter pro Token interpretieren; Gesamtgewichte müssen weiterhin gespeichert und adressiert werden.",
+        "USB4-/PCIe-Transfer, CPU-Last, Speicherbandbreite und mögliche Expert-Transfers getrennt beobachten.",
+        "8K und 16K als erste Profile testen; größere Kontexte erst nach stabiler Baseline."
+      ],
+      "acceptance_criteria": [
+        "Kein Profil verlässt sich auf Swap als normalen Betriebsbestandteil.",
+        "RAM-, VRAM- und Offloadwerte sind messbar, revisionsgebunden und in der UI nachvollziehbar.",
+        "Ein Go, Conditional-Go oder No-Go gegenüber 9B wird anhand realer Qualität pro Zeit und nicht nur Tokens pro Sekunde dokumentiert."
+      ],
+      "test_expectations": [
+        "Preflight lehnt Konfigurationen ab, deren geschätztes RAM-/VRAM-Budget die Sicherheitsreserve überschreitet.",
+        "OOM, Runtime-Abbruch und zu langsame Antwort führen kontrolliert zum Fallback statt zu einem Endlos-Retry."
+      ]
+    },
+    {
+      "id": "ORN-006",
+      "title": "Ollama, LM Studio/llama.cpp sowie optionale vLLM-/SGLang-Endpunkte anbinden",
+      "type": "integration",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-004",
+        "ORN-005"
+      ],
+      "target_files": [
+        "worker/core/provider_registry.py",
+        "agent/services/model_invocation_service.py",
+        "agent/services/integration_registry_service.py",
+        "tests/services/test_ornith_provider_matrix.py"
+      ],
+      "implementation": [
+        "Vorhandene OpenAI-kompatible Providerpfade wiederverwenden und nur modellbezogene Profile ergänzen.",
+        "Runtime-Version, Chat-Template, Reasoning-Parser, Tool-Parser und tatsächliche Modalitäten im Readiness-Check erfassen.",
+        "vLLM- und SGLang-Mindestversionen aus der gepinnten Modellkarte prüfen; nicht verfügbare optionale Server isoliert als unavailable melden.",
+        "Health, Modell geladen, Kontextlimit und Parserfähigkeit getrennt prüfen.",
+        "Providerwechsel darf keine Toolaktion doppelt ausführen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens Ollama und ein zweiter lokaler Runtimepfad verwenden dieselbe kanonische Ananta-Anfrage.",
+        "Ein Providerfehler entfernt nicht die Modellprofile anderer Provider.",
+        "OpenAI-kompatible Antworten werden unabhängig vom Runtimeformat einheitlich projiziert."
+      ],
+      "test_expectations": [
+        "Contract-Fixtures decken Timeout, malformed response, model missing, parser missing und Runtime down ab.",
+        "Mutierende Tool-Calls werden bei Provider-Fallback niemals automatisch wiederholt."
+      ]
+    },
+    {
+      "id": "ORN-007",
+      "title": "Reasoning-, Tool-Calling- und strukturierte Ausgabe sicher normalisieren",
+      "type": "security",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-006"
+      ],
+      "target_files": [
+        "agent/services/model_invocation_service.py",
+        "agent/services/local_runtime_capability_normalizer.py",
+        "tests/test_tool_calling_pipeline.py",
+        "tests/services/test_ornith_reasoning_parser.py"
+      ],
+      "implementation": [
+        "think/reasoning_content, content und tool_calls strikt trennen.",
+        "Qwen-kompatible Reasoning- und Tool-Parser nur bei passender gepinnter Runtime aktivieren.",
+        "Toolnamen, JSON-Schema, Argumentgrößen, Tenant-, Task- und Operation-Bindung vor Übergabe an den Hub validieren.",
+        "Freitext, XML-ähnliche Toolblöcke und native Tool-Calls deterministisch behandeln; mehrdeutige Ergebnisse ablehnen.",
+        "Reasoning-Spuren standardmäßig nicht persistent speichern und nie als Autorisierung verwenden."
+      ],
+      "acceptance_criteria": [
+        "Nur schema-valide Tool-Calls erreichen die bestehende Approval- und Execution-Pipeline.",
+        "Reasoning-Text kann weder Systemprompt noch Toolargumente oder Auditentscheidung überschreiben.",
+        "Parallel erzeugte oder wiederholte mutierende Tool-Calls bleiben durch Operation-IDs idempotent."
+      ],
+      "test_expectations": [
+        "Adversarial Fixtures prüfen verschachtelte Toolblöcke, Prompt Injection, übergroße Argumente, unbekannte Tools und doppelte Aufrufe.",
+        "Parserfehler führen zu einem typisierten Fehler oder sicherem Fallback, nicht zu Freitextausführung."
+      ]
+    },
+    {
+      "id": "ORN-008",
+      "title": "Vision-Fähigkeit pro Variante und Runtime real verifizieren",
+      "type": "evaluation",
+      "milestone_id": "M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-004",
+        "ORN-006"
+      ],
+      "target_files": [
+        "benchmarks/models/ornith-1.5-vision.v1.json",
+        "tests/fixtures/models/ornith_vision",
+        "docs/research/ornith-1.5-vision-capability.md"
+      ],
+      "implementation": [
+        "Hugging-Face-, Ollama- und GGUF-/Runtime-Metadaten auf Processor, Vision-Encoder und tatsächlich geladene Projektionen prüfen.",
+        "Ein kleines lizenzsauberes Fixture für OCR, Diagramm, Screenshot und allgemeine Bildbeschreibung verwenden.",
+        "Text-only-Quantisierungen nicht aufgrund eines allgemeinen Modell-Tags als Vision-fähig markieren.",
+        "Bildlimits, Formate, Auflösung, Latenz, Speichermehrbedarf und Fehlerzustände erfassen."
+      ],
+      "acceptance_criteria": [
+        "Vision wird nur mit erfolgreichem digestgebundenem Lauf als verified ausgewiesen.",
+        "Fehlender Processor oder Vision-Encoder ergibt text_only beziehungsweise unknown statt eines Laufzeitfehlers.",
+        "Benchmark-Rohdaten und Eingabedigest sind reproduzierbar gespeichert."
+      ],
+      "test_expectations": [
+        "Negative Tests prüfen Text-only-Artefakt, defektes Bild, zu große Eingabe und nicht unterstütztes Format.",
+        "Vision-Ausfall beeinträchtigt reine Textnutzung nicht."
+      ]
+    },
+    {
+      "id": "ORN-009",
+      "title": "CodeCompass-, Coding- und Agenten-Benchmark gegen bestehende Modelle durchführen",
+      "type": "benchmark",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-007",
+        "ORN-008"
+      ],
+      "target_files": [
+        "benchmarks/models/ornith-1.5-codecompass-matrix.v1.json",
+        "scripts/benchmark/run_ornith_codecompass.py",
+        "docs/benchmarks/ornith-1.5-codecompass.md"
+      ],
+      "implementation": [
+        "9B und 35B-A3B gegen mindestens ein kleines lokales Modell und den aktuellen lokalen Coding-Baseline-Kandidaten testen.",
+        "Identische Repository-Snapshots, Prompts, Toolschemas, Budgets, Timeouts und Scoringregeln verwenden.",
+        "Aufgaben für Codeverständnis, Root-Cause-Analyse, Patchplanung, sicheren Toolgebrauch, deutsche Antworten und lange Kontexte abdecken.",
+        "Qualität, Erfolgsquote, Halluzinationen, Toolfehler, Zeit bis zur korrekten Lösung, Energie-/Speichernutzung und Stabilität messen.",
+        "Self-reported SWE-bench- und Terminal-Bench-Werte nur als externe Referenz danebenstellen."
+      ],
+      "acceptance_criteria": [
+        "Jeder Ergebnisdatensatz bindet Modell-, Runtime-, Quantisierungs-, Prompt-, Fixture- und Hardwaredigest.",
+        "Mindestens fünf Wiederholungen pro stochastischem Profil oder eine begründete deterministische Alternative werden ausgewertet.",
+        "Das Ergebnis enthält je Einsatzrolle ein Go, Conditional-Go oder No-Go mit nachvollziehbarer Evidenz."
+      ],
+      "test_expectations": [
+        "CI validiert Benchmarkvertrag und Rohdatenformate ohne GPU.",
+        "Nicht attestierte Läufe dürfen keine verified-Metriken oder Routingempfehlungen erzeugen."
+      ]
+    },
+    {
+      "id": "ORN-010",
+      "title": "Speicher-, Kontext-, Geschwindigkeits- und Parallelitätsgrenzen messen",
+      "type": "performance",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-004",
+        "ORN-005",
+        "ORN-006"
+      ],
+      "target_files": [
+        "scripts/benchmark/ornith_resource_profile.py",
+        "benchmarks/models/ornith-1.5-hardware-results.v1.json",
+        "docs/operations/ornith-1.5-hardware-sizing.md"
+      ],
+      "implementation": [
+        "Kaltstart, Warmstart, Promptverarbeitung, Generation, Peak-VRAM, Peak-RAM und Energie für beide lokalen Varianten erfassen.",
+        "Kontexte 8K, 16K, 32K und nur bei ausreichender Reserve größere Fenster testen.",
+        "Einzelanfrage und kontrollierte Parallelität getrennt messen.",
+        "KV-Cache-Quantisierung, Flash-Attention und Offloadparameter nur einzeln variieren.",
+        "Qualitätsverlust durch Quantisierung oder aggressive Kontextskalierung mitmessen."
+      ],
+      "acceptance_criteria": [
+        "Empfohlene Standardwerte enthalten mindestens 15 Prozent VRAM- beziehungsweise RAM-Sicherheitsreserve.",
+        "256K wird nur freigegeben, wenn ein realer stabiler Lauf Qualität und Ressourcenverbrauch belegt.",
+        "Die UI kann erwartete Speicherklasse und gemessene statt behauptete Kontextgrenze anzeigen."
+      ],
+      "test_expectations": [
+        "Benchmarkskript speichert vollständige Attestation und bricht bei thermischem Throttling oder Swap-Nutzung kontrolliert ab.",
+        "Vergleiche mit unterschiedlichen Digests oder Hardwareprofilen werden nicht automatisch zusammengeführt."
+      ]
+    },
+    {
+      "id": "ORN-011",
+      "title": "Zentrale Modellwahl, Routing und Fallbacks um Ornith ergänzen",
+      "type": "frontend",
+      "milestone_id": "M2",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-002",
+        "ORN-009",
+        "ORN-010"
+      ],
+      "target_files": [
+        "frontend-angular/src/app/features/system/model-dashboard/model-dashboard.component.ts",
+        "agent/routes/config/read_models.py",
+        "agent/services/routing_decision_service.py",
+        "tests/services/test_ornith_routing_policy.py"
+      ],
+      "implementation": [
+        "Ornith-Profile im bestehenden Katalog mit Variante, Quantisierung, Runtime, Lokalität, Capabilities und Evidenzstatus anzeigen.",
+        "Rollen für lokales Coding, CodeCompass-Analyse und agentische Aufgaben zunächst als opt-in Kandidaten anbieten.",
+        "Routing nur bei ausreichender Capability-, Hardware- und Benchmarkevidenz erlauben.",
+        "Fallbacks für Runtime down, Modell nicht geladen, OOM, Kontextüberschreitung, Parserfehler und Qualitäts-Circuit-Breaker definieren.",
+        "Manuelle Wahl, Policyentscheidung und effektive Route getrennt anzeigen."
+      ],
+      "acceptance_criteria": [
+        "Keine globale Konfiguration oder vorhandene Modellzuweisung wird bei Aufnahme von Ornith überschrieben.",
+        "9B und 35B-A3B sind eindeutig wählbar und zeigen ihre realen Hardwaregrenzen.",
+        "Fallbackursache und tatsächliches Zielmodell erscheinen redigiert in Audit und UI."
+      ],
+      "test_expectations": [
+        "Angular- und Service-Tests prüfen Auswahl, Capabilityfilter, unbekannte Evidenz, OOM und Providerausfall.",
+        "Security-Policy kann jede Ornith-Zuweisung weiterhin blockieren."
+      ]
+    },
+    {
+      "id": "ORN-012",
+      "title": "Security-, Datenschutz- und Supply-Chain-Gates abschließen",
+      "type": "security",
+      "milestone_id": "M3",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "critical",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-003",
+        "ORN-007",
+        "ORN-009",
+        "ORN-010"
+      ],
+      "target_files": [
+        "docs/security/ornith-1.5-threat-model.md",
+        "config/security/ornith-runtime-policy.v1.json",
+        "tests/security/test_ornith_runtime_isolation.py",
+        "scripts/security/scan_ornith_artifacts.py"
+      ],
+      "implementation": [
+        "Threat Model für Modellartefakte, Chat-Templates, Processor, Prompt Injection, Tool-Calls, Datenabfluss, Ressourcenerschöpfung und kompromittierte Community-Quantisierung erstellen.",
+        "SBOM und Vulnerability-Scans für Runtime-Container sowie Digest- und Formatprüfung für Modellartefakte automatisieren.",
+        "Netzwerk standardmäßig sperren, Telemetrie deaktivieren, Mounts read-only und Prozess-/Speicherlimits setzen.",
+        "Prompts, Code, Bilder und Reasoning-Inhalte gemäß Datenklassifizierung redigieren und Aufbewahrung begrenzen.",
+        "Modellantworten bleiben untrusted input; alle Datei-, Shell-, Git- und Netzwerkaktionen laufen durch bestehende Ananta-Policies."
+      ],
+      "acceptance_criteria": [
+        "Kein Ornith-Profil erhält Docker-Socket, privilegierten Modus oder unbeschränkten Hostzugriff.",
+        "Kritische CVEs, unbekannte Lizenzen, Digestabweichungen oder aktive Telemetrie blockieren die Freigabe.",
+        "Tool-Calling umgeht weder Approval, Tenant-Isolation noch Idempotenzschutz."
+      ],
+      "test_expectations": [
+        "Negative End-to-End-Fixtures decken Injection, Egress, Secret-Leak, Symlink, Artefaktmanipulation und Resource Exhaustion ab.",
+        "Security-Gates sind maschinell reproduzierbar und können nicht durch Hersteller-Benchmarkwerte ersetzt werden."
+      ]
+    },
+    {
+      "id": "ORN-013",
+      "title": "Gestuften Rollout, Betriebshandbuch und finale Entscheidung liefern",
+      "type": "documentation",
+      "milestone_id": "M3",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "depends_on": [
+        "ORN-011",
+        "ORN-012"
+      ],
+      "target_files": [
+        "docs/operations/ornith-1.5-local-runtime.md",
+        "docs/release/ornith-1.5-rollout.md",
+        "docs/decisions/ADR-ornith-1.5-model-adoption.md"
+      ],
+      "implementation": [
+        "Installation, Import, Start, Auswahl, Benchmark, Aktivierung, Beobachtung, Deaktivierung und Rollback dokumentieren.",
+        "Rolloutstufen unavailable, experimental, shadow, opt_in, preferred und disabled mit klaren Gates definieren.",
+        "9B und 35B-A3B getrennt entscheiden; ein Erfolg der einen Variante darf die andere nicht automatisch freigeben.",
+        "Selbstverbesserungsbegriff, MoE-A3B, Quantisierung, Kontextgrenzen und Hersteller-Benchmarks verständlich erklären.",
+        "Abschließend festhalten, welche Ananta- und CodeCompass-Rollen Ornith messbar besser, gleichwertig oder schlechter erfüllt."
+      ],
+      "acceptance_criteria": [
+        "Operator kann beide Profile reproduzierbar installieren, prüfen, aktivieren und vollständig deaktivieren.",
+        "Rollback erhält Audit-, Benchmark- und Modellartefakthistorie.",
+        "Finale ADR nennt konkrete Evidenz und setzt ohne vollständige Gates keinen produktiven Default."
+      ],
+      "test_expectations": [
+        "Dokumentationslinks, Beispielkonfigurationen und Kommandos werden automatisiert validiert.",
+        "Ein Rollback-Smoke bestätigt, dass bestehende Modellrouten unverändert weiterarbeiten."
+      ]
+    }
+  ],
+  "global_acceptance_criteria": [
+    "Ornith-1.5-9B ist auf der RTX 3080 mit 10 GB VRAM real und digestgebunden geprüft; 35B-A3B ist auf dem 64-GB-Offload-Profil separat bewertet.",
+    "Lizenz, Provenance, Quantisierung, Runtime und Chat-Template sind pro aktivierter Variante revisionsgebunden.",
+    "Tool-Calling, Reasoning, JSON und Vision werden nicht aus Marketingtexten übernommen, sondern pro Runtime beobachtet und getestet.",
+    "Hersteller-Benchmarks und Ananta-Evidenz bleiben sichtbar getrennt.",
+    "Kein Profil wird ohne sichere Modellimporte, Runtime-Isolation, Capability-Gates und attestierte Benchmarks zum Default.",
+    "Anantas Hub bleibt alleinige Control Plane; Toolausführung, Approval, Audit, Budget und Tenant-Isolation werden nicht an das Modell delegiert.",
+    "Die Bezeichnung selbstverbessernd wird korrekt auf den Trainingsprozess begrenzt.",
+    "Kontext- und Hardwareempfehlungen beruhen auf realen Messungen mit Sicherheitsreserve.",
+    "Bestehende lokale Modelle und Provider bleiben verfügbar und bilden getestete Fallbacks."
+  ],
+  "implementation_order_recommendation": [
+    "ORN-001 bis ORN-003: Upstream, Modellverträge und sichere Artefakte",
+    "ORN-004 bis ORN-008: 9B-/35B-Laufzeiten, Provider, Tool-Calling und Vision",
+    "ORN-009 bis ORN-011: CodeCompass-Benchmark, Hardwaregrenzen und zentrale Auswahl",
+    "ORN-012 bis ORN-013: Security-Gates, gestufter Rollout und finale ADR"
+  ],
+  "open_questions_for_implementation": [
+    "Welche konkrete GGUF-Quantisierung liefert auf der RTX 3080 die beste Qualitäts-/Kontextreserve für 9B?",
+    "Ist die Vision-Pipeline in den ausgewählten Ollama- und GGUF-Artefakten tatsächlich vollständig enthalten?",
+    "Welche 35B-A3B-Offloadverteilung vermeidet Swap und bleibt über USB4 beziehungsweise PCIe praktisch nutzbar?",
+    "Welche bestehenden lokalen Modelle dienen als verbindliche Baselines für Coding, Deutsch, Tool-Calling und CodeCompass?",
+    "Soll Ornith nach bestandenen Gates nur opt-in bleiben oder für eine klar begrenzte Rolle preferred werden?"
+  ],
+  "notes": [
+    "Der aktuelle Plan enthält keine behaupteten lokalen Messergebnisse; sämtliche Runtime- und Qualitätsnachweise beginnen als not_run.",
+    "Die auf Ollama angegebenen Dateigrößen sind Download-/Artefaktgrößen und nicht gleichbedeutend mit vollständigem Laufzeitspeicherbedarf.",
+    "Ein MoE-Modell mit 3B aktiven Parametern muss weiterhin die gesamten 35B Gewichte verfügbar halten.",
+    "Das sehr große nominelle Kontextfenster kann auf 10 GB VRAM durch den KV-Cache erheblich eingeschränkt werden.",
+    "Ornith soll Anantas vorhandene zentrale Modellwahl ergänzen und keine parallele Sonderlogik erhalten."
+  ],
+  "tasks_status_summary": {
+    "total": 13,
+    "by_status": {
+      "todo": 13,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 6,
+      "P1": 6,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 5,
+      "critical": 4
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 13,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0,
+    "count_based_percent": 0
+  },
+  "tasks_type_summary": {
+    "total": 13,
+    "by_type": {
+      "research": 1,
+      "architecture": 1,
+      "security": 3,
+      "implementation": 2,
+      "integration": 1,
+      "evaluation": 1,
+      "benchmark": 1,
+      "performance": 1,
+      "frontend": 1,
+      "documentation": 1
+    }
+  }
+}
