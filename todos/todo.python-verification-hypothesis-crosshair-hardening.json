@@ -1,0 +1,640 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "id": "ananta-python-verification-hypothesis-crosshair-hardening",
+  "title": "Hypothesis- und CrossHair-Integration belastbar fertigstellen",
+  "owner": "ananta",
+  "track": "python-verification-hypothesis-crosshair-hardening",
+  "status": "todo",
+  "created_at": "2026-09-04",
+  "updated_at": "2026-09-04",
+  "repository": "ananta888/ananta",
+  "branch": "main",
+  "reviewed_commit": "36fa4609af6948c94a1ff3948dffb9bd9353b02e",
+  "purpose": "Die vorhandene Hypothesis- und CrossHair-Integration von einem erfolgreichen lokalen Pilot zu einer reproduzierbar grünen, produktionsnahen und gehärteten Verification-Fähigkeit weiterentwickeln.",
+  "goal": "CI-Abhängigkeiten schließen, Ergebnissemantik und Sicherheitsgrenzen korrigieren, echte Ananta-Produktionsziele prüfen und Abschlussstatus ausschließlich an aktuelle maschinenlesbare Evidenz binden.",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "source_basis": {
+    "repository_reviewed": true,
+    "reviewed_on": "2026-09-04",
+    "reviewed_scopes": [
+      "ananta_contracts/verification.py",
+      "worker/verification/**",
+      "tests/verification/**",
+      "agent/services/task_dependency_policy.py",
+      "agent/services/source_control_access_policy.py",
+      "config/verification/**",
+      ".github/workflows/python-verification.yml",
+      "docker/compose-next/requirements.verification-worker.in",
+      "docker/compose-next/requirements.verification-worker.lock",
+      "docs/decisions/ADR-python-property-symbolic-verification.md",
+      "docs/worker/python-property-symbolic-verification.md",
+      "artifacts/test-gates/python-verification-pilot.json",
+      "todos/archiv/todo.property-based-symbolic-verification-hypothesis-crosshair.json",
+      "todos/active/todo.github-actions-ci-stabilization.json#CI-023"
+    ],
+    "workflow_runs_reviewed": [
+      {
+        "run_id": "33872858140",
+        "conclusion": "failure"
+      },
+      {
+        "run_id": "33882383020",
+        "conclusion": "failure",
+        "observed_jobs": {
+          "core_boundary": "success",
+          "repeated_fast_gate": "success",
+          "worker_image": "success",
+          "hypothesis_matrix": "failure_on_all_versions",
+          "symbolic_targeted": "failure_4_passed_1_failed"
+        }
+      }
+    ],
+    "primary_findings": [
+      "Der archivierte Ursprungstrack meldet 100 Prozent done, obwohl beide sichtbaren Python-Verification-Workflows rot sind.",
+      "Der isolierte Worker-Lock deckt den tatsächlichen Importgraphen der Tests nicht ab.",
+      "Direkte CrossHair-Checks validieren überwiegend synthetische pilot_targets statt produktiver Ananta-Funktionen.",
+      "Der Stateful-Lifecycle-Test wählt deterministisch nur den ersten erlaubten Übergang.",
+      "Die Gegenbeispielmaterialisierung ist bei verschachtelten Argumenten durch komma-basierte Zerlegung nicht robust.",
+      "Target-Symbole sind nicht als strikte backendabhängige Grammatik validiert und können als CLI-Optionen interpretiert werden.",
+      "Property-Verstöße, Collection-Fehler und Toolfehler werden nicht ausreichend getrennt berichtet."
+    ]
+  },
+  "repo_alignment": {
+    "preserve": [
+      "Toolneutrale Verification-Verträge und Ports",
+      "Hub-Eigentum über Scope, Budgets, Evidence-IDs, Ingress und Promotion",
+      "Optionaler execution-only Worker ohne CrossHair-Import im Core",
+      "Netzwerklose, secretfreie und read-only Containergrenze",
+      "CodeCompass-Auswahl über einen expliziten Property-Katalog",
+      "Kein Korrektheitsbeweis aus einer endlichen No-Counterexample-Suche"
+    ],
+    "related_todos": [
+      {
+        "path": "todos/archiv/todo.property-based-symbolic-verification-hypothesis-crosshair.json",
+        "relation": "historical_implementation_track"
+      },
+      {
+        "path": "todos/active/todo.github-actions-ci-stabilization.json",
+        "task_id": "CI-023",
+        "relation": "shared_ci_dependency_closure"
+      }
+    ],
+    "files_to_modify_or_verify": [
+      "ananta_contracts/verification.py",
+      "worker/verification/adapters.py",
+      "worker/verification/process_runner.py",
+      "worker/verification/job_runner.py",
+      "worker/verification/pilot_targets.py",
+      "tests/verification/test_materializer_and_adapters.py",
+      "tests/verification/test_real_toolchain.py",
+      "tests/verification/test_property_pilot.py",
+      "tests/verification/test_stateful_pilot.py",
+      "tests/verification/test_schemas_and_architecture.py",
+      "agent/services/task_dependency_policy.py",
+      "agent/services/source_control_access_policy.py",
+      "agent/services/verification_metrics_service.py",
+      "config/verification/property-catalog.v1.json",
+      "config/verification/profiles.v1.json",
+      ".github/workflows/python-verification.yml",
+      "docker/compose-next/requirements.verification-worker.in",
+      "docker/compose-next/requirements.verification-worker.lock",
+      "docs/decisions/ADR-python-property-symbolic-verification.md",
+      "docs/worker/python-property-symbolic-verification.md",
+      "artifacts/test-gates/python-verification-pilot.json"
+    ],
+    "files_to_create": [],
+    "path_validation": "Alle files_to_modify_or_verify wurden auf main am 2026-09-04 erfolgreich über GitHub gelesen; neue Produktionspfade wurden nicht erfunden."
+  },
+  "acceptance_summary": [
+    "Die vollständige Python-3.10-bis-3.14-Matrix und symbolic-targeted sind auf einem gemeinsamen Commit grün.",
+    "CrossHair prüft echte autoritative Ananta-Verträge statt überwiegend synthetischer Pilotfunktionen.",
+    "Hypothesis erkundet relevante Zustandsfolgen und prüft zusätzliche produktive Properties.",
+    "CLI-Injection, unzulässige Targets und nicht sicher materialisierbare Gegenbeispiele werden fail-closed abgewehrt.",
+    "Status, ADR und Gate-Artefakte stimmen mit aktueller GitHub-CI-Evidenz überein.",
+    "Pynguin und Qodo Cover werden nur bei messbarem Zusatznutzen als optionale, reviewpflichtige Adapter erwogen."
+  ],
+  "milestones": [
+    {
+      "id": "PHSV-H-M1",
+      "title": "CI und Statuswahrheit",
+      "task_ids": [
+        "PHSV-H-001",
+        "PHSV-H-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-H-M2",
+      "title": "Sicherheits- und Ergebnisgrenzen",
+      "task_ids": [
+        "PHSV-H-003",
+        "PHSV-H-004",
+        "PHSV-H-005"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-H-M3",
+      "title": "Produktionsnahe Verifikationstiefe",
+      "task_ids": [
+        "PHSV-H-006",
+        "PHSV-H-007",
+        "PHSV-H-008"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-H-M4",
+      "title": "Release-Evidenz und optionale Kandidaten",
+      "task_ids": [
+        "PHSV-H-009",
+        "PHSV-H-010"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PHSV-H-001",
+      "title": "Isolierte Verification-Abhängigkeiten und Python-Matrix reparieren",
+      "type": "ci",
+      "milestone_id": "PHSV-H-M1",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "GitHub Actions Run 33882383020: alle hypothesis-matrix-Jobs rot; Collection meldet fehlendes flask und yaml.",
+        "docker/compose-next/requirements.verification-worker.in enthält PyYAML und die durch produktive Imports benötigte Abhängigkeitsgrenze nicht vollständig.",
+        "Der allgemeine CI-Track führt denselben Fehler als CI-023; dieser Task ergänzt ausschließlich die Verification-spezifischen Abnahmekriterien."
+      ],
+      "implementation": [
+        "Unnötige Flask-Infrastrukturkopplung beim Import von agent/services/task_dependency_policy.py entfernen oder hinter eine schmale, importseitig leichte Grenze verschieben.",
+        "Legitime Test- und Runtime-Abhängigkeiten des Verification-Workers in docker/compose-next/requirements.verification-worker.in aufnehmen und den Hash-Lock reproduzierbar neu erzeugen.",
+        ".github/workflows/python-verification.yml so ausrichten, dass die isolierte Installation genau den getesteten Importgraphen enthält, ohne stillschweigend den vollständigen Hub zu installieren.",
+        "Die Lösung mit todos/active/todo.github-actions-ci-stabilization.json#CI-023 synchronisieren; keine parallele zweite Ursachenbehebung bauen."
+      ],
+      "acceptance_criteria": [
+        "hypothesis-matrix ist für Python 3.10, 3.11, 3.12, 3.13 und 3.14 in einem neuen GitHub-Actions-Lauf grün.",
+        "symbolic-targeted kann alle Tests sammeln; fehlende flask- oder yaml-Module treten nicht mehr auf.",
+        "Der Worker-Lock bleibt vollständig gehasht und aus der eingecheckten Input-Datei reproduzierbar.",
+        "Der Verification-Core importiert CrossHair weiterhin nicht, wenn das optionale Extra fehlt."
+      ],
+      "test_plan": [
+        "Die exakten Workflow-Befehle aus .github/workflows/python-verification.yml lokal im frischen Environment ausführen.",
+        "Import-Smoke-Tests für test_property_pilot.py und test_schemas_and_architecture.py im isolierten Dependency-Satz ausführen.",
+        "Einen neuen GitHub-Actions-Lauf verlinken und Job-IDs je Python-Version dokumentieren."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "PHSV-H-002",
+      "title": "Completion- und Archivstatus an reale CI-Evidenz binden",
+      "type": "ci",
+      "milestone_id": "PHSV-H-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "todos/archiv/todo.property-based-symbolic-verification-hypothesis-crosshair.json meldet 13 von 13 Tasks und 100 Prozent done.",
+        "Die letzten sichtbaren Python-Verification-Läufe 33872858140 und 33882383020 sind fehlgeschlagen.",
+        "artifacts/test-gates/python-verification-pilot.json ist ausdrücklich nur eine lokale technische Beobachtung und keine Produktionsevidenz."
+      ],
+      "implementation": [
+        "Den archivierten Pilot-Track als historische Implementierungsevidenz behandeln und diesen Härtungs-Track als offene Korrekturquelle verlinken.",
+        "Eine generische Abschlussregel definieren: Ein CI- oder Release-Task darf erst done werden, wenn ein grüner Lauf auf demselben oder einem nachweislich äquivalenten Commit vorliegt.",
+        "Stale Run-IDs, lokale Messungen und synthetische Pilotresultate dürfen keinen aktuellen grünen Status ableiten."
+      ],
+      "acceptance_criteria": [
+        "Der Härtungs-Track bleibt offen, solange ein erforderlicher Python-Verification-Job rot, übersprungen oder nicht auf dem geprüften Commit gelaufen ist.",
+        "Jeder abgeschlossene CI-Task enthält Commit-SHA, Workflow-Run-ID und Job-Ergebnisse.",
+        "Lokale Pilotdaten bleiben klar von GitHub-CI- und Produktionsevidenz getrennt."
+      ],
+      "test_plan": [
+        "Statusableitung mit grünem, rotem, übersprungenem und veraltetem Run als Fixture prüfen.",
+        "Gegenprobe: Run 33882383020 darf keinen done-Status erzeugen."
+      ],
+      "dependencies": [
+        "PHSV-H-001"
+      ]
+    },
+    {
+      "id": "PHSV-H-003",
+      "title": "Target-Symbole und CLI-Grenze strikt validieren",
+      "type": "security",
+      "milestone_id": "PHSV-H-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "ananta_contracts/verification.py prüft target_symbols aktuell nur auf Leerwert, Duplikate, Länge und Budget.",
+        "worker/verification/adapters.py hängt target_symbols direkt an pytest- und CrossHair-Kommandos an.",
+        "worker/verification/process_runner.py blockiert nur exakte Tokens --unblock, --plugin und --extra_plugin; Varianten mit Gleichheitszeichen und allgemeine führende Optionen werden nicht vollständig abgewehrt."
+      ],
+      "implementation": [
+        "Eine backendabhängige, kanonische Grammatik für Python-Symbole und Pytest-Node-IDs definieren.",
+        "Führende Bindestriche, Optionsseparatoren, Steuerzeichen, Pfadtraversal, absolute Pfade sowie nicht katalogisierte Ziele am Worker-Eingang ablehnen.",
+        "Optionen sowohl als getrennte Tokens als auch in --option=value-Form blockieren.",
+        "Die Hub-Allowlist beibehalten, aber nicht als alleinige Sicherheitsgrenze verwenden; der Worker validiert die geschlossene Assignment-Projektion erneut."
+      ],
+      "acceptance_criteria": [
+        "Gültige katalogisierte Python-Symbole und Pytest-Node-IDs funktionieren unverändert.",
+        "--plugin=x, --extra_plugin=x, --unblock=EVERYTHING, -c, Pfadtraversal und Steuerzeichen werden deterministisch mit stabilem Reason-Code abgelehnt.",
+        "Kein Assignment kann zusätzliche Pytest- oder CrossHair-Optionen über target_symbols einschleusen.",
+        "Die Prüfungen gelten für hypothesis, crosshair_check, crosshair_cover, crosshair_backend und crosshair_diff."
+      ],
+      "test_plan": [
+        "Parametrisierte Negativtests in tests/verification/test_schemas_and_architecture.py und tests/verification/test_materializer_and_adapters.py ergänzen.",
+        "Positive Tests für vorhandene katalogisierte Ziele und Pytest-Node-IDs ergänzen.",
+        "Worker-Job-Runner mit manipulierten, aber formal vollständigen Assignments adversarial testen."
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "PHSV-H-004",
+      "title": "CrossHair-Gegenbeispiele struktursicher materialisieren",
+      "type": "implementation",
+      "milestone_id": "PHSV-H-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "worker/verification/adapters.py zerlegt CrossHair-Argumente aktuell mit raw_arguments.split(',').",
+        "Verschachtelte Listen, Dictionaries, Tupel und Strings mit Kommas können dadurch falsch getrennt oder als String-Fallback persistiert werden.",
+        "Gate-wirksame Gegenbeispiele müssen laut bestehender Architektur konkret und reproduzierbar sein."
+      ],
+      "implementation": [
+        "Bevorzugt eine strukturierte CrossHair-Ausgabe oder einen kleinen parserbasierten Adapter verwenden; keine komma-basierte Textzerlegung.",
+        "Positions- und Keyword-Argumente inklusive verschachtelter JSON-kompatibler Werte verlustfrei materialisieren.",
+        "Nicht sicher interpretierbare Ausgaben als unsupported_parse oder failed_to_materialize melden und niemals promoten.",
+        "Die Reproduktionskommando-Referenz aus dem konkreten Ziel ableiten statt auf eine nicht vorhandene pauschale Testdatei zu verweisen."
+      ],
+      "acceptance_criteria": [
+        "Listen, Dictionaries, verschachtelte Tupel, negative Zahlen, Unicode und Strings mit Kommas werden korrekt materialisiert.",
+        "Mehrere Gegenbeispiele werden nicht stillschweigend auf den ersten unvollständigen Treffer reduziert.",
+        "Jedes promotierbare Gegenbeispiel reproduziert in einem frischen CPython-Prozess denselben Vertragsverstoß.",
+        "Unvollständig geparste Werte können weder Release-Gates noch automatische Testpromotion auslösen."
+      ],
+      "test_plan": [
+        "Golden-Output-Fixtures für reale CrossHair-Ausgaben mit verschachtelten Argumenten ergänzen.",
+        "Parser-Fuzztests mit Hypothesis gegen Klammerung, Quotes, Escapes und Kommas ausführen.",
+        "End-to-End-Test von CrossHair-Ausgabe über Materializer und Reproducer bis zur Promotion ergänzen."
+      ],
+      "dependencies": [
+        "PHSV-H-003"
+      ]
+    },
+    {
+      "id": "PHSV-H-005",
+      "title": "Property-Fehler, Toolfehler und Suchgrenzen sauber unterscheiden",
+      "type": "implementation",
+      "milestone_id": "PHSV-H-M2",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "PytestHypothesisRunnerAdapter bildet jeden Nicht-Null-Exit derzeit auf TOOL_ERROR/pytest_failed ab.",
+        "HypothesisCrossHairBackendAdapter meldet den aktuellen fünften Toolchain-Test nur als tool_error; die eigentliche Ursache ist im strukturierten Report nicht sichtbar.",
+        "cases_executed wird aus dem Budget übernommen und nicht aus tatsächlich beobachteter Ausführung abgeleitet."
+      ],
+      "implementation": [
+        "Testfehler beziehungsweise gefundene Gegenbeispiele, Collection-/Importfehler, Timeout, Unsupported, Parserfehler und interne Toolfehler getrennt klassifizieren.",
+        "Strukturierte, größenbegrenzte Pytest-Ergebnisse auswerten; rohe Logs bleiben nur digestierte Diagnoseevidenz.",
+        "cases_executed, collected_tests, failed_tests und bounded_search_metadata aus beobachteten Daten ableiten.",
+        "Keine internen Pfade, Secrets oder unbegrenzten Toolausgaben in Hub-Berichte übernehmen."
+      ],
+      "acceptance_criteria": [
+        "Ein absichtlich verletztes Hypothesis-Property erzeugt counterexample_found und nicht tool_error.",
+        "Ein fehlendes Modul erzeugt einen eigenen Collection-/Environment-Reason-Code.",
+        "Timeout, Unsupported und kein gefundenes Gegenbeispiel bleiben semantisch verschieden.",
+        "Fünf Tests mit einem Fehler werden maschinenlesbar als 4 passed und 1 failed samt Ursache berichtet."
+      ],
+      "test_plan": [
+        "Adapter-Tests für Success, Property-Failure, Collection-Error, Timeout, Output-Truncation und Unsupported ergänzen.",
+        "Den früheren Fehler aus Run 33882383020 als Regression-Fixture nachstellen.",
+        "Schema- und Ingress-Tests für alle neuen geschlossenen Statusfelder ausführen."
+      ],
+      "dependencies": [
+        "PHSV-H-001",
+        "PHSV-H-004"
+      ]
+    },
+    {
+      "id": "PHSV-H-006",
+      "title": "CrossHair von Pilotfunktionen auf echten Ananta-Code ausweiten",
+      "type": "verification",
+      "milestone_id": "PHSV-H-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "tests/verification/test_real_toolchain.py prüft CrossHair check, cover und diffbehavior überwiegend gegen worker/verification/pilot_targets.py.",
+        "config/verification/property-catalog.v1.json enthält bereits produktive Kandidaten aus Policies, Verträgen und Normalisierung.",
+        "Der absichtlich fehlerhafte abs-Test beweist die Werkzeugkette, aber keinen zusätzlichen Produktionsnutzen."
+      ],
+      "implementation": [
+        "Mindestens fünf reine, typisierte Produktionsfunktionen aus dem bestehenden Property-Katalog nach Purity, Seiteneffekten und Vertragsautorität auswählen.",
+        "PEP-316-Verträge oder Assertions direkt an der autoritativen Produktionsfunktion ergänzen; keine semantisch duplizierten Testimplementierungen als Ersatz verwenden.",
+        "CrossHair check gezielt auf task_dependency_policy, ananta_contracts.verification und eine weitere sicherheitsrelevante Policy anwenden.",
+        "Pilotziele als Toolchain-Fixtures kennzeichnen und aus Produktionsnutzen-Metriken ausschließen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens fünf CrossHair-Targets verweisen auf produktive Ananta-Symbole außerhalb von worker/verification/pilot_targets.py.",
+        "Jeder Vertrag besitzt eine nachvollziehbare Quelle: Schema, bestehender Test, dokumentierte Invariante oder Policy.",
+        "Ein kontrolliert eingesäter Fehler an einem produktionsnahen Fixture-Pfad wird gefunden, konkret reproduziert und nach dem Fix nicht mehr gefunden.",
+        "Unsupported- und Timeout-Fälle werden sichtbar erfasst und nicht als passed gewertet."
+      ],
+      "test_plan": [
+        "Targetweise CrossHair-Läufe mit festen Budgets und dokumentiertem Reason-Code ausführen.",
+        "Mutation oder kontrollierten Defekt pro ausgewählter Property verwenden, um die tatsächliche Fehlererkennung zu prüfen.",
+        "Normale Pytest-Regressionstests parallel ausführen und semantische Abweichungen dokumentieren."
+      ],
+      "dependencies": [
+        "PHSV-H-001",
+        "PHSV-H-003",
+        "PHSV-H-005"
+      ]
+    },
+    {
+      "id": "PHSV-H-007",
+      "title": "Stateful-Tests den vollständigen Zustandsraum erkunden lassen",
+      "type": "implementation",
+      "milestone_id": "PHSV-H-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "AgentLifecycleModel.choose_transition wählt aktuell sorted(ALLOWED_TRANSITIONS[state])[0].",
+        "Hypothesis entscheidet dadurch nicht über verschiedene erlaubte Übergänge; viele Pfade bleiben unerforscht.",
+        "PermissionGrowthModel generiert dagegen bereits unterschiedliche Fähigkeiten und dient als brauchbares Muster."
+      ],
+      "implementation": [
+        "Übergangsziel oder konkrete Aktionen als Hypothesis-Strategie modellieren statt den ersten erlaubten Zustand fest zu wählen.",
+        "Erlaubte und verbotene Übergänge gegen ein unabhängiges Referenzmodell prüfen.",
+        "Retry-, Cancel-, Fehler-, Terminal- und konkurrierende Aktionsfolgen mit minimierbaren Sequenzen abdecken.",
+        "stateful_step_count, max_examples und Laufzeitbudget explizit profilieren."
+      ],
+      "acceptance_criteria": [
+        "Jeder definierte erlaubte Übergang wird in der Testevidenz mindestens einmal erreicht.",
+        "Jeder verbotene Übergang wird abgelehnt, ohne den Zustand oder die History zu verändern.",
+        "Hypothesis kann einen absichtlich manipulierten Übergang als minimierte Aktionsfolge reproduzieren.",
+        "Der PR-Fast-Lauf bleibt unter seinem festgelegten Medianbudget."
+      ],
+      "test_plan": [
+        "RuleBasedStateMachine-Tests mit generierten Aktionen und Coverage-Events ergänzen.",
+        "Mutationstest gegen ALLOWED_TRANSITIONS oder transition-Validierung ausführen.",
+        "Mindestens 20 wiederholte Fast-Gate-Läufe auf Flakiness prüfen."
+      ],
+      "dependencies": [
+        "PHSV-H-001"
+      ]
+    },
+    {
+      "id": "PHSV-H-008",
+      "title": "Hypothesis-Properties auf reale Verträge und Policies verbreitern",
+      "type": "verification",
+      "milestone_id": "PHSV-H-M3",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "tests/verification/test_property_pilot.py deckt bereits task_dependency_policy, canonical_digest und einige Pilotziele ab.",
+        "Der Property-Katalog führt weitere geeignete produktive Verträge und Policies.",
+        "Ein früherer Property-Test fand bereits den Produktionsfehler self_dependency_cycle_normalized_away."
+      ],
+      "implementation": [
+        "Properties für geschlossene Verification-Assignments, Digest-Stabilität, Policy-Monotonie, Fail-Closed-Verhalten und Idempotenz ergänzen.",
+        "Strategien aus bestehenden JSON-Schemata und Pydantic-Verträgen ableiten, ohne die Implementierung als Oracle zu kopieren.",
+        "Jede Property mit Autoritätsquelle, Negativraum und erwarteter Shrink-Semantik dokumentieren.",
+        "Gefundene Gegenbeispiele nach erfolgreicher Reproduktion als kleine explizite Regressionstests erhalten."
+      ],
+      "acceptance_criteria": [
+        "Mindestens zehn zusätzliche Properties prüfen produktive Ananta-Funktionen und keine duplizierten Pilotimplementierungen.",
+        "Mindestens drei Properties erzeugen absichtlich ungültige oder adversariale Vertragsdaten.",
+        "Jede Property besitzt ein unabhängiges Oracle oder eine autoritative Invariante.",
+        "Die Property-Suite bleibt deterministisch reproduzierbar und berichtet Flakiness separat."
+      ],
+      "test_plan": [
+        "Hypothesis normal, mit wiederholtem Seed-Profil und ausgewähltem CrossHair-Backend vergleichen.",
+        "Mutationsprüfung verwenden, um triviale oder tautologische Properties zu erkennen.",
+        "Shrunk Counterexamples als eigenständige Regressionstests erneut ausführen."
+      ],
+      "dependencies": [
+        "PHSV-H-006",
+        "PHSV-H-007"
+      ]
+    },
+    {
+      "id": "PHSV-H-009",
+      "title": "Grüne End-to-End-Evidenz erzeugen und ADR korrigieren",
+      "type": "release",
+      "milestone_id": "PHSV-H-M4",
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "docs/decisions/ADR-python-property-symbolic-verification.md akzeptiert den bounded pilot auf Basis lokaler Messungen.",
+        "artifacts/test-gates/python-verification-pilot.json bezeichnet sich selbst als unverified_for_production.",
+        "Die sichtbaren GitHub-Actions-Läufe 33872858140 und 33882383020 sind rot."
+      ],
+      "implementation": [
+        "Nach Abschluss aller Härtungstasks die vollständige Matrix, den realen Toolchain-Test, den Fast-Gate-Wiederholungslauf und den Worker-Image-Build auf demselben Commit ausführen.",
+        "Das strukturierte Gate-Artefakt ausschließlich aus den beobachteten Ergebnissen dieses Laufs aktualisieren.",
+        "ADR und Worker-Dokumentation mit realen Produktionszielen, korrigierten Laufzeiten, bekannten Grenzen und aktueller Go/Hold/No-Go-Entscheidung abgleichen.",
+        "Keinen Release- oder Archivstatus setzen, solange ein erforderlicher Job rot oder nicht gelaufen ist."
+      ],
+      "acceptance_criteria": [
+        "Ein verlinkter GitHub-Actions-Lauf ist für alle erforderlichen Python-Verification-Jobs grün.",
+        "Gate-Artefakt, ADR und Todo referenzieren denselben Commit und widersprechen einander nicht.",
+        "Mindestens ein echtes reproduziertes Produktionsgegenbeispiel oder eine dokumentierte No-Finding-Messung mit Mutation-Gegenprobe liegt vor.",
+        "CrossHair cover, diffbehavior und Hypothesis-CrossHair-Backend erhalten getrennte Go-, Hold- oder No-Go-Entscheidungen."
+      ],
+      "test_plan": [
+        "Workflow auf main und zusätzlich per workflow_dispatch am Ziel-Commit ausführen.",
+        "Artefakt-Digests und Commitbindung automatisiert prüfen.",
+        "Dokumentationsaussagen gegen maschinenlesbare Gate-Daten testen."
+      ],
+      "dependencies": [
+        "PHSV-H-002",
+        "PHSV-H-005",
+        "PHSV-H-006",
+        "PHSV-H-007",
+        "PHSV-H-008"
+      ]
+    },
+    {
+      "id": "PHSV-H-010",
+      "title": "Pynguin und Qodo Cover erst nach stabilem Kern vergleichend bewerten",
+      "type": "research",
+      "milestone_id": "PHSV-H-M4",
+      "status": "todo",
+      "priority": "P2",
+      "risk": "medium",
+      "progress_percent": 0,
+      "repo_evidence": [
+        "Im aktuellen Repository sind weder Pynguin noch Qodo/CodiumAI integriert.",
+        "Hypothesis und CrossHair bilden bereits einen toolneutralen, isolierten Verification-Worker-Pfad.",
+        "Automatisch erzeugte Tests können lediglich bestehendes Verhalten konservieren und müssen deshalb als reviewpflichtige Kandidaten behandelt werden."
+      ],
+      "implementation": [
+        "Pynguin lokal und isoliert als Generator für Legacy-Testkandidaten benchmarken; generierte Assertions zusätzlich per Mutation prüfen.",
+        "Qodo Cover beziehungsweise Qodo nur als externen Adapterkandidaten untersuchen; Repository-Upload, Cloud-Abhängigkeit, Kosten, Lizenz und Datenabfluss explizit bewerten.",
+        "Beide Werkzeuge gegen Hypothesis, CrossHair cover und Anantas vorhandenen CodeCompass-Auswahlpfad anhand derselben Module vergleichen.",
+        "Keine neue Core-Abhängigkeit und keine automatische Testpromotion ohne getrennte Architektur-, Security- und Lizenzentscheidung einführen."
+      ],
+      "acceptance_criteria": [
+        "Vergleich misst einzigartige reproduzierbare Fehler, brauchbare Testkandidaten, Mutation Score, Laufzeit, Wartungsaufwand und False-Positive-Rate.",
+        "Pynguin- oder Qodo-Ergebnisse werden nur als Vorschläge gespeichert und können keine Produktionsevidenz erzeugen.",
+        "Eine getrennte Go-, Hold- oder No-Go-Entscheidung benennt klaren Zusatznutzen gegenüber dem bestehenden Stack.",
+        "Bei fehlendem messbarem Zusatznutzen bleibt Ananta bei Hypothesis und gezieltem CrossHair."
+      ],
+      "test_plan": [
+        "Identische allowlistete Legacy-Module in allen Kandidaten prüfen.",
+        "Generierte Tests gegen Original, kontrollierte Mutanten und eine semantisch äquivalente Refaktorierung ausführen.",
+        "Isolation und Datenabfluss mit deaktiviertem Netzwerk beziehungsweise dokumentierter externer Übertragung verifizieren."
+      ],
+      "dependencies": [
+        "PHSV-H-009"
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PHSV-H-001",
+    "PHSV-H-003",
+    "PHSV-H-004",
+    "PHSV-H-005",
+    "PHSV-H-006",
+    "PHSV-H-007",
+    "PHSV-H-008",
+    "PHSV-H-009",
+    "PHSV-H-010"
+  ],
+  "tasks_status_summary": {
+    "total": 10,
+    "by_status": {
+      "todo": 10,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 5,
+      "P1": 4,
+      "P2": 1
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 6,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 9,
+      "done": 0,
+      "remaining": 9
+    },
+    "milestones": {
+      "total": 4,
+      "todo": 4,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 10,
+    "by_type": {
+      "ci": 2,
+      "security": 1,
+      "implementation": 3,
+      "verification": 2,
+      "release": 1,
+      "research": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 10,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "risks": [
+    {
+      "risk": "Ein grüner lokaler Pilot wird erneut mit einem grünen CI- oder Produktionsstatus verwechselt.",
+      "mitigation": "Abschluss an Commit-gebundene Workflow-Run- und Job-Evidenz koppeln."
+    },
+    {
+      "risk": "CrossHair führt analysierten Python-Code real aus.",
+      "mitigation": "Isolierten, netzwerklosen Worker beibehalten und Worker-seitige Target-Allowlist erzwingen."
+    },
+    {
+      "risk": "Generierte Properties oder Tests konservieren unbeabsichtigt nur das aktuelle Verhalten.",
+      "mitigation": "Autoritative Invarianten, Mutation-Gegenproben und getrennte Review-Promotion verlangen."
+    },
+    {
+      "risk": "Breitere symbolische Analyse erhöht Laufzeit und Flakiness.",
+      "mitigation": "PR-Fast, targeted und nightly getrennt budgetieren; Unsupported und Timeout sichtbar halten."
+    }
+  ],
+  "uncertainties": [
+    "Der allgemeine CI-Track CI-023 wurde während dieser Prüfung neu auf main angelegt; seine Implementierung kann Teile von PHSV-H-001 vorwegnehmen.",
+    "Für Pynguin und Qodo Cover wurde noch kein Ananta-spezifischer Lauf ausgeführt; PHSV-H-010 bleibt deshalb ausdrücklich eine spätere Vergleichsentscheidung.",
+    "Ein fehlendes Gegenbeispiel bleibt auch nach der Härtung nur eine budgetierte Beobachtung und kein Korrektheitsbeweis."
+  ],
+  "references": [
+    {
+      "title": "Historischer Hypothesis-/CrossHair-Track",
+      "url": "https://github.com/ananta888/ananta/blob/main/todos/archiv/todo.property-based-symbolic-verification-hypothesis-crosshair.json"
+    },
+    {
+      "title": "Fehlgeschlagener Python-Verification-Lauf",
+      "url": "https://github.com/ananta888/ananta/actions/runs/33882383020"
+    },
+    {
+      "title": "Hypothesis-Dokumentation",
+      "url": "https://hypothesis.readthedocs.io/en/latest/"
+    },
+    {
+      "title": "CrossHair-Limitierungen",
+      "url": "https://crosshair.readthedocs.io/en/latest/limitations.html"
+    },
+    {
+      "title": "Pynguin-Dokumentation",
+      "url": "https://pynguin.readthedocs.io/stable/"
+    },
+    {
+      "title": "Qodo Cover",
+      "url": "https://github.com/qodo-ai/qodo-cover"
+    }
+  ]
+}
