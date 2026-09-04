@@ -1,0 +1,930 @@
+{
+  "$schema": "./todo.track.schema.json",
+  "version": "1.0",
+  "created_at": "2026-09-04",
+  "updated_at": "2026-09-04",
+  "owner": "ananta-maintainers",
+  "track": "Property-based und symbolische Verifikation mit Hypothesis und CrossHair",
+  "purpose": "Hypothesis und CrossHair als optionale, isolierte Verifikations-Backends für Anantas eigenen Python-Code und für durch Ananta bearbeitete fremde Python-Repositories evaluieren und schrittweise integrieren.",
+  "goal": "Deterministische Verträge, Invarianten, Zustandsübergänge und Refactorings durch automatisch erzeugte sowie symbolisch hergeleitete Gegenbeispiele besser absichern, ohne Pytest, Reviews oder Anantas Hub-kontrollierte Sicherheits- und Evidenzgrenzen zu ersetzen.",
+  "executive_assessment": {
+    "recommendation": "go_for_bounded_pilot",
+    "why": [
+      "Ananta enthält viele typisierte Python-Verträge, Policy-Funktionen, Zustandsmaschinen, Serialisierungsschichten und idempotente Übergänge, die sich für eigenschaftsbasiertes Testen eignen.",
+      "Hypothesis erzeugt strukturierte Randfälle, minimiert gefundene Fehlerbeispiele und unterstützt zustandsbasierte Tests.",
+      "CrossHair sucht mit symbolischer Ausführung und SMT-Solvern nach Gegenbeispielen für Assertions, Vor- und Nachbedingungen sowie Invarianten.",
+      "CrossHair kann zusätzlich Eingaben für Pfadabdeckung erzeugen und Verhaltensunterschiede zwischen zwei Funktionsvarianten suchen.",
+      "Hypothesis unterstützt CrossHair inzwischen als alternatives Backend; dieselbe Property kann dadurch mit normaler Generierung und solvergestützter Generierung ausgeführt werden."
+    ],
+    "limits": [
+      "Das Ausbleiben eines Gegenbeispiels ist kein Beweis der Korrektheit.",
+      "CrossHair ist besonders für kleine, deterministische und typisierte Python-Einheiten geeignet, nicht für beliebig komplexe End-to-End-Systeme.",
+      "CrossHair führt analysierten Code tatsächlich aus; seine Audit-Hook-Schutzmaßnahmen sind laut Projektdokumentation unvollständig, insbesondere bei C-Erweiterungen.",
+      "LLM-, Netzwerk-, Datenbank-, Zeit-, Zufalls- und Dateisystemverhalten muss durch reine Kerne, Ports oder deterministische Test-Doubles getrennt werden.",
+      "Beide Werkzeuge ergänzen bestehende Tests, statische Typprüfung, Security-Scans und Reviews; sie ersetzen diese nicht."
+    ]
+  },
+  "observed_upstream_baseline": {
+    "checked_on": "2026-09-04",
+    "crosshair": {
+      "package": "crosshair-tool",
+      "observed_release": "0.0.110",
+      "release_date": "2026-08-16",
+      "python": "CPython >=3.8 laut Upstream-Metadaten",
+      "license_note": "Upstream-LICENSE nennt überwiegend MIT sowie enthaltene Apache-2.0- und PSF-lizenzierte Bestandteile.",
+      "maturity_note": "Upstream klassifiziert das Projekt weiterhin als Alpha; jede unterstützte Version muss durch Anantas Kompatibilitätstests bestätigt werden."
+    },
+    "hypothesis": {
+      "package": "hypothesis",
+      "observed_release": "6.167.1",
+      "release_date": "2026-08-30",
+      "license_note": "Mozilla Public License 2.0 laut Upstream-LICENSE.",
+      "crosshair_extra": "Der beobachtete Upstream-Stand verwendet hypothesis-crosshair>=0.0.30 und crosshair-tool>=0.0.110 für das Extra hypothesis[crosshair]."
+    },
+    "pinning_policy": "Beobachtete Versionen sind Evaluationsbaselines und keine dauerhaften Pins. Vor Implementierung Releases, Python-Matrix, Transitivabhängigkeiten, SBOM und Lizenzen erneut prüfen."
+  },
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "architectural_principles": [
+    "Der Hub bleibt Eigentümer von Planung, Richtlinien, Budgets, Freigaben, RUN-Reservierung, Ergebnisannahme und Release-Gates.",
+    "Nur ein delegierter Worker führt Hypothesis oder CrossHair in einem isolierten, begrenzten Laufzeitprofil aus.",
+    "Worker orchestrieren keine weiteren Worker und erzeugen keine eigenen Folgeaufgaben.",
+    "Die Integration erfolgt hinter kleinen Verifikations-Ports und austauschbaren Adaptern; Pytest bleibt der gemeinsame Ausführungs- und Reproduktionsanker.",
+    "Werkzeuge sind ausschließlich optionale Entwicklungsabhängigkeiten beziehungsweise optionale Worker-Images; der Ananta-Core darf sie nicht zwingend importieren.",
+    "Gefundene Gegenbeispiele sind technische Beobachtungen. Produktionswirksame Evidenz entsteht nur aus einem vorab vom Hub reservierten RUN-Kontext mit unveränderlicher Repository-, Task-, Assignment-, Policy- und Umgebungsbindung.",
+    "LLM-generierte Properties oder Verträge sind Vorschläge und niemals automatisch die fachliche Spezifikation.",
+    "Ein generierter Regressionstest wird erst nach konkreter Reproduktion, Prüfung auf sinnvolle Semantik und expliziter Promotion zu dauerhaftem Quellcode.",
+    "Timeout, unvollständige Exploration und nicht unterstützte Operationen werden sichtbar als inconclusive oder unsupported gemeldet, niemals als passed.",
+    "Additive Einführung per Feature-Flag, ohne bestehende Test- und Worker-Pfade zu verändern."
+  ],
+  "scope": {
+    "included": [
+      "Property-based Tests mit Hypothesis für reine Funktionen, Parser, Normalisierung, Serialisierung, Policy-Entscheidungen und Datenverträge",
+      "RuleBasedStateMachine-Tests für zustandsbehaftete, aber deterministisch modellierbare Lebenszyklen",
+      "CrossHair check für explizite Assertions, PEP-316-, icontract- oder deal-Verträge nach separater Syntaxentscheidung",
+      "CrossHair cover zur Erzeugung prüfbarer Testkandidaten für schwer erreichbare Verzweigungen",
+      "CrossHair diffbehavior für kleine, typisierte Funktionen zwischen Basisrevision und Patch-Revision",
+      "Hypothesis mit backend=crosshair als experimentelle zweite Eingabegenerierung für ausgewählte Properties",
+      "Minimierte, konkretisierte und reproduzierbare Gegenbeispiele als strukturierte Artefakte",
+      "CodeCompass-gestützte Kandidatenauswahl anhand geänderter Symbole, Callgraph, Seiteneffekten, Typisierung und vorhandener Tests",
+      "Schnelle PR-Profile, gezielte Patch-Verifikation und zeitlich begrenzte Nightly-Profile",
+      "Nutzung als Ananta-Dogfood sowie später als kontrollierte Verifikationsfähigkeit für fremde Python-Repositories"
+    ],
+    "excluded": [
+      "CrossHair oder Hypothesis als Ersatz für normale Beispieltests, Integrationstests, E2E-Tests, Typprüfung oder manuelle Reviews",
+      "Unbegrenzte symbolische Analyse kompletter Repositories",
+      "Direkte Analyse produktiver Module mit echten Netzwerk-, Shell-, Secret-, Datenbank- oder Dateisystemzugriffen",
+      "Automatisches Übernehmen von generierten Tests in den Standardbranch",
+      "Automatische Behauptung mathematischer Korrektheit bei keinem gefundenen Gegenbeispiel",
+      "Ausführung ungeprüfter CrossHair-Plugins",
+      "Freischalten von CrossHair --unblock EVERYTHING",
+      "JavaScript-, TypeScript-, Java-, Rust- oder sonstige Nicht-Python-Verifikation durch diese konkrete Integration",
+      "Symbolische Bewertung von LLM-Antwortqualität oder probabilistischer Modellgüte"
+    ]
+  },
+  "high_value_ananta_targets": [
+    {
+      "class": "Verträge und Datentypen",
+      "examples": [
+        "ananta_contracts/*",
+        "agent/services/*_contract*.py",
+        "Pydantic- und Dataclass-Roundtrips"
+      ],
+      "properties": [
+        "Serialize-Deserialize-Roundtrip erhält fachlich relevante Werte.",
+        "Ungültige Grenzwerte werden deterministisch abgelehnt.",
+        "Normalisierung ist idempotent."
+      ]
+    },
+    {
+      "class": "Zustandsmaschinen und Lebenszyklen",
+      "examples": [
+        "agent/services/agent_run_state_machine.py",
+        "agent/routes/tasks/state_machine.py",
+        "agent/services/workflow_runtime/*",
+        "agent/services/speech_reconciliation_state_machine.py"
+      ],
+      "properties": [
+        "Nicht erlaubte Übergänge werden immer abgelehnt.",
+        "Terminale Zustände werden nicht still wieder geöffnet.",
+        "Replay derselben idempotenten Operation erzeugt keinen zweiten Effekt.",
+        "Reihenfolgen respektieren Abhängigkeiten und können keine Zyklen materialisieren."
+      ]
+    },
+    {
+      "class": "Policies und Berechtigungen",
+      "examples": [
+        "agent/services/shell_command_policy.py",
+        "agent/services/source_control_access_policy.py",
+        "agent/services/task_dependency_policy.py",
+        "agent/services/verification_policy_service.py"
+      ],
+      "properties": [
+        "Weniger Berechtigungen dürfen keine zusätzliche Aktion erlauben.",
+        "Unbekannte oder widersprüchliche Eingaben schlagen geschlossen fehl.",
+        "Eine reine Policy-Auswertung besitzt keine versteckten Seiteneffekte.",
+        "Denials werden nicht durch Normalisierung oder Serialisierung in Allows verwandelt."
+      ]
+    },
+    {
+      "class": "Parser, Transformation und Normalisierung",
+      "examples": [
+        "Konfigurationsauflösung",
+        "Pfad- und Identitätsnormalisierung",
+        "Artefakt- und Manifestvalidierung",
+        "CLI- und Provider-Ergebnisparser"
+      ],
+      "properties": [
+        "Normalisierung ist idempotent.",
+        "Roundtrips verlieren keine autoritativen Felder.",
+        "Pfadnormalisierung verlässt nie die erlaubte Wurzel.",
+        "Parserfehler sind begrenzt und maschinenlesbar."
+      ]
+    },
+    {
+      "class": "Patch- und Refactoring-Prüfung",
+      "examples": [
+        "Extrahierte reine Kerne aus Services",
+        "Policy-Entscheidungsfunktionen",
+        "Serializer und Mapper",
+        "Backoff-, Budget- und Auswahlalgorithmen"
+      ],
+      "properties": [
+        "diffbehavior findet konkrete Abweichungen zwischen Basis und Patch oder meldet den Lauf ausdrücklich als inconclusive.",
+        "Erwartete Abweichungen werden als bewusstes Delta beschrieben und durch konkrete Tests belegt."
+      ]
+    }
+  ],
+  "proposed_architecture": {
+    "control_flow": [
+      "Hub klassifiziert eine Verifikationsanforderung und reserviert Task, Assignment, Dispatch-Lease und RUN-Kontext.",
+      "CodeCompass beziehungsweise ein deterministischer Selektor liefert nur Kandidatensymbole und vorhandene Verträge; er entscheidet nicht über Berechtigungen.",
+      "Hub wählt ein freigegebenes VerificationProfile mit Tool, Zeit-, Speicher-, Prozess-, Pfad- und Netzwerkgrenzen.",
+      "Worker führt genau einen begrenzten Adapterlauf im isolierten Verifikationscontainer aus.",
+      "Adapter normalisiert Toolausgabe in geschlossene Ergebnisverträge und legt begrenzte Artefakte im taskgebundenen Workspace ab.",
+      "Hub prüft Lease, Digests, Repository-Revision, Profil, Artefaktgröße und Ergebnisstatus vor der Annahme.",
+      "Ein konkretes Gegenbeispiel wird unter normalem CPython und Pytest ohne symbolische Proxywerte reproduziert.",
+      "Nur reproduzierbare Ergebnisse dürfen Review, Regressionstest-Vorschlag oder Release-Gate beeinflussen."
+    ],
+    "ports": [
+      "PropertyTestRunnerPort",
+      "SymbolicContractCheckerPort",
+      "BehaviorDiffRunnerPort",
+      "CounterexampleMaterializerPort",
+      "VerificationArtifactPublisherPort"
+    ],
+    "adapters": [
+      "PytestHypothesisRunnerAdapter",
+      "CrossHairCheckAdapter",
+      "HypothesisCrossHairBackendAdapter",
+      "CrossHairCoverAdapter",
+      "CrossHairDiffBehaviorAdapter",
+      "FakeVerificationRunnerAdapter"
+    ],
+    "suggested_location": [
+      "worker/verification/",
+      "agent/services/verification_profiles.py",
+      "agent/services/verification_result_ingress.py",
+      "ananta_contracts/verification.py",
+      "docs/schemas/verification_*.schema.json",
+      "config/verification/"
+    ],
+    "result_statuses": [
+      "passed",
+      "counterexample_found",
+      "failed_to_reproduce",
+      "inconclusive",
+      "unsupported",
+      "timed_out",
+      "policy_denied",
+      "tool_error"
+    ],
+    "artifacts": [
+      {
+        "schema": "ananta.property_test_report.v1",
+        "minimum_fields": [
+          "run_ref",
+          "repository_revision",
+          "target_symbols",
+          "profile",
+          "backend",
+          "seed_or_database_digest",
+          "cases_executed",
+          "status",
+          "duration_ms"
+        ]
+      },
+      {
+        "schema": "ananta.counterexample.v1",
+        "minimum_fields": [
+          "run_ref",
+          "property_ref",
+          "target_symbol",
+          "concrete_arguments",
+          "observed_result",
+          "expected_property",
+          "minimality_note",
+          "reproduction_command",
+          "redaction_status"
+        ]
+      },
+      {
+        "schema": "ananta.behavior_diff_report.v1",
+        "minimum_fields": [
+          "run_ref",
+          "base_revision",
+          "candidate_revision",
+          "symbol_pair",
+          "concrete_arguments",
+          "base_behavior",
+          "candidate_behavior",
+          "status"
+        ]
+      },
+      {
+        "schema": "ananta.generated_test_candidate.v1",
+        "minimum_fields": [
+          "run_ref",
+          "source_counterexample_digest",
+          "test_code",
+          "reproduced_without_symbolic_runtime",
+          "review_status",
+          "promotion_status"
+        ]
+      }
+    ]
+  },
+  "verification_profiles": {
+    "pr_fast": {
+      "purpose": "Kleine, stabile Hypothesis-Suite auf geänderten reinen Komponenten.",
+      "requirements": [
+        "Feste Maximaldauer und maximale Beispiele pro Test.",
+        "Keine externen Dienste.",
+        "Bekannte flakige oder zu langsame Properties werden nicht still xfail, sondern separat klassifiziert.",
+        "Hypothesis-Beispieldatenbank in CI kontrolliert konfigurieren; keine ungebundene globale Zustandsübernahme."
+      ]
+    },
+    "pr_targeted_symbolic": {
+      "purpose": "Explizit ausgewählte CrossHair-Checks oder diffbehavior-Läufe für risikoreiche Änderungen.",
+      "requirements": [
+        "Nur allowlistete Module und Symbole.",
+        "Kurze per-path- und per-condition-Budgets.",
+        "Read-only Source-Mounts; beschreibbar nur taskgebundener Output.",
+        "Netzwerk aus; keine Secrets; keine produktiven Credentials."
+      ]
+    },
+    "nightly_deep": {
+      "purpose": "Größere, aber weiterhin begrenzte Hypothesis- und CrossHair-Matrix.",
+      "requirements": [
+        "Separate Jobs pro Zielgruppe und Python-Version.",
+        "Globale CPU-, RAM-, Prozess- und Laufzeitgrenzen.",
+        "Timeouts und unsupported sind eigene Ergebnisse.",
+        "Ergebnisse werden mit Tool-, Solver-, Python- und Profilversion gebunden."
+      ]
+    },
+    "manual_investigation": {
+      "purpose": "Reproduzierbare lokale Diagnose eines bekannten Gegenbeispiels.",
+      "requirements": [
+        "Exakter Seed beziehungsweise konkrete Argumente.",
+        "Gleiche Repository-Revision und Abhängigkeitsauflösung.",
+        "Keine Aufwertung zu Produktionsevidenz ohne vorab reservierten Hub-Lauf."
+      ]
+    }
+  },
+  "security_requirements": [
+    "CrossHair läuft immer in einem dedizierten Worker-Container oder gleichwertig isolierten Prozessprofil; ein bloßer Python-Audit-Hook gilt nicht als Sicherheitsgrenze.",
+    "Standardmäßig kein Netzwerk, keine Docker-Socket-Mounts, keine SSH-Agenten, keine Cloud-Credentials und keine produktiven Secrets.",
+    "Quellcode und Baseline-Worktree werden read-only eingebunden; nur ein eng begrenztes taskgebundenes Verzeichnis ist beschreibbar.",
+    "Ausführung erfolgt als unprivilegierter Benutzer mit no-new-privileges, begrenzten Capabilities, CPU-, RAM-, PIDs-, Dateigrößen- und Zeitlimits.",
+    "Subprocess-, Dateisystem-, Netzwerk- und dynamische Importversuche werden protokolliert und gemäß Profil geblockt.",
+    "C-Erweiterungen, native Bibliotheken und unbekannte Plugins erweitern die Angriffsfläche und müssen im Profil explizit erlaubt oder ausgeschlossen werden.",
+    "CrossHair --unblock EVERYTHING ist in produktiven Profilen verboten.",
+    "Gegenbeispiele und Toolausgaben durchlaufen Größenbegrenzung und Secret-Redaction, bevor sie den Worker verlassen.",
+    "Konkrete Reproduktion erfolgt in einem frischen Prozess ohne symbolische Proxywerte.",
+    "Toolfehler, Solver-Unknown, Timeout und Erschöpfung dürfen nie zu passed normalisiert werden."
+  ],
+  "license_and_supply_chain": [
+    "Hypothesis als externe Entwicklungsabhängigkeit unter MPL-2.0 behandeln; Änderungen oder Vendoring separat juristisch und technisch prüfen.",
+    "CrossHair-LICENSE und enthaltene MIT-, Apache-2.0- und PSF-Hinweise in SBOM und Third-Party-Notices abbilden.",
+    "hypothesis-crosshair als eigene Transitivabhängigkeit mit Version, Herkunft, Lizenz und Maintainerstatus prüfen.",
+    "Z3-Solver und weitere native/transitive Pakete vollständig in SBOM und Vulnerability-Scan aufnehmen.",
+    "Keine Upstream-Quellen in Ananta kopieren, solange ein normaler optionaler Paketbezug genügt.",
+    "Abhängigkeiten nur in einem optionalen Extra oder separaten Verifikations-Worker-Image aufnehmen."
+  ],
+  "milestones": [
+    {
+      "id": "PHSV-M1",
+      "title": "Eignung und Zielkatalog",
+      "task_ids": [
+        "PHSV-001",
+        "PHSV-002"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-M2",
+      "title": "Verträge, Adapter und Isolation",
+      "task_ids": [
+        "PHSV-003",
+        "PHSV-004"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-M3",
+      "title": "Werkzeug-Prototypen",
+      "task_ids": [
+        "PHSV-005",
+        "PHSV-006",
+        "PHSV-007",
+        "PHSV-008",
+        "PHSV-009"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-M4",
+      "title": "Reproduktion und Ananta-Integration",
+      "task_ids": [
+        "PHSV-010",
+        "PHSV-011"
+      ],
+      "status": "todo"
+    },
+    {
+      "id": "PHSV-M5",
+      "title": "CI, Messung und Rollout",
+      "task_ids": [
+        "PHSV-012",
+        "PHSV-013"
+      ],
+      "status": "todo"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "PHSV-001",
+      "title": "Upstream-, Lizenz- und Kompatibilitätsbaseline verifizieren",
+      "type": "research",
+      "milestone_id": "PHSV-M1",
+      "status": "todo",
+      "priority": "P1",
+      "risk": "low",
+      "progress_percent": 0,
+      "details": [
+        "Aktuelle Releases und Python-Kompatibilität von Hypothesis, CrossHair, hypothesis-crosshair und Z3 prüfen.",
+        "Lizenzdateien, SBOM-Auswirkungen, Wheel-Verfügbarkeit und native Komponenten dokumentieren.",
+        "Eine getestete Versionsmatrix für die von Ananta unterstützten CPython-Versionen festlegen.",
+        "Upstream-Alpha-Status und bekannte Limitierungen ausdrücklich in ADR und Dokumentation übernehmen."
+      ],
+      "deliverables": [
+        "Kompatibilitätsmatrix",
+        "Lizenz- und SBOM-Notiz",
+        "Entscheidung zu optionalem Extra gegenüber separatem Worker-Image"
+      ],
+      "acceptance_criteria": [
+        "Alle direkten und transitiven Kernabhängigkeiten besitzen dokumentierte Version, Herkunft und Lizenz.",
+        "Mindestens Linux und Anantas unterstützte CPython-Versionen sind durch Installations-Smokes abgedeckt.",
+        "Keine beobachtete Versionsnummer wird ohne erneute Prüfung als dauerhafter Pin übernommen."
+      ]
+    },
+    {
+      "id": "PHSV-002",
+      "title": "Ananta-Kandidaten und prüfbare Properties inventarisieren",
+      "type": "analysis",
+      "milestone_id": "PHSV-M1",
+      "depends_on": [
+        "PHSV-001"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "CodeCompass-Snapshot und Repository-Analyse verwenden, um kleine typisierte und deterministische Funktionen zu priorisieren.",
+        "Vorhandene Assertions, Pydantic-Constraints, Dataclasses, Enum-Zustände, vorhandene Tests und dokumentierte Invarianten erfassen.",
+        "Seiteneffekte, globale Zustände, Zeit, Zufall, UUIDs, Netzwerk, Datenbank und Dateisystem als Eignungsrisiken markieren.",
+        "Für jeden Kandidaten die Property-Herkunft als existing_contract, existing_test, schema_constraint, documented_invariant oder proposed markieren."
+      ],
+      "deliverables": [
+        "Priorisierte Kandidatenliste",
+        "Property-Katalog mit Herkunft und Verantwortlichem",
+        "Ausschlussliste nicht geeigneter Ziele"
+      ],
+      "acceptance_criteria": [
+        "Mindestens 15 konkrete Kandidaten aus Verträgen, Policies, Zustandsmaschinen und Transformationen sind bewertet.",
+        "Mindestens fünf Pilot-Properties stammen aus bestehenden autoritativen Verträgen oder Tests und nicht allein aus LLM-Vermutungen.",
+        "Jeder Kandidat enthält Seiteneffekt-, Determinismus-, Typisierungs- und Laufzeitbewertung."
+      ]
+    },
+    {
+      "id": "PHSV-003",
+      "title": "Verifikationsports und geschlossene Ergebnisverträge definieren",
+      "type": "architecture",
+      "milestone_id": "PHSV-M2",
+      "depends_on": [
+        "PHSV-001",
+        "PHSV-002"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "Kleine Ports für Property-Test, Contract-Check, Behavior-Diff, Materialisierung und Artefaktpublikation definieren.",
+        "Ergebnisstatus so modellieren, dass timeout, unsupported, inconclusive und failed_to_reproduce nicht mit passed verschmelzen.",
+        "Hub-reservierte RUN-Bindung, Repository-Revision, Toolchain-Digest und Profil-Digest in jedem Ergebnisvertrag verlangen.",
+        "Tool-spezifische Rohdaten hinter Adaptern halten; Kernmodule dürfen keine CrossHair- oder Hypothesis-Typen importieren."
+      ],
+      "solid_review": {
+        "srp": "Ausführung, Ergebnisnormalisierung, Reproduktion und Hub-Ingress bleiben getrennte Verantwortlichkeiten.",
+        "ocp_dip": "Neue Verifikationswerkzeuge werden über Ports ergänzt; Hub und Fachlogik hängen nicht von konkreten Tools ab.",
+        "isp": "Keine universelle God-Interface; Property, Contract und Behavior-Diff verwenden fokussierte Ports.",
+        "lsp": "Fake-, Hypothesis- und CrossHair-Adapter müssen dieselben Status- und Fehlersemantiken erfüllen."
+      },
+      "acceptance_criteria": [
+        "JSON-Schemas und Python-Vertragstypen validieren alle vorgesehenen Erfolgs-, Gegenbeispiel-, Timeout- und Fehlerzustände.",
+        "Ein unbekannter oder unvollständiger Worker-Status wird fail-closed abgelehnt.",
+        "Architekturtests belegen, dass Hub-Fachmodule keine konkreten Verifikationspakete importieren."
+      ]
+    },
+    {
+      "id": "PHSV-004",
+      "title": "Isoliertes Verifikations-Worker-Profil härten",
+      "type": "security",
+      "milestone_id": "PHSV-M2",
+      "depends_on": [
+        "PHSV-003"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "Separates Containerprofil ohne Netzwerk, Secrets, Docker-Socket oder privilegierte Capabilities bereitstellen.",
+        "Read-only Source- und Baseline-Mounts sowie begrenzten taskgebundenen Output konfigurieren.",
+        "CPU-, RAM-, PIDs-, Prozess-, Dateigrößen- und Wallclock-Limits erzwingen.",
+        "Versuche auf Netzwerk, Shell, fremde Pfade und native Seiteneffekte mit adversarialen Fixtures prüfen.",
+        "CrossHair-Flags und Plugins über feste Allowlist statt frei zusammensetzbarer Kommandozeile konfigurieren."
+      ],
+      "acceptance_criteria": [
+        "Ein Testmodul kann weder Netzwerk noch Host-Dateien, Docker-Socket oder injizierte Secrets erreichen.",
+        "Timeout und Ressourcenüberschreitung enden innerhalb eines definierten Gesamtbudgets mit maschinenlesbarem Status.",
+        "Die Profile erlauben weder --unblock EVERYTHING noch ungeprüfte Plugins.",
+        "Ein Worker kann keine Evidenzidentität prägen, Aufgaben erzeugen oder Hub-Policies erweitern."
+      ]
+    },
+    {
+      "id": "PHSV-005",
+      "title": "Hypothesis-Pilot für reine Properties implementieren",
+      "type": "implementation",
+      "milestone_id": "PHSV-M3",
+      "depends_on": [
+        "PHSV-002",
+        "PHSV-003",
+        "PHSV-004"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "Hypothesis nur als optionales Dev-/Worker-Paket integrieren.",
+        "Pilot-Properties für Roundtrip, Idempotenz, Grenzwerte, Permission-Monotonie und Parserstabilität umsetzen.",
+        "Strategien aus Typen und fachlichen Constraints ableiten; übermäßiges assume und unrealistische Werte vermeiden.",
+        "Seed, Profil, Datenbankmodus, maximale Beispiele und Deadline kontrolliert erfassen.",
+        "Gefundene Beispiele minimieren und als konkrete Pytest-Reproduktion ausgeben."
+      ],
+      "acceptance_criteria": [
+        "Mindestens zehn sinnvolle Properties aus mindestens vier Zielklassen laufen reproduzierbar.",
+        "Eine absichtlich fehlerhafte Fixture erzeugt ein minimiertes Gegenbeispiel.",
+        "Ein gespeichertes konkretes Gegenbeispiel schlägt ohne Hypothesis-Generierung erneut fehl.",
+        "Zwei identische profilgebundene Läufe liefern dieselbe Ergebnisclassification."
+      ]
+    },
+    {
+      "id": "PHSV-006",
+      "title": "CrossHair check und cover als begrenzte Adapter erproben",
+      "type": "implementation",
+      "milestone_id": "PHSV-M3",
+      "depends_on": [
+        "PHSV-002",
+        "PHSV-003",
+        "PHSV-004"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "Für den Pilot die geringste tragfähige Contract-Syntax auswählen; reguläre Assertions bevorzugen, zusätzliche Bibliotheken nur bei klarem Nutzen.",
+        "crosshair check für explizite Contracts und crosshair cover für Testkandidaten getrennt kapseln.",
+        "Textuelle Upstream-Ausgabe robust normalisieren und durch Versionsfixtures absichern.",
+        "Unsupported, NotDeterministic, Solver-Unknown, Toolfehler und Timeout getrennt abbilden.",
+        "Generierte cover-Tests lediglich als Kandidaten behandeln und semantisch nicht automatisch übernehmen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens fünf geeignete Ananta-Funktionen werden mit begrenztem Budget analysiert.",
+        "Eine fehlerhafte Assertion liefert ein konkret reproduzierbares Gegenbeispiel.",
+        "Kein Gegenbeispiel innerhalb des Budgets wird als inconclusive oder passed_with_bounded_search beschrieben, nicht als Korrektheitsbeweis.",
+        "Side-Effect- und Nichtdeterminismus-Fixtures werden sicher und verständlich abgewiesen."
+      ]
+    },
+    {
+      "id": "PHSV-007",
+      "title": "CrossHair als Hypothesis-Backend evaluieren",
+      "type": "experiment",
+      "milestone_id": "PHSV-M3",
+      "depends_on": [
+        "PHSV-005",
+        "PHSV-006"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "Ausgewählte bestehende Properties zusätzlich mit settings(backend='crosshair') ausführen.",
+        "Normales Hypothesis-Backend und CrossHair-Backend hinsichtlich gefundener Bugs, Laufzeit, Shrinking und Unsupported-Raten vergleichen.",
+        "Schwer erfüllbare Gleichheits- und Branch-Bedingungen als gezielte Benchmarkfälle verwenden.",
+        "Backend-spezifische xfails nur mit Reason-Code, Owner und Ablaufdatum zulassen."
+      ],
+      "acceptance_criteria": [
+        "Mindestens fünf Properties laufen mit beiden Backends.",
+        "Mindestens ein Benchmark zeigt nachvollziehbar, wann solvergestützte Generierung Mehrwert bringt oder keinen Mehrwert liefert.",
+        "Backend-Abbruch und nicht realisierbare symbolische Werte erzeugen keine falschen erfolgreichen Beobachtungen.",
+        "Die Entscheidung für PR-, Nightly- oder Experimentstatus ist messwertbasiert dokumentiert."
+      ]
+    },
+    {
+      "id": "PHSV-008",
+      "title": "Patch-Verhaltensvergleich mit diffbehavior prototypisieren",
+      "type": "implementation",
+      "milestone_id": "PHSV-M3",
+      "depends_on": [
+        "PHSV-003",
+        "PHSV-004",
+        "PHSV-006"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "Basis- und Patch-Revision in getrennten read-only Worktrees beziehungsweise Images laden.",
+        "Nur explizit gemappte, typisierte und kleine Symbolpaare vergleichen.",
+        "Rückgaben, definierte Exceptions und argumentseitige Mutationen mit konfigurierbarer Äquivalenz erfassen.",
+        "Erwartete Verhaltensänderungen von unerwarteten Regressionen durch reviewbare Delta-Policy trennen.",
+        "No difference found stets mit Budget, Iterationen und inconclusive-Hinweis versehen."
+      ],
+      "acceptance_criteria": [
+        "Ein absichtlich semantikverändernder Patch liefert konkrete Eingaben und beide beobachteten Verhaltensweisen.",
+        "Ein äquivalenter Pilot-Refactor läuft innerhalb des Budgets ohne erfundene Vollständigkeitsbehauptung.",
+        "Baseline und Patch sind unveränderlich an Commit-Digests gebunden.",
+        "Temporäre Worktrees werden nur nach Zielprüfung aufgeräumt; Nutzeränderungen werden nie gelöscht."
+      ]
+    },
+    {
+      "id": "PHSV-009",
+      "title": "Zustandsbasierte Tests für Lebenszyklen einführen",
+      "type": "implementation",
+      "milestone_id": "PHSV-M3",
+      "depends_on": [
+        "PHSV-002",
+        "PHSV-005"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "Hypothesis RuleBasedStateMachine für mindestens eine reine Modellzustandsmaschine verwenden.",
+        "Invarianten für terminale Zustände, verbotene Übergänge, Idempotenz, Abhängigkeitsfreigabe und Replay formulieren.",
+        "Produktive Persistence und externe Dienste durch deterministische In-Memory-Ports ersetzen.",
+        "Gefundene Aktionssequenzen minimieren und als lesbare Regressionsszenarien materialisieren."
+      ],
+      "acceptance_criteria": [
+        "Mindestens zwei Lebenszyklen oder Policy-Zustandsmodelle sind abgedeckt.",
+        "Eine absichtlich fehlerhafte Transition erzeugt eine minimierte reproduzierbare Aktionsfolge.",
+        "Tests sind vollständig headless und warten nie auf menschliche Freigaben.",
+        "Test-Doubles können keine Produktionsfreigaben oder Produktionsevidenz erzeugen."
+      ]
+    },
+    {
+      "id": "PHSV-010",
+      "title": "Gegenbeispiele konkretisieren und Regressionstest-Promotion absichern",
+      "type": "implementation",
+      "milestone_id": "PHSV-M4",
+      "depends_on": [
+        "PHSV-005",
+        "PHSV-006",
+        "PHSV-007",
+        "PHSV-008",
+        "PHSV-009"
+      ],
+      "status": "todo",
+      "priority": "P0",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "Symbolische Werte vollständig in konkrete JSON- beziehungsweise Python-rekonstruierbare Werte überführen.",
+        "Gegenbeispiel in frischem Prozess mit normalem CPython und festem Repositoryzustand reproduzieren.",
+        "Nicht reproduzierbare Ergebnisse als failed_to_reproduce isolieren und nicht als Gate-Fehler verwenden.",
+        "Generierten Testcode auf Overspecification, private Implementierungsdetails, volatile Werte und Seiteneffekte prüfen.",
+        "Promotion als expliziten Hub-kontrollierten, digestgebundenen Schritt modellieren."
+      ],
+      "acceptance_criteria": [
+        "Jeder gate-wirksame Fehler besitzt eine konkrete, eigenständig ausführbare Reproduktion.",
+        "Symbolische Proxywerte oder Tool-interne Objekte gelangen nicht in dauerhafte Tests.",
+        "Ein geänderter Testkandidat invalidiert eine vorherige Promotion.",
+        "Automatische Runs können mit deterministischer Policy freigegeben oder begrenzt blockiert werden, warten aber nie interaktiv."
+      ]
+    },
+    {
+      "id": "PHSV-011",
+      "title": "CodeCompass-Auswahl und Hub-Worker-Flow anbinden",
+      "type": "integration",
+      "milestone_id": "PHSV-M4",
+      "depends_on": [
+        "PHSV-003",
+        "PHSV-004",
+        "PHSV-010"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "high",
+      "progress_percent": 0,
+      "details": [
+        "CodeCompass liefert geänderte Symbole, Callgraph-Nähe, Typisierung, bekannte Tests und Seiteneffektindikatoren.",
+        "Ein deterministischer Hub-Service bewertet Eignung, Risiko, Profil und Budget; LLM-Text darf keine Toolrechte aktivieren.",
+        "Worker erhält eine geschlossene Assignment-Projektion mit exakten Zielen und keinerlei freier Repository-Suche außerhalb des Scopes.",
+        "Ergebnisse werden über den bestehenden Hub-Evidence- und Artefakt-Ingress angenommen.",
+        "Diagnose zeigt Auswahlgrund, ausgelassene Ziele, Profile, Budgets und Ergebnisstatus."
+      ],
+      "acceptance_criteria": [
+        "Der Hub delegiert genau einen bounded Verification Run und bleibt Eigentümer aller Folgeentscheidungen.",
+        "Worker kann weder Zielscope noch Toolprofil, Netzwerkrechte, Budget oder Evidenzbindung erweitern.",
+        "CodeCompass-Ausfall führt zu einem sichtbaren begrenzten Fallback auf explizite Ziele, nicht zu Vollrepository-Analyse.",
+        "Doppelte Ergebnisübermittlung ist idempotent; stale Lease und falscher Commit werden abgelehnt."
+      ]
+    },
+    {
+      "id": "PHSV-012",
+      "title": "PR-, Targeted- und Nightly-CI-Profile ausrollen",
+      "type": "ci",
+      "milestone_id": "PHSV-M5",
+      "depends_on": [
+        "PHSV-007",
+        "PHSV-008",
+        "PHSV-009",
+        "PHSV-010",
+        "PHSV-011"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "Schnelle stabile Hypothesis-Properties in das PR-Profil aufnehmen.",
+        "Gezielte CrossHair-Checks nur für allowlistete risikoreiche Änderungen oder explizite Labels ausführen.",
+        "Tiefe und breitere Matrix in Nightly-Jobs verschieben.",
+        "Versionen, Seed, Datenbankmodus, Solver, Python, Budget, Commit und Profil als Run-Metadaten speichern.",
+        "Flake-, Timeout-, Unsupported- und Gegenbeispielraten getrennt messen."
+      ],
+      "acceptance_criteria": [
+        "PR-Fast-Profil besitzt ein festes Laufzeitbudget und überschreitet den vereinbarten Median nicht.",
+        "Nightly-Ausfälle sind auf konkrete Ziele und Reason-Codes zurückführbar.",
+        "Timeout oder Unsupported blockiert Releases nur nach expliziter Policy und nie durch implizite Statusgleichsetzung.",
+        "Mindestens 20 Wiederholungsläufe der Fast-Suite zeigen keine unbegründete Flakiness."
+      ]
+    },
+    {
+      "id": "PHSV-013",
+      "title": "Pilot messen, dokumentieren und Go-No-Go je Fähigkeit entscheiden",
+      "type": "release",
+      "milestone_id": "PHSV-M5",
+      "depends_on": [
+        "PHSV-012"
+      ],
+      "status": "todo",
+      "priority": "P1",
+      "risk": "medium",
+      "progress_percent": 0,
+      "details": [
+        "Gefundene einzigartige Fehler, False Positives, Inconclusive-, Unsupported- und Timeout-Raten erfassen.",
+        "Einrichtungs- und Wartungsaufwand sowie CI-Zeit pro Fähigkeit messen.",
+        "Dokumentation für Property-Design, Contract-Syntax, Isolation, Profile, Diagnose, Grenzen und Deinstallation erstellen.",
+        "Getrennte Entscheidungen für Hypothesis-Core, stateful testing, CrossHair check, CrossHair backend, cover und diffbehavior treffen.",
+        "Feature-Flags standardmäßig deaktiviert lassen, bis jeweilige Gates bestanden sind."
+      ],
+      "acceptance_criteria": [
+        "Ein ADR enthält getrennte Go-, Hold- oder No-Go-Entscheidungen für jede Fähigkeit.",
+        "Mindestens ein reales oder kontrolliert eingesätes relevantes Gegenbeispiel ist vollständig vom Hub-Run bis zur konkreten Reproduktion nachvollziehbar.",
+        "Sicherheits-, Lizenz-, SOLID- und Betriebsreview sind abgeschlossen.",
+        "Dokumentation sagt ausdrücklich, dass kein gefundenes Gegenbeispiel keinen Korrektheitsbeweis darstellt.",
+        "Deaktivierung entfernt alle CI- und Runtime-Effekte, ohne bestehende Pytest-Pfade zu beschädigen."
+      ]
+    }
+  ],
+  "critical_path_tasks": [
+    "PHSV-001",
+    "PHSV-002",
+    "PHSV-003",
+    "PHSV-004",
+    "PHSV-005",
+    "PHSV-006",
+    "PHSV-007",
+    "PHSV-010",
+    "PHSV-011",
+    "PHSV-012",
+    "PHSV-013"
+  ],
+  "tasks_status_summary": {
+    "total": 13,
+    "by_status": {
+      "todo": 13,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    },
+    "progress_percent_done": 0,
+    "by_priority": {
+      "P0": 6,
+      "P1": 7,
+      "P2": 0
+    },
+    "by_risk": {
+      "low": 1,
+      "medium": 6,
+      "high": 6,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 11,
+      "done": 0,
+      "remaining": 11
+    },
+    "milestones": {
+      "total": 5,
+      "todo": 5,
+      "in_progress": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 13,
+    "by_type": {
+      "research": 1,
+      "analysis": 1,
+      "architecture": 1,
+      "security": 1,
+      "implementation": 6,
+      "experiment": 1,
+      "integration": 1,
+      "ci": 1,
+      "release": 1
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 13,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 0
+  },
+  "decision_gates": [
+    {
+      "id": "DG-1",
+      "name": "Pilotzulassung",
+      "condition": "PHSV-001 bis PHSV-004 abgeschlossen; kompatible Toolchain und wirksame Isolation nachgewiesen."
+    },
+    {
+      "id": "DG-2",
+      "name": "Gezielte CI-Zulassung",
+      "condition": "Gegenbeispiele reproduzierbar; keine Statusverwechslung; Fast- und Targeted-Budgets stabil."
+    },
+    {
+      "id": "DG-3",
+      "name": "Standardaktivierung je Fähigkeit",
+      "condition": "Messbarer Zusatznutzen, vertretbare Flakiness und Laufzeit, abgeschlossene Security-/Lizenzprüfung sowie dokumentierte Deaktivierung."
+    }
+  ],
+  "risks": [
+    {
+      "risk": "Falsches Sicherheitsgefühl durch solvergestützte Analyse",
+      "mitigation": "Jeden Bericht budgetgebunden formulieren; inconclusive sichtbar halten; keine Beweis-Sprache; normale Tests und Reviews beibehalten."
+    },
+    {
+      "risk": "Seiteneffekte beim tatsächlichen Ausführen analysierten Codes",
+      "mitigation": "Verifikationscontainer als primäre Sicherheitsgrenze; keine Secrets oder Netzwerke; read-only Mounts; adversariale Tests."
+    },
+    {
+      "risk": "CI-Laufzeit und instabile Ergebnisse",
+      "mitigation": "Gestufte Profile, feste Budgets, zielgenaue Auswahl, Seeds und konkrete Reproduktion; tiefe Analyse nur Nightly."
+    },
+    {
+      "risk": "LLM erfindet falsche Properties und zementiert unerwünschtes Verhalten",
+      "mitigation": "Property-Herkunft erfassen; autoritative Verträge bevorzugen; LLM-Vorschläge reviewen; Testpromotion separat genehmigen."
+    },
+    {
+      "risk": "CrossHair unterstützt Bibliotheks- oder C-Extension-Verhalten unvollständig",
+      "mitigation": "Unsupported statt passed; kleine reine Kerne priorisieren; Kompatibilitätsfixtures; normale Reproduktion verlangen."
+    },
+    {
+      "risk": "diffbehavior übersieht Unterschiede",
+      "mitigation": "No difference found nie als Äquivalenzbeweis behandeln; Budgets ausweisen; Beispiel- und Integrationstests ergänzen."
+    },
+    {
+      "risk": "Generated tests prüfen nur die aktuelle Implementierung statt die gewünschte Semantik",
+      "mitigation": "cover-Ausgaben als Kandidaten kennzeichnen; Assertions aus autoritativen Properties ableiten; Review vor Promotion."
+    },
+    {
+      "risk": "Werkzeugabhängigkeiten belasten Core-Installation und Supply Chain",
+      "mitigation": "Optionales Extra oder separates Image, SBOM, Versionsmatrix, Scanner und reproduzierbare Locks."
+    }
+  ],
+  "metrics": [
+    "unique_counterexamples_found",
+    "counterexamples_reproduced",
+    "failed_to_reproduce_rate",
+    "properties_by_authority_source",
+    "crosshair_unsupported_rate",
+    "symbolic_timeout_rate",
+    "hypothesis_flake_rate",
+    "median_and_p95_runtime_by_profile",
+    "ci_minutes_per_unique_counterexample",
+    "generated_test_candidates_promoted",
+    "regressions_prevented_by_promoted_tests"
+  ],
+  "summary_notes": [
+    "Empfehlung: zuerst Hypothesis auf kleinen reinen Komponenten etablieren; danach CrossHair gezielt und isoliert ergänzen.",
+    "Der größte spezifische Ananta-Nutzen liegt voraussichtlich bei Zustandsmaschinen, Policies, Datenverträgen, Idempotenz und Patch-Verhaltensvergleichen.",
+    "Der kombinierte Hypothesis-CrossHair-Pfad ist attraktiv, bleibt bis zu eigenen Benchmarks experimentell.",
+    "CrossHair eignet sich nicht für eine pauschale Vollrepository-Prüfung und darf wegen realer Codeausführung nicht im normalen Hub-Prozess laufen."
+  ],
+  "references": [
+    {
+      "title": "CrossHair Repository und Übersicht",
+      "url": "https://github.com/pschanely/CrossHair"
+    },
+    {
+      "title": "CrossHair Dokumentation",
+      "url": "https://crosshair.readthedocs.io/en/latest/"
+    },
+    {
+      "title": "CrossHair Contract-Arten",
+      "url": "https://crosshair.readthedocs.io/en/latest/kinds_of_contracts.html"
+    },
+    {
+      "title": "CrossHair cover",
+      "url": "https://crosshair.readthedocs.io/en/latest/cover.html"
+    },
+    {
+      "title": "CrossHair diffbehavior",
+      "url": "https://crosshair.readthedocs.io/en/latest/diff_behavior.html"
+    },
+    {
+      "title": "CrossHair Limitierungen",
+      "url": "https://crosshair.readthedocs.io/en/latest/limitations.html"
+    },
+    {
+      "title": "Hypothesis Repository",
+      "url": "https://github.com/HypothesisWorks/hypothesis"
+    },
+    {
+      "title": "Hypothesis Dokumentation",
+      "url": "https://hypothesis.readthedocs.io/en/latest/"
+    },
+    {
+      "title": "Hypothesis alternative Backends",
+      "url": "https://hypothesis.readthedocs.io/en/latest/extensions.html#alternative-backends-for-hypothesis"
+    },
+    {
+      "title": "Hypothesis stateful testing",
+      "url": "https://hypothesis.readthedocs.io/en/latest/stateful.html"
+    },
+    {
+      "title": "hypothesis-crosshair",
+      "url": "https://github.com/pschanely/hypothesis-crosshair"
+    }
+  ]
+}
