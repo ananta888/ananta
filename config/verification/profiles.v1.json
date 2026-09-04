@@ -1,0 +1,60 @@
+{
+  "schema": "ananta.verification-profiles.v1",
+  "profiles": [
+    {
+      "profile_id": "hypothesis-pr-fast",
+      "backend": "hypothesis",
+      "enabled": true,
+      "release_gate": true,
+      "network": "none",
+      "filesystem": "task_workspace_only",
+      "allow_plugins": false,
+      "allow_unblock_everything": false,
+      "budgets": {"timeout_seconds": 45, "max_cases": 100, "max_targets": 20, "max_output_bytes": 262144, "max_processes": 1, "memory_mb": 1024}
+    },
+    {
+      "profile_id": "crosshair-targeted",
+      "backend": "crosshair_check",
+      "enabled": true,
+      "release_gate": false,
+      "network": "none",
+      "filesystem": "task_workspace_only",
+      "allow_plugins": false,
+      "allow_unblock_everything": false,
+      "budgets": {"timeout_seconds": 60, "max_cases": 500, "max_targets": 10, "max_output_bytes": 262144, "max_processes": 1, "memory_mb": 1536}
+    },
+    {
+      "profile_id": "crosshair-cover-targeted",
+      "backend": "crosshair_cover",
+      "enabled": true,
+      "release_gate": false,
+      "network": "none",
+      "filesystem": "task_workspace_only",
+      "allow_plugins": false,
+      "allow_unblock_everything": false,
+      "budgets": {"timeout_seconds": 60, "max_cases": 500, "max_targets": 5, "max_output_bytes": 262144, "max_processes": 1, "memory_mb": 1536}
+    },
+    {
+      "profile_id": "crosshair-backend-nightly",
+      "backend": "crosshair_backend",
+      "enabled": true,
+      "release_gate": false,
+      "network": "none",
+      "filesystem": "task_workspace_only",
+      "allow_plugins": false,
+      "allow_unblock_everything": false,
+      "budgets": {"timeout_seconds": 300, "max_cases": 500, "max_targets": 20, "max_output_bytes": 524288, "max_processes": 1, "memory_mb": 2048}
+    },
+    {
+      "profile_id": "crosshair-diff-experimental",
+      "backend": "crosshair_diff",
+      "enabled": true,
+      "release_gate": false,
+      "network": "none",
+      "filesystem": "task_workspace_only",
+      "allow_plugins": false,
+      "allow_unblock_everything": false,
+      "budgets": {"timeout_seconds": 60, "max_cases": 500, "max_targets": 2, "max_output_bytes": 262144, "max_processes": 1, "memory_mb": 1536}
+    }
+  ]
+}

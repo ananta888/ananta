@@ -1,0 +1,23 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://ananta.dev/schemas/verification/assignment.v1.schema.json",
+  "title":"Verification Assignment v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema","evidence_assignment","repository_revision","profile_id","profile_digest","toolchain_digest","backend","target_symbols","budgets"],
+  "properties":{
+    "schema":{"const":"ananta.verification-assignment.v1"},
+    "evidence_assignment":{"$ref":"#/$defs/evidence_assignment"},
+    "repository_revision":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "profile_id":{"type":"string","minLength":1,"maxLength":192},
+    "profile_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "toolchain_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},
+    "backend":{"enum":["hypothesis","crosshair_check","crosshair_cover","crosshair_backend","crosshair_diff"]},
+    "target_symbols":{"type":"array","minItems":1,"maxItems":100,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":256}},
+    "budgets":{"$ref":"#/$defs/budgets"}
+  },
+  "$defs":{
+    "evidence_assignment":{"type":"object","additionalProperties":false,"required":["schema","run_id","task_id","assignment_id","dispatch_lease_id","source_ids","evidence_scope","binding_digest","projection_digest"],"properties":{"schema":{"const":"ananta.hub-evidence-assignment.v1"},"run_id":{"type":"string","pattern":"^RUN_"},"task_id":{"type":"string","minLength":1},"assignment_id":{"type":"string","minLength":1},"dispatch_lease_id":{"type":"string","minLength":1},"source_ids":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^SRC_"}},"evidence_scope":{"enum":["test","local","external","production"]},"binding_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},"projection_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"}}},
+    "budgets":{"type":"object","additionalProperties":false,"required":["timeout_seconds","max_cases","max_targets","max_output_bytes","max_processes","memory_mb"],"properties":{"timeout_seconds":{"type":"integer","minimum":1,"maximum":3600},"max_cases":{"type":"integer","minimum":1,"maximum":1000000},"max_targets":{"type":"integer","minimum":1,"maximum":100},"max_output_bytes":{"type":"integer","minimum":256,"maximum":10000000},"max_processes":{"type":"integer","minimum":1,"maximum":4},"memory_mb":{"type":"integer","minimum":64,"maximum":16384}}}
+  }
+}

@@ -164,6 +164,13 @@ dspy = [
     # requires assignment-bound source evidence.
     "dspy==3.2.1",
 ]
+verification = [
+    # Optional, execution-only verification stack. Core and Hub modules depend
+    # solely on ananta_contracts.verification and never import these packages.
+    "hypothesis==6.167.1",
+    "crosshair-tool==0.0.110",
+    "hypothesis-crosshair==0.0.30",
+]
 
 [project.scripts]
 ananta = "agent.cli.main:main"
@@ -207,6 +214,7 @@ packages = [
     "worker.model_intelligence",
     "worker.optimization",
     "worker.optimization.dspy",
+    "worker.verification",
     "worker.planning",
     "worker.repair",
     "worker.retrieval",
@@ -265,6 +273,7 @@ markers = [
     "qdrant_integration: marks opt-in tests against the digest-pinned Qdrant service",
     "hardware: marks explicit local model or GPU evidence gates excluded from normal CI",
     "manual_full_scan: marks full-repository LLM full_scan tests that are never run by default or in GitHub workflows",
+    "verification_real: marks bounded tests that require the optional Hypothesis/CrossHair toolchain",
 ]
 filterwarnings = [
     # Background planning threads use the test's in-memory SQLite session. When a test

@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://ananta.dev/schemas/verification/counterexample.v1.schema.json",
+  "title":"Concrete Counterexample v1",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["schema","run_ref","property_ref","target_symbol","concrete_arguments","observed_result","expected_invariant","reproduction_command","test_candidate_digest"],
+  "properties":{
+    "schema":{"const":"ananta.counterexample.v1"},
+    "run_ref":{"type":"string","pattern":"^RUN_[A-Za-z0-9][A-Za-z0-9_.:-]{0,187}$"},
+    "property_ref":{"type":"string","minLength":1,"maxLength":192},
+    "target_symbol":{"type":"string","minLength":1,"maxLength":256},
+    "concrete_arguments":{},
+    "observed_result":{},
+    "expected_invariant":{"type":"string","minLength":1,"maxLength":2000},
+    "reproduction_command":{"type":"array","minItems":1,"maxItems":16,"items":{"type":"string","minLength":1,"maxLength":512}},
+    "test_candidate_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"}
+  }
+}

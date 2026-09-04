@@ -1,0 +1,92 @@
+name: Python Verification
+
+on:
+  pull_request:
+    paths:
+      - "ananta_contracts/verification.py"
+      - "agent/services/verification_*"
+      - "worker/verification/**"
+      - "tests/verification/**"
+      - "schemas/verification/**"
+      - "config/verification/**"
+      - "config/licenses/python-verification.v1.json"
+      - "docker/compose-next/*verification*"
+      - "scripts/*python_verification*"
+      - ".github/workflows/python-verification.yml"
+      - "pyproject.toml"
+  push:
+    branches: [main]
+    paths:
+      - "ananta_contracts/verification.py"
+      - "agent/services/verification_*"
+      - "worker/verification/**"
+      - "tests/verification/**"
+      - "schemas/verification/**"
+      - "config/verification/**"
+      - "config/licenses/python-verification.v1.json"
+      - "docker/compose-next/*verification*"
+      - "scripts/*python_verification*"
+      - ".github/workflows/python-verification.yml"
+      - "pyproject.toml"
+  schedule:
+    - cron: "23 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  core-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv --python 3.12
+      - run: uv pip install -e '.[dev]'
+      - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/verification -m "not verification_real" --ignore=tests/verification/test_property_pilot.py --ignore=tests/verification/test_stateful_pilot.py --ignore=tests/verification/test_counterexample_pilot.py --ignore=tests/verification/test_fast_gate.py
+      - run: .venv/bin/python -c "import importlib.util; assert importlib.util.find_spec('crosshair') is None"
+
+  hypothesis-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv python install ${{ matrix.python-version }}
+      - run: uv venv --python ${{ matrix.python-version }}
+      - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.verification-worker.lock
+      - run: uv pip install -e . --no-deps
+      - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/verification -m "not verification_real"
+      - run: .venv/bin/python scripts/check_python_verification_supply_chain.py
+      - run: .venv/bin/python scripts/build_python_verification_sbom.py
+
+  repeated-fast-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv --python 3.12
+      - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.verification-worker.lock
+      - run: uv pip install -e . --no-deps
+      - run: .venv/bin/python scripts/run_python_verification_fast_gate.py --repeat 20 --median-budget-seconds 8
+
+  symbolic-targeted:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'symbolic-verification')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - run: uv venv --python 3.12
+      - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.verification-worker.lock
+      - run: uv pip install -e . --no-deps
+      - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/verification/test_real_toolchain.py
+      - run: .venv/bin/python scripts/run_python_verification_backend_benchmark.py
+
+  worker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --file docker/compose-next/Dockerfile.verification-worker --tag ananta-verification-ci:${{ github.sha }} .

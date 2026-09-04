@@ -1,0 +1,21 @@
+FROM python:3.12.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app:/task/repository \
+    HOME=/tmp/ananta-verification-home \
+    HYPOTHESIS_STORAGE_DIRECTORY=/tmp/ananta-hypothesis
+
+RUN groupadd --system --gid 65532 verification \
+    && useradd --system --uid 65532 --gid verification --home-dir /tmp/ananta-verification-home verification \
+    && mkdir -p /app /task /tmp/ananta-verification-home /tmp/ananta-hypothesis \
+    && chown -R verification:verification /task /tmp/ananta-verification-home /tmp/ananta-hypothesis
+
+COPY docker/compose-next/requirements.verification-worker.lock /tmp/requirements.lock
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements.lock
+COPY ananta_contracts /app/ananta_contracts
+COPY worker /app/worker
+
+USER verification
+WORKDIR /task/repository
+ENTRYPOINT ["python", "-m", "worker.verification.job_runner"]

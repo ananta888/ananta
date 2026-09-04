@@ -67,7 +67,10 @@ def _has_cycle(graph: dict[str, list[str]]) -> bool:
 
 def validate_dependency_graph(graph: dict[str, list[str]]) -> tuple[bool, str]:
     normalized_graph = {
-        str(task_id): normalize_depends_on(dependencies, tid=str(task_id))
+        # Preserve self edges here so the cycle detector can reject them.
+        # Input cleanup may remove self-dependencies at API boundaries, but a
+        # graph validator must never make an invalid graph valid by rewriting it.
+        str(task_id): normalize_depends_on(dependencies)
         for task_id, dependencies in (graph or {}).items()
     }
     if _has_cycle(normalized_graph):

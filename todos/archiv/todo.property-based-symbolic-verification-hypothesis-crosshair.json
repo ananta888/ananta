@@ -63,6 +63,33 @@
     },
     "scope_correction": "Das Pilotprofil wird auf Anantas tatsächlich unterstützte Python-Versionen >=3.10 begrenzt, da die aktuelle Hypothesis-Version ältere Interpreter nicht unterstützt."
   },
+  "implementation_review": {
+    "completed_on": "2026-09-04",
+    "status": "done",
+    "summary": "Alle 13 Aufgaben sind implementiert und lokal gegen die geschlossenen Verträge, echte optionale Werkzeuge, isolierte Containergrenzen und reproduzierbare Gates abgenommen.",
+    "test_results": {
+      "focused_total": "44 passed in 70.30s",
+      "fast_repeat": "20/20 passed; median 0.619s; max 0.638s; budget 8s",
+      "backend_comparison": "5/5 properties passed on each backend; Hypothesis 3.406s; CrossHair backend 20.853s",
+      "python_matrix": "installation/import smoke passed on CPython 3.10.21, 3.11.16, 3.12.14, 3.13.15 and 3.14.4",
+      "supply_chain": "30 hash-pinned packages documented; no known vulnerability reported by pip-audit",
+      "container": "image build and non-root/network-none runtime import smoke passed"
+    },
+    "defects_found_and_fixed": [
+      "Existing task dependency graph validation normalized self-dependencies away before cycle detection.",
+      "Initial process isolation used host-UID-wide RLIMIT_NPROC and interfered with unrelated local processes.",
+      "Initial CrossHair counterexample parsing greedily consumed the trailing observed-result text.",
+      "Initial per-condition CrossHair budget could exhaust the total process budget across five targets."
+    ],
+    "solid_review": {
+      "srp": "Profile loading, deterministic target selection, orchestration, execution, materialization, reproduction, metrics, promotion and ingress remain separate.",
+      "ocp_dip": "Tool-neutral contracts and focused ports allow additional backends without changing Hub policy code.",
+      "isp": "Property, contract, behavior-diff, materialization and artifact publication use small independent interfaces.",
+      "lsp": "Fake and real runners share the same closed report statuses; test doubles reject production scope.",
+      "preserved_debt": "AgentRunStateMachine still combines in-memory storage and transition policy; the pilot tests it but does not expand that existing SRP debt."
+    },
+    "evidence_note": "The recorded run is synthetic/local technical evidence with no production RUN binding and therefore cannot satisfy a production release gate."
+  },
   "status_scale": [
     "todo",
     "in_progress",
@@ -355,7 +382,7 @@
         "PHSV-001",
         "PHSV-002"
       ],
-      "status": "in_progress"
+      "status": "done"
     },
     {
       "id": "PHSV-M2",
@@ -364,7 +391,7 @@
         "PHSV-003",
         "PHSV-004"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PHSV-M3",
@@ -376,7 +403,7 @@
         "PHSV-008",
         "PHSV-009"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PHSV-M4",
@@ -385,7 +412,7 @@
         "PHSV-010",
         "PHSV-011"
       ],
-      "status": "todo"
+      "status": "done"
     },
     {
       "id": "PHSV-M5",
@@ -394,7 +421,7 @@
         "PHSV-012",
         "PHSV-013"
       ],
-      "status": "todo"
+      "status": "done"
     }
   ],
   "tasks": [
@@ -403,10 +430,18 @@
       "title": "Upstream-, Lizenz- und Kompatibilitätsbaseline verifizieren",
       "type": "research",
       "milestone_id": "PHSV-M1",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "pyproject.toml",
+        "docker/compose-next/requirements.verification-worker.lock",
+        "config/licenses/python-verification.v1.json",
+        "scripts/check_python_verification_supply_chain.py",
+        "scripts/build_python_verification_sbom.py"
+      ],
+      "validation": "Hash-pinned 30-package stack installed and imported on CPython 3.10, 3.11, 3.12, 3.13 and 3.14; pip-audit reported no known vulnerability.",
       "details": [
         "Aktuelle Releases und Python-Kompatibilität von Hypothesis, CrossHair, hypothesis-crosshair und Z3 prüfen.",
         "Lizenzdateien, SBOM-Auswirkungen, Wheel-Verfügbarkeit und native Komponenten dokumentieren.",
@@ -432,10 +467,15 @@
       "depends_on": [
         "PHSV-001"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "config/verification/property-catalog.v1.json",
+        "tests/verification/test_schemas_and_architecture.py"
+      ],
+      "validation": "16 concrete candidates assessed across contracts, policies, state machines and transformations; 15 eligible and at least five authoritative properties.",
       "details": [
         "CodeCompass-Snapshot und Repository-Analyse verwenden, um kleine typisierte und deterministische Funktionen zu priorisieren.",
         "Vorhandene Assertions, Pydantic-Constraints, Dataclasses, Enum-Zustände, vorhandene Tests und dokumentierte Invarianten erfassen.",
@@ -462,10 +502,18 @@
         "PHSV-001",
         "PHSV-002"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "ananta_contracts/verification.py",
+        "worker/verification/ports.py",
+        "schemas/verification/assignment.v1.schema.json",
+        "schemas/verification/report.v1.schema.json",
+        "schemas/verification/counterexample.v1.schema.json"
+      ],
+      "validation": "Closed Python and JSON contracts cover every status and fail closed on unknown fields/statuses; architecture tests prohibit optional tool imports in Hub/contracts.",
       "details": [
         "Kleine Ports für Property-Test, Contract-Check, Behavior-Diff, Materialisierung und Artefaktpublikation definieren.",
         "Ergebnisstatus so modellieren, dass timeout, unsupported, inconclusive und failed_to_reproduce nicht mit passed verschmelzen.",
@@ -492,10 +540,17 @@
       "depends_on": [
         "PHSV-003"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "docker/compose-next/Dockerfile.verification-worker",
+        "docker/compose-next/compose.verification-worker.yml",
+        "worker/verification/process_runner.py",
+        "config/verification/profiles.v1.json"
+      ],
+      "validation": "Non-root image built and smoked with network none, read-only root, task-only write mount, no secrets/socket, all capabilities dropped, no-new-privileges and bounded resources.",
       "details": [
         "Separates Containerprofil ohne Netzwerk, Secrets, Docker-Socket oder privilegierte Capabilities bereitstellen.",
         "Read-only Source- und Baseline-Mounts sowie begrenzten taskgebundenen Output konfigurieren.",
@@ -520,10 +575,17 @@
         "PHSV-003",
         "PHSV-004"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "worker/verification/adapters.py",
+        "worker/verification/pilot_targets.py",
+        "tests/verification/test_property_pilot.py",
+        "tests/verification/test_counterexample_pilot.py"
+      ],
+      "validation": "Ten deterministic properties from four target classes pass; seeded defect minimizes to -1, reproduces concretely, and repeated classification remains stable.",
       "details": [
         "Hypothesis nur als optionales Dev-/Worker-Paket integrieren.",
         "Pilot-Properties für Roundtrip, Idempotenz, Grenzwerte, Permission-Monotonie und Parserstabilität umsetzen.",
@@ -548,10 +610,16 @@
         "PHSV-003",
         "PHSV-004"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "worker/verification/adapters.py",
+        "worker/verification/pilot_targets.py",
+        "tests/verification/test_real_toolchain.py"
+      ],
+      "validation": "Five bounded contract targets, concrete seeded counterexample and cover candidate passed with CrossHair 0.0.110; timeout/inconclusive/unsupported semantics stay separate.",
       "details": [
         "Für den Pilot die geringste tragfähige Contract-Syntax auswählen; reguläre Assertions bevorzugen, zusätzliche Bibliotheken nur bei klarem Nutzen.",
         "crosshair check für explizite Contracts und crosshair cover für Testkandidaten getrennt kapseln.",
@@ -575,10 +643,16 @@
         "PHSV-005",
         "PHSV-006"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "worker/verification/adapters.py",
+        "scripts/run_python_verification_backend_benchmark.py",
+        "tests/verification/test_real_toolchain.py"
+      ],
+      "validation": "Five shared properties passed both backends; 3.406s normal versus 20.853s solver-backed led to explicit nightly/hold decision.",
       "details": [
         "Ausgewählte bestehende Properties zusätzlich mit settings(backend='crosshair') ausführen.",
         "Normales Hypothesis-Backend und CrossHair-Backend hinsichtlich gefundener Bugs, Laufzeit, Shrinking und Unsupported-Raten vergleichen.",
@@ -602,10 +676,17 @@
         "PHSV-004",
         "PHSV-006"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "worker/verification/revision_diff.py",
+        "worker/verification/adapters.py",
+        "tests/verification/test_real_toolchain.py",
+        "tests/verification/test_materializer_and_adapters.py"
+      ],
+      "validation": "Semantic delta yields concrete differing behavior; equivalent pair remains inconclusive; distinct worktree and exact baseline/patch revision guards are enforced without cleanup side effects.",
       "details": [
         "Basis- und Patch-Revision in getrennten read-only Worktrees beziehungsweise Images laden.",
         "Nur explizit gemappte, typisierte und kleine Symbolpaare vergleichen.",
@@ -629,10 +710,14 @@
         "PHSV-002",
         "PHSV-005"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "tests/verification/test_stateful_pilot.py"
+      ],
+      "validation": "Two fully headless RuleBasedStateMachine models cover agent-run terminality/history and permission-growth monotonicity without production evidence.",
       "details": [
         "Hypothesis RuleBasedStateMachine für mindestens eine reine Modellzustandsmaschine verwenden.",
         "Invarianten für terminale Zustände, verbotene Übergänge, Idempotenz, Abhängigkeitsfreigabe und Replay formulieren.",
@@ -658,10 +743,17 @@
         "PHSV-008",
         "PHSV-009"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "worker/verification/materializer.py",
+        "worker/verification/reproducer.py",
+        "agent/services/verification_promotion_service.py",
+        "tests/verification/test_materializer_and_adapters.py"
+      ],
+      "validation": "Only concrete JSON values cross the boundary; fresh-process reproduction and digest invalidation gate deterministic headless auto-approval or bounded blocked results.",
       "details": [
         "Symbolische Werte vollständig in konkrete JSON- beziehungsweise Python-rekonstruierbare Werte überführen.",
         "Gegenbeispiel in frischem Prozess mit normalem CPython und festem Repositoryzustand reproduzieren.",
@@ -686,10 +778,17 @@
         "PHSV-004",
         "PHSV-010"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "agent/services/verification_target_selector.py",
+        "agent/services/verification_orchestration_service.py",
+        "agent/services/verification_result_ingress.py",
+        "worker/verification/job_runner.py"
+      ],
+      "validation": "Hub builds one assignment from a pre-issued evidence projection; explicit fallback is bounded, duplicate ingress idempotent, and stale lease/wrong revision rejected.",
       "details": [
         "CodeCompass liefert geänderte Symbole, Callgraph-Nähe, Typisierung, bekannte Tests und Seiteneffektindikatoren.",
         "Ein deterministischer Hub-Service bewertet Eignung, Risiko, Profil und Budget; LLM-Text darf keine Toolrechte aktivieren.",
@@ -716,10 +815,16 @@
         "PHSV-010",
         "PHSV-011"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        ".github/workflows/python-verification.yml",
+        "scripts/run_python_verification_fast_gate.py",
+        "tests/verification/test_fast_gate.py"
+      ],
+      "validation": "PR, targeted and nightly profiles are bounded; 20 repeated fast runs had zero failures, 0.618s median and 0.854s maximum under the 8s budget.",
       "details": [
         "Schnelle stabile Hypothesis-Properties in das PR-Profil aufnehmen.",
         "Gezielte CrossHair-Checks nur für allowlistete risikoreiche Änderungen oder explizite Labels ausführen.",
@@ -742,10 +847,17 @@
       "depends_on": [
         "PHSV-012"
       ],
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
+      "implementation_refs": [
+        "docs/decisions/ADR-python-property-symbolic-verification.md",
+        "docs/worker/python-property-symbolic-verification.md",
+        "agent/services/verification_metrics_service.py",
+        "artifacts/test-gates/python-verification-pilot.json"
+      ],
+      "validation": "ADR records separate go/hold decisions, safety/license/SOLID reviews, controlled Hub-to-reproduction trace, rollback and explicit no-proof semantics; final focused gate passed 44 tests.",
       "details": [
         "Gefundene einzigartige Fehler, False Positives, Inconclusive-, Unsupported- und Timeout-Raten erfassen.",
         "Einrichtungs- und Wartungsaufwand sowie CI-Zeit pro Fähigkeit messen.",
@@ -778,13 +890,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 12,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 1,
+      "partial": 0,
       "blocked": 0,
-      "done": 0
+      "done": 13
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 100.0,
     "by_priority": {
       "P0": 6,
       "P1": 7,
@@ -798,15 +910,15 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 0,
-      "remaining": 11
+      "done": 11,
+      "remaining": 0
     },
     "milestones": {
       "total": 5,
-      "todo": 4,
-      "in_progress": 1,
+      "todo": 0,
+      "in_progress": 0,
       "blocked": 0,
-      "done": 0
+      "done": 5
     }
   },
   "tasks_type_summary": {
@@ -817,138 +929,138 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "analysis": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "architecture": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "implementation": {
         "total": 5,
         "by_status": {
-          "todo": 5,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 5
         },
-        "done": 0,
+        "done": 5,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "experiment": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "integration": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "ci": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       },
       "release": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 12,
+    "state": "done",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 1,
+    "partial": 0,
     "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 3.6
+    "done": 13,
+    "count_based_percent": 100.0,
+    "weighted_percent": 100.0
   },
   "decision_gates": [
     {
@@ -1069,62 +1181,62 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 25.0,
-    "done_weight": 0.9,
-    "remaining_weight": 24.1,
+    "done_weight": 25.0,
+    "remaining_weight": 0.0,
     "blocked_weight": 0.0,
-    "weighted_percent": 3.6
+    "weighted_percent": 100.0
   },
   "milestone_progress_summary": {
     "milestones": {
       "PHSV-M1": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 25.7,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "PHSV-M2": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "PHSV-M3": {
         "total_tasks": 5,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "PHSV-M4": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "PHSV-M5": {
         "total_tasks": 2,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T11:28:58.024490Z",
+    "generated_at": "2026-09-04T12:21:26.995632Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3b8bd64f0560e666aababfb540941d33f694fdb7b569b1656b747e699b9ef399",
+    "source_hash": "a489eded20ed493e7f53031aa9a5df8c6b45f749a8876fc85e9471e014312e41",
     "is_stale": false
   }
 }
