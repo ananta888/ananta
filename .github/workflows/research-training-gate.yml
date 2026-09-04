@@ -69,6 +69,9 @@ jobs:
   angular-workbench:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend-angular
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
@@ -76,10 +79,10 @@ jobs:
           node-version: "24.18.0"
           cache: npm
           cache-dependency-path: frontend-angular/package-lock.json
-      - run: npm ci --prefix frontend-angular
+      - run: npm ci
       - name: Test accessible Hub-only workbench
         run: >-
-          npm --prefix frontend-angular exec -- vitest run
+          npm exec -- vitest run
           src/app/features/model-training/training-wizard/research-training-workbench.component.spec.ts
           src/app/features/model-training/model-training-api.service.spec.ts
-      - run: npm --prefix frontend-angular run build
+      - run: npm run build
