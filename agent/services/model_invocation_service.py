@@ -18,11 +18,6 @@ from agent.services.local_runtime_response_adapters import (
     normalize_ollama_chat,
     normalize_ollama_generate,
 )
-from agent.services.local_runtime_response_policy import (
-    LocalRuntimeResponsePolicy,
-    LocalRuntimeResponsePolicyError,
-    configured_response_policy,
-)
 from agent.services.model_invocation_errors import (
     LLMUnavailableError,
     ModelRoutingConfigurationError,
@@ -42,6 +37,10 @@ from agent.services.model_invocation_payload_helpers import (
 )
 from agent.services.model_invocation_profile import (
     build_llm_call_profile_entry,
+)
+from agent.services.model_invocation_response_policy import (
+    ResponsePolicyFailureProjector,
+    apply_local_response_policy,
 )
 from ananta_contracts.provider_endpoint_policy import (
     build_provider_request_url,
@@ -873,29 +872,6 @@ class ModelInvocationService:
         )
 
     @classmethod
-    def _apply_local_response_policy(
-        cls,
-        payload: dict[str, Any],
-        *,
-        profile: object,
-        tools_requested: bool,
-        failure_context: tuple[object, object, str, str, object, object] | None = None,
-    ) -> dict[str, Any]:
-        """Keep parser policy and provider-failure projection in one seam."""
-        try:
-            return LocalRuntimeResponsePolicy().apply(
-                payload,
-                policy_id=configured_response_policy(profile),
-                tools_requested=tools_requested,
-            )
-        except LocalRuntimeResponsePolicyError as exc:
-            if failure_context is not None:
-                middleware, prepared, provider, model, prompt_trace, trace_service = failure_context
-                middleware.fail(prepared, provider=provider, model=model, reason_code=str(exc))
-                cls._finalize_trace_error(prompt_trace, trace_service, str(exc), str(exc))
-            cls._raise_response_contract_error(payload, error_type=str(exc), detail=str(exc))
-
-    @classmethod
     def _validate_tool_response(cls, payload: dict[str, Any], tools: list | None) -> None:
         normalized_tools = cls._normalize_openai_tools(tools)
         allowed_tools = {
@@ -1361,10 +1337,11 @@ class ModelInvocationService:
                 "cache_hit": True,
             }
             cached_payload["metadata"] = cached_meta
-            cached_payload = cls._apply_local_response_policy(
+            cached_payload = apply_local_response_policy(
                 cached_payload,
                 profile=profile,
                 tools_requested=bool(tools),
+                raise_contract_error=cls._raise_response_contract_error,
             )
             if response_validator is not None:
                 response_validator(cached_payload)
@@ -1594,18 +1571,20 @@ class ModelInvocationService:
                 ),
                 model=effective_model,
             )
-            payload = cls._apply_local_response_policy(
+            payload = apply_local_response_policy(
                 payload if isinstance(payload, dict) else {},
                 profile=profile,
                 tools_requested=bool(tools),
-                failure_context=(
-                    middleware,
-                    prepared,
-                    provider,
-                    effective_model,
-                    prompt_trace,
-                    trace_svc,
+                on_failure=ResponsePolicyFailureProjector(
+                    middleware=middleware,
+                    prepared=prepared,
+                    provider=provider,
+                    model=effective_model,
+                    prompt_trace=prompt_trace,
+                    trace_service=trace_svc,
+                    finalize_trace_error=cls._finalize_trace_error,
                 ),
+                raise_contract_error=cls._raise_response_contract_error,
             )
 
             first_choice = (payload.get("choices") or [{}])[0] if isinstance(payload, dict) else {}
