@@ -4,30 +4,30 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "nanochat-inspired-end-to-end-llm-research-training",
   "created": "2026-08-16",
-  "updated": "2026-09-03",
-  "last_updated": "2026-09-03",
+  "updated": "2026-09-04",
+  "last_updated": "2026-09-04",
   "status": "partial",
   "review_basis": {
-    "reviewed_commit_range": "4ae68b8bd3f0bf1ffb33df2cf99872cc413d9f5c",
+    "reviewed_commit_range": "1a9c5652faed80f49712ed3686116d7905aa7ff4",
     "review_goal": "Nanochat-inspirierten Research-Training-Track gegen den aktuellen LoRA-Control-Plane-, Worker-, Contract-, Schema-, UI- und Testbestand sowie die source-grounded Release-Regel abgleichen.",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
     "grounding_status": "unverified",
-    "release_status": "blocked_missing_assignment_evidence_and_research_training_implementation",
+    "release_status": "blocked_real_training_implementation_and_hub_evidence_wiring_missing",
     "blocked_audit": {
-      "status": "blocked",
+      "status": "actionable",
       "reason_codes": [
-        "nanochat_upstream_evidence_missing",
-        "research_training_specific_execution_path_absent",
-        "allowed_source_refs_empty",
-        "allowed_run_refs_empty"
+        "nanochat_upstream_source_admission_pending",
+        "real_research_training_execution_path_absent",
+        "research_training_hub_evidence_registry_not_wired",
+        "real_training_runtime_evidence_missing"
       ],
       "unverified_navigation_observations": [
-        "No Nanochat or generic Research Training production namespace, tokenizer-training backend, from-scratch pretraining backend, full-model SFT path, or RL backend exists at reviewed commit 4ae68b8bd3f0bf1ffb33df2cf99872cc413d9f5c.",
-        "Existing LoRA/Unsloth checkpoint, backend registry, dataset, evaluation, artifact, reconciliation and fencing seams are reusable foundations but are not Research Training implementation evidence.",
-        "The additive dendritic-memory experiment path demonstrates a separate default-off Hub/Worker experiment boundary but does not implement NanoChat lifecycle stages."
+        "A dedicated Research Training contract, Hub service/API/UI namespace and deterministic Worker mock slice exist at reviewed commit 1a9c5652faed80f49712ed3686116d7905aa7ff4; they are implementation evidence for the control-plane skeleton, not for real training.",
+        "No real tokenizer-training, from-scratch pretraining, full-model SFT, inference-benchmark or RL Worker adapter exists; policy mode local is reserved but cannot currently execute.",
+        "The general Hub Evidence Registry can automatically admit immutable sources and reserve runs, but Research Training still accepts configured identifier strings instead of consuming registry-verified assignment projections."
       ],
-      "required_unblock_input": "Hub-provided SRC_* refs binding the immutable Nanochat revision, license, dependencies and adopted design claims, plus assignment-bound RUN_* refs for tokenizer, pretraining, DDP, SFT, RL, sandbox, recovery, benchmark and promotion gates."
+      "required_unblock_input": "No human-supplied evidence identifier is required. The implementation must wire Research Training to HubEvidenceRegistryService so the Hub automatically admits the immutable Nanochat source and pre-reserves assignment-bound runs; real CPU/container gates can then issue local evidence automatically, while unavailable GPU profiles remain machine-readable unverified release gates."
     },
     "reviewed_paths": [
       "agent/",
@@ -39,6 +39,56 @@
       "tests/",
       "docker/"
     ]
+  },
+  "current_source_audit": {
+    "audited_on": "2026-09-04",
+    "repository_revision": "1a9c5652faed80f49712ed3686116d7905aa7ff4",
+    "upstream_navigation": {
+      "repository": "https://github.com/karpathy/nanochat",
+      "revision": "92d63d4e8bb4df75c3b71618f31ddde2378b2bcd",
+      "committed_at": "2026-07-03T22:54:57Z",
+      "license": "MIT",
+      "evidence_classification": "navigation_observation_pending_hub_source_admission"
+    },
+    "validation": [
+      "13/13 existing research-training tests passed headlessly on Python 3.12.14.",
+      "scripts/check_research_training_boundaries.py passed.",
+      "The current Hub imports no Torch/ML runtime and Workers do not orchestrate follow-up stages.",
+      "The Hub Evidence Registry already supports automatic immutable SRC_* issuance and pre-execution RUN_* reservation, but the Research Training composition does not use it yet."
+    ],
+    "task_findings": {
+      "NCH-001": "Partial: strict recipe, pipeline, run and generic artifact contracts plus four schemas exist; explicit attempt, tokenizer, checkpoint and lineage contracts/negative schema matrix remain.",
+      "NCH-002": "Partial: sibling Hub run service has idempotency and HMAC fencing, but it does not reuse durable scheduler leases, heartbeats or WorkerJob dispatch.",
+      "NCH-003": "Partial: default-off policy, budgets and stage capabilities exist; dataset size/checkpoint count, code-eval and multi-GPU capabilities are not independently governed.",
+      "NCH-004": "Partial: recipe/dataset/source digests and immutable revisions exist; code, image, runtime, hardware, tokenizer and RNG bindings plus Hub evidence projections remain.",
+      "NCH-005": "Partial foundation only: a tokenizer stage kind and generic artifact exist; there is no trainable BPE backend or artifact-only loader.",
+      "NCH-006": "Partial foundation only: no tokenizer quality/comparison report implementation exists.",
+      "NCH-007": "Partial foundation only: the Worker backend port and mock exist; no real Torch single-process/DDP pretraining adapter exists.",
+      "NCH-008": "Partial: generic metric comparison exists; checkpoint loading, validation loss, bits-per-byte and independent base evaluation remain.",
+      "NCH-009": "Partial foundation only: SFT stage/lineage names exist; no immutable full-weight SFT engine or chat loss masking exists.",
+      "NCH-010": "Partial: two closed scorers exist; versioned task registry, renderer/reward separation and initial benchmark adapters remain.",
+      "NCH-011": "Partial: attested base/SFT/RL comparison and fail-closed release exist; task-group thresholds and critical per-task regression gates remain.",
+      "NCH-012": "Partial foundation only: normalized fields exist; no repeatable inference benchmark runner or hardware/runtime-bound report exists.",
+      "NCH-013": "Partial foundation only: RL stage/capability opt-in exists; rollout, reward, sampling and optimizer contracts remain.",
+      "NCH-014": "Partial foundation only: no real bounded rollout/reward/optimizer engine exists.",
+      "NCH-015": "Partial: aggregate RL accuracy regression is checked; pass@k, distribution/collapse and reward-hacking gates remain.",
+      "NCH-016": "Mostly implemented: deterministic versioned depth resolver materializes its values; backend/model-family support validation and explicit-config strategy remain.",
+      "NCH-017": "Partial: deterministic bounded recipe sweep exists; shared-input deduplication, independent run materialization and comparison persistence remain.",
+      "NCH-018": "Mostly implemented estimate: dry-run and aggregate policy budgets exist; hardware profiles, FLOPs/wall-time, OOM alternatives and stage aggregation remain.",
+      "NCH-019": "Partial: Hub-owned DAG, optimistic revisions, bounded retries and attempt fencing exist; pause, heartbeat/lease expiry, resume, clone and durable dispatch remain.",
+      "NCH-020": "Partial: closed capability projection exists; concrete hardware/runtime inventory, scheduler selection and claim-time drift check remain.",
+      "NCH-021": "Partial: authenticated additive endpoints cover core lifecycle; artifacts, benchmarks, complete schema/OpenAPI parity and registry-bound Worker ingress remain.",
+      "NCH-022": "Partial: a Research workbench exists; live graph/timeline/lineage/evaluation integration and accessibility tests remain.",
+      "NCH-023": "Partial: atomic content storage, Worker checkpoints and immutable parent lineage exist; executable safetensors ingress, split state and reference-safe retention remain.",
+      "NCH-024": "Partial: bounded retry and atomic files exist; heartbeat loss, preemption checkpointing, compatible resume and failure classification remain.",
+      "NCH-025": "Partial foundation only: stage metrics are generic mappings; TelemetryPort, normalized metric contracts and sinks remain.",
+      "NCH-026": "Partial foundation only: per-artifact/write limits and storage estimate exist; durable reservations, pinning and reference-safe garbage collection remain.",
+      "NCH-027": "Partial foundation only: one dataset digest is bound; shard source manifests, policy admission, scans, dedup and contamination gates remain.",
+      "NCH-028": "Partial: arbitrary evaluation code is denied and boundaries are checked; an isolated allowlisted code-eval adapter and escape/resource negative gates remain.",
+      "NCH-029": "Partial: deterministic mock lifecycle, denial/retry/cancel and rollout tests exist; real tiny CPU E2E, corrupt artifact, quota, resume and compatibility matrices remain.",
+      "NCH-030": "Implemented: default-off five-phase rollout, automatic headless progression, kill switch, isolated rollback and review-only upstream watch are covered by tests."
+    },
+    "audit_decision": "Keep the track active. Preserve the Hub control-plane slice, replace mock-only execution with real bounded Worker adapters, and treat production release evidence separately from implementation completion."
   },
   "purpose": "Anantas bestehende, sichere LoRA/QLoRA-Training-Control-Plane um einen optionalen End-to-End-Research-Pfad nach den uebertragbaren Prinzipien von karpathy/nanochat erweitern. Der neue Pfad soll Tokenizer-Training, From-Scratch-Pretraining, Base-Model-Evaluation, SFT, taskbasierte Evaluation, optionales RL/Post-Training, Inferenz-Benchmarking und reproduzierbare Modellserien abdecken, ohne Anantas Hub/Worker-, Policy-, Audit-, Dataset- und Registry-Architektur zu umgehen.",
   "goal": "Ein klar isoliertes Research Training Harness etablieren, das kleine und mittlere Open-Weight-/From-Scratch-Experimente reproduzierbar ueber Ananta ausfuehren kann, nanochat-artige Einfachheit pro Experiment bewahrt, aber Ressourcen, Datenherkunft, Artefakte, Policies, Freigaben, Evaluation und Promotion ueber Anantas vorhandene Control Plane verwaltet.",
@@ -54,8 +104,8 @@
     "Keine Tests oder produktiven Automationslaeufe, die auf menschliche Freigaben, Eingaben oder Bestaetigungen warten; optionale Interaktion darf nur eine zusaetzliche Betriebsart sein."
   ],
   "implementation_review": {
-    "reviewed_at": "2026-08-30",
-    "state": "experimental_mock_slice_implemented_release_blocked",
+    "reviewed_at": "2026-09-04",
+    "state": "experimental_control_plane_slice_verified_real_execution_incomplete",
     "implemented": [
       "Closed v1 recipe, pipeline, run and artifact contracts plus JSON Schemas",
       "Default-off Hub policy, capability reporting, deterministic recipe resolution and resource preflight",
@@ -74,17 +124,16 @@
       "GPU/container integration, failure-injection and full LoRA regression matrix"
     ],
     "release_blockers": [
-      "allowed_source_refs_empty",
-      "allowed_run_refs_empty",
+      "hub_evidence_registry_not_wired_to_research_assignments",
       "real_training_backends_and_gpu_sandbox_runs_missing"
     ],
     "human_intervention_required": false
   },
   "source_review": {
-    "grounding_status": "unverified_missing_assignment_refs",
+    "grounding_status": "unverified_pending_automatic_hub_admission",
     "allowed_source_refs": [],
     "allowed_run_refs": [],
-    "grounding_note": "Die nachfolgenden historischen Pfadbeobachtungen sind Navigation und keine verifizierte Evidenz. Ohne Hub-bereitgestellte SRC_* und RUN_* IDs duerfen daraus keine Upstream-, Implementierungs-, Kompatibilitaets-, Performance- oder Releaseclaims abgeleitet werden.",
+    "grounding_note": "Die nachfolgenden Pfadbeobachtungen sind Navigation und keine Produktionsfreigabe-Evidenz. Research Training muss die bereits vorhandene Hub Evidence Registry fuer automatische immutable Source-Admission und vorab reservierte assignment-bound Runs verwenden; von Aufrufern gelieferte Strings sind keine Evidenz.",
     "nanochat": [
       {
         "path": "README.md",
@@ -380,7 +429,7 @@
         "NCH-003",
         "NCH-004"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M2",
@@ -391,7 +440,7 @@
         "NCH-007",
         "NCH-008"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M3",
@@ -402,7 +451,7 @@
         "NCH-011",
         "NCH-012"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M4",
@@ -412,7 +461,7 @@
         "NCH-014",
         "NCH-015"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M5",
@@ -422,7 +471,7 @@
         "NCH-017",
         "NCH-018"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M6",
@@ -433,7 +482,7 @@
         "NCH-021",
         "NCH-022"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M7",
@@ -444,7 +493,7 @@
         "NCH-025",
         "NCH-026"
       ],
-      "status": "partial"
+      "status": "in_progress"
     },
     {
       "id": "M8",
@@ -455,7 +504,7 @@
         "NCH-029",
         "NCH-030"
       ],
-      "status": "partial"
+      "status": "in_progress"
     }
   ],
   "tasks": [
@@ -1346,8 +1395,7 @@
     "milestones": {
       "total": 8,
       "todo": 0,
-      "in_progress": 0,
-      "partial": 8,
+      "in_progress": 8,
       "blocked": 0,
       "done": 0
     }
@@ -1357,237 +1405,209 @@
     "by_type": {
       "schema": {
         "total": 3,
-        "done": 0,
-        "partial": 3,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 63.3,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 3,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 63.3
       },
       "architecture": {
         "total": 2,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 72.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 72.5
       },
       "security": {
         "total": 3,
-        "done": 0,
-        "partial": 3,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 55.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 3,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 3,
+        "blocked": 0,
+        "progress_percent": 55.0
       },
       "backend": {
         "total": 7,
-        "done": 0,
-        "partial": 7,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 41.4,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 7,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 7,
+        "blocked": 0,
+        "progress_percent": 41.4
       },
       "evaluation": {
         "total": 5,
-        "done": 0,
-        "partial": 5,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 41.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 5,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 5,
+        "blocked": 0,
+        "progress_percent": 41.0
       },
       "performance": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
       },
       "research": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 35.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 35.0
       },
       "api": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 75.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 75.0
       },
       "frontend": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 70.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 70.0
       },
       "storage": {
         "total": 2,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 47.5,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 2,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 2,
+        "blocked": 0,
+        "progress_percent": 47.5
       },
       "reliability": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 50.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 50.0
       },
       "observability": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 45.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
       },
       "testing": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 65.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
           "done": 0
-        }
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 65.0
       },
       "rollout": {
         "total": 1,
-        "done": 1,
-        "partial": 0,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
           "done": 1
-        }
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 49.5,
-    "done_weight": 24.8,
-    "remaining_weight": 24.7,
-    "blocked_weight": 2.0,
-    "weighted_percent": 50.1
+    "done_weight": 26.3,
+    "remaining_weight": 23.2,
+    "blocked_weight": 0.0,
+    "weighted_percent": 53.1
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -1649,31 +1669,31 @@
       },
       "M8": {
         "total_tasks": 4,
-        "done": 0,
-        "blocked": 1,
-        "count_based_percent": 0.0,
-        "weighted_percent": 43.5,
+        "done": 1,
+        "blocked": 0,
+        "count_based_percent": 25.0,
+        "weighted_percent": 66.5,
         "status": "in_progress"
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
+    "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
     "partial": 29,
     "blocked": 0,
     "done": 1,
-    "milestones_done": 0,
-    "milestones_total": 8
+    "count_based_percent": 3.3,
+    "weighted_percent": 53.1
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T09:45:37.102276Z",
+    "generated_at": "2026-09-04T12:32:50.104626Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "3dc8e5bb8b381b234f88b7d9d00566a82957e115eb544135fd8c66890679fe82",
+    "source_hash": "3eaf72460f610ef534a9587a9c48e54da7dec093bbe1c56579d4faeac86fdfdb",
     "is_stale": false
   }
 }
