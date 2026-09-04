@@ -5,7 +5,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "ornith_1_5_local_model_integration_evaluation",
   "title": "Ornith 1.5 als lokales Coding-, Reasoning- und Agentenmodell für Ananta evaluieren",
-  "status": "in_progress",
+  "status": "blocked",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -127,7 +127,7 @@
     {
       "id": "M3",
       "title": "Sicherheit, Rollout und Dokumentation",
-      "status": "todo",
+      "status": "in_progress",
       "task_ids": [
         "ORN-012",
         "ORN-013"
@@ -140,10 +140,10 @@
       "title": "Upstream-, Lizenz- und Provenance-Matrix revisionsgebunden erstellen",
       "type": "research",
       "milestone_id": "M0",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 90.0,
       "depends_on": [],
       "target_files": [
         "docs/research/ornith-1.5-model-matrix.md",
@@ -172,10 +172,10 @@
       "title": "Getrennte Modellprofile und Capability-Verträge definieren",
       "type": "architecture",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 35.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ORN-001"
       ],
@@ -211,10 +211,10 @@
       "title": "Sicheren Modellimport und digestgebundene Artefakte umsetzen",
       "type": "security",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 60.0,
+      "progress_percent": 90.0,
       "depends_on": [
         "ORN-001",
         "ORN-002"
@@ -251,10 +251,10 @@
       "title": "Ornith-1.5-9B als RTX-3080-Standardtestprofil integrieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "ORN-003"
       ],
@@ -285,10 +285,10 @@
       "title": "Ornith-1.5-35B-A3B mit RAM- und GPU-Offloading evaluieren",
       "type": "implementation",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "ORN-003"
       ],
@@ -319,10 +319,10 @@
       "title": "Ollama, LM Studio/llama.cpp sowie optionale vLLM-/SGLang-Endpunkte anbinden",
       "type": "integration",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 65.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "ORN-004",
         "ORN-005"
@@ -359,10 +359,10 @@
       "title": "Reasoning-, Tool-Calling- und strukturierte Ausgabe sicher normalisieren",
       "type": "security",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 70.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ORN-006"
       ],
@@ -398,10 +398,10 @@
       "title": "Vision-Fähigkeit pro Variante und Runtime real verifizieren",
       "type": "evaluation",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 75.0,
       "depends_on": [
         "ORN-004",
         "ORN-006"
@@ -432,10 +432,10 @@
       "title": "CodeCompass-, Coding- und Agenten-Benchmark gegen bestehende Modelle durchführen",
       "type": "benchmark",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0.0,
+      "progress_percent": 70.0,
       "depends_on": [
         "ORN-007",
         "ORN-008"
@@ -467,10 +467,10 @@
       "title": "Speicher-, Kontext-, Geschwindigkeits- und Parallelitätsgrenzen messen",
       "type": "performance",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 70.0,
       "depends_on": [
         "ORN-004",
         "ORN-005",
@@ -503,10 +503,10 @@
       "title": "Zentrale Modellwahl, Routing und Fallbacks um Ornith ergänzen",
       "type": "frontend",
       "milestone_id": "M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 45.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ORN-002",
         "ORN-009",
@@ -544,10 +544,10 @@
       "title": "Security-, Datenschutz- und Supply-Chain-Gates abschließen",
       "type": "security",
       "milestone_id": "M3",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 0.0,
+      "progress_percent": 85.0,
       "depends_on": [
         "ORN-003",
         "ORN-007",
@@ -582,10 +582,10 @@
       "title": "Gestuften Rollout, Betriebshandbuch und finale Entscheidung liefern",
       "type": "documentation",
       "milestone_id": "M3",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
-      "progress_percent": 0.0,
+      "progress_percent": 100.0,
       "depends_on": [
         "ORN-011",
         "ORN-012"
@@ -632,8 +632,8 @@
   ],
   "implementation_review": {
     "reviewed_at": "2026-09-04",
-    "state": "generic_runtime_found_ornith_work_started",
-    "source_revision": "904cd2feba07ad702d8ca2ed894f6096a0bf176a",
+    "state": "local_implementation_complete_external_evidence_blocked",
+    "source_revision": "856ed24fc5b75449382fe1a987261456488b8af2",
     "implemented_baseline": [
       "Hub-owned local runtime capability discovery and fail-closed routing for Ollama and LM Studio",
       "Provider-neutral response normalization with separate reasoning, content and native tool-call fields",
@@ -641,12 +641,18 @@
       "Central model inventory, assignment, fallback and Angular dashboard flows",
       "Worker-side immutable model import with revision, digest, size, path, symlink, license and remote-code checks"
     ],
-    "ornith_specific_gaps": [
-      "Pinned source manifest and validated Ornith profiles",
-      "Hub-owned import admission and Ollama manifest resolution",
-      "Runtime, parser, vision, benchmark and resource contracts",
-      "Ornith routing projection, security gate, rollout and operating documentation",
-      "Real RTX-3080/64-GB runs bound to Hub-issued evidence identities"
+    "implemented_ornith_scope": [
+      "Pinned source manifest, tri-state model catalog and default-off provider profiles",
+      "Hub-owned import admission, configurable supply-chain policy and immutable read-only Worker publication",
+      "Runtime, parser, vision, CodeCompass and resource contracts with bounded headless runners",
+      "Central inventory and fail-closed routing projection without an Ornith-specific control plane",
+      "Threat model, runtime isolation policy, Hub evidence gate, rollout, rollback and final ADR"
+    ],
+    "external_blockers": [
+      "Upstream repositories declare MIT in model-card metadata but contain no auditable license text at the pinned revisions.",
+      "Neither Ollama nor an LM Studio/llama.cpp endpoint is installed, so exact 9B and 35B model/runtime runs have not occurred.",
+      "No imported exact model bytes, runtime image digest, SBOM or vulnerability report exists for a production gate.",
+      "Vision, quality, 30-minute stability and hardware measurements require those exact runtime artifacts and Hub-reserved live runs."
     ],
     "environment_observation": {
       "gpu": "NVIDIA GeForce RTX 3080, 10240 MiB",
@@ -661,9 +667,10 @@
         "Provider adapters, normalization, routing and projection remain separate responsibilities.",
         "Hub coordination and worker execution boundaries remain intact."
       ],
-      "cleanup_required": [
-        "The reusable model importer is coupled to the Unsloth class name and task composition; introduce a provider-neutral port instead of duplicating it for Ornith.",
-        "Do not add Ornith branches to ModelInvocationService; use profile and parser strategies."
+      "cleaned_up": [
+        "The immutable importer now has a provider-neutral executor name while retaining its compatibility alias.",
+        "Response handling uses a profile-selected parser strategy instead of Ornith branches in ModelInvocationService.",
+        "Resource admission, source admission, response parsing and benchmark execution remain separate testable responsibilities."
       ]
     }
   },
@@ -684,13 +691,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 8,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 5,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 9,
+      "done": 4
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 30.8,
     "by_priority": {
       "P0": 6,
       "P1": 6,
@@ -704,26 +711,26 @@
     },
     "critical_path": {
       "total": 11,
-      "done": 0,
-      "remaining": 11
+      "done": 4,
+      "remaining": 7
     },
     "milestones": {
       "total": 4,
-      "todo": 1,
-      "in_progress": 3,
+      "todo": 0,
+      "in_progress": 4,
       "blocked": 0,
       "done": 0
     }
   },
   "progress_summary": {
-    "state": "in_progress",
-    "todo_remaining": 8,
+    "state": "blocked",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 5,
-    "blocked": 0,
-    "done": 0,
-    "count_based_percent": 0.0,
-    "weighted_percent": 19.5
+    "partial": 0,
+    "blocked": 9,
+    "done": 4,
+    "count_based_percent": 30.8,
+    "weighted_percent": 84.7
   },
   "tasks_type_summary": {
     "total": 13,
@@ -731,196 +738,196 @@
       "research": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 90.0
       },
       "architecture": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 35.0
+        "progress_percent": 100.0
       },
       "security": {
         "total": 3,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
-          "done": 0
+          "partial": 0,
+          "blocked": 2,
+          "done": 1
         },
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "progress_percent": 43.3
+        "done": 1,
+        "partial": 0,
+        "blocked": 2,
+        "progress_percent": 91.7
       },
       "implementation": {
         "total": 2,
         "by_status": {
-          "todo": 2,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 2,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 2,
+        "progress_percent": 75.0
       },
       "integration": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "progress_percent": 65.0
+        "partial": 0,
+        "blocked": 1,
+        "progress_percent": 85.0
       },
       "evaluation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 75.0
       },
       "benchmark": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 70.0
       },
       "performance": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         },
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "progress_percent": 0.0
+        "blocked": 1,
+        "progress_percent": 70.0
       },
       "frontend": {
         "total": 1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
-        "progress_percent": 45.0
+        "progress_percent": 100.0
       },
       "documentation": {
         "total": 1,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         },
-        "done": 0,
+        "done": 1,
         "partial": 0,
         "blocked": 0,
-        "progress_percent": 0.0
+        "progress_percent": 100.0
       }
     }
   },
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 24.0,
-    "done_weight": 4.675,
-    "remaining_weight": 19.325,
-    "blocked_weight": 0.0,
-    "weighted_percent": 19.5
+    "done_weight": 20.325,
+    "remaining_weight": 3.675,
+    "blocked_weight": 17.5,
+    "weighted_percent": 84.7
   },
   "milestone_progress_summary": {
     "milestones": {
       "M0": {
         "total_tasks": 3,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 28.5,
+        "done": 1,
+        "blocked": 2,
+        "count_based_percent": 33.3,
+        "weighted_percent": 93.0,
         "status": "in_progress"
       },
       "M1": {
         "total_tasks": 5,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 22.4,
+        "done": 1,
+        "blocked": 4,
+        "count_based_percent": 20.0,
+        "weighted_percent": 80.5,
         "status": "in_progress"
       },
       "M2": {
         "total_tasks": 3,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 16.4,
+        "done": 1,
+        "blocked": 2,
+        "count_based_percent": 33.3,
+        "weighted_percent": 80.9,
         "status": "in_progress"
       },
       "M3": {
         "total_tasks": 2,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 0.0,
-        "status": "todo"
+        "done": 1,
+        "blocked": 1,
+        "count_based_percent": 50.0,
+        "weighted_percent": 92.5,
+        "status": "in_progress"
       }
     }
   },
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T18:03:49.368392Z",
+    "generated_at": "2026-09-04T18:36:58.504090Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "925967c8f28c0ae040b386f5de694aa60f8cfd8b029c9e7eb54420fcd9db3eba",
+    "source_hash": "e2d0e133b2483424054c22606364b427d477b9a180baab81740a5280f043b0ed",
     "is_stale": false
   }
 }
