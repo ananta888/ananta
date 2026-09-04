@@ -44,6 +44,7 @@ jobs:
       - run: uv venv --python 3.12
       - run: uv pip install -e '.[dev]'
       - run: .venv/bin/pytest -q -p no:cacheprovider --confcutdir=tests/verification tests/verification -m "not verification_real" --ignore=tests/verification/test_property_pilot.py --ignore=tests/verification/test_stateful_pilot.py --ignore=tests/verification/test_counterexample_pilot.py --ignore=tests/verification/test_fast_gate.py
+      - run: .venv/bin/python scripts/check_python_verification_gate.py
       - run: .venv/bin/python -c "import importlib.util; assert importlib.util.find_spec('crosshair') is None"
 
   hypothesis-matrix:

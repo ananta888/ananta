@@ -1,8 +1,27 @@
 {
-  "schema": "ananta.python-verification-pilot-gate.v1",
+  "schema": "ananta.python-verification-gate.v2",
   "observed_on": "2026-09-04",
-  "evidence_classification": "local_technical_observation_unverified_for_production",
+  "evidence_classification": "github_ci_and_local_test_observations",
   "production_run_ref": null,
+  "ci_evidence": {
+    "workflow": "Python Verification",
+    "run_id": 33910210131,
+    "head_sha": "7ad0784329fd4998809b89134a76b72670321875",
+    "conclusion": "success",
+    "url": "https://github.com/ananta888/ananta/actions/runs/33910210131",
+    "jobs": {
+      "core-boundary": "success",
+      "hypothesis-matrix (3.10)": "success",
+      "hypothesis-matrix (3.11)": "success",
+      "hypothesis-matrix (3.12)": "success",
+      "hypothesis-matrix (3.13)": "success",
+      "hypothesis-matrix (3.14)": "success",
+      "repeated-fast-gate": "success",
+      "symbolic-targeted": "success",
+      "worker-image": "success"
+    },
+    "jobs_digest": "7ff4b5a158e57dee862b82589f245e37f09f783cc33c90bc3ef1f4f7fc93870e"
+  },
   "toolchain": {
     "python": "3.12.14",
     "hypothesis": "6.167.1",
@@ -10,34 +29,77 @@
     "hypothesis-crosshair": "0.0.30",
     "z3-solver": "5.1.0.0"
   },
-  "gates": [
-    {"name":"property-contract-stateful-suite","status":"passed","passed":39,"failed":0,"duration_seconds":11.40},
-    {"name":"real-crosshair-toolchain-suite","status":"passed","passed":5,"failed":0,"duration_seconds":58.96},
-    {"name":"fast-suite-repeat","status":"passed","runs":20,"failures":0,"median_seconds":0.619,"max_seconds":0.638,"budget_seconds":8.0},
-    {"name":"python-install-matrix","status":"passed","versions":["3.10.21","3.11.16","3.12.14","3.13.15","3.14.4"]},
-    {"name":"dependency-advisory-scan","status":"passed","known_vulnerabilities":0},
-    {"name":"isolated-worker-image","status":"passed","network":"none","user":"65532:65532","capabilities":[]}
+  "local_gates": [
+    {
+      "name": "property-contract-stateful-suite",
+      "status": "passed",
+      "passed": 87,
+      "failed": 0,
+      "duration_seconds": 71.29
+    },
+    {
+      "name": "real-crosshair-toolchain-suite",
+      "status": "passed",
+      "passed": 7,
+      "failed": 0,
+      "duration_seconds": 51.86,
+      "production_targets": 5,
+      "seeded_defect_reproduced": true
+    },
+    {
+      "name": "fast-suite-repeat",
+      "status": "passed",
+      "runs": 20,
+      "failures": 0,
+      "median_seconds": 0.628,
+      "max_seconds": 0.78,
+      "budget_seconds": 8.0
+    },
+    {
+      "name": "backend-comparison",
+      "status": "passed",
+      "properties": 5,
+      "hypothesis_seconds": 0.576,
+      "crosshair_seconds": 14.148
+    }
   ],
-  "backend_comparison": {
-    "properties": 5,
-    "hypothesis_seconds": 3.406,
-    "crosshair_seconds": 20.853,
-    "decision": "crosshair_backend_nightly_hold",
-    "reason_code": "solver_backend_materially_slower"
+  "generator_assessment": {
+    "pynguin": {
+      "version": "0.45.0",
+      "network": "none",
+      "module": "agent.services.task_dependency_policy",
+      "search_budget_seconds": 30,
+      "generated_tests": 13,
+      "original_passed": 10,
+      "strict_xfailed": 3,
+      "branch_coverage_percent": 60,
+      "controlled_mutants_killed": 2,
+      "controlled_mutants_total": 3,
+      "unique_defects": 0
+    },
+    "qodo_cover": {
+      "executed": false,
+      "reason_code": "external_provider_and_source_egress_not_approved"
+    }
   },
-  "defects_found_and_fixed": [
-    {"scope":"existing-production","reason_code":"self_dependency_cycle_normalized_away","resolution":"preserve self edges for graph cycle validation"},
-    {"scope":"new-integration","reason_code":"host_uid_process_limit_interference","resolution":"enforce PID isolation at the dedicated container boundary"},
-    {"scope":"new-integration","reason_code":"crosshair_counterexample_parser_greedy","resolution":"parse the first call boundary and materialize positional arguments"},
-    {"scope":"new-integration","reason_code":"crosshair_per_condition_budget_overallocation","resolution":"cap each pilot condition while retaining the total subprocess timeout"}
-  ],
   "capability_decisions": {
     "hypothesis_core": "go",
     "hypothesis_stateful": "go",
     "crosshair_check": "go_targeted_only",
     "crosshair_cover": "hold_experimental",
     "hypothesis_crosshair_backend": "hold_nightly",
-    "crosshair_diffbehavior": "hold_experimental"
+    "crosshair_diffbehavior": "hold_experimental",
+    "pynguin": "no_go_core_hold_isolated_review_only",
+    "qodo_cover": "no_go"
   },
-  "note": "No-counterexample observations are bounded search results and are not proofs of correctness. This local synthetic/test run cannot satisfy a production release gate."
+  "defects_found_and_fixed": [
+    "self_dependency_cycle_normalized_away",
+    "host_uid_process_limit_interference",
+    "crosshair_counterexample_parser_greedy",
+    "crosshair_per_condition_budget_overallocation",
+    "isolated_child_pytest_loaded_hub_conftest",
+    "core_test_imported_optional_hypothesis"
+  ],
+  "note": "GitHub CI and local test observations are commit-bound technical evidence. They are not Hub-registered production evidence and cannot satisfy a production release gate. No-counterexample observations are bounded searches, not correctness proofs.",
+  "content_digest": "d423c1529c56181937740586f398b30e3d0171d971198b8479106750dcb5ed72"
 }
