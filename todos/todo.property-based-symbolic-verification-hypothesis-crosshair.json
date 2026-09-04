@@ -38,10 +38,30 @@
       "package": "hypothesis",
       "observed_release": "6.167.1",
       "release_date": "2026-08-30",
+      "python": "Python >=3.10 laut Upstream-Metadaten",
       "license_note": "Mozilla Public License 2.0 laut Upstream-LICENSE.",
       "crosshair_extra": "Der beobachtete Upstream-Stand verwendet hypothesis-crosshair>=0.0.30 und crosshair-tool>=0.0.110 für das Extra hypothesis[crosshair]."
     },
     "pinning_policy": "Beobachtete Versionen sind Evaluationsbaselines und keine dauerhaften Pins. Vor Implementierung Releases, Python-Matrix, Transitivabhängigkeiten, SBOM und Lizenzen erneut prüfen."
+  },
+  "source_audit": {
+    "checked_on": "2026-09-04",
+    "repository_revision": "073305194",
+    "method": "Direkter Abgleich von Todo, Quellcode, optionalen Abhängigkeiten, CI-Workflows und offiziellen Upstream-Metadaten vor Implementierungsbeginn.",
+    "findings": [
+      "Hypothesis 6.167.1 und CrossHair 0.0.110 sind als aktuelle Evaluationsbaseline bestätigt; Hypothesis benötigt Python >=3.10, CrossHair CPython >=3.8.",
+      "Die lokale Python-3.12-Umgebung enthält hypothesis, crosshair-tool, hypothesis-crosshair und z3-solver noch nicht.",
+      "pyproject.toml besitzt noch kein optionales Verifikations-Extra; Hub und Core importieren keine der Werkzeugbibliotheken.",
+      "Es existieren noch keine worker/verification-Ports, geschlossenen Verifikationsergebnisverträge, Verifikationsschemas, isolierten Profile oder spezifischen CI-Jobs.",
+      "Die allgemeinen Hub-Task-, Dispatch-Lease-, Evidence-Registry- und CodeCompass-Bausteine sind wiederverwendbare Infrastruktur, erfüllen aber keine PHSV-Aufgabe allein.",
+      "AgentRunStateMachine, Task-Dependency-Policy, Shell-Command-Policy, Source-Control-Policy, Verification-Policy und ananta_contracts bieten geeignete konkrete Pilotziele; der geforderte bewertete Katalog mit mindestens 15 Kandidaten fehlt noch."
+    ],
+    "task_corrections": {
+      "PHSV-001": "partial: Release-, Python-, Reife- und Lizenzbasis ist geprüft; transitive Lizenzmatrix, SBOM und Installations-Smokes fehlen.",
+      "PHSV-002": "todo: Zielklassen sind vorgeschlagen, aber noch keine 15 konkreten Funktionen samt Eignungsbewertung inventarisiert.",
+      "PHSV-003..PHSV-013": "todo: Keine aufgabenspezifische Implementierung oder belastbare Abnahme im Quellstand vorhanden."
+    },
+    "scope_correction": "Das Pilotprofil wird auf Anantas tatsächlich unterstützte Python-Versionen >=3.10 begrenzt, da die aktuelle Hypothesis-Version ältere Interpreter nicht unterstützt."
   },
   "status_scale": [
     "todo",
@@ -335,7 +355,7 @@
         "PHSV-001",
         "PHSV-002"
       ],
-      "status": "todo"
+      "status": "in_progress"
     },
     {
       "id": "PHSV-M2",
@@ -383,10 +403,10 @@
       "title": "Upstream-, Lizenz- und Kompatibilitätsbaseline verifizieren",
       "type": "research",
       "milestone_id": "PHSV-M1",
-      "status": "todo",
+      "status": "partial",
       "priority": "P1",
       "risk": "low",
-      "progress_percent": 0,
+      "progress_percent": 45.0,
       "details": [
         "Aktuelle Releases und Python-Kompatibilität von Hypothesis, CrossHair, hypothesis-crosshair und Z3 prüfen.",
         "Lizenzdateien, SBOM-Auswirkungen, Wheel-Verfügbarkeit und native Komponenten dokumentieren.",
@@ -415,7 +435,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "CodeCompass-Snapshot und Repository-Analyse verwenden, um kleine typisierte und deterministische Funktionen zu priorisieren.",
         "Vorhandene Assertions, Pydantic-Constraints, Dataclasses, Enum-Zustände, vorhandene Tests und dokumentierte Invarianten erfassen.",
@@ -445,7 +465,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Kleine Ports für Property-Test, Contract-Check, Behavior-Diff, Materialisierung und Artefaktpublikation definieren.",
         "Ergebnisstatus so modellieren, dass timeout, unsupported, inconclusive und failed_to_reproduce nicht mit passed verschmelzen.",
@@ -475,7 +495,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Separates Containerprofil ohne Netzwerk, Secrets, Docker-Socket oder privilegierte Capabilities bereitstellen.",
         "Read-only Source- und Baseline-Mounts sowie begrenzten taskgebundenen Output konfigurieren.",
@@ -503,7 +523,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Hypothesis nur als optionales Dev-/Worker-Paket integrieren.",
         "Pilot-Properties für Roundtrip, Idempotenz, Grenzwerte, Permission-Monotonie und Parserstabilität umsetzen.",
@@ -531,7 +551,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Für den Pilot die geringste tragfähige Contract-Syntax auswählen; reguläre Assertions bevorzugen, zusätzliche Bibliotheken nur bei klarem Nutzen.",
         "crosshair check für explizite Contracts und crosshair cover für Testkandidaten getrennt kapseln.",
@@ -558,7 +578,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Ausgewählte bestehende Properties zusätzlich mit settings(backend='crosshair') ausführen.",
         "Normales Hypothesis-Backend und CrossHair-Backend hinsichtlich gefundener Bugs, Laufzeit, Shrinking und Unsupported-Raten vergleichen.",
@@ -585,7 +605,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Basis- und Patch-Revision in getrennten read-only Worktrees beziehungsweise Images laden.",
         "Nur explizit gemappte, typisierte und kleine Symbolpaare vergleichen.",
@@ -612,7 +632,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Hypothesis RuleBasedStateMachine für mindestens eine reine Modellzustandsmaschine verwenden.",
         "Invarianten für terminale Zustände, verbotene Übergänge, Idempotenz, Abhängigkeitsfreigabe und Replay formulieren.",
@@ -641,7 +661,7 @@
       "status": "todo",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Symbolische Werte vollständig in konkrete JSON- beziehungsweise Python-rekonstruierbare Werte überführen.",
         "Gegenbeispiel in frischem Prozess mit normalem CPython und festem Repositoryzustand reproduzieren.",
@@ -669,7 +689,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "CodeCompass liefert geänderte Symbole, Callgraph-Nähe, Typisierung, bekannte Tests und Seiteneffektindikatoren.",
         "Ein deterministischer Hub-Service bewertet Eignung, Risiko, Profil und Budget; LLM-Text darf keine Toolrechte aktivieren.",
@@ -699,7 +719,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Schnelle stabile Hypothesis-Properties in das PR-Profil aufnehmen.",
         "Gezielte CrossHair-Checks nur für allowlistete risikoreiche Änderungen oder explizite Labels ausführen.",
@@ -725,7 +745,7 @@
       "status": "todo",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 0.0,
       "details": [
         "Gefundene einzigartige Fehler, False Positives, Inconclusive-, Unsupported- und Timeout-Raten erfassen.",
         "Einrichtungs- und Wartungsaufwand sowie CI-Zeit pro Fähigkeit messen.",
@@ -758,13 +778,13 @@
   "tasks_status_summary": {
     "total": 13,
     "by_status": {
-      "todo": 13,
+      "todo": 12,
       "in_progress": 0,
-      "partial": 0,
+      "partial": 1,
       "blocked": 0,
       "done": 0
     },
-    "progress_percent_done": 0,
+    "progress_percent_done": 0.0,
     "by_priority": {
       "P0": 6,
       "P1": 7,
@@ -783,8 +803,8 @@
     },
     "milestones": {
       "total": 5,
-      "todo": 5,
-      "in_progress": 0,
+      "todo": 4,
+      "in_progress": 1,
       "blocked": 0,
       "done": 0
     }
@@ -792,24 +812,143 @@
   "tasks_type_summary": {
     "total": 13,
     "by_type": {
-      "research": 1,
-      "analysis": 1,
-      "architecture": 1,
-      "security": 1,
-      "implementation": 5,
-      "experiment": 1,
-      "integration": 1,
-      "ci": 1,
-      "release": 1
+      "research": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 45.0
+      },
+      "analysis": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "architecture": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "security": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "implementation": {
+        "total": 5,
+        "by_status": {
+          "todo": 5,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "experiment": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "integration": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "ci": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      },
+      "release": {
+        "total": 1,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        },
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 0.0
+      }
     }
   },
   "progress_summary": {
-    "state": "todo",
-    "todo_remaining": 13,
+    "state": "in_progress",
+    "todo_remaining": 12,
     "in_progress": 0,
-    "partial": 0,
+    "partial": 1,
     "blocked": 0,
-    "done": 0
+    "done": 0,
+    "count_based_percent": 0.0,
+    "weighted_percent": 3.6
   },
   "decision_gates": [
     {
@@ -926,5 +1065,66 @@
       "title": "hypothesis-crosshair",
       "url": "https://github.com/pschanely/hypothesis-crosshair"
     }
-  ]
+  ],
+  "weighted_progress_summary": {
+    "weighting_model_ref": "planning-weighting-default-v1",
+    "total_weight": 25.0,
+    "done_weight": 0.9,
+    "remaining_weight": 24.1,
+    "blocked_weight": 0.0,
+    "weighted_percent": 3.6
+  },
+  "milestone_progress_summary": {
+    "milestones": {
+      "PHSV-M1": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 25.7,
+        "status": "in_progress"
+      },
+      "PHSV-M2": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "PHSV-M3": {
+        "total_tasks": 5,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "PHSV-M4": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      },
+      "PHSV-M5": {
+        "total_tasks": 2,
+        "done": 0,
+        "blocked": 0,
+        "count_based_percent": 0.0,
+        "weighted_percent": 0.0,
+        "status": "todo"
+      }
+    }
+  },
+  "derived_summary_metadata": {
+    "mode": "derived_cache",
+    "source_of_truth": "tasks",
+    "generated_at": "2026-09-04T11:28:58.024490Z",
+    "generator": "planning-summary-engine",
+    "generator_version": "1.0",
+    "source_hash": "3b8bd64f0560e666aababfb540941d33f694fdb7b569b1656b747e699b9ef399",
+    "is_stale": false
+  }
 }
