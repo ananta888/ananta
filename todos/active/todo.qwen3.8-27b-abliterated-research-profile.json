@@ -5,7 +5,7 @@
   "owner": "Peter Stuiber / Ananta",
   "track": "qwen3_8_27b_abliterated_controlled_research_profile",
   "title": "Qwen3.8-27B Abliterated kontrolliert evaluieren und als gesperrtes Research-Profil integrieren",
-  "status": "partial",
+  "status": "blocked",
   "priority": "P1",
   "status_scale": [
     "todo",
@@ -179,7 +179,7 @@
     {
       "id": "M0",
       "title": "Provenance, Varianten und Sicherheitsvertrag",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "QABL-001",
         "QABL-002",
@@ -190,7 +190,7 @@
     {
       "id": "M1",
       "title": "Lokale Laufzeit und Hardwareprofil",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "QABL-005",
         "QABL-006"
@@ -199,7 +199,7 @@
     {
       "id": "M2",
       "title": "Qualitäts-, Capability- und Sicherheitsvergleich",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "QABL-007",
         "QABL-008",
@@ -209,7 +209,7 @@
     {
       "id": "M3",
       "title": "Ananta-Integration, Oberfläche und Entscheidung",
-      "status": "partial",
+      "status": "blocked",
       "task_ids": [
         "QABL-010",
         "QABL-011",
@@ -223,10 +223,10 @@
       "title": "Upstream-, Lizenz- und Artefakt-Provenance revisionsgebunden erfassen",
       "type": "research",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 50,
+      "progress_percent": 100,
       "depends_on": [],
       "target_files": [
         "docs/research/qwen3.8-27b-abliterated-provenance.md",
@@ -255,10 +255,10 @@
       "title": "Abliterationslinien und Quantisierungen als getrennte Modellidentitäten modellieren",
       "type": "architecture",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 25,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-001"
       ],
@@ -285,10 +285,10 @@
       "title": "Fail-closed Research-Policy und verbotene Einsatzwege definieren",
       "type": "security",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 10,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-002"
       ],
@@ -319,10 +319,10 @@
       "title": "Sicheren GGUF-Import und Supply-Chain-Gates implementieren",
       "type": "security",
       "milestone_id": "M0",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 70,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-001",
         "QABL-003"
@@ -350,10 +350,10 @@
       "title": "Runtime-Kompatibilität für llama.cpp, Ollama, LM Studio und Colibri prüfen",
       "type": "integration",
       "milestone_id": "M1",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 50,
+      "progress_percent": 80,
       "depends_on": [
         "QABL-004"
       ],
@@ -385,10 +385,10 @@
       "title": "RTX-3080-/64-GB-Hardwareprofil und Quantisierungsempfehlung messen",
       "type": "benchmark",
       "milestone_id": "M1",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "medium",
-      "progress_percent": 0,
+      "progress_percent": 60,
       "depends_on": [
         "QABL-005"
       ],
@@ -415,10 +415,10 @@
       "title": "Original gegen Abliterated auf Qualität und Fähigkeiten vergleichen",
       "type": "evaluation",
       "milestone_id": "M2",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 70,
       "depends_on": [
         "QABL-002",
         "QABL-005",
@@ -447,10 +447,10 @@
       "title": "Sicherheits- und Prompt-Injection-Red-Team durchführen",
       "type": "security",
       "milestone_id": "M2",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 20,
+      "progress_percent": 75,
       "depends_on": [
         "QABL-003",
         "QABL-005",
@@ -479,10 +479,10 @@
       "title": "Isolierte Tool-Sandbox mit minimalen Rechten erzwingen",
       "type": "security",
       "milestone_id": "M2",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
-      "progress_percent": 50,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-003",
         "QABL-008"
@@ -510,10 +510,10 @@
       "title": "Transparente Research-Profil-Oberfläche und Freigabefluss bauen",
       "type": "ui",
       "milestone_id": "M3",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 40,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-002",
         "QABL-003",
@@ -543,10 +543,10 @@
       "title": "Routing-, Audit- und Regressionstests in Ananta integrieren",
       "type": "testing",
       "milestone_id": "M3",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
-      "progress_percent": 35,
+      "progress_percent": 100,
       "depends_on": [
         "QABL-007",
         "QABL-008",
@@ -576,10 +576,10 @@
       "title": "Go/No-Go-Entscheidung, Dokumentation und begrenzten Rollout abschließen",
       "type": "governance",
       "milestone_id": "M3",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P1",
       "risk": "high",
-      "progress_percent": 0,
+      "progress_percent": 80,
       "depends_on": [
         "QABL-001",
         "QABL-006",
@@ -680,7 +680,7 @@
   "implementation_review": {
     "reviewed_at": "2026-09-04",
     "source_revision": "4947ef6b0714f825f807bd01e62352517b70736e",
-    "state": "generic_safety_baseline_found_qwen_profile_not_implemented",
+    "state": "local_implementation_complete_live_evidence_blocked",
     "audited_upstream": {
       "Qwen/Qwen3.8-27B": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
       "huihui-ai/Huihui-Qwen3.8-27B-abliterated": "739e3c5b89849f6c238ce1e5b70008612ae42cdd",
@@ -704,11 +704,11 @@
       "Colibri does not currently prove Qwen3.8-Flash-Next or dense Qwen3.8-27B execution support; the similar family name cannot select an engine.",
       "The official base and safetensors community repository contain matching Apache-2.0 license text; the GGUF repository itself exposes only declared card metadata and must retain its derivation binding."
     ],
-    "remaining_scope": [
-      "Versioned unsafe_research identity, policy, expiring authorization and alias/fallback containment",
-      "Pinned GGUF sources, structural scanner and quarantined import activation",
-      "Default-off profiles, runtime matrix, sandbox, red-team and comparison contracts",
-      "Headless runners, dashboard trust projection, audit events, runbooks and final evidence-bound decision"
+    "external_blockers": [
+      "No exact base and derivative weights are imported into an isolated local runtime.",
+      "No pinned llama.cpp, Ollama or LM Studio build is running for capability and cancellation observations.",
+      "Paired IQ3/IQ4 hardware, quality, vision and red-team measurements require the exact artifacts and Hub-reserved live runs.",
+      "A final measured Go/No-Go cannot precede those comparison and containment results."
     ],
     "solid_review": {
       "preserved": [
@@ -724,13 +724,13 @@
   "tasks_status_summary": {
     "total": 12,
     "by_status": {
-      "todo": 3,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 9,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 5,
+      "done": 7
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 58.3,
     "by_priority": {
       "P0": 9,
       "P1": 3,
@@ -745,16 +745,16 @@
     },
     "critical_path": {
       "total": 10,
-      "done": 0,
-      "remaining": 10
+      "done": 6,
+      "remaining": 4
     },
     "milestones": {
       "total": 4,
       "todo": 0,
       "in_progress": 0,
-      "partial": 4,
-      "blocked": 0,
-      "done": 0
+      "partial": 0,
+      "blocked": 3,
+      "done": 1
     }
   },
   "tasks_type_summary": {
@@ -762,65 +762,65 @@
     "by_type": {
       "research": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 50.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "architecture": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 25.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "security": {
         "total": 4,
-        "done": 0,
-        "partial": 4,
-        "blocked": 0,
+        "done": 3,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 37.5,
+        "progress_percent": 93.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
-          "blocked": 0,
-          "done": 0
+          "partial": 0,
+          "blocked": 1,
+          "done": 3
         }
       },
       "integration": {
         "total": 1,
         "done": 0,
-        "partial": 1,
-        "blocked": 0,
+        "partial": 0,
+        "blocked": 1,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 50.0,
+        "progress_percent": 80.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
-          "blocked": 0,
+          "partial": 0,
+          "blocked": 1,
           "done": 0
         }
       },
@@ -828,15 +828,15 @@
         "total": 1,
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "todo": 1,
+        "blocked": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 60.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         }
       },
@@ -844,76 +844,76 @@
         "total": 1,
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "todo": 1,
+        "blocked": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 70.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         }
       },
       "ui": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 40.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "testing": {
         "total": 1,
-        "done": 0,
-        "partial": 1,
+        "done": 1,
+        "partial": 0,
         "blocked": 0,
         "todo": 0,
         "in_progress": 0,
-        "progress_percent": 35.0,
+        "progress_percent": 100.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 1,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
+          "done": 1
         }
       },
       "governance": {
         "total": 1,
         "done": 0,
         "partial": 0,
-        "blocked": 0,
-        "todo": 1,
+        "blocked": 1,
+        "todo": 0,
         "in_progress": 0,
-        "progress_percent": 0.0,
+        "progress_percent": 80.0,
         "by_status": {
-          "todo": 1,
+          "todo": 0,
           "in_progress": 0,
           "partial": 0,
-          "blocked": 0,
+          "blocked": 1,
           "done": 0
         }
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
-    "todo_remaining": 3,
+    "state": "blocked",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 9,
-    "blocked": 0,
-    "done": 0,
-    "milestones_done": 0,
+    "partial": 0,
+    "blocked": 5,
+    "done": 7,
+    "milestones_done": 1,
     "milestones_total": 4
   },
   "summary_notes": [
