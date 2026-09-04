@@ -3,4 +3,5 @@ crosshair-tool==0.0.110
 hypothesis-crosshair==0.0.30
 jsonschema==4.26.0
 pydantic==2.13.5
+PyYAML==6.0.3
 pytest==9.1.1

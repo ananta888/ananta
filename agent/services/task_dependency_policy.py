@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from agent.services.repository_registry import get_repository_registry
-
-
 def _repos():
+    # Keep the pure dependency helpers importable by isolated verification
+    # workers. Repository access is needed only by the two persistence-aware
+    # policies below and is resolved at their composition boundary.
+    from agent.services.repository_registry import get_repository_registry
+
     return get_repository_registry()
 
 

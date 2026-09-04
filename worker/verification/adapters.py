@@ -78,8 +78,22 @@ class _AdapterBase:
 
 
 class PytestHypothesisRunnerAdapter(_AdapterBase):
+    @staticmethod
+    def _pytest_command(repository: Path, target_symbols: Sequence[str]) -> list[str]:
+        verification_root = repository / "tests" / "verification"
+        return [
+            sys.executable,
+            "-m",
+            "pytest",
+            "-q",
+            "-p",
+            "no:cacheprovider",
+            f"--confcutdir={verification_root}",
+            *target_symbols,
+        ]
+
     def run(self, assignment: VerificationAssignmentV1, *, repository: Path) -> VerificationReportV1:
-        command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *assignment.target_symbols]
+        command = self._pytest_command(repository, assignment.target_symbols)
         observation = self._execute(
             assignment,
             repository=repository,
@@ -107,7 +121,7 @@ class PytestHypothesisRunnerAdapter(_AdapterBase):
 
 class HypothesisCrossHairBackendAdapter(PytestHypothesisRunnerAdapter):
     def run(self, assignment: VerificationAssignmentV1, *, repository: Path) -> VerificationReportV1:
-        command = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", *assignment.target_symbols]
+        command = self._pytest_command(repository, assignment.target_symbols)
         observation = self._execute(
             assignment,
             repository=repository,

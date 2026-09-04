@@ -12,6 +12,7 @@ from worker.verification.adapters import (
     CrossHairCheckAdapter,
     CrossHairDiffBehaviorAdapter,
     FakeVerificationRunnerAdapter,
+    HypothesisCrossHairBackendAdapter,
 )
 from worker.verification.materializer import JsonCounterexampleMaterializer
 from worker.verification.process_runner import ProcessObservation, VerificationProcessRunner
@@ -66,6 +67,17 @@ def test_timeout_and_bounded_no_difference_never_become_passed(tmp_path: Path) -
         right_symbol=targets[1],
     )
     assert report.status.value == "inconclusive"
+
+
+def test_crosshair_backend_isolated_run_does_not_load_hub_conftest(tmp_path: Path) -> None:
+    observation = ProcessObservation(0, "1 passed", "", 10, False, False)
+    runner = StubProcessRunner(observation)
+    report = HypothesisCrossHairBackendAdapter(runner).run(
+        assignment("crosshair_backend", ("tests/verification/test_property_pilot.py",)),
+        repository=tmp_path,
+    )
+    assert report.status.value == "passed_with_bounded_search"
+    assert f"--confcutdir={tmp_path / 'tests' / 'verification'}" in runner.commands[0]
 
 
 def test_materializer_invalidates_changed_test_candidate() -> None:
