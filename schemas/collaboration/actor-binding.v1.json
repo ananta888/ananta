@@ -12,6 +12,16 @@
     "authority_kind": {"enum": ["oidc", "hub_agent", "registered_worker", "resource_registry", "service", "bridge"]},
     "authority_subject": {"type": "string", "minLength": 1, "maxLength": 256},
     "display_name": {"type": "string", "minLength": 1, "maxLength": 128},
-    "capabilities": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string"}}
+    "capabilities": {"type": "array", "maxItems": 32, "uniqueItems": true, "items": {"type": "string"}},
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["provider", "model", "profile_revision"],
+      "properties": {
+        "provider": {"type": "string", "minLength": 1, "maxLength": 128},
+        "model": {"type": "string", "minLength": 1, "maxLength": 256},
+        "profile_revision": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"}
+      }
+    }
   }
 }

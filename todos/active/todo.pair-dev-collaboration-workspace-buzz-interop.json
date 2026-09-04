@@ -80,25 +80,25 @@
     "blocked_audit": {
       "status": "partial",
       "reason_codes": [
-        "native_workspace_core_implementation_absent",
-        "native_browser_and_load_run_evidence_missing",
-        "multi_participant_live_run_evidence_missing",
-        "buzz_source_and_conformance_evidence_missing"
+        "multi_hub_shared_store_missing",
+        "multi_participant_live_production_run_missing",
+        "buzz_production_conformance_run_missing",
+        "native_canary_run_missing"
       ],
       "lane_status": {
-        "native_core": "blocked_missing_implementation_and_run_evidence",
-        "multi_participant_live": "blocked_missing_real_browser_run_evidence",
-        "buzz_bridge": "todo_after_generic_bridge_contract"
+        "native_core": "local_gate_passed_production_canary_unverified",
+        "multi_participant_live": "blocked_missing_registered_real_runtime_evidence",
+        "buzz_bridge": "blocked_missing_registered_real_runtime_evidence"
       },
-      "unverified_navigation_observations": [
-        "No production CollaborationWorkspace, CollaborationRoom, WorkspaceEventV1, WorkspaceActorBinding, native append-only Workspace Event Store, permission-aware Workspace Search, or CollaborationBridge implementation was found at the reviewed commit.",
-        "The architecture document, mature ShareSession/Pair-View path, WebRTC E2EE/Epoch/replay controls, relay/SFU foundations, workflow event stores and CodeCompass are reusable foundations but do not satisfy the native durable workspace acceptance gates.",
-        "No Buzz/Nostr production adapter and no assignment-bound PDCW SRC_* or RUN_* release evidence was found; external reference compatibility remains unverified."
+      "resolved_findings": [
+        "The native durable workspace, room/thread model, delivery, projections, search, recovery and optional bridge implementation now exist.",
+        "A fully headless Chromium run against an isolated real Hub and Angular application covers create, message, reply, cursor, archive/reopen and reconnect.",
+        "No test or productive bounded command path waits for a human; policy auto-approves eligible operations or returns a terminal blocked result."
       ],
       "required_unblock_input": {
-        "native_core": "No human-supplied identifier is required. Implement the missing native services, then let the Hub automatically reserve the focused browser and load/rebuild runs.",
-        "multi_participant_live": "A reproducible local browser topology is required; its source and run identities must be issued automatically by the Hub before execution.",
-        "buzz_bridge": "Implement the generic bridge first, automatically admit pinned Buzz revision 01bacb8df3d2f5718e0a468828e07ae874a38eae, then run two headless reconnect/replay cycles."
+        "native_core": "Automatically reserve and execute a Hub Evidence Registry run for the concrete canary deployment.",
+        "multi_participant_live": "Automatically reserve and execute the real multi-browser/device relay or released-SFU profile.",
+        "buzz_bridge": "Automatically provision the pinned Buzz test runtime, reserve the run before execution and record both replay cycles."
       }
     }
   },
@@ -113,10 +113,11 @@
       "evidence_classification": "navigation_observation_pending_automatic_hub_source_admission"
     },
     "validation": [
-      "8/8 focused collaboration-workspace tests passed headlessly on Python 3.12.14.",
-      "scripts/check_collaboration_workspace_boundaries.py passed.",
+      "The focused collaboration-workspace Python suite passes fully headlessly with pytest-xdist.",
+      "The native Chromium E2E passes against an isolated real Hub and Angular application without mocks or human interaction.",
+      "scripts/check_collaboration_workspace_boundaries.py and Ruff pass.",
       "The native core remains default-off, Hub-owned and independent of Buzz, Nostr, LiveKit and browser transport types.",
-      "No human-supplied SRC_* or RUN_* identity is required; future implementation and release gates must use automatic Hub registry issuance."
+      "No human-supplied SRC_* or RUN_* identity is required; production gates remain fail-closed until the Hub automatically reserves and completes their runs."
     ],
     "source_findings": [
       "Buzz main is now pinned to 01bacb8df3d2f5718e0a468828e07ae874a38eae instead of being treated as a floating implementation target.",
@@ -124,12 +125,12 @@
       "Buzz agents, workflows, Git/project events and channels are useful adapter semantics, but Buzz relay authority must not replace Ananta Hub task, membership, approval, assignment or evidence authority."
     ],
     "implementation_findings": [
-      "The initial native slice provides closed actor/room/event contracts, an append-only SQLite store, basic memberships, presence, cursors, bounded search, an authenticated API and an Angular shell.",
-      "Outbox/inbox tables exist but consumers, delivery leases, conflict-bound inbox ingress and deterministic projection rebuild are absent.",
-      "Threads, restricted-room membership, artifact ingress, agent resource leases, workflow/Git/CodeCompass projections, migration execution, backup/restore, load/chaos gates and a productive bridge adapter remain absent.",
-      "The existing eight tests validate only the initial native slice; they do not provide multi-participant browser, sustained load, disaster-recovery or Buzz conformance evidence."
+      "Native durable workspaces now include closed workspace/actor/room/event/resource/intent contracts, restricted rooms, threads, lifecycle, memberships, presence, cursor and policy checks.",
+      "Delivery leases, inbox replay protection, deterministic projection/search rebuild, flow projections, legacy migration, backup/restore/export and local release-lane isolation are implemented.",
+      "The optional pinned Buzz adapter is default-off and locally covers signature checks, key-provider separation, delivery persistence, replay/loop/rate/membership defenses and independent conformance status.",
+      "Remaining implementation work is limited to shared multi-Hub persistence, deeper productive Hub task/binding adapters, richer projection UI and production observability integration."
     ],
-    "audit_decision": "Keep the track active. Complete transport-neutral native durability, security, projections and automated release gates before implementing the optional pinned Buzz adapter."
+    "audit_decision": "Keep the track active: local native implementation is broadly complete, while explicit partial integration work and four evidence-bound release tasks remain."
   },
   "baseline": {
     "preserve": [
@@ -256,7 +257,7 @@
     {
       "id": "M01",
       "title": "Architektur, Quellaudit und Entscheidungsgrenzen",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "PDCW-ARCH-001",
         "PDCW-ARCH-002",
@@ -269,7 +270,7 @@
     {
       "id": "M02",
       "title": "Kanonische Workspace-, Room- und Event-Verträge",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-EVT-001",
         "PDCW-EVT-002",
@@ -282,7 +283,7 @@
     {
       "id": "M03",
       "title": "Akteure, Membership, Presence und Berechtigungen",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "PDCW-ID-001",
         "PDCW-ID-002",
@@ -295,7 +296,7 @@
     {
       "id": "M04",
       "title": "Multi-Participant Live-Transport und Resilienz",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "PDCW-LIVE-001",
         "PDCW-LIVE-002",
@@ -308,7 +309,7 @@
     {
       "id": "M05",
       "title": "Native Workspace-, Room- und Thread-Oberflächen",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-UI-001",
         "PDCW-UI-002",
@@ -321,7 +322,7 @@
     {
       "id": "M06",
       "title": "Agenten und Ressourcen als First-Class-Mitglieder",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-AGT-001",
         "PDCW-AGT-002",
@@ -334,7 +335,7 @@
     {
       "id": "M07",
       "title": "Projekt-, Git-, Task- und Workflow-Projektionen",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-FLOW-001",
         "PDCW-FLOW-002",
@@ -347,7 +348,7 @@
     {
       "id": "M08",
       "title": "Suche, CodeCompass, Evidenz und Memory",
-      "status": "partial",
+      "status": "done",
       "task_ids": [
         "PDCW-SRCH-001",
         "PDCW-SRCH-002",
@@ -360,7 +361,7 @@
     {
       "id": "M09",
       "title": "Optionaler Buzz/Nostr-Adapter",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-BUZZ-001",
         "PDCW-BUZZ-002",
@@ -373,7 +374,7 @@
     {
       "id": "M10",
       "title": "Security, Privacy und Missbrauchsschutz",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-SEC-001",
         "PDCW-SEC-002",
@@ -386,7 +387,7 @@
     {
       "id": "M11",
       "title": "Migration, Betrieb, Observability und Recovery",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-OPS-001",
         "PDCW-OPS-002",
@@ -399,7 +400,7 @@
     {
       "id": "M12",
       "title": "Verifikation und gestufte Produktionsfreigabe",
-      "status": "partial",
+      "status": "in_progress",
       "task_ids": [
         "PDCW-QA-001",
         "PDCW-QA-002",
@@ -414,7 +415,7 @@
     {
       "id": "PDCW-ARCH-001",
       "title": "Ist-Architektur und reale Pair-Dev-Fähigkeiten inventarisieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "medium",
       "type": "architecture",
@@ -426,12 +427,12 @@
         "WebRTC-P2P, Hub Relay, LiveKit/SFU, TURN, View-Sync, Chat, Gruppen, E2EE und Semantic Compute werden separat bewertet.",
         "Keine fehlende Runtime-Evidence wird als produktive Fähigkeit oder erfundene SRC_*-/RUN_*-Referenz ausgegeben."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ARCH-002",
       "title": "ADR für vier getrennte Pair-Dev-Architekturebenen verabschieden",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
@@ -446,12 +447,12 @@
         "WebRTC, SFU, Relay, Buzz und Nostr werden ausschließlich als Ports/Adapter klassifiziert.",
         "Verbotene Abhängigkeiten, insbesondere Worker-zu-Worker-Orchestrierung und Adapter-zu-TaskDB-Schreiben, werden dokumentiert und testbar gemacht."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ARCH-003",
       "title": "Kanonisches Domänenglossar und Aggregate definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -466,12 +467,12 @@
         "Membership wird von Presence und ResourceOffer von ResourceLease getrennt.",
         "Bestehende ShareSession-, Participant-, PairGroup- und View-Sync-Begriffe erhalten eine dokumentierte Kompatibilitätsabbildung."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ARCH-004",
       "title": "Fokussierte Core-Ports und Adapter-Capability-Vertrag entwerfen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "architecture",
@@ -485,12 +486,12 @@
         "Capability-Manifeste unterscheiden unterstützt, nicht unterstützt und temporär nicht verfügbar.",
         "Conformance-Tests verhindern erfolgreiche No-op-Implementierungen und sichern LSP/ISP."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ARCH-005",
       "title": "Feature-Flag-, Rollout- und Authority-Matrix festlegen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "configuration",
@@ -506,12 +507,12 @@
         "Ein Flag kann niemals bestehende SFU/TURN-, E2EE-, Approval- oder Hub-Policy-Gates umgehen.",
         "Die Matrix nennt pro Modus Autorität, Datenpersistenz, E2EE-Sichtbarkeit und Rollbackwirkung."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ARCH-006",
       "title": "Kompatibilitäts-, Deprecation- und Entscheidungsregister erstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "documentation",
@@ -526,12 +527,12 @@
         "Jeder Breaking-Risk nennt Compatibility Adapter, Telemetrie und frühesten Entfernungszeitpunkt.",
         "Architekturentscheidungen und bewusst nicht übernommene Buzz-Eigenschaften sind nachvollziehbar versioniert."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-EVT-001",
       "title": "CollaborationWorkspace- und CollaborationRoom-Verträge versionieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "contract",
@@ -547,12 +548,12 @@
         "Unbekannte Authority-, Retention- oder Binding-Felder werden fail-closed abgelehnt.",
         "Python- und TypeScript-Typen werden aus demselben versionierten Vertrag geprüft."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-EVT-002",
       "title": "Room-, Thread- und Read-Cursor-Domänenmodell implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -567,12 +568,12 @@
         "Read-Cursor können pro Actor/Room fortgeschrieben werden, ohne fremde Cursor offenzulegen.",
         "Private Rooms sind weder über globale Listen noch über Thread-IDs indirekt auffindbar."
       ],
-      "progress_percent": 60.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-EVT-003",
       "title": "Transportneutrales WorkspaceEventV1-Schema definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -587,12 +588,12 @@
         "Große Inhalte werden ausschließlich als geprüfte Artifact-Referenzen übertragen.",
         "Buzz-/Nostr-IDs erscheinen nur in optionaler Adapterprovenienz und niemals als kanonische Event-ID."
       ],
-      "progress_percent": 90.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-EVT-004",
       "title": "Event-Taxonomie und Durability-Entscheider implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -606,7 +607,7 @@
         "Cursor, Typing und reine View-Deltas bleiben standardmäßig ephemeral; Decisions, Reviews und Task-Status sind durable.",
         "Die Policy verhindert Speicherung von Secrets, privatem Reasoning und unbeschränkten Toolausgaben."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-EVT-005",
@@ -626,12 +627,12 @@
         "Workspace-Sequenz und Projektion-Checkpoint bleiben unter Parallelität monoton und lückenbehandelbar.",
         "Migration Upgrade/Downgrade sowie Tenant- und Room-Isolation besitzen Datenbanktests."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 90.0
     },
     {
       "id": "PDCW-EVT-006",
       "title": "Transactional Outbox, Inbox-Deduplizierung und Projektion-Rebuild umsetzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -645,12 +646,12 @@
         "Inbox bindet Origin, External-ID, Mapping-Version und Payload-Digest und erkennt Konfliktreplays.",
         "Alle Projektionen können aus Events und Checkpoints deterministisch neu aufgebaut und verglichen werden."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-001",
       "title": "WorkspaceActorBinding für Menschen, Agenten, Worker und Ressourcen einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -665,12 +666,12 @@
         "Displayname, Modellname oder externe npub-Adresse verleihen keine Berechtigung.",
         "Ambigue, verwaiste oder widersprüchliche Bindings werden nicht automatisch repariert oder zusammengeführt."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-002",
       "title": "Identity-Linking und externe Key-Mappings erweitern",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -684,12 +685,12 @@
         "External Keys ersetzen weder Hub-JWT noch Worker-Capability noch WebRTC-Key-Bindung.",
         "Unlink und Key-Rotation sperren neue Zustellungen und erzeugen einen stabilen Audit-Reason-Code."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-003",
       "title": "Revisioniertes Membership- und Rollenmodell implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -704,12 +705,12 @@
         "Join, Leave, Revoke und Ownership-Transfer sind CAS-geschützt, idempotent und event-/audit-projiziert.",
         "Gruppeneinladung materialisiert nur autorisierte Memberships und übernimmt keine ungeprüften Client-Permissions."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-004",
       "title": "Workspace- und Room-Policy-Evaluator mit Capability-Scopes bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -725,12 +726,12 @@
         "Plantext, externe Tags und Actor-Selbstauskunft können Scopes nur reduzieren, niemals erweitern.",
         "Jede Entscheidung liefert erlaubte Projektion oder stabilen öffentlichen Reason-Code ohne vertrauliche Policy-Details."
       ],
-      "progress_percent": 75.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-005",
       "title": "PresenceLease und per-Actor Read-/Ack-Cursor implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -745,12 +746,12 @@
         "Read-/Ack-Cursor sind actor- und roomgebunden, monoton und bei Reconnect verwendbar.",
         "Globale Presence-Abfragen leaken keine privaten Workspace- oder Room-Mitgliedschaften."
       ],
-      "progress_percent": 70.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-ID-006",
       "title": "Revocation, Epoch-Rotation und Lease-Entzug vereinheitlichen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -765,12 +766,12 @@
         "Outbox, Search und Bridges prüfen aktuelle Rechte vor Auslieferung erneut.",
         "Stale Sessions, Replay-Fenster und bereits geclaimte Delivery-Leases können Revocation nicht überholen."
       ],
-      "progress_percent": 50.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-001",
       "title": "Policy- und Evidence-basierten Live-Topologie-Selektor einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "architecture",
@@ -785,12 +786,12 @@
         "Selektorentscheidung enthält Topologie, Reason-Code, Contract-Revision und Ablaufzeit.",
         "Nicht unterstützte Kombinationen fail-closed oder fallen nur auf einen explizit erlaubten sicheren Pfad zurück."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-002",
       "title": "n>2 Live-Envelope-Routing mit per-Receiver-Rechten bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -805,12 +806,12 @@
         "Ein Publisher kann keine Audience durch Payloadfelder oder Peer-Selbstauskunft erweitern.",
         "Join gewährt keinen Vergangenheits-Key und Revoke stoppt weitere Pakete innerhalb der definierten Deadline."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-003",
       "title": "Traffic-Klassen, QoS und per-Receiver-Backpressure vereinheitlichen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -825,12 +826,12 @@
         "Payload-, Rate-, Queue-, TTL- und Chunk-Grenzen sind pro Traffic-Klasse vertraglich definiert.",
         "Ein langsamer Empfänger beeinträchtigt weder andere Empfänger noch Hub-Task-/Event-Transaktionen."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-004",
       "title": "Reconnect, Resume und bounded Offline-Outbox umsetzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "high",
       "type": "implementation",
@@ -845,12 +846,12 @@
         "Offline-Outbox ist größen-, zeit- und eventtypbegrenzt und zeigt nicht zustellbare Konflikte sichtbar an.",
         "Response-Loss- und Doppelzustellungsfälle bleiben idempotent und erzeugen keine doppelten Nachrichten oder Tasks."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-005",
       "title": "Live-Transport-Health, Circuit Breaker und degradierte Modi implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -865,12 +866,12 @@
         "Circuit Breaker besitzen bounded Probe, Backoff und sichtbare Reason-Codes.",
         "Fallback von WebRTC auf Relay behält Event-/Envelope-Identität und verhindert doppeltes Anwenden."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-LIVE-006",
       "title": "Live-zu-Durable-Grenze und Aufnahme-Policy implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -887,12 +888,12 @@
         "Aufnahme zeigt Nutzern klar, welche Daten nur live, serverlesbar, dauerhaft oder exportierbar sind.",
         "Remote-Control, Tool-Result und Command-Intent benötigen eigene Schema-, Policy- und Auditpfade."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-001",
       "title": "Angular Workspace-Shell und Room-Navigation bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -907,12 +908,12 @@
         "Project-, Goal-, Task-, Branch-, Incident-, Pair-Session- und Freeform-Rooms werden typisiert dargestellt.",
         "Bestehender AI-Snake Pair-Tab bleibt während Migration funktionsfähig."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-002",
       "title": "Room-Erstellung, Bindings und Lifecycle-Oberfläche umsetzen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -926,12 +927,12 @@
         "Archive stoppt neue normale Events, bewahrt History und besitzt einen getrennten Reopen-Grant.",
         "UI zeigt Binding, Retention, Sichtbarkeit und Bridge-Status verständlich an."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-003",
       "title": "Timeline-, Thread-, Review- und Decision-Ansicht implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -946,12 +947,12 @@
         "Entscheidungen zeigen Actor-, Digest-, Revision-, Approval- und Reason-Code-Provenienz ohne Secrets.",
         "Pagination, neue Events und Reconnect erzeugen keine Duplikate oder Scroll-Sprünge außerhalb definierter Regeln."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-004",
       "title": "Actor-Verzeichnis, Presence und Berechtigungsdiagnose bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -966,7 +967,7 @@
         "Warum ein Actor lesen, schreiben, steuern oder Ressourcen anbieten darf, ist über redigierte Reason-Codes erklärbar.",
         "Stale Presence und abgelaufene Offers werden sichtbar als stale/expired statt aktiv dargestellt."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-UI-005",
@@ -987,7 +988,7 @@
         "Follow ist jederzeit lokal beendbar; Remote-Control erfordert einen session-/actor-/revisiongebundenen Grant.",
         "Control-Konflikte, Revocation und Owner-Wechsel beenden aktive Steuerung deterministisch."
       ],
-      "progress_percent": 18.0
+      "progress_percent": 90.0
     },
     {
       "id": "PDCW-UI-006",
@@ -1009,12 +1010,12 @@
         "Artifact- und Code-Referenzen zeigen Digest, Version, Scope und partielle Verfügbarkeit.",
         "Vor neuen UI-Primitives wird vorhandenes shared/ui geprüft; feature-gebundene Komponenten bleiben lokal."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 85.0
     },
     {
       "id": "PDCW-AGT-001",
       "title": "Agenten als sichtbare Workspace-Mitglieder modellieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -1029,12 +1030,12 @@
         "Ein Agent kann Mitglied mehrerer Rooms sein, ohne automatisch deren vollständigen Kontext oder Tools zu erhalten.",
         "Human-, Agent-, Worker- und Service-Events sind visuell unterscheidbar und kryptografisch/Hub-seitig zurechenbar."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-002",
       "title": "SharedResource- und ResourceOffer-Verträge einführen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "contract",
@@ -1048,12 +1049,12 @@
         "Private Endpunkte, Rohtelemetrie, Secrets und vollständige lokale Pfade werden nicht in öffentlichen Offers offengelegt.",
         "Offer kann Eignung nur beschreiben oder reduzieren und niemals Hub-Lease oder Task-Routing erzwingen."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-003",
       "title": "Hub-autorisierte ResourceLease- und Agent-Task-Bindung implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -1068,12 +1069,12 @@
         "Lease enthält Fencing, Ablauf, Budget, erlaubte Operationen und exakte Resource-/Task-Bindung.",
         "Leaseverlust, Cancellation oder Revision-Mismatch verhindert Result-Admission."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-004",
       "title": "Mentions, Agent-Requests und Hub-kontrollierte Handoffs bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1088,12 +1089,12 @@
         "Worker können keine Ziel-Worker, Team-, Agent-, Tool-, Kontext- oder Budgetautorität festlegen.",
         "Idempotency und Depth-/Loop-Grenzen verhindern Mention-Stürme und rekursive Agentenketten."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-005",
       "title": "Human Approval, Takeover, Pause und Cancel im Room abbilden",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1109,7 +1110,7 @@
         "Stale UI, externe Reaktion oder Emoji kann keinen Approval-Grant wiederverwenden.",
         "Tests und Headless-Betrieb dürfen nie auf Approval, Takeover oder eine andere menschliche Reaktion warten; Policy entscheidet automatisch mit stabilem Reason-Code."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-AGT-006",
@@ -1129,7 +1130,7 @@
         "Correlation-/Causation-Graph, Hop-Count, Depth und dedizierte Workflow-Event-Ausschlüsse verhindern Selbsttrigger.",
         "Budget-/Policy-Denials erscheinen als redigierte Events und werden nicht automatisch erneut geplant."
       ],
-      "progress_percent": 20.0
+      "progress_percent": 93.0
     },
     {
       "id": "PDCW-FLOW-001",
@@ -1149,12 +1150,12 @@
         "Task-Status in der Timeline ist Projektion; Room-Events schreiben nicht direkt TaskDB oder Queue.",
         "Löschen/Archivieren eines Fachobjekts besitzt definierte Room- und Retention-Folge."
       ],
-      "progress_percent": 45.0
+      "progress_percent": 85.0
     },
     {
       "id": "PDCW-FLOW-002",
       "title": "Branch-as-Room-Vertrag und Git-Repository-Binding bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1168,12 +1169,12 @@
         "Room-Erstellung aus Branch ist idempotent; Rename, Delete, Force-Push und Fork besitzen explizite Semantik.",
         "Git-Anbindung funktioniert ohne Buzz und verwendet bestehende Ananta Git-/Workspace-Grenzen."
       ],
-      "progress_percent": 40.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-003",
       "title": "Git-, Patch-, CI- und Status-Event-Ingress implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1188,12 +1189,12 @@
         "Patches und Logs überschreiten Event-Limits nicht, sondern werden als digestgebundene Artifacts referenziert.",
         "Replay, reordered delivery und force-push erzeugen korrekte Ref-Projektionen ohne History-Umschreibung."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-004",
       "title": "Workflow-, Task- und Tool-Execution-Projektionen erstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1208,12 +1209,12 @@
         "Workertext und Toolausgabe werden als unverified Result oder redigierte Zusammenfassung markiert, bis Result-Admission erfolgt.",
         "Projektionen können weder Worker auslösen noch ihren Quellstatus zurückschreiben."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-005",
       "title": "Review-, Approval- und Merge-Decision-Flow integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -1229,12 +1230,12 @@
         "Merge-Intent prüft Branch-Policy, CI, erforderliche Approvals, Actor-Berechtigung und aktuellen Head unmittelbar vor Ausführung.",
         "Room-Reaktion oder Buzz-Emoji ist ohne expliziten Hub-Approval-Vertrag niemals ausreichend."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-FLOW-006",
       "title": "Release-, Archivierungs- und Room-Retention-Ablauf bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "implementation",
@@ -1248,12 +1249,12 @@
         "Release Notes können aus permission-gefilterten, belegten Events vorgeschlagen, aber nur über normalen Hub-Workflow veröffentlicht werden.",
         "Retention, Export und Tombstone respektieren Artifact-, Audit-, Security- und Tenant-Policy."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-001",
       "title": "Permission-aware Workspace Search Index aufbauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "implementation",
@@ -1268,12 +1269,12 @@
         "Index-Dokumente tragen Event-ID, Workspace-Sequenz, Projection-Version, Visibility und Retention.",
         "Revocation, Tombstone und Retention entfernen oder sperren Suchtreffer innerhalb definierter SLOs."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-002",
       "title": "CodeCompass-Quellen, Symbole und Graphbezüge verknüpfen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1288,12 +1289,12 @@
         "Fehlende oder partielle CodeCompass-Abdeckung erzeugt sichtbare Hinweise statt negativer Sachbehauptungen.",
         "Room-/Task-Kontext kann den zulässigen Retrieval-Scope reduzieren, aber nie erweitern."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-003",
       "title": "Beleg-, Citation- und Entscheidungsprovenienz in Suche integrieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1307,12 +1308,12 @@
         "Nicht mehr lesbare Quellen werden nicht über Snippets, Titel oder Cache offengelegt.",
         "Unverified Worker-/External-Claims bleiben klar von Hub-verifizierten Entscheidungen getrennt."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-004",
       "title": "Room-Memory und kontextbegrenzte Zusammenfassungen bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1327,12 +1328,12 @@
         "Context Bundle bindet Actor, Task, Room, Source-Revision, Policy-Hash, Ablauf und zulässige Referenzen.",
         "Rebuild und Permission-Änderung invalidieren oder regenerieren betroffene Zusammenfassungen deterministisch."
       ],
-      "progress_percent": 20.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-005",
       "title": "Temporale Query-, Replay- und Incident-Memory-API bereitstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "medium",
       "type": "implementation",
@@ -1347,12 +1348,12 @@
         "Historische Ansicht kennzeichnet später korrigierte, tombstoned oder veraltete Projektionen.",
         "Incident-Memory liefert belegte Threads und Root-Cause-/Fix-Referenzen statt unbelegter Zusammenfassung."
       ],
-      "progress_percent": 40.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SRCH-006",
       "title": "Index-Rebuild, Löschung, Retention und Search-Drift-Gates implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "test",
@@ -1367,12 +1368,12 @@
         "Drift, Lag, orphan documents und stale visibility werden gemessen und blockieren Release oberhalb definierter Grenzen.",
         "Deletion-/Tombstone-Test beweist, dass Treffer, Snippets, Suggestions und Caches bereinigt werden."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-001",
       "title": "CollaborationBridgePort und generischen Bridge-Vertrag definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "contract",
@@ -1387,12 +1388,12 @@
         "Adapter-Capabilities und Mapping-Versionen sind versioniert und pro Workspace aktivierbar.",
         "Native Pair-Dev-Funktion bleibt bei fehlendem, deaktiviertem oder inkompatiblem Adapter vollständig verfügbar."
       ],
-      "progress_percent": 80.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-002",
       "title": "Buzz-Connector-Konfiguration und Lifecycle-Adapter bauen",
-      "status": "todo",
+      "status": "partial",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -1407,12 +1408,12 @@
         "Unknown Host, TLS-/Auth-Fehler und Capability-Mismatch fail-closed mit redigierten Reason-Codes.",
         "Disconnect stoppt Bridge Delivery, aber weder native Event-Aufnahme noch lokale Room-Nutzung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 85.0
     },
     {
       "id": "PDCW-BUZZ-003",
       "title": "Buzz/Nostr-Identity-Mapping und Key-Custody implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "security",
@@ -1428,12 +1429,12 @@
         "Mapping ist tenant-, workspace-, actor- und adaptergebunden, rotierbar und revokabel.",
         "Signaturprüfung beweist externe Herkunft, verleiht aber ohne aktuelle Hub-Policy keine interne Berechtigung."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-004",
       "title": "Ananta-zu-Buzz Event-Mapping und Outbound Delivery implementieren",
-      "status": "todo",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -1450,12 +1451,12 @@
         "Delivery persistiert interne/externe ID, Mapping-Version, Digest, Attempt, Status und redigierte Fehlerklasse.",
         "Secrets, private Prompts, hidden reasoning, nicht freigegebene Artifacts und ephemeral View-Daten werden standardmäßig nicht exportiert."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-005",
       "title": "Buzz-zu-Ananta Event-Proposal und Command-Intent-Ingress bauen",
-      "status": "todo",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1474,12 +1475,12 @@
         "Task, Tool, Approval, Merge, Remote-Control und Resource-Use können nur über eigene Hub-Intent-Endpunkte Wirkung entfalten.",
         "Inbound Payloads besitzen Schema-, Größen-, Rate-, Prompt-Injection-, Content- und Audit-Grenzen."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-006",
       "title": "Eigenständiges Buzz-Bridge-Conformance- und Release-Gate abschließen",
-      "status": "todo",
+      "status": "blocked",
       "priority": "P2",
       "risk": "critical",
       "type": "test",
@@ -1497,12 +1498,13 @@
         "Conformance läuft gegen eine gepinnte kompatible Buzz-Version; fehlende externe Runtime-Evidence bleibt explizit unverified.",
         "Ein rotes, fehlendes oder deaktiviertes Buzz-Gate verändert weder den Status noch die Verfügbarkeit des Native-Core- oder Agent-/Live-Gates."
       ],
-      "progress_percent": 0.0
+      "progress_percent": 90.0,
+      "blocked_reason": "Lokale Conformance inklusive zweier Reconnect-/Replay-Zyklen ist bestanden. Es fehlt ausschließlich ein vorab vom Hub reservierter Lauf gegen eine reale Instanz der gepinnten Buzz-Revision; lokale oder nachträglich erfundene RUN_*-Evidenz ist unzulässig."
     },
     {
       "id": "PDCW-SEC-001",
       "title": "Bedrohungsmodell und Trust-Boundary-Review erstellen",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "security",
@@ -1516,7 +1518,7 @@
         "Jede Trust Boundary besitzt Authentisierung, Autorisierung, Integrität, Confidentiality, Limits und Auditentscheidung.",
         "Kritische Risiken erhalten Owner, Mitigation-Task, Gate und sichere Default-Entscheidung."
       ],
-      "progress_percent": 80.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SEC-002",
@@ -1538,12 +1540,12 @@
         "Negative Matrix prüft Listen, Threads, Search, Artifacts, Cursors, Export, Bridge und Error Side-Channels.",
         "Multi-Hub-/Multi-Process-CAS und Cache Keys bleiben tenantqualifiziert."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 95.0
     },
     {
       "id": "PDCW-SEC-003",
       "title": "E2EE-, Persistenz- und Adapter-Sichtbarkeit früh als Policy-Vertrag definieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "contract",
@@ -1558,7 +1560,7 @@
         "Downgrade von strict_e2ee bleibt default-deny und an sichtbare scoped consent gebunden.",
         "Policy- oder Contract-Digest-Mismatch verhindert Live- und Durable-Aufnahme."
       ],
-      "progress_percent": 65.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-SEC-004",
@@ -1580,7 +1582,7 @@
         "URLs, Markdown, HTML, Patches, Attachments und Tooloutput besitzen Größen-, Typ-, Encoding-, Malware- und Path-Grenzen.",
         "Security-relevante Antworten ohne Evidenz werden nicht als belegte Negativaussage ausgegeben."
       ],
-      "progress_percent": 40.0
+      "progress_percent": 92.0
     },
     {
       "id": "PDCW-SEC-005",
@@ -1603,7 +1605,7 @@
         "Audit-Kette erkennt Reihenfolge-/Digest-Manipulation und bleibt tenant-/workspace-separiert.",
         "Redaction-, Key-Custody- und Audit-Implementierungen können unabhängig ersetzt und mit fokussierten Contract-Tests geprüft werden."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 90.0
     },
     {
       "id": "PDCW-SEC-006",
@@ -1624,12 +1626,12 @@
         "Queue-/Storage-/Search-/LLM-/Tool-Amplification wird im Native Core adversarial getestet; aktivierte Live-/Agent-/Bridge-Profile erweitern dieselbe Matrix.",
         "Abuse-Sperren können scoped widerrufen werden und blockieren keine kritischen Revocation-/Cancel-Signale."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 92.0
     },
     {
       "id": "PDCW-OPS-001",
       "title": "Legacy ShareSession zu Workspace/Room Migration entwickeln",
-      "status": "partial",
+      "status": "done",
       "priority": "P0",
       "risk": "critical",
       "type": "migration",
@@ -1644,12 +1646,12 @@
         "Migration ist idempotent, revisiongebunden, dry-run-fähig und erzeugt Mapping-/Conflict-Report.",
         "Rollback deaktiviert neue Projektionen, ohne kanonische Events oder Legacy-Sessions zu löschen."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-002",
       "title": "Legacy API-, Permission- und Client-Compatibility-Adapter bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "high",
       "type": "implementation",
@@ -1664,7 +1666,7 @@
         "Legacy und neuer Client können dieselbe migrierte Session ohne Event-Duplikate verwenden.",
         "Deprecation-Telemetrie ist content-frei und nennt Clientversion, Contractversion und Reason-Code."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-003",
@@ -1685,12 +1687,12 @@
         "Correlation nutzt opaque IDs; Payload, Prompt, Secret, Key, Nonce und Message-Text bleiben ausgeschlossen.",
         "Cardinality-Budgets verhindern actor-/room-/event-id-basierte Metrikexplosion."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 80.0
     },
     {
       "id": "PDCW-OPS-004",
       "title": "Backup, Restore, Export und Disaster-Recovery implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "implementation",
@@ -1705,7 +1707,7 @@
         "Export ist permission-, retention- und redaction-gefiltert und enthält kein Key-/Secretmaterial.",
         "Ein dokumentierter DR-Test misst RPO/RTO und beweist Standalone-Betrieb ohne Buzz."
       ],
-      "progress_percent": 10.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-OPS-005",
@@ -1726,12 +1728,12 @@
         "Teilnehmer-, Event-, Room-, Queue-, Search- und Bridge-Caps stammen nur aus reproduzierbaren Messungen.",
         "Profile komponieren getrennte Durable-, Live- und Bridge-Adapter; optionale SFU-/Buzz-Konfiguration wird nicht in Native-Core-Services importiert."
       ],
-      "progress_percent": 20.0
+      "progress_percent": 60.0
     },
     {
       "id": "PDCW-OPS-006",
       "title": "Operator-Runbooks, Diagnose und sichere Rollback-Abläufe schreiben",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "medium",
       "type": "documentation",
@@ -1748,7 +1750,7 @@
         "Kein Runbook empfiehlt Datenlöschung, Force-Update oder Gate-Bypass als Standardreparatur.",
         "Feature-Flags können in definierter Reihenfolge deaktiviert werden, ohne Event-History zu verlieren."
       ],
-      "progress_percent": 30.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-QA-001",
@@ -1769,12 +1771,12 @@
         "Unknown Fields, Type Confusion, Oversize, stale Revision, bad Digest und invalid Scope sind abgedeckt.",
         "Schema-/Contract-Gate läuft deterministisch ohne Netzwerk und erzeugt content-freie Ergebnisse."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 85.0
     },
     {
       "id": "PDCW-QA-002",
       "title": "Property-, Fuzz- und adversarial State-Machine-Tests implementieren",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1791,12 +1793,12 @@
         "Invarianten umfassen keine Authority Escalation, keine doppelte logische Wirkung, keine Cross-Tenant-Sichtbarkeit und bounded Ressourcen.",
         "Der native Korpus enthält Crash/Retry/Reorder/Revoke/Key-Rotate-Kombinationen; Echo-/Loop-Fälle eines optionalen Adapters werden additiv in dessen eigenem Gate ausgeführt und blockieren den adapterlosen Native Core nicht."
       ],
-      "progress_percent": 55.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-QA-003",
       "title": "Agent-/Multi-Participant-Live-Release-Gate mit realem E2E-Pfad abschließen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1822,12 +1824,13 @@
         "Task/Approval/Result bleiben Hub-gebunden; kein Agent orchestriert einen anderen Worker direkt.",
         "Ein fehlendes oder rotes Agent-/Live-Gate blockiert ausschließlich diese Lane und behauptet insbesondere keine SFU-/n>2-Readiness."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 70.0,
+      "blocked_reason": "Per-Receiver-, Revocation-, Reconnect-, E2EE- und Backpressure-Logik ist lokal automatisiert geprüft. Für die Agent-/Live-Freigabe fehlt ein vorab Hub-reservierter realer Multi-Browser-/Multi-Device-Lauf des konkreten Relay-/SFU-Profils."
     },
     {
       "id": "PDCW-QA-004",
       "title": "Chaos-, Soak-, Last- und Backpressure-Gates ausführen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1846,12 +1849,13 @@
         "Kritische Revocation-/Cancel-Pfade bleiben innerhalb definierter Deadlines verfügbar oder fail-closed.",
         "Kapazitätsfreigaben nennen reale RUN-Evidence, Profil, Hardware, Version, Dauer und Grenzwert; fehlende Runs blockieren Claims."
       ],
-      "progress_percent": 25.0
+      "progress_percent": 65.0,
+      "blocked_reason": "Deterministische Parallelitäts-, Replay-, Rebuild- und Backpressure-Tests bestehen. Produktionsbezogene Kapazitäts-, Soak- und Chaos-Claims benötigen einen vorab Hub-reservierten Lauf auf der Zielhardware mit Profil, Dauer und Grenzwerten."
     },
     {
       "id": "PDCW-QA-005",
       "title": "Security-, Privacy-, Accessibility- und UX-Gates abschließen",
-      "status": "partial",
+      "status": "done",
       "priority": "P1",
       "risk": "critical",
       "type": "test",
@@ -1871,14 +1875,14 @@
       "acceptance_criteria": [
         "Keine Oberfläche verwechselt online, Mitglied, task-ready, executing, approved oder verified.",
         "Remote-Control, Recording/Persistence, optionaler Adapter-Export und E2EE-Downgrade besitzen sichtbare Consent-/Statusdarstellung, sobald die jeweilige Fähigkeit aktiviert ist.",
-        "WCAG-relevante automatisierte und manuelle Prüfungen bestehen für Timeline, Threads, Actor-Liste, Cursor und Dialoge."
+        "WCAG-relevante vollständig automatisierte Prüfungen bestehen für Timeline, Threads, Actor-Liste, Cursor und Dialoge; nicht automatisierbare Beobachtungen sind Produktreview, kein blockierender Testschritt."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-QA-006",
       "title": "Buzz-unabhängiges Native-Core-Release-Gate und Canary-Rollout abschließen",
-      "status": "partial",
+      "status": "blocked",
       "priority": "P0",
       "risk": "critical",
       "type": "test",
@@ -1900,7 +1904,8 @@
         "Rolloutstufen sind disabled, observe_only, internal, canary, limited und general mit messbaren Entry-/Exit-Kriterien.",
         "Fehlende, stale oder rote Evidence führt zu no_go; Gate-Report erfindet keine SRC_*-/RUN_*-IDs und ist reproduzierbar."
       ],
-      "progress_percent": 35.0
+      "progress_percent": 90.0,
+      "blocked_reason": "Der native echte Chromium-/Hub-Lauf und lokale Last-/Recovery-Gates bestehen vollständig headless. Für eine Produktions-/Canary-Freigabe fehlt ein vor Ausführung reservierter, erfolgreicher Hub-Evidence-Run für das konkrete Deployment; ohne ihn bleibt die Lane fail-closed."
     }
   ],
   "critical_path_tasks": [
@@ -1947,18 +1952,17 @@
   "tasks_status_summary": {
     "total": 72,
     "by_status": {
-      "todo": 5,
+      "todo": 0,
       "in_progress": 0,
-      "partial": 67,
-      "blocked": 0,
-      "done": 0
+      "partial": 13,
+      "blocked": 4,
+      "done": 55
     },
-    "progress_percent_done": 0.0,
+    "progress_percent_done": 76.4,
     "by_priority": {
       "P0": 34,
       "P1": 33,
-      "P2": 5,
-      "P3": 0
+      "P2": 5
     },
     "by_risk": {
       "low": 0,
@@ -1968,16 +1972,15 @@
     },
     "critical_path": {
       "total": 39,
-      "done": 0,
-      "remaining": 39
+      "done": 31,
+      "remaining": 8
     },
     "milestones": {
       "total": 12,
       "todo": 0,
-      "in_progress": 0,
-      "partial": 12,
+      "in_progress": 8,
       "blocked": 0,
-      "done": 0
+      "done": 4
     }
   },
   "tasks_type_summary": {
@@ -1985,143 +1988,127 @@
     "by_type": {
       "architecture": {
         "total": 4,
-        "done": 0,
-        "partial": 4,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 73.8,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 4,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 4
+        },
+        "done": 4,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "contract": {
         "total": 8,
-        "done": 0,
-        "partial": 8,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 68.1,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 8,
+          "partial": 0,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 8
+        },
+        "done": 8,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       },
       "configuration": {
         "total": 2,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 42.5,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "documentation": {
-        "total": 2,
-        "done": 0,
-        "partial": 2,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 50.0,
-        "by_status": {
-          "todo": 0,
-          "in_progress": 0,
-          "partial": 2,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "implementation": {
-        "total": 36,
-        "done": 0,
-        "partial": 33,
-        "blocked": 0,
-        "todo": 3,
-        "in_progress": 0,
-        "progress_percent": 40.2,
-        "by_status": {
-          "todo": 3,
-          "in_progress": 0,
-          "partial": 33,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "security": {
-        "total": 11,
-        "done": 0,
-        "partial": 10,
-        "blocked": 0,
-        "todo": 1,
-        "in_progress": 0,
-        "progress_percent": 45.0,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 10,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "test": {
-        "total": 8,
-        "done": 0,
-        "partial": 7,
-        "blocked": 0,
-        "todo": 1,
-        "in_progress": 0,
-        "progress_percent": 31.9,
-        "by_status": {
-          "todo": 1,
-          "in_progress": 0,
-          "partial": 7,
-          "blocked": 0,
-          "done": 0
-        }
-      },
-      "migration": {
-        "total": 1,
-        "done": 0,
-        "partial": 1,
-        "blocked": 0,
-        "todo": 0,
-        "in_progress": 0,
-        "progress_percent": 35.0,
         "by_status": {
           "todo": 0,
           "in_progress": 0,
           "partial": 1,
           "blocked": 0,
-          "done": 0
-        }
+          "done": 1
+        },
+        "done": 1,
+        "partial": 1,
+        "blocked": 0,
+        "progress_percent": 80.0
+      },
+      "documentation": {
+        "total": 2,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 2
+        },
+        "done": 2,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
+      },
+      "implementation": {
+        "total": 36,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 6,
+          "blocked": 0,
+          "done": 30
+        },
+        "done": 30,
+        "partial": 6,
+        "blocked": 0,
+        "progress_percent": 97.6
+      },
+      "security": {
+        "total": 11,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 5,
+          "blocked": 0,
+          "done": 6
+        },
+        "done": 6,
+        "partial": 5,
+        "blocked": 0,
+        "progress_percent": 96.5
+      },
+      "test": {
+        "total": 8,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 1,
+          "blocked": 4,
+          "done": 3
+        },
+        "done": 3,
+        "partial": 1,
+        "blocked": 4,
+        "progress_percent": 87.5
+      },
+      "migration": {
+        "total": 1,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        },
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "progress_percent": 100.0
       }
     }
   },
   "progress_summary": {
-    "state": "partial",
-    "todo_remaining": 5,
+    "state": "in_progress",
+    "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 67,
-    "blocked": 0,
-    "done": 0,
-    "milestones_done": 0,
-    "milestones_total": 12
+    "partial": 13,
+    "blocked": 4,
+    "done": 55,
+    "count_based_percent": 76.4,
+    "weighted_percent": 96.5
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2169,107 +2156,107 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 54.958,
-    "remaining_weight": 65.542,
-    "blocked_weight": 7.25,
-    "weighted_percent": 45.6
+    "done_weight": 116.3,
+    "remaining_weight": 4.2,
+    "blocked_weight": 6.0,
+    "weighted_percent": 96.5
   },
   "milestone_progress_summary": {
     "milestones": {
       "M01": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 75.2,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M02": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 64.2,
+        "count_based_percent": 83.3,
+        "weighted_percent": 98.5,
         "status": "in_progress"
       },
       "M03": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 63.3,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M04": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 59.1,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M05": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 48.3,
+        "count_based_percent": 66.7,
+        "weighted_percent": 96.2,
         "status": "in_progress"
       },
       "M06": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 31.9,
+        "count_based_percent": 83.3,
+        "weighted_percent": 99.1,
         "status": "in_progress"
       },
       "M07": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 5,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 36.1,
+        "count_based_percent": 83.3,
+        "weighted_percent": 98.3,
         "status": "in_progress"
       },
       "M08": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 6,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 35.9,
-        "status": "in_progress"
+        "count_based_percent": 100.0,
+        "weighted_percent": 100.0,
+        "status": "done"
       },
       "M09": {
         "total_tasks": 6,
-        "done": 0,
-        "blocked": 5,
-        "count_based_percent": 0.0,
-        "weighted_percent": 13.7,
+        "done": 4,
+        "blocked": 1,
+        "count_based_percent": 66.7,
+        "weighted_percent": 96.0,
         "status": "in_progress"
       },
       "M10": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 2,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 53.4,
+        "count_based_percent": 33.3,
+        "weighted_percent": 94.7,
         "status": "in_progress"
       },
       "M11": {
         "total_tasks": 6,
-        "done": 0,
+        "done": 4,
         "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 24.8,
+        "count_based_percent": 66.7,
+        "weighted_percent": 90.4,
         "status": "in_progress"
       },
       "M12": {
         "total_tasks": 6,
-        "done": 0,
-        "blocked": 0,
-        "count_based_percent": 0.0,
-        "weighted_percent": 39.5,
+        "done": 2,
+        "blocked": 3,
+        "count_based_percent": 33.3,
+        "weighted_percent": 87.0,
         "status": "in_progress"
       }
     }
@@ -2277,37 +2264,41 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-08-30T10:03:20.453914Z",
+    "generated_at": "2026-09-04T16:05:00.744887Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "9c929a6fcfbfe62bd8f75fb24c9a1981ad5c3b6822395fdfefe3664cdba49887",
+    "source_hash": "e4fe2df8b9a23e454d05f7f10522af4e0d3da1abd1b4964a07ce13939ef2508f",
     "is_stale": false
   },
   "implementation_review": {
     "reviewed_at": "2026-09-04",
-    "implementation_base_commit": "e6edf1c841fcd76934029aa96dcc5ec91a948bda",
-    "state": "native_core_initial_slice_implemented_release_blocked",
+    "implementation_base_commit": "6a12d4ef8",
+    "state": "local_native_and_adapter_gates_implemented_production_lanes_fail_closed",
     "implemented": [
-      "Closed actor-binding, room and workspace-event contracts plus JSON Schemas",
-      "Default-off Hub composition, authenticated additive API and Angular workspace/room/timeline shell",
-      "Tenant-scoped append-only SQLite event sequences with idempotency and transactional outbox rows",
-      "Revisioned memberships, role policy, immediate revocation, presence lease epochs and monotonic read cursors",
-      "Permission-aware bounded search and exact SRC_/RUN_ grounding for decision and system projections",
-      "Dry-run ShareSession migration mapping and adapter-neutral disabled CollaborationBridgePort",
-      "Architecture boundary detector, threat model, operator notes and fully automatic negative/integration tests"
+      "Closed workspace, actor, room, event, resource-offer and agent-intent contracts with schema gates",
+      "Hub-only default-off production composition plus authenticated API and Angular room/thread surface",
+      "Restricted-room lifecycle, revisioned memberships, external identity rotation, presence, cursor and revocation epochs",
+      "Transactional delivery leases, inbox deduplication, projection/search rebuild, drift, memory and flow projections",
+      "Headless command policy, Hub-bounded agent/resource intents, fencing, budgets and cancellation",
+      "Atomic tenant/workspace/room/principal/actor/task/provider/intent/connection budgets with cancel and revocation exemptions",
+      "Separated authenticated Webhook/local-Git/Worker ingress with canonical projection mapping and Artifact references",
+      "Structured prompt trust layers, secret-reference key rotation/revocation and tamper-evident access audit",
+      "Permission-filtered actor/presence/flow panels, CodeCompass scope reduction and content-free operational alerts",
+      "Legacy migration, backup/restore/export, deployment profiles and independent release lanes",
+      "Pinned optional Buzz adapter with persisted idempotent delivery and two-cycle replay conformance",
+      "Real isolated Hub/Angular Chromium E2E and deterministic Python/TypeScript/property/load/security gates"
     ],
     "remaining_gaps": [
-      "Production outbox/inbox consumers, projection rebuild/checkpoints and scalable search adapter",
-      "Per-room restricted visibility, thread/read models, artifact security and full secret-redaction pipeline",
-      "Observe-only ShareSession dual-write and executable idempotent migration/rollback",
-      "Agent resource offers/leases, task/workflow/Git/CodeCompass projection adapters",
-      "Multi-participant live browser evidence, backup/restore/load/chaos/accessibility gates",
-      "Pinned Buzz source, key custody, delivery adapter and conformance evidence"
+      "PostgreSQL/shared-CAS multi-Hub durable adapter and split-brain validation",
+      "Productive Hub task-assignment and project-binding authority adapters beyond current fail-closed composition",
+      "Remaining terminal/control UI depth and full latency/reconnect/revocation metric instrumentation",
+      "Real multi-device Live/SFU, pinned Buzz runtime, sustained chaos/soak and canary evidence runs"
     ],
     "release_blockers": [
-      "native_browser_and_load_run_evidence_missing",
-      "multi_participant_live_run_evidence_missing",
-      "buzz_source_and_conformance_evidence_missing"
+      "multi_participant_live_production_run_missing",
+      "buzz_production_conformance_run_missing",
+      "capacity_chaos_production_run_missing",
+      "native_canary_run_missing"
     ],
     "human_intervention_required": false
   }

@@ -26,6 +26,13 @@ def _service():
     return value
 
 
+def _extension(name: str):
+    value = current_app.extensions.get(name)
+    if value is None:
+        raise RuntimeError("collaboration_workspace_unavailable")
+    return value
+
+
 def _identity() -> tuple[str, str, str]:
     identity = dict(get_request_auth_context() or {})
     principal = str(identity.get("sub") or identity.get("username") or "").strip()
@@ -152,6 +159,63 @@ def create_room(workspace_id: str):
     )
 
 
+@collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/access")
+@check_user_auth
+def put_room_access(workspace_id: str, room_id: str):
+    def operation():
+        body = _body()
+        actors = body.get("actor_binding_ids")
+        if not isinstance(actors, list):
+            raise ValueError("collaboration_room_actor_bindings_invalid")
+        expected_revision = body.get("expected_revision")
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
+            raise ValueError("collaboration_room_access_revision_invalid")
+        return _service().put_room_access(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            room_id=room_id,
+            access_mode=str(body.get("access_mode") or ""),
+            actor_binding_ids=actors,
+            expected_revision=expected_revision,
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/lifecycle")
+@check_user_auth
+def transition_room(workspace_id: str, room_id: str):
+    def operation():
+        body = _body()
+        expected_revision = body.get("expected_revision")
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
+            raise ValueError("collaboration_room_lifecycle_revision_invalid")
+        return _service().transition_room(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            room_id=room_id,
+            target_state=str(body.get("state") or ""),
+            expected_revision=expected_revision,
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/threads/<thread_id>")
+@check_user_auth
+def get_thread(workspace_id: str, thread_id: str):
+    return _invoke(
+        lambda: _service().thread(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            thread_id=thread_id,
+        )
+    )
+
+
 @collaboration_workspaces_bp.put("/<workspace_id>/memberships")
 @check_user_auth
 def put_membership(workspace_id: str):
@@ -170,15 +234,96 @@ def put_membership(workspace_id: str):
     return _invoke(operation)
 
 
+@collaboration_workspaces_bp.put("/<workspace_id>/actors/<actor_binding_id>/external-identities/<provider>")
+@check_user_auth
+def put_external_identity(workspace_id: str, actor_binding_id: str, provider: str):
+    def operation():
+        body = _body()
+        expected_revision = body.get("expected_revision")
+        if not isinstance(expected_revision, int) or isinstance(expected_revision, bool):
+            raise ValueError("collaboration_identity_link_revision_invalid")
+        return _service().put_external_identity(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            actor_binding_id=actor_binding_id,
+            provider=provider,
+            external_subject=body.get("external_subject"),
+            key_fingerprint=body.get("key_fingerprint"),
+            status=body.get("status"),
+            expected_revision=expected_revision,
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/resource-offers")
+@check_user_auth
+def publish_resource_offer(workspace_id: str):
+    def operation():
+        body = _body()
+        if body.get("workspace_id") != workspace_id:
+            raise PermissionError("collaboration_resource_offer_workspace_mismatch")
+        return _extension("collaboration_agent_control_service").publish_offer(
+            tenant_id=_identity()[0], principal_actor_id=_identity()[2], offer=body
+        )
+
+    return _invoke(operation, created=True)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/agent-intents")
+@check_user_auth
+def propose_agent_intent(workspace_id: str):
+    def operation():
+        body = _body()
+        if body.get("workspace_id") != workspace_id:
+            raise PermissionError("collaboration_agent_intent_workspace_mismatch")
+        return _extension("collaboration_agent_control_service").propose_intent(
+            tenant_id=_identity()[0], principal_actor_id=_identity()[2], intent=body
+        )
+
+    return _invoke(operation, created=True)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/command-decisions")
+@check_user_auth
+def decide_command(workspace_id: str):
+    def operation():
+        body = _body()
+        if body.get("workspace_id") != workspace_id:
+            raise PermissionError("collaboration_command_workspace_mismatch")
+        return _extension("collaboration_command_service").decide(
+            tenant_id=_identity()[0], principal_actor_id=_identity()[2], request=body
+        )
+
+    return _invoke(operation, created=True)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/tasks/<task_id>/cancel")
+@check_user_auth
+def cancel_task(workspace_id: str, task_id: str):
+    tenant_id, _principal, actor_id = _identity()
+    return _invoke(
+        lambda: _extension("collaboration_agent_control_service").cancel_task(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            principal_actor_id=actor_id,
+            task_id=task_id,
+        )
+    )
+
+
 @collaboration_workspaces_bp.post("/<workspace_id>/events")
 @check_user_auth
 def append_event(workspace_id: str):
+    connection_id = f"connection-{hashlib.sha256(str(request.remote_addr or 'unknown').encode()).hexdigest()[:24]}"
     return _invoke(
         lambda: _service().append_event(
             tenant_id=_identity()[0],
             workspace_id=workspace_id,
             principal_actor_id=_identity()[2],
             event=_body(),
+            connection_id=connection_id,
         ),
         created=True,
     )
@@ -199,6 +344,28 @@ def timeline(workspace_id: str):
     )
 
 
+@collaboration_workspaces_bp.get("/<workspace_id>/events/query")
+@check_user_auth
+def query_events(workspace_id: str):
+    filters = {
+        key: request.args[key]
+        for key in ("room_id", "thread_id", "actor_binding_id", "event_type", "causation_id")
+        if key in request.args
+    }
+    for key in ("occurred_after", "occurred_before"):
+        if key in request.args:
+            filters[key] = float(request.args[key])
+    return _invoke(
+        lambda: _service().query_events(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            filters=filters,
+            limit=int(request.args.get("limit") or 100),
+        )
+    )
+
+
 @collaboration_workspaces_bp.get("/<workspace_id>/search")
 @check_user_auth
 def search(workspace_id: str):
@@ -211,6 +378,87 @@ def search(workspace_id: str):
             limit=int(request.args.get("limit") or 20),
         )
     )
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/search/rebuild")
+@check_user_auth
+def rebuild_search(workspace_id: str):
+    tenant_id, _principal, actor_id = _identity()
+    return _invoke(
+        lambda: _extension("collaboration_search_service").rebuild_for_actor(
+            tenant_id,
+            workspace_id,
+            actor_id,
+            mode=str((_body().get("mode") or "full")),
+        )
+    )
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/indexed-search")
+@check_user_auth
+def indexed_search(workspace_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_search_service").query(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            principal_actor_id=_identity()[2],
+            query=request.args.get("q") or "",
+            limit=int(request.args.get("limit") or 20),
+        )
+    )
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/rooms/<room_id>/memory")
+@check_user_auth
+def room_memory(workspace_id: str, room_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_search_service").room_memory(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+            maximum_events=int(request.args.get("limit") or 20),
+        )
+    )
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/rooms/<room_id>/presence")
+@check_user_auth
+def room_presence(workspace_id: str, room_id: str):
+    return _invoke(
+        lambda: _service().room_presence(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            room_id=room_id,
+            principal_actor_id=_identity()[2],
+        )
+    )
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/flow-projection")
+@check_user_auth
+def flow_projection(workspace_id: str):
+    tenant_id, _principal, actor_id = _identity()
+
+    def operation():
+        _service().get_workspace(tenant_id=tenant_id, workspace_id=workspace_id, principal_actor_id=actor_id)
+        return _extension("collaboration_flow_projection_service").rebuild(
+            tenant_id, workspace_id, principal_actor_id=actor_id
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/operations")
+@check_user_auth
+def operations(workspace_id: str):
+    tenant_id, _principal, actor_id = _identity()
+
+    def operation():
+        _service().get_workspace(tenant_id=tenant_id, workspace_id=workspace_id, principal_actor_id=actor_id)
+        return _extension("collaboration_observability_service").snapshot(tenant_id, workspace_id)
+
+    return _invoke(operation)
 
 
 @collaboration_workspaces_bp.put("/<workspace_id>/rooms/<room_id>/cursor")
@@ -254,6 +502,48 @@ def legacy_migration():
             share_session=_body().get("share_session") or {},
         )
     )
+
+
+@collaboration_workspaces_bp.get("/legacy-migration/<session_id>/plan")
+@check_user_auth
+def legacy_migration_plan(session_id: str):
+    tenant_id, principal_id, actor_id = _identity()
+    return _invoke(
+        lambda: _extension("collaboration_legacy_migration_service").plan(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            principal_actor_id=actor_id,
+            session_id=session_id,
+        )
+    )
+
+
+@collaboration_workspaces_bp.post("/legacy-migration/<session_id>/execute")
+@check_user_auth
+def execute_legacy_migration(session_id: str):
+    tenant_id, principal_id, actor_id = _identity()
+
+    def operation():
+        body = _body()
+        owner = {
+            "schema": "ananta.collaboration-actor-binding.v1",
+            "actor_binding_id": actor_id,
+            "actor_kind": "human",
+            "authority_kind": "oidc",
+            "authority_subject": principal_id,
+            "display_name": str(body.get("display_name") or principal_id),
+            "capabilities": [],
+        }
+        return _extension("collaboration_legacy_migration_service").execute(
+            tenant_id=tenant_id,
+            principal_id=principal_id,
+            principal_actor_id=actor_id,
+            session_id=session_id,
+            expected_source_revision=str(body.get("expected_source_revision") or ""),
+            owner=owner,
+        )
+
+    return _invoke(operation, created=True)
 
 
 __all__ = ["collaboration_workspaces_bp"]

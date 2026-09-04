@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/agent-intent.v1.json",
+  "title": "AgentIntentV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "intent_id", "workspace_id", "room_id", "actor_binding_id", "intent_type", "target_actor_binding_id", "task_id", "correlation_id", "causation_id", "hop_count", "payload", "payload_digest"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-agent-intent.v1"},
+    "intent_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "workspace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "room_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "actor_binding_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "intent_type": {"enum": ["mention", "answer", "propose_task", "request_context", "handoff_request"]},
+    "target_actor_binding_id": {"type": ["string", "null"]},
+    "task_id": {"type": ["string", "null"]},
+    "correlation_id": {"type": "string"},
+    "causation_id": {"type": ["string", "null"]},
+    "hop_count": {"type": "integer", "minimum": 0, "maximum": 8},
+    "payload": {"type": "object"},
+    "payload_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

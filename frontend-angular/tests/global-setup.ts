@@ -262,6 +262,10 @@ async function startService(
     DATABASE_URL: serviceDatabaseUrl,
     DISABLE_LLM_CHECK: "1",
     AUTH_TEST_ENDPOINTS_ENABLED: "1",
+    ...(svc.name === "hub" ? {
+      ANANTA_COLLABORATION_WORKSPACE_ENABLED: "true",
+      ANANTA_COLLABORATION_WORKSPACE_STATE: path.join(dataDir, "collaboration-workspace.sqlite3"),
+    } : {}),
   };
 
   const child = trySpawnPython(["-m", "agent.ai_agent"], env, root);

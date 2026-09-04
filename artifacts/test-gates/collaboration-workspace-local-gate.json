@@ -1,0 +1,34 @@
+{
+  "schema": "ananta.collaboration-local-gate.v1",
+  "classification": "local_technical_observation",
+  "production_release_evidence": false,
+  "hub_reserved_run_id": null,
+  "native_core": {
+    "python_collaboration_tests": {
+      "status": "passed",
+      "tests": 89,
+      "parallel_runner": "pytest-xdist"
+    },
+    "angular_production_build": "passed",
+    "typescript_live_state_tests": {
+      "status": "passed",
+      "tests": 3
+    },
+    "chromium_hub_e2e": {
+      "status": "passed",
+      "tests": 1,
+      "headless": true,
+      "wcag_scan": "passed"
+    },
+    "architecture_boundary_check": "passed",
+    "todo_consistency": "passed",
+    "planning_contract": "passed"
+  },
+  "external_lanes": {
+    "multi_participant_live": "unverified",
+    "buzz_bridge": "unverified",
+    "target_hardware_capacity_chaos": "unverified",
+    "production_canary": "unverified"
+  },
+  "human_intervention_required": false
+}

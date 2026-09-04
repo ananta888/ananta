@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/workspace.v1.json",
+  "title": "CollaborationWorkspaceV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema",
+    "tenant_id",
+    "workspace_id",
+    "project_id",
+    "title",
+    "state",
+    "retention",
+    "revision",
+    "created_by",
+    "created_at",
+    "native_core",
+    "bridge_required",
+    "human_intervention_required"
+  ],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-workspace.v1"},
+    "tenant_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "workspace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "project_id": {
+      "type": ["string", "null"],
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"
+    },
+    "title": {"type": "string", "minLength": 1, "maxLength": 200},
+    "state": {"const": "active"},
+    "retention": {"enum": ["standard", "audit", "legal_hold"]},
+    "revision": {"type": "integer", "minimum": 1},
+    "created_by": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "created_at": {"type": "number"},
+    "native_core": {"const": true},
+    "bridge_required": {"const": false},
+    "human_intervention_required": {"const": false}
+  }
+}

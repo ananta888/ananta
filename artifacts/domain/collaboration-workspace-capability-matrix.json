@@ -1,0 +1,147 @@
+{
+  "schema": "ananta.collaboration-capability-matrix.v1",
+  "review_revision": "6d08109f9ee07a0bc50f677b635ae3e268d54ceb",
+  "status_meaning": {
+    "present": "Implemented and covered by a deterministic local gate.",
+    "partial": "Implemented only for a narrower profile or missing real runtime evidence.",
+    "missing": "No implementation exists."
+  },
+  "capabilities": [
+    {
+      "capability": "native_durable_workspace",
+      "status": "present",
+      "authority": "hub_control_plane",
+      "source_paths": [
+        "agent/services/collaboration_workspace_service.py",
+        "agent/services/collaboration_workspace_store.py"
+      ]
+    },
+    {
+      "capability": "rooms_threads_timeline",
+      "status": "present",
+      "authority": "durable_collaboration_plane",
+      "source_paths": [
+        "agent/services/collaboration_workspace_store.py",
+        "frontend-angular/src/app/features/collaboration/collaboration-workspace-page.component.ts"
+      ]
+    },
+    {
+      "capability": "transactional_outbox_inbox_rebuild",
+      "status": "present",
+      "authority": "durable_collaboration_plane",
+      "source_paths": [
+        "agent/services/collaboration_delivery_service.py",
+        "tests/collaboration_workspace/test_delivery_and_projections.py"
+      ]
+    },
+    {
+      "capability": "permission_aware_search_memory",
+      "status": "present",
+      "authority": "durable_collaboration_plane",
+      "source_paths": [
+        "agent/services/collaboration_search_service.py",
+        "tests/collaboration_workspace/test_search_and_memory.py"
+      ]
+    },
+    {
+      "capability": "hub_evidence_grounding",
+      "status": "present",
+      "authority": "hub_control_plane",
+      "source_paths": [
+        "agent/services/collaboration_evidence_policy.py",
+        "tests/collaboration_workspace/test_evidence_binding.py"
+      ]
+    },
+    {
+      "capability": "agent_resource_intents",
+      "status": "partial",
+      "authority": "hub_control_plane",
+      "source_paths": [
+        "agent/services/collaboration_agent_control_service.py",
+        "ananta_contracts/collaboration_resources.py"
+      ],
+      "limitation": "The production composition remains fail-closed until a Hub task-assignment authority is configured."
+    },
+    {
+      "capability": "headless_command_decisions",
+      "status": "present",
+      "authority": "hub_control_plane",
+      "source_paths": [
+        "agent/services/collaboration_command_service.py",
+        "tests/collaboration_workspace/test_headless_commands.py"
+      ]
+    },
+    {
+      "capability": "webrtc_p2p",
+      "status": "present",
+      "authority": "live_transport_plane",
+      "source_paths": [
+        "frontend-angular/src/app/services/webrtc-transport.service.ts"
+      ]
+    },
+    {
+      "capability": "hub_relay",
+      "status": "present",
+      "authority": "live_transport_plane",
+      "source_paths": [
+        "agent/routes/share_sessions.py",
+        "frontend-angular/src/app/services/webrtc-transport.service.ts"
+      ]
+    },
+    {
+      "capability": "livekit_sfu",
+      "status": "partial",
+      "authority": "live_transport_plane",
+      "source_paths": [
+        "frontend-angular/src/app/services/livekit-sfu-room.adapter.ts",
+        "docs/status/webrtc-sfu-broadcast-baseline.md"
+      ],
+      "limitation": "The production release gate remains no_go or observe_only without a registered real-runtime run."
+    },
+    {
+      "capability": "turn",
+      "status": "partial",
+      "authority": "live_transport_plane",
+      "source_paths": [
+        "docs/status/webrtc-turn-control-plane.md"
+      ],
+      "limitation": "Runtime readiness depends on the independently governed TURN profile."
+    },
+    {
+      "capability": "pair_view_sync",
+      "status": "present",
+      "authority": "live_transport_plane",
+      "source_paths": [
+        "frontend-angular/src/app/services/pair-view-sync.service.ts",
+        "frontend-angular/src/app/services/pair-view-sync.types.ts"
+      ]
+    },
+    {
+      "capability": "e2ee_epoch_replay_revocation",
+      "status": "present",
+      "authority": "hub_control_plane",
+      "source_paths": [
+        "agent/services/webrtc_group_key_authorization_service.py",
+        "tests/security/test_webrtc_group_rekey.py"
+      ]
+    },
+    {
+      "capability": "buzz_bridge",
+      "status": "partial",
+      "authority": "adapter_plane",
+      "source_paths": [
+        "agent/adapters/buzz_collaboration.py",
+        "tests/collaboration_workspace/test_buzz_adapter.py"
+      ],
+      "limitation": "Local conformance passes; no real pinned Buzz relay run is registered."
+    },
+    {
+      "capability": "multi_hub_durable_store",
+      "status": "missing",
+      "authority": "durable_collaboration_plane",
+      "source_paths": [],
+      "limitation": "The current durable adapter is intentionally limited to local and single-Hub SQLite profiles."
+    }
+  ],
+  "evidence_policy": "This matrix is a source audit artifact, not SRC_ or RUN_ release evidence."
+}

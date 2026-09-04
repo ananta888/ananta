@@ -21,6 +21,9 @@ EVENT_TYPES = frozenset(
     {
         "message.posted",
         "message.replied",
+        "thread.resolved",
+        "thread.reopened",
+        "thread.tombstoned",
         "decision.recorded",
         "review.recorded",
         "artifact.linked",
@@ -97,6 +100,78 @@ def _timestamp(value: object, field: str) -> float:
 
 
 @dataclass(frozen=True, slots=True)
+class CollaborationWorkspaceV1:
+    SCHEMA: ClassVar[str] = "ananta.collaboration-workspace.v1"
+    schema: str
+    tenant_id: str
+    workspace_id: str
+    project_id: str | None
+    title: str
+    state: str
+    retention: str
+    revision: int
+    created_by: str
+    created_at: float
+    native_core: bool
+    bridge_required: bool
+    human_intervention_required: bool
+
+    @classmethod
+    def from_mapping(cls, value: Mapping[str, Any]) -> CollaborationWorkspaceV1:
+        _exact(
+            value,
+            {
+                "schema",
+                "tenant_id",
+                "workspace_id",
+                "project_id",
+                "title",
+                "state",
+                "retention",
+                "revision",
+                "created_by",
+                "created_at",
+                "native_core",
+                "bridge_required",
+                "human_intervention_required",
+            },
+            "workspace",
+        )
+        revision = value.get("revision")
+        if (
+            value.get("schema") != cls.SCHEMA
+            or value.get("state") != "active"
+            or value.get("retention") not in RETENTION_CLASSES - {"ephemeral"}
+            or not isinstance(revision, int)
+            or isinstance(revision, bool)
+            or revision < 1
+            or value.get("native_core") is not True
+            or value.get("bridge_required") is not False
+            or value.get("human_intervention_required") is not False
+        ):
+            raise CollaborationContractError("collaboration_workspace_invalid")
+        project_id = value.get("project_id")
+        return cls(
+            cls.SCHEMA,
+            require_id(value.get("tenant_id"), "tenant_id"),
+            require_id(value.get("workspace_id"), "workspace_id"),
+            require_id(project_id, "project_id") if project_id is not None else None,
+            require_text(value.get("title"), "workspace_title", maximum=200),
+            "active",
+            str(value["retention"]),
+            revision,
+            require_id(value.get("created_by"), "created_by"),
+            _timestamp(value.get("created_at"), "created_at"),
+            True,
+            False,
+            False,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(frozen=True, slots=True)
 class WorkspaceActorBindingV1:
     SCHEMA: ClassVar[str] = "ananta.collaboration-actor-binding.v1"
     schema: str
@@ -106,22 +181,21 @@ class WorkspaceActorBindingV1:
     authority_subject: str
     display_name: str
     capabilities: tuple[str, ...]
+    profile: Mapping[str, Any] | None = None
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> WorkspaceActorBindingV1:
-        _exact(
-            value,
-            {
-                "schema",
-                "actor_binding_id",
-                "actor_kind",
-                "authority_kind",
-                "authority_subject",
-                "display_name",
-                "capabilities",
-            },
-            "actor_binding",
-        )
+        required = {
+            "schema",
+            "actor_binding_id",
+            "actor_kind",
+            "authority_kind",
+            "authority_subject",
+            "display_name",
+            "capabilities",
+        }
+        if not required.issubset(value) or set(value) - (required | {"profile"}):
+            raise CollaborationContractError("collaboration_actor_binding_fields_invalid")
         actor_kind = str(value.get("actor_kind") or "").strip()
         authority_kind = str(value.get("authority_kind") or "").strip()
         display_name = str(value.get("display_name") or "").strip()
@@ -129,6 +203,19 @@ class WorkspaceActorBindingV1:
             raise CollaborationContractError("collaboration_actor_binding_invalid")
         if not 1 <= len(display_name) <= 128:
             raise CollaborationContractError("collaboration_display_name_invalid")
+        profile = value.get("profile")
+        if profile is not None:
+            if not isinstance(profile, Mapping) or set(profile) != {
+                "provider",
+                "model",
+                "profile_revision",
+            }:
+                raise CollaborationContractError("collaboration_actor_profile_invalid")
+            profile = {
+                "provider": require_text(profile.get("provider"), "actor_provider", maximum=128),
+                "model": require_text(profile.get("model"), "actor_model", maximum=256),
+                "profile_revision": require_id(profile.get("profile_revision"), "actor_profile_revision"),
+            }
         return cls(
             cls.SCHEMA,
             require_id(value.get("actor_binding_id"), "actor_binding_id"),
@@ -137,10 +224,14 @@ class WorkspaceActorBindingV1:
             require_text(value.get("authority_subject"), "authority_subject"),
             display_name,
             _ids(value.get("capabilities"), "actor_capabilities", maximum=32),
+            profile,
         )
 
     def to_dict(self) -> dict[str, Any]:
-        return {**asdict(self), "capabilities": list(self.capabilities)}
+        value = {**asdict(self), "capabilities": list(self.capabilities)}
+        if self.profile is None:
+            value.pop("profile")
+        return value
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,6 +376,7 @@ __all__ = [
     "ROOM_KINDS",
     "CollaborationContractError",
     "CollaborationRoomV1",
+    "CollaborationWorkspaceV1",
     "WorkspaceActorBindingV1",
     "WorkspaceEventV1",
     "canonical_digest",

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ananta.local/schemas/collaboration/resource-offer.v1.json",
+  "title": "SharedResourceOfferV1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "offer_id", "workspace_id", "owner_actor_binding_id", "resource_id", "capability_category", "capacity_class", "scopes", "expires_at", "sensitivity", "attestation_status", "metadata"],
+  "properties": {
+    "schema": {"const": "ananta.collaboration-resource-offer.v1"},
+    "offer_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "workspace_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "owner_actor_binding_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "resource_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$"},
+    "capability_category": {"enum": ["compute", "model", "repository", "terminal", "tool"]},
+    "capacity_class": {"enum": ["small", "medium", "large"]},
+    "scopes": {"type": "array", "minItems": 1, "maxItems": 32, "uniqueItems": true, "items": {"type": "string"}},
+    "expires_at": {"type": "number"},
+    "sensitivity": {"enum": ["workspace", "restricted"]},
+    "attestation_status": {"enum": ["verified", "unverified", "test_only"]},
+    "metadata": {"type": "object", "maxProperties": 32}
+  }
+}

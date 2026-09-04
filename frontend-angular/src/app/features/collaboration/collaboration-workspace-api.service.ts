@@ -6,6 +6,10 @@ import {
   CollaborationEvent,
   CollaborationPage,
   CollaborationRoom,
+  CollaborationMembership,
+  CollaborationFlowProjection,
+  CollaborationPresence,
+  CollaborationThread,
   CollaborationWorkspaceSummary,
 } from './collaboration-workspace.models';
 
@@ -26,8 +30,8 @@ export class CollaborationWorkspaceApiService {
   get(
     hubUrl: string,
     workspaceId: string,
-  ): Observable<CollaborationWorkspaceSummary & { rooms: CollaborationRoom[] }> {
-    return this.core.get<CollaborationWorkspaceSummary & { rooms: CollaborationRoom[] }>(
+  ): Observable<CollaborationWorkspaceSummary & { rooms: CollaborationRoom[]; memberships: CollaborationMembership[] }> {
+    return this.core.get<CollaborationWorkspaceSummary & { rooms: CollaborationRoom[]; memberships: CollaborationMembership[] }>(
       `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}`, hubUrl,
     );
   }
@@ -56,6 +60,55 @@ export class CollaborationWorkspaceApiService {
   ): Observable<CollaborationEvent> {
     return this.core.post<CollaborationEvent>(
       `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/events`, event, hubUrl,
+    );
+  }
+
+  thread(hubUrl: string, workspaceId: string, threadId: string): Observable<CollaborationThread> {
+    return this.core.get<CollaborationThread>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/threads/${encodeURIComponent(threadId)}`,
+      hubUrl,
+    );
+  }
+
+  search(
+    hubUrl: string,
+    workspaceId: string,
+    query: string,
+  ): Observable<CollaborationPage<CollaborationEvent>> {
+    const params = new URLSearchParams({ q: query }).toString();
+    return this.core.get<CollaborationPage<CollaborationEvent>>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/search?${params}`,
+      hubUrl,
+    );
+  }
+
+  transitionRoom(
+    hubUrl: string,
+    workspaceId: string,
+    room: CollaborationRoom,
+    state: 'active' | 'archived',
+  ): Observable<{ state: 'active' | 'archived'; revision: number; snapshot_digest: string }> {
+    return this.core.put<{ state: 'active' | 'archived'; revision: number; snapshot_digest: string }>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/rooms/${encodeURIComponent(room.room_id)}/lifecycle`,
+      { state, expected_revision: room.lifecycle_revision || 1 },
+      hubUrl,
+    );
+  }
+
+  presence(
+    hubUrl: string,
+    workspaceId: string,
+    roomId: string,
+  ): Observable<{ items: CollaborationPresence[]; room_id: string }> {
+    return this.core.get<{ items: CollaborationPresence[]; room_id: string }>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/rooms/${encodeURIComponent(roomId)}/presence`,
+      hubUrl,
+    );
+  }
+
+  flowProjection(hubUrl: string, workspaceId: string): Observable<CollaborationFlowProjection> {
+    return this.core.get<CollaborationFlowProjection>(
+      `${this.endpoint(hubUrl)}/${encodeURIComponent(workspaceId)}/flow-projection`, hubUrl,
     );
   }
 

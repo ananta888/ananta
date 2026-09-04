@@ -11,10 +11,11 @@ The goal is to cover the same problem class as Block Buzz without turning
 Pair-Dev into a Buzz clone. Pair-Dev remains fully useful on its own. Buzz is an
 optional external workspace and protocol adapter.
 
-The Ananta baseline was revalidated against commit
-`e046211d4c6ad069a8be96c3e1436b90182b6602` on 2026-08-13. The public Buzz
-references were reviewed on 2026-08-06; they remain design inputs for the
-optional adapter and are not evidence for native Ananta runtime readiness.
+The implementation baseline was revalidated against Ananta commit
+`6d08109f9ee07a0bc50f677b635ae3e268d54ceb` on 2026-09-04. The optional Buzz
+adapter is pinned to upstream revision
+`01bacb8df3d2f5718e0a468828e07ae874a38eae`. That revision is an interoperability
+input, not evidence for native Ananta runtime readiness.
 
 ## Architectural decision
 
@@ -253,7 +254,7 @@ sequenceDiagram
 Messages and mentions may suggest work. They never create a Worker task without
 the normal Hub transition, policy checks and optional approval.
 
-## Required ports and adapters
+## Implemented ports and adapters
 
 Core services depend on small interfaces rather than WebRTC, LiveKit or Nostr
 types:
@@ -272,6 +273,25 @@ types:
 Each adapter publishes a versioned capability manifest. Unsupported operations
 must be absent or explicitly rejected; no adapter returns success without
 performing its promised operation.
+
+The local default-off implementation now provides focused services for event
+admission, evidence verification, policy, delivery, projections, live routing,
+search, domain bindings, agent/resource control, command decisions, migration
+and recovery. Agent and native-event admission share an atomic, persistent
+budget service covering tenant, workspace, room, principal, actor, task,
+provider, intent chain and connection scopes; cancel and revocation traffic is
+explicitly exempt. Webhook, local-Git and Worker event ingress use separate
+authentication ports and a common canonical mapper, so none of those sources
+can write TaskDB, Git state or the Worker queue directly. SQLite remains the single-Hub durable adapter. Multi-Hub is an
+explicitly unverified deployment profile until a shared CAS/outbox/presence
+adapter and split-brain evidence exist.
+
+Security remains composed from focused services: prompt construction preserves
+separate runtime, Hub-policy, user, external-event and retrieval trust layers;
+key custody stores only secret references and provides rotation, revocation and
+a tenant/workspace hash-chained access audit; aggregate observability reads only
+content-free counters. These boundaries keep policy, persistence and adapter
+infrastructure independently replaceable.
 
 ## Live transport model
 
@@ -482,6 +502,13 @@ disconnect or failure must not impair native event admission or room use.
 
 No missing external runtime evidence may be replaced with an implementation
 claim or invented source/run identifier.
+
+The release evaluator keeps the three lanes independent. The local and
+single-Hub Native Core may pass their deterministic gate without Buzz or SFU.
+The multi-participant Live and Buzz lanes remain `unverified` when their real
+runtime evidence is missing; this never downgrades native room/event/search
+availability. Grounded timeline events are admitted only after the Hub Evidence
+Registry verifies the immutable tenant/project/task/revision/source/run binding.
 
 ## SOLID check
 

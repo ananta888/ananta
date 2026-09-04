@@ -14,6 +14,10 @@ class CollaborationWorkspacePolicy:
         "owner": frozenset(
             {"workspace.manage", "room.manage", "event.write", "event.read", "presence.write", "cursor.write"}
         ),
+        "maintainer": frozenset({"room.manage", "event.write", "event.read", "presence.write", "cursor.write"}),
+        "member": frozenset({"event.write", "event.read", "presence.write", "cursor.write"}),
+        "guest": frozenset({"event.write", "event.read", "presence.write", "cursor.write"}),
+        "observer": frozenset({"event.read", "presence.write", "cursor.write"}),
         "editor": frozenset({"event.write", "event.read", "presence.write", "cursor.write"}),
         "viewer": frozenset({"event.read", "presence.write", "cursor.write"}),
     }
@@ -21,7 +25,13 @@ class CollaborationWorkspacePolicy:
     def require(self, membership: Mapping[str, object] | None, capability: str) -> None:
         if not membership or membership.get("status") != "active":
             raise CollaborationPolicyDenied("collaboration_membership_required")
-        if capability not in self.ROLE_CAPABILITIES.get(str(membership.get("role") or ""), frozenset()):
+        effective = membership.get("effective_capabilities")
+        capabilities = (
+            frozenset(str(value) for value in effective)
+            if isinstance(effective, (list, tuple, set, frozenset))
+            else self.ROLE_CAPABILITIES.get(str(membership.get("role") or ""), frozenset())
+        )
+        if capability not in capabilities:
             raise CollaborationPolicyDenied("collaboration_capability_denied")
 
 
