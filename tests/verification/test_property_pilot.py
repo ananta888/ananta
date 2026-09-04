@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from types import SimpleNamespace
 
@@ -17,6 +18,7 @@ from agent.services.task_dependency_policy import (
 from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
 from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
 from ananta_contracts.verification import VerificationBudgets, canonical_digest
+from worker.verification.crosshair_output import CrossHairOutputParser
 from worker.verification.pilot_targets import (
     clamp,
     normalize_dependencies,
@@ -213,3 +215,21 @@ def test_default_verification_spec_is_closed_and_boolean(task_kind: str | None) 
 def test_contract_digest_rejects_non_finite_numbers(value: float) -> None:
     with pytest.raises(ValueError):
         canonical_digest({"value": value})
+
+
+@_SETTINGS
+@given(
+    value=st.recursive(
+        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=20)),
+        lambda children: st.one_of(
+            st.lists(children, max_size=4),
+            st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4),
+            st.tuples(children, children),
+        ),
+        max_leaves=12,
+    )
+)
+def test_crosshair_parser_fuzzes_balanced_literal_arguments(value) -> None:
+    parsed = CrossHairOutputParser().parse(f"false when calling module.fn(value = {value!r})")
+    expected = json.loads(json.dumps(value, ensure_ascii=True))
+    assert parsed[0].arguments == {"value": expected}

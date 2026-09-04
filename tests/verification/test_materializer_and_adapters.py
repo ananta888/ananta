@@ -4,8 +4,6 @@ import json
 from pathlib import Path
 
 import pytest
-from hypothesis import given, settings
-from hypothesis import strategies as st
 
 from agent.services.verification_metrics_service import VerificationMetricsService
 from agent.services.verification_promotion_service import VerificationPromotionService
@@ -103,24 +101,6 @@ def test_crosshair_parser_returns_every_counterexample() -> None:
 def test_crosshair_parser_rejects_non_literal_or_malformed_output(output: str) -> None:
     with pytest.raises(CrossHairOutputParseError):
         CrossHairOutputParser().parse(output)
-
-
-@settings(max_examples=50, deadline=None, database=None, derandomize=True)
-@given(
-    value=st.recursive(
-        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=20)),
-        lambda children: st.one_of(
-            st.lists(children, max_size=4),
-            st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4),
-            st.tuples(children, children),
-        ),
-        max_leaves=12,
-    )
-)
-def test_crosshair_parser_fuzzes_balanced_literal_arguments(value) -> None:
-    parsed = CrossHairOutputParser().parse(f"false when calling module.fn(value = {value!r})")
-    expected = json.loads(json.dumps(value, ensure_ascii=True))
-    assert parsed[0].arguments == {"value": expected}
 
 
 def test_crosshair_adapter_materializes_every_assigned_counterexample(tmp_path: Path) -> None:
