@@ -1,8 +1,65 @@
 {
+  "$schema": "todo.track.schema.json",
+  "version": "2.0",
+  "owner": "Peter Stuiber / Ananta",
+  "track": "ananta-geomap-catalog",
+  "created": "2026-09-03",
+  "updated": "2026-09-04",
   "id": "ananta-geomap-catalog",
   "title": "Konfigurierbarer GeoMap-Katalog für Datenanalyse und Dashboards",
   "status": "todo",
-  "priority": "high",
+  "priority": "P1",
+  "status_scale": [
+    "todo",
+    "in_progress",
+    "partial",
+    "blocked",
+    "done"
+  ],
+  "priority_scale": [
+    "P0",
+    "P1",
+    "P2"
+  ],
+  "risk_scale": [
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ],
+  "critical_path_tasks": [
+    "GM-01",
+    "GM-02",
+    "GM-03",
+    "GM-04",
+    "GM-05",
+    "GM-07",
+    "GM-08"
+  ],
+  "review_basis": {
+    "reviewed_commit": "cc6391f9f87f49b4c5142be76806310f132ce135",
+    "reviewed_at": "2026-09-04",
+    "grounding_status": "repository_audit_verified_implementation_open",
+    "allowed_source_refs": [],
+    "allowed_run_refs": [],
+    "reviewed_paths": [
+      "agent/routes/",
+      "agent/services/",
+      "agent/artifacts/",
+      "worker/",
+      "frontend-angular/src/app/",
+      "config/",
+      "schemas/",
+      "tests/"
+    ],
+    "findings": [
+      "Es existiert noch kein GeoMap-Registry-, Join-, API-, Web- oder Exportmodul.",
+      "ECharts und Plotly sind noch keine Projektabhaengigkeiten; bestehende SVG-Diagramme sind fachlich nicht als Kartenrenderer wiederverwendbar.",
+      "Spreadsheet Studio ist der vorhandene tabellarische Eingabefluss und bleibt der UI-Integrationspunkt.",
+      "Flask-Blueprints werden zentral in agent/bootstrap/routes.py registriert; GeoMap-Policy und Registry bleiben Hub-Verantwortung.",
+      "Worker-Export- und Hub-Artefaktvertraege werden wiederverwendet; Worker duerfen keine Registry- oder Freigabeentscheidung treffen."
+    ]
+  },
   "source_basis": {
     "goal": "Tabellarische Daten aus Pandas/CSV/SQL sollen ohne individuelle Kartenprogrammierung auf Welt-, Kontinent-, Länder-, Bundesland- und später NUTS-/Landkreis-Ebene visualisiert werden können.",
     "decisions": [
@@ -19,13 +76,15 @@
     ]
   },
   "repo_alignment": {
-    "required_discovery": "Vor Umsetzung vorhandene Dashboard-, Chart-, Python-Export-, Artefakt- und Konfigurationsmodule ermitteln. Keine parallele Visualisierungsarchitektur einführen.",
+    "required_discovery": "Abgeschlossen in GM-01 und dokumentiert in docs/architecture/geomap-catalog.md.",
     "target_todo_path": "todos/active/todo.ananta.geomap-catalog.json",
-    "files_to_create": [
-      "Karten-Registry und Schema am nach dem Repository-Audit passenden Konfigurationsort",
-      "lokal paketierte Grenzdaten und Attribution-Dateien",
-      "GeoMap-Renderer/Adapter für Web und Python-Export",
-      "Komponenten- und End-to-End-Tests"
+    "integration_paths": [
+      "config/geomaps/registry.v1.json und schemas/geomaps/registry.v1.json",
+      "assets/geomaps/ fuer versionierte Offline-Grenzdaten und Attribution",
+      "agent/services/geomaps/ fuer Registry, Validierung, Join und Exportports",
+      "agent/routes/geomaps.py und agent/bootstrap/routes.py fuer die Hub-API",
+      "frontend-angular/src/app/features/geomaps/ fuer Web-Adapter und gefuehrten Workflow",
+      "tests/ und frontend-angular/src/app/features/geomaps/*.spec.ts"
     ]
   },
   "acceptance_summary": [
@@ -39,9 +98,11 @@
       "id": "GM-01",
       "title": "Vorhandene Visualisierungs- und Datenflussarchitektur prüfen",
       "type": "research",
-      "priority": "blocker",
-      "status": "todo",
-      "repo_evidence": "Offen: Dashboard/Chart-Komponenten, Datenmodell, Python-Worker, Artefakt-Speicher und bestehende Konfigurationsvalidierung im Repository identifizieren.",
+      "priority": "P0",
+      "risk": "medium",
+      "status": "done",
+      "progress_percent": 100,
+      "repo_evidence": "Architekturabgleich in docs/architecture/geomap-catalog.md: Spreadsheet Studio liefert den Tabellenfluss, agent/bootstrap/routes.py den Hub-API-Anker, agent/artifacts und worker/training/exports.py die Artefaktmuster. ECharts/Plotly und GeoMap-Code fehlen am Review-Commit vollstaendig.",
       "implementation": [
         "Bestehende Chart-Renderer, Tabellenimporte, Python-Ausführungen und Exportpfade dokumentieren.",
         "Entscheiden, ob ECharts/Plotly bereits vorhanden sind; vorhandene Bibliotheken bevorzugen.",
@@ -60,9 +121,11 @@
       "id": "GM-02",
       "title": "Versioniertes GeoMap-Registry-Schema definieren",
       "type": "implementation",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "high",
       "status": "todo",
-      "repo_evidence": "Benötigt Ergebnis aus GM-01 zur Einordnung in das vorhandene Konfigurationssystem.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Verbindliche Zielpfade sind schemas/geomaps/registry.v1.json, config/geomaps/registry.v1.json und agent/services/geomaps/registry.py.",
       "implementation": [
         "Schema mit id, label, level, format, source, featureIdPath, dataJoinKey, supportedRenderers, bounds, license und attribution definieren.",
         "Eindeutige IDs wie world-countries, world-continents, europe-countries und de-states festlegen.",
@@ -83,9 +146,11 @@
       "id": "GM-03",
       "title": "Offline-Grenzdaten und Attribution paketieren",
       "type": "data",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "high",
       "status": "todo",
-      "repo_evidence": "Grenzdaten dürfen nicht zur Laufzeit von CDN oder GitHub abhängen.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Versionierte Grenzdaten und maschinenlesbare Attribution werden ausschliesslich unter assets/geomaps/ paketiert; Produktlaufzeit bleibt netzwerkfrei.",
       "implementation": [
         "Welt-Länder aus einem gepflegten, lizenzkonformen Datensatz in angemessener Auflösung aufnehmen.",
         "Kontinente aus denselben Ländergrenzen reproduzierbar aggregieren oder eine klar lizenzierte Kontinentdatei verwenden.",
@@ -108,9 +173,11 @@
       "id": "GM-04",
       "title": "Sicheren Tabellen-zu-Regionen-Join implementieren",
       "type": "implementation",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "high",
       "status": "todo",
-      "repo_evidence": "Join-Logik muss unabhängig vom gewählten Renderer sein.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Rendererunabhaengige Join-Policy und Tabellenadapter gehoeren in agent/services/geomaps/; Spreadsheet-Snapshots und JSON-Zeilen sind vorhandene Eingabeformen.",
       "implementation": [
         "Join-Adapter für DataFrame/CSV/SQL-Resultat nach JSON implementieren.",
         "Normalisierung nur für explizit konfigurierte Schlüsseltypen anbieten: ISO-3166-1 alpha-3, ISO-3166-2, NUTS und benutzerdefinierte IDs.",
@@ -134,9 +201,11 @@
       "id": "GM-05",
       "title": "Interaktive GeoMap-Komponente für Ananta implementieren",
       "type": "implementation",
-      "priority": "high",
+      "priority": "P1",
+      "risk": "medium",
       "status": "todo",
-      "repo_evidence": "Rendererwahl aus GM-01 übernehmen; Ziel ist ECharts oder bereits vorhandene gleichwertige Karte.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Ein isolierter ECharts-Adapter wird unter frontend-angular/src/app/features/geomaps/ in den bestehenden Spreadsheet-Studio-Fluss eingebunden.",
       "implementation": [
         "GeoJSON und SVG über einen einheitlichen Renderer-Adapter registrieren.",
         "Choropleth-Farbskala, Legende, Tooltip, Auswahl, Reset, Zoom und Tastaturbedienung implementieren.",
@@ -160,9 +229,11 @@
       "id": "GM-06",
       "title": "Pandas- und Report-Export anbinden",
       "type": "implementation",
-      "priority": "medium",
+      "priority": "P2",
+      "risk": "medium",
       "status": "todo",
-      "repo_evidence": "Python-Ausführungs- und Artefaktpfad aus GM-01 verwenden.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Der Export wird als austauschbarer Port unter agent/services/geomaps/ angelegt und nutzt die vorhandenen Artefaktvertraege statt eines zweiten Speichers.",
       "implementation": [
         "Plotly-Adapter für Länderniveau mit ISO-3 sowie Custom-GeoJSON-Adapter für Bundesländer implementieren.",
         "Statisches SVG/PNG/PDF und optional interaktives HTML als Artefakte exportieren.",
@@ -185,9 +256,11 @@
       "id": "GM-07",
       "title": "Karten-Auswahl und Datenzuordnung als geführten Workflow ergänzen",
       "type": "ux",
-      "priority": "medium",
+      "priority": "P2",
+      "risk": "medium",
       "status": "todo",
-      "repo_evidence": "In die vorhandene Visualisierungs- bzw. Dashboard-Erstellstrecke integrieren.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Der Workflow wird als eigenstaendige, testbare Angular-Komponente in Spreadsheet Studio integriert; Publishing bleibt eine Hub-Policyentscheidung.",
       "implementation": [
         "Schritte anbieten: Karte wählen, Gebietsschlüssel-Spalte wählen, Kennzahl wählen, Aggregation prüfen, Vorschau prüfen.",
         "Automatische Vorschläge nur bei eindeutiger Übereinstimmung; andernfalls Auswahl verlangen.",
@@ -210,9 +283,11 @@
       "id": "GM-08",
       "title": "Erweiterbarkeit, Governance und Release absichern",
       "type": "quality",
-      "priority": "medium",
+      "priority": "P2",
+      "risk": "high",
       "status": "todo",
-      "repo_evidence": "Vor Erweiterung um NUTS, Kreise, PLZ, Vertriebsgebiete oder Kundengebiete notwendig.",
+      "progress_percent": 0,
+      "repo_evidence": "Nicht implementiert. Upload-Validierung, Groessenbudgets, lokale Ressourcenregeln und CI-Gate werden in getrennten Hub-Services und Tests umgesetzt.",
       "implementation": [
         "Schema für zusätzliche Ebenen und kundeneigene GeoJSON/SVG-Dateien dokumentieren.",
         "Upload-Validierung gegen schädliche oder übergroße SVG/GeoJSON implementieren; SVG niemals mit ausführbarem Inhalt rendern.",
@@ -240,28 +315,31 @@
     {
       "id": "M1",
       "title": "Registry, Daten und Join",
-      "tasks": [
+      "task_ids": [
         "GM-01",
         "GM-02",
         "GM-03",
         "GM-04"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "M2",
       "title": "Webkarte und Exporte",
-      "tasks": [
+      "task_ids": [
         "GM-05",
         "GM-06",
         "GM-07"
-      ]
+      ],
+      "status": "todo"
     },
     {
       "id": "M3",
       "title": "Erweiterbar und releasefähig",
-      "tasks": [
+      "task_ids": [
         "GM-08"
-      ]
+      ],
+      "status": "todo"
     }
   ],
   "release_gates": [
@@ -269,5 +347,136 @@
     "Daten-Join-Bericht wird vor der Veröffentlichung angezeigt.",
     "Lizenz, Datenstand und Attribution aller Basiskarten geprüft.",
     "SVG- und GeoJSON-Import gegen aktive Inhalte und Ressourcenabrufe abgesichert."
-  ]
+  ],
+  "tasks_status_summary": {
+    "total": 8,
+    "by_status": {
+      "todo": 7,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 1
+    },
+    "progress_percent_done": 12.5,
+    "by_priority": {
+      "P0": 1,
+      "P1": 4,
+      "P2": 3,
+      "P3": 0
+    },
+    "by_risk": {
+      "low": 0,
+      "medium": 4,
+      "high": 4,
+      "critical": 0
+    },
+    "critical_path": {
+      "total": 7,
+      "done": 1,
+      "remaining": 6
+    },
+    "milestones": {
+      "total": 3,
+      "todo": 3,
+      "in_progress": 0,
+      "partial": 0,
+      "blocked": 0,
+      "done": 0
+    }
+  },
+  "tasks_type_summary": {
+    "total": 8,
+    "by_type": {
+      "research": {
+        "total": 1,
+        "done": 1,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 0,
+        "in_progress": 0,
+        "progress_percent": 100.0,
+        "by_status": {
+          "todo": 0,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 1
+        }
+      },
+      "implementation": {
+        "total": 4,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 4,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 4,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "data": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "ux": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      },
+      "quality": {
+        "total": 1,
+        "done": 0,
+        "partial": 0,
+        "blocked": 0,
+        "todo": 1,
+        "in_progress": 0,
+        "progress_percent": 0.0,
+        "by_status": {
+          "todo": 1,
+          "in_progress": 0,
+          "partial": 0,
+          "blocked": 0,
+          "done": 0
+        }
+      }
+    }
+  },
+  "progress_summary": {
+    "state": "todo",
+    "todo_remaining": 7,
+    "in_progress": 0,
+    "partial": 0,
+    "blocked": 0,
+    "done": 1,
+    "milestones_done": 0,
+    "milestones_total": 3
+  }
 }
