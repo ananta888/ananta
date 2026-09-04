@@ -7,9 +7,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from flask import Blueprint, current_app, request
+from flask import Blueprint, current_app, g, request
 
-from agent.auth import check_user_auth, get_request_auth_context
+from agent.auth import admin_required, check_user_auth, get_request_auth_context
 from agent.common.errors import api_response
 from agent.services.collaboration_workspace_policy import CollaborationPolicyDenied
 from agent.services.collaboration_workspace_store import CollaborationStoreConflict
@@ -125,6 +125,75 @@ def capabilities():
         }
 
     return _invoke(operation)
+
+
+@collaboration_workspaces_bp.get("/<workspace_id>/bridges/buzz")
+@check_user_auth
+def buzz_bridge_status(workspace_id: str):
+    def operation():
+        tenant_id, _, actor_id = _identity()
+        _service().get_workspace(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+            principal_actor_id=actor_id,
+        )
+        return _extension("collaboration_buzz_management_service").status(
+            tenant_id=tenant_id,
+            workspace_id=workspace_id,
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.put("/<workspace_id>/bridges/buzz/configuration")
+@admin_required
+def configure_buzz_bridge(workspace_id: str):
+    def operation():
+        body = _body()
+        if set(body) != {"configuration", "expected_revision"} or not isinstance(body["configuration"], dict):
+            raise ValueError("buzz_bridge_configuration_request_invalid")
+        return _extension("collaboration_buzz_management_service").configure(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            configuration=body["configuration"],
+            expected_revision=body["expected_revision"],
+            admin_authorized=bool(getattr(g, "is_admin", False)),
+        )
+
+    return _invoke(operation)
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/bridges/buzz/connect")
+@admin_required
+def connect_buzz_bridge(workspace_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_buzz_management_service").connect(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            expected_revision=_bridge_expected_revision(),
+            admin_authorized=bool(getattr(g, "is_admin", False)),
+        )
+    )
+
+
+@collaboration_workspaces_bp.post("/<workspace_id>/bridges/buzz/disconnect")
+@admin_required
+def disconnect_buzz_bridge(workspace_id: str):
+    return _invoke(
+        lambda: _extension("collaboration_buzz_management_service").disconnect(
+            tenant_id=_identity()[0],
+            workspace_id=workspace_id,
+            expected_revision=_bridge_expected_revision(),
+            admin_authorized=bool(getattr(g, "is_admin", False)),
+        )
+    )
+
+
+def _bridge_expected_revision() -> int:
+    body = _body()
+    if set(body) != {"expected_revision"}:
+        raise ValueError("buzz_bridge_lifecycle_request_invalid")
+    return body["expected_revision"]
 
 
 class DisabledBridgeProjection:

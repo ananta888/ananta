@@ -12,9 +12,14 @@ from agent.adapters.buzz_collaboration import (
     BuzzCollaborationBridge,
     buzz_bridge_conformance,
 )
+from agent.services.collaboration_buzz_management_service import (
+    BuzzBridgeConfigurationStore,
+    CollaborationBuzzManagementService,
+    UnavailableBuzzBridgeFactory,
+)
 from agent.services.collaboration_delivery_service import CollaborationDeliveryService
 from agent.services.collaboration_operational_signals import CollaborationOperationalSignals
-from agent.services.collaboration_workspace_store import CollaborationWorkspaceStore
+from agent.services.collaboration_workspace_store import CollaborationStoreConflict, CollaborationWorkspaceStore
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json
 from tests.collaboration_workspace.helpers import actor, build_event, service
 
@@ -44,6 +49,33 @@ class Keys:
 class Signatures:
     def verify(self, *, external_actor_id: str, payload: bytes, signature: str) -> bool:
         return external_actor_id == "npub-a" and signature == canonical_digest(payload.hex())
+
+
+class ManagedBridge:
+    def __init__(self) -> None:
+        self.connected = False
+
+    @property
+    def capabilities(self):
+        return {"state": "connected" if self.connected else "disconnected"}
+
+    def connect(self):
+        self.connected = True
+        return {"connected": True, "reason_code": "buzz_bridge_connected"}
+
+    def disconnect(self):
+        self.connected = False
+        return {"connected": False, "reason_code": "buzz_bridge_disconnected"}
+
+
+class ManagedBridgeFactory:
+    def __init__(self) -> None:
+        self.bridge = ManagedBridge()
+        self.config: BuzzBridgeConfig | None = None
+
+    def create(self, config: BuzzBridgeConfig):
+        self.config = config
+        return self.bridge
 
 
 def _bridge(
@@ -82,6 +114,18 @@ def _inbound(*, kind: str = "buzz.message.v1"):
         "hop_count": 0,
     }
     return {**unsigned, "signature": canonical_digest(canonical_json(unsigned).encode().hex())}
+
+
+def _managed_configuration(*, enabled: bool = True):
+    return {
+        "adapter_id": "buzz-a",
+        "relay_host": "relay.example",
+        "community_id": "community-a",
+        "tls_required": True,
+        "auth_ref": "secret:buzz:auth" if enabled else None,
+        "signing_key_ref": "secret:buzz:signing" if enabled else None,
+        "enabled": enabled,
+    }
 
 
 def test_connector_is_default_off_secret_safe_and_capability_pinned(tmp_path: Path) -> None:
@@ -221,3 +265,100 @@ def test_bridge_reconnect_signals_are_content_free_and_bounded(tmp_path: Path) -
     snapshot = signals.snapshot()
     assert snapshot["operations"] == 1
     assert snapshot["content_included"] is False
+
+
+def test_hub_admin_configuration_is_persistent_secret_safe_and_cas_guarded(tmp_path: Path) -> None:
+    database = tmp_path / "collaboration.sqlite3"
+    native = service(database)
+    native.create_workspace(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        title="Managed Buzz",
+        owner=actor(),
+        workspace_id="workspace-a",
+    )
+    factory = ManagedBridgeFactory()
+    manager = CollaborationBuzzManagementService(
+        BuzzBridgeConfigurationStore(database),
+        workspaces=CollaborationWorkspaceStore(database),
+        factory=factory,
+    )
+
+    with pytest.raises(PermissionError, match="hub_admin_required"):
+        manager.configure(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            configuration=_managed_configuration(),
+            expected_revision=0,
+            admin_authorized=False,
+        )
+    configured = manager.configure(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        configuration=_managed_configuration(),
+        expected_revision=0,
+        admin_authorized=True,
+    )
+    assert configured["state"] == "approved"
+    assert configured["revision"] == 1
+    assert configured["auth_configured"] is True
+    assert "auth_ref" not in configured and "signing_key_ref" not in configured
+    with pytest.raises(CollaborationStoreConflict, match="revision_conflict"):
+        manager.configure(
+            tenant_id="tenant-a",
+            workspace_id="workspace-a",
+            configuration=_managed_configuration(enabled=False),
+            expected_revision=0,
+            admin_authorized=True,
+        )
+
+    connected = manager.connect(
+        tenant_id="tenant-a", workspace_id="workspace-a", expected_revision=1, admin_authorized=True
+    )
+    assert connected["state"] == "connected"
+    assert factory.config is not None
+    assert factory.config.community_id == "community-a"
+    restarted = CollaborationBuzzManagementService(
+        BuzzBridgeConfigurationStore(database),
+        workspaces=CollaborationWorkspaceStore(database),
+        factory=ManagedBridgeFactory(),
+    )
+    assert restarted.status(tenant_id="tenant-a", workspace_id="workspace-a")["state"] == "disconnected"
+    disconnected = manager.disconnect(
+        tenant_id="tenant-a", workspace_id="workspace-a", expected_revision=2, admin_authorized=True
+    )
+    assert disconnected["state"] == "disconnected"
+    assert disconnected["native_core_available"] is True
+
+
+def test_missing_productive_buzz_factory_is_bounded_without_disabling_native_core(tmp_path: Path) -> None:
+    database = tmp_path / "collaboration.sqlite3"
+    native = service(database)
+    native.create_workspace(
+        tenant_id="tenant-a",
+        principal_id="user-a",
+        title="Native",
+        owner=actor(),
+        workspace_id="workspace-a",
+    )
+    manager = CollaborationBuzzManagementService(
+        BuzzBridgeConfigurationStore(database),
+        workspaces=CollaborationWorkspaceStore(database),
+        factory=UnavailableBuzzBridgeFactory(),
+    )
+    manager.configure(
+        tenant_id="tenant-a",
+        workspace_id="workspace-a",
+        configuration=_managed_configuration(),
+        expected_revision=0,
+        admin_authorized=True,
+    )
+
+    blocked = manager.connect(
+        tenant_id="tenant-a", workspace_id="workspace-a", expected_revision=1, admin_authorized=True
+    )
+
+    assert blocked["state"] == "blocked"
+    assert blocked["reason_code"] == "buzz_runtime_provider_not_configured"
+    assert blocked["native_core_available"] is True
+    assert native.list_workspaces(tenant_id="tenant-a", principal_actor_id="human-user-a")["items"]

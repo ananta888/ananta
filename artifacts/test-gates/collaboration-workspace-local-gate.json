@@ -6,7 +6,7 @@
   "native_core": {
     "python_collaboration_tests": {
       "status": "passed",
-      "tests": 123,
+      "tests": 126,
       "parallel_runner": "pytest-xdist"
     },
     "angular_production_build": "passed",

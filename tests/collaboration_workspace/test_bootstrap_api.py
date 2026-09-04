@@ -151,3 +151,51 @@ def test_command_api_has_fully_automatic_approved_and_blocked_paths(app, client,
     assert blocked.status_code == 201
     assert blocked.get_json()["data"]["state"] == "blocked"
     assert blocked.get_json()["data"]["human_intervention_required"] is False
+
+
+def test_buzz_configuration_requires_admin_and_missing_runtime_fails_bounded(
+    app, client, admin_auth_header, user_auth_header, tmp_path
+) -> None:
+    _wire(app, tmp_path)
+    client.post(
+        "/api/collaboration/workspaces",
+        headers=admin_auth_header,
+        json={"workspace_id": "workspace-buzz", "title": "Buzz", "display_name": "Admin"},
+    )
+    configuration = {
+        "adapter_id": "buzz-a",
+        "relay_host": "relay.example",
+        "community_id": "community-a",
+        "tls_required": True,
+        "auth_ref": "secret:buzz:auth",
+        "signing_key_ref": "secret:buzz:signing",
+        "enabled": True,
+    }
+    denied = client.put(
+        "/api/collaboration/workspaces/workspace-buzz/bridges/buzz/configuration",
+        headers=user_auth_header,
+        json={"configuration": configuration, "expected_revision": 0},
+    )
+    assert denied.status_code == 403
+    configured = client.put(
+        "/api/collaboration/workspaces/workspace-buzz/bridges/buzz/configuration",
+        headers=admin_auth_header,
+        json={"configuration": configuration, "expected_revision": 0},
+    )
+    assert configured.status_code == 200
+    assert configured.get_json()["data"]["state"] == "approved"
+    assert "auth_ref" not in configured.get_json()["data"]
+    connected = client.post(
+        "/api/collaboration/workspaces/workspace-buzz/bridges/buzz/connect",
+        headers=admin_auth_header,
+        json={"expected_revision": 1},
+    )
+    assert connected.status_code == 200
+    assert connected.get_json()["data"]["state"] == "blocked"
+    assert connected.get_json()["data"]["reason_code"] == "buzz_runtime_provider_not_configured"
+    status = client.get(
+        "/api/collaboration/workspaces/workspace-buzz/bridges/buzz",
+        headers=admin_auth_header,
+    )
+    assert status.status_code == 200
+    assert status.get_json()["data"]["native_core_available"] is True

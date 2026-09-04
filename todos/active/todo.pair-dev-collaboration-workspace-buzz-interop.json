@@ -1393,7 +1393,7 @@
     {
       "id": "PDCW-BUZZ-002",
       "title": "Buzz-Connector-Konfiguration und Lifecycle-Adapter bauen",
-      "status": "partial",
+      "status": "done",
       "priority": "P2",
       "risk": "high",
       "type": "implementation",
@@ -1408,7 +1408,7 @@
         "Unknown Host, TLS-/Auth-Fehler und Capability-Mismatch fail-closed mit redigierten Reason-Codes.",
         "Disconnect stoppt Bridge Delivery, aber weder native Event-Aufnahme noch lokale Room-Nutzung."
       ],
-      "progress_percent": 85.0
+      "progress_percent": 100.0
     },
     {
       "id": "PDCW-BUZZ-003",
@@ -1954,11 +1954,11 @@
     "by_status": {
       "todo": 0,
       "in_progress": 0,
-      "partial": 4,
+      "partial": 3,
       "blocked": 4,
-      "done": 64
+      "done": 65
     },
-    "progress_percent_done": 88.9,
+    "progress_percent_done": 90.3,
     "by_priority": {
       "P0": 34,
       "P1": 33,
@@ -2047,14 +2047,14 @@
         "by_status": {
           "todo": 0,
           "in_progress": 0,
-          "partial": 2,
+          "partial": 1,
           "blocked": 0,
-          "done": 34
+          "done": 35
         },
-        "done": 34,
-        "partial": 2,
+        "done": 35,
+        "partial": 1,
         "blocked": 0,
-        "progress_percent": 99.3
+        "progress_percent": 99.7
       },
       "security": {
         "total": 11,
@@ -2104,11 +2104,11 @@
     "state": "in_progress",
     "todo_remaining": 0,
     "in_progress": 0,
-    "partial": 4,
+    "partial": 3,
     "blocked": 4,
-    "done": 64,
-    "count_based_percent": 88.9,
-    "weighted_percent": 98.3
+    "done": 65,
+    "count_based_percent": 90.3,
+    "weighted_percent": 98.5
   },
   "execution_stage_summary": {
     "architecture_and_contracts": "in_progress",
@@ -2156,10 +2156,10 @@
   "weighted_progress_summary": {
     "weighting_model_ref": "planning-weighting-default-v1",
     "total_weight": 120.5,
-    "done_weight": 118.463,
-    "remaining_weight": 2.037,
+    "done_weight": 118.688,
+    "remaining_weight": 1.812,
     "blocked_weight": 6.0,
-    "weighted_percent": 98.3
+    "weighted_percent": 98.5
   },
   "milestone_progress_summary": {
     "milestones": {
@@ -2229,10 +2229,10 @@
       },
       "M09": {
         "total_tasks": 6,
-        "done": 4,
+        "done": 5,
         "blocked": 1,
-        "count_based_percent": 66.7,
-        "weighted_percent": 96.0,
+        "count_based_percent": 83.3,
+        "weighted_percent": 98.6,
         "status": "in_progress"
       },
       "M10": {
@@ -2264,10 +2264,10 @@
   "derived_summary_metadata": {
     "mode": "derived_cache",
     "source_of_truth": "tasks",
-    "generated_at": "2026-09-04T16:58:43.266357Z",
+    "generated_at": "2026-09-04T17:14:53.648191Z",
     "generator": "planning-summary-engine",
     "generator_version": "1.0",
-    "source_hash": "93946644545827ed3c155b26884d5f3c260b080bc67f4123f5937893667e12c7",
+    "source_hash": "5f33815a27418f3cc4192322421f8630958e64b7a4c533687af8f83e2f0c3e33",
     "is_stale": false
   },
   "implementation_review": {

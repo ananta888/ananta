@@ -7,17 +7,20 @@ import sqlite3
 import time
 from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
+from agent.services.collaboration_bridge_ports import (
+    BUZZ_MAPPING_VERSION,
+    PINNED_BUZZ_REVISION,
+    BuzzBridgeConfig,
+)
 from agent.services.collaboration_delivery_service import CollaborationDeliveryService
 from agent.services.collaboration_event_policy import CollaborationEventPolicy
 from agent.services.collaboration_operational_signals import CollaborationOperationalSignals
 from ananta_contracts.collaboration_workspace import canonical_digest, canonical_json, require_id
 
-PINNED_BUZZ_REVISION = "01bacb8df3d2f5718e0a468828e07ae874a38eae"
-MAPPING_VERSION = "ananta-buzz-v1"
+MAPPING_VERSION = BUZZ_MAPPING_VERSION
 
 
 class BuzzRelayClient(Protocol):
@@ -32,31 +35,6 @@ class BuzzKeyProvider(Protocol):
 
 class BuzzSignatureVerifier(Protocol):
     def verify(self, *, external_actor_id: str, payload: bytes, signature: str) -> bool: ...
-
-
-@dataclass(frozen=True, slots=True)
-class BuzzBridgeConfig:
-    tenant_id: str
-    workspace_id: str
-    adapter_id: str
-    relay_host: str
-    enabled: bool = False
-    tls_required: bool = True
-    mapping_version: str = MAPPING_VERSION
-    pinned_revision: str = PINNED_BUZZ_REVISION
-
-    def __post_init__(self) -> None:
-        require_id(self.tenant_id, "tenant_id")
-        require_id(self.workspace_id, "workspace_id")
-        require_id(self.adapter_id, "adapter_id")
-        if (
-            not self.relay_host
-            or "/" in self.relay_host
-            or "@" in self.relay_host
-            or self.mapping_version != MAPPING_VERSION
-            or self.pinned_revision != PINNED_BUZZ_REVISION
-        ):
-            raise ValueError("buzz_bridge_config_invalid")
 
 
 class BuzzBridgeDeliveryStore:

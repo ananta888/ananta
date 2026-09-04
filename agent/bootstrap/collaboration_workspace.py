@@ -14,6 +14,11 @@ from agent.services.collaboration_agent_control_service import CollaborationAgen
 from agent.services.collaboration_binding_service import CollaborationBindingService
 from agent.services.collaboration_bridge_ports import DisabledCollaborationBridge
 from agent.services.collaboration_budget_service import CollaborationBudgetService
+from agent.services.collaboration_buzz_management_service import (
+    BuzzBridgeConfigurationStore,
+    CollaborationBuzzManagementService,
+    UnavailableBuzzBridgeFactory,
+)
 from agent.services.collaboration_command_service import CollaborationCommandService, PreauthorizedCommandPolicy
 from agent.services.collaboration_delivery_service import (
     CollaborationDeliveryService,
@@ -119,6 +124,12 @@ def initialize_collaboration_workspace(app: Flask) -> CollaborationWorkspaceWiri
             workspace_policy=policy,
             command_policy=PreauthorizedCommandPolicy(allowed_tools, command_revision),
             budget=budget,
+        )
+        buzz_factory = app.extensions.get("collaboration_buzz_bridge_factory") or UnavailableBuzzBridgeFactory()
+        app.extensions["collaboration_buzz_management_service"] = CollaborationBuzzManagementService(
+            BuzzBridgeConfigurationStore(path),
+            workspaces=store,
+            factory=buzz_factory,
         )
         app.extensions["collaboration_bridge"] = DisabledCollaborationBridge()
         status = CollaborationWorkspaceWiringStatus(True, None)

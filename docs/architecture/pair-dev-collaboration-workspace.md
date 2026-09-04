@@ -382,6 +382,23 @@ context and partial-result warnings.
 Buzz integration implements `CollaborationBridgePort`; it is not added to
 `WebrtcTransportService`.
 
+### Configuration and lifecycle
+
+Buzz is default-off and configured per tenant/workspace through Hub-admin-only
+configuration, connect and disconnect endpoints. Configuration persistence is
+CAS-revisioned and accepts only secret references (`auth_ref` and
+`signing_key_ref`), never credentials or private keys. Enabling requires TLS,
+both secret references, an explicit community binding and the pinned adapter
+revision. Read projections redact the references to boolean configured flags.
+
+The composition root injects a narrow `BuzzBridgeFactory`. Without an installed
+productive provider, connect terminates with
+`buzz_runtime_provider_not_configured`; it never waits for a person and never
+affects Native Core. A connected bridge is process-local while its approved
+configuration is durable. After process loss another Hub must explicitly
+reconnect the adapter under the stored CAS revision, so a stale persisted
+"connected" state cannot claim a live session.
+
 ### Outbound mapping
 
 Only allowlisted, redacted and Hub-admitted workspace events are translated.
