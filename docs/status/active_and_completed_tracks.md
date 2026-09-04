@@ -6,14 +6,13 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 
 | File | Track | Scope role |
 | --- | --- | --- |
-| `todos/active/todo.agent-defense-in-depth-adversarial-escape-safety.json` | `agent_defense_in_depth_adversarial_escape_safety` | Defense-in-depth implementation is largely complete; grounded external release evidence remains fail-closed |
 | `todos/active/todo.ananta-local-multi-model-runtime-and-automated-needle-training.json` | `ananta-local-multi-model-runtime-and-automated-needle-training` | Repository implementation is complete; real dataset, lifecycle, and registered release evidence remain fail-closed |
 | `todos/active/todo.codecompass-dmoe-parametric-knowledge-injection.json` | `codecompass_dmoe_parametric_knowledge_injection` | Repository-side DMoE implementation is complete; dynamic-runtime and real-model evidence remain unverified |
 | `todos/active/todo.codecompass-sira-corpus-discriminative-retrieval.json` | `codecompass_sira_corpus_discriminative_retrieval` | SIRA implementation is nearly complete and awaits authoritative source and run evidence |
 | `todos/active/todo.free-coding-agent-cli-provider-integrations.json` | `free-coding-agent-cli-provider-integrations` | Headless coding-agent integrations are implemented; remaining external runtime evidence stays active |
 | `todos/active/todo.mlintern-multi-training-backends-axolotl-llamafactory-autotrain-torchtune.json` | `mlintern_multi_training_backends` | Optional training backends are code-complete or partial and await real GPU and release evidence |
 | `todos/todo.decentralized-webrtc-peer-media-overlay.json` | `decentralized-webrtc-peer-media-overlay` | Active backlog for decentralized WebRTC group topology and the experimental encrypted peer-media overlay |
-| `todos/todo.pair-dev-collaboration-workspace-buzz-interop.json` | `pair-dev-collaboration-workspace-buzz-interop` | Active backlog for the native Pair-Dev collaboration workspace and optional Buzz interoperability |
+| `todos/active/todo.pair-dev-collaboration-workspace-buzz-interop.json` | `pair-dev-collaboration-workspace-buzz-interop` | Repository implementation is complete; real multi-process and external Buzz evidence remain fail-closed |
 
 ## Deferred KRITIS / Enterprise-related scope
 
@@ -27,6 +26,7 @@ This document is a compact inventory to avoid duplicate track creation. Detailed
 | --- | --- | --- |
 | `todo.doc.json` | Completed and removed | Documentation reconciliation completed before removal; evidence remains in `docs/status/documentation-command-contract.json`, `docs/status/documentation-command-usage.md`, `docs/status/documentation-drift-decision-matrix.md`, `docs/status/architecture-source-map.md`, and `docs/status/architecture-drift-report.md` |
 | `todo_last.json` | Completed historical track snapshot | `todo_last.json` shows all tasks in `done` state |
+| `todos/archive/todo.agent-defense-in-depth-adversarial-escape-safety.json` | Completed and archived | Defense-in-depth implementation and automated adversarial release evidence are complete; production evidence identity remains governed by the Hub registry |
 | `todos/archiv/todo.agent-cognitive-style-role-profiles.json` | Completed and archived | Cognitive-style contracts, routing integration, drift handling, and source-bound release gates are complete |
 | `todos/archiv/todo.caseflow-agent-collaboration-canvas.json` | Completed and archived | All 17 tasks and five milestones are complete; the track reuses the existing workflow, agent, and trace stacks |
 | `todos/archiv/todo.central-model-selection-settings.json` | Completed and archived | All 24 tasks and six milestones for canonical model selection are complete |
