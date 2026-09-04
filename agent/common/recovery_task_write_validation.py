@@ -1,4 +1,4 @@
-"""Pure validation policy for Hub-owned recovery task mutations."""
+"""Infrastructure-free validation policy for recovery task mutations."""
 
 from __future__ import annotations
 
@@ -143,7 +143,7 @@ def _details(value: Any) -> dict[str, Any]:
 
 
 def _is_recovery_task(value: Any) -> bool:
-    from agent.services.recovery_task_mutation_policy import (
+    from agent.common.recovery_task_mutation_policy import (
         recovery_task_role,
     )
 
@@ -151,7 +151,7 @@ def _is_recovery_task(value: Any) -> bool:
 
 
 def _is_recovery_child(value: Any) -> bool:
-    from agent.services.recovery_task_mutation_policy import (
+    from agent.common.recovery_task_mutation_policy import (
         recovery_task_role,
     )
 
@@ -159,7 +159,7 @@ def _is_recovery_child(value: Any) -> bool:
 
 
 def _is_recovery_source(value: Any) -> bool:
-    from agent.services.recovery_task_mutation_policy import (
+    from agent.common.recovery_task_mutation_policy import (
         recovery_task_role,
     )
 
@@ -434,7 +434,7 @@ def _candidate_matches_accepted_execute_result(
     expected_digest = _accepted_execute_result_digest(authoritative)
     if expected_digest is None:
         return True
-    from agent.services.recovery_dispatch_gate_service import (
+    from agent.common.recovery_dispatch_contract import (
         recovery_accepted_result_digest,
     )
 

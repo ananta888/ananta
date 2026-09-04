@@ -5,9 +5,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_MODULES = (
-    ROOT / "agent/services/recovery_dispatch_contract.py",
-    ROOT / "agent/services/recovery_task_merge_policy.py",
-    ROOT / "agent/services/recovery_task_write_validation.py",
+    ROOT / "agent/common/recovery_dispatch_contract.py",
+    ROOT / "agent/common/recovery_task_merge_policy.py",
+    ROOT / "agent/common/recovery_task_mutation_policy.py",
+    ROOT / "agent/common/recovery_task_write_validation.py",
 )
 
 

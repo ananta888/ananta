@@ -46,8 +46,6 @@ Layer violation: agent.repositories.speech_evidence_sync imports agent.services.
 Layer violation: agent.repositories.speech_reconciliation imports agent.services.background.speech_reconciliation_reconciler (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.speech_reconciliation imports agent.services.semantic_media_audit_service (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.speech_reconciliation imports agent.services.speech_reconciliation_state_machine (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.tasks imports agent.services.recovery_dispatch_gate_service (Layer agent.repositories -> agent.services not allowed)
-Layer violation: agent.repositories.tasks imports agent.services.recovery_task_mutation_policy (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.turn_accounting_repository imports agent.services.turn_accounting_repository_port (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.turn_pool_repository imports agent.services.turn_pool_contract (Layer agent.repositories -> agent.services not allowed)
 Layer violation: agent.repositories.turn_pool_repository imports agent.services.turn_pool_directory (Layer agent.repositories -> agent.services not allowed)

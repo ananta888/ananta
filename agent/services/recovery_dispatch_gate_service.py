@@ -11,23 +11,23 @@ import secrets
 import time
 from typing import Any, Callable, Iterator, Mapping
 
-from agent.services.recovery_dispatch_contract import (
+from agent.common.recovery_dispatch_contract import (
     _RESULT_CANDIDATE_SCHEMA,
     RecoveryDispatchGateDecision,
     RecoveryDispatchLease,
     _mapping,
     _value,
 )
-from agent.services.recovery_dispatch_contract import (
+from agent.common.recovery_dispatch_contract import (
     build_recovery_result_candidate as build_recovery_result_candidate,
 )
-from agent.services.recovery_dispatch_contract import (
+from agent.common.recovery_dispatch_contract import (
     recovery_accepted_result_digest as recovery_accepted_result_digest,
 )
-from agent.services.recovery_dispatch_contract import (
+from agent.common.recovery_dispatch_contract import (
     recovery_dispatch_request_fingerprint as recovery_dispatch_request_fingerprint,
 )
-from agent.services.recovery_dispatch_contract import (
+from agent.common.recovery_dispatch_contract import (
     task_copy as _task_copy,
 )
 from agent.services.recovery_plan_contract import (

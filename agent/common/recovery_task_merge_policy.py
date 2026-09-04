@@ -1,4 +1,4 @@
-"""Pure merge policy for persisted Hub-owned recovery state."""
+"""Infrastructure-free merge policy for persisted Hub-owned recovery state."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import copy
 import time
 from typing import Any
 
-from agent.services.recovery_task_write_validation import (
+from agent.common.recovery_task_write_validation import (
     _LEASE_ACCEPTANCE_FIELDS,
     _LEASE_ADMISSION_FIELDS,
     _LEASE_ARTIFACT_MANIFEST_BINDING,

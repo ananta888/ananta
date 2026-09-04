@@ -1,4 +1,4 @@
-"""Pure values and canonical digests for Hub-owned recovery dispatch."""
+"""Infrastructure-free values and canonical digests for recovery dispatch."""
 
 from __future__ import annotations
 

@@ -8,34 +8,18 @@ from typing import Any, Callable, List, Optional
 from sqlalchemy import or_
 from sqlmodel import Session, delete, select
 
-from agent.db_models import (
-    AgentSessionDB,
-    ArchivedTaskDB,
-    GoalDB,
-    PolicySnapshotDB,
-    TaskDB,
-    ToolCallDB,
-)
-from agent.ports.task_completion_policy import TaskCompletionPolicyPort
-from agent.repositories.task_auxiliary_repositories import (
-    AgentSessionRepositoryMixin,
-    ArchivedTaskRepositoryMixin,
-    PolicySnapshotRepositoryMixin,
-    TaskAuxiliaryRepositoryDependencies,
-    ToolCallRepositoryMixin,
-)
-from agent.services.recovery_task_merge_policy import (
+from agent.common.recovery_task_merge_policy import (
     _merge_dispatch_lease as _merge_dispatch_lease,
 )
-from agent.services.recovery_task_merge_policy import (
+from agent.common.recovery_task_merge_policy import (
     _merge_recovery_details,
     _merge_recovery_verification,
     _task_recovery_lifecycle_rank,
 )
-from agent.services.recovery_task_merge_policy import (
+from agent.common.recovery_task_merge_policy import (
     _merge_recovery_source_post_commit as _merge_recovery_source_post_commit,
 )
-from agent.services.recovery_task_write_validation import (
+from agent.common.recovery_task_write_validation import (
     _TERMINAL_TASK_STATUSES,
     _candidate_matches_accepted_execute_result,
     _details,
@@ -58,6 +42,22 @@ from agent.services.recovery_task_write_validation import (
     _source_finalization_publication_valid,
     _source_post_commit_progression_candidate,
     _source_post_commit_progression_publication,
+)
+from agent.db_models import (
+    AgentSessionDB,
+    ArchivedTaskDB,
+    GoalDB,
+    PolicySnapshotDB,
+    TaskDB,
+    ToolCallDB,
+)
+from agent.ports.task_completion_policy import TaskCompletionPolicyPort
+from agent.repositories.task_auxiliary_repositories import (
+    AgentSessionRepositoryMixin,
+    ArchivedTaskRepositoryMixin,
+    PolicySnapshotRepositoryMixin,
+    TaskAuxiliaryRepositoryDependencies,
+    ToolCallRepositoryMixin,
 )
 
 
@@ -1161,7 +1161,7 @@ class TaskRepository:
         with Session(_engine()) as session:
             statement = select(TaskDB).where(TaskDB.team_id == team_id)
             tasks = session.exec(statement).all()
-            from agent.services.recovery_task_mutation_policy import (
+            from agent.common.recovery_task_mutation_policy import (
                 ensure_external_recovery_mutation_allowed,
             )
 
