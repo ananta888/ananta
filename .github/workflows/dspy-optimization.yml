@@ -34,8 +34,8 @@ jobs:
   core-without-dspy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - run: uv sync --frozen --extra dev
       - run: uv run python -c "from worker.optimization.dspy.compatibility import DspyCompatibilityAdapter; assert DspyCompatibilityAdapter().inspect()['state'] == 'unavailable'"
       - run: uv run pytest -q -p no:cacheprovider tests/dspy_optimization -m "not dspy_real"
@@ -47,8 +47,8 @@ jobs:
       matrix:
         python-version: ["3.11", "3.12"]
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - run: uv python install ${{ matrix.python-version }}
       - run: uv venv --python ${{ matrix.python-version }}
       - run: uv pip install --require-hashes --requirement docker/compose-next/requirements.dspy-optimization.lock
@@ -68,10 +68,10 @@ jobs:
   worker-image:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
       - run: docker build --file docker/compose-next/Dockerfile.dspy-optimization-worker --tag ananta-dspy-ci:${{ github.sha }} .
       - run: docker image inspect --format '{{.Id}}' ananta-dspy-ci:${{ github.sha }} | tee dspy-image-digest.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: dspy-worker-image-digest
           path: dspy-image-digest.txt
@@ -79,8 +79,8 @@ jobs:
   next-version-isolated-rejection:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5
+      - uses: astral-sh/setup-uv@d0cc045d04ccac9d8b7881df0226f9e82c39688e
       - run: uv venv --python 3.12
       - run: uv pip install dspy==3.3.0
       - run: uv pip install -e . --no-deps
