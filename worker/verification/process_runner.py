@@ -45,7 +45,7 @@ class VerificationProcessRunner:
         if Path(argv[0]).name in {"python", "python3"}:
             argv = (sys.executable, *argv[1:])
         is_crosshair = Path(argv[0]).name == "crosshair" or argv[1:3] == ("-m", "crosshair")
-        if is_crosshair and any(item in _DENIED_CROSSHAIR_ARGS for item in argv[1:]):
+        if is_crosshair and any(item.split("=", 1)[0] in _DENIED_CROSSHAIR_ARGS for item in argv[1:]):
             raise ValueError("verification_crosshair_option_denied")
         root = repository.resolve(strict=True)
         if not root.is_dir():

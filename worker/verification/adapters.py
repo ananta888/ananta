@@ -6,9 +6,7 @@ isolated Worker image, while reports expose tool-neutral contracts.
 
 from __future__ import annotations
 
-import ast
 import hashlib
-import re
 import sys
 from pathlib import Path
 from typing import Callable, Sequence
@@ -18,13 +16,10 @@ from ananta_contracts.verification import (
     VerificationReportV1,
     VerificationStatus,
 )
+from worker.verification.crosshair_output import CrossHairOutputParseError, CrossHairOutputParser
 from worker.verification.materializer import JsonCounterexampleMaterializer
 from worker.verification.process_runner import ProcessObservation, VerificationProcessRunner
-
-_COUNTEREXAMPLE = re.compile(
-    r"(?P<message>.+?) when calling (?P<symbol>[A-Za-z0-9_.]+)\((?P<arguments>.*?)\)(?: \(|$)",
-    re.MULTILINE,
-)
+from worker.verification.pytest_results import PytestRunSummary
 
 
 class _AdapterBase:
@@ -57,6 +52,10 @@ class _AdapterBase:
         reason_code: str,
         cases_executed: int = 0,
         counterexamples: Sequence[dict] = (),
+        collected_tests: int = 0,
+        passed_tests: int = 0,
+        failed_tests: int = 0,
+        bounded_search_metadata: dict[str, object] | None = None,
     ) -> VerificationReportV1:
         output = (observation.stdout + "\n" + observation.stderr).encode()
         return VerificationReportV1(
@@ -74,6 +73,10 @@ class _AdapterBase:
             duration_ms=observation.duration_ms,
             output_digest=hashlib.sha256(output).hexdigest(),
             counterexamples=counterexamples,
+            collected_tests=collected_tests,
+            passed_tests=passed_tests,
+            failed_tests=failed_tests,
+            bounded_search_metadata=bounded_search_metadata or {},
         )
 
 
@@ -88,9 +91,115 @@ class PytestHypothesisRunnerAdapter(_AdapterBase):
             "-q",
             "-p",
             "no:cacheprovider",
+            "-p",
+            "worker.verification.pytest_result_plugin",
             f"--confcutdir={verification_root}",
             *target_symbols,
         ]
+
+    @staticmethod
+    def _property_counterexamples(
+        assignment: VerificationAssignmentV1,
+        summary: PytestRunSummary,
+    ) -> list[dict]:
+        return [
+            JsonCounterexampleMaterializer().materialize(
+                {
+                    "run_ref": assignment.evidence_assignment["run_id"],
+                    "property_ref": f"pytest-property-{index}",
+                    "target_symbol": node_id,
+                    "concrete_arguments": {"pytest_node_id": node_id},
+                    "observed_result": {"outcome": "failed"},
+                    "expected_invariant": "property must hold for generated examples",
+                    "schema": "ananta.counterexample.v1",
+                },
+                reproduction_command=[
+                    "python",
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-p",
+                    "no:cacheprovider",
+                    "--confcutdir=tests/verification",
+                    node_id,
+                ],
+            )
+            for index, node_id in enumerate(summary.failed_node_ids, start=1)
+        ]
+
+    def _classify_pytest(
+        self,
+        assignment: VerificationAssignmentV1,
+        observation: ProcessObservation,
+        *,
+        success_status: VerificationStatus,
+        success_reason: str,
+    ) -> VerificationReportV1:
+        if observation.timed_out:
+            return self._report(
+                assignment, observation, status=VerificationStatus.TIMED_OUT, reason_code="budget_timeout"
+            )
+        if observation.output_truncated:
+            return self._report(
+                assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="output_budget_exceeded"
+            )
+        summary = PytestRunSummary.from_output(observation.stdout + "\n" + observation.stderr)
+        if summary is None:
+            return self._report(
+                assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="pytest_result_missing"
+            )
+        common = {
+            "collected_tests": summary.collected,
+            "passed_tests": summary.passed,
+            "failed_tests": summary.failed,
+            "bounded_search_metadata": {
+                **summary.metadata(),
+                "configured_max_cases": assignment.budgets.max_cases,
+                "case_count_observed": False,
+                "result_source": "internal_pytest_plugin",
+            },
+        }
+        if summary.errors:
+            return self._report(
+                assignment,
+                observation,
+                status=VerificationStatus.TOOL_ERROR,
+                reason_code="pytest_collection_or_environment_failed",
+                **common,
+            )
+        if summary.failed:
+            counterexamples = self._property_counterexamples(assignment, summary)
+            if len(counterexamples) != summary.failed:
+                return self._report(
+                    assignment,
+                    observation,
+                    status=VerificationStatus.UNSUPPORTED,
+                    reason_code="pytest_counterexample_materialization_failed",
+                    **common,
+                )
+            return self._report(
+                assignment,
+                observation,
+                status=VerificationStatus.COUNTEREXAMPLE_FOUND,
+                reason_code="property_counterexample_found",
+                counterexamples=counterexamples,
+                **common,
+            )
+        if observation.returncode == 0:
+            return self._report(
+                assignment,
+                observation,
+                status=success_status,
+                reason_code=success_reason,
+                **common,
+            )
+        return self._report(
+            assignment,
+            observation,
+            status=VerificationStatus.TOOL_ERROR,
+            reason_code="pytest_tool_failed",
+            **common,
+        )
 
     def run(self, assignment: VerificationAssignmentV1, *, repository: Path) -> VerificationReportV1:
         command = self._pytest_command(repository, assignment.target_symbols)
@@ -100,23 +209,12 @@ class PytestHypothesisRunnerAdapter(_AdapterBase):
             command=command,
             extra_env={"ANANTA_HYPOTHESIS_CASES": str(assignment.budgets.max_cases)},
         )
-        if observation.timed_out:
-            return self._report(
-                assignment, observation, status=VerificationStatus.TIMED_OUT, reason_code="budget_timeout"
-            )
-        if observation.output_truncated:
-            return self._report(
-                assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="output_budget_exceeded"
-            )
-        if observation.returncode == 0:
-            return self._report(
-                assignment,
-                observation,
-                status=VerificationStatus.PASSED,
-                reason_code="properties_satisfied",
-                cases_executed=assignment.budgets.max_cases,
-            )
-        return self._report(assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="pytest_failed")
+        return self._classify_pytest(
+            assignment,
+            observation,
+            success_status=VerificationStatus.PASSED,
+            success_reason="properties_satisfied",
+        )
 
 
 class HypothesisCrossHairBackendAdapter(PytestHypothesisRunnerAdapter):
@@ -131,23 +229,34 @@ class HypothesisCrossHairBackendAdapter(PytestHypothesisRunnerAdapter):
                 "ANANTA_HYPOTHESIS_CASES": str(assignment.budgets.max_cases),
             },
         )
-        if observation.timed_out:
-            return self._report(
-                assignment, observation, status=VerificationStatus.TIMED_OUT, reason_code="budget_timeout"
-            )
-        if observation.returncode == 0 and not observation.output_truncated:
-            return self._report(
-                assignment,
-                observation,
-                status=VerificationStatus.PASSED_WITH_BOUNDED_SEARCH,
-                reason_code="crosshair_backend_bounded_search_complete",
-                cases_executed=assignment.budgets.max_cases,
-            )
-        reason = "output_budget_exceeded" if observation.output_truncated else "crosshair_backend_failed"
-        return self._report(assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code=reason)
+        return self._classify_pytest(
+            assignment,
+            observation,
+            success_status=VerificationStatus.PASSED_WITH_BOUNDED_SEARCH,
+            success_reason="crosshair_backend_bounded_search_complete",
+        )
 
 
 class CrossHairCheckAdapter(_AdapterBase):
+    def __init__(
+        self,
+        process_runner: VerificationProcessRunner | None = None,
+        output_parser: CrossHairOutputParser | None = None,
+    ) -> None:
+        super().__init__(process_runner)
+        self._output_parser = output_parser or CrossHairOutputParser()
+
+    @staticmethod
+    def _assigned_target(assignment: VerificationAssignmentV1, parsed_symbol: str) -> str:
+        matches = [
+            target
+            for target in assignment.target_symbols
+            if target == parsed_symbol or target.endswith(f".{parsed_symbol}")
+        ]
+        if len(matches) != 1:
+            raise CrossHairOutputParseError("crosshair_counterexample_target_ambiguous")
+        return matches[0]
+
     def check(self, assignment: VerificationAssignmentV1, *, repository: Path) -> VerificationReportV1:
         per_condition_timeout = min(
             2,
@@ -175,14 +284,47 @@ class CrossHairCheckAdapter(_AdapterBase):
             return self._report(
                 assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="output_budget_exceeded"
             )
-        counterexample = self._parse_counterexample(assignment, observation.stdout + "\n" + observation.stderr)
-        if counterexample:
+        output = observation.stdout + "\n" + observation.stderr
+        try:
+            parsed = self._output_parser.parse(output)
+            counterexamples = []
+            for index, item in enumerate(parsed, start=1):
+                assigned_target = self._assigned_target(assignment, item.symbol)
+                counterexamples.append(
+                    JsonCounterexampleMaterializer().materialize(
+                        {
+                            "run_ref": assignment.evidence_assignment["run_id"],
+                            "property_ref": f"crosshair-contract-{index}",
+                            "target_symbol": assigned_target,
+                            "concrete_arguments": item.arguments,
+                            "observed_result": {"message": item.message},
+                            "expected_invariant": "declared contract must hold",
+                            "schema": "ananta.counterexample.v1",
+                        },
+                        reproduction_command=[
+                            "python",
+                            "-m",
+                            "crosshair",
+                            "check",
+                            "--analysis_kind=asserts,PEP316",
+                            assigned_target,
+                        ],
+                    )
+                )
+        except (CrossHairOutputParseError, ValueError):
+            return self._report(
+                assignment,
+                observation,
+                status=VerificationStatus.UNSUPPORTED,
+                reason_code="counterexample_parse_unsupported",
+            )
+        if counterexamples:
             return self._report(
                 assignment,
                 observation,
                 status=VerificationStatus.COUNTEREXAMPLE_FOUND,
                 reason_code="contract_counterexample_found",
-                counterexamples=[counterexample],
+                counterexamples=counterexamples,
             )
         if observation.returncode == 0:
             return self._report(
@@ -193,41 +335,6 @@ class CrossHairCheckAdapter(_AdapterBase):
             )
         return self._report(
             assignment, observation, status=VerificationStatus.TOOL_ERROR, reason_code="crosshair_check_failed"
-        )
-
-    @staticmethod
-    def _parse_counterexample(assignment: VerificationAssignmentV1, output: str) -> dict | None:
-        match = _COUNTEREXAMPLE.search(output)
-        if match is None:
-            return None
-        arguments: dict[str, object] = {}
-        raw_arguments = match.group("arguments")
-        for item in raw_arguments.split(","):
-            name, separator, value = item.partition("=")
-            if not separator:
-                continue
-            try:
-                arguments[name.strip()] = ast.literal_eval(value.strip())
-            except (SyntaxError, ValueError):
-                arguments[name.strip()] = value.strip()
-        if not arguments and raw_arguments.strip():
-            try:
-                positional = ast.literal_eval(f"({raw_arguments},)")
-                arguments["args"] = list(positional)
-            except (SyntaxError, ValueError):
-                arguments["args"] = [raw_arguments.strip()]
-        raw = {
-            "run_ref": assignment.evidence_assignment["run_id"],
-            "property_ref": "crosshair-contract",
-            "target_symbol": match.group("symbol"),
-            "concrete_arguments": arguments,
-            "observed_result": {"message": match.group("message").strip()},
-            "expected_invariant": "declared contract must hold",
-            "schema": "ananta.counterexample.v1",
-        }
-        return JsonCounterexampleMaterializer().materialize(
-            raw,
-            reproduction_command=["pytest", "-q", "tests/verification/test_crosshair_pilot.py"],
         )
 
 

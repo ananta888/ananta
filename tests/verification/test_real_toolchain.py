@@ -15,6 +15,7 @@ from worker.verification.adapters import (
     CrossHairCoverAdapter,
     CrossHairDiffBehaviorAdapter,
     HypothesisCrossHairBackendAdapter,
+    PytestHypothesisRunnerAdapter,
 )
 from worker.verification.reproducer import CounterexampleReproducer
 
@@ -52,6 +53,29 @@ def test_crosshair_checks_five_bounded_ananta_targets() -> None:
     report = CrossHairCheckAdapter().check(bound, repository=ROOT)
     assert report.status.value == "passed_with_bounded_search"
     assert report.reason_code == "bounded_search_no_counterexample"
+
+
+def test_crosshair_checks_five_authoritative_production_targets() -> None:
+    targets = (
+        "agent.services.task_dependency_policy.normalize_text",
+        "agent.services.task_dependency_policy.normalize_depends_on",
+        "ananta_contracts.verification.is_sha256_digest",
+        "ananta_contracts.verification.is_verification_identifier",
+        "agent.services.verification_policy_service.is_successful_exit_code",
+    )
+    bound = replace(
+        assignment("crosshair_check", targets),
+        budgets=VerificationBudgets(
+            timeout_seconds=120,
+            max_cases=25,
+            max_targets=20,
+            max_output_bytes=128_000,
+            memory_mb=1536,
+        ),
+    )
+    report = CrossHairCheckAdapter().check(bound, repository=ROOT)
+    assert report.status.value == "passed_with_bounded_search"
+    assert set(report.target_symbols) == set(targets)
 
 
 def test_crosshair_finds_and_materializes_seeded_defect() -> None:
@@ -137,3 +161,19 @@ def test_five_properties_run_with_crosshair_backend() -> None:
     )
     report = HypothesisCrossHairBackendAdapter().run(bound, repository=ROOT)
     assert report.status.value == "passed_with_bounded_search"
+    assert (report.collected_tests, report.passed_tests, report.failed_tests) == (5, 5, 0)
+    assert report.bounded_search_metadata["result_source"] == "internal_pytest_plugin"
+
+
+def test_real_property_failure_is_classified_and_reproduced() -> None:
+    target = "tests/verification/property_failure_target.py::test_seeded_property_violation"
+    bound = assignment("hypothesis", (target,))
+    report = PytestHypothesisRunnerAdapter().run(bound, repository=ROOT)
+    assert (report.status.value, report.reason_code) == (
+        "counterexample_found",
+        "property_counterexample_found",
+    )
+    assert (report.collected_tests, report.passed_tests, report.failed_tests) == (1, 0, 1)
+    command = tuple(report.counterexamples[0]["reproduction_command"])
+    reproduction, reason = CounterexampleReproducer().reproduce(bound, repository=ROOT, command=command)
+    assert (reproduction.value, reason) == ("counterexample_found", "counterexample_reproduced")

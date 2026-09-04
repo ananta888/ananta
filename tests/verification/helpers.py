@@ -7,7 +7,8 @@ _DIGEST = "a" * 64
 
 
 def assignment(
-    backend: str = "hypothesis", targets: tuple[str, ...] = ("tests/verification",)
+    backend: str = "hypothesis",
+    targets: tuple[str, ...] = ("tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds",),
 ) -> VerificationAssignmentV1:
     evidence = build_hub_evidence_assignment(
         run_id="RUN_verification_test",

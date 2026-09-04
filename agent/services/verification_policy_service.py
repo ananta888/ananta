@@ -69,13 +69,22 @@ def _normalize_quality_gate_policy(cfg: dict | None) -> dict[str, Any]:
     return merged
 
 
+def is_successful_exit_code(exit_code: int | None) -> bool:
+    """Return whether a tool exit can satisfy a quality gate.
+
+    post: __return__ == (exit_code is None or exit_code == 0)
+    """
+
+    return exit_code in (None, 0)
+
+
 def evaluate_quality_gates(
     task: Any, output: str | None, exit_code: int | None, policy: dict | None = None
 ) -> tuple[bool, str]:
     cfg = _normalize_quality_gate_policy(policy)
     if not cfg.get("enabled", True):
         return True, "quality_gates_disabled"
-    if exit_code not in (None, 0):
+    if not is_successful_exit_code(exit_code):
         return False, "non_zero_exit_code"
 
     safe_out = (output or "").strip()

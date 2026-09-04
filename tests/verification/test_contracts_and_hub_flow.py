@@ -42,12 +42,41 @@ def test_assignment_rejects_unknown_backend_and_broadened_targets() -> None:
         replace(bound, target_symbols=tuple(f"target-{index}" for index in range(21)))
 
 
+@pytest.mark.parametrize(
+    ("backend", "target"),
+    [
+        ("hypothesis", "--collect-only"),
+        ("hypothesis", "tests/verification/../conftest.py::test_escape"),
+        ("hypothesis", "/tmp/test_escape.py::test_escape"),
+        ("hypothesis", "tests/verification/test_property_pilot.py::-c"),
+        ("crosshair_check", "--plugin=escape"),
+        ("crosshair_cover", "agent.policy.fn\n--unblock=EVERYTHING"),
+    ],
+)
+def test_assignment_rejects_cli_and_path_injection_targets(backend: str, target: str) -> None:
+    with pytest.raises(ValueError, match="verification_target_grammar_invalid"):
+        assignment(backend, (target,))
+
+
+def test_diff_assignment_requires_exactly_two_python_symbols() -> None:
+    with pytest.raises(ValueError, match="verification_diff_target_count_invalid"):
+        assignment("crosshair_diff", ("worker.verification.pilot_targets.clamp",))
+
+
 def test_report_rejects_unknown_status_and_missing_counterexample() -> None:
     report = _report()
     with pytest.raises(ValueError, match="verification_report_status_invalid"):
         replace(report, status="successful")
     with pytest.raises(ValueError, match="verification_counterexample_required"):
         replace(report, status=VerificationStatus.COUNTEREXAMPLE_FOUND)
+
+
+def test_report_accepts_legacy_payload_without_additive_test_counts() -> None:
+    payload = _report().to_dict()
+    for field in ("collected_tests", "passed_tests", "failed_tests", "bounded_search_metadata"):
+        payload.pop(field)
+    restored = VerificationReportV1.from_mapping(payload)
+    assert (restored.collected_tests, restored.passed_tests, restored.failed_tests) == (0, 0, 0)
 
 
 def test_counterexample_rejects_symbolic_or_custom_values() -> None:
@@ -76,7 +105,7 @@ def test_profile_service_enforces_isolation_and_builds_assignment() -> None:
         repository_revision=original.repository_revision,
         profile_id=profile.profile_id,
         toolchain_digest=original.toolchain_digest,
-        target_symbols=("tests/verification/test_property_pilot.py",),
+        target_symbols=("tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds",),
     )
     assert built.backend == "hypothesis"
     assert built.evidence_assignment["evidence_scope"] == "test"

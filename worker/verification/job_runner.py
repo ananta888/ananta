@@ -13,10 +13,12 @@ from worker.verification.adapters import (
     HypothesisCrossHairBackendAdapter,
     PytestHypothesisRunnerAdapter,
 )
+from worker.verification.target_policy import VerificationTargetPolicy
 
 
 def execute_assignment(raw: dict, *, repository: Path) -> dict:
     assignment = VerificationAssignmentV1.from_mapping(raw)
+    VerificationTargetPolicy(repository / "config/verification/property-catalog.v1.json").authorize(assignment)
     if assignment.backend == "hypothesis":
         report = PytestHypothesisRunnerAdapter().run(assignment, repository=repository)
     elif assignment.backend == "crosshair_backend":

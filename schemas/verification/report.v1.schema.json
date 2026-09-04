@@ -18,6 +18,10 @@
     "status":{"enum":["passed","passed_with_bounded_search","counterexample_found","failed_to_reproduce","inconclusive","unsupported","timed_out","policy_denied","tool_error"]},
     "reason_code":{"type":"string","minLength":1,"maxLength":192},
     "cases_executed":{"type":"integer","minimum":0},
+    "collected_tests":{"type":"integer","minimum":0},
+    "passed_tests":{"type":"integer","minimum":0},
+    "failed_tests":{"type":"integer","minimum":0},
+    "bounded_search_metadata":{"type":"object"},
     "duration_ms":{"type":"integer","minimum":0},
     "output_digest":{"type":"string","pattern":"^[0-9a-f]{64}$"},
     "counterexamples":{"type":"array","items":{"$ref":"counterexample.v1.schema.json"}}

@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
 from agent.services.verification_metrics_service import VerificationMetricsService
 from agent.services.verification_promotion_service import VerificationPromotionService
@@ -13,11 +16,16 @@ from worker.verification.adapters import (
     CrossHairDiffBehaviorAdapter,
     FakeVerificationRunnerAdapter,
     HypothesisCrossHairBackendAdapter,
+    PytestHypothesisRunnerAdapter,
 )
+from worker.verification.crosshair_output import CrossHairOutputParseError, CrossHairOutputParser
+from worker.verification.job_runner import execute_assignment
 from worker.verification.materializer import JsonCounterexampleMaterializer
 from worker.verification.process_runner import ProcessObservation, VerificationProcessRunner
+from worker.verification.pytest_results import RESULT_PREFIX
 from worker.verification.reproducer import CounterexampleReproducer
 from worker.verification.revision_diff import RevisionBoundDiffRunner, RevisionPair
+from worker.verification.target_policy import VerificationTargetPolicy
 
 
 class StubProcessRunner:
@@ -28,6 +36,18 @@ class StubProcessRunner:
     def run(self, command, **kwargs):
         self.commands.append(tuple(command))
         return self.observation
+
+
+def _pytest_result(*, collected: int = 5, passed: int = 5, failed: int = 0, errors: int = 0, failed_node_ids=()) -> str:
+    payload = {
+        "collected": collected,
+        "passed": passed,
+        "failed": failed,
+        "errors": errors,
+        "skipped": 0,
+        "failed_node_ids": list(failed_node_ids),
+    }
+    return RESULT_PREFIX + json.dumps(payload, sort_keys=True, separators=(",", ":"))
 
 
 def test_crosshair_output_becomes_concrete_reproducible_counterexample(tmp_path: Path) -> None:
@@ -45,7 +65,79 @@ def test_crosshair_output_becomes_concrete_reproducible_counterexample(tmp_path:
     )
     assert report.status.value == "counterexample_found"
     assert report.counterexamples[0]["concrete_arguments"] == {"value": -1}
-    assert report.counterexamples[0]["reproduction_command"][0] == "pytest"
+    assert report.counterexamples[0]["reproduction_command"][-1] == (
+        "worker.verification.pilot_targets.intentionally_wrong_abs"
+    )
+
+
+def test_crosshair_parser_preserves_nested_literals_unicode_and_commas() -> None:
+    output = (
+        "policy.py:10: error: false when calling module.policy(value = {'items': [(1, 'ä,b')], "
+        "'nested': {'ok': False}}, count = -2) (which returns False)"
+    )
+    parsed = CrossHairOutputParser().parse(output)
+    assert parsed[0].arguments == {
+        "value": {"items": [[1, "ä,b"]], "nested": {"ok": False}},
+        "count": -2,
+    }
+
+
+def test_crosshair_parser_returns_every_counterexample() -> None:
+    parsed = CrossHairOutputParser().parse(
+        "false when calling module.first(value = -1)\nfalse when calling module.second(['a,b'], enabled = True)"
+    )
+    assert [(item.symbol, item.arguments) for item in parsed] == [
+        ("module.first", {"value": -1}),
+        ("module.second", {"args": [["a,b"]], "kwargs": {"enabled": True}}),
+    ]
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        "false when calling module.fn(value = dangerous())",
+        "false when calling module.fn(*values)",
+        "false when calling module.fn(value = [1, 2)",
+    ],
+)
+def test_crosshair_parser_rejects_non_literal_or_malformed_output(output: str) -> None:
+    with pytest.raises(CrossHairOutputParseError):
+        CrossHairOutputParser().parse(output)
+
+
+@settings(max_examples=50, deadline=None, database=None, derandomize=True)
+@given(
+    value=st.recursive(
+        st.one_of(st.none(), st.booleans(), st.integers(), st.text(max_size=20)),
+        lambda children: st.one_of(
+            st.lists(children, max_size=4),
+            st.dictionaries(st.text(min_size=1, max_size=8), children, max_size=4),
+            st.tuples(children, children),
+        ),
+        max_leaves=12,
+    )
+)
+def test_crosshair_parser_fuzzes_balanced_literal_arguments(value) -> None:
+    parsed = CrossHairOutputParser().parse(f"false when calling module.fn(value = {value!r})")
+    expected = json.loads(json.dumps(value, ensure_ascii=True))
+    assert parsed[0].arguments == {"value": expected}
+
+
+def test_crosshair_adapter_materializes_every_assigned_counterexample(tmp_path: Path) -> None:
+    targets = ("module.first", "module.second")
+    observation = ProcessObservation(
+        1,
+        "false when calling module.first(value = -1)\nfalse when calling module.second(value = 'ä,b')",
+        "",
+        10,
+        False,
+        False,
+    )
+    report = CrossHairCheckAdapter(StubProcessRunner(observation)).check(
+        assignment("crosshair_check", targets), repository=tmp_path
+    )
+    assert report.status.value == "counterexample_found"
+    assert [item["target_symbol"] for item in report.counterexamples] == list(targets)
 
 
 def test_timeout_and_bounded_no_difference_never_become_passed(tmp_path: Path) -> None:
@@ -70,14 +162,53 @@ def test_timeout_and_bounded_no_difference_never_become_passed(tmp_path: Path) -
 
 
 def test_crosshair_backend_isolated_run_does_not_load_hub_conftest(tmp_path: Path) -> None:
-    observation = ProcessObservation(0, "1 passed", "", 10, False, False)
+    observation = ProcessObservation(0, _pytest_result(collected=1, passed=1), "", 10, False, False)
     runner = StubProcessRunner(observation)
     report = HypothesisCrossHairBackendAdapter(runner).run(
-        assignment("crosshair_backend", ("tests/verification/test_property_pilot.py",)),
+        assignment(
+            "crosshair_backend",
+            ("tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds",),
+        ),
         repository=tmp_path,
     )
     assert report.status.value == "passed_with_bounded_search"
     assert f"--confcutdir={tmp_path / 'tests' / 'verification'}" in runner.commands[0]
+
+
+def test_pytest_adapter_reports_observed_counts_and_property_failure(tmp_path: Path) -> None:
+    node_id = "tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds"
+    observation = ProcessObservation(
+        1,
+        _pytest_result(collected=5, passed=4, failed=1, failed_node_ids=(node_id,)),
+        "",
+        10,
+        False,
+        False,
+    )
+    report = PytestHypothesisRunnerAdapter(StubProcessRunner(observation)).run(
+        assignment("hypothesis", (node_id,)), repository=tmp_path
+    )
+    assert report.status.value == "counterexample_found"
+    assert (report.collected_tests, report.passed_tests, report.failed_tests) == (5, 4, 1)
+    assert report.cases_executed == 0
+    assert report.counterexamples[0]["reproduction_command"][-1] == node_id
+
+
+def test_pytest_adapter_distinguishes_collection_failure_from_missing_result(tmp_path: Path) -> None:
+    node_id = "tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds"
+    collection = ProcessObservation(2, _pytest_result(collected=0, passed=0, errors=1), "", 10, False, False)
+    report = PytestHypothesisRunnerAdapter(StubProcessRunner(collection)).run(
+        assignment("hypothesis", (node_id,)), repository=tmp_path
+    )
+    assert (report.status.value, report.reason_code) == (
+        "tool_error",
+        "pytest_collection_or_environment_failed",
+    )
+    missing = ProcessObservation(2, "import failed", "", 10, False, False)
+    report = PytestHypothesisRunnerAdapter(StubProcessRunner(missing)).run(
+        assignment("hypothesis", (node_id,)), repository=tmp_path
+    )
+    assert (report.status.value, report.reason_code) == ("tool_error", "pytest_result_missing")
 
 
 def test_materializer_invalidates_changed_test_candidate() -> None:
@@ -110,6 +241,14 @@ def test_process_runner_rejects_shell_escape_plugins_and_secret_injection(tmp_pa
             max_output_bytes=1000,
             memory_mb=128,
         )
+    with pytest.raises(ValueError, match="verification_crosshair_option_denied"):
+        runner.run(
+            ["crosshair", "check", "--plugin=escape"],
+            repository=tmp_path,
+            timeout_seconds=1,
+            max_output_bytes=1000,
+            memory_mb=128,
+        )
     with pytest.raises(ValueError, match="verification_environment_key_denied"):
         runner.run(
             ["python", "-c", "pass"],
@@ -119,6 +258,50 @@ def test_process_runner_rejects_shell_escape_plugins_and_secret_injection(tmp_pa
             memory_mb=128,
             extra_env={"API_TOKEN": "secret"},
         )
+
+
+def test_worker_target_policy_rejects_valid_but_uncatalogued_symbol() -> None:
+    root = Path(__file__).parents[2]
+    policy = VerificationTargetPolicy(root / "config/verification/property-catalog.v1.json")
+    policy.authorize(assignment("crosshair_check", ("worker.verification.pilot_targets.clamp",)))
+    with pytest.raises(ValueError, match="verification_target_not_allowlisted"):
+        policy.authorize(assignment("crosshair_check", ("agent.services.unknown_policy.authorize",)))
+
+
+@pytest.mark.parametrize(
+    ("backend", "targets"),
+    [
+        ("hypothesis", ("tests/verification/test_unknown.py::test_unknown",)),
+        ("crosshair_backend", ("tests/verification/test_unknown.py::test_unknown",)),
+        ("crosshair_check", ("agent.services.unknown_policy.authorize",)),
+        ("crosshair_cover", ("agent.services.unknown_policy.authorize",)),
+        ("crosshair_diff", ("agent.services.unknown.left", "agent.services.unknown.right")),
+    ],
+)
+def test_worker_target_policy_is_fail_closed_for_every_backend(backend: str, targets: tuple[str, ...]) -> None:
+    root = Path(__file__).parents[2]
+    policy = VerificationTargetPolicy(root / "config/verification/property-catalog.v1.json")
+    with pytest.raises(ValueError, match="verification_target_not_allowlisted"):
+        policy.authorize(assignment(backend, targets))
+
+
+def test_worker_job_runner_rejects_uncatalogued_assignment_before_execution(tmp_path: Path) -> None:
+    catalog = tmp_path / "config/verification/property-catalog.v1.json"
+    catalog.parent.mkdir(parents=True)
+    catalog.write_text(
+        json.dumps(
+            {
+                "schema": "ananta.verification-property-catalog.v1",
+                "pytest_targets": [],
+                "fixture_symbols": [],
+                "candidates": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    raw = assignment("crosshair_check", ("agent.services.unknown_policy.authorize",)).to_dict()
+    with pytest.raises(ValueError, match="verification_target_not_allowlisted"):
+        execute_assignment(raw, repository=tmp_path)
 
 
 def test_fake_adapter_refuses_production_scope(tmp_path: Path) -> None:

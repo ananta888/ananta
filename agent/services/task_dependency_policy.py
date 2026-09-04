@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+
 def _repos():
     # Keep the pure dependency helpers importable by isolated verification
     # workers. Repository access is needed only by the two persistence-aware
@@ -12,6 +13,13 @@ def _repos():
 
 
 def normalize_text(text: str) -> str:
+    """Return canonical whitespace and casing.
+
+    post: __return__ == __return__.strip()
+    post: "  " not in __return__
+    post: normalize_text(__return__) == __return__
+    """
+
     return " ".join((text or "").strip().lower().split())
 
 
@@ -28,6 +36,13 @@ def followup_exists(parent_task_id: str, description: str) -> bool:
 
 
 def normalize_depends_on(depends_on: list[str] | None, tid: str | None = None) -> list[str]:
+    """Return unique, non-empty dependencies without a self edge.
+
+    post: len(__return__) == len(set(__return__))
+    post: all(bool(item) and item == item.strip() for item in __return__)
+    post: tid is None or tid not in __return__
+    """
+
     values: list[str] = []
     for item in depends_on or []:
         if not item:
@@ -86,10 +101,7 @@ def validate_dependencies_and_cycles(task_id: str, depends_on: list[str]) -> tup
     if missing:
         return False, f"missing_dependencies:{','.join(missing)}"
 
-    graph = {
-        task.id: effective_dependencies(task.model_dump())
-        for task in tasks_by_id.values()
-    }
+    graph = {task.id: effective_dependencies(task.model_dump()) for task in tasks_by_id.values()}
     graph[task_id] = normalize_depends_on(depends_on, tid=task_id)
     return validate_dependency_graph(graph)
 

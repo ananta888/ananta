@@ -1,5 +1,33 @@
 {
   "schema": "ananta.verification-property-catalog.v1",
+  "pytest_targets": [
+    "tests/verification/test_property_pilot.py::test_clamp_stays_within_bounds",
+    "tests/verification/test_property_pilot.py::test_identifier_normalization_is_idempotent",
+    "tests/verification/test_property_pilot.py::test_unique_output_contains_no_duplicates",
+    "tests/verification/test_property_pilot.py::test_unique_output_preserves_first_occurrence_order",
+    "tests/verification/test_property_pilot.py::test_permission_allow_is_monotone",
+    "tests/verification/test_property_pilot.py::test_dependency_normalization_removes_self_and_duplicates",
+    "tests/verification/test_property_pilot.py::test_existing_text_normalization_is_idempotent",
+    "tests/verification/test_property_pilot.py::test_existing_dependency_normalizer_preserves_order",
+    "tests/verification/test_property_pilot.py::test_contract_digest_ignores_mapping_insertion_order",
+    "tests/verification/test_property_pilot.py::test_dependency_cycle_always_fails_closed",
+    "tests/verification/test_property_pilot.py::test_production_text_normalization_has_canonical_spacing",
+    "tests/verification/test_property_pilot.py::test_production_dependency_normalization_is_idempotent",
+    "tests/verification/test_property_pilot.py::test_forward_only_dependency_graph_is_acyclic",
+    "tests/verification/test_property_pilot.py::test_closed_dependency_chain_with_back_edge_is_rejected",
+    "tests/verification/test_property_pilot.py::test_verification_budgets_preserve_valid_closed_bounds",
+    "tests/verification/test_property_pilot.py::test_verification_budgets_reject_adversarial_values",
+    "tests/verification/test_property_pilot.py::test_hub_evidence_projection_mutation_fails_closed",
+    "tests/verification/test_property_pilot.py::test_quality_gate_nonzero_exit_is_always_denied",
+    "tests/verification/test_property_pilot.py::test_default_verification_spec_is_closed_and_boolean",
+    "tests/verification/test_property_pilot.py::test_contract_digest_rejects_non_finite_numbers",
+    "tests/verification/property_failure_target.py::test_seeded_property_violation"
+  ],
+  "fixture_symbols": [
+    "worker.verification.pilot_targets.intentionally_wrong_abs",
+    "worker.verification.pilot_targets.changed_clamp",
+    "worker.verification.pilot_targets.equivalent_clamp"
+  ],
   "candidates": [
     {"symbol":"worker.verification.pilot_targets.clamp","class":"transformation","property":"result remains inside ordered bounds","origin":"documented_invariant","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"constant","eligible":true},
     {"symbol":"worker.verification.pilot_targets.normalize_identifier","class":"normalization","property":"normalization is idempotent","origin":"documented_invariant","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
@@ -7,6 +35,9 @@
     {"symbol":"worker.verification.pilot_targets.permission_subset_is_monotone","class":"policy","property":"adding grants cannot turn allow into deny","origin":"documented_invariant","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
     {"symbol":"worker.verification.pilot_targets.normalize_dependencies","class":"normalization","property":"no duplicate or self dependency survives","origin":"existing_contract","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"n-log-n","eligible":true},
     {"symbol":"agent.services.task_dependency_policy.normalize_text","class":"normalization","property":"normalization is idempotent","origin":"existing_test","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
+    {"symbol":"ananta_contracts.verification.is_sha256_digest","class":"contract","property":"only lowercase 64-character hexadecimal digests are accepted","origin":"schema_constraint","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
+    {"symbol":"ananta_contracts.verification.is_verification_identifier","class":"contract","property":"accepted identifiers remain within the closed length bound","origin":"schema_constraint","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
+    {"symbol":"agent.services.verification_policy_service.is_successful_exit_code","class":"policy","property":"non-zero process exits always fail the quality gate","origin":"existing_contract","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"constant","eligible":true},
     {"symbol":"agent.services.task_dependency_policy.normalize_depends_on","class":"policy","property":"duplicates and self dependency are removed","origin":"existing_test","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
     {"symbol":"agent.services.task_dependency_policy.validate_dependency_graph","class":"policy","property":"cyclic graphs are rejected","origin":"existing_test","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},
     {"symbol":"agent.services.shell_command_policy._detect_quoted_operators","class":"parser","property":"quoted operators never become executable segments","origin":"existing_test","side_effects":"none","determinism":"deterministic","typing":"complete","runtime":"linear","eligible":true},

@@ -6,7 +6,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -17,6 +17,10 @@ VERIFICATION_REPORT_SCHEMA = "ananta.verification-report.v1"
 COUNTEREXAMPLE_SCHEMA = "ananta.counterexample.v1"
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.:-]{0,191}$")
+_PYTHON_SYMBOL = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)+$")
+_PYTEST_NODE_ID = re.compile(
+    r"^tests/verification/[A-Za-z0-9_/-]+\.py::[A-Za-z_][A-Za-z0-9_]*(?:::[A-Za-z_][A-Za-z0-9_]*)?$"
+)
 
 
 class VerificationStatus(str, Enum):
@@ -37,6 +41,24 @@ def canonical_digest(value: Mapping[str, Any]) -> str:
     ).hexdigest()
 
 
+def is_sha256_digest(value: str) -> bool:
+    """Return whether *value* is one lowercase hexadecimal SHA-256 digest.
+
+    post: __return__ == (len(value) == 64 and all(character in "0123456789abcdef" for character in value))
+    """
+
+    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+
+
+def is_verification_identifier(value: str) -> bool:
+    """Return whether *value* is valid for a bounded verification ID.
+
+    post: not __return__ or 1 <= len(value) <= 192
+    """
+
+    return _ID.fullmatch(value) is not None
+
+
 def counterexample_candidate_digest(value: Mapping[str, Any]) -> str:
     stable = {
         "property_ref": value.get("property_ref"),
@@ -49,12 +71,12 @@ def counterexample_candidate_digest(value: Mapping[str, Any]) -> str:
 
 
 def _require_digest(value: str, reason: str) -> None:
-    if _DIGEST.fullmatch(str(value or "")) is None:
+    if not is_sha256_digest(str(value or "")):
         raise ValueError(reason)
 
 
 def _require_id(value: str, reason: str) -> None:
-    if _ID.fullmatch(str(value or "")) is None:
+    if not is_verification_identifier(str(value or "")):
         raise ValueError(reason)
 
 
@@ -63,6 +85,20 @@ def _closed_mapping(value: Mapping[str, Any], fields: set[str], reason: str) -> 
     if set(raw) != fields:
         raise ValueError(reason)
     return raw
+
+
+def validate_verification_targets(backend: str, targets: Sequence[str]) -> tuple[str, ...]:
+    """Validate the closed CLI-target grammar for one verification backend."""
+
+    normalized = tuple(str(item).strip() for item in targets)
+    if not normalized or len(normalized) != len(set(normalized)):
+        raise ValueError("verification_targets_invalid")
+    pattern = _PYTEST_NODE_ID if backend in {"hypothesis", "crosshair_backend"} else _PYTHON_SYMBOL
+    if any(len(item) > 256 or pattern.fullmatch(item) is None for item in normalized):
+        raise ValueError("verification_target_grammar_invalid")
+    if backend == "crosshair_diff" and len(normalized) != 2:
+        raise ValueError("verification_diff_target_count_invalid")
+    return normalized
 
 
 def _json_concrete(value: Any) -> Any:
@@ -130,14 +166,13 @@ class VerificationAssignmentV1:
             "crosshair_diff",
         }:
             raise ValueError("verification_backend_invalid")
-        targets = tuple(str(item).strip() for item in self.target_symbols)
-        if not targets or len(targets) != len(set(targets)) or any(not item or len(item) > 256 for item in targets):
-            raise ValueError("verification_targets_invalid")
+        raw_targets = tuple(str(item).strip() for item in self.target_symbols)
         budgets = (
             self.budgets if isinstance(self.budgets, VerificationBudgets) else VerificationBudgets(**dict(self.budgets))
         )
-        if len(targets) > budgets.max_targets:
+        if len(raw_targets) > budgets.max_targets:
             raise ValueError("verification_target_budget_exceeded")
+        targets = validate_verification_targets(self.backend, raw_targets)
         object.__setattr__(self, "evidence_assignment", evidence)
         object.__setattr__(self, "target_symbols", targets)
         object.__setattr__(self, "budgets", budgets)
@@ -216,6 +251,10 @@ class VerificationReportV1:
     duration_ms: int
     output_digest: str
     counterexamples: Sequence[Mapping[str, Any]] = ()
+    collected_tests: int = 0
+    passed_tests: int = 0
+    failed_tests: int = 0
+    bounded_search_metadata: Mapping[str, Any] = field(default_factory=dict)
     schema: str = VERIFICATION_REPORT_SCHEMA
 
     def __post_init__(self) -> None:
@@ -239,10 +278,16 @@ class VerificationReportV1:
             raise ValueError("verification_cases_invalid")
         if type(self.duration_ms) is not int or self.duration_ms < 0:
             raise ValueError("verification_duration_invalid")
+        counts = (self.collected_tests, self.passed_tests, self.failed_tests)
+        if any(type(value) is not int or value < 0 for value in counts):
+            raise ValueError("verification_test_counts_invalid")
+        if self.passed_tests + self.failed_tests > self.collected_tests:
+            raise ValueError("verification_test_counts_inconsistent")
         targets = tuple(str(item) for item in self.target_symbols)
         if not targets:
             raise ValueError("verification_targets_invalid")
         counterexamples = tuple(CounterexampleV1.from_mapping(item).to_dict() for item in self.counterexamples)
+        metadata = _json_concrete(dict(self.bounded_search_metadata))
         if status is VerificationStatus.COUNTEREXAMPLE_FOUND and not counterexamples:
             raise ValueError("verification_counterexample_required")
         if status is not VerificationStatus.COUNTEREXAMPLE_FOUND and counterexamples:
@@ -250,6 +295,7 @@ class VerificationReportV1:
         object.__setattr__(self, "status", status)
         object.__setattr__(self, "target_symbols", targets)
         object.__setattr__(self, "counterexamples", counterexamples)
+        object.__setattr__(self, "bounded_search_metadata", metadata)
 
     def to_dict(self) -> dict[str, Any]:
         value = asdict(self)
@@ -260,8 +306,11 @@ class VerificationReportV1:
 
     @classmethod
     def from_mapping(cls, value: Mapping[str, Any]) -> "VerificationReportV1":
-        _closed_mapping(value, set(cls.__dataclass_fields__), "verification_report_fields_invalid")
         raw = dict(value)
+        fields = set(cls.__dataclass_fields__)
+        optional = {"collected_tests", "passed_tests", "failed_tests", "bounded_search_metadata"}
+        if not set(raw).issubset(fields) or not fields - optional <= set(raw):
+            raise ValueError("verification_report_fields_invalid")
         raw["status"] = VerificationStatus(raw["status"])
         return cls(**raw)
 
@@ -277,4 +326,7 @@ __all__ = [
     "VerificationStatus",
     "canonical_digest",
     "counterexample_candidate_digest",
+    "is_sha256_digest",
+    "is_verification_identifier",
+    "validate_verification_targets",
 ]

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import os
+from types import SimpleNamespace
 
+import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
@@ -12,7 +14,9 @@ from agent.services.task_dependency_policy import (
     normalize_text,
     validate_dependency_graph,
 )
-from ananta_contracts.verification import canonical_digest
+from agent.services.verification_policy_service import default_verification_spec, evaluate_quality_gates
+from ananta_contracts.hub_evidence import build_hub_evidence_assignment, validate_hub_evidence_assignment
+from ananta_contracts.verification import VerificationBudgets, canonical_digest
 from worker.verification.pilot_targets import (
     clamp,
     normalize_dependencies,
@@ -105,3 +109,107 @@ def test_dependency_cycle_always_fails_closed(node: str) -> None:
     valid, reason = validate_dependency_graph({node: [node]})
     assert not valid
     assert reason == "dependency_cycle_detected"
+
+
+@_SETTINGS
+@given(_TEXT)
+def test_production_text_normalization_has_canonical_spacing(value: str) -> None:
+    normalized = normalize_text(value)
+    assert normalized == normalized.strip()
+    assert "  " not in normalized
+
+
+@_SETTINGS
+@given(values=st.lists(_TEXT, max_size=30), task_id=_TEXT)
+def test_production_dependency_normalization_is_idempotent(values: list[str], task_id: str) -> None:
+    first = task_normalize_dependencies(values, tid=task_id)
+    assert task_normalize_dependencies(first, tid=task_id) == first
+
+
+@_SETTINGS
+@given(edges=st.sets(st.tuples(st.integers(0, 10), st.integers(0, 10)), max_size=50))
+def test_forward_only_dependency_graph_is_acyclic(edges: set[tuple[int, int]]) -> None:
+    graph = {str(index): [] for index in range(11)}
+    for source, target in edges:
+        if source < target:
+            graph[str(source)].append(str(target))
+    valid, reason = validate_dependency_graph(graph)
+    assert (valid, reason) == (True, "")
+
+
+@_SETTINGS
+@given(size=st.integers(min_value=1, max_value=20))
+def test_closed_dependency_chain_with_back_edge_is_rejected(size: int) -> None:
+    graph = {str(index): [str((index + 1) % size)] for index in range(size)}
+    valid, reason = validate_dependency_graph(graph)
+    assert (valid, reason) == (False, "dependency_cycle_detected")
+
+
+@_SETTINGS
+@given(
+    timeout=st.integers(1, 3600),
+    cases=st.integers(1, 1_000_000),
+    targets=st.integers(1, 100),
+    output=st.integers(256, 10_000_000),
+)
+def test_verification_budgets_preserve_valid_closed_bounds(timeout: int, cases: int, targets: int, output: int) -> None:
+    budget = VerificationBudgets(timeout, cases, targets, output)
+    assert (budget.timeout_seconds, budget.max_cases, budget.max_targets, budget.max_output_bytes) == (
+        timeout,
+        cases,
+        targets,
+        output,
+    )
+
+
+@_SETTINGS
+@given(
+    field=st.sampled_from(["timeout_seconds", "max_cases", "max_targets", "max_output_bytes"]),
+    invalid=st.sampled_from([True, False, 0, -1]),
+)
+def test_verification_budgets_reject_adversarial_values(field: str, invalid: object) -> None:
+    values = {"timeout_seconds": 10, "max_cases": 10, "max_targets": 5, "max_output_bytes": 1024}
+    values[field] = invalid
+    with pytest.raises(ValueError, match="verification_budget_invalid"):
+        VerificationBudgets(**values)
+
+
+@_SETTINGS
+@given(field=st.sampled_from(["run_id", "task_id", "dispatch_lease_id", "binding_digest"]))
+def test_hub_evidence_projection_mutation_fails_closed(field: str) -> None:
+    evidence = build_hub_evidence_assignment(
+        run_id="RUN_property_test",
+        task_id="task-property-test",
+        assignment_id="assignment-property-test",
+        dispatch_lease_id="lease-property-test",
+        source_ids=["SRC_property_test"],
+        evidence_scope="test",
+        binding_digest="a" * 64,
+    )
+    mutated = dict(evidence)
+    mutated[field] = "b" * 64 if field == "binding_digest" else f"mutated-{field}"
+    with pytest.raises(ValueError):
+        validate_hub_evidence_assignment(mutated)
+
+
+@_SETTINGS
+@given(exit_code=st.integers().filter(lambda value: value != 0), output=st.text(max_size=80))
+def test_quality_gate_nonzero_exit_is_always_denied(exit_code: int, output: str) -> None:
+    task = SimpleNamespace(title="implement feature", description="coding task")
+    assert evaluate_quality_gates(task, output, exit_code) == (False, "non_zero_exit_code")
+
+
+@_SETTINGS
+@given(task_kind=st.one_of(st.none(), st.text(max_size=40)))
+def test_default_verification_spec_is_closed_and_boolean(task_kind: str | None) -> None:
+    spec = default_verification_spec({"task_kind": task_kind})
+    assert set(spec) == {"lint", "tests", "policy", "mode"}
+    assert all(type(spec[key]) is bool for key in ("lint", "tests", "policy"))
+    assert spec["mode"] == "quality_gates"
+
+
+@_SETTINGS
+@given(value=st.sampled_from([float("nan"), float("inf"), float("-inf")]))
+def test_contract_digest_rejects_non_finite_numbers(value: float) -> None:
+    with pytest.raises(ValueError):
+        canonical_digest({"value": value})

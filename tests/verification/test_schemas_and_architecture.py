@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import jsonschema
+import pytest
 import yaml
 
 from ananta_contracts.verification import VerificationStatus
@@ -16,6 +17,24 @@ ROOT = Path(__file__).parents[2]
 def test_contract_payload_validates_against_assignment_schema() -> None:
     schema = json.loads((ROOT / "schemas/verification/assignment.v1.schema.json").read_text())
     jsonschema.Draft202012Validator(schema).validate(assignment().to_dict())
+
+
+@pytest.mark.parametrize(
+    ("backend", "targets"),
+    [
+        ("hypothesis", ["--collect-only"]),
+        ("crosshair_backend", ["tests/verification/../test_escape.py::test_escape"]),
+        ("crosshair_check", ["--plugin=escape"]),
+        ("crosshair_cover", ["agent.policy.fn\n--unblock=EVERYTHING"]),
+        ("crosshair_diff", ["agent.policy.left"]),
+    ],
+)
+def test_assignment_schema_rejects_backend_specific_target_injection(backend: str, targets: list[str]) -> None:
+    schema = json.loads((ROOT / "schemas/verification/assignment.v1.schema.json").read_text())
+    payload = assignment().to_dict()
+    payload.update({"backend": backend, "target_symbols": targets})
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.Draft202012Validator(schema).validate(payload)
 
 
 def test_report_schema_exposes_every_closed_runtime_status() -> None:
